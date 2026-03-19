@@ -7,10 +7,6 @@ import { z } from "zod";
 const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-production.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
 
-// Direct AMD REST API (for book_appt)
-const AMD_REST_BASE = process.env.AMD_REST_API_BASE ?? "";
-const AMD_REST_TOKEN = process.env.AMD_REST_TOKEN ?? "";
-
 async function callApi(path: string, body: Record<string, unknown>): Promise<unknown> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
@@ -106,48 +102,18 @@ export const cancel_appt = llm.tool({
 });
 
 // --- book_appt ---
-const TYPE_COLORS: Record<number, string> = {
-  1004: "GREEN",  // New Pediatric Medical
-  1005: "PINK",   // Established Pediatric Medical
-  1006: "RED",    // New Adult Medical
-  1007: "ORANGE", // Established Adult Medical
-  1008: "BLUE",   // Post Op
-};
-
 export const book_appt = llm.tool({
   description:
     "Books an appointment after the patient confirms their preferred time slot. Use columnId, profileId, slotDuration, and datetime from the get_availability response.",
   parameters: z.object({
-    patientid: z.number().describe("Patient ID from verify_patient or add_patient"),
-    columnid: z.number().describe("columnId of the selected provider from get_availability"),
-    profileid: z.number().describe("profileId of the selected provider from get_availability"),
-    startdatetime: z.string().describe("Slot datetime from get_availability, format YYYY-MM-DDTHH:MM"),
+    patientId: z.string().describe("Patient ID from verify_patient or add_patient"),
+    columnId: z.number().describe("columnId of the selected provider from get_availability"),
+    profileId: z.number().describe("profileId of the selected provider from get_availability"),
+    startDatetime: z.string().describe("Slot datetime from get_availability, format YYYY-MM-DDTHH:MM"),
     duration: z.number().describe("Slot duration in minutes from get_availability (15 or 30)"),
-    typeId: z.number().describe("Appointment type: 1004=New Pediatric, 1005=Est Pediatric, 1006=New Adult, 1007=Est Adult, 1008=Post Op"),
+    appointmentTypeId: z.number().describe("Appointment type: 1004=New Pediatric, 1005=Est Pediatric, 1006=New Adult, 1007=Est Adult, 1008=Post Op"),
   }),
-  execute: async ({ patientid, columnid, profileid, startdatetime, duration, typeId }) => {
-    const res = await fetch(`https://${AMD_REST_BASE}/scheduler/Appointments`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: AMD_REST_TOKEN,
-      },
-      body: JSON.stringify({
-        patientid,
-        columnid,
-        profileid,
-        startdatetime,
-        duration,
-        type: [{ id: typeId }],
-        episodeid: 1,
-        facilityid: 1568,
-        color: TYPE_COLORS[typeId] ?? "RED",
-      }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Booking error ${res.status}: ${text}`);
-    }
-    return res.json();
+  execute: async (params) => {
+    return callApi("/api/appointment/book", params);
   },
 });
