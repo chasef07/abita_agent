@@ -321,6 +321,22 @@ Verify compaction works end-to-end:
 
 Implement the `CallState` interface and wire tools to read/write from it. Biggest reliability improvement for multi-step workflows like reschedule.
 
+## 7. Adaptive interruption handling
+**Status:** Blocked — waiting on `@livekit/agents-plugin-elevenlabs` STT support for Node.js
+**Depends on:** ElevenLabs STT plugin with aligned transcript support
+
+LiveKit 1.2.0 added adaptive interruption detection (ML-based barge-in instead of fixed VAD thresholds). It requires the STT to support `alignedTranscript: "word"`. Our custom `ScribeSTT` adapter doesn't provide word-level timestamps reliably — the `COMMITTED_TRANSCRIPT_WITH_TIMESTAMPS` event from Scribe caused session crashes.
+
+When the official `@livekit/agents-plugin-elevenlabs` Node.js package adds STT support (Python already has it), swap out the custom `ScribeSTT` for the official plugin and enable adaptive interruption:
+
+```typescript
+turnHandling: {
+  interruption: { mode: "adaptive" },
+}
+```
+
+The `turnHandling` config is already in place — just needs the STT swap.
+
 ## Priority order
 1. Book appointment via middleware — unblocks full scheduling
 2. Structured call state — reliability for all tool flows

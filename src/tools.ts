@@ -7,7 +7,18 @@ import { z } from "zod";
 const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-production.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
 
+// Office identifier (trunk phone number) — set once per call from main.ts
+let currentOffice = "";
+
+export function setOffice(phone: string) {
+  currentOffice = phone;
+  console.log(`[tools] office set to: ${phone}`);
+}
+
 async function callApi(path: string, body: Record<string, unknown>): Promise<unknown> {
+  if (currentOffice) {
+    body.office = currentOffice;
+  }
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
     headers: {
@@ -71,7 +82,7 @@ export const get_availability = llm.tool({
     routing: z.string().optional().describe("Routing rule from verify_patient or add_patient (e.g. bach_only, bach_licht, all_three)"),
   }),
   execute: async ({ date, routing }) => {
-    const body: Record<string, unknown> = { date, office: "spring hill" };
+    const body: Record<string, unknown> = { date };
     if (routing) body.routing = routing;
     return callApi("/api/scheduler/availability", body);
   },

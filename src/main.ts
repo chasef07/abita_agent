@@ -19,6 +19,7 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { ScribeSTT } from "./scribe-stt.js";
+import { setOffice } from "./tools.js";
 
 dotenv.config({ path: ".env.local" });
 
@@ -41,20 +42,35 @@ export default defineAgent({
       tts: new elevenlabs.TTS({
         model: "eleven_flash_v2_5",
         voiceId: "7EzWGsX10sAS4c9m9cPf",
-        chunkLengthSchedule: [80, 120, 200, 260],
       }),
       vad,
-      turnDetection: new livekit.turnDetector.MultilingualModel(),
-      voiceOptions: {
-        preemptiveGeneration: true,
-        minInterruptionDuration: 0.5,  // 500ms of speech before allowing interruption
-        minInterruptionWords: 2,        // need 2+ words to trigger barge-in
+      preemptiveGeneration: true,
+      turnHandling: {
+        turnDetection: new livekit.turnDetector.MultilingualModel(),
+        interruption: {
+          mode: "adaptive",
+          minDuration: 0.1,
+          minWords: 1,
+        },
+        endpointing: {
+          minDelay: 0.2,
+          maxDelay: 1.0,
+        },
       },
     });
 
     // Connect to the room and wait for the SIP participant
     await ctx.connect();
-    await ctx.waitForParticipant();
+    const participant = await ctx.waitForParticipant();
+
+    const callerPhone = participant.attributes["sip.phoneNumber"] ?? participant.identity;
+    const trunkPhone = participant.attributes["sip.trunkPhoneNumber"] ?? "";
+    const callId = participant.attributes["sip.callID"] ?? ctx.room.name;
+
+    console.log(`[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`);
+
+    // Resolve office from the dialed phone number — middleware maps it to office config
+    setOffice(trunkPhone);
 
     const agent = new Agent();
 
