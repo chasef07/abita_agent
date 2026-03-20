@@ -3,7 +3,7 @@
 
 import { voice } from "@livekit/agents";
 import { buildPrompt } from "./prompt.js";
-import { verify_patient, add_patient, get_availability, confirm_appt, cancel_appt, book_appt } from "./tools.js";
+import { verify_patient, add_patient, get_availability, confirm_appt, cancel_appt, book_appt, transfer_call } from "./tools.js";
 
 export class Agent extends voice.Agent {
   constructor() {
@@ -16,6 +16,7 @@ export class Agent extends voice.Agent {
         confirm_appt,
         cancel_appt,
         book_appt,
+        transfer_call,
       },
     });
   }

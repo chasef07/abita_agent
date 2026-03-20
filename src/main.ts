@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { CallLogger } from "./call-logger.js";
 import { ScribeSTT } from "./scribe-stt.js";
-import { setOffice } from "./tools.js";
+import { setOffice, setSipContext } from "./tools.js";
 
 dotenv.config({ path: ".env.local" });
 
@@ -38,7 +38,7 @@ export default defineAgent({
     });
 
     const session = new voice.AgentSession({
-      stt: new ScribeSTT({ language: "en" }),
+      stt: new ScribeSTT(),
       llm,
       tts: new elevenlabs.TTS({
         model: "eleven_flash_v2_5",
@@ -80,6 +80,7 @@ export default defineAgent({
 
     // Resolve office from the dialed phone number — middleware maps it to office config
     setOffice(trunkPhone);
+    setSipContext(ctx.room.name ?? "", participant.identity ?? "");
 
     const agent = new Agent();
 

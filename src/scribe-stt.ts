@@ -15,6 +15,7 @@ const SCRIBE_SAMPLE_RATE = 16000;
 
 export interface ScribeSTTOptions {
   apiKey?: string;
+  /** Language code (e.g. "en", "es"). Omit for automatic detection. */
   language?: string;
   modelId?: string;
 }
@@ -22,7 +23,7 @@ export interface ScribeSTTOptions {
 export class ScribeSTT extends stt.STT {
   label = "elevenlabs-scribe";
   private apiKey: string;
-  private language: string;
+  private language?: string;
   private modelId: string;
 
   constructor(opts?: ScribeSTTOptions) {
@@ -31,7 +32,7 @@ export class ScribeSTT extends stt.STT {
       interimResults: true,
     });
     this.apiKey = opts?.apiKey ?? process.env.ELEVENLABS_API_KEY ?? "";
-    this.language = opts?.language ?? "en";
+    this.language = opts?.language;
     this.modelId = opts?.modelId ?? "scribe_v2_realtime";
   }
 
@@ -51,7 +52,7 @@ export class ScribeSTT extends stt.STT {
 
 interface ScribeStreamOpts {
   apiKey: string;
-  language: string;
+  language?: string;
   modelId: string;
   connOptions?: APIConnectOptions;
 }
@@ -77,7 +78,7 @@ class ScribeSpeechStream extends stt.SpeechStream {
       vadThreshold: 0.5,
       minSpeechDurationMs: 200,
       minSilenceDurationMs: 500,
-      languageCode: this.opts.language,
+      ...(this.opts.language ? { languageCode: this.opts.language } : {}),
     });
 
     // Keepalive ping every 15s
@@ -105,7 +106,7 @@ class ScribeSpeechStream extends stt.SpeechStream {
           type: stt.SpeechEventType.INTERIM_TRANSCRIPT,
           alternatives: [{
             text: data.text,
-            language: this.opts.language as LanguageCode,
+            language: ((data as any).language_code ?? this.opts.language ?? "en") as LanguageCode,
             startTime: 0,
             endTime: 0,
             confidence: 0.5,
@@ -122,7 +123,7 @@ class ScribeSpeechStream extends stt.SpeechStream {
           type: stt.SpeechEventType.FINAL_TRANSCRIPT,
           alternatives: [{
             text: data.text,
-            language: this.opts.language as LanguageCode,
+            language: ((data as any).language_code ?? this.opts.language ?? "en") as LanguageCode,
             startTime: 0,
             endTime: 0,
             confidence: 0.95,

@@ -281,55 +281,44 @@ Key metrics to surface:
 - ASR transcript quality (for review)
 
 ## 3. Language detection + multilingual support
-**Status:** Not started
+**Status:** Partially done (2026-03-20)
 
-Implement `language_detection` tool that switches the conversation language. Currently support English, Spanish, Arabic, Vietnamese per the TOOLS.md spec.
+### Completed
+- Removed hardcoded `language: "en"` from STT — Scribe now auto-detects language
+- Made `ScribeSTT` language param optional; omitting it enables auto-detection
+- Transcript events now report detected language from Scribe (`data.language_code`) instead of hardcoded value
+- `MultilingualModel()` turn detector already in place — now receives actual detected language from STT
+- TTS (`eleven_flash_v2_5`) is already a multilingual model — responds in the language of the input text
+- Added Spanish language-switching instruction to SOUL.md
 
-Steps:
-- Detect caller's language from first utterance (Scribe STT supports language detection)
-- Switch TTS voice/language settings dynamically
-- Switch system prompt language or add translation layer
-- Test each language end-to-end on a real call
+### Still needed
+- Test Spanish end-to-end on a real call
+- Verify ElevenLabs voice (`7EzWGsX10sAS4c9m9cPf`) sounds natural in Spanish — may need a different voice
+- Consider adding more languages beyond Spanish (Arabic, Vietnamese, etc.)
+- May need per-language system prompts or translation layer for non-English knowledge base content
 
 ## 4. Transfer tool implementation
-**Status:** Not started
-**Depends on:** SIP REFER support on LiveKit
+**Status:** Partially done (2026-03-20)
 
-Implement `transfer_to_number` tool for warm/cold transfers to the office.
+### Completed
+- Added `transfer_call` tool using `SipClient.transferSipParticipant` (cold transfer via SIP REFER)
+- Added `setSipContext()` to capture room name and participant identity at call start
+- Wired tool into agent — LLM can call it when caller needs a human
+- Transfer number configured via `OFFICE_TRANSFER_NUMBER` env var
+- TOOLS.md already has guidance on when to transfer vs handle it
 
-### Option A: SIP REFER (simple cold transfer)
-- Enable SIP REFER on the Twilio trunk
-- Build the tool: accepts a phone number, initiates the transfer
-- Handle the handoff gracefully — agent says "let me connect you" then transfers
-
-### Option B: Agent handoff pattern (recommended)
-LiveKit's agent handoff system (`llm.handoff()`) provides a cleaner approach. Instead of a raw SIP transfer, hand off to a "transfer agent" that manages the outbound dial via LiveKit's SIP participant API.
-
-```typescript
-// In the scheduling agent's tools:
-transferToOffice: llm.tool({
-  description: "Transfer the caller to a human at the office",
-  execute: async (_, { ctx }) => {
-    return llm.handoff({
-      agent: new HumanTransferAgent({ chatCtx: ctx.agent.chatCtx }),
-      returns: "Connecting you with someone at the office now",
-    });
-  },
-}),
-```
-
-Benefits over raw SIP REFER:
-- Agent can summarize the call for the human before connecting
-- Conversation history is preserved via `chatCtx` passthrough
-- `AgentHandoff` items are tracked in chat context for analytics
-- Can implement warm transfer (agent briefs the human) vs cold transfer
-
-Reference: https://docs.livekit.io/agents/logic/agents-handoffs/
-
-### Steps
-- Test with actual office number
-- Decide warm vs cold transfer behavior
+### Still needed
+- **Enable SIP REFER on Twilio trunk** — required for transfers to work:
+  ```shell
+  twilio api trunking v1 trunks update --sid <trunk-sid> \
+    --transfer-mode enable-all \
+    --transfer-caller-id from-transferee
+  ```
+  Also enable PSTN Transfer in Twilio console under trunk Features
+- Add `OFFICE_TRANSFER_NUMBER=+1XXXXXXXXXX` to `.env.local`
+- Test with actual office number on a real call
 - Add transfer events to CallLogger for analytics
+- Consider warm transfer (agent briefs the human) for future — `WarmTransferTask` is Python-only for now, Node.js not yet available
 
 ## 5. Test compaction
 **Status:** Not started
@@ -486,9 +475,9 @@ Reference: https://livekit.com/blog/prompting-voice-agents-to-sound-more-realist
 ## Priority order
 1. Book appointment via middleware — unblocks full scheduling ✅
 2. Post-call analysis — observability ✅
-3. Structured call state — reliability for all tool flows
-4. Multi-office routing — needed for multi-location launch
-5. Transfer tool — needed for production
-6. Voice realism improvements — polish
-7. Language detection — needed for production
+3. Language detection + multilingual — code done, needs testing and Twilio/env config
+4. Transfer tool — code done, needs SIP REFER enabled on Twilio trunk + env var
+5. Structured call state — reliability for all tool flows
+6. Multi-office routing — needed for multi-location launch
+7. Voice realism improvements — polish
 8. Test compaction — validation

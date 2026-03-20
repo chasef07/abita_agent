@@ -2,6 +2,7 @@
 // Each tool makes an HTTP call to the AdvancedMD middleware on Railway.
 
 import { llm } from "@livekit/agents";
+import { SipClient } from "livekit-server-sdk";
 import { z } from "zod";
 
 const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-dev.up.railway.app";
@@ -13,6 +14,16 @@ let currentOffice = "";
 export function setOffice(phone: string) {
   currentOffice = phone;
   console.log(`[tools] office set to: ${phone}`);
+}
+
+// SIP call context — set once per call from main.ts for transfers
+let sipRoomName = "";
+let sipParticipantIdentity = "";
+
+export function setSipContext(roomName: string, participantIdentity: string) {
+  sipRoomName = roomName;
+  sipParticipantIdentity = participantIdentity;
+  console.log(`[tools] SIP context set: room=${roomName}, participant=${participantIdentity}`);
 }
 
 async function callApi(path: string, body: Record<string, unknown>): Promise<unknown> {
@@ -126,5 +137,42 @@ export const book_appt = llm.tool({
   }),
   execute: async (params) => {
     return callApi("/api/appointment/book", params);
+  },
+});
+
+// --- transfer_call ---
+const OFFICE_TRANSFER_NUMBER = process.env.OFFICE_TRANSFER_NUMBER ?? "";
+
+export const transfer_call = llm.tool({
+  description:
+    "Transfers the caller to a human at the office. Use only after confirming with the caller that they want to be transferred. The call ends for the agent after transfer.",
+  parameters: z.object({}),
+  execute: async () => {
+    if (!sipRoomName || !sipParticipantIdentity) {
+      return "Could not transfer — no active SIP session.";
+    }
+    if (!OFFICE_TRANSFER_NUMBER) {
+      return "Could not transfer — no transfer number configured.";
+    }
+
+    const sipClient = new SipClient(
+      process.env.LIVEKIT_URL!,
+      process.env.LIVEKIT_API_KEY!,
+      process.env.LIVEKIT_API_SECRET!,
+    );
+
+    try {
+      await sipClient.transferSipParticipant(
+        sipRoomName,
+        sipParticipantIdentity,
+        `tel:${OFFICE_TRANSFER_NUMBER}`,
+        { playDialtone: false },
+      );
+      console.log(`[tools] Transferred ${sipParticipantIdentity} to ${OFFICE_TRANSFER_NUMBER}`);
+      return "Transfer initiated successfully.";
+    } catch (err) {
+      console.error("[tools] Transfer failed:", err);
+      return "Could not transfer the call. Please try again.";
+    }
   },
 });
