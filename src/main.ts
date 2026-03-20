@@ -43,6 +43,14 @@ export default defineAgent({
       tts: new elevenlabs.TTS({
         model: "eleven_flash_v2_5",
         voiceId: "7EzWGsX10sAS4c9m9cPf",
+        encoding: "pcm_16000",
+        voiceSettings: {
+          stability: 0.48,
+          similarity_boost: 0.8,
+          style: 0,
+          speed: 0.88,
+          use_speaker_boost: false,
+        },
       }),
       vad,
       preemptiveGeneration: true,
@@ -50,8 +58,8 @@ export default defineAgent({
         turnDetection: new livekit.turnDetector.MultilingualModel(),
         interruption: {
           mode: "adaptive",
-          minDuration: 0.1,
-          minWords: 1,
+          minDuration: 0.5,
+          minWords: 2,
         },
         endpointing: {
           minDelay: 0.2,
