@@ -297,11 +297,39 @@ Steps:
 
 Implement `transfer_to_number` tool for warm/cold transfers to the office.
 
-Steps:
-- Enable SIP REFER on the Twilio trunk (or use LiveKit's SIP participant API for outbound dial)
+### Option A: SIP REFER (simple cold transfer)
+- Enable SIP REFER on the Twilio trunk
 - Build the tool: accepts a phone number, initiates the transfer
 - Handle the handoff gracefully — agent says "let me connect you" then transfers
+
+### Option B: Agent handoff pattern (recommended)
+LiveKit's agent handoff system (`llm.handoff()`) provides a cleaner approach. Instead of a raw SIP transfer, hand off to a "transfer agent" that manages the outbound dial via LiveKit's SIP participant API.
+
+```typescript
+// In the scheduling agent's tools:
+transferToOffice: llm.tool({
+  description: "Transfer the caller to a human at the office",
+  execute: async (_, { ctx }) => {
+    return llm.handoff({
+      agent: new HumanTransferAgent({ chatCtx: ctx.agent.chatCtx }),
+      returns: "Connecting you with someone at the office now",
+    });
+  },
+}),
+```
+
+Benefits over raw SIP REFER:
+- Agent can summarize the call for the human before connecting
+- Conversation history is preserved via `chatCtx` passthrough
+- `AgentHandoff` items are tracked in chat context for analytics
+- Can implement warm transfer (agent briefs the human) vs cold transfer
+
+Reference: https://docs.livekit.io/agents/logic/agents-handoffs/
+
+### Steps
 - Test with actual office number
+- Decide warm vs cold transfer behavior
+- Add transfer events to CallLogger for analytics
 
 ## 5. Test compaction
 **Status:** Not started
@@ -321,6 +349,62 @@ Verify compaction works end-to-end:
 
 Implement the `CallState` interface and wire tools to read/write from it. Biggest reliability improvement for multi-step workflows like reschedule.
 
+### LiveKit's official pattern: `session.userdata`
+
+LiveKit provides typed userdata on the session object — no custom implementation needed. Define a typed state, pass it when creating the session, and access it from any tool via `context.userdata`.
+
+```typescript
+// Define typed state
+interface CallState {
+  patientId?: string;
+  patientName?: string;
+  routing?: string;
+  verified: boolean;
+  isNewPatient: boolean;
+  selectedSlot?: {
+    columnId: number;
+    profileId: number;
+    datetime: string;
+    duration: number;
+    provider: string;
+  };
+  appointments?: Array<{
+    id: number;
+    date: string;
+    time: string;
+    provider: string;
+  }>;
+}
+
+// Pass to session
+const session = new voice.AgentSession<CallState>({
+  userdata: { verified: false, isNewPatient: false },
+  // ... other params
+});
+
+// Access in tools via context
+const verify_patient = llm.tool({
+  execute: async ({ lastName, firstName, dob }, { ctx }) => {
+    const result = await callApi("/api/verify-patient", { lastName, firstName, dob });
+    if (result.status === "verified") {
+      ctx.userdata.patientId = result.patientId;
+      ctx.userdata.patientName = result.name;
+      ctx.userdata.routing = result.routing;
+      ctx.userdata.verified = true;
+    }
+    return result;
+  },
+});
+```
+
+### Why this matters
+- **Survives compaction** — userdata persists even when chat history is summarized
+- **Survives handoffs** — userdata carries across agent transitions (multi-office, transfer)
+- **Can't be hallucinated** — tool reads from typed state, not LLM memory
+- **No custom code** — LiveKit provides the mechanism natively
+
+Reference: https://docs.livekit.io/agents/logic/agents-handoffs/ (Session Userdata section)
+
 ## 7. Adaptive interruption handling
 **Status:** Blocked — waiting on `@livekit/agents-plugin-elevenlabs` STT support for Node.js
 **Depends on:** ElevenLabs STT plugin with aligned transcript support
@@ -337,10 +421,74 @@ turnHandling: {
 
 The `turnHandling` config is already in place — just needs the STT swap.
 
+## 8. Multi-office routing (per-trunk knowledge base)
+**Status:** Not started
+**Depends on:** None
+
+Route calls to office-specific prompts based on the dialed trunk phone number. Different offices have different providers, locations, hours, and insurance details — the agent needs the right knowledge base loaded before the conversation starts.
+
+### How it works
+
+The trunk phone number is already captured in `main.ts` via `participant.attributes["sip.trunkPhoneNumber"]`. Pass it to `buildPrompt()` to select the correct knowledge file.
+
+### Changes
+
+**`prompt.ts`** — Map trunk numbers to office identifiers, load office-specific knowledge:
+```typescript
+const OFFICE_MAP: Record<string, string> = {
+  "+17271234567": "spring-hill",
+  "+19041234567": "hollywood",
+};
+
+export function buildPrompt(trunkPhone: string): string {
+  const office = OFFICE_MAP[trunkPhone] ?? "spring-hill";
+  const files = ["SOUL.md", "TOOLS.md", "VOICE.md", `KNOWLEDGE-${office.toUpperCase()}.md`];
+  // ... rest of build
+}
+```
+
+**`agent.ts`** — Accept trunk phone in constructor:
+```typescript
+constructor(trunkPhone: string) {
+  super({ instructions: buildPrompt(trunkPhone), tools: { ... } });
+}
+```
+
+**`main.ts`** — Pass trunk phone to agent:
+```typescript
+const agent = new Agent(trunkPhone);
+```
+
+**`workspace/`** — Create per-office knowledge files:
+- `KNOWLEDGE-SPRING-HILL.md` — Spring Hill providers, hours, location, insurance
+- `KNOWLEDGE-HOLLYWOOD.md` — Hollywood providers, hours, location, insurance
+
+### Also per-office
+- Greeting: "thank you for calling Abita Eye *Spring Hill*" vs "*Hollywood*"
+- Office hours and provider schedules
+- Location-specific insurance acceptance
+- AMD middleware office routing (already handled via `setOffice()`)
+
+## 9. Voice realism improvements
+**Status:** Not started
+**Depends on:** None
+
+Apply LiveKit's prompting guide for natural-sounding speech. Update VOICE.md with:
+
+- **Filler word patterns with structure:** `"yeah, um... so, I can do that"` not just "use fillers"
+- **Before/after examples:** Show the model both sides so it knows what to avoid
+- **Sentence starters:** Begin with "so," "yeah so," "ok so" instead of declarative "I will"
+- **Recovery patterns:** `"sorry, I missed that — what was the name again?"` not `"I apologize, could you repeat that?"`
+- **Redundancy:** Repeat style rules across SOUL.md and VOICE.md — models need more repetition than expected
+
+Reference: https://livekit.com/blog/prompting-voice-agents-to-sound-more-realistic
+
 ## Priority order
-1. Book appointment via middleware — unblocks full scheduling
-2. Structured call state — reliability for all tool flows
-3. Post-call analysis — observability
-4. Transfer tool — needed for production
-5. Language detection — needed for production
-6. Test compaction — validation
+1. Book appointment via middleware — unblocks full scheduling ✅
+2. Post-call analysis — observability ✅
+3. Structured call state — reliability for all tool flows
+4. Multi-office routing — needed for multi-location launch
+5. Transfer tool — needed for production
+6. Voice realism improvements — polish
+7. Language detection — needed for production
+8. Test compaction — validation
