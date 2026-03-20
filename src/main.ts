@@ -18,6 +18,7 @@ import { TelephonyBackgroundVoiceCancellation } from "@livekit/noise-cancellatio
 import dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
+import { CallLogger } from "./call-logger.js";
 import { ScribeSTT } from "./scribe-stt.js";
 import { setOffice } from "./tools.js";
 
@@ -84,39 +85,26 @@ export default defineAgent({
 
     await session.say("thank you for calling Abita Eye Group, this is David, how can I help you?");
 
-    // --- Metrics logging + automatic context compaction ---
-    const COMPACT_THRESHOLD = 140_000; // 70% of 200k context window
+    const logger = new CallLogger(session, { callId, callerPhone });
+
+    // --- Automatic context compaction ---
+    const COMPACT_THRESHOLD = 140_000;
     let compacting = false;
 
     session.on(voice.AgentSessionEventTypes.MetricsCollected, async (ev: any) => {
       const m = ev.metrics;
-      if (m.type === "llm_metrics") {
-        console.log(
-          `[llm] ${m.promptTokens} in / ${m.completionTokens} out` +
-          ` / cached: ${m.promptCachedTokens}` +
-          ` / TTFT: ${m.ttftMs}ms` +
-          ` / ${m.tokensPerSecond.toFixed(0)} tok/s`
-        );
-
-        if (m.promptTokens > COMPACT_THRESHOLD && !compacting) {
-          compacting = true;
-          console.log(`[context] Compacting: ${m.promptTokens} prompt tokens`);
-          try {
-            const compacted = await agent.chatCtx._summarize(
-              llm,
-              { keepLastTurns: 3 },
-            );
-            await agent.updateChatCtx(compacted);
-            console.log(`[context] Compacted to ${compacted.items.length} items`);
-          } catch (err) {
-            console.error("[context] Compaction failed:", err);
-          }
-          compacting = false;
+      if (m.type === "llm_metrics" && m.promptTokens > COMPACT_THRESHOLD && !compacting) {
+        compacting = true;
+        console.log(`[context] Compacting: ${m.promptTokens} prompt tokens`);
+        try {
+          const compacted = await agent.chatCtx._summarize(llm, { keepLastTurns: 3 });
+          await agent.updateChatCtx(compacted);
+          console.log(`[context] Compacted to ${compacted.items.length} items`);
+          logger.logCompaction(m.promptTokens, compacted.items.length);
+        } catch (err) {
+          console.error("[context] Compaction failed:", err);
         }
-      }
-
-      if (m.type === "tts_metrics") {
-        console.log(`[tts] TTFB: ${m.ttfbMs}ms / ${m.charactersCount} chars`);
+        compacting = false;
       }
     });
 

@@ -4,7 +4,7 @@
 import { llm } from "@livekit/agents";
 import { z } from "zod";
 
-const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-production.up.railway.app";
+const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-dev.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
 
 // Office identifier (trunk phone number) — set once per call from main.ts
