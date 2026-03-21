@@ -3,7 +3,11 @@
 
 import { llm } from "@livekit/agents";
 import { SipClient } from "livekit-server-sdk";
+import { readFileSync } from "fs";
+import { join } from "path";
 import { z } from "zod";
+
+const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
 const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-dev.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
@@ -137,6 +141,32 @@ export const book_appt = llm.tool({
   }),
   execute: async (params) => {
     return callApi("/api/appointment/book", params);
+  },
+});
+
+// --- check_insurance ---
+export const check_insurance = llm.tool({
+  description:
+    "Look up whether the office accepts a specific insurance plan. Use when a caller asks about insurance acceptance or you need to verify their plan name before registration.",
+  parameters: z.object({
+    plan: z.string().describe("The insurance plan name the caller mentioned"),
+  }),
+  execute: async ({ plan }) => {
+    const content = readFileSync(join(WORKSPACE, "INSURANCE.md"), "utf-8");
+    return content;
+  },
+});
+
+// --- lookup_knowledge ---
+export const lookup_knowledge = llm.tool({
+  description:
+    "Look up practice information: office hours, location, providers, services offered, what to bring, appointment expectations, urgency screening, or glasses warranty. Use when a caller asks a question about the practice.",
+  parameters: z.object({
+    question: z.string().describe("What the caller is asking about (e.g. 'office hours', 'do you see kids', 'what should I bring')"),
+  }),
+  execute: async ({ question }) => {
+    const content = readFileSync(join(WORKSPACE, "KNOWLEDGE_SPRINGHILL.md"), "utf-8");
+    return content;
   },
 });
 

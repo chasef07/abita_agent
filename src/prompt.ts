@@ -11,7 +11,6 @@ const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
 const FILES: { file: string; tag: string }[] = [
   { file: "SOUL.md", tag: "role" },
-  { file: "KNOWLEDGE_SPRINGHILL.md", tag: "knowledge" },
   { file: "VOICE.md", tag: "voice" },
   { file: "TOOLS.md", tag: "tools" },
 ];

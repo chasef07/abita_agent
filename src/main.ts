@@ -34,7 +34,7 @@ export default defineAgent({
     const vad = ctx.proc.userData.vad as silero.VAD;
 
     const llm = new baseten.LLM({
-      model: "deepseek-ai/DeepSeek-V3.1",
+      model: "zai-org/GLM-4.7",
     });
 
     const session = new voice.AgentSession({
