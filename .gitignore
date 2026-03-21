@@ -2,3 +2,11 @@ node_modules/
 dist/
 .env.local
 *.tgz
+package-lock.json
+
+# AI tooling
+.claude/
+.agents/
+.pi/
+skills/
+skills-lock.json
