@@ -38,14 +38,14 @@ export default defineAgent({
     });
 
     const session = new voice.AgentSession({
-      stt: new ScribeSTT(),
+      stt: new ScribeSTT({ language: "en" }),
       llm,
       tts: new elevenlabs.TTS({
         model: "eleven_flash_v2_5",
         voiceId: "7EzWGsX10sAS4c9m9cPf",
         encoding: "pcm_16000",
         voiceSettings: {
-          stability: 0.48,
+          stability: 0.55,
           similarity_boost: 0.8,
           style: 0,
           speed: 0.88,
