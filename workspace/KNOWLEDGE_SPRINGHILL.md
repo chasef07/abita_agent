@@ -1,4 +1,4 @@
-# Knowledge Base: Abita Eye Clinic, Spring Hill
+# Knowledge Base: Abita Eye Group, Spring Hill
 
 ## Emergency Notice
 
@@ -16,7 +16,7 @@ New flashes or floaters → treat as urgent, offer the next available appointmen
 
 ## Location + Contact
 
-Practice Name: Abita Eye Clinic
+Practice Name: Abita Eye Group
 Address: 10495 SpringHill Drive, Springhill, FL 34608
 Email: newpatient@abitaeye.com
 Fax: (305)-675-3370
@@ -25,7 +25,7 @@ Hours: Monday–Friday 8:30 AM – 4:30 PM. Closed Saturday and Sunday.
 
 ## Services
 
-Abita Eye Clinic provides ophthalmology services including: comprehensive eye exams, cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus (eye misalignment), double vision evaluation, and oculoplastic (eyelid) procedures.
+Abita Eye Group provides ophthalmology services including: comprehensive eye exams, cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus (eye misalignment), double vision evaluation, and oculoplastic (eyelid) procedures.
 
 ## Providers – Spring Hill
 

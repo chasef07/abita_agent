@@ -19,8 +19,9 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { CallLogger } from "./call-logger.js";
+import { buildPrompt } from "./prompt.js";
 import { ScribeSTT } from "./scribe-stt.js";
-import { setOffice, setSipContext } from "./tools.js";
+import { type CallState, lookupByPhone } from "./tools.js";
 
 dotenv.config({ path: ".env.local" });
 
@@ -37,7 +38,7 @@ export default defineAgent({
       model: "zai-org/GLM-4.7",
     });
 
-    const session = new voice.AgentSession({
+    const session = new voice.AgentSession<CallState>({
       stt: new ScribeSTT({ language: "en" }),
       llm,
       tts: new elevenlabs.TTS({
@@ -45,7 +46,7 @@ export default defineAgent({
         voiceId: "7EzWGsX10sAS4c9m9cPf",
         encoding: "pcm_16000",
         voiceSettings: {
-          stability: 0.55,
+          stability: 0.65,
           similarity_boost: 0.8,
           style: 0,
           speed: 0.88,
@@ -58,12 +59,10 @@ export default defineAgent({
         turnDetection: new livekit.turnDetector.MultilingualModel(),
         interruption: {
           mode: "adaptive",
-          minDuration: 0.5,
-          minWords: 2,
         },
         endpointing: {
-          minDelay: 0.2,
-          maxDelay: 1.0,
+          minDelay: 300,
+          maxDelay: 1500,
         },
       },
     });
@@ -78,10 +77,15 @@ export default defineAgent({
 
     console.log(`[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`);
 
-    // Resolve office from the dialed phone number — middleware maps it to office config
-    setOffice(trunkPhone);
-    setSipContext(ctx.room.name ?? "", participant.identity ?? "");
+    session.userData = {
+      office: trunkPhone,
+      sipRoomName: ctx.room.name ?? "",
+      sipParticipantIdentity: participant.identity ?? "",
+      callerPhone,
+    };
 
+    // Start session immediately so greeting plays — lookup runs in parallel
+    const lookupPromise = lookupByPhone(callerPhone, trunkPhone);
     const agent = new Agent();
 
     await session.start({
@@ -92,7 +96,20 @@ export default defineAgent({
       },
     });
 
-    await session.say("thank you for calling Abita Eye Group, this is David, how can I help you?");
+    // Resolve lookup after greeting is already playing
+    const phoneLookup = await lookupPromise;
+    if (phoneLookup?.status === "verified") {
+      console.log(`[call] Caller match: ${phoneLookup.name} (ID: ${phoneLookup.patientId})`);
+    } else if (phoneLookup?.status === "multiple_matches") {
+      console.log(`[call] Multiple matches for ${callerPhone}: ${phoneLookup.matches.map(m => m.firstName).join(", ")}`);
+    } else {
+      console.log(`[call] No patient match for ${callerPhone}`);
+    }
+
+    // Inject caller context into the agent's instructions if we got a match
+    if (phoneLookup) {
+      agent._instructions = buildPrompt(phoneLookup);
+    }
 
     const logger = new CallLogger(session, { callId, callerPhone });
 

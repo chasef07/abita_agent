@@ -7,6 +7,7 @@ import { voice } from "@livekit/agents";
 interface ToolCallRecord {
   name: string;
   args: string;
+  result: string;
   durationMs: number;
   isError: boolean;
 }
@@ -183,12 +184,13 @@ export class CallLogger {
       const isError = output?.isError ?? false;
       const name = call?.name ?? "unknown";
       const args = call?.args ?? "";
+      const result = output?.output ?? "";
 
       console.log(
         `[tool] ${name} ${isError ? "\u2717" : "\u2713"} ${durationMs}ms`,
       );
 
-      const record: ToolCallRecord = { name, args, durationMs, isError };
+      const record: ToolCallRecord = { name, args, result, durationMs, isError };
       const turn = this.ensureCurrentTurn();
       turn.toolCalls.push(record);
 

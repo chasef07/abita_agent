@@ -1,5 +1,6 @@
 // scribe-stt.ts — ElevenLabs Scribe STT adapter for LiveKit Agents
 // Wraps the ElevenLabs ScribeRealtime WebSocket in LiveKit's STT interface.
+// Enables word-level timestamps for adaptive interruption handling.
 
 import { stt, type LanguageCode } from "@livekit/agents";
 import type { AudioFrame } from "@livekit/rtc-node";

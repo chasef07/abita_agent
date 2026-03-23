@@ -11,28 +11,83 @@ const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
 const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-dev.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
+const OFFICE_TRANSFER_NUMBER = process.env.OFFICE_TRANSFER_NUMBER ?? "";
 
-// Office identifier (trunk phone number) — set once per call from main.ts
-let currentOffice = "";
+// --- Session-scoped call state ---
 
-export function setOffice(phone: string) {
-  currentOffice = phone;
-  console.log(`[tools] office set to: ${phone}`);
+export interface CallerAppointment {
+  id: number;
+  date: string;
+  time: string;
+  provider: string;
+  type: string;
+  facility: string;
+  confirmed: boolean;
 }
 
-// SIP call context — set once per call from main.ts for transfers
-let sipRoomName = "";
-let sipParticipantIdentity = "";
-
-export function setSipContext(roomName: string, participantIdentity: string) {
-  sipRoomName = roomName;
-  sipParticipantIdentity = participantIdentity;
-  console.log(`[tools] SIP context set: room=${roomName}, participant=${participantIdentity}`);
+export interface CallerMatch {
+  status: "verified";
+  patientId: string;
+  name: string;
+  dob: string;
+  phone: string;
+  insuranceCarrier: string;
+  routing: string;
+  allowedProviders: string[];
+  routingAmbiguous: boolean;
+  appointments: CallerAppointment[] | null;
 }
 
-async function callApi(path: string, body: Record<string, unknown>): Promise<unknown> {
-  if (currentOffice) {
-    body.office = currentOffice;
+export interface CallerMultipleMatches {
+  status: "multiple_matches";
+  message: string;
+  matches: Array<{ firstName: string }>;
+}
+
+export type PhoneLookupResult = CallerMatch | CallerMultipleMatches | null;
+
+export interface CallState {
+  office: string;
+  sipRoomName: string;
+  sipParticipantIdentity: string;
+  callerPhone: string;
+}
+
+// Per-call state lives on session.userData so concurrent calls don't collide
+function getState(ctx: any): CallState {
+  return ctx.session.userData as CallState;
+}
+
+/** Pre-call phone lookup — called from main.ts before session starts. */
+export async function lookupByPhone(phone: string, office: string): Promise<PhoneLookupResult> {
+  try {
+    const data = await callApi("/api/patient-lookup", { phone }, office) as any;
+    if (data.status === "verified") {
+      return {
+        status: "verified",
+        patientId: data.patientId,
+        name: data.name,
+        dob: data.dob,
+        phone: data.phone,
+        insuranceCarrier: data.insuranceCarrier,
+        routing: data.routing,
+        allowedProviders: data.allowedProviders ?? [],
+        routingAmbiguous: data.routingAmbiguous ?? false,
+        appointments: data.appointments ?? null,
+      };
+    }
+    if (data.status === "multiple_matches") {
+      return { status: "multiple_matches", message: data.message, matches: data.matches };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function callApi(path: string, body: Record<string, unknown>, office?: string): Promise<unknown> {
+  if (office) {
+    body.office = office;
   }
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
@@ -58,8 +113,8 @@ export const verify_patient = llm.tool({
     firstName: z.string().describe("Patient's first name"),
     dob: z.string().describe("Patient's date of birth in MM/DD/YYYY format"),
   }),
-  execute: async ({ lastName, firstName, dob }) => {
-    return callApi("/api/verify-patient", { lastName, firstName, dob });
+  execute: async ({ lastName, firstName, dob }, { ctx }) => {
+    return callApi("/api/verify-patient", { lastName, firstName, dob }, getState(ctx).office);
   },
 });
 
@@ -83,8 +138,8 @@ export const add_patient = llm.tool({
     subscriberName: z.string().describe("Name of the person on the insurance policy"),
     subscriberNum: z.string().describe("Insurance subscriber/member ID number"),
   }),
-  execute: async (params) => {
-    return callApi("/api/add-patient", params);
+  execute: async (params, { ctx }) => {
+    return callApi("/api/add-patient", params, getState(ctx).office);
   },
 });
 
@@ -96,10 +151,10 @@ export const get_availability = llm.tool({
     date: z.string().describe("Start date to search, formatted YYYY-MM-DD"),
     routing: z.string().optional().describe("Routing rule from verify_patient or add_patient (e.g. bach_only, bach_licht, all_three)"),
   }),
-  execute: async ({ date, routing }) => {
+  execute: async ({ date, routing }, { ctx }) => {
     const body: Record<string, unknown> = { date };
     if (routing) body.routing = routing;
-    return callApi("/api/scheduler/availability", body);
+    return callApi("/api/scheduler/availability", body, getState(ctx).office);
   },
 });
 
@@ -110,8 +165,8 @@ export const confirm_appt = llm.tool({
   parameters: z.object({
     patientId: z.string().describe("Patient ID from verify_patient response"),
   }),
-  execute: async ({ patientId }) => {
-    return callApi("/api/patient/appointments", { patientId });
+  execute: async ({ patientId }, { ctx }) => {
+    return callApi("/api/patient/appointments", { patientId }, getState(ctx).office);
   },
 });
 
@@ -122,8 +177,8 @@ export const cancel_appt = llm.tool({
   parameters: z.object({
     appointmentId: z.number().describe("Appointment ID from the confirm_appt response"),
   }),
-  execute: async ({ appointmentId }) => {
-    return callApi("/api/appointment/cancel", { appointmentId });
+  execute: async ({ appointmentId }, { ctx }) => {
+    return callApi("/api/appointment/cancel", { appointmentId }, getState(ctx).office);
   },
 });
 
@@ -139,10 +194,14 @@ export const book_appt = llm.tool({
     duration: z.number().describe("Slot duration in minutes from get_availability (15 or 30)"),
     appointmentTypeId: z.number().describe("Appointment type: 1004=New Pediatric, 1005=Est Pediatric, 1006=New Adult, 1007=Est Adult, 1008=Post Op"),
   }),
-  execute: async (params) => {
-    return callApi("/api/appointment/book", params);
+  execute: async (params, { ctx }) => {
+    return callApi("/api/appointment/book", params, getState(ctx).office);
   },
 });
+
+// --- Cached file reads (loaded once, never change at runtime) ---
+let insuranceCache: string | undefined;
+let knowledgeCache: string | undefined;
 
 // --- check_insurance ---
 export const check_insurance = llm.tool({
@@ -152,8 +211,8 @@ export const check_insurance = llm.tool({
     plan: z.string().describe("The insurance plan name the caller mentioned"),
   }),
   execute: async ({ plan }) => {
-    const content = readFileSync(join(WORKSPACE, "INSURANCE.md"), "utf-8");
-    return content;
+    insuranceCache ??= readFileSync(join(WORKSPACE, "INSURANCE.md"), "utf-8");
+    return insuranceCache;
   },
 });
 
@@ -165,20 +224,19 @@ export const lookup_knowledge = llm.tool({
     question: z.string().describe("What the caller is asking about (e.g. 'office hours', 'do you see kids', 'what should I bring')"),
   }),
   execute: async ({ question }) => {
-    const content = readFileSync(join(WORKSPACE, "KNOWLEDGE_SPRINGHILL.md"), "utf-8");
-    return content;
+    knowledgeCache ??= readFileSync(join(WORKSPACE, "KNOWLEDGE_SPRINGHILL.md"), "utf-8");
+    return knowledgeCache;
   },
 });
 
 // --- transfer_call ---
-const OFFICE_TRANSFER_NUMBER = process.env.OFFICE_TRANSFER_NUMBER ?? "";
-
 export const transfer_call = llm.tool({
   description:
     "Transfers the caller to a human at the office. Use only after confirming with the caller that they want to be transferred. The call ends for the agent after transfer.",
   parameters: z.object({}),
-  execute: async () => {
-    if (!sipRoomName || !sipParticipantIdentity) {
+  execute: async (_, { ctx }) => {
+    const state = getState(ctx);
+    if (!state.sipRoomName || !state.sipParticipantIdentity) {
       return "Could not transfer — no active SIP session.";
     }
     if (!OFFICE_TRANSFER_NUMBER) {
@@ -193,12 +251,12 @@ export const transfer_call = llm.tool({
 
     try {
       await sipClient.transferSipParticipant(
-        sipRoomName,
-        sipParticipantIdentity,
+        state.sipRoomName,
+        state.sipParticipantIdentity,
         `tel:${OFFICE_TRANSFER_NUMBER}`,
         { playDialtone: false },
       );
-      console.log(`[tools] Transferred ${sipParticipantIdentity} to ${OFFICE_TRANSFER_NUMBER}`);
+      console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${OFFICE_TRANSFER_NUMBER}`);
       return "Transfer initiated successfully.";
     } catch (err) {
       console.error("[tools] Transfer failed:", err);
