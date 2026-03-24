@@ -22,6 +22,7 @@ import { Agent } from "./agent.js";
 import { CallLogger } from "./call-logger.js";
 import { buildCallerContext } from "./prompt.js";
 import { ScribeSTT } from "./scribe-stt.js";
+import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 
 dotenv.config({ path: ".env.local" });
@@ -43,7 +44,7 @@ export default defineAgent({
       stt: new ScribeSTT({ language: "en" }),
       llm,
       tts: new elevenlabs.TTS({
-        model: "eleven_flash_v2_5",
+        model: "eleven_turbo_v2_5",
         voiceId: "7EzWGsX10sAS4c9m9cPf",
         encoding: "pcm_16000",
         voiceSettings: {
@@ -120,6 +121,25 @@ export default defineAgent({
     });
 
     const logger = new CallLogger(session, { callId, callerPhone });
+
+    // Shutdown hook: flush analytics + delete room so idle rooms don't linger
+    ctx.addShutdownCallback(async () => {
+      try {
+        await logger.flush();
+      } catch (err) {
+        console.error("[shutdown] Failed to flush analytics:", err);
+      }
+      try {
+        const roomSvc = new RoomServiceClient(
+          process.env.LIVEKIT_URL!,
+          process.env.LIVEKIT_API_KEY!,
+          process.env.LIVEKIT_API_SECRET!,
+        );
+        if (ctx.room.name) await roomSvc.deleteRoom(ctx.room.name);
+      } catch (err) {
+        console.error("[shutdown] Failed to delete room:", err);
+      }
+    });
 
     } catch (err) { console.error("[entry] FATAL:", err); throw err; }
   },

@@ -24,12 +24,6 @@ interface TurnRecord {
   toolCalls: ToolCallRecord[];
 }
 
-interface CompactionRecord {
-  timestamp: string;
-  beforeTokens: number;
-  afterItems: number;
-}
-
 interface CallSummary {
   callId: string;
   callerPhone: string;
@@ -43,14 +37,12 @@ interface CallSummary {
     cachedTokens: number;
     cacheHitRate: number;
     peakContextTokens: number;
-    compactions: number;
     toolCalls: number;
     toolErrors: number;
     avgTTFT: number;
     avgTTSttfb: number;
   };
   turns: TurnRecord[];
-  compactions: CompactionRecord[];
 }
 
 // --- CallLogger ---
@@ -61,7 +53,6 @@ export class CallLogger {
   private readonly startedAt: Date;
 
   private turns: TurnRecord[] = [];
-  private compactions: CompactionRecord[] = [];
   private currentTurn: TurnRecord | null = null;
   private turnCounter = 0;
 
@@ -200,7 +191,18 @@ export class CallLogger {
   }
 
   private onClose(_ev: any): void {
-    // Finalize any in-flight turn
+    this.flush();
+  }
+
+  // --- Public API ---
+
+  private flushed = false;
+
+  /** Force summary + webhook if the Close event never fired (e.g. crash). */
+  async flush(): Promise<void> {
+    if (this.flushed) return;
+    this.flushed = true;
+
     if (this.currentTurn) {
       this.turns.push(this.currentTurn);
       this.currentTurn = null;
@@ -208,17 +210,7 @@ export class CallLogger {
 
     const summary = this.buildSummary();
     this.printSummary(summary);
-    this.postWebhook(summary);
-  }
-
-  // --- Public API ---
-
-  logCompaction(beforeTokens: number, afterItems: number): void {
-    this.compactions.push({
-      timestamp: new Date().toISOString(),
-      beforeTokens,
-      afterItems,
-    });
+    await this.postWebhook(summary);
   }
 
   // --- Internals ---
@@ -268,14 +260,12 @@ export class CallLogger {
         cachedTokens: this.totalCachedTokens,
         cacheHitRate,
         peakContextTokens: this.peakContextTokens,
-        compactions: this.compactions.length,
         toolCalls: this.totalToolCalls,
         toolErrors: this.totalToolErrors,
         avgTTFT: Math.round(avgTTFT),
         avgTTSttfb: Math.round(avgTTSttfb),
       },
       turns: this.turns,
-      compactions: this.compactions,
     };
   }
 

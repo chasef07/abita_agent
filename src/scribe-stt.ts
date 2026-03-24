@@ -75,10 +75,8 @@ class ScribeSpeechStream extends stt.SpeechStream {
       audioFormat: AudioFormat.PCM_16000,
       sampleRate: SCRIBE_SAMPLE_RATE,
       commitStrategy: CommitStrategy.VAD,
-      vadSilenceThresholdSecs: 1.5,
+      vadSilenceThresholdSecs: 1.0,
       vadThreshold: 0.5,
-      minSpeechDurationMs: 200,
-      minSilenceDurationMs: 500,
       ...(this.opts.language ? { languageCode: this.opts.language } : {}),
     });
 
