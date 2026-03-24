@@ -51,7 +51,16 @@ export interface CallState {
   sipRoomName: string;
   sipParticipantIdentity: string;
   callerPhone: string;
-  phoneLookup: PhoneLookupResult;
+  // Populated by phone lookup, verify_patient, or add_patient
+  patientId: string | null;
+  patientName: string | null;
+  dob: string | null;
+  insuranceCarrier: string | null;
+  routing: string | null;
+  allowedProviders: string[];
+  routingAmbiguous: boolean;
+  preauthRequired: boolean;
+  appointments: CallerAppointment[];
 }
 
 // Per-call state lives on session.userData so concurrent calls don't collide
@@ -115,7 +124,18 @@ export const verify_patient = llm.tool({
     dob: z.string().describe("Patient's date of birth in MM/DD/YYYY format"),
   }),
   execute: async ({ lastName, firstName, dob }, { ctx }) => {
-    return callApi("/api/verify-patient", { lastName, firstName, dob }, getState(ctx).office);
+    const result = await callApi("/api/verify-patient", { lastName, firstName, dob }, getState(ctx).office) as any;
+    if (result?.patientId) {
+      const state = getState(ctx);
+      state.patientId = result.patientId;
+      state.patientName = result.name ?? null;
+      state.dob = result.dob ?? null;
+      state.insuranceCarrier = result.insuranceCarrier ?? null;
+      state.routing = result.routing ?? null;
+      state.allowedProviders = result.allowedProviders ?? [];
+      state.routingAmbiguous = result.routingAmbiguous ?? false;
+    }
+    return result;
   },
 });
 
@@ -140,34 +160,48 @@ export const add_patient = llm.tool({
     subscriberNum: z.string().describe("Insurance subscriber/member ID number"),
   }),
   execute: async (params, { ctx }) => {
-    return callApi("/api/add-patient", params, getState(ctx).office);
+    const result = await callApi("/api/add-patient", params, getState(ctx).office) as any;
+    if (result?.patientId) {
+      const state = getState(ctx);
+      state.patientId = result.patientId;
+      state.patientName = result.name ?? null;
+      state.dob = result.dob ?? null;
+      state.routing = result.routing ?? null;
+      state.allowedProviders = result.allowedProviders ?? [];
+      state.preauthRequired = result.preauthRequired ?? false;
+    }
+    return result;
   },
 });
 
 // --- get_availability ---
 export const get_availability = llm.tool({
   description:
-    "Gets schedule availability from the AdvancedMD scheduler. Requires a date and optionally a routing rule from verify_patient or add_patient.",
+    "Gets schedule availability from the AdvancedMD scheduler. Requires a date. Routing and preauth are automatically applied from session state.",
   parameters: z.object({
     date: z.string().describe("Start date to search, formatted YYYY-MM-DD"),
-    routing: z.string().optional().describe("Routing rule from verify_patient or add_patient (e.g. bach_only, bach_licht, all_three)"),
   }),
-  execute: async ({ date, routing }, { ctx }) => {
+  execute: async ({ date }, { ctx }) => {
+    const state = getState(ctx);
     const body: Record<string, unknown> = { date };
-    if (routing) body.routing = routing;
-    return callApi("/api/scheduler/availability", body, getState(ctx).office);
+    if (state.routing) body.routing = state.routing;
+    if (state.preauthRequired) body.preauthRequired = true;
+    return callApi("/api/scheduler/availability", body, state.office);
   },
 });
 
 // --- confirm_appt ---
 export const confirm_appt = llm.tool({
   description:
-    "Retrieves upcoming appointments for a verified patient. Requires the patient ID from verify_patient. Returns appointments with date, time, provider, type, and facility.",
+    "Retrieves upcoming appointments for a verified patient. Patient ID is automatically used from session state.",
   parameters: z.object({
-    patientId: z.string().describe("Patient ID from verify_patient response"),
+    patientId: z.string().optional().describe("Patient ID — auto-filled from session state if omitted"),
   }),
   execute: async ({ patientId }, { ctx }) => {
-    return callApi("/api/patient/appointments", { patientId }, getState(ctx).office);
+    const state = getState(ctx);
+    const id = patientId ?? state.patientId;
+    if (!id) return "No patient verified yet. Verify the patient first.";
+    return callApi("/api/patient/appointments", { patientId: id }, state.office);
   },
 });
 
@@ -186,9 +220,9 @@ export const cancel_appt = llm.tool({
 // --- book_appt ---
 export const book_appt = llm.tool({
   description:
-    "Books an appointment after the patient confirms their preferred time slot. Use columnId, profileId, slotDuration, and datetime from the get_availability response.",
+    "Books an appointment after the patient confirms their preferred time slot. Use columnId, profileId, slotDuration, and datetime from the get_availability response. Patient ID is automatically used from session state.",
   parameters: z.object({
-    patientId: z.string().describe("Patient ID from verify_patient or add_patient"),
+    patientId: z.string().optional().describe("Patient ID — auto-filled from session state if omitted"),
     columnId: z.number().describe("columnId of the selected provider from get_availability"),
     profileId: z.number().describe("profileId of the selected provider from get_availability"),
     startDatetime: z.string().describe("Slot datetime from get_availability, format YYYY-MM-DDTHH:MM"),
@@ -196,7 +230,10 @@ export const book_appt = llm.tool({
     appointmentTypeId: z.number().describe("Appointment type: 1004=New Pediatric, 1005=Est Pediatric, 1006=New Adult, 1007=Est Adult, 1008=Post Op"),
   }),
   execute: async (params, { ctx }) => {
-    return callApi("/api/appointment/book", params, getState(ctx).office);
+    const state = getState(ctx);
+    const patientId = params.patientId ?? state.patientId;
+    if (!patientId) return "No patient verified yet. Verify the patient first.";
+    return callApi("/api/appointment/book", { ...params, patientId }, state.office);
   },
 });
 
@@ -236,6 +273,7 @@ export const transfer_call = llm.tool({
     "Transfers the caller to a human at the office. Use only after confirming with the caller that they want to be transferred. The call ends for the agent after transfer.",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
+    ctx.speechHandle.allowInterruptions = false;
     const state = getState(ctx);
     if (!state.sipRoomName || !state.sipParticipantIdentity) {
       return "Could not transfer — no active SIP session.";

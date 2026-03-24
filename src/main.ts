@@ -68,7 +68,7 @@ export default defineAgent({
       },
     });
 
-    // Connect to the room and wait for the SIP participant
+    // Connect and wait for the SIP participant
     await ctx.connect();
     const participant = await ctx.waitForParticipant();
 
@@ -78,17 +78,38 @@ export default defineAgent({
 
     console.log(`[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`);
 
+    // Phone lookup before session start so context is ready for the first LLM turn
+    const phoneLookup = await lookupByPhone(callerPhone, trunkPhone);
+    if (phoneLookup?.status === "verified") {
+      console.log(`[call] Caller match: ${phoneLookup.name} (ID: ${phoneLookup.patientId})`);
+    } else if (phoneLookup?.status === "multiple_matches") {
+      console.log(`[call] Multiple matches for ${callerPhone}: ${phoneLookup.matches.map(m => m.firstName).join(", ")}`);
+    } else {
+      console.log(`[call] No patient match for ${callerPhone}`);
+    }
+
+    // Build initial chat context with caller data baked in
+    const initialCtx = lkLlm.ChatContext.empty();
+    initialCtx.addMessage({ role: "developer", content: buildCallerContext(phoneLookup) });
+
+    const agent = new Agent(initialCtx);
+
+    const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
     session.userData = {
       office: trunkPhone,
       sipRoomName: ctx.room.name ?? "",
       sipParticipantIdentity: participant.identity ?? "",
       callerPhone,
-      phoneLookup: null,
+      patientId: verified?.patientId ?? null,
+      patientName: verified?.name ?? null,
+      dob: verified?.dob ?? null,
+      insuranceCarrier: verified?.insuranceCarrier ?? null,
+      routing: verified?.routing ?? null,
+      allowedProviders: verified?.allowedProviders ?? [],
+      routingAmbiguous: verified?.routingAmbiguous ?? false,
+      preauthRequired: false,
+      appointments: verified?.appointments ?? [],
     };
-
-    // Start session + greeting immediately — lookup runs in parallel
-    const lookupPromise = lookupByPhone(callerPhone, trunkPhone);
-    const agent = new Agent();
 
     await session.start({
       agent,
@@ -98,46 +119,7 @@ export default defineAgent({
       },
     });
 
-    // Resolve lookup while greeting plays
-    const phoneLookup = await lookupPromise;
-    session.userData.phoneLookup = phoneLookup;
-
-    if (phoneLookup?.status === "verified") {
-      console.log(`[call] Caller match: ${phoneLookup.name} (ID: ${phoneLookup.patientId})`);
-    } else if (phoneLookup?.status === "multiple_matches") {
-      console.log(`[call] Multiple matches for ${callerPhone}: ${phoneLookup.matches.map(m => m.firstName).join(", ")}`);
-    } else {
-      console.log(`[call] No patient match for ${callerPhone}`);
-    }
-
-    // Inject caller context into chat context so the LLM sees it on the first turn
-    const callerContext = buildCallerContext(phoneLookup);
-    const chatCtx = new lkLlm.ChatContext([...agent.chatCtx.items]);
-    chatCtx.addMessage({ role: "developer", content: callerContext });
-    await agent.updateChatCtx(chatCtx);
-
     const logger = new CallLogger(session, { callId, callerPhone });
-
-    // --- Automatic context compaction ---
-    const COMPACT_THRESHOLD = 140_000;
-    let compacting = false;
-
-    session.on(voice.AgentSessionEventTypes.MetricsCollected, async (ev: any) => {
-      const m = ev.metrics;
-      if (m.type === "llm_metrics" && m.promptTokens > COMPACT_THRESHOLD && !compacting) {
-        compacting = true;
-        console.log(`[context] Compacting: ${m.promptTokens} prompt tokens`);
-        try {
-          const compacted = await agent.chatCtx._summarize(llm, { keepLastTurns: 3 });
-          await agent.updateChatCtx(compacted);
-          console.log(`[context] Compacted to ${compacted.items.length} items`);
-          logger.logCompaction(m.promptTokens, compacted.items.length);
-        } catch (err) {
-          console.error("[context] Compaction failed:", err);
-        }
-        compacting = false;
-      }
-    });
 
     } catch (err) { console.error("[entry] FATAL:", err); throw err; }
   },
