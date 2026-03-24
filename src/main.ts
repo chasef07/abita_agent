@@ -8,7 +8,6 @@ import {
   cli,
   defineAgent,
   inference,
-  llm as lkLlm,
   voice,
 } from "@livekit/agents";
 import * as livekit from "@livekit/agents-plugin-livekit";
@@ -20,7 +19,6 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { CallLogger } from "./call-logger.js";
-import { buildCallerContext } from "./prompt.js";
 import { ScribeSTT } from "./scribe-stt.js";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
@@ -44,7 +42,7 @@ export default defineAgent({
       stt: new ScribeSTT({ language: "en" }),
       llm,
       tts: new elevenlabs.TTS({
-        model: "eleven_turbo_v2_5",
+        model: "eleven_flash_v2_5",
         voiceId: "7EzWGsX10sAS4c9m9cPf",
         encoding: "pcm_16000",
         voiceSettings: {
@@ -89,11 +87,7 @@ export default defineAgent({
       console.log(`[call] No patient match for ${callerPhone}`);
     }
 
-    // Build initial chat context with caller data baked in
-    const initialCtx = lkLlm.ChatContext.empty();
-    initialCtx.addMessage({ role: "developer", content: buildCallerContext(phoneLookup) });
-
-    const agent = new Agent(initialCtx);
+    const agent = new Agent(phoneLookup);
 
     const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
     session.userData = {

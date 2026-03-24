@@ -116,8 +116,18 @@ async function callApi(path: string, body: Record<string, unknown>, office?: str
 
 // --- verify_patient ---
 export const verify_patient = llm.tool({
-  description:
-    "Verifies a patient's identity in the AdvancedMD system. Requires last name, first name, and date of birth. Returns patient ID needed for all subsequent operations.",
+  description: `Verifies a patient's identity. Requires lastName, firstName, dob (MM/DD/YYYY).
+
+Do NOT call if phone lookup already verified the patient (single match + confirmed first name). Check CALLER CONTEXT first.
+
+Call with what you heard — the API is the source of truth for spelling.
+
+After response:
+- If verified: let them know, move on. Ask if HMO or PPO — if HMO, scheduling starts two weeks out due to preauth.
+- If routingAmbiguous: ask what type of plan (regular, EPO, HMO, Medicare).
+- If routing is "not_accepted": tell them straightforwardly.
+- If not found: spell back what you actually heard, letter by letter. Retry with corrections. Try first name too if last name was right.
+- If still not found after retry: lead into registration — "ok no worries, let me get you set up."`,
   parameters: z.object({
     lastName: z.string().describe("Patient's last name"),
     firstName: z.string().describe("Patient's first name"),
@@ -141,8 +151,23 @@ export const verify_patient = llm.tool({
 
 // --- add_patient ---
 export const add_patient = llm.tool({
-  description:
-    "Creates a new patient record and attaches their insurance. Use when verify_patient returns no match and the caller wants to register.",
+  description: `Creates a new patient record. Use only when verify_patient returns no match.
+
+Collect in clusters:
+1. Insurance — run check_insurance first. If carrier has multiple plans (e.g., Humana), ask which specific plan. Stop if not accepted.
+2. Name + DOB — already have from verify attempts. Confirm and skip.
+3. Contact — "cell number and email?"
+4. Address — "street address, city, state, zip?" Then: "apartment or suite?"
+5. Sex — "male or female?"
+6. Subscriber — "subscriber name and member ID from the card?" If "me" = use patient name.
+
+Subscriber ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
+
+Before submitting: read back name, DOB, email, insurance plan, and member ID. Wait for confirmation.
+
+After response: if routing "not_accepted", tell them. If preauthRequired, scheduling starts two weeks out. Go straight to scheduling — don't check appointments for a new patient.
+
+Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO, Cigna HMO, Tricare Prime, Tricare Forever.`,
   parameters: z.object({
     firstName: z.string().describe("Patient's first name"),
     lastName: z.string().describe("Patient's last name"),
@@ -176,8 +201,15 @@ export const add_patient = llm.tool({
 
 // --- get_availability ---
 export const get_availability = llm.tool({
-  description:
-    "Gets schedule availability from the AdvancedMD scheduler. Requires a date. Routing and preauth are automatically applied from session state.",
+  description: `Gets schedule availability. Requires date (YYYY-MM-DD). Routing and preauth auto-applied from session state.
+
+Determine appointment type (you decide, not the caller):
+- New 18+ = 1006, new under 18 = 1004
+- Existing: ask "follow-up or post-op?" Follow-up 18+ = 1007, under 18 = 1005, Post-op = 1008
+
+Rules: no same-day (earliest = tomorrow). Under 18 = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
+
+After response: check if date shifted vs requested — tell caller if different. Suggest one best-fit slot (date + time). Don't mention doctor unless asked or clinically relevant. If rejected, offer one alternative. Scan existing results before calling again.`,
   parameters: z.object({
     date: z.string().describe("Start date to search, formatted YYYY-MM-DD"),
   }),
@@ -192,23 +224,22 @@ export const get_availability = llm.tool({
 
 // --- confirm_appt ---
 export const confirm_appt = llm.tool({
-  description:
-    "Retrieves upcoming appointments for a verified patient. Patient ID is automatically used from session state.",
-  parameters: z.object({
-    patientId: z.string().optional().describe("Patient ID — auto-filled from session state if omitted"),
-  }),
-  execute: async ({ patientId }, { ctx }) => {
+  description: `Retrieves upcoming appointments (next 60 days) for a verified patient. Patient ID is read from session state automatically. Do NOT call before running verify_patient — it will fail.
+
+Read back the nearest appointment: date, time, doctor. If multiple, read one at a time. If none found, offer to schedule.`,
+  parameters: z.object({}),
+  execute: async (_, { ctx }) => {
     const state = getState(ctx);
-    const id = patientId ?? state.patientId;
-    if (!id) return "No patient verified yet. Verify the patient first.";
-    return callApi("/api/patient/appointments", { patientId: id }, state.office);
+    if (!state.patientId) return "ERROR: No patient verified yet. Run verify_patient first with the caller's firstName, lastName, and dob.";
+    return callApi("/api/patient/appointments", { patientId: state.patientId }, state.office);
   },
 });
 
 // --- cancel_appt ---
 export const cancel_appt = llm.tool({
-  description:
-    "Cancels an existing appointment. Requires the appointment ID from the confirm_appt response.",
+  description: `Cancels an appointment. Requires appointmentId from the confirm_appt response.
+
+Read back the details and confirm the caller wants it cancelled before proceeding. If they want to reschedule, book the new appointment first, then cancel.`,
   parameters: z.object({
     appointmentId: z.number().describe("Appointment ID from the confirm_appt response"),
   }),
@@ -219,10 +250,10 @@ export const cancel_appt = llm.tool({
 
 // --- book_appt ---
 export const book_appt = llm.tool({
-  description:
-    "Books an appointment after the patient confirms their preferred time slot. Use columnId, profileId, slotDuration, and datetime from the get_availability response. Patient ID is automatically used from session state.",
+  description: `Books an appointment. Pass columnId, profileId, startDatetime, duration, and appointmentTypeId from get_availability. Patient ID is read from session state automatically.
+
+The slot offer is the confirmation — if the caller said yes, book it. If fails, retry once. If still fails, offer different time or transfer.`,
   parameters: z.object({
-    patientId: z.string().optional().describe("Patient ID — auto-filled from session state if omitted"),
     columnId: z.number().describe("columnId of the selected provider from get_availability"),
     profileId: z.number().describe("profileId of the selected provider from get_availability"),
     startDatetime: z.string().describe("Slot datetime from get_availability, format YYYY-MM-DDTHH:MM"),
@@ -231,9 +262,8 @@ export const book_appt = llm.tool({
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
-    const patientId = params.patientId ?? state.patientId;
-    if (!patientId) return "No patient verified yet. Verify the patient first.";
-    return callApi("/api/appointment/book", { ...params, patientId }, state.office);
+    if (!state.patientId) return "No patient verified yet. Verify the patient first.";
+    return callApi("/api/appointment/book", { ...params, patientId: state.patientId }, state.office);
   },
 });
 
@@ -243,8 +273,9 @@ let knowledgeCache: string | undefined;
 
 // --- check_insurance ---
 export const check_insurance = llm.tool({
-  description:
-    "Look up whether the office accepts a specific insurance plan. Use when a caller asks about insurance acceptance or you need to verify their plan name before registration.",
+  description: `Looks up whether the office accepts a specific insurance plan. Returns the full accepted plans list with carrier-specific notes.
+
+Look for the caller's plan. If found, confirm it's accepted. If there's a clarifying note (e.g., "ask which: North Broward or University of Miami?"), follow it. If not on the list: "unfortunately we don't accept that plan." Don't push scheduling — just answer their question and let them lead.`,
   parameters: z.object({
     plan: z.string().describe("The insurance plan name the caller mentioned"),
   }),
@@ -256,8 +287,9 @@ export const check_insurance = llm.tool({
 
 // --- lookup_knowledge ---
 export const lookup_knowledge = llm.tool({
-  description:
-    "Look up practice information: office hours, location, providers, services offered, what to bring, appointment expectations, urgency screening, or glasses warranty. Use when a caller asks a question about the practice.",
+  description: `Looks up practice info: hours, location, providers, services, what to bring, appointment expectations, urgency screening, glasses warranty.
+
+Answer naturally from the returned info. Don't read back the entire document — just what answers their question.`,
   parameters: z.object({
     question: z.string().describe("What the caller is asking about (e.g. 'office hours', 'do you see kids', 'what should I bring')"),
   }),
