@@ -79,13 +79,11 @@ export function buildCallerContext(lookup: PhoneLookupResult): string {
     const names = lookup.matches.map(m => m.firstName);
     const uniqueNames = [...new Set(names)];
     const lines: string[] = [];
-    lines.push(`PHONE LOOKUP: Multiple patients on this number.`);
+    lines.push(`PHONE LOOKUP: Multiple patients on this number (${names.length} matches).`);
+    lines.push(`Known first names: ${uniqueNames.join(", ")}.`);
     lines.push(`Do not read the names back — that's a HIPAA violation.`);
-    if (uniqueNames.length === names.length) {
-      lines.push(`Ask for their first name, then match against: ${uniqueNames.join(", ")}. Once matched, use that patient's record and skip to what they need.`);
-    } else {
-      lines.push(`Multiple patients share the same first name, so asking for a name alone won't distinguish them. Ask for first name and date of birth, then run verify_patient to identify the right record.`);
-    }
+    lines.push(`Be natural about it: "I see a few patients associated with this number, can I get your first name and date of birth?"`);
+    lines.push(`Once they answer, run verify_patient with their first name and DOB to pull up the right record. Say something like "one sec, let me pull you up" while it runs.`);
     lines.push(`If the name doesn't match anyone on file, they're likely a new patient — lead into the registration flow.`);
     return lines.join("\n");
   }
