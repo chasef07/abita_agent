@@ -4,7 +4,7 @@
 //   Middle = reference data + speech style (retrieved on demand)
 //   Bottom = tool logic + flows (highest attention, most critical per-turn)
 
-import { readFileSync, existsSync } from "fs";
+import { readFileSync } from "fs";
 import { join } from "path";
 import type { PhoneLookupResult } from "./tools.js";
 
@@ -16,45 +16,13 @@ const FILES: { file: string; tag: string }[] = [
   { file: "TOOLS.md", tag: "tools" },
 ];
 
-export function buildPrompt(lookup?: PhoneLookupResult): string {
+/** Build the base system prompt (no caller-specific data). */
+export function buildPrompt(): string {
   const sections: string[] = [];
 
   for (const { file, tag } of FILES) {
-    const path = join(WORKSPACE, file);
-    if (existsSync(path)) {
-      const content = readFileSync(path, "utf-8").trim();
-      sections.push(`<${tag}>\n${content}\n</${tag}>`);
-    }
-  }
-
-  // Inject caller context from pre-call phone lookup
-  if (lookup?.status === "verified") {
-    const lines: string[] = [];
-    lines.push(`The caller's phone number matched a patient in the system.`);
-    lines.push(`Name: ${lookup.name}`);
-    lines.push(`DOB: ${lookup.dob}`);
-    lines.push(`Patient ID: ${lookup.patientId}`);
-    lines.push(`Insurance: ${lookup.insuranceCarrier}`);
-    lines.push(`Routing: ${lookup.routing}`);
-    lines.push(`Allowed providers: ${lookup.allowedProviders.join(", ")}`);
-    if (lookup.routingAmbiguous) {
-      lines.push(`Routing is ambiguous — ask what type of plan they have.`);
-    }
-    if (lookup.appointments && lookup.appointments.length > 0) {
-      lines.push(`Upcoming appointments:`);
-      for (const appt of lookup.appointments) {
-        lines.push(`  - ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`);
-      }
-    }
-    lines.push(``);
-    lines.push(`This might be the patient, or they might be calling for someone else (child, spouse, etc). Don't assume — confirm who the appointment is for. If it's for themselves, skip verify_patient entirely — you already have their patient ID, name, DOB, routing, and insurance. Go straight to what they need.`);
-    sections.push(`<caller_context>\n${lines.join("\n")}\n</caller_context>`);
-  } else if (lookup?.status === "multiple_matches") {
-    const names = lookup.matches.map(m => m.firstName).join(", ");
-    const lines: string[] = [];
-    lines.push(`The caller's phone number matched multiple patients on this number.`);
-    lines.push(`Do not read the names back — that's a HIPAA violation. Just ask for their first name, then match it against: ${names}.`);
-    sections.push(`<caller_context>\n${lines.join("\n")}\n</caller_context>`);
+    const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
+    sections.push(`<${tag}>\n${content}\n</${tag}>`);
   }
 
   let prompt = sections.join("\n\n");
@@ -78,4 +46,53 @@ export function buildPrompt(lookup?: PhoneLookupResult): string {
     }));
 
   return prompt;
+}
+
+/** Build caller context message from phone lookup result. Injected as a developer message into chatCtx. */
+export function buildCallerContext(lookup: PhoneLookupResult): string {
+  if (lookup?.status === "verified") {
+    const lines: string[] = [];
+    lines.push(`PHONE LOOKUP: Single patient match.`);
+    lines.push(`Name: ${lookup.name}`);
+    lines.push(`DOB: ${lookup.dob}`);
+    lines.push(`Patient ID: ${lookup.patientId}`);
+    lines.push(`Insurance: ${lookup.insuranceCarrier}`);
+    lines.push(`Routing: ${lookup.routing}`);
+    lines.push(`Allowed providers: ${lookup.allowedProviders.join(", ")}`);
+    if (lookup.routingAmbiguous) {
+      lines.push(`Routing is ambiguous — ask what type of plan they have.`);
+    }
+    if (lookup.appointments && lookup.appointments.length > 0) {
+      lines.push(`Upcoming appointments:`);
+      for (const appt of lookup.appointments) {
+        lines.push(`  - ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`);
+      }
+    }
+    const firstName = lookup.name.split(",")[1]?.trim() ?? lookup.name.split(" ")[0];
+    lines.push(``);
+    lines.push(`After the caller states why they're calling, confirm their identity: "can I get your first name?" If they say "${firstName}" (or close), this is the patient — they are verified. Skip verify_patient entirely and go straight to what they need using the data above.`);
+    lines.push(`If they give a different name, they may be calling for someone else (child, spouse). In that case, run the normal verify_patient flow for that person.`);
+    return lines.join("\n");
+  }
+
+  if (lookup?.status === "multiple_matches") {
+    const names = lookup.matches.map(m => m.firstName);
+    const uniqueNames = [...new Set(names)];
+    const lines: string[] = [];
+    lines.push(`PHONE LOOKUP: Multiple patients on this number.`);
+    lines.push(`Do not read the names back — that's a HIPAA violation.`);
+    if (uniqueNames.length === names.length) {
+      lines.push(`Ask for their first name, then match against: ${uniqueNames.join(", ")}. Once matched, use that patient's record and skip to what they need.`);
+    } else {
+      lines.push(`Multiple patients share the same first name, so asking for a name alone won't distinguish them. Ask for first name and date of birth, then run verify_patient to identify the right record.`);
+    }
+    lines.push(`If the name doesn't match anyone on file, they're likely a new patient — lead into the registration flow.`);
+    return lines.join("\n");
+  }
+
+  // No match
+  const lines: string[] = [];
+  lines.push(`PHONE LOOKUP: No patient found for this number.`);
+  lines.push(`This caller is likely a new patient. After they state their intent, try verify_patient first in case they're calling from a different phone. If verify comes back empty, lead straight into registration — "ok let me get you set up as a new patient."`);
+  return lines.join("\n");
 }

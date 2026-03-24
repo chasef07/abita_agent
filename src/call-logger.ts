@@ -65,7 +65,7 @@ export class CallLogger {
   private currentTurn: TurnRecord | null = null;
   private turnCounter = 0;
 
-  // Running totals for averages
+  // Per-turn metrics (kept for per-turn analytics)
   private ttftValues: number[] = [];
   private ttsttfbValues: number[] = [];
   private totalInputTokens = 0;
@@ -308,6 +308,7 @@ export class CallLogger {
         method: "POST",
         headers,
         body: JSON.stringify(summary),
+        signal: AbortSignal.timeout(10_000),
       });
     } catch (err) {
       console.warn("[call] Failed to POST analytics:", err);

@@ -1,7 +1,7 @@
 // tools.ts — Tool definitions for the voice agent
 // Each tool makes an HTTP call to the AdvancedMD middleware on Railway.
 
-import { llm } from "@livekit/agents";
+import { llm, voice } from "@livekit/agents";
 import { SipClient } from "livekit-server-sdk";
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -51,10 +51,11 @@ export interface CallState {
   sipRoomName: string;
   sipParticipantIdentity: string;
   callerPhone: string;
+  phoneLookup: PhoneLookupResult;
 }
 
 // Per-call state lives on session.userData so concurrent calls don't collide
-function getState(ctx: any): CallState {
+function getState(ctx: voice.RunContext): CallState {
   return ctx.session.userData as CallState;
 }
 
@@ -109,7 +110,7 @@ export const verify_patient = llm.tool({
   description:
     "Verifies a patient's identity in the AdvancedMD system. Requires last name, first name, and date of birth. Returns patient ID needed for all subsequent operations.",
   parameters: z.object({
-    lastName: z.string().describe("Patient's last name (always ask them to spell it)"),
+    lastName: z.string().describe("Patient's last name"),
     firstName: z.string().describe("Patient's first name"),
     dob: z.string().describe("Patient's date of birth in MM/DD/YYYY format"),
   }),

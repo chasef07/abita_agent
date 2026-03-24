@@ -8,6 +8,7 @@ import {
   cli,
   defineAgent,
   inference,
+  llm as lkLlm,
   voice,
 } from "@livekit/agents";
 import * as livekit from "@livekit/agents-plugin-livekit";
@@ -19,7 +20,7 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { CallLogger } from "./call-logger.js";
-import { buildPrompt } from "./prompt.js";
+import { buildCallerContext } from "./prompt.js";
 import { ScribeSTT } from "./scribe-stt.js";
 import { type CallState, lookupByPhone } from "./tools.js";
 
@@ -82,9 +83,10 @@ export default defineAgent({
       sipRoomName: ctx.room.name ?? "",
       sipParticipantIdentity: participant.identity ?? "",
       callerPhone,
+      phoneLookup: null,
     };
 
-    // Start session immediately so greeting plays — lookup runs in parallel
+    // Start session + greeting immediately — lookup runs in parallel
     const lookupPromise = lookupByPhone(callerPhone, trunkPhone);
     const agent = new Agent();
 
@@ -96,8 +98,10 @@ export default defineAgent({
       },
     });
 
-    // Resolve lookup after greeting is already playing
+    // Resolve lookup while greeting plays
     const phoneLookup = await lookupPromise;
+    session.userData.phoneLookup = phoneLookup;
+
     if (phoneLookup?.status === "verified") {
       console.log(`[call] Caller match: ${phoneLookup.name} (ID: ${phoneLookup.patientId})`);
     } else if (phoneLookup?.status === "multiple_matches") {
@@ -106,10 +110,11 @@ export default defineAgent({
       console.log(`[call] No patient match for ${callerPhone}`);
     }
 
-    // Inject caller context into the agent's instructions if we got a match
-    if (phoneLookup) {
-      agent._instructions = buildPrompt(phoneLookup);
-    }
+    // Inject caller context into chat context so the LLM sees it on the first turn
+    const callerContext = buildCallerContext(phoneLookup);
+    const chatCtx = new lkLlm.ChatContext([...agent.chatCtx.items]);
+    chatCtx.addMessage({ role: "developer", content: callerContext });
+    await agent.updateChatCtx(chatCtx);
 
     const logger = new CallLogger(session, { callId, callerPhone });
 
