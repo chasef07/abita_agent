@@ -68,6 +68,19 @@ function getState(ctx: voice.RunContext): CallState {
   return ctx.session.userData as CallState;
 }
 
+/** Apply patient data from an API response, resetting all patient fields so nothing stale lingers. */
+function applyPatientResult(state: CallState, result: any): void {
+  state.patientId = result.patientId ?? null;
+  state.patientName = result.name ?? null;
+  state.dob = result.dob ?? null;
+  state.insuranceCarrier = result.insuranceCarrier ?? null;
+  state.routing = result.routing ?? null;
+  state.allowedProviders = result.allowedProviders ?? [];
+  state.routingAmbiguous = result.routingAmbiguous ?? false;
+  state.preauthRequired = result.preauthRequired ?? false;
+  state.appointments = [];
+}
+
 /** Pre-call phone lookup — called from main.ts before session starts. */
 export async function lookupByPhone(phone: string, office: string): Promise<PhoneLookupResult> {
   try {
@@ -136,14 +149,7 @@ After response:
   execute: async ({ lastName, firstName, dob }, { ctx }) => {
     const result = await callApi("/api/verify-patient", { lastName, firstName, dob }, getState(ctx).office) as any;
     if (result?.patientId) {
-      const state = getState(ctx);
-      state.patientId = result.patientId;
-      state.patientName = result.name ?? null;
-      state.dob = result.dob ?? null;
-      state.insuranceCarrier = result.insuranceCarrier ?? null;
-      state.routing = result.routing ?? null;
-      state.allowedProviders = result.allowedProviders ?? [];
-      state.routingAmbiguous = result.routingAmbiguous ?? false;
+      applyPatientResult(getState(ctx), result);
     }
     return result;
   },
@@ -187,13 +193,7 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
   execute: async (params, { ctx }) => {
     const result = await callApi("/api/add-patient", params, getState(ctx).office) as any;
     if (result?.patientId) {
-      const state = getState(ctx);
-      state.patientId = result.patientId;
-      state.patientName = result.name ?? null;
-      state.dob = result.dob ?? null;
-      state.routing = result.routing ?? null;
-      state.allowedProviders = result.allowedProviders ?? [];
-      state.preauthRequired = result.preauthRequired ?? false;
+      applyPatientResult(getState(ctx), result);
     }
     return result;
   },
@@ -224,7 +224,9 @@ After response: check if date shifted vs requested — tell caller if different.
 
 // --- confirm_appt ---
 export const confirm_appt = llm.tool({
-  description: `Retrieves upcoming appointments (next 60 days) for a verified patient. Patient ID is read from session state automatically. Do NOT call before running verify_patient — it will fail.
+  description: `Retrieves upcoming appointments (next 60 days) for a verified patient. Patient ID is read from session state automatically. Requires a verified patient — either from phone lookup or verify_patient.
+
+If appointments (with IDs) are already shown in the caller context from the phone lookup AND you haven't switched patients, you already have this data — skip this tool. Only call if you switched patients, need fresh data, or appointments weren't in the caller context.
 
 Read back the nearest appointment: date, time, doctor. If multiple, read one at a time. If none found, offer to schedule.`,
   parameters: z.object({}),
@@ -237,7 +239,7 @@ Read back the nearest appointment: date, time, doctor. If multiple, read one at 
 
 // --- cancel_appt ---
 export const cancel_appt = llm.tool({
-  description: `Cancels an appointment. Requires appointmentId from the confirm_appt response.
+  description: `Cancels an appointment. Requires appointmentId — use the ID from the caller context (phone lookup) or from a confirm_appt response.
 
 Read back the details and confirm the caller wants it cancelled before proceeding. If they want to reschedule, book the new appointment first, then cancel.`,
   parameters: z.object({
@@ -267,9 +269,15 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
   },
 });
 
-// --- Cached file reads (loaded once, never change at runtime) ---
+// --- Cached file reads (loaded once per file, never change at runtime) ---
 let insuranceCache: string | undefined;
-let knowledgeCache: string | undefined;
+const knowledgeCache: Record<string, string> = {};
+
+/** Map trunk phone → knowledge file. Default = Spring Hill. */
+const KNOWLEDGE_FILES: Record<string, string> = {
+  "+13523202007": "KNOWLEDGE_EYERADIANCE.md",
+};
+const DEFAULT_KNOWLEDGE = "KNOWLEDGE_SPRINGHILL.md";
 
 // --- check_insurance ---
 export const check_insurance = llm.tool({
@@ -293,9 +301,11 @@ Answer naturally from the returned info. Don't read back the entire document —
   parameters: z.object({
     question: z.string().describe("What the caller is asking about (e.g. 'office hours', 'do you see kids', 'what should I bring')"),
   }),
-  execute: async ({ question }) => {
-    knowledgeCache ??= readFileSync(join(WORKSPACE, "KNOWLEDGE_SPRINGHILL.md"), "utf-8");
-    return knowledgeCache;
+  execute: async ({ question }, { ctx }) => {
+    const office = getState(ctx).office;
+    const file = KNOWLEDGE_FILES[office] ?? DEFAULT_KNOWLEDGE;
+    knowledgeCache[file] ??= readFileSync(join(WORKSPACE, file), "utf-8");
+    return knowledgeCache[file];
   },
 });
 

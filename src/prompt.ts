@@ -66,7 +66,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
     if (lookup.appointments && lookup.appointments.length > 0) {
       lines.push(`Upcoming appointments:`);
       for (const appt of lookup.appointments) {
-        lines.push(`  - ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`);
+        lines.push(`  - [ID: ${appt.id}] ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`);
       }
     } else {
       lines.push(`No upcoming appointments on file.`);

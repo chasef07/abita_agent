@@ -87,7 +87,7 @@ export default defineAgent({
       console.log(`[call] No patient match for ${callerPhone}`);
     }
 
-    const agent = new Agent(phoneLookup);
+    const agent = new Agent(phoneLookup, trunkPhone);
 
     const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
     session.userData = {
