@@ -167,17 +167,22 @@ export class CallLogger {
       this.ttsttfbValues.push(m.ttfbMs);
     }
 
+    if (m.type === "stt_metrics") {
+      const durationMs = Math.round(m.durationMs ?? 0);
+      if (durationMs > 0) {
+        console.log(`[stt] duration: ${durationMs}ms / audio: ${Math.round(m.audioDurationMs ?? 0)}ms / streamed: ${m.streamed}`);
+        const turn = this.ensureCurrentTurn();
+        turn.asrDelayMs = durationMs;
+        this.asrValues.push(durationMs);
+      }
+    }
+
     if (m.type === "eou_metrics") {
-      const transcriptionMs = Math.round(m.transcriptionDelayMs ?? 0);
       const eouMs = Math.round(m.endOfUtteranceDelayMs ?? 0);
-      // asrDelayMs = actual STT processing (transcription minus endpointing wait)
-      const sttMs = Math.max(0, transcriptionMs - eouMs);
-      if (transcriptionMs > 0) {
-        console.log(`[asr] EOU: ${eouMs}ms / STT: ${sttMs}ms / total: ${transcriptionMs}ms`);
+      if (eouMs > 0) {
+        console.log(`[asr] EOU: ${eouMs}ms`);
         const turn = this.ensureCurrentTurn();
         turn.eouDelayMs = eouMs;
-        turn.asrDelayMs = sttMs;
-        this.asrValues.push(sttMs);
       }
     }
   }
