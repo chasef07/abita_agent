@@ -19,6 +19,7 @@ interface TurnRecord {
   promptTokens: number;
   completionTokens: number;
   cachedTokens: number;
+  asrDelayMs: number;
   ttftMs: number;
   ttsttfbMs: number;
   toolCalls: ToolCallRecord[];
@@ -39,6 +40,7 @@ interface CallSummary {
     peakContextTokens: number;
     toolCalls: number;
     toolErrors: number;
+    avgASR: number;
     avgTTFT: number;
     avgTTSttfb: number;
   };
@@ -57,6 +59,7 @@ export class CallLogger {
   private turnCounter = 0;
 
   // Per-turn metrics (kept for per-turn analytics)
+  private asrValues: number[] = [];
   private ttftValues: number[] = [];
   private ttsttfbValues: number[] = [];
   private totalInputTokens = 0;
@@ -114,6 +117,7 @@ export class CallLogger {
       promptTokens: 0,
       completionTokens: 0,
       cachedTokens: 0,
+      asrDelayMs: 0,
       ttftMs: 0,
       ttsttfbMs: 0,
       toolCalls: [],
@@ -159,6 +163,16 @@ export class CallLogger {
       const turn = this.ensureCurrentTurn();
       turn.ttsttfbMs = m.ttfbMs;
       this.ttsttfbValues.push(m.ttfbMs);
+    }
+
+    if (m.type === "eou_metrics") {
+      const delayMs = Math.round(m.transcriptionDelayMs ?? 0);
+      if (delayMs > 0) {
+        console.log(`[asr] transcription delay: ${delayMs}ms`);
+        const turn = this.ensureCurrentTurn();
+        turn.asrDelayMs = delayMs;
+        this.asrValues.push(delayMs);
+      }
     }
   }
 
@@ -225,6 +239,7 @@ export class CallLogger {
         promptTokens: 0,
         completionTokens: 0,
         cachedTokens: 0,
+        asrDelayMs: 0,
         ttftMs: 0,
         ttsttfbMs: 0,
         toolCalls: [],
@@ -240,6 +255,9 @@ export class CallLogger {
       this.totalInputTokens > 0
         ? this.totalCachedTokens / this.totalInputTokens
         : 0;
+    const avgASR = this.asrValues.length > 0
+      ? this.asrValues.reduce((a, b) => a + b, 0) / this.asrValues.length
+      : 0;
     const avgTTFT = this.ttftValues.length > 0
       ? this.ttftValues.reduce((a, b) => a + b, 0) / this.ttftValues.length
       : 0;
@@ -262,6 +280,7 @@ export class CallLogger {
         peakContextTokens: this.peakContextTokens,
         toolCalls: this.totalToolCalls,
         toolErrors: this.totalToolErrors,
+        avgASR: Math.round(avgASR),
         avgTTFT: Math.round(avgTTFT),
         avgTTSttfb: Math.round(avgTTSttfb),
       },
@@ -277,7 +296,7 @@ export class CallLogger {
       `  cache hit rate: ${(t.cacheHitRate * 100).toFixed(1)}%\n` +
       `  peak context: ${t.peakContextTokens} tokens\n` +
       `  tools: ${t.toolCalls} calls, ${t.toolErrors} errors\n` +
-      `  avg TTFT: ${t.avgTTFT}ms, avg TTS TTFB: ${t.avgTTSttfb}ms`,
+      `  avg ASR: ${t.avgASR}ms, avg TTFT: ${t.avgTTFT}ms, avg TTS TTFB: ${t.avgTTSttfb}ms`,
     );
   }
 
