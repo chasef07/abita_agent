@@ -19,6 +19,7 @@ interface TurnRecord {
   promptTokens: number;
   completionTokens: number;
   cachedTokens: number;
+  eouDelayMs: number;
   asrDelayMs: number;
   ttftMs: number;
   ttsttfbMs: number;
@@ -117,6 +118,7 @@ export class CallLogger {
       promptTokens: 0,
       completionTokens: 0,
       cachedTokens: 0,
+      eouDelayMs: 0,
       asrDelayMs: 0,
       ttftMs: 0,
       ttsttfbMs: 0,
@@ -166,12 +168,16 @@ export class CallLogger {
     }
 
     if (m.type === "eou_metrics") {
-      const delayMs = Math.round(m.transcriptionDelayMs ?? 0);
-      if (delayMs > 0) {
-        console.log(`[asr] transcription delay: ${delayMs}ms`);
+      const transcriptionMs = Math.round(m.transcriptionDelayMs ?? 0);
+      const eouMs = Math.round(m.endOfUtteranceDelayMs ?? 0);
+      // asrDelayMs = actual STT processing (transcription minus endpointing wait)
+      const sttMs = Math.max(0, transcriptionMs - eouMs);
+      if (transcriptionMs > 0) {
+        console.log(`[asr] EOU: ${eouMs}ms / STT: ${sttMs}ms / total: ${transcriptionMs}ms`);
         const turn = this.ensureCurrentTurn();
-        turn.asrDelayMs = delayMs;
-        this.asrValues.push(delayMs);
+        turn.eouDelayMs = eouMs;
+        turn.asrDelayMs = sttMs;
+        this.asrValues.push(sttMs);
       }
     }
   }
@@ -239,13 +245,14 @@ export class CallLogger {
         promptTokens: 0,
         completionTokens: 0,
         cachedTokens: 0,
+        eouDelayMs: 0,
         asrDelayMs: 0,
         ttftMs: 0,
         ttsttfbMs: 0,
         toolCalls: [],
       };
     }
-    return this.currentTurn;
+    return this.currentTurn!;
   }
 
   private buildSummary(): CallSummary {
@@ -312,15 +319,26 @@ export class CallLogger {
       headers["Authorization"] = `Bearer ${secret}`;
     }
 
-    try {
-      await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(summary),
-        signal: AbortSignal.timeout(10_000),
-      });
-    } catch (err) {
-      console.warn("[call] Failed to POST analytics:", err);
+    const payload = JSON.stringify(summary);
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers,
+          body: payload,
+          signal: AbortSignal.timeout(30_000),
+        });
+        if (res.ok) {
+          console.log(`[call] Analytics POST succeeded (attempt ${attempt})`);
+          return;
+        }
+        console.warn(`[call] Analytics POST returned ${res.status} (attempt ${attempt})`);
+      } catch (err) {
+        console.warn(`[call] Analytics POST failed (attempt ${attempt}):`, err);
+      }
+      // Wait 2s before retry
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 2_000));
     }
   }
 }
