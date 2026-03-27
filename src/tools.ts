@@ -133,6 +133,8 @@ export const verify_patient = llm.tool({
 
 Do NOT call if phone lookup already verified the patient (single match + confirmed first name). Check CALLER CONTEXT first.
 
+Before calling: confirm the first name and spell the last name back to the caller. Wait for them to confirm or correct before submitting.
+
 Call with what you heard — the API is the source of truth for spelling.
 
 After response:
