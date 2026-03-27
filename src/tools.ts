@@ -11,7 +11,11 @@ const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
 const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-dev.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
-const OFFICE_TRANSFER_NUMBER = process.env.OFFICE_TRANSFER_NUMBER ?? "";
+/** Map trunk phone → transfer number. Default = Spring Hill. */
+const TRANSFER_NUMBERS: Record<string, string> = {
+  "+13523202007": "+18667968908", // Crystal River (Eye Radiance)
+};
+const DEFAULT_TRANSFER_NUMBER = "+18667968908"; // Spring Hill
 
 // --- Session-scoped call state ---
 
@@ -322,7 +326,8 @@ export const transfer_call = llm.tool({
     if (!state.sipRoomName || !state.sipParticipantIdentity) {
       return "Could not transfer — no active SIP session.";
     }
-    if (!OFFICE_TRANSFER_NUMBER) {
+    const transferNumber = TRANSFER_NUMBERS[state.office] ?? DEFAULT_TRANSFER_NUMBER;
+    if (!transferNumber) {
       return "Could not transfer — no transfer number configured.";
     }
 
@@ -336,10 +341,10 @@ export const transfer_call = llm.tool({
       await sipClient.transferSipParticipant(
         state.sipRoomName,
         state.sipParticipantIdentity,
-        `tel:${OFFICE_TRANSFER_NUMBER}`,
+        `tel:${transferNumber}`,
         { playDialtone: false },
       );
-      console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${OFFICE_TRANSFER_NUMBER}`);
+      console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${transferNumber}`);
       return "Transfer initiated successfully.";
     } catch (err) {
       console.error("[tools] Transfer failed:", err);
