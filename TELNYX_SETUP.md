@@ -82,6 +82,9 @@ curl -L 'https://api.telnyx.com/v2/fqdn_connections' \
   "active": true,
   "anchorsite_override": "Chicago, IL",
   "connection_name": "LiveKit SIP Trunk",
+  "user_name": "<username>",
+  "password": "<password>",
+  "third_party_control_enabled": true,
   "inbound": {
     "ani_number_format": "+E.164",
     "dnis_number_format": "+e164",
@@ -94,6 +97,8 @@ curl -L 'https://api.telnyx.com/v2/fqdn_connections' \
 Save the `connection_id` from the response.
 
 > Setting `sip_region` to `"US"` and anchoring to `"Chicago, IL"` prevents Telnyx from routing through EU servers, which causes 404 errors on LiveKit.
+>
+> `third_party_control_enabled` allows LiveKit to send SIP REFER for call transfers. Credentials are required for the outbound leg of transfers.
 
 ## Step 5: Create FQDN record
 
@@ -110,7 +115,39 @@ curl -L 'https://api.telnyx.com/v2/fqdns' \
 }'
 ```
 
-## Step 6: Assign phone number to the connection
+## Step 6: Create outbound voice profile (required for transfers)
+
+Create a voice profile so Telnyx can make outbound calls when handling SIP REFER transfers:
+
+```sh
+curl -L 'https://api.telnyx.com/v2/outbound_voice_profiles' \
+-H 'Content-Type: application/json' \
+-H 'Accept: application/json' \
+-H "Authorization: Bearer $TELNYX_API_KEY" \
+-d '{
+  "name": "LiveKit outbound voice profile",
+  "traffic_type": "conversational",
+  "service_plan": "global"
+}'
+```
+
+Attach it to the FQDN connection:
+
+```sh
+curl -L -X PATCH 'https://api.telnyx.com/v2/fqdn_connections/<connection_id>' \
+-H 'Content-Type: application/json' \
+-H 'Accept: application/json' \
+-H "Authorization: Bearer $TELNYX_API_KEY" \
+-d '{
+  "outbound": {
+    "outbound_voice_profile_id": "<voice_profile_id>"
+  }
+}'
+```
+
+> Without a voice profile, Telnyx receives the SIP REFER but cannot make the outbound call to the transfer destination, causing the caller to be dropped.
+
+## Step 7: Assign phone number to the connection
 
 Get the phone number ID:
 
@@ -141,3 +178,6 @@ curl -L -X PATCH 'https://api.telnyx.com/v2/phone_numbers/<phone_number_id>' \
 | 404 No trunk found | Phone number not assigned to FQDN connection | PATCH phone number with `connection_id` |
 | 404 No trunk found | Number format mismatch | Ensure `dnis_number_format` is `+e164` (with leading +) |
 | No calls reaching LiveKit | Wrong connection type | Must use FQDN connection, not credential or IP connection |
+| Transfer drops caller | No outbound voice profile on FQDN connection | Create and attach an outbound voice profile |
+| Transfer drops caller | `third_party_control_enabled` is false | PATCH the FQDN connection to set it to `true` |
+| Transfer drops caller | No credentials on FQDN connection | Add `user_name` and `password` to the connection |
