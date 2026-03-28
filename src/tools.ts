@@ -12,11 +12,8 @@ const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-dev.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
 /** Map trunk phone → transfer number. Default = Spring Hill. */
-const TRANSFER_NUMBERS: Record<string, string> = {
-  "+13523202007": "+16182265883", // Crystal River (Eye Radiance)
-  "+16182265883": "+16182265883", // Crystal River (Eye Radiance) — Telnyx trunk
-};
-const DEFAULT_TRANSFER_NUMBER = "+18667968908"; // Spring Hill (Twilio)
+const TRANSFER_NUMBERS: Record<string, string> = {};
+const DEFAULT_TRANSFER_NUMBER = "+18667968908"; // All offices (Twilio)
 
 // --- Session-scoped call state ---
 
