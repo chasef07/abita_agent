@@ -133,11 +133,15 @@ async function callApi(path: string, body: Record<string, unknown>, office?: str
 
 // --- verify_patient ---
 export const verify_patient = llm.tool({
-  description: `Verifies a patient's identity. Requires lastName, firstName, dob (MM/DD/YYYY).
+  description: `Verifies a patient's identity.
+
+For MULTIPLE MATCHES (caller context says multiple patients on this number): just pass firstName and phone — the middleware matches by phone + first name. Do NOT ask for last name or DOB upfront.
+
+For all other cases: pass firstName, lastName, and dob (MM/DD/YYYY).
 
 Do NOT call if phone lookup already verified the patient (single match + confirmed first name). Check CALLER CONTEXT first.
 
-Before calling: confirm the first name and spell the last name back to the caller. Wait for them to confirm or correct before submitting.
+Before calling with full details: confirm the first name and spell the last name back to the caller. Wait for them to confirm or correct before submitting.
 
 Call with what you heard — the API is the source of truth for spelling.
 
@@ -145,15 +149,21 @@ After response:
 - If verified: let them know, move on. Ask if HMO or PPO — if HMO, scheduling starts two weeks out due to preauth.
 - If routingAmbiguous: ask what type of plan (regular, EPO, HMO, Medicare).
 - If routing is "not_accepted": tell them straightforwardly.
-- If not found: spell back what you actually heard, letter by letter. Retry with corrections. Try first name too if last name was right.
+- If not found and you only sent firstName + phone: ask for last name and DOB and retry with full details.
+- If not found with full details: spell back what you actually heard, letter by letter. Retry with corrections.
 - If still not found after retry: lead into registration — "ok no worries, let me get you set up."`,
   parameters: z.object({
-    lastName: z.string().describe("Patient's last name"),
     firstName: z.string().describe("Patient's first name"),
-    dob: z.string().describe("Patient's date of birth in MM/DD/YYYY format"),
+    lastName: z.string().optional().describe("Patient's last name (optional for multiple-match phone lookup)"),
+    dob: z.string().optional().describe("Patient's date of birth in MM/DD/YYYY format (optional for multiple-match phone lookup)"),
+    phone: z.string().optional().describe("Caller's phone number — pass for multiple-match lookup by first name + phone"),
   }),
-  execute: async ({ lastName, firstName, dob }, { ctx }) => {
-    const result = await callApi("/api/verify-patient", { lastName, firstName, dob }, getState(ctx).office) as any;
+  execute: async ({ firstName, lastName, dob, phone }, { ctx }) => {
+    const body: Record<string, unknown> = { firstName };
+    if (lastName) body.lastName = lastName;
+    if (dob) body.dob = dob;
+    if (phone) body.phone = phone;
+    const result = await callApi("/api/verify-patient", body, getState(ctx).office) as any;
     if (result?.patientId) {
       applyPatientResult(getState(ctx), result);
     }

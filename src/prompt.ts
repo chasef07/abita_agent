@@ -83,9 +83,9 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
     lines.push(`**MULTIPLE MATCHES (${names.length} patients on this number).**`);
     lines.push(`Known first names: ${uniqueNames.join(", ")}.`);
     lines.push(``);
-    lines.push(`You MUST say: "I see a few patients associated with this number, can I get your first and last name and date of birth?"`);
-    lines.push(`Do NOT ask generically as if you don't know anything about this caller. Do NOT skip asking for the last name — verify_patient requires firstName, lastName, and dob.`);
-    lines.push(`Do NOT read back the names on file (HIPAA). Run verify_patient with their answer. If no match, lead into registration.`);
+    lines.push(`You MUST say: "I see a few patients associated with this number, can I get the patient's first name?"`);
+    lines.push(`Do NOT ask for last name or DOB upfront — just the first name is enough. Run verify_patient with their firstName and the callerPhone. The middleware will match by phone + first name.`);
+    lines.push(`Do NOT read back the names on file (HIPAA). If no match, ask for last name and DOB and try again.`);
     return lines.join("\n");
   }
 
