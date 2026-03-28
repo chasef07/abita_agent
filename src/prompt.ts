@@ -27,26 +27,24 @@ export function buildPrompt(phoneLookup?: PhoneLookupResult): string {
 
   let prompt = sections.join("\n\n");
 
-  // Inject runtime variables (Eastern time — office timezone)
+  // Append dynamic context at the end so the static prefix is cacheable
   const now = new Date();
   const tz = "America/New_York";
-  prompt = prompt
-    .replace(/\{\{current_date\}\}/g, now.toLocaleDateString("en-US", {
-      timeZone: tz,
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }))
-    .replace(/\{\{current_time\}\}/g, now.toLocaleTimeString("en-US", {
-      timeZone: tz,
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    }));
+  const date = now.toLocaleDateString("en-US", {
+    timeZone: tz,
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const time = now.toLocaleTimeString("en-US", {
+    timeZone: tz,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
 
-  // Inject caller context from phone lookup
-  prompt = prompt.replace(/\{\{caller_context\}\}/g, buildCallerContext(phoneLookup ?? null));
+  prompt += `\n\n<context>\nToday is ${date}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}\n</context>`;
 
   return prompt;
 }

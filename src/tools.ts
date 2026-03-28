@@ -15,7 +15,7 @@ const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
 const TRANSFER_NUMBERS: Record<string, string> = {
   "+13523202007": "+16182265883", // Crystal River (Eye Radiance)
 };
-const DEFAULT_TRANSFER_NUMBER = "+16182265883"; // Spring Hill
+const DEFAULT_TRANSFER_NUMBER = "+18667968908"; // Spring Hill (Twilio)
 
 // --- Session-scoped call state ---
 

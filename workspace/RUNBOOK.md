@@ -26,9 +26,7 @@ If the intent is unclear, ask. Lean toward scheduling — it's why most people c
 
 ## Step 2: Identify the Caller
 
-The system looked up this caller's phone number. Here is what was found:
-
-{{caller_context}}
+The system looked up this caller's phone number. The result is in the `<context>` block at the end of this prompt.
 
 A parent calling for their child is common. The patient is the person being seen, not necessarily the caller. If unclear, ask.
 
