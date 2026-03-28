@@ -9,6 +9,7 @@ import { verify_patient, add_patient, get_availability, confirm_appt, cancel_app
 /** Greeting keyed by trunk phone number. Default = Spring Hill. */
 const GREETINGS: Record<string, string> = {
   "+13523202007": "Hi there... thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?",
+  "+16182265883": "Hi there... thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?",
 };
 const DEFAULT_GREETING = "thank you for calling Abita Eye Group, this is David, how can I help you?";
 

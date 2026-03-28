@@ -14,6 +14,7 @@ const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
 /** Map trunk phone → transfer number. Default = Spring Hill. */
 const TRANSFER_NUMBERS: Record<string, string> = {
   "+13523202007": "+16182265883", // Crystal River (Eye Radiance)
+  "+16182265883": "+16182265883", // Crystal River (Eye Radiance) — Telnyx trunk
 };
 const DEFAULT_TRANSFER_NUMBER = "+18667968908"; // Spring Hill (Twilio)
 
@@ -292,6 +293,7 @@ const knowledgeCache: Record<string, string> = {};
 /** Map trunk phone → knowledge file. Default = Spring Hill. */
 const KNOWLEDGE_FILES: Record<string, string> = {
   "+13523202007": "KNOWLEDGE_EYERADIANCE.md",
+  "+16182265883": "KNOWLEDGE_EYERADIANCE.md", // Crystal River (Eye Radiance) — Telnyx trunk
 };
 const DEFAULT_KNOWLEDGE = "KNOWLEDGE_SPRINGHILL.md";
 
