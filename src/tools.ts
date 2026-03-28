@@ -156,13 +156,13 @@ After response:
     firstName: z.string().describe("Patient's first name"),
     lastName: z.string().optional().describe("Patient's last name (optional for multiple-match phone lookup)"),
     dob: z.string().optional().describe("Patient's date of birth in MM/DD/YYYY format (optional for multiple-match phone lookup)"),
-    phone: z.string().optional().describe("Caller's phone number — pass for multiple-match lookup by first name + phone"),
+    usePhone: z.boolean().optional().describe("Set true for multiple-match flow to verify by first name + caller phone number"),
   }),
-  execute: async ({ firstName, lastName, dob, phone }, { ctx }) => {
+  execute: async ({ firstName, lastName, dob, usePhone }, { ctx }) => {
     const body: Record<string, unknown> = { firstName };
     if (lastName) body.lastName = lastName;
     if (dob) body.dob = dob;
-    if (phone) body.phone = phone;
+    if (usePhone) body.phone = getState(ctx).callerPhone;
     const result = await callApi("/api/verify-patient", body, getState(ctx).office) as any;
     if (result?.patientId) {
       applyPatientResult(getState(ctx), result);
