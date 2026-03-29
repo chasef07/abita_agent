@@ -9,7 +9,7 @@ import { z } from "zod";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
-const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-dev.up.railway.app";
+const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-crystalriverpilot.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
 /** Map trunk phone → transfer number. Default = Spring Hill. */
 const TRANSFER_NUMBERS: Record<string, string> = {};
@@ -123,6 +123,7 @@ async function callApi(path: string, body: Record<string, unknown>, office?: str
       Authorization: AUTH_TOKEN,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -332,7 +333,7 @@ export const transfer_call = llm.tool({
     "Transfers the caller to a human at the office. Use only after confirming with the caller that they want to be transferred. The call ends for the agent after transfer.",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
-    ctx.speechHandle.allowInterruptions = false;
+    if (ctx.speechHandle) ctx.speechHandle.allowInterruptions = false;
     const state = getState(ctx);
     if (!state.sipRoomName || !state.sipParticipantIdentity) {
       return "Could not transfer — no active SIP session.";
