@@ -216,7 +216,10 @@ export class CallLogger {
   }
 
   private onClose(_ev: any): void {
-    this.flush();
+    // Delay flush to allow in-flight FunctionToolsExecuted events to arrive.
+    // Tools like transfer_call disconnect the SIP session during execution,
+    // which fires Close before the SDK emits FunctionToolsExecuted.
+    setTimeout(() => this.flush(), 1_000);
   }
 
   // --- Public API ---
