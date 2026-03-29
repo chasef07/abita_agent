@@ -29,6 +29,7 @@ interface TurnRecord {
 interface CallSummary {
   callId: string;
   callerPhone: string;
+  officePhone: string;
   startedAt: string;
   endedAt: string;
   durationSec: number;
@@ -53,6 +54,7 @@ interface CallSummary {
 export class CallLogger {
   private readonly callId: string;
   private readonly callerPhone: string;
+  private readonly officePhone: string;
   private readonly startedAt: Date;
 
   private turns: TurnRecord[] = [];
@@ -72,10 +74,11 @@ export class CallLogger {
 
   constructor(
     session: voice.AgentSession,
-    opts: { callId: string; callerPhone: string },
+    opts: { callId: string; callerPhone: string; officePhone: string },
   ) {
     this.callId = opts.callId;
     this.callerPhone = opts.callerPhone;
+    this.officePhone = opts.officePhone;
     this.startedAt = new Date();
 
     session.on(
@@ -289,6 +292,7 @@ export class CallLogger {
     return {
       callId: this.callId,
       callerPhone: this.callerPhone,
+      officePhone: this.officePhone,
       startedAt: this.startedAt.toISOString(),
       endedAt: endedAt.toISOString(),
       durationSec: Math.round(durationSec),

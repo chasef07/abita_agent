@@ -115,7 +115,7 @@ export default defineAgent({
       },
     });
 
-    const logger = new CallLogger(session, { callId, callerPhone });
+    const logger = new CallLogger(session, { callId, callerPhone, officePhone: trunkPhone });
     session.userData.onToolCall = (record) => logger.recordToolCall(record);
 
     // Shutdown hook: flush analytics + delete room so idle rooms don't linger.
