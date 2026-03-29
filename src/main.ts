@@ -104,6 +104,7 @@ export default defineAgent({
       routingAmbiguous: verified?.routingAmbiguous ?? false,
       preauthRequired: false,
       appointments: verified?.appointments ?? [],
+      transferred: false,
     };
 
     await session.start({
@@ -123,15 +124,20 @@ export default defineAgent({
       } catch (err) {
         console.error("[shutdown] Failed to flush analytics:", err);
       }
-      try {
-        const roomSvc = new RoomServiceClient(
-          process.env.LIVEKIT_URL!,
-          process.env.LIVEKIT_API_KEY!,
-          process.env.LIVEKIT_API_SECRET!,
-        );
-        if (ctx.room.name) await roomSvc.deleteRoom(ctx.room.name);
-      } catch (err) {
-        console.error("[shutdown] Failed to delete room:", err);
+      // Skip room deletion after transfer — the SIP participant is still
+      // completing the REFER handoff; deleting the room would drop the call.
+      // LiveKit will clean up the room once the participant leaves naturally.
+      if (!session.userData?.transferred) {
+        try {
+          const roomSvc = new RoomServiceClient(
+            process.env.LIVEKIT_URL!,
+            process.env.LIVEKIT_API_KEY!,
+            process.env.LIVEKIT_API_SECRET!,
+          );
+          if (ctx.room.name) await roomSvc.deleteRoom(ctx.room.name);
+        } catch (err) {
+          console.error("[shutdown] Failed to delete room:", err);
+        }
       }
     });
 

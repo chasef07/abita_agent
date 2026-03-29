@@ -63,6 +63,7 @@ export interface CallState {
   routingAmbiguous: boolean;
   preauthRequired: boolean;
   appointments: CallerAppointment[];
+  transferred: boolean;
 }
 
 // Per-call state lives on session.userData so concurrent calls don't collide
@@ -347,11 +348,12 @@ export const transfer_call = llm.tool({
     );
 
     try {
+      state.transferred = true;
       await sipClient.transferSipParticipant(
         state.sipRoomName,
         state.sipParticipantIdentity,
         `tel:${transferNumber}`,
-        { playDialtone: false },
+        { playDialtone: true },
       );
       console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${transferNumber}`);
       return "Transfer initiated successfully.";
