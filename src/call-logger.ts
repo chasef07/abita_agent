@@ -216,13 +216,19 @@ export class CallLogger {
   }
 
   private onClose(_ev: any): void {
-    // Delay flush to allow in-flight FunctionToolsExecuted events to arrive.
-    // Tools like transfer_call disconnect the SIP session during execution,
-    // which fires Close before the SDK emits FunctionToolsExecuted.
-    setTimeout(() => this.flush(), 1_000);
+    this.flush();
   }
 
   // --- Public API ---
+
+  /** Record a tool call directly (for tools that disconnect the session before FunctionToolsExecuted fires). */
+  recordToolCall(record: ToolCallRecord): void {
+    const turn = this.ensureCurrentTurn();
+    turn.toolCalls.push(record);
+    this.totalToolCalls++;
+    if (record.isError) this.totalToolErrors++;
+    console.log(`[tool] ${record.name} ${record.isError ? "\u2717" : "\u2713"} ${record.durationMs}ms (direct)`);
+  }
 
   private flushed = false;
 

@@ -116,11 +116,10 @@ export default defineAgent({
     });
 
     const logger = new CallLogger(session, { callId, callerPhone });
+    session.userData.onToolCall = (record) => logger.recordToolCall(record);
 
     // Shutdown hook: flush analytics + delete room so idle rooms don't linger.
-    // Delay flush to let FunctionToolsExecuted fire after transfer disconnects.
     ctx.addShutdownCallback(async () => {
-      await new Promise((r) => setTimeout(r, 2_000));
       try {
         await logger.flush();
       } catch (err) {
