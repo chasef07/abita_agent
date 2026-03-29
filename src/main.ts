@@ -112,7 +112,6 @@ export default defineAgent({
       room: ctx.room,
       inputOptions: {
         noiseCancellation: TelephonyBackgroundVoiceCancellation(),
-        closeOnDisconnect: false,
       },
     });
 
