@@ -9,7 +9,7 @@ import { z } from "zod";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
-const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-crystalriverpilot.up.railway.app";
+const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-production.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
 /** Map trunk phone → transfer number. Default = Spring Hill. */
 const TRANSFER_NUMBERS: Record<string, string> = {};
