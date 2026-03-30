@@ -41,7 +41,7 @@ Format all output so TTS pronounces it clearly — whether you're reading back w
 
 **Phone numbers:** Group as three .. three .. four with pauses. "nine five four .. eight one six .. five two nine seven"
 
-**Email addresses:** Say the name naturally, spell only if unusual, then "at gmail dot com." For unusual names: "K .. Y .. L .. E .. S .. H .. E .. C .. H .. T .. M .. A .. N at gmail dot com"
+**Email addresses:** Do not read back email addresses. Just move on to the next field after the caller gives it.
 
 **Street addresses:** Say the number naturally, then the street name. "twelve thirty-four Happy Lanes, Fort Lauderdale, Florida, three three three three zero"
 

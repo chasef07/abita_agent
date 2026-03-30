@@ -177,7 +177,7 @@ export const add_patient = llm.tool({
   description: `Creates a new patient record. Use only when verify_patient returns no match.
 
 Collect in clusters:
-1. Insurance — run check_insurance first. If carrier has multiple plans (e.g., Humana), ask which specific plan. Stop if not accepted.
+1. Insurance — run check_insurance first. Match what the caller says to an exact plan name from the accepted list (e.g., "Aetna Medicare PPO" → "Aetna Medicare Signature PPO"). If the carrier has multiple plans (e.g., Humana), ask which specific plan. Stop if not accepted. The insurance value you pass to this tool MUST be a plan name from the accepted list — do not pass vague names like "Medicare PPO."
 2. Name + DOB — already have from verify attempts. Confirm and skip.
 3. Contact — "cell number and email?"
 4. Address — "street address, city, state, zip?" Then: "apartment or suite?"
@@ -186,7 +186,7 @@ Collect in clusters:
 
 Subscriber ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
 
-Before submitting: read back name, DOB, email, insurance plan, and member ID. Wait for confirmation.
+Before submitting: read back name, DOB, insurance plan, and member ID. Wait for confirmation.
 
 After response: if routing "not_accepted", tell them. If preauthRequired, scheduling starts two weeks out. Go straight to scheduling — don't check appointments for a new patient.
 
