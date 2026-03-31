@@ -61,8 +61,8 @@ export default defineAgent({
           mode: "adaptive",
         },
         endpointing: {
-          minDelay: 300,
-          maxDelay: 1500,
+          minDelay: 500,
+          maxDelay: 2000,
         },
       },
     });
