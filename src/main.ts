@@ -36,10 +36,12 @@ export default defineAgent({
 
     const llm = new baseten.LLM({
       model: "zai-org/GLM-4.7",
+      parallelToolCalls: false,
+      temperature: 0.3,
     });
 
     const session = new voice.AgentSession<CallState>({
-      stt: new ScribeSTT({ language: "en" }),
+      stt: new ScribeSTT(),
       llm,
       tts: new elevenlabs.TTS({
         model: "eleven_flash_v2_5",
