@@ -19,7 +19,8 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { CallLogger } from "./call-logger.js";
-import { ScribeSTT } from "./scribe-stt.js";
+import * as deepgram from "@livekit/agents-plugin-deepgram";
+// import { ScribeSTT } from "./scribe-stt.js"; // Kept for rollback
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 
@@ -41,7 +42,7 @@ export default defineAgent({
     });
 
     const session = new voice.AgentSession<CallState>({
-      stt: new ScribeSTT(),
+      stt: new deepgram.STT({ model: "nova-3", language: "multi" }),
       llm,
       tts: new elevenlabs.TTS({
         model: "eleven_flash_v2_5",
