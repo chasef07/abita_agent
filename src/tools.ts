@@ -142,16 +142,14 @@ For all other cases: pass firstName, lastName, and dob (MM/DD/YYYY).
 
 Do NOT call if phone lookup already verified the patient (single match + confirmed first name). Check CALLER CONTEXT first.
 
-Before calling with full details: confirm the first name and spell the last name back to the caller. Wait for them to confirm or correct before submitting.
-
-Call with what you heard — the API is the source of truth for spelling.
+Call with what you heard — don't spell back or echo the name before submitting. The API is the source of truth for spelling.
 
 After response:
-- If verified: let them know, move on. Ask if HMO or PPO — if HMO, scheduling starts two weeks out due to preauth.
-- If routingAmbiguous: ask what type of plan (regular, EPO, HMO, Medicare).
+- If verified: let them know and move on.
+- If routingAmbiguous: ask what type of plan (regular, EPO, HMO, Medicare). If HMO, scheduling starts two weeks out due to preauth.
 - If routing is "not_accepted": tell them straightforwardly.
 - If not found and you only sent firstName + phone: ask for last name and DOB and retry with full details.
-- If not found with full details: spell back what you actually heard, letter by letter. Retry with corrections.
+- If not found with full details: ask them to spell their name and retry with corrections.
 - If still not found after retry: lead into registration — "ok no worries, let me get you set up."`,
   parameters: z.object({
     firstName: z.string().describe("Patient's first name"),
@@ -176,17 +174,17 @@ After response:
 export const add_patient = llm.tool({
   description: `Creates a new patient record. Use only when verify_patient returns no match.
 
-Collect in clusters:
+Collect in clusters — keep it moving, don't read back individual fields:
 1. Insurance — run check_insurance first. Match what the caller says to an exact plan name from the accepted list (e.g., "Aetna Medicare PPO" → "Aetna Medicare Signature PPO"). If the carrier has multiple plans (e.g., Humana), ask which specific plan. Stop if not accepted. The insurance value you pass to this tool MUST be a plan name from the accepted list — do not pass vague names like "Medicare PPO."
-2. Name + DOB — already have from verify attempts. Confirm and skip.
-3. Contact — "cell number and email?"
+2. Name + DOB — already have from verify attempts. Skip, don't re-ask.
+3. Contact — "what's a good cell number?" then "and email?" Phone must be exactly 10 digits — if it's not, ask again.
 4. Address — "street address, city, state, zip?" Then: "apartment or suite?"
 5. Sex — "male or female?"
-6. Subscriber — "subscriber name and member ID from the card?" If "me" = use patient name.
+6. Insurance card — "whose name is on the insurance card?" then "and what's the member ID number?" If "me" or "mine" = use patient name.
 
-Subscriber ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
+Member ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
 
-Before submitting: read back name, DOB, insurance plan, and member ID. Wait for confirmation.
+Before submitting: read back name (spell last name letter by letter), DOB, insurance plan, and member ID in one pass. This is the only read-back — don't confirm individual fields during collection. Wait for confirmation.
 
 After response: if routing "not_accepted", tell them. If preauthRequired, scheduling starts two weeks out. Go straight to scheduling — don't check appointments for a new patient.
 
@@ -222,11 +220,11 @@ export const get_availability = llm.tool({
 
 Determine appointment type (you decide, not the caller):
 - New 18+ = 1006, new under 18 = 1004
-- Existing: ask "follow-up or post-op?" Follow-up 18+ = 1007, under 18 = 1005, Post-op = 1008
+- Existing: default to follow-up (18+ = 1007, under 18 = 1005). Only use post-op (1008) if the caller mentions recent surgery.
 
 Rules: no same-day (earliest = tomorrow). Under 18 = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
 
-After response: check if date shifted vs requested — tell caller if different. Suggest one best-fit slot (date + time). Don't mention doctor unless asked or clinically relevant. If rejected, offer one alternative. Scan existing results before calling again.`,
+After response: check if date shifted vs requested — tell caller if different. Suggest one best-fit slot (date + time). Don't mention doctor unless asked or clinically relevant. If rejected, offer one alternative. Scan existing results before calling again. If no slots are returned, tell the caller that date has no openings and offer the nearest available date — do not ask what time they want on a day with no availability. Never call this tool for the same date twice.`,
   parameters: z.object({
     date: z.string().describe("Start date to search, formatted YYYY-MM-DD"),
   }),

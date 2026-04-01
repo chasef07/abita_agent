@@ -1,5 +1,52 @@
 # Prompt Changelog
 
+## 2026-04-01 — Multi-call transcript review
+
+Reviewed 6 high-turn/long-duration calls. Found recurring issues with name spelling loops, availability search loops, echoing partial data mid-stream, and agent interrupting callers.
+
+### Changes
+
+**main.ts — Turn handling tuned**
+- Endpointing minDelay 500→1000ms, maxDelay 2000→3000ms to stop jumping in during natural pauses.
+- Interruption minWords 0→2 so backchanneling ("uh-huh", "ok") doesn't cut the agent off.
+- minDuration back to 500ms (default) since minWords now handles filtering.
+- Added LLM FallbackAdapter with GLM-5 as backup for GLM-4.7.
+
+**VOICE.md — Stop echoing data mid-stream**
+- Why: Agent was repeating digits, letters, and partial names back as callers gave them, causing confusion and frustrating loops (one caller said "shut up, let me finish").
+- What changed: One clear rule — don't echo anything mid-stream during data collection. All read-backs happen once at the end of registration.
+
+**RUNBOOK.md — Fix availability search loops**
+- Why: Agent asked "what time were you thinking?" 6 times for a date with zero availability, calling get_availability for the same date 5 times.
+- What changed: If no slots returned, tell the caller and offer the nearest available date. Never re-ask for a time on a day with no openings. Never query the same date twice.
+
+**RUNBOOK.md — Don't assume scheduling intent**
+- Why: Caller asked "do you see kids?" and agent immediately started collecting info to schedule before confirming that's what they wanted.
+- What changed: Removed "lean toward scheduling" bias. Let the caller state their reason.
+
+**RUNBOOK.md — Trust the STT for names**
+- Why: Agent got the spelling right on first pass but still entered a letter-by-letter echo loop that lasted 10+ turns.
+- What changed: Collect names without echoing or spelling back. Only spell back at end of registration. If verify_patient fails, then ask them to spell it.
+
+**tools.ts — verify_patient description updated**
+- Removed instruction to spell back last name before calling. Now: call with what you heard, API is source of truth.
+- HMO/PPO question moved under routingAmbiguous only — don't ask every verified patient about their plan type.
+
+**tools.ts — get_availability description updated**
+- Added: if no slots returned, tell caller and offer nearest date. Don't loop on the same date.
+- Default to follow-up appointment type for existing patients. Only use post-op if caller mentions recent surgery — don't ask "follow-up or post-op?"
+
+**tools.ts — add_patient description updated**
+- "subscriber name" → "whose name is on the insurance card?" (callers didn't understand the term)
+- Added 10-digit phone validation — ask again if not 10 digits.
+- Clarified: don't read back individual fields during collection. One read-back at the end with name, DOB, insurance, and member ID.
+
+**VOICE.md — removed conflicting goodbye rule**
+- "ask if there's anything else" conflicted with RUNBOOK's "don't ask is there anything else." Removed.
+
+**VOICE.md — fill silence during multi-search**
+- Added: give brief updates between back-to-back availability searches so caller knows you're still here.
+
 ## 2026-03-30 — Post-call review (Donald Brubaker, Eye Radiance)
 
 First real patient call. Reviewed full transcript against prompt and identified gaps.

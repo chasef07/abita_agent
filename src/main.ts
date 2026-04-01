@@ -80,7 +80,7 @@ export default defineAgent({
           resumeFalseInterruption: true,
         },
         endpointing: {
-          minDelay: 800,
+          minDelay: 1000,
           maxDelay: 3000,
         },
       },
