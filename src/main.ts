@@ -62,6 +62,11 @@ export default defineAgent({
         turnDetection: new livekit.turnDetector.MultilingualModel(),
         interruption: {
           mode: "adaptive",
+          minDuration: 750,
+          minWords: 0,
+          discardAudioIfUninterruptible: true,
+          falseInterruptionTimeout: 2000,
+          resumeFalseInterruption: true,
         },
         endpointing: {
           minDelay: 500,
