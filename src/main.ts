@@ -126,6 +126,16 @@ export default defineAgent({
     const logger = new CallLogger(session, { callId, callerPhone, officePhone: trunkPhone });
     session.userData.onToolCall = (record) => logger.recordToolCall(record);
 
+    // Close the session when the SIP caller hangs up (or transfer completes).
+    // Without this, rooms can linger indefinitely if the framework doesn't
+    // auto-detect the SIP participant leaving.
+    ctx.room.on("participantDisconnected", async (p) => {
+      if (p.identity === participant.identity) {
+        console.log(`[call] SIP participant ${p.identity} disconnected, closing session`);
+        await session.close();
+      }
+    });
+
     // Shutdown hook: flush analytics + delete room so idle rooms don't linger.
     ctx.addShutdownCallback(async () => {
       try {
@@ -133,20 +143,15 @@ export default defineAgent({
       } catch (err) {
         console.error("[shutdown] Failed to flush analytics:", err);
       }
-      // Skip room deletion after transfer — the SIP participant is still
-      // completing the REFER handoff; deleting the room would drop the call.
-      // LiveKit will clean up the room once the participant leaves naturally.
-      if (!session.userData?.transferred) {
-        try {
-          const roomSvc = new RoomServiceClient(
-            process.env.LIVEKIT_URL!,
-            process.env.LIVEKIT_API_KEY!,
-            process.env.LIVEKIT_API_SECRET!,
-          );
-          if (ctx.room.name) await roomSvc.deleteRoom(ctx.room.name);
-        } catch (err) {
-          console.error("[shutdown] Failed to delete room:", err);
-        }
+      try {
+        const roomSvc = new RoomServiceClient(
+          process.env.LIVEKIT_URL!,
+          process.env.LIVEKIT_API_KEY!,
+          process.env.LIVEKIT_API_SECRET!,
+        );
+        if (ctx.room.name) await roomSvc.deleteRoom(ctx.room.name);
+      } catch (err) {
+        console.error("[shutdown] Failed to delete room:", err);
       }
     });
 
