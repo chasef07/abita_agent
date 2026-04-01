@@ -8,6 +8,7 @@ import {
   cli,
   defineAgent,
   inference,
+  llm,
   voice,
 } from "@livekit/agents";
 import * as livekit from "@livekit/agents-plugin-livekit";
@@ -35,15 +36,25 @@ export default defineAgent({
     try {
     const vad = ctx.proc.userData.vad as silero.VAD;
 
-    const llm = new baseten.LLM({
+    const primaryLLM = new baseten.LLM({
       model: "zai-org/GLM-4.7",
       parallelToolCalls: false,
       temperature: 0.3,
     });
 
+    const fallbackLLM = new baseten.LLM({
+      model: "zai-org/GLM-5",
+      parallelToolCalls: false,
+      temperature: 0.3,
+    });
+
+    const llmWithFallback = new llm.FallbackAdapter({
+      llms: [primaryLLM, fallbackLLM],
+    });
+
     const session = new voice.AgentSession<CallState>({
       stt: new deepgram.STT({ model: "nova-3", language: "multi" }),
-      llm,
+      llm: llmWithFallback,
       tts: new elevenlabs.TTS({
         model: "eleven_flash_v2_5",
         voiceId: "7EzWGsX10sAS4c9m9cPf",
