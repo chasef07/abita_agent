@@ -330,7 +330,7 @@ Answer naturally from the returned info. Don't read back the entire document —
 // --- transfer_call ---
 export const transfer_call = llm.tool({
   description:
-    "Transfers the caller to a human at the office. BEFORE calling this tool, you MUST tell the caller you're transferring them and why — e.g. 'alright let me transfer you over to someone who can help with that, one moment.' Never call this tool silently. The call ends for the agent after transfer.",
+    "Transfers the caller to a human at the office. BEFORE calling this tool, you MUST fully finish telling the caller you're transferring them — e.g. 'one moment while I transfer you to someone at the office that can help.' Wait for your message to finish. Do NOT call this tool mid-sentence or while still speaking. The caller must hear the complete transfer message before the transfer begins. The call ends for the agent after transfer.",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     if (ctx.speechHandle) ctx.speechHandle.allowInterruptions = false;
