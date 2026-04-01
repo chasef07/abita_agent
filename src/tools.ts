@@ -334,6 +334,8 @@ export const transfer_call = llm.tool({
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     if (ctx.speechHandle) ctx.speechHandle.allowInterruptions = false;
+    // Wait for the transfer announcement to finish playing before initiating
+    await ctx.waitForPlayout();
     const state = getState(ctx);
     if (!state.sipRoomName || !state.sipParticipantIdentity) {
       return "Could not transfer — no active SIP session.";
