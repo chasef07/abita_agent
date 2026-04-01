@@ -70,7 +70,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
       lines.push(`No upcoming appointments on file.`);
     }
     lines.push(``);
-    lines.push(`Confirm their first name: "can I get your first name?" If they say "${firstName}" (or close), they are verified — skip verify_patient entirely and go straight to what they need. If they give a different name (child, spouse), run verify_patient for that person.`);
+    lines.push(`Do NOT use or say the patient's name before they say it. Ask: "can I get your first name?" If they say "${firstName}" (or close), they are verified — skip verify_patient entirely and go straight to what they need. If they give a different name (child, spouse), run verify_patient for that person.`);
     return lines.join("\n");
   }
 

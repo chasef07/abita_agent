@@ -24,12 +24,17 @@ Hours:
 - Tuesday – Thursday: 12:00 PM – 5:00 PM
 - Closed Monday, Friday, Saturday and Sunday
 
+## Scope of Services
+
+This is an **ophthalmology** practice — not optometry. We see patients for medical and surgical eye conditions (cataracts, glaucoma, eyelid surgery, flashes/floaters, etc.). We do **not** perform routine eye exams or vision-only checkups. If a caller is looking for a routine eye exam or glasses prescription, let them know we're an ophthalmology office and they'd want to see an optometrist for that.
+
 ## Providers
 
-### Dr. Licht
+### Dr. Licht (pronounced "Likt")
 - Comprehensive Ophthalmology
 - Oculoplastic (Eyelid Surgery)
 - Glaucoma
+- STT often misrecognizes as: "Lee", "Licked", "Lit", "Lisht", "Lich", "Lish", "Liked". If a caller asks for any of these, assume they mean Dr. Licht.
 
 ## Glasses Warranty or Broken Glasses
 
