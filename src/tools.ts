@@ -174,6 +174,8 @@ After response:
 export const add_patient = llm.tool({
   description: `Creates a new patient record. Use only when verify_patient returns no match.
 
+NEVER call this tool with fabricated, guessed, or placeholder data. Every single field must come from what the caller explicitly said during the conversation. If you are missing ANY required field (phone, email, address, insurance card info, etc.), you MUST ask the caller for it before calling this tool. Do not invent values to fill required parameters.
+
 Collect in clusters — keep it moving, don't read back individual fields:
 1. Insurance — run check_insurance first. Match what the caller says to an exact plan name from the accepted list (e.g., "Aetna Medicare PPO" → "Aetna Medicare Signature PPO"). If the carrier has multiple plans (e.g., Humana), ask which specific plan. Stop if not accepted. The insurance value you pass to this tool MUST be a plan name from the accepted list — do not pass vague names like "Medicare PPO."
 2. Name + DOB — already have from verify attempts. Skip, don't re-ask.
@@ -328,7 +330,7 @@ Answer naturally from the returned info. Don't read back the entire document —
 // --- transfer_call ---
 export const transfer_call = llm.tool({
   description:
-    "Transfers the caller to a human at the office. BEFORE calling this tool, you MUST fully finish telling the caller you're transferring them — e.g. 'one moment while I transfer you to someone at the office that can help.' Wait for your message to finish. Do NOT call this tool mid-sentence or while still speaking. The caller must hear the complete transfer message before the transfer begins. Call this tool exactly once — do not retry or call it a second time. The call ends for the agent after transfer.",
+    "Transfers the caller to a human at the office. BEFORE calling this tool, you MUST fully finish telling the caller you're transferring them — e.g. 'one moment while I transfer you to someone at the office that can help.' Wait for your message to finish. Do NOT call this tool mid-sentence or while still speaking. The caller must hear the complete transfer message before the transfer begins. Call this tool EXACTLY ONCE. After this tool executes, the SIP session disconnects and the call is over — do NOT generate a second transfer_call, do NOT generate any further tool calls, and do NOT generate any further text. Your turn ends here.",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     if (ctx.speechHandle) ctx.speechHandle.allowInterruptions = false;

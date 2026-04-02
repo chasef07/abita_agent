@@ -1,5 +1,28 @@
 # Prompt Changelog
 
+## 2026-04-02 — Autonomous optimization run (20 transcripts)
+
+Evaluated 20 recent transcripts from the call database. Found 3 critical behavioral issues.
+
+### Changes
+
+**RUNBOOK.md — Block fabricated registration data**
+- Why: In SCL_VFDwKT4Gj8Lp, agent called add_patient with fabricated data — fake email (example.com), fake address (123 Main St), fake member ID (ABC123456). Agent skipped the entire collection phase and hallucinated values to fill required parameters.
+- What changed: Added explicit rule under Path 2 — every field must be collected from the caller before calling add_patient. No guessing, no placeholders.
+
+**RUNBOOK.md — Strengthen transfer-on-insistence**
+- Why: In SCL_NLZya5NUF5TG, caller said "Live representative" and "Agent" twice but agent continued registration instead of transferring. Existing rule said "insist after one ask" but agent pushed through twice.
+- What changed: Made the trigger words explicit ("representative", "agent", "human", "real person") and clarified that a second request = immediate transfer, no exceptions. "One attempt to help is the maximum."
+
+**tools.ts — transfer_call: stop double-calling**
+- Why: 46 out of 195 calls have transfer_call called 2+ times. 3 calls had it called 4 times. The SIP session disconnects after the first call, so subsequent calls are wasted.
+- What changed: Added explicit language that after transfer_call executes, the SIP session disconnects — no further tool calls, no further text. Stronger than previous "do not retry" wording.
+- Note: A code-level guard in the execute function (checking state.transferred before executing) would be more reliable. Prompt-level fix may not fully resolve this.
+
+**tools.ts — add_patient: anti-hallucination guard**
+- Why: Same fabricated data issue as RUNBOOK change above. The tool description didn't explicitly say "don't make up data."
+- What changed: Added "NEVER call this tool with fabricated, guessed, or placeholder data" at the top of the description.
+
 ## 2026-04-01 — Multi-call transcript review
 
 Reviewed 6 high-turn/long-duration calls. Found recurring issues with name spelling loops, availability search loops, echoing partial data mid-stream, and agent interrupting callers.
