@@ -1,0 +1,39 @@
+{
+  "runs": [
+    {
+      "id": "20260402-2100",
+      "date": "2026-04-02",
+      "transcriptsEvaluated": 20,
+      "issuesFound": 3,
+      "changesProposed": 4,
+      "changesKept": 4,
+      "changesDiscarded": 0,
+      "testIterations": 2,
+      "promptLength": {
+        "soul": 3024,
+        "voice": 3293,
+        "runbook": 7923,
+        "toolDescriptions": 1872,
+        "total": 16112
+      },
+      "metrics": {
+        "resolutionRate": { "faq": 100, "new_patient": 69, "existing_patient": 100, "overall": 92 },
+        "transferRate": 55,
+        "doubleTransfers": 47,
+        "avgTurns": { "faq": 0, "new_patient": 0, "existing_patient": 0 },
+        "avgDuration": { "faq": 0, "new_patient": 0, "existing_patient": 0 }
+      },
+      "changes": [
+        { "type": "add", "file": "RUNBOOK", "desc": "anti-hallucination guard for registration" },
+        { "type": "add", "file": "RUNBOOK", "desc": "transfer-on-insistence elevated to top-level rule" },
+        { "type": "add", "file": "RUNBOOK", "desc": "explicit registration collection order" },
+        { "type": "reword", "file": "tools.ts", "desc": "transfer_call stop-after-execute language" },
+        { "type": "add", "file": "tools.ts", "desc": "add_patient anti-fabrication guard" }
+      ],
+      "latency": {
+        "ttft": { "p50": 0, "p90": 0, "p99": 0 },
+        "tts": { "p50": 0, "p90": 0, "p99": 0 }
+      }
+    }
+  ]
+}
