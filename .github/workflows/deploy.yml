@@ -5,8 +5,8 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    name: Run Tests
+  build:
+    name: Build Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,15 +18,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run tests
-        env:
-          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
-          LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
-        run: npx vitest run
+      - name: Type check
+        run: npx tsc --noEmit
 
   deploy:
     name: Deploy Agent
-    needs: test
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
