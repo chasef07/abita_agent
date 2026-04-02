@@ -254,6 +254,146 @@ async function main() {
     pathAnalysis[call.type][path] = (pathAnalysis[call.type][path] ?? 0) + 1;
   }
 
+  // --- Transfer Reason Analysis ---
+  // For each transferred call, get the caller's first substantive message
+  // and the agent's transfer announcement to categorize WHY they transferred.
+  console.log("Analyzing transfer reasons...");
+
+  const transferReasonRows = await query(`
+    SELECT ce."callId",
+      (SELECT c2->>'callerText' FROM jsonb_array_elements(data->'turns') c2
+       WHERE c2->>'callerText' IS NOT NULL AND c2->>'callerText' != ''
+       ORDER BY (c2->>'turn')::int LIMIT 1) as first_caller_msg,
+      (SELECT c3->>'agentText' FROM jsonb_array_elements(data->'turns') c3,
+              jsonb_array_elements(c3->'toolCalls') tc
+       WHERE tc->>'name' = 'transfer_call'
+       ORDER BY (c3->>'turn')::int LIMIT 1) as transfer_msg,
+      (SELECT string_agg(DISTINCT t->>'name', ',')
+       FROM jsonb_array_elements(data->'turns') turn,
+            jsonb_array_elements(turn->'toolCalls') t
+       WHERE t->>'name' != 'transfer_call') as other_tools
+    FROM "CallEvent" ce
+    WHERE EXISTS (
+      SELECT 1 FROM jsonb_array_elements(data->'turns') c,
+                    jsonb_array_elements(c->'toolCalls') t
+      WHERE t->>'name' = 'transfer_call'
+    )
+    AND "totalTurns" > 1
+    ORDER BY ce."startedAt" DESC
+  `);
+
+  // Categorize transfer reasons by keywords
+  interface TransferReason {
+    category: string;
+    count: number;
+    examples: string[];
+    couldAutomate: boolean;
+    suggestion: string;
+  }
+
+  const TRANSFER_CATEGORIES: Array<{
+    category: string;
+    patterns: RegExp[];
+    couldAutomate: boolean;
+    suggestion: string;
+  }> = [
+    {
+      category: "Medical Records",
+      patterns: [/record/i, /chart/i, /notes?\b/i, /documentation/i],
+      couldAutomate: false,
+      suggestion: "Requires HIPAA-compliant document handling. Keep as transfer.",
+    },
+    {
+      category: "Prescriptions / Medications",
+      patterns: [/prescription/i, /refill/i, /medication/i, /rx\b/i, /medicine/i],
+      couldAutomate: false,
+      suggestion: "Clinical scope. Keep as transfer.",
+    },
+    {
+      category: "Clinical / Symptoms",
+      patterns: [/symptom/i, /pain/i, /vision/i, /see.*doctor/i, /emergency/i, /urgent/i, /surgery/i, /post.?op/i],
+      couldAutomate: false,
+      suggestion: "Clinical triage. Keep as transfer.",
+    },
+    {
+      category: "Authorization / Referral",
+      patterns: [/authori[sz]/i, /referral/i, /pre.?auth/i, /cpt/i, /units/i],
+      couldAutomate: false,
+      suggestion: "Insurance/clinical coordination. Keep as transfer.",
+    },
+    {
+      category: "Glasses / Optical",
+      patterns: [/glass/i, /optical/i, /frame/i, /lens/i, /contact.*lens/i, /eyewear/i],
+      couldAutomate: true,
+      suggestion: "Could add glasses order status lookup tool. High volume opportunity.",
+    },
+    {
+      category: "Billing / Payment",
+      patterns: [/bill/i, /payment/i, /charge/i, /balance/i, /copay/i, /invoice/i],
+      couldAutomate: true,
+      suggestion: "Could add billing lookup tool to check balance and payment status.",
+    },
+    {
+      category: "Caller Insists on Human",
+      patterns: [/representative/i, /real person/i, /human/i, /speak.*someone/i, /agent/i, /transfer/i],
+      couldAutomate: false,
+      suggestion: "Respect caller preference. Optimize first-offer messaging to reduce.",
+    },
+    {
+      category: "Returning a Call",
+      patterns: [/call.*back/i, /return.*call/i, /told.*call/i, /message/i, /someone called/i, /call me/i],
+      couldAutomate: true,
+      suggestion: "Could add voicemail/callback queue lookup to identify who called and why.",
+    },
+    {
+      category: "Specific Person Requested",
+      patterns: [/speak.*with/i, /talk.*to/i, /debbie/i, /is\s+\w+\s+there/i, /ask.*for/i],
+      couldAutomate: false,
+      suggestion: "Named person request. Keep as transfer.",
+    },
+  ];
+
+  const transferReasons: Record<string, TransferReason> = {};
+  let uncategorized = 0;
+  const uncategorizedExamples: string[] = [];
+
+  for (const row of transferReasonRows) {
+    const callerMsg = (row[1] || "").toLowerCase();
+    const transferMsg = (row[2] || "").toLowerCase();
+    const combined = `${callerMsg} ${transferMsg}`;
+
+    let matched = false;
+    for (const cat of TRANSFER_CATEGORIES) {
+      if (cat.patterns.some((p) => p.test(combined))) {
+        if (!transferReasons[cat.category]) {
+          transferReasons[cat.category] = {
+            category: cat.category,
+            count: 0,
+            examples: [],
+            couldAutomate: cat.couldAutomate,
+            suggestion: cat.suggestion,
+          };
+        }
+        transferReasons[cat.category].count++;
+        if (transferReasons[cat.category].examples.length < 3) {
+          transferReasons[cat.category].examples.push(row[1] || "(no caller text)");
+        }
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      uncategorized++;
+      if (uncategorizedExamples.length < 5) {
+        uncategorizedExamples.push(row[1] || "(no caller text)");
+      }
+    }
+  }
+
+  const sortedReasons = Object.values(transferReasons).sort((a, b) => b.count - a.count);
+  const automatable = sortedReasons.filter((r) => r.couldAutomate);
+  const automatableCount = automatable.reduce((a, r) => a + r.count, 0);
+
   // --- Generate HTML ---
 
   const typeLabels = { faq: "FAQ", new_patient: "New Patient", existing_patient: "Existing Patient", transfer: "Transfer", hangup: "Hangup" };
@@ -374,6 +514,67 @@ async function main() {
     </table>
   </div>
 
+  <!-- Transfer Reason Breakdown -->
+  <div class="grid">
+    <div class="card">
+      <h3>Transfer Reasons (${transferReasonRows.length} transfers analyzed)</h3>
+      <div class="chart-container"><canvas id="transferReasonChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Future Opportunities — Could Automate ${automatableCount} transfers (${Math.round(automatableCount / Math.max(transferReasonRows.length, 1) * 100)}%)</h3>
+      <table>
+        <thead><tr><th>Category</th><th>Count</th><th>Suggestion</th></tr></thead>
+        <tbody>
+          ${automatable.map((r) => `<tr>
+            <td>${r.category}</td>
+            <td><strong>${r.count}</strong></td>
+            <td>${r.suggestion}</td>
+          </tr>`).join("\n")}
+          ${automatable.length === 0 ? '<tr><td colspan="3" style="color:#666">No automatable transfer categories found</td></tr>' : ''}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Full Transfer Reason Table -->
+  <div class="card" style="margin-bottom: 2rem;">
+    <h3>All Transfer Reasons</h3>
+    <table>
+      <thead><tr><th>Reason</th><th>Count</th><th>% of Transfers</th><th>Automatable?</th><th>Example Caller Message</th></tr></thead>
+      <tbody>
+        ${sortedReasons.map((r) => `<tr>
+          <td>${r.category}</td>
+          <td>${r.count}</td>
+          <td>${Math.round(r.count / Math.max(transferReasonRows.length, 1) * 100)}%</td>
+          <td>${r.couldAutomate ? '<span class="tag tag-warn">Opportunity</span>' : '<span class="tag tag-good">Keep Transfer</span>'}</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">${r.examples[0] ?? ''}</td>
+        </tr>`).join("\n")}
+        ${uncategorized > 0 ? `<tr>
+          <td>Uncategorized</td>
+          <td>${uncategorized}</td>
+          <td>${Math.round(uncategorized / Math.max(transferReasonRows.length, 1) * 100)}%</td>
+          <td><span class="tag tag-bad">Review</span></td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">${uncategorizedExamples[0] ?? ''}</td>
+        </tr>` : ''}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Prompt Change History -->
+  <div class="card" style="margin-bottom: 2rem;">
+    <h3>Optimization Run History</h3>
+    <p style="color:#888;font-size:0.85rem;margin-bottom:0.75rem">Track prompt changes and their impact over time. See workspace/CHANGELOG.md for full details.</p>
+    <table>
+      <thead><tr><th>Metric</th><th>Current</th><th>Target</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Transfer Rate</td><td>${transferRate}%</td><td>&lt;30%</td><td>${transferRate <= 30 ? '<span class="tag tag-good">On Target</span>' : transferRate <= 45 ? '<span class="tag tag-warn">Improving</span>' : '<span class="tag tag-bad">Needs Work</span>'}</td></tr>
+        <tr><td>New Patient Resolution</td><td>${resolutionRates['new_patient']?.rate ?? 0}%</td><td>&gt;95%</td><td>${(resolutionRates['new_patient']?.rate ?? 0) >= 95 ? '<span class="tag tag-good">On Target</span>' : (resolutionRates['new_patient']?.rate ?? 0) >= 80 ? '<span class="tag tag-warn">Improving</span>' : '<span class="tag tag-bad">Needs Work</span>'}</td></tr>
+        <tr><td>Double Transfers</td><td>${doubleTransfers.length}</td><td>0</td><td>${doubleTransfers.length === 0 ? '<span class="tag tag-good">Fixed</span>' : '<span class="tag tag-bad">${doubleTransfers.length} remaining</span>'}</td></tr>
+        <tr><td>FAQ Resolution</td><td>${resolutionRates['faq']?.rate ?? 0}%</td><td>100%</td><td>${(resolutionRates['faq']?.rate ?? 0) >= 100 ? '<span class="tag tag-good">On Target</span>' : '<span class="tag tag-warn">Needs Work</span>'}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
   <!-- Per-Type Metrics Table -->
   <div class="card" style="margin-bottom: 2rem;">
     <h3>Per-Type Metrics</h3>
@@ -455,6 +656,20 @@ async function main() {
       options: { ...chartDefaults, indexAxis: 'y' }
     });
 
+    // Transfer reasons
+    new Chart(document.getElementById('transferReasonChart'), {
+      type: 'bar',
+      data: {
+        labels: ${JSON.stringify(sortedReasons.map((r) => r.category))},
+        datasets: [{
+          label: 'Transfers',
+          data: ${JSON.stringify(sortedReasons.map((r) => r.count))},
+          backgroundColor: ${JSON.stringify(sortedReasons.map((r) => r.couldAutomate ? "#FF9800" : "#F44336"))}
+        }]
+      },
+      options: { ...chartDefaults, indexAxis: 'y', plugins: { legend: { display: false } } }
+    });
+
     // Daily volume
     new Chart(document.getElementById('dailyChart'), {
       type: 'line',
@@ -483,6 +698,20 @@ async function main() {
   console.log(`Double transfers: ${doubleTransfers.length} calls`);
   for (const [type, data] of Object.entries(resolutionRates)) {
     console.log(`  ${type}: ${data.rate}% resolved (${data.resolved}/${data.total})`);
+  }
+
+  console.log("\n=== Transfer Reasons ===");
+  for (const r of sortedReasons) {
+    console.log(`  ${r.category}: ${r.count} (${r.couldAutomate ? "COULD AUTOMATE" : "keep transfer"})`);
+  }
+  if (uncategorized > 0) console.log(`  Uncategorized: ${uncategorized}`);
+
+  if (automatable.length > 0) {
+    console.log(`\n=== Future Opportunities ===`);
+    console.log(`${automatableCount} transfers (${Math.round(automatableCount / Math.max(transferReasonRows.length, 1) * 100)}% of all transfers) could potentially be automated:`);
+    for (const r of automatable) {
+      console.log(`  ${r.category} (${r.count}): ${r.suggestion}`);
+    }
   }
 }
 
