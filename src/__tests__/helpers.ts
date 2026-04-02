@@ -1,0 +1,125 @@
+/**
+ * Test helpers for transcript replay testing.
+ * Creates agents with mock tools and loads conversation history from DB transcripts.
+ */
+
+import { inference, llm, voice } from "@livekit/agents";
+import { buildPrompt } from "../prompt.js";
+import type { PhoneLookupResult } from "../tools.js";
+import { createMockTools, type MockConfig } from "./mock-tools.js";
+
+export interface TestContext {
+  session: voice.AgentSession;
+  agent: voice.Agent;
+  llm: inference.LLM;
+  callLog: Array<{ name: string; args: Record<string, unknown> }>;
+  cleanup: () => Promise<void>;
+}
+
+/**
+ * Create a test agent with the current prompts and mock tools.
+ * Uses a real LLM (via LiveKit Inference) so we test actual prompt behavior.
+ */
+export async function createTestAgent(opts: {
+  phoneLookup?: PhoneLookupResult;
+  trunkPhone?: string;
+  mockConfig?: MockConfig;
+  /** LLM model to use for testing. Default: openai/gpt-4.1-mini (fast + cheap). */
+  model?: string;
+}): Promise<TestContext> {
+  const { tools, callLog } = createMockTools(opts.mockConfig);
+
+  const llmInstance = new inference.LLM({
+    model: opts.model ?? "openai/gpt-4.1-mini",
+  });
+
+  const agent = new voice.Agent({
+    instructions: buildPrompt(opts.phoneLookup),
+    tools,
+  });
+
+  const session = new voice.AgentSession({ llm: llmInstance });
+  await session.start({ agent });
+
+  return {
+    session,
+    agent,
+    llm: llmInstance,
+    callLog,
+    cleanup: async () => {
+      await session?.close();
+      await llmInstance?.aclose();
+    },
+  };
+}
+
+/**
+ * Load conversation history from a transcript's turns into the agent's ChatContext.
+ * Replays turns up to (but not including) `stopBeforeTurn` so we can test what
+ * the agent does at that turn.
+ */
+export async function loadTranscriptHistory(
+  agent: voice.Agent,
+  turns: TranscriptTurn[],
+  stopBeforeTurn: number,
+): Promise<void> {
+  const chatCtx = new llm.ChatContext();
+
+  for (const turn of turns) {
+    if (turn.turn >= stopBeforeTurn) break;
+
+    // Add user message
+    if (turn.callerText) {
+      chatCtx.addMessage({ role: "user", content: turn.callerText });
+    }
+
+    // Add tool calls and outputs
+    for (const tc of turn.toolCalls) {
+      // Add as assistant function call + output in history
+      chatCtx.addMessage({
+        role: "assistant",
+        content: `[Called ${tc.name} with args: ${tc.args}]`,
+      });
+      chatCtx.addMessage({
+        role: "user",
+        content: `[Tool result: ${tc.result}]`,
+      });
+    }
+
+    // Add agent message
+    if (turn.agentText) {
+      chatCtx.addMessage({ role: "assistant", content: turn.agentText });
+    }
+  }
+
+  await agent.updateChatCtx(chatCtx);
+}
+
+export interface TranscriptTurn {
+  turn: number;
+  callerText: string | null;
+  agentText: string | null;
+  toolCalls: Array<{
+    name: string;
+    args: string;
+    result: string;
+    isError: boolean;
+  }>;
+}
+
+/**
+ * Parse turns from a DB query result (JSONB data->'turns' array).
+ */
+export function parseTurns(turnsJson: unknown[]): TranscriptTurn[] {
+  return (turnsJson as any[]).map((t) => ({
+    turn: t.turn,
+    callerText: t.callerText ?? null,
+    agentText: t.agentText ?? null,
+    toolCalls: (t.toolCalls ?? []).map((tc: any) => ({
+      name: tc.name,
+      args: tc.args,
+      result: tc.result,
+      isError: tc.isError ?? false,
+    })),
+  }));
+}

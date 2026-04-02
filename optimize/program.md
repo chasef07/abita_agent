@@ -90,16 +90,47 @@ Read `workspace/CHANGELOG.md` before proposing. Check if this issue was already 
 - If the root cause is the LLM ignoring clear instructions, adding MORE text won't help — note it and move on
 - Prefer removing or simplifying rules over adding new ones when possible
 
-## Step 4: Validate Changes
+## Step 4: Validate Changes with Tests
 
-For each proposed change, read the scenario files and mentally walk through:
+After applying changes, run the test suite to verify they actually work:
 
-1. Does this fix address the specific issue from the transcript?
-2. Walk through each scenario in `optimize/scenarios/` — would the agent still behave correctly?
-3. Does the change conflict with any rule in the other workspace files?
-4. Does it make the prompt longer than necessary?
+```bash
+npx vitest run src/__tests__/replay.test.ts
+```
 
-If a change might cause regressions, narrow it or add a qualifying condition. If you can't make it safe, drop it.
+The test suite replays real transcript scenarios through the agent with mock tools and a real LLM. If tests fail, iterate:
+
+1. Read the test output — what did the agent actually do vs. what was expected?
+2. Adjust the prompt change to address the failure
+3. Re-run the tests
+4. Repeat until all tests pass
+
+**Adding new tests for new issues:** If you find an issue that isn't covered by existing tests, add a new test to `src/__tests__/replay.test.ts`:
+- Load the conversation history up to the problematic turn
+- Run `session.run()` with the user input that triggered the issue
+- Assert on the agent's response (tool calls, message content, or LLM judge)
+
+The loop is: **find issue → propose fix → run tests → iterate → PR only when all tests pass.**
+
+Also validate manually:
+1. Does the change conflict with any rule in the other workspace files?
+2. Walk through each scenario in `optimize/scenarios/`
+3. Does it make the prompt longer than necessary?
+
+## Step 4b: Run Analytics Baseline
+
+Before creating the PR, generate the analytics report to capture the current baseline:
+
+```bash
+npx tsx --env-file=.env.local optimize/analyze.ts
+```
+
+This generates `optimize/report.html` with charts showing:
+- Call type distribution, resolution rates, avg turns vs ideal
+- Transfer rate, tool usage frequency, path analysis
+- Daily call volume trends
+
+Include the key metrics in the PR body so the reviewer can compare before/after on the next run.
 
 ## Step 5: Apply and PR
 
