@@ -333,10 +333,14 @@ export const transfer_call = llm.tool({
     "Transfers the caller to a human at the office. BEFORE calling this tool, you MUST fully finish telling the caller you're transferring them — e.g. 'one moment while I transfer you to someone at the office that can help.' Wait for your message to finish. Do NOT call this tool mid-sentence or while still speaking. The caller must hear the complete transfer message before the transfer begins. Call this tool EXACTLY ONCE. After this tool executes, the SIP session disconnects and the call is over — do NOT generate a second transfer_call, do NOT generate any further tool calls, and do NOT generate any further text. Your turn ends here.",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
+    const state = getState(ctx);
+    // Guard: prevent duplicate transfers (LLM sometimes calls this twice)
+    if (state.transferred) {
+      return "Already transferred. No action needed.";
+    }
     if (ctx.speechHandle) ctx.speechHandle.allowInterruptions = false;
     // Wait for the transfer announcement to finish playing before initiating
     await ctx.waitForPlayout();
-    const state = getState(ctx);
     if (!state.sipRoomName || !state.sipParticipantIdentity) {
       return "Could not transfer — no active SIP session.";
     }
