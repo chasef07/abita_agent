@@ -254,6 +254,43 @@ async function main() {
     pathAnalysis[call.type][path] = (pathAnalysis[call.type][path] ?? 0) + 1;
   }
 
+  // --- Week-over-week trends ---
+  console.log("Computing weekly trends...");
+
+  const weeklyRows = await query(`
+    SELECT
+      date_trunc('week', "startedAt")::date::text as week,
+      count(*) FILTER (WHERE "totalTurns" > 1 AND "durationSec" > 5) as substantive,
+      round(avg("totalTurns") FILTER (WHERE "totalTurns" > 1 AND "durationSec" > 5)) as avg_turns,
+      round(avg("durationSec") FILTER (WHERE "totalTurns" > 1 AND "durationSec" > 5)) as avg_duration
+    FROM "CallEvent"
+    GROUP BY 1
+    ORDER BY 1
+  `);
+
+  // Weekly transfer rate
+  const weeklyTransferRows = await query(`
+    SELECT
+      date_trunc('week', ce."startedAt")::date::text as week,
+      count(*) as total,
+      count(*) FILTER (WHERE EXISTS (
+        SELECT 1 FROM jsonb_array_elements(data->'turns') c,
+                      jsonb_array_elements(c->'toolCalls') t
+        WHERE t->>'name' = 'transfer_call'
+      )) as transfers
+    FROM "CallEvent" ce
+    WHERE "totalTurns" > 1 AND "durationSec" > 5
+    GROUP BY 1
+    ORDER BY 1
+  `);
+
+  // --- Load optimization run metrics ---
+  let runMetrics: any = { runs: [] };
+  try {
+    const metricsContent = (await import("fs")).readFileSync(join(import.meta.dirname, "metrics.json"), "utf-8");
+    runMetrics = JSON.parse(metricsContent);
+  } catch { /* first run, no metrics yet */ }
+
   // --- Transfer Reason Analysis ---
   // For each transferred call, get the caller's first substantive message
   // and the agent's transfer announcement to categorize WHY they transferred.
@@ -514,6 +551,52 @@ async function main() {
     </table>
   </div>
 
+  <!-- Week-over-Week Trends -->
+  <div class="grid">
+    <div class="card">
+      <h3>Weekly Transfer Rate Trend</h3>
+      <div class="chart-container"><canvas id="weeklyTransferChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Weekly Avg Turns & Duration</h3>
+      <div class="chart-container"><canvas id="weeklyTurnsChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Optimization Run History (Karpathy-style) -->
+  ${runMetrics.runs.length > 0 ? `
+  <div class="grid">
+    <div class="card">
+      <h3>Prompt Length Over Runs</h3>
+      <div class="chart-container"><canvas id="promptLengthChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Optimization Runs — Changes Proposed vs Kept</h3>
+      <div class="chart-container"><canvas id="runsChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: 2rem;">
+    <h3>Optimization Run Log</h3>
+    <table>
+      <thead><tr><th>Run</th><th>Date</th><th>Transcripts</th><th>Issues</th><th>Changes</th><th>Test Iterations</th><th>Prompt Size</th><th>Transfer Rate</th><th>New Patient Res.</th></tr></thead>
+      <tbody>
+        ${runMetrics.runs.map((r: any) => `<tr>
+          <td>${r.id}</td>
+          <td>${r.date}</td>
+          <td>${r.transcriptsEvaluated}</td>
+          <td>${r.issuesFound}</td>
+          <td>${r.changesKept}/${r.changesProposed}</td>
+          <td>${r.testIterations}</td>
+          <td>${(r.promptLength?.total / 1000).toFixed(1)}k chars</td>
+          <td>${r.metrics?.transferRate ?? '—'}%</td>
+          <td>${r.metrics?.resolutionRate?.new_patient ?? '—'}%</td>
+        </tr>`).join("\n")}
+      </tbody>
+    </table>
+  </div>
+  ` : '<!-- No optimization runs yet -->'}
+
   <!-- Transfer Reason Breakdown -->
   <div class="grid">
     <div class="card">
@@ -655,6 +738,96 @@ async function main() {
       },
       options: { ...chartDefaults, indexAxis: 'y' }
     });
+
+    // Weekly transfer rate trend
+    new Chart(document.getElementById('weeklyTransferChart'), {
+      type: 'line',
+      data: {
+        labels: ${JSON.stringify(weeklyTransferRows.map((r) => r[0]))},
+        datasets: [
+          {
+            label: 'Transfer Rate %',
+            data: ${JSON.stringify(weeklyTransferRows.map((r) => Math.round((parseInt(r[2]) / Math.max(parseInt(r[1]), 1)) * 100)))},
+            borderColor: '#F44336',
+            backgroundColor: 'rgba(244,67,54,0.1)',
+            fill: true,
+            tension: 0.3
+          },
+          {
+            label: 'Calls',
+            data: ${JSON.stringify(weeklyTransferRows.map((r) => parseInt(r[1])))},
+            borderColor: '#2196F3',
+            borderDash: [5, 5],
+            tension: 0.3,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        ...chartDefaults,
+        scales: {
+          ...chartDefaults.scales,
+          y: { ...chartDefaults.scales.y, title: { display: true, text: 'Transfer %', color: '#888' } },
+          y1: { position: 'right', ticks: { color: '#888' }, grid: { display: false }, title: { display: true, text: 'Call Count', color: '#888' } }
+        }
+      }
+    });
+
+    // Weekly avg turns & duration
+    new Chart(document.getElementById('weeklyTurnsChart'), {
+      type: 'line',
+      data: {
+        labels: ${JSON.stringify(weeklyRows.map((r) => r[0]))},
+        datasets: [
+          { label: 'Avg Turns', data: ${JSON.stringify(weeklyRows.map((r) => parseInt(r[2] || "0")))}, borderColor: '#FF9800', tension: 0.3 },
+          { label: 'Avg Duration (s)', data: ${JSON.stringify(weeklyRows.map((r) => parseInt(r[3] || "0")))}, borderColor: '#4CAF50', tension: 0.3, yAxisID: 'y1' }
+        ]
+      },
+      options: {
+        ...chartDefaults,
+        scales: {
+          ...chartDefaults.scales,
+          y: { ...chartDefaults.scales.y, title: { display: true, text: 'Turns', color: '#888' } },
+          y1: { position: 'right', ticks: { color: '#888' }, grid: { display: false }, title: { display: true, text: 'Duration (s)', color: '#888' } }
+        }
+      }
+    });
+
+    // Prompt length over runs (Karpathy-style)
+    ${runMetrics.runs.length > 0 ? `
+    new Chart(document.getElementById('promptLengthChart'), {
+      type: 'line',
+      data: {
+        labels: ${JSON.stringify(runMetrics.runs.map((r: any) => r.id))},
+        datasets: [
+          { label: 'Total Prompt (chars)', data: ${JSON.stringify(runMetrics.runs.map((r: any) => r.promptLength?.total ?? 0))}, borderColor: '#90CAF9', tension: 0.3, fill: true, backgroundColor: 'rgba(144,202,249,0.1)' },
+          { label: 'RUNBOOK', data: ${JSON.stringify(runMetrics.runs.map((r: any) => r.promptLength?.runbook ?? 0))}, borderColor: '#FF9800', tension: 0.3, borderDash: [5,5] },
+          { label: 'Transfer Rate %', data: ${JSON.stringify(runMetrics.runs.map((r: any) => r.metrics?.transferRate ?? 0))}, borderColor: '#F44336', tension: 0.3, yAxisID: 'y1' }
+        ]
+      },
+      options: {
+        ...chartDefaults,
+        scales: {
+          ...chartDefaults.scales,
+          y: { ...chartDefaults.scales.y, title: { display: true, text: 'Chars', color: '#888' } },
+          y1: { position: 'right', ticks: { color: '#888' }, grid: { display: false }, title: { display: true, text: 'Transfer %', color: '#888' }, max: 100 }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('runsChart'), {
+      type: 'bar',
+      data: {
+        labels: ${JSON.stringify(runMetrics.runs.map((r: any) => r.id))},
+        datasets: [
+          { label: 'Proposed', data: ${JSON.stringify(runMetrics.runs.map((r: any) => r.changesProposed))}, backgroundColor: '#2196F3' },
+          { label: 'Kept', data: ${JSON.stringify(runMetrics.runs.map((r: any) => r.changesKept))}, backgroundColor: '#4CAF50' },
+          { label: 'Discarded', data: ${JSON.stringify(runMetrics.runs.map((r: any) => r.changesDiscarded))}, backgroundColor: '#F44336' }
+        ]
+      },
+      options: chartDefaults
+    });
+    ` : ''}
 
     // Transfer reasons
     new Chart(document.getElementById('transferReasonChart'), {

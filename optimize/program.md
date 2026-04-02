@@ -148,7 +148,17 @@ Add a new entry at the top of `workspace/CHANGELOG.md` following the existing fo
 - What transcripts were reviewed (callIds, not patient data)
 - Each change with: what file, what changed, why
 
-### 5d: Write the run history
+### 5d: Update metrics.json
+
+Append a new entry to `optimize/metrics.json` with this run's data:
+- Measure prompt lengths: `wc -c workspace/SOUL.md workspace/VOICE.md workspace/RUNBOOK.md`
+- Count tool description chars in `src/tools.ts`
+- Record: transcripts evaluated, issues found, changes proposed/kept/discarded, test iterations
+- Record current metrics from the analytics run (resolution rates, transfer rate, avg turns)
+
+This file powers the Karpathy-style charts showing performance over optimization runs.
+
+### 5e: Write the run history
 Create `optimize/history/{YYYYMMDD-HHMM}.md` with:
 
 ```markdown
