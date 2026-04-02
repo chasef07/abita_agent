@@ -81,8 +81,8 @@ export default defineAgent({
           resumeFalseInterruption: true,
         },
         endpointing: {
-          minDelay: 1000,
-          maxDelay: 3000,
+          minDelay: 750,
+          maxDelay: 1500,
         },
       },
     });
