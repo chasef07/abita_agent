@@ -17,6 +17,7 @@ import * as elevenlabs from "@livekit/agents-plugin-elevenlabs";
 import * as baseten from "@livekit/agents-plugin-baseten";
 import { TelephonyBackgroundVoiceCancellation } from "@livekit/noise-cancellation-node";
 import dotenv from "dotenv";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { CallLogger } from "./call-logger.js";
@@ -147,8 +148,26 @@ export default defineAgent({
       }
     });
 
-    // Shutdown hook: flush analytics + delete room so idle rooms don't linger.
+    // Shutdown hook: capture session report + audio, flush analytics, delete room.
     ctx.addShutdownCallback(async () => {
+      try {
+        const report = ctx.makeSessionReport();
+        const reportJson = voice.sessionReportToJSON(report);
+        logger.setSessionReport(reportJson);
+
+        if (report.audioRecordingPath) {
+          try {
+            const audioBuffer = await readFile(report.audioRecordingPath);
+            logger.setAudioData(audioBuffer);
+            console.log(`[shutdown] Audio captured: ${audioBuffer.length} bytes`);
+          } catch (audioErr) {
+            console.warn("[shutdown] Could not read audio file:", audioErr);
+          }
+        }
+      } catch (reportErr) {
+        console.warn("[shutdown] Could not capture session report:", reportErr);
+      }
+
       try {
         await logger.flush();
       } catch (err) {

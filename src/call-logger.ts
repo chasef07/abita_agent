@@ -23,6 +23,7 @@ interface TurnRecord {
   asrDelayMs: number;
   ttftMs: number;
   ttsttfbMs: number;
+  totalLatencyMs: number;
   toolCalls: ToolCallRecord[];
 }
 
@@ -45,8 +46,11 @@ interface CallSummary {
     avgASR: number;
     avgTTFT: number;
     avgTTSttfb: number;
+    avgTotalLatency: number;
   };
   turns: TurnRecord[];
+  sessionReport?: Record<string, unknown>;
+  audioBase64?: string;
 }
 
 // --- CallLogger ---
@@ -71,6 +75,9 @@ export class CallLogger {
   private peakContextTokens = 0;
   private totalToolCalls = 0;
   private totalToolErrors = 0;
+
+  private sessionReportData: Record<string, unknown> | null = null;
+  private audioBuffer: Buffer | null = null;
 
   constructor(
     session: voice.AgentSession,
@@ -125,6 +132,7 @@ export class CallLogger {
       asrDelayMs: 0,
       ttftMs: 0,
       ttsttfbMs: 0,
+      totalLatencyMs: 0,
       toolCalls: [],
     };
   }
@@ -233,6 +241,16 @@ export class CallLogger {
     console.log(`[tool] ${record.name} ${record.isError ? "\u2717" : "\u2713"} ${record.durationMs}ms (direct)`);
   }
 
+  /** Attach a serialized session report to include in the webhook payload. */
+  setSessionReport(report: Record<string, unknown>): void {
+    this.sessionReportData = report;
+  }
+
+  /** Attach raw audio data to include (base64-encoded) in the webhook payload. */
+  setAudioData(buffer: Buffer): void {
+    this.audioBuffer = buffer;
+  }
+
   private flushed = false;
 
   /** Force summary + webhook if the Close event never fired (e.g. crash). */
@@ -266,6 +284,7 @@ export class CallLogger {
         asrDelayMs: 0,
         ttftMs: 0,
         ttsttfbMs: 0,
+        totalLatencyMs: 0,
         toolCalls: [],
       };
     }
@@ -289,7 +308,21 @@ export class CallLogger {
       ? this.ttsttfbValues.reduce((a, b) => a + b, 0) / this.ttsttfbValues.length
       : 0;
 
-    return {
+    // Compute per-turn total latency (EOU + TTFT + TTS)
+    const totalLatencyValues: number[] = [];
+    for (const turn of this.turns) {
+      if (turn.ttftMs > 0) {
+        const total = turn.eouDelayMs + turn.ttftMs + turn.ttsttfbMs;
+        turn.totalLatencyMs = total;
+        totalLatencyValues.push(total);
+      }
+    }
+
+    const avgTotalLatency = totalLatencyValues.length > 0
+      ? totalLatencyValues.reduce((a, b) => a + b, 0) / totalLatencyValues.length
+      : 0;
+
+    const summary: CallSummary = {
       callId: this.callId,
       callerPhone: this.callerPhone,
       officePhone: this.officePhone,
@@ -308,9 +341,19 @@ export class CallLogger {
         avgASR: Math.round(avgASR),
         avgTTFT: Math.round(avgTTFT),
         avgTTSttfb: Math.round(avgTTSttfb),
+        avgTotalLatency: Math.round(avgTotalLatency),
       },
       turns: this.turns,
     };
+
+    if (this.sessionReportData) {
+      summary.sessionReport = this.sessionReportData;
+    }
+    if (this.audioBuffer) {
+      summary.audioBase64 = this.audioBuffer.toString("base64");
+    }
+
+    return summary;
   }
 
   private printSummary(summary: CallSummary): void {
@@ -321,7 +364,8 @@ export class CallLogger {
       `  cache hit rate: ${(t.cacheHitRate * 100).toFixed(1)}%\n` +
       `  peak context: ${t.peakContextTokens} tokens\n` +
       `  tools: ${t.toolCalls} calls, ${t.toolErrors} errors\n` +
-      `  avg ASR: ${t.avgASR}ms, avg TTFT: ${t.avgTTFT}ms, avg TTS TTFB: ${t.avgTTSttfb}ms`,
+      `  avg ASR: ${t.avgASR}ms, avg TTFT: ${t.avgTTFT}ms, avg TTS TTFB: ${t.avgTTSttfb}ms\n` +
+      `  avg total latency: ${t.avgTotalLatency}ms (EOU+TTFT+TTS)`,
     );
   }
 
