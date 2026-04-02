@@ -90,6 +90,14 @@ Read `workspace/CHANGELOG.md` before proposing. Check if this issue was already 
 - If the root cause is the LLM ignoring clear instructions, adding MORE text won't help — note it and move on
 - Prefer removing or simplifying rules over adding new ones when possible
 
+**Ablation experiments:** Not every run needs to ADD rules. Try these experiments too:
+- **Remove a rule** and test if behavior stays the same — if it does, the rule was bloat. Remove it permanently.
+- **Simplify a rule** — can two rules be merged into one shorter rule?
+- **Reword for clarity** — if a rule is long, try a shorter version and test if the LLM follows it equally well
+- **Identify conflicts** — do any rules contradict each other? Remove the weaker one.
+
+Track prompt length in `optimize/metrics.json`. If total prompt length grows without improving metrics, that's a signal to simplify. A shorter prompt that performs equally is always better.
+
 ## Step 4: Validate Changes with Tests
 
 After applying changes, run the test suite to verify they actually work:

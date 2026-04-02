@@ -284,6 +284,43 @@ async function main() {
     ORDER BY 1
   `);
 
+  // --- Latency percentiles (p50/p90/p99 instead of just averages) ---
+  console.log("Computing latency percentiles...");
+
+  const latencyRows = await query(`
+    SELECT
+      (l->>'avgTTFT')::numeric as ttft,
+      (l->>'avgTTSttfb')::numeric as ttsttfb,
+      (l->>'avgTotalLatency')::numeric as total
+    FROM "CallEvent", jsonb_each(data) d(k, v),
+         LATERAL (SELECT "latencyValues" as l FROM "CallEvent" ce2 WHERE ce2."callId" = "CallEvent"."callId") sub
+    WHERE "totalTurns" > 2 AND "durationSec" > 10
+    ORDER BY "startedAt" DESC
+    LIMIT 200
+  `);
+
+  // Simpler approach: just use the per-call averages from the main table
+  const latencyValues = await query(`
+    SELECT "avgTtft", "avgTtsttfb"
+    FROM "CallEvent"
+    WHERE "totalTurns" > 2 AND "durationSec" > 10 AND "avgTtft" > 0
+    ORDER BY "startedAt" DESC
+  `);
+
+  function percentile(arr: number[], p: number): number {
+    const sorted = [...arr].sort((a, b) => a - b);
+    const idx = Math.ceil((p / 100) * sorted.length) - 1;
+    return sorted[Math.max(0, idx)] ?? 0;
+  }
+
+  const ttftValues = latencyValues.map((r) => parseFloat(r[0])).filter((v) => v > 0);
+  const ttsValues = latencyValues.map((r) => parseFloat(r[1])).filter((v) => v > 0);
+
+  const latencyPercentiles = {
+    ttft: { p50: Math.round(percentile(ttftValues, 50)), p90: Math.round(percentile(ttftValues, 90)), p99: Math.round(percentile(ttftValues, 99)) },
+    tts: { p50: Math.round(percentile(ttsValues, 50)), p90: Math.round(percentile(ttsValues, 90)), p99: Math.round(percentile(ttsValues, 99)) },
+  };
+
   // --- Load optimization run metrics ---
   let runMetrics: any = { runs: [] };
   try {
@@ -488,6 +525,18 @@ async function main() {
     <div class="card">
       <div class="stat">${Math.round(nonHangup.reduce((a, c) => a + c.durationSec, 0) / nonHangup.length)}s</div>
       <div class="stat-label">Avg Call Duration</div>
+    </div>
+  </div>
+
+  <!-- Latency Percentiles -->
+  <div class="grid">
+    <div class="card">
+      <div class="stat">${latencyPercentiles.ttft.p50}ms</div>
+      <div class="stat-label">LLM TTFT (p50) — p90: ${latencyPercentiles.ttft.p90}ms, p99: ${latencyPercentiles.ttft.p99}ms</div>
+    </div>
+    <div class="card">
+      <div class="stat">${latencyPercentiles.tts.p50}ms</div>
+      <div class="stat-label">TTS TTFB (p50) — p90: ${latencyPercentiles.tts.p90}ms, p99: ${latencyPercentiles.tts.p99}ms</div>
     </div>
   </div>
 

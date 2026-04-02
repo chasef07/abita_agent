@@ -24,12 +24,16 @@
         "avgDuration": { "faq": 0, "new_patient": 0, "existing_patient": 0 }
       },
       "changes": [
-        "RUNBOOK: anti-hallucination guard for registration",
-        "RUNBOOK: transfer-on-insistence elevated to top-level rule",
-        "RUNBOOK: explicit registration collection order",
-        "tools.ts: transfer_call stop-after-execute language",
-        "tools.ts: add_patient anti-fabrication guard"
-      ]
+        { "type": "add", "file": "RUNBOOK", "desc": "anti-hallucination guard for registration" },
+        { "type": "add", "file": "RUNBOOK", "desc": "transfer-on-insistence elevated to top-level rule" },
+        { "type": "add", "file": "RUNBOOK", "desc": "explicit registration collection order" },
+        { "type": "reword", "file": "tools.ts", "desc": "transfer_call stop-after-execute language" },
+        { "type": "add", "file": "tools.ts", "desc": "add_patient anti-fabrication guard" }
+      ],
+      "latency": {
+        "ttft": { "p50": 0, "p90": 0, "p99": 0 },
+        "tts": { "p50": 0, "p90": 0, "p99": 0 }
+      }
     }
   ]
 }
