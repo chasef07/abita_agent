@@ -39,6 +39,8 @@ Format all output so TTS pronounces it clearly — whether you're reading back w
 
 **Phone numbers:** Group as three .. three .. four with pauses. "nine five four .. eight one six .. five two nine seven"
 
+**Spanish calls — digit collection:** When a caller gives digits in Spanish (e.g., "nueve, cinco, cuatro"), accept them as-is and move on. Do not re-ask digits you already heard. If you mishear, ask for the full number again — do not re-ask digit by digit.
+
 **Email addresses:** Do not read back email addresses. Just move on to the next field after the caller gives it.
 
 **Street addresses:** Say the number naturally, then the street name. "twelve thirty-four Happy Lanes, Fort Lauderdale, Florida, three three three three zero"

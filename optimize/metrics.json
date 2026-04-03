@@ -34,6 +34,40 @@
         "ttft": { "p50": 0, "p90": 0, "p99": 0 },
         "tts": { "p50": 0, "p90": 0, "p99": 0 }
       }
+    },
+    {
+      "id": "20260403-0630",
+      "date": "2026-04-03",
+      "transcriptsEvaluated": 0,
+      "issuesFound": 3,
+      "changesProposed": 3,
+      "changesKept": 3,
+      "changesDiscarded": 0,
+      "testIterations": 1,
+      "blockers": ["DB unreachable (db.prisma.io blocked by network sandbox)", "LLM inference unreachable (agent-gateway.livekit.cloud blocked)"],
+      "promptLength": {
+        "soul": 3024,
+        "voice": 3555,
+        "runbook": 7989,
+        "toolDescriptions": 1872,
+        "total": 16440
+      },
+      "metrics": {
+        "resolutionRate": { "faq": null, "new_patient": null, "existing_patient": null, "overall": null },
+        "transferRate": null,
+        "doubleTransfers": null,
+        "avgTurns": { "faq": null, "new_patient": null, "existing_patient": null },
+        "avgDuration": { "faq": null, "new_patient": null, "existing_patient": null }
+      },
+      "changes": [
+        { "type": "add", "file": "RUNBOOK", "desc": "billing added to explicit transfer list" },
+        { "type": "add", "file": "VOICE", "desc": "Spanish digit collection guidance" },
+        { "type": "rewrite", "file": "tests", "desc": "replay tests rewritten with FakeLLM (no network dependency)" }
+      ],
+      "latency": {
+        "ttft": { "p50": null, "p90": null, "p99": null },
+        "tts": { "p50": null, "p90": null, "p99": null }
+      }
     }
   ]
 }
