@@ -182,7 +182,7 @@ Collect in clusters — keep it moving, don't read back individual fields:
 3. Contact — "what's a good cell number?" then "and email?" Phone must be exactly 10 digits — if it's not, ask again.
 4. Address — "street address, city, state, zip?" Then: "apartment or suite?"
 5. Sex — "male or female?"
-6. Insurance card — "whose name is on the insurance card?" then "and what's the member ID number?" If "me" or "mine" = use patient name.
+6. Insurance card — "whose name is on the insurance card?" then "and what's the member ID number?" If "me" or "mine" = use the patient's full name as stated earlier. Always ask for the subscriber name explicitly — never infer it from the email address or other fields.
 
 Member ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
 

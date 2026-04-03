@@ -1,6 +1,40 @@
 {
   "runs": [
     {
+      "id": "20260403-1059",
+      "date": "2026-04-03",
+      "transcriptsEvaluated": 17,
+      "issuesFound": 5,
+      "changesProposed": 4,
+      "changesKept": 4,
+      "changesDiscarded": 0,
+      "testIterations": 1,
+      "promptLength": {
+        "soul": 3024,
+        "voice": 3293,
+        "runbook": 8815,
+        "toolDescriptions": 4153,
+        "total": 19285
+      },
+      "metrics": {
+        "resolutionRate": { "faq": 100, "new_patient": 71, "existing_patient": 100, "overall": 92 },
+        "transferRate": 56,
+        "doubleTransfers": 60,
+        "avgTurns": { "faq": 0, "new_patient": 0, "existing_patient": 0 },
+        "avgDuration": { "faq": 0, "new_patient": 0, "existing_patient": 0 }
+      },
+      "changes": [
+        { "type": "add", "file": "RUNBOOK", "desc": "day-of-week verification before booking" },
+        { "type": "add", "file": "RUNBOOK", "desc": "Spanish compound phone number guidance" },
+        { "type": "reword", "file": "RUNBOOK", "desc": "strengthen intent-before-identity in Step 1" },
+        { "type": "reword", "file": "tools.ts", "desc": "add_patient require explicit subscriber name" }
+      ],
+      "latency": {
+        "ttft": { "p50": 0, "p90": 0, "p99": 0 },
+        "tts": { "p50": 0, "p90": 0, "p99": 0 }
+      }
+    },
+    {
       "id": "20260402-2100",
       "date": "2026-04-02",
       "transcriptsEvaluated": 20,
