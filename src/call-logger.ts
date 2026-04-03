@@ -227,7 +227,9 @@ export class CallLogger {
   }
 
   private onClose(_ev: any): void {
-    this.flush();
+    // Don't flush here — the shutdown callback in main.ts attaches
+    // sessionReport + audioData before calling flush(). If we flush
+    // on Close, those fields are missed due to the race.
   }
 
   // --- Public API ---

@@ -1,5 +1,26 @@
 # Prompt Changelog
 
+## 2026-04-03 — Knowledge base updates, insurance restructure, audio fix
+
+### Changes
+
+**INSURANCE.md — Restructured for better agent matching**
+- Why: Agent told a caller we don't accept "Simply Health" when Simply Medicaid is accepted under iCare. The grouped-by-carrier structure made it hard for the agent to match shorthand names.
+- What changed: Added common aliases section at top for shorthand matching. Flattened plan list to alphabetical. Removed internal AMD codes. Added safer fallback: ask to clarify before rejecting. Added "Simply Health" alias → Simply Medicaid.
+
+**KNOWLEDGE_SPRINGHILL.md — Added NPI numbers and cross-location reference**
+- Added NPI numbers for Dr. Bach, Dr. Noel, and Dr. Licht.
+- Added reference to Crystal River (Eye Radiance) location with address and hours.
+
+**KNOWLEDGE_EYERADIANCE.md — Added fax, NPI, and cross-location reference**
+- Added Crystal River fax: (352)-228-4315.
+- Added Dr. Licht NPI number.
+- Added reference to Spring Hill location with address, hours, and providers.
+
+**call-logger.ts — Fix audio not included in webhook payload**
+- Why: onClose handler was calling flush() before the shutdown callback in main.ts could attach sessionReport and audioBase64. The webhook was posting without audio data.
+- What changed: Removed early flush() from onClose. Audio and session report now attach before flush() is called in the shutdown callback.
+
 ## 2026-04-02 — Autonomous optimization run (20 transcripts)
 
 Evaluated 20 recent transcripts from the call database. Found 3 critical behavioral issues.

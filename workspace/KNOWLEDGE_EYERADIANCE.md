@@ -19,10 +19,13 @@ New flashes or floaters → treat as urgent, offer the next available appointmen
 Practice Name: Eye Radiance
 Address: 1100 N Lyle Avenue Crystal River, FL 34429
 Email: newpatient@abitaeye.com
+Fax: (352)-228-4315
 
 Hours:
 - Tuesday – Thursday: 12:00 PM – 5:00 PM
 - Closed Monday, Friday, Saturday and Sunday
+
+**Other Location:** We also have an office in Spring Hill — Abita Eye Group, 10495 SpringHill Drive, Springhill, FL 34608 (Monday–Friday, 8:30 AM – 4:30 PM). That location sees Dr. Bach, Dr. Noel, and Dr. Licht.
 
 ## Scope of Services
 
@@ -31,6 +34,7 @@ This is an **ophthalmology** practice — not optometry. We see patients for med
 ## Providers
 
 ### Dr. Licht (pronounced "Likt")
+- NPI: 14-97147680
 - Comprehensive Ophthalmology
 - Oculoplastic (Eyelid Surgery)
 - Glaucoma
