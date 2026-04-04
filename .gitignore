@@ -11,5 +11,4 @@ package-lock.json
 skills/
 skills-lock.json
 
-# Generated reports
-optimize/report.html
+# Generated reports are committed so PRs include analytics baseline

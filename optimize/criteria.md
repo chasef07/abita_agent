@@ -70,6 +70,27 @@ The agent completed an action, but it was the wrong one.
 **Do NOT flag when:**
 - The error came from the API/tool returning bad data (not the agent's fault)
 
+### Turn Inefficiency
+The call took significantly more turns than the ideal range for its type, wasting the caller's time.
+
+**Ideal turn ranges:**
+- FAQ: 2–4 turns
+- Transfer: 2–4 turns
+- Existing patient: 5–10 turns
+- New patient: 14–22 turns
+
+**Flag when (call exceeds ideal range by >50%):**
+- Agent asks for information the caller already provided
+- Agent re-asks spelling, dates, or phone numbers more than once
+- Agent echoes back data mid-stream instead of collecting silently
+- Agent collects information it doesn't need for the call type
+- Agent doesn't get to the point — excessive greetings, confirmations, or filler
+- Spelling/phone-number loops that go on for 3+ turns
+
+**Do NOT flag when:**
+- Extra turns are due to genuinely unclear or noisy caller input
+- The caller voluntarily elaborates or asks follow-up questions
+
 ## How to Use These Criteria
 
 For each transcript:
