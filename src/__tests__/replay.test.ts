@@ -252,7 +252,186 @@ describe("new patient registration flow", () => {
 });
 
 // ============================================================
-// Test 4: FAQ handling — should not transfer
+// Test 4: Transfer on specific name request (SCL_kfDQPipRtb6F)
+// Issue: Caller said "Speak to miss Emma" but agent started
+// collecting identity instead of recognizing transfer intent.
+// ============================================================
+describe("transfer on specific name request", () => {
+  let ctx: TestContext;
+
+  afterEach(async () => {
+    await ctx?.cleanup();
+  });
+
+  it("should transfer when caller asks for a specific person by name", async () => {
+    ctx = await createTestAgent({ phoneLookup: null });
+
+    const history: TranscriptTurn[] = [
+      {
+        turn: 1,
+        callerText: null,
+        agentText: "thank you for calling Abita Eye Group, this is David, how can I help you?",
+        toolCalls: [],
+      },
+    ];
+
+    await loadTranscriptHistory(ctx.agent, history, 99);
+
+    // Caller asks for a specific person by name — should trigger Path 4
+    const result = await ctx.session.run({ userInput: "Speak to miss Emma." }).wait();
+
+    // Should transfer or announce transfer — should NOT ask for caller's first name
+    const transferCalls = ctx.callLog.filter((c) => c.name === "transfer_call");
+
+    // If transfer wasn't called, the agent should at least be moving toward transfer
+    // (announcing it, not collecting identity)
+    if (transferCalls.length === 0) {
+      await result.expect
+        .containsMessage({ role: "assistant" })
+        .judge(ctx.llm, {
+          intent: "The agent should be preparing to transfer the caller to the person they asked for (Emma), or announcing a transfer. It should NOT be asking for the caller's first name, last name, or date of birth.",
+        });
+    }
+  });
+});
+
+// ============================================================
+// Test 5: Day-of-week verification (SCL_SuQdqrt9Ys9g)
+// Issue: Agent told caller April 22 was Thursday when it's Wednesday.
+// ============================================================
+describe("day-of-week verification", () => {
+  let ctx: TestContext;
+
+  afterEach(async () => {
+    await ctx?.cleanup();
+  });
+
+  it("should not claim a Wednesday date is a Thursday", async () => {
+    // Configure availability to return a Wednesday when caller asked for Thursday
+    ctx = await createTestAgent({
+      phoneLookup: null,
+      mockConfig: {
+        verifyResult: {
+          status: "verified",
+          patientId: "12345",
+          name: "TEST,PATIENT",
+          dob: "01/01/1980",
+          insuranceCarrier: "Florida Blue",
+          routing: "general",
+          allowedProviders: ["Dr. Noel", "Dr. Bach"],
+        },
+        availabilityResult: {
+          searchedDate: "2026-04-22",
+          date: "Wednesday, April 22, 2026",
+          location: "ABITA EYE GROUP SPRING HILL",
+          slots: [
+            {
+              columnId: 101,
+              profileId: 201,
+              provider: "Dr. Noel",
+              startDatetime: "2026-04-22T09:30",
+              duration: 30,
+              appointmentTypeId: 1007,
+            },
+          ],
+        },
+      },
+    });
+
+    const history: TranscriptTurn[] = [
+      {
+        turn: 1,
+        callerText: null,
+        agentText: "thank you for calling Abita Eye Group, this is David, how can I help you?",
+        toolCalls: [],
+      },
+      {
+        turn: 2,
+        callerText: "I need to schedule a follow up. This is John Smith, date of birth January first nineteen eighty.",
+        agentText: "I found you in the system. When were you looking to come in?",
+        toolCalls: [
+          {
+            name: "verify_patient",
+            args: '{"firstName": "John", "lastName": "Smith", "dob": "01/01/1980"}',
+            result: '{"status":"verified","patientId":"12345","name":"SMITH,JOHN","dob":"01/01/1980","routing":"general","allowedProviders":["Dr. Noel","Dr. Bach"]}',
+            isError: false,
+          },
+        ],
+      },
+    ];
+
+    await loadTranscriptHistory(ctx.agent, history, 99);
+
+    // Caller asks for a Thursday — availability returns Wednesday April 22
+    const result = await ctx.session.run({ userInput: "Do you have anything on a Thursday in April?" }).wait();
+
+    // The agent should NOT say April 22 is a Thursday.
+    // Check all assistant messages — the final response (after tool call) is what matters.
+    const assistantMessages = result.events
+      .filter((e) => e.type === "message" && e.item.role === "assistant")
+      .map((e) => (e.type === "message" ? e.item.content : ""))
+      .join(" ")
+      .toLowerCase();
+
+    // Agent must not claim April 22 is a Thursday
+    const claimsThursday = assistantMessages.includes("thursday") &&
+      assistantMessages.includes("22") &&
+      !assistantMessages.includes("wednesday");
+    expect(claimsThursday, "Agent should not claim April 22 is a Thursday").toBe(false);
+  });
+});
+
+// ============================================================
+// Test 6: Referral request should transfer (SCL_qgMJRwgEb4Qi)
+// Issue: Caller said "A referral" and agent tried to schedule
+// a "referral appointment" instead of transferring.
+// ============================================================
+describe("referral request should transfer", () => {
+  let ctx: TestContext;
+
+  afterEach(async () => {
+    await ctx?.cleanup();
+  });
+
+  it("should transfer when caller says they need a referral", async () => {
+    ctx = await createTestAgent({ phoneLookup: null });
+
+    const history: TranscriptTurn[] = [
+      {
+        turn: 1,
+        callerText: null,
+        agentText: "thank you for calling Abita Eye Group, this is David, how can I help you?",
+        toolCalls: [],
+      },
+      {
+        turn: 2,
+        callerText: "Speak to a live person.",
+        agentText: "yeah, I can help you with that. would you mind telling me what you're calling about?",
+        toolCalls: [],
+      },
+    ];
+
+    await loadTranscriptHistory(ctx.agent, history, 99);
+
+    // Caller says "a referral" — agent should recognize this as transfer-worthy
+    const result = await ctx.session.run({ userInput: "A referral." }).wait();
+
+    // Should transfer or announce transfer — should NOT try to schedule
+    const transferCalls = ctx.callLog.filter((c) => c.name === "transfer_call");
+
+    if (transferCalls.length === 0) {
+      // If transfer wasn't called directly, the agent should at least be moving toward transfer
+      await result.expect
+        .containsMessage({ role: "assistant" })
+        .judge(ctx.llm, {
+          intent: "The agent should be transferring the caller to someone at the office who can help with a referral. It should NOT try to schedule a 'referral appointment' or ask for the caller's name to start scheduling.",
+        });
+    }
+  });
+});
+
+// ============================================================
+// Test 7: FAQ handling — should not transfer
 // ============================================================
 describe("FAQ calls should not transfer", () => {
   let ctx: TestContext;

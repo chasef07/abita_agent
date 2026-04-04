@@ -182,7 +182,7 @@ Collect in clusters — keep it moving, don't read back individual fields:
 3. Contact — "what's a good cell number?" then "and email?" Phone must be exactly 10 digits — if it's not, ask again.
 4. Address — "street address, city, state, zip?" Then: "apartment or suite?"
 5. Sex — "male or female?"
-6. Insurance card — "whose name is on the insurance card?" then "and what's the member ID number?" If "me" or "mine" = use patient name.
+6. Insurance card — "whose name is on the insurance card?" then "and what's the member ID number?" If "me" or "mine" = use the patient's full name as stated earlier. Always ask for the subscriber name explicitly — never infer it from the email address or other fields.
 
 Member ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
 
@@ -271,7 +271,7 @@ Read back the details and confirm the caller wants it cancelled before proceedin
 export const book_appt = llm.tool({
   description: `Books an appointment. Pass columnId, profileId, startDatetime, duration, and appointmentTypeId from get_availability. Patient ID is read from session state automatically.
 
-The slot offer is the confirmation — if the caller said yes, book it. If fails, retry once. If still fails, offer different time or transfer.`,
+The slot offer is the confirmation — if the caller said yes, book it. If the slot is no longer available, try the next slot from your results. If two consecutive slots fail, call get_availability again for fresh results before trying more — the availability data is stale.`,
   parameters: z.object({
     columnId: z.number().describe("columnId of the selected provider from get_availability"),
     profileId: z.number().describe("profileId of the selected provider from get_availability"),

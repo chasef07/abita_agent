@@ -1,5 +1,53 @@
 # Prompt Changelog
 
+## 2026-04-04 — Autonomous optimization run (20 transcripts)
+
+Evaluated 20 new transcripts from the call database. Found 2 fixable behavioral issues.
+
+### Changes
+
+**RUNBOOK.md — Add "referral" to Path 4 transfer list**
+- Why: In SCL_qgMJRwgEb4Qi, caller said "A referral" and agent tried to schedule a "referral appointment" instead of transferring. Caller had to say "No. No. No." before getting transferred. Similar to SCL_MCFTYbDdZmXh from the previous run where a referral request was mishandled — the previous fix addressed intent-before-identity but didn't add "referral" as a transfer-worthy intent.
+- What changed: Added "Referral requests" to Path 4's transfer list and added "referral" to Step 1's Path 4 description.
+
+**tools.ts — Clarify booking retry behavior in book_appt**
+- Why: In SCL_B8MWYb2dfrf5, 3 consecutive book_appt calls failed (slots taken by other callers) before the 4th succeeded. Agent kept trying stale slots instead of refreshing availability data.
+- What changed: Replaced "retry once, then offer different time or transfer" with guidance to try the next slot, and after two consecutive failures, re-check get_availability for fresh results.
+
+### Skipped Issues
+
+- **Double transfer_call**: Still persists in 6+ calls this batch. Code-level race condition — both tool calls execute concurrently. Not fixable by prompt.
+- **STT quality issues**: Several calls had garbled caller input (SCL_GTugHgdBqz3P, SCL_ouFMNPtDjYPM). Not prompt-fixable.
+- **"Speak to someone" during frustration (SCL_R8bZsBSdFH9K)**: Caller said "Can I speak to someone?" at turn 42 while frustrated about being interrupted, but continued the call and completed registration. Borderline — not a clear transfer request, and adding "speak to someone" as a trigger risks false positives.
+
+## 2026-04-03 — Autonomous optimization run (16 transcripts)
+
+Evaluated 16 new transcripts from the call database. Found 4 fixable behavioral issues.
+
+### Changes
+
+**RUNBOOK.md — Day-of-week verification before booking**
+- Why: In SCL_SuQdqrt9Ys9g, agent told a Spanish-speaking caller that April 22 (a Wednesday) was "jueves" (Thursday). Caller booked on the wrong day-of-week.
+- What changed: Added rule under General Rules — when a caller asks for a specific day of the week, verify the date from get_availability actually falls on that day. If not, tell the caller the real day and offer alternatives.
+
+**RUNBOOK.md — Spanish compound phone number guidance**
+- Why: In SCL_SuQdqrt9Ys9g, a 48-turn confusion loop occurred while collecting a phone number because the caller used Spanish compound numbers (diez=10, once=11) and the agent couldn't parse them.
+- What changed: Added rule explaining Spanish compound number conventions (diez, once, doce, etc.) and how to expand them to individual digits. If parsing fails after two attempts, ask the caller to say digits one at a time.
+
+**RUNBOOK.md — Strengthen intent-before-identity (Step 1)**
+- Why: In SCL_kfDQPipRtb6F, caller said "Speak to miss Emma" (specific person by name) and agent asked for the caller's first name instead of transferring. In SCL_MCFTYbDdZmXh, caller said "patient information" and agent collected PII before clarifying intent.
+- What changed: Clarified that asking for the caller's name IS identification and must wait until after intent is captured. Added explicit instruction: if the caller's opening mentions a specific person by name, go to Path 4 immediately.
+
+**tools.ts — add_patient: Require explicit subscriber name**
+- Why: In SCL_SuQdqrt9Ys9g, agent inferred subscriber name from the email address (Valentino.06Padilla@gmail.com → "Valentino Padilla") instead of asking the caller directly.
+- What changed: Added instruction that subscriber name must be asked explicitly — never infer from email or other fields.
+
+### Skipped Issues
+
+- **Double transfer_call**: Persists in 8+ calls despite last run's fix. Root cause is a race condition in the code-level guard (both tool calls execute concurrently, bypassing the state.transferred check). Not fixable by prompt — requires a code change to set the flag synchronously before any async work.
+- **verify_patient error handling (SCL_rWjG7tbNtZhV)**: API returned "unknown office" error (phone number passed as office name). Agent treated it as "not found." Root cause is a code/config issue, not a prompt issue.
+- **"It" as last name (SCL_9qyFHjJss9MV)**: Agent parsed "It is 05/23/1951" as lastName="It" + DOB. This is an LLM comprehension error — the instructions are clear. Adding more text won't help.
+
 ## 2026-04-02 — Autonomous optimization run (20 transcripts)
 
 Evaluated 20 recent transcripts from the call database. Found 3 critical behavioral issues.
