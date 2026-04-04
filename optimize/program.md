@@ -52,8 +52,17 @@ For each transcript, read the turns carefully — every `callerText`, `agentText
 - **Missed intent** — caller asked for X, agent did Y
 - **Confusion loop** — repetition, contradiction, stuck conversation
 - **Wrong outcome** — incorrect booking, wrong info, bad data
+- **Turn inefficiency** — call took significantly more turns than the ideal range for its type
 
 Compare against the closest matching scenario in `optimize/scenarios/`.
+
+**Turn efficiency check:** After classifying each call, compare its turn count to the ideal range:
+- FAQ: 2–4 turns
+- Transfer: 2–4 turns
+- Existing patient: 5–10 turns
+- New patient: 14–22 turns
+
+If a call exceeds the ideal range by more than 50%, dig into what caused the bloat — unnecessary re-asks, spelling loops, echoing data back, collecting info that wasn't needed, or not getting to the point. The fix is usually to **remove or simplify** prompt rules, not add new ones. Verbose prompts cause verbose agents. Use the ablation experiment approach in Step 3: try removing the rule that's causing the extra turns, run the tests, and keep the removal if behavior stays correct.
 
 For each issue found, record:
 ```
@@ -125,7 +134,7 @@ Also validate manually:
 2. Walk through each scenario in `optimize/scenarios/`
 3. Does it make the prompt longer than necessary?
 
-## Step 4b: Run Analytics Baseline
+## Step 4b: Run Analytics & Investigate Uncategorized Transfers
 
 Before creating the PR, generate the analytics report to capture the current baseline:
 
@@ -139,6 +148,15 @@ This generates `optimize/report.html` with charts showing:
 - Daily call volume trends
 
 Include the key metrics in the PR body so the reviewer can compare before/after on the next run.
+
+**Investigate uncategorized transfers:** After running analytics, check the transfer reason breakdown in the report. If there are uncategorized transfers (reason = "Uncategorized" or similar), pull those specific call transcripts and review them:
+
+1. For each uncategorized transfer, read the transcript and determine:
+   - Why did the transfer happen? Assign a reason category (billing, referral, clinical, caller insistence, etc.)
+   - Was the transfer avoidable? Could the agent have handled it with existing tools?
+   - If avoidable, is it fixable via prompt changes?
+2. If you find transfers that are avoidable and fixable, add them to your changes in Step 3
+3. Report the categorization results in the PR body under a "Transfer Analysis" section — how many uncategorized transfers were reviewed, what categories they actually fell into, and how many were avoidable
 
 ## Step 5: Apply and PR
 
@@ -191,7 +209,7 @@ Create `optimize/history/{YYYYMMDD-HHMM}.md` with:
 **Do NOT include patient names, phone numbers, DOB, or any PHI in history files.** Reference callIds only.
 
 ### 5e: Commit
-Stage the changed files and commit:
+Stage the changed files — including `optimize/report.html` — and commit:
 ```
 tune: {one-line description of what improved}
 
@@ -223,6 +241,12 @@ Autonomous optimization run — reviewed {N} transcripts from the call database.
 
 ## Validation
 {for each change: which scenarios were checked, any regression risks}
+
+## Transfer Analysis
+{uncategorized transfers reviewed, what categories they fell into, how many were avoidable}
+
+## Turn Efficiency
+{calls that exceeded ideal turn range, what caused the bloat, any fixes applied}
 
 ## Transcripts Reviewed
 {callIds only — no PHI}
