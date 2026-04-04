@@ -368,6 +368,11 @@ export const transfer_call = llm.tool({
       console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${transferNumber}`);
       // Record directly — FunctionToolsExecuted never fires after SIP disconnect
       state.onToolCall?.({ name: "transfer_call", args: "{}", result, durationMs: Date.now() - start, isError: false });
+      // Close the session immediately so the LLM cannot generate further
+      // speech or tool calls after the SIP transfer is underway.
+      ctx.session.close().catch((e: unknown) =>
+        console.warn("[tools] session.close after transfer failed:", e),
+      );
       return result;
     } catch (err) {
       const result = "Could not transfer the call. Please try again.";
