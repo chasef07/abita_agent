@@ -35,6 +35,8 @@ export class Agent extends voice.Agent {
   }
 
   override async onEnter(): Promise<void> {
+    // Brief delay so the SIP audio path is fully established before speaking
+    await new Promise((r) => setTimeout(r, 500));
     await this.session.say(this.greeting);
   }
 }
