@@ -27,11 +27,15 @@ import { type CallState, lookupByPhone } from "./tools.js";
 
 dotenv.config({ path: ".env.local" });
 
-const roomSvc = new RoomServiceClient(
-  process.env.LIVEKIT_URL!,
-  process.env.LIVEKIT_API_KEY!,
-  process.env.LIVEKIT_API_SECRET!,
-);
+let _roomSvc: RoomServiceClient | undefined;
+function getRoomSvc(): RoomServiceClient {
+  _roomSvc ??= new RoomServiceClient(
+    process.env.LIVEKIT_URL!,
+    process.env.LIVEKIT_API_KEY!,
+    process.env.LIVEKIT_API_SECRET!,
+  );
+  return _roomSvc;
+}
 
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
@@ -221,7 +225,7 @@ export default defineAgent({
       }
 
       try {
-        if (ctx.room.name) await roomSvc.deleteRoom(ctx.room.name);
+        if (ctx.room.name) await getRoomSvc().deleteRoom(ctx.room.name);
       } catch (err) {
         console.error("[shutdown] Failed to delete room:", err);
       }

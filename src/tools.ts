@@ -13,11 +13,15 @@ const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
 const DEFAULT_TRANSFER_NUMBER = "+18667968908"; // All offices (Twilio)
 
-const sipClient = new SipClient(
-  process.env.LIVEKIT_URL!,
-  process.env.LIVEKIT_API_KEY!,
-  process.env.LIVEKIT_API_SECRET!,
-);
+let _sipClient: SipClient | undefined;
+function getSipClient(): SipClient {
+  _sipClient ??= new SipClient(
+    process.env.LIVEKIT_URL!,
+    process.env.LIVEKIT_API_KEY!,
+    process.env.LIVEKIT_API_SECRET!,
+  );
+  return _sipClient;
+}
 
 // --- Session-scoped call state ---
 
@@ -349,7 +353,7 @@ export const transfer_call = llm.tool({
     }
     try {
       state.transferred = true;
-      await sipClient.transferSipParticipant(
+      await getSipClient().transferSipParticipant(
         state.sipRoomName,
         state.sipParticipantIdentity,
         `tel:${DEFAULT_TRANSFER_NUMBER}`,

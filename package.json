@@ -13,12 +13,12 @@
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.40.0",
-    "@livekit/agents": "^1.2.2",
-    "@livekit/agents-plugin-baseten": "^1.2.2",
-    "@livekit/agents-plugin-deepgram": "~1.2.2",
-    "@livekit/agents-plugin-elevenlabs": "^1.2.2",
-    "@livekit/agents-plugin-livekit": "^1.2.2",
-    "@livekit/agents-plugin-silero": "^1.2.2",
+    "@livekit/agents": "^1.2.3",
+    "@livekit/agents-plugin-baseten": "^1.2.3",
+    "@livekit/agents-plugin-deepgram": "~1.2.3",
+    "@livekit/agents-plugin-elevenlabs": "^1.2.3",
+    "@livekit/agents-plugin-livekit": "^1.2.3",
+    "@livekit/agents-plugin-silero": "^1.2.3",
     "@livekit/noise-cancellation-node": "^0.1.9",
     "@livekit/rtc-node": "^0.13.24",
     "dotenv": "^16.4.0",
@@ -26,7 +26,7 @@
     "zod": "^4.1.8"
   },
   "devDependencies": {
-    "@types/node": "^25.5.0",
+    "@types/node": "^25.5.2",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
