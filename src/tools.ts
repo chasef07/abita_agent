@@ -64,7 +64,6 @@ export interface CallState {
   preauthRequired: boolean;
   appointments: CallerAppointment[];
   transferred: boolean;
-  onToolCall?: (record: { name: string; args: string; result: string; durationMs: number; isError: boolean }) => void;
 }
 
 // Per-call state lives on session.userData so concurrent calls don't collide
@@ -366,8 +365,6 @@ export const transfer_call = llm.tool({
       );
       const result = "Transfer initiated successfully.";
       console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${transferNumber}`);
-      // Record directly — FunctionToolsExecuted never fires after SIP disconnect
-      state.onToolCall?.({ name: "transfer_call", args: "{}", result, durationMs: Date.now() - start, isError: false });
       // Close the session immediately so the LLM cannot generate further
       // speech or tool calls after the SIP transfer is underway.
       ctx.session.close().catch((e: unknown) =>
@@ -377,7 +374,6 @@ export const transfer_call = llm.tool({
     } catch (err) {
       const result = "Could not transfer the call. Please try again.";
       console.error("[tools] Transfer failed:", err);
-      state.onToolCall?.({ name: "transfer_call", args: "{}", result, durationMs: Date.now() - start, isError: true });
       return result;
     }
   },
