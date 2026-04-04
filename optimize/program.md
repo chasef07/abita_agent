@@ -62,7 +62,7 @@ Compare against the closest matching scenario in `optimize/scenarios/`.
 - Existing patient: 5–10 turns
 - New patient: 14–22 turns
 
-If a call exceeds the ideal range by more than 50%, dig into what caused the bloat — unnecessary re-asks, spelling loops, echoing data back, collecting info that wasn't needed, or not getting to the point. These are fixable with prompt changes.
+If a call exceeds the ideal range by more than 50%, dig into what caused the bloat — unnecessary re-asks, spelling loops, echoing data back, collecting info that wasn't needed, or not getting to the point. The fix is usually to **remove or simplify** prompt rules, not add new ones. Verbose prompts cause verbose agents. Use the ablation experiment approach in Step 3: try removing the rule that's causing the extra turns, run the tests, and keep the removal if behavior stays correct.
 
 For each issue found, record:
 ```
