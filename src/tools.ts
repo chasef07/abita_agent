@@ -11,9 +11,13 @@ const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
 const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-production.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
-/** Map trunk phone → transfer number. Default = Spring Hill. */
-const TRANSFER_NUMBERS: Record<string, string> = {};
 const DEFAULT_TRANSFER_NUMBER = "+18667968908"; // All offices (Twilio)
+
+const sipClient = new SipClient(
+  process.env.LIVEKIT_URL!,
+  process.env.LIVEKIT_API_KEY!,
+  process.env.LIVEKIT_API_SECRET!,
+);
 
 // --- Session-scoped call state ---
 
@@ -343,33 +347,18 @@ export const transfer_call = llm.tool({
     if (!state.sipRoomName || !state.sipParticipantIdentity) {
       return "Could not transfer — no active SIP session.";
     }
-    const transferNumber = TRANSFER_NUMBERS[state.office] ?? DEFAULT_TRANSFER_NUMBER;
-    if (!transferNumber) {
-      return "Could not transfer — no transfer number configured.";
-    }
-
-    const sipClient = new SipClient(
-      process.env.LIVEKIT_URL!,
-      process.env.LIVEKIT_API_KEY!,
-      process.env.LIVEKIT_API_SECRET!,
-    );
-
-    const start = Date.now();
     try {
       state.transferred = true;
       await sipClient.transferSipParticipant(
         state.sipRoomName,
         state.sipParticipantIdentity,
-        `tel:${transferNumber}`,
+        `tel:${DEFAULT_TRANSFER_NUMBER}`,
         { playDialtone: true },
       );
       const result = "Transfer initiated successfully.";
-      console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${transferNumber}`);
-      // Close the session immediately so the LLM cannot generate further
-      // speech or tool calls after the SIP transfer is underway.
-      ctx.session.close().catch((e: unknown) =>
-        console.warn("[tools] session.close after transfer failed:", e),
-      );
+      console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${DEFAULT_TRANSFER_NUMBER}`);
+      // Framework handles shutdown via close_on_disconnect when the
+      // SIP participant leaves after the transfer completes.
       return result;
     } catch (err) {
       const result = "Could not transfer the call. Please try again.";

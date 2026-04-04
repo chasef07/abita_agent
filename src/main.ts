@@ -22,11 +22,16 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import * as deepgram from "@livekit/agents-plugin-deepgram";
-// import { ScribeSTT } from "./scribe-stt.js"; // Kept for rollback
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 
 dotenv.config({ path: ".env.local" });
+
+const roomSvc = new RoomServiceClient(
+  process.env.LIVEKIT_URL!,
+  process.env.LIVEKIT_API_KEY!,
+  process.env.LIVEKIT_API_SECRET!,
+);
 
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
@@ -147,7 +152,7 @@ export default defineAgent({
     // Without this, rooms can linger indefinitely if the framework doesn't
     // auto-detect the SIP participant leaving.
     ctx.room.on("participantDisconnected", async (p) => {
-      if (p.identity === participant.identity) {
+      if (p.identity === participant.identity && !session.userData.transferred) {
         console.log(`[call] SIP participant ${p.identity} disconnected, closing session`);
         await session.close();
       }
@@ -216,11 +221,6 @@ export default defineAgent({
       }
 
       try {
-        const roomSvc = new RoomServiceClient(
-          process.env.LIVEKIT_URL!,
-          process.env.LIVEKIT_API_KEY!,
-          process.env.LIVEKIT_API_SECRET!,
-        );
         if (ctx.room.name) await roomSvc.deleteRoom(ctx.room.name);
       } catch (err) {
         console.error("[shutdown] Failed to delete room:", err);
