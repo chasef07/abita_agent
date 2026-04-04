@@ -4,6 +4,7 @@
 import {
   type JobContext,
   type JobProcess,
+  metrics as metricsLib,
   ServerOptions,
   cli,
   defineAgent,
@@ -20,7 +21,6 @@ import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
-import { CallLogger } from "./call-logger.js";
 import * as deepgram from "@livekit/agents-plugin-deepgram";
 // import { ScribeSTT } from "./scribe-stt.js"; // Kept for rollback
 import { RoomServiceClient } from "livekit-server-sdk";
@@ -135,8 +135,13 @@ export default defineAgent({
       },
     });
 
-    const logger = new CallLogger(session, { callId, callerPhone, officePhone: trunkPhone });
-    session.userData.onToolCall = (record) => logger.recordToolCall(record);
+    // Collect raw LiveKit metrics as single source of truth for analytics
+    const startedAt = new Date();
+    const rawMetrics: Record<string, unknown>[] = [];
+    session.on(voice.AgentSessionEventTypes.MetricsCollected, (ev: any) => {
+      metricsLib.logMetrics(ev.metrics);
+      rawMetrics.push({ ...ev.metrics });
+    });
 
     // Close the session when the SIP caller hangs up (or transfer completes).
     // Without this, rooms can linger indefinitely if the framework doesn't
@@ -148,17 +153,19 @@ export default defineAgent({
       }
     });
 
-    // Shutdown hook: capture session report + audio, flush analytics, delete room.
+    // Shutdown hook: capture session report + audio, post analytics, delete room.
     ctx.addShutdownCallback(async () => {
+      let sessionReport: Record<string, unknown> | undefined;
+      let audioBase64: string | undefined;
+
       try {
         const report = ctx.makeSessionReport();
-        const reportJson = voice.sessionReportToJSON(report);
-        logger.setSessionReport(reportJson);
+        sessionReport = voice.sessionReportToJSON(report);
 
         if (report.audioRecordingPath) {
           try {
             const audioBuffer = await readFile(report.audioRecordingPath);
-            logger.setAudioData(audioBuffer);
+            audioBase64 = audioBuffer.toString("base64");
             console.log(`[shutdown] Audio captured: ${audioBuffer.length} bytes`);
           } catch (audioErr) {
             console.warn("[shutdown] Could not read audio file:", audioErr);
@@ -168,11 +175,46 @@ export default defineAgent({
         console.warn("[shutdown] Could not capture session report:", reportErr);
       }
 
-      try {
-        await logger.flush();
-      } catch (err) {
-        console.error("[shutdown] Failed to flush analytics:", err);
+      // Post raw metrics + session report to analytics dashboard
+      const analyticsUrl = process.env.ANALYTICS_URL;
+      if (analyticsUrl) {
+        const endedAt = new Date();
+        const payload = {
+          callId,
+          callerPhone,
+          officePhone: trunkPhone,
+          startedAt: startedAt.toISOString(),
+          endedAt: endedAt.toISOString(),
+          durationSec: Math.round((endedAt.getTime() - startedAt.getTime()) / 1000),
+          metrics: rawMetrics,
+          sessionReport,
+          audioBase64,
+        };
+
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        const secret = process.env.WEBHOOK_SECRET;
+        if (secret) headers["Authorization"] = `Bearer ${secret}`;
+
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const res = await fetch(analyticsUrl, {
+              method: "POST",
+              headers,
+              body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(30_000),
+            });
+            if (res.ok) {
+              console.log(`[shutdown] Analytics POST succeeded (attempt ${attempt})`);
+              break;
+            }
+            console.warn(`[shutdown] Analytics POST returned ${res.status} (attempt ${attempt})`);
+          } catch (err) {
+            console.warn(`[shutdown] Analytics POST failed (attempt ${attempt}):`, err);
+          }
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 2_000));
+        }
       }
+
       try {
         const roomSvc = new RoomServiceClient(
           process.env.LIVEKIT_URL!,
