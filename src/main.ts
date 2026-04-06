@@ -12,16 +12,13 @@ import {
   llm,
   voice,
 } from "@livekit/agents";
-import * as livekit from "@livekit/agents-plugin-livekit";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as elevenlabs from "@livekit/agents-plugin-elevenlabs";
 import * as baseten from "@livekit/agents-plugin-baseten";
-import { TelephonyBackgroundVoiceCancellation } from "@livekit/noise-cancellation-node";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
-import * as deepgram from "@livekit/agents-plugin-deepgram";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 
@@ -39,7 +36,7 @@ function getRoomSvc(): RoomServiceClient {
 
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
-    proc.userData.vad = await silero.VAD.load();
+    proc.userData.vad = await silero.VAD.load({ activationThreshold: 0.3 });
   },
 
   entry: async (ctx: JobContext) => {
@@ -63,7 +60,14 @@ export default defineAgent({
     });
 
     const session = new voice.AgentSession<CallState>({
-      stt: new deepgram.STT({ model: "nova-3", language: "multi" }),
+      stt: new inference.STT({
+        model: "assemblyai/u3-rt-pro",
+        modelOptions: {
+          min_turn_silence: 100,
+          max_turn_silence: 1000,
+          vad_threshold: 0.3,
+        },
+      }),
       llm: llmWithFallback,
       tts: new elevenlabs.TTS({
         model: "eleven_flash_v2_5",
@@ -80,7 +84,7 @@ export default defineAgent({
       vad,
       preemptiveGeneration: true,
       turnHandling: {
-        turnDetection: new livekit.turnDetector.MultilingualModel(),
+        turnDetection: "stt",
         interruption: {
           mode: "adaptive",
           minDuration: 700,
@@ -90,8 +94,7 @@ export default defineAgent({
           resumeFalseInterruption: true,
         },
         endpointing: {
-          minDelay: 1000,
-          maxDelay: 2000,
+          minDelay: 0,
         },
       },
     });
@@ -139,9 +142,6 @@ export default defineAgent({
     await session.start({
       agent,
       room: ctx.room,
-      inputOptions: {
-        noiseCancellation: TelephonyBackgroundVoiceCancellation(),
-      },
     });
 
     // Collect raw LiveKit metrics as single source of truth for analytics

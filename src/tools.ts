@@ -149,8 +149,6 @@ For all other cases: pass firstName, lastName, and dob (MM/DD/YYYY).
 
 Do NOT call if phone lookup already verified the patient (single match + confirmed first name). Check CALLER CONTEXT first.
 
-Call with what you heard — don't spell back or echo the name before submitting. The API is the source of truth for spelling.
-
 After response:
 - If verified: let them know and move on.
 - If routingAmbiguous: ask what type of plan (regular, EPO, HMO, Medicare). If HMO, scheduling starts two weeks out due to preauth.
@@ -179,21 +177,14 @@ After response:
 
 // --- add_patient ---
 export const add_patient = llm.tool({
-  description: `Creates a new patient record. Use only when verify_patient returns no match.
+  description: `Creates a new patient record. Use only when verify_patient returns no match. Every field must come from what the caller explicitly said — never fabricate or guess values.
 
-NEVER call this tool with fabricated, guessed, or placeholder data. Every single field must come from what the caller explicitly said during the conversation. If you are missing ANY required field (phone, email, address, insurance card info, etc.), you MUST ask the caller for it before calling this tool. Do not invent values to fill required parameters.
-
-Collect in clusters — keep it moving, don't read back individual fields:
-1. Insurance — run check_insurance first. Match what the caller says to an exact plan name from the accepted list (e.g., "Aetna Medicare PPO" → "Aetna Medicare Signature PPO"). If the carrier has multiple plans (e.g., Humana), ask which specific plan. Stop if not accepted. The insurance value you pass to this tool MUST be a plan name from the accepted list — do not pass vague names like "Medicare PPO."
-2. Name + DOB — already have from verify attempts. Skip, don't re-ask.
-3. Contact — "what's a good cell number?" then "and email?" Phone must be exactly 10 digits — if it's not, ask again.
-4. Address — "street address, city, state, zip?" Then: "apartment or suite?"
-5. Sex — "male or female?"
-6. Insurance card — "whose name is on the insurance card?" then "and what's the member ID number?" If "me" or "mine" = use patient name.
-
-Member ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
-
-Before submitting: read back name (spell last name letter by letter), DOB, insurance plan, and member ID in one pass. This is the only read-back — don't confirm individual fields during collection. Wait for confirmation.
+Follow the registration order in the runbook. Key rules for this tool:
+- The insurance value MUST be a plan name from the accepted list — do not pass vague names like "Medicare PPO." Match what the caller says to an exact plan (e.g., "Aetna Medicare PPO" → "Aetna Medicare Signature PPO"). If the carrier has multiple plans, ask which.
+- Phone must be exactly 10 digits.
+- If subscriber is "me" or "mine" = use patient name.
+- Member ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
+- Before submitting: read back name (spell last name letter by letter), DOB, insurance plan, and member ID. Wait for confirmation.
 
 After response: if routing "not_accepted", tell them. If preauthRequired, scheduling starts two weeks out. Go straight to scheduling — don't check appointments for a new patient.
 
@@ -227,13 +218,14 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
 export const get_availability = llm.tool({
   description: `Gets schedule availability. Requires date (YYYY-MM-DD). Routing and preauth auto-applied from session state.
 
-Determine appointment type (you decide, not the caller):
+Appointment type codes — you determine new/existing (from verify_patient) and adult/pediatric (from DOB). Ask the caller the reason for their visit before calling this tool so you pick the right code:
 - New 18+ = 1006, new under 18 = 1004
-- Existing: default to follow-up (18+ = 1007, under 18 = 1005). Only use post-op (1008) if the caller mentions recent surgery.
+- Existing 18+ = 1007, existing under 18 = 1005
+- Post-op (1008) = only if the caller says they're coming in for a post-op or follow-up after recent surgery.
 
-Rules: no same-day (earliest = tomorrow). Under 18 = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
+Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. Under 18 = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
 
-After response: check if date shifted vs requested — tell caller if different. Suggest one best-fit slot (date + time). Don't mention doctor unless asked or clinically relevant. If rejected, offer one alternative. Scan existing results before calling again. If no slots are returned, tell the caller that date has no openings and offer the nearest available date — do not ask what time they want on a day with no availability. Never call this tool for the same date twice.`,
+After response: check if date shifted vs requested — tell caller if different. Suggest one best-fit slot (date + time). Mention the doctor only if asked or clinically relevant. If rejected, offer one alternative. Scan existing results before calling again. If no slots are returned, tell the caller that date has no openings and offer the nearest available date.`,
   parameters: z.object({
     date: z.string().describe("Start date to search, formatted YYYY-MM-DD"),
   }),
@@ -252,7 +244,7 @@ export const confirm_appt = llm.tool({
 
 If appointments (with IDs) are already shown in the caller context from the phone lookup AND you haven't switched patients, you already have this data — skip this tool. Only call if you switched patients, need fresh data, or appointments weren't in the caller context.
 
-Read back the nearest appointment: date, time, doctor. If multiple, read one at a time. If none found, offer to schedule.`,
+Read back the nearest appointment: date, time, doctor, and location. If multiple, read one at a time. If none found, offer to schedule.`,
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
@@ -322,7 +314,7 @@ Look for the caller's plan. If found, confirm it's accepted. If there's a clarif
 export const lookup_knowledge = llm.tool({
   description: `Looks up practice info: hours, location, providers, services, what to bring, appointment expectations, urgency screening, glasses warranty.
 
-Answer naturally from the returned info. Don't read back the entire document — just what answers their question.`,
+Answer naturally from the returned info — just the part that answers their question.`,
   parameters: z.object({
     question: z.string().describe("What the caller is asking about (e.g. 'office hours', 'do you see kids', 'what should I bring')"),
   }),
@@ -337,7 +329,7 @@ Answer naturally from the returned info. Don't read back the entire document —
 // --- transfer_call ---
 export const transfer_call = llm.tool({
   description:
-    "Transfers the caller to a human at the office. BEFORE calling this tool, you MUST fully finish telling the caller you're transferring them — e.g. 'one moment while I transfer you to someone at the office that can help.' Wait for your message to finish. Do NOT call this tool mid-sentence or while still speaking. The caller must hear the complete transfer message before the transfer begins. Call this tool EXACTLY ONCE. After this tool executes, the SIP session disconnects and the call is over — do NOT generate a second transfer_call, do NOT generate any further tool calls, and do NOT generate any further text. Your turn ends here.",
+    "Transfers the caller to a human at the office. BEFORE calling this tool, you MUST say this exact message: 'We will transfer you to the office now, but we may be dealing with patients. If so, please leave us a voicemail and we will get back to you as soon as we can.' Wait for your message to finish. Do NOT call this tool mid-sentence or while still speaking. The caller must hear the complete transfer message before the transfer begins. Call this tool EXACTLY ONCE. After this tool executes, the SIP session disconnects and the call is over — do NOT generate a second transfer_call, do NOT generate any further tool calls, and do NOT generate any further text. Your turn ends here.",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);

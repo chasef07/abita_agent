@@ -1,5 +1,91 @@
 # Prompt Changelog
 
+## 2026-04-06 — Comprehensive prompt audit and restructure
+
+Reviewed 7 real call transcripts and identified recurring issues: verbosity, agent restating what the caller said, ignoring the transfer message, reading back all registration fields, duplicate tool calls, location confusion, missing appointment reason, and corporate tone on unhappy paths. Then conducted a full research audit across OpenAI, Anthropic, Google, and voice AI platforms (LiveKit, Vapi, Retell, ElevenLabs) to benchmark against state-of-the-art prompting practices. Restructured the entire prompt based on findings.
+
+### Research-driven structural changes
+
+**Flipped negative instructions to positive framing**
+- Why: Research on the "pink elephant effect" shows LLMs follow "do Y" instructions significantly better than "don't do X." The prompt had 25+ negative instructions. The most-violated rules ("don't parrot," "don't ask anything else," "don't pad") were all negatives.
+- What changed: Rewrote all high-frequency behavioral rules as positive instructions. "Don't parrot back what the caller said" → "Act on what the caller said — move forward." "Don't pad with extra sentences" → "Say what needs to be said in 1-3 sentences." Kept negatives only for hard safety boundaries (don't fabricate data, don't call transfer twice) where research says they're appropriate.
+
+**Added "Remember" section at end of RUNBOOK**
+- Why: Stanford/UC Berkeley research on the "lost in the middle" effect shows rules at the beginning and end of prompts get the most attention. Google's Dec 2025 paper showed repeating 2-3 critical rules improved compliance 47 out of 70 times. The three most-violated rules (sentence limit, parroting, transfer message) were buried in the middle.
+- What changed: Added a "Remember" section at the very end of RUNBOOK.md with the three most critical rules, exploiting recency bias.
+
+**Added example conversation exchanges**
+- Why: Every research source — OpenAI, Anthropic, LiveKit, Vapi, ElevenLabs — identifies few-shot examples as the single most reliable way to control tone and response length. The prompt had phrase-level examples but no full conversation exchanges.
+- What changed: Added two example conversations in RUNBOOK.md: one existing patient confirmation (short, clean) and one new patient registration (full flow showing David's tone, readback format, and reason-for-visit question).
+
+**Added "Ask one question at a time"**
+- Why: Universal voice AI guidance across all platforms. Prevents the agent from stacking multiple questions in one turn.
+- What changed: Added to VOICE.md core rules and reinforced in the Remember section.
+
+**Added exit criteria to all four paths**
+- Why: OpenAI's Realtime guide recommends explicit phases with exit criteria so the model knows when a path is complete. Without exit criteria, the agent defaulted to filler like "is there anything else?"
+- What changed: Each path now has an explicit "Exit:" line telling the agent when to stop and let the caller lead.
+
+### Deduplication
+
+**Consolidated overlapping rules across files**
+- Why: The same rules appeared in 3-4 places with slightly different wording (e.g., "don't echo" appeared 8 times across VOICE.md, RUNBOOK.md, and tools.ts). Research shows this dilutes the signal — the model treats each as a soft suggestion rather than a hard rule.
+- What changed: Each rule now lives in exactly one place. SOUL.md owns identity and tone. VOICE.md owns output format. RUNBOOK.md owns call flow. Tool descriptions own tool-specific logic and reference the runbook where appropriate. Cut ~30% of redundant content.
+
+**Trimmed VOICE.md from 62 lines to 36**
+- Removed three separate "don't echo" rules, duplicate acknowledgment examples, duplicate time formatting, and the confirmation section (RUNBOOK owns that).
+
+**Trimmed tool descriptions**
+- add_patient: removed duplicate field collection instructions (RUNBOOK owns the order) and duplicate "never fabricate" paragraph.
+- verify_patient: removed duplicate "don't echo the name" rule.
+- get_availability: removed duplicate "never call for the same date twice" (general rule covers it).
+
+### Transcript-driven fixes
+
+**RUNBOOK.md — Readback trimmed to four fields only**
+- Why: In call cmnn5o8ea, agent read back all registration fields (name, DOB, phone, email, address, sex, insurance, member ID). Caller said "No" and asked for a human. Too much information.
+- What changed: Readback now limited to name (spell last name), DOB, insurance plan, and member ID. Consistent across RUNBOOK line 8, line 60, and add_patient tool description.
+
+**SOUL.md — Added unhappy path tone examples**
+- Why: Agent sounded like David on happy paths but switched to corporate voice when things went wrong ("Unfortunately, we are not in network with that insurance carrier"). Transcripts showed this on insurance rejections, transfers, and no-availability scenarios.
+- What changed: Added four David-voice vs corporate-voice contrast examples for: insurance rejected, can't help, no availability, patient not found.
+
+**KNOWLEDGE_EYERADIANCE.md — Dr. Licht practices at both locations**
+- Why: In call cmnnbhd8i, agent told a caller "Dr. Licht sees patients at the Spring Hill location" then found him available at Crystal River two turns later. The knowledge base listed Dr. Licht only under Spring Hill providers.
+- What changed: Updated to "Dr. Licht practices at both locations."
+
+**tools.ts — confirm_appt now includes location in readback**
+- Why: Same call — agent confirmed the appointment without mentioning the location, then had to explain it was at a different office than the caller expected.
+- What changed: Description now says "Read back the nearest appointment: date, time, doctor, and location."
+
+**tools.ts — transfer_call uses exact required message**
+- Why: In calls cmnnj3oz6 and cmnnm6lyy, agent said "One moment while I transfer you" instead of the required voicemail message. The tool description had a different example message than the RUNBOOK required.
+- What changed: Tool description now contains the exact transfer message text, matching RUNBOOK.
+
+**VOICE.md — Don't repeat yourself after tool calls**
+- Why: In calls cmnnj3oz6 and cmnn64ax4, agent said "I completely understand your frustration" before the tool call, then repeated the same phrase after the tool returned. The filler rule caused duplication.
+- What changed: Added "When the tool returns, pick up where you left off — your pre-tool-call message already covered the acknowledgment."
+
+**RUNBOOK.md — Ask reason for visit before scheduling**
+- Why: In call cmnnm6lyy, caller said "I need an eyelash removal" but agent never asked the reason for the visit when scheduling. The get_availability tool description said "you decide, not the caller" for appointment type, which discouraged asking.
+- What changed: Added "ask reason for visit" step to both Path 1 (Schedule) and Path 2 flows. Updated get_availability description to clarify: agent determines new/existing and adult/pediatric from context, but asks the caller for the visit reason to pick the right code.
+
+**RUNBOOK.md — Push back once during scheduling**
+- Why: In call cmnnm6lyy, caller asked to talk to a real person while the agent was in the middle of booking an appointment. Agent gave up immediately. Scheduling is the agent's core competency.
+- What changed: If the caller asks for a human during scheduling, push back once — "I'm very capable of booking appointments, let's keep going." Transfer on the second ask.
+
+**RUNBOOK.md — Never call same tool with same input twice**
+- Why: In call cmnnajaqt, lookup_knowledge was called twice with identical input. Agent already had the answer.
+- What changed: Added general rule: "Use tool results you already have. Never call the same tool with the same input twice."
+
+**prompt.ts — Ask "have you been seen here before?" for unknown callers**
+- Why: In call cmnnhidc1, phone lookup returned NO MATCH but the agent still collected name/DOB, tried verify_patient twice, failed, then awkwardly pivoted to registration. If it had asked upfront, the flow would have been smoother.
+- What changed: NO MATCH context now instructs the agent to ask "have you been seen here before?" If no, skip verify_patient and go straight to registration.
+
+**tools.ts — No same-day wording improved**
+- Why: In call cmnnm6lyy, agent said "I can't do same-day appointments" as if it were office policy. The real issue was the system constraint, not a practice rule.
+- What changed: Reworded to "just let them know the earliest you can schedule is tomorrow and offer that."
+
 ## 2026-04-03 — Knowledge base updates, insurance restructure, audio fix
 
 ### Changes

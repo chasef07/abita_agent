@@ -89,6 +89,6 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
 
   const lines: string[] = [];
   lines.push(`**NO MATCH — This number is not in the system.**`);
-  lines.push(`The caller is likely a new patient. Collect their first name, last name, and date of birth. Try verify_patient in case they're calling from a different phone. If not found, lead into registration.`);
+  lines.push(`Ask "have you been seen here before?" early in the call. If no, go straight to new patient registration — no need to try verify_patient. If yes, collect their first name, last name, and date of birth and try verify_patient in case they're calling from a different phone. If not found, lead into registration.`);
   return lines.join("\n");
 }
