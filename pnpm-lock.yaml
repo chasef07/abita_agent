@@ -17,15 +17,9 @@ importers:
       '@livekit/agents-plugin-baseten':
         specifier: ^1.2.3
         version: 1.2.3(@livekit/agents@1.2.3(@livekit/rtc-node@0.13.24)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.24)(zod@4.3.6)
-      '@livekit/agents-plugin-deepgram':
-        specifier: ~1.2.3
-        version: 1.2.3(@livekit/agents@1.2.3(@livekit/rtc-node@0.13.24)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.24)
       '@livekit/agents-plugin-elevenlabs':
         specifier: ^1.2.3
         version: 1.2.3(@livekit/agents@1.2.3(@livekit/rtc-node@0.13.24)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.24)
-      '@livekit/agents-plugin-livekit':
-        specifier: ^1.2.3
-        version: 1.2.3(@livekit/agents@1.2.3(@livekit/rtc-node@0.13.24)(typescript@6.0.2)(zod@4.3.6))
       '@livekit/agents-plugin-silero':
         specifier: ^1.2.3
         version: 1.2.3(@livekit/agents@1.2.3(@livekit/rtc-node@0.13.24)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.24)
@@ -278,21 +272,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@huggingface/hub@2.4.1':
-    resolution: {integrity: sha512-g/EJG091aIdP1whpSjhqBOL25/m60NKXhYGz3wqp7hLX57r4Fx7QVFfXRbtxI0ZMQjLQV3GYrPtldz38mvOr+w==}
-    engines: {node: '>=18'}
-    hasBin: true
-
-  '@huggingface/jinja@0.5.6':
-    resolution: {integrity: sha512-MyMWyLnjqo+KRJYSH7oWNbsOn5onuIvfXYPcc0WOGxU0eHUV7oAYUoQTl2BMdu7ml+ea/bu11UM+EshbeHwtIA==}
-    engines: {node: '>=18'}
-
-  '@huggingface/tasks@0.19.90':
-    resolution: {integrity: sha512-nfV9luJbvwGQ/5oKXkKhCV9h4X7mwh1YaGG3ORd6UMLDSwr1OFSSatcBX0O9OtBtmNK19aGSjbLFqqgcIR6+IA==}
-
-  '@huggingface/transformers@3.7.2':
-    resolution: {integrity: sha512-6SOxo6XziupnQ5Vs5vbbs74CNB6ViHLHGQJjY6zj88JeiDtJ2d/ADKxaay688Sf2KcjtdF3dyBL11C5pJS2NxQ==}
-
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
     engines: {node: '>=18'}
@@ -443,22 +422,11 @@ packages:
       '@livekit/agents': 1.2.3
       '@livekit/rtc-node': ^0.13.24
 
-  '@livekit/agents-plugin-deepgram@1.2.3':
-    resolution: {integrity: sha512-RxqG/GRWzd/p9+O2Qn1WNYtDcHoq8/dceitYpqFxmBoUjOJDW38XzBvtmLnqCT4D9EUq2XIB4enmlWn1jX9Xpg==}
-    peerDependencies:
-      '@livekit/agents': 1.2.3
-      '@livekit/rtc-node': ^0.13.24
-
   '@livekit/agents-plugin-elevenlabs@1.2.3':
     resolution: {integrity: sha512-yXMm3z0bgIM7FzO0Ivpwe16CbZ6xzPaJPed85W1BHO5I0ajF9BPR9/ti2M6B+837fclyk2qdIHEcBnX7OQjKeQ==}
     peerDependencies:
       '@livekit/agents': 1.2.3
       '@livekit/rtc-node': ^0.13.24
-
-  '@livekit/agents-plugin-livekit@1.2.3':
-    resolution: {integrity: sha512-B+XFsbaSTDu7D/wU/JXugYyyTQ4NJ/DXLBbBJ1BV6mWe0QlAtPrKp0DMiN/m1zX/VimJgAp0TFtGDitIfAxi4g==}
-    peerDependencies:
-      '@livekit/agents': 1.2.3
 
   '@livekit/agents-plugin-silero@1.2.3':
     resolution: {integrity: sha512-jl8RTGahQMJ6Vpjkjdk1nZvHpt+vLOg2B9RLeDv39dJ/kToWMhyU+5ujl6QzXkPQJ0qh2W5xjEX98+Ci1zzYfw==}
@@ -1119,9 +1087,6 @@ packages:
       picomatch:
         optional: true
 
-  flatbuffers@25.9.23:
-    resolution: {integrity: sha512-MI1qs7Lo4Syw0EOzUl0xjs2lsoeqFku44KpngfIduHBYvzm8h2+7K8YMQh1JtVVVrUvhLpNwqVi4DERegUJhPQ==}
-
   fluent-ffmpeg@2.1.3:
     resolution: {integrity: sha512-Be3narBNt2s6bsaqP6Jzq91heDgOEaDCJAXcE3qcma/EJBSy5FB4cvO31XBInuAuKBx8Kptf8dkhjK0IOru39Q==}
     engines: {node: '>=18'}
@@ -1165,9 +1130,6 @@ packages:
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
     engines: {node: '>= 0.4'}
-
-  guid-typescript@1.0.9:
-    resolution: {integrity: sha512-Y8T4vYhEfwJOTbouREvG+3XDsjr8E3kIr7uf+JZ0BYloFsttiHU0WfvANVsR7TxNUJa/WpCnw/Ino/p+DeBhBQ==}
 
   has-property-descriptors@1.0.2:
     resolution: {integrity: sha512-55JNKuIW+vq4Ke1BjOTjM2YctQIvCT7GFzHwmfZPGo5wnrgkid0YQtnAleFSqumZm4az3n2BS+erby5ipJdgrg==}
@@ -1379,15 +1341,9 @@ packages:
   onnxruntime-common@1.21.0:
     resolution: {integrity: sha512-Q632iLLrtCAVOTO65dh2+mNbQir/QNTVBG3h/QdZBpns7mZ0RYbLRBgGABPbpU9351AgYy7SJf1WaeVwMrBFPQ==}
 
-  onnxruntime-common@1.22.0-dev.20250409-89f8206ba4:
-    resolution: {integrity: sha512-vDJMkfCfb0b1A836rgHj+ORuZf4B4+cc2bASQtpeoJLueuFc5DuYwjIZUBrSvx/fO5IrLjLz+oTrB3pcGlhovQ==}
-
   onnxruntime-node@1.21.0:
     resolution: {integrity: sha512-NeaCX6WW2L8cRCSqy3bInlo5ojjQqu2fD3D+9W5qb5irwxhEyWKXeH2vZ8W9r6VxaMPUan+4/7NDwZMtouZxEw==}
     os: [win32, darwin, linux]
-
-  onnxruntime-web@1.22.0-dev.20250409-89f8206ba4:
-    resolution: {integrity: sha512-0uS76OPgH0hWCPrFKlL8kYVV7ckM7t/36HfbgoFw6Nd0CZVVbQC4PkrR8mBX8LtNUFZO25IQBqV2Hx2ho3FlbQ==}
 
   openai@6.32.0:
     resolution: {integrity: sha512-j3k+BjydAf8yQlcOI7WUQMQTbbF5GEIMAE2iZYCOzwwB3S2pCheaWYp+XZRNAch4jWVc52PMDGRRjutao3lLCg==}
@@ -1452,9 +1408,6 @@ packages:
   pino@9.14.0:
     resolution: {integrity: sha512-8OEwKp5juEvb/MjpIc4hjqfgCNysrS94RIOMXYvpYCdm/jglrKEiAYmiumbmGhCvs+IcInsphYDFwqrjr7398w==}
     hasBin: true
-
-  platform@1.3.6:
-    resolution: {integrity: sha512-fnWVljUchTro6RiCFvCXBbNhJc2NijN7oIQxbwsyL0buWJPG85v81ehlHI9fXrJsMNgTofEoWIQeClKpgxFLrg==}
 
   postcss@8.5.8:
     resolution: {integrity: sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg==}
@@ -1910,21 +1863,6 @@ snapshots:
   '@ffmpeg-installer/win32-x64@4.1.0':
     optional: true
 
-  '@huggingface/hub@2.4.1':
-    dependencies:
-      '@huggingface/tasks': 0.19.90
-
-  '@huggingface/jinja@0.5.6': {}
-
-  '@huggingface/tasks@0.19.90': {}
-
-  '@huggingface/transformers@3.7.2':
-    dependencies:
-      '@huggingface/jinja': 0.5.6
-      onnxruntime-node: 1.21.0
-      onnxruntime-web: 1.22.0-dev.20250409-89f8206ba4
-      sharp: 0.34.5
-
   '@img/colour@1.1.0': {}
 
   '@img/sharp-darwin-arm64@0.34.5':
@@ -2039,15 +1977,6 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@livekit/agents-plugin-deepgram@1.2.3(@livekit/agents@1.2.3(@livekit/rtc-node@0.13.24)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.24)':
-    dependencies:
-      '@livekit/agents': 1.2.3(@livekit/rtc-node@0.13.24)(typescript@6.0.2)(zod@4.3.6)
-      '@livekit/rtc-node': 0.13.24
-      ws: 8.19.0
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-
   '@livekit/agents-plugin-elevenlabs@1.2.3(@livekit/agents@1.2.3(@livekit/rtc-node@0.13.24)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.24)':
     dependencies:
       '@livekit/agents': 1.2.3(@livekit/rtc-node@0.13.24)(typescript@6.0.2)(zod@4.3.6)
@@ -2057,13 +1986,6 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
-
-  '@livekit/agents-plugin-livekit@1.2.3(@livekit/agents@1.2.3(@livekit/rtc-node@0.13.24)(typescript@6.0.2)(zod@4.3.6))':
-    dependencies:
-      '@huggingface/hub': 2.4.1
-      '@huggingface/transformers': 3.7.2
-      '@livekit/agents': 1.2.3(@livekit/rtc-node@0.13.24)(typescript@6.0.2)(zod@4.3.6)
-      onnxruntime-node: 1.21.0
 
   '@livekit/agents-plugin-silero@1.2.3(@livekit/agents@1.2.3(@livekit/rtc-node@0.13.24)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.24)':
     dependencies:
@@ -2716,8 +2638,6 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.4
 
-  flatbuffers@25.9.23: {}
-
   fluent-ffmpeg@2.1.3:
     dependencies:
       async: 0.2.10
@@ -2779,8 +2699,6 @@ snapshots:
       gopd: 1.2.0
 
   gopd@1.2.0: {}
-
-  guid-typescript@1.0.9: {}
 
   has-property-descriptors@1.0.2:
     dependencies:
@@ -2943,22 +2861,11 @@ snapshots:
 
   onnxruntime-common@1.21.0: {}
 
-  onnxruntime-common@1.22.0-dev.20250409-89f8206ba4: {}
-
   onnxruntime-node@1.21.0:
     dependencies:
       global-agent: 3.0.0
       onnxruntime-common: 1.21.0
       tar: 7.5.11
-
-  onnxruntime-web@1.22.0-dev.20250409-89f8206ba4:
-    dependencies:
-      flatbuffers: 25.9.23
-      guid-typescript: 1.0.9
-      long: 5.3.2
-      onnxruntime-common: 1.22.0-dev.20250409-89f8206ba4
-      platform: 1.3.6
-      protobufjs: 7.5.4
 
   openai@6.32.0(ws@8.19.0)(zod@4.3.6):
     optionalDependencies:
@@ -3059,8 +2966,6 @@ snapshots:
       safe-stable-stringify: 2.5.0
       sonic-boom: 4.2.1
       thread-stream: 3.1.0
-
-  platform@1.3.6: {}
 
   postcss@8.5.8:
     dependencies:
