@@ -255,9 +255,9 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
 
 // --- cancel_appt ---
 export const cancel_appt = llm.tool({
-  description: `Cancels an appointment. Requires appointmentId — use the ID from the caller context (phone lookup) or from a confirm_appt response.
+  description: `Cancels an appointment. You MUST call this tool to cancel — an appointment is not cancelled until this tool executes successfully. Never tell the caller an appointment is cancelled without calling this tool first.
 
-Read back the details and confirm the caller wants it cancelled before proceeding. If they want to reschedule, book the new appointment first, then cancel.`,
+Requires appointmentId — use the ID from the caller context (phone lookup) or from a confirm_appt response. Read back the details and confirm the caller wants it cancelled before calling. If they want to reschedule, book the new appointment first, then cancel.`,
   parameters: z.object({
     appointmentId: z.number().describe("Appointment ID from the confirm_appt response"),
   }),

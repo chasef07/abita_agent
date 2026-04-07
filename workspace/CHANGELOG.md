@@ -1,5 +1,27 @@
 # Prompt Changelog
 
+## 2026-04-07 — Fix zombie sessions, analytics reliability, and cancel_appt hallucination
+
+**main.ts — Fix zombie sessions after transfers**
+- Why: After every `transfer_call`, the `participantDisconnected` handler skipped `session.close()` because of a `!session.userData.transferred` guard. The framework's built-in `closeOnDisconnect` partially closed the session but left the STT WebSocket alive in an infinite retry loop. Each zombie accumulated as a "concurrent session" — hit 40, blocking new calls from getting agents.
+- What changed: Removed the `!session.userData.transferred` guard so `session.close()` fires for ALL disconnects, including transfers. This fully tears down STT/LLM/TTS connections.
+
+**main.ts — Increase shutdown timeout from 10s to 60s**
+- Why: The default `shutdownProcessTimeout` is 10 seconds. The analytics POST (with retries) could take longer, causing the process to be killed before the POST finished. This silently dropped call data from the dashboard.
+- What changed: Set `shutdownProcessTimeout: 60_000`. Reduced POST timeout from 30s to 10s per attempt. Increased retries to 4 with exponential backoff. Worst case ~40s, well within the 60s window.
+
+**main.ts — Skip oversized audio payloads**
+- Why: Base64-encoded audio for long calls could exceed endpoint payload limits (e.g., Vercel 4.5MB), causing the entire analytics POST to fail — losing transcript and metrics along with the audio.
+- What changed: Audio is only included if under 4MB base64. Larger recordings are skipped with a warning, but the rest of the call data still posts.
+
+**main.ts — Log response body on analytics POST failure**
+- Why: When the POST failed, the log only showed the status code with no detail on why.
+- What changed: Response body (first 200 chars) is now logged on non-OK responses.
+
+**tools.ts / RUNBOOK.md — Fix cancel_appt not being called**
+- Why: In call cmnp2702t, agent told patient Patrina her appointment was cancelled without ever calling `cancel_appt`. The LLM had appointment data from phone lookup context and skipped the tool entirely. Appointment was never actually cancelled.
+- What changed: Added explicit instruction to cancel_appt tool description: "You MUST call this tool to cancel — an appointment is not cancelled until this tool executes successfully. Never tell the caller an appointment is cancelled without calling this tool first." Same emphasis added to RUNBOOK cancel flow.
+
 ## 2026-04-07 — Clean up transfer logic and make transfer message conversational
 
 **Removed conflicting transfer guidance**
