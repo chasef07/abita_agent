@@ -1,5 +1,18 @@
 # Prompt Changelog
 
+## 2026-04-07 — Clean up transfer logic and make transfer message conversational
+
+**Removed conflicting transfer guidance**
+- "Go straight to transferring" and "work through it first" were both in Path 4 — LLM could get mixed signals on borderline requests. Reorganized into three clear buckets: transfer immediately (out-of-scope), try to help first (in-scope concerns), caller asks for a human (one chance to qualify).
+
+**Conversational transfer message**
+- Old: "We will transfer you to the office now, but we may be dealing with patients. If so, please leave us a voicemail and we will get back to you as soon as we can."
+- New: "Let me transfer you over to the office. They might be with a patient, so if no one picks up just leave a voicemail and they'll get back to you."
+
+**Single source of truth for transfer behavior**
+- Stripped behavioral instructions out of the transfer_call tool description — it now just says what the tool does and points to the RUNBOOK. All transfer rules live in Path 4 only.
+- Top-of-runbook pushback rule now references Path 4 instead of restating the full policy.
+
 ## 2026-04-06 — Comprehensive prompt audit and restructure
 
 Reviewed 7 real call transcripts and identified recurring issues: verbosity, agent restating what the caller said, ignoring the transfer message, reading back all registration fields, duplicate tool calls, location confusion, missing appointment reason, and corporate tone on unhappy paths. Then conducted a full research audit across OpenAI, Anthropic, Google, and voice AI platforms (LiveKit, Vapi, Retell, ElevenLabs) to benchmark against state-of-the-art prompting practices. Restructured the entire prompt based on findings.

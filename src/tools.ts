@@ -329,7 +329,7 @@ Answer naturally from the returned info — just the part that answers their que
 // --- transfer_call ---
 export const transfer_call = llm.tool({
   description:
-    "Transfers the caller to a human at the office. BEFORE calling this tool, you MUST say this exact message: 'We will transfer you to the office now, but we may be dealing with patients. If so, please leave us a voicemail and we will get back to you as soon as we can.' Wait for your message to finish. Do NOT call this tool mid-sentence or while still speaking. The caller must hear the complete transfer message before the transfer begins. Call this tool EXACTLY ONCE. After this tool executes, the SIP session disconnects and the call is over — do NOT generate a second transfer_call, do NOT generate any further tool calls, and do NOT generate any further text. Your turn ends here.",
+    "Transfers the caller to the office. Say your transfer message (see RUNBOOK) and wait for it to finish BEFORE calling this tool. Call once — after it executes the SIP session disconnects and your turn is over.",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
