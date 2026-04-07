@@ -12,6 +12,7 @@ import {
   llm,
   voice,
 } from "@livekit/agents";
+import * as livekit from "@livekit/agents-plugin-livekit";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as elevenlabs from "@livekit/agents-plugin-elevenlabs";
 import * as baseten from "@livekit/agents-plugin-baseten";
@@ -84,7 +85,7 @@ export default defineAgent({
       vad,
       preemptiveGeneration: true,
       turnHandling: {
-        turnDetection: "stt",
+        turnDetection: new livekit.turnDetector.MultilingualModel(),
         interruption: {
           mode: "adaptive",
           minDuration: 700,
@@ -94,7 +95,8 @@ export default defineAgent({
           resumeFalseInterruption: true,
         },
         endpointing: {
-          minDelay: 0,
+          minDelay: 1000,
+          maxDelay: 2000,
         },
       },
     });
