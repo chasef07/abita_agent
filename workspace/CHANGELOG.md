@@ -1,5 +1,24 @@
 # Prompt Changelog
 
+## 2026-04-06 — Autonomous optimization run (20 transcripts)
+
+Evaluated 20 recent transcripts from the call database. Found 2 fixable issues + 1 ablation simplification.
+
+### Changes
+
+**RUNBOOK.md — Add ophthalmology scope guard to Path 3**
+- Why: In SCL_nhNHBoWVHfk5, agent told caller "we do comprehensive eye exams" and offered to schedule for glasses. The practice does NOT do routine eye exams — it's ophthalmology, not optometry. The knowledge base has this info, but the agent answered without consulting it.
+- What changed: Added explicit scope rule directly in Path 3 (Quick Question): "We do NOT do routine eye exams, glasses prescriptions, or contact lens fittings. If someone asks, tell them they'd want an optometrist."
+- Why in RUNBOOK and not just knowledge base: The agent needs to know this without calling lookup_knowledge. Putting it in the prompt ensures it's always visible.
+
+**RUNBOOK.md — Skip re-asking insurance if already confirmed**
+- Why: In SCL_5JV5Z2yeATcX, caller opened with "do you accept Sunshine Health?" — agent confirmed acceptance. Then during registration (turn 8), agent asked "What insurance does she have?" again. Wasted a turn.
+- What changed: Added note to registration step 1: "If you already confirmed their insurance via check_insurance earlier in this call, skip this step."
+
+**RUNBOOK.md — Ablation: Consolidate duplicate transfer-on-insistence rule**
+- Why: The transfer-on-insistence rule was stated in full twice — once in "How You Work" (line 11) and again in Path 4 (line 77), with nearly identical wording. The duplication adds prompt length without benefit.
+- What changed: Replaced the full duplicate in Path 4 with a short reference: "Second insistence = transfer immediately (see 'How You Work' rule above)." Saves ~180 characters.
+
 ## 2026-04-02 — Autonomous optimization run (20 transcripts)
 
 Evaluated 20 recent transcripts from the call database. Found 3 critical behavioral issues.

@@ -1,6 +1,39 @@
 {
   "runs": [
     {
+      "id": "20260406-2317",
+      "date": "2026-04-06",
+      "transcriptsEvaluated": 20,
+      "issuesFound": 2,
+      "changesProposed": 3,
+      "changesKept": 3,
+      "changesDiscarded": 0,
+      "testIterations": 1,
+      "promptLength": {
+        "soul": 3024,
+        "voice": 3293,
+        "runbook": 8135,
+        "toolDescriptions": 1872,
+        "total": 16324
+      },
+      "metrics": {
+        "resolutionRate": { "faq": 100, "new_patient": 71, "existing_patient": 100, "overall": 92 },
+        "transferRate": 54,
+        "doubleTransfers": 72,
+        "avgTurns": { "faq": 4, "new_patient": 18, "existing_patient": 8 },
+        "avgDuration": { "faq": 80, "new_patient": 200, "existing_patient": 140 }
+      },
+      "changes": [
+        { "type": "add", "file": "RUNBOOK", "desc": "ophthalmology scope guard in Path 3" },
+        { "type": "add", "file": "RUNBOOK", "desc": "skip insurance re-ask if already confirmed" },
+        { "type": "simplify", "file": "RUNBOOK", "desc": "consolidate duplicate transfer-on-insistence rule" }
+      ],
+      "latency": {
+        "ttft": { "p50": 0, "p90": 0, "p99": 0 },
+        "tts": { "p50": 0, "p90": 0, "p99": 0 }
+      }
+    },
+    {
       "id": "20260402-2100",
       "date": "2026-04-02",
       "transcriptsEvaluated": 20,
