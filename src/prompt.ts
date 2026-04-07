@@ -62,12 +62,34 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
       lines.push(`Routing is ambiguous — needs plan type clarification.`);
     }
     if (lookup.appointments && lookup.appointments.length > 0) {
-      lines.push(`Upcoming appointments:`);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const upcoming: typeof lookup.appointments = [];
+      const past: typeof lookup.appointments = [];
       for (const appt of lookup.appointments) {
-        lines.push(`  - [ID: ${appt.id}] ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`);
+        const apptDate = new Date(appt.date);
+        if (!isNaN(apptDate.getTime()) && apptDate >= today) {
+          upcoming.push(appt);
+        } else {
+          past.push(appt);
+        }
+      }
+      if (upcoming.length > 0) {
+        lines.push(`Upcoming appointments:`);
+        for (const appt of upcoming) {
+          lines.push(`  - [ID: ${appt.id}] ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`);
+        }
+      } else {
+        lines.push(`No upcoming appointments.`);
+      }
+      if (past.length > 0) {
+        lines.push(`Past appointments (cannot be cancelled or modified):`);
+        for (const appt of past) {
+          lines.push(`  - ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`);
+        }
       }
     } else {
-      lines.push(`No upcoming appointments on file.`);
+      lines.push(`No appointments on file.`);
     }
     lines.push(``);
     lines.push(`Do NOT use or say the patient's name before they say it. Ask: "can I get your first name?" If they say "${firstName}" (or close), they are verified — skip verify_patient entirely and go straight to what they need. If they give a different name (child, spouse), run verify_patient for that person.`);

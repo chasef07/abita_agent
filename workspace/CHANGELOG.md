@@ -18,6 +18,14 @@
 - Why: When the POST failed, the log only showed the status code with no detail on why.
 - What changed: Response body (first 200 chars) is now logged on non-OK responses.
 
+**prompt.ts — Split appointments into upcoming vs past**
+- Why: In call cmnp2702t, API returned a March 11 appointment (already passed). The prompt labeled it "Upcoming appointments" so the LLM assumed it was the next Wednesday (April 8) and told the caller it was "tomorrow." The model ignored the actual date because the label said "upcoming."
+- What changed: Appointments are now split into "Upcoming appointments" (today or later, with IDs for cancellation) and "Past appointments (cannot be cancelled or modified)" (no IDs). If no future appointments exist, shows "No upcoming appointments."
+
+**RUNBOOK.md — Added date-checking rule to Remember section**
+- Why: Same call — LLM didn't compare appointment dates against the current date from context.
+- What changed: Added rule 4 to the Remember section: "Use the current date from context when evaluating appointments. 'Upcoming' means the date is today or later. Never assume an appointment is upcoming without checking the date."
+
 **tools.ts / RUNBOOK.md — Fix cancel_appt not being called**
 - Why: In call cmnp2702t, agent told patient Patrina her appointment was cancelled without ever calling `cancel_appt`. The LLM had appointment data from phone lookup context and skipped the tool entirely. Appointment was never actually cancelled.
 - What changed: Added explicit instruction to cancel_appt tool description: "You MUST call this tool to cancel — an appointment is not cancelled until this tool executes successfully. Never tell the caller an appointment is cancelled without calling this tool first." Same emphasis added to RUNBOOK cancel flow.
