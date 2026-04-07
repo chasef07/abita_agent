@@ -155,11 +155,12 @@ export default defineAgent({
     });
 
     // Close the session when the SIP caller hangs up (or transfer completes).
-    // Without this, rooms can linger indefinitely if the framework doesn't
-    // auto-detect the SIP participant leaving.
+    // This must fire for ALL disconnects — including transfers — because the
+    // framework's built-in closeOnDisconnect doesn't fully tear down the STT
+    // WebSocket, leaving zombie sessions that accumulate as "concurrent."
     ctx.room.on("participantDisconnected", async (p) => {
-      if (p.identity === participant.identity && !session.userData.transferred) {
-        console.log(`[call] SIP participant ${p.identity} disconnected, closing session`);
+      if (p.identity === participant.identity) {
+        console.log(`[call] SIP participant ${p.identity} disconnected (transferred=${session.userData.transferred}), closing session`);
         await session.close();
       }
     });
@@ -190,7 +191,7 @@ export default defineAgent({
       const analyticsUrl = process.env.ANALYTICS_URL;
       if (analyticsUrl) {
         const endedAt = new Date();
-        const payload = {
+        const payload: Record<string, unknown> = {
           callId,
           callerPhone,
           officePhone: trunkPhone,
@@ -199,30 +200,38 @@ export default defineAgent({
           durationSec: Math.round((endedAt.getTime() - startedAt.getTime()) / 1000),
           metrics: rawMetrics,
           sessionReport,
-          audioBase64,
         };
+
+        // Include audio only if under 4MB base64 to avoid payload limits
+        if (audioBase64 && audioBase64.length < 4 * 1024 * 1024) {
+          payload.audioBase64 = audioBase64;
+        } else if (audioBase64) {
+          console.warn(`[shutdown] Audio too large for analytics POST (${(audioBase64.length / 1024 / 1024).toFixed(1)}MB), sending without audio`);
+        }
 
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         const secret = process.env.WEBHOOK_SECRET;
         if (secret) headers["Authorization"] = `Bearer ${secret}`;
 
-        for (let attempt = 1; attempt <= 2; attempt++) {
+        const maxAttempts = 4;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
             const res = await fetch(analyticsUrl, {
               method: "POST",
               headers,
               body: JSON.stringify(payload),
-              signal: AbortSignal.timeout(30_000),
+              signal: AbortSignal.timeout(10_000),
             });
             if (res.ok) {
               console.log(`[shutdown] Analytics POST succeeded (attempt ${attempt})`);
               break;
             }
-            console.warn(`[shutdown] Analytics POST returned ${res.status} (attempt ${attempt})`);
+            const body = await res.text().catch(() => "");
+            console.warn(`[shutdown] Analytics POST returned ${res.status} (attempt ${attempt}): ${body.slice(0, 200)}`);
           } catch (err) {
             console.warn(`[shutdown] Analytics POST failed (attempt ${attempt}):`, err);
           }
-          if (attempt < 2) await new Promise((r) => setTimeout(r, 2_000));
+          if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 2_000 * attempt));
         }
       }
 
@@ -241,5 +250,6 @@ cli.runApp(
   new ServerOptions({
     agent: fileURLToPath(import.meta.url),
     agentName: "abita-agent",
+    shutdownProcessTimeout: 60_000, // 60s to allow analytics POST to complete
   }),
 );
