@@ -127,6 +127,8 @@ export default defineAgent({
       patientName: verified?.name ?? null,
       dob: verified?.dob ?? null,
       insuranceCarrier: verified?.insuranceCarrier ?? null,
+      insPlanId: verified?.insPlanId ?? null,
+      respPartyId: verified?.respPartyId ?? null,
       routing: verified?.routing ?? null,
       allowedProviders: verified?.allowedProviders ?? [],
       routingAmbiguous: verified?.routingAmbiguous ?? false,
