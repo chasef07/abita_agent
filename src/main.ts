@@ -52,7 +52,7 @@ export default defineAgent({
     });
 
     const fallbackLLM = new baseten.LLM({
-      model: "zai-org/GLM-5",
+      model: "MiniMaxAI/MiniMax-M2.5",
       parallelToolCalls: false,
       temperature: 0.3,
     });
