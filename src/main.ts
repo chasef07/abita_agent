@@ -45,17 +45,20 @@ export default defineAgent({
     try {
     const vad = ctx.proc.userData.vad as silero.VAD;
 
+    // temp=1 + top_p=0.9 per Chris Wirick (Baseten FDE) to reduce GLM looping
     const primaryLLM = new baseten.LLM({
       model: "zai-org/GLM-4.7",
       parallelToolCalls: false,
-      temperature: 0.3,
-    });
+      temperature: 1.0,
+      top_p: 0.9,
+    } as any);
 
     const fallbackLLM = new baseten.LLM({
-      model: "zai-org/GLM-5",
+      model: "MiniMaxAI/MiniMax-M2.5",
       parallelToolCalls: false,
-      temperature: 0.3,
-    });
+      temperature: 1.0,
+      top_p: 0.9,
+    } as any);
 
     const llmWithFallback = new llm.FallbackAdapter({
       llms: [primaryLLM, fallbackLLM],
@@ -127,6 +130,8 @@ export default defineAgent({
       patientName: verified?.name ?? null,
       dob: verified?.dob ?? null,
       insuranceCarrier: verified?.insuranceCarrier ?? null,
+      insPlanId: verified?.insPlanId ?? null,
+      respPartyId: verified?.respPartyId ?? null,
       routing: verified?.routing ?? null,
       allowedProviders: verified?.allowedProviders ?? [],
       routingAmbiguous: verified?.routingAmbiguous ?? false,

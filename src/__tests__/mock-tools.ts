@@ -285,6 +285,29 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
     },
   });
 
+  const mock_update_insurance = llm.tool({
+    description: "Updates a verified patient's insurance.",
+    parameters: z.object({
+      insurance: z.string(),
+      subscriberName: z.string(),
+      subscriberNum: z.string(),
+    }),
+    execute: async (args) => {
+      log.push({ name: "update_insurance", args });
+      return {
+        status: "updated",
+        patientId: "12345",
+        oldInsurance: "Florida Blue",
+        newInsurance: args.insurance,
+        routing: "all_three",
+        allowedProviders: ["Dr. Bach", "Dr. Noel", "Dr. Licht"],
+        routingAmbiguous: false,
+        preauthRequired: false,
+        message: "Insurance updated successfully",
+      };
+    },
+  });
+
   const mock_transfer_call = llm.tool({
     description:
       "Transfers the caller to a human at the office. BEFORE calling this tool, you MUST fully finish telling the caller you're transferring them. Call this tool EXACTLY ONCE. After this tool executes, the SIP session disconnects and the call is over — do NOT generate a second transfer_call, do NOT generate any further tool calls, and do NOT generate any further text. Your turn ends here.",
@@ -299,6 +322,7 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
     tools: {
       verify_patient: mock_verify_patient,
       add_patient: mock_add_patient,
+      update_insurance: mock_update_insurance,
       get_availability: mock_get_availability,
       confirm_appt: mock_confirm_appt,
       cancel_appt: mock_cancel_appt,

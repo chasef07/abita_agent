@@ -4,7 +4,7 @@
 import { voice } from "@livekit/agents";
 import { buildPrompt } from "./prompt.js";
 import type { PhoneLookupResult } from "./tools.js";
-import { verify_patient, add_patient, get_availability, confirm_appt, cancel_appt, book_appt, check_insurance, lookup_knowledge, transfer_call } from "./tools.js";
+import { verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, book_appt, check_insurance, lookup_knowledge, transfer_call } from "./tools.js";
 
 /** Greeting keyed by trunk phone number. Default = Spring Hill. */
 const GREETINGS: Record<string, string> = {
@@ -22,6 +22,7 @@ export class Agent extends voice.Agent {
       tools: {
         verify_patient,
         add_patient,
+        update_insurance,
         get_availability,
         confirm_appt,
         cancel_appt,

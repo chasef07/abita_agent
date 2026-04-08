@@ -42,6 +42,8 @@ export interface CallerMatch {
   dob: string;
   phone: string;
   insuranceCarrier: string;
+  insPlanId: string | null;
+  respPartyId: string | null;
   routing: string;
   allowedProviders: string[];
   routingAmbiguous: boolean;
@@ -66,6 +68,8 @@ export interface CallState {
   patientName: string | null;
   dob: string | null;
   insuranceCarrier: string | null;
+  insPlanId: string | null;
+  respPartyId: string | null;
   routing: string | null;
   allowedProviders: string[];
   routingAmbiguous: boolean;
@@ -85,6 +89,8 @@ function applyPatientResult(state: CallState, result: any): void {
   state.patientName = result.name ?? null;
   state.dob = result.dob ?? null;
   state.insuranceCarrier = result.insuranceCarrier ?? null;
+  state.insPlanId = result.insPlanId ?? null;
+  state.respPartyId = result.respPartyId ?? null;
   state.routing = result.routing ?? null;
   state.allowedProviders = result.allowedProviders ?? [];
   state.routingAmbiguous = result.routingAmbiguous ?? false;
@@ -104,6 +110,8 @@ export async function lookupByPhone(phone: string, office: string): Promise<Phon
         dob: data.dob,
         phone: data.phone,
         insuranceCarrier: data.insuranceCarrier,
+        insPlanId: data.insPlanId ?? null,
+        respPartyId: data.respPartyId ?? null,
         routing: data.routing,
         allowedProviders: data.allowedProviders ?? [],
         routingAmbiguous: data.routingAmbiguous ?? false,
@@ -209,6 +217,39 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
     const result = await callApi("/api/add-patient", params, getState(ctx).office) as any;
     if (result?.patientId) {
       applyPatientResult(getState(ctx), result);
+    }
+    return result;
+  },
+});
+
+// --- update_insurance ---
+export const update_insurance = llm.tool({
+  description: `Updates a verified patient's insurance. Requires verify_patient first. Insurance name must match accepted list. Confirm plan name and member ID with caller before submitting.
+
+After response: session state updates automatically. If preauthRequired, scheduling starts two weeks out.`,
+  parameters: z.object({
+    insurance: z.string().describe("New insurance plan name"),
+    subscriberName: z.string().describe("Name on the insurance card"),
+    subscriberNum: z.string().describe("Member/subscriber ID from the card"),
+  }),
+  execute: async ({ insurance, subscriberName, subscriberNum }, { ctx }) => {
+    const state = getState(ctx);
+    if (!state.patientId) return "ERROR: No patient verified yet.";
+    const result = await callApi("/api/patient/update-insurance", {
+      patientId: state.patientId,
+      insPlanId: state.insPlanId ?? "",
+      respPartyId: state.respPartyId ?? "",
+      oldInsurance: state.insuranceCarrier ?? "",
+      insurance, subscriberName, subscriberNum,
+    }, state.office) as any;
+    if (result?.status === "updated") {
+      state.insuranceCarrier = result.newInsurance ?? state.insuranceCarrier;
+      state.insPlanId = result.insPlanId ?? null;
+      state.respPartyId = result.respPartyId ?? null;
+      state.routing = result.routing ?? state.routing;
+      state.allowedProviders = result.allowedProviders ?? state.allowedProviders;
+      state.routingAmbiguous = result.routingAmbiguous ?? false;
+      state.preauthRequired = result.preauthRequired ?? false;
     }
     return result;
   },
