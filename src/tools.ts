@@ -244,7 +244,8 @@ After response: session state updates automatically. If preauthRequired, schedul
     }, state.office) as any;
     if (result?.status === "updated") {
       state.insuranceCarrier = result.newInsurance ?? state.insuranceCarrier;
-      state.insPlanId = null;
+      state.insPlanId = result.insPlanId ?? null;
+      state.respPartyId = result.respPartyId ?? null;
       state.routing = result.routing ?? state.routing;
       state.allowedProviders = result.allowedProviders ?? state.allowedProviders;
       state.routingAmbiguous = result.routingAmbiguous ?? false;
