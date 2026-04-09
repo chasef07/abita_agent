@@ -11,7 +11,7 @@ const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
 const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-production.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
-const DEFAULT_TRANSFER_NUMBER = "+16182265883";
+const DEFAULT_TRANSFER_NUMBER = "+18667968908";
 
 let _sipClient: SipClient | undefined;
 function getSipClient(): SipClient {
