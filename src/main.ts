@@ -152,14 +152,13 @@ export default defineAgent({
       rawMetrics.push({ ...ev.metrics });
     });
 
-    // Close the session when the SIP caller hangs up (or transfer completes).
-    // This must fire for ALL disconnects — including transfers — because the
-    // framework's built-in closeOnDisconnect doesn't fully tear down the STT
-    // WebSocket, leaving zombie sessions that accumulate as "concurrent."
-    ctx.room.on("participantDisconnected", async (p) => {
+    // End the job when the SIP caller hangs up (or transfer completes).
+    // LiveKit's documented Node pattern is ctx.shutdown(), which closes the
+    // session, disconnects the agent, and runs shutdown hooks.
+    ctx.room.on("participantDisconnected", (p) => {
       if (p.identity === participant.identity) {
-        console.log(`[call] SIP participant ${p.identity} disconnected (transferred=${session.userData.transferred}), closing session`);
-        await session.close();
+        console.log(`[call] SIP participant ${p.identity} disconnected (transferred=${session.userData.transferred}), shutting down job`);
+        ctx.shutdown(`sip participant disconnected: ${p.identity}`);
       }
     });
 
