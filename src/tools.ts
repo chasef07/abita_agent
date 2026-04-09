@@ -11,7 +11,7 @@ const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
 const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-production.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
-const DEFAULT_TRANSFER_NUMBER = "+16182265883";
+const DEFAULT_TRANSFER_SIP = "sip:abitacallcenter@sip.telnyx.com";
 
 let _sipClient: SipClient | undefined;
 function getSipClient(): SipClient {
@@ -389,11 +389,11 @@ export const transfer_call = llm.tool({
       await getSipClient().transferSipParticipant(
         state.sipRoomName,
         state.sipParticipantIdentity,
-        `tel:${DEFAULT_TRANSFER_NUMBER}`,
-        { playDialtone: false },
+        DEFAULT_TRANSFER_SIP,
+        { playDialtone: true },
       );
       const result = "Transfer initiated successfully.";
-      console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${DEFAULT_TRANSFER_NUMBER}`);
+      console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${DEFAULT_TRANSFER_SIP}`);
       // Framework handles shutdown via close_on_disconnect when the
       // SIP participant leaves after the transfer completes.
       return result;
