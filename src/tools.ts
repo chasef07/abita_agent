@@ -390,7 +390,7 @@ export const transfer_call = llm.tool({
         state.sipRoomName,
         state.sipParticipantIdentity,
         `tel:${DEFAULT_TRANSFER_NUMBER}`,
-        { playDialtone: true },
+        { playDialtone: false },
       );
       const result = "Transfer initiated successfully.";
       console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${DEFAULT_TRANSFER_NUMBER}`);
