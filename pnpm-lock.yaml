@@ -12,23 +12,23 @@ importers:
         specifier: ^2.42.0
         version: 2.42.0
       '@livekit/agents':
-        specifier: ^1.2.4
-        version: 1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
+        specifier: ^1.2.5
+        version: 1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
       '@livekit/agents-plugin-baseten':
-        specifier: ^1.2.4
-        version: 1.2.4(@livekit/agents@1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)(zod@4.3.6)
+        specifier: ^1.2.5
+        version: 1.2.5(@livekit/agents@1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)(zod@4.3.6)
       '@livekit/agents-plugin-deepgram':
-        specifier: ^1.2.4
-        version: 1.2.4(@livekit/agents@1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)
+        specifier: ^1.2.5
+        version: 1.2.5(@livekit/agents@1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)
       '@livekit/agents-plugin-elevenlabs':
-        specifier: ^1.2.4
-        version: 1.2.4(@livekit/agents@1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)
+        specifier: ^1.2.5
+        version: 1.2.5(@livekit/agents@1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)
       '@livekit/agents-plugin-livekit':
-        specifier: ^1.2.4
-        version: 1.2.4(@livekit/agents@1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))
+        specifier: ^1.2.5
+        version: 1.2.5(@livekit/agents@1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))
       '@livekit/agents-plugin-silero':
-        specifier: ^1.2.4
-        version: 1.2.4(@livekit/agents@1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)
+        specifier: ^1.2.5
+        version: 1.2.5(@livekit/agents@1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)
       '@livekit/noise-cancellation-node':
         specifier: ^0.1.9
         version: 0.1.9
@@ -437,37 +437,37 @@ packages:
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
 
-  '@livekit/agents-plugin-baseten@1.2.4':
-    resolution: {integrity: sha512-vUvCZdQOruWXr1SbE1tC6R1Pf6kx6hcf6ZtGlEJ1mGN9f4ZBDZP2Vbv+1Vx8cLTYViNJUnENbz6OTRCZVgJ+Dw==}
+  '@livekit/agents-plugin-baseten@1.2.5':
+    resolution: {integrity: sha512-egL8aCqZQfwrv3vzNPQWF6VlT5PBEM7rRXgRmfSIZwej1+jWLndnlnq+2E5igKdQ3LdkbB8sliHOnZGhOTPI7g==}
     peerDependencies:
-      '@livekit/agents': 1.2.4
+      '@livekit/agents': 1.2.5
       '@livekit/rtc-node': ^0.13.25
 
-  '@livekit/agents-plugin-deepgram@1.2.4':
-    resolution: {integrity: sha512-75T3gfSzYlRYisnhj00/elmAlh80B2AbNftdKwWa7gfZzmJEJ9WvfYA+8RWkLNMjOGwxFlihKscU1otisZMHaQ==}
+  '@livekit/agents-plugin-deepgram@1.2.5':
+    resolution: {integrity: sha512-YPzlh5VMcC8txBPZtipdM/WODClt4Cs4VRvLyNfzbSlfKg5RM8ws56IjxNSpbJCaGo43L/KAb3jOFNgrz3eq/Q==}
     peerDependencies:
-      '@livekit/agents': 1.2.4
+      '@livekit/agents': 1.2.5
       '@livekit/rtc-node': ^0.13.25
 
-  '@livekit/agents-plugin-elevenlabs@1.2.4':
-    resolution: {integrity: sha512-/rlC+qzsQPIjVGBRe9Qu8i1gMfAI7HRLGofEg7UDy2VYCn5rKPEgZmDSp92VR4ZwWWC3FvIui16BJelabP3dNA==}
+  '@livekit/agents-plugin-elevenlabs@1.2.5':
+    resolution: {integrity: sha512-HGZTW2T/eKnGh57GHFV/Ywo32Ap5zI7Lrokj/ZgXu5O7LOwusSk5TmkA30kaHU0rivOdwaJYkL7TQXZcwsyeeA==}
     peerDependencies:
-      '@livekit/agents': 1.2.4
+      '@livekit/agents': 1.2.5
       '@livekit/rtc-node': ^0.13.25
 
-  '@livekit/agents-plugin-livekit@1.2.4':
-    resolution: {integrity: sha512-FMn7pXtgevwJAeD0Ys4cUyoH4BcpTCWPz5v4voMMy3mBqebPZaj8U3kEtsc053a/SdWu+EkiDFjVpL8UWQb7IQ==}
+  '@livekit/agents-plugin-livekit@1.2.5':
+    resolution: {integrity: sha512-p/Ak5GzCK7UN7Gp3px4K5rMiNHb06EiKQScLsyIxKh7J5I7T6u7qWhDEzYKOYeR04iRddcz+Fsebgt9sgoBQbw==}
     peerDependencies:
-      '@livekit/agents': 1.2.4
+      '@livekit/agents': 1.2.5
 
-  '@livekit/agents-plugin-silero@1.2.4':
-    resolution: {integrity: sha512-revWvbrYszZFylAspCW7aG9pZ2wPCz0++hq2wPOIgKorQoJYQ5rV/8NnJj3St9Dz4XKKdx2KYgSGve/CXk7wYA==}
+  '@livekit/agents-plugin-silero@1.2.5':
+    resolution: {integrity: sha512-QZDhwL0tVpstYweuz2436ATeF4d58Ht9/g7yejRG3Yx7YxX7vYDMX+KfI/Bz38E8bhY8zDbb+P2UqOVSBN44Qg==}
     peerDependencies:
-      '@livekit/agents': 1.2.4
+      '@livekit/agents': 1.2.5
       '@livekit/rtc-node': ^0.13.25
 
-  '@livekit/agents@1.2.4':
-    resolution: {integrity: sha512-y+qiyY8bmG24QMH5nwBnKogeVetl3+ABbG5q55MEUz+HgN5/UJZ9eTiC+LN6UZFt0exhYg6ZXAtOnPLax496hw==}
+  '@livekit/agents@1.2.5':
+    resolution: {integrity: sha512-6DlN6PCtUdm9xovkg2Vhf70+ndMEZeqFFd2ox7kcF510Qel8JtZjM6coOJ/a5QkbZtI3k+FiLTmDy9NvCCKoaA==}
     peerDependencies:
       '@livekit/rtc-node': ^0.13.25
       zod: ^3.25.76 || ^4.1.8
@@ -2033,9 +2033,9 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@livekit/agents-plugin-baseten@1.2.4(@livekit/agents@1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)(zod@4.3.6)':
+  '@livekit/agents-plugin-baseten@1.2.5(@livekit/agents@1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)(zod@4.3.6)':
     dependencies:
-      '@livekit/agents': 1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
+      '@livekit/agents': 1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
       '@livekit/rtc-node': 0.13.25
       dotenv: 17.4.1
       openai: 6.34.0(ws@8.20.0)(zod@4.3.6)
@@ -2045,18 +2045,18 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@livekit/agents-plugin-deepgram@1.2.4(@livekit/agents@1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)':
+  '@livekit/agents-plugin-deepgram@1.2.5(@livekit/agents@1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)':
     dependencies:
-      '@livekit/agents': 1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
+      '@livekit/agents': 1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
       '@livekit/rtc-node': 0.13.25
       ws: 8.20.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@livekit/agents-plugin-elevenlabs@1.2.4(@livekit/agents@1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)':
+  '@livekit/agents-plugin-elevenlabs@1.2.5(@livekit/agents@1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)':
     dependencies:
-      '@livekit/agents': 1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
+      '@livekit/agents': 1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
       '@livekit/mutex': 1.1.1
       '@livekit/rtc-node': 0.13.25
       ws: 8.20.0
@@ -2064,16 +2064,16 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@livekit/agents-plugin-livekit@1.2.4(@livekit/agents@1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))':
+  '@livekit/agents-plugin-livekit@1.2.5(@livekit/agents@1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))':
     dependencies:
       '@huggingface/hub': 2.4.1
       '@huggingface/transformers': 3.7.2
-      '@livekit/agents': 1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
+      '@livekit/agents': 1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
       onnxruntime-node: 1.21.0
 
-  '@livekit/agents-plugin-silero@1.2.4(@livekit/agents@1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)':
+  '@livekit/agents-plugin-silero@1.2.5(@livekit/agents@1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6))(@livekit/rtc-node@0.13.25)':
     dependencies:
-      '@livekit/agents': 1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
+      '@livekit/agents': 1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
       '@livekit/rtc-node': 0.13.25
       onnxruntime-node: 1.21.0
       ws: 8.20.0
@@ -2081,7 +2081,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@livekit/agents@1.2.4(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)':
+  '@livekit/agents@1.2.5(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)':
     dependencies:
       '@bufbuild/protobuf': 1.10.1
       '@ffmpeg-installer/ffmpeg': 1.1.0

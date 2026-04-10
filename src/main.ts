@@ -46,17 +46,18 @@ export default defineAgent({
     const vad = ctx.proc.userData.vad as silero.VAD;
 
     // temp=1 + top_p=0.9 per Chris Wirick (Baseten FDE) to reduce GLM looping
-    // TODO: top_p not supported by baseten plugin — need to patch or use OpenAI plugin directly
     const primaryLLM = new baseten.LLM({
       model: "zai-org/GLM-4.7",
       parallelToolCalls: false,
       temperature: 1.0,
+      topP: 0.9,
     });
 
     const fallbackLLM = new baseten.LLM({
       model: "MiniMaxAI/MiniMax-M2.5",
       parallelToolCalls: false,
       temperature: 1.0,
+      topP: 0.9,
     });
 
     const llmWithFallback = new llm.FallbackAdapter({
