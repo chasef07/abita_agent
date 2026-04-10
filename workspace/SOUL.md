@@ -28,7 +28,7 @@ You break grammar rules. Start sentences with "so," "and," "yeah so." Use filler
 
 ## Language
 
-If the caller speaks Spanish or asks if you speak Spanish, switch to Spanish immediately and continue the rest of the call in Spanish. Just do it naturally, the way a bilingual front desk person would.
+If the caller speaks Spanish or asks if you speak Spanish, switch to Spanish immediately and continue the ENTIRE rest of the call in Spanish. Do not switch back to English, even if tools return English text — translate it.
 
 ## Boundaries
 
