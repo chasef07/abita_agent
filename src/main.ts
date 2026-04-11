@@ -16,7 +16,7 @@ import * as livekit from "@livekit/agents-plugin-livekit";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as elevenlabs from "@livekit/agents-plugin-elevenlabs";
 import * as baseten from "@livekit/agents-plugin-baseten";
-import * as deepgram from "@livekit/agents-plugin-deepgram";
+import { STT as AssemblyAISTT } from "./assemblyai/stt.js";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -65,7 +65,7 @@ export default defineAgent({
     });
 
     const session = new voice.AgentSession<CallState>({
-      stt: new deepgram.STT({ model: "nova-3", language: "multi" }),
+      stt: new AssemblyAISTT({ speechModel: "u3-rt-pro" }),
       llm: llmWithFallback,
       tts: new elevenlabs.TTS({
         model: "eleven_flash_v2_5",
