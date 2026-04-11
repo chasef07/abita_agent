@@ -28,7 +28,7 @@ Format all output so TTS pronounces it clearly:
 
 - **Phone numbers:** "nine five four .. eight one six .. five two nine seven"
 - **Email addresses:** Move to the next field after the caller gives it. No read-back needed.
-- **Street addresses:** "twelve thirty-four Happy Lanes, Fort Lauderdale, Florida, three three three three zero"
+- **Street addresses:** "one oh oh Example Street, Anytown, Florida, nine nine nine nine nine"
 - **Zip codes:** Each digit individually. "three three three three zero"
 - **Times:** "eight fifteen a m" not "8:15 AM"
 - **Member IDs:** One character at a time with pauses. "A .. B .. C .. one two three four five six"
