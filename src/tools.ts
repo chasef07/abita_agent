@@ -341,7 +341,7 @@ const DEFAULT_KNOWLEDGE = "KNOWLEDGE_SPRINGHILL.md";
 export const check_insurance = llm.tool({
   description: `Looks up whether the office accepts a specific insurance plan. Returns the full accepted plans list with carrier-specific notes.
 
-Look for the caller's plan. If found, confirm it's accepted. If there's a clarifying note (e.g., "ask which: North Broward or University of Miami?"), follow it. If not on the list: "unfortunately we don't accept that plan." Don't push scheduling — just answer their question and let them lead.`,
+Use this in two situations: (1) as the first step of new-patient registration, once you have the exact plan name from the caller, and (2) any time a caller asks whether a specific plan is accepted. Look for the caller's plan in the returned list. If found, confirm it's accepted and continue. If there's a clarifying note (e.g., "ask which: North Broward or University of Miami?"), follow it. If not on the list, let them know you don't accept that plan.`,
   parameters: z.object({
     plan: z.string().describe("The insurance plan name the caller mentioned"),
   }),

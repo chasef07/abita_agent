@@ -6,9 +6,11 @@ If the caller uses a shorthand name, this tells you what plan to use:
 - "Blue Cross" / "BCBS" → Florida Blue
 - "BCBS Medicare HMO" → Florida Blue Medicare HMO
 - "United" / "UHC" → United Healthcare
+- "UHC Medicare" → United Healthcare AARP Medicare
 - "DuoComplete" → United Healthcare Dual Complete
-- "Oscar" → Oscar Health
+- "Oscar" / "Oscar Insurance" → Oscar Health
 - "Humana" → ask which plan (Gold Plus, PPO, Medicare, etc.)
+- "Humana Medicare" → Humana Medicare
 - "Molina" → ask: Medicaid, Medicare, or Marketplace?
 - "Aetna EPO" → ask: North Broward or University of Miami?
 - "Sunshine" → Sunshine Medicaid

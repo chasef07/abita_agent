@@ -1,5 +1,24 @@
 # Prompt Changelog
 
+## 2026-04-11 — Fix check_insurance skipping and address hallucination
+
+**tools.ts / RUNBOOK.md — Force check_insurance to actually run before field collection**
+- Why: In call SCL_WUZXSvXqBvCC (Jane Borrowman), the agent collected name, DOB, phone, email, address, sex, and member ID based on the caller's verbal "Blue Cross Blue Shield PPO" without ever calling check_insurance. add_patient then failed with "insurance not recognized" and the agent spent 2 more minutes thrashing (duplicate update_insurance and check_insurance calls) before turning the caller away. Root cause was four conflicting signals against one: (1) the check_insurance tool description ended with "Don't push scheduling — just answer their question and let them lead" — pure Path 3 framing, telling the agent the tool ends the conversation; (2) the RUNBOOK new-patient example at RUNBOOK.md:120-132 demonstrated the full insurance flow without calling check_insurance; (3) the step 1 instruction "Insurance first (run check_insurance)" was ambiguous about whether to call the tool with the verbal claim or the card name; (4) INSURANCE.md is behind the tool, so the agent defaulted to its pre-training prior ("BCBS is obviously accepted") and skipped the lookup. Only RUNBOOK step 1 said "run the tool." Four to one, rule loses.
+- What changed:
+  - `src/tools.ts` check_insurance description: removed the "Don't push scheduling — just answer their question and let them lead" line that framed the tool as a Path 3 quick-lookup. Replaced with explicit two-situation guidance: "(1) as the first step of new-patient registration, once you have the exact plan name from the caller, and (2) any time a caller asks whether a specific plan is accepted."
+  - `workspace/RUNBOOK.md` Path 2 step 1: rewrote from "Insurance first (run check_insurance) — stop here if not accepted" to sequencing-specific instructions that tell the agent to collect plan type, run the tool, confirm acceptance, and re-run the tool if the card name at step 7 differs from the verbal claim.
+  - `workspace/RUNBOOK.md` new-patient example: added three lines showing check_insurance being called with a pre-tool-call acknowledgment ("let me check that real quick"). Demonstrated behavior is stronger than stated rules.
+
+**INSURANCE.md — Add missing aliases for common shorthand**
+- Why: Callers frequently say "UHC Medicare", "Oscar Insurance", or "Humana Medicare" — the first two had no aliases mapping to accepted plan names, and Humana's existing entry only said "ask which plan" without handling the case where the caller already specified Medicare.
+- What changed: Added three aliases to the Common Aliases block: `"UHC Medicare" → United Healthcare AARP Medicare`, `"Oscar" / "Oscar Insurance" → Oscar Health` (extended existing line), `"Humana Medicare" → Humana Medicare`. All three targets already exist in the Accepted Plans list.
+
+**VOICE.md / RUNBOOK.md — Fix office address hallucination from TTS formatting example**
+- Why: In call SCL_Lib5Tg4UGx2s (Michael), the agent told the caller the office address was "twelve thirty-four Spring Hill Drive, Spring Hill, Florida, three four six one four" — a fabrication. The real address is 10495 SpringHill Drive, Springhill, FL 34608. Root cause: `VOICE.md:31` had a TTS formatting example `"twelve thirty-four Happy Lanes, Fort Lauderdale, Florida, three three three three zero"`. The agent copied the example shape verbatim, substituting "Spring Hill Drive" from the injected caller context. The zip "34614" is a real Hernando County zip but not the office's. The agent had not called lookup_knowledge — the prompt said practice info → lookup_knowledge but didn't prohibit stating facts from memory, so under speed pressure the agent filled the address slot from whatever address-shaped text was nearest in context.
+- What changed:
+  - `workspace/VOICE.md:31`: replaced the realistic-looking Happy Lanes example with `"one oh oh Example Street, Anytown, Florida, nine nine nine nine nine"` — obviously placeholder text that can't be confused with real data.
+  - `workspace/RUNBOOK.md:70`: rewrote the practice info rule from `→ lookup_knowledge.` to positive-framed source-of-truth language: "call lookup_knowledge first and speak the result it returns. It is the source of truth for every fact in this category, including your own office's address."
+
 ## 2026-04-07 — Fix zombie sessions, analytics reliability, and cancel_appt hallucination
 
 **main.ts — Fix zombie sessions after transfers**
