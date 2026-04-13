@@ -6,13 +6,12 @@ import { SipClient } from "livekit-server-sdk";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
+import { type OfficeKey, getOfficeConfig, getOfficeConfigByPhone, SPRING_HILL_OFFICE_PHONE } from "./offices.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
 const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-production.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
-const DEFAULT_TRANSFER_NUMBER = "+18667968908";
-
 let _sipClient: SipClient | undefined;
 function getSipClient(): SipClient {
   _sipClient ??= new SipClient(
@@ -59,7 +58,9 @@ export interface CallerMultipleMatches {
 export type PhoneLookupResult = CallerMatch | CallerMultipleMatches | null;
 
 export interface CallState {
-  office: string;
+  officeKey: OfficeKey;
+  officePhone: string;
+  amdOfficePhone: string;
   sipRoomName: string;
   sipParticipantIdentity: string;
   callerPhone: string;
@@ -83,6 +84,14 @@ function getState(ctx: voice.RunContext): CallState {
   return ctx.session.userData as CallState;
 }
 
+export function getSpringHillOfficePhone(): string {
+  return SPRING_HILL_OFFICE_PHONE;
+}
+
+export function getAmdOfficeForToolCall(state: Pick<CallState, "officeKey" | "amdOfficePhone">): string {
+  return state.amdOfficePhone || getOfficeConfig(state.officeKey).amdOfficePhone;
+}
+
 /** Apply patient data from an API response, resetting all patient fields so nothing stale lingers. */
 function applyPatientResult(state: CallState, result: any): void {
   state.patientId = result.patientId ?? null;
@@ -99,9 +108,10 @@ function applyPatientResult(state: CallState, result: any): void {
 }
 
 /** Pre-call phone lookup — called from main.ts before session starts. */
-export async function lookupByPhone(phone: string, office: string): Promise<PhoneLookupResult> {
+export async function lookupByPhone(phone: string, trunkPhone: string): Promise<PhoneLookupResult> {
   try {
-    const data = await callApi("/api/patient-lookup", { phone }, office) as any;
+    const office = getOfficeConfigByPhone(trunkPhone);
+    const data = await callApi("/api/patient-lookup", { phone }, office.amdOfficePhone) as any;
     if (data.status === "verified") {
       return {
         status: "verified",
@@ -175,7 +185,7 @@ After response:
     if (lastName) body.lastName = lastName;
     if (dob) body.dob = dob;
     if (usePhone) body.phone = getState(ctx).callerPhone;
-    const result = await callApi("/api/verify-patient", body, getState(ctx).office) as any;
+    const result = await callApi("/api/verify-patient", body, getAmdOfficeForToolCall(getState(ctx))) as any;
     if (result?.patientId) {
       applyPatientResult(getState(ctx), result);
     }
@@ -214,7 +224,7 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
     subscriberNum: z.string().describe("Insurance subscriber/member ID number"),
   }),
   execute: async (params, { ctx }) => {
-    const result = await callApi("/api/add-patient", params, getState(ctx).office) as any;
+    const result = await callApi("/api/add-patient", params, getAmdOfficeForToolCall(getState(ctx))) as any;
     if (result?.patientId) {
       applyPatientResult(getState(ctx), result);
     }
@@ -241,7 +251,7 @@ After response: session state updates automatically. If preauthRequired, schedul
       respPartyId: state.respPartyId ?? "",
       oldInsurance: state.insuranceCarrier ?? "",
       insurance, subscriberName, subscriberNum,
-    }, state.office) as any;
+    }, getAmdOfficeForToolCall(state)) as any;
     if (result?.status === "updated") {
       state.insuranceCarrier = result.newInsurance ?? state.insuranceCarrier;
       state.insPlanId = result.insPlanId ?? null;
@@ -275,7 +285,7 @@ After response: check if date shifted vs requested — tell caller if different.
     const body: Record<string, unknown> = { date };
     if (state.routing) body.routing = state.routing;
     if (state.preauthRequired) body.preauthRequired = true;
-    return callApi("/api/scheduler/availability", body, state.office);
+    return callApi("/api/scheduler/availability", body, getAmdOfficeForToolCall(state));
   },
 });
 
@@ -290,7 +300,7 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
     if (!state.patientId) return "ERROR: No patient verified yet. Run verify_patient first with the caller's firstName, lastName, and dob.";
-    return callApi("/api/patient/appointments", { patientId: state.patientId }, state.office);
+    return callApi("/api/patient/appointments", { patientId: state.patientId }, getAmdOfficeForToolCall(state));
   },
 });
 
@@ -303,7 +313,7 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
     appointmentId: z.number().describe("Appointment ID from the confirm_appt response"),
   }),
   execute: async ({ appointmentId }, { ctx }) => {
-    return callApi("/api/appointment/cancel", { appointmentId }, getState(ctx).office);
+    return callApi("/api/appointment/cancel", { appointmentId }, getAmdOfficeForToolCall(getState(ctx)));
   },
 });
 
@@ -322,20 +332,39 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
     if (!state.patientId) return "No patient verified yet. Verify the patient first.";
-    return callApi("/api/appointment/book", { ...params, patientId: state.patientId }, state.office);
+    return callApi("/api/appointment/book", { ...params, patientId: state.patientId }, getAmdOfficeForToolCall(state));
+  },
+});
+
+// --- route_to_spring_hill ---
+export const route_to_spring_hill = llm.tool({
+  description: `Switches AMD tool calls to the Spring Hill office without transferring the caller.
+
+Use this when the caller reached Crystal River but the visit must be handled through Spring Hill scheduling — especially pediatrics or cataract evaluation, workup, or surgery scheduling. Call this before verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, or book_appt for that visit. Keep the caller on the line and continue helping them normally.`,
+  parameters: z.object({}),
+  execute: async (_, { ctx }) => {
+    const state = getState(ctx);
+    const springHillOffice = getSpringHillOfficePhone();
+    state.amdOfficePhone = springHillOffice;
+    return `AMD routing switched to Spring Hill (${springHillOffice}). Continue the call without transferring.`;
   },
 });
 
 // --- Cached file reads (loaded once per file, never change at runtime) ---
-let insuranceCache: string | undefined;
-const knowledgeCache: Record<string, string> = {};
+const workspaceFileCache: Record<string, string> = {};
 
-/** Map trunk phone → knowledge file. Default = Spring Hill. */
-const KNOWLEDGE_FILES: Record<string, string> = {
-  "+13523202007": "KNOWLEDGE_EYERADIANCE.md",
-  "+16182265883": "KNOWLEDGE_EYERADIANCE.md", // Crystal River (Eye Radiance) — Telnyx trunk
-};
-const DEFAULT_KNOWLEDGE = "KNOWLEDGE_SPRINGHILL.md";
+function readWorkspaceFile(file: string): string {
+  workspaceFileCache[file] ??= readFileSync(join(WORKSPACE, file), "utf-8");
+  return workspaceFileCache[file];
+}
+
+export function resolveKnowledgeFileForOffice(officeKey: OfficeKey): string {
+  return getOfficeConfig(officeKey).knowledgeFile;
+}
+
+export function resolveInsuranceFileForOffice(officeKey: OfficeKey): string {
+  return getOfficeConfig(officeKey).insuranceFile;
+}
 
 // --- check_insurance ---
 export const check_insurance = llm.tool({
@@ -345,9 +374,9 @@ Use this in two situations: (1) as the first step of new-patient registration, o
   parameters: z.object({
     plan: z.string().describe("The insurance plan name the caller mentioned"),
   }),
-  execute: async ({ plan }) => {
-    insuranceCache ??= readFileSync(join(WORKSPACE, "INSURANCE.md"), "utf-8");
-    return insuranceCache;
+  execute: async ({ plan }, { ctx }) => {
+    const file = resolveInsuranceFileForOffice(getState(ctx).officeKey);
+    return readWorkspaceFile(file);
   },
 });
 
@@ -360,10 +389,8 @@ Answer naturally from the returned info — just the part that answers their que
     question: z.string().describe("What the caller is asking about (e.g. 'office hours', 'do you see kids', 'what should I bring')"),
   }),
   execute: async ({ question }, { ctx }) => {
-    const office = getState(ctx).office;
-    const file = KNOWLEDGE_FILES[office] ?? DEFAULT_KNOWLEDGE;
-    knowledgeCache[file] ??= readFileSync(join(WORKSPACE, file), "utf-8");
-    return knowledgeCache[file];
+    const file = resolveKnowledgeFileForOffice(getState(ctx).officeKey);
+    return readWorkspaceFile(file);
   },
 });
 
@@ -386,14 +413,15 @@ export const transfer_call = llm.tool({
     }
     try {
       state.transferred = true;
+      const transferNumber = getOfficeConfig(state.officeKey).transferNumber;
       await getSipClient().transferSipParticipant(
         state.sipRoomName,
         state.sipParticipantIdentity,
-        `tel:${DEFAULT_TRANSFER_NUMBER}`,
+        `tel:${transferNumber}`,
         { playDialtone: false },
       );
       const result = "Transfer initiated successfully.";
-      console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${DEFAULT_TRANSFER_NUMBER}`);
+      console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${transferNumber}`);
       // Framework handles shutdown via close_on_disconnect when the
       // SIP participant leaves after the transfer completes.
       return result;

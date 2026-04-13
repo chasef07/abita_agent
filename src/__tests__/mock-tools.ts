@@ -8,6 +8,7 @@ import { llm } from "@livekit/agents";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
+import { getOfficeConfigByPhone, SPRING_HILL_OFFICE_PHONE } from "../offices.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "..", "workspace");
 
@@ -114,8 +115,9 @@ function detectFabrication(
 
 // --- Mock tool factory ---
 
-export function createMockTools(config: MockConfig = {}) {
+export function createMockTools(config: MockConfig = {}, trunkPhone?: string) {
   const log = config.callLog ?? [];
+  const office = getOfficeConfigByPhone(trunkPhone ?? SPRING_HILL_OFFICE_PHONE);
 
   const mock_verify_patient = llm.tool({
     description: `Verifies a patient's identity.
@@ -263,7 +265,7 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
     execute: async (args) => {
       log.push({ name: "check_insurance", args });
       try {
-        return readFileSync(join(WORKSPACE, "INSURANCE.md"), "utf-8");
+        return readFileSync(join(WORKSPACE, office.insuranceFile), "utf-8");
       } catch {
         return "Insurance list unavailable in test environment.";
       }
@@ -278,7 +280,7 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
     execute: async (args) => {
       log.push({ name: "lookup_knowledge", args });
       try {
-        return readFileSync(join(WORKSPACE, "KNOWLEDGE_SPRINGHILL.md"), "utf-8");
+        return readFileSync(join(WORKSPACE, office.knowledgeFile), "utf-8");
       } catch {
         return "Knowledge base unavailable in test environment.";
       }
@@ -308,6 +310,16 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
     },
   });
 
+  const mock_route_to_spring_hill = llm.tool({
+    description:
+      "Switches AMD tool calls to the Spring Hill office without transferring the caller. Use this when the caller reached Crystal River but the visit must be scheduled through Spring Hill, especially for pediatrics or cataracts.",
+    parameters: z.object({}),
+    execute: async () => {
+      log.push({ name: "route_to_spring_hill", args: {} });
+      return `AMD routing switched to Spring Hill (${SPRING_HILL_OFFICE_PHONE}). Continue the call without transferring.`;
+    },
+  });
+
   const mock_transfer_call = llm.tool({
     description:
       "Transfers the caller to a human at the office. BEFORE calling this tool, you MUST fully finish telling the caller you're transferring them. Call this tool EXACTLY ONCE. After this tool executes, the SIP session disconnects and the call is over — do NOT generate a second transfer_call, do NOT generate any further tool calls, and do NOT generate any further text. Your turn ends here.",
@@ -329,6 +341,7 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
       book_appt: mock_book_appt,
       check_insurance: mock_check_insurance,
       lookup_knowledge: mock_lookup_knowledge,
+      ...(office.features.routeToSpringHill ? { route_to_spring_hill: mock_route_to_spring_hill } : {}),
       transfer_call: mock_transfer_call,
     },
     callLog: log,

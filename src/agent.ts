@@ -4,35 +4,50 @@
 import { voice } from "@livekit/agents";
 import { buildPrompt } from "./prompt.js";
 import type { PhoneLookupResult } from "./tools.js";
-import { verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, book_appt, check_insurance, lookup_knowledge, transfer_call } from "./tools.js";
+import { verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, book_appt, check_insurance, lookup_knowledge, route_to_spring_hill, transfer_call } from "./tools.js";
+import { getOfficeConfigByPhone } from "./offices.js";
 
-/** Greeting keyed by trunk phone number. Default = Spring Hill. */
-const GREETINGS: Record<string, string> = {
-  "+13523202007": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?",
-  "+16182265883": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?",
+type AgentTools = {
+  verify_patient: typeof verify_patient;
+  add_patient: typeof add_patient;
+  update_insurance: typeof update_insurance;
+  get_availability: typeof get_availability;
+  confirm_appt: typeof confirm_appt;
+  cancel_appt: typeof cancel_appt;
+  book_appt: typeof book_appt;
+  check_insurance: typeof check_insurance;
+  lookup_knowledge: typeof lookup_knowledge;
+  route_to_spring_hill?: typeof route_to_spring_hill;
+  transfer_call: typeof transfer_call;
 };
-const DEFAULT_GREETING = "thank you for calling Abita Eye Group, this is David, how can I help you?";
+
+export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
+  const office = getOfficeConfigByPhone(trunkPhone ?? "");
+  return {
+    verify_patient,
+    add_patient,
+    update_insurance,
+    get_availability,
+    confirm_appt,
+    cancel_appt,
+    book_appt,
+    check_insurance,
+    lookup_knowledge,
+    ...(office.features.routeToSpringHill ? { route_to_spring_hill } : {}),
+    transfer_call,
+  };
+}
 
 export class Agent extends voice.Agent {
   private greeting: string;
 
   constructor(phoneLookup?: PhoneLookupResult, trunkPhone?: string) {
+    const office = getOfficeConfigByPhone(trunkPhone ?? "");
     super({
-      instructions: buildPrompt(phoneLookup),
-      tools: {
-        verify_patient,
-        add_patient,
-        update_insurance,
-        get_availability,
-        confirm_appt,
-        cancel_appt,
-        book_appt,
-        check_insurance,
-        lookup_knowledge,
-        transfer_call,
-      },
+      instructions: buildPrompt(phoneLookup, trunkPhone),
+      tools: buildToolsForTrunk(trunkPhone),
     });
-    this.greeting = GREETINGS[trunkPhone ?? ""] ?? DEFAULT_GREETING;
+    this.greeting = office.greeting;
   }
 
   override async onEnter(): Promise<void> {
