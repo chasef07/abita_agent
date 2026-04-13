@@ -33,8 +33,8 @@ importers:
         specifier: ^0.13.25
         version: 0.13.25
       dotenv:
-        specifier: ^17.4.1
-        version: 17.4.1
+        specifier: ^17.4.2
+        version: 17.4.2
       livekit-server-sdk:
         specifier: ^2.15.1
         version: 2.15.1
@@ -1043,8 +1043,8 @@ packages:
   detect-node@2.1.0:
     resolution: {integrity: sha512-T0NIuQpnTvFDATNuHN5roPwSBG83rFsuO+MXXH9/3N1eFbn4wcPjttvjMLEPWJ0RGUYgQE7cGgS3tNxbqCGM7g==}
 
-  dotenv@17.4.1:
-    resolution: {integrity: sha512-k8DaKGP6r1G30Lx8V4+pCsLzKr8vLmV2paqEj1Y55GdAgJuIqpRp5FfajGF8KtwMxCz9qJc6wUIJnm053d/WCw==}
+  dotenv@17.4.2:
+    resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
 
   dunder-proto@1.0.1:
@@ -2040,7 +2040,7 @@ snapshots:
     dependencies:
       '@livekit/agents': 1.2.6(@livekit/rtc-node@0.13.25)(typescript@6.0.2)(zod@4.3.6)
       '@livekit/rtc-node': 0.13.25
-      dotenv: 17.4.1
+      dotenv: 17.4.2
       openai: 6.34.0(ws@8.20.0)(zod@4.3.6)
       ws: 8.20.0
     transitivePeerDependencies:
@@ -2642,7 +2642,7 @@ snapshots:
 
   detect-node@2.1.0: {}
 
-  dotenv@17.4.1: {}
+  dotenv@17.4.2: {}
 
   dunder-proto@1.0.1:
     dependencies:
