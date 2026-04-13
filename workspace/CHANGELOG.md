@@ -1,5 +1,24 @@
 # Prompt Changelog
 
+## 2026-04-13 — Stop mid-stream echo during registration; stop over-querying availability; close out when caller says goodbye
+
+Reviewed 20 calls from the past 24 hours. Three recurring, fixable behaviors surfaced.
+
+**VOICE.md — Stop echoing fields back during data collection**
+- Why: Across at least five of the twenty calls the agent echoed the field the caller just gave before asking the next question — "ok Evelyn Gonzalez Petrus. What's your date of birth?" (SCL_sqzfRD9iU4xJ T9), "three five two, two seven nine, one eight two zero. Got it." (SCL_5tJgWjUa436C T10), "Rosalina at gmail dot com. Got it." (SCL_5tJgWjUa436C T11), a chunked phone+email readback mid-collection (SCL_xstNMuRQFqVG T29), "ok so it's Kaleo dot Camille at yahoo dot com?" (SCL_wm4GD27oitnH T13). The echo either fabricates pieces the caller never said (Camille) or invites a correction and kicks off a loop. Root cause: the existing rule "During data collection, just move to the next question. When you do acknowledge, rotate 'ok', 'perfect', 'alright', or just move on silently" was ambiguous about whether "acknowledge" permitted echoing the value back — and the rule in Pacing ("Stay quiet while the caller is giving you…") only covered DURING dictation, not between fields.
+- What changed: `workspace/VOICE.md` Acknowledgments section rewritten with two concrete negative examples that match the observed failure modes, plus explicit "only read-back is the single confirmation at the end of registration."
+
+**tools.ts — get_availability: don't re-query dates between your searchedDate and the returned date**
+- Why: In SCL_Cta8p6vxVZh2, an existing-patient scheduling call, the agent called get_availability eight times across nine turns — 2026-04-14 twice (identical duplicate), 4-15, 4-16, 4-17 twice, 4-18. Every call returned the same forward-looking nearest slot (Dr. Licht, 4-21 at 9:30 AM) because the backend already scans 14 days forward. The existing rule "Scan existing results before calling again" didn't tell the agent that a `date` that differs from `searchedDate` IS the definitive nearest answer.
+- What changed: `src/tools.ts` get_availability description — added explicit guidance: "If the returned 'date' differs from your 'searchedDate', the API already looked forward 14 days and that returned date is the nearest opening — offer it and stop searching. Don't re-query dates between your searchedDate and that returned date; the result will be the same."
+
+**RUNBOOK.md — Close out when the caller says goodbye**
+- Why: In SCL_nu6wr8TtYVoJ, after the caller said "I'll catch you later. Thank you very much." the agent launched into the AI disclosure again, then offered "anything else you need?", then "yeah, what's up?", then "what can I help you with?" — four extra turns after the caller had signed off. The path exits say "pause and let them lead" but nothing tells the agent what to do when the caller has already said thanks/bye.
+- What changed: `workspace/RUNBOOK.md` General Rules — added: "Close out when the caller is done. If they say 'thanks,' 'bye,' 'have a good one,' or otherwise signal they're finished, respond briefly ('you're welcome, take care') and stop. Don't ask 'anything else?' after they've already wrapped up."
+
+**Tests**
+- Added `no mid-stream echo during collection` test in `src/__tests__/replay.test.ts`: loads a 5-turn registration history, sends a phone number as the next caller input, uses an LLM judge to verify the agent's response does not repeat any digits. Passes with the new VOICE.md wording.
+
 ## 2026-04-11 — Fix check_insurance skipping and address hallucination
 
 **tools.ts / RUNBOOK.md — Force check_insurance to actually run before field collection**

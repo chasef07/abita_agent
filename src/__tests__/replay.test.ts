@@ -252,7 +252,79 @@ describe("new patient registration flow", () => {
 });
 
 // ============================================================
-// Test 4: FAQ handling — should not transfer
+// Test 4: No mid-stream echo during data collection
+// Issue: In SCL_sqzfRD9iU4xJ and SCL_5tJgWjUa436C, the agent echoed
+// the name/phone/email back between fields instead of just asking
+// the next question. This inflates turns and triggers correction loops.
+// ============================================================
+describe("no mid-stream echo during collection", () => {
+  let ctx: TestContext;
+
+  afterEach(async () => {
+    await ctx?.cleanup();
+  });
+
+  it("should not echo the phone number back when moving to email", async () => {
+    ctx = await createTestAgent({ phoneLookup: null });
+
+    // Agent has collected name, DOB, insurance. Caller just gave phone.
+    // Next question should be email — with no read-back of the phone.
+    const history: TranscriptTurn[] = [
+      {
+        turn: 1,
+        callerText: null,
+        agentText: "thank you for calling Abita Eye Group, this is David, how can I help you?",
+        toolCalls: [],
+      },
+      {
+        turn: 2,
+        callerText: "I need to schedule. I'm a new patient.",
+        agentText: "ok let me get you set up. What insurance do you have?",
+        toolCalls: [],
+      },
+      {
+        turn: 3,
+        callerText: "United Healthcare HMO.",
+        agentText: "yeah we take that. What's your name?",
+        toolCalls: [
+          {
+            name: "check_insurance",
+            args: '{"plan": "United Healthcare HMO"}',
+            result: '"Insurance list..."',
+            isError: false,
+          },
+        ],
+      },
+      {
+        turn: 4,
+        callerText: "Rosalina Arrego.",
+        agentText: "got it. And what's your date of birth?",
+        toolCalls: [],
+      },
+      {
+        turn: 5,
+        callerText: "June eighth, nineteen fifty-one.",
+        agentText: "alright, and what's your phone number?",
+        toolCalls: [],
+      },
+    ];
+
+    await loadTranscriptHistory(ctx.agent, history, 99);
+
+    // Caller gives phone number. Agent should move to email with no echo.
+    const result = await ctx.session.run({ userInput: "three five two, two seven nine, one eight two zero." }).wait();
+
+    await result.expect
+      .containsMessage({ role: "assistant" })
+      .judge(ctx.llm, {
+        intent:
+          "The agent's response should be moving forward in the registration — either asking for the email or the next registration field. The response passes as long as it does NOT read back, repeat, spell out, or restate the phone number the caller just gave. Any repetition of 'three five two', '352', '279', or '1820' — even partial — fails. Short responses (even just 'and your email?') are acceptable.",
+      });
+  });
+});
+
+// ============================================================
+// Test 5: FAQ handling — should not transfer
 // ============================================================
 describe("FAQ calls should not transfer", () => {
   let ctx: TestContext;

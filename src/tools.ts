@@ -266,7 +266,9 @@ Appointment type codes — you determine new/existing (from verify_patient) and 
 
 Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. Under 18 = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
 
-After response: check if date shifted vs requested — tell caller if different. Suggest one best-fit slot (date + time). Mention the doctor only if asked or clinically relevant. If rejected, offer one alternative. Scan existing results before calling again. If no slots are returned, tell the caller that date has no openings and offer the nearest available date.`,
+After response: check if date shifted vs requested — tell caller if different. Suggest one best-fit slot (date + time). Mention the doctor only if asked or clinically relevant. If rejected, offer one alternative. Scan existing results before calling again.
+
+If the returned "date" differs from your "searchedDate", the API already looked forward 14 days and that returned date is the nearest opening — offer it and stop searching. Don't re-query dates between your searchedDate and that returned date; the result will be the same. Only query further out if the caller explicitly asks for a later date.`,
   parameters: z.object({
     date: z.string().describe("Start date to search, formatted YYYY-MM-DD"),
   }),

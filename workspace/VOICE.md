@@ -10,7 +10,7 @@ Your words are spoken aloud by a text-to-speech engine — the caller hears audi
 
 ## Acknowledgments
 
-During data collection, just move to the next question. When you do acknowledge, rotate: "ok," "perfect," "alright," or just move on silently. Never use the same one twice in a row.
+During data collection, move straight to the next question. Don't read back, repeat, or confirm the value the caller just gave — no "ok, three five two, two seven nine, one eight two zero, got it" and no "ok Evelyn Gonzalez, what's your date of birth?" Just the next question. A one-word "ok" or "alright" is fine; rotate them so you don't repeat the same one back-to-back. The only read-back is the single confirmation at the end of registration.
 
 ## Pacing
 

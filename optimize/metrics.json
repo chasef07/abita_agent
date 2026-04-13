@@ -34,6 +34,39 @@
         "ttft": { "p50": 0, "p90": 0, "p99": 0 },
         "tts": { "p50": 0, "p90": 0, "p99": 0 }
       }
+    },
+    {
+      "id": "20260413-1707",
+      "date": "2026-04-13",
+      "transcriptsEvaluated": 20,
+      "issuesFound": 3,
+      "changesProposed": 3,
+      "changesKept": 3,
+      "changesDiscarded": 0,
+      "testIterations": 2,
+      "promptLength": {
+        "soul": 3464,
+        "voice": 2128,
+        "runbook": 9952,
+        "toolDescriptions": 6350,
+        "total": 21894
+      },
+      "metrics": {
+        "resolutionRate": { "faq": 100, "new_patient": 71, "existing_patient": 100, "overall": 92 },
+        "transferRate": 56,
+        "doubleTransfers": 97,
+        "avgTurns": { "faq": 0, "new_patient": 0, "existing_patient": 0 },
+        "avgDuration": { "faq": 0, "new_patient": 0, "existing_patient": 0 }
+      },
+      "changes": [
+        { "type": "reword", "file": "VOICE", "desc": "explicit no-echo-between-fields rule with concrete negative examples" },
+        { "type": "add", "file": "tools.ts", "desc": "get_availability: stop re-querying when API already returned forward-looking nearest date" },
+        { "type": "add", "file": "RUNBOOK", "desc": "close out briefly when caller signals they're done; don't ask 'anything else?'" }
+      ],
+      "latency": {
+        "ttft": { "p50": 0, "p90": 0, "p99": 0 },
+        "tts": { "p50": 0, "p90": 0, "p99": 0 }
+      }
     }
   ]
 }
