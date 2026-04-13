@@ -5,5 +5,6 @@ export default defineConfig({
     globals: true,
     testTimeout: 60_000, // LLM calls take time
     hookTimeout: 30_000,
+    exclude: ["dist/**", "node_modules/**"],
   },
 });

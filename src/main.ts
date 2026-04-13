@@ -23,6 +23,7 @@ import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
+import { getOfficeConfigByPhone } from "./offices.js";
 
 dotenv.config({ path: ".env.local" });
 
@@ -109,6 +110,7 @@ export default defineAgent({
     console.log(`[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`);
 
     // Phone lookup before session start so context is ready for the first LLM turn
+    const office = getOfficeConfigByPhone(trunkPhone);
     const phoneLookup = await lookupByPhone(callerPhone, trunkPhone);
     if (phoneLookup?.status === "verified") {
       console.log(`[call] Caller match: ${phoneLookup.name} (ID: ${phoneLookup.patientId})`);
@@ -122,7 +124,9 @@ export default defineAgent({
 
     const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
     session.userData = {
-      office: trunkPhone,
+      officeKey: office.key,
+      officePhone: trunkPhone,
+      amdOfficePhone: office.amdOfficePhone,
       sipRoomName: ctx.room.name ?? "",
       sipParticipantIdentity: participant.identity ?? "",
       callerPhone,

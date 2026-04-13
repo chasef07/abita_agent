@@ -7,6 +7,7 @@ import { inference, llm, voice } from "@livekit/agents";
 import { buildPrompt } from "../prompt.js";
 import type { PhoneLookupResult } from "../tools.js";
 import { createMockTools, type MockConfig } from "./mock-tools.js";
+import { SPRING_HILL_OFFICE_PHONE } from "../offices.js";
 
 export interface TestContext {
   session: voice.AgentSession;
@@ -27,14 +28,15 @@ export async function createTestAgent(opts: {
   /** LLM model to use for testing. Default: openai/gpt-4.1-mini (fast + cheap). */
   model?: string;
 }): Promise<TestContext> {
-  const { tools, callLog } = createMockTools(opts.mockConfig);
+  const trunkPhone = opts.trunkPhone ?? SPRING_HILL_OFFICE_PHONE;
+  const { tools, callLog } = createMockTools(opts.mockConfig, trunkPhone);
 
   const llmInstance = new inference.LLM({
     model: opts.model ?? "openai/gpt-4.1-mini",
   });
 
   const agent = new voice.Agent({
-    instructions: buildPrompt(opts.phoneLookup),
+    instructions: buildPrompt(opts.phoneLookup, trunkPhone),
     tools,
   });
 

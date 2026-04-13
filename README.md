@@ -79,7 +79,7 @@ workspace/            # Prompt source files (edit these to change agent behavior
 ├── VOICE.md         # Speech style guidelines
 ├── RUNBOOK.md       # Flow logic, tool usage, branching (bottom of prompt — highest attention)
 ├── KNOWLEDGE_*.md   # Location-specific FAQ (hours, directions, insurance)
-└── INSURANCE.md     # Insurance plan routing logic
+└── INSURANCE_SPRING_HILL_CRYSTAL_RIVER.md  # Shared insurance plan routing logic for Spring Hill and Crystal River
 
 optimize/             # Prompt tuning pipeline
 ├── run.sh           # Loop: analyze transcripts → propose changes → replay-test → diff

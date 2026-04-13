@@ -17,8 +17,11 @@ const FILES: { file: string; tag: string }[] = [
 ];
 
 /** Build the full system prompt with caller-specific data baked in. */
-export function buildPrompt(phoneLookup?: PhoneLookupResult): string {
+export function buildPrompt(phoneLookup?: PhoneLookupResult, trunkPhone?: string): string {
   const sections: string[] = [];
+  if (!trunkPhone) {
+    throw new Error("buildPrompt requires a trunk phone number");
+  }
 
   for (const { file, tag } of FILES) {
     const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
