@@ -1,0 +1,101 @@
+{
+  "id": "SCL_wvQYAX5vtEvW-language-turn-10",
+  "suite": "language",
+  "source": "livekit-trace",
+  "traceId": "SCL_wvQYAX5vtEvW",
+  "tags": [
+    "language",
+    "spanish",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: caller spoke Spanish. Check the agent replied in Spanish, not English."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "You know, hmm—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead, what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "Please, please, please— Is— is speaking— is speaking Spanish?"
+    },
+    {
+      "role": "assistant",
+      "content": "sí, hablo español. ¿en qué puedo ayudarte hoy?"
+    },
+    {
+      "role": "user",
+      "content": "A ver, eh—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿qué necesitas? ¿quieres"
+    },
+    {
+      "role": "user",
+      "content": "Quiero sacar una— Hey. Sí, quiero agendar una cita con el estaf— uff, oftalmología."
+    },
+    {
+      "role": "assistant",
+      "content": "sí, claro, te puedo ayudar con eso.  ¿ya has sido vista aquí antes?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ah, perfecto, déjame registrarte.  ¿qué seguro tienes?"
+    },
+    {
+      "role": "user",
+      "content": "Oscar?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿y qué tipo de plan de Oscar -- es HMO, PPO, o Medicare?"
+    },
+    {
+      "role": "user",
+      "content": "¿Cómo?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿tu plan de Oscar es HMO, PPO, o Medicare?"
+    },
+    {
+      "role": "user",
+      "content": "Medical—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿es un plan HMO o PPO?"
+    },
+    {
+      "role": "user",
+      "content": "No lo entiendo. Ahí— Tengo a ��scar—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "match_caller_language"
+    ],
+    "styleFlags": [
+      "responds_in_spanish",
+      "concise"
+    ]
+  }
+}

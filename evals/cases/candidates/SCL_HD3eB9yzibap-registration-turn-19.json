@@ -1,0 +1,174 @@
+{
+  "id": "SCL_HD3eB9yzibap-registration-turn-19",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_HD3eB9yzibap",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, I'm a new patient and I want to schedule an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "I have Oscar—"
+    },
+    {
+      "role": "assistant",
+      "content": "and which Oscar plan -- is it an HMO, PPO, or Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "It's an HTML."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Oscar. What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "It's— Test—"
+    },
+    {
+      "role": "assistant",
+      "content": "first and last?"
+    },
+    {
+      "role": "user",
+      "content": "My first name is Tess. And my last name is Testy— T-E-S-T-Y."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Tess Testy. What's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "September 22nd, 1999."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's your phone number?"
+    },
+    {
+      "role": "user",
+      "content": "Actually, sorry, I gave you the wrong birthday. Mine is April 7th— 2000—"
+    },
+    {
+      "role": "assistant",
+      "content": "no problem, April seventh, two thousand.  What's your phone number?"
+    },
+    {
+      "role": "user",
+      "content": "7812672111."
+    },
+    {
+      "role": "assistant",
+      "content": "and your email address?"
+    },
+    {
+      "role": "user",
+      "content": "— HelloKitty@gmail.com?"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "4136 Hickory Square Parkway."
+    },
+    {
+      "role": "assistant",
+      "content": "what city is that?"
+    },
+    {
+      "role": "user",
+      "content": "Dallas, Texas."
+    },
+    {
+      "role": "assistant",
+      "content": "what state?"
+    },
+    {
+      "role": "user",
+      "content": "Texas."
+    },
+    {
+      "role": "assistant",
+      "content": "and the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "3, 4, 6, 8, 3."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "I'm male."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and I'll need the insurance card info.  What's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "— to myself."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "438924—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Tess Testy, T-E-S-T-Y, date of birth April seventh, two thousand, Oscar HMO, member ID four three eight nine two four.  Is that all right?"
+    },
+    {
+      "role": "user",
+      "content": "The— You know, the member ID is 42892."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, let me update that -- Tess Testy, T-E-S-T-Y, date of birth April seventh, two thousand, Oscar HMO, member ID four two eight nine two.  Is that right?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,245 @@
+{
+  "id": "SCL_Hh2mB8wyunCg-language-turn-28",
+  "suite": "language",
+  "source": "livekit-trace",
+  "traceId": "SCL_Hh2mB8wyunCg",
+  "tags": [
+    "language",
+    "spanish",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: caller spoke Spanish. Check the agent replied in Spanish, not English."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, buenas tardes. ¿Hablas español?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, hablo español. ¿En qué puedo ayudarte hoy?"
+    },
+    {
+      "role": "user",
+      "content": "— Gracias, David. Es que quisiera pedir una cita— — con la doctora Melissa Otero. Ella me imagino que habla español."
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, la doctora Otero habla español.  ¿Has sido atendido aquí antes?"
+    },
+    {
+      "role": "user",
+      "content": "No, I— Primera vez."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, déjame registrarte.  ¿Qué seguro tienes?"
+    },
+    {
+      "role": "user",
+      "content": "Those— ¿Ustedes—? —seguro de ��scar. ¿Ustedes aceptan ��scar del Marketplace?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, aceptamos Oscar Health.  ¿Cuál es tu nombre?"
+    },
+    {
+      "role": "user",
+      "content": "Mi nombre es Elizabeth— —un ruco?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Elizabeth? ¿Y cuál es tu apellido?"
+    },
+    {
+      "role": "user",
+      "content": "Ruco, con doble C— R-U-C-C-O."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, Elizabeth Rucco.  ¿Cuál es tu fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "E— 0405 al 62—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuatro de abril de mil novecientos sesenta y dos?"
+    },
+    {
+      "role": "user",
+      "content": "Correcto."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto. ¿Cuál es tu número de teléfono?"
+    },
+    {
+      "role": "user",
+      "content": "7, 8, 6, 3, 0, 6, 4, 7, 3. 3."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Y tu correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "Elisa— Eh, bueno, no, eh—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿No tienes correo electrónico?  Está bien, podemos usar uno de un familiar si tienes."
+    },
+    {
+      "role": "user",
+      "content": "OK, es enlace con— ¿Cómo hay corporación?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Puedes deletrearlo por favor?"
+    },
+    {
+      "role": "user",
+      "content": "OK, es— enlace— E—"
+    },
+    {
+      "role": "assistant",
+      "content": "Déjame confirmar -- ¿es \"enlace\" con E-N-L-A-C-E?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, en, en español sería— E de enano, N de Nancy, C de Carlos— Hey, Nano. Cede Carlos— Odeoso, eré Raúl, pe— Pedro. @homemade.com."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto. ¿Y tu dirección?  Calle, ciudad, estado y código postal."
+    },
+    {
+      "role": "user",
+      "content": "25, 31— ¿E Kalina dry?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Puedes deletrear la dirección por favor?  Veinticinco treinta y uno... ¿qué calle?"
+    },
+    {
+      "role": "user",
+      "content": "Kalina. Kalina con K. Dare ich— höre ich kurz?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Puedes deletrear \"Dare ich\" por favor?  No te entendí bien."
+    },
+    {
+      "role": "user",
+      "content": "Mm-hmm. ¿Está una máquina?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, soy un asistente de inteligencia artificial que ayuda con las citas.  ¿Podrías deletrear la dirección completa por favor?  Calle, ciudad, estado y código postal."
+    },
+    {
+      "role": "user",
+      "content": "Okay. En 25, 31— ¿Kalina? ¿Kalina es—? ¿Cada kilo? Adriana— ¿Él es león? Is Iglesia— — en, en ante— Adriana, espacio— ¿De, de—? The doctor— ¿En el Raúl?"
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo que puede"
+    },
+    {
+      "role": "user",
+      "content": "¿De la ciudad es—?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, ¿qué ciudad es?"
+    },
+    {
+      "role": "user",
+      "content": "Test print. ¿Este de Samuel? Period. Papá— ¿Él es Raúl? ¿Y de iglesia en, en ansi—? ¿Qué de Carlos— de Gui— perdón, ¿qué de Gato?"
+    },
+    {
+      "role": "assistant",
+      "content": "La conexión no está muy clara.  ¿Podrías decirme la ciudad y el estado donde vives?  Solo eso por favor."
+    },
+    {
+      "role": "user",
+      "content": "Is Spring Hill— ¿Flórida? 34, 6, 0, 9—"
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, Spring Hill, Florida, tres cuatro seis cero nueve.  ¿Eres mujer u hombre?"
+    },
+    {
+      "role": "user",
+      "content": "Mujeres?"
+    },
+    {
+      "role": "assistant",
+      "content": "Mujer, perfecto. ¿Cuál es el nombre de la persona en el seguro?  ¿Es tú mismo?"
+    },
+    {
+      "role": "user",
+      "content": "Sí."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Y cuál es tu número de miembro en el seguro?  ¿Lo tienes a mano?"
+    },
+    {
+      "role": "user",
+      "content": "Ehm, sperate un momentico, lo busco. Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "Claro, tómate tu tiempo.  Lo espero."
+    },
+    {
+      "role": "user",
+      "content": "Yeah. Dame un segundito que ya estoy con él."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, avísame cuando lo tengas."
+    },
+    {
+      "role": "user",
+      "content": "No recuerdo si verificaste si aceptan ��scar."
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, ya verifiqué -- aceptamos Oscar Health.  No hay problema con eso."
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Ya encontraste el número de miembro?"
+    },
+    {
+      "role": "user",
+      "content": "Eh, no, dame un segundito que estoy aquí accesando para encontrar—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "match_caller_language"
+    ],
+    "styleFlags": [
+      "responds_in_spanish",
+      "concise"
+    ]
+  }
+}

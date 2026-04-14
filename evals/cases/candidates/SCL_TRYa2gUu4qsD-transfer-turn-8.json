@@ -1,0 +1,84 @@
+{
+  "id": "SCL_TRYa2gUu4qsD-transfer-turn-8",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_TRYa2gUu4qsD",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Receptionist—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I'm actually an AI assistant helping with scheduling at Abita Eye Group.  I'm just here to help get you scheduled -- what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "Operator—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm here to help with scheduling, appointments, and questions about the practice.  What do you need today?"
+    },
+    {
+      "role": "user",
+      "content": "operator—"
+    },
+    {
+      "role": "assistant",
+      "content": "I can help you schedule an appointment, check if we take your insurance, or answer questions about our office.  What are you looking for?"
+    },
+    {
+      "role": "user",
+      "content": "Pop— Greater—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm having trouble understanding -- could you tell me what you need help with today?  Are you looking to schedule an appointment or do you have a question?"
+    },
+    {
+      "role": "user",
+      "content": "Operator—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm here to help with scheduling and general questions about Abita Eye Group.  What can I help you with?"
+    },
+    {
+      "role": "user",
+      "content": "You are very rude. Operator— Wait—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm sorry if I came across that way -- I'm just trying to understand what you need.  Would you like me to transfer you to someone in the office?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "id": "SCL_iv57Za86qzDA-scheduling-turn-5",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_iv57Za86qzDA",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, this is Mary Ann Edwards. How are you?"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm doing well, thanks!  How can I help you today, Mary Ann?"
+    },
+    {
+      "role": "user",
+      "content": "I need to reschedule my appointment. I have one tomorrow. Yes. If I could change it for possibly the following week—"
+    },
+    {
+      "role": "assistant",
+      "content": "No problem, I can help with that.  So you're looking to move your appointment from tomorrow to sometime the following week?  What day works best for you?"
+    },
+    {
+      "role": "user",
+      "content": "Well, I think he is— Dr. Litt is in— Uh— Crystal River on Tuesday— it's—"
+    },
+    {
+      "role": "assistant",
+      "content": "Actually,"
+    },
+    {
+      "role": "user",
+      "content": "I mean, Wednesday. You're correct."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

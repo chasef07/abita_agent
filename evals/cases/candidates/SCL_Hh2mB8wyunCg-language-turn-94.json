@@ -1,0 +1,769 @@
+{
+  "id": "SCL_Hh2mB8wyunCg-language-turn-94",
+  "suite": "language",
+  "source": "livekit-trace",
+  "traceId": "SCL_Hh2mB8wyunCg",
+  "tags": [
+    "language",
+    "spanish",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: caller spoke Spanish. Check the agent replied in Spanish, not English."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, buenas tardes. ¿Hablas español?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, hablo español. ¿En qué puedo ayudarte hoy?"
+    },
+    {
+      "role": "user",
+      "content": "— Gracias, David. Es que quisiera pedir una cita— — con la doctora Melissa Otero. Ella me imagino que habla español."
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, la doctora Otero habla español.  ¿Has sido atendido aquí antes?"
+    },
+    {
+      "role": "user",
+      "content": "No, I— Primera vez."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, déjame registrarte.  ¿Qué seguro tienes?"
+    },
+    {
+      "role": "user",
+      "content": "Those— ¿Ustedes—? —seguro de ��scar. ¿Ustedes aceptan ��scar del Marketplace?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, aceptamos Oscar Health.  ¿Cuál es tu nombre?"
+    },
+    {
+      "role": "user",
+      "content": "Mi nombre es Elizabeth— —un ruco?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Elizabeth? ¿Y cuál es tu apellido?"
+    },
+    {
+      "role": "user",
+      "content": "Ruco, con doble C— R-U-C-C-O."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, Elizabeth Rucco.  ¿Cuál es tu fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "E— 0405 al 62—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuatro de abril de mil novecientos sesenta y dos?"
+    },
+    {
+      "role": "user",
+      "content": "Correcto."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto. ¿Cuál es tu número de teléfono?"
+    },
+    {
+      "role": "user",
+      "content": "7, 8, 6, 3, 0, 6, 4, 7, 3. 3."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Y tu correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "Elisa— Eh, bueno, no, eh—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿No tienes correo electrónico?  Está bien, podemos usar uno de un familiar si tienes."
+    },
+    {
+      "role": "user",
+      "content": "OK, es enlace con— ¿Cómo hay corporación?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Puedes deletrearlo por favor?"
+    },
+    {
+      "role": "user",
+      "content": "OK, es— enlace— E—"
+    },
+    {
+      "role": "assistant",
+      "content": "Déjame confirmar -- ¿es \"enlace\" con E-N-L-A-C-E?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, en, en español sería— E de enano, N de Nancy, C de Carlos— Hey, Nano. Cede Carlos— Odeoso, eré Raúl, pe— Pedro. @homemade.com."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto. ¿Y tu dirección?  Calle, ciudad, estado y código postal."
+    },
+    {
+      "role": "user",
+      "content": "25, 31— ¿E Kalina dry?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Puedes deletrear la dirección por favor?  Veinticinco treinta y uno... ¿qué calle?"
+    },
+    {
+      "role": "user",
+      "content": "Kalina. Kalina con K. Dare ich— höre ich kurz?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Puedes deletrear \"Dare ich\" por favor?  No te entendí bien."
+    },
+    {
+      "role": "user",
+      "content": "Mm-hmm. ¿Está una máquina?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, soy un asistente de inteligencia artificial que ayuda con las citas.  ¿Podrías deletrear la dirección completa por favor?  Calle, ciudad, estado y código postal."
+    },
+    {
+      "role": "user",
+      "content": "Okay. En 25, 31— ¿Kalina? ¿Kalina es—? ¿Cada kilo? Adriana— ¿Él es león? Is Iglesia— — en, en ante— Adriana, espacio— ¿De, de—? The doctor— ¿En el Raúl?"
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo que puede"
+    },
+    {
+      "role": "user",
+      "content": "¿De la ciudad es—?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, ¿qué ciudad es?"
+    },
+    {
+      "role": "user",
+      "content": "Test print. ¿Este de Samuel? Period. Papá— ¿Él es Raúl? ¿Y de iglesia en, en ansi—? ¿Qué de Carlos— de Gui— perdón, ¿qué de Gato?"
+    },
+    {
+      "role": "assistant",
+      "content": "La conexión no está muy clara.  ¿Podrías decirme la ciudad y el estado donde vives?  Solo eso por favor."
+    },
+    {
+      "role": "user",
+      "content": "Is Spring Hill— ¿Flórida? 34, 6, 0, 9—"
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, Spring Hill, Florida, tres cuatro seis cero nueve.  ¿Eres mujer u hombre?"
+    },
+    {
+      "role": "user",
+      "content": "Mujeres?"
+    },
+    {
+      "role": "assistant",
+      "content": "Mujer, perfecto. ¿Cuál es el nombre de la persona en el seguro?  ¿Es tú mismo?"
+    },
+    {
+      "role": "user",
+      "content": "Sí."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Y cuál es tu número de miembro en el seguro?  ¿Lo tienes a mano?"
+    },
+    {
+      "role": "user",
+      "content": "Ehm, sperate un momentico, lo busco. Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "Claro, tómate tu tiempo.  Lo espero."
+    },
+    {
+      "role": "user",
+      "content": "Yeah. Dame un segundito que ya estoy con él."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, avísame cuando lo tengas."
+    },
+    {
+      "role": "user",
+      "content": "No recuerdo si verificaste si aceptan ��scar."
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, ya verifiqué -- aceptamos Oscar Health.  No hay problema con eso."
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Ya encontraste el número de miembro?"
+    },
+    {
+      "role": "user",
+      "content": "Eh, no, dame un segundito que estoy aquí accesando para encontrar—"
+    },
+    {
+      "role": "assistant",
+      "content": "Claro, tómate el tiempo que necesites.  Estoy aquí."
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "Avísame cuando lo tengas."
+    },
+    {
+      "role": "user",
+      "content": "E— sì, un momento, per favore."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, te espero."
+    },
+    {
+      "role": "user",
+      "content": "Hmm—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Ya lo tienes? Solo necesito el número de miembro del seguro."
+    },
+    {
+      "role": "user",
+      "content": "Sí, dame un minuto, es que lo— no lo tenía a mano. Um momentico, por favor. Dame unos minuticos, minuticos—"
+    },
+    {
+      "role": "assistant",
+      "content": "Entendido. Avísame cuando estés listo."
+    },
+    {
+      "role": "user",
+      "content": "Hey. Ja, ist in dem Moment— voll faul. Qué pena, qué da— que pensé que lo tenía. Ahí al pie de mi— no, no lo tengo. No la tenía conmigo."
+    },
+    {
+      "role": "assistant",
+      "content": "No hay problema. ¿Tienes la tarjeta de seguro en casa?  Podemos esperar a que la tengas a mano para terminar el registro."
+    },
+    {
+      "role": "user",
+      "content": "Ya lo tengo."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto. ¿Cuál es el número de miembro?"
+    },
+    {
+      "role": "user",
+      "content": "Is— O— S— C—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿O-S-C? ¿Qué más viene después?"
+    },
+    {
+      "role": "user",
+      "content": "7, 9—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Siete nueve? ¿Algo más después?"
+    },
+    {
+      "role": "user",
+      "content": "It— 04—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cero cuatro? ¿Hay más números?"
+    },
+    {
+      "role": "user",
+      "content": "Zetta—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Zeta?"
+    },
+    {
+      "role": "user",
+      "content": "Sì, 79— 14."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, entonces el número de miembro es O-S-C"
+    },
+    {
+      "role": "user",
+      "content": "Ryan, se lo— No, perdo— tra i 0 e 1."
+    },
+    {
+      "role": "assistant",
+      "content": "Entendido. ¿Es O-S-C, siete nueve, cero uno, cero cuatro?  ¿O es cero uno cero cuatro?"
+    },
+    {
+      "role": "user",
+      "content": "No, it's— OSC 7904— 7914."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, O-S-C"
+    },
+    {
+      "role": "user",
+      "content": "Raya, pero uno—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿O-S-C, raya, siete nueve uno cuatro?  ¿Es correcto?"
+    },
+    {
+      "role": "user",
+      "content": "No, es 7904. Me están diciendo— 7914— 7904."
+    },
+    {
+      "role": "assistant",
+      "content": "Entonces es O-S-C, siete nueve cero cuatro.  ¿Es correcto?"
+    },
+    {
+      "role": "user",
+      "content": "Sí. 7, 9, 14. O sea, son varios números. Déjame te lo dicto completo. — said you. O— esse— esse aí— 7904— 7914— Raya 01."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, déjame confirmar: Elizabeth Rucco, R-U-C-C-O, fecha de nacimiento cuatro de abril de mil novecientos sesenta y dos, Oscar Health, número de miembro O-S-C siete nueve cero cuatro raya cero uno.  ¿Todo está bien?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Qué necesitas corregir?  ¿Es"
+    },
+    {
+      "role": "user",
+      "content": "El número de miembros— está mal. El número de miembro—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el número correcto?  Dictámelo despacio por favor."
+    },
+    {
+      "role": "user",
+      "content": "Oh— — SC— 79047914— Raya 01."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, déjame confirmar de nuevo: Elizabeth Rucco, R-U-C-C-O, fecha de nacimiento cuatro de abril de mil novecientos sesenta y dos, Oscar Health, número de miembro O-S-C siete nueve cero cuatro siete nueve uno cuatro raya cero uno.  ¿Todo está bien ahora?"
+    },
+    {
+      "role": "user",
+      "content": "Correcto, sí."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, ya estás registrada.  ¿Cuál es el motivo de tu visita?  ¿Algún problema en particular con los ojos?"
+    },
+    {
+      "role": "user",
+      "content": "Eh, bueno, yo tenía que— desde el año pasado tenía una— orden, sino que me mudé— Eh— —para visitar el oftalmólogo y la verdad se me ha pasado el, el tiempo y sí— Ahora me volvió a ver el médico general y me volvió a— a remitir al oftalmólogo. Y, y mi esposo también necesita— necesito pedir cita para él."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo, tienes una referencia de tu médico general.  Para tu esposo, ¿él también es paciente nuevo o ya ha sido atendido aquí antes?"
+    },
+    {
+      "role": "user",
+      "content": "¿Y él? No, él también es paciente nuevo. —Pero él no tiene remisión de, de— — de su médico primario, pero yo tengo entendido que para Oscar no necesitamos referido."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, entonces para ti es una visita nueva con referencia.  ¿Qué día te funciona para tu cita?"
+    },
+    {
+      "role": "user",
+      "content": "¿Qué día, ah, tienen cita—? ¿Así, o sea, de pronto para este mismo—? Puede ser— espérate, te digo."
+    },
+    {
+      "role": "assistant",
+      "content": "Claro, dime qué día te funciona y busco disponibilidad."
+    },
+    {
+      "role": "user",
+      "content": "But— Yes. El viernes en la mañana— El viernes 17—"
+    },
+    {
+      "role": "assistant",
+      "content": "El viernes 17 no hay"
+    },
+    {
+      "role": "user",
+      "content": "¿Para mi esposo y para mí?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, para los dos. ¿Qué día les funciona mejor?  ¿Algún día en particular de la próxima semana?"
+    },
+    {
+      "role": "user",
+      "content": "It'll be— ¿Esta semana no tienen citas—?"
+    },
+    {
+      "role": "assistant",
+      "content": "No, esta semana no hay citas disponibles.  La próxima opción que tengo es el martes 21 de abril.  ¿Les funciona ese día?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, el martes 21, sí, está bien."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto. ¿Qué hora prefieres?  Tengo nueve treinta de la mañana o doce quince del mediodía."
+    },
+    {
+      "role": "user",
+      "content": "¿Está bien a las 9:30 de la mañana?"
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, te agendo a las nueve treinta de la mañana con el doctor Licht.  ¿Y para tu esposo, también a las nueve treinta o prefieres otra hora?"
+    },
+    {
+      "role": "user",
+      "content": "Right. Um— —No, también a las 9:30, pero con el doctor, ¿qué me dijiste? Yo quiero con la doctora Melisa— ah, Darby. ¿Me dijiste darle—?"
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo que quieres con la doctora Otero, pero para pacientes nuevos, la disponibilidad que tengo es con el doctor Licht.  ¿Te funciona con él, o prefieres esperar para ver si hay algo con la doctora Otero?"
+    },
+    {
+      "role": "user",
+      "content": "— Porque con el doctor Liz me imagino que no habla español."
+    },
+    {
+      "role": "assistant",
+      "content": "El doctor Licht sí habla español.  No hay problema con eso.  ¿Te funciona la cita con él?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, sí, puede ser, sin más problemas."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto. ¿Y para tu esposo, también a las nueve treinta con el doctor Licht, o prefieres otra hora?"
+    },
+    {
+      "role": "user",
+      "content": "— Sí, está bien, a las 9:30. Tú me dices que con la doctora Melissa Otero, si no hay citas— E— Cercanas o qué?"
+    },
+    {
+      "role": "assistant",
+      "content": "Para pacientes nuevos, la doctora Otero no tiene citas disponibles en este momento.  Solo tengo disponibilidad con el doctor Licht.  ¿Te funciona agendar a los dos con él?"
+    },
+    {
+      "role": "user",
+      "content": "Tickle, so—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Sí, les funciona a los dos con el doctor Licht?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, me le— ¿le das por favor el nombre completo del Dr. Lee?"
+    },
+    {
+      "role": "assistant",
+      "content": "El doctor se llama doctor J. Licht.  ¿Te confirmo las dos citas a las nueve treinta de la mañana del martes 21 de abril con el doctor Licht en Spring Hill?"
+    },
+    {
+      "role": "user",
+      "content": "Eh, listo. ¿Me confirman la dirección, por favor?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, la dirección es Abita Eye Group en Spring Hill.  ¿Confirmo las dos citas?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, pero dame, dame la dirección de— me estás hablando, me hablas en inglés muy rápido. Dame la dirección completa de, del Dr. Lin."
+    },
+    {
+      "role": "assistant",
+      "content": "La dirección es diez mil cuatrocientos noventa y cinco Spring Hill Drive, Spring Hill, Florida, tres cuatro seis cero ocho.  ¿Confirmo las dos citas para el martes 21 de abril a las nueve treinta de la mañana con el doctor Licht?"
+    },
+    {
+      "role": "user",
+      "content": "Correcto."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, tu cita está confirmada.  Ahora necesito registrar a tu esposo para agendar su cita.  ¿Cuál es su nombre completo?"
+    },
+    {
+      "role": "user",
+      "content": "Is Hugo— ¿Efe Vargas?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Hugo Vargas? ¿Cuál es su fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "Is— 08— 25— —del 61."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Veinticinco de agosto de mil novecientos sesenta y uno?  Perfecto. ¿Cuál es su número de teléfono?"
+    },
+    {
+      "role": "user",
+      "content": "Correct. Correct. C. ¿Es 786? 3, 14— 18, 89."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Siete ocho seis, tres uno cuatro, uno ocho ocho nueve?  Perfecto. ¿Y su correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "Sí. Is— eh— ¿Enlace con? @homemade.com."
+    },
+    {
+      "role": "assistant",
+      "content": "¿El mismo correo electrónico?  enlace arroba homemade punto com.  Perfecto. ¿Y su dirección?  ¿Es la misma que la tuya?  Veinticinco treinta y uno"
+    },
+    {
+      "role": "user",
+      "content": "Sí. Say— Tell them—"
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, misma dirección.  ¿Es hombre o mujer?"
+    },
+    {
+      "role": "user",
+      "content": "Cumbre."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Hombre? Perfecto. ¿El seguro también es Oscar Health?  ¿A nombre de quién está el seguro?"
+    },
+    {
+      "role": "user",
+      "content": "See? El nombre de, eh— También aparece el Hugo F. Vargas."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, a nombre de Hugo F. Vargas.  ¿Y cuál es su número de miembro del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "Uh-huh. ¿Es el mismo mi— número mío? ¿Pero es raya 02?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿O-S-C siete nueve cero cuatro siete nueve uno cuatro raya cero dos?  ¿Es correcto?"
+    },
+    {
+      "role": "user",
+      "content": "Drajas— Correct."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, déjame confirmar: Hugo F. Vargas, fecha de nacimiento veinticinco de agosto de mil novecientos sesenta y uno, Oscar Health, número de miembro O-S-C siete nueve cero cuatro siete nueve uno cuatro raya cero dos.  ¿Todo está bien?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, todo está bien."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, Hugo ya está registrado.  Para el martes 21, solo tengo disponible a las doce quince del mediodía con el doctor Licht.  ¿Les funciona esa hora para él?"
+    },
+    {
+      "role": "user",
+      "content": "Alors— ¿No me dijiste que a las 9:30?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, te agendé a ti a las nueve treinta.  Pero para Hugo, solo queda disponible a las doce quince del mediodía ese mismo día.  ¿Le funciona esa hora?"
+    },
+    {
+      "role": "user",
+      "content": "No, I— ¿No hay los 2 seguidos? O, ¿para las 12:15 hay seguido para los 2? Porque imagínate, vamos juntos en un mismo carro y nos toca esperar a que— ¿Vean uno y el otro esperar 3 horas para que lo vean a él? ¿No necesitaría una cita que estemos seguidos los dos?"
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo, quieren citas seguidas.  Déjame buscar otro día donde tenga dos horas disponibles seguidas para los dos.  ¿Qué tal el miércoles 22 de abril?  ¿Les funciona ese día?"
+    },
+    {
+      "role": "user",
+      "content": "Yes. And— ¿Pero a ti veo a vez?"
+    },
+    {
+      "role": "assistant",
+      "content": "Tengo disponibilidad el jueves 23 de abril con el doctor Bach.  ¿Les funciona ese día?  Tengo varias horas disponibles."
+    },
+    {
+      "role": "user",
+      "content": "Yeah. Okay, he— um— Okay. — el 23 de abril, ¿a qué hora tiene la disponibilidad?"
+    },
+    {
+      "role": "assistant",
+      "content": "Tengo diez de la mañana, diez treinta, once treinta, una de la tarde, y dos treinta de la tarde.  ¿Qué hora prefieren para los dos?"
+    },
+    {
+      "role": "user",
+      "content": "Te hago una pregunta: ¿Para el 22 a qué horas tienes disponibles para los dos?"
+    },
+    {
+      "role": "assistant",
+      "content": "El miércoles 22 no hay disponibilidad para dos citas seguidas.  El jueves 23 de abril tengo varias horas: diez de la mañana, diez treinta, once treinta, una de la tarde, y dos treinta.  ¿Qué hora prefieren para los dos?"
+    },
+    {
+      "role": "user",
+      "content": "A las 10 de la mañana."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, ¿a las diez de la mañana para los dos con el doctor Bach el jueves 23 de abril?  ¿Confirmo?"
+    },
+    {
+      "role": "user",
+      "content": "Sí. — a las 10 de la mañana— Okay."
+    },
+    {
+      "role": "user",
+      "content": "— para los dos, ¿no? Ustedes uno es a las 10 y el otro a las 11, o— ¿Qué horario nos dice?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, te agendé a ti a las diez de la mañana y a Hugo a las diez treinta de la mañana.  Son citas seguidas, así que no tienen que esperar mucho tiempo.  ¿Está bien así?"
+    },
+    {
+      "role": "user",
+      "content": "Okay, it—"
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto. Entonces tienes tú a las diez de la mañana y Hugo a las diez treinta de la mañana, el jueves 23 de abril con el doctor Bach en Spring Hill.  La dirección es diez mil cuatrocientos noventa y cinco Spring Hill Drive, Spring Hill, Florida, tres cuatro seis cero ocho.  ¿Necesitas algo más?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, me le— ¿le creas por favor el nombre del doctor?"
+    },
+    {
+      "role": "assistant",
+      "content": "El doctor se llama doctor Austin Bach.  ¿Todo está bien?"
+    },
+    {
+      "role": "user",
+      "content": "¿Me lo deletreas, por favor?"
+    },
+    {
+      "role": "assistant",
+      "content": "A-U-S-T-I-N, espacio, B-A-C-H."
+    },
+    {
+      "role": "user",
+      "content": "¿En español? ¿Me lo puede— me lo puede deletrear en español?"
+    },
+    {
+      "role": "assistant",
+      "content": "A de Antonio, U de Ursula, S de Samuel, T de Tomás, I de Ignacio, N de Nicolás.  B de Benito, A de Antonio, C de Carlos, H de Hernando."
+    },
+    {
+      "role": "user",
+      "content": "¿Me lo repites, por favor?"
+    },
+    {
+      "role": "assistant",
+      "content": "A de Antonio, U de Ursula, S de Samuel, T de Tomás, I de Ignacio, N de Nicolás.  B de Benito, A de Antonio, C de Carlos, H de Hernando."
+    },
+    {
+      "role": "user",
+      "content": "No, no entendí. La verdad que no— No te entendí. ¿No me lo puede dar en español?"
+    },
+    {
+      "role": "assistant",
+      "content": "A de Antonio, U de Ursula, S de Samuel, T de Tomás, I de Ignacio, N de Nicolás.  B de Benito, A de Antonio, C de Carlos, H de Hernando."
+    },
+    {
+      "role": "user",
+      "content": "Você— — was ihm back—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Te lo dicto más despacio?  A de Antonio, U de Ursula, S de Samuel, T de Tomás, I de Ignacio, N de Nicolás.  B de Benito, A de Antonio, C de Carlos, H de Hernando."
+    },
+    {
+      "role": "user",
+      "content": "— Aussehen— —en nombre tan raro—"
+    },
+    {
+      "role": "assistant",
+      "content": "El nombre es Austin Bach.  ¿Necesitas algo más?"
+    },
+    {
+      "role": "user",
+      "content": "No— It— — Sí, no he podido encontrar el nombre, no he podido coger el, el nombre del doctor. Qué pena contigo."
+    },
+    {
+      "role": "assistant",
+      "content": "No hay problema. El doctor se llama doctor Austin Bach.  ¿Todo está bien con las citas?"
+    },
+    {
+      "role": "user",
+      "content": "Eh— sì."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto. Entonces tienes tú a las diez de la mañana y Hugo a las diez treinta de la mañana, el jueves 23 de abril con el doctor Austin Bach en Spring Hill.  ¿Necesitas algo más?"
+    },
+    {
+      "role": "user",
+      "content": "No, por ahora nada más. Muchas gracias."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "match_caller_language"
+    ],
+    "styleFlags": [
+      "responds_in_spanish",
+      "concise"
+    ]
+  }
+}

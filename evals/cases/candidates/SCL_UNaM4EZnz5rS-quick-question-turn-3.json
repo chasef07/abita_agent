@@ -1,0 +1,44 @@
+{
+  "id": "SCL_UNaM4EZnz5rS-quick-question-turn-3",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_UNaM4EZnz5rS",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "14843989071",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Acuity Health, this is Patrick, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, hi. I got an email from Kyle and I was just calling to see if I could get some more information."
+    },
+    {
+      "role": "assistant",
+      "content": "Hi, I'd be happy to help.  What kind of information were you looking for? "
+    },
+    {
+      "role": "user",
+      "content": "Just more about your services that Acuity offers."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -245,43 +245,43 @@
         </p>
         <div class="hero-meta">
           <span>Date 2026-04-14</span>
-          <span>30 calls audited</span>
+          <span>21 calls audited</span>
           <span>History-backed trend charts turn on as <code>history.jsonl</code> fills in</span>
         </div>
         <div class="hero-grid">
           <div class="metric">
             <div class="metric-label">Resolved</div>
-            <div class="metric-value">86.7%</div>
-            <div class="metric-sub">26/30 calls</div>
+            <div class="metric-value">81%</div>
+            <div class="metric-sub">17/21 calls</div>
           </div>
           <div class="metric">
             <div class="metric-label">Tool correct</div>
-            <div class="metric-value">83.3%</div>
-            <div class="metric-sub">25/30</div>
+            <div class="metric-value">95.2%</div>
+            <div class="metric-sub">20/21</div>
           </div>
           <div class="metric">
             <div class="metric-label">Hallucination safe</div>
-            <div class="metric-value">93.3%</div>
-            <div class="metric-sub">28/30</div>
+            <div class="metric-value">100%</div>
+            <div class="metric-sub">21/21</div>
           </div>
           <div class="metric">
             <div class="metric-label">Avg turns</div>
-            <div class="metric-value">9</div>
-            <div class="metric-sub">Avg duration 109.9s</div>
+            <div class="metric-value">22</div>
+            <div class="metric-sub">Avg duration 252.2s</div>
           </div>
           <div class="metric">
             <div class="metric-label">Top failure</div>
             <div class="metric-value metric-text">slow_path</div>
-            <div class="metric-sub">10 calls</div>
+            <div class="metric-sub">13 calls</div>
           </div>
           <div class="metric">
             <div class="metric-label">Top strength</div>
-            <div class="metric-value metric-text">Spoke transfer message fully before transfer_call.</div>
-            <div class="metric-sub">4 calls</div>
+            <div class="metric-value metric-text">Agent confirmed appointment date, time, and location clearly.</div>
+            <div class="metric-sub">2 calls</div>
           </div>
           <div class="metric">
             <div class="metric-label">Calls audited</div>
-            <div class="metric-value">30</div>
+            <div class="metric-value">21</div>
             <div class="metric-sub">Structured production sample</div>
           </div>
         </div>
@@ -325,62 +325,62 @@
           <tbody>
       <tr>
         <td>New patient</td>
-        <td>5</td>
-        <td>60%</td>
+        <td>6</td>
+        <td>83.3%</td>
         <td>100%</td>
         <td>100%</td>
-        <td>29.8</td>
-        <td>0.52</td>
+        <td>53</td>
+        <td>0.55</td>
       </tr>
     
       <tr>
         <td>FAQ</td>
-        <td>2</td>
+        <td>5</td>
+        <td>60%</td>
         <td>100%</td>
         <td>100%</td>
-        <td>100%</td>
-        <td>3.5</td>
-        <td>1</td>
+        <td>17.6</td>
+        <td>0.63</td>
       </tr>
     
       <tr>
         <td>Immediate transfer</td>
-        <td>16</td>
+        <td>7</td>
         <td>100%</td>
-        <td>93.8%</td>
         <td>100%</td>
-        <td>3.1</td>
-        <td>0.94</td>
+        <td>100%</td>
+        <td>3.3</td>
+        <td>0.98</td>
       </tr>
     
       <tr>
         <td>Confirm</td>
-        <td>4</td>
-        <td>100%</td>
-        <td>50%</td>
-        <td>75%</td>
-        <td>6.5</td>
-        <td>0.77</td>
+        <td>0</td>
+        <td>0%</td>
+        <td>0%</td>
+        <td>0%</td>
+        <td>0</td>
+        <td>0</td>
       </tr>
     
       <tr>
         <td>Cancel / rebook</td>
-        <td>2</td>
-        <td>50%</td>
-        <td>50%</td>
+        <td>1</td>
         <td>100%</td>
-        <td>7.5</td>
-        <td>0.8</td>
+        <td>100%</td>
+        <td>100%</td>
+        <td>10</td>
+        <td>0.85</td>
       </tr>
     
       <tr>
         <td>Existing patient booking</td>
-        <td>1</td>
-        <td>0%</td>
-        <td>0%</td>
-        <td>0%</td>
-        <td>22</td>
-        <td>0.5</td>
+        <td>2</td>
+        <td>50%</td>
+        <td>50%</td>
+        <td>100%</td>
+        <td>11</td>
+        <td>0.72</td>
       </tr>
     </tbody>
         </table>
@@ -392,43 +392,13 @@
             <div class="list-row">
               <div class="bar-label">slow_path</div>
               <div class="bar"><div class="bar-fill" style="width:100%"></div></div>
-              <div class="bar-count">10</div>
-            </div>
-          
-            <div class="list-row">
-              <div class="bar-label">wrong_tool_order</div>
-              <div class="bar"><div class="bar-fill" style="width:30%"></div></div>
-              <div class="bar-count">3</div>
+              <div class="bar-count">13</div>
             </div>
           
             <div class="list-row">
               <div class="bar-label">unresolved_need</div>
-              <div class="bar"><div class="bar-fill" style="width:30%"></div></div>
-              <div class="bar-count">3</div>
-            </div>
-          
-            <div class="list-row">
-              <div class="bar-label">wrong_tool</div>
-              <div class="bar"><div class="bar-fill" style="width:20%"></div></div>
-              <div class="bar-count">2</div>
-            </div>
-          
-            <div class="list-row">
-              <div class="bar-label">hallucination</div>
-              <div class="bar"><div class="bar-fill" style="width:10%"></div></div>
-              <div class="bar-count">1</div>
-            </div>
-          
-            <div class="list-row">
-              <div class="bar-label">policy_violation</div>
-              <div class="bar"><div class="bar-fill" style="width:10%"></div></div>
-              <div class="bar-count">1</div>
-            </div>
-          
-            <div class="list-row">
-              <div class="bar-label">toolCorrectness</div>
-              <div class="bar"><div class="bar-fill" style="width:10%"></div></div>
-              <div class="bar-count">1</div>
+              <div class="bar"><div class="bar-fill" style="width:30.76923076923077%"></div></div>
+              <div class="bar-count">4</div>
             </div>
           
             <div class="list-row">
@@ -442,50 +412,50 @@
         <div class="list">
           
             <div class="list-row">
-              <div class="bar-label">Spoke transfer message fully before transfer_call.</div>
+              <div class="bar-label">Agent confirmed appointment date, time, and location clearly.</div>
               <div class="bar"><div class="bar-fill" style="width:100%"></div></div>
-              <div class="bar-count">4</div>
-            </div>
-          
-            <div class="list-row">
-              <div class="bar-label">Agent spoke transfer message fully before transfer.</div>
-              <div class="bar"><div class="bar-fill" style="width:50%"></div></div>
               <div class="bar-count">2</div>
             </div>
           
             <div class="list-row">
-              <div class="bar-label">Confirmed appointment details clearly before booking.</div>
-              <div class="bar"><div class="bar-fill" style="width:50%"></div></div>
+              <div class="bar-label">Agent handled bilingual conversation smoothly.</div>
+              <div class="bar"><div class="bar-fill" style="width:100%"></div></div>
               <div class="bar-count">2</div>
             </div>
           
             <div class="list-row">
-              <div class="bar-label">Used correct transfer message before transfer_call.</div>
+              <div class="bar-label">Clear intent capture and confirmation of new appointment details.</div>
               <div class="bar"><div class="bar-fill" style="width:50%"></div></div>
-              <div class="bar-count">2</div>
-            </div>
-          
-            <div class="list-row">
-              <div class="bar-label">Agent confirmed insurance plan name before checking acceptance.</div>
-              <div class="bar"><div class="bar-fill" style="width:25%"></div></div>
               <div class="bar-count">1</div>
             </div>
           
             <div class="list-row">
-              <div class="bar-label">Agent answered clearly and let caller lead after resolution.</div>
-              <div class="bar"><div class="bar-fill" style="width:25%"></div></div>
+              <div class="bar-label">Proper sequencing of booking new appointment before cancelling old one.</div>
+              <div class="bar"><div class="bar-fill" style="width:50%"></div></div>
               <div class="bar-count">1</div>
             </div>
           
             <div class="list-row">
-              <div class="bar-label">Agent asked for first name before providing details.</div>
-              <div class="bar"><div class="bar-fill" style="width:25%"></div></div>
+              <div class="bar-label">Polite and patient-centered communication.</div>
+              <div class="bar"><div class="bar-fill" style="width:50%"></div></div>
               <div class="bar-count">1</div>
             </div>
           
             <div class="list-row">
-              <div class="bar-label">Agent used natural, clear language.</div>
-              <div class="bar"><div class="bar-fill" style="width:25%"></div></div>
+              <div class="bar-label">Followed registration order precisely and confirmed critical patient info with spelling.</div>
+              <div class="bar"><div class="bar-fill" style="width:50%"></div></div>
+              <div class="bar-count">1</div>
+            </div>
+          
+            <div class="list-row">
+              <div class="bar-label">Handled insurance plan ambiguity well by multiple checks and updates.</div>
+              <div class="bar"><div class="bar-fill" style="width:50%"></div></div>
+              <div class="bar-count">1</div>
+            </div>
+          
+            <div class="list-row">
+              <div class="bar-label">Patient-centered and clear communication.</div>
+              <div class="bar"><div class="bar-fill" style="width:50%"></div></div>
               <div class="bar-count">1</div>
             </div>
           
@@ -497,75 +467,75 @@
       <div class="section-title">Calls that need review first</div>
       <div class="call-grid">
       <article class="call-card">
-        <div class="call-card-header"><span class="chip bucket">New patient</span><span class="chip bad">failed</span><span class="chip neutral">SCL_xstNMuRQFqVG</span></div>
-        <p class="call-reason">Caller abandoned scheduling after long registration attempt and requested transfer.</p>
-        <p><strong>Failures:</strong> slow_path, caller_abandoned, unresolved_need</p>
+        <div class="call-card-header"><span class="chip bucket">FAQ</span><span class="chip bad">failed</span><span class="chip neutral">SCL_pvHcDK2HvvHh</span></div>
+        <p class="call-reason">Caller asked to schedule but call ended abruptly with unclear responses.</p>
+        <p><strong>Failures:</strong> unresolved_need, slow_path</p>
         <p><strong>Tool issues:</strong> none</p>
-        <p><strong>Strengths:</strong> Agent followed registration order and verified insurance acceptance before proceeding.</p>
-        <p><strong>Fixes:</strong> Improve email and address collection prompts to reduce repetition and caller frustration. | Consider early offer to transfer if caller shows signs of frustration or confusion.</p>
+        <p><strong>Strengths:</strong> Accurate insurance info provided from knowledge base and check_insurance. | Clear and concise answers to insurance question.</p>
+        <p><strong>Fixes:</strong> Train agents on handling unexpected or confusing caller responses to maintain control. | Prompt for scheduling intent clearly after answering FAQ.</p>
       </article>
     
       <article class="call-card">
-        <div class="call-card-header"><span class="chip bucket">New patient</span><span class="chip bad">failed</span><span class="chip neutral">SCL_wm4GD27oitnH</span></div>
-        <p class="call-reason">Caller asked for a human after incomplete registration and was transferred.</p>
+        <div class="call-card-header"><span class="chip bucket">New patient</span><span class="chip bad">failed</span><span class="chip neutral">SCL_tvoLGGD2RxQo</span></div>
+        <p class="call-reason">Patient registration was incomplete due to insurance plan ambiguity and call ended with transfer.</p>
         <p><strong>Failures:</strong> slow_path, unresolved_need</p>
         <p><strong>Tool issues:</strong> none</p>
-        <p><strong>Strengths:</strong> Followed registration order and insurance check before collecting other info. | Properly pushed back once before transfer as per policy.</p>
-        <p><strong>Fixes:</strong> Improve email and phone number capture prompts to reduce back-and-forth. | Train agent to confirm key fields more clearly to avoid caller frustration.</p>
+        <p><strong>Strengths:</strong> Patient info collected thoroughly and confirmed with spelling. | Agent patiently guided caller through insurance confusion. | Proper transfer message given before transfer.</p>
+        <p><strong>Fixes:</strong> Delay add_patient call until exact insurance plan is confirmed to avoid rework. | Provide clearer instructions on insurance card details early in call.</p>
       </article>
     
       <article class="call-card">
-        <div class="call-card-header"><span class="chip bucket">Existing patient booking</span><span class="chip bad">failed</span><span class="chip neutral">SCL_awKRiigv6jXQ</span></div>
-        <p class="call-reason">No resolution analysis returned.</p>
-        <p><strong>Failures:</strong> repeat_question, slow_path</p>
-        <p><strong>Tool issues:</strong> assistant repeated a question 1 time(s)</p>
-        <p><strong>Strengths:</strong> none noted</p>
-        <p><strong>Fixes:</strong> none suggested</p>
+        <div class="call-card-header"><span class="chip bucket">Existing patient booking</span><span class="chip bad">failed</span><span class="chip neutral">SCL_Bhfcit3rAWv8</span></div>
+        <p class="call-reason">Call ended before booking appointment despite providing availability.</p>
+        <p><strong>Failures:</strong> unresolved_need, slow_path</p>
+        <p><strong>Tool issues:</strong> No booking or cancellation tool calls despite intent to schedule.</p>
+        <p><strong>Strengths:</strong> Good insurance verification and patient identification. | Polite and patient-led questioning.</p>
+        <p><strong>Fixes:</strong> Ensure booking is completed or caller is explicitly informed if unable to book. | Prompt caller to confirm appointment after offering availability.</p>
       </article>
     
       <article class="call-card">
-        <div class="call-card-header"><span class="chip bucket">Cancel / rebook</span><span class="chip bad">failed</span><span class="chip neutral">SCL_A52nxfk6G4CK</span></div>
-        <p class="call-reason">No cancel_appt call made; appointment not actually cancelled.</p>
-        <p><strong>Failures:</strong> wrong_tool_order, unresolved_need, slow_path</p>
-        <p><strong>Tool issues:</strong> Did not call cancel_appt after booking new appointment for reschedule.</p>
-        <p><strong>Strengths:</strong> Verified patient and reason for visit. | Confirmed new appointment date and time clearly. | Offered nearest alternative date when needed.</p>
-        <p><strong>Fixes:</strong> Ensure cancel_appt is called after booking new appointment to complete reschedule. | Train to confirm cancellation explicitly with caller before cancelling.</p>
+        <div class="call-card-header"><span class="chip bucket">FAQ</span><span class="chip bad">failed</span><span class="chip neutral">SCL_AD8M7szUTGd6</span></div>
+        <p class="call-reason">Caller did not provide full insurance plan details needed to schedule.</p>
+        <p><strong>Failures:</strong> unresolved_need, slow_path</p>
+        <p><strong>Tool issues:</strong> none</p>
+        <p><strong>Strengths:</strong> Accurately answered insurance acceptance question with tool confirmation. | Politely advised caller to call back with full insurance info.</p>
+        <p><strong>Fixes:</strong> Add a prompt to offer a callback or hold option while caller checks insurance details.</p>
       </article>
     
       <article class="call-card">
-        <div class="call-card-header"><span class="chip bucket">Confirm</span><span class="chip bad">failed</span><span class="chip neutral">SCL_7YCwBupKJR9K</span></div>
-        <p class="call-reason">Appointment was confirmed verbally, matching caller intent.</p>
-        <p><strong>Failures:</strong> wrong_tool, hallucination, wrong_tool_order</p>
-        <p><strong>Tool issues:</strong> confirm_appt tool was never called to verify appointment details. | confirm bucket never called confirm_appt</p>
-        <p><strong>Strengths:</strong> Agent asked for first name before providing details. | Agent used natural, clear language.</p>
-        <p><strong>Fixes:</strong> Always call confirm_appt tool before reading back appointment details.</p>
+        <div class="call-card-header"><span class="chip bucket">New patient</span><span class="chip warn">needs work</span><span class="chip neutral">SCL_wvQYAX5vtEvW</span></div>
+        <p class="call-reason">Patient was registered and appointment successfully booked with confirmation.</p>
+        <p><strong>Failures:</strong> slow_path, repeat_question</p>
+        <p><strong>Tool issues:</strong> assistant repeated a question 21 time(s)</p>
+        <p><strong>Strengths:</strong> Agent followed registration order correctly and used required tools in proper sequence. | Agent confirmed key patient details accurately before submission. | Agent confirmed appointment date, time, and location clearly. | Agent handled bilingual conversation smoothly.</p>
+        <p><strong>Fixes:</strong> Improve handling of insurance member ID to avoid repeated back-and-forth confirmations. | Train agent to reduce repeated questions and confirm details more efficiently.</p>
       </article>
     
       <article class="call-card">
-        <div class="call-card-header"><span class="chip bucket">Immediate transfer</span><span class="chip warn">needs work</span><span class="chip neutral">SCL_8YdbfMTHixyk</span></div>
-        <p class="call-reason">Caller was transferred after agent exhausted scheduling options and answered questions.</p>
+        <div class="call-card-header"><span class="chip bucket">FAQ</span><span class="chip warn">needs work</span><span class="chip neutral">SCL_ZiJjyT5Hze6V</span></div>
+        <p class="call-reason">Caller’s insurance acceptance question was answered clearly.</p>
         <p><strong>Failures:</strong> slow_path</p>
         <p><strong>Tool issues:</strong> none</p>
-        <p><strong>Strengths:</strong> Agent answered caller questions patiently and provided accurate info from system. | Agent pushed back and tried to help before transferring. | Spoke transfer message fully before transfer_call.</p>
-        <p><strong>Fixes:</strong> Limit repeated availability calls by consolidating date checks. | Use clearer guidance on earliest availability and provider capabilities to reduce back-and-forth.</p>
+        <p><strong>Strengths:</strong> Agent patiently tried multiple ways to clarify insurance name. | Agent used check_insurance tool appropriately before answering. | Agent clearly communicated final insurance acceptance status.</p>
+        <p><strong>Fixes:</strong> Add prompt guidance for handling unclear insurance names more efficiently. | Consider scripted fallback questions to narrow insurance quickly.</p>
       </article>
     
       <article class="call-card">
-        <div class="call-card-header"><span class="chip bucket">Confirm</span><span class="chip warn">needs work</span><span class="chip neutral">SCL_yCikzGUJg8Qp</span></div>
-        <p class="call-reason">Caller’s appointment details and office address were confirmed accurately.</p>
+        <div class="call-card-header"><span class="chip bucket">New patient</span><span class="chip warn">needs work</span><span class="chip neutral">SCL_Hh2mB8wyunCg</span></div>
+        <p class="call-reason">Two new patients registered and both appointments booked and confirmed.</p>
         <p><strong>Failures:</strong> slow_path</p>
         <p><strong>Tool issues:</strong> none</p>
-        <p><strong>Strengths:</strong> Agent confirmed appointment date, time, doctor, and location clearly. | Agent used lookup_knowledge correctly for office address.</p>
-        <p><strong>Fixes:</strong> Prompt agent to confirm appointment details fully the first time to avoid repetition.</p>
+        <p><strong>Strengths:</strong> Agent handled bilingual conversation smoothly. | Agent followed registration and booking steps correctly for both patients. | Agent confirmed appointment details and spelled doctor’s name per caller request.</p>
+        <p><strong>Fixes:</strong> Provide agents with multilingual scripted prompts to reduce repetition. | Encourage callers to have insurance info ready to speed registration.</p>
       </article>
     
       <article class="call-card">
-        <div class="call-card-header"><span class="chip bucket">New patient</span><span class="chip warn">needs work</span><span class="chip neutral">SCL_5jeiC2mbrpaR</span></div>
-        <p class="call-reason">Patient was registered and appointment booked with confirmation.</p>
+        <div class="call-card-header"><span class="chip bucket">New patient</span><span class="chip warn">needs work</span><span class="chip neutral">SCL_ZXxDExEdBtAu</span></div>
+        <p class="call-reason">Patient was registered and appointment successfully booked.</p>
         <p><strong>Failures:</strong> slow_path</p>
         <p><strong>Tool issues:</strong> none</p>
-        <p><strong>Strengths:</strong> Followed registration order correctly. | Confirmed insurance acceptance before collecting other fields. | Read back key patient info accurately before submission. | Confirmed appointment details clearly before booking.</p>
-        <p><strong>Fixes:</strong> Prompt more clearly for sex/gender to avoid repetition. | Avoid interrupting caller when spelling email.</p>
+        <p><strong>Strengths:</strong> Agent followed registration sequence correctly. | Agent confirmed all critical patient info before adding patient. | Agent confirmed appointment date, time, and location clearly.</p>
+        <p><strong>Fixes:</strong> Encourage callers to have insurance card ready to reduce member ID confusion.</p>
       </article>
     </div>
     </section>
@@ -573,8 +543,8 @@
 
   <script>
     const bucketLabels = ["New patient","FAQ","Immediate transfer","Confirm","Cancel / rebook","Existing patient booking"];
-    const bucketStats = [{"total":5,"resolved":3,"toolCorrect":5,"hallucinationSafe":5,"avgTurns":29.8,"avgDurationSec":324,"avgPathScore":0.52},{"total":2,"resolved":2,"toolCorrect":2,"hallucinationSafe":2,"avgTurns":3.5,"avgDurationSec":43.5,"avgPathScore":1},{"total":16,"resolved":16,"toolCorrect":15,"hallucinationSafe":16,"avgTurns":3.1,"avgDurationSec":56,"avgPathScore":0.94},{"total":4,"resolved":4,"toolCorrect":2,"hallucinationSafe":3,"avgTurns":6.5,"avgDurationSec":63.5,"avgPathScore":0.77},{"total":2,"resolved":1,"toolCorrect":1,"hallucinationSafe":2,"avgTurns":7.5,"avgDurationSec":98,"avgPathScore":0.8},{"total":1,"resolved":0,"toolCorrect":0,"hallucinationSafe":0,"avgTurns":22,"avgDurationSec":245,"avgPathScore":0.5}];
-    const history = [];
+    const bucketStats = [{"total":6,"resolved":5,"toolCorrect":6,"hallucinationSafe":6,"avgTurns":53,"avgDurationSec":634.7,"avgPathScore":0.55},{"total":5,"resolved":3,"toolCorrect":5,"hallucinationSafe":5,"avgTurns":17.6,"avgDurationSec":167.4,"avgPathScore":0.63},{"total":7,"resolved":7,"toolCorrect":7,"hallucinationSafe":7,"avgTurns":3.3,"avgDurationSec":45.6,"avgPathScore":0.98},{"total":0,"resolved":0,"toolCorrect":0,"hallucinationSafe":0,"avgTurns":0,"avgDurationSec":0,"avgPathScore":0},{"total":1,"resolved":1,"toolCorrect":1,"hallucinationSafe":1,"avgTurns":10,"avgDurationSec":114,"avgPathScore":0.85},{"total":2,"resolved":1,"toolCorrect":1,"hallucinationSafe":2,"avgTurns":11,"avgDurationSec":109.5,"avgPathScore":0.72}];
+    const history = [{"date":"2026-04-14","timestamp":"2026-04-14T15:49:33.135Z","golden":{"pass":27,"total":31},"candidates":{"pass":64,"total":68},"perSuiteGolden":{"scheduling":{"pass":3,"total":3},"cancel":{"pass":3,"total":3},"confirm":{"pass":1,"total":1},"routing":{"pass":2,"total":2},"insurance":{"pass":1,"total":2},"quick-question":{"pass":2,"total":2},"language":{"pass":1,"total":1},"verification":{"pass":4,"total":4},"registration":{"pass":4,"total":6},"reschedule":{"pass":0,"total":1},"safety":{"pass":1,"total":1},"transfer":{"pass":5,"total":5}},"audit":{"total":30,"resolved":26,"toolCorrect":25,"hallucinationSafe":28,"byBucket":{"new_patient":{"total":5,"resolved":3,"avgTurns":29.8},"faq":{"total":2,"resolved":2,"avgTurns":3.5},"immediate_transfer":{"total":16,"resolved":16,"avgTurns":3.1},"confirm":{"total":4,"resolved":4,"avgTurns":6.5},"cancel_rebook":{"total":2,"resolved":1,"avgTurns":7.5},"existing_patient_booking":{"total":1,"resolved":0,"avgTurns":22}}},"prompt":{"runbookChars":12374,"runbookLines":163},"winner":{"status":"no_change","promoted":false}},{"date":"2026-04-14","timestamp":"2026-04-14T23:30:17.316Z","golden":{"pass":19,"total":32},"candidates":{"pass":124,"total":129},"perSuiteGolden":{"scheduling":{"pass":1,"total":3},"cancel":{"pass":1,"total":3},"confirm":{"pass":1,"total":2},"routing":{"pass":1,"total":2},"insurance":{"pass":1,"total":2},"quick-question":{"pass":2,"total":2},"language":{"pass":1,"total":1},"verification":{"pass":4,"total":4},"registration":{"pass":3,"total":6},"reschedule":{"pass":0,"total":1},"safety":{"pass":0,"total":1},"transfer":{"pass":4,"total":5}},"audit":{"total":21,"resolved":17,"toolCorrect":20,"hallucinationSafe":21,"byBucket":{"new_patient":{"total":6,"resolved":5,"avgTurns":53},"faq":{"total":5,"resolved":3,"avgTurns":17.6},"immediate_transfer":{"total":7,"resolved":7,"avgTurns":3.3},"confirm":{"total":0,"resolved":0,"avgTurns":0},"cancel_rebook":{"total":1,"resolved":1,"avgTurns":10},"existing_patient_booking":{"total":2,"resolved":1,"avgTurns":11}}},"prompt":{"runbookChars":11614,"runbookLines":158},"winner":{"status":"no_change","promoted":false}}];
     const palette = {
       forest: "#1b5e4b",
       moss: "#7aa87b",

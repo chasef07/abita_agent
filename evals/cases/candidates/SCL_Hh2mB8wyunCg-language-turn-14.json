@@ -1,0 +1,133 @@
+{
+  "id": "SCL_Hh2mB8wyunCg-language-turn-14",
+  "suite": "language",
+  "source": "livekit-trace",
+  "traceId": "SCL_Hh2mB8wyunCg",
+  "tags": [
+    "language",
+    "spanish",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: caller spoke Spanish. Check the agent replied in Spanish, not English."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, buenas tardes. ¿Hablas español?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, hablo español. ¿En qué puedo ayudarte hoy?"
+    },
+    {
+      "role": "user",
+      "content": "— Gracias, David. Es que quisiera pedir una cita— — con la doctora Melissa Otero. Ella me imagino que habla español."
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, la doctora Otero habla español.  ¿Has sido atendido aquí antes?"
+    },
+    {
+      "role": "user",
+      "content": "No, I— Primera vez."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, déjame registrarte.  ¿Qué seguro tienes?"
+    },
+    {
+      "role": "user",
+      "content": "Those— ¿Ustedes—? —seguro de ��scar. ¿Ustedes aceptan ��scar del Marketplace?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, aceptamos Oscar Health.  ¿Cuál es tu nombre?"
+    },
+    {
+      "role": "user",
+      "content": "Mi nombre es Elizabeth— —un ruco?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Elizabeth? ¿Y cuál es tu apellido?"
+    },
+    {
+      "role": "user",
+      "content": "Ruco, con doble C— R-U-C-C-O."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, Elizabeth Rucco.  ¿Cuál es tu fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "E— 0405 al 62—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuatro de abril de mil novecientos sesenta y dos?"
+    },
+    {
+      "role": "user",
+      "content": "Correcto."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto. ¿Cuál es tu número de teléfono?"
+    },
+    {
+      "role": "user",
+      "content": "7, 8, 6, 3, 0, 6, 4, 7, 3. 3."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Y tu correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "Elisa— Eh, bueno, no, eh—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿No tienes correo electrónico?  Está bien, podemos usar uno de un familiar si tienes."
+    },
+    {
+      "role": "user",
+      "content": "OK, es enlace con— ¿Cómo hay corporación?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Puedes deletrearlo por favor?"
+    },
+    {
+      "role": "user",
+      "content": "OK, es— enlace— E—"
+    },
+    {
+      "role": "assistant",
+      "content": "Déjame confirmar -- ¿es \"enlace\" con E-N-L-A-C-E?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, en, en español sería— E de enano, N de Nancy, C de Carlos— Hey, Nano. Cede Carlos— Odeoso, eré Raúl, pe— Pedro. @homemade.com."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "match_caller_language"
+    ],
+    "styleFlags": [
+      "responds_in_spanish",
+      "concise"
+    ]
+  }
+}

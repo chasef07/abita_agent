@@ -1,0 +1,277 @@
+{
+  "id": "SCL_wvQYAX5vtEvW-language-turn-32",
+  "suite": "language",
+  "source": "livekit-trace",
+  "traceId": "SCL_wvQYAX5vtEvW",
+  "tags": [
+    "language",
+    "spanish",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: caller spoke Spanish. Check the agent replied in Spanish, not English."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "You know, hmm—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead, what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "Please, please, please— Is— is speaking— is speaking Spanish?"
+    },
+    {
+      "role": "assistant",
+      "content": "sí, hablo español. ¿en qué puedo ayudarte hoy?"
+    },
+    {
+      "role": "user",
+      "content": "A ver, eh—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿qué necesitas? ¿quieres"
+    },
+    {
+      "role": "user",
+      "content": "Quiero sacar una— Hey. Sí, quiero agendar una cita con el estaf— uff, oftalmología."
+    },
+    {
+      "role": "assistant",
+      "content": "sí, claro, te puedo ayudar con eso.  ¿ya has sido vista aquí antes?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ah, perfecto, déjame registrarte.  ¿qué seguro tienes?"
+    },
+    {
+      "role": "user",
+      "content": "Oscar?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿y qué tipo de plan de Oscar -- es HMO, PPO, o Medicare?"
+    },
+    {
+      "role": "user",
+      "content": "¿Cómo?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿tu plan de Oscar es HMO, PPO, o Medicare?"
+    },
+    {
+      "role": "user",
+      "content": "Medical—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿es un plan HMO o PPO?"
+    },
+    {
+      "role": "user",
+      "content": "No lo entiendo. Ahí— Tengo a ��scar—"
+    },
+    {
+      "role": "assistant",
+      "content": "sí, aceptamos Oscar Health.  ¿cuál es tu nombre completo?"
+    },
+    {
+      "role": "user",
+      "content": "Yamile Barrios Llanes."
+    },
+    {
+      "role": "assistant",
+      "content": "¿y tu fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "0-1— 25 del 1979."
+    },
+    {
+      "role": "assistant",
+      "content": "perfecto. ¿cuál es tu número de teléfono?"
+    },
+    {
+      "role": "user",
+      "content": "7, 2, 7—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿solo el 727?"
+    },
+    {
+      "role": "user",
+      "content": "6, 3, 7—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿y los últimos cuatro dígitos?"
+    },
+    {
+      "role": "user",
+      "content": "See, I— And— 1,9224."
+    },
+    {
+      "role": "assistant",
+      "content": "¿es 727-637-1924?"
+    },
+    {
+      "role": "user",
+      "content": "Please."
+    },
+    {
+      "role": "assistant",
+      "content": "perfecto. ¿cuál es tu correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "Hey?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿tu correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "Eh, Yamile Barrios— ¿Yamile— Yamile Barrios? Um— 190@gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "perfecto. ¿cuál es tu dirección?"
+    },
+    {
+      "role": "user",
+      "content": "68— 39— Ookseong Avenue—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿y la ciudad?"
+    },
+    {
+      "role": "user",
+      "content": "Oops, um—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿en qué ciudad queda esa dirección?"
+    },
+    {
+      "role": "user",
+      "content": "Ah, ah, pardon. — Florida? Era yo— ay, Dios."
+    },
+    {
+      "role": "assistant",
+      "content": "¿qué ciudad en Florida?"
+    },
+    {
+      "role": "user",
+      "content": "Sólida, perdón."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Sólida? ¿cómo se escribe?"
+    },
+    {
+      "role": "user",
+      "content": "Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Sólida, Florida? ¿y el código postal?"
+    },
+    {
+      "role": "user",
+      "content": "Florida. Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "¿y el código postal?"
+    },
+    {
+      "role": "user",
+      "content": "Think I— 34, 6— Say— 7."
+    },
+    {
+      "role": "assistant",
+      "content": "¿34687?"
+    },
+    {
+      "role": "user",
+      "content": "Sí."
+    },
+    {
+      "role": "assistant",
+      "content": "perfecto. ¿apartamento o número de casa?"
+    },
+    {
+      "role": "user",
+      "content": "Noice. Una casa, 68, 39."
+    },
+    {
+      "role": "assistant",
+      "content": "¿y eres mujer u hombre?"
+    },
+    {
+      "role": "user",
+      "content": "Mujeres."
+    },
+    {
+      "role": "assistant",
+      "content": "perfecto. ¿cuál es el nombre que está en la tarjeta del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "¿La tarjeta de mi seguro?"
+    },
+    {
+      "role": "assistant",
+      "content": "sí, el nombre que aparece en tu tarjeta de Oscar."
+    },
+    {
+      "role": "user",
+      "content": "¿En nombre mío, Yamile Barrios Llanes?"
+    },
+    {
+      "role": "assistant",
+      "content": "sí, perfecto. ¿y cuál es tu número de miembro en la tarjeta?"
+    },
+    {
+      "role": "user",
+      "content": "Ah, espérese un momento."
+    },
+    {
+      "role": "assistant",
+      "content": "está bien, te espero."
+    },
+    {
+      "role": "user",
+      "content": "Rápido. Estoy con usted."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "match_caller_language"
+    ],
+    "styleFlags": [
+      "responds_in_spanish",
+      "concise"
+    ]
+  }
+}
