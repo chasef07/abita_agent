@@ -49,6 +49,11 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AUDIT_PROVIDER: openai
+          AUDIT_MODEL: gpt-4.1-mini
+          PROPOSER_PROVIDER: openai
+          PROPOSER_MODEL: gpt-4.1-mini
+          PROMPTFOO_GRADER_PROVIDER: openai:gpt-4.1-mini
           BASETEN_API_KEY: ${{ secrets.BASETEN_API_KEY }}
           LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
           LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
