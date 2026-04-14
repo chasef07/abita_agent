@@ -121,23 +121,12 @@ export function createMockTools(config: MockConfig = {}, trunkPhone?: string) {
   const office = getOfficeConfigByPhone(trunkPhone ?? SPRING_HILL_OFFICE_PHONE);
 
   const mock_verify_patient = llm.tool({
-    description: `Verifies a patient's identity.
+    description: `Verify a patient identity.
 
-For MULTIPLE MATCHES (caller context says multiple patients on this number): just pass firstName and phone — the middleware matches by phone + first name. Do NOT ask for last name or DOB upfront.
-
-For all other cases: pass firstName, lastName, and dob (MM/DD/YYYY).
-
-Do NOT call if phone lookup already verified the patient (single match + confirmed first name). Check CALLER CONTEXT first.
-
-Call with what you heard — don't spell back or echo the name before submitting. The API is the source of truth for spelling.
-
-After response:
-- If verified: let them know and move on.
-- If routingAmbiguous: ask what type of plan (regular, EPO, HMO, Medicare). If HMO, scheduling starts two weeks out due to preauth.
-- If routing is "not_accepted": tell them straightforwardly.
-- If not found and you only sent firstName + phone: ask for last name and DOB and retry with full details.
-- If not found with full details: ask them to spell their name and retry with corrections.
-- If still not found after retry: lead into registration — "ok no worries, let me get you set up."`,
+Use when you need a patient record for scheduling or appointment actions.
+For multiple-match phone flow, pass firstName and usePhone=true.
+Otherwise pass firstName, lastName, and dob (MM/DD/YYYY).
+Returns verification status, patient identity, and routing data.`,
     parameters: z.object({
       firstName: z.string().describe("Patient's first name"),
       lastName: z.string().optional().describe("Patient's last name"),
@@ -157,19 +146,12 @@ After response:
   });
 
   const mock_add_patient = llm.tool({
-    description: `Creates a new patient record. Use only when verify_patient returns no match.
+    description: `Create a new patient record.
 
-NEVER call this tool with fabricated, guessed, or placeholder data. Every single field must come from what the caller explicitly said during the conversation. If you are missing ANY required field (phone, email, address, insurance card info, etc.), you MUST ask the caller for it before calling this tool. Do not invent values to fill required parameters.
-
-Collect in clusters — keep it moving, don't read back individual fields:
-1. Insurance — run check_insurance first. Match what the caller says to an exact plan name from the accepted list.
-2. Name + DOB — already have from verify attempts. Skip, don't re-ask.
-3. Contact — "what's a good cell number?" then "and email?"
-4. Address — "street address, city, state, zip?" Then: "apartment or suite?"
-5. Sex — "male or female?"
-6. Insurance card — "whose name is on the insurance card?" then "and what's the member ID number?"
-
-Member ID is required. Before submitting: read back name, DOB, insurance plan, and member ID.`,
+Use only after verify_patient returns no match.
+All fields must come from the caller; do not guess or fabricate values.
+Phone must be 10 digits.
+Returns the created patient record and routing data.`,
     parameters: z.object({
       firstName: z.string().describe("Patient's first name"),
       lastName: z.string().describe("Patient's last name"),
@@ -213,15 +195,11 @@ Member ID is required. Before submitting: read back name, DOB, insurance plan, a
   });
 
   const mock_get_availability = llm.tool({
-    description: `Gets schedule availability. Requires date (YYYY-MM-DD). Routing and preauth auto-applied from session state.
+    description: `Get appointment availability starting from a date (YYYY-MM-DD).
 
-Determine appointment type (you decide, not the caller):
-- New 18+ = 1006, new under 18 = 1004
-- Existing: default to follow-up (18+ = 1007, under 18 = 1005). Only use post-op (1008) if the caller mentions recent surgery.
-
-Rules: no same-day (earliest = tomorrow). Under 18 = Dr. Bach only.
-
-After response: suggest one best-fit slot. If no slots returned, tell caller and offer nearest available date. Never call this tool for the same date twice.`,
+Uses routing and preauth state from session state automatically.
+Use after you know the visit reason and appointment type.
+Returns available appointment slots.`,
     parameters: z.object({
       date: z.string().describe("Start date to search, formatted YYYY-MM-DD"),
     }),
@@ -232,7 +210,11 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
   });
 
   const mock_confirm_appt = llm.tool({
-    description: `Retrieves upcoming appointments (next 60 days) for a verified patient. If appointments are already shown in caller context from phone lookup, skip this tool.`,
+    description: `Get upcoming appointments for the verified patient.
+
+Requires a verified patient in session state.
+Use when you need fresh appointment data or it is not already available in caller context.
+Returns upcoming appointments.`,
     parameters: z.object({}),
     execute: async () => {
       log.push({ name: "confirm_appt", args: {} });
@@ -241,7 +223,10 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
   });
 
   const mock_cancel_appt = llm.tool({
-    description: `Cancels an appointment. Requires appointmentId. Confirm with caller before proceeding.`,
+    description: `Cancel an appointment by appointmentId.
+
+Use only after the caller confirms they want that appointment cancelled.
+The appointment is not cancelled until this tool succeeds.`,
     parameters: z.object({
       appointmentId: z.number().describe("Appointment ID"),
     }),
@@ -255,7 +240,11 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
   });
 
   const mock_book_appt = llm.tool({
-    description: `Books an appointment. Pass columnId, profileId, startDatetime, duration, and appointmentTypeId from get_availability.`,
+    description: `Book an appointment slot for the verified patient.
+
+Pass columnId, profileId, startDatetime, duration, and appointmentTypeId from get_availability.
+Patient ID is read from session state automatically.
+Returns booking status and appointment details.`,
     parameters: z.object({
       columnId: z.number().describe("columnId from get_availability"),
       profileId: z.number().describe("profileId from get_availability"),
@@ -270,7 +259,10 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
   });
 
   const mock_check_insurance = llm.tool({
-    description: `Looks up whether the office accepts a specific insurance plan. Returns the accepted plans list with carrier-specific notes.`,
+    description: `Look up accepted insurance plans for the current office.
+
+Use when a caller asks if a plan is accepted or before registering a new patient.
+Returns the office insurance reference list.`,
     parameters: z.object({
       plan: z.string().describe("The insurance plan name the caller mentioned"),
     }),
@@ -285,7 +277,10 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
   });
 
   const mock_lookup_knowledge = llm.tool({
-    description: `Looks up practice info: hours, location, providers, services, what to bring.`,
+    description: `Look up office information for the current office.
+
+Use for questions about hours, location, providers, services, what to bring, and related practice facts.
+Returns the office knowledge reference.`,
     parameters: z.object({
       question: z.string().describe("What the caller is asking about"),
     }),
@@ -300,7 +295,11 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
   });
 
   const mock_update_insurance = llm.tool({
-    description: "Updates a verified patient's insurance.",
+    description: `Update insurance for a verified patient.
+
+Requires a verified patient in session state.
+Pass the exact plan name, subscriber name, and member ID from the insurance card.
+Updates session routing and insurance state from the result.`,
     parameters: z.object({
       insurance: z.string(),
       subscriberName: z.string(),
@@ -324,7 +323,7 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
 
   const mock_route_to_spring_hill = llm.tool({
     description:
-      "Switches AMD tool calls to the Spring Hill office without transferring the caller. Use this when the caller reached Crystal River but the visit must be scheduled through Spring Hill, especially for pediatrics or cataracts.",
+      "Route AMD tool calls to the Spring Hill office without transferring the caller. Use on Crystal River calls when the visit must be scheduled through Spring Hill. Updates AMD office routing for the rest of the call.",
     parameters: z.object({}),
     execute: async () => {
       log.push({ name: "route_to_spring_hill", args: {} });
@@ -334,7 +333,7 @@ After response: suggest one best-fit slot. If no slots returned, tell caller and
 
   const mock_transfer_call = llm.tool({
     description:
-      "Transfers the caller to a human at the office. BEFORE calling this tool, you MUST fully finish telling the caller you're transferring them. Call this tool EXACTLY ONCE. After this tool executes, the SIP session disconnects and the call is over — do NOT generate a second transfer_call, do NOT generate any further tool calls, and do NOT generate any further text. Your turn ends here.",
+      "Transfer the caller to the office. Use when the call must be handed to a human. Say the transfer message before calling this tool. After this tool succeeds, the call is effectively over.",
     parameters: z.object({}),
     execute: async () => {
       log.push({ name: "transfer_call", args: {} });
