@@ -51,9 +51,20 @@ function step(label: string, fn: () => void) {
   console.log(`(${label} took ${Math.round((Date.now() - start) / 1000)}s)`);
 }
 
-function runShell(command: string) {
+function runShell(command: string, allowedExitCodes: number[] = []) {
   console.log(`$ ${command}`);
-  execSync(command, { cwd: REPO_ROOT, stdio: "inherit", env: process.env });
+  try {
+    execSync(command, { cwd: REPO_ROOT, stdio: "inherit", env: process.env });
+  } catch (error: unknown) {
+    const status = (error as { status?: number }).status;
+    if (status !== undefined && allowedExitCodes.includes(status)) {
+      console.log(
+        `Command exited with expected status ${status}; continuing optimization loop.`,
+      );
+      return;
+    }
+    throw error;
+  }
 }
 
 function cleanupOldVariantWorkspaces() {
@@ -92,6 +103,7 @@ function main() {
   step("4. Baseline eval (golden + candidates)", () => {
     runShell(
       `NODE_OPTIONS='--import tsx' EVAL_INCLUDE_CANDIDATES=1 npx promptfoo eval -c evals/promptfoo/promptfooconfig.mjs --no-progress-bar --description "optimize:baseline"`,
+      [100],
     );
   });
 
