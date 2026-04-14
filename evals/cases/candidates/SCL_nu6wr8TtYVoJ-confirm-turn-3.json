@@ -2,7 +2,6 @@
   "id": "SCL_nu6wr8TtYVoJ-confirm-turn-3",
   "suite": "confirm",
   "source": "livekit-trace",
-  "assertionMode": "strict",
   "traceId": "SCL_nu6wr8TtYVoJ",
   "tags": [
     "confirm",

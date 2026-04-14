@@ -17,7 +17,7 @@ import { join, resolve } from "node:path";
 import { findLatestOutput, OUTPUT_DIR, readJSON, timestampSlug } from "../lib/io.js";
 import { normalizeCallEvents } from "../lib/normalize-call-events.js";
 import { extractDecisionPointCases } from "../lib/extract-decision-points.js";
-import type { CallAuditReport, DecisionPointCase, NormalizedCallEvent } from "../lib/types.js";
+import type { AuditFailureMode, CallAuditReport, DecisionPointCase, NormalizedCallEvent } from "../lib/types.js";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..", "..");
 const CANDIDATES_DIR = resolve(REPO_ROOT, "evals", "cases", "candidates");
@@ -163,6 +163,62 @@ function chooseBestCase(cases: DecisionPointCase[], intentBucket: string, failur
     .at(0);
 }
 
+function hasDirectExpectations(testCase: DecisionPointCase): boolean {
+  const expectations = testCase.expectations;
+  return (
+    (expectations.mustCallTools?.length ?? 0) > 0
+    || (expectations.mustNotCallTools?.length ?? 0) > 0
+    || (expectations.mustSay?.length ?? 0) > 0
+    || (expectations.mustNotSay?.length ?? 0) > 0
+    || (expectations.policyFlags?.length ?? 0) > 0
+  );
+}
+
+function shouldUseStrictAssertions(testCase: DecisionPointCase, failureMode: AuditFailureMode): boolean {
+  if (!hasDirectExpectations(testCase)) return false;
+
+  switch (failureMode) {
+    case "wrong_tool":
+    case "policy_violation":
+    case "missed_transfer":
+    case "unnecessary_transfer":
+      return ["transfer", "routing", "confirm", "cancel", "verification", "quick-question"].includes(testCase.suite);
+    case "wrong_tool_order":
+      return (testCase.expectations.policyFlags ?? []).some((flag) =>
+        [
+          "ask_reason_before_get_availability",
+          "book_new_before_cancel_old",
+          "read_back_appointment_before_booking",
+          "check_insurance_gate_before_collecting_other_fields",
+          "follow_registration_field_order",
+        ].includes(flag),
+      );
+    case "hallucination":
+    case "knowledge_gap":
+      return (testCase.expectations.policyFlags ?? []).some((flag) =>
+        [
+          "ground_practice_facts_in_lookup_knowledge",
+          "check_insurance_for_acceptance_questions",
+          "never_give_medical_advice",
+          "add_patient_uses_caller_provided_values_exactly",
+        ].includes(flag),
+      );
+    case "bad_tool_args":
+      return (testCase.expectations.policyFlags ?? []).some((flag) =>
+        [
+          "collect_insurance_card_fields_before_update_insurance",
+          "add_patient_uses_caller_provided_values_exactly",
+          "cancel_only_the_appointment_caller_specified",
+        ].includes(flag),
+      );
+    case "slow_path":
+    case "repeat_question":
+    case "caller_abandoned":
+    case "unresolved_need":
+      return false;
+  }
+}
+
 function writeCandidate(testCase: DecisionPointCase): void {
   mkdirSync(CANDIDATES_DIR, { recursive: true });
   const filePath = join(CANDIDATES_DIR, `${testCase.id}.json`);
@@ -202,7 +258,9 @@ function main() {
       }
       const candidate: DecisionPointCase = {
         ...best,
-        assertionMode: "strict",
+        ...(shouldUseStrictAssertions(best, cluster.failureMode as AuditFailureMode)
+          ? { assertionMode: "strict" as const }
+          : {}),
         tags: Array.from(new Set([
           ...(best.tags ?? []),
           "audit-driven",

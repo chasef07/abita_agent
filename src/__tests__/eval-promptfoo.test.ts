@@ -69,11 +69,11 @@ describe("promptfoo eval wiring", () => {
 
     const strictCandidate = promptfooTests.find(
       (testCase) => testCase.metadata.source === "candidates"
-        && testCase.vars.casePath.endsWith("SCL_nu6wr8TtYVoJ-confirm-turn-3.json"),
+        && testCase.vars.casePath.endsWith("SCL_XWWGTzkhEAWF-transfer-turn-3.json"),
     );
     const runbookOnlyCandidate = promptfooTests.find(
       (testCase) => testCase.metadata.source === "candidates"
-        && testCase.vars.casePath.endsWith("SCL_Cta8p6vxVZh2-scheduling-turn-5.json"),
+        && testCase.vars.casePath.endsWith("SCL_nu6wr8TtYVoJ-confirm-turn-3.json"),
     );
 
     expect(strictCandidate).toBeTruthy();

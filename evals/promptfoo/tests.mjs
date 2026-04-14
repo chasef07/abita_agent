@@ -57,8 +57,7 @@ function buildGoldenAssertions(testCase) {
 }
 
 function shouldUseStrictCandidateAssertions(testCase) {
-  if (testCase.assertionMode === 'strict') return true;
-  return Array.isArray(testCase.tags) && testCase.tags.includes('audit-driven');
+  return testCase.assertionMode === 'strict';
 }
 
 function buildCandidateAssertions(testCase) {
