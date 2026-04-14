@@ -78,8 +78,7 @@ function inferProposerProvider(model: string): "openai" | "anthropic" {
 }
 
 const PROPOSER_PROVIDER =
-  PROPOSER_PROVIDER_OVERRIDE ??
-  inferProposerProvider(PROPOSER_MODEL);
+  PROPOSER_PROVIDER_OVERRIDE ?? inferProposerProvider(PROPOSER_MODEL);
 const PROPOSER_MAX_TOKENS = 32000;
 const DEFAULT_EDITABLE_FILES = ["RUNBOOK.md", "VOICE.md", "SOUL.md"];
 

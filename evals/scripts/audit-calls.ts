@@ -70,7 +70,8 @@ function inferAuditProvider(model: string): "openai" | "anthropic" {
   return process.env.OPENAI_API_KEY ? "openai" : "anthropic";
 }
 
-const AUDIT_PROVIDER = AUDIT_PROVIDER_OVERRIDE ?? inferAuditProvider(AUDIT_MODEL);
+const AUDIT_PROVIDER =
+  AUDIT_PROVIDER_OVERRIDE ?? inferAuditProvider(AUDIT_MODEL);
 
 interface Args {
   hours: number;
