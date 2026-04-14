@@ -17,16 +17,16 @@ import {
   normalizeLanguage,
   stt,
   waitForAbort,
-} from '@livekit/agents';
-import type { AudioFrame } from '@livekit/rtc-node';
-import type { RawData } from 'ws';
-import { WebSocket } from 'ws';
-import type { STTEncoding, STTModels } from './models.js';
+} from "@livekit/agents";
+import type { AudioFrame } from "@livekit/rtc-node";
+import type { RawData } from "ws";
+import { WebSocket } from "ws";
+import type { STTEncoding, STTModels } from "./models.js";
 
 // AssemblyAI Universal-Streaming (v3) message envelope. All fields are optional
 // since we narrow on `type` before reading anything else.
 interface StreamEventMessage {
-  type?: 'Begin' | 'SpeechStarted' | 'Turn' | 'Termination' | string;
+  type?: "Begin" | "SpeechStarted" | "Turn" | "Termination" | string;
   // Begin
   id?: string;
   expires_at?: number;
@@ -36,7 +36,12 @@ interface StreamEventMessage {
   end_of_turn?: boolean;
   turn_is_formatted?: boolean;
   language_code?: string;
-  words?: Array<{ text?: string; start?: number; end?: number; confidence?: number }>;
+  words?: Array<{
+    text?: string;
+    start?: number;
+    end?: number;
+    confidence?: number;
+  }>;
   // Termination
   audio_duration_seconds?: number;
   session_duration_seconds?: number;
@@ -84,22 +89,22 @@ const defaultSTTOptions: STTOptions = {
   apiKey: process.env.ASSEMBLYAI_API_KEY,
   sampleRate: 16000,
   bufferSizeMs: 50,
-  encoding: 'pcm_s16le',
-  speechModel: 'universal-streaming-english',
-  baseUrl: 'wss://streaming.assemblyai.com',
+  encoding: "pcm_s16le",
+  speechModel: "universal-streaming-english",
+  baseUrl: "wss://streaming.assemblyai.com",
 };
 
 // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 72 lines
 export class STT extends stt.STT {
   #opts: STTOptions;
-  label = 'assemblyai.STT';
+  label = "assemblyai.STT";
 
   get model(): string {
     return this.#opts.speechModel;
   }
 
   get provider(): string {
-    return 'AssemblyAI';
+    return "AssemblyAI";
   }
 
   constructor(opts: Partial<STTOptions> = {}) {
@@ -107,25 +112,27 @@ export class STT extends stt.STT {
     super({
       streaming: true,
       interimResults: true,
-      alignedTranscript: 'word',
+      alignedTranscript: "word",
     });
 
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 120-122 lines
-    if (opts.speechModel === 'u3-pro') {
+    if (opts.speechModel === "u3-pro") {
       log().warn("'u3-pro' is deprecated, use 'u3-rt-pro' instead.");
-      opts.speechModel = 'u3-rt-pro';
+      opts.speechModel = "u3-rt-pro";
     }
 
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 124-125 lines
-    if (opts.prompt !== undefined && opts.speechModel !== 'u3-rt-pro') {
-      throw new Error("The 'prompt' parameter is only supported with the 'u3-rt-pro' model.");
+    if (opts.prompt !== undefined && opts.speechModel !== "u3-rt-pro") {
+      throw new Error(
+        "The 'prompt' parameter is only supported with the 'u3-rt-pro' model.",
+      );
     }
 
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 127-135 lines
     const apiKey = opts.apiKey ?? defaultSTTOptions.apiKey;
     if (!apiKey) {
       throw new Error(
-        'AssemblyAI API key is required. Pass one in via the `apiKey` parameter, or set it as the `ASSEMBLYAI_API_KEY` environment variable',
+        "AssemblyAI API key is required. Pass one in via the `apiKey` parameter, or set it as the `ASSEMBLYAI_API_KEY` environment variable",
       );
     }
 
@@ -144,7 +151,9 @@ export class STT extends stt.STT {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async _recognize(_: AudioBuffer): Promise<stt.SpeechEvent> {
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 185-192 lines
-    throw new Error('Non-streaming recognize is not supported on AssemblyAI STT');
+    throw new Error(
+      "Non-streaming recognize is not supported on AssemblyAI STT",
+    );
   }
 
   // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 212-257 lines
@@ -161,7 +170,7 @@ export class STT extends stt.STT {
 // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 260 lines
 export class SpeechStream extends stt.SpeechStream {
   // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 262 lines
-  static readonly CLOSE_MSG = JSON.stringify({ type: 'Terminate' });
+  static readonly CLOSE_MSG = JSON.stringify({ type: "Terminate" });
 
   #opts: STTOptions;
   #logger = log();
@@ -171,7 +180,7 @@ export class SpeechStream extends stt.SpeechStream {
   #configMessagePending = new Future();
   #sessionId: string | null = null;
   #expiresAt: number | null = null;
-  label = 'assemblyai.SpeechStream';
+  label = "assemblyai.SpeechStream";
 
   constructor(stt: STT, opts: STTOptions, connOptions?: APIConnectOptions) {
     super(stt, opts.sampleRate, connOptions);
@@ -202,20 +211,26 @@ export class SpeechStream extends stt.SpeechStream {
   updateOptions(opts: Partial<STTOptions>) {
     this.#opts = { ...this.#opts, ...opts };
 
-    const configMsg: Record<string, unknown> = { type: 'UpdateConfiguration' };
+    const configMsg: Record<string, unknown> = { type: "UpdateConfiguration" };
     if (opts.prompt !== undefined) configMsg.prompt = opts.prompt;
-    if (opts.keytermsPrompt !== undefined) configMsg.keyterms_prompt = opts.keytermsPrompt;
-    if (opts.maxTurnSilence !== undefined) configMsg.max_turn_silence = opts.maxTurnSilence;
-    if (opts.minTurnSilence !== undefined) configMsg.min_turn_silence = opts.minTurnSilence;
+    if (opts.keytermsPrompt !== undefined)
+      configMsg.keyterms_prompt = opts.keytermsPrompt;
+    if (opts.maxTurnSilence !== undefined)
+      configMsg.max_turn_silence = opts.maxTurnSilence;
+    if (opts.minTurnSilence !== undefined)
+      configMsg.min_turn_silence = opts.minTurnSilence;
     if (opts.endOfTurnConfidenceThreshold !== undefined) {
-      configMsg.end_of_turn_confidence_threshold = opts.endOfTurnConfidenceThreshold;
+      configMsg.end_of_turn_confidence_threshold =
+        opts.endOfTurnConfidenceThreshold;
     }
-    if (opts.vadThreshold !== undefined) configMsg.vad_threshold = opts.vadThreshold;
+    if (opts.vadThreshold !== undefined)
+      configMsg.vad_threshold = opts.vadThreshold;
 
     // Only send if any actual fields (besides `type`) were specified.
     if (Object.keys(configMsg).length > 1) {
       this.#pendingConfigMessages.push(configMsg);
-      if (!this.#configMessagePending.done) this.#configMessagePending.resolve();
+      if (!this.#configMessagePending.done)
+        this.#configMessagePending.resolve();
     }
   }
 
@@ -224,7 +239,7 @@ export class SpeechStream extends stt.SpeechStream {
    */
   // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 353-355 lines
   forceEndpoint() {
-    this.#pendingConfigMessages.push({ type: 'ForceEndpoint' });
+    this.#pendingConfigMessages.push({ type: "ForceEndpoint" });
     if (!this.#configMessagePending.done) this.#configMessagePending.resolve();
   }
 
@@ -240,7 +255,9 @@ export class SpeechStream extends stt.SpeechStream {
       } catch (e) {
         if (!this.closed && !this.input.closed) {
           if (retries >= maxRetry) {
-            throw new Error(`failed to connect to AssemblyAI after ${retries} attempts: ${e}`);
+            throw new Error(
+              `failed to connect to AssemblyAI after ${retries} attempts: ${e}`,
+            );
           }
 
           const retryDelaySeconds = Math.min(retries * 5, 10);
@@ -267,7 +284,7 @@ export class SpeechStream extends stt.SpeechStream {
     // u3-rt-pro has different silence defaults — if unset, both min and max default to 100ms.
     let minSilence = this.#opts.minTurnSilence;
     let maxSilence = this.#opts.maxTurnSilence;
-    if (this.#opts.speechModel === 'u3-rt-pro') {
+    if (this.#opts.speechModel === "u3-rt-pro") {
       if (minSilence === undefined) minSilence = 100;
       if (maxSilence === undefined) maxSilence = minSilence;
     }
@@ -275,8 +292,10 @@ export class SpeechStream extends stt.SpeechStream {
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 476-480 lines
     // Default language_detection to true for multilingual / u3-rt-pro models, false otherwise.
     const defaultLanguageDetection =
-      this.#opts.speechModel.includes('multilingual') || this.#opts.speechModel === 'u3-rt-pro';
-    const languageDetection = this.#opts.languageDetection ?? defaultLanguageDetection;
+      this.#opts.speechModel.includes("multilingual") ||
+      this.#opts.speechModel === "u3-rt-pro";
+    const languageDetection =
+      this.#opts.languageDetection ?? defaultLanguageDetection;
 
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 463-502 lines
     const liveConfig: Record<string, unknown> = {
@@ -304,8 +323,8 @@ export class SpeechStream extends stt.SpeechStream {
     // Python serializes booleans as the strings "true"/"false", so we mirror that.
     for (const [key, value] of Object.entries(liveConfig)) {
       if (value === undefined || value === null) continue;
-      if (typeof value === 'boolean') {
-        url.searchParams.append(key, value ? 'true' : 'false');
+      if (typeof value === "boolean") {
+        url.searchParams.append(key, value ? "true" : "false");
       } else {
         url.searchParams.append(key, String(value));
       }
@@ -315,15 +334,15 @@ export class SpeechStream extends stt.SpeechStream {
     const ws = new WebSocket(url, {
       headers: {
         Authorization: this.#opts.apiKey!,
-        'Content-Type': 'application/json',
-        'User-Agent': 'AssemblyAI/1.0 (integration=Livekit)',
+        "Content-Type": "application/json",
+        "User-Agent": "AssemblyAI/1.0 (integration=Livekit)",
       },
     });
 
     await new Promise<void>((resolve, reject) => {
-      ws.on('open', () => resolve());
-      ws.on('error', (error) => reject(error));
-      ws.on('close', (code) => reject(new Error(`WebSocket returned ${code}`)));
+      ws.on("open", () => resolve());
+      ws.on("error", (error) => reject(error));
+      ws.on("close", (code) => reject(new Error(`WebSocket returned ${code}`)));
     });
 
     return ws;
@@ -336,10 +355,10 @@ export class SpeechStream extends stt.SpeechStream {
     // gets cancelled also when sendTask is complete
     const wsMonitor = Task.from(async (controller) => {
       const closed = new Promise<void>((_, reject) => {
-        ws.once('close', (code, reason) => {
+        ws.once("close", (code, reason) => {
           if (!closing) {
             this.#logger.error(`WebSocket closed with code ${code}: ${reason}`);
-            reject(new Error('WebSocket closed'));
+            reject(new Error("WebSocket closed"));
           }
         });
       });
@@ -349,8 +368,14 @@ export class SpeechStream extends stt.SpeechStream {
 
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 361-385 lines
     const sendTask = async () => {
-      const samplesPerBuffer = Math.floor((this.#opts.sampleRate * this.#opts.bufferSizeMs) / 1000);
-      const audioStream = new AudioByteStream(this.#opts.sampleRate, 1, samplesPerBuffer);
+      const samplesPerBuffer = Math.floor(
+        (this.#opts.sampleRate * this.#opts.bufferSizeMs) / 1000,
+      );
+      const audioStream = new AudioByteStream(
+        this.#opts.sampleRate,
+        1,
+        samplesPerBuffer,
+      );
 
       const abortPromise = waitForAbort(this.abortSignal);
 
@@ -366,17 +391,23 @@ export class SpeechStream extends stt.SpeechStream {
           let frames: AudioFrame[];
           if (data === SpeechStream.FLUSH_SENTINEL) {
             frames = audioStream.flush();
-          } else if (data.sampleRate === this.#opts.sampleRate || data.channels === 1) {
+          } else if (
+            data.sampleRate === this.#opts.sampleRate ||
+            data.channels === 1
+          ) {
             // Matches the Deepgram plugin's permissive check — the base class
             // resamples incoming frames, and the resampler output may not
             // always be labeled with the target sample rate exactly.
             frames = audioStream.write(data.data.buffer as ArrayBuffer);
           } else {
-            throw new Error('sample rate or channel count of frame does not match');
+            throw new Error(
+              "sample rate or channel count of frame does not match",
+            );
           }
 
           for (const frame of frames) {
-            this.#speechDurationInS += frame.samplesPerChannel / frame.sampleRate;
+            this.#speechDurationInS +=
+              frame.samplesPerChannel / frame.sampleRate;
             ws.send(frame.data.buffer);
           }
         }
@@ -392,12 +423,13 @@ export class SpeechStream extends stt.SpeechStream {
     };
 
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 387-418 lines
-    let messageHandler: ((msg: RawData, isBinary: boolean) => void) | null = null;
+    let messageHandler: ((msg: RawData, isBinary: boolean) => void) | null =
+      null;
     const listenTask = Task.from(async (controller) => {
       const listenMessage = new Promise<void>((resolve, reject) => {
         messageHandler = (msg, isBinary) => {
           if (isBinary) {
-            this.#logger.error('unexpected binary message from AssemblyAI');
+            this.#logger.error("unexpected binary message from AssemblyAI");
             return;
           }
           try {
@@ -411,7 +443,7 @@ export class SpeechStream extends stt.SpeechStream {
             reject(err);
           }
         };
-        ws.on('message', messageHandler);
+        ws.on("message", messageHandler);
       });
 
       await Promise.race([listenMessage, waitForAbort(controller.signal)]);
@@ -426,7 +458,10 @@ export class SpeechStream extends stt.SpeechStream {
       }
 
       while (!controller.signal.aborted) {
-        await Promise.race([this.#configMessagePending.await, waitForAbort(controller.signal)]);
+        await Promise.race([
+          this.#configMessagePending.await,
+          waitForAbort(controller.signal),
+        ]);
         if (controller.signal.aborted) return;
 
         this.#configMessagePending = new Future();
@@ -443,7 +478,7 @@ export class SpeechStream extends stt.SpeechStream {
       closing = true;
       listenTask.cancel();
       configTask.cancel();
-      if (messageHandler) ws.off('message', messageHandler);
+      if (messageHandler) ws.off("message", messageHandler);
       try {
         ws.close();
       } catch {
@@ -454,7 +489,9 @@ export class SpeechStream extends stt.SpeechStream {
 
   #averageConfidence(words: Array<{ confidence?: number }>): number {
     if (words.length === 0) return 0;
-    return words.reduce((sum, w) => sum + (w.confidence ?? 0), 0) / words.length;
+    return (
+      words.reduce((sum, w) => sum + (w.confidence ?? 0), 0) / words.length
+    );
   }
 
   // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 507-661 lines
@@ -462,7 +499,7 @@ export class SpeechStream extends stt.SpeechStream {
     const messageType = data.type;
 
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 510-518 lines
-    if (messageType === 'Begin') {
+    if (messageType === "Begin") {
       this.#sessionId = data.id ?? null;
       this.#expiresAt = data.expires_at ?? null;
       this.#logger.info(
@@ -472,20 +509,20 @@ export class SpeechStream extends stt.SpeechStream {
     }
 
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 520-522 lines
-    if (messageType === 'SpeechStarted') {
+    if (messageType === "SpeechStarted") {
       this.queue.put({ type: stt.SpeechEventType.START_OF_SPEECH });
       return;
     }
 
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 524-532 lines
-    if (messageType === 'Termination') {
+    if (messageType === "Termination") {
       this.#logger.debug(
         `AssemblyAI session terminated audio_duration=${data.audio_duration_seconds}s session_duration=${data.session_duration_seconds}s`,
       );
       return;
     }
 
-    if (messageType !== 'Turn') {
+    if (messageType !== "Turn") {
       return;
     }
 
@@ -493,16 +530,16 @@ export class SpeechStream extends stt.SpeechStream {
     const words = data.words ?? [];
     const endOfTurn = Boolean(data.end_of_turn);
     const turnIsFormatted = Boolean(data.turn_is_formatted);
-    const utterance = data.utterance ?? '';
-    const transcript = data.transcript ?? '';
-    const language = normalizeLanguage(data.language_code ?? 'en');
+    const utterance = data.utterance ?? "";
+    const transcript = data.transcript ?? "";
+    const language = normalizeLanguage(data.language_code ?? "en");
 
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 555-564 lines
     // Word timestamps are in milliseconds:
     // https://www.assemblyai.com/docs/api-reference/streaming-api/streaming-api#receive.receiveTurn.words
     const timedWords = words.map((word) =>
       createTimedString({
-        text: word.text ?? '',
+        text: word.text ?? "",
         startTime: (word.start ?? 0) / 1000 + this.startTimeOffset,
         endTime: (word.end ?? 0) / 1000 + this.startTimeOffset,
         confidence: word.confidence ?? 0,
@@ -517,7 +554,7 @@ export class SpeechStream extends stt.SpeechStream {
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 566-588 lines
     // `words` are cumulative for the turn — emit as an interim transcript.
     if (timedWords.length > 0) {
-      const interimText = timedWords.map((w) => w.text).join(' ');
+      const interimText = timedWords.map((w) => w.text).join(" ");
       startTime = timedWords[0]!.startTime ?? 0;
       endTime = timedWords[timedWords.length - 1]!.endTime ?? 0;
       confidence = this.#averageConfidence(timedWords);
@@ -546,7 +583,9 @@ export class SpeechStream extends stt.SpeechStream {
       }
 
       const utteranceWords = timedWords.filter(
-        (w) => w.startTime !== undefined && w.startTime >= this.#lastPreflightStartTime,
+        (w) =>
+          w.startTime !== undefined &&
+          w.startTime >= this.#lastPreflightStartTime,
       );
       const utteranceConfidence = this.#averageConfidence(utteranceWords);
 
@@ -569,7 +608,8 @@ export class SpeechStream extends stt.SpeechStream {
     // Ref: python livekit-plugins/livekit-plugins-assemblyai/livekit/plugins/assemblyai/stt.py - 623-661 lines
     // End-of-turn: emit FINAL_TRANSCRIPT + END_OF_SPEECH.
     // If the user asked for formatted turns, wait for a formatted final.
-    const waitingForFormatted = this.#opts.formatTurns === true && !turnIsFormatted;
+    const waitingForFormatted =
+      this.#opts.formatTurns === true && !turnIsFormatted;
     if (endOfTurn && !waitingForFormatted) {
       this.queue.put({
         type: stt.SpeechEventType.FINAL_TRANSCRIPT,
