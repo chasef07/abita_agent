@@ -10,14 +10,6 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["Blue Cross", "BCBS", "Blue Cross Blue Shield"],
-      "status": "accepted",
-      "family": "Blue Cross Blue Shield",
-      "callerPlan": "Blue Cross Blue Shield",
-      "canProceed": true,
-      "needsExactPlanName": true
-    },
-    {
       "aliases": ["BCBS Medicare HMO"],
       "status": "accepted",
       "family": "Florida Blue Medicare HMO",
@@ -26,10 +18,10 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["United", "UHC"],
+      "aliases": ["Blue Cross", "BCBS", "Blue Cross Blue Shield"],
       "status": "accepted",
-      "family": "United Healthcare",
-      "callerPlan": "United Healthcare",
+      "family": "Florida Blue",
+      "callerPlan": "Blue Cross Blue Shield",
       "canProceed": true,
       "needsExactPlanName": true
     },
@@ -38,6 +30,14 @@
       "status": "accepted",
       "family": "United Healthcare AARP Medicare",
       "callerPlan": "United Healthcare Medicare",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["United", "UHC"],
+      "status": "accepted",
+      "family": "United Healthcare",
+      "callerPlan": "United Healthcare",
       "canProceed": true,
       "needsExactPlanName": true
     },
@@ -58,17 +58,42 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["Humana"],
-      "status": "needs_clarification",
-      "clarificationNeeded": "which plan (Gold Plus, PPO, Medicare, etc.)",
-      "canProceed": false,
-      "needsExactPlanName": false
-    },
-    {
       "aliases": ["Humana Medicare"],
       "status": "accepted",
       "family": "Humana Medicare",
       "callerPlan": "Humana Medicare",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Humana"],
+      "status": "accepted",
+      "family": "Humana PPO",
+      "callerPlan": "Humana",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Cigna"],
+      "status": "accepted",
+      "family": "Cigna PPO",
+      "callerPlan": "Cigna",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Tricare"],
+      "status": "accepted",
+      "family": "Tricare Select",
+      "callerPlan": "Tricare",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Medicare"],
+      "status": "accepted",
+      "family": "Florida Medicare",
+      "callerPlan": "Medicare",
       "canProceed": true,
       "needsExactPlanName": true
     },
