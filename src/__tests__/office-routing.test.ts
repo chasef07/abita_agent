@@ -3,10 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildToolsForTrunk } from "../agent.js";
 import { buildPrompt } from "../prompt.js";
-import {
-  getOfficeKeyByPhone,
-  SPRING_HILL_OFFICE_PHONE,
-} from "../offices.js";
+import { getOfficeKeyByPhone, SPRING_HILL_OFFICE_PHONE } from "../offices.js";
 import {
   getAmdOfficeForToolCall,
   getSpringHillOfficePhone,
@@ -20,8 +17,12 @@ describe("office routing helpers", () => {
   });
 
   it("rejects unsupported trunk numbers", () => {
-    expect(() => getOfficeKeyByPhone("+19999999999")).toThrow("Unsupported trunk phone number");
-    expect(() => buildToolsForTrunk("+19999999999")).toThrow("Unsupported trunk phone number");
+    expect(() => getOfficeKeyByPhone("+19999999999")).toThrow(
+      "Unsupported trunk phone number",
+    );
+    expect(() => buildToolsForTrunk("+19999999999")).toThrow(
+      "Unsupported trunk phone number",
+    );
   });
 
   it("uses the hardcoded Spring Hill AMD office phone", () => {
@@ -45,13 +46,21 @@ describe("office routing helpers", () => {
   });
 
   it("maps Crystal River trunks to the Eye Radiance knowledge file", () => {
-    expect(resolveKnowledgeFileForOffice("crystal-river")).toBe("KNOWLEDGE_EYERADIANCE.md");
-    expect(resolveKnowledgeFileForOffice("spring-hill")).toBe("KNOWLEDGE_SPRINGHILL.md");
+    expect(resolveKnowledgeFileForOffice("crystal-river")).toBe(
+      "KNOWLEDGE_EYERADIANCE.md",
+    );
+    expect(resolveKnowledgeFileForOffice("spring-hill")).toBe(
+      "KNOWLEDGE_SPRINGHILL.md",
+    );
   });
 
   it("only exposes Spring Hill routing on Crystal River calls", () => {
-    expect(buildToolsForTrunk("+13523202007")).toHaveProperty("route_to_spring_hill");
-    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toHaveProperty("route_to_spring_hill");
+    expect(buildToolsForTrunk("+13523202007")).toHaveProperty(
+      "route_to_spring_hill",
+    );
+    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toHaveProperty(
+      "route_to_spring_hill",
+    );
   });
 });
 
@@ -59,13 +68,23 @@ describe("Crystal River prompt guidance", () => {
   it("keeps office-specific facts in the Crystal River knowledge file, not a special prompt block", () => {
     const prompt = buildPrompt(undefined, "+13523202007");
     const crystalRiverKnowledge = readFileSync(
-      join(import.meta.dirname, "..", "..", "workspace", "KNOWLEDGE_EYERADIANCE.md"),
+      join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "workspace",
+        "KNOWLEDGE_EYERADIANCE.md",
+      ),
       "utf-8",
     );
 
     expect(prompt).not.toContain("route_to_spring_hill");
     expect(prompt).not.toContain("do not transfer just for that");
-    expect(crystalRiverKnowledge).toContain("does **not** see pediatric ophthalmology");
-    expect(crystalRiverKnowledge).toContain("does **not** schedule cataract evaluations");
+    expect(crystalRiverKnowledge).toContain(
+      "does **not** see pediatric ophthalmology",
+    );
+    expect(crystalRiverKnowledge).toContain(
+      "does **not** schedule cataract evaluations",
+    );
   });
 });

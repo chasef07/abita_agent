@@ -17,18 +17,43 @@
         "total": 16112
       },
       "metrics": {
-        "resolutionRate": { "faq": 100, "new_patient": 69, "existing_patient": 100, "overall": 92 },
+        "resolutionRate": {
+          "faq": 100,
+          "new_patient": 69,
+          "existing_patient": 100,
+          "overall": 92
+        },
         "transferRate": 55,
         "doubleTransfers": 47,
         "avgTurns": { "faq": 0, "new_patient": 0, "existing_patient": 0 },
         "avgDuration": { "faq": 0, "new_patient": 0, "existing_patient": 0 }
       },
       "changes": [
-        { "type": "add", "file": "RUNBOOK", "desc": "anti-hallucination guard for registration" },
-        { "type": "add", "file": "RUNBOOK", "desc": "transfer-on-insistence elevated to top-level rule" },
-        { "type": "add", "file": "RUNBOOK", "desc": "explicit registration collection order" },
-        { "type": "reword", "file": "tools.ts", "desc": "transfer_call stop-after-execute language" },
-        { "type": "add", "file": "tools.ts", "desc": "add_patient anti-fabrication guard" }
+        {
+          "type": "add",
+          "file": "RUNBOOK",
+          "desc": "anti-hallucination guard for registration"
+        },
+        {
+          "type": "add",
+          "file": "RUNBOOK",
+          "desc": "transfer-on-insistence elevated to top-level rule"
+        },
+        {
+          "type": "add",
+          "file": "RUNBOOK",
+          "desc": "explicit registration collection order"
+        },
+        {
+          "type": "reword",
+          "file": "tools.ts",
+          "desc": "transfer_call stop-after-execute language"
+        },
+        {
+          "type": "add",
+          "file": "tools.ts",
+          "desc": "add_patient anti-fabrication guard"
+        }
       ],
       "latency": {
         "ttft": { "p50": 0, "p90": 0, "p99": 0 },

@@ -1,0 +1,11 @@
+.claude
+dist
+node_modules
+evals/output
+pnpm-lock.yaml
+*.md
+workspace
+workspace-v1
+workspace-v2
+optimize/report.html
+optimize/metrics.json

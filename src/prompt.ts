@@ -35,7 +35,10 @@ const FILES: { file: string; tag: string }[] = [
 ];
 
 /** Build the full system prompt with caller-specific data baked in. */
-export function buildPrompt(phoneLookup?: PhoneLookupResult, trunkPhone?: string): string {
+export function buildPrompt(
+  phoneLookup?: PhoneLookupResult,
+  trunkPhone?: string,
+): string {
   const sections: string[] = [];
   if (!trunkPhone) {
     throw new Error("buildPrompt requires a trunk phone number");
@@ -76,7 +79,8 @@ export function buildPrompt(phoneLookup?: PhoneLookupResult, trunkPhone?: string
 /** Build the caller context block injected into the RUNBOOK. */
 function buildCallerContext(lookup: PhoneLookupResult): string {
   if (lookup?.status === "verified") {
-    const firstName = lookup.name.split(",")[1]?.trim() ?? lookup.name.split(" ")[0];
+    const firstName =
+      lookup.name.split(",")[1]?.trim() ?? lookup.name.split(" ")[0];
     const lines: string[] = [];
     lines.push(`**SINGLE MATCH — Session state is pre-loaded.**`);
     lines.push(`Name: ${lookup.name} (first name: ${firstName})`);
@@ -101,7 +105,9 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
       if (upcoming.length > 0) {
         lines.push(`Upcoming appointments:`);
         for (const appt of upcoming) {
-          lines.push(`  - [ID: ${appt.id}] ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`);
+          lines.push(
+            `  - [ID: ${appt.id}] ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`,
+          );
         }
       } else {
         lines.push(`No upcoming appointments.`);
@@ -109,32 +115,46 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
       if (past.length > 0) {
         lines.push(`Past appointments (cannot be cancelled or modified):`);
         for (const appt of past) {
-          lines.push(`  - ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`);
+          lines.push(
+            `  - ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`,
+          );
         }
       }
     } else {
       lines.push(`No appointments on file.`);
     }
     lines.push(``);
-    lines.push(`Do NOT use or say the patient's name before they say it. Ask: "can I get your first name?" If they say "${firstName}" (or close), they are verified — skip verify_patient entirely and go straight to what they need. If they give a different name (child, spouse), run verify_patient for that person.`);
+    lines.push(
+      `Do NOT use or say the patient's name before they say it. Ask: "can I get your first name?" If they say "${firstName}" (or close), they are verified — skip verify_patient entirely and go straight to what they need. If they give a different name (child, spouse), run verify_patient for that person.`,
+    );
     return lines.join("\n");
   }
 
   if (lookup?.status === "multiple_matches") {
-    const names = lookup.matches.map(m => m.firstName);
+    const names = lookup.matches.map((m) => m.firstName);
     const uniqueNames = [...new Set(names)];
     const lines: string[] = [];
-    lines.push(`**MULTIPLE MATCHES (${names.length} patients on this number).**`);
+    lines.push(
+      `**MULTIPLE MATCHES (${names.length} patients on this number).**`,
+    );
     lines.push(`Known first names: ${uniqueNames.join(", ")}.`);
     lines.push(``);
-    lines.push(`You MUST say: "I see a few patients associated with this number, can I get the patient's first name?"`);
-    lines.push(`Do NOT ask for last name or DOB upfront — just the first name is enough. Run verify_patient with firstName and usePhone: true. The phone is injected automatically from the session.`);
-    lines.push(`Do NOT read back the names on file (HIPAA). If no match, ask for last name and DOB and try again.`);
+    lines.push(
+      `You MUST say: "I see a few patients associated with this number, can I get the patient's first name?"`,
+    );
+    lines.push(
+      `Do NOT ask for last name or DOB upfront — just the first name is enough. Run verify_patient with firstName and usePhone: true. The phone is injected automatically from the session.`,
+    );
+    lines.push(
+      `Do NOT read back the names on file (HIPAA). If no match, ask for last name and DOB and try again.`,
+    );
     return lines.join("\n");
   }
 
   const lines: string[] = [];
   lines.push(`**NO MATCH — This number is not in the system.**`);
-  lines.push(`Ask "have you been seen here before?" early in the call. If no, go straight to new patient registration — no need to try verify_patient. If yes, collect their first name, last name, and date of birth and try verify_patient in case they're calling from a different phone. If not found, lead into registration.`);
+  lines.push(
+    `Ask "have you been seen here before?" early in the call. If no, go straight to new patient registration — no need to try verify_patient. If yes, collect their first name, last name, and date of birth and try verify_patient in case they're calling from a different phone. If not found, lead into registration.`,
+  );
   return lines.join("\n");
 }
