@@ -34,6 +34,39 @@
         "ttft": { "p50": 0, "p90": 0, "p99": 0 },
         "tts": { "p50": 0, "p90": 0, "p99": 0 }
       }
+    },
+    {
+      "id": "20260413-2314",
+      "date": "2026-04-13",
+      "transcriptsEvaluated": 20,
+      "issuesFound": 3,
+      "changesProposed": 3,
+      "changesKept": 3,
+      "changesDiscarded": 0,
+      "testIterations": 3,
+      "promptLength": {
+        "soul": 3464,
+        "voice": 1860,
+        "runbook": 9789,
+        "toolDescriptions": 4353,
+        "total": 19466
+      },
+      "metrics": {
+        "resolutionRate": { "faq": 100, "new_patient": 71, "existing_patient": 100, "overall": 92 },
+        "transferRate": 56,
+        "doubleTransfers": 97,
+        "avgTurns": { "faq": 0, "new_patient": 0, "existing_patient": 0 },
+        "avgDuration": { "faq": 0, "new_patient": 0, "existing_patient": 0 }
+      },
+      "changes": [
+        { "type": "reword", "file": "RUNBOOK", "desc": "simplify transfer-on-insistence to one-ask max" },
+        { "type": "add", "file": "tools.ts", "desc": "get_availability anti-parallel + stop-on-repeat" },
+        { "type": "add", "file": "RUNBOOK", "desc": "read-back correction: re-collect from scratch" }
+      ],
+      "latency": {
+        "ttft": { "p50": 0, "p90": 0, "p99": 0 },
+        "tts": { "p50": 0, "p90": 0, "p99": 0 }
+      }
     }
   ]
 }

@@ -1,5 +1,19 @@
 # Prompt Changelog
 
+## 2026-04-13 — Fix transfer-on-insistence, redundant availability searches, and read-back correction loops
+
+**RUNBOOK.md — Simplify transfer-on-insistence to one-ask maximum**
+- Why: In SCL_xstNMuRQFqVG, caller asked 3 times ("Are you a live person?", "Is anyone gonna speak to a live person?", "I can speak to a live person") before agent transferred — 4 turns total. In SCL_mT8GaruV4hWB, caller said "speak to someone" twice before transfer. Root cause: Path 4 allowed two stages (ask what it's about + push back about scheduling), creating an effective double pushback despite the "second request = transfer" rule.
+- What changed: Removed the intermediate scheduling pushback step ("I can book appointments right now — let's get you scheduled"). Now: ask once what they need, transfer on second request — no exceptions. Also added explicit trigger words to Path 4 for clarity.
+
+**tools.ts — get_availability: prevent redundant parallel searches**
+- Why: In SCL_Cta8p6vxVZh2, agent called get_availability 8 times (including duplicate dates) searching for earlier availability. All returned the same April 21st date. Caller noticed the delay: "What are you waiting for?" In SCL_ppS7xqZ5fNdd, 11 calls searching for Dr. Bach availability through August.
+- What changed: Added "Only call once per turn — never in parallel. If the returned date is the same one you already offered and the caller wants something earlier, stop — that IS the earliest. Tell them."
+
+**RUNBOOK.md — Add correction handling for read-backs**
+- Why: In SCL_DCSmrdc9gdnU, agent read back member ID incorrectly 3 times. Each time the caller said it was wrong, agent tried to re-interpret instead of re-collecting from scratch.
+- What changed: Added to registration step 8: "If the caller says any item is wrong, ask them to say just that item again from scratch — do not guess at a correction."
+
 ## 2026-04-11 — Fix check_insurance skipping and address hallucination
 
 **tools.ts / RUNBOOK.md — Force check_insurance to actually run before field collection**

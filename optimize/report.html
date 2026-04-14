@@ -31,24 +31,24 @@
 </head>
 <body>
   <h1>Agent Performance Report</h1>
-  <h2>Generated 4/4/2026, 11:45:03 AM — 260 total calls</h2>
+  <h2>Generated 4/13/2026, 11:19:41 PM — 616 total calls</h2>
 
   <!-- KPI Cards -->
   <div class="grid">
     <div class="card">
-      <div class="stat">204</div>
-      <div class="stat-label">Substantive Calls (56 hangups excluded)</div>
+      <div class="stat">423</div>
+      <div class="stat-label">Substantive Calls (193 hangups excluded)</div>
     </div>
     <div class="card">
-      <div class="stat">48%</div>
-      <div class="stat-label">Handled Without Transfer (97/204)</div>
+      <div class="stat">44%</div>
+      <div class="stat-label">Handled Without Transfer (186/423)</div>
     </div>
     <div class="card">
-      <div class="stat">65</div>
-      <div class="stat-label">Calls with Double transfer_call (of 107 transfers)</div>
+      <div class="stat">97</div>
+      <div class="stat-label">Calls with Double transfer_call (of 237 transfers)</div>
     </div>
     <div class="card">
-      <div class="stat">132s</div>
+      <div class="stat">125s</div>
       <div class="stat-label">Avg Call Duration</div>
     </div>
   </div>
@@ -56,12 +56,12 @@
   <!-- Latency Percentiles -->
   <div class="grid">
     <div class="card">
-      <div class="stat">321ms</div>
-      <div class="stat-label">LLM TTFT (p50) — p90: 470ms, p99: 1113ms</div>
+      <div class="stat">346ms</div>
+      <div class="stat-label">LLM TTFT (p50) — p90: 497ms, p99: 2939ms</div>
     </div>
     <div class="card">
-      <div class="stat">242ms</div>
-      <div class="stat-label">TTS TTFB (p50) — p90: 439ms, p99: 1150ms</div>
+      <div class="stat">244ms</div>
+      <div class="stat-label">TTS TTFB (p50) — p90: 451ms, p99: 1150ms</div>
     </div>
   </div>
 
@@ -106,85 +106,85 @@
         <tr>
                   <td>FAQ</td>
                   <td class="path-item">(no tools)</td>
-                  <td>36</td>
-                  <td class="path-item">check_insurance</td>
-                  <td><span class="tag tag-warn">Diff</span></td>
-                </tr>
-<tr>
-                  <td>FAQ</td>
-                  <td class="path-item">lookup_knowledge</td>
-                  <td>8</td>
+                  <td>51</td>
                   <td class="path-item">check_insurance</td>
                   <td><span class="tag tag-warn">Diff</span></td>
                 </tr>
 <tr>
                   <td>FAQ</td>
                   <td class="path-item">check_insurance</td>
-                  <td>6</td>
+                  <td>22</td>
                   <td class="path-item">check_insurance</td>
                   <td><span class="tag tag-good">Match</span></td>
                 </tr>
 <tr>
+                  <td>FAQ</td>
+                  <td class="path-item">lookup_knowledge</td>
+                  <td>16</td>
+                  <td class="path-item">check_insurance</td>
+                  <td><span class="tag tag-warn">Diff</span></td>
+                </tr>
+<tr>
                   <td>Transfer</td>
                   <td class="path-item">transfer_call</td>
-                  <td>72</td>
+                  <td>158</td>
                   <td class="path-item">transfer_call</td>
                   <td><span class="tag tag-good">Match</span></td>
                 </tr>
 <tr>
                   <td>Transfer</td>
                   <td class="path-item">lookup_knowledge → transfer_call</td>
-                  <td>9</td>
+                  <td>18</td>
                   <td class="path-item">transfer_call</td>
                   <td><span class="tag tag-warn">Diff</span></td>
                 </tr>
 <tr>
                   <td>Transfer</td>
                   <td class="path-item">transfer_call → verify_patient</td>
-                  <td>6</td>
+                  <td>12</td>
                   <td class="path-item">transfer_call</td>
                   <td><span class="tag tag-warn">Diff</span></td>
                 </tr>
 <tr>
-                  <td>Existing Patient</td>
-                  <td class="path-item">confirm_appt → transfer_call → verify_patient</td>
-                  <td>3</td>
-                  <td class="path-item">verify_patient → get_availability → book_appt</td>
+                  <td>New Patient</td>
+                  <td class="path-item">add_patient → book_appt → check_insurance → get_availability → verify_patient</td>
+                  <td>11</td>
+                  <td class="path-item">verify_patient → check_insurance → add_patient → get_availability → book_appt</td>
+                  <td><span class="tag tag-warn">Diff</span></td>
+                </tr>
+<tr>
+                  <td>New Patient</td>
+                  <td class="path-item">add_patient → book_appt → check_insurance → get_availability → lookup_knowledge</td>
+                  <td>5</td>
+                  <td class="path-item">verify_patient → check_insurance → add_patient → get_availability → book_appt</td>
+                  <td><span class="tag tag-warn">Diff</span></td>
+                </tr>
+<tr>
+                  <td>New Patient</td>
+                  <td class="path-item">add_patient → book_appt → check_insurance → get_availability</td>
+                  <td>5</td>
+                  <td class="path-item">verify_patient → check_insurance → add_patient → get_availability → book_appt</td>
                   <td><span class="tag tag-warn">Diff</span></td>
                 </tr>
 <tr>
                   <td>Existing Patient</td>
                   <td class="path-item">book_appt → get_availability → verify_patient</td>
-                  <td>2</td>
+                  <td>4</td>
                   <td class="path-item">verify_patient → get_availability → book_appt</td>
                   <td><span class="tag tag-warn">Diff</span></td>
                 </tr>
 <tr>
                   <td>Existing Patient</td>
                   <td class="path-item">confirm_appt → verify_patient</td>
-                  <td>2</td>
+                  <td>4</td>
                   <td class="path-item">verify_patient → get_availability → book_appt</td>
                   <td><span class="tag tag-warn">Diff</span></td>
                 </tr>
 <tr>
-                  <td>New Patient</td>
-                  <td class="path-item">add_patient → book_appt → check_insurance → get_availability → verify_patient</td>
-                  <td>10</td>
-                  <td class="path-item">verify_patient → check_insurance → add_patient → get_availability → book_appt</td>
-                  <td><span class="tag tag-warn">Diff</span></td>
-                </tr>
-<tr>
-                  <td>New Patient</td>
-                  <td class="path-item">add_patient → book_appt → check_insurance → get_availability → lookup_knowledge → verify_patient</td>
+                  <td>Existing Patient</td>
+                  <td class="path-item">confirm_appt → transfer_call → verify_patient</td>
                   <td>4</td>
-                  <td class="path-item">verify_patient → check_insurance → add_patient → get_availability → book_appt</td>
-                  <td><span class="tag tag-warn">Diff</span></td>
-                </tr>
-<tr>
-                  <td>New Patient</td>
-                  <td class="path-item">add_patient → check_insurance → get_availability → transfer_call → verify_patient</td>
-                  <td>2</td>
-                  <td class="path-item">verify_patient → check_insurance → add_patient → get_availability → book_appt</td>
+                  <td class="path-item">verify_patient → get_availability → book_appt</td>
                   <td><span class="tag tag-warn">Diff</span></td>
                 </tr>
       </tbody>
@@ -222,17 +222,6 @@
       <thead><tr><th>Run</th><th>Date</th><th>Transcripts</th><th>Issues</th><th>Changes</th><th>Test Iterations</th><th>Prompt Size</th><th>Transfer Rate</th><th>New Patient Res.</th></tr></thead>
       <tbody>
         <tr>
-          <td>20260403-1059</td>
-          <td>2026-04-03</td>
-          <td>17</td>
-          <td>5</td>
-          <td>4/4</td>
-          <td>1</td>
-          <td>19.3k chars</td>
-          <td>56%</td>
-          <td>71%</td>
-        </tr>
-<tr>
           <td>20260402-2100</td>
           <td>2026-04-02</td>
           <td>20</td>
@@ -251,28 +240,28 @@
   <!-- Transfer Reason Breakdown -->
   <div class="grid">
     <div class="card">
-      <h3>Transfer Reasons (107 transfers analyzed)</h3>
+      <h3>Transfer Reasons (237 transfers analyzed)</h3>
       <div class="chart-container"><canvas id="transferReasonChart"></canvas></div>
     </div>
     <div class="card">
-      <h3>Future Opportunities — Could Automate 9 transfers (8%)</h3>
+      <h3>Future Opportunities — Could Automate 18 transfers (8%)</h3>
       <table>
         <thead><tr><th>Category</th><th>Count</th><th>Suggestion</th></tr></thead>
         <tbody>
           <tr>
+            <td>Glasses / Optical</td>
+            <td><strong>8</strong></td>
+            <td>Could add glasses order status lookup tool. High volume opportunity.</td>
+          </tr>
+<tr>
             <td>Billing / Payment</td>
-            <td><strong>4</strong></td>
+            <td><strong>7</strong></td>
             <td>Could add billing lookup tool to check balance and payment status.</td>
           </tr>
 <tr>
             <td>Returning a Call</td>
             <td><strong>3</strong></td>
             <td>Could add voicemail/callback queue lookup to identify who called and why.</td>
-          </tr>
-<tr>
-            <td>Glasses / Optical</td>
-            <td><strong>2</strong></td>
-            <td>Could add glasses order status lookup tool. High volume opportunity.</td>
           </tr>
           
         </tbody>
@@ -288,66 +277,66 @@
       <tbody>
         <tr>
           <td>Caller Insists on Human</td>
-          <td>45</td>
-          <td>42%</td>
+          <td>132</td>
+          <td>56%</td>
           <td><span class="tag tag-good">Keep Transfer</span></td>
-          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Speak to a live person.</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Um, yes, can you transfer me to the office?</td>
         </tr>
 <tr>
-          <td>Specific Person Requested</td>
-          <td>5</td>
-          <td>5%</td>
+          <td>Clinical / Symptoms</td>
+          <td>14</td>
+          <td>6%</td>
           <td><span class="tag tag-good">Keep Transfer</span></td>
-          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">I just sat there and talked to you just sat in</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Front desk, please.</td>
         </tr>
 <tr>
-          <td>Medical Records</td>
-          <td>4</td>
-          <td>4%</td>
+          <td>Glasses / Optical</td>
+          <td>8</td>
+          <td>3%</td>
+          <td><span class="tag tag-warn">Opportunity</span></td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">— David— And it's— oh, uh— Servicio al cliente.</td>
+        </tr>
+<tr>
+          <td>Prescriptions / Medications</td>
+          <td>7</td>
+          <td>3%</td>
           <td><span class="tag tag-good">Keep Transfer</span></td>
-          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Hi there. I'm trying to get some records sent for a mutual patient.</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Oh, David, my name is Silvio Colon. I was in your office about— Uh, a week ago— And the, uh— Maybe a week and a half. And, uh, they sent me, uh— — and persuasion through the, uh— — full green. And, uh— I lost it. I lost the, um—</td>
         </tr>
 <tr>
           <td>Billing / Payment</td>
-          <td>4</td>
-          <td>4%</td>
+          <td>7</td>
+          <td>3%</td>
           <td><span class="tag tag-warn">Opportunity</span></td>
-          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Hi, David. Can I speak with a representative, please, in billing?</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Yes. I was calling because I needed to make an appointment.</td>
+        </tr>
+<tr>
+          <td>Specific Person Requested</td>
+          <td>7</td>
+          <td>3%</td>
+          <td><span class="tag tag-good">Keep Transfer</span></td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Talk to Arnold.</td>
+        </tr>
+<tr>
+          <td>Medical Records</td>
+          <td>6</td>
+          <td>3%</td>
+          <td><span class="tag tag-good">Keep Transfer</span></td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Hi, my name is Katie. I'm calling from Tailored Eyes, Dr. Stephen Kane's office.</td>
         </tr>
 <tr>
           <td>Returning a Call</td>
           <td>3</td>
-          <td>3%</td>
+          <td>1%</td>
           <td><span class="tag tag-warn">Opportunity</span></td>
           <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">You can return my call</td>
         </tr>
-<tr>
-          <td>Clinical / Symptoms</td>
-          <td>3</td>
-          <td>3%</td>
-          <td><span class="tag tag-good">Keep Transfer</span></td>
-          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Doctor Lick's office.</td>
-        </tr>
-<tr>
-          <td>Glasses / Optical</td>
-          <td>2</td>
-          <td>2%</td>
-          <td><span class="tag tag-warn">Opportunity</span></td>
-          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">I can see if my glasses come in.</td>
-        </tr>
-<tr>
-          <td>Prescriptions / Medications</td>
-          <td>2</td>
-          <td>2%</td>
-          <td><span class="tag tag-good">Keep Transfer</span></td>
-          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Checking to see if my prescription glasses are ready for pickup.</td>
-        </tr>
         <tr>
           <td>Uncategorized</td>
-          <td>39</td>
-          <td>36%</td>
+          <td>53</td>
+          <td>22%</td>
           <td><span class="tag tag-bad">Review</span></td>
-          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Hi.</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">Hi, I wanted to find out if you guys are in the network with CarePlus.</td>
         </tr>
       </tbody>
     </table>
@@ -360,9 +349,9 @@
     <table>
       <thead><tr><th>Metric</th><th>Current</th><th>Target</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td>Transfer Rate</td><td>52%</td><td>&lt;30%</td><td><span class="tag tag-bad">Needs Work</span></td></tr>
-        <tr><td>New Patient Resolution</td><td>75%</td><td>&gt;95%</td><td><span class="tag tag-bad">Needs Work</span></td></tr>
-        <tr><td>Double Transfers</td><td>65</td><td>0</td><td><span class="tag tag-bad">${doubleTransfers.length} remaining</span></td></tr>
+        <tr><td>Transfer Rate</td><td>56%</td><td>&lt;30%</td><td><span class="tag tag-bad">Needs Work</span></td></tr>
+        <tr><td>New Patient Resolution</td><td>71%</td><td>&gt;95%</td><td><span class="tag tag-bad">Needs Work</span></td></tr>
+        <tr><td>Double Transfers</td><td>97</td><td>0</td><td><span class="tag tag-bad">${doubleTransfers.length} remaining</span></td></tr>
         <tr><td>FAQ Resolution</td><td>100%</td><td>100%</td><td><span class="tag tag-good">On Target</span></td></tr>
       </tbody>
     </table>
@@ -376,39 +365,39 @@
       <tbody>
         <tr>
               <td>FAQ</td>
-              <td>78</td>
-              <td>10 (2–62)</td>
+              <td>144</td>
+              <td>10 (2–66)</td>
               <td>2–4</td>
               <td><span class="tag tag-bad">Over</span></td>
-              <td>104s</td>
+              <td>114s</td>
               <td>100%</td>
             </tr>
 <tr>
               <td>Transfer</td>
-              <td>98</td>
-              <td>7 (2–69)</td>
+              <td>221</td>
+              <td>6 (2–69)</td>
               <td>2–4</td>
               <td><span class="tag tag-bad">Over</span></td>
-              <td>91s</td>
-              <td>100%</td>
-            </tr>
-<tr>
-              <td>Existing Patient</td>
-              <td>8</td>
-              <td>14 (3–19)</td>
-              <td>5–10</td>
-              <td><span class="tag tag-bad">Over</span></td>
-              <td>122s</td>
+              <td>84s</td>
               <td>100%</td>
             </tr>
 <tr>
               <td>New Patient</td>
-              <td>20</td>
-              <td>54 (18–142)</td>
+              <td>41</td>
+              <td>42 (16–142)</td>
               <td>14–22</td>
               <td><span class="tag tag-bad">Over</span></td>
-              <td>450s</td>
-              <td>75%</td>
+              <td>390s</td>
+              <td>71%</td>
+            </tr>
+<tr>
+              <td>Existing Patient</td>
+              <td>17</td>
+              <td>11 (3–19)</td>
+              <td>5–10</td>
+              <td><span class="tag tag-bad">Over</span></td>
+              <td>124s</td>
+              <td>100%</td>
             </tr>
       </tbody>
     </table>
@@ -421,16 +410,16 @@
     new Chart(document.getElementById('typeChart'), {
       type: 'doughnut',
       data: {
-        labels: ["FAQ","Transfer","Existing Patient","New Patient"],
-        datasets: [{ data: [78,98,8,20], backgroundColor: ["#4CAF50","#F44336","#FF9800","#2196F3"] }]
+        labels: ["FAQ","Transfer","New Patient","Existing Patient"],
+        datasets: [{ data: [144,221,41,17], backgroundColor: ["#4CAF50","#F44336","#2196F3","#FF9800"] }]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#888' } } } }
     });
 
     // Avg turns vs ideal
-    const turnTypes = ["faq","transfer","existing_patient","new_patient"];
+    const turnTypes = ["faq","transfer","new_patient","existing_patient"];
     const turnLabels = turnTypes.map(t => ({"faq":"FAQ","new_patient":"New Patient","existing_patient":"Existing Patient","transfer":"Transfer","hangup":"Hangup"})[t] || t);
-    const turnActual = turnTypes.map(t => ({"faq":{"avg":10,"min":2,"max":62,"count":78},"transfer":{"avg":7,"min":2,"max":69,"count":98},"existing_patient":{"avg":14,"min":3,"max":19,"count":8},"new_patient":{"avg":54,"min":18,"max":142,"count":20}})[t]?.avg || 0);
+    const turnActual = turnTypes.map(t => ({"faq":{"avg":10,"min":2,"max":66,"count":144},"transfer":{"avg":6,"min":2,"max":69,"count":221},"new_patient":{"avg":42,"min":16,"max":142,"count":41},"existing_patient":{"avg":11,"min":3,"max":19,"count":17}})[t]?.avg || 0);
     const turnIdealMin = turnTypes.map(t => ({"faq":{"min":2,"max":4,"label":"FAQ"},"new_patient":{"min":14,"max":22,"label":"New Patient + Book"},"existing_patient":{"min":5,"max":10,"label":"Existing Patient"},"transfer":{"min":2,"max":4,"label":"Transfer"}})[t]?.min || 0);
     const turnIdealMax = turnTypes.map(t => ({"faq":{"min":2,"max":4,"label":"FAQ"},"new_patient":{"min":14,"max":22,"label":"New Patient + Book"},"existing_patient":{"min":5,"max":10,"label":"Existing Patient"},"transfer":{"min":2,"max":4,"label":"Transfer"}})[t]?.max || 0);
     new Chart(document.getElementById('turnsChart'), {
@@ -447,23 +436,23 @@
     });
 
     // Resolution rate
-    const resTypes = ["faq","transfer","existing_patient","new_patient"];
+    const resTypes = ["faq","transfer","new_patient","existing_patient"];
     new Chart(document.getElementById('resolutionChart'), {
       type: 'bar',
       data: {
         labels: resTypes.map(t => ({"faq":"FAQ","new_patient":"New Patient","existing_patient":"Existing Patient","transfer":"Transfer","hangup":"Hangup"})[t] || t),
-        datasets: [{ label: 'Resolution %', data: resTypes.map(t => ({"faq":{"total":78,"resolved":78,"rate":100},"transfer":{"total":98,"resolved":98,"rate":100},"existing_patient":{"total":8,"resolved":8,"rate":100},"new_patient":{"total":20,"resolved":15,"rate":75}})[t]?.rate || 0), backgroundColor: resTypes.map(t => ({"faq":"#4CAF50","new_patient":"#2196F3","existing_patient":"#FF9800","transfer":"#F44336","hangup":"#9E9E9E"})[t] || '#666') }]
+        datasets: [{ label: 'Resolution %', data: resTypes.map(t => ({"faq":{"total":144,"resolved":144,"rate":100},"transfer":{"total":221,"resolved":221,"rate":100},"new_patient":{"total":41,"resolved":29,"rate":71},"existing_patient":{"total":17,"resolved":17,"rate":100}})[t]?.rate || 0), backgroundColor: resTypes.map(t => ({"faq":"#4CAF50","new_patient":"#2196F3","existing_patient":"#FF9800","transfer":"#F44336","hangup":"#9E9E9E"})[t] || '#666') }]
       },
       options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, max: 100 } } }
     });
 
     // Tool usage
-    const toolNames = ["transfer_call","verify_patient","check_insurance","lookup_knowledge","get_availability","book_appt","add_patient","confirm_appt","cancel_appt"];
+    const toolNames = ["transfer_call","check_insurance","verify_patient","lookup_knowledge","get_availability","book_appt","add_patient","confirm_appt","cancel_appt","update_insurance"];
     new Chart(document.getElementById('toolChart'), {
       type: 'bar',
       data: {
         labels: toolNames,
-        datasets: [{ label: 'Times Used', data: toolNames.map(t => ({"check_insurance":44,"lookup_knowledge":36,"verify_patient":51,"transfer_call":107,"confirm_appt":12,"add_patient":20,"book_appt":21,"get_availability":32,"cancel_appt":5})[t] || 0), backgroundColor: '#90CAF9' }]
+        datasets: [{ label: 'Times Used', data: toolNames.map(t => ({"lookup_knowledge":72,"transfer_call":237,"confirm_appt":25,"check_insurance":109,"add_patient":41,"book_appt":49,"get_availability":69,"cancel_appt":17,"verify_patient":82,"update_insurance":3})[t] || 0), backgroundColor: '#90CAF9' }]
       },
       options: { ...chartDefaults, indexAxis: 'y' }
     });
@@ -472,11 +461,11 @@
     new Chart(document.getElementById('weeklyTransferChart'), {
       type: 'line',
       data: {
-        labels: ["2026-03-30"],
+        labels: ["2026-03-30","2026-04-06","2026-04-13"],
         datasets: [
           {
             label: 'Transfer Rate %',
-            data: [48],
+            data: [48,56,54],
             borderColor: '#F44336',
             backgroundColor: 'rgba(244,67,54,0.1)',
             fill: true,
@@ -484,7 +473,7 @@
           },
           {
             label: 'Calls',
-            data: [225],
+            data: [231,181,46],
             borderColor: '#2196F3',
             borderDash: [5, 5],
             tension: 0.3,
@@ -506,10 +495,10 @@
     new Chart(document.getElementById('weeklyTurnsChart'), {
       type: 'line',
       data: {
-        labels: ["2026-03-30"],
+        labels: ["2026-03-30","2026-04-06","2026-04-13"],
         datasets: [
-          { label: 'Avg Turns', data: [12], borderColor: '#FF9800', tension: 0.3 },
-          { label: 'Avg Duration (s)', data: [123], borderColor: '#4CAF50', tension: 0.3, yAxisID: 'y1' }
+          { label: 'Avg Turns', data: [12,8,12], borderColor: '#FF9800', tension: 0.3 },
+          { label: 'Avg Duration (s)', data: [122,112,125], borderColor: '#4CAF50', tension: 0.3, yAxisID: 'y1' }
         ]
       },
       options: {
@@ -527,11 +516,11 @@
     new Chart(document.getElementById('promptLengthChart'), {
       type: 'line',
       data: {
-        labels: ["20260403-1059","20260402-2100"],
+        labels: ["20260402-2100"],
         datasets: [
-          { label: 'Total Prompt (chars)', data: [19285,16112], borderColor: '#90CAF9', tension: 0.3, fill: true, backgroundColor: 'rgba(144,202,249,0.1)' },
-          { label: 'RUNBOOK', data: [8815,7923], borderColor: '#FF9800', tension: 0.3, borderDash: [5,5] },
-          { label: 'Transfer Rate %', data: [56,55], borderColor: '#F44336', tension: 0.3, yAxisID: 'y1' }
+          { label: 'Total Prompt (chars)', data: [16112], borderColor: '#90CAF9', tension: 0.3, fill: true, backgroundColor: 'rgba(144,202,249,0.1)' },
+          { label: 'RUNBOOK', data: [7923], borderColor: '#FF9800', tension: 0.3, borderDash: [5,5] },
+          { label: 'Transfer Rate %', data: [55], borderColor: '#F44336', tension: 0.3, yAxisID: 'y1' }
         ]
       },
       options: {
@@ -547,11 +536,11 @@
     new Chart(document.getElementById('runsChart'), {
       type: 'bar',
       data: {
-        labels: ["20260403-1059","20260402-2100"],
+        labels: ["20260402-2100"],
         datasets: [
-          { label: 'Proposed', data: [4,4], backgroundColor: '#2196F3' },
-          { label: 'Kept', data: [4,4], backgroundColor: '#4CAF50' },
-          { label: 'Discarded', data: [0,0], backgroundColor: '#F44336' }
+          { label: 'Proposed', data: [4], backgroundColor: '#2196F3' },
+          { label: 'Kept', data: [4], backgroundColor: '#4CAF50' },
+          { label: 'Discarded', data: [0], backgroundColor: '#F44336' }
         ]
       },
       options: chartDefaults
@@ -562,11 +551,11 @@
     new Chart(document.getElementById('transferReasonChart'), {
       type: 'bar',
       data: {
-        labels: ["Caller Insists on Human","Specific Person Requested","Medical Records","Billing / Payment","Returning a Call","Clinical / Symptoms","Glasses / Optical","Prescriptions / Medications"],
+        labels: ["Caller Insists on Human","Clinical / Symptoms","Glasses / Optical","Prescriptions / Medications","Billing / Payment","Specific Person Requested","Medical Records","Returning a Call"],
         datasets: [{
           label: 'Transfers',
-          data: [45,5,4,4,3,3,2,2],
-          backgroundColor: ["#F44336","#F44336","#F44336","#FF9800","#FF9800","#F44336","#FF9800","#F44336"]
+          data: [132,14,8,7,7,7,6,3],
+          backgroundColor: ["#F44336","#F44336","#FF9800","#F44336","#FF9800","#F44336","#F44336","#FF9800"]
         }]
       },
       options: { ...chartDefaults, indexAxis: 'y', plugins: { legend: { display: false } } }
@@ -576,10 +565,10 @@
     new Chart(document.getElementById('dailyChart'), {
       type: 'line',
       data: {
-        labels: ["2026-03-30","2026-03-31","2026-04-01","2026-04-02","2026-04-03","2026-04-04"],
+        labels: ["2026-03-31","2026-04-01","2026-04-02","2026-04-03","2026-04-04","2026-04-05","2026-04-06","2026-04-07","2026-04-08","2026-04-09","2026-04-10","2026-04-11","2026-04-13"],
         datasets: [
-          { label: 'Total', data: [27,61,65,52,53,2], borderColor: '#2196F3', tension: 0.3 },
-          { label: 'Substantive', data: [23,59,62,40,39,2], borderColor: '#4CAF50', tension: 0.3 }
+          { label: 'Total', data: [61,65,52,53,12,1,35,30,72,75,59,7,67], borderColor: '#2196F3', tension: 0.3 },
+          { label: 'Substantive', data: [59,62,40,39,8,0,30,18,42,47,38,6,46], borderColor: '#4CAF50', tension: 0.3 }
         ]
       },
       options: { ...chartDefaults }
