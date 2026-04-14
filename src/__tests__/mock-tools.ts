@@ -12,6 +12,7 @@ import {
   getOfficeConfigByPhone,
   SPRING_HILL_OFFICE_PHONE,
 } from "../offices.js";
+import { matchInsurancePlanForOffice } from "../insurance-rules.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "..", "workspace");
 
@@ -262,17 +263,14 @@ Returns booking status and appointment details.`,
     description: `Look up accepted insurance plans for the current office.
 
 Use when a caller asks if a plan is accepted or before registering a new patient.
-Returns the office insurance reference list.`,
+Returns status, canProceed, needsExactPlanName, and a short caller-facing summary.
+If canProceed=true and needsExactPlanName=true, you can continue registration now and collect the exact plan name from the card later before add_patient or update_insurance.`,
     parameters: z.object({
       plan: z.string().describe("The insurance plan name the caller mentioned"),
     }),
     execute: async (args) => {
       log.push({ name: "check_insurance", args });
-      try {
-        return readFileSync(join(WORKSPACE, office.insuranceFile), "utf-8");
-      } catch {
-        return "Insurance list unavailable in test environment.";
-      }
+      return matchInsurancePlanForOffice(office.key, args.plan);
     },
   });
 

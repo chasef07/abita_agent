@@ -1,0 +1,400 @@
+{
+  "scores": [
+    {
+      "workspace": "workspace",
+      "evalId": "eval-1i1-2026-04-14T15:44:25",
+      "totalPass": 91,
+      "totalCount": 99,
+      "goldenPass": 27,
+      "goldenTotal": 31,
+      "candidatePass": 64,
+      "candidateTotal": 68,
+      "perSuite": {
+        "scheduling": {
+          "golden": {
+            "pass": 3,
+            "total": 3
+          },
+          "candidates": {
+            "pass": 17,
+            "total": 19
+          }
+        },
+        "cancel": {
+          "golden": {
+            "pass": 3,
+            "total": 3
+          },
+          "candidates": {
+            "pass": 3,
+            "total": 3
+          }
+        },
+        "confirm": {
+          "golden": {
+            "pass": 1,
+            "total": 1
+          },
+          "candidates": {
+            "pass": 1,
+            "total": 1
+          }
+        },
+        "routing": {
+          "golden": {
+            "pass": 2,
+            "total": 2
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "insurance": {
+          "golden": {
+            "pass": 1,
+            "total": 2
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "quick-question": {
+          "golden": {
+            "pass": 2,
+            "total": 2
+          },
+          "candidates": {
+            "pass": 10,
+            "total": 10
+          }
+        },
+        "language": {
+          "golden": {
+            "pass": 1,
+            "total": 1
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "verification": {
+          "golden": {
+            "pass": 4,
+            "total": 4
+          },
+          "candidates": {
+            "pass": 1,
+            "total": 1
+          }
+        },
+        "registration": {
+          "golden": {
+            "pass": 4,
+            "total": 6
+          },
+          "candidates": {
+            "pass": 7,
+            "total": 7
+          }
+        },
+        "reschedule": {
+          "golden": {
+            "pass": 0,
+            "total": 1
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "safety": {
+          "golden": {
+            "pass": 1,
+            "total": 1
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "transfer": {
+          "golden": {
+            "pass": 5,
+            "total": 5
+          },
+          "candidates": {
+            "pass": 25,
+            "total": 27
+          }
+        }
+      }
+    },
+    {
+      "workspace": "workspace-v1",
+      "evalId": "eval-fik-2026-04-14T15:45:46",
+      "totalPass": 87,
+      "totalCount": 99,
+      "goldenPass": 23,
+      "goldenTotal": 31,
+      "candidatePass": 64,
+      "candidateTotal": 68,
+      "perSuite": {
+        "scheduling": {
+          "golden": {
+            "pass": 3,
+            "total": 3
+          },
+          "candidates": {
+            "pass": 18,
+            "total": 19
+          }
+        },
+        "cancel": {
+          "golden": {
+            "pass": 2,
+            "total": 3
+          },
+          "candidates": {
+            "pass": 2,
+            "total": 3
+          }
+        },
+        "confirm": {
+          "golden": {
+            "pass": 0,
+            "total": 1
+          },
+          "candidates": {
+            "pass": 1,
+            "total": 1
+          }
+        },
+        "routing": {
+          "golden": {
+            "pass": 0,
+            "total": 2
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "insurance": {
+          "golden": {
+            "pass": 1,
+            "total": 2
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "quick-question": {
+          "golden": {
+            "pass": 2,
+            "total": 2
+          },
+          "candidates": {
+            "pass": 10,
+            "total": 10
+          }
+        },
+        "language": {
+          "golden": {
+            "pass": 1,
+            "total": 1
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "verification": {
+          "golden": {
+            "pass": 4,
+            "total": 4
+          },
+          "candidates": {
+            "pass": 1,
+            "total": 1
+          }
+        },
+        "registration": {
+          "golden": {
+            "pass": 4,
+            "total": 6
+          },
+          "candidates": {
+            "pass": 7,
+            "total": 7
+          }
+        },
+        "reschedule": {
+          "golden": {
+            "pass": 0,
+            "total": 1
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "safety": {
+          "golden": {
+            "pass": 1,
+            "total": 1
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "transfer": {
+          "golden": {
+            "pass": 5,
+            "total": 5
+          },
+          "candidates": {
+            "pass": 25,
+            "total": 27
+          }
+        }
+      }
+    },
+    {
+      "workspace": "workspace-v2",
+      "evalId": "eval-Iv8-2026-04-14T15:47:24",
+      "totalPass": 89,
+      "totalCount": 99,
+      "goldenPass": 25,
+      "goldenTotal": 31,
+      "candidatePass": 64,
+      "candidateTotal": 68,
+      "perSuite": {
+        "scheduling": {
+          "golden": {
+            "pass": 3,
+            "total": 3
+          },
+          "candidates": {
+            "pass": 15,
+            "total": 19
+          }
+        },
+        "cancel": {
+          "golden": {
+            "pass": 2,
+            "total": 3
+          },
+          "candidates": {
+            "pass": 3,
+            "total": 3
+          }
+        },
+        "confirm": {
+          "golden": {
+            "pass": 0,
+            "total": 1
+          },
+          "candidates": {
+            "pass": 1,
+            "total": 1
+          }
+        },
+        "routing": {
+          "golden": {
+            "pass": 1,
+            "total": 2
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "insurance": {
+          "golden": {
+            "pass": 1,
+            "total": 2
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "quick-question": {
+          "golden": {
+            "pass": 2,
+            "total": 2
+          },
+          "candidates": {
+            "pass": 10,
+            "total": 10
+          }
+        },
+        "language": {
+          "golden": {
+            "pass": 1,
+            "total": 1
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "verification": {
+          "golden": {
+            "pass": 4,
+            "total": 4
+          },
+          "candidates": {
+            "pass": 1,
+            "total": 1
+          }
+        },
+        "registration": {
+          "golden": {
+            "pass": 5,
+            "total": 6
+          },
+          "candidates": {
+            "pass": 7,
+            "total": 7
+          }
+        },
+        "reschedule": {
+          "golden": {
+            "pass": 0,
+            "total": 1
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "safety": {
+          "golden": {
+            "pass": 1,
+            "total": 1
+          },
+          "candidates": {
+            "pass": 0,
+            "total": 0
+          }
+        },
+        "transfer": {
+          "golden": {
+            "pass": 5,
+            "total": 5
+          },
+          "candidates": {
+            "pass": 27,
+            "total": 27
+          }
+        }
+      }
+    }
+  ]
+}
