@@ -1,0 +1,811 @@
+{
+  "totalAudits": 13,
+  "clusters": [
+    {
+      "key": "new_patient:slow_path",
+      "count": 5,
+      "intentBucket": "new_patient",
+      "failureMode": "slow_path",
+      "calls": [
+        {
+          "callId": "SCL_xstNMuRQFqVG",
+          "startedAt": "2026-04-13T17:12:14.66",
+          "durationSec": 406,
+          "totalTurns": 39,
+          "officePhone": "+17275919997",
+          "intentBucket": "new_patient",
+          "intentBucketGuess": "immediate_transfer",
+          "overallStatus": "failed",
+          "resolved": false,
+          "resolutionReason": "Caller abandoned scheduling after long registration attempt and requested transfer.",
+          "failureModes": [
+            "slow_path",
+            "caller_abandoned",
+            "unresolved_need"
+          ],
+          "toolCorrectness": {
+            "pass": true,
+            "issues": [],
+            "malformedArgs": [],
+            "missingRequiredArgs": [],
+            "sequenceIssues": []
+          },
+          "pathEfficiency": {
+            "score": 0.1,
+            "issues": [
+              "Excessively long call with repeated email and address clarifications causing caller frustration.",
+              "call took about 35 turn(s) more than the current target path"
+            ],
+            "repeatedQuestionCount": 0,
+            "extraTurns": 35
+          },
+          "hallucinationSafety": {
+            "pass": true,
+            "issues": []
+          },
+          "strengths": [
+            "Agent followed registration order and verified insurance acceptance before proceeding."
+          ],
+          "recommendedFixes": [
+            "Improve email and address collection prompts to reduce repetition and caller frustration.",
+            "Consider early offer to transfer if caller shows signs of frustration or confusion."
+          ],
+          "toolCalls": [
+            {
+              "turn": 2,
+              "name": "lookup_knowledge",
+              "args": {
+                "question": "Loop location appointments"
+              },
+              "missingRequiredArgs": [],
+              "isError": false
+            },
+            {
+              "turn": 3,
+              "name": "lookup_knowledge",
+              "args": {
+                "question": "Lando Lakes location"
+              },
+              "missingRequiredArgs": [],
+              "isError": false
+            },
+            {
+              "turn": 4,
+              "name": "lookup_knowledge",
+              "args": {
+                "question": "Lando Lakes location"
+              },
+              "missingRequiredArgs": [],
+              "isError": false
+            },
+            {
+              "turn": 40,
+              "name": "transfer_call",
+              "args": {},
+              "missingRequiredArgs": [],
+              "isError": false
+            }
+          ],
+          "metrics": {
+            "toolCallCount": 4,
+            "toolErrorCount": 0,
+            "transferred": true,
+            "repeatedQuestionCount": 0,
+            "extraTurns": 35
+          }
+        },
+        {
+          "callId": "SCL_wm4GD27oitnH",
+          "startedAt": "2026-04-13T19:23:41.483",
+          "durationSec": 184,
+          "totalTurns": 18,
+          "officePhone": "+17275919997",
+          "intentBucket": "new_patient",
+          "intentBucketGuess": "immediate_transfer",
+          "overallStatus": "failed",
+          "resolved": false,
+          "resolutionReason": "Caller asked for a human after incomplete registration and was transferred.",
+          "failureModes": [
+            "slow_path",
+            "unresolved_need"
+          ],
+          "toolCorrectness": {
+            "pass": true,
+            "issues": [],
+            "malformedArgs": [],
+            "missingRequiredArgs": [],
+            "sequenceIssues": []
+          },
+          "pathEfficiency": {
+            "score": 0.4,
+            "issues": [
+              "Long registration process with repeated email clarification and partial phone number capture.",
+              "call took about 14 turn(s) more than the current target path"
+            ],
+            "repeatedQuestionCount": 0,
+            "extraTurns": 14
+          },
+          "hallucinationSafety": {
+            "pass": true,
+            "issues": []
+          },
+          "strengths": [
+            "Followed registration order and insurance check before collecting other info.",
+            "Properly pushed back once before transfer as per policy."
+          ],
+          "recommendedFixes": [
+            "Improve email and phone number capture prompts to reduce back-and-forth.",
+            "Train agent to confirm key fields more clearly to avoid caller frustration."
+          ],
+          "toolCalls": [
+            {
+              "turn": 6,
+              "name": "check_insurance",
+              "args": {
+                "plan": "Simply Healthcare Medicaid"
+              },
+              "missingRequiredArgs": [],
+              "isError": false
+            },
+            {
+              "turn": 19,
+              "name": "transfer_call",
+              "args": {},
+              "missingRequiredArgs": [],
+              "isError": false
+            }
+          ],
+          "metrics": {
+            "toolCallCount": 2,
+            "toolErrorCount": 0,
+            "transferred": true,
+            "repeatedQuestionCount": 0,
+            "extraTurns": 14
+          }
+        }
+      ]
+    },
+    {
+      "key": "confirm:wrong_tool",
+      "count": 2,
+      "intentBucket": "confirm",
+      "failureMode": "wrong_tool",
+      "calls": [
+        {
+          "callId": "SCL_7YCwBupKJR9K",
+          "startedAt": "2026-04-14T14:58:23.322",
+          "durationSec": 27,
+          "totalTurns": 4,
+          "officePhone": "+17275919997",
+          "intentBucket": "confirm",
+          "intentBucketGuess": "confirm",
+          "overallStatus": "failed",
+          "resolved": true,
+          "resolutionReason": "Appointment was confirmed verbally, matching caller intent.",
+          "failureModes": [
+            "wrong_tool",
+            "hallucination",
+            "wrong_tool_order"
+          ],
+          "toolCorrectness": {
+            "pass": false,
+            "issues": [
+              "confirm_appt tool was never called to verify appointment details.",
+              "confirm bucket never called confirm_appt"
+            ],
+            "malformedArgs": [],
+            "missingRequiredArgs": [],
+            "sequenceIssues": [
+              "confirm bucket never called confirm_appt"
+            ]
+          },
+          "pathEfficiency": {
+            "score": 1,
+            "issues": [],
+            "repeatedQuestionCount": 0,
+            "extraTurns": 0
+          },
+          "hallucinationSafety": {
+            "pass": false,
+            "issues": [
+              "Agent stated appointment details without calling confirm_appt tool."
+            ]
+          },
+          "strengths": [
+            "Agent asked for first name before providing details.",
+            "Agent used natural, clear language."
+          ],
+          "recommendedFixes": [
+            "Always call confirm_appt tool before reading back appointment details."
+          ],
+          "toolCalls": [],
+          "metrics": {
+            "toolCallCount": 0,
+            "toolErrorCount": 0,
+            "transferred": false,
+            "repeatedQuestionCount": 0,
+            "extraTurns": 0
+          }
+        },
+        {
+          "callId": "SCL_6LPmSg3d6Pzo",
+          "startedAt": "2026-04-14T13:46:39.653",
+          "durationSec": 65,
+          "totalTurns": 3,
+          "officePhone": "+13523202007",
+          "intentBucket": "confirm",
+          "intentBucketGuess": "confirm",
+          "overallStatus": "needs_work",
+          "resolved": true,
+          "resolutionReason": "Caller’s request to confirm surgery date was transferred appropriately.",
+          "failureModes": [
+            "wrong_tool",
+            "wrong_tool_order"
+          ],
+          "toolCorrectness": {
+            "pass": false,
+            "issues": [
+              "Did not call confirm_appt to confirm existing appointments before reading them.",
+              "No confirm_appt call despite confirming appointments verbally.",
+              "confirm bucket never called confirm_appt"
+            ],
+            "malformedArgs": [],
+            "missingRequiredArgs": [],
+            "sequenceIssues": [
+              "confirm bucket never called confirm_appt"
+            ]
+          },
+          "pathEfficiency": {
+            "score": 0.8,
+            "issues": [
+              "Quick resolution but missed confirm_appt tool call."
+            ],
+            "repeatedQuestionCount": 0,
+            "extraTurns": 0
+          },
+          "hallucinationSafety": {
+            "pass": true,
+            "issues": []
+          },
+          "strengths": [
+            "Identified caller and patient correctly.",
+            "Clarified caller’s exact need before transfer.",
+            "Used correct transfer message before transfer_call."
+          ],
+          "recommendedFixes": [
+            "Always call confirm_appt before reading appointment details.",
+            "Train to distinguish surgery date requests from follow-up appointments."
+          ],
+          "toolCalls": [
+            {
+              "turn": 4,
+              "name": "transfer_call",
+              "args": {},
+              "missingRequiredArgs": [],
+              "isError": false
+            }
+          ],
+          "metrics": {
+            "toolCallCount": 1,
+            "toolErrorCount": 0,
+            "transferred": true,
+            "repeatedQuestionCount": 0,
+            "extraTurns": 0
+          }
+        }
+      ]
+    },
+    {
+      "key": "confirm:slow_path",
+      "count": 2,
+      "intentBucket": "confirm",
+      "failureMode": "slow_path",
+      "calls": [
+        {
+          "callId": "SCL_yCikzGUJg8Qp",
+          "startedAt": "2026-04-13T20:21:59.191",
+          "durationSec": 76,
+          "totalTurns": 10,
+          "officePhone": "+17275919997",
+          "intentBucket": "confirm",
+          "intentBucketGuess": "faq",
+          "overallStatus": "needs_work",
+          "resolved": true,
+          "resolutionReason": "Caller’s appointment details and office address were confirmed accurately.",
+          "failureModes": [
+            "slow_path"
+          ],
+          "toolCorrectness": {
+            "pass": true,
+            "issues": [],
+            "malformedArgs": [],
+            "missingRequiredArgs": [],
+            "sequenceIssues": []
+          },
+          "pathEfficiency": {
+            "score": 0.6,
+            "issues": [
+              "Extra turns due to repeated questions about appointment time.",
+              "call took about 5 turn(s) more than the current target path"
+            ],
+            "repeatedQuestionCount": 0,
+            "extraTurns": 5
+          },
+          "hallucinationSafety": {
+            "pass": true,
+            "issues": []
+          },
+          "strengths": [
+            "Agent confirmed appointment date, time, doctor, and location clearly.",
+            "Agent used lookup_knowledge correctly for office address."
+          ],
+          "recommendedFixes": [
+            "Prompt agent to confirm appointment details fully the first time to avoid repetition."
+          ],
+          "toolCalls": [
+            {
+              "turn": 8,
+              "name": "lookup_knowledge",
+              "args": {
+                "question": "Spring Hill office address"
+              },
+              "missingRequiredArgs": [],
+              "isError": false
+            }
+          ],
+          "metrics": {
+            "toolCallCount": 1,
+            "toolErrorCount": 0,
+            "transferred": false,
+            "repeatedQuestionCount": 0,
+            "extraTurns": 5
+          }
+        },
+        {
+          "callId": "SCL_nu6wr8TtYVoJ",
+          "startedAt": "2026-04-13T19:30:48.012",
+          "durationSec": 86,
+          "totalTurns": 9,
+          "officePhone": "+17275919997",
+          "intentBucket": "confirm",
+          "intentBucketGuess": "confirm",
+          "overallStatus": "needs_work",
+          "resolved": true,
+          "resolutionReason": "Agent confirmed no appointment exists and offered scheduling; caller declined.",
+          "failureModes": [
+            "slow_path"
+          ],
+          "toolCorrectness": {
+            "pass": true,
+            "issues": [],
+            "malformedArgs": [],
+            "missingRequiredArgs": [],
+            "sequenceIssues": []
+          },
+          "pathEfficiency": {
+            "score": 0.7,
+            "issues": [
+              "Extra turns due to caller confusion and agent repeating questions.",
+              "call took about 3 turn(s) more than the current target path"
+            ],
+            "repeatedQuestionCount": 0,
+            "extraTurns": 3
+          },
+          "hallucinationSafety": {
+            "pass": true,
+            "issues": []
+          },
+          "strengths": [
+            "Agent used confirm_appt correctly and clearly communicated no appointment found.",
+            "Agent offered scheduling and respected caller’s decision."
+          ],
+          "recommendedFixes": [
+            "Avoid repeating questions and keep responses concise to reduce call length."
+          ],
+          "toolCalls": [
+            {
+              "turn": 3,
+              "name": "confirm_appt",
+              "args": {},
+              "missingRequiredArgs": [],
+              "isError": false
+            }
+          ],
+          "metrics": {
+            "toolCallCount": 1,
+            "toolErrorCount": 0,
+            "transferred": false,
+            "repeatedQuestionCount": 0,
+            "extraTurns": 3
+          }
+        }
+      ]
+    },
+    {
+      "key": "immediate_transfer:policy_violation",
+      "count": 1,
+      "intentBucket": "immediate_transfer",
+      "failureMode": "policy_violation",
+      "calls": [
+        {
+          "callId": "SCL_XWWGTzkhEAWF",
+          "startedAt": "2026-04-14T14:10:48.079",
+          "durationSec": 34,
+          "totalTurns": 2,
+          "officePhone": "+17275919997",
+          "intentBucket": "immediate_transfer",
+          "intentBucketGuess": "immediate_transfer",
+          "overallStatus": "needs_work",
+          "resolved": true,
+          "resolutionReason": "Caller requested human twice and was transferred after proper pushback.",
+          "failureModes": [
+            "policy_violation",
+            "toolCorrectness"
+          ],
+          "toolCorrectness": {
+            "pass": false,
+            "issues": [
+              "Agent revealed AI status contrary to runbook guidance.",
+              "Transfer message was spoken but transfer_call tool call was marked as error."
+            ],
+            "malformedArgs": [],
+            "missingRequiredArgs": [],
+            "sequenceIssues": []
+          },
+          "pathEfficiency": {
+            "score": 0.75,
+            "issues": [
+              "Agent revealed AI identity unnecessarily, which is discouraged."
+            ],
+            "repeatedQuestionCount": 0,
+            "extraTurns": 0
+          },
+          "hallucinationSafety": {
+            "pass": true,
+            "issues": []
+          },
+          "strengths": [
+            "Agent pushed back once before transferring as required.",
+            "Agent spoke transfer message fully before transfer."
+          ],
+          "recommendedFixes": [
+            "Do not reveal AI identity unless directly asked.",
+            "Ensure transfer_call tool is called without error after transfer message."
+          ],
+          "toolCalls": [
+            {
+              "turn": 3,
+              "name": "transfer_call",
+              "args": {},
+              "missingRequiredArgs": [],
+              "isError": true
+            }
+          ],
+          "metrics": {
+            "toolCallCount": 1,
+            "toolErrorCount": 1,
+            "transferred": true,
+            "repeatedQuestionCount": 0,
+            "extraTurns": 0
+          }
+        }
+      ]
+    },
+    {
+      "key": "existing_patient_booking:repeat_question",
+      "count": 1,
+      "intentBucket": "existing_patient_booking",
+      "failureMode": "repeat_question",
+      "calls": [
+        {
+          "callId": "SCL_awKRiigv6jXQ",
+          "startedAt": "2026-04-14T13:50:16.676",
+          "durationSec": 245,
+          "totalTurns": 22,
+          "officePhone": "+17275919997",
+          "intentBucket": "existing_patient_booking",
+          "intentBucketGuess": "existing_patient_booking",
+          "overallStatus": "failed",
+          "resolved": false,
+          "resolutionReason": "No resolution analysis returned.",
+          "failureModes": [
+            "repeat_question",
+            "slow_path"
+          ],
+          "toolCorrectness": {
+            "pass": false,
+            "issues": [
+              "assistant repeated a question 1 time(s)"
+            ],
+            "malformedArgs": [],
+            "missingRequiredArgs": [],
+            "sequenceIssues": []
+          },
+          "pathEfficiency": {
+            "score": 0.5,
+            "issues": [
+              "assistant repeated a question 1 time(s)",
+              "call took about 12 turn(s) more than the current target path"
+            ],
+            "repeatedQuestionCount": 1,
+            "extraTurns": 12
+          },
+          "hallucinationSafety": {
+            "pass": false,
+            "issues": []
+          },
+          "strengths": [],
+          "recommendedFixes": [],
+          "toolCalls": [
+            {
+              "turn": 3,
+              "name": "verify_patient",
+              "args": {
+                "firstName": "Rosie",
+                "lastName": "Rodriguez",
+                "dob": "06/19/1965"
+              },
+              "missingRequiredArgs": [],
+              "isError": false
+            },
+            {
+              "turn": 8,
+              "name": "check_insurance",
+              "args": {
+                "plan": "Andorra"
+              },
+              "missingRequiredArgs": [],
+              "isError": false
+            }
+          ],
+          "metrics": {
+            "toolCallCount": 2,
+            "toolErrorCount": 0,
+            "transferred": false,
+            "repeatedQuestionCount": 1,
+            "extraTurns": 12
+          }
+        }
+      ]
+    },
+    {
+      "key": "cancel_rebook:wrong_tool_order",
+      "count": 1,
+      "intentBucket": "cancel_rebook",
+      "failureMode": "wrong_tool_order",
+      "calls": [
+        {
+          "callId": "SCL_A52nxfk6G4CK",
+          "startedAt": "2026-04-14T13:36:32.959",
+          "durationSec": 105,
+          "totalTurns": 8,
+          "officePhone": "+17275919997",
+          "intentBucket": "cancel_rebook",
+          "intentBucketGuess": "cancel_rebook",
+          "overallStatus": "failed",
+          "resolved": false,
+          "resolutionReason": "No cancel_appt call made; appointment not actually cancelled.",
+          "failureModes": [
+            "wrong_tool_order",
+            "unresolved_need",
+            "slow_path"
+          ],
+          "toolCorrectness": {
+            "pass": false,
+            "issues": [
+              "Did not call cancel_appt after booking new appointment for reschedule."
+            ],
+            "malformedArgs": [],
+            "missingRequiredArgs": [],
+            "sequenceIssues": []
+          },
+          "pathEfficiency": {
+            "score": 0.6,
+            "issues": [
+              "Some unclear caller responses caused minor delays."
+            ],
+            "repeatedQuestionCount": 0,
+            "extraTurns": 0
+          },
+          "hallucinationSafety": {
+            "pass": true,
+            "issues": []
+          },
+          "strengths": [
+            "Verified patient and reason for visit.",
+            "Confirmed new appointment date and time clearly.",
+            "Offered nearest alternative date when needed."
+          ],
+          "recommendedFixes": [
+            "Ensure cancel_appt is called after booking new appointment to complete reschedule.",
+            "Train to confirm cancellation explicitly with caller before cancelling."
+          ],
+          "toolCalls": [
+            {
+              "turn": 9,
+              "name": "get_availability",
+              "args": {
+                "date": "2026-04-22"
+              },
+              "missingRequiredArgs": [],
+              "isError": false
+            }
+          ],
+          "metrics": {
+            "toolCallCount": 1,
+            "toolErrorCount": 0,
+            "transferred": false,
+            "repeatedQuestionCount": 0,
+            "extraTurns": 0
+          }
+        }
+      ]
+    },
+    {
+      "key": "immediate_transfer:slow_path",
+      "count": 1,
+      "intentBucket": "immediate_transfer",
+      "failureMode": "slow_path",
+      "calls": [
+        {
+          "callId": "SCL_8YdbfMTHixyk",
+          "startedAt": "2026-04-14T12:33:51.393",
+          "durationSec": 201,
+          "totalTurns": 11,
+          "officePhone": "+17275919997",
+          "intentBucket": "immediate_transfer",
+          "intentBucketGuess": "immediate_transfer",
+          "overallStatus": "needs_work",
+          "resolved": true,
+          "resolutionReason": "Caller was transferred after agent exhausted scheduling options and answered questions.",
+          "failureModes": [
+            "slow_path"
+          ],
+          "toolCorrectness": {
+            "pass": true,
+            "issues": [],
+            "malformedArgs": [],
+            "missingRequiredArgs": [],
+            "sequenceIssues": []
+          },
+          "pathEfficiency": {
+            "score": 0.36,
+            "issues": [
+              "Excessive turns and multiple repeated availability calls increased call length.",
+              "call took about 7 turn(s) more than the current target path"
+            ],
+            "repeatedQuestionCount": 0,
+            "extraTurns": 7
+          },
+          "hallucinationSafety": {
+            "pass": true,
+            "issues": []
+          },
+          "strengths": [
+            "Agent answered caller questions patiently and provided accurate info from system.",
+            "Agent pushed back and tried to help before transferring.",
+            "Spoke transfer message fully before transfer_call."
+          ],
+          "recommendedFixes": [
+            "Limit repeated availability calls by consolidating date checks.",
+            "Use clearer guidance on earliest availability and provider capabilities to reduce back-and-forth."
+          ],
+          "toolCalls": [
+            {
+              "turn": 6,
+              "name": "get_availability",
+              "args": {
+                "date": "2026-04-15"
+              },
+              "missingRequiredArgs": [],
+              "isError": false
+            },
+            {
+              "turn": 8,
+              "name": "get_availability",
+              "args": {
+                "date": "2026-04-15"
+              },
+              "missingRequiredArgs": [],
+              "isError": false
+            },
+            {
+              "turn": 8,
+              "name": "get_availability",
+              "args": {
+                "date": "2026-04-16"
+              },
+              "missingRequiredArgs": [],
+              "isError": false
+            },
+            {
+              "turn": 8,
+              "name": "get_availability",
+              "args": {
+                "date": "2026-04-17"
+              },
+              "missingRequiredArgs": [],
+              "isError": false
+            },
+            {
+              "turn": 12,
+              "name": "transfer_call",
+              "args": {},
+              "missingRequiredArgs": [],
+              "isError": false
+            }
+          ],
+          "metrics": {
+            "toolCallCount": 5,
+            "toolErrorCount": 0,
+            "transferred": true,
+            "repeatedQuestionCount": 0,
+            "extraTurns": 7
+          }
+        }
+      ]
+    }
+  ],
+  "summary": [
+    {
+      "cluster": "new_patient:slow_path",
+      "callId": "SCL_xstNMuRQFqVG",
+      "caseId": "SCL_xstNMuRQFqVG-quick-question-turn-2",
+      "status": "skipped"
+    },
+    {
+      "cluster": "new_patient:slow_path",
+      "callId": "SCL_wm4GD27oitnH",
+      "caseId": "SCL_wm4GD27oitnH-transfer-turn-19",
+      "status": "skipped"
+    },
+    {
+      "cluster": "confirm:wrong_tool",
+      "callId": "SCL_7YCwBupKJR9K",
+      "status": "no_case"
+    },
+    {
+      "cluster": "confirm:wrong_tool",
+      "callId": "SCL_6LPmSg3d6Pzo",
+      "caseId": "SCL_6LPmSg3d6Pzo-transfer-turn-4",
+      "status": "added"
+    },
+    {
+      "cluster": "confirm:slow_path",
+      "callId": "SCL_yCikzGUJg8Qp",
+      "caseId": "SCL_yCikzGUJg8Qp-quick-question-turn-8",
+      "status": "skipped"
+    },
+    {
+      "cluster": "confirm:slow_path",
+      "callId": "SCL_nu6wr8TtYVoJ",
+      "caseId": "SCL_nu6wr8TtYVoJ-confirm-turn-3",
+      "status": "added"
+    },
+    {
+      "cluster": "immediate_transfer:policy_violation",
+      "callId": "SCL_XWWGTzkhEAWF",
+      "caseId": "SCL_XWWGTzkhEAWF-transfer-turn-3",
+      "status": "added"
+    },
+    {
+      "cluster": "existing_patient_booking:repeat_question",
+      "callId": "SCL_awKRiigv6jXQ",
+      "caseId": "SCL_awKRiigv6jXQ-verify-turn-3",
+      "status": "added"
+    },
+    {
+      "cluster": "cancel_rebook:wrong_tool_order",
+      "callId": "SCL_A52nxfk6G4CK",
+      "caseId": "SCL_A52nxfk6G4CK-scheduling-turn-9",
+      "status": "added"
+    },
+    {
+      "cluster": "immediate_transfer:slow_path",
+      "callId": "SCL_8YdbfMTHixyk",
+      "caseId": "SCL_8YdbfMTHixyk-transfer-turn-12",
+      "status": "added"
+    }
+  ],
+  "added": 6
+}

@@ -12,6 +12,7 @@ import {
   getOfficeConfigByPhone,
   SPRING_HILL_OFFICE_PHONE,
 } from "./offices.js";
+import { matchInsurancePlanForOffice } from "./insurance-rules.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
@@ -455,21 +456,18 @@ export function resolveKnowledgeFileForOffice(officeKey: OfficeKey): string {
   return getOfficeConfig(officeKey).knowledgeFile;
 }
 
-export function resolveInsuranceFileForOffice(officeKey: OfficeKey): string {
-  return getOfficeConfig(officeKey).insuranceFile;
-}
-
 // --- check_insurance ---
 export const check_insurance = llm.tool({
   description: `Looks up whether the office accepts a specific insurance plan. Returns the full accepted plans list with carrier-specific notes.
 
-Use this in two situations: (1) as the first step of new-patient registration, once you have the exact plan name from the caller, and (2) any time a caller asks whether a specific plan is accepted. Look for the caller's plan in the returned list. If found, confirm it's accepted and continue. If there's a clarifying note (e.g., "ask which: North Broward or University of Miami?"), follow it. If not on the list, let them know you don't accept that plan.`,
+Use when a caller asks if a plan is accepted or before registering a new patient.
+Returns status, canProceed, needsExactPlanName, and a short caller-facing summary.
+If canProceed=true and needsExactPlanName=true, you can continue registration now and collect the exact plan name from the card later before add_patient or update_insurance.`,
   parameters: z.object({
     plan: z.string().describe("The insurance plan name the caller mentioned"),
   }),
-  execute: async (_args, { ctx }) => {
-    const file = resolveInsuranceFileForOffice(getState(ctx).officeKey);
-    return readWorkspaceFile(file);
+  execute: async ({ plan }, { ctx }) => {
+    return matchInsurancePlanForOffice(getState(ctx).officeKey, plan);
   },
 });
 
