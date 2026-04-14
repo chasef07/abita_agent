@@ -1,0 +1,99 @@
+{
+  "id": "SCL_Bhfcit3rAWv8-verify-turn-10",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_Bhfcit3rAWv8",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent's first verify_patient invocation. Check that lookup context was respected (skip if pre-verified) and only first name asked for multi-match."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey, David, do you take Blue Cross Blue Shield—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, which Blue Cross plan is it -- HMO, PPO, or Medicare?"
+    },
+    {
+      "role": "user",
+      "content": "It's, um— I don't know, I don't know."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, do you have the insurance card with you?  It'll say the plan name right on it."
+    },
+    {
+      "role": "user",
+      "content": "Yeah, it's, it's HMO."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Blue Cross Blue Shield.  When we get to registration, I'll just need the exact plan name from the card."
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, so what can I help you with today -- are you looking to schedule an appointment?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, I am. Wendy, come."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "I'm not sure. Can you look me up in the system?"
+    },
+    {
+      "role": "assistant",
+      "content": "sure, what's your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Kyle?"
+    },
+    {
+      "role": "assistant",
+      "content": "alright Kyle, and what's your last name?"
+    },
+    {
+      "role": "user",
+      "content": "Test—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "August 18th, 2000."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

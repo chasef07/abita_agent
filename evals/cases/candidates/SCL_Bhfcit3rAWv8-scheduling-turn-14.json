@@ -1,0 +1,133 @@
+{
+  "id": "SCL_Bhfcit3rAWv8-scheduling-turn-14",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_Bhfcit3rAWv8",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey, David, do you take Blue Cross Blue Shield—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, which Blue Cross plan is it -- HMO, PPO, or Medicare?"
+    },
+    {
+      "role": "user",
+      "content": "It's, um— I don't know, I don't know."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, do you have the insurance card with you?  It'll say the plan name right on it."
+    },
+    {
+      "role": "user",
+      "content": "Yeah, it's, it's HMO."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Blue Cross Blue Shield.  When we get to registration, I'll just need the exact plan name from the card."
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, so what can I help you with today -- are you looking to schedule an appointment?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, I am. Wendy, come."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "I'm not sure. Can you look me up in the system?"
+    },
+    {
+      "role": "assistant",
+      "content": "sure, what's your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Kyle?"
+    },
+    {
+      "role": "assistant",
+      "content": "alright Kyle, and what's your last name?"
+    },
+    {
+      "role": "user",
+      "content": "Test—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "August 18th, 2000."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Kyle, I found you.  So what's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "It's, uh—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time -- what brings you in?"
+    },
+    {
+      "role": "user",
+      "content": "I, uh, I just had, uh— I just had an itchy eye syndrome with eyelids and eyelashes, you know."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, so it's an eye irritation issue.  What day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Next week—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so next week -- what day were you thinking?"
+    },
+    {
+      "role": "user",
+      "content": "I don't know, just tell me a date."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,213 @@
+{
+  "id": "SCL_ZXxDExEdBtAu-scheduling-turn-24",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_ZXxDExEdBtAu",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey, uh, good afternoon. Um, I would like to make an appointment for my husband."
+    },
+    {
+      "role": "assistant",
+      "content": "good afternoon. I can help with that.  Has your husband been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get him set up.  What insurance does he have?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, Oscar Insurance."
+    },
+    {
+      "role": "assistant",
+      "content": "and which Oscar plan -- is it an HMO, PPO, or Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "No, um—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Oscar Health.  What's your husband's name?"
+    },
+    {
+      "role": "user",
+      "content": "Yosbani— Reyes."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's his date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "July 19th, 1979."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's a good phone number for him?"
+    },
+    {
+      "role": "user",
+      "content": "786— 302? 8, 8, 3, 3."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's his email address?"
+    },
+    {
+      "role": "user",
+      "content": "Is—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, just"
+    },
+    {
+      "role": "user",
+      "content": "Life Frank—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's his home address?"
+    },
+    {
+      "role": "user",
+      "content": "13048— Pirate Lane— Is Spring Hill, Florida— 3, 4, 6, 0, 9."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. Is he male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Male."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and for the insurance card -- what's the name on the card and the member ID?"
+    },
+    {
+      "role": "user",
+      "content": "Yosbani? ¿Fue—?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, and what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Paul—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me confirm -- I have Yosbani Reyes, R-E-Y-E-S, date of birth July nineteenth nineteen seventy-nine, Oscar Health, member ID P-A-U-L.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "No, the member ID is— Not correct."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem, what's the correct member ID?"
+    },
+    {
+      "role": "user",
+      "content": "O-S-C—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, so the member ID is O-S-C?"
+    },
+    {
+      "role": "user",
+      "content": "Um— No."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, can you read me the full member ID from the card?"
+    },
+    {
+      "role": "user",
+      "content": "Oh, is— C—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, so the member ID is O-S-C?"
+    },
+    {
+      "role": "user",
+      "content": "9, 8, 1, 8, 0, 1."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, so the full member ID is O-S-C-9-8-1-8-0-1?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me confirm -- I have Yosbani Reyes, R-E-Y-E-S, date of birth July nineteenth nineteen seventy-nine, Oscar Health, member ID O-S-C-9-8-1-8-0-1.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, he's all set.  So what's the reason for his visit?"
+    },
+    {
+      "role": "user",
+      "content": "He has a problem with the— uh, his eyes."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what day works for him?"
+    },
+    {
+      "role": "user",
+      "content": "I'm sorry?"
+    },
+    {
+      "role": "assistant",
+      "content": "what day would he like to come in?"
+    },
+    {
+      "role": "user",
+      "content": "The first, uh, available day."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

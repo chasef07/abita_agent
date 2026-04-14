@@ -1,0 +1,44 @@
+{
+  "id": "SCL_gNv2HPpbGfev-transfer-turn-3",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_gNv2HPpbGfev",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, honey. My name is Linda Williams, and I brought— The granddaughter of Justice Roe— Can she get glasses? It was in Spring Hill. And she has Sunshine Health, and she was supposed to get 2 pair— At the time, we only got one just to make sure she could wear them okay and they wouldn't hurt her face."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Linda, so I can help with this.  Let me get Justice verified first -- can I get her first name?"
+    },
+    {
+      "role": "user",
+      "content": "It's— Justice?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}
