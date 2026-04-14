@@ -7,8 +7,25 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import type { PhoneLookupResult } from "./tools.js";
+import { getOfficeConfigByPhone } from "./offices.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
+
+/** Office-specific routing hints injected into the per-call context block.
+ *  Lives here (not RUNBOOK) so each office only sees rules that apply to it.
+ */
+function buildOfficeRoutingHints(trunkPhone: string): string {
+  const office = getOfficeConfigByPhone(trunkPhone);
+  if (office.key !== "crystal-river") return "";
+  return [
+    "**Crystal River routing rules.** On the very first turn, before any other tool call, route to Spring Hill if the caller mentions any of:",
+    "- A child, son, daughter, kid, or anyone implied to be under 18 — Crystal River does not see pediatric ophthalmology",
+    "- Cataract evaluation, cataract surgery, cataract consult — handled at Spring Hill",
+    "- Routine eye exam, annual exam, vision check, glasses prescription — Crystal River is ophthalmology only",
+    "",
+    "Use the routing tool, not the transfer tool. Routing keeps the caller on the line with you so you can continue scheduling them at Spring Hill. Transferring sends them to a human, which is the wrong outcome here.",
+  ].join("\n");
+}
 
 const FILES: { file: string; tag: string }[] = [
   { file: "SOUL.md", tag: "role" },
@@ -47,7 +64,10 @@ export function buildPrompt(phoneLookup?: PhoneLookupResult, trunkPhone?: string
     hour12: true,
   });
 
-  prompt += `\n\n<context>\nToday is ${date}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}\n</context>`;
+  const officeHints = buildOfficeRoutingHints(trunkPhone);
+  const officeBlock = officeHints ? `\n\n${officeHints}` : "";
+
+  prompt += `\n\n<context>\nToday is ${date}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}${officeBlock}\n</context>`;
 
   return prompt;
 }
