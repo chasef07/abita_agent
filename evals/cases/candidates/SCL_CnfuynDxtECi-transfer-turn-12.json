@@ -1,0 +1,117 @@
+{
+  "id": "SCL_CnfuynDxtECi-transfer-turn-12",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_CnfuynDxtECi",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Retinal specialist?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we have retinal specialists on our team.  What are you looking to be seen for?"
+    },
+    {
+      "role": "user",
+      "content": "What did you call it again? Retinal—"
+    },
+    {
+      "role": "assistant",
+      "content": "retinal"
+    },
+    {
+      "role": "user",
+      "content": "Like, uh, because it's asking— it's like automated thing. They have a retinal specialist, it says. Can you— Life person?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping with scheduling at Abita Eye Group.  I'm just here to help get you scheduled -- what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "Here, let me put it on speaker."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, take your time."
+    },
+    {
+      "role": "user",
+      "content": "retinal specialist— Mr. Aye."
+    },
+    {
+      "role": "assistant",
+      "content": "oh, Dr. Aye is one of our retinal specialists.  Are you looking to schedule an appointment with him?"
+    },
+    {
+      "role": "user",
+      "content": "—Uh-huh."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "The— Ultimate—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and which Ultimate plan -- is it an HMO, PPO, or Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "Me— me—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time.  Is it an HMO, PPO, or Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "Medicare—"
+    },
+    {
+      "role": "assistant",
+      "content": "I don't see Ultimate Medicare on our accepted list.  Let me ask -- is there another name on the card, or is it through a different carrier like United Healthcare or Florida Blue?"
+    },
+    {
+      "role": "user",
+      "content": "Representative—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

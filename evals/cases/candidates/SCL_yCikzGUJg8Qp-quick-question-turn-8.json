@@ -1,0 +1,84 @@
+{
+  "id": "SCL_yCikzGUJg8Qp-quick-question-turn-8",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_yCikzGUJg8Qp",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Um, uh—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time.  What can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "Questions about appointments—"
+    },
+    {
+      "role": "assistant",
+      "content": "sure, what would you like to know?"
+    },
+    {
+      "role": "user",
+      "content": "What time is my appointment tomorrow?"
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Victor?"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Victor, yeah I've got you down for tomorrow, Tuesday April fourteenth, at eleven a m with Dr. Licht."
+    },
+    {
+      "role": "user",
+      "content": "What location is it?"
+    },
+    {
+      "role": "assistant",
+      "content": "that's at Spring Hill."
+    },
+    {
+      "role": "user",
+      "content": "I mean—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, what else can I help you with?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, can you give me the address of my appointment?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,67 @@
+name: Sync real calls into eval candidates
+
+on:
+  schedule:
+    # Nightly at 09:15 UTC (~05:15 Eastern). Adjust as desired.
+    - cron: "15 9 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "How many days back to scan"
+        required: false
+        default: "1"
+      limit:
+        description: "Max CallEvents to pull"
+        required: false
+        default: "200"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install psql
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Run sync
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npx tsx evals/scripts/sync-real-calls.ts \
+            --days "${{ github.event.inputs.days || '1' }}" \
+            --limit "${{ github.event.inputs.limit || '200' }}"
+
+      - name: Open PR with new candidates
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: evals/sync-real-calls
+          delete-branch: true
+          add-paths: evals/cases/candidates/
+          commit-message: "evals: sync new decision-point candidates from real calls"
+          title: "evals: new decision-point candidates from real calls"
+          body: |
+            Auto-generated from recent `CallEvent` rows.
+
+            Each candidate is tagged `needs-review`. Curate the ones worth
+            keeping into `evals/cases/golden/` and delete the rest.
+          labels: |
+            evals
+            automated

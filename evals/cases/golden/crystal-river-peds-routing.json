@@ -1,0 +1,23 @@
+{
+  "id": "crystal-river-peds-routing-001",
+  "suite": "routing",
+  "source": "seed",
+  "tags": ["crystal-river", "pediatrics", "routing"],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "no_match",
+    "notes": "Caller reached Crystal River. Pediatrics should be routed to Spring Hill without transfer."
+  },
+  "conversation": [
+    {
+      "role": "user",
+      "content": "I need to schedule my son for an eye appointment."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": ["route_to_spring_hill"],
+    "mustNotCallTools": ["transfer_call"],
+    "policyFlags": ["no_transfer_for_crystal_river_peds"],
+    "styleFlags": ["confident", "concise"]
+  }
+}

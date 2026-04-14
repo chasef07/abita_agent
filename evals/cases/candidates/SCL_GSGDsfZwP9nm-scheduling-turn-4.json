@@ -1,0 +1,54 @@
+{
+  "id": "SCL_GSGDsfZwP9nm-scheduling-turn-4",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_GSGDsfZwP9nm",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. Good morning. I need to reschedule an, uh, appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "good morning, I can help with that.  Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Consuelo—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Consuelo, I see you've got an appointment coming up this Friday, April seventeenth at ten thirty a m with Dr. Noel.  What day would you like to reschedule to?"
+    },
+    {
+      "role": "user",
+      "content": "Any event next week?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

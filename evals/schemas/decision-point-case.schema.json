@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://livekit-agent/evals/schemas/decision-point-case.schema.json",
+  "title": "DecisionPointCase",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "suite",
+    "tags",
+    "context",
+    "conversation",
+    "expectations"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "suite": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string"
+    },
+    "traceId": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trunkPhone",
+        "phoneLookupStatus"
+      ],
+      "properties": {
+        "trunkPhone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phoneLookupStatus": {
+          "type": "string",
+          "enum": ["verified", "multiple_matches", "no_match", "unknown"]
+        },
+        "notes": {
+          "type": "string"
+        },
+        "appointments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "date", "time", "provider", "type"],
+            "properties": {
+              "id": { "type": "number" },
+              "date": { "type": "string" },
+              "time": { "type": "string" },
+              "provider": { "type": "string" },
+              "type": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "conversation": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "content"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["user", "assistant"]
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "expectations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mustCallTools",
+        "mustNotCallTools"
+      ],
+      "properties": {
+        "mustCallTools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mustNotCallTools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mustSay": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mustNotSay": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "policyFlags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "styleFlags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

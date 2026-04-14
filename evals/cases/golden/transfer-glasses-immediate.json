@@ -1,0 +1,28 @@
+{
+  "id": "transfer-glasses-immediate-001",
+  "suite": "transfer",
+  "source": "seed",
+  "tags": ["transfer", "glasses", "out-of-scope", "immediate"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "verified",
+    "notes": "Glasses / optical orders are out of scope. Transfer immediately, no pushback. Must speak the transfer message before calling transfer_call."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I want to check on my glasses order."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": ["transfer_call"],
+    "mustNotCallTools": ["verify_patient", "get_availability"],
+    "mustSay": ["transfer", "voicemail"],
+    "policyFlags": ["transfer_immediately_for_out_of_scope", "speak_full_transfer_message_before_call"],
+    "styleFlags": []
+  }
+}

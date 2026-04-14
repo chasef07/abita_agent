@@ -1,0 +1,28 @@
+{
+  "id": "update-insurance-verified-patient-001",
+  "suite": "insurance",
+  "source": "seed",
+  "tags": ["insurance", "update_insurance", "verified-patient"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "verified",
+    "notes": "Verified patient says they have new insurance. Agent should collect plan name, subscriber name, and member ID, then call update_insurance — not transfer."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi this is Jane, I switched insurance and want to update my info before my next appointment."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": ["transfer_call", "update_insurance"],
+    "mustSay": ["plan"],
+    "policyFlags": ["collect_insurance_card_fields_before_update_insurance"],
+    "styleFlags": ["concise"]
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "id": "SCL_wbvb8AfcHWoY-scheduling-turn-10",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_wbvb8AfcHWoY",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "My— Are you real, or are you a machine?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping with scheduling at Abita Eye Group.  I'm"
+    },
+    {
+      "role": "user",
+      "content": "Um, um— You— What's good? Right. I want to make sure of something, okay?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah no worries, what can I help you with?"
+    },
+    {
+      "role": "user",
+      "content": "Because they gave me— this lady messed up her bunch of, um, I thought it was this one. I, um—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, take your time."
+    },
+    {
+      "role": "user",
+      "content": "I have an appointment. I have an appointment with you."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, let me pull that up for you.  Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "May— Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead"
+    },
+    {
+      "role": "user",
+      "content": "Passage B, he— What?"
+    },
+    {
+      "role": "assistant",
+      "content": "your first name, what is it?"
+    },
+    {
+      "role": "user",
+      "content": "Patrick— Then Behan, capital B-E-H-A-N. Birthdays? January 1st— 1954."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Patrick, I've got you pulled up.  I don't see any appointments on file for you right now.  Were you looking to schedule something?"
+    },
+    {
+      "role": "user",
+      "content": "It says right here— Right?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm not seeing anything in the system.  Let me double-check --"
+    },
+    {
+      "role": "user",
+      "content": "May 28th— Make— Yeah, May 28th."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

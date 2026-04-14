@@ -1,0 +1,44 @@
+{
+  "id": "SCL_CMKnVV5JCYSE-transfer-turn-3",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_CMKnVV5JCYSE",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Front desk, please."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm actually the front desk scheduling assistant -- I can help you with appointments, insurance questions, and all that right here.  What are you calling"
+    },
+    {
+      "role": "user",
+      "content": "I have surgery questions."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

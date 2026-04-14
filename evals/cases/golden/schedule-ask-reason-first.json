@@ -1,0 +1,28 @@
+{
+  "id": "schedule-ask-reason-first-001",
+  "suite": "scheduling",
+  "source": "seed",
+  "tags": ["scheduling", "reason-for-visit", "tool-order"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "verified",
+    "notes": "Verified caller wants to schedule. Per the runbook, ask reason for visit before get_availability so the right appointment type is chosen."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, this is Jane. I want to set up an appointment."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": ["get_availability", "book_appt", "verify_patient"],
+    "mustSay": ["reason"],
+    "policyFlags": ["ask_reason_before_get_availability"],
+    "styleFlags": ["concise"]
+  }
+}

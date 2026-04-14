@@ -1,0 +1,174 @@
+{
+  "id": "SCL_wm4GD27oitnH-transfer-turn-19",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_wm4GD27oitnH",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, hi. Um, I'm— do you guys see children here?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we do see kids here.  What can I help you with today?"
+    },
+    {
+      "role": "user",
+      "content": "Um, I'm trying to make an appointment for my daughter. She was, um— — referred by her doctor?"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, have you been seen here before, or would this be her first appointment with us?"
+    },
+    {
+      "role": "user",
+      "content": "It would be her first."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me get her set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "— Simply healthcare?"
+    },
+    {
+      "role": "assistant",
+      "content": "and which Simply Healthcare plan -- is it an HMO, PPO, or Medicaid plan?"
+    },
+    {
+      "role": "user",
+      "content": "Um, Medicaid."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Simply Medicaid.  What's your daughter's name?"
+    },
+    {
+      "role": "user",
+      "content": "Tayloni?"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's her last name?"
+    },
+    {
+      "role": "user",
+      "content": "Londano?"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, and what's her date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "3— 31. 21."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's your phone number?"
+    },
+    {
+      "role": "user",
+      "content": "954."
+    },
+    {
+      "role": "assistant",
+      "content": "I need the full ten digits.  What's the phone number?"
+    },
+    {
+      "role": "user",
+      "content": "8, 3—"
+    },
+    {
+      "role": "assistant",
+      "content": "let me get the rest of it -- what are the last seven digits?"
+    },
+    {
+      "role": "user",
+      "content": "9 5 4s? 683— 9,751."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "It's kind of long. It's— Kaleo— it's K-A-L-E-O."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what comes after Kaleo?  Is it at gmail, yahoo, something else?"
+    },
+    {
+      "role": "user",
+      "content": "It's Yahoo, but I didn't finish after Camille."
+    },
+    {
+      "role": "assistant",
+      "content": "ok so it's Kaleo dot Camille at yahoo dot com?  What's the rest after Camille?"
+    },
+    {
+      "role": "user",
+      "content": "Hey— K-A-L-E-O— K-A-I— A— —nn— Pat Yockelson."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me make sure I have this right -- is the email Kaleo dot something at yahoo dot com?  Can you say the whole thing slowly so I get it right?"
+    },
+    {
+      "role": "user",
+      "content": "Haleo— Hi. And— — at yahoo.com."
+    },
+    {
+      "role": "assistant",
+      "content": "ok so is it Kaleo at yahoo dot com?  Just want to make sure I have it right before I move on."
+    },
+    {
+      "role": "user",
+      "content": "No, that— No, it's— Is this an automated voice?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping with scheduling at Abita Eye Group.  I'm just here to help get your daughter scheduled -- what's the full"
+    },
+    {
+      "role": "user",
+      "content": "Can I speak to, uh— Can I have a representative, please?"
+    },
+    {
+      "role": "assistant",
+      "content": "would you mind telling me what you're calling about?  If it's scheduling, I can book appointments right now -- let's get your daughter scheduled."
+    },
+    {
+      "role": "user",
+      "content": "Well, you're not getting— you're— You're not getting my information correct. Can I speak to a live person?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "no_second_pushback",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

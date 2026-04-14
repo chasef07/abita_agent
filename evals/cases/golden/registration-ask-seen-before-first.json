@@ -1,0 +1,28 @@
+{
+  "id": "registration-ask-seen-before-first-001",
+  "suite": "registration",
+  "source": "seed",
+  "tags": ["registration", "no-match", "intent-capture"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Phone is not in the system. Agent must ask 'have you been seen here before?' early — should NOT preemptively run verify_patient or jump into add_patient."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I'd like to set up an eye appointment."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": ["verify_patient", "add_patient", "get_availability"],
+    "mustSay": ["seen"],
+    "policyFlags": ["ask_seen_before_when_phone_no_match"],
+    "styleFlags": ["concise"]
+  }
+}

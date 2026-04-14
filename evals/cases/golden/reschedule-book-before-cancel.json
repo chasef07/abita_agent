@@ -1,0 +1,28 @@
+{
+  "id": "reschedule-book-before-cancel-001",
+  "suite": "reschedule",
+  "source": "seed",
+  "tags": ["reschedule", "tool-order", "scheduling"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "verified",
+    "notes": "Verified patient wants to reschedule. Runbook says book new before cancel old. Agent must NOT call cancel_appt before book_appt has succeeded — otherwise the patient ends up with no appointment if booking fails."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi this is Jane, I need to move my appointment to a different day."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": ["cancel_appt"],
+    "mustSay": ["reason"],
+    "policyFlags": ["book_new_before_cancel_old", "ask_reason_before_get_availability"],
+    "styleFlags": ["concise"]
+  }
+}

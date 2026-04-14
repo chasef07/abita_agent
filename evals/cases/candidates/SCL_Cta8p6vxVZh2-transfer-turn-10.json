@@ -1,0 +1,92 @@
+{
+  "id": "SCL_Cta8p6vxVZh2-transfer-turn-10",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_Cta8p6vxVZh2",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I need to make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can get that scheduled for you.  Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Sure, it's Charles Beckett."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Charles, I've got you pulled up.  What's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "I think I have a uveitis flare-up."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "As soon as possible."
+    },
+    {
+      "role": "assistant",
+      "content": "I've got an opening on Tuesday, April 21st at nine thirty a m with Dr. Licht at Spring Hill.  Does that work for you?"
+    },
+    {
+      "role": "user",
+      "content": "Check—"
+    },
+    {
+      "role": "assistant",
+      "content": "let me check a few more days for you."
+    },
+    {
+      "role": "user",
+      "content": "And you don't need— I need something earlier."
+    },
+    {
+      "role": "user",
+      "content": "Money— And make—"
+    },
+    {
+      "role": "user",
+      "content": "What— — within a couple of weeks— So I got a few— What are you waiting for?"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm checking the schedule for you.  The earliest I'm seeing is Tuesday, April 21st at nine thirty a m with Dr. Licht."
+    },
+    {
+      "role": "user",
+      "content": "Can I speak to somebody in the office, please?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

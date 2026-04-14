@@ -1,0 +1,45 @@
+{
+  "id": "SCL_fQmwb2Pzng6T-transfer-turn-3",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_fQmwb2Pzng6T",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, this is Tia with Site 360. I'm looking to see if you folks take Ultimate Insurance."
+    },
+    {
+      "role": "assistant",
+      "content": "I don't see Ultimate Insurance on our accepted list.  Is there maybe another name on the card, or a different plan name?"
+    },
+    {
+      "role": "user",
+      "content": "No, can I speak to a representative?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "id": "SCL_XWWGTzkhEAWF-transfer-turn-3",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "assertionMode": "strict",
+  "traceId": "SCL_XWWGTzkhEAWF",
+  "tags": [
+    "transfer",
+    "human-request",
+    "audit-driven",
+    "bucket:immediate_transfer",
+    "failure:policy_violation"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human. Promoted from audit cluster immediate_transfer:policy_violation: Caller requested human twice and was transferred after proper pushback."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, let me speak to a real person."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I'm actually an AI assistant helping with scheduling at Abita Eye Group.  I can book appointments right now -- what are you calling about?"
+    },
+    {
+      "role": "user",
+      "content": "Let me speak to a person—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "no_second_pushback",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

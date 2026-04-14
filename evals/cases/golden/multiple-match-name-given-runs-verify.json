@@ -1,0 +1,36 @@
+{
+  "id": "multiple-match-name-given-runs-verify-001",
+  "suite": "verification",
+  "source": "seed",
+  "tags": ["verification", "multiple-matches", "verify-tool"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "After agent asks for first name, caller gives one that matches a known match. Agent should call verify_patient with firstName + usePhone, NOT ask for last name or DOB yet, and NOT read back the other patient's name (HIPAA)."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I want to confirm an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Jane."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": ["verify_patient"],
+    "mustNotCallTools": [],
+    "mustNotSay": ["Kyle", "date of birth", "last name"],
+    "policyFlags": ["narrow_with_first_name_only", "do_not_read_back_known_names"],
+    "styleFlags": ["concise"]
+  }
+}

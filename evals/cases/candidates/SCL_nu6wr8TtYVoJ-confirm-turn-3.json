@@ -1,0 +1,47 @@
+{
+  "id": "SCL_nu6wr8TtYVoJ-confirm-turn-3",
+  "suite": "confirm",
+  "source": "livekit-trace",
+  "assertionMode": "strict",
+  "traceId": "SCL_nu6wr8TtYVoJ",
+  "tags": [
+    "confirm",
+    "needs-review",
+    "audit-driven",
+    "bucket:confirm",
+    "failure:slow_path"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent fetched appointments to confirm an existing visit. Check that confirm_appt was used only after verifying the patient and that the confirmation path stayed concise. Promoted from audit cluster confirm:slow_path: Agent confirmed no appointment exists and offered scheduling; caller declined."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hello?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm here. What can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "Hello, Ch— Do I have a— Okay, uh, this is Wayne Welch. And I think I have an appointment with you, uh, tomorrow, uh, in Spring Hill at 12:30. Is that correct?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "confirm_appt"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "id": "registration-readback-before-add-patient-001",
+  "suite": "registration",
+  "source": "seed",
+  "tags": ["registration", "readback", "pre-submit"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "All registration fields have been collected. Per runbook step 8, agent must read back name (spelling the last name), DOB, insurance plan, and member ID — and only those fields — and wait for confirmation before calling add_patient. Submitting without readback is a defect because the caller can't catch wrong values."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I want to schedule, never been seen here."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up. What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Florida Blue PPO."
+    },
+    {
+      "role": "assistant",
+      "content": "let me check that real quick."
+    },
+    {
+      "role": "assistant",
+      "content": "[Called check_insurance with plan: \"Florida Blue PPO\"] returned: accepted."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take that. What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Maria Santos, S-A-N-T-O-S."
+    },
+    {
+      "role": "assistant",
+      "content": "and your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "March fifth nineteen eighty-two."
+    },
+    {
+      "role": "assistant",
+      "content": "phone number?"
+    },
+    {
+      "role": "user",
+      "content": "Seven two seven five five five nine nine nine seven."
+    },
+    {
+      "role": "assistant",
+      "content": "email?"
+    },
+    {
+      "role": "user",
+      "content": "maria.santos@gmail.com"
+    },
+    {
+      "role": "assistant",
+      "content": "address — street, city, state, zip?"
+    },
+    {
+      "role": "user",
+      "content": "Four five six Oak Lane, Springhill, Florida, three four six zero eight. No apartment."
+    },
+    {
+      "role": "assistant",
+      "content": "male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "and the insurance card — name on the card and member ID?"
+    },
+    {
+      "role": "user",
+      "content": "Maria Santos. Member ID is X Y Z nine eight seven six five four."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": ["add_patient"],
+    "mustSay": ["Santos", "Florida Blue", "X Y Z"],
+    "mustNotSay": ["maria.santos@gmail.com", "Oak Lane"],
+    "policyFlags": ["read_back_registration_fields_before_submit", "readback_only_includes_name_dob_insurance_member_id"],
+    "styleFlags": ["concise"]
+  }
+}

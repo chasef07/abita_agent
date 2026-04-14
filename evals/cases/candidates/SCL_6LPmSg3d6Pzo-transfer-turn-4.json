@@ -1,0 +1,55 @@
+{
+  "id": "SCL_6LPmSg3d6Pzo-transfer-turn-4",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "assertionMode": "strict",
+  "traceId": "SCL_6LPmSg3d6Pzo",
+  "tags": [
+    "transfer",
+    "audit-driven",
+    "bucket:confirm",
+    "failure:wrong_tool"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human. Promoted from audit cluster confirm:wrong_tool: Caller’s request to confirm surgery date was transferred appropriately."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, yes, I'm calling for William Anderson. He's scheduled to have surgery on his eyelids in May. I wanted to verify it was— Um—"
+    },
+    {
+      "role": "assistant",
+      "content": "Can I get your first name so I can pull up his record?"
+    },
+    {
+      "role": "user",
+      "content": "William?"
+    },
+    {
+      "role": "assistant",
+      "content": "Hey William, I see you've got two post-op appointments coming up -- one on Wednesday April twenty-ninth at two p m, and another on Tuesday May fifth at one p m, both with Dr. Licht.  Were you looking to confirm the surgery date itself, or one of these follow-ups?"
+    },
+    {
+      "role": "user",
+      "content": "Um— I was looking for the surgery date."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}
