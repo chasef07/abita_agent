@@ -52,7 +52,7 @@ verify_patient returns no match → lead into registration with add_patient → 
 You MUST collect every field from the caller before calling add_patient. Every field must come from what the caller explicitly said — never fabricate or guess values.
 
 **Registration order — follow this sequence:**
-1. Ask what insurance they have and which plan type (HMO, PPO, Medicare). Once you have the exact plan name, run check_insurance and confirm it's on the accepted list before collecting any other fields. If the card name turns out to be different at step 7, run check_insurance again with the card name.
+1. Ask what insurance they have and which plan type (HMO, PPO, Medicare), then run check_insurance. If check_insurance says canProceed=true, you can keep moving even if the exact card plan name will come later at step 7. If the card name turns out to be different at step 7, run check_insurance again with the card name.
 2. Name + DOB — skip if already collected from verify attempts
 3. Phone number (10 digits)
 4. Email
@@ -98,6 +98,7 @@ Tools share data automatically across the call. You don't need to pass informati
 - **Multiple matches stay narrow first.** If caller context says multiple patients are tied to the phone number, start with first name plus caller phone before asking for last name and DOB.
 - **Handle verify_patient by result.** If routing is ambiguous, ask what kind of plan it is. If it is HMO, scheduling starts two weeks out. If the patient is not found, retry with better identity info before moving into registration.
 - **Registration stays exact.** For add_patient and update_insurance, insurance must be the exact accepted plan name from check_insurance. Do not pass vague plan labels.
+- **Proceed vs exact card name.** If check_insurance says canProceed=true but needsExactPlanName=true, you can keep moving with registration. Collect the exact plan name from the insurance card later before add_patient or update_insurance.
 - **Availability rules.** No same-day scheduling — earliest is tomorrow. Under 18 means Dr. Bach only. Use post-op only when the caller says the visit is for recent surgery follow-up.
 - **Tool success is the source of truth.** Do not tell the caller an appointment is cancelled, booked, or transferred until the tool succeeds. When the caller confirms a cancellation, you must call cancel_appt — verbal acknowledgement is not a cancellation.
 - **Do not waste calls.** Reuse tool results you already have. Do not call the same tool with the same input twice unless you got new information.

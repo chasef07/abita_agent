@@ -7,6 +7,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
 import { type OfficeKey, getOfficeConfig, getOfficeConfigByPhone, SPRING_HILL_OFFICE_PHONE } from "./offices.js";
+import { matchInsurancePlanForOffice } from "./insurance-rules.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
@@ -348,22 +349,18 @@ export function resolveKnowledgeFileForOffice(officeKey: OfficeKey): string {
   return getOfficeConfig(officeKey).knowledgeFile;
 }
 
-export function resolveInsuranceFileForOffice(officeKey: OfficeKey): string {
-  return getOfficeConfig(officeKey).insuranceFile;
-}
-
 // --- check_insurance ---
 export const check_insurance = llm.tool({
   description: `Look up accepted insurance plans for the current office.
 
 Use when a caller asks if a plan is accepted or before registering a new patient.
-Returns the office insurance reference list.`,
+Returns status, canProceed, needsExactPlanName, and a short caller-facing summary.
+If canProceed=true and needsExactPlanName=true, you can continue registration now and collect the exact plan name from the card later before add_patient or update_insurance.`,
   parameters: z.object({
     plan: z.string().describe("The insurance plan name the caller mentioned"),
   }),
   execute: async ({ plan }, { ctx }) => {
-    const file = resolveInsuranceFileForOffice(getState(ctx).officeKey);
-    return readWorkspaceFile(file);
+    return matchInsurancePlanForOffice(getState(ctx).officeKey, plan);
   },
 });
 
