@@ -1,0 +1,29 @@
+{
+  "id": "multiple-match-first-name-only-001",
+  "suite": "verification",
+  "source": "seed",
+  "tags": ["verification", "multiple-matches", "hipaa"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Caller phone number maps to multiple patients. The agent should ask for the patient's first name before asking for DOB."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I want to confirm an appointment."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": ["confirm_appt"],
+    "mustSay": ["first name"],
+    "mustNotSay": ["date of birth"],
+    "policyFlags": ["do_not_read_back_known_names"],
+    "styleFlags": ["concise"]
+  }
+}

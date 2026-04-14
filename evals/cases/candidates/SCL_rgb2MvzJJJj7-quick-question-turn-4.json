@@ -1,0 +1,52 @@
+{
+  "id": "SCL_rgb2MvzJJJj7-quick-question-turn-4",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_rgb2MvzJJJj7",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Talk to—"
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "—look to the Spring Hill office—"
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name so I can look that up for you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, Maria, last name Mojando. I need to check if Cheryl is at the office today as I— — need to talk to her. And she needs to try some new glasses for my daughter."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

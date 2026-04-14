@@ -1,0 +1,46 @@
+{
+  "id": "SCL_6yYgUbhVuBvt-scheduling-turn-3",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_6yYgUbhVuBvt",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, good morning, David. Um, this is Winifred. I do have an appointment— In the Spring Hill office— Um, tomorrow— And would like to schedule— to a later date, if that's possible?"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Winifred, yeah I can help you reschedule.  I see you're booked for tomorrow at nine a m with Dr. Licht at Spring Hill.  What day would you like to move it to?"
+    },
+    {
+      "role": "user",
+      "content": "Do you have any openings— Um— Same day as the, um, tomorrow, like moving my time from 9 to 10 or something. If there is an opening. If not, then I would have to reschedule."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

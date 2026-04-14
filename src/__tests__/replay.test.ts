@@ -3,7 +3,7 @@
  * Replays real call scenarios through the agent with modified prompts
  * to verify that prompt changes actually fix the identified issues.
  *
- * Uses: real LLM (inference.LLM) + mock tools (no API calls).
+ * Uses: production Baseten agent stack + GPT semantic judge + mock tools.
  * Run: npx vitest run src/__tests__/replay.test.ts
  */
 
@@ -120,7 +120,7 @@ describe("fabricated registration prevention", () => {
     if (lastMessage && lastMessage.type === "message") {
       await result.expect
         .containsMessage({ role: "assistant" })
-        .judge(ctx.llm, {
+        .judge(ctx.judgeLlm, {
           intent:
             "The agent should be asking the caller a question to continue collecting information for registration. It should NOT say the patient is registered, 'all set', or that registration is complete.",
         });
@@ -206,10 +206,12 @@ describe("transfer on insistence", () => {
     expect(transferCalls).toHaveLength(0);
 
     // Should ask what they're calling about
-    await result.expect.containsMessage({ role: "assistant" }).judge(ctx.llm, {
-      intent:
-        "The agent should ask what the caller needs help with before transferring. It should not immediately transfer on the first request.",
-    });
+    await result.expect
+      .containsMessage({ role: "assistant" })
+      .judge(ctx.judgeLlm, {
+        intent:
+          "The agent should ask what the caller needs help with before transferring. It should not immediately transfer on the first request.",
+      });
   });
 });
 
@@ -265,10 +267,12 @@ describe("new patient registration flow", () => {
       .run({ userInput: "OK sounds good." })
       .wait();
 
-    await result.expect.containsMessage({ role: "assistant" }).judge(ctx.llm, {
-      intent:
-        "The agent should be asking about insurance as the first step of registration. It should ask what insurance the caller has.",
-    });
+    await result.expect
+      .containsMessage({ role: "assistant" })
+      .judge(ctx.judgeLlm, {
+        intent:
+          "The agent should be asking about insurance as the first step of registration. It should ask what insurance the caller has.",
+      });
   });
 });
 

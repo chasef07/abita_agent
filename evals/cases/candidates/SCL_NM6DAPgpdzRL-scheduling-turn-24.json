@@ -1,0 +1,213 @@
+{
+  "id": "SCL_NM6DAPgpdzRL-scheduling-turn-24",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_NM6DAPgpdzRL",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, yes, how are you? I am calling on behalf of a parent that does not speak English. I'm calling from the Florida Department of Health, and she was trying to secure an evaluation for her baby."
+    },
+    {
+      "role": "assistant",
+      "content": "hey, I'm doing well, thanks.  So you're calling to schedule an eye evaluation for a baby, and the parent doesn't speak English -- I can help with that.  Has the baby been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, let me get them set up.  What insurance do they have?"
+    },
+    {
+      "role": "user",
+      "content": "They have Oscar."
+    },
+    {
+      "role": "assistant",
+      "content": "and which Oscar plan is it -- is it an HMO, PPO, or a Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "It is— The bronze elite—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Oscar Health.  What's the baby's name?"
+    },
+    {
+      "role": "user",
+      "content": "Okay. The baby's name is Davi— D-A-V-I— The I— Monteiro— Am— O— an— T— E-R-O— von Sekka. F-O-N— S-E-C-A."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Davi Monteiro von Sekka.  What's the date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "Mm-hmm."
+    },
+    {
+      "role": "assistant",
+      "content": "what's the baby's date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "The mes— Mamãe, pera aí só um pouquinho."
+    },
+    {
+      "role": "assistant",
+      "content": "no rush, take your time."
+    },
+    {
+      "role": "user",
+      "content": "OK, qual que é a data de— Okay, here it is. September— 30th— 2025?"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, September thirtieth, twenty twenty-five.  What's the best phone number to reach the parent?"
+    },
+    {
+      "role": "user",
+      "content": "It is 772— 6— 6, 7— 1, 9, 4— 5, 4—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's the email address?"
+    },
+    {
+      "role": "user",
+      "content": "Viviani— Ponceca— USA— V-I-V-I— A— M— E— F-O-N— Is— E— C-A— USA— @gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "ok. What's the street address?"
+    },
+    {
+      "role": "user",
+      "content": "They, uh, address— Is— 1400— Lakeville Road in Clearwater, Florida, 33756."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and is the baby male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Mayo—"
+    },
+    {
+      "role": "assistant",
+      "content": "male, got it. Now for the insurance card -- what's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, his name is in the card."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "O-S-C— 7, 6— 8, 4— 0, 4— 19-04."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Davi Monteiro von Sekka, last name spelled M-O-N-T-E-I-R-O V-O-N S-E-K-K-A, date of birth"
+    },
+    {
+      "role": "user",
+      "content": "Not I. No, no, I—"
+    },
+    {
+      "role": "assistant",
+      "content": "oh, sorry -- let me get that right.  How do you spell the last name?"
+    },
+    {
+      "role": "user",
+      "content": "That's okay."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, just want to make sure I have it right.  Can you spell the last name for me?"
+    },
+    {
+      "role": "user",
+      "content": "Correct. M-O-N— M-O-N— T-E-R— O—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, M-O-N-T-E-R-O."
+    },
+    {
+      "role": "user",
+      "content": "— von Sekke."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and how do you spell von Sekke?"
+    },
+    {
+      "role": "user",
+      "content": "Von Sekke, F— Oh, eh— And— S— E— C— A—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, F-O-N-S-E-C-A.  So the full last name is Monteiro Fonseca?"
+    },
+    {
+      "role": "user",
+      "content": "Correct."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect. So let me confirm -- I have Davi Monteiro Fonseca, M-O-N-T-E-I-R-O F-O-N-S-E-C-A, date of birth September thirtieth, twenty twenty-five, Oscar Health, member ID O-S-C seven six eight four zero four one nine zero four.  Does that all look right?"
+    },
+    {
+      "role": "user",
+      "content": "Correct."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, they're all set.  What's the reason for the visit?"
+    },
+    {
+      "role": "user",
+      "content": "They need an, uh, ophthalmologic— Evaluation— That's what the referrals say."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what day works for them?"
+    },
+    {
+      "role": "user",
+      "content": "Uh— When is the next— you have an afternoon."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

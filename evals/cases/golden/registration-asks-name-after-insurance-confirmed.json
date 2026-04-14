@@ -1,0 +1,56 @@
+{
+  "id": "registration-asks-name-after-insurance-confirmed-001",
+  "suite": "registration",
+  "source": "seed",
+  "tags": ["registration", "field-order", "post-insurance"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Insurance has been confirmed accepted. Per runbook step 2, the next field is name + DOB. Agent should not yet call add_patient, should not jump ahead to phone/address/etc, and should not waste a turn re-confirming insurance."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I want to schedule an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that. Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No, this is my first time."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up. What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Florida Blue PPO."
+    },
+    {
+      "role": "assistant",
+      "content": "let me check that real quick."
+    },
+    {
+      "role": "assistant",
+      "content": "[Called check_insurance with plan: \"Florida Blue PPO\"] returned: Florida Blue PPO is on the accepted list."
+    },
+    {
+      "role": "user",
+      "content": "Great."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": ["add_patient", "check_insurance"],
+    "mustSay": ["name"],
+    "policyFlags": ["follow_registration_field_order"],
+    "styleFlags": ["concise"]
+  }
+}

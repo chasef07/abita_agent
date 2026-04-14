@@ -1,0 +1,27 @@
+{
+  "id": "language-spanish-mid-call-001",
+  "suite": "language",
+  "source": "seed",
+  "tags": ["language", "spanish", "switch"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Caller responds in Spanish after the English greeting. Agent should switch to Spanish for the rest of the turn. Best evaluated with the LLM rubric (responds_in_spanish)."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hola, necesito hacer una cita para un examen de la vista."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": ["verify_patient"],
+    "policyFlags": ["match_caller_language"],
+    "styleFlags": ["responds_in_spanish", "concise"]
+  }
+}

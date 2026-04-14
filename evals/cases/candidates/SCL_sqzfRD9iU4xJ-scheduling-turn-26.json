@@ -1,0 +1,229 @@
+{
+  "id": "SCL_sqzfRD9iU4xJ-scheduling-turn-26",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_sqzfRD9iU4xJ",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, good afternoon. I was trying to see if you guys are taking new patients."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we are, I can get you scheduled.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "Mm, no, it wouldn't be my first time."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "First— Hello, first of all, do you have a— yeah. Oscar, do you think— Oscar?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, Oscar -- what type of Oscar plan is it?  Is it an HMO, PPO, or Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "Um—"
+    },
+    {
+      "role": "assistant",
+      "content": "no"
+    },
+    {
+      "role": "user",
+      "content": "Oh— Where can I find that information? Should— should it be on the card, right?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah it should be on the front of your card, usually right under the plan name.  Take your time and let me know what you see."
+    },
+    {
+      "role": "user",
+      "content": "Under my name— It only says— Um, bro— Bronzeville Classic Standards. BCS—"
+    },
+    {
+      "role": "assistant",
+      "content": "I see Oscar Health on our list, but I'm not seeing Bronzeville Classic Standards specifically.  Do you see anything else on the card that might say HMO, PPO, or just Oscar Health?"
+    },
+    {
+      "role": "user",
+      "content": "Joseph's core—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, let me just check with Oscar Health in general.  Yeah we do accept Oscar Health plans.  So I can get you scheduled with that.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Evelyn Gonzalez— Petrus."
+    },
+    {
+      "role": "assistant",
+      "content": "ok Evelyn Gonzalez Petrus.  What's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "April 5th, 1998."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's your phone number?"
+    },
+    {
+      "role": "user",
+      "content": "A134628841."
+    },
+    {
+      "role": "assistant",
+      "content": "that doesn't look like a 10-digit phone number.  Can you give me your cell phone number with the area code?"
+    },
+    {
+      "role": "user",
+      "content": "A13— 4, 6, 2— 8, 8— 4, 1—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm only getting a few numbers there.  Let me try -- did you say 4-6-2-8-8-4-1?  I need the full 10-digit number including the area code.  Can you read it to me one more time?"
+    },
+    {
+      "role": "user",
+      "content": "8, 1— 3— 4, 6— to—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm having trouble catching all the numbers.  Let me try this -- is it 8-1-3-4-6-2-8-8-4-1?"
+    },
+    {
+      "role": "user",
+      "content": "8, 8— Hello."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I'm here. So is your phone number 8-1-3-4-6-2-8-8-4-1?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "Evelyn— That— Gonzalez— 1, 4— @gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "ok got it. What's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "3, 3, 6, 5 Agar Avenue. Spring Hill, Florida— 3, 4, 6, 0, 9."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's your sex -- male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and for your insurance card -- what's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Evelyn Gonzalez."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "7, 6— A6— 4, 1— 6, 9— 0, 2—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm everything.  I have Evelyn Gonzalez Petrus, last name spelled P-E-T-R-U-S, date of birth April fifth nineteen ninety-eight, Oscar Health, member ID 7-6-A-6-4-1-6-9-0-2.  Does that all look right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, you're all set.  So what's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "I need to check— With a— —of a thermologist?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we have ophthalmologists here -- they're eye doctors who can do full medical eye exams.  Is that what you're looking for?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "great. What day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Next week—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, let me check availability for next week.  What's the reason for your visit -- is it for a specific concern like blurry vision, or just a routine eye exam?"
+    },
+    {
+      "role": "user",
+      "content": "Blurry vision due to a burn— skin burn."
+    },
+    {
+      "role": "assistant",
+      "content": "I've got an opening next week on Tuesday April 21st at 9:30 a m with Dr. Licht.  Does that work for you?"
+    },
+    {
+      "role": "user",
+      "content": "No—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

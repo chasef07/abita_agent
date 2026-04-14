@@ -1,0 +1,87 @@
+name: Nightly eval improvement loop
+
+on:
+  schedule:
+    # 02:30 UTC on weekdays — runs the full audit + promptfoo loop
+    - cron: "30 2 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      variants:
+        description: "Number of prompt variants to propose"
+        required: false
+        default: "3"
+      hours:
+        description: "How many hours of recent calls to sync"
+        required: false
+        default: "24"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install psql
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Run optimization loop
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BASETEN_API_KEY: ${{ secrets.BASETEN_API_KEY }}
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+          LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+        run: |
+          npx tsx evals/scripts/optimize-nightly.ts \
+            --variants "${{ github.event.inputs.variants || '3' }}" \
+            --hours "${{ github.event.inputs.hours || '24' }}" \
+            --promote
+
+      - name: Open PR with nightly eval changes
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: optimize/nightly-eval-loop
+          delete-branch: true
+          add-paths: |
+            workspace/
+            evals/cases/candidates/
+            evals/output/history.jsonl
+            evals/output/audit-report.html
+            evals/output/tool-recommendations.md
+          commit-message: "evals: nightly audit and prompt loop"
+          title: "evals: nightly audit and prompt loop"
+          body: |
+            Automated nightly eval loop completed.
+
+            Review the committed artifacts:
+            - `evals/output/audit-report.html`
+            - `evals/output/tool-recommendations.md`
+            - `evals/output/history.jsonl`
+            - `evals/cases/candidates/`
+
+            `workspace/` changes are present only when a prompt variant passed the
+            winner gates and was promoted. Candidate/report-only PRs are still
+            useful: they surface new production-shaped failures and tool-layer work.
+          labels: |
+            evals
+            automated

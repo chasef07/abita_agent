@@ -1,0 +1,44 @@
+{
+  "id": "book-appt-readback-required-001",
+  "suite": "scheduling",
+  "source": "seed",
+  "tags": ["scheduling", "readback", "confirmation"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "verified",
+    "notes": "Agent has just received availability and is about to book. Runbook says read back date, time, and doctor before calling book_appt. The caller has not yet confirmed the slot, so book_appt is forbidden this turn."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi this is Jane, I need a follow-up appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Tomorrow if you have anything."
+    },
+    {
+      "role": "assistant",
+      "content": "[Called get_availability] returned: Tuesday April 14 at 9:30 AM with Dr. Noel"
+    },
+    {
+      "role": "user",
+      "content": "Sounds good."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": ["book_appt"],
+    "mustSay": ["nine thirty"],
+    "policyFlags": ["read_back_appointment_before_booking"],
+    "styleFlags": ["concise"]
+  }
+}

@@ -142,7 +142,12 @@ Returns verification status, patient identity, and routing data.`,
     }),
     execute: async (args) => {
       log.push({ name: "verify_patient", args });
-      return config.verifyResult ?? DEFAULT_VERIFY_NOT_FOUND;
+      if (config.verifyResult) return config.verifyResult;
+      // Multi-match phone narrow with usePhone=true → simulate successful match
+      if (args.usePhone === true && !args.lastName && !args.dob) {
+        return DEFAULT_VERIFY_FOUND;
+      }
+      return DEFAULT_VERIFY_NOT_FOUND;
     },
   });
 

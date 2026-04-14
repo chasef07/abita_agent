@@ -9,7 +9,11 @@ import { join } from "path";
 import type { PhoneLookupResult } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 
-const WORKSPACE = join(import.meta.dirname, "..", "workspace");
+const WORKSPACE = join(
+  import.meta.dirname,
+  "..",
+  process.env.PROMPT_WORKSPACE || "workspace",
+);
 
 /** Office-specific routing hints injected into the per-call context block.
  *  Lives here (not RUNBOOK) so each office only sees rules that apply to it.

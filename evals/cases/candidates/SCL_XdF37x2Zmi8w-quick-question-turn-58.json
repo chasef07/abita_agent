@@ -1,0 +1,484 @@
+{
+  "id": "SCL_XdF37x2Zmi8w-quick-question-turn-58",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_XdF37x2Zmi8w",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, yes, I need to make a new patient appointment, please."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Oscar?"
+    },
+    {
+      "role": "assistant",
+      "content": "and which Oscar plan -- is it an HMO, PPO, or Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "Um, it— Is—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time.  Is it an HMO, PPO, or Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "I don't know. I'll have to check."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah no problem. If you can check your insurance card, it should say the plan type on there.  I'll hold while you look."
+    },
+    {
+      "role": "user",
+      "content": "It just says, um— Simple silver PCP saver."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Oscar"
+    },
+    {
+      "role": "user",
+      "content": "Nope. No referral required."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "First name is Jamie, J-A-I-M-E. Last name is Ligth, L-I-G-H-T."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "12, 31, 87."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's your phone number?"
+    },
+    {
+      "role": "user",
+      "content": "727— 698— 698— 5196."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "Jay Lynn— —light. — at iCloud.com?"
+    },
+    {
+      "role": "assistant",
+      "content": "and what's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "14280— Barley Grass Road."
+    },
+    {
+      "role": "assistant",
+      "content": "what city is that in?"
+    },
+    {
+      "role": "user",
+      "content": "Spring Hill—"
+    },
+    {
+      "role": "assistant",
+      "content": "what state?"
+    },
+    {
+      "role": "user",
+      "content": "Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "3, 4, 6, 0, 9."
+    },
+    {
+      "role": "assistant",
+      "content": "do you have an apartment or suite number?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "and are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's the name on the insurance card?"
+    },
+    {
+      "role": "user",
+      "content": "Jamie Light—"
+    },
+    {
+      "role": "assistant",
+      "content": "and what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "O— S— B— 749— 09— 8— 7, 2— 01."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Jamie Light, L-I-G-H-T, date of birth December thirty-first nineteen eighty-seven, Oscar Health, member ID O S B seven four nine zero nine eight seven two zero one.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, no, the member ID is— O— As— These— C as in cat?"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, can you read the whole member ID again for me?"
+    },
+    {
+      "role": "user",
+      "content": "O— F—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead, I'm listening."
+    },
+    {
+      "role": "user",
+      "content": "O— Is—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm listening, go ahead."
+    },
+    {
+      "role": "user",
+      "content": "Okay, can you hear me?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can hear you.  Go ahead and read the member ID."
+    },
+    {
+      "role": "user",
+      "content": "O— S— B."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, O S B, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "No, not B. C. C as in cat."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, O S C."
+    },
+    {
+      "role": "user",
+      "content": "O— S— C."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, O S C, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "749—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, 749, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "0—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, 0, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "0—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, another 0, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "9—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, 9, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "We're gonna have to start over."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem, let's start fresh.  Go ahead and read the member ID one character at a time."
+    },
+    {
+      "role": "user",
+      "content": "O—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, O, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "F—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, F, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "No, not at—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, O, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "Oh my God."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time.  Just read it slowly and I'll get it."
+    },
+    {
+      "role": "user",
+      "content": "Mm-hmm."
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead whenever you're ready."
+    },
+    {
+      "role": "user",
+      "content": "Okay, let's— Start over. O—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, O, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "S—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, S, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "B."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, B, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "No, not B."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, what letter is it?"
+    },
+    {
+      "role": "user",
+      "content": "C, like cat."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, C, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "7."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, 7, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "4."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, 4, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "9."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, 9, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "0—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, 0, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "9."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, 9, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "8."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, 8, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "7."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, 7, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "2."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, 2, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "0."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, 0, what's next?"
+    },
+    {
+      "role": "user",
+      "content": "1."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Jamie Light, L-I-G-H-T, date of birth December thirty-first nineteen eighty-seven, Oscar Health, member ID O S C seven four nine zero nine eight seven two zero one.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, you're all set.  So what's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "Eye exam?"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Um—"
+    },
+    {
+      "role": "assistant",
+      "content": "no rush, just let me know what day you're thinking."
+    },
+    {
+      "role": "user",
+      "content": "Do you have any appointments— Tomorrow—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I've got a nine fifteen a m slot with Dr. Licht tomorrow morning.  Does that work for you?"
+    },
+    {
+      "role": "user",
+      "content": "9:15 tomorrow morning."
+    },
+    {
+      "role": "assistant",
+      "content": "you're all set. You're confirmed for Tuesday April fourteenth at nine fifteen a m with Dr. Licht at Spring Hill.  Is there anything else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "Um, yes. Can you give me the full address?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

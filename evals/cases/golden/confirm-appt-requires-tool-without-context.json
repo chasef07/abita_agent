@@ -1,0 +1,27 @@
+{
+  "id": "confirm-appt-requires-tool-without-context-001",
+  "suite": "confirm",
+  "source": "curated-from-livekit-trace",
+  "tags": ["confirm", "no-context", "tool-required"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Caller names themselves and asks whether an appointment exists tomorrow. Without preloaded appointment context, the agent must use confirm_appt before reading back or denying appointment details."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hello, this is Wayne Welch. I think I have an appointment with you tomorrow in Spring Hill at 12:30. Is that correct?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": ["confirm_appt"],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": ["concise"]
+  }
+}

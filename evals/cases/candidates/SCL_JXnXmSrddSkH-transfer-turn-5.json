@@ -1,0 +1,60 @@
+{
+  "id": "SCL_JXnXmSrddSkH-transfer-turn-5",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_JXnXmSrddSkH",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Oh, David, my name is Silvio Colon. I was in your office about— Uh, a week ago— And the, uh— Maybe a week and a half. And, uh, they sent me, uh— — and persuasion through the, uh— — full green. And, uh— I lost it. I lost the, um—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Silvio, I can help with that.  Let me get you verified first -- can I get your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "The— Please."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem, what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "September 8th, 1946."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, I found you.  So you're looking for a copy of your prescription, is that right?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, no, you could send it to the, uh, Walgreens."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

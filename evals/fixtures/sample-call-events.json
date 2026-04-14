@@ -1,0 +1,63 @@
+[
+  {
+    "callId": "call-routing-001",
+    "officePhone": "+13523202007",
+    "data": {
+      "phoneLookupStatus": "no_match",
+      "turns": [
+        {
+          "turn": 1,
+          "callerText": "I need to schedule my daughter for a cataract evaluation.",
+          "agentText": "yeah I can help with that.",
+          "toolCalls": [
+            {
+              "name": "route_to_spring_hill",
+              "args": {}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "callId": "call-multiple-match-001",
+    "officePhone": "+17275919997",
+    "data": {
+      "phoneLookupStatus": "multiple_matches",
+      "turns": [
+        {
+          "turn": 1,
+          "callerText": "I need to schedule an appointment.",
+          "agentText": "I see a few patients associated with this number, can I get the patient's first name?",
+          "toolCalls": []
+        }
+      ]
+    }
+  },
+  {
+    "callId": "call-transfer-001",
+    "officePhone": "+17275919997",
+    "data": {
+      "phoneLookupStatus": "verified",
+      "turns": [
+        {
+          "turn": 1,
+          "callerText": "Live representative.",
+          "agentText": "I can book appointments right now — let's get you scheduled.",
+          "toolCalls": []
+        },
+        {
+          "turn": 2,
+          "callerText": "I want a real person.",
+          "agentText": "let me transfer you over to the office.",
+          "toolCalls": [
+            {
+              "name": "transfer_call",
+              "args": {}
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

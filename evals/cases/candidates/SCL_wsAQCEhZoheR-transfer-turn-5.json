@@ -1,0 +1,62 @@
+{
+  "id": "SCL_wsAQCEhZoheR-transfer-turn-5",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_wsAQCEhZoheR",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Are you a real person?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping with scheduling at Abita Eye Group.  I'm just here to help get you scheduled -- what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "Could I speak to a person? Could I speak to someone?"
+    },
+    {
+      "role": "assistant",
+      "content": "would you mind telling me what you're calling about?"
+    },
+    {
+      "role": "user",
+      "content": "I'm calling about an appointment, but I would like to speak to a real person."
+    },
+    {
+      "role": "assistant",
+      "content": "I can book appointments right now -- let's get you"
+    },
+    {
+      "role": "user",
+      "content": "I don't think it's an endpoint. No, I'm not booking an appointment. I'd like to speak to someone."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "no_second_pushback",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

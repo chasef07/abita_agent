@@ -1,0 +1,205 @@
+{
+  "id": "SCL_HBQx8FimhbJd-scheduling-turn-23",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_HBQx8FimhbJd",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "David, this is Debbie Howard, and I'm a patient— Um, of Dr. Creekmore in, um— She works for Suncoast Eye Clinic, but when I went to her, she told me— — that I have probably a blocked tear duct. And they don't do that, and she recommended— Did I call you—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Debbie, yeah so let me clarify -- are you looking to schedule an appointment here for that blocked tear duct issue?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, because, um, like I said, she's my ophthalmologist, and she told me— That she didn't see anything wrong with my eyelids or eyelashes or anything like that. She thinks it could be— — tear duct, and she said, Dr. Lick— She gave me his name and phone number. He's the one that I need to call."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. So Dr. Creekmore referred you to Dr. Lick for the blocked tear duct, and you're looking to schedule with him here at Abita Eye Group?  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "Hmm—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, just checking.  So you'd be a new patient here then, right?"
+    },
+    {
+      "role": "user",
+      "content": "But I want to tell you— but I want to tell you something. She said he has an office in Crystal River because I'm in Citrus County. And I would like to see the office in Crystal River."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I can help you with that.  Let me get you registered as a new patient.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Oh— I have Humana PPO, and I just called them, and they said that you're in the network."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, we take Humana PPO.  What's your full name?"
+    },
+    {
+      "role": "user",
+      "content": "Debra— D-E-B-R-A— Howard— H-O-W-A-R-D."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. And what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "September 30— 1952."
+    },
+    {
+      "role": "assistant",
+      "content": "alright. What's the best phone number to reach you?"
+    },
+    {
+      "role": "user",
+      "content": "352. 4— 6— 4— 3, 5— 6, 8—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "Why do you need the email?"
+    },
+    {
+      "role": "assistant",
+      "content": "so we can send you appointment reminders and any paperwork you might need before your visit."
+    },
+    {
+      "role": "user",
+      "content": "Okay, I just don't like to get a lot of junk. My email is Debbie— D-E-B-B-I-E—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it. And what's"
+    },
+    {
+      "role": "user",
+      "content": "A is an— Eh— Wait, let me finish telling you. It's Debbie— A is an apple. Howard— @gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "1811— West— Country Club— Boulevard— Citrus Springs— Florida. 3, 4— 4, 3, 4."
+    },
+    {
+      "role": "assistant",
+      "content": "alright. And are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Am I talking to an AI guy? Are you at AI—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping with scheduling at Abita Eye Group.  I'm just here to help get you scheduled -- so are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "I must— Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, just need to know for your record -- are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. Now I need the info from your insurance card.  What's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Debra— D-E-B-R-A— A is in apple. Howard— H-O-W-A-R-D."
+    },
+    {
+      "role": "assistant",
+      "content": "alright. And what's your member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "I think— H as in Henry— 7, 1, 7— 2, 8, 0— 7, 2—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Debra Howard, H-O-W-A-R-D, date of birth September thirtieth, nineteen fifty-two, Humana PPO, member ID H seven one seven two eight zero seven two.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "That's correct."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, you're all set.  So what's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "I was referred to you because I have a block— — tear duct, I think."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "You—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, what day were you thinking?"
+    },
+    {
+      "role": "user",
+      "content": "Well, what day do you have?"
+    },
+    {
+      "role": "assistant",
+      "content": "let me check what's available.  What's the"
+    },
+    {
+      "role": "user",
+      "content": "Well— How— How soon could— How's— How soon can I come in?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

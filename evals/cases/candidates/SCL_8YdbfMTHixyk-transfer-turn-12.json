@@ -1,0 +1,121 @@
+{
+  "id": "SCL_8YdbfMTHixyk-transfer-turn-12",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "assertionMode": "strict",
+  "traceId": "SCL_8YdbfMTHixyk",
+  "tags": [
+    "transfer",
+    "human-request",
+    "audit-driven",
+    "bucket:immediate_transfer",
+    "failure:slow_path"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human. Promoted from audit cluster immediate_transfer:slow_path: Caller was transferred after agent exhausted scheduling options and answered questions."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Receptionist, please."
+    },
+    {
+      "role": "assistant",
+      "content": "I can help you right here -- what do you need?"
+    },
+    {
+      "role": "user",
+      "content": "I need to— Talk about an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "sure, can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Debra?"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Debra, I see you're on the schedule for Tuesday May fifth at twelve p m with Dr. Licht.  What did you want to do with that appointment?"
+    },
+    {
+      "role": "user",
+      "content": "I want to see if I can get one a little closer."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can look for something earlier.  What day were you thinking?"
+    },
+    {
+      "role": "user",
+      "content": "As soon as possible."
+    },
+    {
+      "role": "assistant",
+      "content": "I've got Thursday April twenty-third at ten a m with Dr. Bach.  That's about a week and a half earlier than your May fifth slot.  Would that work for you?"
+    },
+    {
+      "role": "user",
+      "content": "Who is Dr. Bach?"
+    },
+    {
+      "role": "assistant",
+      "content": "Dr. Austin Bach is one of our ophthalmologists here at Abita Eye Group.  Would you like to take that April twenty-third slot, or would you prefer to stick with Dr. Licht on May fifth?"
+    },
+    {
+      "role": "user",
+      "content": "I wanna stick— I want to stick with Dr. Licht."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. Let me check what Dr. Licht has available."
+    },
+    {
+      "role": "user",
+      "content": "Can I speak with someone in the office?"
+    },
+    {
+      "role": "assistant",
+      "content": "would you mind telling me what you're calling about?"
+    },
+    {
+      "role": "user",
+      "content": "I want to see if I can get my appointment moved up or if there's another— Doctor in the— firm that can do my same— — procedure earlier. Um, and not have to wait till May 4th— 5th?"
+    },
+    {
+      "role": "assistant",
+      "content": "I can help you with that.  I checked and Dr. Licht doesn't have anything earlier than your May fifth slot.  Dr. Bach does have openings on April twenty-third, but if you'd prefer to stick with Dr. Licht, your May fifth appointment is the earliest available with him."
+    },
+    {
+      "role": "user",
+      "content": "But didn't— Is Dr. Bach a surgeon?"
+    },
+    {
+      "role": "assistant",
+      "content": "Dr. Bach is an ophthalmologist here at the practice.  If you'd like to know more about what procedures he handles, the office would be better suited"
+    },
+    {
+      "role": "user",
+      "content": "I needed— I, I— I need a surgeon. Please let me talk with someone in the office."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "no_second_pushback",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

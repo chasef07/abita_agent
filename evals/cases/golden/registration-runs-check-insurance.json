@@ -1,0 +1,51 @@
+{
+  "id": "registration-runs-check-insurance-001",
+  "suite": "registration",
+  "source": "seed",
+  "tags": ["registration", "check-insurance-gate", "tool-order"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Caller has provided insurance carrier and plan type. Per runbook step 1, agent must run check_insurance to confirm acceptance before collecting any other registration fields. If the plan is not accepted, the rest of the flow is wasted work."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I want to schedule an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that. Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No, this is my first time."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up. What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Blue Cross."
+    },
+    {
+      "role": "assistant",
+      "content": "and which Blue Cross plan — is it an HMO, PPO, or Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "PPO."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": ["check_insurance"],
+    "mustNotCallTools": ["add_patient"],
+    "policyFlags": ["check_insurance_gate_before_collecting_other_fields"],
+    "styleFlags": ["concise"]
+  }
+}

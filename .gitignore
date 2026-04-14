@@ -12,4 +12,15 @@ package-lock.json
 skills/
 skills-lock.json
 
-# Generated reports are committed so PRs include analytics baseline
+# Local eval artifacts
+evals/cases/extracted/*.json
+evals/output/*.json
+.promptfoo/
+
+# Auto-generated prompt variants from propose-variants.ts
+workspace-v*/
+workspace-candidate*/
+
+# Note: evals/cases/candidates/ IS committed — it is the funnel target for the
+# nightly sync workflow and the staging area for human review before promotion
+# to evals/cases/golden/.

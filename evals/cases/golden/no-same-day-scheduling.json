@@ -1,0 +1,28 @@
+{
+  "id": "no-same-day-scheduling-001",
+  "suite": "scheduling",
+  "source": "seed",
+  "tags": ["scheduling", "policy", "earliest-tomorrow"],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "verified",
+    "notes": "Caller asks for an appointment today. Runbook says no same-day scheduling — earliest is tomorrow. Agent should explain and offer to check tomorrow."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi this is Jane, I'm having some eye irritation. Can I come in today?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": ["book_appt", "get_availability"],
+    "mustSay": ["tomorrow"],
+    "policyFlags": ["no_same_day_scheduling", "ask_reason_before_get_availability"],
+    "styleFlags": ["concise", "empathetic"]
+  }
+}
