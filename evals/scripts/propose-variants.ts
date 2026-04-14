@@ -13,7 +13,7 @@
  *
  * Env:
  *   OPENAI_API_KEY or ANTHROPIC_API_KEY required
- *   PROPOSER_PROVIDER       default "openai" when OPENAI_API_KEY is set, else "anthropic"
+ *   PROPOSER_PROVIDER       optional explicit override; otherwise inferred from model
  *   PROPOSER_MODEL          default gpt-4.1-mini or claude-sonnet-4-5 based on provider
  *   PROPOSER_EDIT_FILES     comma-separated list of workspace files the proposer may edit;
  *                           default "RUNBOOK.md,VOICE.md,SOUL.md"
@@ -47,12 +47,39 @@ import {
   writeJSON,
 } from "../lib/io.js";
 
-const PROPOSER_PROVIDER =
-  process.env.PROPOSER_PROVIDER ??
-  (process.env.OPENAI_API_KEY ? "openai" : "anthropic");
+function defaultProposerProvider(): "openai" | "anthropic" {
+  if (process.env.OPENAI_API_KEY) return "openai";
+  if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+  return "anthropic";
+}
+
+const PROPOSER_PROVIDER_OVERRIDE = process.env.PROPOSER_PROVIDER as
+  | "openai"
+  | "anthropic"
+  | undefined;
 const PROPOSER_MODEL =
   process.env.PROPOSER_MODEL ??
-  (PROPOSER_PROVIDER === "openai" ? "gpt-4.1-mini" : "claude-sonnet-4-5");
+  ((PROPOSER_PROVIDER_OVERRIDE ?? defaultProposerProvider()) === "openai"
+    ? "gpt-4.1-mini"
+    : "claude-sonnet-4-5");
+
+function inferProposerProvider(model: string): "openai" | "anthropic" {
+  const normalized = model.trim().toLowerCase();
+  if (normalized.startsWith("claude")) return "anthropic";
+  if (
+    normalized.startsWith("gpt") ||
+    normalized.startsWith("o1") ||
+    normalized.startsWith("o3") ||
+    normalized.startsWith("o4")
+  ) {
+    return "openai";
+  }
+  return process.env.OPENAI_API_KEY ? "openai" : "anthropic";
+}
+
+const PROPOSER_PROVIDER =
+  PROPOSER_PROVIDER_OVERRIDE ??
+  inferProposerProvider(PROPOSER_MODEL);
 const PROPOSER_MAX_TOKENS = 32000;
 const DEFAULT_EDITABLE_FILES = ["RUNBOOK.md", "VOICE.md", "SOUL.md"];
 

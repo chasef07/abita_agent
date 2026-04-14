@@ -35,14 +35,42 @@ import type {
 
 const REPO_ROOT = resolve(import.meta.dirname, "..", "..");
 const RUNBOOK_PATH = resolve(REPO_ROOT, "workspace", "RUNBOOK.md");
-const AUDIT_MODEL = process.env.AUDIT_MODEL ?? "claude-sonnet-4-5";
 const AUDIT_BATCH_SIZE = Number.parseInt(
   process.env.AUDIT_BATCH_SIZE ?? "5",
   10,
 );
-const AUDIT_PROVIDER =
-  process.env.AUDIT_PROVIDER ??
-  (process.env.OPENAI_API_KEY ? "openai" : "anthropic");
+
+function defaultAuditProvider(): "openai" | "anthropic" {
+  if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  return "anthropic";
+}
+
+const AUDIT_PROVIDER_OVERRIDE = process.env.AUDIT_PROVIDER as
+  | "openai"
+  | "anthropic"
+  | undefined;
+const AUDIT_MODEL =
+  process.env.AUDIT_MODEL ??
+  ((AUDIT_PROVIDER_OVERRIDE ?? defaultAuditProvider()) === "openai"
+    ? "gpt-4.1-mini"
+    : "claude-sonnet-4-5");
+
+function inferAuditProvider(model: string): "openai" | "anthropic" {
+  const normalized = model.trim().toLowerCase();
+  if (normalized.startsWith("claude")) return "anthropic";
+  if (
+    normalized.startsWith("gpt") ||
+    normalized.startsWith("o1") ||
+    normalized.startsWith("o3") ||
+    normalized.startsWith("o4")
+  ) {
+    return "openai";
+  }
+  return process.env.OPENAI_API_KEY ? "openai" : "anthropic";
+}
+
+const AUDIT_PROVIDER = AUDIT_PROVIDER_OVERRIDE ?? inferAuditProvider(AUDIT_MODEL);
 
 interface Args {
   hours: number;
