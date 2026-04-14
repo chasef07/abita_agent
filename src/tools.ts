@@ -6,12 +6,19 @@ import { SipClient } from "livekit-server-sdk";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
-import { type OfficeKey, getOfficeConfig, getOfficeConfigByPhone, SPRING_HILL_OFFICE_PHONE } from "./offices.js";
+import {
+  type OfficeKey,
+  getOfficeConfig,
+  getOfficeConfigByPhone,
+  SPRING_HILL_OFFICE_PHONE,
+} from "./offices.js";
 import { matchInsurancePlanForOffice } from "./insurance-rules.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
-const BASE_URL = process.env.AMD_API_URL ?? "https://advancedmd-token-management-production.up.railway.app";
+const BASE_URL =
+  process.env.AMD_API_URL ??
+  "https://advancedmd-token-management-production.up.railway.app";
 const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
 let _sipClient: SipClient | undefined;
 function getSipClient(): SipClient {
@@ -89,8 +96,12 @@ export function getSpringHillOfficePhone(): string {
   return SPRING_HILL_OFFICE_PHONE;
 }
 
-export function getAmdOfficeForToolCall(state: Pick<CallState, "officeKey" | "amdOfficePhone">): string {
-  return state.amdOfficePhone || getOfficeConfig(state.officeKey).amdOfficePhone;
+export function getAmdOfficeForToolCall(
+  state: Pick<CallState, "officeKey" | "amdOfficePhone">,
+): string {
+  return (
+    state.amdOfficePhone || getOfficeConfig(state.officeKey).amdOfficePhone
+  );
 }
 
 /** Apply patient data from an API response, resetting all patient fields so nothing stale lingers. */
@@ -109,10 +120,17 @@ function applyPatientResult(state: CallState, result: any): void {
 }
 
 /** Pre-call phone lookup — called from main.ts before session starts. */
-export async function lookupByPhone(phone: string, trunkPhone: string): Promise<PhoneLookupResult> {
+export async function lookupByPhone(
+  phone: string,
+  trunkPhone: string,
+): Promise<PhoneLookupResult> {
   try {
     const office = getOfficeConfigByPhone(trunkPhone);
-    const data = await callApi("/api/patient-lookup", { phone }, office.amdOfficePhone) as any;
+    const data = (await callApi(
+      "/api/patient-lookup",
+      { phone },
+      office.amdOfficePhone,
+    )) as any;
     if (data.status === "verified") {
       return {
         status: "verified",
@@ -130,7 +148,11 @@ export async function lookupByPhone(phone: string, trunkPhone: string): Promise<
       };
     }
     if (data.status === "multiple_matches") {
-      return { status: "multiple_matches", message: data.message, matches: data.matches };
+      return {
+        status: "multiple_matches",
+        message: data.message,
+        matches: data.matches,
+      };
     }
     return null;
   } catch {
@@ -138,7 +160,11 @@ export async function lookupByPhone(phone: string, trunkPhone: string): Promise<
   }
 }
 
-async function callApi(path: string, body: Record<string, unknown>, office?: string): Promise<unknown> {
+async function callApi(
+  path: string,
+  body: Record<string, unknown>,
+  office?: string,
+): Promise<unknown> {
   if (office) {
     body.office = office;
   }
@@ -168,16 +194,35 @@ Otherwise pass firstName, lastName, and dob (MM/DD/YYYY).
 Returns verification status, patient identity, and routing data.`,
   parameters: z.object({
     firstName: z.string().describe("Patient's first name"),
-    lastName: z.string().optional().describe("Patient's last name (optional for multiple-match phone lookup)"),
-    dob: z.string().optional().describe("Patient's date of birth in MM/DD/YYYY format (optional for multiple-match phone lookup)"),
-    usePhone: z.boolean().optional().describe("Set true for multiple-match flow to verify by first name + caller phone number"),
+    lastName: z
+      .string()
+      .optional()
+      .describe(
+        "Patient's last name (optional for multiple-match phone lookup)",
+      ),
+    dob: z
+      .string()
+      .optional()
+      .describe(
+        "Patient's date of birth in MM/DD/YYYY format (optional for multiple-match phone lookup)",
+      ),
+    usePhone: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set true for multiple-match flow to verify by first name + caller phone number",
+      ),
   }),
   execute: async ({ firstName, lastName, dob, usePhone }, { ctx }) => {
     const body: Record<string, unknown> = { firstName };
     if (lastName) body.lastName = lastName;
     if (dob) body.dob = dob;
     if (usePhone) body.phone = getState(ctx).callerPhone;
-    const result = await callApi("/api/verify-patient", body, getAmdOfficeForToolCall(getState(ctx))) as any;
+    const result = (await callApi(
+      "/api/verify-patient",
+      body,
+      getAmdOfficeForToolCall(getState(ctx)),
+    )) as any;
     if (result?.patientId) {
       applyPatientResult(getState(ctx), result);
     }
@@ -200,17 +245,26 @@ Returns the created patient record and routing data.`,
     phone: z.string().describe("Cell phone number, 10 digits only"),
     email: z.string().describe("Email address"),
     street: z.string().describe("Street address"),
-    aptSuite: z.string().default("").describe("Apartment or suite number, empty string if none"),
+    aptSuite: z
+      .string()
+      .default("")
+      .describe("Apartment or suite number, empty string if none"),
     city: z.string().describe("City"),
     state: z.string().describe("State, 2-letter abbreviation"),
     zip: z.string().describe("Zip code"),
     sex: z.enum(["male", "female"]).describe("Patient's sex"),
     insurance: z.string().describe("Insurance carrier name"),
-    subscriberName: z.string().describe("Name of the person on the insurance policy"),
+    subscriberName: z
+      .string()
+      .describe("Name of the person on the insurance policy"),
     subscriberNum: z.string().describe("Insurance subscriber/member ID number"),
   }),
   execute: async (params, { ctx }) => {
-    const result = await callApi("/api/add-patient", params, getAmdOfficeForToolCall(getState(ctx))) as any;
+    const result = (await callApi(
+      "/api/add-patient",
+      params,
+      getAmdOfficeForToolCall(getState(ctx)),
+    )) as any;
     if (result?.patientId) {
       applyPatientResult(getState(ctx), result);
     }
@@ -233,19 +287,26 @@ Updates session routing and insurance state from the result.`,
   execute: async ({ insurance, subscriberName, subscriberNum }, { ctx }) => {
     const state = getState(ctx);
     if (!state.patientId) return "ERROR: No patient verified yet.";
-    const result = await callApi("/api/patient/update-insurance", {
-      patientId: state.patientId,
-      insPlanId: state.insPlanId ?? "",
-      respPartyId: state.respPartyId ?? "",
-      oldInsurance: state.insuranceCarrier ?? "",
-      insurance, subscriberName, subscriberNum,
-    }, getAmdOfficeForToolCall(state)) as any;
+    const result = (await callApi(
+      "/api/patient/update-insurance",
+      {
+        patientId: state.patientId,
+        insPlanId: state.insPlanId ?? "",
+        respPartyId: state.respPartyId ?? "",
+        oldInsurance: state.insuranceCarrier ?? "",
+        insurance,
+        subscriberName,
+        subscriberNum,
+      },
+      getAmdOfficeForToolCall(state),
+    )) as any;
     if (result?.status === "updated") {
       state.insuranceCarrier = result.newInsurance ?? state.insuranceCarrier;
       state.insPlanId = result.insPlanId ?? null;
       state.respPartyId = result.respPartyId ?? null;
       state.routing = result.routing ?? state.routing;
-      state.allowedProviders = result.allowedProviders ?? state.allowedProviders;
+      state.allowedProviders =
+        result.allowedProviders ?? state.allowedProviders;
       state.routingAmbiguous = result.routingAmbiguous ?? false;
       state.preauthRequired = result.preauthRequired ?? false;
     }
@@ -268,7 +329,11 @@ Returns available appointment slots.`,
     const body: Record<string, unknown> = { date };
     if (state.routing) body.routing = state.routing;
     if (state.preauthRequired) body.preauthRequired = true;
-    return callApi("/api/scheduler/availability", body, getAmdOfficeForToolCall(state));
+    return callApi(
+      "/api/scheduler/availability",
+      body,
+      getAmdOfficeForToolCall(state),
+    );
   },
 });
 
@@ -282,8 +347,13 @@ Returns upcoming appointments.`,
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
-    if (!state.patientId) return "ERROR: No patient verified yet. Run verify_patient first with the caller's firstName, lastName, and dob.";
-    return callApi("/api/patient/appointments", { patientId: state.patientId }, getAmdOfficeForToolCall(state));
+    if (!state.patientId)
+      return "ERROR: No patient verified yet. Run verify_patient first with the caller's firstName, lastName, and dob.";
+    return callApi(
+      "/api/patient/appointments",
+      { patientId: state.patientId },
+      getAmdOfficeForToolCall(state),
+    );
   },
 });
 
@@ -294,10 +364,16 @@ export const cancel_appt = llm.tool({
 Use only after the caller confirms they want that appointment cancelled.
 The appointment is not cancelled until this tool succeeds.`,
   parameters: z.object({
-    appointmentId: z.number().describe("Appointment ID from the confirm_appt response"),
+    appointmentId: z
+      .number()
+      .describe("Appointment ID from the confirm_appt response"),
   }),
   execute: async ({ appointmentId }, { ctx }) => {
-    return callApi("/api/appointment/cancel", { appointmentId }, getAmdOfficeForToolCall(getState(ctx)));
+    return callApi(
+      "/api/appointment/cancel",
+      { appointmentId },
+      getAmdOfficeForToolCall(getState(ctx)),
+    );
   },
 });
 
@@ -309,16 +385,33 @@ Pass columnId, profileId, startDatetime, duration, and appointmentTypeId from ge
 Patient ID is read from session state automatically.
 Returns booking status and appointment details.`,
   parameters: z.object({
-    columnId: z.number().describe("columnId of the selected provider from get_availability"),
-    profileId: z.number().describe("profileId of the selected provider from get_availability"),
-    startDatetime: z.string().describe("Slot datetime from get_availability, format YYYY-MM-DDTHH:MM"),
-    duration: z.number().describe("Slot duration in minutes from get_availability (15 or 30)"),
-    appointmentTypeId: z.number().describe("Appointment type: 1004=New Pediatric, 1005=Est Pediatric, 1006=New Adult, 1007=Est Adult, 1008=Post Op"),
+    columnId: z
+      .number()
+      .describe("columnId of the selected provider from get_availability"),
+    profileId: z
+      .number()
+      .describe("profileId of the selected provider from get_availability"),
+    startDatetime: z
+      .string()
+      .describe("Slot datetime from get_availability, format YYYY-MM-DDTHH:MM"),
+    duration: z
+      .number()
+      .describe("Slot duration in minutes from get_availability (15 or 30)"),
+    appointmentTypeId: z
+      .number()
+      .describe(
+        "Appointment type: 1004=New Pediatric, 1005=Est Pediatric, 1006=New Adult, 1007=Est Adult, 1008=Post Op",
+      ),
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
-    if (!state.patientId) return "No patient verified yet. Verify the patient first.";
-    return callApi("/api/appointment/book", { ...params, patientId: state.patientId }, getAmdOfficeForToolCall(state));
+    if (!state.patientId)
+      return "No patient verified yet. Verify the patient first.";
+    return callApi(
+      "/api/appointment/book",
+      { ...params, patientId: state.patientId },
+      getAmdOfficeForToolCall(state),
+    );
   },
 });
 
@@ -371,9 +464,13 @@ export const lookup_knowledge = llm.tool({
 Use for questions about hours, location, providers, services, what to bring, and related practice facts.
 Returns the office knowledge reference.`,
   parameters: z.object({
-    question: z.string().describe("What the caller is asking about (e.g. 'office hours', 'do you see kids', 'what should I bring')"),
+    question: z
+      .string()
+      .describe(
+        "What the caller is asking about (e.g. 'office hours', 'do you see kids', 'what should I bring')",
+      ),
   }),
-  execute: async ({ question }, { ctx }) => {
+  execute: async (_args, { ctx }) => {
     const file = resolveKnowledgeFileForOffice(getState(ctx).officeKey);
     return readWorkspaceFile(file);
   },
@@ -406,7 +503,9 @@ export const transfer_call = llm.tool({
         { playDialtone: false },
       );
       const result = "Transfer initiated successfully.";
-      console.log(`[tools] Transferred ${state.sipParticipantIdentity} to ${transferNumber}`);
+      console.log(
+        `[tools] Transferred ${state.sipParticipantIdentity} to ${transferNumber}`,
+      );
       // Framework handles shutdown via close_on_disconnect when the
       // SIP participant leaves after the transfer completes.
       return result;

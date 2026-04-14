@@ -85,7 +85,9 @@ class ScribeSpeechStream extends stt.SpeechStream {
       try {
         const ws = (connection as any).websocket;
         if (ws && ws.readyState === 1) ws.ping();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }, 15_000);
 
     let ready = false;
@@ -103,13 +105,17 @@ class ScribeSpeechStream extends stt.SpeechStream {
       if (data.text) {
         this.output.put({
           type: stt.SpeechEventType.INTERIM_TRANSCRIPT,
-          alternatives: [{
-            text: data.text,
-            language: ((data as any).language_code ?? this.opts.language ?? "en") as LanguageCode,
-            startTime: 0,
-            endTime: 0,
-            confidence: 0.5,
-          }],
+          alternatives: [
+            {
+              text: data.text,
+              language: ((data as any).language_code ??
+                this.opts.language ??
+                "en") as LanguageCode,
+              startTime: 0,
+              endTime: 0,
+              confidence: 0.5,
+            },
+          ],
         });
       }
     });
@@ -120,13 +126,17 @@ class ScribeSpeechStream extends stt.SpeechStream {
         lastTranscript = data.text;
         this.output.put({
           type: stt.SpeechEventType.FINAL_TRANSCRIPT,
-          alternatives: [{
-            text: data.text,
-            language: ((data as any).language_code ?? this.opts.language ?? "en") as LanguageCode,
-            startTime: 0,
-            endTime: 0,
-            confidence: 0.95,
-          }],
+          alternatives: [
+            {
+              text: data.text,
+              language: ((data as any).language_code ??
+                this.opts.language ??
+                "en") as LanguageCode,
+              startTime: 0,
+              endTime: 0,
+              confidence: 0.95,
+            },
+          ],
         });
       }
     });

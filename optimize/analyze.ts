@@ -49,7 +49,11 @@ interface CallRecord {
   turns: any[];
 }
 
-function classifyCall(toolsUsed: string[], totalTurns: number, durationSec: number): {
+function classifyCall(
+  toolsUsed: string[],
+  totalTurns: number,
+  durationSec: number,
+): {
   type: CallRecord["type"];
   resolved: boolean;
 } {
@@ -61,7 +65,9 @@ function classifyCall(toolsUsed: string[], totalTurns: number, durationSec: numb
   const hasAddPatient = toolsUsed.includes("add_patient");
   const hasBookAppt = toolsUsed.includes("book_appt");
   const hasVerify = toolsUsed.includes("verify_patient");
-  const hasFaq = toolsUsed.includes("check_insurance") || toolsUsed.includes("lookup_knowledge");
+  const hasFaq =
+    toolsUsed.includes("check_insurance") ||
+    toolsUsed.includes("lookup_knowledge");
   const hasConfirm = toolsUsed.includes("confirm_appt");
   const hasCancel = toolsUsed.includes("cancel_appt");
 
@@ -81,7 +87,6 @@ function classifyCall(toolsUsed: string[], totalTurns: number, durationSec: numb
 
   if (hasTransfer && !hasBookAppt && !hasAddPatient) {
     // Determine if transfer was appropriate or premature
-    const onlyTransfer = toolsUsed.filter((t) => t !== "transfer_call").length === 0;
     return {
       type: "transfer",
       resolved: true, // transfer is a resolution (appropriate or not)
@@ -115,15 +120,22 @@ function classifyCall(toolsUsed: string[], totalTurns: number, durationSec: numb
 
 // --- Ideal Baselines ---
 
-const IDEAL_TURNS: Record<string, { min: number; max: number; label: string }> = {
-  faq: { min: 2, max: 4, label: "FAQ" },
-  new_patient: { min: 14, max: 22, label: "New Patient + Book" },
-  existing_patient: { min: 5, max: 10, label: "Existing Patient" },
-  transfer: { min: 2, max: 4, label: "Transfer" },
-};
+const IDEAL_TURNS: Record<string, { min: number; max: number; label: string }> =
+  {
+    faq: { min: 2, max: 4, label: "FAQ" },
+    new_patient: { min: 14, max: 22, label: "New Patient + Book" },
+    existing_patient: { min: 5, max: 10, label: "Existing Patient" },
+    transfer: { min: 2, max: 4, label: "Transfer" },
+  };
 
 const IDEAL_TOOL_SEQUENCE: Record<string, string[]> = {
-  new_patient: ["verify_patient", "check_insurance", "add_patient", "get_availability", "book_appt"],
+  new_patient: [
+    "verify_patient",
+    "check_insurance",
+    "add_patient",
+    "get_availability",
+    "book_appt",
+  ],
   existing_patient: ["verify_patient", "get_availability", "book_appt"],
   faq: ["check_insurance"],
   transfer: ["transfer_call"],
@@ -155,7 +167,11 @@ async function main() {
 
   const calls: CallRecord[] = rows.map((r) => {
     const toolsUsed = r[7] ? r[7].split(",") : [];
-    const { type, resolved } = classifyCall(toolsUsed, parseInt(r[1]), parseInt(r[2]));
+    const { type, resolved } = classifyCall(
+      toolsUsed,
+      parseInt(r[1]),
+      parseInt(r[2]),
+    );
     return {
       callId: r[0],
       totalTurns: parseInt(r[1]),
@@ -193,7 +209,10 @@ async function main() {
   }
 
   // Resolution rates
-  const resolutionRates: Record<string, { total: number; resolved: number; rate: number }> = {};
+  const resolutionRates: Record<
+    string,
+    { total: number; resolved: number; rate: number }
+  > = {};
   for (const [type, typeCalls] of byType) {
     const resolved = typeCalls.filter((c) => c.resolved).length;
     resolutionRates[type] = {
@@ -204,7 +223,10 @@ async function main() {
   }
 
   // Avg turns by type
-  const avgTurns: Record<string, { avg: number; min: number; max: number; count: number }> = {};
+  const avgTurns: Record<
+    string,
+    { avg: number; min: number; max: number; count: number }
+  > = {};
   for (const [type, typeCalls] of byType) {
     const turns = typeCalls.map((c) => c.totalTurns);
     avgTurns[type] = {
@@ -219,12 +241,18 @@ async function main() {
   const avgDuration: Record<string, number> = {};
   for (const [type, typeCalls] of byType) {
     const durations = typeCalls.map((c) => c.durationSec);
-    avgDuration[type] = Math.round(durations.reduce((a, b) => a + b, 0) / durations.length);
+    avgDuration[type] = Math.round(
+      durations.reduce((a, b) => a + b, 0) / durations.length,
+    );
   }
 
   // Transfer rate (% of non-hangup calls that end in transfer)
-  const transferCalls = nonHangup.filter((c) => c.toolsUsed.includes("transfer_call"));
-  const transferRate = Math.round((transferCalls.length / nonHangup.length) * 100);
+  const transferCalls = nonHangup.filter((c) =>
+    c.toolsUsed.includes("transfer_call"),
+  );
+  const transferRate = Math.round(
+    (transferCalls.length / nonHangup.length) * 100,
+  );
 
   // Tool usage frequency
   const toolFreq: Record<string, number> = {};
@@ -287,18 +315,6 @@ async function main() {
   // --- Latency percentiles (p50/p90/p99 instead of just averages) ---
   console.log("Computing latency percentiles...");
 
-  const latencyRows = await query(`
-    SELECT
-      (l->>'avgTTFT')::numeric as ttft,
-      (l->>'avgTTSttfb')::numeric as ttsttfb,
-      (l->>'avgTotalLatency')::numeric as total
-    FROM "CallEvent", jsonb_each(data) d(k, v),
-         LATERAL (SELECT "latencyValues" as l FROM "CallEvent" ce2 WHERE ce2."callId" = "CallEvent"."callId") sub
-    WHERE "totalTurns" > 2 AND "durationSec" > 10
-    ORDER BY "startedAt" DESC
-    LIMIT 200
-  `);
-
   // Simpler approach: just use the per-call averages from the main table
   const latencyValues = await query(`
     SELECT "avgTtft", "avgTtsttfb"
@@ -313,20 +329,37 @@ async function main() {
     return sorted[Math.max(0, idx)] ?? 0;
   }
 
-  const ttftValues = latencyValues.map((r) => parseFloat(r[0])).filter((v) => v > 0);
-  const ttsValues = latencyValues.map((r) => parseFloat(r[1])).filter((v) => v > 0);
+  const ttftValues = latencyValues
+    .map((r) => parseFloat(r[0]))
+    .filter((v) => v > 0);
+  const ttsValues = latencyValues
+    .map((r) => parseFloat(r[1]))
+    .filter((v) => v > 0);
 
   const latencyPercentiles = {
-    ttft: { p50: Math.round(percentile(ttftValues, 50)), p90: Math.round(percentile(ttftValues, 90)), p99: Math.round(percentile(ttftValues, 99)) },
-    tts: { p50: Math.round(percentile(ttsValues, 50)), p90: Math.round(percentile(ttsValues, 90)), p99: Math.round(percentile(ttsValues, 99)) },
+    ttft: {
+      p50: Math.round(percentile(ttftValues, 50)),
+      p90: Math.round(percentile(ttftValues, 90)),
+      p99: Math.round(percentile(ttftValues, 99)),
+    },
+    tts: {
+      p50: Math.round(percentile(ttsValues, 50)),
+      p90: Math.round(percentile(ttsValues, 90)),
+      p99: Math.round(percentile(ttsValues, 99)),
+    },
   };
 
   // --- Load optimization run metrics ---
   let runMetrics: any = { runs: [] };
   try {
-    const metricsContent = (await import("fs")).readFileSync(join(import.meta.dirname, "metrics.json"), "utf-8");
+    const metricsContent = (await import("fs")).readFileSync(
+      join(import.meta.dirname, "metrics.json"),
+      "utf-8",
+    );
     runMetrics = JSON.parse(metricsContent);
-  } catch { /* first run, no metrics yet */ }
+  } catch {
+    /* first run, no metrics yet */
+  }
 
   // --- Transfer Reason Analysis ---
   // For each transferred call, get the caller's first substantive message
@@ -375,17 +408,33 @@ async function main() {
       category: "Medical Records",
       patterns: [/record/i, /chart/i, /notes?\b/i, /documentation/i],
       couldAutomate: false,
-      suggestion: "Requires HIPAA-compliant document handling. Keep as transfer.",
+      suggestion:
+        "Requires HIPAA-compliant document handling. Keep as transfer.",
     },
     {
       category: "Prescriptions / Medications",
-      patterns: [/prescription/i, /refill/i, /medication/i, /rx\b/i, /medicine/i],
+      patterns: [
+        /prescription/i,
+        /refill/i,
+        /medication/i,
+        /rx\b/i,
+        /medicine/i,
+      ],
       couldAutomate: false,
       suggestion: "Clinical scope. Keep as transfer.",
     },
     {
       category: "Clinical / Symptoms",
-      patterns: [/symptom/i, /pain/i, /vision/i, /see.*doctor/i, /emergency/i, /urgent/i, /surgery/i, /post.?op/i],
+      patterns: [
+        /symptom/i,
+        /pain/i,
+        /vision/i,
+        /see.*doctor/i,
+        /emergency/i,
+        /urgent/i,
+        /surgery/i,
+        /post.?op/i,
+      ],
       couldAutomate: false,
       suggestion: "Clinical triage. Keep as transfer.",
     },
@@ -397,31 +446,69 @@ async function main() {
     },
     {
       category: "Glasses / Optical",
-      patterns: [/glass/i, /optical/i, /frame/i, /lens/i, /contact.*lens/i, /eyewear/i],
+      patterns: [
+        /glass/i,
+        /optical/i,
+        /frame/i,
+        /lens/i,
+        /contact.*lens/i,
+        /eyewear/i,
+      ],
       couldAutomate: true,
-      suggestion: "Could add glasses order status lookup tool. High volume opportunity.",
+      suggestion:
+        "Could add glasses order status lookup tool. High volume opportunity.",
     },
     {
       category: "Billing / Payment",
-      patterns: [/bill/i, /payment/i, /charge/i, /balance/i, /copay/i, /invoice/i],
+      patterns: [
+        /bill/i,
+        /payment/i,
+        /charge/i,
+        /balance/i,
+        /copay/i,
+        /invoice/i,
+      ],
       couldAutomate: true,
-      suggestion: "Could add billing lookup tool to check balance and payment status.",
+      suggestion:
+        "Could add billing lookup tool to check balance and payment status.",
     },
     {
       category: "Caller Insists on Human",
-      patterns: [/representative/i, /real person/i, /human/i, /speak.*someone/i, /agent/i, /transfer/i],
+      patterns: [
+        /representative/i,
+        /real person/i,
+        /human/i,
+        /speak.*someone/i,
+        /agent/i,
+        /transfer/i,
+      ],
       couldAutomate: false,
-      suggestion: "Respect caller preference. Optimize first-offer messaging to reduce.",
+      suggestion:
+        "Respect caller preference. Optimize first-offer messaging to reduce.",
     },
     {
       category: "Returning a Call",
-      patterns: [/call.*back/i, /return.*call/i, /told.*call/i, /message/i, /someone called/i, /call me/i],
+      patterns: [
+        /call.*back/i,
+        /return.*call/i,
+        /told.*call/i,
+        /message/i,
+        /someone called/i,
+        /call me/i,
+      ],
       couldAutomate: true,
-      suggestion: "Could add voicemail/callback queue lookup to identify who called and why.",
+      suggestion:
+        "Could add voicemail/callback queue lookup to identify who called and why.",
     },
     {
       category: "Specific Person Requested",
-      patterns: [/speak.*with/i, /talk.*to/i, /debbie/i, /is\s+\w+\s+there/i, /ask.*for/i],
+      patterns: [
+        /speak.*with/i,
+        /talk.*to/i,
+        /debbie/i,
+        /is\s+\w+\s+there/i,
+        /ask.*for/i,
+      ],
       couldAutomate: false,
       suggestion: "Named person request. Keep as transfer.",
     },
@@ -450,7 +537,9 @@ async function main() {
         }
         transferReasons[cat.category].count++;
         if (transferReasons[cat.category].examples.length < 3) {
-          transferReasons[cat.category].examples.push(row[1] || "(no caller text)");
+          transferReasons[cat.category].examples.push(
+            row[1] || "(no caller text)",
+          );
         }
         matched = true;
         break;
@@ -464,14 +553,28 @@ async function main() {
     }
   }
 
-  const sortedReasons = Object.values(transferReasons).sort((a, b) => b.count - a.count);
+  const sortedReasons = Object.values(transferReasons).sort(
+    (a, b) => b.count - a.count,
+  );
   const automatable = sortedReasons.filter((r) => r.couldAutomate);
   const automatableCount = automatable.reduce((a, r) => a + r.count, 0);
 
   // --- Generate HTML ---
 
-  const typeLabels = { faq: "FAQ", new_patient: "New Patient", existing_patient: "Existing Patient", transfer: "Transfer", hangup: "Hangup" };
-  const typeColors = { faq: "#4CAF50", new_patient: "#2196F3", existing_patient: "#FF9800", transfer: "#F44336", hangup: "#9E9E9E" };
+  const typeLabels = {
+    faq: "FAQ",
+    new_patient: "New Patient",
+    existing_patient: "Existing Patient",
+    transfer: "Transfer",
+    hangup: "Hangup",
+  };
+  const typeColors = {
+    faq: "#4CAF50",
+    new_patient: "#2196F3",
+    existing_patient: "#FF9800",
+    transfer: "#F44336",
+    hangup: "#9E9E9E",
+  };
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -613,7 +716,9 @@ async function main() {
   </div>
 
   <!-- Optimization Run History (Karpathy-style) -->
-  ${runMetrics.runs.length > 0 ? `
+  ${
+    runMetrics.runs.length > 0
+      ? `
   <div class="grid">
     <div class="card">
       <h3>Prompt Length Over Runs</h3>
@@ -630,7 +735,9 @@ async function main() {
     <table>
       <thead><tr><th>Run</th><th>Date</th><th>Transcripts</th><th>Issues</th><th>Changes</th><th>Test Iterations</th><th>Prompt Size</th><th>Transfer Rate</th><th>New Patient Res.</th></tr></thead>
       <tbody>
-        ${runMetrics.runs.map((r: any) => `<tr>
+        ${runMetrics.runs
+          .map(
+            (r: any) => `<tr>
           <td>${r.id}</td>
           <td>${r.date}</td>
           <td>${r.transcriptsEvaluated}</td>
@@ -638,13 +745,17 @@ async function main() {
           <td>${r.changesKept}/${r.changesProposed}</td>
           <td>${r.testIterations}</td>
           <td>${(r.promptLength?.total / 1000).toFixed(1)}k chars</td>
-          <td>${r.metrics?.transferRate ?? '—'}%</td>
-          <td>${r.metrics?.resolutionRate?.new_patient ?? '—'}%</td>
-        </tr>`).join("\n")}
+          <td>${r.metrics?.transferRate ?? "—"}%</td>
+          <td>${r.metrics?.resolutionRate?.new_patient ?? "—"}%</td>
+        </tr>`,
+          )
+          .join("\n")}
       </tbody>
     </table>
   </div>
-  ` : '<!-- No optimization runs yet -->'}
+  `
+      : "<!-- No optimization runs yet -->"
+  }
 
   <!-- Transfer Reason Breakdown -->
   <div class="grid">
@@ -653,16 +764,20 @@ async function main() {
       <div class="chart-container"><canvas id="transferReasonChart"></canvas></div>
     </div>
     <div class="card">
-      <h3>Future Opportunities — Could Automate ${automatableCount} transfers (${Math.round(automatableCount / Math.max(transferReasonRows.length, 1) * 100)}%)</h3>
+      <h3>Future Opportunities — Could Automate ${automatableCount} transfers (${Math.round((automatableCount / Math.max(transferReasonRows.length, 1)) * 100)}%)</h3>
       <table>
         <thead><tr><th>Category</th><th>Count</th><th>Suggestion</th></tr></thead>
         <tbody>
-          ${automatable.map((r) => `<tr>
+          ${automatable
+            .map(
+              (r) => `<tr>
             <td>${r.category}</td>
             <td><strong>${r.count}</strong></td>
             <td>${r.suggestion}</td>
-          </tr>`).join("\n")}
-          ${automatable.length === 0 ? '<tr><td colspan="3" style="color:#666">No automatable transfer categories found</td></tr>' : ''}
+          </tr>`,
+            )
+            .join("\n")}
+          ${automatable.length === 0 ? '<tr><td colspan="3" style="color:#666">No automatable transfer categories found</td></tr>' : ""}
         </tbody>
       </table>
     </div>
@@ -674,20 +789,28 @@ async function main() {
     <table>
       <thead><tr><th>Reason</th><th>Count</th><th>% of Transfers</th><th>Automatable?</th><th>Example Caller Message</th></tr></thead>
       <tbody>
-        ${sortedReasons.map((r) => `<tr>
+        ${sortedReasons
+          .map(
+            (r) => `<tr>
           <td>${r.category}</td>
           <td>${r.count}</td>
-          <td>${Math.round(r.count / Math.max(transferReasonRows.length, 1) * 100)}%</td>
+          <td>${Math.round((r.count / Math.max(transferReasonRows.length, 1)) * 100)}%</td>
           <td>${r.couldAutomate ? '<span class="tag tag-warn">Opportunity</span>' : '<span class="tag tag-good">Keep Transfer</span>'}</td>
-          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">${r.examples[0] ?? ''}</td>
-        </tr>`).join("\n")}
-        ${uncategorized > 0 ? `<tr>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">${r.examples[0] ?? ""}</td>
+        </tr>`,
+          )
+          .join("\n")}
+        ${
+          uncategorized > 0
+            ? `<tr>
           <td>Uncategorized</td>
           <td>${uncategorized}</td>
-          <td>${Math.round(uncategorized / Math.max(transferReasonRows.length, 1) * 100)}%</td>
+          <td>${Math.round((uncategorized / Math.max(transferReasonRows.length, 1)) * 100)}%</td>
           <td><span class="tag tag-bad">Review</span></td>
-          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">${uncategorizedExamples[0] ?? ''}</td>
-        </tr>` : ''}
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888">${uncategorizedExamples[0] ?? ""}</td>
+        </tr>`
+            : ""
+        }
       </tbody>
     </table>
   </div>
@@ -700,9 +823,9 @@ async function main() {
       <thead><tr><th>Metric</th><th>Current</th><th>Target</th><th>Status</th></tr></thead>
       <tbody>
         <tr><td>Transfer Rate</td><td>${transferRate}%</td><td>&lt;30%</td><td>${transferRate <= 30 ? '<span class="tag tag-good">On Target</span>' : transferRate <= 45 ? '<span class="tag tag-warn">Improving</span>' : '<span class="tag tag-bad">Needs Work</span>'}</td></tr>
-        <tr><td>New Patient Resolution</td><td>${resolutionRates['new_patient']?.rate ?? 0}%</td><td>&gt;95%</td><td>${(resolutionRates['new_patient']?.rate ?? 0) >= 95 ? '<span class="tag tag-good">On Target</span>' : (resolutionRates['new_patient']?.rate ?? 0) >= 80 ? '<span class="tag tag-warn">Improving</span>' : '<span class="tag tag-bad">Needs Work</span>'}</td></tr>
+        <tr><td>New Patient Resolution</td><td>${resolutionRates["new_patient"]?.rate ?? 0}%</td><td>&gt;95%</td><td>${(resolutionRates["new_patient"]?.rate ?? 0) >= 95 ? '<span class="tag tag-good">On Target</span>' : (resolutionRates["new_patient"]?.rate ?? 0) >= 80 ? '<span class="tag tag-warn">Improving</span>' : '<span class="tag tag-bad">Needs Work</span>'}</td></tr>
         <tr><td>Double Transfers</td><td>${doubleTransfers.length}</td><td>0</td><td>${doubleTransfers.length === 0 ? '<span class="tag tag-good">Fixed</span>' : '<span class="tag tag-bad">${doubleTransfers.length} remaining</span>'}</td></tr>
-        <tr><td>FAQ Resolution</td><td>${resolutionRates['faq']?.rate ?? 0}%</td><td>100%</td><td>${(resolutionRates['faq']?.rate ?? 0) >= 100 ? '<span class="tag tag-good">On Target</span>' : '<span class="tag tag-warn">Needs Work</span>'}</td></tr>
+        <tr><td>FAQ Resolution</td><td>${resolutionRates["faq"]?.rate ?? 0}%</td><td>100%</td><td>${(resolutionRates["faq"]?.rate ?? 0) >= 100 ? '<span class="tag tag-good">On Target</span>' : '<span class="tag tag-warn">Needs Work</span>'}</td></tr>
       </tbody>
     </table>
   </div>
@@ -718,7 +841,11 @@ async function main() {
             const ideal = IDEAL_TURNS[type];
             const avg = avgTurns[type]?.avg ?? 0;
             const inRange = ideal ? avg >= ideal.min && avg <= ideal.max : true;
-            const tag = inRange ? "tag-good" : avg > (ideal?.max ?? 999) ? "tag-bad" : "tag-warn";
+            const tag = inRange
+              ? "tag-good"
+              : avg > (ideal?.max ?? 999)
+                ? "tag-bad"
+                : "tag-warn";
             return `<tr>
               <td>${(typeLabels as any)[type] ?? type}</td>
               <td>${typeCalls.length}</td>
@@ -843,7 +970,9 @@ async function main() {
     });
 
     // Prompt length over runs (Karpathy-style)
-    ${runMetrics.runs.length > 0 ? `
+    ${
+      runMetrics.runs.length > 0
+        ? `
     new Chart(document.getElementById('promptLengthChart'), {
       type: 'line',
       data: {
@@ -876,7 +1005,9 @@ async function main() {
       },
       options: chartDefaults
     });
-    ` : ''}
+    `
+        : ""
+    }
 
     // Transfer reasons
     new Chart(document.getElementById('transferReasonChart'), {
@@ -886,7 +1017,7 @@ async function main() {
         datasets: [{
           label: 'Transfers',
           data: ${JSON.stringify(sortedReasons.map((r) => r.count))},
-          backgroundColor: ${JSON.stringify(sortedReasons.map((r) => r.couldAutomate ? "#FF9800" : "#F44336"))}
+          backgroundColor: ${JSON.stringify(sortedReasons.map((r) => (r.couldAutomate ? "#FF9800" : "#F44336")))}
         }]
       },
       options: { ...chartDefaults, indexAxis: 'y', plugins: { legend: { display: false } } }
@@ -916,21 +1047,29 @@ async function main() {
   // Also print summary to console
   console.log("\n=== Summary ===");
   console.log(`Total calls: ${calls.length} (${nonHangup.length} substantive)`);
-  console.log(`Transfer rate: ${transferRate}% (${transferCalls.length}/${nonHangup.length})`);
+  console.log(
+    `Transfer rate: ${transferRate}% (${transferCalls.length}/${nonHangup.length})`,
+  );
   console.log(`Double transfers: ${doubleTransfers.length} calls`);
   for (const [type, data] of Object.entries(resolutionRates)) {
-    console.log(`  ${type}: ${data.rate}% resolved (${data.resolved}/${data.total})`);
+    console.log(
+      `  ${type}: ${data.rate}% resolved (${data.resolved}/${data.total})`,
+    );
   }
 
   console.log("\n=== Transfer Reasons ===");
   for (const r of sortedReasons) {
-    console.log(`  ${r.category}: ${r.count} (${r.couldAutomate ? "COULD AUTOMATE" : "keep transfer"})`);
+    console.log(
+      `  ${r.category}: ${r.count} (${r.couldAutomate ? "COULD AUTOMATE" : "keep transfer"})`,
+    );
   }
   if (uncategorized > 0) console.log(`  Uncategorized: ${uncategorized}`);
 
   if (automatable.length > 0) {
     console.log(`\n=== Future Opportunities ===`);
-    console.log(`${automatableCount} transfers (${Math.round(automatableCount / Math.max(transferReasonRows.length, 1) * 100)}% of all transfers) could potentially be automated:`);
+    console.log(
+      `${automatableCount} transfers (${Math.round((automatableCount / Math.max(transferReasonRows.length, 1)) * 100)}% of all transfers) could potentially be automated:`,
+    );
     for (const r of automatable) {
       console.log(`  ${r.category} (${r.count}): ${r.suggestion}`);
     }

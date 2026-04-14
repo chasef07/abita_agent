@@ -4,7 +4,10 @@ import { getOfficeConfig, type OfficeKey } from "./offices.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
-export type InsuranceMatchStatus = "accepted" | "not_accepted" | "needs_clarification";
+export type InsuranceMatchStatus =
+  | "accepted"
+  | "not_accepted"
+  | "needs_clarification";
 
 export interface InsuranceAliasRule {
   aliases: string[];
@@ -55,19 +58,28 @@ export function loadInsuranceReference(file: string): InsuranceReference {
   return parsed;
 }
 
-function findExactPlan(plans: string[], normalizedQuery: string): string | null {
+function findExactPlan(
+  plans: string[],
+  normalizedQuery: string,
+): string | null {
   for (const plan of plans) {
     if (normalizeInsuranceText(plan) === normalizedQuery) return plan;
   }
   return null;
 }
 
-function buildAcceptedCallerMessage(plan: string, needsExactPlanName: boolean): string {
+function buildAcceptedCallerMessage(
+  plan: string,
+  needsExactPlanName: boolean,
+): string {
   if (!needsExactPlanName) return `yeah we take ${plan}.`;
   return `yeah we take ${plan}. When we get to registration, I'll just need the exact plan name from the card.`;
 }
 
-export function matchInsurancePlan(reference: InsuranceReference, query: string): InsuranceLookupResult {
+export function matchInsurancePlan(
+  reference: InsuranceReference,
+  query: string,
+): InsuranceLookupResult {
   const normalizedQuery = normalizeInsuranceText(query);
   const exactAccepted = findExactPlan(reference.acceptedPlans, normalizedQuery);
   if (exactAccepted) {
@@ -84,7 +96,10 @@ export function matchInsurancePlan(reference: InsuranceReference, query: string)
     };
   }
 
-  const exactRejected = findExactPlan(reference.notAcceptedPlans, normalizedQuery);
+  const exactRejected = findExactPlan(
+    reference.notAcceptedPlans,
+    normalizedQuery,
+  );
   if (exactRejected) {
     return {
       status: "not_accepted",
@@ -100,10 +115,14 @@ export function matchInsurancePlan(reference: InsuranceReference, query: string)
   }
 
   for (const rule of reference.aliasRules) {
-    const matchedAlias = rule.aliases.find((alias) => normalizedQuery.includes(normalizeInsuranceText(alias)));
+    const matchedAlias = rule.aliases.find((alias) =>
+      normalizedQuery.includes(normalizeInsuranceText(alias)),
+    );
     if (!matchedAlias) continue;
     if (rule.status === "needs_clarification") {
-      const clarificationNeeded = rule.clarificationNeeded ?? "the exact plan name from the insurance card";
+      const clarificationNeeded =
+        rule.clarificationNeeded ??
+        "the exact plan name from the insurance card";
       return {
         status: "needs_clarification",
         query,
@@ -127,7 +146,10 @@ export function matchInsurancePlan(reference: InsuranceReference, query: string)
       canProceed: rule.canProceed,
       needsExactPlanName: rule.needsExactPlanName,
       clarificationNeeded: null,
-      callerMessage: buildAcceptedCallerMessage(callerPlan, rule.needsExactPlanName),
+      callerMessage: buildAcceptedCallerMessage(
+        callerPlan,
+        rule.needsExactPlanName,
+      ),
     };
   }
 
@@ -140,11 +162,15 @@ export function matchInsurancePlan(reference: InsuranceReference, query: string)
     canProceed: false,
     needsExactPlanName: false,
     clarificationNeeded: "the exact plan name from the insurance card",
-    callerMessage: "I can't confirm that plan from the shorthand alone. If you have the insurance card, I can check the exact plan name.",
+    callerMessage:
+      "I can't confirm that plan from the shorthand alone. If you have the insurance card, I can check the exact plan name.",
   };
 }
 
-export function matchInsurancePlanForOffice(officeKey: OfficeKey, query: string): InsuranceLookupResult {
+export function matchInsurancePlanForOffice(
+  officeKey: OfficeKey,
+  query: string,
+): InsuranceLookupResult {
   const file = getOfficeConfig(officeKey).insuranceFile;
   const reference = loadInsuranceReference(file);
   return matchInsurancePlan(reference, query);

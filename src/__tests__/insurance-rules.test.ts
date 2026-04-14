@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { loadInsuranceReference, matchInsurancePlan, matchInsurancePlanForOffice } from "../insurance-rules.js";
+import {
+  loadInsuranceReference,
+  matchInsurancePlan,
+  matchInsurancePlanForOffice,
+} from "../insurance-rules.js";
 
 describe("insurance matcher", () => {
-  const reference = loadInsuranceReference("INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json");
+  const reference = loadInsuranceReference(
+    "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+  );
 
   it("accepts exact accepted plans", () => {
     const result = matchInsurancePlan(reference, "Humana PPO");
@@ -20,7 +26,10 @@ describe("insurance matcher", () => {
   });
 
   it("treats Blue Cross family names as accepted enough to proceed", () => {
-    const result = matchInsurancePlan(reference, "Michigan Blue Cross Blue Shield PPO");
+    const result = matchInsurancePlan(
+      reference,
+      "Michigan Blue Cross Blue Shield PPO",
+    );
     expect(result.status).toBe("accepted");
     expect(result.canProceed).toBe(true);
     expect(result.needsExactPlanName).toBe(true);
