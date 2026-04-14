@@ -25,7 +25,16 @@
 
 import "dotenv/config";
 import { execSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import {
   OUTPUT_DIR,
@@ -38,9 +47,12 @@ import {
   writeJSON,
 } from "../lib/io.js";
 
-const PROPOSER_PROVIDER = process.env.PROPOSER_PROVIDER ?? (process.env.OPENAI_API_KEY ? "openai" : "anthropic");
-const PROPOSER_MODEL = process.env.PROPOSER_MODEL
-  ?? (PROPOSER_PROVIDER === "openai" ? "gpt-4.1-mini" : "claude-sonnet-4-5");
+const PROPOSER_PROVIDER =
+  process.env.PROPOSER_PROVIDER ??
+  (process.env.OPENAI_API_KEY ? "openai" : "anthropic");
+const PROPOSER_MODEL =
+  process.env.PROPOSER_MODEL ??
+  (PROPOSER_PROVIDER === "openai" ? "gpt-4.1-mini" : "claude-sonnet-4-5");
 const PROPOSER_MAX_TOKENS = 32000;
 const DEFAULT_EDITABLE_FILES = ["RUNBOOK.md", "VOICE.md", "SOUL.md"];
 
@@ -155,7 +167,8 @@ interface AuditFailureCluster {
 function parseArgs(argv: string[]): Args {
   const args: Args = { variants: 3 };
   for (let i = 0; i < argv.length; i += 1) {
-    if (argv[i] === "--variants" && argv[i + 1]) args.variants = Number.parseInt(argv[i + 1], 10);
+    if (argv[i] === "--variants" && argv[i + 1])
+      args.variants = Number.parseInt(argv[i + 1], 10);
     if (argv[i] === "--eval-id" && argv[i + 1]) args.evalId = argv[i + 1];
   }
   return args;
@@ -164,21 +177,31 @@ function parseArgs(argv: string[]): Args {
 function editableFiles(): string[] {
   const raw = process.env.PROPOSER_EDIT_FILES;
   if (!raw) return DEFAULT_EDITABLE_FILES;
-  return raw.split(",").map((entry) => entry.trim()).filter(Boolean);
+  return raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
 function getLatestEvalId(): string {
-  const stdout = execSync("npx promptfoo list evals 2>/dev/null", { encoding: "utf-8", maxBuffer: 4 * 1024 * 1024 });
+  const stdout = execSync("npx promptfoo list evals 2>/dev/null", {
+    encoding: "utf-8",
+    maxBuffer: 4 * 1024 * 1024,
+  });
   const matches = stdout.match(/eval-[A-Za-z0-9]+-\d{4}-\d{2}-\d{2}T[\d:.]+/g);
   if (!matches || matches.length === 0) {
-    throw new Error("No promptfoo eval found. Run `npm run evals:run` first or pass --eval-id.");
+    throw new Error(
+      "No promptfoo eval found. Run `npm run evals:run` first or pass --eval-id.",
+    );
   }
   return matches[matches.length - 1];
 }
 
 function exportEval(evalId: string): unknown {
   const tmpFile = `/tmp/eval-${evalId}.json`;
-  execSync(`npx promptfoo export eval ${evalId} -o ${tmpFile}`, { encoding: "utf-8" });
+  execSync(`npx promptfoo export eval ${evalId} -o ${tmpFile}`, {
+    encoding: "utf-8",
+  });
   return JSON.parse(readFileSync(tmpFile, "utf-8"));
 }
 
@@ -190,7 +213,7 @@ function extractFailures(evalData: any): FailureRecord[] {
       try {
         return typeof result.response?.output === "string"
           ? JSON.parse(result.response.output)
-          : result.response?.output ?? {};
+          : (result.response?.output ?? {});
       } catch {
         return {};
       }
@@ -203,19 +226,27 @@ function extractFailures(evalData: any): FailureRecord[] {
         : "unknown";
     let conversation: Array<{ role: string; content: string }> = [];
     try {
-      const caseFile = JSON.parse(readFileSync(join(REPO_ROOT, casePath), "utf-8"));
+      const caseFile = JSON.parse(
+        readFileSync(join(REPO_ROOT, casePath), "utf-8"),
+      );
       conversation = caseFile.conversation ?? [];
-    } catch {}
+    } catch {
+      // Missing or malformed case context should not block proposal generation.
+    }
     const judgeReason = (result.gradingResult?.componentResults ?? [])
       .filter((entry: any) => entry.pass === false)
-      .map((entry: any) => `[${entry.assertion?.type}] ${(entry.reason ?? "").split("\n").slice(0, 4).join(" ")}`)
+      .map(
+        (entry: any) =>
+          `[${entry.assertion?.type}] ${(entry.reason ?? "").split("\n").slice(0, 4).join(" ")}`,
+      )
       .join(" || ");
     failures.push({
       caseId: result.testCase?.vars?.caseId ?? casePath,
       source,
       suite: result.testCase?.metadata?.suite ?? "?",
       conversation,
-      agentResponse: typeof output.finalText === "string" ? output.finalText : "",
+      agentResponse:
+        typeof output.finalText === "string" ? output.finalText : "",
       toolCalls: Array.isArray(output.toolCalls) ? output.toolCalls : [],
       judgeReason,
     });
@@ -223,17 +254,27 @@ function extractFailures(evalData: any): FailureRecord[] {
   return failures;
 }
 
-function summarizeFailures(failures: FailureRecord[], maxPerSource: number): string {
+function summarizeFailures(
+  failures: FailureRecord[],
+  maxPerSource: number,
+): string {
   const byPriority = [
     ...failures.filter((failure) => failure.source === "golden"),
-    ...failures.filter((failure) => failure.source === "candidates").slice(0, maxPerSource),
+    ...failures
+      .filter((failure) => failure.source === "candidates")
+      .slice(0, maxPerSource),
   ];
   return byPriority
     .map((failure) => {
       const conversationText = failure.conversation
         .map((msg) => `  ${msg.role.toUpperCase()}: ${msg.content}`)
         .join("\n");
-      const toolText = failure.toolCalls.map((toolCall) => `${toolCall.name}(${JSON.stringify(toolCall.args)})`).join(", ") || "(none)";
+      const toolText =
+        failure.toolCalls
+          .map(
+            (toolCall) => `${toolCall.name}(${JSON.stringify(toolCall.args)})`,
+          )
+          .join(", ") || "(none)";
       return [
         `## ${failure.source.toUpperCase()} :: ${failure.suite} :: ${failure.caseId}`,
         `Conversation:`,
@@ -256,7 +297,10 @@ function loadLatestTournamentReport(): TournamentReport | undefined {
 
 function inferFailureIssue(failure: FailureRecord): string {
   const text = `${failure.judgeReason} ${failure.agentResponse}`.toLowerCase();
-  if (failure.suite === "confirm" && !failure.toolCalls.some((call) => call.name === "confirm_appt")) {
+  if (
+    failure.suite === "confirm" &&
+    !failure.toolCalls.some((call) => call.name === "confirm_appt")
+  ) {
     return "confirm path missing confirm_appt grounding";
   }
   if (failure.suite === "registration" && text.includes("check_insurance")) {
@@ -265,7 +309,10 @@ function inferFailureIssue(failure: FailureRecord): string {
   if (failure.suite === "registration" && text.includes("add_patient")) {
     return "registration submission/readback violation";
   }
-  if (failure.suite === "cancel" && !failure.toolCalls.some((call) => call.name === "cancel_appt")) {
+  if (
+    failure.suite === "cancel" &&
+    !failure.toolCalls.some((call) => call.name === "cancel_appt")
+  ) {
     return "cancel path missing cancel_appt";
   }
   if (failure.suite === "routing" && text.includes("spring hill")) {
@@ -284,7 +331,9 @@ function inferFailureIssue(failure: FailureRecord): string {
   return firstReason || `${failure.suite} behavior mismatch`;
 }
 
-function inferFailureScope(failure: FailureRecord): "prompt-layer" | "tool-layer" {
+function inferFailureScope(
+  failure: FailureRecord,
+): "prompt-layer" | "tool-layer" {
   const text = `${failure.judgeReason} ${failure.agentResponse}`.toLowerCase();
   if (
     text.includes("missing required") ||
@@ -327,8 +376,12 @@ function clusterFailures(failures: FailureRecord[]): FailureCluster[] {
     if (current.examples.length < 2) current.examples.push(failure);
     clustered.set(key, current);
   }
-  return Array.from(clustered.values())
-    .sort((a, b) => b.count - a.count || a.source.localeCompare(b.source) || a.suite.localeCompare(b.suite));
+  return Array.from(clustered.values()).sort(
+    (a, b) =>
+      b.count - a.count ||
+      a.source.localeCompare(b.source) ||
+      a.suite.localeCompare(b.suite),
+  );
 }
 
 function summarizeFailureClusters(failures: FailureRecord[]): string {
@@ -338,7 +391,10 @@ function summarizeFailureClusters(failures: FailureRecord[]): string {
     .slice(0, 8)
     .map((cluster) => {
       const examples = cluster.examples
-        .map((example) => `  - ${example.caseId}: ${example.judgeReason || "(no judge reason)"}`)
+        .map(
+          (example) =>
+            `  - ${example.caseId}: ${example.judgeReason || "(no judge reason)"}`,
+        )
         .join("\n");
       return [
         `- ${cluster.source.toUpperCase()} ${cluster.suite} × ${cluster.count}: ${cluster.issue}`,
@@ -349,17 +405,26 @@ function summarizeFailureClusters(failures: FailureRecord[]): string {
     .join("\n");
 }
 
-function clusterAuditFailures(report: AuditReport | undefined): AuditFailureCluster[] {
+function clusterAuditFailures(
+  report: AuditReport | undefined,
+): AuditFailureCluster[] {
   if (!report) return [];
   const clustered = new Map<string, AuditFailureCluster>();
-  for (const audit of report.audits.filter((entry) => entry.overallStatus !== "great")) {
+  for (const audit of report.audits.filter(
+    (entry) => entry.overallStatus !== "great",
+  )) {
     const failureMode = audit.failureModes[0] ?? "quality_gap";
     const key = `${audit.intentBucket}:${failureMode}`;
     const current = clustered.get(key) ?? {
       key,
       intentBucket: audit.intentBucket,
       failureMode,
-      scope: ["wrong_tool", "wrong_tool_order", "hallucination", "toolCorrectness"].includes(failureMode)
+      scope: [
+        "wrong_tool",
+        "wrong_tool_order",
+        "hallucination",
+        "toolCorrectness",
+      ].includes(failureMode)
         ? "tool-layer"
         : "prompt-layer",
       count: 0,
@@ -369,8 +434,9 @@ function clusterAuditFailures(report: AuditReport | undefined): AuditFailureClus
     if (current.examples.length < 2) current.examples.push(audit);
     clustered.set(key, current);
   }
-  return Array.from(clustered.values())
-    .sort((a, b) => b.count - a.count || a.intentBucket.localeCompare(b.intentBucket));
+  return Array.from(clustered.values()).sort(
+    (a, b) => b.count - a.count || a.intentBucket.localeCompare(b.intentBucket),
+  );
 }
 
 function summarizeAuditClusters(report: AuditReport | undefined): string {
@@ -380,7 +446,10 @@ function summarizeAuditClusters(report: AuditReport | undefined): string {
     .slice(0, 8)
     .map((cluster) => {
       const examples = cluster.examples
-        .map((example) => `  - ${example.callId}: ${example.resolutionReason} | fixes=${example.recommendedFixes.join(" | ") || "none"}`)
+        .map(
+          (example) =>
+            `  - ${example.callId}: ${example.resolutionReason} | fixes=${example.recommendedFixes.join(" | ") || "none"}`,
+        )
         .join("\n");
       return [
         `- ${cluster.intentBucket} × ${cluster.count}: ${cluster.failureMode}`,
@@ -391,15 +460,25 @@ function summarizeAuditClusters(report: AuditReport | undefined): string {
     .join("\n");
 }
 
-function summarizeRegressionTraps(report: TournamentReport | undefined): string {
+function summarizeRegressionTraps(
+  report: TournamentReport | undefined,
+): string {
   if (!report) return "(no prior tournament report)";
-  const baseline = report.scores.find((entry) => entry.workspace === "workspace");
+  const baseline = report.scores.find(
+    (entry) => entry.workspace === "workspace",
+  );
   if (!baseline) return "(no baseline in prior tournament report)";
   const traps: RegressionTrap[] = [];
-  for (const variant of report.scores.filter((entry) => entry.workspace !== "workspace")) {
+  for (const variant of report.scores.filter(
+    (entry) => entry.workspace !== "workspace",
+  )) {
     for (const [suite, scores] of Object.entries(variant.perSuite)) {
       const baselineGolden = baseline.perSuite[suite]?.golden;
-      if (baselineGolden && (scores.golden.pass !== baselineGolden.pass || scores.golden.total !== baselineGolden.total)) {
+      if (
+        baselineGolden &&
+        (scores.golden.pass !== baselineGolden.pass ||
+          scores.golden.total !== baselineGolden.total)
+      ) {
         traps.push({
           workspace: variant.workspace,
           scope: "golden",
@@ -409,7 +488,11 @@ function summarizeRegressionTraps(report: TournamentReport | undefined): string 
         });
       }
       const baselineCandidates = baseline.perSuite[suite]?.candidates;
-      if (baselineCandidates && (scores.candidates.pass !== baselineCandidates.pass || scores.candidates.total !== baselineCandidates.total)) {
+      if (
+        baselineCandidates &&
+        (scores.candidates.pass !== baselineCandidates.pass ||
+          scores.candidates.total !== baselineCandidates.total)
+      ) {
         traps.push({
           workspace: variant.workspace,
           scope: "candidates",
@@ -423,7 +506,10 @@ function summarizeRegressionTraps(report: TournamentReport | undefined): string 
   if (traps.length === 0) return "(no regressions in prior tournament report)";
   return traps
     .slice(0, 12)
-    .map((trap) => `- ${trap.workspace} regressed ${trap.scope} ${trap.suite}: ${trap.baseline} -> ${trap.variant}`)
+    .map(
+      (trap) =>
+        `- ${trap.workspace} regressed ${trap.scope} ${trap.suite}: ${trap.baseline} -> ${trap.variant}`,
+    )
     .join("\n");
 }
 
@@ -464,7 +550,9 @@ function summarizeAudits(report: AuditReport | undefined): string {
     lines.push("");
     lines.push("STRENGTHS (sample):");
     for (const audit of strongest) {
-      lines.push(`- [${audit.intentBucket}] ${audit.callId}: ${audit.strengths.join(" | ")}`);
+      lines.push(
+        `- [${audit.intentBucket}] ${audit.callId}: ${audit.strengths.join(" | ")}`,
+      );
     }
   }
 
@@ -513,7 +601,7 @@ function buildProposerPrompt(args: {
     "- Protect working behavior in suites that are not part of the chosen target cluster.",
     "- Treat prompt-layer and tool-layer failures differently. Prompt-layer failures are eligible for prompt edits. Tool-layer failures should usually produce a very small prompt clarification at most; do not paper over a broken tool contract with a broad prompt rewrite.",
     "- Stay faithful to the agent's voice: confident, concise, warm. No corporate-speak.",
-    "- Write rules as positive directives (\"Always X\", \"Stay in role\") rather than negative prohibitions where possible.",
+    '- Write rules as positive directives ("Always X", "Stay in role") rather than negative prohibitions where possible.',
     "- Do not invent new tools or change tool semantics. You can change instructions about when/how to use existing tools.",
     "- Each variant must be a COMPLETE replacement for each file you edit, not a diff.",
     "- Only include files in the variant's `files` array that you actually changed. Unchanged files do not need to be returned.",
@@ -559,11 +647,15 @@ function buildProposerPrompt(args: {
         variants: [
           {
             id: "v1",
-            hypothesis: "one sentence — what this narrow variant changes and why",
+            hypothesis:
+              "one sentence — what this narrow variant changes and why",
             focus: "the exact cluster this variant targets",
             scope: "prompt-layer",
             files: [
-              { path: "RUNBOOK.md", content: "<full edited content of RUNBOOK.md>" },
+              {
+                path: "RUNBOOK.md",
+                content: "<full edited content of RUNBOOK.md>",
+              },
             ],
           },
         ],
@@ -590,7 +682,8 @@ interface OpenAIResponse {
 
 async function callProposerModel(prompt: string): Promise<string> {
   if (PROPOSER_PROVIDER === "openai") {
-    if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is required");
+    if (!process.env.OPENAI_API_KEY)
+      throw new Error("OPENAI_API_KEY is required");
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -611,11 +704,13 @@ async function callProposerModel(prompt: string): Promise<string> {
     const data = (await response.json()) as OpenAIResponse;
     const content = data.choices?.[0]?.message?.content;
     if (typeof content === "string") return content;
-    if (Array.isArray(content)) return content.map((part) => part.text ?? "").join("");
+    if (Array.isArray(content))
+      return content.map((part) => part.text ?? "").join("");
     return "";
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is required");
+  if (!process.env.ANTHROPIC_API_KEY)
+    throw new Error("ANTHROPIC_API_KEY is required");
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -637,11 +732,24 @@ async function callProposerModel(prompt: string): Promise<string> {
   return data.content[0]?.text ?? "";
 }
 
-function parseVariantsResponse(text: string, editableFilenames: string[]): Variant[] {
+function parseVariantsResponse(
+  text: string,
+  editableFilenames: string[],
+): Variant[] {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Proposer response did not contain JSON: " + text.slice(0, 500));
-  const parsed = JSON.parse(jsonMatch[0]) as { variants: Array<{ id?: string; hypothesis?: string; files?: VariantFile[] }> };
-  if (!Array.isArray(parsed.variants)) throw new Error("Proposer JSON missing 'variants' array");
+  if (!jsonMatch)
+    throw new Error(
+      "Proposer response did not contain JSON: " + text.slice(0, 500),
+    );
+  const parsed = JSON.parse(jsonMatch[0]) as {
+    variants: Array<{
+      id?: string;
+      hypothesis?: string;
+      files?: VariantFile[];
+    }>;
+  };
+  if (!Array.isArray(parsed.variants))
+    throw new Error("Proposer JSON missing 'variants' array");
   const allowed = new Set(editableFilenames);
   return parsed.variants
     .map((variant, index) => {
@@ -651,7 +759,10 @@ function parseVariantsResponse(text: string, editableFilenames: string[]): Varia
       return {
         id: variant.id ?? `v${index + 1}`,
         hypothesis: variant.hypothesis ?? "",
-        focus: typeof (variant as { focus?: string }).focus === "string" ? (variant as { focus?: string }).focus : undefined,
+        focus:
+          typeof (variant as { focus?: string }).focus === "string"
+            ? (variant as { focus?: string }).focus
+            : undefined,
         scope: (variant as { scope?: "prompt-layer" | "tool-layer" }).scope,
         files,
       };
@@ -667,14 +778,19 @@ function copyAllWorkspaceFiles(srcDir: string, destDir: string) {
   }
 }
 
-function writeVariant(variant: Variant): { dir: string; editedFiles: string[] } {
+function writeVariant(variant: Variant): {
+  dir: string;
+  editedFiles: string[];
+} {
   const dirName = `workspace-${variant.id}`;
   const dirPath = join(REPO_ROOT, dirName);
   if (existsSync(dirPath)) rmSync(dirPath, { recursive: true });
   mkdirSync(dirPath, { recursive: true });
   copyAllWorkspaceFiles(WORKSPACE_DIR, dirPath);
   for (const file of variant.files) {
-    const out = file.content.endsWith("\n") ? file.content : `${file.content}\n`;
+    const out = file.content.endsWith("\n")
+      ? file.content
+      : `${file.content}\n`;
     writeFileSync(join(dirPath, file.path), out, "utf-8");
   }
   return { dir: dirName, editedFiles: variant.files.map((file) => file.path) };
@@ -687,9 +803,15 @@ async function main() {
 
   const evalData = exportEval(evalId);
   const failures = extractFailures(evalData);
-  const goldenFailures = failures.filter((failure) => failure.source === "golden").length;
-  const candidateFailures = failures.filter((failure) => failure.source === "candidates").length;
-  console.log(`Found ${failures.length} eval failures (${goldenFailures} golden, ${candidateFailures} candidates)`);
+  const goldenFailures = failures.filter(
+    (failure) => failure.source === "golden",
+  ).length;
+  const candidateFailures = failures.filter(
+    (failure) => failure.source === "candidates",
+  ).length;
+  console.log(
+    `Found ${failures.length} eval failures (${goldenFailures} golden, ${candidateFailures} candidates)`,
+  );
 
   const auditReport = loadLatestAuditReport();
   const tournamentReport = loadLatestTournamentReport();
@@ -704,7 +826,9 @@ async function main() {
     : false;
 
   if (failures.length === 0 && !hasAuditFailures) {
-    console.log("Nothing to propose — eval is clean and no failed calls today.");
+    console.log(
+      "Nothing to propose — eval is clean and no failed calls today.",
+    );
     return;
   }
 
@@ -712,7 +836,9 @@ async function main() {
   console.log(`Editable files this round: ${editableFilenames.join(", ")}`);
   const baselineFiles = readEditableFileContents(editableFilenames);
   if (baselineFiles.length === 0) {
-    throw new Error("No editable files found. Check PROPOSER_EDIT_FILES env var.");
+    throw new Error(
+      "No editable files found. Check PROPOSER_EDIT_FILES env var.",
+    );
   }
 
   const prompt = buildProposerPrompt({
@@ -726,24 +852,49 @@ async function main() {
     editableFilenames,
   });
 
-  console.log(`Calling ${PROPOSER_MODEL} with ${args.variants} variants requested...`);
+  console.log(
+    `Calling ${PROPOSER_MODEL} with ${args.variants} variants requested...`,
+  );
   const responseText = await callProposerModel(prompt);
   const variants = parseVariantsResponse(responseText, editableFilenames);
   if (variants.length === 0) {
-    throw new Error(`Proposer returned 0 valid variants. Response head: ${responseText.slice(0, 800)}`);
+    throw new Error(
+      `Proposer returned 0 valid variants. Response head: ${responseText.slice(0, 800)}`,
+    );
   }
   console.log(`Got ${variants.length} valid variants back.`);
 
-  const written: Array<{ id: string; dir: string; hypothesis: string; focus?: string; scope?: string; editedFiles: string[] }> = [];
+  const written: Array<{
+    id: string;
+    dir: string;
+    hypothesis: string;
+    focus?: string;
+    scope?: string;
+    editedFiles: string[];
+  }> = [];
   for (const variant of variants) {
     const { dir, editedFiles } = writeVariant(variant);
-    written.push({ id: variant.id, dir, hypothesis: variant.hypothesis, focus: variant.focus, scope: variant.scope, editedFiles });
-    console.log(`  ${variant.id} → ${dir} [${variant.scope ?? "unspecified"}] focus=${variant.focus ?? "n/a"} (edits: ${editedFiles.join(", ")}) | ${variant.hypothesis}`);
+    written.push({
+      id: variant.id,
+      dir,
+      hypothesis: variant.hypothesis,
+      focus: variant.focus,
+      scope: variant.scope,
+      editedFiles,
+    });
+    console.log(
+      `  ${variant.id} → ${dir} [${variant.scope ?? "unspecified"}] focus=${variant.focus ?? "n/a"} (edits: ${editedFiles.join(", ")}) | ${variant.hypothesis}`,
+    );
   }
 
   ensureDir(OUTPUT_DIR);
   const reportPath = join(OUTPUT_DIR, `variants-${timestampSlug()}.json`);
-  writeJSON(reportPath, { evalId, baseline: "workspace", editableFiles: editableFilenames, variants: written });
+  writeJSON(reportPath, {
+    evalId,
+    baseline: "workspace",
+    editableFiles: editableFilenames,
+    variants: written,
+  });
   console.log(`Wrote variant manifest to ${reportPath}`);
 }
 

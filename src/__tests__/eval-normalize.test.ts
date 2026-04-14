@@ -4,11 +4,20 @@ import { describe, expect, it } from "vitest";
 import { normalizeCallEvents } from "../../evals/lib/normalize-call-events.js";
 import type { NormalizedCallEvent } from "../../evals/lib/types.js";
 
-const FIXTURE_PATH = join(import.meta.dirname, "..", "..", "evals", "fixtures", "sample-call-events.json");
+const FIXTURE_PATH = join(
+  import.meta.dirname,
+  "..",
+  "..",
+  "evals",
+  "fixtures",
+  "sample-call-events.json",
+);
 
 describe("normalize call events", () => {
   it("accepts already-normalized call event arrays", () => {
-    const fixture = JSON.parse(readFileSync(FIXTURE_PATH, "utf-8")) as NormalizedCallEvent[];
+    const fixture = JSON.parse(
+      readFileSync(FIXTURE_PATH, "utf-8"),
+    ) as NormalizedCallEvent[];
     const records = normalizeCallEvents(fixture);
 
     expect(records).toHaveLength(3);
@@ -31,11 +40,11 @@ describe("normalize call events", () => {
               turn: 1,
               callerText: "I want a real person.",
               agentText: "let me transfer you over to the office.",
-              toolCalls: [{ name: "transfer_call", args: {} }]
-            }
-          ]
-        })
-      }
+              toolCalls: [{ name: "transfer_call", args: {} }],
+            },
+          ],
+        }),
+      },
     ];
 
     const records = normalizeCallEvents(exported);

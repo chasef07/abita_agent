@@ -36,9 +36,11 @@ function buildPhoneLookup(testCase: DecisionPointCase) {
         routing: "general",
         allowedProviders: [],
         routingAmbiguous: false,
-        appointments: testCase.context.appointments && testCase.context.appointments.length > 0
-          ? testCase.context.appointments
-          : null,
+        appointments:
+          testCase.context.appointments &&
+          testCase.context.appointments.length > 0
+            ? testCase.context.appointments
+            : null,
       };
     case "multiple_matches":
       return {
@@ -51,7 +53,9 @@ function buildPhoneLookup(testCase: DecisionPointCase) {
   }
 }
 
-function buildChatContextMessages(conversation: DecisionPointCase["conversation"]) {
+function buildChatContextMessages(
+  conversation: DecisionPointCase["conversation"],
+) {
   const chatCtx = new llm.ChatContext();
   for (const message of conversation) {
     chatCtx.addMessage({
@@ -81,12 +85,17 @@ function extractAssistantTexts(items: unknown[]): string[] {
   });
 }
 
-export async function runDecisionPointCase(casePath: string, model?: string): Promise<RunDecisionPointCaseResult> {
+export async function runDecisionPointCase(
+  casePath: string,
+  model?: string,
+): Promise<RunDecisionPointCaseResult> {
   const testCase = loadCase(casePath);
   const lastMessage = testCase.conversation.at(-1);
 
   if (!lastMessage || lastMessage.role !== "user") {
-    throw new Error(`Decision-point case must end with a user turn: ${testCase.id}`);
+    throw new Error(
+      `Decision-point case must end with a user turn: ${testCase.id}`,
+    );
   }
 
   const history = testCase.conversation.slice(0, -1);
@@ -99,16 +108,29 @@ export async function runDecisionPointCase(casePath: string, model?: string): Pr
   try {
     const chatCtx = buildChatContextMessages(history);
     await ctx.agent.updateChatCtx(chatCtx);
-    const priorAssistantCount = extractAssistantTexts(ctx.session.history.items).length;
+    const priorAssistantCount = extractAssistantTexts(
+      ctx.session.history.items,
+    ).length;
 
-    const result = await ctx.session.run({ userInput: lastMessage.content }).wait();
+    const result = await ctx.session
+      .run({ userInput: lastMessage.content })
+      .wait();
     const eventAssistantMessages = result.events
-      .filter((event) => event.type === "message" && event.item.role === "assistant")
+      .filter(
+        (event) => event.type === "message" && event.item.role === "assistant",
+      )
       .flatMap((event) =>
-        event.type === "message" && typeof event.item.text === "string" ? [event.item.text] : [],
+        event.type === "message" && typeof event.item.text === "string"
+          ? [event.item.text]
+          : [],
       );
-    const historyAssistantMessages = extractAssistantTexts(ctx.session.history.items).slice(priorAssistantCount);
-    const assistantMessages = historyAssistantMessages.length > 0 ? historyAssistantMessages : eventAssistantMessages;
+    const historyAssistantMessages = extractAssistantTexts(
+      ctx.session.history.items,
+    ).slice(priorAssistantCount);
+    const assistantMessages =
+      historyAssistantMessages.length > 0
+        ? historyAssistantMessages
+        : eventAssistantMessages;
 
     return {
       caseId: testCase.id,

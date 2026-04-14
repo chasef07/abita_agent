@@ -8,7 +8,10 @@ import { llm } from "@livekit/agents";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { z } from "zod";
-import { getOfficeConfigByPhone, SPRING_HILL_OFFICE_PHONE } from "../offices.js";
+import {
+  getOfficeConfigByPhone,
+  SPRING_HILL_OFFICE_PHONE,
+} from "../offices.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "..", "workspace");
 
@@ -98,9 +101,7 @@ const FABRICATION_PATTERNS = [
   /dummy/i,
 ];
 
-function detectFabrication(
-  args: Record<string, unknown>,
-): string[] {
+function detectFabrication(args: Record<string, unknown>): string[] {
   const issues: string[] = [];
   for (const [key, value] of Object.entries(args)) {
     if (typeof value !== "string") continue;
@@ -129,8 +130,14 @@ Returns verification status, patient identity, and routing data.`,
     parameters: z.object({
       firstName: z.string().describe("Patient's first name"),
       lastName: z.string().optional().describe("Patient's last name"),
-      dob: z.string().optional().describe("Patient's date of birth in MM/DD/YYYY format"),
-      usePhone: z.boolean().optional().describe("Set true for multiple-match flow"),
+      dob: z
+        .string()
+        .optional()
+        .describe("Patient's date of birth in MM/DD/YYYY format"),
+      usePhone: z
+        .boolean()
+        .optional()
+        .describe("Set true for multiple-match flow"),
     }),
     execute: async (args) => {
       log.push({ name: "verify_patient", args });
@@ -164,7 +171,9 @@ Returns the created patient record and routing data.`,
       sex: z.enum(["male", "female"]).describe("Patient's sex"),
       insurance: z.string().describe("Insurance carrier name"),
       subscriberName: z.string().describe("Name on the insurance policy"),
-      subscriberNum: z.string().describe("Insurance subscriber/member ID number"),
+      subscriberNum: z
+        .string()
+        .describe("Insurance subscriber/member ID number"),
     }),
     execute: async (args) => {
       log.push({ name: "add_patient", args });
@@ -228,7 +237,10 @@ The appointment is not cancelled until this tool succeeds.`,
     }),
     execute: async (args) => {
       log.push({ name: "cancel_appt", args });
-      return { status: "cancelled", message: "Appointment cancelled successfully" };
+      return {
+        status: "cancelled",
+        message: "Appointment cancelled successfully",
+      };
     },
   });
 
@@ -345,11 +357,19 @@ Updates session routing and insurance state from the result.`,
       book_appt: mock_book_appt,
       check_insurance: mock_check_insurance,
       lookup_knowledge: mock_lookup_knowledge,
-      ...(office.features.routeToSpringHill ? { route_to_spring_hill: mock_route_to_spring_hill } : {}),
+      ...(office.features.routeToSpringHill
+        ? { route_to_spring_hill: mock_route_to_spring_hill }
+        : {}),
       transfer_call: mock_transfer_call,
     },
     callLog: log,
   };
 }
 
-export { DEFAULT_VERIFY_FOUND, DEFAULT_VERIFY_NOT_FOUND, DEFAULT_AVAILABILITY, DEFAULT_BOOK, DEFAULT_CONFIRM };
+export {
+  DEFAULT_VERIFY_FOUND,
+  DEFAULT_VERIFY_NOT_FOUND,
+  DEFAULT_AVAILABILITY,
+  DEFAULT_BOOK,
+  DEFAULT_CONFIRM,
+};

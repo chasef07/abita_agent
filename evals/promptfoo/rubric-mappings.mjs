@@ -59,8 +59,7 @@ export const POLICY_FLAG_RUBRICS = {
   // Generic transfer policies (already used by extractor)
   caller_requested_human:
     "When the caller has clearly asked for a human, transfers without further pushback.",
-  transfer_required:
-    "Transfers the call when the situation requires it.",
+  transfer_required: "Transfers the call when the situation requires it.",
 
   // Knowledge / insurance grounding
   ground_practice_facts_in_lookup_knowledge:
@@ -90,7 +89,7 @@ export const POLICY_FLAG_RUBRICS = {
   readback_only_includes_name_dob_insurance_member_id:
     "The pre-submit readback includes only name (spelling last name), DOB, insurance plan, and member ID. Does NOT read back email, phone, address, sex, or other PHI in the readback.",
   add_patient_uses_caller_provided_values_exactly:
-    "When calling add_patient, every field is the value the caller actually said — no placeholders (\"unknown\", \"N/A\", \"example\"), no guesses, no defaults filled in by the agent.",
+    'When calling add_patient, every field is the value the caller actually said — no placeholders ("unknown", "N/A", "example"), no guesses, no defaults filled in by the agent.',
 
   // Appointment context handling
   use_context_appointments_skip_confirm_tool:
@@ -135,8 +134,8 @@ export function buildRubricForCase(testCase) {
     "You are evaluating a voice agent's response to a caller.",
     "",
     "The provider output is a JSON object with these fields:",
-    '- `finalText`: the agent\'s final spoken reply for this turn',
-    '- `toolCalls`: an array of {name, args} the agent invoked this turn',
+    "- `finalText`: the agent's final spoken reply for this turn",
+    "- `toolCalls`: an array of {name, args} the agent invoked this turn",
     "",
     "Evaluate ALL of the following criteria. The response passes only if every criterion is satisfied.",
     "",
@@ -151,57 +150,56 @@ export function listMappedFlags() {
   };
 }
 
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __dirname_rubric = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT_RUBRIC = resolve(__dirname_rubric, '..', '..');
+const REPO_ROOT_RUBRIC = resolve(__dirname_rubric, "..", "..");
 
 function loadWorkspaceFile(name) {
   const workspaceDir = process.env.PROMPT_WORKSPACE
     ? resolve(REPO_ROOT_RUBRIC, process.env.PROMPT_WORKSPACE)
-    : resolve(REPO_ROOT_RUBRIC, 'workspace');
-  return readFileSync(resolve(workspaceDir, name), 'utf-8').trim();
+    : resolve(REPO_ROOT_RUBRIC, "workspace");
+  return readFileSync(resolve(workspaceDir, name), "utf-8").trim();
 }
 
 export function buildRunbookComplianceRubric(testCase) {
-  const runbook = loadWorkspaceFile('RUNBOOK.md');
+  const runbook = loadWorkspaceFile("RUNBOOK.md");
   const conversation = (testCase.conversation ?? [])
     .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
-    .join('\n');
+    .join("\n");
 
   return [
-    'You are evaluating whether a voice agent followed its runbook on a single conversational turn.',
-    '',
-    '# RUNBOOK',
+    "You are evaluating whether a voice agent followed its runbook on a single conversational turn.",
+    "",
+    "# RUNBOOK",
     runbook,
-    '',
-    '# CONVERSATION HISTORY (turns leading up to the decision)',
+    "",
+    "# CONVERSATION HISTORY (turns leading up to the decision)",
     conversation,
-    '',
-    '# AGENT OUTPUT',
-    'The provider output is a JSON object with these fields:',
-    '- `finalText`: the agent\'s reply on this turn',
-    '- `toolCalls`: an array of {name, args} the agent invoked this turn',
-    '',
-    '# TASK',
-    'Decide whether the agent\'s response on this turn complies with the RUNBOOK.',
-    '',
-    'Pass criteria:',
-    '- Any tool calls match what the runbook requires for this situation',
-    '- The reply matches the runbook\'s prescribed phrasing where applicable (e.g. exact transfer message, exact human-pushback phrasing)',
-    '- No runbook rule is violated (HIPAA, no-fabrication, ask-reason-before-availability, transfer-message-before-transfer_call, etc.)',
-    '',
-    'Fail criteria:',
-    '- Skipped a tool the runbook requires',
-    '- Called a tool the runbook says not to call in this situation',
-    '- Said something the runbook prohibits (read back known names, invented data, gave medical advice)',
-    '- Used a different language than the caller\'s',
-    '',
-    'Be lenient about exact wording when the meaning matches the runbook\'s intent. Be strict about tool calls and explicit prescribed phrases.',
-    '',
-    'In your reasoning, list each runbook rule that applies to this turn and whether the agent satisfied it. Then conclude PASS or FAIL.',
-  ].join('\n');
+    "",
+    "# AGENT OUTPUT",
+    "The provider output is a JSON object with these fields:",
+    "- `finalText`: the agent's reply on this turn",
+    "- `toolCalls`: an array of {name, args} the agent invoked this turn",
+    "",
+    "# TASK",
+    "Decide whether the agent's response on this turn complies with the RUNBOOK.",
+    "",
+    "Pass criteria:",
+    "- Any tool calls match what the runbook requires for this situation",
+    "- The reply matches the runbook's prescribed phrasing where applicable (e.g. exact transfer message, exact human-pushback phrasing)",
+    "- No runbook rule is violated (HIPAA, no-fabrication, ask-reason-before-availability, transfer-message-before-transfer_call, etc.)",
+    "",
+    "Fail criteria:",
+    "- Skipped a tool the runbook requires",
+    "- Called a tool the runbook says not to call in this situation",
+    "- Said something the runbook prohibits (read back known names, invented data, gave medical advice)",
+    "- Used a different language than the caller's",
+    "",
+    "Be lenient about exact wording when the meaning matches the runbook's intent. Be strict about tool calls and explicit prescribed phrases.",
+    "",
+    "In your reasoning, list each runbook rule that applies to this turn and whether the agent satisfied it. Then conclude PASS or FAIL.",
+  ].join("\n");
 }
-

@@ -35,8 +35,10 @@ interface Args {
 function parseArgs(argv: string[]): Args {
   const args: Args = { variants: 3, hours: 24, promote: false };
   for (let i = 0; i < argv.length; i += 1) {
-    if (argv[i] === "--variants" && argv[i + 1]) args.variants = Number.parseInt(argv[i + 1], 10);
-    if (argv[i] === "--hours" && argv[i + 1]) args.hours = Number.parseFloat(argv[i + 1]);
+    if (argv[i] === "--variants" && argv[i + 1])
+      args.variants = Number.parseInt(argv[i + 1], 10);
+    if (argv[i] === "--hours" && argv[i + 1])
+      args.hours = Number.parseFloat(argv[i + 1]);
     if (argv[i] === "--promote") args.promote = true;
   }
   return args;
@@ -57,7 +59,8 @@ function runShell(command: string) {
 function cleanupOldVariantWorkspaces() {
   for (const entry of readdirSync(REPO_ROOT)) {
     if (
-      (entry.startsWith("workspace-v") || entry.startsWith("workspace-candidate")) &&
+      (entry.startsWith("workspace-v") ||
+        entry.startsWith("workspace-candidate")) &&
       statSync(join(REPO_ROOT, entry)).isDirectory()
     ) {
       rmSync(join(REPO_ROOT, entry), { recursive: true });
@@ -94,7 +97,9 @@ function main() {
 
   step("5. Propose variants", () => {
     cleanupOldVariantWorkspaces();
-    runShell(`npx tsx evals/scripts/propose-variants.ts --variants ${args.variants}`);
+    runShell(
+      `npx tsx evals/scripts/propose-variants.ts --variants ${args.variants}`,
+    );
   });
 
   step("6. Tournament", () => {
@@ -118,9 +123,13 @@ function main() {
     runShell(`npx tsx evals/scripts/generate-tool-recommendations.ts`);
   });
 
-  console.log(`\nDone. Open evals/output/audit-report.html for the quick-scan dashboard.`);
+  console.log(
+    `\nDone. Open evals/output/audit-report.html for the quick-scan dashboard.`,
+  );
   if (!args.promote) {
-    console.log(`(Workspace untouched — pass --promote to overwrite RUNBOOK.md when a winner is found.)`);
+    console.log(
+      `(Workspace untouched — pass --promote to overwrite RUNBOOK.md when a winner is found.)`,
+    );
   }
 }
 

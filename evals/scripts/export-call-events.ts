@@ -6,7 +6,9 @@ import { dirname, resolve } from "node:path";
 const DATABASE_URL = process.env.DATABASE_URL;
 
 function usage(): never {
-  console.error("Usage: tsx evals/scripts/export-call-events.ts <output.json> [limit]");
+  console.error(
+    "Usage: tsx evals/scripts/export-call-events.ts <output.json> [limit]",
+  );
   process.exit(1);
 }
 

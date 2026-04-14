@@ -10,7 +10,13 @@ import "dotenv/config";
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { OUTPUT_DIR, ensureDir, findLatestOutput, readJSON, writeText } from "../lib/io.js";
+import {
+  OUTPUT_DIR,
+  ensureDir,
+  findLatestOutput,
+  readJSON,
+  writeText,
+} from "../lib/io.js";
 
 interface AuditRecord {
   callId: string;
@@ -69,13 +75,18 @@ function loadLatestTournamentReport(): TournamentReport | undefined {
   return readJSON<TournamentReport>(findLatestOutput("tournament-"));
 }
 
-function getBaselineEvalId(report: TournamentReport | undefined): string | undefined {
-  return report?.scores.find((entry) => entry.workspace === "workspace")?.evalId;
+function getBaselineEvalId(
+  report: TournamentReport | undefined,
+): string | undefined {
+  return report?.scores.find((entry) => entry.workspace === "workspace")
+    ?.evalId;
 }
 
 function exportEval(evalId: string): unknown {
   const tmpFile = `/tmp/eval-${evalId}.json`;
-  execSync(`npx promptfoo export eval ${evalId} -o ${tmpFile}`, { encoding: "utf-8" });
+  execSync(`npx promptfoo export eval ${evalId} -o ${tmpFile}`, {
+    encoding: "utf-8",
+  });
   return JSON.parse(readFileSync(tmpFile, "utf-8"));
 }
 
@@ -87,7 +98,7 @@ function extractFailures(evalData: any): EvalFailure[] {
       try {
         return typeof result.response?.output === "string"
           ? JSON.parse(result.response.output)
-          : result.response?.output ?? {};
+          : (result.response?.output ?? {});
       } catch {
         return {};
       }
@@ -100,7 +111,10 @@ function extractFailures(evalData: any): EvalFailure[] {
         : "unknown";
     const judgeReason = (result.gradingResult?.componentResults ?? [])
       .filter((entry: any) => entry.pass === false)
-      .map((entry: any) => `[${entry.assertion?.type}] ${(entry.reason ?? "").split("\n").slice(0, 4).join(" ")}`)
+      .map(
+        (entry: any) =>
+          `[${entry.assertion?.type}] ${(entry.reason ?? "").split("\n").slice(0, 4).join(" ")}`,
+      )
       .join(" || ");
     failures.push({
       caseId: result.testCase?.vars?.caseId ?? casePath,
@@ -115,7 +129,10 @@ function extractFailures(evalData: any): EvalFailure[] {
 
 function inferToolLayerIssue(failure: EvalFailure): string | undefined {
   const text = `${failure.judgeReason}`.toLowerCase();
-  if (failure.suite === "confirm" && !failure.toolCalls.some((call) => call.name === "confirm_appt")) {
+  if (
+    failure.suite === "confirm" &&
+    !failure.toolCalls.some((call) => call.name === "confirm_appt")
+  ) {
     return "confirm_appt grounding or context contract is unclear";
   }
   if (failure.suite === "registration" && text.includes("check_insurance")) {
@@ -124,7 +141,10 @@ function inferToolLayerIssue(failure: EvalFailure): string | undefined {
   if (failure.suite === "registration" && text.includes("add_patient")) {
     return "add_patient preconditions or readback contract are too loose";
   }
-  if (failure.suite === "cancel" && !failure.toolCalls.some((call) => call.name === "cancel_appt")) {
+  if (
+    failure.suite === "cancel" &&
+    !failure.toolCalls.some((call) => call.name === "cancel_appt")
+  ) {
     return "cancel_appt completion step is not enforced strongly enough";
   }
   if (failure.suite === "routing") {
@@ -133,24 +153,36 @@ function inferToolLayerIssue(failure: EvalFailure): string | undefined {
   if (failure.suite === "insurance" && text.includes("check_insurance")) {
     return "insurance acceptance flow needs a clearer required-tool contract";
   }
-  if (text.includes("missing required") || text.includes("argument") || text.includes("wrong parameter")) {
+  if (
+    text.includes("missing required") ||
+    text.includes("argument") ||
+    text.includes("wrong parameter")
+  ) {
     return "tool argument requirements need stricter validation or examples";
   }
   return undefined;
 }
 
-function clusterAuditRecommendations(report: AuditReport | undefined): RecommendationCluster[] {
+function clusterAuditRecommendations(
+  report: AuditReport | undefined,
+): RecommendationCluster[] {
   if (!report) return [];
   const clustered = new Map<string, RecommendationCluster>();
   for (const audit of report.audits) {
     const toolRelated = audit.failureModes.find((mode) =>
-      ["wrong_tool", "wrong_tool_order", "hallucination", "toolCorrectness"].includes(mode),
+      [
+        "wrong_tool",
+        "wrong_tool_order",
+        "hallucination",
+        "toolCorrectness",
+      ].includes(mode),
     );
     if (!toolRelated) continue;
-    const issue = audit.toolCorrectness.issues[0]
-      ?? audit.hallucinationSafety.issues[0]
-      ?? audit.recommendedFixes[0]
-      ?? toolRelated;
+    const issue =
+      audit.toolCorrectness.issues[0] ??
+      audit.hallucinationSafety.issues[0] ??
+      audit.recommendedFixes[0] ??
+      toolRelated;
     const key = `audit:${audit.intentBucket}:${issue}`;
     const current = clustered.get(key) ?? {
       key,
@@ -161,13 +193,18 @@ function clusterAuditRecommendations(report: AuditReport | undefined): Recommend
       examples: [],
     };
     current.count += 1;
-    if (current.examples.length < 3) current.examples.push(`${audit.callId}: ${audit.resolutionReason}`);
+    if (current.examples.length < 3)
+      current.examples.push(`${audit.callId}: ${audit.resolutionReason}`);
     clustered.set(key, current);
   }
-  return Array.from(clustered.values()).sort((a, b) => b.count - a.count || a.issue.localeCompare(b.issue));
+  return Array.from(clustered.values()).sort(
+    (a, b) => b.count - a.count || a.issue.localeCompare(b.issue),
+  );
 }
 
-function clusterEvalRecommendations(failures: EvalFailure[]): RecommendationCluster[] {
+function clusterEvalRecommendations(
+  failures: EvalFailure[],
+): RecommendationCluster[] {
   const clustered = new Map<string, RecommendationCluster>();
   for (const failure of failures) {
     const issue = inferToolLayerIssue(failure);
@@ -182,10 +219,15 @@ function clusterEvalRecommendations(failures: EvalFailure[]): RecommendationClus
       examples: [],
     };
     current.count += 1;
-    if (current.examples.length < 3) current.examples.push(`${failure.caseId}: ${failure.judgeReason || "(no judge reason)"}`);
+    if (current.examples.length < 3)
+      current.examples.push(
+        `${failure.caseId}: ${failure.judgeReason || "(no judge reason)"}`,
+      );
     clustered.set(key, current);
   }
-  return Array.from(clustered.values()).sort((a, b) => b.count - a.count || a.issue.localeCompare(b.issue));
+  return Array.from(clustered.values()).sort(
+    (a, b) => b.count - a.count || a.issue.localeCompare(b.issue),
+  );
 }
 
 function recommendationForIssue(issue: string): string {
@@ -202,7 +244,10 @@ function recommendationForIssue(issue: string): string {
   if (lower.includes("cancel_appt")) {
     return "Make cancellation completion depend on cancel_appt success instead of verbal confirmation alone.";
   }
-  if (lower.includes("route_to_spring_hill") || lower.includes("routing tool semantics")) {
+  if (
+    lower.includes("route_to_spring_hill") ||
+    lower.includes("routing tool semantics")
+  ) {
     return "Clarify routing tool responsibilities in code comments/tool docs and make the routing choice easier to infer from office and patient type.";
   }
   if (lower.includes("insurance acceptance")) {
@@ -218,7 +263,8 @@ function recommendationForIssue(issue: string): string {
 }
 
 function toSection(title: string, clusters: RecommendationCluster[]): string[] {
-  if (clusters.length === 0) return [`## ${title}`, "", "_No tool-layer clusters found._"];
+  if (clusters.length === 0)
+    return [`## ${title}`, "", "_No tool-layer clusters found._"];
   const lines = [`## ${title}`, ""];
   for (const cluster of clusters.slice(0, 10)) {
     lines.push(`### ${cluster.suiteOrBucket} × ${cluster.count}`);
@@ -235,7 +281,9 @@ function main() {
   const auditReport = loadLatestAuditReport();
   const tournamentReport = loadLatestTournamentReport();
   const baselineEvalId = getBaselineEvalId(tournamentReport);
-  const evalFailures = baselineEvalId ? extractFailures(exportEval(baselineEvalId)) : [];
+  const evalFailures = baselineEvalId
+    ? extractFailures(exportEval(baselineEvalId))
+    : [];
 
   const auditClusters = clusterAuditRecommendations(auditReport);
   const evalClusters = clusterEvalRecommendations(evalFailures);
@@ -246,7 +294,9 @@ function main() {
     "This report only covers failures that look like tool-contract, tool-semantics, grounding, or state-transition problems.",
     "These are the failures you should not try to solve with a broad prompt rewrite.",
     "",
-    ...(baselineEvalId ? [`Baseline eval: \`${baselineEvalId}\``, ""] : ["_No baseline eval id found from latest tournament._", ""]),
+    ...(baselineEvalId
+      ? [`Baseline eval: \`${baselineEvalId}\``, ""]
+      : ["_No baseline eval id found from latest tournament._", ""]),
     ...toSection("Audit-derived tool-layer clusters", auditClusters),
     ...toSection("Promptfoo-derived tool-layer clusters", evalClusters),
   ];

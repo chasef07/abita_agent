@@ -4,7 +4,14 @@
  * with type safety", etc. — keeps each script small and consistent.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 
 export const REPO_ROOT = resolve(import.meta.dirname, "..", "..");
@@ -28,7 +35,9 @@ export function findLatestOutput(prefix: string): string | undefined {
   const matches = readdirSync(OUTPUT_DIR)
     .filter((entry) => entry.startsWith(prefix) && entry.endsWith(".json"))
     .sort();
-  return matches.length === 0 ? undefined : join(OUTPUT_DIR, matches[matches.length - 1]);
+  return matches.length === 0
+    ? undefined
+    : join(OUTPUT_DIR, matches[matches.length - 1]);
 }
 
 /** Find today's `<prefix>YYYY-MM-DD.json` if present. */

@@ -14,7 +14,9 @@ function main() {
   const outputDir = process.argv[3] ?? "evals/cases/extracted";
 
   if (!input) {
-    console.error("Usage: tsx evals/scripts/extract-cases.ts <input.json> [output-dir]");
+    console.error(
+      "Usage: tsx evals/scripts/extract-cases.ts <input.json> [output-dir]",
+    );
     process.exit(1);
   }
 

@@ -1,12 +1,12 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 function loadCase(casePath) {
-  return JSON.parse(readFileSync(resolve(process.cwd(), casePath), 'utf-8'));
+  return JSON.parse(readFileSync(resolve(process.cwd(), casePath), "utf-8"));
 }
 
 function normalizeOutput(output) {
-  if (typeof output === 'string') {
+  if (typeof output === "string") {
     return JSON.parse(output);
   }
   return output;
@@ -22,14 +22,16 @@ export default function decisionPointAssertion(output, context) {
     return {
       pass: false,
       score: 0,
-      reason: 'Missing casePath in test vars',
+      reason: "Missing casePath in test vars",
     };
   }
 
   const testCase = loadCase(casePath);
   const result = normalizeOutput(output);
-  const finalText = String(result.finalText || '');
-  const toolNames = Array.isArray(result.toolCalls) ? result.toolCalls.map((toolCall) => toolCall.name) : [];
+  const finalText = String(result.finalText || "");
+  const toolNames = Array.isArray(result.toolCalls)
+    ? result.toolCalls.map((toolCall) => toolCall.name)
+    : [];
   const expectations = testCase.expectations || {};
   const componentResults = [];
 
@@ -38,7 +40,9 @@ export default function decisionPointAssertion(output, context) {
     componentResults.push({
       pass,
       score: pass ? 1 : 0,
-      reason: pass ? `Called required tool ${toolName}` : `Did not call required tool ${toolName}`,
+      reason: pass
+        ? `Called required tool ${toolName}`
+        : `Did not call required tool ${toolName}`,
       namedScores: { [`must_call:${toolName}`]: pass ? 1 : 0 },
     });
   }
@@ -48,7 +52,9 @@ export default function decisionPointAssertion(output, context) {
     componentResults.push({
       pass,
       score: pass ? 1 : 0,
-      reason: pass ? `Avoided forbidden tool ${toolName}` : `Called forbidden tool ${toolName}`,
+      reason: pass
+        ? `Avoided forbidden tool ${toolName}`
+        : `Called forbidden tool ${toolName}`,
       namedScores: { [`must_not_call:${toolName}`]: pass ? 1 : 0 },
     });
   }
@@ -58,7 +64,9 @@ export default function decisionPointAssertion(output, context) {
     componentResults.push({
       pass,
       score: pass ? 1 : 0,
-      reason: pass ? `Included required phrase hint "${phrase}"` : `Missing required phrase hint "${phrase}"`,
+      reason: pass
+        ? `Included required phrase hint "${phrase}"`
+        : `Missing required phrase hint "${phrase}"`,
       namedScores: { [`must_say:${phrase}`]: pass ? 1 : 0 },
     });
   }
@@ -68,13 +76,17 @@ export default function decisionPointAssertion(output, context) {
     componentResults.push({
       pass,
       score: pass ? 1 : 0,
-      reason: pass ? `Avoided forbidden phrase hint "${phrase}"` : `Included forbidden phrase hint "${phrase}"`,
+      reason: pass
+        ? `Avoided forbidden phrase hint "${phrase}"`
+        : `Included forbidden phrase hint "${phrase}"`,
       namedScores: { [`must_not_say:${phrase}`]: pass ? 1 : 0 },
     });
   }
 
   const total = componentResults.length || 1;
-  const passed = componentResults.filter((resultItem) => resultItem.pass).length;
+  const passed = componentResults.filter(
+    (resultItem) => resultItem.pass,
+  ).length;
   const score = passed / total;
 
   return {

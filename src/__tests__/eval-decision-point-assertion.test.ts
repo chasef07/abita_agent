@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-const ASSERTION_MODULE_PATH = new URL("../../evals/promptfoo/assertions/decision-point.mjs", import.meta.url).href;
+const ASSERTION_MODULE_PATH = new URL(
+  "../../evals/promptfoo/assertions/decision-point.mjs",
+  import.meta.url,
+).href;
 
 describe("decision-point assertion", () => {
   it("passes when required phrases and tool constraints are satisfied", async () => {
-    const { default: decisionPointAssertion } = (await import(ASSERTION_MODULE_PATH)) as {
-      default: (output: unknown, context: { vars: { casePath: string } }) => {
+    const { default: decisionPointAssertion } = (await import(
+      ASSERTION_MODULE_PATH
+    )) as {
+      default: (
+        output: unknown,
+        context: { vars: { casePath: string } },
+      ) => {
         pass: boolean;
         score: number;
       };
@@ -13,7 +21,8 @@ describe("decision-point assertion", () => {
 
     const result = decisionPointAssertion(
       {
-        finalText: "ok, I see a few patients associated with this number, can I get the patient's first name?",
+        finalText:
+          "ok, I see a few patients associated with this number, can I get the patient's first name?",
         toolCalls: [],
       },
       {
@@ -28,8 +37,13 @@ describe("decision-point assertion", () => {
   });
 
   it("fails when a required tool is missing", async () => {
-    const { default: decisionPointAssertion } = (await import(ASSERTION_MODULE_PATH)) as {
-      default: (output: unknown, context: { vars: { casePath: string } }) => {
+    const { default: decisionPointAssertion } = (await import(
+      ASSERTION_MODULE_PATH
+    )) as {
+      default: (
+        output: unknown,
+        context: { vars: { casePath: string } },
+      ) => {
         pass: boolean;
         score: number;
       };

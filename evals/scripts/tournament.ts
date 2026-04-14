@@ -15,7 +15,13 @@
 
 import "dotenv/config";
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..", "..");
@@ -46,12 +52,19 @@ function parseArgs(argv: string[]) {
 
 function listVariantWorkspaces(): string[] {
   return readdirSync(REPO_ROOT)
-    .filter((entry) => entry.startsWith("workspace-v") || entry.startsWith("workspace-candidate"))
+    .filter(
+      (entry) =>
+        entry.startsWith("workspace-v") ||
+        entry.startsWith("workspace-candidate"),
+    )
     .filter((entry) => statSync(join(REPO_ROOT, entry)).isDirectory())
     .sort();
 }
 
-function runEvalForWorkspace(workspace: string, includeCandidates: boolean): string {
+function runEvalForWorkspace(
+  workspace: string,
+  includeCandidates: boolean,
+): string {
   const description = `tournament:${workspace}`;
   // Always pass the literal workspace name (not empty string) so prompt.ts
   // and the rubric mapping read from the right directory. Empty string
@@ -85,13 +98,16 @@ function runEvalForWorkspace(workspace: string, includeCandidates: boolean): str
     maxBuffer: 8 * 1024 * 1024,
   });
   const matches = stdout.match(/eval-[A-Za-z0-9]+-\d{4}-\d{2}-\d{2}T[\d:.]+/g);
-  if (!matches || matches.length === 0) throw new Error("No eval id found after run");
+  if (!matches || matches.length === 0)
+    throw new Error("No eval id found after run");
   return matches[matches.length - 1];
 }
 
 function scoreEval(evalId: string, workspace: string): VariantScore {
   const tmpFile = `/tmp/tournament-${workspace.replace(/\//g, "-")}.json`;
-  execSync(`npx promptfoo export eval ${evalId} -o ${tmpFile}`, { cwd: REPO_ROOT });
+  execSync(`npx promptfoo export eval ${evalId} -o ${tmpFile}`, {
+    cwd: REPO_ROOT,
+  });
   const data = JSON.parse(readFileSync(tmpFile, "utf-8"));
   const score: VariantScore = {
     workspace,
@@ -106,7 +122,11 @@ function scoreEval(evalId: string, workspace: string): VariantScore {
   };
   for (const result of data.results?.results ?? []) {
     const casePath = result.testCase?.vars?.casePath ?? "";
-    const source: "golden" | "candidates" = casePath.startsWith("evals/cases/golden/") ? "golden" : "candidates";
+    const source: "golden" | "candidates" = casePath.startsWith(
+      "evals/cases/golden/",
+    )
+      ? "golden"
+      : "candidates";
     const suite = result.testCase?.metadata?.suite ?? "?";
     const passed = result.success === true ? 1 : 0;
     score.totalCount += 1;
@@ -119,7 +139,10 @@ function scoreEval(evalId: string, workspace: string): VariantScore {
       score.candidatePass += passed;
     }
     if (!score.perSuite[suite]) {
-      score.perSuite[suite] = { golden: { pass: 0, total: 0 }, candidates: { pass: 0, total: 0 } };
+      score.perSuite[suite] = {
+        golden: { pass: 0, total: 0 },
+        candidates: { pass: 0, total: 0 },
+      };
     }
     score.perSuite[suite][source].pass += passed;
     score.perSuite[suite][source].total += 1;
@@ -141,10 +164,14 @@ async function main() {
   const workspaces = ["workspace", ...variantWorkspaces];
 
   if (variantWorkspaces.length === 0) {
-    console.log("No workspace-v*/ directories found. Run propose-variants first.");
+    console.log(
+      "No workspace-v*/ directories found. Run propose-variants first.",
+    );
   }
 
-  console.log(`Tournament: ${workspaces.length} workspaces, includeCandidates=${args.includeCandidates}`);
+  console.log(
+    `Tournament: ${workspaces.length} workspaces, includeCandidates=${args.includeCandidates}`,
+  );
 
   const scores: VariantScore[] = [];
   for (const workspace of workspaces) {
@@ -155,8 +182,15 @@ async function main() {
   }
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
-  const reportPath = join(OUTPUT_DIR, `tournament-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
-  writeFileSync(reportPath, `${JSON.stringify({ scores }, null, 2)}\n`, "utf-8");
+  const reportPath = join(
+    OUTPUT_DIR,
+    `tournament-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
+  );
+  writeFileSync(
+    reportPath,
+    `${JSON.stringify({ scores }, null, 2)}\n`,
+    "utf-8",
+  );
   console.log(`\nReport: ${reportPath}`);
 }
 

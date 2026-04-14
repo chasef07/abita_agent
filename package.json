@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "tsx src/main.ts dev",
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "start": "node dist/main.js start",
     "download-files": "node dist/main.js download-files",
     "test": "vitest run",
+    "test:ci": "vitest run --config vitest.ci.config.ts",
     "test:watch": "vitest",
     "evals:extract": "tsx evals/scripts/extract-cases.ts",
     "evals:export": "tsx evals/scripts/export-call-events.ts",
@@ -29,7 +31,10 @@
     "optimize:tool-recs": "tsx evals/scripts/generate-tool-recommendations.ts",
     "optimize:metrics": "tsx evals/scripts/log-metrics.ts",
     "optimize:clean": "tsx evals/scripts/clean-variants.ts",
-    "optimize:nightly": "tsx evals/scripts/optimize-nightly.ts"
+    "optimize:nightly": "tsx evals/scripts/optimize-nightly.ts",
+    "lint": "eslint .",
+    "format": "prettier --write . --ignore-unknown",
+    "format:check": "prettier --check . --ignore-unknown"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.42.0",
@@ -46,11 +51,17 @@
     "zod": "^4.1.8"
   },
   "devDependencies": {
+    "@eslint/js": "^9.38.0",
     "@types/node": "^25.6.0",
     "@types/ws": "^8.18.1",
     "promptfoo": "0.121.4",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.4.0",
+    "prettier": "^3.6.2",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
+    "typescript-eslint": "^8.46.1",
     "vitest": "^4.1.4"
   }
 }

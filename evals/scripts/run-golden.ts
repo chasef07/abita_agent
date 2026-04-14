@@ -30,17 +30,20 @@ async function main() {
   const outputPath = process.argv[2] ?? "evals/output/golden-latest.json";
   const model = process.argv[3];
 
-  const [{ loadPromptfooTests }, { default: decisionPointAssertion }] = await Promise.all([
-    import("../promptfoo/tests.mjs"),
-    import("../promptfoo/assertions/decision-point.mjs"),
-  ]);
+  const [{ loadPromptfooTests }, { default: decisionPointAssertion }] =
+    await Promise.all([
+      import("../promptfoo/tests.mjs"),
+      import("../promptfoo/assertions/decision-point.mjs"),
+    ]);
 
   const tests = loadPromptfooTests() as PromptfooTestCase[];
   const results = [];
 
   for (const testCase of tests) {
     const output = await runDecisionPointCase(testCase.vars.casePath, model);
-    const assertion = decisionPointAssertion(output, { vars: testCase.vars }) as AssertionResult;
+    const assertion = decisionPointAssertion(output, {
+      vars: testCase.vars,
+    }) as AssertionResult;
     results.push({
       id: testCase.vars.caseId,
       casePath: testCase.vars.casePath,

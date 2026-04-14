@@ -43,7 +43,12 @@ function readCases(source: CaseSource): DecisionPointCase[] {
   return readdirSync(CASE_DIRS[source])
     .filter((file) => file.endsWith(".json"))
     .sort()
-    .map((file) => JSON.parse(readFileSync(join(CASE_DIRS[source], file), "utf-8")) as DecisionPointCase);
+    .map(
+      (file) =>
+        JSON.parse(
+          readFileSync(join(CASE_DIRS[source], file), "utf-8"),
+        ) as DecisionPointCase,
+    );
 }
 
 function increment(map: Record<string, number>, key: string | undefined) {
@@ -51,7 +56,10 @@ function increment(map: Record<string, number>, key: string | undefined) {
   map[key] = (map[key] ?? 0) + 1;
 }
 
-function topEntries(map: Record<string, number>, limit: number): Array<[string, number]> {
+function topEntries(
+  map: Record<string, number>,
+  limit: number,
+): Array<[string, number]> {
   return Object.entries(map)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, limit);
@@ -62,7 +70,10 @@ function inferCandidateCallId(id: string): string {
   return match?.[1] ?? id;
 }
 
-function buildStats(cases: DecisionPointCase[], source: CaseSource): CoverageStats {
+function buildStats(
+  cases: DecisionPointCase[],
+  source: CaseSource,
+): CoverageStats {
   const stats: CoverageStats = {
     total: cases.length,
     bySuite: {},
@@ -77,9 +88,12 @@ function buildStats(cases: DecisionPointCase[], source: CaseSource): CoverageSta
     increment(stats.bySuite, testCase.suite);
     increment(stats.bySource, testCase.source ?? "unknown");
     for (const tag of testCase.tags ?? []) increment(stats.byTag, tag);
-    for (const flag of testCase.expectations?.policyFlags ?? []) increment(stats.byPolicyFlag, flag);
-    for (const flag of testCase.expectations?.styleFlags ?? []) increment(stats.byStyleFlag, flag);
-    if (source === "candidates") increment(stats.byCallId, inferCandidateCallId(testCase.id));
+    for (const flag of testCase.expectations?.policyFlags ?? [])
+      increment(stats.byPolicyFlag, flag);
+    for (const flag of testCase.expectations?.styleFlags ?? [])
+      increment(stats.byStyleFlag, flag);
+    if (source === "candidates")
+      increment(stats.byCallId, inferCandidateCallId(testCase.id));
   }
 
   return stats;
@@ -101,13 +115,23 @@ function main() {
   const golden = buildStats(goldenCases, "golden");
   const candidates = buildStats(candidateCases, "candidates");
 
-  const allSuites = Array.from(new Set([
-    ...Object.keys(golden.bySuite),
-    ...Object.keys(candidates.bySuite),
-  ])).sort();
+  const allSuites = Array.from(
+    new Set([
+      ...Object.keys(golden.bySuite),
+      ...Object.keys(candidates.bySuite),
+    ]),
+  ).sort();
 
-  const goldenOnlySuites = allSuites.filter((suite) => (golden.bySuite[suite] ?? 0) > 0 && (candidates.bySuite[suite] ?? 0) === 0);
-  const candidateOnlySuites = allSuites.filter((suite) => (candidates.bySuite[suite] ?? 0) > 0 && (golden.bySuite[suite] ?? 0) === 0);
+  const goldenOnlySuites = allSuites.filter(
+    (suite) =>
+      (golden.bySuite[suite] ?? 0) > 0 &&
+      (candidates.bySuite[suite] ?? 0) === 0,
+  );
+  const candidateOnlySuites = allSuites.filter(
+    (suite) =>
+      (candidates.bySuite[suite] ?? 0) > 0 &&
+      (golden.bySuite[suite] ?? 0) === 0,
+  );
 
   const sections = [
     "# Case Coverage",
@@ -130,35 +154,50 @@ function main() {
     "",
     fmtTable([
       ["Source", "Count"],
-      ...topEntries(golden.bySource, 20).map(([key, value]) => [key, String(value)]),
+      ...topEntries(golden.bySource, 20).map(([key, value]) => [
+        key,
+        String(value),
+      ]),
     ]),
     "",
     "Top policy flags:",
     "",
     fmtTable([
       ["Policy flag", "Count"],
-      ...topEntries(golden.byPolicyFlag, 20).map(([key, value]) => [key, String(value)]),
+      ...topEntries(golden.byPolicyFlag, 20).map(([key, value]) => [
+        key,
+        String(value),
+      ]),
     ]),
     "",
     "Top style flags:",
     "",
     fmtTable([
       ["Style flag", "Count"],
-      ...topEntries(golden.byStyleFlag, 20).map(([key, value]) => [key, String(value)]),
+      ...topEntries(golden.byStyleFlag, 20).map(([key, value]) => [
+        key,
+        String(value),
+      ]),
     ]),
     "",
     "## Candidate composition",
     "",
     fmtTable([
       ["Tag", "Count"],
-      ...topEntries(candidates.byTag, 20).map(([key, value]) => [key, String(value)]),
+      ...topEntries(candidates.byTag, 20).map(([key, value]) => [
+        key,
+        String(value),
+      ]),
     ]),
     "",
     "Most repeated candidate callIds:",
     "",
     fmtTable([
       ["Call ID", "Candidate cases"],
-      ...topEntries(candidates.byCallId, 15).map(([key, value]) => [key, String(value)]),
+      ...topEntries(candidates.byCallId, 15).map(([key, value]) => [
+        key,
+        String(value),
+      ]),
     ]),
     "",
     "## Coverage gaps",

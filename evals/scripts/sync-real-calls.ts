@@ -33,7 +33,8 @@ function parseArgs(argv: string[]): Args {
   for (let i = 0; i < argv.length; i += 1) {
     const value = argv[i + 1];
     if (argv[i] === "--hours" && value) args.hours = Number.parseFloat(value);
-    if (argv[i] === "--days" && value) args.hours = Number.parseFloat(value) * 24;
+    if (argv[i] === "--days" && value)
+      args.hours = Number.parseFloat(value) * 24;
     if (argv[i] === "--limit" && value) args.limit = Number.parseInt(value, 10);
   }
   return args;
@@ -79,7 +80,9 @@ function fetchRecentCallEvents({ hours, limit }: Args): unknown[] {
       ORDER BY "startedAt" DESC
       LIMIT ${limit}
     ) ce
-  `.replace(/\s+/g, " ").trim();
+  `
+    .replace(/\s+/g, " ")
+    .trim();
 
   const stdout = execSync(
     `psql "${process.env.DATABASE_URL}" -t -A -c ${JSON.stringify(sql)}`,

@@ -4,10 +4,19 @@ import { describe, expect, it } from "vitest";
 import { extractDecisionPointCases } from "../../evals/lib/extract-decision-points.js";
 import type { NormalizedCallEvent } from "../../evals/lib/types.js";
 
-const FIXTURE_PATH = join(import.meta.dirname, "..", "..", "evals", "fixtures", "sample-call-events.json");
+const FIXTURE_PATH = join(
+  import.meta.dirname,
+  "..",
+  "..",
+  "evals",
+  "fixtures",
+  "sample-call-events.json",
+);
 
 function loadFixture(): NormalizedCallEvent[] {
-  return JSON.parse(readFileSync(FIXTURE_PATH, "utf-8")) as NormalizedCallEvent[];
+  return JSON.parse(
+    readFileSync(FIXTURE_PATH, "utf-8"),
+  ) as NormalizedCallEvent[];
 }
 
 describe("decision-point extractor", () => {
@@ -17,8 +26,12 @@ describe("decision-point extractor", () => {
 
     expect(testCases).toHaveLength(1);
     expect(testCases[0].suite).toBe("routing");
-    expect(testCases[0].expectations.mustCallTools).toContain("route_to_spring_hill");
-    expect(testCases[0].expectations.mustNotCallTools).toContain("transfer_call");
+    expect(testCases[0].expectations.mustCallTools).toContain(
+      "route_to_spring_hill",
+    );
+    expect(testCases[0].expectations.mustNotCallTools).toContain(
+      "transfer_call",
+    );
   });
 
   it("extracts a multiple-match verification case from normalized call events", () => {
@@ -29,7 +42,9 @@ describe("decision-point extractor", () => {
     expect(testCases[0].suite).toBe("verification");
     expect(testCases[0].expectations.mustSay).toContain("first name");
     expect(testCases[0].expectations.mustNotSay).toContain("date of birth");
-    expect(testCases[0].expectations.mustNotCallTools).toContain("confirm_appt");
+    expect(testCases[0].expectations.mustNotCallTools).toContain(
+      "confirm_appt",
+    );
   });
 
   it("extracts a transfer case from normalized call events", () => {
@@ -40,7 +55,9 @@ describe("decision-point extractor", () => {
     expect(testCases[0].suite).toBe("transfer");
     expect(testCases[0].expectations.mustCallTools).toContain("transfer_call");
     expect(testCases[0].tags).toContain("human-request");
-    expect(testCases[0].expectations.policyFlags).toContain("no_second_pushback");
+    expect(testCases[0].expectations.policyFlags).toContain(
+      "no_second_pushback",
+    );
   });
 
   it("extracts a confirm case when confirm_appt is called", () => {

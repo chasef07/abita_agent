@@ -5,9 +5,14 @@ import {
   summarizeAuditReport,
   summarizeDeterministicToolCorrectness,
 } from "../../evals/lib/audit.js";
-import type { CallAuditRecord, NormalizedCallEvent } from "../../evals/lib/types.js";
+import type {
+  CallAuditRecord,
+  NormalizedCallEvent,
+} from "../../evals/lib/types.js";
 
-function makeCall(overrides: Partial<NormalizedCallEvent>): NormalizedCallEvent {
+function makeCall(
+  overrides: Partial<NormalizedCallEvent>,
+): NormalizedCallEvent {
   return {
     callId: "SCL_TEST",
     officePhone: "+17275919997",
@@ -53,26 +58,50 @@ describe("audit helpers", () => {
             callerText: "Book me tomorrow",
             agentText: "Sure",
             toolCalls: [
-              { name: "book_appt", args: { columnId: 12, profileId: 99 }, isError: false },
+              {
+                name: "book_appt",
+                args: { columnId: 12, profileId: 99 },
+                isError: false,
+              },
             ],
           },
         ],
       },
     });
 
-    const result = summarizeDeterministicToolCorrectness(call, "existing_patient_booking");
+    const result = summarizeDeterministicToolCorrectness(
+      call,
+      "existing_patient_booking",
+    );
     expect(result.pass).toBe(false);
     expect(result.missingRequiredArgs.join(" ")).toContain("startDatetime");
-    expect(result.sequenceIssues.join(" ")).toContain("before get_availability");
+    expect(result.sequenceIssues.join(" ")).toContain(
+      "before get_availability",
+    );
   });
 
   it("counts repeated assistant questions", () => {
     const call = makeCall({
       data: {
         turns: [
-          { turn: 1, callerText: "Hi", agentText: "What's your first name?", toolCalls: [] },
-          { turn: 2, callerText: "Jane", agentText: "What's your first name?", toolCalls: [] },
-          { turn: 3, callerText: "Jane", agentText: "What insurance do you have?", toolCalls: [] },
+          {
+            turn: 1,
+            callerText: "Hi",
+            agentText: "What's your first name?",
+            toolCalls: [],
+          },
+          {
+            turn: 2,
+            callerText: "Jane",
+            agentText: "What's your first name?",
+            toolCalls: [],
+          },
+          {
+            turn: 3,
+            callerText: "Jane",
+            agentText: "What insurance do you have?",
+            toolCalls: [],
+          },
         ],
       },
     });
@@ -91,13 +120,30 @@ describe("audit helpers", () => {
         resolved: true,
         resolutionReason: "Answered the question cleanly.",
         failureModes: [],
-        toolCorrectness: { pass: true, issues: [], malformedArgs: [], missingRequiredArgs: [], sequenceIssues: [] },
-        pathEfficiency: { score: 1, issues: [], repeatedQuestionCount: 0, extraTurns: 0 },
+        toolCorrectness: {
+          pass: true,
+          issues: [],
+          malformedArgs: [],
+          missingRequiredArgs: [],
+          sequenceIssues: [],
+        },
+        pathEfficiency: {
+          score: 1,
+          issues: [],
+          repeatedQuestionCount: 0,
+          extraTurns: 0,
+        },
         hallucinationSafety: { pass: true, issues: [] },
         strengths: ["grounded answer"],
         recommendedFixes: [],
         toolCalls: [],
-        metrics: { toolCallCount: 1, toolErrorCount: 0, transferred: false, repeatedQuestionCount: 0, extraTurns: 0 },
+        metrics: {
+          toolCallCount: 1,
+          toolErrorCount: 0,
+          transferred: false,
+          repeatedQuestionCount: 0,
+          extraTurns: 0,
+        },
         totalTurns: 3,
         durationSec: 45,
       },
@@ -117,12 +163,23 @@ describe("audit helpers", () => {
           missingRequiredArgs: ["insurance"],
           sequenceIssues: [],
         },
-        pathEfficiency: { score: 0.4, issues: ["repeated question"], repeatedQuestionCount: 1, extraTurns: 2 },
+        pathEfficiency: {
+          score: 0.4,
+          issues: ["repeated question"],
+          repeatedQuestionCount: 1,
+          extraTurns: 2,
+        },
         hallucinationSafety: { pass: true, issues: [] },
         strengths: ["warm tone"],
         recommendedFixes: ["enforce registration order"],
         toolCalls: [],
-        metrics: { toolCallCount: 2, toolErrorCount: 0, transferred: false, repeatedQuestionCount: 1, extraTurns: 2 },
+        metrics: {
+          toolCallCount: 2,
+          toolErrorCount: 0,
+          transferred: false,
+          repeatedQuestionCount: 1,
+          extraTurns: 2,
+        },
         totalTurns: 12,
         durationSec: 180,
       },

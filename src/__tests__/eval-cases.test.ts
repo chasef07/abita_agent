@@ -2,7 +2,14 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const GOLDEN_CASES_DIR = join(import.meta.dirname, "..", "..", "evals", "cases", "golden");
+const GOLDEN_CASES_DIR = join(
+  import.meta.dirname,
+  "..",
+  "..",
+  "evals",
+  "cases",
+  "golden",
+);
 
 type DecisionPointCase = {
   id: string;
@@ -31,8 +38,11 @@ function loadGoldenCases(): DecisionPointCase[] {
   return readdirSync(GOLDEN_CASES_DIR)
     .filter((file) => file.endsWith(".json"))
     .sort()
-    .map((file) =>
-      JSON.parse(readFileSync(join(GOLDEN_CASES_DIR, file), "utf-8")) as DecisionPointCase,
+    .map(
+      (file) =>
+        JSON.parse(
+          readFileSync(join(GOLDEN_CASES_DIR, file), "utf-8"),
+        ) as DecisionPointCase,
     );
 }
 
@@ -47,7 +57,9 @@ describe("golden eval cases", () => {
       expect(testCase.suite).toBeTruthy();
       expect(testCase.tags.length).toBeGreaterThan(0);
       expect(testCase.context.trunkPhone).toMatch(/^\+\d{11}$/);
-      expect(["verified", "multiple_matches", "no_match", "unknown"]).toContain(testCase.context.phoneLookupStatus);
+      expect(["verified", "multiple_matches", "no_match", "unknown"]).toContain(
+        testCase.context.phoneLookupStatus,
+      );
       expect(testCase.conversation.length).toBeGreaterThan(0);
       expect(Array.isArray(testCase.expectations.mustCallTools)).toBe(true);
       expect(Array.isArray(testCase.expectations.mustNotCallTools)).toBe(true);

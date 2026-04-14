@@ -2,8 +2,22 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const GOLDEN_CASES_DIR = join(import.meta.dirname, "..", "..", "evals", "cases", "golden");
-const TESTS_MODULE_PATH = join(import.meta.dirname, "..", "..", "evals", "promptfoo", "tests.mjs");
+const GOLDEN_CASES_DIR = join(
+  import.meta.dirname,
+  "..",
+  "..",
+  "evals",
+  "cases",
+  "golden",
+);
+const TESTS_MODULE_PATH = join(
+  import.meta.dirname,
+  "..",
+  "..",
+  "evals",
+  "promptfoo",
+  "tests.mjs",
+);
 const ASSERTION_MODULE_FILE_URL = `file://${join(
   import.meta.dirname,
   "..",
@@ -36,7 +50,9 @@ describe("promptfoo eval wiring", () => {
     for (const testCase of promptfooTests) {
       expect(testCase.description).toBeTruthy();
       expect(testCase.vars.caseId).toBeTruthy();
-      expect(testCase.vars.casePath).toMatch(/^evals\/cases\/golden\/.+\.json$/);
+      expect(testCase.vars.casePath).toMatch(
+        /^evals\/cases\/golden\/.+\.json$/,
+      );
       expect(testCase.metadata.suite).toBeTruthy();
       expect(testCase.metadata.tags.length).toBeGreaterThan(0);
 
@@ -45,7 +61,9 @@ describe("promptfoo eval wiring", () => {
         value: ASSERTION_MODULE_FILE_URL,
       });
 
-      const rubricAssertion = testCase.assert.find((entry) => entry.type === "llm-rubric");
+      const rubricAssertion = testCase.assert.find(
+        (entry) => entry.type === "llm-rubric",
+      );
       if (rubricAssertion) {
         expect(rubricAssertion.value).toContain("finalText");
         expect(rubricAssertion.value).toContain("toolCalls");
@@ -58,7 +76,12 @@ describe("promptfoo eval wiring", () => {
       loadPromptfooTests: () => Array<{
         description: string;
         vars: { caseId: string; casePath: string };
-        metadata: { source: string; suite: string; tags: string[]; caseFile: string };
+        metadata: {
+          source: string;
+          suite: string;
+          tags: string[];
+          caseFile: string;
+        };
         assert: Array<{ type: string; value: string }>;
       }>;
     };
@@ -68,12 +91,16 @@ describe("promptfoo eval wiring", () => {
     delete process.env.EVAL_INCLUDE_CANDIDATES;
 
     const strictCandidate = promptfooTests.find(
-      (testCase) => testCase.metadata.source === "candidates"
-        && testCase.vars.casePath.endsWith("SCL_XWWGTzkhEAWF-transfer-turn-3.json"),
+      (testCase) =>
+        testCase.metadata.source === "candidates" &&
+        testCase.vars.casePath.endsWith(
+          "SCL_XWWGTzkhEAWF-transfer-turn-3.json",
+        ),
     );
     const runbookOnlyCandidate = promptfooTests.find(
-      (testCase) => testCase.metadata.source === "candidates"
-        && testCase.vars.casePath.endsWith("SCL_nu6wr8TtYVoJ-confirm-turn-3.json"),
+      (testCase) =>
+        testCase.metadata.source === "candidates" &&
+        testCase.vars.casePath.endsWith("SCL_nu6wr8TtYVoJ-confirm-turn-3.json"),
     );
 
     expect(strictCandidate).toBeTruthy();
@@ -83,7 +110,9 @@ describe("promptfoo eval wiring", () => {
       type: "javascript",
       value: ASSERTION_MODULE_FILE_URL,
     });
-    expect(strictCandidate!.assert.some((entry) => entry.type === "llm-rubric")).toBe(true);
+    expect(
+      strictCandidate!.assert.some((entry) => entry.type === "llm-rubric"),
+    ).toBe(true);
 
     expect(runbookOnlyCandidate!.assert).toEqual([
       expect.objectContaining({

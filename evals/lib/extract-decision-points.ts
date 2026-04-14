@@ -1,6 +1,12 @@
-import type { DecisionPointCase, NormalizedCallEvent, NormalizedTurn } from "./types.js";
+import type {
+  DecisionPointCase,
+  NormalizedCallEvent,
+  NormalizedTurn,
+} from "./types.js";
 
-function inferPhoneLookupStatus(record: NormalizedCallEvent): DecisionPointCase["context"]["phoneLookupStatus"] {
+function inferPhoneLookupStatus(
+  record: NormalizedCallEvent,
+): DecisionPointCase["context"]["phoneLookupStatus"] {
   if (record.data.phoneLookupStatus) return record.data.phoneLookupStatus;
 
   const text = record.data.turns
@@ -9,12 +15,20 @@ function inferPhoneLookupStatus(record: NormalizedCallEvent): DecisionPointCase[
     .join(" ")
     .toLowerCase();
 
-  if (text.includes("few patients associated with this number")) return "multiple_matches";
-  if (text.includes("not finding you in our system") || text.includes("have you been seen here before")) return "no_match";
+  if (text.includes("few patients associated with this number"))
+    return "multiple_matches";
+  if (
+    text.includes("not finding you in our system") ||
+    text.includes("have you been seen here before")
+  )
+    return "no_match";
   return "unknown";
 }
 
-function buildConversationBeforeDecision(turns: NormalizedTurn[], currentTurnIndex: number): DecisionPointCase["conversation"] {
+function buildConversationBeforeDecision(
+  turns: NormalizedTurn[],
+  currentTurnIndex: number,
+): DecisionPointCase["conversation"] {
   const conversation: DecisionPointCase["conversation"] = [];
 
   for (let i = 0; i < currentTurnIndex; i += 1) {
@@ -44,7 +58,9 @@ function makeBaseContext(record: NormalizedCallEvent) {
 
 function humanRequest(text: string | null): boolean {
   if (!text) return false;
-  return /\b(human|person|representative|someone|real person|live representative)\b/i.test(text);
+  return /\b(human|person|representative|someone|real person|live representative)\b/i.test(
+    text,
+  );
 }
 
 function multipleMatchPrompt(text: string | null): boolean {
@@ -52,10 +68,17 @@ function multipleMatchPrompt(text: string | null): boolean {
   return /few patients associated with this number/i.test(text);
 }
 
-function previousSchedulingPushback(turns: NormalizedTurn[], currentTurnIndex: number): boolean {
+function previousSchedulingPushback(
+  turns: NormalizedTurn[],
+  currentTurnIndex: number,
+): boolean {
   for (let i = currentTurnIndex - 1; i >= 0; i -= 1) {
     const text = turns[i].agentText ?? "";
-    if (/I can book appointments right now|let'?s get you scheduled|I can help you right here/i.test(text)) {
+    if (
+      /I can book appointments right now|let'?s get you scheduled|I can help you right here/i.test(
+        text,
+      )
+    ) {
       return true;
     }
   }
@@ -65,20 +88,32 @@ function previousSchedulingPushback(turns: NormalizedTurn[], currentTurnIndex: n
 function spanishCallerText(text: string | null): boolean {
   if (!text) return false;
   // Conservative: words that almost never appear in English transcripts
-  return /\b(hola|necesito|por favor|gracias|cita|doctor[ae]s?|español|habl[ao]|estoy|tengo)\b/i.test(text);
+  return /\b(hola|necesito|por favor|gracias|cita|doctor[ae]s?|español|habl[ao]|estoy|tengo)\b/i.test(
+    text,
+  );
 }
 
-function askedReasonBefore(turns: NormalizedTurn[], currentTurnIndex: number): boolean {
+function askedReasonBefore(
+  turns: NormalizedTurn[],
+  currentTurnIndex: number,
+): boolean {
   for (let i = currentTurnIndex - 1; i >= 0; i -= 1) {
     const text = turns[i].agentText ?? "";
-    if (/reason for (your |the )?visit|what'?s bringing you in|what brings you in|what'?s the reason/i.test(text)) {
+    if (
+      /reason for (your |the )?visit|what'?s bringing you in|what brings you in|what'?s the reason/i.test(
+        text,
+      )
+    ) {
       return true;
     }
   }
   return false;
 }
 
-function previousToolNames(turns: NormalizedTurn[], currentTurnIndex: number): Set<string> {
+function previousToolNames(
+  turns: NormalizedTurn[],
+  currentTurnIndex: number,
+): Set<string> {
   const seen = new Set<string>();
   for (let i = 0; i < currentTurnIndex; i += 1) {
     for (const toolCall of turns[i].toolCalls) seen.add(toolCall.name);
@@ -86,13 +121,18 @@ function previousToolNames(turns: NormalizedTurn[], currentTurnIndex: number): S
   return seen;
 }
 
-export function extractDecisionPointCases(record: NormalizedCallEvent): DecisionPointCase[] {
+export function extractDecisionPointCases(
+  record: NormalizedCallEvent,
+): DecisionPointCase[] {
   const cases: DecisionPointCase[] = [];
   const baseContext = makeBaseContext(record);
 
   record.data.turns.forEach((turn, index) => {
     const toolNames = turn.toolCalls.map((toolCall) => toolCall.name);
-    const conversation = buildConversationBeforeDecision(record.data.turns, index);
+    const conversation = buildConversationBeforeDecision(
+      record.data.turns,
+      index,
+    );
 
     if (multipleMatchPrompt(turn.agentText)) {
       cases.push({
@@ -126,7 +166,8 @@ export function extractDecisionPointCases(record: NormalizedCallEvent): Decision
         tags: ["routing", "crystal-river", "spring-hill"],
         context: {
           ...baseContext,
-          notes: "Extracted from a call where AMD routing switched to Spring Hill without transfer.",
+          notes:
+            "Extracted from a call where AMD routing switched to Spring Hill without transfer.",
         },
         conversation,
         expectations: {
@@ -139,7 +180,9 @@ export function extractDecisionPointCases(record: NormalizedCallEvent): Decision
     }
 
     if (toolNames.includes("transfer_call")) {
-      const tags = humanRequest(turn.callerText) ? ["transfer", "human-request"] : ["transfer"];
+      const tags = humanRequest(turn.callerText)
+        ? ["transfer", "human-request"]
+        : ["transfer"];
       const policyFlags = humanRequest(turn.callerText)
         ? previousSchedulingPushback(record.data.turns, index)
           ? ["caller_requested_human", "no_second_pushback"]
@@ -160,7 +203,10 @@ export function extractDecisionPointCases(record: NormalizedCallEvent): Decision
         expectations: {
           mustCallTools: ["transfer_call"],
           mustNotCallTools: [],
-          policyFlags: [...policyFlags, "speak_full_transfer_message_before_call"],
+          policyFlags: [
+            ...policyFlags,
+            "speak_full_transfer_message_before_call",
+          ],
           styleFlags: [],
         },
       });
@@ -175,7 +221,8 @@ export function extractDecisionPointCases(record: NormalizedCallEvent): Decision
         tags: ["registration", "no-fabrication", "needs-review"],
         context: {
           ...baseContext,
-          notes: "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed.",
+          notes:
+            "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed.",
         },
         conversation,
         expectations: {
@@ -222,7 +269,11 @@ export function extractDecisionPointCases(record: NormalizedCallEvent): Decision
         suite: "scheduling",
         source: "livekit-trace",
         traceId: record.callId,
-        tags: ["scheduling", "needs-review", ...(reasonAsked ? [] : ["missing-reason"])],
+        tags: [
+          "scheduling",
+          "needs-review",
+          ...(reasonAsked ? [] : ["missing-reason"]),
+        ],
         context: {
           ...baseContext,
           notes: reasonAsked
@@ -248,7 +299,8 @@ export function extractDecisionPointCases(record: NormalizedCallEvent): Decision
         tags: ["cancel", "needs-review"],
         context: {
           ...baseContext,
-          notes: "Real call: agent cancelled an appointment. Check that cancel_appt was actually called rather than just verbally agreed.",
+          notes:
+            "Real call: agent cancelled an appointment. Check that cancel_appt was actually called rather than just verbally agreed.",
         },
         conversation,
         expectations: {
@@ -269,7 +321,8 @@ export function extractDecisionPointCases(record: NormalizedCallEvent): Decision
         tags: ["confirm", "needs-review"],
         context: {
           ...baseContext,
-          notes: "Real call: agent fetched appointments to confirm an existing visit. Check that confirm_appt was used only after verifying the patient and that the confirmation path stayed concise.",
+          notes:
+            "Real call: agent fetched appointments to confirm an existing visit. Check that confirm_appt was used only after verifying the patient and that the confirmation path stayed concise.",
         },
         conversation,
         expectations: {
@@ -290,7 +343,8 @@ export function extractDecisionPointCases(record: NormalizedCallEvent): Decision
         tags: ["quick-question", "knowledge", "needs-review"],
         context: {
           ...baseContext,
-          notes: "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented.",
+          notes:
+            "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented.",
         },
         conversation,
         expectations: {
@@ -311,7 +365,8 @@ export function extractDecisionPointCases(record: NormalizedCallEvent): Decision
         tags: ["language", "spanish", "needs-review"],
         context: {
           ...baseContext,
-          notes: "Real call: caller spoke Spanish. Check the agent replied in Spanish, not English.",
+          notes:
+            "Real call: caller spoke Spanish. Check the agent replied in Spanish, not English.",
         },
         conversation,
         expectations: {

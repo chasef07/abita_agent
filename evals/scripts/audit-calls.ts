@@ -36,8 +36,13 @@ import type {
 const REPO_ROOT = resolve(import.meta.dirname, "..", "..");
 const RUNBOOK_PATH = resolve(REPO_ROOT, "workspace", "RUNBOOK.md");
 const AUDIT_MODEL = process.env.AUDIT_MODEL ?? "claude-sonnet-4-5";
-const AUDIT_BATCH_SIZE = Number.parseInt(process.env.AUDIT_BATCH_SIZE ?? "5", 10);
-const AUDIT_PROVIDER = process.env.AUDIT_PROVIDER ?? (process.env.OPENAI_API_KEY ? "openai" : "anthropic");
+const AUDIT_BATCH_SIZE = Number.parseInt(
+  process.env.AUDIT_BATCH_SIZE ?? "5",
+  10,
+);
+const AUDIT_PROVIDER =
+  process.env.AUDIT_PROVIDER ??
+  (process.env.OPENAI_API_KEY ? "openai" : "anthropic");
 
 interface Args {
   hours: number;
@@ -68,9 +73,12 @@ interface AuditInputContext {
 function parseArgs(argv: string[]): Args {
   const args: Args = { hours: 24, limit: 200 };
   for (let i = 0; i < argv.length; i += 1) {
-    if (argv[i] === "--hours" && argv[i + 1]) args.hours = Number.parseFloat(argv[i + 1]);
-    if (argv[i] === "--days" && argv[i + 1]) args.hours = Number.parseFloat(argv[i + 1]) * 24;
-    if (argv[i] === "--limit" && argv[i + 1]) args.limit = Number.parseInt(argv[i + 1], 10);
+    if (argv[i] === "--hours" && argv[i + 1])
+      args.hours = Number.parseFloat(argv[i + 1]);
+    if (argv[i] === "--days" && argv[i + 1])
+      args.hours = Number.parseFloat(argv[i + 1]) * 24;
+    if (argv[i] === "--limit" && argv[i + 1])
+      args.limit = Number.parseInt(argv[i + 1], 10);
   }
   return args;
 }
@@ -101,7 +109,9 @@ function fetchRecentCalls({ hours, limit }: Args): unknown[] {
       ORDER BY "startedAt" DESC
       LIMIT ${limit}
     ) ce
-  `.replace(/\s+/g, " ").trim();
+  `
+    .replace(/\s+/g, " ")
+    .trim();
 
   const stdout = execSync(
     `psql "${process.env.DATABASE_URL}" -t -A -c ${JSON.stringify(sql)}`,
@@ -113,43 +123,56 @@ function fetchRecentCalls({ hours, limit }: Args): unknown[] {
 
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  for (let i = 0; i < items.length; i += size)
+    out.push(items.slice(i, i + size));
   return out;
 }
 
 function buildAuditPrompt(runbook: string, calls: AuditInputContext[]): string {
   const callSections = calls
-    .map(({ record, intentBucketGuess, deterministicTool, repeatedQuestionCount, extraTurns }) => {
-      const compactTranscript = buildCompactTranscript(record);
-      const tools = extractAuditToolCalls(record)
-        .map((toolCall) => {
-          const notes: string[] = [];
-          if (toolCall.argParseError) notes.push(`argParseError=${toolCall.argParseError}`);
-          if (toolCall.missingRequiredArgs.length > 0) {
-            notes.push(`missingRequiredArgs=${toolCall.missingRequiredArgs.join("|")}`);
-          }
-          return `- turn ${toolCall.turn}: ${toolCall.name}(${JSON.stringify(toolCall.args)})${notes.length > 0 ? ` [${notes.join("; ")}]` : ""}`;
-        })
-        .join("\n") || "- none";
+    .map(
+      ({
+        record,
+        intentBucketGuess,
+        deterministicTool,
+        repeatedQuestionCount,
+        extraTurns,
+      }) => {
+        const compactTranscript = buildCompactTranscript(record);
+        const tools =
+          extractAuditToolCalls(record)
+            .map((toolCall) => {
+              const notes: string[] = [];
+              if (toolCall.argParseError)
+                notes.push(`argParseError=${toolCall.argParseError}`);
+              if (toolCall.missingRequiredArgs.length > 0) {
+                notes.push(
+                  `missingRequiredArgs=${toolCall.missingRequiredArgs.join("|")}`,
+                );
+              }
+              return `- turn ${toolCall.turn}: ${toolCall.name}(${JSON.stringify(toolCall.args)})${notes.length > 0 ? ` [${notes.join("; ")}]` : ""}`;
+            })
+            .join("\n") || "- none";
 
-      return [
-        `## CALL ${record.callId}`,
-        `officePhone=${record.officePhone}`,
-        `totalTurns=${record.totalTurns ?? record.data.turns.length}`,
-        `durationSec=${record.durationSec ?? 0}`,
-        `intentBucketGuess=${intentBucketGuess}`,
-        `repeatedQuestionCount=${repeatedQuestionCount}`,
-        `extraTurnsVsIdeal=${extraTurns}`,
-        `deterministicToolPass=${deterministicTool.pass}`,
-        `deterministicToolIssues=${deterministicTool.issues.join(" || ") || "(none)"}`,
-        "",
-        "### Tool timeline",
-        tools,
-        "",
-        "### Transcript",
-        compactTranscript,
-      ].join("\n");
-    })
+        return [
+          `## CALL ${record.callId}`,
+          `officePhone=${record.officePhone}`,
+          `totalTurns=${record.totalTurns ?? record.data.turns.length}`,
+          `durationSec=${record.durationSec ?? 0}`,
+          `intentBucketGuess=${intentBucketGuess}`,
+          `repeatedQuestionCount=${repeatedQuestionCount}`,
+          `extraTurnsVsIdeal=${extraTurns}`,
+          `deterministicToolPass=${deterministicTool.pass}`,
+          `deterministicToolIssues=${deterministicTool.issues.join(" || ") || "(none)"}`,
+          "",
+          "### Tool timeline",
+          tools,
+          "",
+          "### Transcript",
+          compactTranscript,
+        ].join("\n");
+      },
+    )
     .join("\n\n---\n\n");
 
   return [
@@ -175,7 +198,9 @@ function buildAuditPrompt(runbook: string, calls: AuditInputContext[]): string {
       "caller_abandoned",
       "unresolved_need",
       "knowledge_gap",
-    ].map((mode) => `- ${mode}`).join("\n"),
+    ]
+      .map((mode) => `- ${mode}`)
+      .join("\n"),
     "",
     "# CALLS",
     callSections,
@@ -233,7 +258,8 @@ interface OpenAIResponse {
 
 async function callAuditModel(prompt: string): Promise<string> {
   if (AUDIT_PROVIDER === "openai") {
-    if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is required");
+    if (!process.env.OPENAI_API_KEY)
+      throw new Error("OPENAI_API_KEY is required");
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -260,7 +286,8 @@ async function callAuditModel(prompt: string): Promise<string> {
     return "";
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is required");
+  if (!process.env.ANTHROPIC_API_KEY)
+    throw new Error("ANTHROPIC_API_KEY is required");
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -284,13 +311,18 @@ async function callAuditModel(prompt: string): Promise<string> {
 
 function parseLlmAudits(text: string): LlmAuditShape[] {
   const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error(`Audit model did not return JSON: ${text.slice(0, 400)}`);
+  if (!match)
+    throw new Error(`Audit model did not return JSON: ${text.slice(0, 400)}`);
   const parsed = JSON.parse(match[0]) as { audits?: LlmAuditShape[] };
-  if (!Array.isArray(parsed.audits)) throw new Error("Audit model JSON missing 'audits'");
+  if (!Array.isArray(parsed.audits))
+    throw new Error("Audit model JSON missing 'audits'");
   return parsed.audits;
 }
 
-function normalizeIntentBucket(value: string | undefined, fallback: AuditIntentBucket | "unknown"): AuditIntentBucket {
+function normalizeIntentBucket(
+  value: string | undefined,
+  fallback: AuditIntentBucket | "unknown",
+): AuditIntentBucket {
   if (value && (AUDIT_INTENT_BUCKETS as string[]).includes(value)) {
     return value as AuditIntentBucket;
   }
@@ -298,7 +330,9 @@ function normalizeIntentBucket(value: string | undefined, fallback: AuditIntentB
 }
 
 function dedupe(values: string[] | undefined, limit: number): string[] {
-  return Array.from(new Set((values ?? []).map((value) => value.trim()).filter(Boolean))).slice(0, limit);
+  return Array.from(
+    new Set((values ?? []).map((value) => value.trim()).filter(Boolean)),
+  ).slice(0, limit);
 }
 
 function deriveOverallStatus(
@@ -312,13 +346,27 @@ function deriveOverallStatus(
   return "great";
 }
 
-function mergeAudit(recordContext: AuditInputContext, llmAudit: LlmAuditShape | undefined): CallAuditRecord {
-  const { record, intentBucketGuess, deterministicTool, repeatedQuestionCount, extraTurns } = recordContext;
-  const finalToolIssues = dedupe([
-    ...(llmAudit?.toolCorrectness?.issues ?? []),
-    ...deterministicTool.issues,
-    ...(repeatedQuestionCount > 0 ? [`assistant repeated a question ${repeatedQuestionCount} time(s)`] : []),
-  ], 8);
+function mergeAudit(
+  recordContext: AuditInputContext,
+  llmAudit: LlmAuditShape | undefined,
+): CallAuditRecord {
+  const {
+    record,
+    intentBucketGuess,
+    deterministicTool,
+    repeatedQuestionCount,
+    extraTurns,
+  } = recordContext;
+  const finalToolIssues = dedupe(
+    [
+      ...(llmAudit?.toolCorrectness?.issues ?? []),
+      ...deterministicTool.issues,
+      ...(repeatedQuestionCount > 0
+        ? [`assistant repeated a question ${repeatedQuestionCount} time(s)`]
+        : []),
+    ],
+    8,
+  );
   const toolCorrectness = {
     pass: Boolean(llmAudit?.toolCorrectness?.pass) && deterministicTool.pass,
     issues: finalToolIssues,
@@ -326,16 +374,34 @@ function mergeAudit(recordContext: AuditInputContext, llmAudit: LlmAuditShape | 
     missingRequiredArgs: deterministicTool.missingRequiredArgs,
     sequenceIssues: deterministicTool.sequenceIssues,
   };
-  const pathIssues = dedupe([
-    ...(llmAudit?.pathEfficiency?.issues ?? []),
-    ...(repeatedQuestionCount > 0 ? [`assistant repeated a question ${repeatedQuestionCount} time(s)`] : []),
-    ...(extraTurns > 0 ? [`call took about ${extraTurns} turn(s) more than the current target path`] : []),
-  ], 8);
-  const pathScore = Math.max(0, Math.min(1, Number(llmAudit?.pathEfficiency?.score ?? 0.5)));
-  const hallucinationIssues = dedupe(llmAudit?.hallucinationSafety?.issues ?? [], 6);
+  const pathIssues = dedupe(
+    [
+      ...(llmAudit?.pathEfficiency?.issues ?? []),
+      ...(repeatedQuestionCount > 0
+        ? [`assistant repeated a question ${repeatedQuestionCount} time(s)`]
+        : []),
+      ...(extraTurns > 0
+        ? [
+            `call took about ${extraTurns} turn(s) more than the current target path`,
+          ]
+        : []),
+    ],
+    8,
+  );
+  const pathScore = Math.max(
+    0,
+    Math.min(1, Number(llmAudit?.pathEfficiency?.score ?? 0.5)),
+  );
+  const hallucinationIssues = dedupe(
+    llmAudit?.hallucinationSafety?.issues ?? [],
+    6,
+  );
   const failureModes = new Set<AuditFailureMode>(llmAudit?.failureModes ?? []);
   if (!toolCorrectness.pass) {
-    if (toolCorrectness.malformedArgs.length > 0 || toolCorrectness.missingRequiredArgs.length > 0) {
+    if (
+      toolCorrectness.malformedArgs.length > 0 ||
+      toolCorrectness.missingRequiredArgs.length > 0
+    ) {
       failureModes.add("bad_tool_args");
     }
     if (toolCorrectness.sequenceIssues.length > 0) {
@@ -344,14 +410,22 @@ function mergeAudit(recordContext: AuditInputContext, llmAudit: LlmAuditShape | 
   }
   if (repeatedQuestionCount > 0) failureModes.add("repeat_question");
   if (pathScore < 0.75 || extraTurns > 0) failureModes.add("slow_path");
-  if (hallucinationIssues.length > 0 || llmAudit?.hallucinationSafety?.pass === false) {
+  if (
+    hallucinationIssues.length > 0 ||
+    llmAudit?.hallucinationSafety?.pass === false
+  ) {
     failureModes.add("hallucination");
   }
 
-  const intentBucket = normalizeIntentBucket(llmAudit?.intentBucket, intentBucketGuess);
+  const intentBucket = normalizeIntentBucket(
+    llmAudit?.intentBucket,
+    intentBucketGuess,
+  );
   const resolved = Boolean(llmAudit?.resolved);
   const hallucinationSafety = {
-    pass: Boolean(llmAudit?.hallucinationSafety?.pass) && hallucinationIssues.length === 0,
+    pass:
+      Boolean(llmAudit?.hallucinationSafety?.pass) &&
+      hallucinationIssues.length === 0,
     issues: hallucinationIssues,
   };
 
@@ -363,9 +437,15 @@ function mergeAudit(recordContext: AuditInputContext, llmAudit: LlmAuditShape | 
     officePhone: record.officePhone,
     intentBucket,
     intentBucketGuess,
-    overallStatus: deriveOverallStatus(resolved, toolCorrectness.pass, hallucinationSafety.pass, pathScore),
+    overallStatus: deriveOverallStatus(
+      resolved,
+      toolCorrectness.pass,
+      hallucinationSafety.pass,
+      pathScore,
+    ),
     resolved,
-    resolutionReason: llmAudit?.resolutionReason?.trim() || "No resolution analysis returned.",
+    resolutionReason:
+      llmAudit?.resolutionReason?.trim() || "No resolution analysis returned.",
     failureModes: Array.from(failureModes),
     toolCorrectness,
     pathEfficiency: {
@@ -379,12 +459,18 @@ function mergeAudit(recordContext: AuditInputContext, llmAudit: LlmAuditShape | 
     recommendedFixes: dedupe(llmAudit?.recommendedFixes ?? [], 4),
     toolCalls: extractAuditToolCalls(record),
     metrics: {
-      toolCallCount: record.data.turns.reduce((sum, turn) => sum + turn.toolCalls.length, 0),
-      toolErrorCount: record.data.turns.reduce(
-        (sum, turn) => sum + turn.toolCalls.filter((toolCall) => toolCall.isError).length,
+      toolCallCount: record.data.turns.reduce(
+        (sum, turn) => sum + turn.toolCalls.length,
         0,
       ),
-      transferred: record.data.turns.some((turn) => turn.toolCalls.some((toolCall) => toolCall.name === "transfer_call")),
+      toolErrorCount: record.data.turns.reduce(
+        (sum, turn) =>
+          sum + turn.toolCalls.filter((toolCall) => toolCall.isError).length,
+        0,
+      ),
+      transferred: record.data.turns.some((turn) =>
+        turn.toolCalls.some((toolCall) => toolCall.name === "transfer_call"),
+      ),
       repeatedQuestionCount,
       extraTurns,
     },
@@ -396,7 +482,9 @@ async function main() {
   const runbook = readFileSync(RUNBOOK_PATH, "utf-8");
   const rows = fetchRecentCalls(args);
   const records = normalizeCallEvents(rows);
-  console.log(`Auditing ${records.length} call(s) from the past ${args.hours}h`);
+  console.log(
+    `Auditing ${records.length} call(s) from the past ${args.hours}h`,
+  );
 
   if (records.length === 0) {
     console.log("No calls to audit.");
@@ -408,7 +496,10 @@ async function main() {
     return {
       record,
       intentBucketGuess,
-      deterministicTool: summarizeDeterministicToolCorrectness(record, intentBucketGuess),
+      deterministicTool: summarizeDeterministicToolCorrectness(
+        record,
+        intentBucketGuess,
+      ),
       repeatedQuestionCount: countRepeatedAssistantQuestions(record),
       extraTurns: computeExtraTurns(record, intentBucketGuess),
     } satisfies AuditInputContext;
@@ -422,10 +513,14 @@ async function main() {
     for (const llmAudit of llmAudits) {
       llmAuditsByCallId.set(llmAudit.callId, llmAudit);
     }
-    console.log(`  audited batch of ${batch.length} (${llmAuditsByCallId.size}/${prepared.length})`);
+    console.log(
+      `  audited batch of ${batch.length} (${llmAuditsByCallId.size}/${prepared.length})`,
+    );
   }
 
-  const audits = prepared.map((context) => mergeAudit(context, llmAuditsByCallId.get(context.record.callId)));
+  const audits = prepared.map((context) =>
+    mergeAudit(context, llmAuditsByCallId.get(context.record.callId)),
+  );
   const date = new Date().toISOString().slice(0, 10);
   const report = summarizeAuditReport(audits, date, args.hours);
   const outPath = join(OUTPUT_DIR, `audits-${date}.json`);

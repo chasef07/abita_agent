@@ -29,7 +29,10 @@ import {
 const HISTORY_PATH = join(OUTPUT_DIR, "history.jsonl");
 const RUNBOOK_PATH = join(WORKSPACE_DIR, "RUNBOOK.md");
 
-interface SuiteScore { pass: number; total: number; }
+interface SuiteScore {
+  pass: number;
+  total: number;
+}
 interface VariantScore {
   workspace: string;
   goldenPass: number;
@@ -60,12 +63,18 @@ interface AuditReport {
 function main() {
   const date = todayISO();
   const auditReport = readJSON<AuditReport>(findTodayOutput("audits-"));
-  const tournament = readJSON<{ scores: VariantScore[] }>(findLatestOutput("tournament-"));
-  const winner = readJSON<{ status: string; winner?: string; candidates?: Array<{ workspace: string; reason: string }> }>(
-    findLatestOutput("winner-"),
+  const tournament = readJSON<{ scores: VariantScore[] }>(
+    findLatestOutput("tournament-"),
   );
+  const winner = readJSON<{
+    status: string;
+    winner?: string;
+    candidates?: Array<{ workspace: string; reason: string }>;
+  }>(findLatestOutput("winner-"));
 
-  const baseline = tournament?.scores?.find?.((entry: VariantScore) => entry.workspace === "workspace");
+  const baseline = tournament?.scores?.find?.(
+    (entry: VariantScore) => entry.workspace === "workspace",
+  );
 
   const runbook = readFileSync(RUNBOOK_PATH, "utf-8");
 
@@ -80,7 +89,10 @@ function main() {
       : undefined,
     perSuiteGolden: baseline
       ? Object.fromEntries(
-          Object.entries(baseline.perSuite).map(([suite, scores]) => [suite, scores.golden]),
+          Object.entries(baseline.perSuite).map(([suite, scores]) => [
+            suite,
+            scores.golden,
+          ]),
         )
       : undefined,
     audit: auditReport
@@ -111,7 +123,9 @@ function main() {
           promoted: winner.status === "winner_found",
           hypothesis:
             winner.status === "winner_found"
-              ? winner.candidates?.find?.((entry) => entry.workspace === winner.winner)?.reason
+              ? winner.candidates?.find?.(
+                  (entry) => entry.workspace === winner.winner,
+                )?.reason
               : undefined,
         }
       : undefined,

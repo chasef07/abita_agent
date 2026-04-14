@@ -6,7 +6,11 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { AUDIT_INTENT_BUCKETS } from "../lib/audit.js";
 import { OUTPUT_DIR, ensureDir, findTodayOutput, readJSON } from "../lib/io.js";
-import type { AuditIntentBucket, CallAuditRecord, CallAuditReport } from "../lib/types.js";
+import type {
+  AuditIntentBucket,
+  CallAuditRecord,
+  CallAuditReport,
+} from "../lib/types.js";
 
 const HISTORY_PATH = join(OUTPUT_DIR, "history.jsonl");
 const REPORT_PATH = join(OUTPUT_DIR, "audit-report.html");
@@ -18,7 +22,12 @@ interface HistoryRow {
     resolved: number;
     toolCorrect: number;
     hallucinationSafe: number;
-    byBucket?: Partial<Record<AuditIntentBucket, { total: number; resolved: number; avgTurns: number }>>;
+    byBucket?: Partial<
+      Record<
+        AuditIntentBucket,
+        { total: number; resolved: number; avgTurns: number }
+      >
+    >;
   };
 }
 
@@ -60,24 +69,31 @@ function escapeHtml(value: string): string {
     .replaceAll('"', "&quot;");
 }
 
-function topCounts(counts: Record<string, number>, limit: number): Array<{ label: string; count: number }> {
+function topCounts(
+  counts: Record<string, number>,
+  limit: number,
+): Array<{ label: string; count: number }> {
   return Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([label, count]) => ({ label, count }));
 }
 
-function weakestCalls(audits: CallAuditRecord[], limit: number): CallAuditRecord[] {
+function weakestCalls(
+  audits: CallAuditRecord[],
+  limit: number,
+): CallAuditRecord[] {
   const rank = (audit: CallAuditRecord): number => {
     if (audit.overallStatus === "failed") return 3;
     if (audit.overallStatus === "needs_work") return 2;
     return 1;
   };
   return [...audits]
-    .sort((a, b) =>
-      rank(b) - rank(a)
-      || Number(a.resolved) - Number(b.resolved)
-      || a.pathEfficiency.score - b.pathEfficiency.score,
+    .sort(
+      (a, b) =>
+        rank(b) - rank(a) ||
+        Number(a.resolved) - Number(b.resolved) ||
+        a.pathEfficiency.score - b.pathEfficiency.score,
     )
     .slice(0, limit);
 }
@@ -100,16 +116,22 @@ function bucketRows(report: CallAuditReport): string {
 }
 
 function callCards(audits: CallAuditRecord[]): string {
-  return weakestCalls(audits, 8).map((audit) => {
-    const chips = [
-      `<span class="chip bucket">${formatBucketLabel(audit.intentBucket)}</span>`,
-      `<span class="chip ${audit.overallStatus === "great" ? "good" : audit.overallStatus === "needs_work" ? "warn" : "bad"}">${audit.overallStatus.replace("_", " ")}</span>`,
-      `<span class="chip neutral">${audit.callId}</span>`,
-    ].join("");
-    const failures = audit.failureModes.length > 0 ? audit.failureModes.join(", ") : "none";
-    const strengths = audit.strengths.length > 0 ? audit.strengths.join(" | ") : "none noted";
-    const fixes = audit.recommendedFixes.length > 0 ? audit.recommendedFixes.join(" | ") : "none suggested";
-    return `
+  return weakestCalls(audits, 8)
+    .map((audit) => {
+      const chips = [
+        `<span class="chip bucket">${formatBucketLabel(audit.intentBucket)}</span>`,
+        `<span class="chip ${audit.overallStatus === "great" ? "good" : audit.overallStatus === "needs_work" ? "warn" : "bad"}">${audit.overallStatus.replace("_", " ")}</span>`,
+        `<span class="chip neutral">${audit.callId}</span>`,
+      ].join("");
+      const failures =
+        audit.failureModes.length > 0 ? audit.failureModes.join(", ") : "none";
+      const strengths =
+        audit.strengths.length > 0 ? audit.strengths.join(" | ") : "none noted";
+      const fixes =
+        audit.recommendedFixes.length > 0
+          ? audit.recommendedFixes.join(" | ")
+          : "none suggested";
+      return `
       <article class="call-card">
         <div class="call-card-header">${chips}</div>
         <p class="call-reason">${escapeHtml(audit.resolutionReason)}</p>
@@ -119,7 +141,8 @@ function callCards(audits: CallAuditRecord[]): string {
         <p><strong>Fixes:</strong> ${escapeHtml(fixes)}</p>
       </article>
     `;
-  }).join("");
+    })
+    .join("");
 }
 
 function json(value: unknown): string {
@@ -468,23 +491,31 @@ function main() {
       <div class="panel">
         <div class="section-title">Top failure modes</div>
         <div class="list">
-          ${failureModeTop.map((item) => `
+          ${failureModeTop
+            .map(
+              (item) => `
             <div class="list-row">
               <div class="bar-label">${escapeHtml(item.label)}</div>
               <div class="bar"><div class="bar-fill" style="width:${Math.max(10, (item.count / Math.max(failureModeTop[0]?.count ?? 1, 1)) * 100)}%"></div></div>
               <div class="bar-count">${item.count}</div>
             </div>
-          `).join("")}
+          `,
+            )
+            .join("")}
         </div>
         <div class="section-title" style="margin-top:20px;">What the agent does well</div>
         <div class="list">
-          ${strengthsTop.map((item) => `
+          ${strengthsTop
+            .map(
+              (item) => `
             <div class="list-row">
               <div class="bar-label">${escapeHtml(item.label)}</div>
               <div class="bar"><div class="bar-fill" style="width:${Math.max(10, (item.count / Math.max(strengthsTop[0]?.count ?? 1, 1)) * 100)}%"></div></div>
               <div class="bar-count">${item.count}</div>
             </div>
-          `).join("")}
+          `,
+            )
+            .join("")}
         </div>
       </div>
     </section>
