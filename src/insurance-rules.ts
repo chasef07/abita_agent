@@ -38,6 +38,14 @@ export interface InsuranceLookupResult {
   callerMessage: string;
 }
 
+export interface InsuranceToolResponse {
+  status: InsuranceMatchStatus;
+  canProceed: boolean;
+  canonicalPlan: string | null;
+  clarificationNeeded: string | null;
+  callerMessage: string;
+}
+
 const referenceCache = new Map<string, InsuranceReference>();
 
 export function normalizeInsuranceText(text: string): string {
@@ -68,12 +76,27 @@ function findExactPlan(
   return null;
 }
 
-function buildAcceptedCallerMessage(
-  plan: string,
-  needsExactPlanName: boolean,
-): string {
-  if (!needsExactPlanName) return `yeah we take ${plan}.`;
-  return `yeah we take ${plan}. When we get to registration, I'll just need the exact plan name from the card.`;
+function buildAcceptedCallerMessage(plan: string): string {
+  return `yeah we take ${plan}.`;
+}
+
+export function canonicalInsurancePlan(
+  result: InsuranceLookupResult,
+): string | null {
+  if (result.status !== "accepted" || !result.canProceed) return null;
+  return result.matchedPlan ?? result.matchedFamily ?? null;
+}
+
+export function buildInsuranceToolResponse(
+  result: InsuranceLookupResult,
+): InsuranceToolResponse {
+  return {
+    status: result.status,
+    canProceed: result.canProceed,
+    canonicalPlan: canonicalInsurancePlan(result),
+    clarificationNeeded: result.clarificationNeeded,
+    callerMessage: result.callerMessage,
+  };
 }
 
 export function matchInsurancePlan(
@@ -92,7 +115,7 @@ export function matchInsurancePlan(
       canProceed: true,
       needsExactPlanName: false,
       clarificationNeeded: null,
-      callerMessage: buildAcceptedCallerMessage(exactAccepted, false),
+      callerMessage: buildAcceptedCallerMessage(exactAccepted),
     };
   }
 
@@ -146,10 +169,7 @@ export function matchInsurancePlan(
       canProceed: rule.canProceed,
       needsExactPlanName: rule.needsExactPlanName,
       clarificationNeeded: null,
-      callerMessage: buildAcceptedCallerMessage(
-        callerPlan,
-        rule.needsExactPlanName,
-      ),
+      callerMessage: buildAcceptedCallerMessage(callerPlan),
     };
   }
 

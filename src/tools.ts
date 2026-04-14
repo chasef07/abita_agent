@@ -12,7 +12,11 @@ import {
   getOfficeConfigByPhone,
   SPRING_HILL_OFFICE_PHONE,
 } from "./offices.js";
-import { matchInsurancePlanForOffice } from "./insurance-rules.js";
+import {
+  buildInsuranceToolResponse,
+  canonicalInsurancePlan,
+  matchInsurancePlanForOffice,
+} from "./insurance-rules.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
@@ -79,6 +83,7 @@ export interface CallState {
   insuranceCarrier: string | null;
   insPlanId: string | null;
   respPartyId: string | null;
+  checkedInsurancePlan: string | null;
   routing: string | null;
   allowedProviders: string[];
   routingAmbiguous: boolean;
@@ -112,6 +117,7 @@ function applyPatientResult(state: CallState, result: any): void {
   state.insuranceCarrier = result.insuranceCarrier ?? null;
   state.insPlanId = result.insPlanId ?? null;
   state.respPartyId = result.respPartyId ?? null;
+  state.checkedInsurancePlan = result.insuranceCarrier ?? null;
   state.routing = result.routing ?? null;
   state.allowedProviders = result.allowedProviders ?? [];
   state.routingAmbiguous = result.routingAmbiguous ?? false;
@@ -244,7 +250,7 @@ export const add_patient = llm.tool({
   description: `Creates a new patient record. Use only when verify_patient returns no match. Every field must come from what the caller explicitly said — never fabricate or guess values.
 
 Follow the registration order in the runbook. Key rules for this tool:
-- The insurance value MUST be a plan name from the accepted list — do not pass vague names like "Medicare PPO." Match what the caller says to an exact plan (e.g., "Aetna Medicare PPO" → "Aetna Medicare Signature PPO"). If the carrier has multiple plans, ask which.
+- Run check_insurance first. Use the canonicalPlan from the latest check_insurance result for the insurance value sent to middleware. If the tool accepted a family alias like "Blue Cross" or "Oscar", do not rewrite it yourself.
 - Phone must be exactly 10 digits.
 - If subscriber is "me" or "mine" = use patient name.
 - Member ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
@@ -275,13 +281,15 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
     subscriberNum: z.string().describe("Insurance subscriber/member ID number"),
   }),
   execute: async (params, { ctx }) => {
+    const state = getState(ctx);
+    const insurance = state.checkedInsurancePlan ?? params.insurance;
     const result = (await callApi(
       "/api/add-patient",
-      params,
-      getAmdOfficeForToolCall(getState(ctx)),
+      { ...params, insurance },
+      getAmdOfficeForToolCall(state),
     )) as any;
     if (result?.patientId) {
-      applyPatientResult(getState(ctx), result);
+      applyPatientResult(state, result);
     }
     return result;
   },
@@ -289,7 +297,9 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
 
 // --- update_insurance ---
 export const update_insurance = llm.tool({
-  description: `Updates a verified patient's insurance. Requires verify_patient first. Insurance name must match accepted list. Confirm plan name and member ID with caller before submitting.
+  description: `Updates a verified patient's insurance. Requires verify_patient first. Confirm plan name and member ID with caller before submitting.
+
+Run check_insurance first and use the canonicalPlan from the latest result for the insurance value sent to middleware.
 
 After response: session state updates automatically. If preauthRequired, scheduling starts two weeks out.`,
   parameters: z.object({
@@ -300,6 +310,7 @@ After response: session state updates automatically. If preauthRequired, schedul
   execute: async ({ insurance, subscriberName, subscriberNum }, { ctx }) => {
     const state = getState(ctx);
     if (!state.patientId) return "ERROR: No patient verified yet.";
+    const insuranceForMiddleware = state.checkedInsurancePlan ?? insurance;
     const result = (await callApi(
       "/api/patient/update-insurance",
       {
@@ -307,7 +318,7 @@ After response: session state updates automatically. If preauthRequired, schedul
         insPlanId: state.insPlanId ?? "",
         respPartyId: state.respPartyId ?? "",
         oldInsurance: state.insuranceCarrier ?? "",
-        insurance,
+        insurance: insuranceForMiddleware,
         subscriberName,
         subscriberNum,
       },
@@ -458,16 +469,28 @@ export function resolveKnowledgeFileForOffice(officeKey: OfficeKey): string {
 
 // --- check_insurance ---
 export const check_insurance = llm.tool({
-  description: `Looks up whether the office accepts a specific insurance plan. Returns the full accepted plans list with carrier-specific notes.
+  description: `Looks up whether the office accepts a specific insurance plan or family alias.
 
-Use when a caller asks if a plan is accepted or before registering a new patient.
-Returns status, canProceed, needsExactPlanName, and a short caller-facing summary.
-If canProceed=true and needsExactPlanName=true, you can continue registration now and collect the exact plan name from the card later before add_patient or update_insurance.`,
+Use when a caller asks if a plan is accepted or during new-patient registration.
+If the caller gives a plan or family name that matches the insurance map, run this tool with that exact phrase.
+Do NOT force HMO, PPO, or Medicare as a default follow-up. Only ask for that kind of clarification if this tool returns clarificationNeeded.
+
+The tool returns a small summary for the model:
+- status
+- canProceed
+- canonicalPlan
+- clarificationNeeded
+- callerMessage
+
+Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
   parameters: z.object({
     plan: z.string().describe("The insurance plan name the caller mentioned"),
   }),
   execute: async ({ plan }, { ctx }) => {
-    return matchInsurancePlanForOffice(getState(ctx).officeKey, plan);
+    const state = getState(ctx);
+    const result = matchInsurancePlanForOffice(state.officeKey, plan);
+    state.checkedInsurancePlan = canonicalInsurancePlan(result);
+    return buildInsuranceToolResponse(result);
   },
 });
 

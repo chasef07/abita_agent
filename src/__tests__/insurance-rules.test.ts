@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildInsuranceToolResponse,
+  canonicalInsurancePlan,
   loadInsuranceReference,
   matchInsurancePlan,
   matchInsurancePlanForOffice,
@@ -35,7 +37,7 @@ describe("insurance matcher", () => {
     expect(result.needsExactPlanName).toBe(true);
     expect(result.matchedAlias).toBe("Blue Cross");
     expect(result.matchedFamily).toBe("Florida Blue");
-    expect(result.callerMessage).toContain("Blue Cross Blue Shield");
+    expect(result.callerMessage).toBe("yeah we take Blue Cross Blue Shield.");
   });
 
   it("matches middleware-backed shorthand aliases that can resolve server side", () => {
@@ -77,5 +79,24 @@ describe("insurance matcher", () => {
     expect(result.status).toBe("accepted");
     expect(result.canProceed).toBe(true);
     expect(result.matchedFamily).toBe("Florida Blue");
+  });
+
+  it("exposes a canonical middleware plan for accepted family aliases", () => {
+    const result = matchInsurancePlan(reference, "Oscar");
+
+    expect(canonicalInsurancePlan(result)).toBe("Oscar Health");
+  });
+
+  it("builds a trimmed tool response for the model", () => {
+    const result = matchInsurancePlan(reference, "Blue Cross");
+    const toolResponse = buildInsuranceToolResponse(result);
+
+    expect(toolResponse).toEqual({
+      status: "accepted",
+      canProceed: true,
+      canonicalPlan: "Florida Blue",
+      clarificationNeeded: null,
+      callerMessage: "yeah we take Blue Cross Blue Shield.",
+    });
   });
 });
