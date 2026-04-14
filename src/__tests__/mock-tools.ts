@@ -12,7 +12,10 @@ import {
   getOfficeConfigByPhone,
   SPRING_HILL_OFFICE_PHONE,
 } from "../offices.js";
-import { matchInsurancePlanForOffice } from "../insurance-rules.js";
+import {
+  buildInsuranceToolResponse,
+  matchInsurancePlanForOffice,
+} from "../insurance-rules.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "..", "workspace");
 
@@ -265,17 +268,24 @@ Returns booking status and appointment details.`,
   });
 
   const mock_check_insurance = llm.tool({
-    description: `Look up accepted insurance plans for the current office.
+    description: `Look up whether the office accepts a specific insurance plan or family alias.
 
-Use when a caller asks if a plan is accepted or before registering a new patient.
-Returns status, canProceed, needsExactPlanName, and a short caller-facing summary.
-If canProceed=true and needsExactPlanName=true, you can continue registration now and collect the exact plan name from the card later before add_patient or update_insurance.`,
+Use when a caller asks if a plan is accepted or during new-patient registration.
+Do NOT force HMO, PPO, or Medicare as a default follow-up. Only ask for that kind of clarification if this tool returns clarificationNeeded.
+
+The tool returns:
+- status
+- canProceed
+- canonicalPlan
+- clarificationNeeded
+- callerMessage`,
     parameters: z.object({
       plan: z.string().describe("The insurance plan name the caller mentioned"),
     }),
     execute: async (args) => {
       log.push({ name: "check_insurance", args });
-      return matchInsurancePlanForOffice(office.key, args.plan);
+      const result = matchInsurancePlanForOffice(office.key, args.plan);
+      return buildInsuranceToolResponse(result);
     },
   });
 
@@ -301,7 +311,7 @@ Returns the office knowledge reference.`,
     description: `Update insurance for a verified patient.
 
 Requires a verified patient in session state.
-Pass the exact plan name, subscriber name, and member ID from the insurance card.
+Run check_insurance first and use the canonicalPlan from the latest result when it is available.
 Updates session routing and insurance state from the result.`,
     parameters: z.object({
       insurance: z.string(),

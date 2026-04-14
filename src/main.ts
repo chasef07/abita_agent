@@ -142,6 +142,7 @@ export default defineAgent({
         insuranceCarrier: verified?.insuranceCarrier ?? null,
         insPlanId: verified?.insPlanId ?? null,
         respPartyId: verified?.respPartyId ?? null,
+        checkedInsurancePlan: verified?.insuranceCarrier ?? null,
         routing: verified?.routing ?? null,
         allowedProviders: verified?.allowedProviders ?? [],
         routingAmbiguous: verified?.routingAmbiguous ?? false,
