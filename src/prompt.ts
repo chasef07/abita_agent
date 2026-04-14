@@ -18,12 +18,13 @@ function buildOfficeRoutingHints(trunkPhone: string): string {
   const office = getOfficeConfigByPhone(trunkPhone);
   if (office.key !== "crystal-river") return "";
   return [
-    "**Crystal River routing rules.** On the very first turn, before any other tool call, route to Spring Hill if the caller mentions any of:",
+    "**Crystal River routing rules.** If the caller is trying to schedule one of these visit types, explain that Spring Hill handles it, get their agreement, then route to Spring Hill:",
     "- A child, son, daughter, kid, or anyone implied to be under 18 — Crystal River does not see pediatric ophthalmology",
     "- Cataract evaluation, cataract surgery, cataract consult — handled at Spring Hill",
     "- Routine eye exam, annual exam, vision check, glasses prescription — Crystal River is ophthalmology only",
     "",
-    "Use the routing tool, not the transfer tool. Routing keeps the caller on the line with you so you can continue scheduling them at Spring Hill. Transferring sends them to a human, which is the wrong outcome here.",
+    "Do not route just because those words are mentioned in a FAQ, confirmation, or other non-scheduling context.",
+    "Use the routing tool, not the transfer tool. Routing keeps the caller on the line with you so you can continue scheduling them at Spring Hill after they agree. Transferring sends them to a human, which is the wrong outcome here.",
   ].join("\n");
 }
 
