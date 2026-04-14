@@ -3,13 +3,13 @@
  * Replays real call scenarios through the agent with modified prompts
  * to verify that prompt changes actually fix the identified issues.
  *
- * Uses: real LLM (inference.LLM) + mock tools (no API calls).
+ * Uses: production Baseten agent stack + GPT semantic judge + mock tools.
  * Run: npx vitest run src/__tests__/replay.test.ts
  */
 
 import { initializeLogger } from "@livekit/agents";
 import dotenv from "dotenv";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createTestAgent, loadTranscriptHistory, type TestContext, type TranscriptTurn } from "./helpers.js";
 import { DEFAULT_VERIFY_NOT_FOUND } from "./mock-tools.js";
 
@@ -108,7 +108,7 @@ describe("fabricated registration prevention", () => {
     if (lastMessage && lastMessage.type === "message") {
       await result.expect
         .containsMessage({ role: "assistant" })
-        .judge(ctx.llm, {
+        .judge(ctx.judgeLlm, {
           intent: "The agent should be asking the caller a question to continue collecting information for registration. It should NOT say the patient is registered, 'all set', or that registration is complete.",
         });
     }
@@ -190,7 +190,7 @@ describe("transfer on insistence", () => {
     // Should ask what they're calling about
     await result.expect
       .containsMessage({ role: "assistant" })
-      .judge(ctx.llm, {
+      .judge(ctx.judgeLlm, {
         intent: "The agent should ask what the caller needs help with before transferring. It should not immediately transfer on the first request.",
       });
   });
@@ -245,7 +245,7 @@ describe("new patient registration flow", () => {
 
     await result.expect
       .containsMessage({ role: "assistant" })
-      .judge(ctx.llm, {
+      .judge(ctx.judgeLlm, {
         intent: "The agent should be asking about insurance as the first step of registration. It should ask what insurance the caller has.",
       });
   });

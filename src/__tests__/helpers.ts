@@ -14,6 +14,7 @@ export interface TestContext {
   session: voice.AgentSession;
   agent: voice.Agent;
   llm: llm.LLM;
+  judgeLlm: llm.LLM;
   callLog: Array<{ name: string; args: Record<string, unknown> }>;
   cleanup: () => Promise<void>;
 }
@@ -30,6 +31,8 @@ export async function createTestAgent(opts: {
   mockConfig?: MockConfig;
   /** Override the LLM model. If set, uses LiveKit Inference (e.g. "openai/gpt-4.1-mini" for cheap smoke tests). Default: production Baseten stack. */
   model?: string;
+  /** Override the semantic judge model. Defaults to GPT-4.1-mini when OPENAI_API_KEY is present, otherwise reuses the agent LLM. */
+  judgeModel?: string;
 }): Promise<TestContext> {
   const trunkPhone = opts.trunkPhone ?? SPRING_HILL_OFFICE_PHONE;
   const { tools, callLog } = createMockTools(opts.mockConfig, trunkPhone);
@@ -52,6 +55,12 @@ export async function createTestAgent(opts: {
           }),
         ],
       });
+  const judgeLlm =
+    opts.judgeModel || process.env.OPENAI_API_KEY
+      ? new inference.LLM({
+          model: opts.judgeModel ?? "openai/gpt-4.1-mini",
+        })
+      : llmInstance;
 
   const agent = new voice.Agent({
     instructions: buildPrompt(opts.phoneLookup, trunkPhone),
@@ -65,9 +74,13 @@ export async function createTestAgent(opts: {
     session,
     agent,
     llm: llmInstance,
+    judgeLlm,
     callLog,
     cleanup: async () => {
       await session?.close();
+      if (judgeLlm !== llmInstance) {
+        await judgeLlm?.aclose();
+      }
       await llmInstance?.aclose();
     },
   };
