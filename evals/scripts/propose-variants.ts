@@ -46,6 +46,12 @@ import {
   timestampSlug,
   writeJSON,
 } from "../lib/io.js";
+import {
+  derivePromptTargets,
+  summarizeCodeBacklog,
+  summarizePromptTargets,
+  type PromptTargetSignal,
+} from "../lib/prompt-targets.js";
 
 function defaultProposerProvider(): "openai" | "anthropic" {
   if (process.env.OPENAI_API_KEY) return "openai";
@@ -78,8 +84,7 @@ function inferProposerProvider(model: string): "openai" | "anthropic" {
 }
 
 const PROPOSER_PROVIDER =
-  PROPOSER_PROVIDER_OVERRIDE ??
-  inferProposerProvider(PROPOSER_MODEL);
+  PROPOSER_PROVIDER_OVERRIDE ?? inferProposerProvider(PROPOSER_MODEL);
 const PROPOSER_MAX_TOKENS = 32000;
 const DEFAULT_EDITABLE_FILES = ["RUNBOOK.md", "VOICE.md", "SOUL.md"];
 
@@ -487,6 +492,25 @@ function summarizeAuditClusters(report: AuditReport | undefined): string {
     .join("\n");
 }
 
+function collectPromptTargetSignals(
+  failures: FailureRecord[],
+  auditReport: AuditReport | undefined,
+): PromptTargetSignal[] {
+  const failureSignals = clusterFailures(failures).map((cluster) => ({
+    source: "eval" as const,
+    suiteOrBucket: cluster.suite,
+    issue: cluster.issue,
+    count: cluster.count,
+  }));
+  const auditSignals = clusterAuditFailures(auditReport).map((cluster) => ({
+    source: "audit" as const,
+    suiteOrBucket: cluster.intentBucket,
+    issue: cluster.examples[0]?.recommendedFixes[0] || cluster.failureMode,
+    count: cluster.count,
+  }));
+  return [...failureSignals, ...auditSignals];
+}
+
 function summarizeRegressionTraps(
   report: TournamentReport | undefined,
 ): string {
@@ -606,6 +630,8 @@ function buildProposerPrompt(args: {
   callBucketsSummary: string;
   auditClusterSummary: string;
   regressionTrapSummary: string;
+  promptTargetSummary: string;
+  codeBacklogSummary: string;
   variants: number;
   editableFilenames: string[];
 }): string {
@@ -629,6 +655,7 @@ function buildProposerPrompt(args: {
     "- Treat prompt-layer and tool-layer failures differently. Prompt-layer failures are eligible for prompt edits. Tool-layer failures should usually produce a very small prompt clarification at most; do not paper over a broken tool contract with a broad prompt rewrite.",
     "- Stay faithful to the agent's voice: confident, concise, warm. No corporate-speak.",
     '- Write rules as positive directives ("Always X", "Stay in role") rather than negative prohibitions where possible.',
+    "- You may delete noisy, redundant, stale, or conflicting prompt text when that is the cleanest way to improve the targeted behavior. Concision is a valid improvement.",
     "- Do not invent new tools or change tool semantics. You can change instructions about when/how to use existing tools.",
     "- Each variant must be a COMPLETE replacement for each file you edit, not a diff.",
     "- Only include files in the variant's `files` array that you actually changed. Unchanged files do not need to be returned.",
@@ -650,6 +677,14 @@ function buildProposerPrompt(args: {
     "",
     args.regressionTrapSummary,
     "",
+    "# PROMPT-ELIGIBLE TARGETS",
+    "",
+    args.promptTargetSummary,
+    "",
+    "# CODE-FIRST BACKLOG (DO NOT SPEND WHOLE VARIANTS HERE)",
+    "",
+    args.codeBacklogSummary,
+    "",
     "# EVAL FAILURE CLUSTERS",
     "",
     args.failureClusterSummary,
@@ -661,10 +696,14 @@ function buildProposerPrompt(args: {
     "# PLANNING REQUIREMENTS",
     "",
     "- Variants should not all target the same cluster.",
+    "- Prefer the ranked prompt-eligible targets above. Use them to decide exactly which file and section to edit.",
+    "- If a target points to RUNBOOK.md sections, make the smallest possible edit in those sections rather than rewriting the whole file tone.",
+    "- Do not spend a whole variant on a code-first backlog item. At most, add a tiny clarifying sentence if it helps the model respect the current contract.",
     "- If a prior tournament regressed confirm, cancel, routing, or registration, do not make broad edits that touch those behaviors unless that suite is the explicit target cluster.",
     "- If you target confirm behavior, make confirm_appt grounding explicit without changing unrelated transfer, routing, or registration rules.",
     "- If you target registration behavior, focus on insurance-gate order, readback, and add_patient submission requirements without changing confirm or transfer rules.",
     "- If a cluster is labeled tool-layer, prefer either (a) no prompt change, or (b) a tiny rule clarifying when to call the tool. Do not rewrite broad behavioral sections to compensate for a tool-level issue.",
+    "- If there are fewer strong prompt-eligible targets than requested variants, use the extra variants to try alternative phrasings for the top-ranked targets instead of inventing new broad rewrites.",
     "",
     "# OUTPUT FORMAT",
     "",
@@ -847,6 +886,11 @@ async function main() {
   const failureClusterSummary = summarizeFailureClusters(failures);
   const regressionTrapSummary = summarizeRegressionTraps(tournamentReport);
   const failuresSummary = summarizeFailures(failures, 12);
+  const { targets, backlog } = derivePromptTargets(
+    collectPromptTargetSignals(failures, auditReport),
+  );
+  const promptTargetSummary = summarizePromptTargets(targets);
+  const codeBacklogSummary = summarizeCodeBacklog(backlog);
 
   const hasAuditFailures = auditReport
     ? auditReport.audits.some((audit) => audit.overallStatus !== "great")
@@ -875,6 +919,8 @@ async function main() {
     callBucketsSummary,
     auditClusterSummary,
     regressionTrapSummary,
+    promptTargetSummary,
+    codeBacklogSummary,
     variants: args.variants,
     editableFilenames,
   });
@@ -920,6 +966,8 @@ async function main() {
     evalId,
     baseline: "workspace",
     editableFiles: editableFilenames,
+    promptTargets: targets,
+    codeBacklog: backlog,
     variants: written,
   });
   console.log(`Wrote variant manifest to ${reportPath}`);

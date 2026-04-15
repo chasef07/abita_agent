@@ -15,6 +15,7 @@ import "dotenv/config";
 import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { curateDecisionPointCases } from "../lib/candidate-curation.js";
 import { extractDecisionPointCases } from "../lib/extract-decision-points.js";
 import { normalizeCallEvents } from "../lib/normalize-call-events.js";
 import type { DecisionPointCase } from "../lib/types.js";
@@ -107,7 +108,9 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   const known = loadKnownCaseIds();
   const records = normalizeCallEvents(fetchRecentCallEvents(args));
-  const candidates = records.flatMap(extractDecisionPointCases);
+  const rawCandidates = records.flatMap(extractDecisionPointCases);
+  const { curated: candidates, removed } =
+    curateDecisionPointCases(rawCandidates);
 
   let added = 0;
   let skipped = 0;
@@ -122,7 +125,7 @@ function main() {
   }
 
   console.log(
-    `Sync complete: scanned ${records.length} call(s), produced ${candidates.length} candidate(s), added ${added}, skipped ${skipped} duplicate(s).`,
+    `Sync complete: scanned ${records.length} call(s), produced ${rawCandidates.length} raw candidate(s), kept ${candidates.length}, pruned ${removed.length} low-signal duplicate(s), added ${added}, skipped ${skipped} existing duplicate(s).`,
   );
 }
 
