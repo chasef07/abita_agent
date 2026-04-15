@@ -135,7 +135,9 @@ export function createMockTools(config: MockConfig = {}, trunkPhone?: string) {
       z
         .object({
           firstName: z.string().describe("Patient's first name"),
-          usePhone: z.literal(true).describe("Set true for multiple-match flow"),
+          usePhone: z
+            .literal(true)
+            .describe("Set true for multiple-match flow"),
         })
         .strict(),
       z
