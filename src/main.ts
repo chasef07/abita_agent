@@ -65,7 +65,12 @@ export default defineAgent({
       });
 
       const session = new voice.AgentSession<CallState>({
-        stt: new AssemblyAISTT({ speechModel: "u3-rt-pro" }),
+        stt: new AssemblyAISTT({
+          speechModel: "u3-rt-pro",
+          vadThreshold: 0.3,
+          minTurnSilence: 250,
+          maxTurnSilence: 250,
+        }),
         llm: llmWithFallback,
         tts: new elevenlabs.TTS({
           model: "eleven_flash_v2_5",
@@ -80,20 +85,20 @@ export default defineAgent({
           },
         }),
         vad,
-        preemptiveGeneration: true,
+        preemptiveGeneration: false,
         turnHandling: {
           turnDetection: new livekit.turnDetector.MultilingualModel(),
           interruption: {
             mode: "adaptive",
-            minDuration: 700,
+            minDuration: 1000,
             minWords: 3,
             discardAudioIfUninterruptible: true,
-            falseInterruptionTimeout: 2000,
+            falseInterruptionTimeout: 2500,
             resumeFalseInterruption: true,
           },
           endpointing: {
-            minDelay: 1000,
-            maxDelay: 2000,
+            minDelay: 900,
+            maxDelay: 2800,
           },
         },
       });
