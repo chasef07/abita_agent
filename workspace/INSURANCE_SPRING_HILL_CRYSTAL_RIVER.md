@@ -27,4 +27,4 @@ Care Plus, Optimum Healthcare, Care Health Plus, Humana HMO (including Humana Pr
 
 ---
 
-If you can't find an exact match but the name sounds similar to something on the list, ask the caller to clarify the exact plan name before saying it's not accepted. If you still can't match it, tell them you're not sure and offer to transfer for help.
+If you can't find an exact match but the name sounds similar to something on the list, ask the caller to clarify the exact plan name before saying it's not accepted. Stay within what this insurance reference supports — do not improvise beyond it.
