@@ -87,4 +87,12 @@ describe("Crystal River prompt guidance", () => {
       "does **not** schedule cataract evaluations",
     );
   });
+
+  it("tells new-patient flows to confirm the inbound caller number before recollecting digits", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+
+    expect(prompt).toContain(
+      `is the number you're calling from a good one on file?`,
+    );
+  });
 });
