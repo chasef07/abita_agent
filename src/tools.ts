@@ -194,9 +194,9 @@ async function callApi(
 export const verify_patient = llm.tool({
   description: `Verifies a patient's identity.
 
-For MULTIPLE MATCHES (caller context says multiple patients on this number): just pass firstName and phone — the middleware matches by phone + first name. Do NOT ask for last name or DOB upfront.
+For MULTIPLE MATCHES (caller context says multiple patients on this number): pass firstName and usePhone=true only — the middleware matches by phone + first name. Do NOT ask for last name or DOB upfront.
 
-For all other cases: pass firstName, lastName, and dob (MM/DD/YYYY).
+For all other cases: pass firstName, lastName, and dob (MM/DD/YYYY). Do not call this tool with only firstName.
 
 Do NOT call if phone lookup already verified the patient (single match + confirmed first name). Check CALLER CONTEXT first.
 
@@ -207,32 +207,35 @@ After response:
 - If not found and you only sent firstName + phone: ask for last name and DOB and retry with full details.
 - If not found with full details: ask them to spell their name and retry with corrections.
 - If still not found after retry: lead into registration — "ok no worries, let me get you set up."`,
-  parameters: z.object({
-    firstName: z.string().describe("Patient's first name"),
-    lastName: z
-      .string()
-      .optional()
-      .describe(
-        "Patient's last name (optional for multiple-match phone lookup)",
-      ),
-    dob: z
-      .string()
-      .optional()
-      .describe(
-        "Patient's date of birth in MM/DD/YYYY format (optional for multiple-match phone lookup)",
-      ),
-    usePhone: z
-      .boolean()
-      .optional()
-      .describe(
-        "Set true for multiple-match flow to verify by first name + caller phone number",
-      ),
-  }),
-  execute: async ({ firstName, lastName, dob, usePhone }, { ctx }) => {
-    const body: Record<string, unknown> = { firstName };
-    if (lastName) body.lastName = lastName;
-    if (dob) body.dob = dob;
-    if (usePhone) body.phone = getState(ctx).callerPhone;
+  parameters: z.union([
+    z
+      .object({
+        firstName: z.string().describe("Patient's first name"),
+        usePhone: z
+          .literal(true)
+          .describe(
+            "Set true for multiple-match flow to verify by first name + caller phone number",
+          ),
+      })
+      .strict(),
+    z
+      .object({
+        firstName: z.string().describe("Patient's first name"),
+        lastName: z
+          .string()
+          .describe("Patient's last name for full identity verification"),
+        dob: z
+          .string()
+          .describe("Patient's date of birth in MM/DD/YYYY format"),
+      })
+      .strict(),
+  ]),
+  execute: async (args, { ctx }) => {
+    const body: Record<string, unknown> = { firstName: args.firstName };
+    if ("lastName" in args) body.lastName = args.lastName;
+    if ("dob" in args) body.dob = args.dob;
+    if ("usePhone" in args && args.usePhone)
+      body.phone = getState(ctx).callerPhone;
     const result = (await callApi(
       "/api/verify-patient",
       body,

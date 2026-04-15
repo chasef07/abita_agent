@@ -127,22 +127,27 @@ export function createMockTools(config: MockConfig = {}, trunkPhone?: string) {
   const mock_verify_patient = llm.tool({
     description: `Verify a patient identity.
 
-Use when you need a patient record for scheduling or appointment actions.
-For multiple-match phone flow, pass firstName and usePhone=true.
-Otherwise pass firstName, lastName, and dob (MM/DD/YYYY).
-Returns verification status, patient identity, and routing data.`,
-    parameters: z.object({
-      firstName: z.string().describe("Patient's first name"),
-      lastName: z.string().optional().describe("Patient's last name"),
-      dob: z
-        .string()
-        .optional()
-        .describe("Patient's date of birth in MM/DD/YYYY format"),
-      usePhone: z
-        .boolean()
-        .optional()
-        .describe("Set true for multiple-match flow"),
-    }),
+    Use when you need a patient record for scheduling or appointment actions.
+    For multiple-match phone flow, pass firstName and usePhone=true only.
+    Otherwise pass firstName, lastName, and dob (MM/DD/YYYY).
+    Returns verification status, patient identity, and routing data.`,
+    parameters: z.union([
+      z
+        .object({
+          firstName: z.string().describe("Patient's first name"),
+          usePhone: z.literal(true).describe("Set true for multiple-match flow"),
+        })
+        .strict(),
+      z
+        .object({
+          firstName: z.string().describe("Patient's first name"),
+          lastName: z.string().describe("Patient's last name"),
+          dob: z
+            .string()
+            .describe("Patient's date of birth in MM/DD/YYYY format"),
+        })
+        .strict(),
+    ]),
     execute: async (args) => {
       log.push({ name: "verify_patient", args });
       if (config.verifyResult) return config.verifyResult;
