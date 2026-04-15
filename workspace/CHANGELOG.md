@@ -1,5 +1,25 @@
 # Prompt Changelog
 
+## 2026-04-14 — Fix transfer-on-insistence (missing trigger words), stuck repetition loops, and correction handling
+
+Reviewed 20 transcripts (SCL_wvQYAX5vtEvW, SCL_Hh2mB8wyunCg, SCL_ZiJjyT5Hze6V, SCL_ZXxDExEdBtAu, SCL_tvoLGGD2RxQo, SCL_8wSr7b46xq2z, SCL_HD3eB9yzibap, SCL_gzzHubE8Z96W, SCL_kYF5sq5vk8su, SCL_iv57Za86qzDA, SCL_Bhfcit3rAWv8, SCL_pvHcDK2HvvHh, SCL_PdZMqdFiUbg8, SCL_UNaM4EZnz5rS, SCL_TRYa2gUu4qsD, SCL_Bvq2PDycTd9Q, SCL_AD8M7szUTGd6, SCL_r6eSzZdb8o22, SCL_LFwTXXVvbUvS, SCL_j6kcCEYMvMCh).
+
+**RUNBOOK.md — Add missing transfer trigger words and remove scheduling pushback**
+- Why: In SCL_TRYa2gUu4qsD, caller said "Operator" 5 times over 6 turns before agent offered transfer. In SCL_LFwTXXVvbUvS, caller said "Operator" 4 times over 3 turns. "Operator" and "receptionist" were not in the trigger word list. Additionally, the scheduling pushback ("I can book appointments right now") created an effective double pushback before transferring.
+- What changed: Added "operator" and "receptionist" to the trigger word list. Removed the scheduling pushback entirely. Simplified to: ask once what they need, transfer on second request — no exceptions, no pushback.
+
+**RUNBOOK.md — Add "break stuck loops" rule**
+- Why: In SCL_wvQYAX5vtEvW (turns 85-109), agent repeated "D-R-I-V-E" identically 15+ times when a Spanish-speaking caller asked for a phonetic spelling approach. The agent never adapted.
+- What changed: Added general rule: "If you've said the same thing twice and the caller still doesn't understand, try a different approach — rephrase, simplify, or move on. Never repeat the same phrase a third time."
+
+**RUNBOOK.md — Add correction handling for read-backs**
+- Why: Previously identified in SCL_DCSmrdc9gdnU where agent read back member ID incorrectly 3 times. Fix was proposed but not merged.
+- What changed: Added to registration step 8: "If the caller says any item is wrong, ask them to say just that item again from scratch — do not guess at a correction."
+
+**tools.ts — get_availability: prevent redundant parallel searches**
+- Why: Previously identified in SCL_Cta8p6vxVZh2. Fix was proposed but not merged. Also seen in SCL_8YdbfMTHixyk (3 parallel calls in a single turn).
+- What changed: Added "Only call once per turn — never in parallel. If the returned date is the same one you already offered and the caller wants something earlier, stop — that IS the earliest. Tell them."
+
 ## 2026-04-11 — Fix check_insurance skipping and address hallucination
 
 **tools.ts / RUNBOOK.md — Force check_insurance to actually run before field collection**

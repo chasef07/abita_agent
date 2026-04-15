@@ -148,7 +148,7 @@ describe("transfer on insistence", () => {
       {
         turn: 3,
         callerText: "Live representative.",
-        agentText: "I can help you get scheduled right here. I just need a few details. What's your first name?",
+        agentText: "yeah, what are you calling about?",
         toolCalls: [],
       },
     ];
@@ -193,6 +193,47 @@ describe("transfer on insistence", () => {
       .judge(ctx.llm, {
         intent: "The agent should ask what the caller needs help with before transferring. It should not immediately transfer on the first request.",
       });
+  });
+});
+
+// ============================================================
+// Test 2b: Transfer on "operator" (SCL_TRYa2gUu4qsD, SCL_LFwTXXVvbUvS)
+// Issue: Caller said "operator" 5x without triggering transfer.
+// "operator" must be recognized as a trigger word.
+// ============================================================
+describe("transfer on operator keyword", () => {
+  let ctx: TestContext;
+
+  afterEach(async () => {
+    await ctx?.cleanup();
+  });
+
+  it("should transfer when caller says 'operator' a second time", async () => {
+    ctx = await createTestAgent({ phoneLookup: null });
+
+    const history: TranscriptTurn[] = [
+      {
+        turn: 1,
+        callerText: null,
+        agentText: "thank you for calling Abita Eye Group, this is David, how can I help you?",
+        toolCalls: [],
+      },
+      {
+        turn: 2,
+        callerText: "Operator.",
+        agentText: "yeah, what can I help you with today?",
+        toolCalls: [],
+      },
+    ];
+
+    await loadTranscriptHistory(ctx.agent, history, 99);
+
+    // Caller says "operator" again — should trigger immediate transfer
+    const result = await ctx.session.run({ userInput: "Operator." }).wait();
+
+    const transferCalls = ctx.callLog.filter((c) => c.name === "transfer_call");
+    expect(transferCalls.length).toBeGreaterThanOrEqual(1);
+    expect(transferCalls).toHaveLength(1);
   });
 });
 

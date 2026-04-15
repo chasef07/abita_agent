@@ -34,6 +34,41 @@
         "ttft": { "p50": 0, "p90": 0, "p99": 0 },
         "tts": { "p50": 0, "p90": 0, "p99": 0 }
       }
+    },
+    {
+      "id": "20260414-2315",
+      "date": "2026-04-14",
+      "transcriptsEvaluated": 20,
+      "issuesFound": 2,
+      "changesProposed": 5,
+      "changesKept": 5,
+      "changesDiscarded": 0,
+      "testIterations": 2,
+      "promptLength": {
+        "soul": 3464,
+        "voice": 1860,
+        "runbook": 10044,
+        "toolDescriptions": 4353,
+        "total": 19721
+      },
+      "metrics": {
+        "resolutionRate": { "faq": 100, "new_patient": 69, "existing_patient": 100, "overall": 90 },
+        "transferRate": 55,
+        "doubleTransfers": 97,
+        "avgTurns": { "faq": 0, "new_patient": 0, "existing_patient": 0 },
+        "avgDuration": { "faq": 0, "new_patient": 0, "existing_patient": 0 }
+      },
+      "changes": [
+        { "type": "reword", "file": "RUNBOOK", "desc": "add operator/receptionist to transfer trigger words, remove scheduling pushback" },
+        { "type": "add", "file": "RUNBOOK", "desc": "break stuck loops rule — never repeat same phrase 3x" },
+        { "type": "add", "file": "RUNBOOK", "desc": "correction handling for read-backs (re-collect from scratch)" },
+        { "type": "reword", "file": "tools.ts", "desc": "get_availability: no parallel calls, stop if same date returned" },
+        { "type": "add", "file": "replay.test.ts", "desc": "new test for operator trigger word" }
+      ],
+      "latency": {
+        "ttft": { "p50": 0, "p90": 0, "p99": 0 },
+        "tts": { "p50": 0, "p90": 0, "p99": 0 }
+      }
     }
   ]
 }
