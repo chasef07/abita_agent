@@ -1,61 +1,41 @@
-name: Create Release
+name: Release
 
 on:
   push:
     branches: [main]
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   release:
-    name: Tag & Release
+    name: Release PR
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
         with:
-          fetch-depth: 0
+          node-version: 22
+          package-manager-cache: false
 
-      - name: Get next version
-        id: version
+      - name: Enable pnpm via Corepack
         run: |
-          # Get latest tag, default to v0.0.0 if none exist
-          LATEST=$(git tag --sort=-v:refname | head -1)
-          if [ -z "$LATEST" ]; then
-            NEXT="v1.0.0"
-          else
-            # Increment patch version
-            MAJOR=$(echo "$LATEST" | sed 's/v//' | cut -d. -f1)
-            MINOR=$(echo "$LATEST" | sed 's/v//' | cut -d. -f2)
-            PATCH=$(echo "$LATEST" | sed 's/v//' | cut -d. -f3)
-            PATCH=$((PATCH + 1))
-            NEXT="v${MAJOR}.${MINOR}.${PATCH}"
-          fi
-          echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
+          corepack enable
+          corepack prepare pnpm@10 --activate
 
-      - name: Generate release notes
-        id: notes
-        run: |
-          LATEST=$(git tag --sort=-v:refname | head -1)
-          if [ -z "$LATEST" ]; then
-            COMMITS=$(git log --oneline --no-decorate)
-          else
-            COMMITS=$(git log --oneline --no-decorate "${LATEST}..HEAD")
-          fi
-          {
-            echo "body<<RELEASE_EOF"
-            echo "## Changes"
-            echo ""
-            echo "$COMMITS" | while read -r line; do echo "- $line"; done
-            echo ""
-            echo "RELEASE_EOF"
-          } >> "$GITHUB_OUTPUT"
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Create release
+      - name: Create or update Version Packages PR
+        uses: changesets/action@v1
+        with:
+          commit: Version Packages
+          title: Version Packages
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          git tag "${{ steps.version.outputs.tag }}"
-          git push origin "${{ steps.version.outputs.tag }}"
-          gh release create "${{ steps.version.outputs.tag }}" \
-            --title "${{ steps.version.outputs.tag }}" \
-            --notes "${{ steps.notes.outputs.body }}"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
