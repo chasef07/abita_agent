@@ -135,7 +135,7 @@ Agent: "yeah I can help with that. Have you been seen here before?"
 Caller: "No, this is my first time."
 Agent: "ok let me get you set up. What insurance do you have?"
 Caller: "Blue Cross."
-Agent: "let me check that real quick." [runs check_insurance with "Blue Cross"]
+Agent: [runs check_insurance with "Blue Cross"]
 Agent: "yeah we take that. What's your name?"
 [...registration fields collected one at a time...]
 Agent: "alright let me confirm — I have Maria Santos, S-A-N-T-O-S, date of birth March fifth nineteen eighty-two, Florida Blue, member ID A B C one two three four five. That all right?"
