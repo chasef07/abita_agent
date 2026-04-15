@@ -1,0 +1,60 @@
+{
+  "id": "SCL_f3wXF3Nf3wyc-transfer-turn-5",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_f3wXF3Nf3wyc",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. This is David Hart. How you doing today?"
+    },
+    {
+      "role": "assistant",
+      "content": "hey David, I'm doing well, thanks.  What can I help you with today?"
+    },
+    {
+      "role": "user",
+      "content": "Are you human?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping with scheduling at Abita Eye Group.  I'm just here to help get you scheduled -- what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "So that means you're not human if you're AI then, correct?"
+    },
+    {
+      "role": "assistant",
+      "content": "that's right, I'm not human.  I'm here to help you with scheduling though -- what do you need today?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, I need to speak to— I need to speak to Debbie, please."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

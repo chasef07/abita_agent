@@ -1,0 +1,206 @@
+{
+  "id": "SCL_5jeiC2mbrpaR-registration-turn-23",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_5jeiC2mbrpaR",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I have a referral from my primary care—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, have you been"
+    },
+    {
+      "role": "user",
+      "content": "Is calling to set up an— No."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "And have Oscar Silver Simple— So, uh, Florida?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Oscar Health.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Andrea— stone—"
+    },
+    {
+      "role": "assistant",
+      "content": "Andrea Stone, and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "12/30/1980."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's your phone number?"
+    },
+    {
+      "role": "user",
+      "content": "9, 3, 6— 994. 6545?"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, and what's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "A— N— A— D-R-E-A-M—"
+    },
+    {
+      "role": "assistant",
+      "content": "is that at gmail, outlook, or somewhere else?"
+    },
+    {
+      "role": "user",
+      "content": "T—"
+    },
+    {
+      "role": "assistant",
+      "content": "what comes"
+    },
+    {
+      "role": "user",
+      "content": "You— I hadn't finished."
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead, finish it."
+    },
+    {
+      "role": "user",
+      "content": "anadramstone@gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "5291— Harbinger Road— Spring Hill, Florida, 34608."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, and is that an apartment or suite number?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Email—"
+    },
+    {
+      "role": "assistant",
+      "content": "you already gave me your email, I just need to know if you're male or female."
+    },
+    {
+      "role": "user",
+      "content": "Email—"
+    },
+    {
+      "role": "assistant",
+      "content": "are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Email."
+    },
+    {
+      "role": "assistant",
+      "content": "I have your email already -- anadramstone at gmail dot com.  I just need to know if you're male or female."
+    },
+    {
+      "role": "user",
+      "content": "Female— F-E— M-A-L-I— Female."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. Now I need the name on your insurance card and the member ID."
+    },
+    {
+      "role": "user",
+      "content": "Andreas— down—"
+    },
+    {
+      "role": "assistant",
+      "content": "is that the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's the member ID number?"
+    },
+    {
+      "role": "user",
+      "content": "0S— C— — 781-225-4101."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Andrea Stone, S-T-O-N-E, date of birth December thirtieth nineteen eighty, Oscar Health, member ID zero S C seven eight one two two five four one zero one.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "I'd say I think it's probably— Oh— SC 781-225-4101."
+    },
+    {
+      "role": "assistant",
+      "content": "so just S C seven eight one two two five four one zero one?  No zero at the start?"
+    },
+    {
+      "role": "user",
+      "content": "No, it's an O at the start. Oscar O—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, so O S C seven eight one two two five four one zero one.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

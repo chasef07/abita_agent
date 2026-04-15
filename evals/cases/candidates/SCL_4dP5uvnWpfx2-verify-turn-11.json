@@ -1,0 +1,107 @@
+{
+  "id": "SCL_4dP5uvnWpfx2-verify-turn-11",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_4dP5uvnWpfx2",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent's first verify_patient invocation. Check that lookup context was respected (skip if pre-verified) and only first name asked for multi-match."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time.  What can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David."
+    },
+    {
+      "role": "assistant",
+      "content": "hey, what's going on?  How can I help you out?"
+    },
+    {
+      "role": "user",
+      "content": "Make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can get you scheduled.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Blue Cross Blue Shield."
+    },
+    {
+      "role": "assistant",
+      "content": "and which Blue Cross plan -- is it an HMO, PPO, or Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "EPO."
+    },
+    {
+      "role": "assistant",
+      "content": "I see Blue Cross is listed as Florida Blue here.  Do you have Florida Blue EPO, or is it a different Blue Cross plan?"
+    },
+    {
+      "role": "user",
+      "content": "Miss again, Chrysler."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me try looking up your name.  What's your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Dennis— D-E-N-N-I-S."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Dennis. And your last name?"
+    },
+    {
+      "role": "user",
+      "content": "Avoris. A-V-O-U-R-I-S. Junior."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "July— 5th, 1945."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

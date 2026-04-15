@@ -1,0 +1,52 @@
+{
+  "id": "SCL_4mixzBxKrAni-transfer-turn-4",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_4mixzBxKrAni",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Receptionist, please."
+    },
+    {
+      "role": "assistant",
+      "content": "sure, what are you calling about today?"
+    },
+    {
+      "role": "user",
+      "content": "Front desk—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  What do you need?"
+    },
+    {
+      "role": "user",
+      "content": "Records—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

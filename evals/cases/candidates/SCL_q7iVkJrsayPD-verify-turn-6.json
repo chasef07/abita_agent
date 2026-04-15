@@ -1,0 +1,67 @@
+{
+  "id": "SCL_q7iVkJrsayPD-verify-turn-6",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_q7iVkJrsayPD",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent re-ran verify_patient. Check whether retry was necessary or wasteful."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I need to schedule— Um— Eye surgery— With Dr. Licht—"
+    },
+    {
+      "role": "assistant",
+      "content": "I can help you get that scheduled.  Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "And last—"
+    },
+    {
+      "role": "assistant",
+      "content": "And your last name?"
+    },
+    {
+      "role": "user",
+      "content": "Raghnini."
+    },
+    {
+      "role": "assistant",
+      "content": "Let me verify your information.  What's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "March 14, 1936."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding that name in our system.  Could you spell your last name for me?"
+    },
+    {
+      "role": "user",
+      "content": "Are a— A— And he— TTI—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

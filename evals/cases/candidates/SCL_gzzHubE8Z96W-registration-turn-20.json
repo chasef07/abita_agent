@@ -1,0 +1,174 @@
+{
+  "id": "SCL_gzzHubE8Z96W-registration-turn-20",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_gzzHubE8Z96W",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "14843989071",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Acuity Health, this is Patrick, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey, I would like to book an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah I can help with that.  Have you been seen here before? "
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Ok let me get you set up.  What insurance do you have? "
+    },
+    {
+      "role": "user",
+      "content": "Blue Cross Blue Shield?"
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah we take Florida Blue.  Which plan do you have -- HMO, PPO, or Medicare? "
+    },
+    {
+      "role": "user",
+      "content": "I believe in HTML."
+    },
+    {
+      "role": "assistant",
+      "content": "No worries, let me clarify.  Do you have an HMO plan, a PPO plan, or a Medicare plan with Florida Blue? "
+    },
+    {
+      "role": "user",
+      "content": "PPO—"
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. Can I get your first and last name? "
+    },
+    {
+      "role": "user",
+      "content": "Kyle—"
+    },
+    {
+      "role": "user",
+      "content": "Shakman—"
+    },
+    {
+      "role": "assistant",
+      "content": "And your date of birth? "
+    },
+    {
+      "role": "user",
+      "content": "August 18th, 2000—"
+    },
+    {
+      "role": "assistant",
+      "content": "What's your phone number? "
+    },
+    {
+      "role": "user",
+      "content": "9546097250."
+    },
+    {
+      "role": "assistant",
+      "content": "And your email address? "
+    },
+    {
+      "role": "user",
+      "content": "K-Y-L-E-S-H-E-C-H-T-M-A-N@gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your street address? "
+    },
+    {
+      "role": "user",
+      "content": "1, 2, 3, 4—"
+    },
+    {
+      "role": "user",
+      "content": "Happy Lanes, Fort Lauderdale, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "What's the zip code? "
+    },
+    {
+      "role": "user",
+      "content": "3, 3, 3, 3, 0."
+    },
+    {
+      "role": "assistant",
+      "content": "And is there an apartment or suite number? "
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Are you male or female? "
+    },
+    {
+      "role": "user",
+      "content": "Male."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, I need the name on the insurance card and the member ID.  Is the card under your name? "
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "What's the member ID on the card? "
+    },
+    {
+      "role": "user",
+      "content": "ABC 123456."
+    },
+    {
+      "role": "assistant",
+      "content": "Let me confirm -- I have Kyle Shakman, S-H-A-K-M-A-N, date of birth August eighteenth, two thousand,"
+    },
+    {
+      "role": "user",
+      "content": "My last name is S-H-E-C-H-T-M-A-N—"
+    },
+    {
+      "role": "assistant",
+      "content": "Got it, let me fix that.  Kyle Shechtman, S-H-E-C-H-T-M-A-N, date of birth August eighteenth, two thousand, Florida Blue PPO, member ID A B C one two three four five six.  Is that all correct? "
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

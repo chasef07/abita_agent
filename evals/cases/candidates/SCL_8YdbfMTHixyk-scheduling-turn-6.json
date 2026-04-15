@@ -1,0 +1,70 @@
+{
+  "id": "SCL_8YdbfMTHixyk-scheduling-turn-6",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_8YdbfMTHixyk",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Receptionist, please."
+    },
+    {
+      "role": "assistant",
+      "content": "I can help you right here -- what do you need?"
+    },
+    {
+      "role": "user",
+      "content": "I need to— Talk about an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "sure, can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Debra?"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Debra, I see you're on the schedule for Tuesday May fifth at twelve p m with Dr. Licht.  What did you want to do with that appointment?"
+    },
+    {
+      "role": "user",
+      "content": "I want to see if I can get one a little closer."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can look for something earlier.  What day were you thinking?"
+    },
+    {
+      "role": "user",
+      "content": "As soon as possible."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

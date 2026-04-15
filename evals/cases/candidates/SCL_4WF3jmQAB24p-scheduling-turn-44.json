@@ -1,0 +1,369 @@
+{
+  "id": "SCL_4WF3jmQAB24p-scheduling-turn-44",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_4WF3jmQAB24p",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, uh, uh, David, uh— I'm calling on behalf of, uh— Simone Sherry—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and have you been seen here"
+    },
+    {
+      "role": "user",
+      "content": "Um, she was at the— yeah."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me pull up her record.  Can I get her first name and date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "No. Okay, the first name is Simone, S-I-M-O-N-E. Last name is Sherry— C-H-E-R-Y— And date of birth is February— February 8th."
+    },
+    {
+      "role": "assistant",
+      "content": "and what year was she born?"
+    },
+    {
+      "role": "user",
+      "content": "19— Thank you. 1968—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me try that again -- could you spell the last name for me one more time?"
+    },
+    {
+      "role": "user",
+      "content": "C-H-E-R-Y."
+    },
+    {
+      "role": "assistant",
+      "content": "ok no worries, let me get her set up.  What insurance does she have?"
+    },
+    {
+      "role": "user",
+      "content": "— which is— And better—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm sorry, I didn't catch that.  What insurance does she have?"
+    },
+    {
+      "role": "user",
+      "content": "—And better."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and is that an HMO, PPO, or Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "That's, uh, uh— I— It's— I think it's a PPE or something like— it's hit more PPE. I don't know. Uh, the— exactly what it is."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, I found it. That's Ambetter -- we take that.  And which Ambetter plan is it -- Ambetter, Ambetter Premier, Ambetter Select, or Ambetter Value?"
+    },
+    {
+      "role": "user",
+      "content": "Which one? 7 new cards."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, if you have the insurance card handy,"
+    },
+    {
+      "role": "user",
+      "content": "Um, she's looking at her card."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, let me know what it says"
+    },
+    {
+      "role": "user",
+      "content": "She's looking at your cards right now."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, take your time.  Just let me know which Ambetter plan is listed on the card."
+    },
+    {
+      "role": "user",
+      "content": "What— from you? Premier—"
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, Ambetter Premier.  Now I just need a few more details to get her registered.  What's her phone number?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, what's the phone number?"
+    },
+    {
+      "role": "user",
+      "content": "813—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, go ahead with the rest of it"
+    },
+    {
+      "role": "user",
+      "content": "8.3— 352."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and the last four digits?"
+    },
+    {
+      "role": "user",
+      "content": "7, 8, 2, 1."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's her email address?"
+    },
+    {
+      "role": "user",
+      "content": "Who won?"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm sorry, I didn't catch that.  What's her email"
+    },
+    {
+      "role": "user",
+      "content": "That's, uh— One dealer—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, go ahead and spell that for me"
+    },
+    {
+      "role": "user",
+      "content": "Email address is Monday— Monday— Um— M-O-N-D-Y—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what comes after the at sign?"
+    },
+    {
+      "role": "user",
+      "content": "No, no, no, it's M-O-N-D-Y— L-O-V-E-1—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's the domain after the at sign?"
+    },
+    {
+      "role": "user",
+      "content": "01— gmail.com—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, got it. Now what's her street address?"
+    },
+    {
+      "role": "user",
+      "content": "13139— They am drive— As— I am drive— Spring Hill, Florida—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's"
+    },
+    {
+      "role": "user",
+      "content": "3, 4, 6, 0, 9."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and is there an apartment or suite number?"
+    },
+    {
+      "role": "user",
+      "content": "No, that's a house."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect. And what's her sex -- male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, now I need the insurance card details.  What's the name on the insurance card?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "what's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Simone—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Hold on a minute, let me just, uh, read it for you. It is, uh—"
+    },
+    {
+      "role": "assistant",
+      "content": "take your time, just"
+    },
+    {
+      "role": "user",
+      "content": "You as an— um—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, go ahead"
+    },
+    {
+      "role": "user",
+      "content": "You as a universe—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm having trouble hearing that clearly.  Could you spell the member ID for me?"
+    },
+    {
+      "role": "user",
+      "content": "Oh, okay."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, whenever you're ready"
+    },
+    {
+      "role": "user",
+      "content": "Okay, and then— All right. Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead and spell it out"
+    },
+    {
+      "role": "user",
+      "content": "I'll take you off the— I'll take you off the call, uh, uh. Speaker:Speaker:1: Speaker— It's, uh, the subscriber ID is 98— 5, 2— 4018."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me confirm all the details.  I have Simone Chery, C-H-E-R-Y, date of birth February eighth nineteen sixty-eight, Ambetter Premier, member ID nine eight five two four zero one eight.  Does that all look correct?"
+    },
+    {
+      "role": "user",
+      "content": "Okay, all right, I'm absolutely— okay. There's a subscriber ID, there's a member ID. Remember, I just thought with a— you— Like Universe— 9, 8— 5, 2, 4, 0, 1, 8— 01."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, so the full member ID is nine eight five two four zero one eight zero one?  Let me read that back to confirm -- Simone Chery, C-H-E-R-Y, date of birth February eighth nineteen sixty-eight, Ambetter Premier, member ID nine eight five two four zero one eight zero one.  Is that correct?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "user",
+      "content": "Yeah, and there's a— you— At the beginning—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, she's all set.  What's the reason for her visit?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "what's she coming in for?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, is it reference from the, uh— From, uh, from Dr.— from Dr. Uh, Carol— Daniel?"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so she has a referral from Dr. Daniel.  What day works for her?"
+    },
+    {
+      "role": "user",
+      "content": "The—"
+    },
+    {
+      "role": "assistant",
+      "content": "what day would she like to come in?"
+    },
+    {
+      "role": "user",
+      "content": "What days— what day?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, what day works best for her?"
+    },
+    {
+      "role": "user",
+      "content": "Would this—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not sure I caught that.  What day would she"
+    },
+    {
+      "role": "user",
+      "content": "Do you have— do you have any— Do you have any day right now? Do you have any time now?"
+    },
+    {
+      "role": "assistant",
+      "content": "let me check what's available.  What's the earliest day she can come in?"
+    },
+    {
+      "role": "user",
+      "content": "Today or Thursday?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

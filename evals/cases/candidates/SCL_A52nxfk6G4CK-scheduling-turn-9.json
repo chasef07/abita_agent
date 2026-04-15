@@ -1,0 +1,93 @@
+{
+  "id": "SCL_A52nxfk6G4CK-scheduling-turn-9",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_A52nxfk6G4CK",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Depressionable, and now some are doing serious— Do you have any testif— David?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm David. How can I help you today?"
+    },
+    {
+      "role": "user",
+      "content": "Before starting a 4-year— I was trying to make sure you weren't going to make any eye things."
+    },
+    {
+      "role": "assistant",
+      "content": "oh gotcha -- yeah, I'm actually an AI assistant helping with scheduling at Abita Eye Group.  I'm just here to help get you scheduled -- what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "I have an— only appointment today."
+    },
+    {
+      "role": "assistant",
+      "content": "I can help with that.  Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "David—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey David, I've got you pulled up.  What do you need today?"
+    },
+    {
+      "role": "user",
+      "content": "The company paid billions in rent— reschedule."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me get you rescheduled.  What day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "—call for my— — Suspensive information— next week."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, next week. What day"
+    },
+    {
+      "role": "user",
+      "content": "— Something like— As it was— in the best interest of our customers? After— now, just Wednesday."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, Wednesday. What's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "— finger field. Days before reporting to federal— my glasses."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

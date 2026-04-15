@@ -1,0 +1,150 @@
+{
+  "id": "SCL_kYF5sq5vk8su-registration-turn-16",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_kYF5sq5vk8su",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey David, I wanna— Book an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "Um—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, just let me know -- is this your"
+    },
+    {
+      "role": "user",
+      "content": "No, I haven't."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "I have Oscar—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Oscar. What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "My name is Chase."
+    },
+    {
+      "role": "assistant",
+      "content": "alright Chase, and what's your last name?"
+    },
+    {
+      "role": "user",
+      "content": "Fegen—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "Actually, my last name is Test. B-E-S-T—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Chase Best. What's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "April 7th, 2000—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "faganchase@gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "4136 Salem Square Parkway, Palm Harbor, Florida 34685."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's your sex -- male or female?"
+    },
+    {
+      "role": "user",
+      "content": "mail."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and for your Oscar insurance, what's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "It's myself."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's your member ID on the card?"
+    },
+    {
+      "role": "user",
+      "content": "1, 2, 3, 4, 5—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Chase Best, B-E-S-T, date of birth April seventh two thousand, Oscar Health, member ID one two three four five.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, that's good."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

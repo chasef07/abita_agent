@@ -1,0 +1,221 @@
+{
+  "id": "SCL_8wSr7b46xq2z-scheduling-turn-25",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_8wSr7b46xq2z",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I'm looking to, um—"
+    },
+    {
+      "role": "assistant",
+      "content": "take"
+    },
+    {
+      "role": "user",
+      "content": "With the, uh, eye cataract. Consultation?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Am better."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and which plan is that -- is it an HMO, PPO, or Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time.  Is it an"
+    },
+    {
+      "role": "user",
+      "content": "The elite bronze—"
+    },
+    {
+      "role": "assistant",
+      "content": "got"
+    },
+    {
+      "role": "user",
+      "content": "Alright, let me look this up."
+    },
+    {
+      "role": "assistant",
+      "content": "I don't see Aetna Medicare Elite Bronze on our list.  The Aetna Medicare plans we accept are the Signature PPO and the HMO.  Is it possible it's one"
+    },
+    {
+      "role": "user",
+      "content": "It's am better. It's— It's— and better. Not Aetna."
+    },
+    {
+      "role": "assistant",
+      "content": "oh, got it -- Ambetter.  And which Ambetter plan is it -- Ambetter Value, Select, or Premier?"
+    },
+    {
+      "role": "user",
+      "content": "It's the Elite Bronze."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Ambetter.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, first name's Adam, last name Radcliffe."
+    },
+    {
+      "role": "assistant",
+      "content": "ok Adam, and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "1273."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what month were you born?"
+    },
+    {
+      "role": "user",
+      "content": "January—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it -- January first, nineteen seventy-three.  What's your phone number?"
+    },
+    {
+      "role": "user",
+      "content": "January 2nd."
+    },
+    {
+      "role": "assistant",
+      "content": "got it -- January second, nineteen seventy-three.  What's your phone number?"
+    },
+    {
+      "role": "user",
+      "content": "727—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead."
+    },
+    {
+      "role": "user",
+      "content": "6, 4, 5—"
+    },
+    {
+      "role": "assistant",
+      "content": "yep."
+    },
+    {
+      "role": "user",
+      "content": "7, 8, 4, 8—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "It's— Adams— ADAMS— L-A-W-N— — at ymail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "1, 2, 3— 4, 4— Lightwood, L-I-T-E— W-O-O-D— Drive— Hudson, Florida. 3, 4, 6, 6, 9."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. And are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Male."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's the name on the insurance card?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, Adam Radcliffe?"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, and what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Um, You— The— 0— 149— 0— 5401—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Adam Radcliffe, R-A-D-C-L-I-F-F-E, date of birth January second, nineteen seventy-three, Ambetter, member ID zero one four nine zero five four zero one.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes. Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, you're all set.  So you mentioned a cataract consultation -- is that the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Um, I was thinking, uh, Monday the 20th."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

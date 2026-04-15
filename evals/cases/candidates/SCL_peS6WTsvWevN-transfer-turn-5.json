@@ -1,0 +1,60 @@
+{
+  "id": "SCL_peS6WTsvWevN-transfer-turn-5",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_peS6WTsvWevN",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Um, yes, I'm scheduled to have surgery on the 17th. And I'm needing to talk to someone about that."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Dorothy—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Dorothy, I see you're in the system.  So you're looking to talk to someone about your surgery coming up on the 17th -- is there something specific you need help with?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, I'm wanting to know— If— how— How long my insurance— — will approve this if I postpone it? I'm not able— to do it on Friday?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah"
+    },
+    {
+      "role": "user",
+      "content": "Is anyone there?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

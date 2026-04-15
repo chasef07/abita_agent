@@ -1,0 +1,276 @@
+{
+  "id": "SCL_tvoLGGD2RxQo-transfer-turn-32",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_tvoLGGD2RxQo",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. Um, my name is Annalise Brando. I was just seen in, um, Bayonet Point Emergency Room and told to follow up with Dr. Lit—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Annalise, let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "United Healthcare—"
+    },
+    {
+      "role": "assistant",
+      "content": "and which United Healthcare plan -- is it an HMO, PPO, or Medicare plan?"
+    },
+    {
+      "role": "user",
+      "content": "I'm not sure."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, do you have the insurance card with you?  It should say the plan name right on the front."
+    },
+    {
+      "role": "user",
+      "content": "Um, just one moment."
+    },
+    {
+      "role": "assistant",
+      "content": "take your time."
+    },
+    {
+      "role": "user",
+      "content": "What would it say on the card?"
+    },
+    {
+      "role": "assistant",
+      "content": "it'll usually say something like \"United Healthcare HMO,\" \"United Healthcare PPO,\" or \"United Healthcare Medicare\" right at the top or near the logo."
+    },
+    {
+      "role": "user",
+      "content": "You don't see it."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can't see it from here.  If you can find the card, just read me what it says for the plan name and I'll check if we accept it."
+    },
+    {
+      "role": "user",
+      "content": "Uh, Level 2 plan—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, let me check that real quick.ok, let me check that real quick."
+    },
+    {
+      "role": "user",
+      "content": "Are you still there?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I'm here. I don't see \"Level 2\" on our accepted list, but we do take several United Healthcare plans.  Can you check the card again and see if it says HMO, PPO, or maybe something like \"Choice\" or \"Individual Exchange\"?"
+    },
+    {
+      "role": "user",
+      "content": "Okay, just a moment."
+    },
+    {
+      "role": "assistant",
+      "content": "take your time."
+    },
+    {
+      "role": "user",
+      "content": "A choice for—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, \"Choice\" is on our list.  So you have United Healthcare Choice?"
+    },
+    {
+      "role": "user",
+      "content": "Please. Plus—"
+    },
+    {
+      "role": "assistant",
+      "content": "United Healthcare Choice Plus?"
+    },
+    {
+      "role": "user",
+      "content": "You still there?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I'm here. So just to confirm -- it's United Healthcare Choice Plus?"
+    },
+    {
+      "role": "user",
+      "content": "Did you see it on your list?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, United Healthcare Choice is on our accepted list.  So we can take that.  What's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "September 9th, 1993."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's your phone number?"
+    },
+    {
+      "role": "user",
+      "content": "7, 2, 7—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead."
+    },
+    {
+      "role": "user",
+      "content": "Sorry."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time."
+    },
+    {
+      "role": "user",
+      "content": "And he said— hmm. 2, 2, 6— 7806—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, seven two seven, two two six, seven eight zero six.  What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "what's the email address?"
+    },
+    {
+      "role": "user",
+      "content": "One moment."
+    },
+    {
+      "role": "assistant",
+      "content": "take your time."
+    },
+    {
+      "role": "user",
+      "content": "If B as in boy— A-R-O— N as in Nancy, E— L-E-E— S as in Sam. E— why? — at gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "15434— Renee Lane. Renee is spelled R-E— N as in Nancy— E-E— In Hudson, Florida. 3, 4, 6, 6, 9."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. And are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "The email—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I got the email.  Just need to know if you're male or female."
+    },
+    {
+      "role": "user",
+      "content": "Email."
+    },
+    {
+      "role": "assistant",
+      "content": "right, I have the email.  Just need to know -- are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "I'm, I'm a woman. Woman, female—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it. Now I need the name on the insurance card and the member ID.  What's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, it's Annalise, we— Brando? And my member ID is 957— 3, 3, 8— 0— 2, 2."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Annalise Brando, B-R-A-N-D-O, date of birth September ninth nineteen ninety-three, United Healthcare Choice, member ID nine five seven, three three eight, zero two two.  Is that all correct?"
+    },
+    {
+      "role": "user",
+      "content": "Is UnitedHealthcare Choice— Plus—"
+    },
+    {
+      "role": "assistant",
+      "content": "oh right, United Healthcare Choice Plus."
+    },
+    {
+      "role": "user",
+      "content": "— other than that, it's all correct."
+    },
+    {
+      "role": "assistant",
+      "content": "ah, looks like \"Choice Plus\" isn't the exact name on our list.  Let me check what we have for United Healthcare.  Is it possible the card just says \"United Healthcare Choice\" without the Plus?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me try a different one.  Do you see anything else on the card -- maybe \"United Healthcare Individual Exchange\" or \"United Healthcare NHP\"?"
+    },
+    {
+      "role": "user",
+      "content": "Is— One moment."
+    },
+    {
+      "role": "assistant",
+      "content": "take your time."
+    },
+    {
+      "role": "user",
+      "content": "And I don't see any of that."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, let me try \"United Healthcare Choice\" without the Plus and see if that works.  If not, I may need to get you over to the office to sort out the exact plan name.  Does that sound alright?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, can you get me to the office now?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

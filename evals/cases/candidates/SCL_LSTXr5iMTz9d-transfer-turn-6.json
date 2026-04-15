@@ -1,0 +1,68 @@
+{
+  "id": "SCL_LSTXr5iMTz9d-transfer-turn-6",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_LSTXr5iMTz9d",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Speak to someone—"
+    },
+    {
+      "role": "assistant",
+      "content": "would you mind telling me what you're calling about?"
+    },
+    {
+      "role": "user",
+      "content": "Eye surgery?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Let me get your first name so I can pull up your record."
+    },
+    {
+      "role": "user",
+      "content": "Cynthia—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Cynthia, I see you're in the system.  What's going on with your eyes that you're thinking about surgery?"
+    },
+    {
+      "role": "user",
+      "content": "I have a left drooping eye."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so you'd like to come in to have that evaluated for surgery.  What day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "I've already— Had he been in— I was just checking on the scheduling of the surgery."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

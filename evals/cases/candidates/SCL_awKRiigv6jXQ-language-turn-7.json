@@ -1,0 +1,77 @@
+{
+  "id": "SCL_awKRiigv6jXQ-language-turn-7",
+  "suite": "language",
+  "source": "livekit-trace",
+  "traceId": "SCL_awKRiigv6jXQ",
+  "tags": [
+    "language",
+    "spanish",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: caller spoke Spanish. Check the agent replied in Spanish, not English."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi. Yes, please."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Um, Rosie, yes?"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding a Rosie Rodriguez on this account.  Is this Nancy Rodriguez?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Nancy, I can help you.  What do you need today?"
+    },
+    {
+      "role": "user",
+      "content": "Those—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead, what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "Um, somebody ask— speak Spanish."
+    },
+    {
+      "role": "assistant",
+      "content": "sí, hablo español. ¿En qué puedo ayudarle hoy?"
+    },
+    {
+      "role": "user",
+      "content": "Um— Tengo una llamada de ayer—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "match_caller_language"
+    ],
+    "styleFlags": [
+      "responds_in_spanish",
+      "concise"
+    ]
+  }
+}

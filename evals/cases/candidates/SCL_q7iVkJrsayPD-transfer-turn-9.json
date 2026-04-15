@@ -1,0 +1,92 @@
+{
+  "id": "SCL_q7iVkJrsayPD-transfer-turn-9",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_q7iVkJrsayPD",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I need to schedule— Um— Eye surgery— With Dr. Licht—"
+    },
+    {
+      "role": "assistant",
+      "content": "I can help you get that scheduled.  Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "And last—"
+    },
+    {
+      "role": "assistant",
+      "content": "And your last name?"
+    },
+    {
+      "role": "user",
+      "content": "Raghnini."
+    },
+    {
+      "role": "assistant",
+      "content": "Let me verify your information.  What's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "March 14, 1936."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding that name in our system.  Could you spell your last name for me?"
+    },
+    {
+      "role": "user",
+      "content": "Are a— A— And he— TTI—"
+    },
+    {
+      "role": "assistant",
+      "content": "Let me try a different spelling.  Is it R-A-G-N-E-T-T-I?"
+    },
+    {
+      "role": "user",
+      "content": "PTI—"
+    },
+    {
+      "role": "assistant",
+      "content": "Let me try R-A-G-N-E-T-T-I."
+    },
+    {
+      "role": "user",
+      "content": "No, no, no. Let's start over."
+    },
+    {
+      "role": "assistant",
+      "content": "No worries, let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "No, no, I want to talk— No. I don't need that."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

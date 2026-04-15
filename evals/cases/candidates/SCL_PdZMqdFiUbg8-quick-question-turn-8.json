@@ -1,0 +1,84 @@
+{
+  "id": "SCL_PdZMqdFiUbg8-quick-question-turn-8",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_PdZMqdFiUbg8",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. My name is Nancy Linam, and I have an appointment— —morning with Dr. Lett? And I can't seem to find you on my, uh—"
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "GPS— Nancy—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "2— 5— 54."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding that exact match.  Could you spell your last name for me?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, it's L-Y— N— Like Nancy— A— M— Like Mark."
+    },
+    {
+      "role": "assistant",
+      "content": "ok no worries, let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Um— I have UnitedHealthcare."
+    },
+    {
+      "role": "assistant",
+      "content": "and which UnitedHealthcare plan -- is it an HMO, PPO, or Medicare"
+    },
+    {
+      "role": "user",
+      "content": "No, it's a— it's an appeal."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. So you have UnitedHealthcare, and you're looking to schedule an appointment?"
+    },
+    {
+      "role": "user",
+      "content": "CPO— No, I have an appointment tomorrow morning and I need your exact— Address—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

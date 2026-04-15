@@ -1,0 +1,69 @@
+{
+  "id": "SCL_f9vxp8YjNAFQ-cancel-turn-6",
+  "suite": "cancel",
+  "source": "livekit-trace",
+  "traceId": "SCL_f9vxp8YjNAFQ",
+  "tags": [
+    "cancel",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent cancelled an appointment. Check that cancel_appt was actually called rather than just verbally agreed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. Can I please speak to, uh— person—"
+    },
+    {
+      "role": "assistant",
+      "content": "sure, who were you looking to speak with?"
+    },
+    {
+      "role": "user",
+      "content": "I need to reschedule an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Teresa Lang—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Teresa, I see you have an appointment coming up on Wednesday April twenty-ninth at nine a m with Dr. Licht.  What day would you like to reschedule to?"
+    },
+    {
+      "role": "user",
+      "content": "Well, I wanted to see if I— if there was an availability on the 28th with the same doctor."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah Dr. Licht has openings on Tuesday April twenty-eighth.  I've got eleven fifteen a m, eleven thirty a m, or eleven forty-five a m. Which one works for you?"
+    },
+    {
+      "role": "user",
+      "content": "11:45."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "cancel_appt"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "cancel_requires_tool_call"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}
