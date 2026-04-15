@@ -55,7 +55,7 @@ You MUST collect every field from the caller before calling add_patient. Every f
 **Registration order — follow this sequence:**
 1. Ask what insurance they have, then run check_insurance with exactly what they say. If they know the plan name, use that. If they only know a family name like Blue Cross, Oscar, or United, use that. Only ask HMO, PPO, Medicare, or any other plan-type follow-up if check_insurance says clarification is needed. If the card name turns out to be different at step 7, run check_insurance again with the card name.
 2. Name + DOB — skip if already collected from verify attempts
-3. Phone number (10 digits)
+3. Phone number — ask "is the number you're calling from a good one on file?" If yes, use the inbound caller number already in session state and do not make them repeat digits. If no, collect the best 10-digit phone number.
 4. Email
 5. Address (street, city, state, zip, apt/suite)
 6. Sex (male or female)

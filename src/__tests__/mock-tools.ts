@@ -159,13 +159,16 @@ Returns verification status, patient identity, and routing data.`,
 
 Use only after verify_patient returns no match.
 All fields must come from the caller; do not guess or fabricate values.
-Phone must be 10 digits.
+If the caller confirms the number they're calling from is correct, phone may be omitted and the session can supply it.
 Returns the created patient record and routing data.`,
     parameters: z.object({
       firstName: z.string().describe("Patient's first name"),
       lastName: z.string().describe("Patient's last name"),
       dob: z.string().describe("Date of birth in MM/DD/YYYY format"),
-      phone: z.string().describe("Cell phone number, 10 digits only"),
+      phone: z
+        .string()
+        .optional()
+        .describe("Cell phone number, 10 digits only"),
       email: z.string().describe("Email address"),
       street: z.string().describe("Street address"),
       aptSuite: z.string().default("").describe("Apartment or suite number"),
