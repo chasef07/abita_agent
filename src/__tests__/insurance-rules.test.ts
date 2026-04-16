@@ -99,4 +99,22 @@ describe("insurance matcher", () => {
       callerMessage: "yeah we take Blue Cross Blue Shield.",
     });
   });
+
+  it("supports Optical Eyeworks vision plan aliases from the workbook", () => {
+    const result = matchInsurancePlanForOffice("optical-eyeworks", "Soltice");
+
+    expect(result.status).toBe("accepted");
+    expect(result.canProceed).toBe(true);
+    expect(result.matchedFamily).toBe("Solstice");
+    expect(canonicalInsurancePlan(result)).toBe("Solstice");
+  });
+
+  it("supports Beacon Optical vision plan aliases from the seeded optical rules", () => {
+    const result = matchInsurancePlanForOffice("beacon-optical", "Soltice");
+
+    expect(result.status).toBe("accepted");
+    expect(result.canProceed).toBe(true);
+    expect(result.matchedFamily).toBe("Solstice");
+    expect(canonicalInsurancePlan(result)).toBe("Solstice");
+  });
 });

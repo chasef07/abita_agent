@@ -5,8 +5,6 @@
  */
 
 import { llm } from "@livekit/agents";
-import { readFileSync } from "fs";
-import { join } from "path";
 import { z } from "zod";
 import {
   getOfficeConfigByPhone,
@@ -16,8 +14,7 @@ import {
   buildInsuranceToolResponse,
   matchInsurancePlanForOffice,
 } from "../insurance-rules.js";
-
-const WORKSPACE = join(import.meta.dirname, "..", "..", "workspace");
+import { lookupKnowledgeForOffice } from "../knowledge-rules.js";
 
 // --- Configurable mock responses ---
 
@@ -302,11 +299,7 @@ Returns the office knowledge reference.`,
     }),
     execute: async (args) => {
       log.push({ name: "lookup_knowledge", args });
-      try {
-        return readFileSync(join(WORKSPACE, office.knowledgeFile), "utf-8");
-      } catch {
-        return "Knowledge base unavailable in test environment.";
-      }
+      return lookupKnowledgeForOffice(office.key, args.question);
     },
   });
 

@@ -1,0 +1,109 @@
+{
+  "officeLabel": "Optical Eyeworks and Beacon Optical",
+  "aliasRules": [
+    {
+      "aliases": ["EyeMed", "Eyemed"],
+      "status": "accepted",
+      "family": "EyeMed",
+      "callerPlan": "EyeMed",
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": ["Lincoln Finacial", "Lincoln Financial"],
+      "status": "accepted",
+      "family": "Lincoln Financial",
+      "callerPlan": "Lincoln Financial",
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": ["Blue View", "BlueView"],
+      "status": "accepted",
+      "family": "BlueView",
+      "callerPlan": "BlueView",
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": ["UnitedHealthcare", "United Health Care", "UHC Vision", "UHC"],
+      "status": "accepted",
+      "family": "United Health Care",
+      "callerPlan": "United Health Care",
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": ["Soltice", "Solstice"],
+      "status": "accepted",
+      "family": "Solstice",
+      "callerPlan": "Solstice",
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": ["Simply Medcaid", "Simply Medicaid"],
+      "status": "accepted",
+      "family": "Simply Medicaid",
+      "callerPlan": "Simply Medicaid",
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": ["Aetna Better Health", "Aetna Better Health Vision"],
+      "status": "accepted",
+      "family": "Aetna Better Health",
+      "callerPlan": "Aetna Better Health",
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": ["Sun Health Discount Plan", "SunHealth Discount Plan"],
+      "status": "accepted",
+      "family": "SunHealth Discount Plan",
+      "callerPlan": "SunHealth Discount Plan",
+      "canProceed": true,
+      "needsExactPlanName": false
+    }
+  ],
+  "acceptedPlans": [
+    "VSP",
+    "MetLife",
+    "Liberty Financial",
+    "Lincoln Financial",
+    "EyeMed",
+    "Humana",
+    "Aetna",
+    "Unum",
+    "Cigna",
+    "NVA",
+    "Davis",
+    "Superior",
+    "Florida Blue",
+    "BlueView",
+    "Versant",
+    "Spectera",
+    "United Health Care",
+    "United Vision",
+    "Solstice",
+    "iCare",
+    "Humana Gold Plus",
+    "Simply Medicare",
+    "Simply Medicaid",
+    "Freedom",
+    "Optimum",
+    "Aetna Better Health",
+    "AvMed",
+    "SunHealth Discount Plan",
+    "Envolve",
+    "Ambetter",
+    "Sunshine",
+    "Premier",
+    "AmeriHealth",
+    "Devoted",
+    "Alivi",
+    "CarePlus",
+    "Guardian"
+  ],
+  "notAcceptedPlans": []
+}

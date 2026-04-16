@@ -1,0 +1,144 @@
+{
+  "officeLabel": "Abita Eye Group, Spring Hill",
+  "fallbackSectionKeys": ["location_contact", "hours", "providers", "practice_scope"],
+  "sections": [
+    {
+      "key": "emergency",
+      "title": "Emergency Notice",
+      "aliases": ["emergency", "urgent", "911", "er", "emergency room"],
+      "lines": [
+        "If this is a medical emergency, hang up and dial 911 or go to the nearest emergency room immediately."
+      ]
+    },
+    {
+      "key": "urgency_screening",
+      "title": "Urgency Screening",
+      "aliases": ["flash", "flashes", "floater", "floaters", "vision loss", "urgent appointment", "same day"],
+      "lines": [
+        "Ask whether the patient has new flashes or floaters.",
+        "Ask how long the symptom has been present.",
+        "Ask whether there is sudden or gradual vision loss.",
+        "New flashes or floaters should be treated as urgent and offered the next available appointment."
+      ]
+    },
+    {
+      "key": "location_contact",
+      "title": "Location and Contact",
+      "aliases": ["address", "location", "where are you", "email", "fax", "phone", "contact"],
+      "lines": [
+        "Practice name: Abita Eye Group.",
+        "Address: 10495 SpringHill Drive, Springhill, FL 34608.",
+        "Email: newpatient@abitaeye.com.",
+        "Fax: (305) 675-3370."
+      ]
+    },
+    {
+      "key": "hours",
+      "title": "Hours",
+      "aliases": ["hours", "open", "close", "closing time", "weekend", "saturday", "sunday"],
+      "lines": [
+        "Hours are Monday through Friday, 8:30 AM to 4:30 PM.",
+        "The office is closed Saturday and Sunday."
+      ]
+    },
+    {
+      "key": "other_location",
+      "title": "Other Location",
+      "aliases": ["crystal river", "other office", "second office", "eye radiance"],
+      "lines": [
+        "The other location is Eye Radiance in Crystal River at 1100 N Lyle Avenue, Crystal River, FL 34429.",
+        "Crystal River sees Dr. Licht Tuesday through Thursday from 12:00 PM to 5:00 PM."
+      ]
+    },
+    {
+      "key": "practice_scope",
+      "title": "Practice Scope",
+      "aliases": ["services", "what do you treat", "ophthalmology", "specialties", "medical eye care"],
+      "lines": [
+        "This is an ophthalmology practice, not optometry.",
+        "Spring Hill sees medical and surgical eye conditions including cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus, double vision evaluation, and oculoplastic eyelid procedures."
+      ]
+    },
+    {
+      "key": "pediatrics",
+      "title": "Pediatric and Strabismus Visits",
+      "aliases": ["pediatric", "pediatrics", "kids", "children", "child", "minor", "under 18", "my son", "my daughter", "young patient", "strabismus", "double vision", "crossed eyes"],
+      "lines": [
+        "Spring Hill does see pediatric ophthalmology.",
+        "Dr. Bach handles pediatrics, adult strabismus, and double vision.",
+        "Dr. Bach has a limited Spring Hill schedule and may book several weeks out."
+      ]
+    },
+    {
+      "key": "cataracts",
+      "title": "Cataract Evaluations",
+      "aliases": ["cataract", "cataracts", "cataract consult", "cataract evaluation", "cataract surgery", "cataract workup"],
+      "lines": [
+        "Spring Hill sees cataract evaluations and cataract-related surgical visits."
+      ]
+    },
+    {
+      "key": "routine_eye_exams",
+      "title": "Routine Eye Exams and Glasses Prescriptions",
+      "aliases": ["routine eye exam", "annual exam", "vision check", "glasses prescription", "routine exam", "refraction", "optometrist", "glasses exam"],
+      "lines": [
+        "The office does not perform routine eye exams or vision-only checkups.",
+        "If a caller wants a routine eye exam or a glasses prescription, let them know they would want an optometrist."
+      ]
+    },
+    {
+      "key": "retina_glaucoma_uveitis",
+      "title": "Retina, Glaucoma, and Uveitis Care",
+      "aliases": ["retina", "glaucoma", "uveitis", "medical retina", "eye inflammation"],
+      "lines": [
+        "Spring Hill sees glaucoma evaluation, retina care, and uveitis care."
+      ]
+    },
+    {
+      "key": "eyelids",
+      "title": "Eyelid Procedures",
+      "aliases": ["eyelid", "eyelids", "oculoplastic", "lid surgery", "eyelid surgery"],
+      "lines": [
+        "Spring Hill sees oculoplastic eyelid procedures."
+      ]
+    },
+    {
+      "key": "providers",
+      "title": "Providers",
+      "aliases": ["doctor", "doctors", "provider", "providers", "dr bach", "dr noel", "dr licht", "barry", "noel", "licht", "lee", "licked", "lit", "lish"],
+      "lines": [
+        "Dr. Bach (NPI 16-59706588) handles pediatrics, adult strabismus, and double vision. He has a limited Spring Hill schedule and may book several weeks out.",
+        "Dr. Noel (NPI 16-59998482) handles comprehensive ophthalmology, retina, uveitis, and glaucoma.",
+        "Dr. Licht (NPI 14-97147680) handles comprehensive ophthalmology, oculoplastic eyelid surgery, and glaucoma.",
+        "If speech recognition produces Lee, Licked, Lit, Lisht, Lich, Lish, or Liked, treat that as Dr. Licht."
+      ]
+    },
+    {
+      "key": "glasses_warranty",
+      "title": "Glasses Warranty",
+      "aliases": ["glasses", "warranty", "broken glasses", "repair", "adjustment"],
+      "lines": [
+        "Patients should bring their glasses into the Spring Hill location.",
+        "Staff will review the glasses in person and determine the available options."
+      ]
+    },
+    {
+      "key": "what_to_bring",
+      "title": "What to Bring",
+      "aliases": ["what to bring", "bring", "documents", "id", "insurance card", "records", "medications"],
+      "lines": [
+        "Patients should bring a photo ID, insurance card, list of current medications, and previous eye records if available."
+      ]
+    },
+    {
+      "key": "appointment_expectations",
+      "title": "Appointment Expectations",
+      "aliases": ["how long", "appointment length", "dilation", "blurry vision", "light sensitivity", "confirmation email"],
+      "lines": [
+        "New patient visits may take 1 to 2 hours.",
+        "Eye dilation may occur and can temporarily cause blurry vision and light sensitivity.",
+        "The practice typically sends an email confirmation after scheduling."
+      ]
+    }
+  ]
+}

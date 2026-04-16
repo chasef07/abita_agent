@@ -3,8 +3,6 @@
 
 import { llm, voice } from "@livekit/agents";
 import { SipClient } from "livekit-server-sdk";
-import { readFileSync } from "fs";
-import { join } from "path";
 import { z } from "zod";
 import {
   type OfficeKey,
@@ -17,8 +15,7 @@ import {
   canonicalInsurancePlan,
   matchInsurancePlanForOffice,
 } from "./insurance-rules.js";
-
-const WORKSPACE = join(import.meta.dirname, "..", "workspace");
+import { lookupKnowledgeForOffice } from "./knowledge-rules.js";
 
 const BASE_URL =
   process.env.AMD_API_URL ??
@@ -464,14 +461,6 @@ Use this when the caller reached Crystal River but the visit must be handled thr
   },
 });
 
-// --- Cached file reads (loaded once per file, never change at runtime) ---
-const workspaceFileCache: Record<string, string> = {};
-
-function readWorkspaceFile(file: string): string {
-  workspaceFileCache[file] ??= readFileSync(join(WORKSPACE, file), "utf-8");
-  return workspaceFileCache[file];
-}
-
 export function resolveKnowledgeFileForOffice(officeKey: OfficeKey): string {
   return getOfficeConfig(officeKey).knowledgeFile;
 }
@@ -505,9 +494,11 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
 
 // --- lookup_knowledge ---
 export const lookup_knowledge = llm.tool({
-  description: `Looks up practice info: hours, location, providers, services, what to bring, appointment expectations, urgency screening, glasses warranty.
+  description: `Looks up practice info from the office's structured knowledge reference.
 
-Answer naturally from the returned info — just the part that answers their question.`,
+Use for questions about hours, location, providers, services, age restrictions, what to bring, contact lens or glasses workflow, appointment expectations, urgency screening, warranty, or related office facts.
+
+The tool returns only the most relevant matching knowledge sections for the current office. Answer naturally from that returned information and only say what it supports.`,
   parameters: z.object({
     question: z
       .string()
@@ -515,9 +506,8 @@ Answer naturally from the returned info — just the part that answers their que
         "What the caller is asking about (e.g. 'office hours', 'do you see kids', 'what should I bring')",
       ),
   }),
-  execute: async (_args, { ctx }) => {
-    const file = resolveKnowledgeFileForOffice(getState(ctx).officeKey);
-    return readWorkspaceFile(file);
+  execute: async ({ question }, { ctx }) => {
+    return lookupKnowledgeForOffice(getState(ctx).officeKey, question);
   },
 });
 

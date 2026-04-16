@@ -78,7 +78,7 @@ workspace/            # Prompt source files (edit these to change agent behavior
 ├── SOUL.md          # Identity / persona (top of prompt)
 ├── VOICE.md         # Speech style guidelines
 ├── RUNBOOK.md       # Flow logic, tool usage, branching (bottom of prompt — highest attention)
-├── KNOWLEDGE_*.md   # Location-specific FAQ (hours, directions, insurance)
+├── KNOWLEDGE_*.json # Location-specific knowledge references for lookup_knowledge
 └── INSURANCE_SPRING_HILL_CRYSTAL_RIVER.md  # Shared insurance plan routing logic for Spring Hill and Crystal River
 
 optimize/             # Prompt tuning pipeline
@@ -132,7 +132,7 @@ The system prompt is stitched from markdown files in `workspace/` in a specific 
 | `get_availability` | Find open appointment slots |
 | `confirm_appt` / `cancel_appt` / `book_appt` | Appointment management |
 | `check_insurance` | Eligibility check |
-| `lookup_knowledge` | Search location-specific FAQ (`KNOWLEDGE_*.md`) |
+| `lookup_knowledge` | Search location-specific FAQ (`KNOWLEDGE_*.json`) |
 | `transfer_call` | SIP REFER to human |
 
 All tools read/write `session.userData` (typed `CallState` in `tools.ts`), which holds the call's pre-loaded context and any data collected during the conversation.

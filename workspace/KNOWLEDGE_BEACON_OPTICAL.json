@@ -1,0 +1,122 @@
+{
+  "officeLabel": "Beacon Optical",
+  "fallbackSectionKeys": ["location_contact", "hours", "providers", "services"],
+  "sections": [
+    {
+      "key": "location_contact",
+      "title": "Location and Contact",
+      "aliases": ["address", "location", "where are you", "phone", "contact", "email", "main phone", "alt phone", "doral", "miami"],
+      "lines": [
+        "Practice name: Beacon Optical, powered by Abita Eye Group.",
+        "Address: 7328 NW 36 St, #4, Doral, FL 33166.",
+        "Email: newpatient@abitaeye.com.",
+        "Primary phone: (786) 465-7509.",
+        "Main phone: (305) 717-9995.",
+        "Alternate phone: (305) 723-1910."
+      ]
+    },
+    {
+      "key": "hours",
+      "title": "Hours",
+      "aliases": ["hours", "open", "close", "closing time", "weekday", "monday", "thursday"],
+      "lines": [
+        "Hours are Monday through Thursday, 10:00 AM to 6:00 PM."
+      ]
+    },
+    {
+      "key": "providers",
+      "title": "Providers",
+      "aliases": ["doctor", "doctors", "provider", "providers", "dr maria casas", "maria casas", "casas"],
+      "lines": [
+        "Dr. Maria Casas works at Beacon Optical."
+      ]
+    },
+    {
+      "key": "services",
+      "title": "Services",
+      "aliases": ["services", "eye exam", "comprehensive eye exam", "refraction", "eyeglass prescription", "contact lens fitting", "insertion training", "optometrist"],
+      "lines": [
+        "Beacon Optical offers comprehensive eye exams, refraction for eyeglass prescriptions, contact lens fittings, and insertion training.",
+        "The office can also schedule an eye exam with one of its professional optometrists."
+      ]
+    },
+    {
+      "key": "age_restrictions",
+      "title": "Age Restrictions",
+      "aliases": ["age", "pediatric", "pediatrics", "kids", "children", "child", "young", "young patient", "7 years old", "under 18"],
+      "lines": [
+        "Beacon Optical can see patients as young as 7 years old."
+      ]
+    },
+    {
+      "key": "outside_prescriptions",
+      "title": "Outside Prescriptions",
+      "aliases": ["outside prescription", "bring prescription", "external prescription", "written prescription", "existing prescription"],
+      "lines": [
+        "The office accepts outside prescriptions."
+      ]
+    },
+    {
+      "key": "glasses_workflow",
+      "title": "Glasses Workflow",
+      "aliases": ["glasses", "steps", "how do i get glasses", "eyeglasses", "prescription glasses", "need glasses", "want glasses"],
+      "lines": [
+        "If the patient already has a prescription from their optometrist, they can bring it in and choose from the frame selection.",
+        "If the patient needs a prescription, the office can schedule an eye exam first and then help them browse frames and lenses."
+      ]
+    },
+    {
+      "key": "contacts_workflow",
+      "title": "Contact Lens Workflow",
+      "aliases": ["contact lenses", "contacts", "contact fitting", "insertion training", "first set of contacts", "have you ever worn contacts", "never worn contacts", "new contacts"],
+      "lines": [
+        "The office offers contact lens fittings and insertion training.",
+        "If the patient is getting their first set of contact lenses, the exam and training take longer than a standard visit.",
+        "First-time contact lens visits must be scheduled before 4:00 PM.",
+        "Ask whether the patient has worn contact lenses before when the visit is for contacts."
+      ]
+    },
+    {
+      "key": "frames",
+      "title": "Frame Selection",
+      "aliases": ["frames", "brands", "frame brands", "gucci", "balenciaga", "carrera", "carolina herrera", "nike", "vivid", "ferragamo", "minima", "mont blanc", "miyagi", "guess", "swiss flex"],
+      "lines": [
+        "The office carries many major frame brands including Gucci, Balenciaga, Carrera, Carolina Herrera, Nike, Vivid, Ferragamo, Minima, Mont Blanc, Miyagi, Guess, and Swiss Flex."
+      ]
+    },
+    {
+      "key": "lenses",
+      "title": "Lens Types and Upgrades",
+      "aliases": ["lenses", "lens upgrades", "lens treatments", "upgrades", "treatments", "all types of lenses"],
+      "lines": [
+        "The office offers all types of lenses, including upgrades and treatments.",
+        "The office offers a wide range of lenses and lens upgrades."
+      ]
+    },
+    {
+      "key": "glasses_turnaround",
+      "title": "Glasses Turnaround",
+      "aliases": ["glasses ready", "when will my glasses be ready", "glasses turnaround", "turnaround", "business days", "how long for glasses"],
+      "lines": [
+        "Glasses are usually ready in less than 10 business days."
+      ]
+    },
+    {
+      "key": "warranty",
+      "title": "Warranty and Adjustments",
+      "aliases": ["warranty", "adjustments", "frame warranty", "free adjustments"],
+      "lines": [
+        "Frames include free adjustments and a one-year warranty."
+      ]
+    },
+    {
+      "key": "prescription_validity",
+      "title": "Prescription Validity",
+      "aliases": ["prescription valid", "prescriptions valid", "how long is prescription good", "how long are prescriptions valid", "two years", "yearly exam", "how long is my prescription good"],
+      "lines": [
+        "A prescription is valid for up to two years.",
+        "It is still best to get an eye exam yearly to make sure the lenses are still right for the patient."
+      ]
+    }
+  ]
+}

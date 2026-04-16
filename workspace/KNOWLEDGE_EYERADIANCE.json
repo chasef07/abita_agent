@@ -1,0 +1,158 @@
+{
+  "officeLabel": "Eye Radiance",
+  "fallbackSectionKeys": ["location_contact", "hours", "providers", "practice_scope"],
+  "sections": [
+    {
+      "key": "emergency",
+      "title": "Emergency Notice",
+      "aliases": ["emergency", "urgent", "911", "er", "emergency room"],
+      "lines": [
+        "If this is a medical emergency, hang up and dial 911 or go to the nearest emergency room immediately."
+      ]
+    },
+    {
+      "key": "urgency_screening",
+      "title": "Urgency Screening",
+      "aliases": ["flash", "flashes", "floater", "floaters", "vision loss", "urgent appointment", "same day"],
+      "lines": [
+        "Ask whether the patient has new flashes or floaters.",
+        "Ask how long the symptom has been present.",
+        "Ask whether there is sudden or gradual vision loss.",
+        "New flashes or floaters should be treated as urgent and offered the next available appointment."
+      ]
+    },
+    {
+      "key": "location_contact",
+      "title": "Location and Contact",
+      "aliases": ["address", "location", "where are you", "email", "fax", "phone", "contact"],
+      "lines": [
+        "Practice name: Eye Radiance.",
+        "Address: 1100 N Lyle Avenue, Crystal River, FL 34429.",
+        "Email: newpatient@abitaeye.com.",
+        "Fax: (352) 228-4315."
+      ]
+    },
+    {
+      "key": "hours",
+      "title": "Hours",
+      "aliases": ["hours", "open", "close", "closing time", "weekend", "tuesday", "thursday"],
+      "lines": [
+        "Hours are Tuesday through Thursday, 12:00 PM to 5:00 PM.",
+        "The office is closed Monday, Friday, Saturday, and Sunday."
+      ]
+    },
+    {
+      "key": "other_location",
+      "title": "Other Location",
+      "aliases": ["spring hill", "other office", "second office", "abita"],
+      "lines": [
+        "The other location is Abita Eye Group in Spring Hill at 10495 SpringHill Drive, Springhill, FL 34608.",
+        "Spring Hill is open Monday through Friday from 8:30 AM to 4:30 PM.",
+        "Spring Hill sees Dr. Bach, Dr. Noel, and Dr. Licht."
+      ]
+    },
+    {
+      "key": "practice_scope",
+      "title": "Practice Scope",
+      "aliases": ["services", "what do you treat", "ophthalmology", "optometry", "medical eye care", "specialties"],
+      "lines": [
+        "This is an ophthalmology practice, not optometry.",
+        "Crystal River sees medical eye conditions such as glaucoma, eyelid concerns, and flashes or floaters.",
+        "The office does not perform routine eye exams or vision-only checkups."
+      ]
+    },
+    {
+      "key": "pediatrics",
+      "title": "Pediatric Visits",
+      "aliases": ["pediatric", "pediatrics", "kids", "children", "child", "minor", "under 18", "my son", "my daughter", "young patient", "8 year old", "9 year old", "10 year old"],
+      "lines": [
+        "Crystal River does not see pediatric ophthalmology.",
+        "For pediatric visits, schedule the patient at Spring Hill."
+      ]
+    },
+    {
+      "key": "cataracts",
+      "title": "Cataract Evaluations",
+      "aliases": ["cataract", "cataracts", "cataract consult", "cataract evaluation", "cataract surgery", "cataract workup"],
+      "lines": [
+        "Crystal River does not schedule cataract evaluations or cataract surgery workups there.",
+        "For cataract-related visits, schedule the patient at Spring Hill."
+      ]
+    },
+    {
+      "key": "routine_eye_exams",
+      "title": "Routine Eye Exams and Glasses Prescriptions",
+      "aliases": ["routine eye exam", "annual exam", "vision check", "glasses prescription", "routine exam", "refraction", "optometrist", "glasses exam"],
+      "lines": [
+        "Crystal River does not perform routine eye exams or vision-only checkups.",
+        "If the caller wants a routine eye exam or glasses prescription, schedule the patient at Spring Hill or with an optometrist."
+      ]
+    },
+    {
+      "key": "medical_eye_conditions",
+      "title": "Medical Eye Conditions",
+      "aliases": ["glaucoma", "eyelid", "eyelids", "floaters", "flashes", "vision loss", "medical eye issue"],
+      "lines": [
+        "Crystal River sees medical eye conditions such as glaucoma, eyelid concerns, and flashes or floaters."
+      ]
+    },
+    {
+      "key": "providers",
+      "title": "Providers",
+      "aliases": ["doctor", "doctors", "provider", "providers", "dr licht", "lee", "licked", "lit", "lish"],
+      "lines": [
+        "Dr. Licht (pronounced Likt, NPI 14-97147680) practices at Crystal River.",
+        "He handles comprehensive ophthalmology, oculoplastic eyelid surgery, and glaucoma.",
+        "If speech recognition produces Lee, Licked, Lit, Lisht, Lich, Lish, or Liked, treat that as Dr. Licht."
+      ]
+    },
+    {
+      "key": "glasses_warranty",
+      "title": "Glasses Warranty or Broken Glasses",
+      "aliases": ["glasses", "warranty", "broken glasses", "repair", "adjustment"],
+      "lines": [
+        "If a patient asks about warranty or broken glasses, have them bring the glasses into the Spring Hill location.",
+        "Spring Hill staff will review the glasses and determine the available options in person."
+      ]
+    },
+    {
+      "key": "insurance_referrals",
+      "title": "Insurance and Referrals",
+      "aliases": ["insurance", "referral", "referrals", "coverage", "verification"],
+      "lines": [
+        "The practice works with most major insurance plans.",
+        "Referral requirements depend on the patient's insurance policy.",
+        "Insurance verification may be required before appointment confirmation."
+      ]
+    },
+    {
+      "key": "what_to_bring",
+      "title": "What to Bring",
+      "aliases": ["what to bring", "bring", "documents", "id", "insurance card", "records", "medications"],
+      "lines": [
+        "Patients should bring a photo ID, insurance card, list of current medications, and previous eye records if available."
+      ]
+    },
+    {
+      "key": "appointment_expectations",
+      "title": "Appointment Expectations",
+      "aliases": ["how long", "appointment length", "dilation", "blurry vision", "light sensitivity", "confirmation email", "cost", "payment"],
+      "lines": [
+        "New patient visits may take 1 to 2 hours depending on testing.",
+        "Eye dilation may occur during the visit and can temporarily cause blurry vision and light sensitivity.",
+        "The practice typically sends an email confirmation after scheduling.",
+        "Visit costs vary based on insurance and appointment type, and coverage details are determined after insurance verification."
+      ]
+    },
+    {
+      "key": "scope_limit",
+      "title": "Scope Limitation",
+      "aliases": ["medical advice", "diagnosis", "treatment recommendation"],
+      "lines": [
+        "This knowledge base provides general practice information only.",
+        "It does not provide diagnosis, medical advice, or treatment recommendations.",
+        "Medical decisions must be made by a licensed physician during an in-person evaluation."
+      ]
+    }
+  ]
+}

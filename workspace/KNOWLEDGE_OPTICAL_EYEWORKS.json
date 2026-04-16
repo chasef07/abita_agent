@@ -1,0 +1,121 @@
+{
+  "officeLabel": "Optical Eyeworks",
+  "fallbackSectionKeys": ["location_contact", "hours", "providers", "services"],
+  "sections": [
+    {
+      "key": "location_contact",
+      "title": "Location and Contact",
+      "aliases": ["address", "location", "where are you", "phone", "contact", "email", "alternate phone"],
+      "lines": [
+        "Practice name: Optical Eyeworks, powered by Abita Eye Group.",
+        "Address: 8124 Wiles Rd, Coral Springs, FL 33067.",
+        "Email: newpatient@abitaeye.com.",
+        "Primary phone: (954) 287-2010.",
+        "Alternate phones: (954) 757-2468 and (305) 723-1910."
+      ]
+    },
+    {
+      "key": "hours",
+      "title": "Hours",
+      "aliases": ["hours", "open", "close", "closing time", "saturday", "weekend"],
+      "lines": [
+        "Hours are Monday through Friday, 9:30 AM to 6:00 PM.",
+        "Saturday hours are 9:30 AM to 3:00 PM."
+      ]
+    },
+    {
+      "key": "providers",
+      "title": "Providers",
+      "aliases": ["doctor", "doctors", "provider", "providers", "dr barry blattberg", "blattberg", "dr melissa otero", "otero"],
+      "lines": [
+        "Dr. Barry Blattberg and Dr. Melissa Otero work at Optical Eyeworks."
+      ]
+    },
+    {
+      "key": "services",
+      "title": "Services",
+      "aliases": ["services", "eye exam", "comprehensive eye exam", "refraction", "eyeglass prescription", "contact lens fitting", "insertion training", "optometrist"],
+      "lines": [
+        "Optical Eyeworks offers comprehensive eye exams, refraction for eyeglass prescriptions, contact lens fittings, and insertion training.",
+        "The office can also schedule an eye exam with one of its professional optometrists."
+      ]
+    },
+    {
+      "key": "age_restrictions",
+      "title": "Age Restrictions",
+      "aliases": ["age", "pediatric", "kids", "children", "young", "7 years old"],
+      "lines": [
+        "Optical Eyeworks can see patients as young as 7 years old."
+      ]
+    },
+    {
+      "key": "outside_prescriptions",
+      "title": "Outside Prescriptions",
+      "aliases": ["outside prescription", "bring prescription", "external prescription", "written prescription", "existing prescription"],
+      "lines": [
+        "The office accepts outside prescriptions."
+      ]
+    },
+    {
+      "key": "glasses_workflow",
+      "title": "Glasses Workflow",
+      "aliases": ["glasses", "steps", "how do i get glasses", "eyeglasses", "frames", "prescription glasses"],
+      "lines": [
+        "If the patient already has a prescription from their optometrist, they can bring it in and choose from the frame selection.",
+        "If the patient needs a prescription, the office can schedule an eye exam first and then help them browse frames and lenses."
+      ]
+    },
+    {
+      "key": "contacts_workflow",
+      "title": "Contact Lens Workflow",
+      "aliases": ["contact lenses", "contacts", "contact fitting", "insertion training", "first set of contacts", "have you ever worn contacts"],
+      "lines": [
+        "The office offers contact lens fittings and insertion training.",
+        "If the patient is getting their first set of contact lenses, the exam and training take longer than a standard visit.",
+        "First-time contact lens visits must be scheduled before 5:00 PM on weekdays and before 2:00 PM on Saturday.",
+        "Ask whether the patient has worn contact lenses before when the visit is for contacts."
+      ]
+    },
+    {
+      "key": "frames",
+      "title": "Frame Selection",
+      "aliases": ["frames", "brands", "frame brands", "rayban", "ray-ban", "oakley", "nike", "coach", "chanel", "fendi", "maui jim", "tiffany", "tory burch", "bebe", "etna barcelona"],
+      "lines": [
+        "The office carries many major frame brands including Ray-Ban, Nike, Oakley, Bebe, Etna Barcelona, Tiffany, Tory Burch, Maui Jim, Coach, Chanel, and Fendi."
+      ]
+    },
+    {
+      "key": "lenses",
+      "title": "Lens Types and Upgrades",
+      "aliases": ["lenses", "lens upgrades", "lens treatments", "progressives", "bifocals", "upgrades"],
+      "lines": [
+        "The office offers a wide range of lenses, lens upgrades, and treatments."
+      ]
+    },
+    {
+      "key": "glasses_turnaround",
+      "title": "Glasses Turnaround",
+      "aliases": ["glasses ready", "when will my glasses be ready", "glasses turnaround", "turnaround", "business days", "how long for glasses"],
+      "lines": [
+        "Glasses are usually ready in less than 10 business days."
+      ]
+    },
+    {
+      "key": "warranty",
+      "title": "Warranty and Adjustments",
+      "aliases": ["warranty", "adjustments", "frame warranty", "free adjustments"],
+      "lines": [
+        "Frames include free adjustments and a one-year warranty."
+      ]
+    },
+    {
+      "key": "prescription_validity",
+      "title": "Prescription Validity",
+      "aliases": ["prescription valid", "prescriptions valid", "how long is prescription good", "how long are prescriptions valid", "two years", "yearly exam"],
+      "lines": [
+        "A prescription is valid for up to two years.",
+        "It is still best to get an eye exam yearly to make sure the lenses are still right for the patient."
+      ]
+    }
+  ]
+}
