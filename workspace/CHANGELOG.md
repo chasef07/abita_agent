@@ -1,5 +1,20 @@
 # Prompt Changelog
 
+## 2026-04-15 — Flag provider changes during reschedule, strengthen stuck loop rule
+
+Reviewed 20 transcripts (SCL_xxeqZaWvKDmi, SCL_ksDtgbgX45Er, SCL_kjEyNWDWViJp, SCL_7gpzsboTWMUY, SCL_yBqeFN4pqVmb, SCL_tFVbsr5KG85g, SCL_zNQA38hKX5dj, SCL_vbYVbf6gjCus, SCL_vfkVH9RpYL4V, SCL_hLDjjUvLgmYM, SCL_bGp4YaFFZY7z, SCL_sdF2gQTAYQiq, SCL_n9iKj5LPnsVH, SCL_SjjRhXwFhuTg, SCL_z5QMkNPf5W56, SCL_nE4kL3fiwKxk, SCL_6Hr3WR9KYoiL, SCL_dXmmjDkfQqHE, SCL_Wf2SCxKSHNfr, SCL_7ZBLjkKcmH9Q).
+
+**tools.ts — get_availability: flag provider changes during reschedule**
+- Why: In SCL_vfkVH9RpYL4V (turn 18), agent booked with Dr. Licht and cancelled the Dr. Bach appointment without mentioning the provider change. Caller had to catch the mistake 3 turns later. The existing rule "Mention the doctor only if asked or clinically relevant" didn't trigger because the agent didn't consider a provider change during reschedule as "clinically relevant."
+- What changed: Added explicit rule: when rescheduling, always state the provider name; if the slot is with a different provider than the caller's current appointment, say so before offering it.
+
+**RUNBOOK.md — Strengthen "break stuck loops" with specific alternatives**
+- Why: In SCL_xxeqZaWvKDmi (turns 2-7) and SCL_Wf2SCxKSHNfr (turns 3-8), agent asked for the caller's first name 5 times with minimal variation ("can I get your first name?" → "what's your first name?"). The existing rule "never repeat the same phrase a third time" wasn't effective because the agent counted slight rephrases as "different."
+- What changed: Clarified that asking for the same information in different words still counts as repeating. Added specific alternatives: tell the caller you're having trouble hearing them, ask if the line is cutting out, or try a completely different question.
+
+**replay.test.ts — New test for provider change during reschedule**
+- Validates that when get_availability returns a slot with a different provider during reschedule, the agent mentions the provider by name.
+
 ## 2026-04-14 — Fix transfer-on-insistence (missing trigger words), stuck repetition loops, and correction handling
 
 Reviewed 20 transcripts (SCL_wvQYAX5vtEvW, SCL_Hh2mB8wyunCg, SCL_ZiJjyT5Hze6V, SCL_ZXxDExEdBtAu, SCL_tvoLGGD2RxQo, SCL_8wSr7b46xq2z, SCL_HD3eB9yzibap, SCL_gzzHubE8Z96W, SCL_kYF5sq5vk8su, SCL_iv57Za86qzDA, SCL_Bhfcit3rAWv8, SCL_pvHcDK2HvvHh, SCL_PdZMqdFiUbg8, SCL_UNaM4EZnz5rS, SCL_TRYa2gUu4qsD, SCL_Bvq2PDycTd9Q, SCL_AD8M7szUTGd6, SCL_r6eSzZdb8o22, SCL_LFwTXXVvbUvS, SCL_j6kcCEYMvMCh).

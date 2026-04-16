@@ -315,3 +315,102 @@ describe("FAQ calls should not transfer", () => {
     expect(transferCalls).toHaveLength(0);
   });
 });
+
+// ============================================================
+// Test 5: Provider change flagged during reschedule (SCL_vfkVH9RpYL4V)
+// Issue: Agent booked with Dr. Licht instead of Dr. Bach without
+// mentioning the provider change. Caller had to catch the mistake.
+// ============================================================
+describe("provider change flagged during reschedule", () => {
+  let ctx: TestContext;
+
+  afterEach(async () => {
+    await ctx?.cleanup();
+  });
+
+  it("should mention the different provider when rescheduling to a different doctor", async () => {
+    // Setup: verified patient with existing appointment with Dr. Bach
+    // get_availability returns a slot with Dr. Licht (different provider)
+    ctx = await createTestAgent({
+      phoneLookup: {
+        status: "verified",
+        patientId: "17607975",
+        name: "VARGAS,HUGO",
+        dob: "08/25/1961",
+        phone: "(786) 314-1889",
+        insuranceCarrier: "OSCAR INSURANCE COMPANY OF FLORIDA",
+        insPlanId: "ins123",
+        respPartyId: "resp123",
+        routing: "general",
+        allowedProviders: ["Dr. Bach", "Dr. Noel", "Dr. Licht"],
+        routingAmbiguous: false,
+        appointments: [
+          {
+            id: 20711703,
+            date: "Thursday, April 23, 2026",
+            time: "10:30 AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            facility: "Spring Hill",
+            confirmed: true,
+          },
+        ],
+      },
+      mockConfig: {
+        availabilityResult: {
+          searchedDate: "2026-04-23",
+          date: "Thursday, April 23, 2026",
+          location: "ABITA EYE GROUP SPRING HILL",
+          providers: [
+            {
+              name: "Dr. J. Licht",
+              columnId: 1600,
+              profileId: 622,
+              facility: "ABITA EYE GROUP SPRING HILL",
+              slots: [
+                { startDatetime: "2026-04-23T12:15", duration: 30, appointmentTypeId: 1007 },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    // Conversation: caller confirmed identity, wants to reschedule to a different time
+    const history: TranscriptTurn[] = [
+      {
+        turn: 1,
+        callerText: null,
+        agentText: "thank you for calling Abita Eye Group, this is David, how can I help you?",
+        toolCalls: [],
+      },
+      {
+        turn: 2,
+        callerText: "Hi, I need to reschedule Hugo's appointment on Thursday the twenty-third. The ten thirty doesn't work anymore.",
+        agentText: "hey Hugo, I see your appointment on Thursday April twenty-third at ten thirty a m with Dr. Bach. What time would work better?",
+        toolCalls: [],
+      },
+    ];
+
+    await loadTranscriptHistory(ctx.agent, history, 99);
+
+    // Caller asks for a different time — agent will check availability and find only Dr. Licht
+    const result = await ctx.session.run({ userInput: "Anything in the afternoon that day?" }).wait();
+
+    // The agent should mention Dr. Licht by name since it's a different provider than Dr. Bach
+    // Content is an array of strings in the event structure
+    const allText = result.events
+      .filter((e) => e.type === "message" && (e as any).item?.role === "assistant")
+      .map((e: any) => {
+        const content = e.item?.content;
+        if (typeof content === "string") return content;
+        if (Array.isArray(content)) return content.join(" ");
+        return "";
+      })
+      .join(" ")
+      .toLowerCase();
+
+    // At least one assistant message should mention "Licht" (the different provider)
+    expect(allText).toContain("licht");
+  });
+});

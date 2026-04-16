@@ -69,6 +69,39 @@
         "ttft": { "p50": 0, "p90": 0, "p99": 0 },
         "tts": { "p50": 0, "p90": 0, "p99": 0 }
       }
+    },
+    {
+      "id": "20260415-2315",
+      "date": "2026-04-15",
+      "transcriptsEvaluated": 20,
+      "issuesFound": 3,
+      "changesProposed": 3,
+      "changesKept": 3,
+      "changesDiscarded": 0,
+      "testIterations": 3,
+      "promptLength": {
+        "soul": 3464,
+        "voice": 1860,
+        "runbook": 10285,
+        "toolDescriptions": 4488,
+        "total": 20097
+      },
+      "metrics": {
+        "resolutionRate": { "faq": 100, "new_patient": 69, "existing_patient": 100, "overall": 90 },
+        "transferRate": 54,
+        "doubleTransfers": 97,
+        "avgTurns": { "faq": 0, "new_patient": 0, "existing_patient": 0 },
+        "avgDuration": { "faq": 0, "new_patient": 0, "existing_patient": 0 }
+      },
+      "changes": [
+        { "type": "reword", "file": "tools.ts", "desc": "get_availability: flag provider changes during reschedule" },
+        { "type": "reword", "file": "RUNBOOK", "desc": "strengthen stuck loop rule with specific alternatives" },
+        { "type": "add", "file": "replay.test.ts", "desc": "new test for provider change during reschedule" }
+      ],
+      "latency": {
+        "ttft": { "p50": 0, "p90": 0, "p99": 0 },
+        "tts": { "p50": 0, "p90": 0, "p99": 0 }
+      }
     }
   ]
 }
