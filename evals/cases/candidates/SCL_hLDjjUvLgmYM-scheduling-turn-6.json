@@ -1,0 +1,70 @@
+{
+  "id": "SCL_hLDjjUvLgmYM-scheduling-turn-6",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_hLDjjUvLgmYM",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "David, buenas tardes. Estaba hablando con usted y se cortó la comunicación."
+    },
+    {
+      "role": "assistant",
+      "content": "buenas tardes, sí, entiendo.  ¿en qué le puedo ayudar hoy?"
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "¿estaba tratando de agendar una cita, o hay algo más en lo que pueda ayudarle?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, agendar una cita, cambiar la cita que tenía para correr la fecha. La hora, perdón."
+    },
+    {
+      "role": "assistant",
+      "content": "ah, perfecto, ya veo que tiene una cita el jueves veintitrés de abril a las diez treinta de la mañana con el doctor Bach.  ¿qué hora le funcionaría mejor?"
+    },
+    {
+      "role": "user",
+      "content": "No— No, la íbamos a cambiar porque desafortunadamente esa hora— — Tenía una reunión de mi trabajo y no me había dado cuenta cuando agendamos la cita el día de ayer."
+    },
+    {
+      "role": "assistant",
+      "content": "entendido, no hay problema.  ¿qué hora le funcionaría"
+    },
+    {
+      "role": "user",
+      "content": "para la tarde?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

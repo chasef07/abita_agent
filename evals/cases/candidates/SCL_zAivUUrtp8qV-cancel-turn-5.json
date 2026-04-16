@@ -1,0 +1,61 @@
+{
+  "id": "SCL_zAivUUrtp8qV-cancel-turn-5",
+  "suite": "cancel",
+  "source": "livekit-trace",
+  "traceId": "SCL_zAivUUrtp8qV",
+  "tags": [
+    "cancel",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent cancelled an appointment. Check that cancel_appt was actually called rather than just verbally agreed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. How are you? My niece Madison has an appointment next week. I believe it's the 23rd— At first it was the 22nd, then they moved it to the 23rd at 8:30. She lost her insurance for some odd reason. So we're not going to be able to come in and— until they renew it?"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm doing well, thanks.  Can I get your first"
+    },
+    {
+      "role": "user",
+      "content": "Hello? Oh, okay."
+    },
+    {
+      "role": "assistant",
+      "content": "Can I get your first name so I can pull up her record?"
+    },
+    {
+      "role": "user",
+      "content": "Linda— Sure, her name is Madison. M-A-D-I-S-O-N."
+    },
+    {
+      "role": "assistant",
+      "content": "Hey Madison, I see you're in the system.  I actually have an appointment showing for Wednesday April 22nd at eight thirty a m with Dr. Bach.  So it looks like it hasn't been moved to the 23rd yet.  Do you want me to cancel that one for you?"
+    },
+    {
+      "role": "user",
+      "content": "Mm-hmm. Uh, cancel it. Yes, please."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "cancel_appt"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "cancel_requires_tool_call"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

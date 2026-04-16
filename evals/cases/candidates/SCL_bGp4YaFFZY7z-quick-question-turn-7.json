@@ -1,0 +1,64 @@
+{
+  "id": "SCL_bGp4YaFFZY7z-quick-question-turn-7",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_bGp4YaFFZY7z",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Ordered contacts—"
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "They are— You didn't know that the first— Alira. You go like, hey David, I need to order something. He's like, thank you, uh, my name is Tim."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding that name.  Could you spell it for me?"
+    },
+    {
+      "role": "user",
+      "content": "Um, A-L-E-E-R-A."
+    },
+    {
+      "role": "user",
+      "content": "My poor plan is done—"
+    },
+    {
+      "role": "user",
+      "content": "I didn't eat last night, did I? Nope."
+    },
+    {
+      "role": "user",
+      "content": "I haven't been—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

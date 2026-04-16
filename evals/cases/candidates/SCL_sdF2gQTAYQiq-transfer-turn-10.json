@@ -1,0 +1,96 @@
+{
+  "id": "SCL_sdF2gQTAYQiq-transfer-turn-10",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_sdF2gQTAYQiq",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, I just want to confirm if this is Dr. Licht— Office—"
+    },
+    {
+      "role": "user",
+      "content": "Bill O— Oh, this—"
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah, this is the Crystal River office.  How can I help you today?"
+    },
+    {
+      "role": "user",
+      "content": "Sure sucks. I— Is— This the office where Dr. Licht— Practices—"
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah, Dr. Licht is at our Spring Hill office.  This is Crystal River.  What were you calling about?"
+    },
+    {
+      "role": "user",
+      "content": "Does he also practice there as well as in the villages?"
+    },
+    {
+      "role": "assistant",
+      "content": "No, Dr. Licht is only at Spring Hill.  What can I help you with today?"
+    },
+    {
+      "role": "user",
+      "content": "All right, next question. Does your practice accept— Humana Gold Plus HMO. Insurance."
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah, we take Humana.  Is there anything else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, no."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, have a good day."
+    },
+    {
+      "role": "user",
+      "content": "Wait, actually, hold on. I got one more question. Um— Is Dr. Ireland also— Practicing— with your practice?"
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah, Dr. Ireland is with our practice.  Anything else?"
+    },
+    {
+      "role": "user",
+      "content": "In which office does Dr. Ireland practice?"
+    },
+    {
+      "role": "assistant",
+      "content": "I don't see Dr. Ireland listed in our provider information.  The doctors I have are Dr. Licht, Dr. Bach, and Dr. Noel.  Would you like me to transfer you to the office to double-check?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

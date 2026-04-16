@@ -1,0 +1,301 @@
+{
+  "id": "SCL_UMBrshjRbwND-scheduling-turn-35",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_UMBrshjRbwND",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Do you think it's not— Want to set up an appointment?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Well— What— Is that— Baskin."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding that one -- do you have the insurance card handy?  I can check the exact plan name from there."
+    },
+    {
+      "role": "user",
+      "content": "What's the— Oscar?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Oscar. What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Yak—"
+    },
+    {
+      "role": "assistant",
+      "content": "first name?"
+    },
+    {
+      "role": "user",
+      "content": "— Windazzo. Yeah, Jack."
+    },
+    {
+      "role": "assistant",
+      "content": "alright Jack Windazzo, and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "7, 2, 65."
+    },
+    {
+      "role": "assistant",
+      "content": "July second, nineteen sixty-five.  Is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "See, uh— O-E-I-S-B-A-C-56@gmail."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "10363 Quality Drive. Spring Hill— B4609— Department 304—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What city is that in?"
+    },
+    {
+      "role": "user",
+      "content": "Spring Hill."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what state?"
+    },
+    {
+      "role": "user",
+      "content": "Laura?"
+    },
+    {
+      "role": "assistant",
+      "content": "Florida. And what's the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "3, 4, 6, 0, 9."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Now—"
+    },
+    {
+      "role": "assistant",
+      "content": "male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Male."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's the name on the insurance card?"
+    },
+    {
+      "role": "user",
+      "content": "You have— —Rendazzo."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Hang on one second."
+    },
+    {
+      "role": "assistant",
+      "content": "take your time."
+    },
+    {
+      "role": "user",
+      "content": "Can I call back with that number? Because I left it in the car. Um, a—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah that works. Just give us a call back when you have the member ID and"
+    },
+    {
+      "role": "user",
+      "content": "Wait, wait, one sec— one second. My, my wife has it."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me know when you have it."
+    },
+    {
+      "role": "user",
+      "content": "This— Yes. You didn't— um—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm here whenever you're ready."
+    },
+    {
+      "role": "user",
+      "content": "Ready? It's— — the number?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, go ahead."
+    },
+    {
+      "role": "user",
+      "content": "I do not know—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries. If you can find the card and call back with the member ID, I can get you registered and scheduled.  Or if you'd like, I can transfer you to the office and they can help you look it up."
+    },
+    {
+      "role": "user",
+      "content": "No, my, my wife is going to give it to you now."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, tell me when you have it."
+    },
+    {
+      "role": "user",
+      "content": "Got it. Who— Is—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead and read it to me."
+    },
+    {
+      "role": "user",
+      "content": "You got any—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm ready when you are."
+    },
+    {
+      "role": "user",
+      "content": "Oh— That's— See— Karen?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, what's the member ID?"
+    },
+    {
+      "role": "user",
+      "content": "5. 9. Oh— F—"
+    },
+    {
+      "role": "assistant",
+      "content": "keep going."
+    },
+    {
+      "role": "user",
+      "content": "B— And—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me confirm what I have so far.  Jack Windazzo, W-I-N-D-A-Z-Z-O, date of birth July second nineteen sixty-five, Oscar Health, and member ID five nine F B -- did I get that right?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let's try again.  What's the full member ID?"
+    },
+    {
+      "role": "user",
+      "content": "So you should say to me— yeah, I'll say it. One second, please. Oh. Hello? A— That's— P— G— 7— 7— Right? 5 snipes? 9— 7— 7— 5— 5— 7— 7— 2— 2—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me read that back to make sure I have it right.  Jack Windazzo, W-I-N-D-A-Z-Z-O, date of birth July second nineteen sixty-five, Oscar Health, and member ID P G seven seven five seven seven two two.  Is that correct?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, you're all set.  So what's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "I mean, really—"
+    },
+    {
+      "role": "assistant",
+      "content": "what brings you in today?"
+    },
+    {
+      "role": "user",
+      "content": "Diabetes."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Next Monday?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

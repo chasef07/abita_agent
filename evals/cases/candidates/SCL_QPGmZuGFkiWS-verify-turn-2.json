@@ -1,0 +1,35 @@
+{
+  "id": "SCL_QPGmZuGFkiWS-verify-turn-2",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_QPGmZuGFkiWS",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent's first verify_patient invocation. Check that lookup context was respected (skip if pre-verified) and only first name asked for multi-match."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Don't get me mad— David, I was just at the ABITA iGroup office. When they opened at 8:30. My name is Eileen Stearns. Um— And I just found out that what they told me when I was there physically in the office, that they did not— Order anything— Like what I was bringing in as a sample. So I came all the way back home. I got my brother up— And he said, they did give me this. He said it was a— Uh— It was a— Dr. Noel gave it to me because they needed to find out— What was going on? And— She said at— The I group— that they would never have ordered a urine test?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

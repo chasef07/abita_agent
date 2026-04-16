@@ -1,0 +1,72 @@
+{
+  "id": "SCL_z5QMkNPf5W56-transfer-turn-7",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_z5QMkNPf5W56",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Representative—"
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "files— I mean, Audrey—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Audrey, what can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "Can I talk to reception?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I'm at the front desk -- what do you need help with?"
+    },
+    {
+      "role": "user",
+      "content": "Are you real—"
+    },
+    {
+      "role": "user",
+      "content": "Are you a real person? I'm so sorry."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping at the front desk at Abita Eye Group.  I'm just here to help -- what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "Records request— Records request—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

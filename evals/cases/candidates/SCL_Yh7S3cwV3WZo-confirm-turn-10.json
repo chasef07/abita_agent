@@ -1,0 +1,99 @@
+{
+  "id": "SCL_Yh7S3cwV3WZo-confirm-turn-10",
+  "suite": "confirm",
+  "source": "livekit-trace",
+  "traceId": "SCL_Yh7S3cwV3WZo",
+  "tags": [
+    "confirm",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent fetched appointments to confirm an existing visit. Check that confirm_appt was used only after verifying the patient and that the confirmation path stayed concise."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. Um— I have a— we have a 12 o'clock appointment?"
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Betty Rollins and Jeanette Ballou."
+    },
+    {
+      "role": "assistant",
+      "content": "which one of you has the appointment today?"
+    },
+    {
+      "role": "user",
+      "content": "Hey— Both of us."
+    },
+    {
+      "role": "assistant",
+      "content": "ok I found Betty. For Jeanette, can you give me her last name and date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "B-E-A-U-L-I-E-U."
+    },
+    {
+      "role": "assistant",
+      "content": "and her date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "9, 13, 48—"
+    },
+    {
+      "role": "assistant",
+      "content": "hm, I'm still not finding her.  Could you spell her first name for me?"
+    },
+    {
+      "role": "user",
+      "content": "J-E-A-N-N-E-T-T-E."
+    },
+    {
+      "role": "assistant",
+      "content": "ok no worries, let me get you set up.  What insurance does Jeanette have?"
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "take your time -- what insurance plan"
+    },
+    {
+      "role": "user",
+      "content": "Medicare— Merry— Merry—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Medicare.  What's Jeanette's full name?"
+    },
+    {
+      "role": "user",
+      "content": "Look— Uh, what I'm trying to do— I, I, I need to reschedule the appointments."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "confirm_appt"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

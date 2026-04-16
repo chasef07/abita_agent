@@ -1,0 +1,52 @@
+{
+  "id": "SCL_QPGmZuGFkiWS-transfer-turn-4",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_QPGmZuGFkiWS",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Don't get me mad— David, I was just at the ABITA iGroup office. When they opened at 8:30. My name is Eileen Stearns. Um— And I just found out that what they told me when I was there physically in the office, that they did not— Order anything— Like what I was bringing in as a sample. So I came all the way back home. I got my brother up— And he said, they did give me this. He said it was a— Uh— It was a— Dr. Noel gave it to me because they needed to find out— What was going on? And— She said at— The I group— that they would never have ordered a urine test?"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Eileen, I'm sorry to hear"
+    },
+    {
+      "role": "user",
+      "content": "So I need to—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead, what do you need?"
+    },
+    {
+      "role": "user",
+      "content": "I need to speak to her again, I guess, as I need to know where to— what to do with the urine test that they ordered from there."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

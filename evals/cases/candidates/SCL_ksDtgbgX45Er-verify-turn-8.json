@@ -1,0 +1,83 @@
+{
+  "id": "SCL_ksDtgbgX45Er-verify-turn-8",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_ksDtgbgX45Er",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent re-ran verify_patient. Check whether retry was necessary or wasteful."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, do you take Florida Blue?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we do take Florida Blue.  Is there something else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "Can you look me up in the system?"
+    },
+    {
+      "role": "assistant",
+      "content": "sure, can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "I— Test."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, what's your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Test."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding a record with that name.  Can I get your last name and date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "T-E-S-T-Y—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "April 7th—"
+    },
+    {
+      "role": "assistant",
+      "content": "and what year were you born?"
+    },
+    {
+      "role": "user",
+      "content": "April 7th, 2000?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

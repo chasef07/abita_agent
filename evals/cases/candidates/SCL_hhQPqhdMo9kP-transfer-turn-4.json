@@ -1,0 +1,52 @@
+{
+  "id": "SCL_hhQPqhdMo9kP-transfer-turn-4",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_hhQPqhdMo9kP",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "David, how you doing? David, is this a human or are you recording?"
+    },
+    {
+      "role": "assistant",
+      "content": "hey, I'm doing well, thanks.  Yeah, I'm actually an AI assistant helping at the front desk here at Abita Eye Group.  I'm just here to help -- what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "I'd like to speak to, uh, the attendant."
+    },
+    {
+      "role": "assistant",
+      "content": "sure, can I ask what you're calling about?  I may be able to help with that here."
+    },
+    {
+      "role": "user",
+      "content": "You, you can't. I need to speak to the attendant, please."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

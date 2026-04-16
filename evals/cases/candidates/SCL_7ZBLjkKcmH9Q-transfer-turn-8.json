@@ -1,0 +1,84 @@
+{
+  "id": "SCL_7ZBLjkKcmH9Q-transfer-turn-8",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_7ZBLjkKcmH9Q",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Bedroom—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm having trouble hearing you clearly.  Could you say that again?"
+    },
+    {
+      "role": "user",
+      "content": "Scheduling— — the apartment?"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm still not catching that.  Let me ask -- are you looking to schedule an appointment, or is there something else I can help with?"
+    },
+    {
+      "role": "user",
+      "content": "Schedule an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Bye, care."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not sure I caught that.  Could you say the name of your insurance plan?"
+    },
+    {
+      "role": "user",
+      "content": "I— Here—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm having a hard time understanding you.  Let me try this -- do you have insurance, or would you be paying out of pocket?"
+    },
+    {
+      "role": "user",
+      "content": "Agent—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

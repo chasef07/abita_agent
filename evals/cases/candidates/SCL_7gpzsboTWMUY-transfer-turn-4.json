@@ -1,0 +1,52 @@
+{
+  "id": "SCL_7gpzsboTWMUY-transfer-turn-4",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_7gpzsboTWMUY",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. My name is Anna Rodakis. And I'm scheduled for surgery on Friday. And I just got done doing the intake. with the hospital— At Van App Point—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Anna, I see you're confirmed for this Friday at twelve thirty p m with Dr. Noel for your post-op visit.  Is there something you needed help with regarding that appointment?"
+    },
+    {
+      "role": "user",
+      "content": "Um— I need to know— I'm diabetic and I take metformin."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so you're diabetic and you take metformin -- are you asking about whether you need to stop taking it before surgery, or is there something else you need to know?"
+    },
+    {
+      "role": "user",
+      "content": "Is— I need to know whether I need to stop taking it before surgery."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "id": "SCL_4V6mngFzvwsR-multiple-matches-turn-3",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_4V6mngFzvwsR",
+  "tags": [
+    "verification",
+    "multiple-matches",
+    "hipaa",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Extracted from a multiple-match phone lookup flow."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I need to talk to the receptionist."
+    },
+    {
+      "role": "assistant",
+      "content": "I can help you with that.  What are you calling about today?"
+    },
+    {
+      "role": "user",
+      "content": "— appointment—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "confirm_appt",
+      "get_availability",
+      "book_appt"
+    ],
+    "mustSay": [
+      "first name"
+    ],
+    "mustNotSay": [
+      "date of birth",
+      "last name"
+    ],
+    "policyFlags": [
+      "do_not_read_back_known_names"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

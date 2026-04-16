@@ -1,0 +1,161 @@
+{
+  "id": "SCL_snfx4NfFcyfu-transfer-turn-19",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_snfx4NfFcyfu",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, how you doing, David? Um—"
+    },
+    {
+      "role": "user",
+      "content": "Can't see through one eye."
+    },
+    {
+      "role": "assistant",
+      "content": "oh wow, I'm sorry to hear that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No, never been there before."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Somehow people— Is somehow dental—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, let me help you figure it out.  Do you have an insurance card with you, or maybe the name of the company on there?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, what's the name of the insurance company on the card?"
+    },
+    {
+      "role": "user",
+      "content": "— some health and dental."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. Is there a specific plan name on the card, like Blue Cross, Aetna, United, something like that?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem. Can you read me anything else that's on the card -- maybe a logo or the full company name?"
+    },
+    {
+      "role": "user",
+      "content": "Says— It says, \"Care pose—\""
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding that one in our system.  Can you look at the card again and tell me exactly what it says -- maybe the full name or any other words on there?"
+    },
+    {
+      "role": "user",
+      "content": "So—"
+    },
+    {
+      "role": "user",
+      "content": "You— Take your—"
+    },
+    {
+      "role": "assistant",
+      "content": "take your time. Just read me whatever words you see on the card and I'll check if we accept it."
+    },
+    {
+      "role": "user",
+      "content": "Says care— it says care pose. How many times—"
+    },
+    {
+      "role": "user",
+      "content": "And then, uh— member ID—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so it says CareSource.  Can you tell me what type of plan it is -- like HMO, PPO, or Medicaid?"
+    },
+    {
+      "role": "user",
+      "content": "Care poses— No, this is, uh—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries. Is there anything else on the card that might help -- like \"Medicaid,\" \"HMO,\" \"PPO,\" or maybe the state name?"
+    },
+    {
+      "role": "user",
+      "content": "— this is it."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm having trouble finding that exact plan in our system.  Can you look at the card one more time and see if there's a longer name -- maybe something like \"CareSource Marketplace\" or \"CareSource Just4Me\"?  Or if you see a logo with any other words?"
+    },
+    {
+      "role": "user",
+      "content": "— computer. Oh—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, go ahead and read me whatever you see on the card."
+    },
+    {
+      "role": "user",
+      "content": "Health Trust—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding Health Trust either.  Can you look at the card and tell me the full name exactly as it's"
+    },
+    {
+      "role": "user",
+      "content": "This is— this is HealthPlus. This is a com—"
+    },
+    {
+      "role": "assistant",
+      "content": "still not finding that one.  Can you look at the card and read me everything it says -- the full company name, any state listed, and the type of plan?"
+    },
+    {
+      "role": "user",
+      "content": "Speak to someone— Uh, speak to someone."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

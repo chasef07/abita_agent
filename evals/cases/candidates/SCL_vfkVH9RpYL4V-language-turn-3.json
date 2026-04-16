@@ -1,0 +1,45 @@
+{
+  "id": "SCL_vfkVH9RpYL4V-language-turn-3",
+  "suite": "language",
+  "source": "livekit-trace",
+  "traceId": "SCL_vfkVH9RpYL4V",
+  "tags": [
+    "language",
+    "spanish",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: caller spoke Spanish. Check the agent replied in Spanish, not English."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey, ¿cómo están? Nuevamente con Elizabeth."
+    },
+    {
+      "role": "assistant",
+      "content": "¡Hola Elizabeth! ¿En qué puedo ayudarte hoy?"
+    },
+    {
+      "role": "user",
+      "content": "They did— Eh, yo te acabé de llamar. ¿Tú me puedes dar la cita de Hugo Vargas para el jueves 23 a las 10 de la mañana?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "match_caller_language"
+    ],
+    "styleFlags": [
+      "responds_in_spanish",
+      "concise"
+    ]
+  }
+}

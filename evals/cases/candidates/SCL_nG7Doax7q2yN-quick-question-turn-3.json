@@ -1,0 +1,44 @@
+{
+  "id": "SCL_nG7Doax7q2yN-quick-question-turn-3",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_nG7Doax7q2yN",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey, David, and— Are you guys a network— with— Humanum Medicaid?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Humana Medicaid."
+    },
+    {
+      "role": "user",
+      "content": "Um, and I am— I have a note in there in my, um, next to your guys' name that says that you guys accept pediatric patients 1 time per month."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

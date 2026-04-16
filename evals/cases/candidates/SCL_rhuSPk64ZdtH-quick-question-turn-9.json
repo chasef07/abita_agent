@@ -1,0 +1,88 @@
+{
+  "id": "SCL_rhuSPk64ZdtH-quick-question-turn-9",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_rhuSPk64ZdtH",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "14843989071",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Acuity Health, this is Patrick, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Oh yes, I'm trying to find a doctor to see for an eye exam."
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah I can help with that.  Have you been seen here before? "
+    },
+    {
+      "role": "user",
+      "content": "I have not, but I heard good things about the practice."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, let me get you set up.  What insurance do you have? "
+    },
+    {
+      "role": "user",
+      "content": "Uh, before we get there, can you please tell me, um, which doctor you recommend that I see?"
+    },
+    {
+      "role": "assistant",
+      "content": "We have several great providers here -- Dr. Noel, Dr. Bach, and Dr. Patel.  Dr. Bach sees pediatric patients, and Dr. Noel and Dr. Patel see adults.  What's bringing you in for the eye exam? "
+    },
+    {
+      "role": "user",
+      "content": "Um—"
+    },
+    {
+      "role": "assistant",
+      "content": "No "
+    },
+    {
+      "role": "user",
+      "content": "I need cataract surgery."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. For cataract surgery, you'd want to see Dr. Noel or Dr. Patel.  What insurance do you have? "
+    },
+    {
+      "role": "user",
+      "content": "Uh, before we get there, which of the two are better doctors?"
+    },
+    {
+      "role": "assistant",
+      "content": "They're both excellent surgeons -- either one would take great care of you.  What insurance do you have? "
+    },
+    {
+      "role": "user",
+      "content": "Yes, well, first, do you guys offer the—"
+    },
+    {
+      "role": "user",
+      "content": "The PanOptix Pro intraocular lens—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "id": "SCL_Wf2SCxKSHNfr-quick-question-turn-12",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_Wf2SCxKSHNfr",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, have you ever— I don't— Yes, uh, over here by, um— Merci, merci, OK, euh, 3 minutes passées?"
+    },
+    {
+      "role": "user",
+      "content": "Are you in the next building over? I'm— I have an appointment at 11 today."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Hello? Thanks."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name so I"
+    },
+    {
+      "role": "user",
+      "content": "Poster. Am I gonna turn this team—"
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name so I can pull up your appointment?"
+    },
+    {
+      "role": "user",
+      "content": "Hello? Yeah, we sell the— oh my God."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name so I can look"
+    },
+    {
+      "role": "user",
+      "content": "I just need to get— uh—"
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first"
+    },
+    {
+      "role": "user",
+      "content": "I need to get to your building."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name so I can help you?"
+    },
+    {
+      "role": "user",
+      "content": "I did. I gave you my first name already. Griselda."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Griselda, yeah I see you're confirmed for today at ten forty-five a m with Dr. Licht.  You're in the right place."
+    },
+    {
+      "role": "user",
+      "content": "A treaty—"
+    },
+    {
+      "role": "assistant",
+      "content": "you're all set for your appointment today.  Is there anything else"
+    },
+    {
+      "role": "user",
+      "content": "Hello? Oh my God, are you kidding me?"
+    },
+    {
+      "role": "assistant",
+      "content": "you're confirmed for today with Dr. Licht.  Is there anything else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "I need your address."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

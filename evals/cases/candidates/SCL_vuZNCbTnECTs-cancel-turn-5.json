@@ -1,0 +1,61 @@
+{
+  "id": "SCL_vuZNCbTnECTs-cancel-turn-5",
+  "suite": "cancel",
+  "source": "livekit-trace",
+  "traceId": "SCL_vuZNCbTnECTs",
+  "tags": [
+    "cancel",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent cancelled an appointment. Check that cancel_appt was actually called rather than just verbally agreed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "How big— no— Oh yes, I'm calling because I apparently have an appointment. for tomorrow, but I did not know, and I work— So I'm gonna have to cancel or reschedule."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "The first name Norberto— Last name Rosa Gonzalez?"
+    },
+    {
+      "role": "assistant",
+      "content": "got it Norberto. I see you're scheduled for tomorrow, April sixteenth, at eleven a m with Dr. Noel at Spring Hill.  Would you like to reschedule to a different day, or just cancel it?"
+    },
+    {
+      "role": "user",
+      "content": "Well, um—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time.  Would you prefer to pick a new day, or should I just go ahead and cancel that appointment for you?"
+    },
+    {
+      "role": "user",
+      "content": "— cancel."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "cancel_appt"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "cancel_requires_tool_call"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

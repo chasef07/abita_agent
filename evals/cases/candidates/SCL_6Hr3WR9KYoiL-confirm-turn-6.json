@@ -1,0 +1,63 @@
+{
+  "id": "SCL_6Hr3WR9KYoiL-confirm-turn-6",
+  "suite": "confirm",
+  "source": "livekit-trace",
+  "traceId": "SCL_6Hr3WR9KYoiL",
+  "tags": [
+    "confirm",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent fetched appointments to confirm an existing visit. Check that confirm_appt was used only after verifying the patient and that the confirmation path stayed concise."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. I have an appointment— Already, but I also need to know if you are— capable— I— An eye exam from the DMV. They just gave me this— exam that I have to have, and, and I need to know if — you are able to do that or if I need to find another eye doctor."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we can definitely help with that.  We do the vision exams for DMV requirements all the time.  So you're all set for your appointment on Tuesday April twenty-first at nine fifteen a m with Dr. Licht."
+    },
+    {
+      "role": "user",
+      "content": "Well, awesome. Thank you so much."
+    },
+    {
+      "role": "assistant",
+      "content": "you're welcome. Anything else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "Oh, I believe that's all. Thank you so much."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, have a great day."
+    },
+    {
+      "role": "user",
+      "content": "You too."
+    },
+    {
+      "role": "user",
+      "content": "Why do I think I have something going on on the 25th too?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "confirm_appt"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

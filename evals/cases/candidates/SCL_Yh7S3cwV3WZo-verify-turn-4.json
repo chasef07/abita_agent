@@ -1,0 +1,54 @@
+{
+  "id": "SCL_Yh7S3cwV3WZo-verify-turn-4",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_Yh7S3cwV3WZo",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent's first verify_patient invocation. Check that lookup context was respected (skip if pre-verified) and only first name asked for multi-match."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. Um— I have a— we have a 12 o'clock appointment?"
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Betty Rollins and Jeanette Ballou."
+    },
+    {
+      "role": "assistant",
+      "content": "which one of you has the appointment today?"
+    },
+    {
+      "role": "user",
+      "content": "Hey— Both of us."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "narrow_with_first_name_only",
+      "do_not_read_back_known_names"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

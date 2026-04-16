@@ -1,0 +1,64 @@
+{
+  "id": "SCL_JQBDqHKQQHbM-transfer-turn-6",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_JQBDqHKQQHbM",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, um, yes, I have an appointment with— Um— the doctor there, but in Crystal River, and they made me appointment at the Spring Hill— A beta I group— Um, and it was supposed to be the 28th or 29th, but I don't have the time yet. Or that which, which day it is in April."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Um, Lori— Is this a real person?"
+    },
+    {
+      "role": "user",
+      "content": "Ah— Hello?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping at the front desk at Abita Eye Group.  I'm just here to help -- what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "Um, can I get a real person? I really need a real representative. Someone that was at the office I went to— Aren't they open right now?"
+    },
+    {
+      "role": "assistant",
+      "content": "would you mind telling me what you're calling about?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, I want to know when my appointment is— the 28th and 29th in the Crystal River office in Crystal River, Florida. My name is Lori Taylor."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

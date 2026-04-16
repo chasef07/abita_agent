@@ -1,0 +1,192 @@
+{
+  "id": "SCL_hLDjjUvLgmYM-quick-question-turn-23",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_hLDjjUvLgmYM",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "David, buenas tardes. Estaba hablando con usted y se cortó la comunicación."
+    },
+    {
+      "role": "assistant",
+      "content": "buenas tardes, sí, entiendo.  ¿en qué le puedo ayudar hoy?"
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "¿estaba tratando de agendar una cita, o hay algo más en lo que pueda ayudarle?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, agendar una cita, cambiar la cita que tenía para correr la fecha. La hora, perdón."
+    },
+    {
+      "role": "assistant",
+      "content": "ah, perfecto, ya veo que tiene una cita el jueves veintitrés de abril a las diez treinta de la mañana con el doctor Bach.  ¿qué hora le funcionaría mejor?"
+    },
+    {
+      "role": "user",
+      "content": "No— No, la íbamos a cambiar porque desafortunadamente esa hora— — Tenía una reunión de mi trabajo y no me había dado cuenta cuando agendamos la cita el día de ayer."
+    },
+    {
+      "role": "assistant",
+      "content": "entendido, no hay problema.  ¿qué hora le funcionaría"
+    },
+    {
+      "role": "user",
+      "content": "para la tarde?"
+    },
+    {
+      "role": "assistant",
+      "content": "tengo una apertura el jueves veintitrés de abril a las tres de la tarde con el doctor Bach.  ¿le funciona esa hora?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, sería para, para mí y para mi esposo. But I'll go out of this—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, entonces agendaré su cita para el jueves veintitrés de abril a las tres de la tarde con el doctor Bach.  ¿su esposo también necesita una cita, o solo usted?"
+    },
+    {
+      "role": "user",
+      "content": "No, él también— él la tenía para el jueves 23 a las 10:30 de la mañana, entonces también para corrérsela."
+    },
+    {
+      "role": "assistant",
+      "content": "ah, entiendo, entonces su esposo también necesita cambiar su cita del jueves veintitrés a las diez treinta de la mañana.  ¿a qué hora le funcionaría a él?"
+    },
+    {
+      "role": "user",
+      "content": "¿En la tarde puede ser? 3:30 de la tarde, si es posible."
+    },
+    {
+      "role": "assistant",
+      "content": "desafortunadamente solo tengo una apertura a las tres de la tarde ese día.  No hay nada disponible a las tres treinta.  ¿le funcionaría a su esposo a las tres de la mañana, o prefiere otro día?"
+    },
+    {
+      "role": "user",
+      "content": "¿A las 3 de la mañana?"
+    },
+    {
+      "role": "assistant",
+      "content": "perdón, quise decir a las tres de la tarde."
+    },
+    {
+      "role": "user",
+      "content": "¿Quién atiende a las 3 de la ma—?"
+    },
+    {
+      "role": "assistant",
+      "content": "a las tres de la tarde atiende"
+    },
+    {
+      "role": "user",
+      "content": "Ah, sí, junto con mi—"
+    },
+    {
+      "role": "user",
+      "content": "Pero las 3 no me la están dando a mí."
+    },
+    {
+      "role": "assistant",
+      "content": "ah, ya veo. A las tres de la tarde es para su esposo.  Para usted, ¿qué otro día le funcionaría?"
+    },
+    {
+      "role": "user",
+      "content": "No, no, no, yo necesito que nos den la cita juntos."
+    },
+    {
+      "role": "user",
+      "content": "No sé, ah— — Si no puedes a las 3 de la tarde para los dos, entonces—"
+    },
+    {
+      "role": "user",
+      "content": "Je— ¿Van a devolverme—? — Para terminar—"
+    },
+    {
+      "role": "assistant",
+      "content": "entendido, quiere que ambos tengan cita el mismo día y a la misma hora.  Desafortunadamente solo tengo una apertura a las tres de la tarde el jueves veintitrés, no puedo agendar a los dos juntos ese día.  ¿le gustaría que busquemos otro día donde tenga dos citas disponibles?"
+    },
+    {
+      "role": "user",
+      "content": "Perfekt. Oh— Eh, sí, para el día 24, de— para el viernes, ¿es posible?"
+    },
+    {
+      "role": "assistant",
+      "content": "el viernes veinticuatro de abril"
+    },
+    {
+      "role": "user",
+      "content": "Esperate, también yo miro a— Periodic—"
+    },
+    {
+      "role": "assistant",
+      "content": "sí, ¿qué más necesita?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, espérate que voy a mirar qué disponibilidad tengo, porque de pronto también tengo entrenamiento de trabajo y—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, tómese su tiempo.  Voy a esperar."
+    },
+    {
+      "role": "user",
+      "content": "Dime para el 24, ¿qué tienes disponible?"
+    },
+    {
+      "role": "assistant",
+      "content": "el viernes veinticuatro de abril no tengo ninguna disponibilidad.  ¿le gustaría que busque otro día?"
+    },
+    {
+      "role": "user",
+      "content": "Ay, no, digas que no tiene disponibilidad tampoco para el 24— para el viernes."
+    },
+    {
+      "role": "assistant",
+      "content": "correcto, el viernes veinticuatro de abril no tengo ninguna disponibilidad.  ¿le gustaría que busque otro día para que ambos tengan cita juntos?"
+    },
+    {
+      "role": "user",
+      "content": "Es que tengo tanto— tengo mi agenda bien complicada. Y para el— ¿Y con otra doctora de, de que hable español? Es la doctora Giselle Calero."
+    },
+    {
+      "role": "assistant",
+      "content": "déjame ver si la doctora Calero tiene disponibilidad.  ¿qué día le gustaría que revise?"
+    },
+    {
+      "role": "user",
+      "content": "O sea, el jueves en la tarde— el jueves 24— Pero, perdón, ¿jueves 23 o el viernes 24? E— El, el viernes 24, sí, puede ser a cualquier hora del día. Pero el 23 sería en la tarde. Hola, Doctora Melissa."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

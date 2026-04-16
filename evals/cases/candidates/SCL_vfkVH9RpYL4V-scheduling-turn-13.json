@@ -1,0 +1,126 @@
+{
+  "id": "SCL_vfkVH9RpYL4V-scheduling-turn-13",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_vfkVH9RpYL4V",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey, ¿cómo están? Nuevamente con Elizabeth."
+    },
+    {
+      "role": "assistant",
+      "content": "¡Hola Elizabeth! ¿En qué puedo ayudarte hoy?"
+    },
+    {
+      "role": "user",
+      "content": "They did— Eh, yo te acabé de llamar. ¿Tú me puedes dar la cita de Hugo Vargas para el jueves 23 a las 10 de la mañana?"
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo que quieres la cita de Hugo Vargas para el jueves 23 a las 10 de la mañana.  ¿Es Hugo un paciente aquí, o necesito verificar su información primero?"
+    },
+    {
+      "role": "user",
+      "content": "Mm-hmm. No, es paciente nuevo. —Pero ya tiene, ya tiene la cita, él la tiene agendada para las 10 de la mañana, 10:30. Elizabeth recuerda que la tenía en la 10. —Y ahorita me la acabaste de cambiar porque necesitaba cambiar mi cita— Y yo te la coloqué a las— 10 de la mañana—"
+    },
+    {
+      "role": "assistant",
+      "content": "Ah, entiendo. ¿Entonces"
+    },
+    {
+      "role": "user",
+      "content": "But, uh— ¿Cancionera? Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Perdón? ¿Puedes repetir eso, por favor?  No te entendí bien."
+    },
+    {
+      "role": "user",
+      "content": "Okay. Quiero que le agenden la cita que yo tenía para las 10 de la mañana. ¿Para mi esposo Hugo Vargas? A las 10 de la mañana. ¿Y la mía me la dejas como habíamos quedado a las 3 de la tarde? ¿Está bien?"
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo -- quieres que tu cita de las 10 de30 de la mañana se la pase a tu esposo Hugo Vargas, y tú te quedas con la cita de las 3 de la tarde.  ¿Es correcto?"
+    },
+    {
+      "role": "user",
+      "content": "Es correcto, pero la— Hugo la tenía a las 10:30, colocársela a las 10, que era— ¿Y en, en la hora que yo tenía?"
+    },
+    {
+      "role": "assistant",
+      "content": "Ah, ya veo -- quieres que Hugo tenga la cita a las 10 de la mañana, y tú te quedas con la de las 3 de la tarde.  Déjame verificar a Hugo en el sistema primero.  ¿Cuál es el nombre completo de Hugo?"
+    },
+    {
+      "role": "user",
+      "content": "Um—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el apellido de Hugo?"
+    },
+    {
+      "role": "user",
+      "content": "Hugo S. Evares."
+    },
+    {
+      "role": "assistant",
+      "content": "Hugo S. Vargas. ¿Y cuál es su fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "Vargas. Um, A 08:25 del 6— 1."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Puedes repetir la fecha de nacimiento completa, por favor?  ¿Mes, día y año?"
+    },
+    {
+      "role": "user",
+      "content": "08/25/1961."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto, encontré a Hugo.  ¿Cuál es el motivo de la visita de él?"
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Es para un examen de la vista, o tiene algún problema específico que necesita revisar?"
+    },
+    {
+      "role": "user",
+      "content": "Bueno, sí, es un examen y tiene, tiene— — Problema de— le ha mermado mucho la, la vista, de pronto de catarata."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

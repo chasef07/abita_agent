@@ -1,0 +1,60 @@
+{
+  "id": "SCL_XVuZtR9ZcnYn-transfer-turn-5",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_XVuZtR9ZcnYn",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I need to cancel the appointment on 5/6 at 2 for Neville Hearn."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Neville— N-E-V-I-L-L-E."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Neville, I'm not seeing any appointments on file for you.  Are you sure it was with Abita Eye Group?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, Friday."
+    },
+    {
+      "role": "assistant",
+      "content": "I've checked and there's no appointment showing for May sixth at two p m. It's possible it was scheduled at a different location or under a different name.  Would you like me to transfer you to the office so they can look into it further?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

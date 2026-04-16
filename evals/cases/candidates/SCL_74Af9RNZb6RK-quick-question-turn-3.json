@@ -1,0 +1,44 @@
+{
+  "id": "SCL_74Af9RNZb6RK-quick-question-turn-3",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_74Af9RNZb6RK",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey, um, I would like to book an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Um, I was wondering— I guess I just need the address."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

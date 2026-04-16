@@ -1,0 +1,59 @@
+{
+  "id": "SCL_ksDtgbgX45Er-verify-turn-5",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_ksDtgbgX45Er",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent's first verify_patient invocation. Check that lookup context was respected (skip if pre-verified) and only first name asked for multi-match."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, do you take Florida Blue?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we do take Florida Blue.  Is there something else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "Can you look me up in the system?"
+    },
+    {
+      "role": "assistant",
+      "content": "sure, can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "I— Test."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, what's your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Test."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

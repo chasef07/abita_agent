@@ -1,0 +1,58 @@
+{
+  "id": "SCL_bGp4YaFFZY7z-verify-turn-5",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_bGp4YaFFZY7z",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent re-ran verify_patient. Check whether retry was necessary or wasteful."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Ordered contacts—"
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "They are— You didn't know that the first— Alira. You go like, hey David, I need to order something. He's like, thank you, uh, my name is Tim."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding that name.  Could you spell it for me?"
+    },
+    {
+      "role": "user",
+      "content": "Um, A-L-E-E-R-A."
+    },
+    {
+      "role": "user",
+      "content": "My poor plan is done—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "narrow_with_first_name_only",
+      "do_not_read_back_known_names"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}
