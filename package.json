@@ -37,12 +37,13 @@
     "format:check": "prettier --check . --ignore-unknown"
   },
   "dependencies": {
-    "@elevenlabs/elevenlabs-js": "^2.42.0",
-    "@livekit/agents": "^1.2.6",
-    "@livekit/agents-plugin-baseten": "^1.2.6",
-    "@livekit/agents-plugin-elevenlabs": "^1.2.6",
-    "@livekit/agents-plugin-livekit": "^1.2.6",
-    "@livekit/agents-plugin-silero": "^1.2.6",
+    "@elevenlabs/elevenlabs-js": "^2.43.0",
+    "@livekit/agents": "^1.2.7",
+    "@livekit/agents-plugin-assemblyai": "1.2.7",
+    "@livekit/agents-plugin-baseten": "^1.2.7",
+    "@livekit/agents-plugin-elevenlabs": "^1.2.7",
+    "@livekit/agents-plugin-livekit": "^1.2.7",
+    "@livekit/agents-plugin-silero": "^1.2.7",
     "@livekit/noise-cancellation-node": "^0.1.9",
     "@livekit/rtc-node": "^0.13.25",
     "dotenv": "^17.4.2",
@@ -51,16 +52,16 @@
     "zod": "^4.1.8"
   },
   "devDependencies": {
-    "@eslint/js": "^9.38.0",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^25.6.0",
     "@types/ws": "^8.18.1",
-    "promptfoo": "0.121.4",
-    "eslint": "^9.38.0",
+    "eslint": "^10.2.0",
     "eslint-config-prettier": "^10.1.8",
-    "globals": "^16.4.0",
-    "prettier": "^3.6.2",
+    "globals": "^17.5.0",
+    "prettier": "^3.8.3",
+    "promptfoo": "0.121.5",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.2",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.46.1",
     "vitest": "^4.1.4"
   }
