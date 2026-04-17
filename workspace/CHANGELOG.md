@@ -1,5 +1,19 @@
 # Prompt Changelog
 
+## 2026-04-17 — Spelling-aware name capture, patience prompts, reject Humana Care Plus
+
+**RUNBOOK.md — Trust caller-offered spelling over STT transcript**
+- Why: When a caller volunteers a spelling ("Danahy, D-A-N-E-H-E"), the existing "trust what you hear" rule gave no guidance on which version to use. The agent could send the STT transcript ("Danahy") to verify_patient and silently discard the spelled version.
+- What changed: Added new General Rule: "Caller spells it? Use the spelling." Spelled-out letters override the initial STT version. Brief confirmation only, no re-asking.
+
+**RUNBOOK.md / VOICE.md — Reduce talking over the caller**
+- Why: Agent was jumping in too fast during names, phone numbers, and insurance dictation. Callers pause naturally during these — the agent needs to wait.
+- What changed: Added rule #5 to Remember block: "Don't talk over the caller." Added patience line to VOICE.md Pacing section: "give them a beat before you respond."
+
+**INSURANCE — Reject Humana Care Plus**
+- Why: Humana Care Plus is not accepted but was not in the rejected list. The "Humana" alias catch-all was auto-accepting it as Humana PPO.
+- What changed: Added "Humana Care Plus" to Not Accepted list in both .md and .json.
+
 ## 2026-04-11 — Fix check_insurance skipping and address hallucination
 
 **tools.ts / RUNBOOK.md — Force check_insurance to actually run before field collection**
