@@ -1,0 +1,92 @@
+{
+  "id": "SCL_shxT4TDd6Bov-transfer-turn-9",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_shxT4TDd6Bov",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Reschedule appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Donna?"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Donna, I see you have a post-op appointment tomorrow at twelve p m with Dr. Noel.  What day would you like to reschedule to?"
+    },
+    {
+      "role": "user",
+      "content": "Later in the afternoon—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, let me check what's available later in the afternoon.  What day works best for you?"
+    },
+    {
+      "role": "user",
+      "content": "Tomorrow—"
+    },
+    {
+      "role": "assistant",
+      "content": "nothing open tomorrow afternoon, but I've got Tuesday April twenty-first with Dr. Noel.  There's one thirty p m, two p m, two thirty p m, or three p m. Would any of"
+    },
+    {
+      "role": "user",
+      "content": "No. No. No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, no problem. What day would work better for you?"
+    },
+    {
+      "role": "user",
+      "content": "Tomorrow—"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand you'd like tomorrow, but unfortunately there are no afternoon openings available tomorrow.  The earliest I could get you in would be"
+    },
+    {
+      "role": "user",
+      "content": "was told to be there Mm."
+    },
+    {
+      "role": "assistant",
+      "content": "I see -- so you were told to be there at noon tomorrow.  Unfortunately there are no afternoon openings available tomorrow, so I wouldn't be able to move you to a later time that day.  Would you like to keep your noon appointment, or would you prefer a different day?"
+    },
+    {
+      "role": "user",
+      "content": "Receptionist, please. Receptionist, please."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

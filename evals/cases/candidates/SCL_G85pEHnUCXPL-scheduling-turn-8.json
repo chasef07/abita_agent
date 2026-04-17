@@ -1,0 +1,81 @@
+{
+  "id": "SCL_G85pEHnUCXPL-scheduling-turn-8",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_G85pEHnUCXPL",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, hello, David. I think I called the Spring Hill office. You guys are the same group that has an office right across the way from Bayonet Point Hospital, is that correct?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah that's right, we're right across from Bayonet Point Hospital.  How can I help you today?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "user",
+      "content": "Well, I was patient there. I've been there several times. It's been a little while, but I need to make another appointment to get seen."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Iolanda—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Iolanda, I see you're in the system.  What's the reason for your visit today?"
+    },
+    {
+      "role": "user",
+      "content": "Um, it would be for a couple of things. Um, eyeball a— Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time.  What's going on with your eyes?"
+    },
+    {
+      "role": "user",
+      "content": "chronic dry—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, chronic dry eye.  What day were you hoping to come in?"
+    },
+    {
+      "role": "user",
+      "content": "Whenever I can get scheduled."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

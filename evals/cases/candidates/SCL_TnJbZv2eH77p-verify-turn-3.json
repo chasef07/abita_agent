@@ -1,0 +1,43 @@
+{
+  "id": "SCL_TnJbZv2eH77p-verify-turn-3",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_TnJbZv2eH77p",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent re-ran verify_patient. Check whether retry was necessary or wasteful."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, I'm Janet Scroggins, and I have an appointment there with Dr. Beck. Next Thursday around 10 or 10:30. I just want to double-check, make sure that appointment's still on, because I'm driving about an hour and a half to get there. So I want to make sure that it's still— So, because I haven't heard anything."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding you in the system under that name.  Do you happen to have your date of birth handy so I can try again?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, July 29th, 1943."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

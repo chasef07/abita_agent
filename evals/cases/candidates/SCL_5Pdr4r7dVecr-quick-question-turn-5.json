@@ -1,0 +1,60 @@
+{
+  "id": "SCL_5Pdr4r7dVecr-quick-question-turn-5",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_5Pdr4r7dVecr",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Fact number—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm sorry, I didn't quite catch that.  Could you say that again?"
+    },
+    {
+      "role": "user",
+      "content": "Backs."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm having trouble understanding.  Are you looking to schedule an appointment, or is there something else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, no problem.  What can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "fax number."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,221 @@
+{
+  "id": "SCL_c28biLNL3jhd-scheduling-turn-25",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_c28biLNL3jhd",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Schedule an appointment—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "— now—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so you're looking to schedule now.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "UnitedHealthcare—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take United Healthcare.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Christopher Hamelman, H-A—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Christopher Hamelman.  What's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "M— M— January—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead, January what?"
+    },
+    {
+      "role": "user",
+      "content": "22nd, 2020. 22nd—"
+    },
+    {
+      "role": "assistant",
+      "content": "January twenty-second, twenty twenty.  Is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "2020. Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "Spencer Hamelman—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's the street address?"
+    },
+    {
+      "role": "user",
+      "content": "1-877-29— Winding Oaks Boulevard. Hudson, Florida 34667."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, one eight seven seven twenty-nine Winding Oaks Boulevard, Hudson, Florida three four six six seven.  Is there an apartment or suite number?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "alright. Are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Now—"
+    },
+    {
+      "role": "assistant",
+      "content": "are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "El—"
+    },
+    {
+      "role": "assistant",
+      "content": "are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Um, p— c—"
+    },
+    {
+      "role": "assistant",
+      "content": "are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Male."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. Now I need the insurance card info.  What's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Spencer Hamelman."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "7-2-4-0-8-4-1-1-1-0-2."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Christopher Hamelman, H-A-M-E-L-M-A-N, date of birth January twenty-second, twenty twenty, United Healthcare, member ID seven two four zero eight four one one one zero two.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "what needs to be corrected?"
+    },
+    {
+      "role": "user",
+      "content": "The last name."
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead and spell the last name for me."
+    },
+    {
+      "role": "user",
+      "content": "H-A-M-M-E-L-M-A-N."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Christopher Hammelman, H-A-M-M-E-L-M-A-N, date of birth January twenty-second, twenty twenty, United Healthcare, member ID seven two four zero eight four one one one zero two.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, you're all set.  So what's the reason for the visit?"
+    },
+    {
+      "role": "user",
+      "content": "Pediatric—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "What is your availability?"
+    },
+    {
+      "role": "assistant",
+      "content": "what day were you hoping to come in?"
+    },
+    {
+      "role": "user",
+      "content": "Do you have any openings tomorrow?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

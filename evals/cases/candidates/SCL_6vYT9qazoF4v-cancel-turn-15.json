@@ -1,0 +1,141 @@
+{
+  "id": "SCL_6vYT9qazoF4v-cancel-turn-15",
+  "suite": "cancel",
+  "source": "livekit-trace",
+  "traceId": "SCL_6vYT9qazoF4v",
+  "tags": [
+    "cancel",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent cancelled an appointment. Check that cancel_appt was actually called rather than just verbally agreed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Um, okay."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah"
+    },
+    {
+      "role": "user",
+      "content": "In the point—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead"
+    },
+    {
+      "role": "user",
+      "content": "Can you repeat that?"
+    },
+    {
+      "role": "assistant",
+      "content": "sure -- thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I would like to reschedule an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "The body brown—"
+    },
+    {
+      "role": "assistant",
+      "content": "sorry, could you say that again?  I want to make sure I have the right name."
+    },
+    {
+      "role": "user",
+      "content": "Jabari Brown."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding a Jabari on this number.  Could you give me the last name and date of birth so I can pull up the right record?"
+    },
+    {
+      "role": "user",
+      "content": "Brown—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Brown. And what's the date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "7/3/2007."
+    },
+    {
+      "role": "assistant",
+      "content": "still not coming up.  Could you spell the first name for me?"
+    },
+    {
+      "role": "user",
+      "content": "J-E— Apostrophe—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, J-E apostrophe -- what comes after that?"
+    },
+    {
+      "role": "user",
+      "content": "B-A-R-R-I— J-E apostrophe— J-E-A-R-R-I."
+    },
+    {
+      "role": "assistant",
+      "content": "I see you have an appointment today at ten thirty a m with Dr. Noel at Spring Hill.  What day would you like to reschedule to?"
+    },
+    {
+      "role": "user",
+      "content": "A day in May—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, what day in May works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Week of the 10th."
+    },
+    {
+      "role": "assistant",
+      "content": "I've got Monday May 11th open.  How about twelve p m that day?"
+    },
+    {
+      "role": "user",
+      "content": "2 o'clock or 2:30?"
+    },
+    {
+      "role": "assistant",
+      "content": "I've got two p m open on Monday May 11th.  Does that work?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "cancel_appt"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "cancel_requires_tool_call"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

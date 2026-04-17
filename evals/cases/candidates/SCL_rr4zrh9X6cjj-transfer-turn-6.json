@@ -1,0 +1,69 @@
+{
+  "id": "SCL_rr4zrh9X6cjj-transfer-turn-6",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_rr4zrh9X6cjj",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. I need to make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Victoria—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, I've got two Victorias on file.  Can I get the date of birth for the one you're calling about?"
+    },
+    {
+      "role": "user",
+      "content": "1, 30, 76—"
+    },
+    {
+      "role": "assistant",
+      "content": "I need a little more info.  Can you give me the last name as well?"
+    },
+    {
+      "role": "user",
+      "content": "Kindig, K-I-N-D-I-G."
+    },
+    {
+      "role": "assistant",
+      "content": "hmm, I'm not finding that combination.  Let me try with just the last name and date of birth -- could you spell the last"
+    },
+    {
+      "role": "user",
+      "content": "How about you give me a real person?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

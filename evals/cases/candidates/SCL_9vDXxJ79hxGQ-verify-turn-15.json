@@ -1,0 +1,135 @@
+{
+  "id": "SCL_9vDXxJ79hxGQ-verify-turn-15",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_9vDXxJ79hxGQ",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent's first verify_patient invocation. Check that lookup context was respected (skip if pre-verified) and only first name asked for multi-match."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. Yes, my name is Jill, and I'm calling to find out if you guys accept Ambit or Health. You're listed as a provider on the website for Ambetter, but I just want to confirm because sometimes that can change."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Ambetter.  You're all set there."
+    },
+    {
+      "role": "user",
+      "content": "Thank you. Excellent. Can I make an appointment, please?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, and better health."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take that. What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Jill— Fawn, F-A-U-G-H-N."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "5/8/1968."
+    },
+    {
+      "role": "assistant",
+      "content": "is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "J-U-L-E-S— B-E-A-R— 2003@gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "1-2-2-0-4 Putter Green Court. Newport Richey, Florida, 34654."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's your sex?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and I need the name on the insurance card and the member ID."
+    },
+    {
+      "role": "user",
+      "content": "Okay, the name is the same, Jill Fawn. Member ID is, um— U9746214401."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Jill Fawn, F-A-U-G-H-N, date of birth May fifth nineteen sixty-eight, Ambetter, member ID U nine seven four six two one four four zero one.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, date of birth is 5/8/1968."
+    },
+    {
+      "role": "assistant",
+      "content": "oh sorry, May eighth nineteen sixty-eight.  Everything else look good?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah,"
+    },
+    {
+      "role": "user",
+      "content": "Yes, uh-huh."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

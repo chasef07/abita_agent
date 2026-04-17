@@ -1,0 +1,205 @@
+{
+  "id": "SCL_CeCxVCHDDa2o-transfer-turn-23",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_CeCxVCHDDa2o",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "no_match",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, um, good morning. My name is Kathleen Rowe, and I happen to live down the block. And, um— I'd like to know if you— if you take my insurance, because I'm in desperate need of a wonderful eye doctor, and I hear you guys are good."
+    },
+    {
+      "role": "assistant",
+      "content": "Good morning Kathleen, nice to meet you.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "It's humana— But it's, it's particularly— hold on— Humana Gold. — plus diabetes and heart."
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah"
+    },
+    {
+      "role": "user",
+      "content": "It's H as in Harry, then it's 9, 2— 1, 2— 5, 3— 5, 8—"
+    },
+    {
+      "role": "assistant",
+      "content": "Got it, thanks Kathleen.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "So you haven't been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No, but I've been seeing— No."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, let me get you set up.  What's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "I live down the block, and then sometimes I— 12:27. 1951."
+    },
+    {
+      "role": "assistant",
+      "content": "December twenty-seventh, nineteen fifty-one.  Is the number you're calling from a good one to reach you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, this is my only number. It's 917— 7165224."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "8T— M is in Mary, C is in Charlie— R-O-E— @gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. And what's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "Playing on Kathy Rowe."
+    },
+    {
+      "role": "assistant",
+      "content": "No worries, I can work with that.  What's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "10, 20, and— 10/20— North Lisle Avenue."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. What city is that in?"
+    },
+    {
+      "role": "user",
+      "content": "It's down the block, Crystal River."
+    },
+    {
+      "role": "assistant",
+      "content": "Crystal River, Florida.  What's your zip code?"
+    },
+    {
+      "role": "user",
+      "content": "Right."
+    },
+    {
+      "role": "assistant",
+      "content": "What's the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "3, 4, 4, 2, 9."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. And are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright. Who's the name on your insurance card?"
+    },
+    {
+      "role": "user",
+      "content": "Catherine— Roe— R-O-E—"
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. And what's the member ID on the card?"
+    },
+    {
+      "role": "user",
+      "content": "H— 9, 2, 1, 2— 5, 3— 5, 8—"
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, let me confirm -- I have Kathleen Rowe, R-O-W-E, date of birth December"
+    },
+    {
+      "role": "user",
+      "content": "No, that's wrong. That's wrong. R-O-E—"
+    },
+    {
+      "role": "assistant",
+      "content": "Kathleen Rowe, R-O-E, date of"
+    },
+    {
+      "role": "user",
+      "content": "There's no W. R-O-E—"
+    },
+    {
+      "role": "assistant",
+      "content": "Kathleen Roe, R-O-E, date of birth December twenty-seventh, nineteen fifty-one, Humana PPO, member ID H nine two one two five three five eight.  Is that all correct?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect, you're all set.  So what's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "I, um—"
+    },
+    {
+      "role": "assistant",
+      "content": "What brings you in today?"
+    },
+    {
+      "role": "user",
+      "content": "Had trouble in another eye office. Can I— are you a human or am I talking to a machine?"
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah, I'm actually an AI assistant helping at the front desk here.  I'm just here"
+    },
+    {
+      "role": "user",
+      "content": "I thought so. I have a long story. I'd like to talk to a human if I could."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

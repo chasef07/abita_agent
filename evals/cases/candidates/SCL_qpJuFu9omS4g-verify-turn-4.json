@@ -1,0 +1,51 @@
+{
+  "id": "SCL_qpJuFu9omS4g-verify-turn-4",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_qpJuFu9omS4g",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent's first verify_patient invocation. Check that lookup context was respected (skip if pre-verified) and only first name asked for multi-match."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey David, how are you?"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm doing well, thanks!  What can I help you with today?"
+    },
+    {
+      "role": "user",
+      "content": "I want to know if I'm in this system."
+    },
+    {
+      "role": "assistant",
+      "content": "Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, this is Sherry."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

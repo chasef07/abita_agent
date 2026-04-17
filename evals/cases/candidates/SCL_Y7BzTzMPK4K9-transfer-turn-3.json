@@ -1,0 +1,44 @@
+{
+  "id": "SCL_Y7BzTzMPK4K9-transfer-turn-3",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_Y7BzTzMPK4K9",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "If— if— Yes, David, I was wondering— this is Mona Key. I've been a patient at Avida. — eye group, and I've not heard back from them in quite some time about my eyes. So I'm checking to see what's going on with them."
+    },
+    {
+      "role": "assistant",
+      "content": "ok Mona, I'm not seeing any upcoming appointments on your schedule.  When did you last hear from the office, or were you waiting on something specific like test results or a follow-up?"
+    },
+    {
+      "role": "user",
+      "content": "I was waiting on surgery for my eyes. My eyelids—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "id": "SCL_qpJuFu9omS4g-verify-turn-6",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_qpJuFu9omS4g",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent re-ran verify_patient. Check whether retry was necessary or wasteful."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey David, how are you?"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm doing well, thanks!  What can I help you with today?"
+    },
+    {
+      "role": "user",
+      "content": "I want to know if I'm in this system."
+    },
+    {
+      "role": "assistant",
+      "content": "Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, this is Sherry."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding a Sherry on file.  Would you like me to get you set up as a new patient?"
+    },
+    {
+      "role": "user",
+      "content": "No, I think I've been here before."
+    },
+    {
+      "role": "assistant",
+      "content": "No worries. Let me try with a different spelling -- what's your last name?"
+    },
+    {
+      "role": "user",
+      "content": "It's F-A-G-E-N—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

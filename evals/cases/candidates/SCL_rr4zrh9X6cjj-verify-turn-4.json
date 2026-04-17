@@ -1,0 +1,54 @@
+{
+  "id": "SCL_rr4zrh9X6cjj-verify-turn-4",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_rr4zrh9X6cjj",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent re-ran verify_patient. Check whether retry was necessary or wasteful."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. I need to make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Victoria—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, I've got two Victorias on file.  Can I get the date of birth for the one you're calling about?"
+    },
+    {
+      "role": "user",
+      "content": "1, 30, 76—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "narrow_with_first_name_only",
+      "do_not_read_back_known_names"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "id": "SCL_KVUj9vNNRuiu-language-turn-2",
+  "suite": "language",
+  "source": "livekit-trace",
+  "traceId": "SCL_KVUj9vNNRuiu",
+  "tags": [
+    "language",
+    "spanish",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "14843989071",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: caller spoke Spanish. Check the agent replied in Spanish, not English."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Acuity Health, this is Patrick, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hola, ¿cómo estás?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "match_caller_language"
+    ],
+    "styleFlags": [
+      "responds_in_spanish",
+      "concise"
+    ]
+  }
+}

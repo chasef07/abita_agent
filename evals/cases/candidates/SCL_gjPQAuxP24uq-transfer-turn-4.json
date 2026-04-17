@@ -1,0 +1,52 @@
+{
+  "id": "SCL_gjPQAuxP24uq-transfer-turn-4",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_gjPQAuxP24uq",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "no_match",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Oh. Yes, I'm wondering if you guys do the upper eyelid, um— skin removal surgery."
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah, we do that -- Dr. Licht handles eyelid surgery here.  You'd want to schedule a consultation first so he can evaluate you.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No, but I have— I want to ask a question. Is the, um, consultation, a free consultation."
+    },
+    {
+      "role": "assistant",
+      "content": "I don't have that information in front of me -- the cost would depend on your insurance and the type of visit.  The office would be able to give you specifics on that.  Would you like me to transfer you over so they can answer that question?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

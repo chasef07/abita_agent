@@ -1,0 +1,94 @@
+{
+  "id": "SCL_6vYT9qazoF4v-verify-turn-9",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_6vYT9qazoF4v",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent re-ran verify_patient. Check whether retry was necessary or wasteful."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Um, okay."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah"
+    },
+    {
+      "role": "user",
+      "content": "In the point—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead"
+    },
+    {
+      "role": "user",
+      "content": "Can you repeat that?"
+    },
+    {
+      "role": "assistant",
+      "content": "sure -- thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I would like to reschedule an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "The body brown—"
+    },
+    {
+      "role": "assistant",
+      "content": "sorry, could you say that again?  I want to make sure I have the right name."
+    },
+    {
+      "role": "user",
+      "content": "Jabari Brown."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding a Jabari on this number.  Could you give me the last name and date of birth so I can pull up the right record?"
+    },
+    {
+      "role": "user",
+      "content": "Brown—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Brown. And what's the date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "7/3/2007."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "narrow_with_first_name_only",
+      "do_not_read_back_known_names"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,386 @@
+{
+  "id": "SCL_hCg8kGwtMW7X-route-to-spring-hill-turn-45",
+  "suite": "routing",
+  "source": "livekit-trace",
+  "traceId": "SCL_hCg8kGwtMW7X",
+  "tags": [
+    "routing",
+    "crystal-river",
+    "spring-hill",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "no_match",
+    "notes": "Extracted from a call where AMD routing switched to Spring Hill without transfer."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, yes, my name is Beth Danahese. And I had a good fall and I hurt my eye."
+    },
+    {
+      "role": "assistant",
+      "content": "Oh no, I'm sorry to hear that.  Let me get you taken care of.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, let me get you set up."
+    },
+    {
+      "role": "user",
+      "content": "Do you have— Do you have an office closer than Crystal River?"
+    },
+    {
+      "role": "assistant",
+      "content": "We have two locations -- Crystal River, where you called, and Spring Hill.  Spring Hill is open Monday through Friday, eight thirty a m to four thirty p m. Crystal River is Tuesday through Thursday, twelve to five p m. Which one works better for you?"
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "No rush -- whichever is closer or easier for you."
+    },
+    {
+      "role": "user",
+      "content": "I, you know, I have no idea where"
+    },
+    {
+      "role": "assistant",
+      "content": "That's okay. What city or area are you in?"
+    },
+    {
+      "role": "user",
+      "content": "Where each of one— I'm in the villages. The north end of the villages."
+    },
+    {
+      "role": "assistant",
+      "content": "Spring Hill would be closer for you then.  That's where we'll get you scheduled.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "I have Humana Care Plus."
+    },
+    {
+      "role": "assistant",
+      "content": "Great, we take Humana.  What's your full name?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your full name?"
+    },
+    {
+      "role": "user",
+      "content": "I live— Dernier—"
+    },
+    {
+      "role": "assistant",
+      "content": "Your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Beth—"
+    },
+    {
+      "role": "assistant",
+      "content": "Got it, Beth. And your last name?"
+    },
+    {
+      "role": "user",
+      "content": "Danahy, D-A-N-E-H-E."
+    },
+    {
+      "role": "assistant",
+      "content": "And your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "12/24/1949."
+    },
+    {
+      "role": "assistant",
+      "content": "Is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, it was. That's all I got."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "B— The— A—"
+    },
+    {
+      "role": "assistant",
+      "content": "Go ahead whenever you're ready."
+    },
+    {
+      "role": "user",
+      "content": "— is me—"
+    },
+    {
+      "role": "assistant",
+      "content": "Take your time. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "8— I'm just—"
+    },
+    {
+      "role": "assistant",
+      "content": "No problem, just spell it out whenever you're ready."
+    },
+    {
+      "role": "user",
+      "content": "Okay, B— The— A-N-E-H-E— @gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. What's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "1-796-1— Southeast—"
+    },
+    {
+      "role": "assistant",
+      "content": "Go ahead."
+    },
+    {
+      "role": "user",
+      "content": "83rd—"
+    },
+    {
+      "role": "assistant",
+      "content": "Okay, and what's the city?"
+    },
+    {
+      "role": "user",
+      "content": "Rawcliffe—"
+    },
+    {
+      "role": "assistant",
+      "content": "And the state?"
+    },
+    {
+      "role": "user",
+      "content": "The Village is— I'm sorry."
+    },
+    {
+      "role": "assistant",
+      "content": "No worries. What state are you in?"
+    },
+    {
+      "role": "user",
+      "content": "Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "And the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "3, 2, 1, 6, 2—"
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. And are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female—"
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, and what's the name on your insurance card?"
+    },
+    {
+      "role": "user",
+      "content": "Beth E. Danaher—"
+    },
+    {
+      "role": "assistant",
+      "content": "And the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Oh gosh, I don't know. Just a minute, I gotta get it."
+    },
+    {
+      "role": "assistant",
+      "content": "Take your time. I'll be here."
+    },
+    {
+      "role": "user",
+      "content": "Oh my gosh."
+    },
+    {
+      "role": "assistant",
+      "content": "No rush, just let me know when you have it."
+    },
+    {
+      "role": "user",
+      "content": "Okay, I've got it."
+    },
+    {
+      "role": "assistant",
+      "content": "Great, what's the member ID?"
+    },
+    {
+      "role": "user",
+      "content": "Ah,"
+    },
+    {
+      "role": "assistant",
+      "content": "Go ahead."
+    },
+    {
+      "role": "user",
+      "content": "Hey, Chris and Henry."
+    },
+    {
+      "role": "assistant",
+      "content": "Is that the member ID on the card?"
+    },
+    {
+      "role": "user",
+      "content": "7, 5, 6—"
+    },
+    {
+      "role": "assistant",
+      "content": "Okay, and what comes after 756?"
+    },
+    {
+      "role": "user",
+      "content": "750— 80364."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. So let me confirm -- I have Beth Danaher, D-A-N-A-H-E-R, date of birth December"
+    },
+    {
+      "role": "user",
+      "content": "Danny Heath— No!"
+    },
+    {
+      "role": "assistant",
+      "content": "No worries, let me make sure I have this right.  So the member ID is 7-5-6-7-5-0-8-0-3-6-4?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect. So let me confirm -- I have Beth Danaher, D-A-N-A-H-E-R, date of birth December twenty-fourth nineteen forty-nine, Humana PPO, and member ID 7-5-6-7-5-0-8-0-3-6-4.  Is that all correct?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "What needs to be corrected?"
+    },
+    {
+      "role": "user",
+      "content": "Okay, first off, my last name—"
+    },
+    {
+      "role": "assistant",
+      "content": "Go ahead, what's the correct spelling of your last name?"
+    },
+    {
+      "role": "user",
+      "content": "D-A-N—"
+    },
+    {
+      "role": "assistant",
+      "content": "Okay, D-A-N..."
+    },
+    {
+      "role": "user",
+      "content": "E-H-E."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it, D-A-N-E-H-E.  Anything else that needs fixing?"
+    },
+    {
+      "role": "user",
+      "content": "No, no."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, let me confirm again -- Beth Danaher, D-A-N-E-H-E, date of birth December twenty-fourth nineteen forty-nine, Humana PPO, member ID 7-5-6-7-5-0-8-0-3-6-4.  Is that correct now?"
+    },
+    {
+      "role": "user",
+      "content": "No—"
+    },
+    {
+      "role": "assistant",
+      "content": "What's still not right?"
+    },
+    {
+      "role": "user",
+      "content": "The number—"
+    },
+    {
+      "role": "assistant",
+      "content": "What's the correct member ID?"
+    },
+    {
+      "role": "user",
+      "content": "7-5-6-8-0-3-6-4."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it, 7-5-6-8-0-3-6-4.  So let me confirm one more time -- Beth Danaher, D-A-N-E-H-E, date of birth December twenty-fourth nineteen forty-nine, Humana PPO, member ID 7-5-6-8-0-3-6-4.  Is that all correct?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "route_to_spring_hill"
+    ],
+    "mustNotCallTools": [
+      "transfer_call"
+    ],
+    "policyFlags": [
+      "no_transfer_for_internal_office_reroute"
+    ],
+    "styleFlags": [
+      "confident",
+      "concise"
+    ]
+  }
+}

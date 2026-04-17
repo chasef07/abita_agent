@@ -1,0 +1,52 @@
+{
+  "id": "SCL_hCg8kGwtMW7X-quick-question-turn-4",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_hCg8kGwtMW7X",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, yes, my name is Beth Danahese. And I had a good fall and I hurt my eye."
+    },
+    {
+      "role": "assistant",
+      "content": "Oh no, I'm sorry to hear that.  Let me get you taken care of.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, let me get you set up."
+    },
+    {
+      "role": "user",
+      "content": "Do you have— Do you have an office closer than Crystal River?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "id": "SCL_UxMcd8Ku9fcv-transfer-turn-8",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_UxMcd8Ku9fcv",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Reschedule appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Dana."
+    },
+    {
+      "role": "assistant",
+      "content": "I have Donna Sonstegard -- is that you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, I see you have a post-op appointment tomorrow, April seventeenth at twelve p m with Dr. Noel.  What day would you like to reschedule to?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Just late—"
+    },
+    {
+      "role": "assistant",
+      "content": "what day were you thinking?"
+    },
+    {
+      "role": "user",
+      "content": "Receptionist place—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm having a little trouble hearing you clearly.  Would you like me to transfer you to the office so they can help you over the phone?"
+    },
+    {
+      "role": "user",
+      "content": "Receptionist, please."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

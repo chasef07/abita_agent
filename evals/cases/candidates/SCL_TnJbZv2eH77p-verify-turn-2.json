@@ -1,0 +1,35 @@
+{
+  "id": "SCL_TnJbZv2eH77p-verify-turn-2",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_TnJbZv2eH77p",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent's first verify_patient invocation. Check that lookup context was respected (skip if pre-verified) and only first name asked for multi-match."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, I'm Janet Scroggins, and I have an appointment there with Dr. Beck. Next Thursday around 10 or 10:30. I just want to double-check, make sure that appointment's still on, because I'm driving about an hour and a half to get there. So I want to make sure that it's still— So, because I haven't heard anything."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

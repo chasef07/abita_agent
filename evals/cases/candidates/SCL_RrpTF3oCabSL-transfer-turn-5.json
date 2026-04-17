@@ -1,0 +1,60 @@
+{
+  "id": "SCL_RrpTF3oCabSL-transfer-turn-5",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_RrpTF3oCabSL",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I'd like to talk to, uh, the, the, the lady at the, at the, uh, office."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "My first name's— Any—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead, what's your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Kenny?"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Kenny, I can help you here.  What do you need today?"
+    },
+    {
+      "role": "user",
+      "content": "I need to— I'm trying to find out about my appointment this coming Tuesday, and I asked— I got some billing questions about my bill from, from a hospital. I need to talk to somebody about"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

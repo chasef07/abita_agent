@@ -1,0 +1,59 @@
+{
+  "id": "SCL_LyrQsvmRuKkp-confirm-turn-5",
+  "suite": "confirm",
+  "source": "livekit-trace",
+  "traceId": "SCL_LyrQsvmRuKkp",
+  "tags": [
+    "confirm",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent fetched appointments to confirm an existing visit. Check that confirm_appt was used only after verifying the patient and that the confirmation path stayed concise."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey, how are you?"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm doing well, thanks.  What can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, I was wondering if you can look me up in the system."
+    },
+    {
+      "role": "assistant",
+      "content": "Sure, can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, it's Chase."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright Chase, I found you.  What do you need help with?"
+    },
+    {
+      "role": "user",
+      "content": "I need help with, um, to see if I have any upcoming appointments."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "confirm_appt"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

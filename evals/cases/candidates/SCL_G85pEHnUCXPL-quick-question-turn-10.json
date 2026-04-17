@@ -1,0 +1,96 @@
+{
+  "id": "SCL_G85pEHnUCXPL-quick-question-turn-10",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_G85pEHnUCXPL",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, hello, David. I think I called the Spring Hill office. You guys are the same group that has an office right across the way from Bayonet Point Hospital, is that correct?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah that's right, we're right across from Bayonet Point Hospital.  How can I help you today?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "user",
+      "content": "Well, I was patient there. I've been there several times. It's been a little while, but I need to make another appointment to get seen."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Iolanda—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Iolanda, I see you're in the system.  What's the reason for your visit today?"
+    },
+    {
+      "role": "user",
+      "content": "Um, it would be for a couple of things. Um, eyeball a— Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time.  What's going on with your eyes?"
+    },
+    {
+      "role": "user",
+      "content": "chronic dry—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, chronic dry eye.  What day were you hoping to come in?"
+    },
+    {
+      "role": "user",
+      "content": "Whenever I can get scheduled."
+    },
+    {
+      "role": "assistant",
+      "content": "I've got Monday April twentieth at one p m, or one thirty p m. Either one work for you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, 1 PM is fine."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, you're all set for Monday April twentieth at one p m with Dr. Noel at Spring Hill.  Is there anything else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "Nope, just— yeah, just let me know where in Spring Hill is that located."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

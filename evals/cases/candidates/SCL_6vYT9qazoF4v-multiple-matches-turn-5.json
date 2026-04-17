@@ -1,0 +1,72 @@
+{
+  "id": "SCL_6vYT9qazoF4v-multiple-matches-turn-5",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_6vYT9qazoF4v",
+  "tags": [
+    "verification",
+    "multiple-matches",
+    "hipaa",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Extracted from a multiple-match phone lookup flow."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Um, okay."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah"
+    },
+    {
+      "role": "user",
+      "content": "In the point—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead"
+    },
+    {
+      "role": "user",
+      "content": "Can you repeat that?"
+    },
+    {
+      "role": "assistant",
+      "content": "sure -- thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I would like to reschedule an appointment."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "confirm_appt",
+      "get_availability",
+      "book_appt"
+    ],
+    "mustSay": [
+      "first name"
+    ],
+    "mustNotSay": [
+      "date of birth",
+      "last name"
+    ],
+    "policyFlags": [
+      "do_not_read_back_known_names"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}
