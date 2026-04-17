@@ -11,7 +11,6 @@ import {
   llm,
   voice,
 } from "@livekit/agents";
-import * as livekit from "@livekit/agents-plugin-livekit";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as elevenlabs from "@livekit/agents-plugin-elevenlabs";
 import * as baseten from "@livekit/agents-plugin-baseten";
@@ -68,8 +67,8 @@ export default defineAgent({
         stt: new AssemblyAISTT({
           speechModel: "u3-rt-pro",
           vadThreshold: 0.3,
-          minTurnSilence: 250,
-          maxTurnSilence: 250,
+          minTurnSilence: 250, // Time (ms) to wait before a speculative end-of-turn check.
+          maxTurnSilence: 2000, // Max time (ms) to wait before forcing the turn to end.
         }),
         llm: llmWithFallback,
         tts: new elevenlabs.TTS({
@@ -85,9 +84,9 @@ export default defineAgent({
           },
         }),
         vad,
-        preemptiveGeneration: false,
+        // preemptiveGeneration: false,
         turnHandling: {
-          turnDetection: new livekit.turnDetector.MultilingualModel(),
+          turnDetection: "stt",
           interruption: {
             mode: "adaptive",
             minDuration: 1000,
@@ -97,8 +96,7 @@ export default defineAgent({
             resumeFalseInterruption: true,
           },
           endpointing: {
-            minDelay: 900,
-            maxDelay: 2800,
+            minDelay: 0,
           },
         },
       });
