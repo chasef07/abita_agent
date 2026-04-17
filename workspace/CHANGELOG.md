@@ -1,5 +1,29 @@
 # Prompt Changelog
 
+## 2026-04-16 — Field integrity, no-fabrication guards, human-request overrides in-flight tasks
+
+Reviewed 25 transcripts (SCL_shxT4TDd6Bov, SCL_gjPQAuxP24uq, SCL_UxMcd8Ku9fcv, SCL_DLhsW5oQSFZM, SCL_9vDXxJ79hxGQ, SCL_5Pdr4r7dVecr, SCL_rr4zrh9X6cjj, SCL_iNpF5XY53BJQ, SCL_eGdUjtfYTxVk, SCL_dxVJRKt9QrrB, SCL_TnJbZv2eH77p, SCL_xPKGU3AxN8Ku, SCL_RT7tEyici4wS, SCL_hCg8kGwtMW7X, SCL_Qjv58W8YZgSu, SCL_Q6zogfX4657R, SCL_G85pEHnUCXPL, SCL_jmridTecERCv, SCL_CeCxVCHDDa2o, SCL_RrpTF3oCabSL, SCL_gVS97LdDEotw, SCL_MxycsBtzViFZ, SCL_c28biLNL3jhd, SCL_ffWvAhkfphmz, SCL_6vYT9qazoF4v).
+
+**tools.ts — add_patient: email format + cross-field integrity**
+- Why: In SCL_c28biLNL3jhd (turn 22), the agent called add_patient with `email: "Spencer Hamelman"` — the subscriber name landed in the email field because the caller said a name when the agent asked for email. In SCL_CeCxVCHDDa2o (turn 20), the agent synthesized `tmcre@gmail.com` from fragmented letter callouts. The existing "never fabricate or guess values" rule didn't enforce per-field integrity (right answer → right field) or email format.
+- What changed: Added two rules. (1) "Every field answer goes in ITS OWN field. If the caller says a name when you asked for email, they misheard the question — re-ask for email. Never stuff a name, number, or address into a field it doesn't belong in." (2) "Email must be a real email address (contains '@' and a domain like gmail.com). If the caller didn't give you a clean email, ask again or leave it blank — do NOT pass a name, phone number, or random text as email." Mirrored the rule into the test harness's mock_add_patient description so the tests exercise the same rule.
+
+**tools.ts — verify_patient: no fabricated parameters**
+- Why: In SCL_TnJbZv2eH77p (turn 2), the agent called verify_patient with `dob: "01/01/1970"` before the caller had provided any DOB — a fabricated value to "try" the lookup. add_patient has an explicit "never fabricate" rule; verify_patient did not.
+- What changed: Added "Every parameter must come from what the caller explicitly said — never fabricate a DOB, last name, or any other value to 'try' the lookup. If you don't have a value yet, ask for it first."
+
+**RUNBOOK.md — Human-request overrides any in-flight task**
+- Why: In SCL_ffWvAhkfphmz (turn 22), the caller said "Can I speak to a human?" in the middle of a last-name spelling loop. The agent ignored it and continued asking for letter corrections. The existing Path 4 rule said "one ask, then transfer" but was ambiguous about whether it interrupts a task already underway.
+- What changed: Added an override clause to the "Caller asks for a human" rule: "This rule overrides any in-flight task. If the caller says one of these words in the middle of registration, a spelling loop, or any other data collection, STOP that task immediately — do not keep spelling, do not keep asking for fields, do not ignore the request. Handle it per the rule above (one ask, then transfer)."
+
+**RUNBOOK.md — Name integrity: never greet with a guessed name**
+- Why: In SCL_dxVJRKt9QrrB (turn 3) the caller said "Whitney—" and the agent greeted them "Hey Jim." In SCL_RrpTF3oCabSL (turn 4) the caller said "Any—" and the agent responded "hey Kenny." The existing "Get the name right" rule said "Trust what you hear" but didn't cover the case where the input is a garbled fragment, so the LLM picked a plausible-sounding substitute.
+- What changed: Extended the rule: "Never greet a caller by a name you guessed from a fragment or garbled syllable (e.g. hearing 'Any—' and saying 'hey Kenny'). If you can't make out the name, ask them to repeat or spell it — don't pick a likely-sounding substitute."
+
+**replay.test.ts — Two new tests**
+- `mid-collection human request`: replays a 7-turn spelling-loop history, sends "Can I speak to a human?" as the caller input, asserts the agent does not call add_patient and (via LLM judge) the response acknowledges the human-request rather than continuing to spell.
+- `email field integrity`: replays a 6-turn registration history, sends a subscriber name ("Spencer Hamelman") as the caller's answer to "what's your email?", asserts that any add_patient call does NOT put the name in the email field and that email (if present) contains "@".
+
 ## 2026-04-15 — Flag provider changes during reschedule, strengthen stuck loop rule
 
 Reviewed 20 transcripts (SCL_xxeqZaWvKDmi, SCL_ksDtgbgX45Er, SCL_kjEyNWDWViJp, SCL_7gpzsboTWMUY, SCL_yBqeFN4pqVmb, SCL_tFVbsr5KG85g, SCL_zNQA38hKX5dj, SCL_vbYVbf6gjCus, SCL_vfkVH9RpYL4V, SCL_hLDjjUvLgmYM, SCL_bGp4YaFFZY7z, SCL_sdF2gQTAYQiq, SCL_n9iKj5LPnsVH, SCL_SjjRhXwFhuTg, SCL_z5QMkNPf5W56, SCL_nE4kL3fiwKxk, SCL_6Hr3WR9KYoiL, SCL_dXmmjDkfQqHE, SCL_Wf2SCxKSHNfr, SCL_7ZBLjkKcmH9Q).

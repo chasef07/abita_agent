@@ -152,6 +152,8 @@ After response:
 
 NEVER call this tool with fabricated, guessed, or placeholder data. Every single field must come from what the caller explicitly said during the conversation. If you are missing ANY required field (phone, email, address, insurance card info, etc.), you MUST ask the caller for it before calling this tool. Do not invent values to fill required parameters.
 
+Every field answer goes in ITS OWN field. If the caller says a name when you asked for email, re-ask for email — never stuff a name, number, or address into a field it doesn't belong in. Email must be a real email address (contains "@" and a domain like gmail.com); if the caller didn't give you a clean email, ask again or pass "" — do NOT pass a name, phone number, or random text as email.
+
 Collect in clusters — keep it moving, don't read back individual fields:
 1. Insurance — run check_insurance first. Match what the caller says to an exact plan name from the accepted list.
 2. Name + DOB — already have from verify attempts. Skip, don't re-ask.

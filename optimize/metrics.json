@@ -17,22 +17,63 @@
         "total": 16112
       },
       "metrics": {
-        "resolutionRate": { "faq": 100, "new_patient": 69, "existing_patient": 100, "overall": 92 },
+        "resolutionRate": {
+          "faq": 100,
+          "new_patient": 69,
+          "existing_patient": 100,
+          "overall": 92
+        },
         "transferRate": 55,
         "doubleTransfers": 47,
-        "avgTurns": { "faq": 0, "new_patient": 0, "existing_patient": 0 },
-        "avgDuration": { "faq": 0, "new_patient": 0, "existing_patient": 0 }
+        "avgTurns": {
+          "faq": 0,
+          "new_patient": 0,
+          "existing_patient": 0
+        },
+        "avgDuration": {
+          "faq": 0,
+          "new_patient": 0,
+          "existing_patient": 0
+        }
       },
       "changes": [
-        { "type": "add", "file": "RUNBOOK", "desc": "anti-hallucination guard for registration" },
-        { "type": "add", "file": "RUNBOOK", "desc": "transfer-on-insistence elevated to top-level rule" },
-        { "type": "add", "file": "RUNBOOK", "desc": "explicit registration collection order" },
-        { "type": "reword", "file": "tools.ts", "desc": "transfer_call stop-after-execute language" },
-        { "type": "add", "file": "tools.ts", "desc": "add_patient anti-fabrication guard" }
+        {
+          "type": "add",
+          "file": "RUNBOOK",
+          "desc": "anti-hallucination guard for registration"
+        },
+        {
+          "type": "add",
+          "file": "RUNBOOK",
+          "desc": "transfer-on-insistence elevated to top-level rule"
+        },
+        {
+          "type": "add",
+          "file": "RUNBOOK",
+          "desc": "explicit registration collection order"
+        },
+        {
+          "type": "reword",
+          "file": "tools.ts",
+          "desc": "transfer_call stop-after-execute language"
+        },
+        {
+          "type": "add",
+          "file": "tools.ts",
+          "desc": "add_patient anti-fabrication guard"
+        }
       ],
       "latency": {
-        "ttft": { "p50": 0, "p90": 0, "p99": 0 },
-        "tts": { "p50": 0, "p90": 0, "p99": 0 }
+        "ttft": {
+          "p50": 0,
+          "p90": 0,
+          "p99": 0
+        },
+        "tts": {
+          "p50": 0,
+          "p90": 0,
+          "p99": 0
+        }
       }
     },
     {
@@ -52,22 +93,63 @@
         "total": 19721
       },
       "metrics": {
-        "resolutionRate": { "faq": 100, "new_patient": 69, "existing_patient": 100, "overall": 90 },
+        "resolutionRate": {
+          "faq": 100,
+          "new_patient": 69,
+          "existing_patient": 100,
+          "overall": 90
+        },
         "transferRate": 55,
         "doubleTransfers": 97,
-        "avgTurns": { "faq": 0, "new_patient": 0, "existing_patient": 0 },
-        "avgDuration": { "faq": 0, "new_patient": 0, "existing_patient": 0 }
+        "avgTurns": {
+          "faq": 0,
+          "new_patient": 0,
+          "existing_patient": 0
+        },
+        "avgDuration": {
+          "faq": 0,
+          "new_patient": 0,
+          "existing_patient": 0
+        }
       },
       "changes": [
-        { "type": "reword", "file": "RUNBOOK", "desc": "add operator/receptionist to transfer trigger words, remove scheduling pushback" },
-        { "type": "add", "file": "RUNBOOK", "desc": "break stuck loops rule — never repeat same phrase 3x" },
-        { "type": "add", "file": "RUNBOOK", "desc": "correction handling for read-backs (re-collect from scratch)" },
-        { "type": "reword", "file": "tools.ts", "desc": "get_availability: no parallel calls, stop if same date returned" },
-        { "type": "add", "file": "replay.test.ts", "desc": "new test for operator trigger word" }
+        {
+          "type": "reword",
+          "file": "RUNBOOK",
+          "desc": "add operator/receptionist to transfer trigger words, remove scheduling pushback"
+        },
+        {
+          "type": "add",
+          "file": "RUNBOOK",
+          "desc": "break stuck loops rule \u2014 never repeat same phrase 3x"
+        },
+        {
+          "type": "add",
+          "file": "RUNBOOK",
+          "desc": "correction handling for read-backs (re-collect from scratch)"
+        },
+        {
+          "type": "reword",
+          "file": "tools.ts",
+          "desc": "get_availability: no parallel calls, stop if same date returned"
+        },
+        {
+          "type": "add",
+          "file": "replay.test.ts",
+          "desc": "new test for operator trigger word"
+        }
       ],
       "latency": {
-        "ttft": { "p50": 0, "p90": 0, "p99": 0 },
-        "tts": { "p50": 0, "p90": 0, "p99": 0 }
+        "ttft": {
+          "p50": 0,
+          "p90": 0,
+          "p99": 0
+        },
+        "tts": {
+          "p50": 0,
+          "p90": 0,
+          "p99": 0
+        }
       }
     },
     {
@@ -87,20 +169,124 @@
         "total": 20097
       },
       "metrics": {
-        "resolutionRate": { "faq": 100, "new_patient": 69, "existing_patient": 100, "overall": 90 },
+        "resolutionRate": {
+          "faq": 100,
+          "new_patient": 69,
+          "existing_patient": 100,
+          "overall": 90
+        },
         "transferRate": 54,
         "doubleTransfers": 97,
-        "avgTurns": { "faq": 0, "new_patient": 0, "existing_patient": 0 },
-        "avgDuration": { "faq": 0, "new_patient": 0, "existing_patient": 0 }
+        "avgTurns": {
+          "faq": 0,
+          "new_patient": 0,
+          "existing_patient": 0
+        },
+        "avgDuration": {
+          "faq": 0,
+          "new_patient": 0,
+          "existing_patient": 0
+        }
       },
       "changes": [
-        { "type": "reword", "file": "tools.ts", "desc": "get_availability: flag provider changes during reschedule" },
-        { "type": "reword", "file": "RUNBOOK", "desc": "strengthen stuck loop rule with specific alternatives" },
-        { "type": "add", "file": "replay.test.ts", "desc": "new test for provider change during reschedule" }
+        {
+          "type": "reword",
+          "file": "tools.ts",
+          "desc": "get_availability: flag provider changes during reschedule"
+        },
+        {
+          "type": "reword",
+          "file": "RUNBOOK",
+          "desc": "strengthen stuck loop rule with specific alternatives"
+        },
+        {
+          "type": "add",
+          "file": "replay.test.ts",
+          "desc": "new test for provider change during reschedule"
+        }
       ],
       "latency": {
-        "ttft": { "p50": 0, "p90": 0, "p99": 0 },
-        "tts": { "p50": 0, "p90": 0, "p99": 0 }
+        "ttft": {
+          "p50": 0,
+          "p90": 0,
+          "p99": 0
+        },
+        "tts": {
+          "p50": 0,
+          "p90": 0,
+          "p99": 0
+        }
+      }
+    },
+    {
+      "id": "20260416-2313",
+      "date": "2026-04-16",
+      "transcriptsEvaluated": 25,
+      "issuesFound": 6,
+      "changesProposed": 4,
+      "changesKept": 4,
+      "changesDiscarded": 2,
+      "testIterations": 1,
+      "promptLength": {
+        "soul": 3464,
+        "voice": 1860,
+        "runbook": 11460,
+        "toolDescriptions": 6901,
+        "total": 23685
+      },
+      "metrics": {
+        "resolutionRate": {
+          "faq": 100,
+          "new_patient": 70,
+          "existing_patient": 100,
+          "overall": 91
+        },
+        "transferRate": 54,
+        "doubleTransfers": 97,
+        "avgTurns": {
+          "faq": 0,
+          "new_patient": 0,
+          "existing_patient": 0
+        },
+        "avgDuration": {
+          "faq": 0,
+          "new_patient": 0,
+          "existing_patient": 0
+        }
+      },
+      "changes": [
+        {
+          "type": "reword",
+          "file": "tools.ts",
+          "desc": "add_patient: enforce email format, prevent cross-field contamination"
+        },
+        {
+          "type": "reword",
+          "file": "tools.ts",
+          "desc": "verify_patient: never fabricate DOB or other params"
+        },
+        {
+          "type": "add",
+          "file": "RUNBOOK",
+          "desc": "human-request overrides in-flight task (e.g. spelling loops)"
+        },
+        {
+          "type": "reword",
+          "file": "RUNBOOK",
+          "desc": "name integrity: never guess caller name from garbled syllables"
+        }
+      ],
+      "latency": {
+        "ttft": {
+          "p50": 0,
+          "p90": 0,
+          "p99": 0
+        },
+        "tts": {
+          "p50": 0,
+          "p90": 0,
+          "p99": 0
+        }
       }
     }
   ]

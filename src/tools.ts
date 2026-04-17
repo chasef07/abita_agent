@@ -149,7 +149,7 @@ async function callApi(path: string, body: Record<string, unknown>, office?: str
 
 // --- verify_patient ---
 export const verify_patient = llm.tool({
-  description: `Verifies a patient's identity.
+  description: `Verifies a patient's identity. Every parameter must come from what the caller explicitly said — never fabricate a DOB, last name, or any other value to "try" the lookup. If you don't have a value yet, ask for it first.
 
 For MULTIPLE MATCHES (caller context says multiple patients on this number): just pass firstName and phone — the middleware matches by phone + first name. Do NOT ask for last name or DOB upfront.
 
@@ -185,9 +185,11 @@ After response:
 
 // --- add_patient ---
 export const add_patient = llm.tool({
-  description: `Creates a new patient record. Use only when verify_patient returns no match. Every field must come from what the caller explicitly said — never fabricate or guess values.
+  description: `Creates a new patient record. Use only when verify_patient returns no match. Every field must come from what the caller explicitly said — never fabricate, guess, or synthesize values from fragments.
 
 Follow the registration order in the runbook. Key rules for this tool:
+- Every field answer goes in ITS OWN field. If the caller says a name when you asked for email, they misheard the question — re-ask for email. Never stuff a name, number, or address into a field it doesn't belong in.
+- Email must be a real email address (contains "@" and a domain like gmail.com). If the caller didn't give you a clean email, ask again or leave it blank ("") — do NOT pass a name, phone number, or random text as email.
 - The insurance value MUST be a plan name from the accepted list — do not pass vague names like "Medicare PPO." Match what the caller says to an exact plan (e.g., "Aetna Medicare PPO" → "Aetna Medicare Signature PPO"). If the carrier has multiple plans, ask which.
 - Phone must be exactly 10 digits.
 - If subscriber is "me" or "mine" = use patient name.

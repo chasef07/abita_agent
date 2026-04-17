@@ -317,6 +317,179 @@ describe("FAQ calls should not transfer", () => {
 });
 
 // ============================================================
+// Test 4b: Mid-collection human request (SCL_ffWvAhkfphmz)
+// Issue: Caller said "Can I speak to a human?" during a spelling
+// loop and the agent ignored the request, continuing to ask for
+// letter corrections. A human request must stop any in-flight task.
+// ============================================================
+describe("mid-collection human request", () => {
+  let ctx: TestContext;
+
+  afterEach(async () => {
+    await ctx?.cleanup();
+  });
+
+  it("should not keep spelling when caller asks for a human mid-loop", async () => {
+    ctx = await createTestAgent({ phoneLookup: null });
+
+    // Simulate being mid-registration, deep in a last-name spelling loop
+    const history: TranscriptTurn[] = [
+      {
+        turn: 1,
+        callerText: null,
+        agentText: "thank you for calling Abita Eye Group, this is David, how can I help you?",
+        toolCalls: [],
+      },
+      {
+        turn: 2,
+        callerText: "Schedule appointment.",
+        agentText: "yeah I can help with that. Have you been seen here before?",
+        toolCalls: [],
+      },
+      {
+        turn: 3,
+        callerText: "No.",
+        agentText: "ok let me get you set up. What insurance do you have?",
+        toolCalls: [],
+      },
+      {
+        turn: 4,
+        callerText: "UnitedHealthcare PPO.",
+        agentText: "yeah we take United Healthcare. What's your name?",
+        toolCalls: [
+          {
+            name: "check_insurance",
+            args: '{"plan": "UnitedHealthcare PPO"}',
+            result: '"accepted"',
+            isError: false,
+          },
+        ],
+      },
+      {
+        turn: 5,
+        callerText: "Christopher Hamilton.",
+        agentText: "go ahead and spell the last name for me.",
+        toolCalls: [],
+      },
+      {
+        turn: 6,
+        callerText: "H-A-M—",
+        agentText: "is that H-A-M-M-E-L-M-A-N?",
+        toolCalls: [],
+      },
+      {
+        turn: 7,
+        callerText: "Um—",
+        agentText: "you said H-A-M-M-E-L-M-A-N, but I have H-A-M-M-E-L-T-O-N. Which one is correct?",
+        toolCalls: [],
+      },
+    ];
+
+    await loadTranscriptHistory(ctx.agent, history, 99);
+
+    // Caller interrupts the spelling loop to request a human
+    const result = await ctx.session.run({ userInput: "Can I speak to a human?" }).wait();
+
+    // Agent should NOT have called add_patient (still missing fields anyway)
+    const addPatientCalls = ctx.callLog.filter((c) => c.name === "add_patient");
+    expect(addPatientCalls).toHaveLength(0);
+
+    // Judge: the response should acknowledge the human-request — either asking
+    // what they need or preparing to transfer. It must NOT be another spelling prompt.
+    await result.expect
+      .containsMessage({ role: "assistant" })
+      .judge(ctx.llm, {
+        intent: "The agent should acknowledge the caller's request to speak to a human — either by asking once what they need, or by announcing a transfer. The agent must NOT continue the last-name spelling loop or ignore the request.",
+      });
+  });
+});
+
+// ============================================================
+// Test 4c: Email field integrity (SCL_c28biLNL3jhd)
+// Issue: Agent called add_patient with email="Spencer Hamelman"
+// because the caller said the subscriber name when asked for email.
+// The email field must contain a real email address, not a name.
+// ============================================================
+describe("email field integrity", () => {
+  let ctx: TestContext;
+
+  afterEach(async () => {
+    await ctx?.cleanup();
+  });
+
+  it("should not stuff a name into the email field when caller misheard the question", async () => {
+    ctx = await createTestAgent({ phoneLookup: null });
+
+    // Caller gave a name instead of an email when asked for email.
+    // Agent should re-ask or leave email blank, not stuff the name into email.
+    const history: TranscriptTurn[] = [
+      {
+        turn: 1,
+        callerText: null,
+        agentText: "thank you for calling Abita Eye Group, this is David, how can I help you?",
+        toolCalls: [],
+      },
+      {
+        turn: 2,
+        callerText: "Schedule appointment. I'm new.",
+        agentText: "ok let me get you set up. What insurance do you have?",
+        toolCalls: [],
+      },
+      {
+        turn: 3,
+        callerText: "UnitedHealthcare.",
+        agentText: "yeah we take United Healthcare. What's your name?",
+        toolCalls: [
+          {
+            name: "check_insurance",
+            args: '{"plan": "UnitedHealthcare"}',
+            result: '"accepted"',
+            isError: false,
+          },
+        ],
+      },
+      {
+        turn: 4,
+        callerText: "Christopher Hamelman.",
+        agentText: "and date of birth?",
+        toolCalls: [],
+      },
+      {
+        turn: 5,
+        callerText: "January 22nd, 2020.",
+        agentText: "is the number you're calling from a good one on file?",
+        toolCalls: [],
+      },
+      {
+        turn: 6,
+        callerText: "Yes.",
+        agentText: "perfect. What's your email address?",
+        toolCalls: [],
+      },
+    ];
+
+    await loadTranscriptHistory(ctx.agent, history, 99);
+
+    // Caller says a NAME instead of an email (the bug scenario)
+    const result = await ctx.session.run({ userInput: "Spencer Hamelman." }).wait();
+
+    // Agent should NOT have called add_patient with "Spencer Hamelman" as email.
+    // It should either re-ask for email, or not call add_patient at all yet
+    // (we're still missing other fields anyway).
+    const addPatientCalls = ctx.callLog.filter((c) => c.name === "add_patient");
+    for (const call of addPatientCalls) {
+      const email = (call.args as any).email;
+      // Email must not literally be the subscriber name
+      expect(email).not.toBe("Spencer Hamelman");
+      // If an email was passed, it must look like an email (contain @) or be empty
+      if (email && email !== "") {
+        expect(email).toMatch(/@/);
+      }
+    }
+  });
+});
+
+// ============================================================
 // Test 5: Provider change flagged during reschedule (SCL_vfkVH9RpYL4V)
 // Issue: Agent booked with Dr. Licht instead of Dr. Bach without
 // mentioning the provider change. Caller had to catch the mistake.
