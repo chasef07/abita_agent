@@ -67,7 +67,7 @@ export default defineAgent({
         stt: new assemblyai.STT({
           speechModel: "u3-rt-pro",
           vadThreshold: 0.3,
-          minTurnSilence: 250, // Time (ms) to wait before a speculative end-of-turn check.
+          minTurnSilence: 200, // Time (ms) to wait before a speculative end-of-turn check.
           maxTurnSilence: 2000, // Max time (ms) to wait before forcing the turn to end.
         }),
         llm: llmWithFallback,
