@@ -11,10 +11,10 @@ import {
   llm,
   voice,
 } from "@livekit/agents";
+import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as elevenlabs from "@livekit/agents-plugin-elevenlabs";
 import * as baseten from "@livekit/agents-plugin-baseten";
-import { STT as AssemblyAISTT } from "./assemblyai/stt.js";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -64,7 +64,7 @@ export default defineAgent({
       });
 
       const session = new voice.AgentSession<CallState>({
-        stt: new AssemblyAISTT({
+        stt: new assemblyai.STT({
           speechModel: "u3-rt-pro",
           vadThreshold: 0.3,
           minTurnSilence: 250, // Time (ms) to wait before a speculative end-of-turn check.

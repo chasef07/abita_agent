@@ -1,10 +1,10 @@
 # AssemblyAI U3 Pro STT — Design Decisions
 
-Switched STT from Deepgram Nova-3 to AssemblyAI Universal-3 Pro Streaming via LiveKit Inference on 2026-04-06.
+Switched STT from Deepgram Nova-3 to AssemblyAI Universal-3 Pro Streaming on 2026-04-06. The app now uses the official Node plugin, `@livekit/agents-plugin-assemblyai`, instead of the old local wrapper.
 
 ## Key decisions
 
-**LiveKit Inference (not plugin):** Using `inference.STT({ model: "assemblyai/u3-rt-pro" })` — no AssemblyAI API key needed, billed through LiveKit Cloud. The AssemblyAI plugin is Python-only anyway.
+**Official Node plugin:** Using `new assemblyai.STT({ speechModel: "u3-rt-pro" })` from `@livekit/agents-plugin-assemblyai` with a direct `ASSEMBLYAI_API_KEY`. This keeps billing and rate limits on the AssemblyAI side while avoiding the repo-local wrapper we had before.
 
 **STT-based turn detection (`turnDetection: "stt"`):** Both LiveKit and AssemblyAI docs recommend this as the primary approach for U3 Pro. The model has built-in punctuation-based turn detection (checks for `.` `?` `!` after silence). MultilingualModel is only an alternative if you specifically want a third-party model making turn decisions on top.
 
@@ -19,8 +19,8 @@ Switched STT from Deepgram Nova-3 to AssemblyAI Universal-3 Pro Streaming via Li
 ## Parameters
 
 ```
-min_turn_silence: 100   — silence (ms) before speculative EOT check (punctuation-based)
-max_turn_silence: 1000  — max silence (ms) before forced turn end (plugin defaults to 100, API default is 1000)
+min_turn_silence: 250   — silence (ms) before speculative EOT check (punctuation-based)
+max_turn_silence: 2000  — max silence (ms) before forced turn end
 vad_threshold: 0.3      — AssemblyAI internal VAD, must match Silero
 ```
 
@@ -28,5 +28,5 @@ vad_threshold: 0.3      — AssemblyAI internal VAD, must match Silero
 
 - Increase `min_turn_silence` if brief pauses cause early EOT on terminal punctuation
 - Increase `max_turn_silence` if forced turn end cuts off users mid-thought or splits entities (phone numbers, DOBs) across turns
-- Can use `stt.updateOptions({ max_turn_silence: 3000 })` mid-stream during entity dictation, then reset after
-- `keyterms_prompt` available in modelOptions to boost recognition of specific terms (provider names, insurance carriers, etc.)
+- Can use `stt.updateOptions({ maxTurnSilence: 3000 })` mid-stream during entity dictation, then reset after
+- `keytermsPrompt` is available to boost recognition of specific terms (provider names, insurance carriers, etc.)
