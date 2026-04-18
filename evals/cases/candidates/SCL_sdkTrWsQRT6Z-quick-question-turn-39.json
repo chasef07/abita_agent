@@ -1,0 +1,328 @@
+{
+  "id": "SCL_sdkTrWsQRT6Z-quick-question-turn-39",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_sdkTrWsQRT6Z",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "Sure, have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "UnitedHealthcare."
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah we take United Healthcare.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Denise."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright Denise, what's your last name?"
+    },
+    {
+      "role": "user",
+      "content": "KCCASUI."
+    },
+    {
+      "role": "assistant",
+      "content": "And what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "9— 2268."
+    },
+    {
+      "role": "assistant",
+      "content": "Let me make sure I have that right -- is that September twenty-second, nineteen sixty-eight?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "Is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "Don't have one."
+    },
+    {
+      "role": "assistant",
+      "content": "No problem. What's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "2161 Crowsnest— C-R-O-W-S-N-E-S-T Drive, Palm Harbor, Florida 34685."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your sex?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, I need to grab your insurance card info.  What's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Hang on one second."
+    },
+    {
+      "role": "assistant",
+      "content": "No rush, take your time."
+    },
+    {
+      "role": "user",
+      "content": "Cool."
+    },
+    {
+      "role": "assistant",
+      "content": "Whenever you're ready, just let me know the name on the insurance card."
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "What's the name on the insurance card?"
+    },
+    {
+      "role": "user",
+      "content": "I'm getting it."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, just let me know when you have it."
+    },
+    {
+      "role": "user",
+      "content": "The name on the insurance card is Kevin Casey."
+    },
+    {
+      "role": "assistant",
+      "content": "And what's the member ID on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Um, the card—"
+    },
+    {
+      "role": "assistant",
+      "content": "Take your time finding"
+    },
+    {
+      "role": "user",
+      "content": "Hang on one second."
+    },
+    {
+      "role": "assistant",
+      "content": "No problem, whenever you're ready."
+    },
+    {
+      "role": "user",
+      "content": "Thanks."
+    },
+    {
+      "role": "assistant",
+      "content": "Let me know when you have that member ID."
+    },
+    {
+      "role": "user",
+      "content": "Hello, I'm ready. It's Denise Casey."
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "So the name on the card is Denise Casey?  And what's the member ID?"
+    },
+    {
+      "role": "user",
+      "content": "9-8-6-4-3-7-3-7-8."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright let me confirm -- I have Denise Casey, C-A-S-E-Y, date of birth September twenty-second, nineteen sixty-eight, United Healthcare, member ID nine eight six four three seven three seven eight.  Is that all correct?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect, you're all set.  So what's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "I need, uh, checkout and"
+    },
+    {
+      "role": "assistant",
+      "content": "Are you looking to schedule a routine eye exam or glasses prescription, or is there a specific eye concern you're having?"
+    },
+    {
+      "role": "user",
+      "content": "Contact— Um, I need a routine eye checkup."
+    },
+    {
+      "role": "assistant",
+      "content": "Crystal River is ophthalmology only, so routine eye exams are handled at our Spring Hill office.  Would you like me to schedule you there?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Friday, May 1st."
+    },
+    {
+      "role": "assistant",
+      "content": "Friday May first doesn't have any openings, but I've got Monday May fourth.  How's ten a m?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "How about eleven thirty a m?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Twelve p m?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Twelve thirty p m?"
+    },
+    {
+      "role": "user",
+      "content": "Another day."
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah, Tuesday May fifth has openings.  How's twelve p m?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Twelve thirty p m?"
+    },
+    {
+      "role": "user",
+      "content": "May 7th."
+    },
+    {
+      "role": "assistant",
+      "content": "May seventh doesn't have any openings, but I've got Monday May eleventh.  How's twelve p m?"
+    },
+    {
+      "role": "user",
+      "content": "No Mondays. May 8th."
+    },
+    {
+      "role": "assistant",
+      "content": "May eighth doesn't have any openings either.  How about Wednesday May sixth?"
+    },
+    {
+      "role": "user",
+      "content": "I can only do Tuesday, Wednesdays, or Fridays."
+    },
+    {
+      "role": "assistant",
+      "content": "Wednesday May sixth has openings with Dr. Licht.  How's nine forty-five a m?"
+    },
+    {
+      "role": "user",
+      "content": "I can only come in Tuesdays, Thursdays, or Fridays."
+    },
+    {
+      "role": "assistant",
+      "content": "Tuesday May twelfth has openings with Dr. Licht.  How's eleven forty-five a m?"
+    },
+    {
+      "role": "user",
+      "content": "Perfect."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, you're all set for Tuesday May twelfth at eleven forty-five a m with Dr. Licht at Spring Hill.  Is there anything else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "Address, please."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

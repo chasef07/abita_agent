@@ -1,0 +1,84 @@
+{
+  "id": "SCL_D2qS62GPAHgd-transfer-turn-8",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_D2qS62GPAHgd",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Representative—"
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Audrey—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Audrey, what can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "Can I talk to a person—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I'm here to help -- what are you calling about?"
+    },
+    {
+      "role": "user",
+      "content": "I think in animation— automation, um."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, I'm actually an AI assistant helping at the front desk here.  What do you need help with today?"
+    },
+    {
+      "role": "user",
+      "content": "Front desk."
+    },
+    {
+      "role": "assistant",
+      "content": "yep, that's me. What can I help you with?"
+    },
+    {
+      "role": "user",
+      "content": "For desk—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm here to help with scheduling, appointments, insurance questions, things like that.  What do you need?"
+    },
+    {
+      "role": "user",
+      "content": "Talk to a nurse."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

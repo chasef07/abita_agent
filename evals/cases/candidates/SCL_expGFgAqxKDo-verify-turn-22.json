@@ -1,0 +1,195 @@
+{
+  "id": "SCL_expGFgAqxKDo-verify-turn-22",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_expGFgAqxKDo",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent's first verify_patient invocation. Check that lookup context was respected (skip if pre-verified) and only first name asked for multi-match."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Schedule an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "No, no."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem. What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Laurence Rogers."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "9/19/1978."
+    },
+    {
+      "role": "assistant",
+      "content": "what's a good phone number for you?"
+    },
+    {
+      "role": "user",
+      "content": "352."
+    },
+    {
+      "role": "assistant",
+      "content": "I need the full ten-digit number.  What's the rest of it?"
+    },
+    {
+      "role": "user",
+      "content": "287. 5— 352-287-3187."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "It is lowrider352@gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "637— let me start over."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time."
+    },
+    {
+      "role": "user",
+      "content": "63— 63— those are violent court— Home Assassin, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm having trouble catching that address.  Can you start over and say it slowly?"
+    },
+    {
+      "role": "user",
+      "content": "6-3— Bells of Island Court, Homosassa, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "3, 4, 4, 4, 6."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. And are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Male."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Laurence Rogers, date of birth September nineteenth nineteen seventy-eight, no insurance, phone three five two .. two eight seven .. three one eight seven, email lowrider three five two at gmail dot com, address Bells of Island Court, Homosassa, Florida, three four four four six, male.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Um, let's review the address. It's 63 Bells of Ireland Court."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, so it's sixty-three Bells of Ireland Court, Homosassa, Florida, three four four four six.  Everything else look good?"
+    },
+    {
+      "role": "user",
+      "content": "Yep."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, you're all set.  So what's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "I exam—"
+    },
+    {
+      "role": "assistant",
+      "content": "you need an eye exam?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Você—"
+    },
+    {
+      "role": "assistant",
+      "content": "what day would you like to come in?"
+    },
+    {
+      "role": "user",
+      "content": "Hold on."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem, take your time."
+    },
+    {
+      "role": "user",
+      "content": "Wednesday, April 29th."
+    },
+    {
+      "role": "assistant",
+      "content": "I've got a couple options that day -- twelve fifteen p m with Dr. Licht, or two thirty p m with Dr. Noel.  Which would you prefer?"
+    },
+    {
+      "role": "user",
+      "content": "12:15."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

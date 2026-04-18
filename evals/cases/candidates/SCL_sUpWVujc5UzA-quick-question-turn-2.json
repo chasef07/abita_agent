@@ -1,0 +1,36 @@
+{
+  "id": "SCL_sUpWVujc5UzA-quick-question-turn-2",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_sUpWVujc5UzA",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey David, what time you guys close today?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

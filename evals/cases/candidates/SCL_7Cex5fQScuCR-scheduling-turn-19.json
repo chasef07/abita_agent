@@ -1,0 +1,173 @@
+{
+  "id": "SCL_7Cex5fQScuCR-scheduling-turn-19",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_7Cex5fQScuCR",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "David, are you AI?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping at the front desk here.  I'm just here to help -- what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "Do you think AI is going to kill us?"
+    },
+    {
+      "role": "assistant",
+      "content": "ha, that's a big question for a Friday afternoon.  I'm just here to help with appointments and office stuff, so I'll leave the philosophy to the humans.  What can I help you with today?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, so what can I do for you?  Are you looking to schedule an appointment, or is there something else I can help with?"
+    },
+    {
+      "role": "user",
+      "content": "Bye. Schedule an appointment with Dr. Abita."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Human of gold."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Humana.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Robert— crap, TRAPP."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Robert Trapp.  What's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "August 19th, 1962."
+    },
+    {
+      "role": "assistant",
+      "content": "is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, what's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "1B as in boy, I-L-Y, idle, I-D-L-E, at Gmail."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "15 North Fernwood Avenue, Clearwater, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "what's the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "33765—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Nail."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and for the insurance card,"
+    },
+    {
+      "role": "user",
+      "content": "It doesn't matter."
+    },
+    {
+      "role": "assistant",
+      "content": "I do need the subscriber name and member ID from the card to get you registered.  Do you have the card handy?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, we can hold off on that part.  You'll need to bring your insurance card with you to the appointment so we can get that information then.  So what's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "Okay, uh, referrals."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so you're coming in for a referral.  What day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "So—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, what day were you thinking?"
+    },
+    {
+      "role": "user",
+      "content": "Monday—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

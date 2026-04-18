@@ -1,0 +1,77 @@
+{
+  "id": "SCL_iFp6tNf8D7BK-transfer-turn-7",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_iFp6tNf8D7BK",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "6 agents—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm sorry, I'm having trouble hearing you.  Could you say that again?"
+    },
+    {
+      "role": "user",
+      "content": "Oh, you're an actual human?"
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah, I'm actually an AI assistant helping at the front desk here.  I'm just here to help -- what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "Oh, okay. Speaks to agents—"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm still having trouble understanding you.  Could you tell me what you're calling about today?"
+    },
+    {
+      "role": "user",
+      "content": "I just need to talk to a real human."
+    },
+    {
+      "role": "assistant",
+      "content": "Would you mind telling me what you're calling about?"
+    },
+    {
+      "role": "user",
+      "content": "Schedule—"
+    },
+    {
+      "role": "assistant",
+      "content": "I may be able to help with that here.  Are you looking to schedule an appointment?"
+    },
+    {
+      "role": "user",
+      "content": "I need to talk to somebody who is human."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

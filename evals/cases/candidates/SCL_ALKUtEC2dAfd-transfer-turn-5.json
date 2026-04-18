@@ -1,0 +1,60 @@
+{
+  "id": "SCL_ALKUtEC2dAfd-transfer-turn-5",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_ALKUtEC2dAfd",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, can I speak to, uh, I guess somebody there?"
+    },
+    {
+      "role": "assistant",
+      "content": "sure, what are you calling about today?"
+    },
+    {
+      "role": "user",
+      "content": "I was in there for an eye appointment this morning."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and did you have a question about your visit this morning, or is there something else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, I do."
+    },
+    {
+      "role": "assistant",
+      "content": "what's your question?"
+    },
+    {
+      "role": "user",
+      "content": "My eye is still irritated. Is there anything I can do for it?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

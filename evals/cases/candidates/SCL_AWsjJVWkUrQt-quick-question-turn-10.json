@@ -1,0 +1,100 @@
+{
+  "id": "SCL_AWsjJVWkUrQt-quick-question-turn-10",
+  "suite": "quick-question",
+  "source": "livekit-trace",
+  "traceId": "SCL_AWsjJVWkUrQt",
+  "tags": [
+    "quick-question",
+    "knowledge",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent looked up knowledge for a question. Check answer was grounded in lookup result, not invented."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey David, um, this is Mr. Gandhi. I'm calling for my father. His last name is Gandhi, G-A-N-D-H-I. First name is Kaushik Kumar, K-A-U-S-H-I-K."
+    },
+    {
+      "role": "assistant",
+      "content": "hey, thanks for calling.  So I have Kaushik Kumar Gandhi in our system.  What can I help you with for him today?"
+    },
+    {
+      "role": "user",
+      "content": "Um, so he had appointment, I guess, earlier this week. We had to cancel it. Um, just calling to see if you can put him for next Tuesday or something."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so you're looking to reschedule.  What's the reason for the visit?"
+    },
+    {
+      "role": "user",
+      "content": "Right."
+    },
+    {
+      "role": "assistant",
+      "content": "I've got openings next Tuesday with Dr. Noel at Spring Hill.  How's one thirty p m?"
+    },
+    {
+      "role": "user",
+      "content": "Are you AI?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping at the front desk here at Abita Eye Group.  I'm just here to help -- so does one thirty p m work for your father?"
+    },
+    {
+      "role": "user",
+      "content": "Oh my God."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries at all. So would one thirty p m on Tuesday work, or would you prefer a different time?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, different time, earlier time."
+    },
+    {
+      "role": "assistant",
+      "content": "sure, I've got two p m, two thirty, or three p m. Which one works better?"
+    },
+    {
+      "role": "user",
+      "content": "Do you have anything before that?"
+    },
+    {
+      "role": "assistant",
+      "content": "no, one thirty p m is the earliest available that day.  Would you like me to check a different day?"
+    },
+    {
+      "role": "user",
+      "content": "No, Tuesday, 1:30 PM. Let's do it."
+    },
+    {
+      "role": "assistant",
+      "content": "you're all set. Kaushik Kumar Gandhi is confirmed for Tuesday, April twenty-first at one thirty p m with Dr. Noel at Spring Hill.  Is there anything else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "What is the address?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "lookup_knowledge"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

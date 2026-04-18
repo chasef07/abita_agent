@@ -1,0 +1,166 @@
+{
+  "id": "SCL_85bN29f2t74v-registration-turn-18",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_85bN29f2t74v",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Need to make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Stay well."
+    },
+    {
+      "role": "assistant",
+      "content": "I need the exact plan name from your insurance card.  Do you have the card with you?"
+    },
+    {
+      "role": "user",
+      "content": "Sunshine Health—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Sunshine Health.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "It's for my son, Roy Griffin."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's Roy's date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "12-1608—"
+    },
+    {
+      "role": "assistant",
+      "content": "I want to make sure I have that right -- was that December sixteenth, two thousand eight?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "is the number you're calling from a good one to reach you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "what's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "You can use Tamika— T-O-M-E-E-K-A-W-A-D-D-Y1@gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "what's your home address?"
+    },
+    {
+      "role": "user",
+      "content": "815 Shane Street, Brooksville, Florida 34601."
+    },
+    {
+      "role": "assistant",
+      "content": "is Roy male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Repeat that."
+    },
+    {
+      "role": "assistant",
+      "content": "is Roy male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Now—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and for the insurance card -- whose name is on the policy?"
+    },
+    {
+      "role": "user",
+      "content": "Bryant Griffin."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's the member ID on the card?"
+    },
+    {
+      "role": "user",
+      "content": "947503898— wait a minute, I got to repeat that. Hold on."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem, take your time."
+    },
+    {
+      "role": "user",
+      "content": "Oh, I can't see it."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries. If you can find the card and have the member ID, I can hold while you look.  Or if you'd prefer, you can call back when you have it handy."
+    },
+    {
+      "role": "user",
+      "content": "9. Mm-hmm. 9-4-7-5-0-3-8-8-3-3."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Roy Griffin, G-R-I-F-F-I-N, date of birth December sixteenth, two thousand eight, Sunshine Health, member ID nine four seven five zero three eight eight three three.  Does that all look right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

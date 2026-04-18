@@ -1,0 +1,53 @@
+{
+  "id": "SCL_AWsjJVWkUrQt-scheduling-turn-4",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_AWsjJVWkUrQt",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey David, um, this is Mr. Gandhi. I'm calling for my father. His last name is Gandhi, G-A-N-D-H-I. First name is Kaushik Kumar, K-A-U-S-H-I-K."
+    },
+    {
+      "role": "assistant",
+      "content": "hey, thanks for calling.  So I have Kaushik Kumar Gandhi in our system.  What can I help you with for him today?"
+    },
+    {
+      "role": "user",
+      "content": "Um, so he had appointment, I guess, earlier this week. We had to cancel it. Um, just calling to see if you can put him for next Tuesday or something."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so you're looking to reschedule.  What's the reason for the visit?"
+    },
+    {
+      "role": "user",
+      "content": "Right."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "id": "SCL_RgKQ2abPQFi9-transfer-turn-3",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_RgKQ2abPQFi9",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Can I speak with a technician?"
+    },
+    {
+      "role": "assistant",
+      "content": "What do you need help with today?"
+    },
+    {
+      "role": "user",
+      "content": "I need to speak with a technician."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

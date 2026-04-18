@@ -1,0 +1,166 @@
+{
+  "id": "SCL_UXK9eZoaBZkk-registration-turn-18",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_UXK9eZoaBZkk",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, I was trying to make an appointment for my granddaughter."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, have you been seen here before,"
+    },
+    {
+      "role": "user",
+      "content": "Phone call dropped."
+    },
+    {
+      "role": "assistant",
+      "content": "I can help with that.  Have you been seen here before, or would this be her first visit?"
+    },
+    {
+      "role": "user",
+      "content": "No, no."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, let me get her set up.  What insurance does she have?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, she has Simply, but she is covered through EyeCare."
+    },
+    {
+      "role": "assistant",
+      "content": "I need the exact plan name from her"
+    },
+    {
+      "role": "user",
+      "content": "I need the exact same name for the insurance— uh, Century Healthcare."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding that one.  Do you have the insurance card handy?  I need the exact plan name as it appears on the card."
+    },
+    {
+      "role": "user",
+      "content": "Simply Healthcare. It's, uh, through Eye Care Health Solutions."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Simply.  What's your granddaughter's name?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, Kaylin Barnett."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's her date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "August 9th— uh, August 20th, 2010."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, is the number you're calling from a good one on file for her?"
+    },
+    {
+      "role": "user",
+      "content": "Calling from— Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's her email address?"
+    },
+    {
+      "role": "user",
+      "content": "You know which one?"
+    },
+    {
+      "role": "assistant",
+      "content": "no, I don't have that.  What's her email address?"
+    },
+    {
+      "role": "user",
+      "content": "My email address is Nancy— Nancy's Bar 575 at gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's her home address?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, 18301 Highway 41, Lot 23B, Spring Hill, Florida 34610."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and is she male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Seeing now—"
+    },
+    {
+      "role": "assistant",
+      "content": "is she male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's the name on the insurance card?"
+    },
+    {
+      "role": "user",
+      "content": "Caden M. Barnett."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "715-207-022—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it. Let me confirm -- I have Kaylin Barnett, B-A-R-N-E-T-T, date of birth August twentieth twenty ten, Simply Medicaid, member ID seven one five two zero seven zero two two.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

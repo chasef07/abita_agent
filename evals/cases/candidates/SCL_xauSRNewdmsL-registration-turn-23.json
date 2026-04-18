@@ -1,0 +1,206 @@
+{
+  "id": "SCL_xauSRNewdmsL-registration-turn-23",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_xauSRNewdmsL",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, um, I just have a quick question. I wanted to double-check before anything. Um, do you guys take Simply Healthcare for vision?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Simply Healthcare."
+    },
+    {
+      "role": "user",
+      "content": "Okay, awesome. Um, I need to make an appointment for my husband."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, has your husband been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No, this would be first time."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me get him set up.  What's his name?"
+    },
+    {
+      "role": "user",
+      "content": "Thank you. Ryan, R-Y-A-N—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Ryan. What's his last name?"
+    },
+    {
+      "role": "user",
+      "content": "Raskin, R-A-S-K-I-N."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Raskin. And what's his date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "01Q0-2002."
+    },
+    {
+      "role": "assistant",
+      "content": "I want to make sure I have that right -- did you mean January tenth, two thousand two?"
+    },
+    {
+      "role": "user",
+      "content": "January 20th."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, January twentieth, two thousand two.  What insurance does he have?"
+    },
+    {
+      "role": "user",
+      "content": "Simply Healthcare."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take that. Is the number you're calling from a good one to reach him?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, what's his email address?"
+    },
+    {
+      "role": "user",
+      "content": "Paulina?"
+    },
+    {
+      "role": "assistant",
+      "content": "no, I need his email address for the file."
+    },
+    {
+      "role": "user",
+      "content": "Alaska 04—"
+    },
+    {
+      "role": "assistant",
+      "content": "sorry, I'm having trouble hearing that clearly.  Could you spell out the email address for me?"
+    },
+    {
+      "role": "user",
+      "content": "Ryan— same name— Raskin."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so Ryan Raskin at... what comes after the at sign?"
+    },
+    {
+      "role": "user",
+      "content": "0206@gmail—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, so that's Ryan Raskin at zero two zero six at gmail dot com?"
+    },
+    {
+      "role": "user",
+      "content": "Gmail. Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's his home address?"
+    },
+    {
+      "role": "user",
+      "content": "11108 Marquette Street, Spring Hill."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What city is that in?"
+    },
+    {
+      "role": "user",
+      "content": "Spring Hill."
+    },
+    {
+      "role": "assistant",
+      "content": "and what state?"
+    },
+    {
+      "role": "user",
+      "content": "Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "and the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "3, 4, 6, 0, 9."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. And is he male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Male."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, now I need the info from his insurance card.  What's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Brian Raskin."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Brian Raskin.  And what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "One second."
+    },
+    {
+      "role": "assistant",
+      "content": "take your time."
+    },
+    {
+      "role": "user",
+      "content": "So that'll be 787— 10— 38532."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

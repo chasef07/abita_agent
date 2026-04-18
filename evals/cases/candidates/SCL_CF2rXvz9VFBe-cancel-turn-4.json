@@ -1,0 +1,53 @@
+{
+  "id": "SCL_CF2rXvz9VFBe-cancel-turn-4",
+  "suite": "cancel",
+  "source": "livekit-trace",
+  "traceId": "SCL_CF2rXvz9VFBe",
+  "tags": [
+    "cancel",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent cancelled an appointment. Check that cancel_appt was actually called rather than just verbally agreed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I would like to cancel my appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Jacqueline—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Jacqueline, I see you have an appointment today at two p m with Dr. Noel.  You want to go ahead and cancel that?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, my ride canceled."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "cancel_appt"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "cancel_requires_tool_call"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

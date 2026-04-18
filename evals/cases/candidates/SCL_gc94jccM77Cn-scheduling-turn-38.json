@@ -1,0 +1,325 @@
+{
+  "id": "SCL_gc94jccM77Cn-scheduling-turn-38",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_gc94jccM77Cn",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hello?"
+    },
+    {
+      "role": "assistant",
+      "content": "hey, yeah I'm here. What can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "Oh, I need to make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "our humana—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Humana.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, it's not— this is for my wife."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem, I can set her up.  What's her name?"
+    },
+    {
+      "role": "user",
+      "content": "Anna—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's her last name?"
+    },
+    {
+      "role": "user",
+      "content": "And I— why beneath it?"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, just her last name is all I need."
+    },
+    {
+      "role": "user",
+      "content": "Benny does, but hey—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, Anna Bennedos.  And what's her date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "11-652."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what year was she born?"
+    },
+    {
+      "role": "user",
+      "content": "1952."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, November sixth, nineteen fifty-two.  Is the number you're calling from a good one to reach her at?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, what's the best phone number for her?"
+    },
+    {
+      "role": "user",
+      "content": "305-804-9922."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's her email address?"
+    },
+    {
+      "role": "user",
+      "content": "Okay. Can I— I want to make sure you have her last name correct."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, let me make sure I have it right -- you said Bennedos, is that B-E-N-N-E-D-O-S?"
+    },
+    {
+      "role": "user",
+      "content": "No, it's— no, Benitez. B-E-N-I-T-E-Z."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Benitez, B-E-N-I-T-E-Z.  And what's her email address?"
+    },
+    {
+      "role": "user",
+      "content": "Okay, but, uh, I wanted to ask a question about what the doctor, uh,"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, what's the question?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, could he remove that?"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not sure what you're asking about -- could you tell me a little more what you need help with?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, cyst."
+    },
+    {
+      "role": "assistant",
+      "content": "oh, like a cyst on the eyelid or something?  Yeah, the doctors here can"
+    },
+    {
+      "role": "user",
+      "content": "No, it's not on the eyelid. Not on the eyelid. It's right in the corner of her— like, outer corner."
+    },
+    {
+      "role": "assistant",
+      "content": "gotcha, yeah they can evaluate that.  I'll just need to finish getting her info set up first, then we can get her scheduled.  What's her email address?"
+    },
+    {
+      "role": "user",
+      "content": "All right, sounds good."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, what's her email address?"
+    },
+    {
+      "role": "user",
+      "content": "It's her, uh, A-Y— A-Y-B-E-N-I-T."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, and what's the rest of it?  Is that at Gmail or"
+    },
+    {
+      "role": "user",
+      "content": "94, that's T mother."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, so A-Y-B-E-N-I-T-9-4 at T-M-O-B-I-L-E dot C-O-M?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, gmail.com, yes."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, A-Y-B-E-N-I-T-9-4 at G-M-A-I-L dot C-O-M.  And what's her street address?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, what's the street address?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, 5753."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's the street name?"
+    },
+    {
+      "role": "user",
+      "content": "Highway 85."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what city is that in?"
+    },
+    {
+      "role": "user",
+      "content": "I—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, what city?"
+    },
+    {
+      "role": "user",
+      "content": "Crestview, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's the zip"
+    },
+    {
+      "role": "user",
+      "content": "Crestview, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I got Crestview, Florida."
+    },
+    {
+      "role": "user",
+      "content": "32536."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and is she male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and I need the name on her insurance card and the member ID."
+    },
+    {
+      "role": "user",
+      "content": "Anna Y. Benitez."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's the member ID on the card?"
+    },
+    {
+      "role": "user",
+      "content": "H43253050."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me confirm -- I have Anna Benitez, B-E-N-I-T-E-Z, date of birth November sixth, nineteen fifty-two, Humana PPO, member ID H-4-3-2-5-3-0-5-0.  Does that all look right?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, repeat the ID number again."
+    },
+    {
+      "role": "assistant",
+      "content": "H-4-3-2-5-3-0-5-0."
+    },
+    {
+      "role": "user",
+      "content": "Uh, one more time, the ID number."
+    },
+    {
+      "role": "assistant",
+      "content": "H-4-3-2-5-3-0-5-0."
+    },
+    {
+      "role": "user",
+      "content": "Yes, correct."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, she's all set.  So what's the reason for her visit?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, like I mentioned before, she has a little milia on the corner of her eye and a bigger cyst on the outer corner of her eye."
+    },
+    {
+      "role": "assistant",
+      "content": "gotcha, so she needs to be seen for a cyst on the outer corner of her eye.  What day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, what days you have available?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

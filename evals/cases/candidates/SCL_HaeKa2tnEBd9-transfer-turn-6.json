@@ -1,0 +1,68 @@
+{
+  "id": "SCL_HaeKa2tnEBd9-transfer-turn-6",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_HaeKa2tnEBd9",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, my name is Kenneth."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Kenneth, what can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "Delaney—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it Kenneth. What are you calling about?"
+    },
+    {
+      "role": "user",
+      "content": "I need to talk to somebody about my appointments for next week."
+    },
+    {
+      "role": "assistant",
+      "content": "sure, I can help with that.  I see you have two coming up -- one Tuesday April twenty-first at eleven thirty a m, and another Friday April twenty-fourth at one thirty p m, both with Dr. Noel.  What did you need to do with them?"
+    },
+    {
+      "role": "user",
+      "content": "Well, I can't afford to go to both of them. I didn't really need to talk to somebody about that, uh, because I have no transportation."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. So you're looking to cancel one of them because of transportation and cost?  Which one would you like to keep?"
+    },
+    {
+      "role": "user",
+      "content": "Actually, I really need to talk to somebody about what's going on with— because I got eye surgery coming up next week, next Thursday."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

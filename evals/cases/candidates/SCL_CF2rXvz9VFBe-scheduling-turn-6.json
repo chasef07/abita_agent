@@ -1,0 +1,70 @@
+{
+  "id": "SCL_CF2rXvz9VFBe-scheduling-turn-6",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_CF2rXvz9VFBe",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I would like to cancel my appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Jacqueline—"
+    },
+    {
+      "role": "assistant",
+      "content": "hey Jacqueline, I see you have an appointment today at two p m with Dr. Noel.  You want to go ahead and cancel that?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, my ride canceled."
+    },
+    {
+      "role": "assistant",
+      "content": "you're all set -- that appointment's been cancelled.  Is there anything else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "So you give me another appointment for next week."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I can get you rescheduled.  What day works for you next week?"
+    },
+    {
+      "role": "user",
+      "content": "Molly—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

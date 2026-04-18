@@ -1,0 +1,53 @@
+{
+  "id": "SCL_DJLFTPpLCRiY-transfer-turn-4",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_DJLFTPpLCRiY",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Front desk."
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah, this is David at the front desk.  What can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "Is this a live person?"
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah, I'm actually an AI assistant helping at the front desk here.  I'm just here to help -- what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "Is there a human I could talk to, David?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}
