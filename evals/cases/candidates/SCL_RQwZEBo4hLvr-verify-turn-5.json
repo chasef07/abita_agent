@@ -1,0 +1,59 @@
+{
+  "id": "SCL_RQwZEBo4hLvr-verify-turn-5",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_RQwZEBo4hLvr",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent re-ran verify_patient. Check whether retry was necessary or wasteful."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, um, good morning. I was wondering if you can help me, uh, with an appointment for my husband that he forgot what day it is with you guys."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Let me look him up. What's his first name?"
+    },
+    {
+      "role": "user",
+      "content": "John Hill."
+    },
+    {
+      "role": "assistant",
+      "content": "I need a little more info to find him.  What's his date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "If YA—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead, what's his date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "It's April 12th, 1999."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

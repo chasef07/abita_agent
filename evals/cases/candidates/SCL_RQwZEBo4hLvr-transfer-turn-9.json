@@ -1,0 +1,92 @@
+{
+  "id": "SCL_RQwZEBo4hLvr-transfer-turn-9",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_RQwZEBo4hLvr",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, um, good morning. I was wondering if you can help me, uh, with an appointment for my husband that he forgot what day it is with you guys."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Let me look him up. What's his first name?"
+    },
+    {
+      "role": "user",
+      "content": "John Hill."
+    },
+    {
+      "role": "assistant",
+      "content": "I need a little more info to find him.  What's his date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "If YA—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead, what's his date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "It's April 12th, 1999."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding him under that name and date of birth.  Could you spell his last name for me?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, it's Gonzalez, G-O-N-Z-A-L-E-Z."
+    },
+    {
+      "role": "assistant",
+      "content": "still not finding him.  Let me try just the first name -- what's his date of birth again?"
+    },
+    {
+      "role": "user",
+      "content": "González. Um, April 12, 1999."
+    },
+    {
+      "role": "assistant",
+      "content": "still no match. Has he been seen here before, or would this be his first appointment?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, he's been there like one year ago. He have an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, let me try a different way.  What phone number do we have on file for him?"
+    },
+    {
+      "role": "user",
+      "content": "Um, 786-343-6820."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}
