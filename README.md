@@ -138,16 +138,17 @@ Test against a SIP trunk requires a real Twilio/Telnyx setup — see `TELNYX_SET
 
 ## Deploy
 
-Deploy manually with the LiveKit CLI:
+Push to `main` to deploy with GitHub Actions:
 
 ```bash
-lk agent deploy --yes
+git push origin main
 ```
 
 Check status:
 
 ```bash
 lk agent status
+gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 ```
 
 ## Key environment variables
