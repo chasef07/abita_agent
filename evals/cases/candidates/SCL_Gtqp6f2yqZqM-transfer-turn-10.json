@@ -1,0 +1,93 @@
+{
+  "id": "SCL_Gtqp6f2yqZqM-transfer-turn-10",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_Gtqp6f2yqZqM",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I was calling about the Spring Hill location."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  What were you needing to know about the Spring Hill location?"
+    },
+    {
+      "role": "user",
+      "content": "Is there a pediatric ophthalmologist there?"
+    },
+    {
+      "role": "assistant",
+      "content": "yes, we do. Dr. Bach sees pediatric patients at Spring Hill -- he handles pediatrics, adult strabismus, and double vision.  Just so you know, his schedule is limited and only at Spring Hill a couple times per month, so availability may be several weeks out."
+    },
+    {
+      "role": "user",
+      "content": "Okay, when's his next available—"
+    },
+    {
+      "role": "assistant",
+      "content": "let me check on that.  Before I look, what's the reason for the visit?"
+    },
+    {
+      "role": "user",
+      "content": "Um, my child is seeing colored spots."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and how old is your child?"
+    },
+    {
+      "role": "user",
+      "content": "6—"
+    },
+    {
+      "role": "user",
+      "content": "6—"
+    },
+    {
+      "role": "user",
+      "content": "Hello."
+    },
+    {
+      "role": "assistant",
+      "content": "hey, sorry about that -- I was checking Dr. Bach's schedule.  He doesn't have any openings coming up soon.  His next available date isn't showing in the system yet, so it may be several weeks out.  Would you like me to check with Dr. Noel instead?  She can see pediatric patients too, and I do have openings with her on Monday, April 27th."
+    },
+    {
+      "role": "user",
+      "content": "What time?"
+    },
+    {
+      "role": "assistant",
+      "content": "I've got 11:00 a m, 12:30 p m, 1:00 p m, 1:30 p m, or 3:00 p m available on Monday, April 27th.  Which one works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Um, I'm not sure. Is there any way I can talk to someone in the office?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

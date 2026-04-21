@@ -1,0 +1,68 @@
+{
+  "id": "SCL_S5dQbkYfVKEp-transfer-turn-6",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_S5dQbkYfVKEp",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Richard—"
+    },
+    {
+      "role": "assistant",
+      "content": "Hey Richard, I've got you pulled up.  What's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "Check his eye."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. What day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "No worries -- when would you like to come in?"
+    },
+    {
+      "role": "user",
+      "content": "Oh, speak to somebody, please."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

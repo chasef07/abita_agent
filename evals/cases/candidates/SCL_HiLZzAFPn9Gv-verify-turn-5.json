@@ -1,0 +1,62 @@
+{
+  "id": "SCL_HiLZzAFPn9Gv-verify-turn-5",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_HiLZzAFPn9Gv",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent's first verify_patient invocation. Check that lookup context was respected (skip if pre-verified) and only first name asked for multi-match."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Gracias, no, pero no he podido confirmar la cita de Natalia Sárez."
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "You have all your office—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I just need the first name to pull up the right record.  What's the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Nada, les sabes—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so the patient's first name is Nataly or Natalie?  Which one is it?"
+    },
+    {
+      "role": "user",
+      "content": "Natalie— Natalie Azales."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "narrow_with_first_name_only",
+      "do_not_read_back_known_names"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

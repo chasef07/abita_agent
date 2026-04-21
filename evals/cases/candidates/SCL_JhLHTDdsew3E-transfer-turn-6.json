@@ -1,0 +1,69 @@
+{
+  "id": "SCL_JhLHTDdsew3E-transfer-turn-6",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_JhLHTDdsew3E",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Front desk receptionist."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, that's me -- I'm at the front desk.  What can I help you with today?"
+    },
+    {
+      "role": "user",
+      "content": "Front desk receptionist."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm here to help -- what do you need?"
+    },
+    {
+      "role": "user",
+      "content": "Real person."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping at the front desk at"
+    },
+    {
+      "role": "user",
+      "content": "Oh my God."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping at the front desk here.  I'm just here to help --"
+    },
+    {
+      "role": "user",
+      "content": "Reset to— talk to someone."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

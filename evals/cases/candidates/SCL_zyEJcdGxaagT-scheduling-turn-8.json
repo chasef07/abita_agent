@@ -1,0 +1,86 @@
+{
+  "id": "SCL_zyEJcdGxaagT-scheduling-turn-8",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_zyEJcdGxaagT",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hey, good morning. It's Robert Gardner. How you doing?"
+    },
+    {
+      "role": "assistant",
+      "content": "good morning Robert, I'm doing well, thanks.  What can I help you with today?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, I'm not feeling good. I can't make it."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, I can cancel that for you.  So just to confirm -- you want to cancel your appointment today at ten a m with Dr. Noel?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, I don't feel good at all."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, your appointment is"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, I'm one of these— I'm gonna reschedule those."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem, let's get you rescheduled.  What day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "No Tuesdays."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, no Tuesdays.  How about Wednesday or another day this week?"
+    },
+    {
+      "role": "user",
+      "content": "Hey, Wednesday's what?"
+    },
+    {
+      "role": "assistant",
+      "content": "Wednesday would be April twenty-second.  Does that work for you?"
+    },
+    {
+      "role": "user",
+      "content": "Let's go—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

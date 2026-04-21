@@ -1,0 +1,85 @@
+{
+  "id": "SCL_HiLZzAFPn9Gv-scheduling-turn-8",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_HiLZzAFPn9Gv",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Gracias, no, pero no he podido confirmar la cita de Natalia Sárez."
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "You have all your office—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I just need the first name to pull up the right record.  What's the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Nada, les sabes—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so the patient's first name is Nataly or Natalie?  Which one is it?"
+    },
+    {
+      "role": "user",
+      "content": "Natalie— Natalie Azales."
+    },
+    {
+      "role": "assistant",
+      "content": "I don't see any upcoming appointments for Natalie.  Would you like to schedule one?"
+    },
+    {
+      "role": "user",
+      "content": "Confirm the appointment is, is 22."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so you're looking to schedule for April twenty-second?  What's the reason for the visit?"
+    },
+    {
+      "role": "user",
+      "content": "Mary Elizabeth—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so what's the reason for the visit?  Like what's going on with her eyes?"
+    },
+    {
+      "role": "user",
+      "content": "Seguimiento."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "id": "SCL_mEXvctBfu39r-registration-turn-17",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_mEXvctBfu39r",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Emergency appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand you need to be seen urgently.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Okay, let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "UnitedHealthcare—"
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah we take United Healthcare.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Cheryl Kruzanowski."
+    },
+    {
+      "role": "assistant",
+      "content": "And your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "7/12/1968."
+    },
+    {
+      "role": "assistant",
+      "content": "Is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "chrvn1@aol.com."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "14 Greville Court, Homosassa, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your zip code?"
+    },
+    {
+      "role": "user",
+      "content": "3444— 34446."
+    },
+    {
+      "role": "assistant",
+      "content": "And are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, I need the name on the insurance card and the member ID."
+    },
+    {
+      "role": "user",
+      "content": "Brian Krusinowski."
+    },
+    {
+      "role": "assistant",
+      "content": "And the member ID?"
+    },
+    {
+      "role": "user",
+      "content": "9-3-0-9-3-1-7-1-6."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright let me confirm -- I have Cheryl Krusinowski, K-R-U-S-I-N-O-W-S-K-I, date of birth July twelfth nineteen sixty-eight, United Healthcare, member ID nine three zero nine three one seven one six.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "What needs to be corrected?"
+    },
+    {
+      "role": "user",
+      "content": "Last name."
+    },
+    {
+      "role": "assistant",
+      "content": "What's the correct spelling of your last name?"
+    },
+    {
+      "role": "user",
+      "content": "C-H-R-Z-A-N-O-W-S-K-I."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright let me confirm -- I have Cheryl Chrzanowski, C-H-R-Z-A-N-O-W-S-K-I, date of birth July twelfth nineteen sixty-eight, United Healthcare, member ID nine three zero nine three one seven one six.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

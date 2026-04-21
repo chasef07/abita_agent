@@ -1,0 +1,236 @@
+{
+  "id": "SCL_xKUfgtZesn3A-transfer-turn-27",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_xKUfgtZesn3A",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I'm calling to make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Blue Cross Blue Shield."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Blue Cross Blue Shield.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Tammy Fatula."
+    },
+    {
+      "role": "assistant",
+      "content": "alright Tammy, and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "11-25-70."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, and what's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "s-u-t-u-l-a-t@msn.com."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, and what's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "8— 703 Arrowhead Drive, Hudson, Florida 34667."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's the name on the insurance card?"
+    },
+    {
+      "role": "user",
+      "content": "Tammy L. Setula."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's the member ID on the card?"
+    },
+    {
+      "role": "user",
+      "content": "F0H100012234652."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Tammy Fatula, F-A-T-U-L-A, date of birth November twenty-fifth nineteen seventy, Florida Blue, member ID F zero H one zero zero zero zero one two two three four six five two.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "No, last name is incorrect."
+    },
+    {
+      "role": "assistant",
+      "content": "oh sorry about that.  Can you spell your last name for me?"
+    },
+    {
+      "role": "user",
+      "content": "S is in SAM."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, S-E-T-U-L-A.  Let me confirm again -- Tammy Setula, S-E-T-U-L-A, date of birth November twenty-fifth nineteen seventy, Florida Blue, member ID F zero H one zero zero zero zero one two two three four six five two.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "what's not matching?"
+    },
+    {
+      "role": "user",
+      "content": "The last name is still wrong and the ID is wrong."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, let me get the correct spelling.  Can you spell your last name again, letter by letter?"
+    },
+    {
+      "role": "user",
+      "content": "S as in Sam, U like umbrella, T as in Tom, U umbrella, L lion, A apple."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, S-U-T-U-L-A.  And what's the correct member ID on the card?"
+    },
+    {
+      "role": "user",
+      "content": "F0H100012234652."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- Tammy Setula, S-U-T-U-L-A, date of birth November twenty-fifth nineteen seventy, Florida Blue, member ID F zero H one zero zero zero zero one two two three four six five two.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "No, you keep adding one too many zeros."
+    },
+    {
+      "role": "assistant",
+      "content": "oh I see, let me fix that.  F zero H one zero zero zero one two two three four six five two.  Is that right?"
+    },
+    {
+      "role": "user",
+      "content": "Can you say it slower?"
+    },
+    {
+      "role": "assistant",
+      "content": "F ... zero ... H ... one ... zero ... zero ... zero ... one ... two ... two ... three ... four ... six ... five ... two.  Is that correct?"
+    },
+    {
+      "role": "user",
+      "content": "I can't tell."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me read it back exactly as you said it.  F zero H one zero zero zero one two two three four six five two.  Does that match your card?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, you're all set.  So what's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "Drum—"
+    },
+    {
+      "role": "assistant",
+      "content": "sorry, I didn't catch that.  What's bringing you in?"
+    },
+    {
+      "role": "user",
+      "content": "I would re—"
+    },
+    {
+      "role": "assistant",
+      "content": "go ahead, what's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "I'm having vision issues in my left eye. Went to the ER last night. ER doctor consulted with your doctor and said I need to come in today."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, I understand that's urgent.  Unfortunately the earliest I can schedule is tomorrow.  Let me check what's available for you.  What day works best?"
+    },
+    {
+      "role": "user",
+      "content": "They said I needed to be seen today."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I get that, and I wish I could help with today, but the earliest we can schedule is tomorrow.  Let me check availability for tomorrow -- would that work for you?"
+    },
+    {
+      "role": "user",
+      "content": "Your doctor told my ER doctor last night he would get me in this morning. Can you please check?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

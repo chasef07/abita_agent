@@ -1,0 +1,37 @@
+{
+  "id": "SCL_HiLZzAFPn9Gv-language-turn-2",
+  "suite": "language",
+  "source": "livekit-trace",
+  "traceId": "SCL_HiLZzAFPn9Gv",
+  "tags": [
+    "language",
+    "spanish",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: caller spoke Spanish. Check the agent replied in Spanish, not English."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Gracias, no, pero no he podido confirmar la cita de Natalia Sárez."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "match_caller_language"
+    ],
+    "styleFlags": [
+      "responds_in_spanish",
+      "concise"
+    ]
+  }
+}

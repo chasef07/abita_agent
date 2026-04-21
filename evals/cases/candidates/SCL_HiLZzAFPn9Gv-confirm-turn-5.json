@@ -1,0 +1,59 @@
+{
+  "id": "SCL_HiLZzAFPn9Gv-confirm-turn-5",
+  "suite": "confirm",
+  "source": "livekit-trace",
+  "traceId": "SCL_HiLZzAFPn9Gv",
+  "tags": [
+    "confirm",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent fetched appointments to confirm an existing visit. Check that confirm_appt was used only after verifying the patient and that the confirmation path stayed concise."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Gracias, no, pero no he podido confirmar la cita de Natalia Sárez."
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "You have all your office—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I just need the first name to pull up the right record.  What's the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Nada, les sabes—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so the patient's first name is Nataly or Natalie?  Which one is it?"
+    },
+    {
+      "role": "user",
+      "content": "Natalie— Natalie Azales."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "confirm_appt"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

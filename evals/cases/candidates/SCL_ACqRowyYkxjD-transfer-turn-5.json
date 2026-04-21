@@ -1,0 +1,61 @@
+{
+  "id": "SCL_ACqRowyYkxjD-transfer-turn-5",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_ACqRowyYkxjD",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I need to speak some— to someone about switching an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Elias de Villa."
+    },
+    {
+      "role": "assistant",
+      "content": "ok I've got you. So you want to switch an appointment -- do you have a specific day in mind, or should I pull up what you've got on the schedule first?"
+    },
+    {
+      "role": "user",
+      "content": "Um, can I speak with someone, please?"
+    },
+    {
+      "role": "assistant",
+      "content": "I can help you switch the appointment right here.  What day are you looking to move it to?"
+    },
+    {
+      "role": "user",
+      "content": "Um, actually, I need to cancel that appointment and add a different patient at that time. I need to speak with someone, please."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

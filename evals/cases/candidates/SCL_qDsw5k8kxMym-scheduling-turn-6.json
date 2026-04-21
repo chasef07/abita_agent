@@ -1,0 +1,69 @@
+{
+  "id": "SCL_qDsw5k8kxMym-scheduling-turn-6",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_qDsw5k8kxMym",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, I have an appointment on Thursday."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Hello."
+    },
+    {
+      "role": "assistant",
+      "content": "hi, what's your first name so I can pull up your appointment?"
+    },
+    {
+      "role": "user",
+      "content": "Jacqueline, J-A-C-Q-U-E-L-I-N-E."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Jacqueline, I see you're confirmed for Thursday April twenty-third at eleven a m with Dr. Bach.  Is there anything you needed to change or did you just want to confirm?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, I need to change the appointment for after May the 27th."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so you'd like to reschedule to sometime after May twenty-seventh.  What's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "Eye exam, eyeglasses."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

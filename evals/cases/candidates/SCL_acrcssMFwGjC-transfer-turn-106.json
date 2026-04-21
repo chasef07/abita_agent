@@ -1,0 +1,860 @@
+{
+  "id": "SCL_acrcssMFwGjC-transfer-turn-106",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_acrcssMFwGjC",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Al español me dijo—"
+    },
+    {
+      "role": "assistant",
+      "content": "sí, hablo español. ¿En qué puedo ayudarle?"
+    },
+    {
+      "role": "user",
+      "content": "Para confirmar la cita de Nara Díaz-Aharen."
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Octubre 21 del 2008."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el primer nombre del paciente?"
+    },
+    {
+      "role": "user",
+      "content": "Natalie—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el apellido y la fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "Assare. Nada de assare."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido por favor?"
+    },
+    {
+      "role": "user",
+      "content": "A-C-A-H-A-L-E-S."
+    },
+    {
+      "role": "assistant",
+      "content": "ok no worries, let me get you set up.  ¿Qué seguro tiene?"
+    },
+    {
+      "role": "user",
+      "content": "Açares."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría decirme el nombre exacto del seguro como aparece en la tarjeta?"
+    },
+    {
+      "role": "user",
+      "content": "humana."
+    },
+    {
+      "role": "assistant",
+      "content": "sí, aceptamos Humana.  ¿Cuál es el nombre completo del paciente?"
+    },
+    {
+      "role": "user",
+      "content": "Natalie— Natalie Azárez."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es la fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "Octubre 21, 2008."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Es el número que está llamando un buen número para contactarla?"
+    },
+    {
+      "role": "user",
+      "content": "Sí."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es su correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "What?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es su correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "Correo."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es su dirección de correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "Ah, B, Jenny, 832."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es su dirección?"
+    },
+    {
+      "role": "user",
+      "content": "@email.com."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es su dirección postal?"
+    },
+    {
+      "role": "user",
+      "content": "51, 45— 51, 45, Lightway, que es el gel."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es la ciudad?"
+    },
+    {
+      "role": "user",
+      "content": "3, 35, 41."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es la ciudad y el estado?"
+    },
+    {
+      "role": "user",
+      "content": "Kevin Hill, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el código postal?"
+    },
+    {
+      "role": "user",
+      "content": "3, 35, 41."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Es paciente femenina o masculina?"
+    },
+    {
+      "role": "user",
+      "content": "Amanina."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Es femenina o masculina?"
+    },
+    {
+      "role": "user",
+      "content": "Feminina."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el nombre del titular del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "humana, que él se originó en Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el nombre de la persona que aparece en la tarjeta del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "Nara Liazaris."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el número de miembro del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "Puede ser 96, 56."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría darme el número de miembro completo de la tarjeta del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "94, 89, 12—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría darme el número de miembro completo?"
+    },
+    {
+      "role": "user",
+      "content": "Ah, de miembro. OK, OK, OK, OK, OK."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el número de miembro en la tarjeta?"
+    },
+    {
+      "role": "user",
+      "content": "Ache, ache—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría leer el número de miembro letra por letra o número por número?"
+    },
+    {
+      "role": "user",
+      "content": "H79— Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría darme el número de miembro completo?"
+    },
+    {
+      "role": "user",
+      "content": "Um, ah, che—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría buscar la tarjeta del seguro y leerme el número de miembro completo?"
+    },
+    {
+      "role": "user",
+      "content": "Ache— See—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría leer el número de miembro completo de la tarjeta?"
+    },
+    {
+      "role": "user",
+      "content": "H79812214."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto. Déjame confirmar -- tengo Natalie Azárez, A-Z-A-R-E-Z, fecha de nacimiento 21 de octubre de 2008, Humana PPO, número de miembro H-7-9-8-1-2-2-1-4.  ¿Está correcto?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "user",
+      "content": "Corretto, right."
+    },
+    {
+      "role": "assistant",
+      "content": "Ya la tengo en el sistema.  ¿Cuál es el motivo de la visita?"
+    },
+    {
+      "role": "user",
+      "content": "Seguimiento, seguimiento, porque el año pasado ella se vio y es un apoyo para este año."
+    },
+    {
+      "role": "assistant",
+      "content": "Ok, seguimiento. ¿Qué día le funciona?"
+    },
+    {
+      "role": "user",
+      "content": "— El seguimiento de su consulta."
+    },
+    {
+      "role": "assistant",
+      "content": "Entendido, seguimiento.  ¿Qué día le funciona para la cita?"
+    },
+    {
+      "role": "user",
+      "content": "Sì."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Qué día prefiere para la cita?"
+    },
+    {
+      "role": "user",
+      "content": "No, de hecho me mandaron la cita, de hecho me mandaron la cita, por eso quiero saber qué día es de esta semana."
+    },
+    {
+      "role": "assistant",
+      "content": "No tengo ninguna cita programada para Natalie esta semana.  ¿Le gustaría programar una cita de seguimiento?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, no, porque sí, y cómo, y cómo, yo recibí un, yo recibí una cita para esta semana, y yo recibí una cita para esta semana, ¿cómo no va a estar ahí registrada si yo recibí la cita de esta semana?"
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo que recibió una cita para esta semana.  Déjeme verificar con el nombre exacto del paciente.  ¿Podría deletrear el apellido otra vez por favor?"
+    },
+    {
+      "role": "user",
+      "content": "A Z— ah."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido completo letra por letra?"
+    },
+    {
+      "role": "user",
+      "content": "H-A-R-E—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido completo?"
+    },
+    {
+      "role": "user",
+      "content": "See, see. Yes, yes."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido completo letra por letra?"
+    },
+    {
+      "role": "user",
+      "content": "Ache—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido completo letra por letra?"
+    },
+    {
+      "role": "user",
+      "content": "Y es A-Z-A-H-A-R-E-S."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro ese nombre en el sistema.  ¿Podría ser otro apellido?  ¿O tal vez el nombre es diferente?"
+    },
+    {
+      "role": "user",
+      "content": "No, no, no, es ese."
+    },
+    {
+      "role": "assistant",
+      "content": "Ok, déjeme buscar con otro nombre.  ¿Podría ser que el primer nombre sea diferente?  ¿O tal vez está registrado bajo otro nombre?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo. ¿Podría darme el número de teléfono asociado con la cita que recibió?  Tal vez está registrado bajo otro número."
+    },
+    {
+      "role": "user",
+      "content": "8-13— 203-8166."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro ese paciente en el sistema.  ¿Podría ser que la cita sea para otra persona?  ¿O tal vez el nombre está escrito diferente en el sistema?"
+    },
+    {
+      "role": "user",
+      "content": "No, no, es ese que me lo mandaron para mí. Natalia, Natali se escribe N-A-T-A-L-I, la I pero no de puntico, es la otra I."
+    },
+    {
+      "role": "assistant",
+      "content": "No la encuentro con ese nombre.  ¿Podría ser que el apellido tenga una"
+    },
+    {
+      "role": "user",
+      "content": "en fecri—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría repetir eso?  No le"
+    },
+    {
+      "role": "user",
+      "content": "Ah, error ortográfico."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo. ¿Podría deletrear el apellido otra vez, letra por letra, para asegurarme de tenerlo correcto?"
+    },
+    {
+      "role": "user",
+      "content": "Ah, Z— ah."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido completo letra por letra?"
+    },
+    {
+      "role": "user",
+      "content": "H-A-R—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría continuar deletreando el apellido?"
+    },
+    {
+      "role": "user",
+      "content": "Ah, Z— ah."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido completo letra por"
+    },
+    {
+      "role": "user",
+      "content": "Sí, correcto, RAIZ."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido completo otra vez, desde el principio?"
+    },
+    {
+      "role": "user",
+      "content": "Right. Right."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido completo letra por letra?"
+    },
+    {
+      "role": "user",
+      "content": "Ah, no, pero esto no es fácil."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo. ¿Podría decirme el nombre completo como aparece en la cita que recibió?  Incluyendo cualquier segundo apellido."
+    },
+    {
+      "role": "user",
+      "content": "Nara Liazárez Bermúdez."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro ese nombre.  ¿Podría ser que la cita sea para un paciente adulto en lugar de una niña?  ¿O tal vez la fecha de nacimiento es diferente?"
+    },
+    {
+      "role": "user",
+      "content": "No, no, búsquenla bien, búsquenla bien, porque la cita es para el día, para el día 22. Me mandaron la cita para el día 22 y el año pasado me la dieron para el día 23, y quiero saber si es el 22 o el 23."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo, tiene una cita para el 22 de este mes.  Déjeme buscar con el número de teléfono que me dio.  ¿Es el 8-1-3-2-0-3-8-1-6-6?"
+    },
+    {
+      "role": "user",
+      "content": "Right."
+    },
+    {
+      "role": "assistant",
+      "content": "No veo ninguna cita programada para Natalie.  ¿Podría ser que la cita esté bajo otro nombre o número de teléfono?  ¿O tal vez es para otro miembro de la familia?"
+    },
+    {
+      "role": "user",
+      "content": "Both— no, no."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo. ¿Podría ser que la cita sea para la madre o padre"
+    },
+    {
+      "role": "user",
+      "content": "Busque el día 23, busque el día 23."
+    },
+    {
+      "role": "assistant",
+      "content": "No tengo ninguna cita para Natalie el día 23 ni el día 22.  ¿Podría ser que la cita sea para otra persona?  ¿O tal vez está en otra oficina?  ¿Me puede decir el nombre completo como aparece en la cita que recibió?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, no, es para andar y viajar y—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría decirme el nombre exacto que aparece en la cita?  Incluyendo primer nombre y ambos"
+    },
+    {
+      "role": "user",
+      "content": "Natalie Azárez. Mm."
+    },
+    {
+      "role": "assistant",
+      "content": "Ya busqué con ese nombre y no hay citas.  ¿Podría ser que el apellido tenga un"
+    },
+    {
+      "role": "user",
+      "content": "No, sì, no."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro ninguna cita para Natalie Azárez.  ¿Podría ser que la cita sea con otro proveedor o en otra ubicación?  ¿O tal vez recibió la cita por error?  ¿Me puede decir qué oficina o clínica le envió la cita?"
+    },
+    {
+      "role": "user",
+      "content": "No, el año pasado, el año—"
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo que el año pasado tuvo una cita.  ¿Podría decirme si la cita que recibió es para este año 2026?  ¿Y qué mes dice en la cita?"
+    },
+    {
+      "role": "user",
+      "content": "Sí, es correcto."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Qué mes y día dice en la cita que recibió?"
+    },
+    {
+      "role": "user",
+      "content": "La cita que recibí, el appointment, fue del día 22, pero el año pasado me lo dieron el 23 de este de abril."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo, el año pasado fue el 23 de abril, y este año le mandaron para el 22.  Déjame buscar citas para el 22 de abril de este año.  ¿Puede confirmar si el nombre en la cita es exactamente Natalie Azárez?  ¿O podría ser Natalie con otro apellido?"
+    },
+    {
+      "role": "user",
+      "content": "Nora Gonzalez."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro a Nora Gonzalez en el sistema.  ¿Podría ser otro apellido?  ¿O tal vez el nombre es diferente?"
+    },
+    {
+      "role": "user",
+      "content": "Nara Liazárez Bermúdez."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro ese nombre en el sistema.  ¿Podría ser que la cita sea con otro número de teléfono?  ¿O tal vez está registrado bajo el nombre de otra persona?  ¿Me puede dar el número de teléfono que aparece en la cita?"
+    },
+    {
+      "role": "user",
+      "content": "Me recordaron, mira, en la cita, en la cita me lo nombran, me lo envían de un número que es 855-730-1564."
+    },
+    {
+      "role": "assistant",
+      "content": "Ese número es el número de la oficina, no el número del paciente.  ¿Podría darme el nombre del paciente como aparece exactamente en la cita?  ¿Y la fecha de nacimiento?  Así puedo buscarla correctamente en el sistema."
+    },
+    {
+      "role": "user",
+      "content": "Noi— Natalia Sárez."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro a Natalia Sárez.  ¿Podría deletrear el apellido completo letra por letra?  ¿Y el primer nombre también?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el primer nombre y el apellido letra por letra?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrearlos ahora?"
+    },
+    {
+      "role": "user",
+      "content": "Right."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el primer nombre y el apellido letra por letra, por favor?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrearlos ahora?"
+    },
+    {
+      "role": "user",
+      "content": "N-A-T-A-L-Y."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Y el apellido? ¿Podría deletrear el apellido letra por letra?"
+    },
+    {
+      "role": "user",
+      "content": "Right."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido ahora?"
+    },
+    {
+      "role": "user",
+      "content": "A, C— yes."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría continuar deletreando el apellido?"
+    },
+    {
+      "role": "user",
+      "content": "A, C, A—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría continuar? ¿Qué letras siguen?"
+    },
+    {
+      "role": "user",
+      "content": "A-C-A-H-A-R-E-S."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es la fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "October 21, 2008."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro esa combinación.  ¿Podría ser otra fecha de nacimiento?  ¿O tal vez el año es diferente?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro a Nataly Achares con esa fecha de nacimiento.  ¿Podría ser que el apellido esté escrito diferente en el sistema?  ¿O tal vez tiene un segundo apellido?  ¿Me puede dar el nombre completo como aparece en la cita, incluyendo ambos apellidos?"
+    },
+    {
+      "role": "user",
+      "content": "En la cita no me lo dieron con el nombre."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo. ¿Podría decirme qué información aparece en la cita?  ¿Solo la fecha y hora?  ¿O hay algún número de confirmación o código de paciente?"
+    },
+    {
+      "role": "user",
+      "content": "Dice, la cita dice lo siguiente: te recordamos de su visita el miércoles abril 22, 2026 a las 9:30 en el grupo Evita, eh, hay grupo Hudson 7532 7 Medical Hudson, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "Esa es nuestra dirección en Hudson.  Déjeme buscar citas para el 22 de abril a las 9:30.  ¿Podría darme el nombre del paciente como lo conoce?  Aunque no esté en la cita, ¿cómo se llama la persona que tiene la cita?"
+    },
+    {
+      "role": "user",
+      "content": "Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cómo se llama la paciente?  ¿Su nombre completo?"
+    },
+    {
+      "role": "user",
+      "content": "Por favor, traiga su tarjeta de seguros elegir."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo, necesita traer su tarjeta de seguro.  Pero para"
+    },
+    {
+      "role": "user",
+      "content": "Añas, no vienen, no, no."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cómo se llama la persona que tiene la cita el 22 de abril?  ¿Su nombre?"
+    },
+    {
+      "role": "user",
+      "content": "Pero la oficina queda en Hol— o en Spring Hill."
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, tenemos oficinas en Spring Hill y Hudson.  ¿Cómo se llama la paciente que tiene la cita el miércoles 22 de abril a las 9:30?"
+    },
+    {
+      "role": "user",
+      "content": "Sì, yes."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el nombre de la paciente?"
+    },
+    {
+      "role": "user",
+      "content": "Nara Liazárez."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro a Nara Liazárez en el sistema.  ¿Podría ser que el apellido esté escrito diferente?  ¿O tal vez es Nara con otro apellido?  ¿Me puede deletrear el apellido completo letra por letra?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido ahora?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido letra por letra?"
+    },
+    {
+      "role": "user",
+      "content": "A, B—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría continuar deletreando?  ¿Qué letras siguen?"
+    },
+    {
+      "role": "user",
+      "content": "Right. A-C-A-H-A-R-E-S."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro a Nara Achares.  ¿Podría ser que el nombre sea diferente?  ¿Tal vez es Natalie o Nataly en lugar de Nara?  ¿O tal vez la cita es para otra persona en la familia?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro ese paciente en el sistema.  ¿Podría ser que la cita fue programada con otro número de teléfono?  ¿O tal vez está bajo el nombre de otro familiar?  ¿Me puede dar el número de teléfono que usaron para programar la cita?"
+    },
+    {
+      "role": "user",
+      "content": "8-13-203-8166."
+    },
+    {
+      "role": "assistant",
+      "content": "Ese es el número que estoy usando para buscar.  No encuentro ninguna cita para ese número el 22 de abril.  ¿Podría ser que la cita sea para otra persona en la familia?  ¿O tal vez recibió el mensaje por error?  ¿Me puede decir si hay otros nombres en su familia que podrían tener citas?"
+    },
+    {
+      "role": "user",
+      "content": "No, nadie."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo. No encuentro ninguna cita programada para el 22 de abril con la información que me ha dado.  ¿Podría ser que la cita sea con otra clínica u oficina de"
+    },
+    {
+      "role": "user",
+      "content": "Bueno, y como me lo indicaron, vamos al teléfono de Nati."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo, la cita es para Nati.  ¿Podría darme el nombre completo de Nati?  ¿Incluyendo ambos apellidos?  ¿Y su fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "Correcto."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el nombre completo de Nati?  ¿Y su fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "El nombre completo es Aimee A. T."
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro a Aimee Achares.  ¿Podría ser otro apellido?  ¿O tal vez el nombre es diferente?  ¿Me puede deletrear el nombre completo de Aimee?  ¿Y la fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "Why? Why? Narali Asari."
+    },
+    {
+      "role": "user",
+      "content": "Nada, ya saben, en su nombre es en el"
+    },
+    {
+      "role": "assistant",
+      "content": "No encuentro ese nombre en el sistema.  ¿Podría ser que la cita fue programada recientemente y aún no está en el sistema?  ¿O tal vez necesita hablar"
+    },
+    {
+      "role": "user",
+      "content": "The— No, no, es el año anterior."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo, la cita es del año anterior.  ¿Quiere confirmar si tiene una cita programada para este año 2026?  ¿O está preguntando sobre una cita que ya pasó?"
+    },
+    {
+      "role": "user",
+      "content": "No, quiero confirmar la cita de esta semana."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo, quiere confirmar la cita de esta semana.  Pero no encuentro ninguna cita programada para esta semana con los nombres que me ha dado.  ¿Podría ser que el paciente esté registrado bajo un nombre completamente diferente?  ¿O tal vez la cita está bajo el nombre del padre o madre?  ¿Me puede dar todos los nombres posibles de las personas en su familia que podrían tener citas?"
+    },
+    {
+      "role": "user",
+      "content": "Non."
+    },
+    {
+      "role": "assistant",
+      "content": "No"
+    },
+    {
+      "role": "user",
+      "content": "Dios mío, pero ¿qué es esto?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

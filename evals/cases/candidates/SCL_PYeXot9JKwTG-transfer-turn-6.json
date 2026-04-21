@@ -1,0 +1,69 @@
+{
+  "id": "SCL_PYeXot9JKwTG-transfer-turn-6",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_PYeXot9JKwTG",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Jade—"
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Cuando vea—"
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem, what can I help you with today?"
+    },
+    {
+      "role": "user",
+      "content": "Talk to someone."
+    },
+    {
+      "role": "assistant",
+      "content": "would you mind telling me what you're calling about?"
+    },
+    {
+      "role": "user",
+      "content": "Can I talk to someone?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

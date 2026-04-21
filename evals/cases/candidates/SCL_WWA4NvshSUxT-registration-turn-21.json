@@ -1,0 +1,190 @@
+{
+  "id": "SCL_WWA4NvshSUxT-registration-turn-21",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_WWA4NvshSUxT",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, um, schedule an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "Um, no."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Thank you."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem. What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Oscar."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Oscar. What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Diana, D-I-A-N-A."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. And your last name?"
+    },
+    {
+      "role": "user",
+      "content": "Bermudez, B-S-M-O-Y-E-R-M-U-D-E-Z."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. And your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "4/27/1983."
+    },
+    {
+      "role": "assistant",
+      "content": "is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, C as in cat, A as in apple, P as Peter, R as Rose, I as— king@hotmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. And what's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, 2330 Sutton, S-U-T-T-O-N."
+    },
+    {
+      "role": "assistant",
+      "content": "ok. What city is that in?"
+    },
+    {
+      "role": "user",
+      "content": "Spring Hill, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. And the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "34608."
+    },
+    {
+      "role": "assistant",
+      "content": "alright. And are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Fini—"
+    },
+    {
+      "role": "assistant",
+      "content": "female?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's the name on the insurance card?"
+    },
+    {
+      "role": "user",
+      "content": "Diana."
+    },
+    {
+      "role": "assistant",
+      "content": "and the member ID number?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, the member ID— give me one second."
+    },
+    {
+      "role": "assistant",
+      "content": "no rush, take your time."
+    },
+    {
+      "role": "user",
+      "content": "Ah, give me one second."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, whenever you're ready."
+    },
+    {
+      "role": "user",
+      "content": "Okay, I got it."
+    },
+    {
+      "role": "assistant",
+      "content": "great, what's the member ID?"
+    },
+    {
+      "role": "user",
+      "content": "OSC 779-48— 212."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Diana Bermudez, B-E-R-M-U-D-E-Z, date of birth April twenty-seventh nineteen eighty-three, Oscar Health, member ID O-S-C seven seven nine four eight two one two.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

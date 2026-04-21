@@ -1,0 +1,198 @@
+{
+  "id": "SCL_xKUfgtZesn3A-registration-turn-22",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_xKUfgtZesn3A",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I'm calling to make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Blue Cross Blue Shield."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Blue Cross Blue Shield.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Tammy Fatula."
+    },
+    {
+      "role": "assistant",
+      "content": "alright Tammy, and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "11-25-70."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, and what's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "s-u-t-u-l-a-t@msn.com."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, and what's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "8— 703 Arrowhead Drive, Hudson, Florida 34667."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's the name on the insurance card?"
+    },
+    {
+      "role": "user",
+      "content": "Tammy L. Setula."
+    },
+    {
+      "role": "assistant",
+      "content": "and what's the member ID on the card?"
+    },
+    {
+      "role": "user",
+      "content": "F0H100012234652."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Tammy Fatula, F-A-T-U-L-A, date of birth November twenty-fifth nineteen seventy, Florida Blue, member ID F zero H one zero zero zero zero one two two three four six five two.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "No, last name is incorrect."
+    },
+    {
+      "role": "assistant",
+      "content": "oh sorry about that.  Can you spell your last name for me?"
+    },
+    {
+      "role": "user",
+      "content": "S is in SAM."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, S-E-T-U-L-A.  Let me confirm again -- Tammy Setula, S-E-T-U-L-A, date of birth November twenty-fifth nineteen seventy, Florida Blue, member ID F zero H one zero zero zero zero one two two three four six five two.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "what's not matching?"
+    },
+    {
+      "role": "user",
+      "content": "The last name is still wrong and the ID is wrong."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, let me get the correct spelling.  Can you spell your last name again, letter by letter?"
+    },
+    {
+      "role": "user",
+      "content": "S as in Sam, U like umbrella, T as in Tom, U umbrella, L lion, A apple."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, S-U-T-U-L-A.  And what's the correct member ID on the card?"
+    },
+    {
+      "role": "user",
+      "content": "F0H100012234652."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- Tammy Setula, S-U-T-U-L-A, date of birth November twenty-fifth nineteen seventy, Florida Blue, member ID F zero H one zero zero zero zero one two two three four six five two.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "No, you keep adding one too many zeros."
+    },
+    {
+      "role": "assistant",
+      "content": "oh I see, let me fix that.  F zero H one zero zero zero one two two three four six five two.  Is that right?"
+    },
+    {
+      "role": "user",
+      "content": "Can you say it slower?"
+    },
+    {
+      "role": "assistant",
+      "content": "F ... zero ... H ... one ... zero ... zero ... zero ... one ... two ... two ... three ... four ... six ... five ... two.  Is that correct?"
+    },
+    {
+      "role": "user",
+      "content": "I can't tell."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, let me read it back exactly as you said it.  F zero H one zero zero zero one two two three four six five two.  Does that match your card?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "id": "SCL_EMJZLARRUGNn-transfer-turn-8",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_EMJZLARRUGNn",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I would like to make an appointment or talk to somebody."
+    },
+    {
+      "role": "assistant",
+      "content": "Sure, I can help with that.  Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "William Hamilton."
+    },
+    {
+      "role": "assistant",
+      "content": "Hey William, I can help you schedule.  What's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "I need cataracts removed."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, so cataract surgery is handled at our Spring Hill office.  I can schedule you there -- does that work for you?"
+    },
+    {
+      "role": "user",
+      "content": "Well, I have to check to see if you accept Umana."
+    },
+    {
+      "role": "assistant",
+      "content": "Let me check that for you.  What's the full name of the plan?"
+    },
+    {
+      "role": "user",
+      "content": "You mana—"
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah, we take Humana.  So Spring Hill for the cataract surgery -- does that work for you?"
+    },
+    {
+      "role": "user",
+      "content": "PPO. I didn't get the date."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it, Humana PPO. So what day were you hoping to schedule?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, actually, I need to talk to someone in— a real person."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

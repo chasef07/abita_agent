@@ -1,0 +1,69 @@
+{
+  "id": "SCL_VEkNwbUaBk8V-scheduling-turn-6",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_VEkNwbUaBk8V",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, yes, good morning. Uh, I, I was a patient, uh, at your facility, uh, about 6 months— 6, 7 months ago, and I need to make an appointment to see you again."
+    },
+    {
+      "role": "assistant",
+      "content": "sure, can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, Michael, M-I-C-H-A-E-L."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Michael, yeah I can get you back on the schedule.  What's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "Um, I've had the same trouble with my left eye. It's, it's, it's, it's like an itching and it's, uh, it's watery now."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, do you have anything later today?"
+    },
+    {
+      "role": "assistant",
+      "content": "the earliest I can schedule is tomorrow.  What day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Okay, Tuesday, uh, Tuesday is good."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

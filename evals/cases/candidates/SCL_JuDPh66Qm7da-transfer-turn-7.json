@@ -1,0 +1,76 @@
+{
+  "id": "SCL_JuDPh66Qm7da-transfer-turn-7",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_JuDPh66Qm7da",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi David, this is Carol Bush and I need to make an appointment for the end of the week."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Carol, I can help with that.  What's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "Your post app—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, post-op follow-up.  What day were you thinking?"
+    },
+    {
+      "role": "user",
+      "content": "Friday—"
+    },
+    {
+      "role": "assistant",
+      "content": "nothing open Friday.  I've got next Thursday, April thirtieth at ten fifteen a m -- would that work?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, how about Monday, April twenty-eighth at two thirty p m?"
+    },
+    {
+      "role": "user",
+      "content": "I really need it next week. We're on a time crunch to go— for me going back to Michigan, so it has to— all my appointments have to be done by the mid of May."
+    },
+    {
+      "role": "assistant",
+      "content": "nothing open Tuesday either.  The next opening I have is Wednesday, May thirteenth at nine a m. That's before mid-May, but"
+    },
+    {
+      "role": "user",
+      "content": "That'll definitely not— no, that will not put my last appointment before mid-May."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

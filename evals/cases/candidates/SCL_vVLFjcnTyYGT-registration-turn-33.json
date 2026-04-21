@@ -1,0 +1,286 @@
+{
+  "id": "SCL_vVLFjcnTyYGT-registration-turn-33",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_vVLFjcnTyYGT",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, yes, hi."
+    },
+    {
+      "role": "assistant",
+      "content": "hi there, what can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "Okay, um, I have a question. Do you take Oscar Insurance?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Oscar."
+    },
+    {
+      "role": "user",
+      "content": "Okay, thank you."
+    },
+    {
+      "role": "assistant",
+      "content": "you're welcome. Is there anything else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "Okay, uh, so no, it is for, uh, glaucoma. Uh, that— the appointment that's not for me is for a family member because she doesn't speak English."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. So you're calling to schedule an appointment for a family member who has glaucoma?"
+    },
+    {
+      "role": "user",
+      "content": "Glaucoma, but I don't know if you have appointments soon."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can check availability for you.  Has she been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "has she been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, no, I don't think so. No, I don't think so. She's new patient."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get her set up.  What insurance does she have?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "what insurance does she have?"
+    },
+    {
+      "role": "user",
+      "content": "She has— she has, um, Oscar."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Oscar. What's her name?"
+    },
+    {
+      "role": "user",
+      "content": "Her name is Lasala."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's her first name?"
+    },
+    {
+      "role": "user",
+      "content": "L-A—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Lasala. What's her date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, her, uh, or"
+    },
+    {
+      "role": "assistant",
+      "content": "what's her date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, it's 4— 4— 24."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what year was she born?"
+    },
+    {
+      "role": "user",
+      "content": "1988."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, April twenty-fourth, nineteen eighty-eight.  Is the number you're calling from a good one on file for her?"
+    },
+    {
+      "role": "user",
+      "content": "It's 813— 703— 3901."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's her email address?"
+    },
+    {
+      "role": "user",
+      "content": "It's Risi. I'm gonna spell, okay? It's R-I-S as in Susie, S as in Susie again, I as in igloo, D as in day, I-A— M-O-N— as in Nancy— D-P-A-L-A-Y-L-O-P— P as in Peter, I, Z as in zebra."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, got that email. What's her street address?"
+    },
+    {
+      "role": "user",
+      "content": "@gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's her street address?"
+    },
+    {
+      "role": "user",
+      "content": "It's 38— 38502."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's the street name?"
+    },
+    {
+      "role": "user",
+      "content": "New happened, right?"
+    },
+    {
+      "role": "assistant",
+      "content": "what's the street name?"
+    },
+    {
+      "role": "user",
+      "content": "New adventures."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, New Adventures. What city is that in?"
+    },
+    {
+      "role": "user",
+      "content": "City, it's a date, city, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "what city in Florida?"
+    },
+    {
+      "role": "user",
+      "content": "A date."
+    },
+    {
+      "role": "assistant",
+      "content": "what city?"
+    },
+    {
+      "role": "user",
+      "content": "D-A-D-E— date."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, Dade City. What's the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "State, city—"
+    },
+    {
+      "role": "assistant",
+      "content": "what's the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "It's tree, tree."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, three three five what?"
+    },
+    {
+      "role": "user",
+      "content": "3, 3, 3, 3, 5, 2, 3."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, three three five two three.  Is she male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah."
+    },
+    {
+      "role": "assistant",
+      "content": "is she male or female?"
+    },
+    {
+      "role": "user",
+      "content": "It's female— female."
+    },
+    {
+      "role": "assistant",
+      "content": "ok. Now I need the information from her insurance card.  What's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "It's Lazara."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, Lazara. And what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "L-A-Z—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, go ahead and spell the member ID for me."
+    },
+    {
+      "role": "user",
+      "content": "Yes, it's O as in Oscar, S as in Susie, C as in car. It's 7, 6, 2, 0, 4, 6, 1, 0— -01."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Lazara Lasala, L-A-S-A-L-A, date of birth April twenty-fourth, nineteen eighty-eight, Oscar Health, member ID O S C seven six two zero four six one zero dash zero one.  Is that all correct?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

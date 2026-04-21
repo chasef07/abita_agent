@@ -1,0 +1,44 @@
+{
+  "id": "SCL_ZxQ9WsVSSudE-transfer-turn-3",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_ZxQ9WsVSSudE",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I have an appointment on Thursday at 10:30, and they sent some paper— some things for me to fill out on the phone, but they sent it to my husband's phone and it will not come through. So can you send it to my phone and see if it can come through there?"
+    },
+    {
+      "role": "assistant",
+      "content": "I can help with that.  Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Janet, J-A-N-E-T."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

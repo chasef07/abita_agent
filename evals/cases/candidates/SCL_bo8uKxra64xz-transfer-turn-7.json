@@ -1,0 +1,76 @@
+{
+  "id": "SCL_bo8uKxra64xz-transfer-turn-7",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_bo8uKxra64xz",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "Mm-hmm."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "This is a hospital."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Operator—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and your last name?"
+    },
+    {
+      "role": "user",
+      "content": "Operator— it's some AI thing."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I'm actually an AI assistant helping at the front desk here.  I'm just here to help -- what can I do for you?"
+    },
+    {
+      "role": "user",
+      "content": "This is a hospital calling for the doctor."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

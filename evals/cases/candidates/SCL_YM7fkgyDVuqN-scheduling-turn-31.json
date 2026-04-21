@@ -1,0 +1,266 @@
+{
+  "id": "SCL_YM7fkgyDVuqN-scheduling-turn-31",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_YM7fkgyDVuqN",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Para confirmar la cita de Natalie Azar, no he podido comunicarme con ninguna oficina y si no para sacar nuevo appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Natalia Suarez."
+    },
+    {
+      "role": "assistant",
+      "content": "No la encontré con ese nombre.  ¿Cuál es el apellido y la fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "Azares es el apellido."
+    },
+    {
+      "role": "assistant",
+      "content": "No la encontré con ese nombre tampoco.  ¿Podría deletrear el nombre y el apellido por favor?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "Go ahead and spell it for me."
+    },
+    {
+      "role": "user",
+      "content": "N-A-T-A-L-Y."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it, Nataly. And what's the last name?"
+    },
+    {
+      "role": "user",
+      "content": "A-C-A-H-A-R-I-S."
+    },
+    {
+      "role": "assistant",
+      "content": "I found two patients with that name.  What's the date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "October 21, 2008."
+    },
+    {
+      "role": "assistant",
+      "content": "No la encontré con esa fecha de nacimiento.  ¿Tiene otra fecha de nacimiento posible?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Ok no worries, let me get you set up.  ¿Qué seguro tiene?"
+    },
+    {
+      "role": "user",
+      "content": "Imana."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría darme el nombre exacto del seguro como aparece en la tarjeta?"
+    },
+    {
+      "role": "user",
+      "content": "—Human Health Horizon en Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Tiene la tarjeta de seguro a la mano?  Necesito el nombre exacto del plan como aparece en la tarjeta."
+    },
+    {
+      "role": "user",
+      "content": "Humana Healthy— Orington in Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, aceptamos Humana.  ¿Cuál es el nombre completo de la paciente?"
+    },
+    {
+      "role": "user",
+      "content": "Natalia Sárez."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es la fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "Octubre 21, 2008."
+    },
+    {
+      "role": "assistant",
+      "content": "¿El número que está llamando es un buen número para tener en el expediente?"
+    },
+    {
+      "role": "user",
+      "content": "Same."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es su correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "De Jenny, de Jenny832@gmail."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es su dirección?"
+    },
+    {
+      "role": "user",
+      "content": ".com"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es la dirección física?  Calle, ciudad, estado y código postal."
+    },
+    {
+      "role": "user",
+      "content": "51, 45 likes."
+    },
+    {
+      "role": "assistant",
+      "content": "Necesito la dirección completa.  ¿Cuál"
+    },
+    {
+      "role": "user",
+      "content": "Ciudad Cefer Hill— Ciudad Cefer Hill, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el nombre de la calle y el número de la casa?"
+    },
+    {
+      "role": "user",
+      "content": "Why?"
+    },
+    {
+      "role": "assistant",
+      "content": "Para completar el registro necesito la dirección física.  ¿Cuál es la calle y el número?"
+    },
+    {
+      "role": "user",
+      "content": "51-45, lightweight."
+    },
+    {
+      "role": "assistant",
+      "content": "Ok, ¿y el código postal?"
+    },
+    {
+      "role": "user",
+      "content": "3, 35, 41."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Es paciente femenina o masculina?"
+    },
+    {
+      "role": "user",
+      "content": "Fue venido—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Femenina o masculina?"
+    },
+    {
+      "role": "user",
+      "content": "Feminina."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el nombre de la persona en la tarjeta del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "Natalia Sárez."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el número de miembro del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "Miembro ID H— H79812214."
+    },
+    {
+      "role": "assistant",
+      "content": "Déjame confirmar -- tengo Natalia Sárez, S-Á-R-E-Z, fecha de nacimiento 21 de octubre de 2008, Humana, número de miembro H-7-9-8-1-2-2-1-4.  ¿Está bien?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "user",
+      "content": "Sí, pero me dice de nuevo el apellido, ¿cómo lo tiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "Tengo Sárez, S-Á-R-E-Z.  ¿Cuál es el motivo de la visita?"
+    },
+    {
+      "role": "user",
+      "content": "A is— no, it's A, C, A."
+    },
+    {
+      "role": "assistant",
+      "content": "Ok, A-C-A. ¿Cuál es el motivo de la visita?"
+    },
+    {
+      "role": "user",
+      "content": "Seguimiento."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Para qué día le gustaría agendar?"
+    },
+    {
+      "role": "user",
+      "content": "Mire, busque a ver, puede buscar el día 24 de este mes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

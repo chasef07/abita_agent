@@ -1,0 +1,68 @@
+{
+  "id": "SCL_WuMtbo8cRczx-transfer-turn-6",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_WuMtbo8cRczx",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Habla español."
+    },
+    {
+      "role": "assistant",
+      "content": "sí, hablo español. ¿en qué puedo ayudarle?"
+    },
+    {
+      "role": "user",
+      "content": "Para confirmar la cita de mi hija."
+    },
+    {
+      "role": "assistant",
+      "content": "veo que hay varios pacientes asociados con este número.  ¿cuál es el nombre de su hija?"
+    },
+    {
+      "role": "user",
+      "content": "Natalie Azárez."
+    },
+    {
+      "role": "assistant",
+      "content": "no tengo ninguna cita programada para Natalie.  ¿le gustaría programar una cita para ella?"
+    },
+    {
+      "role": "user",
+      "content": "Pues busquen en el día 22 de este, de este mes."
+    },
+    {
+      "role": "assistant",
+      "content": "no hay disponibilidad el 22 de abril.  ¿le gustaría que revise otro día?"
+    },
+    {
+      "role": "user",
+      "content": "No, porque me indicaron para el día 22."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

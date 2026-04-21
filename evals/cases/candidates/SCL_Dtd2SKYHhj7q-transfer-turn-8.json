@@ -1,0 +1,85 @@
+{
+  "id": "SCL_Dtd2SKYHhj7q-transfer-turn-8",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_Dtd2SKYHhj7q",
+  "tags": [
+    "transfer",
+    "human-request",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Customer—"
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Data—"
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Jada."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Jada, have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, what's your last name?"
+    },
+    {
+      "role": "user",
+      "content": "Resto— hmm."
+    },
+    {
+      "role": "assistant",
+      "content": "and your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "And can I talk to someone, please?"
+    },
+    {
+      "role": "assistant",
+      "content": "sure, would you mind telling me what you're calling about?"
+    },
+    {
+      "role": "user",
+      "content": "Talk to someone."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "caller_requested_human",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

@@ -1,0 +1,197 @@
+{
+  "id": "SCL_vdtaLyT9kzL9-scheduling-turn-22",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_vdtaLyT9kzL9",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "Oscar."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Oscar. What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Marley Flamonden."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "04, 05, 05."
+    },
+    {
+      "role": "assistant",
+      "content": "Is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "Marley, M-A-R-L-E-Y."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "—plamondin—"
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what's your full email address?"
+    },
+    {
+      "role": "user",
+      "content": "Marley."
+    },
+    {
+      "role": "assistant",
+      "content": "I need your full email address -- something like Marley at gmail dot com.  What is it?"
+    },
+    {
+      "role": "user",
+      "content": "marleplamondon@icloud.com."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "7602 Wimpy Lane—"
+    },
+    {
+      "role": "assistant",
+      "content": "What city is that in?"
+    },
+    {
+      "role": "user",
+      "content": "Tampa, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "What's the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "3, 3, 6, 2, 5."
+    },
+    {
+      "role": "assistant",
+      "content": "Are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, I need to grab your insurance card info.  What's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Give me one second."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem, take your time."
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm here whenever you're ready."
+    },
+    {
+      "role": "user",
+      "content": "Um, the name on the card is Marley Plamondon."
+    },
+    {
+      "role": "assistant",
+      "content": "And what's the member ID on the card?"
+    },
+    {
+      "role": "user",
+      "content": "OSC 757— 0866203."
+    },
+    {
+      "role": "assistant",
+      "content": "alright let me confirm -- I have Marley Plamondon, P-L-A-M-O-N-D-O-N, date of birth April fifth two thousand five, Oscar Health, member ID O-S-C seven five seven zero eight six six two zero three.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, you're all set.  What's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "Um, I was seen in the emergency room and they referred me to see the eye doctor because I might have shingles in my eye."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Tomorrow—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

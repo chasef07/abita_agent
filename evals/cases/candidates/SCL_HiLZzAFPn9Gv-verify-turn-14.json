@@ -1,0 +1,134 @@
+{
+  "id": "SCL_HiLZzAFPn9Gv-verify-turn-14",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_HiLZzAFPn9Gv",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call: agent re-ran verify_patient. Check whether retry was necessary or wasteful."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Gracias, no, pero no he podido confirmar la cita de Natalia Sárez."
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "You have all your office—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah, I just need the first name to pull up the right record.  What's the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Nada, les sabes—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so the patient's first name is Nataly or Natalie?  Which one is it?"
+    },
+    {
+      "role": "user",
+      "content": "Natalie— Natalie Azales."
+    },
+    {
+      "role": "assistant",
+      "content": "I don't see any upcoming appointments for Natalie.  Would you like to schedule one?"
+    },
+    {
+      "role": "user",
+      "content": "Confirm the appointment is, is 22."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so you're looking to schedule for April twenty-second?  What's the reason for the visit?"
+    },
+    {
+      "role": "user",
+      "content": "Mary Elizabeth—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, so what's the reason for the visit?  Like what's going on with her eyes?"
+    },
+    {
+      "role": "user",
+      "content": "Seguimiento."
+    },
+    {
+      "role": "assistant",
+      "content": "No hay disponibilidad el veintidós de abril.  El día más cercano que tengo es el seis de mayo.  ¿Te funciona ese día?"
+    },
+    {
+      "role": "user",
+      "content": "Ella tiene cita desde el año pasado para ese día. No entiendo por qué no aparece, y es con el doctor Austin Bash—"
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo. Déjame ver si puedo encontrar algo más cerca de esa fecha.  ¿Qué tal el veintitrés de abril?"
+    },
+    {
+      "role": "user",
+      "content": "E 23."
+    },
+    {
+      "role": "assistant",
+      "content": "Tampoco hay disponibilidad el veintitrés.  El siguiente día que tengo abierto es el seis de mayo con el doctor Bach.  ¿Quieres que te agende para ese día?"
+    },
+    {
+      "role": "user",
+      "content": "No, no puedo ese día, no se puede."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo. ¿Qué día te"
+    },
+    {
+      "role": "user",
+      "content": "Y no entiendo por qué no está ahí, porque si me enviaron la cita, ¿y de dónde me enviaron la cita?"
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo tu frustración.  Si te enviaron una confirmación de cita, debería estar en el sistema.  Déjame ver si puedo encontrar algo más.  ¿Qué otro día te funcionaría?  ¿El"
+    },
+    {
+      "role": "user",
+      "content": "I received the appointment. I received appointment with— no, but Natalia Sáenz. I don't understand you."
+    },
+    {
+      "role": "assistant",
+      "content": "Entiendo, es frustrante cuando no aparece la cita.  Déjame ver si puedo encontrarla con otro nombre -- ¿podrías deletrear el apellido de Natalia?  ¿Es Sáenz con Z o con S?"
+    },
+    {
+      "role": "user",
+      "content": "Sì."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "narrow_with_first_name_only",
+      "do_not_read_back_known_names"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

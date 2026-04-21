@@ -1,0 +1,51 @@
+{
+  "id": "SCL_WuMtbo8cRczx-verify-turn-4",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_WuMtbo8cRczx",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent's first verify_patient invocation. Check that lookup context was respected (skip if pre-verified) and only first name asked for multi-match."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Habla español."
+    },
+    {
+      "role": "assistant",
+      "content": "sí, hablo español. ¿en qué puedo ayudarle?"
+    },
+    {
+      "role": "user",
+      "content": "Para confirmar la cita de mi hija."
+    },
+    {
+      "role": "assistant",
+      "content": "veo que hay varios pacientes asociados con este número.  ¿cuál es el nombre de su hija?"
+    },
+    {
+      "role": "user",
+      "content": "Natalie Azárez."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

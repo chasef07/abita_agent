@@ -1,0 +1,56 @@
+{
+  "id": "SCL_xC9VM4N9g8wf-multiple-matches-turn-3",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_xC9VM4N9g8wf",
+  "tags": [
+    "verification",
+    "multiple-matches",
+    "hipaa",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Extracted from a multiple-match phone lookup flow."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Do you speak Spanish?"
+    },
+    {
+      "role": "assistant",
+      "content": "sí, hablo español. ¿en qué le puedo ayudar?"
+    },
+    {
+      "role": "user",
+      "content": "Yo quiero saber si mi hija tiene una cita el día 23, pero me mandaron, me enviaron el appointment para el día 22, entonces no sé, no estoy segura y en qué lugar, si es en Hudson o en Spring— Thank you."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "confirm_appt",
+      "get_availability",
+      "book_appt"
+    ],
+    "mustSay": [
+      "first name"
+    ],
+    "mustNotSay": [
+      "date of birth",
+      "last name"
+    ],
+    "policyFlags": [
+      "do_not_read_back_known_names"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

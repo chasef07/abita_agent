@@ -1,0 +1,133 @@
+{
+  "id": "SCL_XCeeynYBhWbd-scheduling-turn-14",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_XCeeynYBhWbd",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, I was just calling to see, do you guys accept Medicaid?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Medicaid."
+    },
+    {
+      "role": "user",
+      "content": "Okay, could I schedule a new patient appointment?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "Nope."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, it'll be for my son. His name is Christian Silver—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, and what's Christian's date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "November 15th, 2017."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and what insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "You have Humana through Medicaid."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take Humana Medicaid.  Is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "It is Micah— M-I-C-A— silver04@gmail.com."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's your home address?"
+    },
+    {
+      "role": "user",
+      "content": "7411 Cherokee Trail, Spring Hill, Florida 34606."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, and is Christian male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Male."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and I'll need the name on the insurance card and the member ID."
+    },
+    {
+      "role": "user",
+      "content": "All right, it is Christian Z. Silver. The member ID is H96143572."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect, you're all set.  So what's the reason for Christian's visit?"
+    },
+    {
+      "role": "user",
+      "content": "He's been complaining about headaches and not being able to see the board at school."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Um, either a Monday or Tuesday."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

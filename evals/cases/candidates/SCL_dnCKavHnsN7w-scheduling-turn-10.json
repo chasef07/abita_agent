@@ -1,0 +1,102 @@
+{
+  "id": "SCL_dnCKavHnsN7w-scheduling-turn-10",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_dnCKavHnsN7w",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hello, David. We got disconnected a second ago. It's me, Michael Bly."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Michael, yeah sorry about that.  What can I help you with today?"
+    },
+    {
+      "role": "user",
+      "content": "Booking the appointment on April 29th at 12:15 PM with Dr. Lick—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I see you're already set for Wednesday April 29th at twelve fifteen p m with Dr. Licht.  Is there something you need to change about that appointment?"
+    },
+    {
+      "role": "user",
+      "content": "Can I cancel anytime, and is there a fee?"
+    },
+    {
+      "role": "assistant",
+      "content": "you can cancel anytime -- there's no fee for cancelling.  Do you want to go ahead and cancel that April 29th appointment?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, no problem.  Is there anything else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "what do you need?"
+    },
+    {
+      "role": "user",
+      "content": "Do you— do you guys look for retinal tears?"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we do -- we can evaluate for retinal tears.  Are you having any symptoms you're concerned about?"
+    },
+    {
+      "role": "user",
+      "content": "Uh, sometimes white flashing and increase in floater."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, that's definitely something we should take a look at.  Do you want to keep your April 29th appointment, or would you like to get in sooner?"
+    },
+    {
+      "role": "user",
+      "content": "You said that was the soonest date, wasn't it?"
+    },
+    {
+      "role": "assistant",
+      "content": "no, I didn't say that -- let me check what's available sooner.  What day works best for you?"
+    },
+    {
+      "role": "user",
+      "content": "What's the soonest day?"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

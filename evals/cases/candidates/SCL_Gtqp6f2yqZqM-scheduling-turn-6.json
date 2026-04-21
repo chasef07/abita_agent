@@ -1,0 +1,69 @@
+{
+  "id": "SCL_Gtqp6f2yqZqM-scheduling-turn-6",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_Gtqp6f2yqZqM",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I was calling about the Spring Hill location."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  What were you needing to know about the Spring Hill location?"
+    },
+    {
+      "role": "user",
+      "content": "Is there a pediatric ophthalmologist there?"
+    },
+    {
+      "role": "assistant",
+      "content": "yes, we do. Dr. Bach sees pediatric patients at Spring Hill -- he handles pediatrics, adult strabismus, and double vision.  Just so you know, his schedule is limited and only at Spring Hill a couple times per month, so availability may be several weeks out."
+    },
+    {
+      "role": "user",
+      "content": "Okay, when's his next available—"
+    },
+    {
+      "role": "assistant",
+      "content": "let me check on that.  Before I look, what's the reason for the visit?"
+    },
+    {
+      "role": "user",
+      "content": "Um, my child is seeing colored spots."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and how old is your child?"
+    },
+    {
+      "role": "user",
+      "content": "6—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

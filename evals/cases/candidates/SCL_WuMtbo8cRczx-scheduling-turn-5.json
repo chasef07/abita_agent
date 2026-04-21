@@ -1,0 +1,62 @@
+{
+  "id": "SCL_WuMtbo8cRczx-scheduling-turn-5",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_WuMtbo8cRczx",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Habla español."
+    },
+    {
+      "role": "assistant",
+      "content": "sí, hablo español. ¿en qué puedo ayudarle?"
+    },
+    {
+      "role": "user",
+      "content": "Para confirmar la cita de mi hija."
+    },
+    {
+      "role": "assistant",
+      "content": "veo que hay varios pacientes asociados con este número.  ¿cuál es el nombre de su hija?"
+    },
+    {
+      "role": "user",
+      "content": "Natalie Azárez."
+    },
+    {
+      "role": "assistant",
+      "content": "no tengo ninguna cita programada para Natalie.  ¿le gustaría programar una cita para ella?"
+    },
+    {
+      "role": "user",
+      "content": "Pues busquen en el día 22 de este, de este mes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

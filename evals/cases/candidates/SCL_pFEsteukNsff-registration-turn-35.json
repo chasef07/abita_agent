@@ -1,0 +1,302 @@
+{
+  "id": "SCL_pFEsteukNsff-registration-turn-35",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_pFEsteukNsff",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi, David. Uh, speak Spanish?"
+    },
+    {
+      "role": "assistant",
+      "content": "sí, hablo español. ¿En qué le puedo ayudar?"
+    },
+    {
+      "role": "user",
+      "content": "Hola, buenas, mi nombre es Gabriela."
+    },
+    {
+      "role": "assistant",
+      "content": "hola Gabriela, ¿ha sido vista aquí antes?"
+    },
+    {
+      "role": "user",
+      "content": "Estaba llamando— no."
+    },
+    {
+      "role": "assistant",
+      "content": "perfecto, déjeme registrarla.  ¿Qué seguro tiene?"
+    },
+    {
+      "role": "user",
+      "content": "Your mana—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿puede repetir el nombre del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "H-U-M-A-N-A."
+    },
+    {
+      "role": "assistant",
+      "content": "sí, aceptamos Humana.  ¿Cuál es su nombre completo?"
+    },
+    {
+      "role": "user",
+      "content": "Gabriela Barrueta Herrado."
+    },
+    {
+      "role": "assistant",
+      "content": "¿cuál es su fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "03/27 del 2001."
+    },
+    {
+      "role": "assistant",
+      "content": "¿el número desde el que está llamando es un buen número para tener en su expediente?"
+    },
+    {
+      "role": "user",
+      "content": "See."
+    },
+    {
+      "role": "assistant",
+      "content": "¿cuál es su correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "Eh, mi nombre, Gabriela."
+    },
+    {
+      "role": "assistant",
+      "content": "¿y después del arroba, qué dominio?"
+    },
+    {
+      "role": "user",
+      "content": "Uh,"
+    },
+    {
+      "role": "assistant",
+      "content": "¿gmail, yahoo, outlook?"
+    },
+    {
+      "role": "user",
+      "content": "@icloud.com."
+    },
+    {
+      "role": "assistant",
+      "content": "¿cuál es su dirección?"
+    },
+    {
+      "role": "user",
+      "content": "58, 30, memoria, highway."
+    },
+    {
+      "role": "assistant",
+      "content": "¿qué ciudad y estado?"
+    },
+    {
+      "role": "user",
+      "content": "Apartamento 7— no, 7, Tampa, Florida, 33615."
+    },
+    {
+      "role": "assistant",
+      "content": "¿es mujer u hombre?"
+    },
+    {
+      "role": "user",
+      "content": "Okay."
+    },
+    {
+      "role": "assistant",
+      "content": "¿mujer u hombre?"
+    },
+    {
+      "role": "user",
+      "content": "Um, hey."
+    },
+    {
+      "role": "assistant",
+      "content": "¿mujer?"
+    },
+    {
+      "role": "user",
+      "content": "Sí."
+    },
+    {
+      "role": "assistant",
+      "content": "¿cuál es el nombre de la persona en la tarjeta del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "Estaba llamando por mi hija, no por mí."
+    },
+    {
+      "role": "assistant",
+      "content": "ah, entiendo. ¿Cuál es el nombre de su hija?"
+    },
+    {
+      "role": "user",
+      "content": "Amira."
+    },
+    {
+      "role": "assistant",
+      "content": "¿cuál es el apellido de Amira?"
+    },
+    {
+      "role": "user",
+      "content": "Medina Barreta."
+    },
+    {
+      "role": "assistant",
+      "content": "¿cuál es la fecha de nacimiento de Amira?"
+    },
+    {
+      "role": "user",
+      "content": "04/11/2025."
+    },
+    {
+      "role": "assistant",
+      "content": "¿el número desde el que está llamando es un buen número para tener en el expediente de Amira?"
+    },
+    {
+      "role": "user",
+      "content": "Sí."
+    },
+    {
+      "role": "assistant",
+      "content": "¿cuál es el correo electrónico de Amira?"
+    },
+    {
+      "role": "user",
+      "content": "Gabriela Barrueta."
+    },
+    {
+      "role": "assistant",
+      "content": "¿y después del arroba, qué dominio?"
+    },
+    {
+      "role": "user",
+      "content": "h@icloud.com."
+    },
+    {
+      "role": "assistant",
+      "content": "¿cuál es la dirección de Amira?"
+    },
+    {
+      "role": "user",
+      "content": "@iclo— 5830 Memorial Highway, Tampa, Florida 33615, apartamento 717."
+    },
+    {
+      "role": "assistant",
+      "content": "¿mujer u hombre?"
+    },
+    {
+      "role": "user",
+      "content": "Mujer."
+    },
+    {
+      "role": "assistant",
+      "content": "¿cuál es el nombre de la persona en la tarjeta del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "Amira Medina Barrueta."
+    },
+    {
+      "role": "assistant",
+      "content": "¿cuál es el número de miembro en la tarjeta del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "The male moment of the cat—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿puede decirme el número de miembro que está en la tarjeta del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "H9."
+    },
+    {
+      "role": "assistant",
+      "content": "¿solo H9? ¿No"
+    },
+    {
+      "role": "user",
+      "content": "So who know—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿puede buscar la tarjeta del seguro y decirme el número de miembro completo?"
+    },
+    {
+      "role": "user",
+      "content": "H92179630."
+    },
+    {
+      "role": "assistant",
+      "content": "déjeme confirmar -- tengo Amira Medina Barrueta, M-E-D-I-N-A B-A-R-R-U-E-T-A, fecha de nacimiento abril"
+    },
+    {
+      "role": "user",
+      "content": "Uh, and, yeah."
+    },
+    {
+      "role": "assistant",
+      "content": "déjeme confirmar -- tengo Amira Medina Barrueta, M-E-D-I-N-A B-A-R-R-U-E-T-A, fecha de nacimiento abril once, dos mil veinticinco, Humana PPO, número de miembro H9 .. dos uno siete nueve seis tres cero.  ¿Está bien?"
+    },
+    {
+      "role": "user",
+      "content": "See—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿está bien?"
+    },
+    {
+      "role": "user",
+      "content": "See—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿sí?"
+    },
+    {
+      "role": "user",
+      "content": "Sí."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "id": "SCL_JuDPh66Qm7da-scheduling-turn-4",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_JuDPh66Qm7da",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Hi David, this is Carol Bush and I need to make an appointment for the end of the week."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Carol, I can help with that.  What's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "Your post app—"
+    },
+    {
+      "role": "assistant",
+      "content": "got it, post-op follow-up.  What day were you thinking?"
+    },
+    {
+      "role": "user",
+      "content": "Friday—"
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

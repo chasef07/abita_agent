@@ -1,0 +1,91 @@
+{
+  "id": "SCL_rJAGjFsnCzjR-verify-turn-9",
+  "suite": "verification",
+  "source": "livekit-trace",
+  "traceId": "SCL_rJAGjFsnCzjR",
+  "tags": [
+    "verification",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent's first verify_patient invocation. Check that lookup context was respected (skip if pre-verified) and only first name asked for multi-match."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time.  What can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "I speak funny."
+    },
+    {
+      "role": "assistant",
+      "content": "you're doing just fine.  What are you calling about?"
+    },
+    {
+      "role": "user",
+      "content": "You know what I mean? So—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I got you. Are you looking to schedule an appointment, or is there something else I can help with?"
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "no rush. Just let me know what you need."
+    },
+    {
+      "role": "user",
+      "content": "Es ist gar nicht— es ist gar nicht—"
+    },
+    {
+      "role": "assistant",
+      "content": "that's alright. Can I get your first name so I can look you up?"
+    },
+    {
+      "role": "user",
+      "content": "Español."
+    },
+    {
+      "role": "assistant",
+      "content": "sí, hablo español. ¿Cómo puedo ayudarte hoy?"
+    },
+    {
+      "role": "user",
+      "content": "Necesito que me envíen confirmación de una cita."
+    },
+    {
+      "role": "assistant",
+      "content": "ah, perfecto. ¿Me puedes dar tu nombre primero?"
+    },
+    {
+      "role": "user",
+      "content": "Gabriela Barreta."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "verify_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "id": "SCL_ASFnNRSBeT7Y-scheduling-turn-5",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_ASFnNRSBeT7Y",
+  "tags": [
+    "scheduling",
+    "needs-review",
+    "missing-reason"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent jumped to get_availability without asking the reason for visit."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Reschedule appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "Can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Tanya."
+    },
+    {
+      "role": "assistant",
+      "content": "Hey Tanya, I see you have an appointment today at four thirty p m with Dr. Licht.  What day would you like to reschedule to?"
+    },
+    {
+      "role": "user",
+      "content": "Next Monday."
+    },
+    {
+      "role": "assistant",
+      "content": "That would be Monday, April 27th.  What time works for you?"
+    },
+    {
+      "role": "user",
+      "content": "9:15."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [],
+    "mustNotCallTools": [
+      "get_availability"
+    ],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

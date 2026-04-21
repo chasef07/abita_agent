@@ -1,0 +1,69 @@
+{
+  "id": "SCL_Xau9xQBiRvst-scheduling-turn-6",
+  "suite": "scheduling",
+  "source": "livekit-trace",
+  "traceId": "SCL_Xau9xQBiRvst",
+  "tags": [
+    "scheduling",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent asked the reason for visit before checking availability."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Need an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "sure, can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "Dominic."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Dominic, I can help with that.  What's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "New patient eye exam."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Help."
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, let me help you out.  What day were you thinking, or would you like me to check the soonest available?"
+    },
+    {
+      "role": "user",
+      "content": "When it's available."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "get_availability"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "ask_reason_before_get_availability"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

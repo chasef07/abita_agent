@@ -1,0 +1,212 @@
+{
+  "id": "SCL_mEXvctBfu39r-transfer-turn-24",
+  "suite": "transfer",
+  "source": "livekit-trace",
+  "traceId": "SCL_mEXvctBfu39r",
+  "tags": [
+    "transfer",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+13523202007",
+    "phoneLookupStatus": "no_match",
+    "notes": "Extracted from a call that transferred to a human."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Emergency appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand you need to be seen urgently.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "Okay, let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "UnitedHealthcare—"
+    },
+    {
+      "role": "assistant",
+      "content": "Yeah we take United Healthcare.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Cheryl Kruzanowski."
+    },
+    {
+      "role": "assistant",
+      "content": "And your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "7/12/1968."
+    },
+    {
+      "role": "assistant",
+      "content": "Is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "chrvn1@aol.com."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "14 Greville Court, Homosassa, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "What's your zip code?"
+    },
+    {
+      "role": "user",
+      "content": "3444— 34446."
+    },
+    {
+      "role": "assistant",
+      "content": "And are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright, I need the name on the insurance card and the member ID."
+    },
+    {
+      "role": "user",
+      "content": "Brian Krusinowski."
+    },
+    {
+      "role": "assistant",
+      "content": "And the member ID?"
+    },
+    {
+      "role": "user",
+      "content": "9-3-0-9-3-1-7-1-6."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright let me confirm -- I have Cheryl Krusinowski, K-R-U-S-I-N-O-W-S-K-I, date of birth July twelfth nineteen sixty-eight, United Healthcare, member ID nine three zero nine three one seven one six.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "What needs to be corrected?"
+    },
+    {
+      "role": "user",
+      "content": "Last name."
+    },
+    {
+      "role": "assistant",
+      "content": "What's the correct spelling of your last name?"
+    },
+    {
+      "role": "user",
+      "content": "C-H-R-Z-A-N-O-W-S-K-I."
+    },
+    {
+      "role": "assistant",
+      "content": "Alright let me confirm -- I have Cheryl Chrzanowski, C-H-R-Z-A-N-O-W-S-K-I, date of birth July twelfth nineteen sixty-eight, United Healthcare, member ID nine three zero nine three one seven one six.  That all right?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect, you're all set.  What's the reason for your visit?"
+    },
+    {
+      "role": "user",
+      "content": "I can—"
+    },
+    {
+      "role": "assistant",
+      "content": "Go ahead, what's going on?"
+    },
+    {
+      "role": "user",
+      "content": "I have flashing in my eye in a dark room."
+    },
+    {
+      "role": "assistant",
+      "content": "Okay, and what day works for you?"
+    },
+    {
+      "role": "user",
+      "content": "Pain in my eye."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand you're having pain and flashing in your eye.  What day would you like to come in?"
+    },
+    {
+      "role": "user",
+      "content": "Today—"
+    },
+    {
+      "role": "assistant",
+      "content": "The earliest I can schedule is tomorrow.  Would tomorrow work for you?"
+    },
+    {
+      "role": "user",
+      "content": "No."
+    },
+    {
+      "role": "assistant",
+      "content": "When would you like to be seen?"
+    },
+    {
+      "role": "user",
+      "content": "Today—"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand you'd like to be seen today, but the earliest I can schedule is tomorrow.  Would you like me to transfer you to the office so they can see if they can work you in as an emergency?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "transfer_call"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "transfer_required",
+      "speak_full_transfer_message_before_call"
+    ],
+    "styleFlags": []
+  }
+}

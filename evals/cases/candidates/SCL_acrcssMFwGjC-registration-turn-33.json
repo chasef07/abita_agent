@@ -1,0 +1,286 @@
+{
+  "id": "SCL_acrcssMFwGjC-registration-turn-33",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_acrcssMFwGjC",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "multiple_matches",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Al español me dijo—"
+    },
+    {
+      "role": "assistant",
+      "content": "sí, hablo español. ¿En qué puedo ayudarle?"
+    },
+    {
+      "role": "user",
+      "content": "Para confirmar la cita de Nara Díaz-Aharen."
+    },
+    {
+      "role": "assistant",
+      "content": "I see a few patients associated with this number, can I get the patient's first name?"
+    },
+    {
+      "role": "user",
+      "content": "Octubre 21 del 2008."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el primer nombre del paciente?"
+    },
+    {
+      "role": "user",
+      "content": "Natalie—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el apellido y la fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "Assare. Nada de assare."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría deletrear el apellido por favor?"
+    },
+    {
+      "role": "user",
+      "content": "A-C-A-H-A-L-E-S."
+    },
+    {
+      "role": "assistant",
+      "content": "ok no worries, let me get you set up.  ¿Qué seguro tiene?"
+    },
+    {
+      "role": "user",
+      "content": "Açares."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría decirme el nombre exacto del seguro como aparece en la tarjeta?"
+    },
+    {
+      "role": "user",
+      "content": "humana."
+    },
+    {
+      "role": "assistant",
+      "content": "sí, aceptamos Humana.  ¿Cuál es el nombre completo del paciente?"
+    },
+    {
+      "role": "user",
+      "content": "Natalie— Natalie Azárez."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es la fecha de nacimiento?"
+    },
+    {
+      "role": "user",
+      "content": "Octubre 21, 2008."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Es el número que está llamando un buen número para contactarla?"
+    },
+    {
+      "role": "user",
+      "content": "Sí."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es su correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "What?"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es su correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "Correo."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es su dirección de correo electrónico?"
+    },
+    {
+      "role": "user",
+      "content": "Ah, B, Jenny, 832."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es su dirección?"
+    },
+    {
+      "role": "user",
+      "content": "@email.com."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es su dirección postal?"
+    },
+    {
+      "role": "user",
+      "content": "51, 45— 51, 45, Lightway, que es el gel."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es la ciudad?"
+    },
+    {
+      "role": "user",
+      "content": "3, 35, 41."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es la ciudad y el estado?"
+    },
+    {
+      "role": "user",
+      "content": "Kevin Hill, Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el código postal?"
+    },
+    {
+      "role": "user",
+      "content": "3, 35, 41."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Es paciente femenina o masculina?"
+    },
+    {
+      "role": "user",
+      "content": "Amanina."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Es femenina o masculina?"
+    },
+    {
+      "role": "user",
+      "content": "Feminina."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el nombre del titular del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "humana, que él se originó en Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el nombre de la persona que aparece en la tarjeta del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "Nara Liazaris."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el número de miembro del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "Puede ser 96, 56."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría darme el número de miembro completo de la tarjeta del seguro?"
+    },
+    {
+      "role": "user",
+      "content": "94, 89, 12—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría darme el número de miembro completo?"
+    },
+    {
+      "role": "user",
+      "content": "Ah, de miembro. OK, OK, OK, OK, OK."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Cuál es el número de miembro en la tarjeta?"
+    },
+    {
+      "role": "user",
+      "content": "Ache, ache—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría leer el número de miembro letra por letra o número por número?"
+    },
+    {
+      "role": "user",
+      "content": "H79— Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría darme el número de miembro completo?"
+    },
+    {
+      "role": "user",
+      "content": "Um, ah, che—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría buscar la tarjeta del seguro y leerme el número de miembro completo?"
+    },
+    {
+      "role": "user",
+      "content": "Ache— See—"
+    },
+    {
+      "role": "assistant",
+      "content": "¿Podría leer el número de miembro completo de la tarjeta?"
+    },
+    {
+      "role": "user",
+      "content": "H79812214."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfecto. Déjame confirmar -- tengo Natalie Azárez, A-Z-A-R-E-Z, fecha de nacimiento 21 de octubre de 2008, Humana PPO, número de miembro H-7-9-8-1-2-2-1-4.  ¿Está correcto?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

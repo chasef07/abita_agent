@@ -1,0 +1,214 @@
+{
+  "id": "SCL_d9foBAY9WcbE-registration-turn-24",
+  "suite": "registration",
+  "source": "livekit-trace",
+  "traceId": "SCL_d9foBAY9WcbE",
+  "tags": [
+    "registration",
+    "no-fabrication",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "no_match",
+    "notes": "Real call where the agent submitted a new patient. Verify no fabricated fields and that registration order was followed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "Yeah, I want to make an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "yeah I can help with that.  Have you been seen here before?"
+    },
+    {
+      "role": "user",
+      "content": "Um,"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, just let me know -- is this your first time seeing us, or have you been in before?"
+    },
+    {
+      "role": "user",
+      "content": "First time seeing you."
+    },
+    {
+      "role": "assistant",
+      "content": "ok let me get you set up.  What insurance do you have?"
+    },
+    {
+      "role": "user",
+      "content": "I did healthcare."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not finding that one in our system.  Do you have your insurance card handy so I can get the exact plan name?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "great, what's the name of the plan on the card?"
+    },
+    {
+      "role": "user",
+      "content": "Ehm, ah, non so di cosa—"
+    },
+    {
+      "role": "assistant",
+      "content": "no worries, take your time.  Just read me whatever it says on the card for the insurance company or plan name."
+    },
+    {
+      "role": "user",
+      "content": "Thank you so much."
+    },
+    {
+      "role": "assistant",
+      "content": "you're welcome. What does it say on the card?"
+    },
+    {
+      "role": "user",
+      "content": "California—"
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what's the full name of the plan?  Like California something?"
+    },
+    {
+      "role": "user",
+      "content": "UnitedHealth Camp— Care—"
+    },
+    {
+      "role": "assistant",
+      "content": "yeah we take United Healthcare.  What's your name?"
+    },
+    {
+      "role": "user",
+      "content": "Aina Parker."
+    },
+    {
+      "role": "assistant",
+      "content": "ok Aina, and what's your date of birth?"
+    },
+    {
+      "role": "user",
+      "content": "6/21/62."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, June twenty-first nineteen sixty-two.  Is the number you're calling from a good one on file?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    },
+    {
+      "role": "assistant",
+      "content": "perfect. What's your email address?"
+    },
+    {
+      "role": "user",
+      "content": "I don't have one."
+    },
+    {
+      "role": "assistant",
+      "content": "no problem. What's your street address?"
+    },
+    {
+      "role": "user",
+      "content": "14045 Lugano Court."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what city are you in?"
+    },
+    {
+      "role": "user",
+      "content": "Faz assim."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm not sure I caught that -- what city is that?"
+    },
+    {
+      "role": "user",
+      "content": "Patiente."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, and what state?"
+    },
+    {
+      "role": "user",
+      "content": "Florida."
+    },
+    {
+      "role": "assistant",
+      "content": "got it. What's the zip code?"
+    },
+    {
+      "role": "user",
+      "content": "3, 4, 6, 6, 9."
+    },
+    {
+      "role": "assistant",
+      "content": "ok. And are you male or female?"
+    },
+    {
+      "role": "user",
+      "content": "Female."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, now I need the info from your insurance card.  What's the name on the card?"
+    },
+    {
+      "role": "user",
+      "content": "UnitedHealthcare—"
+    },
+    {
+      "role": "assistant",
+      "content": "right, but what's the person's name listed on the card as the subscriber?"
+    },
+    {
+      "role": "user",
+      "content": "Dana, D-A-N-N-A, Parker, P-A-R-K-E-R."
+    },
+    {
+      "role": "assistant",
+      "content": "got it, Dana Parker.  And what's the member ID number on the card?"
+    },
+    {
+      "role": "user",
+      "content": "1-3-4-4-0— 8-6-3-4."
+    },
+    {
+      "role": "assistant",
+      "content": "ok, let me read this back to make sure I have it right.  I have Aina Parker, P-A-R-K-E-R, date of birth June twenty-first nineteen sixty-two, United Healthcare, member ID one three four four zero eight six three four.  Is that all correct?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "add_patient"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "never_call_add_patient_without_all_fields"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}

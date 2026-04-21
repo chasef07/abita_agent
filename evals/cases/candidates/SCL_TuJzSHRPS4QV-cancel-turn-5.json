@@ -1,0 +1,61 @@
+{
+  "id": "SCL_TuJzSHRPS4QV-cancel-turn-5",
+  "suite": "cancel",
+  "source": "livekit-trace",
+  "traceId": "SCL_TuJzSHRPS4QV",
+  "tags": [
+    "cancel",
+    "needs-review"
+  ],
+  "context": {
+    "trunkPhone": "+17275919997",
+    "phoneLookupStatus": "unknown",
+    "notes": "Real call: agent cancelled an appointment. Check that cancel_appt was actually called rather than just verbally agreed."
+  },
+  "conversation": [
+    {
+      "role": "assistant",
+      "content": "thank you for calling Abita Eye Group, this is David, how can I help you?"
+    },
+    {
+      "role": "user",
+      "content": "I need to cancel an appointment."
+    },
+    {
+      "role": "assistant",
+      "content": "can I get your first name?"
+    },
+    {
+      "role": "user",
+      "content": "As well."
+    },
+    {
+      "role": "assistant",
+      "content": "hey Oswall, I see you have two upcoming appointments -- one this Thursday April twenty-third at ten a m with Dr. Bach, and another Wednesday July fifteenth at three fifteen p m with Dr. Bach.  Which one would you like to cancel?"
+    },
+    {
+      "role": "user",
+      "content": "Thursday."
+    },
+    {
+      "role": "assistant",
+      "content": "alright, so I'll cancel the appointment this Thursday April twenty-third at ten a m with Dr. Bach.  Is that correct?"
+    },
+    {
+      "role": "user",
+      "content": "Yes."
+    }
+  ],
+  "expectations": {
+    "mustCallTools": [
+      "cancel_appt"
+    ],
+    "mustNotCallTools": [],
+    "policyFlags": [
+      "cancel_requires_tool_call"
+    ],
+    "styleFlags": [
+      "concise"
+    ]
+  }
+}
