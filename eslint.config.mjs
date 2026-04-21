@@ -5,7 +5,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [".claude/**", "dist/**", "node_modules/**", "evals/output/**"],
+    ignores: [".claude/**", "dist/**", "node_modules/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -20,7 +20,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["**/*.test.ts", "vitest.config.ts", "vitest.ci.config.ts"],
+    files: ["**/*.test.ts", "vitest.config.ts"],
     languageOptions: {
       globals: {
         ...globals.node,

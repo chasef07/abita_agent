@@ -505,7 +505,9 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
 
 // --- lookup_knowledge ---
 export const lookup_knowledge = llm.tool({
-  description: `Looks up practice info: hours, location, providers, services, what to bring, appointment expectations, urgency screening, glasses warranty.
+  description: `Returns practice facts: address, hours, location, providers, services, what to bring, phone, fax, and appointment expectations.
+
+You MUST call this tool before answering any of those questions, including mid-flow.
 
 Answer naturally from the returned info — just the part that answers their question.`,
   parameters: z.object({

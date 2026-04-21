@@ -69,11 +69,11 @@ Bumped to `@livekit/agents@1.2.4` and sibling plugins. Also bumped `@livekit/rtc
 
 Verified the fix is present in `node_modules/@livekit/agents/dist/ipc/proc_pool.js`: `unlock()` now runs immediately after `warmedProcQueue.put()`, before `await proc.join()`.
 
-Shipped via `1bb8c8a` → GitHub Actions deploy workflow.
+Shipped via `1bb8c8a`.
 
 ## Prevention
 
-1. **Stay current on `@livekit/agents` patch versions.** The fix existed for 4 hours before the incident. Consider Renovate/Dependabot for LiveKit packages, or a `pnpm outdated` check in CI.
+1. **Stay current on `@livekit/agents` patch versions.** The fix existed for 4 hours before the incident. Consider Renovate/Dependabot for LiveKit packages, or a periodic `pnpm outdated` check.
 2. **Monitor for the canary signal:** any session where the agent's `Participant joining` timestamp is more than ~2 seconds after the caller's `Participant joining`. Those are degraded calls (agent late) or outright missed calls (agent never). Worth alerting on.
 3. **Consider `min_replicas: 2`** if the plan supports it. Even with this bug fixed, a single replica can't survive a pod restart or hardware event mid-call. Two replicas gives graceful failover.
 4. **Audit recent calls** for degraded-start cases (agent joining 10+ seconds late). Listen to recordings to gauge how bad the dead-air experience was for callers who waited it out.

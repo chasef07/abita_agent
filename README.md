@@ -2,8 +2,6 @@
 
 A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over Twilio/Telnyx SIP trunks, the agent identifies them, handles scheduling/insurance/FAQ, and transfers to a human when needed.
 
-Runs on LiveKit Cloud. Deploys via GitHub Actions on push to `main`.
-
 ## The stack
 
 | Layer | Provider | Notes |
@@ -72,7 +70,7 @@ src/
 ├── prompt.ts        # Assembles system prompt from workspace/*.md + dynamic caller context
 ├── tools.ts         # 10 LLM tools — all HTTP calls to the AdvancedMD middleware
 ├── scribe-stt.ts    # (experimental) AssemblyAI via LiveKit Inference — not currently used
-└── __tests__/       # Vitest replay tests against recorded transcripts
+└── __tests__/       # Vitest unit tests
 
 workspace/            # Prompt source files (edit these to change agent behavior)
 ├── SOUL.md          # Identity / persona (top of prompt)
@@ -80,15 +78,6 @@ workspace/            # Prompt source files (edit these to change agent behavior
 ├── RUNBOOK.md       # Flow logic, tool usage, branching (bottom of prompt — highest attention)
 ├── KNOWLEDGE_*.md   # Location-specific FAQ (hours, directions, insurance)
 └── INSURANCE_SPRING_HILL_CRYSTAL_RIVER.md  # Shared insurance plan routing logic for Spring Hill and Crystal River
-
-optimize/             # Prompt tuning pipeline
-├── run.sh           # Loop: analyze transcripts → propose changes → replay-test → diff
-├── analyze.ts       # Fetches recent transcripts, scores against criteria.md
-├── scenarios/       # Replay scenarios for regression tests
-└── criteria.md      # Behavioral evaluation rules
-
-.github/workflows/
-└── deploy.yml       # Push to main → lk agent deploy
 
 livekit.toml         # LiveKit Cloud agent config (project + agent ID)
 Dockerfile           # Multi-stage: pnpm install → build → download-files → prune → run
@@ -137,17 +126,6 @@ The system prompt is stitched from markdown files in `workspace/` in a specific 
 
 All tools read/write `session.userData` (typed `CallState` in `tools.ts`), which holds the call's pre-loaded context and any data collected during the conversation.
 
-## Prompt optimization loop
-
-`optimize/` is a pipeline for auto-improving the prompt from real call transcripts:
-
-1. `analyze.ts` fetches recent calls, scores each against `criteria.md`
-2. Failing scenarios get replayed against the current prompt via `src/__tests__/replay.test.ts`
-3. `run.sh` orchestrates: analyze → propose changes → replay-test → report diff
-4. Humans review and commit the changes
-
-Replay tests MUST pass before shipping prompt changes — they catch regressions.
-
 ## Local development
 
 ```bash
@@ -160,19 +138,16 @@ Test against a SIP trunk requires a real Twilio/Telnyx setup — see `TELNYX_SET
 
 ## Deploy
 
-**Do not run `lk agent deploy` manually.** Push to `main` — GitHub Actions handles the rest:
+Deploy manually with the LiveKit CLI:
 
 ```bash
-git push origin main
+lk agent deploy --yes
 ```
-
-The workflow (`deploy.yml`) runs `lk agent deploy`, LiveKit Cloud builds the Docker image, and rolls out with a health-checked zero-downtime replacement.
 
 Check status:
 
 ```bash
 lk agent status
-gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 ```
 
 ## Key environment variables
