@@ -1,10 +1,13 @@
+import { llm } from "@livekit/agents";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildToolsForTrunk } from "../agent.js";
+import { Agent, buildToolsForTrunk } from "../agent.js";
 import { buildPrompt, buildTaskPrompt } from "../prompt.js";
 import { getOfficeKeyByPhone, SPRING_HILL_OFFICE_PHONE } from "../offices.js";
 import {
+  buildTurnStateSummary,
+  createInitialCallState,
   getAmdOfficeForToolCall,
   getSpringHillOfficePhone,
   resolveKnowledgeFileForOffice,
@@ -130,9 +133,7 @@ describe("Crystal River prompt guidance", () => {
   it("keeps direct new-patient routing explicit in the router prompt", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
-    expect(prompt).toContain(
-      "If no, go straight to new patient registration",
-    );
+    expect(prompt).toContain("If no, go straight to new patient registration");
     expect(prompt).toContain(
       "if the caller clearly says they are new or says they have not been seen here before and caller context does not already have a matched patient, go straight to registration",
     );
@@ -161,7 +162,9 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "collect or confirm the reason for the replacement visit if needed",
     );
-    expect(prompt).toContain("If a registration read-back or appointment confirmation is long, split it into short chunks");
+    expect(prompt).toContain(
+      "If a registration read-back or appointment confirmation is long, split it into short chunks",
+    );
     expect(prompt).toContain("Reschedule order:");
   });
 
@@ -173,5 +176,121 @@ describe("Crystal River prompt guidance", () => {
       "if it is scheduling, push back once and try to help",
     );
     expect(prompt).toContain("if they ask again, transfer");
+  });
+
+  it("returns no turn summary when no workflow is active", () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: SPRING_HILL_OFFICE_PHONE,
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+    });
+
+    expect(buildTurnStateSummary(state)).toBeNull();
+  });
+
+  it("builds a compact turn summary for active booking state", () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: SPRING_HILL_OFFICE_PHONE,
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+      phoneLookup: {
+        status: "verified",
+        patientId: "P123",
+        name: "Maria Santos",
+        dob: "03/05/1982",
+        phone: "+18135551234",
+        insuranceCarrier: "Florida Blue",
+        insPlanId: "IP1",
+        respPartyId: "RP1",
+        routing: "accepted",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [],
+      },
+    });
+    state.workflow.intent = "schedule";
+    state.workflow.activeFlow = "booking";
+    state.scheduling.reasonForVisit = "blurry vision";
+    state.scheduling.lastAvailabilitySummary =
+      "Found 1 opening for 2026-04-24.";
+    state.scheduling.selectedSlot = {
+      startDatetime: "2026-04-24T10:00",
+      columnId: 11,
+      profileId: 22,
+      duration: 30,
+      appointmentTypeId: 1007,
+    };
+
+    const summary = buildTurnStateSummary(state);
+
+    expect(summary).toContain("Current workflow state:");
+    expect(summary).toContain("active step: booking");
+    expect(summary).toContain("patient: Maria Santos");
+    expect(summary).toContain("visit reason: blurry vision");
+    expect(summary).toContain("selected slot: 2026-04-24T10:00");
+    expect(summary).toContain(
+      "next focus: confirm and book the selected slot already in state",
+    );
+  });
+
+  it("injects a turn summary into the temporary chat context for the current reply only", async () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: SPRING_HILL_OFFICE_PHONE,
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+      phoneLookup: {
+        status: "verified",
+        patientId: "P123",
+        name: "Maria Santos",
+        dob: "03/05/1982",
+        phone: "+18135551234",
+        insuranceCarrier: "Florida Blue",
+        insPlanId: "IP1",
+        respPartyId: "RP1",
+        routing: "accepted",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [],
+      },
+    });
+    state.workflow.intent = "schedule";
+    state.workflow.activeFlow = "availability";
+    state.scheduling.reasonForVisit = "blurry vision";
+    state.scheduling.lastAvailabilitySummary =
+      "No openings returned for 2026-04-24.";
+
+    const agent = new Agent(undefined, SPRING_HILL_OFFICE_PHONE);
+    (agent as any)._agentActivity = { agentSession: { userData: state } };
+
+    const chatCtx = llm.ChatContext.empty();
+
+    await agent.onUserTurnCompleted(
+      chatCtx,
+      llm.ChatMessage.create({ role: "user", content: "Friday works" }),
+    );
+
+    const turnStateMessages = chatCtx.items.filter(
+      (item) =>
+        item.type === "message" &&
+        item.role === "system" &&
+        item.textContent?.includes("<turn_state>"),
+    );
+
+    expect(turnStateMessages).toHaveLength(1);
+    expect(turnStateMessages[0]?.textContent).toContain(
+      "active step: availability",
+    );
+    expect(turnStateMessages[0]?.textContent).toContain(
+      "last availability: No openings returned for 2026-04-24.",
+    );
   });
 });

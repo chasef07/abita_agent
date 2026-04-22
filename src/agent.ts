@@ -4,6 +4,7 @@
 import { llm, voice } from "@livekit/agents";
 import { buildPrompt } from "./prompt.js";
 import {
+  buildTurnStateSummary,
   type CallState,
   type PhoneLookupResult,
   update_insurance,
@@ -243,5 +244,18 @@ export class Agent extends voice.Agent {
     // Brief delay so the SIP audio path is fully established before speaking
     await new Promise((r) => setTimeout(r, 500));
     await this.session.say(this.greeting);
+  }
+
+  override async onUserTurnCompleted(
+    chatCtx: llm.ChatContext,
+    _newMessage: llm.ChatMessage,
+  ): Promise<void> {
+    const summary = buildTurnStateSummary(this.session.userData as CallState);
+    if (!summary) return;
+
+    chatCtx.addMessage({
+      role: "system",
+      content: `<turn_state>\n${summary}\n</turn_state>`,
+    });
   }
 }

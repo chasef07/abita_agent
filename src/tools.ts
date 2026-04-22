@@ -453,6 +453,69 @@ export function buildWorkingStateSummary(
   return lines.join("\n");
 }
 
+export function buildTurnStateSummary(state: CallState): string | null {
+  if (state.workflow.activeFlow === "none") {
+    return null;
+  }
+
+  const lines: string[] = [];
+  lines.push(`Current workflow state:`);
+  lines.push(`- intent: ${state.workflow.intent}`);
+  lines.push(`- active step: ${state.workflow.activeFlow}`);
+  lines.push(
+    `- patient: ${state.identity.patientName ?? "not yet identified"}`,
+  );
+
+  if (state.workflow.registrationAllowed) {
+    lines.push(`- registration is allowed`);
+  }
+  if (state.scheduling.reasonForVisit) {
+    lines.push(`- visit reason: ${state.scheduling.reasonForVisit}`);
+  }
+  if (
+    (state.workflow.activeFlow === "availability" ||
+      state.workflow.activeFlow === "booking") &&
+    state.scheduling.lastAvailabilitySummary
+  ) {
+    lines.push(
+      `- last availability: ${state.scheduling.lastAvailabilitySummary}`,
+    );
+  }
+  if (
+    state.workflow.activeFlow === "booking" &&
+    state.scheduling.selectedSlot
+  ) {
+    lines.push(
+      `- selected slot: ${state.scheduling.selectedSlot.startDatetime}`,
+    );
+  }
+  if (
+    (state.workflow.intent === "confirm" ||
+      state.workflow.intent === "cancel" ||
+      state.workflow.intent === "reschedule") &&
+    state.scheduling.targetAppointmentId
+  ) {
+    lines.push(`- target appointment selected: yes`);
+  }
+
+  const nextFocusByFlow: Record<CallState["workflow"]["activeFlow"], string> = {
+    none: "",
+    identify: "identify the correct patient before continuing",
+    register: "complete registration before scheduling continues",
+    visit_reason: "capture the visit reason before availability",
+    availability: "search one date at a time or record the chosen slot",
+    booking: "confirm and book the selected slot already in state",
+    cancel: "confirm and cancel the selected appointment",
+  };
+
+  const nextFocus = nextFocusByFlow[state.workflow.activeFlow];
+  if (nextFocus) {
+    lines.push(`- next focus: ${nextFocus}`);
+  }
+
+  return lines.join("\n");
+}
+
 /** Apply patient data from an API response, resetting all patient fields so nothing stale lingers. */
 function applyPatientResult(
   state: CallState,

@@ -19,7 +19,8 @@ export async function runCancelTaskGroup(
   const identifyResult = await identifyTask.run();
 
   const identifyEvent =
-    identifyResult.outcome === "registration_allowed" || !state.identity.patientId
+    identifyResult.outcome === "registration_allowed" ||
+    !state.identity.patientId
       ? { type: "IDENTITY_UNRESOLVED" as const }
       : { type: "IDENTITY_CONFIRMED" as const };
   const identifyTransition = applyCancelTransition(state, identifyEvent);

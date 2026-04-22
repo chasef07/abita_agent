@@ -420,7 +420,9 @@ describe("workflow e2e", () => {
         },
         {
           input: "Florida Blue",
-          toolCalls: [{ name: "check_insurance", args: { plan: "Florida Blue" } }],
+          toolCalls: [
+            { name: "check_insurance", args: { plan: "Florida Blue" } },
+          ],
         },
         {
           input: insuranceOutput,
@@ -492,7 +494,9 @@ describe("workflow e2e", () => {
       }),
     ).toBeTruthy();
 
-    const run4 = await session.run({ userInput: "here are her details" }).wait();
+    const run4 = await session
+      .run({ userInput: "here are her details" })
+      .wait();
     expect(
       run4.expect.containsFunctionCall({ name: "submit_registration" }),
     ).toBeTruthy();
@@ -522,7 +526,9 @@ describe("workflow e2e", () => {
       ],
     });
 
-    const run1 = await session.run({ userInput: "I need an appointment" }).wait();
+    const run1 = await session
+      .run({ userInput: "I need an appointment" })
+      .wait();
     expect(
       run1.expect.containsFunctionCall({ name: "run_registration_task" }),
     ).toBeTruthy();
@@ -641,7 +647,9 @@ describe("workflow e2e", () => {
       ],
     });
 
-    await session.run({ userInput: "I need to schedule an appointment" }).wait();
+    await session
+      .run({ userInput: "I need to schedule an appointment" })
+      .wait();
     await session.run({ userInput: "Maria" }).wait();
     await settleTaskTransitions();
     await session.run({ userInput: "blurry vision" }).wait();
@@ -806,8 +814,7 @@ describe("workflow e2e", () => {
     expect(
       run3.events.some(
         (ev) =>
-          ev.type === "function_call" &&
-          ev.item.name === "search_availability",
+          ev.type === "function_call" && ev.item.name === "search_availability",
       ),
     ).toBe(false);
 

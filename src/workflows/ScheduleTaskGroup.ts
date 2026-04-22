@@ -21,7 +21,10 @@ export async function runScheduleTaskGroup(
     chatCtx,
     summarizeChatCtx: true,
     onTaskCompleted: async ({ taskId, result }) => {
-      const event = mapScheduleTaskResultToEvent(taskId as ScheduleTaskId, result);
+      const event = mapScheduleTaskResultToEvent(
+        taskId as ScheduleTaskId,
+        result,
+      );
       applyScheduleTransition(state, event);
     },
   });

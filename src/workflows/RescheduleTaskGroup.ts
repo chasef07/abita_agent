@@ -26,7 +26,8 @@ export async function runRescheduleTaskGroup(
   const identifyResult = await identifyTask.run();
 
   const identifyEvent =
-    identifyResult.outcome === "registration_allowed" || !state.identity.patientId
+    identifyResult.outcome === "registration_allowed" ||
+    !state.identity.patientId
       ? { type: "IDENTITY_UNRESOLVED" as const }
       : { type: "IDENTITY_CONFIRMED" as const };
   const identifyTransition = applyRescheduleTransition(state, identifyEvent);
@@ -57,11 +58,14 @@ export async function runRescheduleTaskGroup(
   });
 
   if (needsVisitReason) {
-    taskGroup.add(() => new VisitReasonTask(chatCtx.copy(), state, "reschedule"), {
-      id: "visit_reason",
-      description:
-        "Collect or confirm the reason for the replacement visit before checking availability.",
-    });
+    taskGroup.add(
+      () => new VisitReasonTask(chatCtx.copy(), state, "reschedule"),
+      {
+        id: "visit_reason",
+        description:
+          "Collect or confirm the reason for the replacement visit before checking availability.",
+      },
+    );
   }
 
   taskGroup.add(
