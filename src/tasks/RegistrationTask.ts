@@ -37,7 +37,6 @@ export class RegistrationTask extends voice.AgentTask<
               current.workflow.registrationComplete &&
               current.identity.patientId
             ) {
-              current.workflow.activeFlow = "none";
               this.complete({
                 registered: true,
                 patientId: current.identity.patientId,
@@ -54,9 +53,6 @@ export class RegistrationTask extends voice.AgentTask<
   override async onEnter(): Promise<void> {
     const current = this.session.userData as CallState;
     if (!current.workflow.registrationAllowed) {
-      current.workflow.activeFlow = current.identity.patientId
-        ? "visit_reason"
-        : "none";
       this.complete({
         registered: false,
         patientId: current.identity.patientId,

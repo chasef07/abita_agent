@@ -134,7 +134,10 @@ describe("Crystal River prompt guidance", () => {
       "If no, go straight to new patient registration",
     );
     expect(prompt).toContain(
-      "if the caller clearly says they are new or says they have not been seen here before, go straight to registration",
+      "if the caller clearly says they are new or says they have not been seen here before and caller context does not already have a matched patient, go straight to registration",
+    );
+    expect(prompt).toContain(
+      "if the caller clearly says they are new but caller context already has a matched patient on this phone number, prefer `run_schedule_task_group` or `run_identify_patient_task`",
     );
   });
 

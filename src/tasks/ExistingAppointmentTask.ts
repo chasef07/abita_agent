@@ -22,12 +22,6 @@ export class ExistingAppointmentTask extends voice.AgentTask<
     state: CallState,
     mode: "confirm" | "cancel" | "reschedule" = "reschedule",
   ) {
-    const resolveNextFlow = (current: CallState) => {
-      if (mode === "confirm") return "none";
-      if (mode === "cancel") return "cancel";
-      return current.scheduling.reasonForVisit ? "availability" : "visit_reason";
-    };
-
     super({
       chatCtx,
       instructions: buildTaskPrompt({
@@ -50,7 +44,6 @@ export class ExistingAppointmentTask extends voice.AgentTask<
               if (current.scheduling.appointments.length === 1) {
                 const onlyAppointment = current.scheduling.appointments[0]!;
                 current.scheduling.targetAppointmentId = onlyAppointment.id;
-                current.workflow.activeFlow = resolveNextFlow(current);
                 this.complete({ appointmentId: onlyAppointment.id });
               }
               return result;
@@ -75,7 +68,6 @@ export class ExistingAppointmentTask extends voice.AgentTask<
               return "ERROR: That appointment is not loaded. Confirm appointments first and then select one.";
             }
             current.scheduling.targetAppointmentId = appointmentId;
-            current.workflow.activeFlow = resolveNextFlow(current);
             this.complete({ appointmentId });
           },
         }),
@@ -93,14 +85,6 @@ export class ExistingAppointmentTask extends voice.AgentTask<
     ) {
       const onlyAppointment = current.scheduling.appointments[0]!;
       current.scheduling.targetAppointmentId = onlyAppointment.id;
-      current.workflow.activeFlow =
-        this.mode === "confirm"
-          ? "none"
-          : this.mode === "cancel"
-            ? "cancel"
-            : current.scheduling.reasonForVisit
-              ? "availability"
-              : "visit_reason";
       this.complete({ appointmentId: onlyAppointment.id });
       return;
     }

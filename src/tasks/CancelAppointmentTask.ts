@@ -55,7 +55,6 @@ export class CancelAppointmentTask extends voice.AgentTask<
               return result;
             }
 
-            current.workflow.activeFlow = "none";
             this.complete({ cancelled: true });
             return result;
           },

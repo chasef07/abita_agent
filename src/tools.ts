@@ -499,6 +499,42 @@ function applyPatientResult(
   state.scheduling.appointmentsSource = "none";
 }
 
+/** Clear the active patient context before switching into true new-patient registration. */
+export function clearActivePatientContext(state: CallState): void {
+  const hadResolvedPatient =
+    !!state.identity.patientId ||
+    !!state.identity.patientName ||
+    state.identity.activePatientSource !== null;
+
+  state.identity.patientId = null;
+  state.identity.patientName = null;
+  state.identity.dob = null;
+  state.identity.insuranceCarrier = null;
+  state.identity.insPlanId = null;
+  state.identity.respPartyId = null;
+  state.identity.callerConfirmedPatient = false;
+  state.identity.activePatientMatchesLookup = false;
+  state.identity.activePatientSource = null;
+  state.identity.switchedPatientThisCall =
+    state.identity.switchedPatientThisCall || hadResolvedPatient;
+
+  state.scheduling.reasonForVisit = null;
+  state.scheduling.lastAvailabilityQuery = null;
+  state.scheduling.lastAvailabilitySummary = null;
+  state.scheduling.lastAvailabilityRaw = null;
+  state.scheduling.selectedSlot = null;
+  state.scheduling.targetAppointmentId = null;
+  state.scheduling.appointments = [];
+  state.scheduling.appointmentsLoadedAt = null;
+  state.scheduling.appointmentsSource = "none";
+
+  state.insurance.checkedInsurancePlan = null;
+  state.insurance.routing = null;
+  state.insurance.allowedProviders = [];
+  state.insurance.routingAmbiguous = false;
+  state.insurance.preauthRequired = false;
+}
+
 /** Pre-call phone lookup — called from main.ts before session starts. */
 export async function lookupByPhone(
   phone: string,

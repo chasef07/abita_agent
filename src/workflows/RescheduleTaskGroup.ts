@@ -6,6 +6,11 @@ import { CancelAppointmentTask } from "../tasks/CancelAppointmentTask.js";
 import { ExistingAppointmentTask } from "../tasks/ExistingAppointmentTask.js";
 import { IdentifyPatientTask } from "../tasks/IdentifyPatientTask.js";
 import { VisitReasonTask } from "../tasks/VisitReasonTask.js";
+import {
+  applyRescheduleTransition,
+  mapRescheduleTaskResultToEvent,
+  type RescheduleTaskId,
+} from "./engine/reschedule-transition.js";
 
 export interface RescheduleWorkflowResult {
   taskResults: Record<string, unknown>;
@@ -15,14 +20,18 @@ export async function runRescheduleTaskGroup(
   chatCtx: llm.ChatContext,
   state: CallState,
 ): Promise<RescheduleWorkflowResult> {
+  applyRescheduleTransition(state, { type: "START" });
+
   const identifyTask = new IdentifyPatientTask(chatCtx.copy(), state);
   const identifyResult = await identifyTask.run();
 
-  if (
-    identifyResult.outcome === "registration_allowed" ||
-    !state.identity.patientId
-  ) {
-    state.workflow.activeFlow = "none";
+  const identifyEvent =
+    identifyResult.outcome === "registration_allowed" || !state.identity.patientId
+      ? { type: "IDENTITY_UNRESOLVED" as const }
+      : { type: "IDENTITY_CONFIRMED" as const };
+  const identifyTransition = applyRescheduleTransition(state, identifyEvent);
+
+  if (identifyTransition.workflowStopped) {
     return {
       taskResults: {
         identify_patient: identifyResult,
@@ -36,19 +45,8 @@ export async function runRescheduleTaskGroup(
     chatCtx: identifyTask.chatCtx.copy({ excludeInstructions: true }),
     summarizeChatCtx: true,
     onTaskCompleted: async ({ taskId }) => {
-      if (taskId === "existing_appointment") {
-        state.workflow.activeFlow = needsVisitReason
-          ? "visit_reason"
-          : "availability";
-      } else if (taskId === "visit_reason") {
-        state.workflow.activeFlow = "availability";
-      } else if (taskId === "availability") {
-        state.workflow.activeFlow = "booking";
-      } else if (taskId === "booking") {
-        state.workflow.activeFlow = "cancel";
-      } else if (taskId === "cancel_original") {
-        state.workflow.activeFlow = "none";
-      }
+      const event = mapRescheduleTaskResultToEvent(taskId as RescheduleTaskId);
+      applyRescheduleTransition(state, event);
     },
   });
 

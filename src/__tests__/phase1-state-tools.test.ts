@@ -2,6 +2,7 @@ import { llm } from "@livekit/agents";
 import { initializeLogger } from "../../node_modules/@livekit/agents/src/log.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExistingAppointmentTask } from "../tasks/ExistingAppointmentTask.js";
+import { IdentifyPatientTask } from "../tasks/IdentifyPatientTask.js";
 import {
   add_patient,
   buildWorkingStateSummary,
@@ -158,6 +159,50 @@ describe("phase 1 state and tool guards", () => {
 
     expect(result).toContain("already identified");
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("clears the active patient context before allowing switched-patient registration", async () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: "+17275919997",
+      amdOfficePhone: "+17275919997",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+      phoneLookup: {
+        status: "verified",
+        patientId: "P123",
+        name: "Maria Santos",
+        dob: "03/05/1982",
+        phone: "+18135551234",
+        insuranceCarrier: "Florida Blue",
+        insPlanId: "IP1",
+        respPartyId: "RP1",
+        routing: "accepted",
+        allowedProviders: ["Dr. Noel"],
+        routingAmbiguous: false,
+        appointments: [appointment()],
+      },
+    });
+
+    const task = new IdentifyPatientTask(new llm.ChatContext(), state);
+
+    await (task as any)._tools.allow_registration.execute(
+      { reason: "caller said this is for a new patient" },
+      {
+        ctx: {
+          ...createCtx(state),
+          userData: state,
+        },
+      },
+    );
+
+    expect(state.identity.patientId).toBeNull();
+    expect(state.identity.patientName).toBeNull();
+    expect(state.identity.switchedPatientThisCall).toBe(true);
+    expect(state.workflow.registrationAllowed).toBe(true);
+    expect(state.insurance.checkedInsurancePlan).toBeNull();
+    expect(state.scheduling.appointments).toHaveLength(0);
   });
 
   it("rejects duplicate same-date availability lookups", async () => {

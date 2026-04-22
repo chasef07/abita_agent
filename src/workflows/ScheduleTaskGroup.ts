@@ -5,32 +5,24 @@ import { BookingTask } from "../tasks/BookingTask.js";
 import { IdentifyPatientTask } from "../tasks/IdentifyPatientTask.js";
 import { RegistrationTask } from "../tasks/RegistrationTask.js";
 import { VisitReasonTask } from "../tasks/VisitReasonTask.js";
+import {
+  applyScheduleTransition,
+  mapScheduleTaskResultToEvent,
+  type ScheduleTaskId,
+} from "./engine/schedule-transition.js";
 
 export async function runScheduleTaskGroup(
   chatCtx: llm.ChatContext,
   state: CallState,
 ) {
+  applyScheduleTransition(state, { type: "START" });
+
   const taskGroup = new beta.TaskGroup({
     chatCtx,
     summarizeChatCtx: true,
     onTaskCompleted: async ({ taskId, result }) => {
-      if (taskId === "identify_patient") {
-        const identifyResult = result as {
-          outcome?: "identified" | "registration_allowed";
-        };
-        state.workflow.activeFlow =
-          identifyResult.outcome === "registration_allowed"
-            ? "register"
-            : "visit_reason";
-      } else if (taskId === "register_patient") {
-        state.workflow.activeFlow = "visit_reason";
-      } else if (taskId === "visit_reason") {
-        state.workflow.activeFlow = "availability";
-      } else if (taskId === "availability") {
-        state.workflow.activeFlow = "booking";
-      } else if (taskId === "booking") {
-        state.workflow.activeFlow = "none";
-      }
+      const event = mapScheduleTaskResultToEvent(taskId as ScheduleTaskId, result);
+      applyScheduleTransition(state, event);
     },
   });
 
@@ -39,13 +31,11 @@ export async function runScheduleTaskGroup(
     description: "Resolve who the patient is before scheduling continues.",
   });
 
-  if (state.workflow.registrationAllowed || !state.identity.patientId) {
-    taskGroup.add(() => new RegistrationTask(chatCtx.copy(), state), {
-      id: "register_patient",
-      description:
-        "Collect and submit new-patient registration details when registration is required.",
-    });
-  }
+  taskGroup.add(() => new RegistrationTask(chatCtx.copy(), state), {
+    id: "register_patient",
+    description:
+      "Collect and submit new-patient registration details when registration is required.",
+  });
 
   taskGroup.add(() => new VisitReasonTask(chatCtx.copy(), state), {
     id: "visit_reason",

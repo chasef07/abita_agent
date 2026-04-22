@@ -41,7 +41,6 @@ export class VisitReasonTask extends voice.AgentTask<
           execute: async ({ reasonForVisit }, { ctx }) => {
             const current = ctx.userData as CallState;
             current.scheduling.reasonForVisit = reasonForVisit;
-            current.workflow.activeFlow = "availability";
             this.complete({ reasonForVisit });
           },
         }),

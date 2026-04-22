@@ -91,9 +91,11 @@ export class Agent extends voice.Agent {
           ).run();
 
           if (result.outcome === "registration_allowed") {
+            state.workflow.activeFlow = "register";
             return "Identity flow completed: registration is allowed. If the caller is truly new, continue with run_registration_task.";
           }
 
+          state.workflow.activeFlow = "none";
           return result.patientName
             ? `Identity flow completed: active patient is ${result.patientName}.`
             : "Identity flow completed: active patient is identified.";
@@ -101,7 +103,7 @@ export class Agent extends voice.Agent {
       }),
       run_registration_task: llm.tool({
         description:
-          "Use this when the caller is a true new patient and registration must be completed before scheduling can continue.",
+          "Use this when the caller is a true new patient and registration must be completed before scheduling can continue. Prefer this when caller context does not already have a matched patient. If a matched patient is already loaded from this phone number but the caller says the visit is for a different new person, prefer run_schedule_task_group or run_identify_patient_task first so the workflow can safely switch patients before registration.",
         execute: async () => {
           const state = this.session.userData as CallState;
           const canStartDirectRegistration =
@@ -119,11 +121,13 @@ export class Agent extends voice.Agent {
           ).run();
 
           if (!result.registered) {
+            state.workflow.activeFlow = "none";
             return state.identity.patientId
               ? "Registration workflow was not needed because the patient is already identified. Continue helping the caller."
               : "Registration workflow is not allowed yet. Identify the patient first or confirm they are truly new before registering them.";
           }
 
+          state.workflow.activeFlow = "none";
           return result.patientName
             ? `Registration completed for ${result.patientName}. Continue helping the caller.`
             : "Registration completed. Continue helping the caller.";
@@ -134,10 +138,6 @@ export class Agent extends voice.Agent {
           "Use this when the caller wants to schedule an appointment. This workflow handles identification, registration if needed, visit reason, availability, and booking.",
         execute: async () => {
           const state = this.session.userData as CallState;
-          state.workflow.intent = "schedule";
-          state.workflow.appointmentIntent = "schedule";
-          state.workflow.activeFlow = "identify";
-
           const result = await runScheduleTaskGroup(
             this.chatCtx.copy({ excludeInstructions: true }),
             state,
@@ -159,10 +159,6 @@ export class Agent extends voice.Agent {
           "Use this when the caller wants to move or change an existing appointment. This workflow identifies the patient, selects the current appointment, books the replacement, and then cancels the old appointment.",
         execute: async () => {
           const state = this.session.userData as CallState;
-          state.workflow.intent = "reschedule";
-          state.workflow.appointmentIntent = "reschedule";
-          state.workflow.activeFlow = "identify";
-
           const result = await runRescheduleTaskGroup(
             this.chatCtx.copy({ excludeInstructions: true }),
             state,
@@ -190,10 +186,6 @@ export class Agent extends voice.Agent {
           "Use this when the caller wants to confirm an existing appointment. This workflow identifies the patient, resolves which appointment they mean, and then confirms the appointment details.",
         execute: async () => {
           const state = this.session.userData as CallState;
-          state.workflow.intent = "confirm";
-          state.workflow.appointmentIntent = "confirm";
-          state.workflow.activeFlow = "identify";
-
           const result = await runConfirmTaskGroup(
             this.chatCtx.copy({ excludeInstructions: true }),
             state,
@@ -222,10 +214,6 @@ export class Agent extends voice.Agent {
           "Use this when the caller wants to cancel an existing appointment. This workflow identifies the patient, resolves which appointment they mean, and then cancels it after confirmation.",
         execute: async () => {
           const state = this.session.userData as CallState;
-          state.workflow.intent = "cancel";
-          state.workflow.appointmentIntent = "cancel";
-          state.workflow.activeFlow = "identify";
-
           const result = await runCancelTaskGroup(
             this.chatCtx.copy({ excludeInstructions: true }),
             state,

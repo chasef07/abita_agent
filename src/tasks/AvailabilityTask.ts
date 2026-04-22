@@ -58,7 +58,6 @@ export class AvailabilityTask extends voice.AgentTask<
               duration: params.duration,
               appointmentTypeId: params.appointmentTypeId,
             };
-            current.workflow.activeFlow = "booking";
             this.complete({ selectedSlot: current.scheduling.selectedSlot });
           },
         }),

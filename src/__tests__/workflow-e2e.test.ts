@@ -25,6 +25,7 @@ type ScriptedResponse = {
 let mockAppointmentsResult: unknown = [];
 let mockAvailabilityResult: unknown = scheduleAvailabilityResult();
 let mockVerifyPatientResult: unknown = [];
+let mockAddPatientResult: unknown = [];
 class ScriptedLLM extends llm.LLM {
   private readonly responses = new Map<string, ScriptedResponse>();
 
@@ -165,6 +166,10 @@ function scheduleAvailabilityResult() {
   ];
 }
 
+async function settleTaskTransitions() {
+  await new Promise((resolve) => setTimeout(resolve, 25));
+}
+
 async function createSession(args: {
   responses: ScriptedResponse[];
   phoneLookup?: PhoneLookupResult;
@@ -193,12 +198,18 @@ describe("workflow e2e", () => {
     mockAppointmentsResult = [];
     mockAvailabilityResult = scheduleAvailabilityResult();
     mockVerifyPatientResult = [];
+    mockAddPatientResult = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         if (url.endsWith("/api/verify-patient")) {
           return new Response(JSON.stringify(mockVerifyPatientResult), {
+            status: 200,
+          });
+        }
+        if (url.endsWith("/api/add-patient")) {
+          return new Response(JSON.stringify(mockAddPatientResult), {
             status: 200,
           });
         }
@@ -313,6 +324,7 @@ describe("workflow e2e", () => {
     expect(
       run2.expect.containsFunctionCall({ name: "confirm_current_patient" }),
     ).toBeTruthy();
+    await settleTaskTransitions();
 
     const run3 = await session.run({ userInput: "blurry vision" }).wait();
     expect(
@@ -356,6 +368,146 @@ describe("workflow e2e", () => {
     ).toBeTruthy();
     expect(state.workflow.registrationAllowed).toBe(true);
     expect(state.workflow.activeFlow).toBe("register");
+    await session.close();
+  });
+
+  it("keeps schedule flow moving when a preloaded caller switches to a true new patient", async () => {
+    mockAddPatientResult = {
+      patientId: "P999",
+      name: "Lia Santos",
+      dob: "07/08/2010",
+      insuranceCarrier: "Florida Blue",
+      insPlanId: "IP9",
+      respPartyId: "RP9",
+      routing: "accepted",
+      allowedProviders: [],
+      routingAmbiguous: false,
+      appointments: [],
+    };
+    const insuranceOutput = JSON.stringify({
+      status: "accepted",
+      canProceed: true,
+      canonicalPlan: "Florida Blue",
+      clarificationNeeded: null,
+      callerMessage: "yeah we take Florida Blue.",
+    });
+
+    const { session, state } = await createSession({
+      phoneLookup: springHillLookup(),
+      responses: [
+        {
+          input: "I need to schedule my daughter, she's a new patient",
+          toolCalls: [{ name: "run_schedule_task_group" }],
+        },
+        {
+          input:
+            "instructions: Resolve who the patient is. If the current caller context already identifies the patient, confirm that and complete. If the caller is truly new or verification fails enough to move on, allow registration.",
+          content: "is this for someone new?",
+        },
+        {
+          input: "yes she's new",
+          toolCalls: [
+            {
+              name: "allow_registration",
+              args: { reason: "caller said the patient is new" },
+            },
+          ],
+        },
+        {
+          input:
+            "instructions: Complete new-patient registration. Collect the missing fields, confirm the critical details, then submit registration once everything required is ready.",
+          content: "what insurance does she have?",
+        },
+        {
+          input: "Florida Blue",
+          toolCalls: [{ name: "check_insurance", args: { plan: "Florida Blue" } }],
+        },
+        {
+          input: insuranceOutput,
+          content: "ok, give me her full details.",
+        },
+        {
+          input: "here are her details",
+          toolCalls: [
+            {
+              name: "submit_registration",
+              args: {
+                firstName: "Lia",
+                lastName: "Santos",
+                dob: "07/08/2010",
+                phone: "8135559999",
+                email: "lia@example.org",
+                street: "100 Oak Street",
+                aptSuite: "",
+                city: "Spring Hill",
+                state: "FL",
+                zip: "34609",
+                sex: "female",
+                insurance: "Florida Blue",
+                subscriberName: "Maria Santos",
+                subscriberNum: "ABC12345",
+              },
+            },
+          ],
+        },
+        {
+          input:
+            "instructions: Get the reason for the visit before scheduling. Once you know it clearly enough to continue, record it and move on.",
+          content: "what's the reason for the visit?",
+        },
+        {
+          input: "routine eye exam",
+          toolCalls: [
+            {
+              name: "record_visit_reason",
+              args: { reasonForVisit: "routine eye exam" },
+            },
+          ],
+        },
+      ],
+    });
+
+    const run1 = await session
+      .run({ userInput: "I need to schedule my daughter, she's a new patient" })
+      .wait();
+    expect(
+      run1.expect.containsFunctionCall({ name: "run_schedule_task_group" }),
+    ).toBeTruthy();
+
+    const run2 = await session.run({ userInput: "yes she's new" }).wait();
+    expect(
+      run2.expect.containsFunctionCall({
+        name: "allow_registration",
+        args: { reason: "caller said the patient is new" },
+      }),
+    ).toBeTruthy();
+    expect(state.identity.patientId).toBeNull();
+    expect(state.workflow.registrationAllowed).toBe(true);
+
+    const run3 = await session.run({ userInput: "Florida Blue" }).wait();
+    expect(
+      run3.expect.containsFunctionCall({
+        name: "check_insurance",
+        args: { plan: "Florida Blue" },
+      }),
+    ).toBeTruthy();
+
+    const run4 = await session.run({ userInput: "here are her details" }).wait();
+    expect(
+      run4.expect.containsFunctionCall({ name: "submit_registration" }),
+    ).toBeTruthy();
+    expect(state.identity.patientId).toBe("P999");
+    expect(state.identity.patientName).toBe("Lia Santos");
+    expect(state.workflow.registrationComplete).toBe(true);
+
+    const run5 = await session.run({ userInput: "routine eye exam" }).wait();
+    expect(
+      run5.expect.containsFunctionCall({
+        name: "record_visit_reason",
+        args: { reasonForVisit: "routine eye exam" },
+      }),
+    ).toBeTruthy();
+    expect(state.workflow.activeFlow).toBe("availability");
     await session.close();
   });
 
@@ -491,6 +643,7 @@ describe("workflow e2e", () => {
 
     await session.run({ userInput: "I need to schedule an appointment" }).wait();
     await session.run({ userInput: "Maria" }).wait();
+    await settleTaskTransitions();
     await session.run({ userInput: "blurry vision" }).wait();
     const run4 = await session.run({ userInput: "Friday works" }).wait();
     expect(

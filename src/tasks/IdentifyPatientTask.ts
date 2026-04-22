@@ -3,6 +3,7 @@ import { z } from "zod";
 import { buildTaskPrompt } from "../prompt.js";
 import {
   buildWorkingStateSummary,
+  clearActivePatientContext,
   type CallState,
   verify_patient,
 } from "../tools.js";
@@ -30,7 +31,6 @@ export class IdentifyPatientTask extends voice.AgentTask<
             "Use this when the active patient is already resolved from caller context, such as when the caller's first name matches the single pre-loaded patient.",
           execute: async (_, { ctx }) => {
             const current = ctx.userData as CallState;
-            current.workflow.activeFlow = "none";
             current.workflow.registrationAllowed = false;
             current.identity.callerConfirmedPatient = true;
             current.identity.activePatientMatchesLookup =
@@ -57,7 +57,6 @@ export class IdentifyPatientTask extends voice.AgentTask<
               current.workflow.verificationStatus === "verified" &&
               current.identity.patientId
             ) {
-              current.workflow.activeFlow = "none";
               this.complete({
                 outcome: "identified",
                 patientId: current.identity.patientId,
@@ -75,8 +74,8 @@ export class IdentifyPatientTask extends voice.AgentTask<
           }),
           execute: async ({ reason }, { ctx }) => {
             const current = ctx.userData as CallState;
+            clearActivePatientContext(current);
             current.workflow.registrationAllowed = true;
-            current.workflow.activeFlow = "register";
             current.workflow.verificationStatus = "no_match";
             this.complete({
               outcome: "registration_allowed",

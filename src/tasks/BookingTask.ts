@@ -41,7 +41,6 @@ export class BookingTask extends voice.AgentTask<BookingTaskResult, CallState> {
               return result;
             }
 
-            current.workflow.activeFlow = "none";
             this.complete({ booked: true });
             return result;
           },

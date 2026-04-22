@@ -3,6 +3,7 @@ import type { CallState } from "../tools.js";
 import { CancelAppointmentTask } from "../tasks/CancelAppointmentTask.js";
 import { ExistingAppointmentTask } from "../tasks/ExistingAppointmentTask.js";
 import { IdentifyPatientTask } from "../tasks/IdentifyPatientTask.js";
+import { applyCancelTransition } from "./engine/cancel-transition.js";
 
 export interface CancelWorkflowResult {
   taskResults: Record<string, unknown>;
@@ -12,14 +13,18 @@ export async function runCancelTaskGroup(
   chatCtx: llm.ChatContext,
   state: CallState,
 ): Promise<CancelWorkflowResult> {
+  applyCancelTransition(state, { type: "START" });
+
   const identifyTask = new IdentifyPatientTask(chatCtx.copy(), state);
   const identifyResult = await identifyTask.run();
 
-  if (
-    identifyResult.outcome === "registration_allowed" ||
-    !state.identity.patientId
-  ) {
-    state.workflow.activeFlow = "none";
+  const identifyEvent =
+    identifyResult.outcome === "registration_allowed" || !state.identity.patientId
+      ? { type: "IDENTITY_UNRESOLVED" as const }
+      : { type: "IDENTITY_CONFIRMED" as const };
+  const identifyTransition = applyCancelTransition(state, identifyEvent);
+
+  if (identifyTransition.workflowStopped) {
     return {
       taskResults: {
         identify_patient: identifyResult,
@@ -32,9 +37,13 @@ export async function runCancelTaskGroup(
     summarizeChatCtx: true,
     onTaskCompleted: async ({ taskId }) => {
       if (taskId === "existing_appointment") {
-        state.workflow.activeFlow = "cancel";
+        applyCancelTransition(state, {
+          type: "EXISTING_APPOINTMENT_SELECTED",
+        });
       } else if (taskId === "cancel_original") {
-        state.workflow.activeFlow = "none";
+        applyCancelTransition(state, {
+          type: "CANCELLATION_COMPLETED",
+        });
       }
     },
   });
