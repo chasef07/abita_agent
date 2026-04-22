@@ -1,6 +1,10 @@
 import { llm, voice } from "@livekit/agents";
 import { buildTaskPrompt } from "../prompt.js";
-import { book_appt, buildWorkingStateSummary, type CallState } from "../tools.js";
+import {
+  book_appt,
+  buildWorkingStateSummary,
+  type CallState,
+} from "../tools.js";
 
 export interface BookingTaskResult {
   booked: boolean;
@@ -33,10 +37,7 @@ export class BookingTask extends voice.AgentTask<BookingTaskResult, CallState> {
               ctx,
             });
 
-            if (
-              typeof result === "string" &&
-              result.startsWith("ERROR:")
-            ) {
+            if (typeof result === "string" && result.startsWith("ERROR:")) {
               return result;
             }
 

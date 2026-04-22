@@ -35,7 +35,8 @@ export class IdentifyPatientTask extends voice.AgentTask<
             current.identity.callerConfirmedPatient = true;
             current.identity.activePatientMatchesLookup =
               !!current.identity.originalLookupPatientId &&
-              current.identity.originalLookupPatientId === current.identity.patientId;
+              current.identity.originalLookupPatientId ===
+                current.identity.patientId;
             this.complete({
               outcome: "identified",
               patientId: current.identity.patientId,
@@ -48,7 +49,9 @@ export class IdentifyPatientTask extends voice.AgentTask<
             "Verify an existing patient using the information the caller gave you. If verification succeeds, this task will complete automatically.",
           parameters: verify_patient.parameters,
           execute: async (params, { ctx }) => {
-            const result = await (verify_patient as any).execute(params, { ctx });
+            const result = await (verify_patient as any).execute(params, {
+              ctx,
+            });
             const current = ctx.userData as CallState;
             if (
               current.workflow.verificationStatus === "verified" &&
@@ -68,9 +71,7 @@ export class IdentifyPatientTask extends voice.AgentTask<
           description:
             "Use this when the caller clearly says they are a new patient, or when identity verification has failed and the workflow should move into registration.",
           parameters: z.object({
-            reason: z
-              .string()
-              .describe("Why registration is now allowed"),
+            reason: z.string().describe("Why registration is now allowed"),
           }),
           execute: async ({ reason }, { ctx }) => {
             const current = ctx.userData as CallState;

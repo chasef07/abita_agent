@@ -20,7 +20,11 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { RoomServiceClient } from "livekit-server-sdk";
-import { createInitialCallState, type CallState, lookupByPhone } from "./tools.js";
+import {
+  createInitialCallState,
+  type CallState,
+  lookupByPhone,
+} from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 
 dotenv.config({ path: ".env.local" });

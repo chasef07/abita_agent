@@ -14,7 +14,10 @@ export async function runConfirmTaskGroup(
   const identifyTask = new IdentifyPatientTask(chatCtx.copy(), state);
   const identifyResult = await identifyTask.run();
 
-  if (identifyResult.outcome === "registration_allowed" || !state.identity.patientId) {
+  if (
+    identifyResult.outcome === "registration_allowed" ||
+    !state.identity.patientId
+  ) {
     state.workflow.activeFlow = "none";
     return {
       taskResults: {
@@ -33,11 +36,14 @@ export async function runConfirmTaskGroup(
     },
   });
 
-  taskGroup.add(() => new ExistingAppointmentTask(chatCtx.copy(), state, "confirm"), {
-    id: "existing_appointment",
-    description:
-      "Identify which current appointment the caller wants to confirm.",
-  });
+  taskGroup.add(
+    () => new ExistingAppointmentTask(chatCtx.copy(), state, "confirm"),
+    {
+      id: "existing_appointment",
+      description:
+        "Identify which current appointment the caller wants to confirm.",
+    },
+  );
 
   const result = await taskGroup.run();
 

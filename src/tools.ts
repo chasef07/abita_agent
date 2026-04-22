@@ -96,7 +96,11 @@ export interface CallState {
     originalLookupPatientId: string | null;
     callerConfirmedPatient: boolean;
     activePatientMatchesLookup: boolean;
-    activePatientSource: "phone_lookup" | "verify_patient" | "add_patient" | null;
+    activePatientSource:
+      | "phone_lookup"
+      | "verify_patient"
+      | "add_patient"
+      | null;
     switchedPatientThisCall: boolean;
   };
   workflow: {
@@ -179,7 +183,8 @@ export function createInitialCallState(args: {
   callerPhone: string;
   phoneLookup?: PhoneLookupResult;
 }): CallState {
-  const verified = args.phoneLookup?.status === "verified" ? args.phoneLookup : null;
+  const verified =
+    args.phoneLookup?.status === "verified" ? args.phoneLookup : null;
   const multiple = args.phoneLookup?.status === "multiple_matches";
 
   return {
@@ -190,7 +195,11 @@ export function createInitialCallState(args: {
     sipParticipantIdentity: args.sipParticipantIdentity,
     callerPhone: args.callerPhone,
     identity: {
-      lookupMatchStatus: verified ? "single_match" : multiple ? "multiple_matches" : "none",
+      lookupMatchStatus: verified
+        ? "single_match"
+        : multiple
+          ? "multiple_matches"
+          : "none",
       patientId: verified?.patientId ?? null,
       patientName: verified?.name ?? null,
       dob: verified?.dob ?? null,
@@ -228,7 +237,9 @@ export function createInitialCallState(args: {
       appointmentsLoadedAt: verified?.appointments?.length
         ? new Date().toISOString()
         : null,
-      appointmentsSource: verified?.appointments?.length ? "phone_lookup" : "none",
+      appointmentsSource: verified?.appointments?.length
+        ? "phone_lookup"
+        : "none",
     },
     insurance: {
       checkedInsurancePlan: verified?.insuranceCarrier ?? null,
@@ -433,9 +444,7 @@ export function buildWorkingStateSummary(
     );
   }
   if (state.scheduling.appointmentsSource !== "none") {
-    lines.push(
-      `- appointments source: ${state.scheduling.appointmentsSource}`,
-    );
+    lines.push(`- appointments source: ${state.scheduling.appointmentsSource}`);
   }
   if (state.scheduling.appointmentsLoadedAt) {
     lines.push(
@@ -472,7 +481,11 @@ function applyPatientResult(
   state.identity.activePatientMatchesLookup =
     !!originalLookupPatientId && originalLookupPatientId === nextPatientId;
   state.identity.activePatientSource = source;
-  if (previousPatientId && nextPatientId && previousPatientId !== nextPatientId) {
+  if (
+    previousPatientId &&
+    nextPatientId &&
+    previousPatientId !== nextPatientId
+  ) {
     state.identity.switchedPatientThisCall = true;
   }
 
@@ -684,8 +697,7 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
     if (looksLikePlaceholderRegistration(params)) {
       return "ERROR: Registration data looks like placeholder information. Collect the real values from the caller first.";
     }
-    const insurance =
-      state.insurance.checkedInsurancePlan ?? params.insurance;
+    const insurance = state.insurance.checkedInsurancePlan ?? params.insurance;
     const phone = params.phone ?? state.callerPhone;
     if (!phone) {
       return "ERROR: No phone number is available. Ask whether the number they're calling from is good; if not, collect the best phone number.";

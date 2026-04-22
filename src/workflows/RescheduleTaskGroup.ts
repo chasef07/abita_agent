@@ -17,7 +17,10 @@ export async function runRescheduleTaskGroup(
   const identifyTask = new IdentifyPatientTask(chatCtx.copy(), state);
   const identifyResult = await identifyTask.run();
 
-  if (identifyResult.outcome === "registration_allowed" || !state.identity.patientId) {
+  if (
+    identifyResult.outcome === "registration_allowed" ||
+    !state.identity.patientId
+  ) {
     state.workflow.activeFlow = "none";
     return {
       taskResults: {
@@ -48,11 +51,14 @@ export async function runRescheduleTaskGroup(
       "Identify which current appointment the caller wants to move before searching for the replacement.",
   });
 
-  taskGroup.add(() => new AvailabilityTask(chatCtx.copy(), state, "reschedule"), {
-    id: "availability",
-    description:
-      "Search for the replacement slot and select one that the caller wants.",
-  });
+  taskGroup.add(
+    () => new AvailabilityTask(chatCtx.copy(), state, "reschedule"),
+    {
+      id: "availability",
+      description:
+        "Search for the replacement slot and select one that the caller wants.",
+    },
+  );
 
   taskGroup.add(() => new BookingTask(chatCtx.copy(), state, "reschedule"), {
     id: "booking",

@@ -7,8 +7,6 @@ import {
   type CallState,
   type PhoneLookupResult,
   update_insurance,
-  confirm_appt,
-  cancel_appt,
   check_insurance,
   lookup_knowledge,
   route_to_spring_hill,
@@ -28,32 +26,38 @@ export function buildToolsForTrunk(trunkPhone?: string) {
     run_identify_patient_task: llm.tool({
       description:
         "Placeholder identify-patient workflow tool. The live agent replaces this with a task-backed version at runtime.",
-      execute: async () => "Identify workflow is unavailable until the agent session is active.",
+      execute: async () =>
+        "Identify workflow is unavailable until the agent session is active.",
     }),
     run_registration_task: llm.tool({
       description:
         "Placeholder registration workflow tool. The live agent replaces this with a task-backed version at runtime.",
-      execute: async () => "Registration workflow is unavailable until the agent session is active.",
+      execute: async () =>
+        "Registration workflow is unavailable until the agent session is active.",
     }),
     run_schedule_task_group: llm.tool({
       description:
         "Placeholder schedule workflow tool. The live agent replaces this with a task-group-backed version at runtime.",
-      execute: async () => "Scheduling workflow is unavailable until the agent session is active.",
+      execute: async () =>
+        "Scheduling workflow is unavailable until the agent session is active.",
     }),
     run_reschedule_task_group: llm.tool({
       description:
         "Placeholder reschedule workflow tool. The live agent replaces this with a task-group-backed version at runtime.",
-      execute: async () => "Rescheduling workflow is unavailable until the agent session is active.",
+      execute: async () =>
+        "Rescheduling workflow is unavailable until the agent session is active.",
     }),
     run_confirm_task_group: llm.tool({
       description:
         "Placeholder confirm workflow tool. The live agent replaces this with a task-group-backed version at runtime.",
-      execute: async () => "Confirmation workflow is unavailable until the agent session is active.",
+      execute: async () =>
+        "Confirmation workflow is unavailable until the agent session is active.",
     }),
     run_cancel_task_group: llm.tool({
       description:
         "Placeholder cancel workflow tool. The live agent replaces this with a task-group-backed version at runtime.",
-      execute: async () => "Cancellation workflow is unavailable until the agent session is active.",
+      execute: async () =>
+        "Cancellation workflow is unavailable until the agent session is active.",
     }),
     update_insurance,
     check_insurance,

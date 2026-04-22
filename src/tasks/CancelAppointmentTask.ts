@@ -1,6 +1,10 @@
 import { llm, voice } from "@livekit/agents";
 import { buildTaskPrompt } from "../prompt.js";
-import { buildWorkingStateSummary, cancel_appt, type CallState } from "../tools.js";
+import {
+  buildWorkingStateSummary,
+  cancel_appt,
+  type CallState,
+} from "../tools.js";
 
 export interface CancelAppointmentTaskResult {
   cancelled: boolean;
@@ -33,10 +37,7 @@ export class CancelAppointmentTask extends voice.AgentTask<
               { ctx },
             );
 
-            if (
-              typeof result === "string" &&
-              result.startsWith("ERROR:")
-            ) {
+            if (typeof result === "string" && result.startsWith("ERROR:")) {
               return result;
             }
 

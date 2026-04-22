@@ -36,8 +36,7 @@ export async function runScheduleTaskGroup(
 
   taskGroup.add(() => new IdentifyPatientTask(chatCtx.copy(), state), {
     id: "identify_patient",
-    description:
-      "Resolve who the patient is before scheduling continues.",
+    description: "Resolve who the patient is before scheduling continues.",
   });
 
   if (state.workflow.registrationAllowed || !state.identity.patientId) {

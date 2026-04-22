@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { AgentSession, llm, voice } from "@livekit/agents";
+import { llm, voice } from "@livekit/agents";
 import type { ChatContext } from "@livekit/agents";
 import type { ToolChoice, ToolContext } from "@livekit/agents";
 import { initializeLogger } from "../../node_modules/@livekit/agents/src/log.js";
@@ -51,11 +51,9 @@ class ScriptedLLM extends llm.LLM {
     extraKwargs?: Record<string, unknown>;
   }) {
     const response = this.responses.get(this.getInputText(chatCtx));
-    const outer = this;
-
     return new (class extends llm.LLMStream {
       constructor() {
-        super(outer, {
+        super(responseOwner, {
           chatCtx,
           toolCtx,
           connOptions: connOptions ?? ({} as any),
@@ -116,6 +114,16 @@ class ScriptedLLM extends llm.LLM {
   }
 }
 
+const responseOwner = new (class extends llm.LLM {
+  label(): string {
+    return "scripted-owner";
+  }
+
+  chat(): llm.LLMStream {
+    throw new Error("not implemented");
+  }
+})();
+
 function springHillLookup(
   overrides: Partial<NonNullable<PhoneLookupResult>> = {},
 ): PhoneLookupResult {
@@ -174,30 +182,33 @@ async function createSession(args: {
 describe("workflow e2e", () => {
   beforeEach(() => {
     mockAppointmentsResult = [];
-    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.endsWith("/api/patient/appointments")) {
-        return new Response(JSON.stringify(mockAppointmentsResult), {
-          status: 200,
-        });
-      }
-      if (url.endsWith("/api/scheduler/availability")) {
-        return new Response(JSON.stringify(scheduleAvailabilityResult()), {
-          status: 200,
-        });
-      }
-      if (url.endsWith("/api/appointment/book")) {
-        return new Response(JSON.stringify({ status: "booked" }), {
-          status: 200,
-        });
-      }
-      if (url.endsWith("/api/appointment/cancel")) {
-        return new Response(JSON.stringify({ status: "cancelled" }), {
-          status: 200,
-        });
-      }
-      return new Response(JSON.stringify([]), { status: 200 });
-    }) as any);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/api/patient/appointments")) {
+          return new Response(JSON.stringify(mockAppointmentsResult), {
+            status: 200,
+          });
+        }
+        if (url.endsWith("/api/scheduler/availability")) {
+          return new Response(JSON.stringify(scheduleAvailabilityResult()), {
+            status: 200,
+          });
+        }
+        if (url.endsWith("/api/appointment/book")) {
+          return new Response(JSON.stringify({ status: "booked" }), {
+            status: 200,
+          });
+        }
+        if (url.endsWith("/api/appointment/cancel")) {
+          return new Response(JSON.stringify({ status: "cancelled" }), {
+            status: 200,
+          });
+        }
+        return new Response(JSON.stringify([]), { status: 200 });
+      }) as any,
+    );
   });
 
   it("runs the scheduling workflow end to end for an existing patient", async () => {
@@ -275,20 +286,32 @@ describe("workflow e2e", () => {
       ],
     });
 
-    const run1 = await session.run({ userInput: "I need to schedule an appointment" }).wait();
-    expect(run1.expect.containsFunctionCall({ name: "run_schedule_task_group" })).toBeTruthy();
+    const run1 = await session
+      .run({ userInput: "I need to schedule an appointment" })
+      .wait();
+    expect(
+      run1.expect.containsFunctionCall({ name: "run_schedule_task_group" }),
+    ).toBeTruthy();
 
     const run2 = await session.run({ userInput: "Maria" }).wait();
-    expect(run2.expect.containsFunctionCall({ name: "confirm_current_patient" })).toBeTruthy();
+    expect(
+      run2.expect.containsFunctionCall({ name: "confirm_current_patient" }),
+    ).toBeTruthy();
 
     const run3 = await session.run({ userInput: "blurry vision" }).wait();
-    expect(run3.expect.containsFunctionCall({ name: "record_visit_reason" })).toBeTruthy();
+    expect(
+      run3.expect.containsFunctionCall({ name: "record_visit_reason" }),
+    ).toBeTruthy();
 
     await session.run({ userInput: "Friday works" }).wait();
     await session.run({ userInput: "yes" }).wait();
 
     const run6 = await session.run({ userInput: "book it" }).wait();
-    expect(run6.expect.containsFunctionCall({ name: "confirm_and_book_selected_slot" })).toBeTruthy();
+    expect(
+      run6.expect.containsFunctionCall({
+        name: "confirm_and_book_selected_slot",
+      }),
+    ).toBeTruthy();
 
     expect(state.scheduling.bookedSlotsThisCall).toHaveLength(1);
     await session.close();
@@ -360,11 +383,14 @@ describe("workflow e2e", () => {
         },
         {
           input: "Friday works",
-          toolCalls: [{ name: "search_availability", args: { date: "2026-04-24" } }],
+          toolCalls: [
+            { name: "search_availability", args: { date: "2026-04-24" } },
+          ],
         },
         {
           input: availabilityOutput,
-          content: "I have Friday at ten a m for the replacement. does that work?",
+          content:
+            "I have Friday at ten a m for the replacement. does that work?",
         },
         {
           input: "yes",
@@ -393,7 +419,8 @@ describe("workflow e2e", () => {
         {
           input:
             "instructions: Now that the replacement appointment is booked, cancel the original appointment once the caller confirms that is what they want.",
-          content: "ok, the new appointment is set. do you want me to cancel the old one?",
+          content:
+            "ok, the new appointment is set. do you want me to cancel the old one?",
         },
         {
           input: "yes cancel the old one",
@@ -402,25 +429,51 @@ describe("workflow e2e", () => {
       ],
     });
 
-    const run1 = await session.run({ userInput: "I need to move my appointment" }).wait();
-    expect(run1.expect.containsFunctionCall({ name: "run_reschedule_task_group" })).toBeTruthy();
+    const run1 = await session
+      .run({ userInput: "I need to move my appointment" })
+      .wait();
+    expect(
+      run1.expect.containsFunctionCall({ name: "run_reschedule_task_group" }),
+    ).toBeTruthy();
 
     const run2 = await session.run({ userInput: "Maria" }).wait();
-    expect(run2.expect.containsFunctionCall({ name: "confirm_current_patient" })).toBeTruthy();
+    expect(
+      run2.expect.containsFunctionCall({ name: "confirm_current_patient" }),
+    ).toBeTruthy();
 
-    const run3 = await session.run({ userInput: "the one on Wednesday" }).wait();
-    expect(run3.expect.containsFunctionCall({ name: "load_existing_appointments" })).toBeTruthy();
-    expect(run3.events.some((ev) => ev.type === "function_call" && ev.item.name === "confirm_and_cancel_original_appointment")).toBe(false);
+    const run3 = await session
+      .run({ userInput: "the one on Wednesday" })
+      .wait();
+    expect(
+      run3.expect.containsFunctionCall({ name: "load_existing_appointments" }),
+    ).toBeTruthy();
+    expect(
+      run3.events.some(
+        (ev) =>
+          ev.type === "function_call" &&
+          ev.item.name === "confirm_and_cancel_original_appointment",
+      ),
+    ).toBe(false);
 
     await session.run({ userInput: "Friday works" }).wait();
     await session.run({ userInput: "yes" }).wait();
 
     const run6 = await session.run({ userInput: "book it" }).wait();
-    expect(run6.events.some((ev) => ev.type === "function_call" && ev.item.name === "confirm_and_cancel_original_appointment")).toBe(false);
-    expect(state.scheduling.appointments.some((appt) => appt.id === 77)).toBe(true);
+    expect(
+      run6.events.some(
+        (ev) =>
+          ev.type === "function_call" &&
+          ev.item.name === "confirm_and_cancel_original_appointment",
+      ),
+    ).toBe(false);
+    expect(state.scheduling.appointments.some((appt) => appt.id === 77)).toBe(
+      true,
+    );
 
     await session.run({ userInput: "yes cancel the old one" }).wait();
-    expect(state.scheduling.appointments.some((appt) => appt.id === 77)).toBe(false);
+    expect(state.scheduling.appointments.some((appt) => appt.id === 77)).toBe(
+      false,
+    );
     await session.close();
   });
 
@@ -472,11 +525,17 @@ describe("workflow e2e", () => {
       ],
     });
 
-    const run1 = await session.run({ userInput: "I want to confirm my appointment" }).wait();
-    expect(run1.expect.containsFunctionCall({ name: "run_confirm_task_group" })).toBeTruthy();
+    const run1 = await session
+      .run({ userInput: "I want to confirm my appointment" })
+      .wait();
+    expect(
+      run1.expect.containsFunctionCall({ name: "run_confirm_task_group" }),
+    ).toBeTruthy();
 
     const run2 = await session.run({ userInput: "Maria" }).wait();
-    expect(run2.expect.containsFunctionCall({ name: "confirm_current_patient" })).toBeTruthy();
+    expect(
+      run2.expect.containsFunctionCall({ name: "confirm_current_patient" }),
+    ).toBeTruthy();
 
     await session.run({ userInput: "confirm it" }).wait();
     await session.close();
@@ -548,11 +607,17 @@ describe("workflow e2e", () => {
       ],
     });
 
-    const run1 = await session.run({ userInput: "I need to cancel my appointment" }).wait();
-    expect(run1.expect.containsFunctionCall({ name: "run_cancel_task_group" })).toBeTruthy();
+    const run1 = await session
+      .run({ userInput: "I need to cancel my appointment" })
+      .wait();
+    expect(
+      run1.expect.containsFunctionCall({ name: "run_cancel_task_group" }),
+    ).toBeTruthy();
 
     const run2 = await session.run({ userInput: "Maria" }).wait();
-    expect(run2.expect.containsFunctionCall({ name: "confirm_current_patient" })).toBeTruthy();
+    expect(
+      run2.expect.containsFunctionCall({ name: "confirm_current_patient" }),
+    ).toBeTruthy();
 
     await session.run({ userInput: "cancel it" }).wait();
     await session.run({ userInput: "yes cancel it" }).wait();
