@@ -20,7 +20,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { RoomServiceClient } from "livekit-server-sdk";
-import { type CallState, lookupByPhone } from "./tools.js";
+import { createInitialCallState, type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 
 dotenv.config({ path: ".env.local" });
@@ -131,28 +131,15 @@ export default defineAgent({
 
       const agent = new Agent(phoneLookup, trunkPhone);
 
-      const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
-      session.userData = {
+      session.userData = createInitialCallState({
         officeKey: office.key,
         officePhone: trunkPhone,
         amdOfficePhone: office.amdOfficePhone,
         sipRoomName: ctx.room.name ?? "",
         sipParticipantIdentity: participant.identity ?? "",
         callerPhone,
-        patientId: verified?.patientId ?? null,
-        patientName: verified?.name ?? null,
-        dob: verified?.dob ?? null,
-        insuranceCarrier: verified?.insuranceCarrier ?? null,
-        insPlanId: verified?.insPlanId ?? null,
-        respPartyId: verified?.respPartyId ?? null,
-        checkedInsurancePlan: verified?.insuranceCarrier ?? null,
-        routing: verified?.routing ?? null,
-        allowedProviders: verified?.allowedProviders ?? [],
-        routingAmbiguous: verified?.routingAmbiguous ?? false,
-        preauthRequired: false,
-        appointments: verified?.appointments ?? [],
-        transferred: false,
-      };
+        phoneLookup,
+      });
 
       await session.start({
         agent,
@@ -173,7 +160,7 @@ export default defineAgent({
       ctx.room.on("participantDisconnected", (p) => {
         if (p.identity === participant.identity) {
           console.log(
-            `[call] SIP participant ${p.identity} disconnected (transferred=${session.userData.transferred}), shutting down job`,
+            `[call] SIP participant ${p.identity} disconnected (transferred=${session.userData.conversation.transferred}), shutting down job`,
           );
           ctx.shutdown(`sip participant disconnected: ${p.identity}`);
         }

@@ -1,8 +1,5 @@
 // prompt.ts — Assembles system prompt from workspace files
-// Order matters for LLM attention (U-shaped curve):
-//   Top = identity (sets the frame)
-//   Middle = reference data + speech style (retrieved on demand)
-//   Bottom = tool logic + flows (highest attention, most critical per-turn)
+// Shared prompt helpers for the router and future task/task-group prompts.
 
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -14,6 +11,15 @@ const WORKSPACE = join(
   "..",
   process.env.PROMPT_WORKSPACE || "workspace",
 );
+
+const BASE_FILES: { file: string; tag: string }[] = [
+  { file: "SOUL.md", tag: "role" },
+  { file: "VOICE.md", tag: "voice" },
+];
+
+const ROUTER_FILES: { file: string; tag: string }[] = [
+  { file: "ROUTER.md", tag: "router" },
+];
 
 /** Office-specific routing hints injected into the per-call context block.
  *  Lives here (not RUNBOOK) so each office only sees rules that apply to it.
@@ -32,30 +38,28 @@ function buildOfficeRoutingHints(trunkPhone: string): string {
   ].join("\n");
 }
 
-const FILES: { file: string; tag: string }[] = [
-  { file: "SOUL.md", tag: "role" },
-  { file: "VOICE.md", tag: "voice" },
-  { file: "RUNBOOK.md", tag: "runbook" },
-];
+function readPromptFile(file: string): string {
+  return readFileSync(join(WORKSPACE, file), "utf-8").trim();
+}
 
-/** Build the full system prompt with caller-specific data baked in. */
-export function buildPrompt(
+function buildPromptSections(files: { file: string; tag: string }[]): string {
+  return files
+    .map(({ file, tag }) => `<${tag}>\n${readPromptFile(file)}\n</${tag}>`)
+    .join("\n\n");
+}
+
+export function buildBasePrompt(): string {
+  return buildPromptSections(BASE_FILES);
+}
+
+export function buildRouterPrompt(
   phoneLookup?: PhoneLookupResult,
   trunkPhone?: string,
 ): string {
-  const sections: string[] = [];
   if (!trunkPhone) {
-    throw new Error("buildPrompt requires a trunk phone number");
+    throw new Error("buildRouterPrompt requires a trunk phone number");
   }
 
-  for (const { file, tag } of FILES) {
-    const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
-    sections.push(`<${tag}>\n${content}\n</${tag}>`);
-  }
-
-  let prompt = sections.join("\n\n");
-
-  // Append dynamic context at the end so the static prefix is cacheable
   const now = new Date();
   const tz = "America/New_York";
   const date = now.toLocaleDateString("en-US", {
@@ -75,73 +79,73 @@ export function buildPrompt(
   const officeHints = buildOfficeRoutingHints(trunkPhone);
   const officeBlock = officeHints ? `\n\n${officeHints}` : "";
 
-  prompt += `\n\n<context>\nToday is ${date}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}${officeBlock}\n</context>`;
+  return [
+    buildBasePrompt(),
+    buildPromptSections(ROUTER_FILES),
+    `<context>\nToday is ${date}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}${officeBlock}\n</context>`,
+  ].join("\n\n");
+}
 
-  return prompt;
+export function buildTaskPrompt(args: {
+  mode:
+    | "identify"
+    | "register"
+    | "schedule"
+    | "reschedule"
+    | "confirm"
+    | "cancel";
+  stateSummary: string;
+}): string {
+  const sectionByMode: Record<typeof args.mode, string> = {
+    identify: "IDENTIFY_REGISTER.md",
+    register: "IDENTIFY_REGISTER.md",
+    schedule: "SCHEDULE_RESCHEDULE.md",
+    reschedule: "SCHEDULE_RESCHEDULE.md",
+    confirm: "APPOINTMENT_CHANGES.md",
+    cancel: "APPOINTMENT_CHANGES.md",
+  };
+
+  return [
+    buildBasePrompt(),
+    `<task_mode>\n${args.mode}\n</task_mode>`,
+    `<task_instructions>\n${readPromptFile(sectionByMode[args.mode])}\n</task_instructions>`,
+    `<working_state>\n${args.stateSummary}\n</working_state>`,
+  ].join("\n\n");
+}
+
+/** Build the full system prompt with caller-specific data baked in. */
+export function buildPrompt(
+  phoneLookup?: PhoneLookupResult,
+  trunkPhone?: string,
+): string {
+  return buildRouterPrompt(phoneLookup, trunkPhone);
 }
 
 /** Build the caller context block injected into the RUNBOOK. */
 function buildCallerContext(lookup: PhoneLookupResult): string {
   if (lookup?.status === "verified") {
-    const firstName =
-      lookup.name.split(",")[1]?.trim() ?? lookup.name.split(" ")[0];
     const lines: string[] = [];
     lines.push(`**SINGLE MATCH — Session state is pre-loaded.**`);
-    lines.push(`Name: ${lookup.name} (first name: ${firstName})`);
-    lines.push(`DOB: ${lookup.dob}`);
-    lines.push(`Insurance: ${lookup.insuranceCarrier}`);
     if (lookup.routingAmbiguous) {
       lines.push(`Routing is ambiguous — needs plan type clarification.`);
     }
     if (lookup.appointments && lookup.appointments.length > 0) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const upcoming: typeof lookup.appointments = [];
-      const past: typeof lookup.appointments = [];
-      for (const appt of lookup.appointments) {
-        const apptDate = new Date(appt.date);
-        if (!isNaN(apptDate.getTime()) && apptDate >= today) {
-          upcoming.push(appt);
-        } else {
-          past.push(appt);
-        }
-      }
-      if (upcoming.length > 0) {
-        lines.push(`Upcoming appointments:`);
-        for (const appt of upcoming) {
-          lines.push(
-            `  - [ID: ${appt.id}] ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`,
-          );
-        }
-      } else {
-        lines.push(`No upcoming appointments.`);
-      }
-      if (past.length > 0) {
-        lines.push(`Past appointments (cannot be cancelled or modified):`);
-        for (const appt of past) {
-          lines.push(
-            `  - ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`,
-          );
-        }
-      }
+      lines.push(`Upcoming appointments are on file in hidden state.`);
     } else {
       lines.push(`No appointments on file.`);
     }
     lines.push(``);
     lines.push(
-      `Do NOT use or say the patient's name before they say it. Ask: "can I get your first name?" If they say "${firstName}" (or close), they are verified — skip verify_patient entirely and go straight to what they need. If they give a different name (child, spouse), run verify_patient for that person.`,
+      `Do NOT use or say the patient's name before they say it. Ask: "can I get your first name?" If it matches the likely patient already loaded in hidden state, treat that patient as the active one. If they give a different name (child, spouse), identify that person instead.`,
     );
     return lines.join("\n");
   }
 
   if (lookup?.status === "multiple_matches") {
-    const names = lookup.matches.map((m) => m.firstName);
-    const uniqueNames = [...new Set(names)];
     const lines: string[] = [];
     lines.push(
-      `**MULTIPLE MATCHES (${names.length} patients on this number).**`,
+      `**MULTIPLE MATCHES (${lookup.matches.length} patients on this number).**`,
     );
-    lines.push(`Known first names: ${uniqueNames.join(", ")}.`);
     lines.push(``);
     lines.push(
       `You MUST say: "I see a few patients associated with this number, can I get the patient's first name?"`,

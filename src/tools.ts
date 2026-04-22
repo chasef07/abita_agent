@@ -69,6 +69,15 @@ export interface CallerMultipleMatches {
 
 export type PhoneLookupResult = CallerMatch | CallerMultipleMatches | null;
 
+export type WorkingSummaryMode =
+  | "router"
+  | "identify"
+  | "register"
+  | "schedule"
+  | "reschedule"
+  | "confirm"
+  | "cancel";
+
 export interface CallState {
   officeKey: OfficeKey;
   officePhone: string;
@@ -76,25 +85,164 @@ export interface CallState {
   sipRoomName: string;
   sipParticipantIdentity: string;
   callerPhone: string;
-  // Populated by phone lookup, verify_patient, or add_patient
-  patientId: string | null;
-  patientName: string | null;
-  dob: string | null;
-  insuranceCarrier: string | null;
-  insPlanId: string | null;
-  respPartyId: string | null;
-  checkedInsurancePlan: string | null;
-  routing: string | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
-  preauthRequired: boolean;
-  appointments: CallerAppointment[];
-  transferred: boolean;
+  identity: {
+    lookupMatchStatus: "none" | "single_match" | "multiple_matches";
+    patientId: string | null;
+    patientName: string | null;
+    dob: string | null;
+    insuranceCarrier: string | null;
+    insPlanId: string | null;
+    respPartyId: string | null;
+    originalLookupPatientId: string | null;
+    callerConfirmedPatient: boolean;
+    activePatientMatchesLookup: boolean;
+    activePatientSource: "phone_lookup" | "verify_patient" | "add_patient" | null;
+    switchedPatientThisCall: boolean;
+  };
+  workflow: {
+    intent:
+      | "unknown"
+      | "faq"
+      | "schedule"
+      | "confirm"
+      | "cancel"
+      | "reschedule"
+      | "transfer";
+    activeFlow:
+      | "none"
+      | "identify"
+      | "register"
+      | "visit_reason"
+      | "availability"
+      | "booking"
+      | "existing_appt"
+      | "cancel";
+    appointmentIntent: "schedule" | "confirm" | "cancel" | "reschedule" | null;
+    verificationStatus:
+      | "not_started"
+      | "single_match"
+      | "multiple_matches"
+      | "verified"
+      | "no_match";
+    verificationAttempts: number;
+    registrationAllowed: boolean;
+    registrationComplete: boolean;
+  };
+  scheduling: {
+    reasonForVisit: string | null;
+    lastAvailabilityQuery: {
+      date: string;
+      patientId: string | null;
+      reasonForVisit: string | null;
+      routing: string | null;
+    } | null;
+    lastAvailabilitySummary: string | null;
+    lastAvailabilityRaw: unknown | null;
+    selectedSlot: {
+      startDatetime: string;
+      columnId: number;
+      profileId: number;
+      duration: number;
+      appointmentTypeId: number;
+    } | null;
+    bookedSlotsThisCall: string[];
+    targetAppointmentId: number | null;
+    appointments: CallerAppointment[];
+    appointmentsLoadedAt: string | null;
+    appointmentsSource: "none" | "phone_lookup" | "confirm_appt";
+  };
+  insurance: {
+    checkedInsurancePlan: string | null;
+    routing: string | null;
+    allowedProviders: string[];
+    routingAmbiguous: boolean;
+    preauthRequired: boolean;
+  };
+  conversation: {
+    humanRequestCount: number;
+    lastToolCallFingerprint: string | null;
+    transferred: boolean;
+  };
 }
 
 // Per-call state lives on session.userData so concurrent calls don't collide
 function getState(ctx: voice.RunContext): CallState {
   return ctx.session.userData as CallState;
+}
+
+export function createInitialCallState(args: {
+  officeKey: OfficeKey;
+  officePhone: string;
+  amdOfficePhone: string;
+  sipRoomName: string;
+  sipParticipantIdentity: string;
+  callerPhone: string;
+  phoneLookup?: PhoneLookupResult;
+}): CallState {
+  const verified = args.phoneLookup?.status === "verified" ? args.phoneLookup : null;
+  const multiple = args.phoneLookup?.status === "multiple_matches";
+
+  return {
+    officeKey: args.officeKey,
+    officePhone: args.officePhone,
+    amdOfficePhone: args.amdOfficePhone,
+    sipRoomName: args.sipRoomName,
+    sipParticipantIdentity: args.sipParticipantIdentity,
+    callerPhone: args.callerPhone,
+    identity: {
+      lookupMatchStatus: verified ? "single_match" : multiple ? "multiple_matches" : "none",
+      patientId: verified?.patientId ?? null,
+      patientName: verified?.name ?? null,
+      dob: verified?.dob ?? null,
+      insuranceCarrier: verified?.insuranceCarrier ?? null,
+      insPlanId: verified?.insPlanId ?? null,
+      respPartyId: verified?.respPartyId ?? null,
+      originalLookupPatientId: verified?.patientId ?? null,
+      callerConfirmedPatient: false,
+      activePatientMatchesLookup: !!verified,
+      activePatientSource: verified ? "phone_lookup" : null,
+      switchedPatientThisCall: false,
+    },
+    workflow: {
+      intent: "unknown",
+      activeFlow: "none",
+      appointmentIntent: null,
+      verificationStatus: verified
+        ? "single_match"
+        : multiple
+          ? "multiple_matches"
+          : "not_started",
+      verificationAttempts: 0,
+      registrationAllowed: !verified && !multiple,
+      registrationComplete: false,
+    },
+    scheduling: {
+      reasonForVisit: null,
+      lastAvailabilityQuery: null,
+      lastAvailabilitySummary: null,
+      lastAvailabilityRaw: null,
+      selectedSlot: null,
+      bookedSlotsThisCall: [],
+      targetAppointmentId: null,
+      appointments: verified?.appointments ?? [],
+      appointmentsLoadedAt: verified?.appointments?.length
+        ? new Date().toISOString()
+        : null,
+      appointmentsSource: verified?.appointments?.length ? "phone_lookup" : "none",
+    },
+    insurance: {
+      checkedInsurancePlan: verified?.insuranceCarrier ?? null,
+      routing: verified?.routing ?? null,
+      allowedProviders: verified?.allowedProviders ?? [],
+      routingAmbiguous: verified?.routingAmbiguous ?? false,
+      preauthRequired: false,
+    },
+    conversation: {
+      humanRequestCount: 0,
+      lastToolCallFingerprint: null,
+      transferred: false,
+    },
+  };
 }
 
 export function getSpringHillOfficePhone(): string {
@@ -109,20 +257,242 @@ export function getAmdOfficeForToolCall(
   );
 }
 
+function extractAppointments(result: unknown): CallerAppointment[] {
+  if (Array.isArray(result)) return result as CallerAppointment[];
+  if (
+    result &&
+    typeof result === "object" &&
+    Array.isArray((result as { appointments?: unknown[] }).appointments)
+  ) {
+    return (result as { appointments: CallerAppointment[] }).appointments;
+  }
+  return [];
+}
+
+function buildAvailabilitySummary(date: string, result: unknown): string {
+  const slots = Array.isArray(result)
+    ? result
+    : result &&
+        typeof result === "object" &&
+        Array.isArray((result as { slots?: unknown[] }).slots)
+      ? (result as { slots: unknown[] }).slots
+      : [];
+  if (slots.length === 0) {
+    return `No openings returned for ${date}.`;
+  }
+  return `Found ${slots.length} opening${slots.length === 1 ? "" : "s"} for ${date}.`;
+}
+
+type SelectedSlot = NonNullable<CallState["scheduling"]["selectedSlot"]>;
+
+function extractAvailabilitySlots(result: unknown): SelectedSlot[] | null {
+  const rawSlots = Array.isArray(result)
+    ? result
+    : result &&
+        typeof result === "object" &&
+        Array.isArray((result as { slots?: unknown[] }).slots)
+      ? (result as { slots: unknown[] }).slots
+      : null;
+
+  if (!rawSlots) return null;
+
+  const slots = rawSlots
+    .map((slot) => {
+      if (!slot || typeof slot !== "object") return null;
+      const record = slot as Record<string, unknown>;
+      if (
+        typeof record.startDatetime !== "string" ||
+        typeof record.columnId !== "number" ||
+        typeof record.profileId !== "number" ||
+        typeof record.duration !== "number" ||
+        typeof record.appointmentTypeId !== "number"
+      ) {
+        return null;
+      }
+      return {
+        startDatetime: record.startDatetime,
+        columnId: record.columnId,
+        profileId: record.profileId,
+        duration: record.duration,
+        appointmentTypeId: record.appointmentTypeId,
+      } satisfies SelectedSlot;
+    })
+    .filter((slot): slot is SelectedSlot => slot !== null);
+
+  return slots;
+}
+
+function isSelectedSlotFromLastAvailability(
+  result: unknown,
+  slot: SelectedSlot,
+): boolean | null {
+  const slots = extractAvailabilitySlots(result);
+  if (slots === null) return null;
+  return slots.some(
+    (candidate) =>
+      candidate.startDatetime === slot.startDatetime &&
+      candidate.columnId === slot.columnId &&
+      candidate.profileId === slot.profileId &&
+      candidate.duration === slot.duration &&
+      candidate.appointmentTypeId === slot.appointmentTypeId,
+  );
+}
+
+function setLastToolFingerprint(state: CallState, fingerprint: string): void {
+  state.conversation.lastToolCallFingerprint = fingerprint;
+}
+
+export function slotFingerprint(args: {
+  patientId: string;
+  startDatetime: string;
+  columnId: number;
+  appointmentTypeId: number;
+}): string {
+  return [
+    args.patientId,
+    args.startDatetime,
+    args.columnId,
+    args.appointmentTypeId,
+  ].join(":");
+}
+
+function isSameAvailabilityQuery(
+  state: CallState,
+  query: CallState["scheduling"]["lastAvailabilityQuery"],
+): boolean {
+  if (!state.scheduling.lastAvailabilityQuery || !query) return false;
+  return (
+    state.scheduling.lastAvailabilityQuery.date === query.date &&
+    state.scheduling.lastAvailabilityQuery.patientId === query.patientId &&
+    state.scheduling.lastAvailabilityQuery.reasonForVisit ===
+      query.reasonForVisit &&
+    state.scheduling.lastAvailabilityQuery.routing === query.routing
+  );
+}
+
+function looksLikePlaceholderRegistration(params: {
+  email: string;
+  street: string;
+}): boolean {
+  const email = params.email.trim().toLowerCase();
+  const street = params.street.trim().toLowerCase();
+  return email.endsWith("@example.com") || street.startsWith("123 main");
+}
+
+function parseAppointmentStart(appt: CallerAppointment): Date | null {
+  const parsed = new Date(`${appt.date} ${appt.time}`);
+  if (isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function hasOverlappingAppointment(
+  appointments: CallerAppointment[],
+  startDatetime: string,
+  durationMin: number,
+): boolean {
+  const start = new Date(startDatetime);
+  if (isNaN(start.getTime())) return false;
+  const end = new Date(start.getTime() + durationMin * 60_000);
+  return appointments.some((appt) => {
+    const apptStart = parseAppointmentStart(appt);
+    if (!apptStart) return false;
+    const apptEnd = new Date(apptStart.getTime() + durationMin * 60_000);
+    return start < apptEnd && apptStart < end;
+  });
+}
+
+export function buildWorkingStateSummary(
+  state: CallState,
+  mode: WorkingSummaryMode,
+): string {
+  const lines: string[] = [];
+  lines.push(`Current call state:`);
+  lines.push(`- mode: ${mode}`);
+  lines.push(`- office: ${getOfficeConfig(state.officeKey).displayName}`);
+  if (state.identity.patientName) {
+    lines.push(`- patient: ${state.identity.patientName}`);
+  } else {
+    lines.push(`- patient: not yet identified`);
+  }
+  lines.push(`- lookup match: ${state.identity.lookupMatchStatus}`);
+  lines.push(
+    `- caller confirmed patient: ${state.identity.callerConfirmedPatient ? "yes" : "no"}`,
+  );
+  lines.push(
+    `- active patient matches lookup: ${state.identity.activePatientMatchesLookup ? "yes" : "no"}`,
+  );
+  lines.push(`- intent: ${state.workflow.intent}`);
+  lines.push(`- active flow: ${state.workflow.activeFlow}`);
+  lines.push(`- verification status: ${state.workflow.verificationStatus}`);
+  if (state.scheduling.reasonForVisit) {
+    lines.push(`- visit reason: ${state.scheduling.reasonForVisit}`);
+  }
+  if (state.scheduling.lastAvailabilitySummary) {
+    lines.push(
+      `- last availability: ${state.scheduling.lastAvailabilitySummary}`,
+    );
+  }
+  if (state.scheduling.appointmentsSource !== "none") {
+    lines.push(
+      `- appointments source: ${state.scheduling.appointmentsSource}`,
+    );
+  }
+  if (state.scheduling.appointmentsLoadedAt) {
+    lines.push(
+      `- appointments loaded at: ${state.scheduling.appointmentsLoadedAt}`,
+    );
+  }
+  if (mode === "confirm" || mode === "cancel") {
+    lines.push(
+      `- target appointment selected: ${state.scheduling.targetAppointmentId ? "yes" : "no"}`,
+    );
+  }
+  if (state.workflow.registrationAllowed) {
+    lines.push(`- registration is currently allowed`);
+  }
+  return lines.join("\n");
+}
+
 /** Apply patient data from an API response, resetting all patient fields so nothing stale lingers. */
-function applyPatientResult(state: CallState, result: any): void {
-  state.patientId = result.patientId ?? null;
-  state.patientName = result.name ?? null;
-  state.dob = result.dob ?? null;
-  state.insuranceCarrier = result.insuranceCarrier ?? null;
-  state.insPlanId = result.insPlanId ?? null;
-  state.respPartyId = result.respPartyId ?? null;
-  state.checkedInsurancePlan = result.insuranceCarrier ?? null;
-  state.routing = result.routing ?? null;
-  state.allowedProviders = result.allowedProviders ?? [];
-  state.routingAmbiguous = result.routingAmbiguous ?? false;
-  state.preauthRequired = result.preauthRequired ?? false;
-  state.appointments = [];
+function applyPatientResult(
+  state: CallState,
+  result: any,
+  source: "verify_patient" | "add_patient",
+): void {
+  const previousPatientId = state.identity.patientId;
+  const nextPatientId = result.patientId ?? null;
+  const originalLookupPatientId = state.identity.originalLookupPatientId;
+  state.identity.patientId = nextPatientId;
+  state.identity.patientName = result.name ?? null;
+  state.identity.dob = result.dob ?? null;
+  state.identity.insuranceCarrier = result.insuranceCarrier ?? null;
+  state.identity.insPlanId = result.insPlanId ?? null;
+  state.identity.respPartyId = result.respPartyId ?? null;
+  state.identity.callerConfirmedPatient = true;
+  state.identity.activePatientMatchesLookup =
+    !!originalLookupPatientId && originalLookupPatientId === nextPatientId;
+  state.identity.activePatientSource = source;
+  if (previousPatientId && nextPatientId && previousPatientId !== nextPatientId) {
+    state.identity.switchedPatientThisCall = true;
+  }
+
+  state.insurance.checkedInsurancePlan = result.insuranceCarrier ?? null;
+  state.insurance.routing = result.routing ?? null;
+  state.insurance.allowedProviders = result.allowedProviders ?? [];
+  state.insurance.routingAmbiguous = result.routingAmbiguous ?? false;
+  state.insurance.preauthRequired = result.preauthRequired ?? false;
+
+  state.scheduling.reasonForVisit = null;
+  state.scheduling.lastAvailabilityQuery = null;
+  state.scheduling.lastAvailabilitySummary = null;
+  state.scheduling.lastAvailabilityRaw = null;
+  state.scheduling.selectedSlot = null;
+  state.scheduling.targetAppointmentId = null;
+  state.scheduling.appointments = extractAppointments(result);
+  state.scheduling.appointmentsLoadedAt = state.scheduling.appointments.length
+    ? new Date().toISOString()
+    : null;
+  state.scheduling.appointmentsSource = "none";
 }
 
 /** Pre-call phone lookup — called from main.ts before session starts. */
@@ -229,18 +599,33 @@ After response:
       ),
   }),
   execute: async ({ firstName, lastName, dob, usePhone }, { ctx }) => {
+    const state = getState(ctx);
     const body: Record<string, unknown> = { firstName };
     if (lastName) body.lastName = lastName;
     if (dob) body.dob = dob;
-    if (usePhone) body.phone = getState(ctx).callerPhone;
+    if (usePhone) body.phone = state.callerPhone;
     const result = (await callApi(
       "/api/verify-patient",
       body,
-      getAmdOfficeForToolCall(getState(ctx)),
+      getAmdOfficeForToolCall(state),
     )) as any;
     if (result?.patientId) {
-      applyPatientResult(getState(ctx), result);
+      applyPatientResult(state, result, "verify_patient");
+      state.workflow.verificationStatus = "verified";
+      state.workflow.verificationAttempts = 0;
+      state.workflow.registrationAllowed = false;
+      state.workflow.registrationComplete = false;
+    } else {
+      state.workflow.verificationAttempts += 1;
+      state.workflow.verificationStatus = usePhone
+        ? "multiple_matches"
+        : "no_match";
+      state.workflow.registrationAllowed = true;
     }
+    setLastToolFingerprint(
+      state,
+      `verify_patient:${firstName}:${lastName ?? ""}:${dob ?? ""}:${usePhone ? "phone" : "full"}`,
+    );
     return result;
   },
 });
@@ -287,7 +672,20 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
-    const insurance = state.checkedInsurancePlan ?? params.insurance;
+    if (state.identity.patientId && !state.identity.switchedPatientThisCall) {
+      return "ERROR: A patient is already identified in this call. Do not register another patient unless the caller clearly switched to a different person.";
+    }
+    if (!state.workflow.registrationAllowed) {
+      return "ERROR: New-patient registration is not allowed yet. Verify the patient first, or confirm they are a true new patient.";
+    }
+    if (!state.insurance.checkedInsurancePlan) {
+      return "ERROR: Insurance has not been confirmed. Run check_insurance before calling add_patient.";
+    }
+    if (looksLikePlaceholderRegistration(params)) {
+      return "ERROR: Registration data looks like placeholder information. Collect the real values from the caller first.";
+    }
+    const insurance =
+      state.insurance.checkedInsurancePlan ?? params.insurance;
     const phone = params.phone ?? state.callerPhone;
     if (!phone) {
       return "ERROR: No phone number is available. Ask whether the number they're calling from is good; if not, collect the best phone number.";
@@ -298,8 +696,12 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
       getAmdOfficeForToolCall(state),
     )) as any;
     if (result?.patientId) {
-      applyPatientResult(state, result);
+      applyPatientResult(state, result, "add_patient");
+      state.workflow.registrationAllowed = false;
+      state.workflow.registrationComplete = true;
+      state.workflow.verificationStatus = "verified";
     }
+    setLastToolFingerprint(state, `add_patient:${phone}`);
     return result;
   },
 });
@@ -318,15 +720,16 @@ After response: session state updates automatically. If preauthRequired, schedul
   }),
   execute: async ({ insurance, subscriberName, subscriberNum }, { ctx }) => {
     const state = getState(ctx);
-    if (!state.patientId) return "ERROR: No patient verified yet.";
-    const insuranceForMiddleware = state.checkedInsurancePlan ?? insurance;
+    if (!state.identity.patientId) return "ERROR: No patient verified yet.";
+    const insuranceForMiddleware =
+      state.insurance.checkedInsurancePlan ?? insurance;
     const result = (await callApi(
       "/api/patient/update-insurance",
       {
-        patientId: state.patientId,
-        insPlanId: state.insPlanId ?? "",
-        respPartyId: state.respPartyId ?? "",
-        oldInsurance: state.insuranceCarrier ?? "",
+        patientId: state.identity.patientId,
+        insPlanId: state.identity.insPlanId ?? "",
+        respPartyId: state.identity.respPartyId ?? "",
+        oldInsurance: state.identity.insuranceCarrier ?? "",
         insurance: insuranceForMiddleware,
         subscriberName,
         subscriberNum,
@@ -334,15 +737,20 @@ After response: session state updates automatically. If preauthRequired, schedul
       getAmdOfficeForToolCall(state),
     )) as any;
     if (result?.status === "updated") {
-      state.insuranceCarrier = result.newInsurance ?? state.insuranceCarrier;
-      state.insPlanId = result.insPlanId ?? null;
-      state.respPartyId = result.respPartyId ?? null;
-      state.routing = result.routing ?? state.routing;
-      state.allowedProviders =
-        result.allowedProviders ?? state.allowedProviders;
-      state.routingAmbiguous = result.routingAmbiguous ?? false;
-      state.preauthRequired = result.preauthRequired ?? false;
+      state.identity.insuranceCarrier =
+        result.newInsurance ?? state.identity.insuranceCarrier;
+      state.identity.insPlanId = result.insPlanId ?? null;
+      state.identity.respPartyId = result.respPartyId ?? null;
+      state.insurance.routing = result.routing ?? state.insurance.routing;
+      state.insurance.allowedProviders =
+        result.allowedProviders ?? state.insurance.allowedProviders;
+      state.insurance.routingAmbiguous = result.routingAmbiguous ?? false;
+      state.insurance.preauthRequired = result.preauthRequired ?? false;
     }
+    setLastToolFingerprint(
+      state,
+      `update_insurance:${insuranceForMiddleware}:${subscriberNum}`,
+    );
     return result;
   },
 });
@@ -364,14 +772,37 @@ After response: check if date shifted vs requested — tell caller if different.
   }),
   execute: async ({ date }, { ctx }) => {
     const state = getState(ctx);
+    if (!state.identity.patientId) {
+      return "ERROR: No patient identified yet. Verify or register the patient before checking availability.";
+    }
+    if (!state.scheduling.reasonForVisit) {
+      return "ERROR: The reason for the visit is required before checking availability. Ask the caller why they need to be seen first.";
+    }
+    const query = {
+      date,
+      patientId: state.identity.patientId,
+      reasonForVisit: state.scheduling.reasonForVisit,
+      routing: state.insurance.routing,
+    };
+    if (isSameAvailabilityQuery(state, query)) {
+      return `ERROR: Availability for ${date} was already checked. Reuse that result or ask for a different day.`;
+    }
     const body: Record<string, unknown> = { date };
-    if (state.routing) body.routing = state.routing;
-    if (state.preauthRequired) body.preauthRequired = true;
-    return callApi(
+    if (state.insurance.routing) body.routing = state.insurance.routing;
+    if (state.insurance.preauthRequired) body.preauthRequired = true;
+    const result = await callApi(
       "/api/scheduler/availability",
       body,
       getAmdOfficeForToolCall(state),
     );
+    state.scheduling.lastAvailabilityQuery = query;
+    state.scheduling.lastAvailabilityRaw = result;
+    state.scheduling.lastAvailabilitySummary = buildAvailabilitySummary(
+      date,
+      result,
+    );
+    setLastToolFingerprint(state, `get_availability:${date}`);
+    return result;
   },
 });
 
@@ -385,13 +816,20 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
-    if (!state.patientId)
+    if (!state.identity.patientId)
       return "ERROR: No patient verified yet. Run verify_patient first with the caller's firstName, lastName, and dob.";
-    return callApi(
+    const result = await callApi(
       "/api/patient/appointments",
-      { patientId: state.patientId },
+      { patientId: state.identity.patientId },
       getAmdOfficeForToolCall(state),
     );
+    state.scheduling.appointments = extractAppointments(result);
+    state.scheduling.appointmentsLoadedAt = state.scheduling.appointments.length
+      ? new Date().toISOString()
+      : null;
+    state.scheduling.appointmentsSource = "confirm_appt";
+    setLastToolFingerprint(state, "confirm_appt");
+    return result;
   },
 });
 
@@ -406,11 +844,26 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
       .describe("Appointment ID from the confirm_appt response"),
   }),
   execute: async ({ appointmentId }, { ctx }) => {
-    return callApi(
+    const state = getState(ctx);
+    const knownAppointment =
+      state.scheduling.targetAppointmentId === appointmentId ||
+      state.scheduling.appointments.some((appt) => appt.id === appointmentId);
+    if (!knownAppointment) {
+      return "ERROR: That appointment is not currently loaded in session state. Confirm the appointment first before cancelling it.";
+    }
+    const result = await callApi(
       "/api/appointment/cancel",
       { appointmentId },
-      getAmdOfficeForToolCall(getState(ctx)),
+      getAmdOfficeForToolCall(state),
     );
+    state.scheduling.appointments = state.scheduling.appointments.filter(
+      (appt) => appt.id !== appointmentId,
+    );
+    if (state.scheduling.targetAppointmentId === appointmentId) {
+      state.scheduling.targetAppointmentId = null;
+    }
+    setLastToolFingerprint(state, `cancel_appt:${appointmentId}`);
+    return result;
   },
 });
 
@@ -440,13 +893,57 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
-    if (!state.patientId)
+    if (!state.identity.patientId)
       return "No patient verified yet. Verify the patient first.";
-    return callApi(
+    const fingerprint = slotFingerprint({
+      patientId: state.identity.patientId,
+      startDatetime: params.startDatetime,
+      columnId: params.columnId,
+      appointmentTypeId: params.appointmentTypeId,
+    });
+    if (state.scheduling.bookedSlotsThisCall.includes(fingerprint)) {
+      return "ERROR: That slot was already booked in this call.";
+    }
+    if (state.scheduling.lastAvailabilityRaw) {
+      const slotValidity = isSelectedSlotFromLastAvailability(
+        state.scheduling.lastAvailabilityRaw,
+        {
+          startDatetime: params.startDatetime,
+          columnId: params.columnId,
+          profileId: params.profileId,
+          duration: params.duration,
+          appointmentTypeId: params.appointmentTypeId,
+        },
+      );
+      if (slotValidity === false) {
+        return "ERROR: That slot is not in the most recent availability results. Search availability again or choose a returned slot.";
+      }
+    }
+    if (
+      hasOverlappingAppointment(
+        state.scheduling.appointments,
+        params.startDatetime,
+        params.duration,
+      ) &&
+      state.workflow.appointmentIntent !== "reschedule"
+    ) {
+      return "ERROR: This patient already has an appointment at that time. Confirm whether they want to reschedule before booking another.";
+    }
+    const result = await callApi(
       "/api/appointment/book",
-      { ...params, patientId: state.patientId },
+      { ...params, patientId: state.identity.patientId },
       getAmdOfficeForToolCall(state),
     );
+    state.scheduling.bookedSlotsThisCall.push(fingerprint);
+    state.scheduling.selectedSlot = {
+      startDatetime: params.startDatetime,
+      columnId: params.columnId,
+      profileId: params.profileId,
+      duration: params.duration,
+      appointmentTypeId: params.appointmentTypeId,
+    };
+    setLastToolFingerprint(state, `book_appt:${fingerprint}`);
+    return result;
   },
 });
 
@@ -498,7 +995,8 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
   execute: async ({ plan }, { ctx }) => {
     const state = getState(ctx);
     const result = matchInsurancePlanForOffice(state.officeKey, plan);
-    state.checkedInsurancePlan = canonicalInsurancePlan(result);
+    state.insurance.checkedInsurancePlan = canonicalInsurancePlan(result);
+    setLastToolFingerprint(state, `check_insurance:${plan}`);
     return buildInsuranceToolResponse(result);
   },
 });
@@ -531,7 +1029,7 @@ export const transfer_call = llm.tool({
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
     // Guard: prevent duplicate transfers (LLM sometimes calls this twice)
-    if (state.transferred) {
+    if (state.conversation.transferred) {
       return "Already transferred. No action needed.";
     }
     if (ctx.speechHandle) ctx.speechHandle.allowInterruptions = false;
@@ -541,7 +1039,7 @@ export const transfer_call = llm.tool({
       return "Could not transfer — no active SIP session.";
     }
     try {
-      state.transferred = true;
+      state.conversation.transferred = true;
       const transferNumber = getOfficeConfig(state.officeKey).transferNumber;
       await getSipClient().transferSipParticipant(
         state.sipRoomName,
@@ -555,6 +1053,7 @@ export const transfer_call = llm.tool({
       );
       // Framework handles shutdown via close_on_disconnect when the
       // SIP participant leaves after the transfer completes.
+      setLastToolFingerprint(state, "transfer_call");
       return result;
     } catch (err) {
       const result = "Could not transfer the call. Please try again.";

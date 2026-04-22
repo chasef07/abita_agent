@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildToolsForTrunk } from "../agent.js";
-import { buildPrompt } from "../prompt.js";
+import { buildPrompt, buildTaskPrompt } from "../prompt.js";
 import { getOfficeKeyByPhone, SPRING_HILL_OFFICE_PHONE } from "../offices.js";
 import {
   getAmdOfficeForToolCall,
@@ -62,6 +62,21 @@ describe("office routing helpers", () => {
       "route_to_spring_hill",
     );
   });
+
+  it("exposes orchestration tools for identity and registration workflows", () => {
+    const tools = buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE);
+
+    expect(tools).toHaveProperty("run_identify_patient_task");
+    expect(tools).toHaveProperty("run_registration_task");
+    expect(tools).toHaveProperty("run_schedule_task_group");
+    expect(tools).toHaveProperty("run_reschedule_task_group");
+    expect(tools).toHaveProperty("run_confirm_task_group");
+    expect(tools).toHaveProperty("run_cancel_task_group");
+    expect(tools).not.toHaveProperty("get_availability");
+    expect(tools).not.toHaveProperty("book_appt");
+    expect(tools).not.toHaveProperty("confirm_appt");
+    expect(tools).not.toHaveProperty("cancel_appt");
+  });
 });
 
 describe("Crystal River prompt guidance", () => {
@@ -88,11 +103,27 @@ describe("Crystal River prompt guidance", () => {
     );
   });
 
-  it("tells new-patient flows to confirm the inbound caller number before recollecting digits", () => {
-    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+  it("keeps the inbound caller number question in the registration task prompt", () => {
+    const prompt = buildTaskPrompt({
+      mode: "register",
+      stateSummary: "Current call state:\n- patient: not yet identified",
+    });
 
     expect(prompt).toContain(
       `is the number you're calling from a good one on file?`,
     );
+  });
+
+  it("builds a focused task prompt with state summary", () => {
+    const prompt = buildTaskPrompt({
+      mode: "schedule",
+      stateSummary: "Current call state:\n- patient: Maria Santos",
+    });
+
+    expect(prompt).toContain("<task_mode>");
+    expect(prompt).toContain("schedule");
+    expect(prompt).toContain("Current call state:");
+    expect(prompt).toContain("patient: Maria Santos");
+    expect(prompt).toContain("search one date at a time");
   });
 });
