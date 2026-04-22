@@ -23,7 +23,8 @@ type ScriptedResponse = {
 };
 
 let mockAppointmentsResult: unknown = [];
-
+let mockAvailabilityResult: unknown = scheduleAvailabilityResult();
+let mockVerifyPatientResult: unknown = [];
 class ScriptedLLM extends llm.LLM {
   private readonly responses = new Map<string, ScriptedResponse>();
 
@@ -144,6 +145,14 @@ function springHillLookup(
   };
 }
 
+function multipleMatchesLookup(): PhoneLookupResult {
+  return {
+    status: "multiple_matches",
+    message: "multiple matches",
+    matches: [{ firstName: "Maria" }, { firstName: "Jose" }],
+  };
+}
+
 function scheduleAvailabilityResult() {
   return [
     {
@@ -182,17 +191,24 @@ async function createSession(args: {
 describe("workflow e2e", () => {
   beforeEach(() => {
     mockAppointmentsResult = [];
+    mockAvailabilityResult = scheduleAvailabilityResult();
+    mockVerifyPatientResult = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
+        if (url.endsWith("/api/verify-patient")) {
+          return new Response(JSON.stringify(mockVerifyPatientResult), {
+            status: 200,
+          });
+        }
         if (url.endsWith("/api/patient/appointments")) {
           return new Response(JSON.stringify(mockAppointmentsResult), {
             status: 200,
           });
         }
         if (url.endsWith("/api/scheduler/availability")) {
-          return new Response(JSON.stringify(scheduleAvailabilityResult()), {
+          return new Response(JSON.stringify(mockAvailabilityResult), {
             status: 200,
           });
         }
@@ -317,6 +333,179 @@ describe("workflow e2e", () => {
     await session.close();
   });
 
+  it("starts registration immediately when the caller clearly says they are new", async () => {
+    const { session, state } = await createSession({
+      responses: [
+        {
+          input: "I'm a new patient and need an appointment",
+          toolCalls: [{ name: "run_registration_task" }],
+        },
+        {
+          input:
+            "instructions: Complete new-patient registration. Collect the missing fields, confirm the critical details, then submit registration once everything required is ready.",
+          content: "what insurance do you have?",
+        },
+      ],
+    });
+
+    const run1 = await session
+      .run({ userInput: "I'm a new patient and need an appointment" })
+      .wait();
+    expect(
+      run1.expect.containsFunctionCall({ name: "run_registration_task" }),
+    ).toBeTruthy();
+    expect(state.workflow.registrationAllowed).toBe(true);
+    expect(state.workflow.activeFlow).toBe("register");
+    await session.close();
+  });
+
+  it("does not auto-open registration on a multiple-match call", async () => {
+    const { session, state } = await createSession({
+      phoneLookup: multipleMatchesLookup(),
+      responses: [
+        {
+          input: "I need an appointment",
+          toolCalls: [{ name: "run_registration_task" }],
+        },
+      ],
+    });
+
+    const run1 = await session.run({ userInput: "I need an appointment" }).wait();
+    expect(
+      run1.expect.containsFunctionCall({ name: "run_registration_task" }),
+    ).toBeTruthy();
+    expect(state.workflow.registrationAllowed).toBe(false);
+    expect(state.workflow.activeFlow).toBe("none");
+    await session.close();
+  });
+
+  it("uses first name plus caller phone for multiple-match identity resolution", async () => {
+    mockVerifyPatientResult = {
+      patientId: "P123",
+      name: "Maria Santos",
+      dob: "03/05/1982",
+      phone: "+18135551234",
+      insuranceCarrier: "Florida Blue",
+      insPlanId: "IP1",
+      respPartyId: "RP1",
+      routing: "accepted",
+      allowedProviders: [],
+      routingAmbiguous: false,
+      appointments: [],
+    };
+
+    const { session, state } = await createSession({
+      phoneLookup: multipleMatchesLookup(),
+      responses: [
+        {
+          input: "I need to schedule an appointment",
+          toolCalls: [{ name: "run_schedule_task_group" }],
+        },
+        {
+          input:
+            "instructions: Resolve who the patient is. If the current caller context already identifies the patient, confirm that and complete. If the caller is truly new or verification fails enough to move on, allow registration.",
+          content:
+            "I see a few patients associated with this number, can I get the patient's first name?",
+        },
+        {
+          input: "Maria",
+          toolCalls: [
+            {
+              name: "verify_existing_patient",
+              args: { firstName: "Maria", usePhone: true },
+            },
+          ],
+        },
+      ],
+    });
+
+    const run1 = await session
+      .run({ userInput: "I need to schedule an appointment" })
+      .wait();
+    expect(
+      run1.expect.containsFunctionCall({ name: "run_schedule_task_group" }),
+    ).toBeTruthy();
+
+    const run2 = await session.run({ userInput: "Maria" }).wait();
+    expect(
+      run2.expect.containsFunctionCall({
+        name: "verify_existing_patient",
+        args: { firstName: "Maria", usePhone: true },
+      }),
+    ).toBeTruthy();
+    expect(state.workflow.verificationStatus).toBe("verified");
+    expect(state.identity.patientId).toBe("P123");
+    await session.close();
+  });
+
+  it("keeps scheduling in availability mode when a searched date has no openings", async () => {
+    mockAvailabilityResult = [];
+    const noAvailabilityOutput = JSON.stringify(mockAvailabilityResult);
+    const { session, state } = await createSession({
+      phoneLookup: springHillLookup(),
+      responses: [
+        {
+          input: "I need to schedule an appointment",
+          toolCalls: [{ name: "run_schedule_task_group" }],
+        },
+        {
+          input:
+            "instructions: Resolve who the patient is. If the current caller context already identifies the patient, confirm that and complete. If the caller is truly new or verification fails enough to move on, allow registration.",
+          content: "can I get your first name?",
+        },
+        {
+          input: "Maria",
+          toolCalls: [{ name: "confirm_current_patient" }],
+        },
+        {
+          input:
+            "instructions: Get the reason for the visit before scheduling. Once you know it clearly enough to continue, record it and move on.",
+          content: "what's the reason for the visit?",
+        },
+        {
+          input: "blurry vision",
+          toolCalls: [
+            {
+              name: "record_visit_reason",
+              args: { reasonForVisit: "blurry vision" },
+            },
+          ],
+        },
+        {
+          input:
+            "instructions: Search one date at a time, explain the result briefly, and move toward one selected slot. When the caller accepts a slot, record that selected slot and complete.",
+          content: "what day works for you?",
+        },
+        {
+          input: "Friday works",
+          toolCalls: [
+            { name: "search_availability", args: { date: "2026-04-24" } },
+          ],
+        },
+        {
+          input: noAvailabilityOutput,
+          content: "nothing open Friday. I can check another day if you want.",
+        },
+      ],
+    });
+
+    await session.run({ userInput: "I need to schedule an appointment" }).wait();
+    await session.run({ userInput: "Maria" }).wait();
+    await session.run({ userInput: "blurry vision" }).wait();
+    const run4 = await session.run({ userInput: "Friday works" }).wait();
+    expect(
+      run4.expect.containsFunctionCall({
+        name: "search_availability",
+        args: { date: "2026-04-24" },
+      }),
+    ).toBeTruthy();
+    expect(state.scheduling.lastAvailabilitySummary).toBe(
+      "No openings returned for 2026-04-24.",
+    );
+    expect(state.workflow.activeFlow).toBe("availability");
+    await session.close();
+  });
+
   it("runs the reschedule workflow and cancels the old appointment only after booking the replacement", async () => {
     const availabilityOutput = JSON.stringify(scheduleAvailabilityResult());
     mockAppointmentsResult = [
@@ -379,6 +568,20 @@ describe("workflow e2e", () => {
               confirmed: true,
             },
           ]),
+          content: "what's the reason for the replacement visit?",
+        },
+        {
+          input: "follow up",
+          toolCalls: [
+            {
+              name: "record_visit_reason",
+              args: { reasonForVisit: "follow up" },
+            },
+          ],
+        },
+        {
+          input:
+            "instructions: Search one date at a time, explain the result briefly, and move toward one selected slot. When the caller accepts a slot, record that selected slot and complete.",
           content: "what day works for the replacement appointment?",
         },
         {
@@ -451,9 +654,14 @@ describe("workflow e2e", () => {
       run3.events.some(
         (ev) =>
           ev.type === "function_call" &&
-          ev.item.name === "confirm_and_cancel_original_appointment",
+          ev.item.name === "search_availability",
       ),
     ).toBe(false);
+
+    const run4 = await session.run({ userInput: "follow up" }).wait();
+    expect(
+      run4.expect.containsFunctionCall({ name: "record_visit_reason" }),
+    ).toBeTruthy();
 
     await session.run({ userInput: "Friday works" }).wait();
     await session.run({ userInput: "yes" }).wait();

@@ -119,7 +119,6 @@ export interface CallState {
       | "visit_reason"
       | "availability"
       | "booking"
-      | "existing_appt"
       | "cancel";
     appointmentIntent: "schedule" | "confirm" | "cancel" | "reschedule" | null;
     verificationStatus:
@@ -163,8 +162,6 @@ export interface CallState {
     preauthRequired: boolean;
   };
   conversation: {
-    humanRequestCount: number;
-    lastToolCallFingerprint: string | null;
     transferred: boolean;
   };
 }
@@ -222,7 +219,7 @@ export function createInitialCallState(args: {
           ? "multiple_matches"
           : "not_started",
       verificationAttempts: 0,
-      registrationAllowed: !verified && !multiple,
+      registrationAllowed: false,
       registrationComplete: false,
     },
     scheduling: {
@@ -249,8 +246,6 @@ export function createInitialCallState(args: {
       preauthRequired: false,
     },
     conversation: {
-      humanRequestCount: 0,
-      lastToolCallFingerprint: null,
       transferred: false,
     },
   };
@@ -347,10 +342,6 @@ function isSelectedSlotFromLastAvailability(
       candidate.duration === slot.duration &&
       candidate.appointmentTypeId === slot.appointmentTypeId,
   );
-}
-
-function setLastToolFingerprint(state: CallState, fingerprint: string): void {
-  state.conversation.lastToolCallFingerprint = fingerprint;
 }
 
 export function slotFingerprint(args: {
@@ -633,19 +624,19 @@ After response:
       state.workflow.verificationStatus = usePhone
         ? "multiple_matches"
         : "no_match";
-      state.workflow.registrationAllowed = true;
+      const reachedRegistrationFallback =
+        !usePhone && state.workflow.verificationAttempts >= 2;
+      state.workflow.registrationAllowed =
+        state.workflow.registrationAllowed || reachedRegistrationFallback;
+      state.workflow.registrationComplete = false;
     }
-    setLastToolFingerprint(
-      state,
-      `verify_patient:${firstName}:${lastName ?? ""}:${dob ?? ""}:${usePhone ? "phone" : "full"}`,
-    );
     return result;
   },
 });
 
 // --- add_patient ---
 export const add_patient = llm.tool({
-  description: `Creates a new patient record. Use only when verify_patient returns no match. Every field must come from what the caller explicitly said — never fabricate or guess values.
+  description: `Creates a new patient record. Use this when the caller is clearly a true new patient, or after identity verification failed and registration is now allowed. Every field must come from what the caller explicitly said — never fabricate or guess values.
 
 Follow the registration order in the runbook. Key rules for this tool:
 - Run check_insurance first. Use the canonicalPlan from the latest check_insurance result for the insurance value sent to middleware. If the tool accepted a family alias like "Blue Cross" or "Oscar", do not rewrite it yourself.
@@ -713,7 +704,6 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
       state.workflow.registrationComplete = true;
       state.workflow.verificationStatus = "verified";
     }
-    setLastToolFingerprint(state, `add_patient:${phone}`);
     return result;
   },
 });
@@ -759,10 +749,6 @@ After response: session state updates automatically. If preauthRequired, schedul
       state.insurance.routingAmbiguous = result.routingAmbiguous ?? false;
       state.insurance.preauthRequired = result.preauthRequired ?? false;
     }
-    setLastToolFingerprint(
-      state,
-      `update_insurance:${insuranceForMiddleware}:${subscriberNum}`,
-    );
     return result;
   },
 });
@@ -771,10 +757,7 @@ After response: session state updates automatically. If preauthRequired, schedul
 export const get_availability = llm.tool({
   description: `Gets schedule availability. Requires date (YYYY-MM-DD). Routing and preauth auto-applied from session state.
 
-Appointment type codes — you determine new/existing (from verify_patient) and adult/pediatric (from DOB). Ask the caller the reason for their visit before calling this tool so you pick the right code:
-- New 18+ = 1006, new under 18 = 1004
-- Existing 18+ = 1007, existing under 18 = 1005
-- Post-op (1008) = only if the caller says they're coming in for a post-op or follow-up after recent surgery.
+Ask the caller the reason for their visit before calling this tool. The workflow uses that reason to determine the correct scheduling path before availability is checked.
 
 Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. Under 18 = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
 
@@ -813,7 +796,6 @@ After response: check if date shifted vs requested — tell caller if different.
       date,
       result,
     );
-    setLastToolFingerprint(state, `get_availability:${date}`);
     return result;
   },
 });
@@ -822,7 +804,7 @@ After response: check if date shifted vs requested — tell caller if different.
 export const confirm_appt = llm.tool({
   description: `Retrieves upcoming appointments (next 60 days) for a verified patient. Patient ID is read from session state automatically. Requires a verified patient — either from phone lookup or verify_patient.
 
-If appointments (with IDs) are already shown in the caller context from the phone lookup AND you haven't switched patients, you already have this data — skip this tool. Only call if you switched patients, need fresh data, or appointments weren't in the caller context.
+Use this tool when the workflow needs current appointment data in session state, especially after switching patients or when the task explicitly refreshes appointments from phone lookup data.
 
 Read back the nearest appointment: date, time, doctor, and location. If multiple, read one at a time. If none found, offer to schedule.`,
   parameters: z.object({}),
@@ -840,7 +822,6 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
       ? new Date().toISOString()
       : null;
     state.scheduling.appointmentsSource = "confirm_appt";
-    setLastToolFingerprint(state, "confirm_appt");
     return result;
   },
 });
@@ -874,7 +855,6 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
     if (state.scheduling.targetAppointmentId === appointmentId) {
       state.scheduling.targetAppointmentId = null;
     }
-    setLastToolFingerprint(state, `cancel_appt:${appointmentId}`);
     return result;
   },
 });
@@ -954,7 +934,6 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
       duration: params.duration,
       appointmentTypeId: params.appointmentTypeId,
     };
-    setLastToolFingerprint(state, `book_appt:${fingerprint}`);
     return result;
   },
 });
@@ -1008,7 +987,6 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
     const state = getState(ctx);
     const result = matchInsurancePlanForOffice(state.officeKey, plan);
     state.insurance.checkedInsurancePlan = canonicalInsurancePlan(result);
-    setLastToolFingerprint(state, `check_insurance:${plan}`);
     return buildInsuranceToolResponse(result);
   },
 });
@@ -1065,7 +1043,6 @@ export const transfer_call = llm.tool({
       );
       // Framework handles shutdown via close_on_disconnect when the
       // SIP participant leaves after the transfer completes.
-      setLastToolFingerprint(state, "transfer_call");
       return result;
     } catch (err) {
       const result = "Could not transfer the call. Please try again.";

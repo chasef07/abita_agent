@@ -50,7 +50,8 @@ Always say the transfer message fully before calling `transfer_call`.
 Before scheduling or appointment changes:
 
 - identify the patient first -> use `run_identify_patient_task` when identity is not already resolved
-- if they are new, register them first -> use `run_registration_task` when registration is allowed
+- if the caller clearly says they are new or says they have not been seen here before, go straight to registration -> use `run_registration_task`
+- if the caller might be new but it is not clear yet, resolve identity first -> use `run_identify_patient_task`
 - for fresh scheduling, prefer `run_schedule_task_group`
 - for confirming an appointment, prefer `run_confirm_task_group`
 - for cancelling an appointment, prefer `run_cancel_task_group`

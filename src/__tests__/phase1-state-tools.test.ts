@@ -1,4 +1,7 @@
+import { llm } from "@livekit/agents";
+import { initializeLogger } from "../../node_modules/@livekit/agents/src/log.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ExistingAppointmentTask } from "../tasks/ExistingAppointmentTask.js";
 import {
   add_patient,
   buildWorkingStateSummary,
@@ -11,6 +14,8 @@ import {
   type CallState,
   type CallerAppointment,
 } from "../tools.js";
+
+initializeLogger({ pretty: false, level: "error" });
 
 function createCtx(state: CallState) {
   return {
@@ -45,7 +50,7 @@ describe("phase 1 state and tool guards", () => {
     vi.restoreAllMocks();
   });
 
-  it("allows registration after verify_patient returns no match", async () => {
+  it("keeps registration closed after the first verify_patient miss", async () => {
     const state = createInitialCallState({
       officeKey: "spring-hill",
       officePhone: "+17275919997",
@@ -69,6 +74,42 @@ describe("phase 1 state and tool guards", () => {
 
     expect(state.workflow.verificationStatus).toBe("no_match");
     expect(state.workflow.verificationAttempts).toBe(1);
+    expect(state.workflow.registrationAllowed).toBe(false);
+  });
+
+  it("allows registration after repeated full-detail verify misses", async () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: "+17275919997",
+      amdOfficePhone: "+17275919997",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+    });
+    vi.mocked(fetch).mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ message: "no match" }), { status: 200 }),
+    );
+
+    await (verify_patient as any).execute(
+      {
+        firstName: "Maria",
+        lastName: "Santos",
+        dob: "03/05/1982",
+      },
+      { ctx: createCtx(state) },
+    );
+    await (verify_patient as any).execute(
+      {
+        firstName: "Maria",
+        lastName: "Santos",
+        dob: "03/05/1982",
+      },
+      { ctx: createCtx(state) },
+    );
+
+    expect(state.workflow.verificationStatus).toBe("no_match");
+    expect(state.workflow.verificationAttempts).toBe(2);
     expect(state.workflow.registrationAllowed).toBe(true);
   });
 
@@ -226,6 +267,71 @@ describe("phase 1 state and tool guards", () => {
     expect(state.scheduling.appointments[0]?.id).toBe(1);
     expect(state.scheduling.appointmentsSource).toBe("confirm_appt");
     expect(state.scheduling.appointmentsLoadedAt).not.toBeNull();
+  });
+
+  it("refreshes appointments after a patient is verified during an appointment-change flow", async () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: "+17275919997",
+      amdOfficePhone: "+17275919997",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+    });
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/verify-patient")) {
+        return new Response(
+          JSON.stringify({
+            patientId: "P123",
+            name: "Maria Santos",
+            dob: "03/05/1982",
+            insuranceCarrier: "Florida Blue",
+            insPlanId: "IP1",
+            respPartyId: "RP1",
+            routing: "accepted",
+            allowedProviders: [],
+            routingAmbiguous: false,
+            appointments: [],
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.endsWith("/api/patient/appointments")) {
+        return new Response(JSON.stringify([appointment()]), { status: 200 });
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    });
+
+    await (verify_patient as any).execute(
+      {
+        firstName: "Maria",
+        lastName: "Santos",
+        dob: "03/05/1982",
+      },
+      { ctx: createCtx(state) },
+    );
+
+    expect(state.scheduling.appointments).toHaveLength(0);
+
+    const task = new ExistingAppointmentTask(
+      new llm.ChatContext(),
+      state,
+      "confirm",
+    );
+
+    await (task as any)._tools.load_existing_appointments.execute(
+      {},
+      {
+        ctx: {
+          ...createCtx(state),
+          userData: state,
+        },
+      },
+    );
+
+    expect(state.scheduling.appointments).toHaveLength(1);
+    expect(state.scheduling.appointmentsSource).toBe("confirm_appt");
   });
 
   it("blocks booking the same slot twice in one call", async () => {

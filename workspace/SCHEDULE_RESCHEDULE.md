@@ -41,9 +41,10 @@ Reschedule order:
 
 1. identify the patient
 2. confirm which existing appointment they mean
-3. search for the replacement slot
-4. book the replacement
-5. cancel the old appointment
+3. collect or confirm the reason for the replacement visit if needed
+4. search for the replacement slot
+5. book the replacement
+6. cancel the old appointment
 
 Never cancel first when the caller wants to reschedule.
 

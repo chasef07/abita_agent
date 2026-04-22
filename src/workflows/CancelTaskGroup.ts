@@ -48,11 +48,14 @@ export async function runCancelTaskGroup(
     },
   );
 
-  taskGroup.add(() => new CancelAppointmentTask(chatCtx.copy(), state), {
-    id: "cancel_original",
-    description:
-      "Cancel the identified appointment once the caller confirms they want it cancelled.",
-  });
+  taskGroup.add(
+    () => new CancelAppointmentTask(chatCtx.copy(), state, "cancel"),
+    {
+      id: "cancel_original",
+      description:
+        "Cancel the identified appointment once the caller confirms they want it cancelled.",
+    },
+  );
 
   const result = await taskGroup.run();
 

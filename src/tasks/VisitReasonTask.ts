@@ -11,12 +11,23 @@ export class VisitReasonTask extends voice.AgentTask<
   VisitReasonTaskResult,
   CallState
 > {
-  constructor(chatCtx: llm.ChatContext, state: CallState) {
+  private readonly enterInstructions: string;
+
+  constructor(
+    chatCtx: llm.ChatContext,
+    state: CallState,
+    mode: "schedule" | "reschedule" = "schedule",
+  ) {
+    const enterInstructions =
+      mode === "reschedule"
+        ? "Get the reason for the replacement visit before checking availability. Once you know it clearly enough to continue, record it and move on."
+        : "Get the reason for the visit before scheduling. Once you know it clearly enough to continue, record it and move on.";
+
     super({
       chatCtx,
       instructions: buildTaskPrompt({
-        mode: "schedule",
-        stateSummary: buildWorkingStateSummary(state, "schedule"),
+        mode,
+        stateSummary: buildWorkingStateSummary(state, mode),
       }),
       tools: {
         record_visit_reason: llm.tool({
@@ -36,12 +47,12 @@ export class VisitReasonTask extends voice.AgentTask<
         }),
       },
     });
+    this.enterInstructions = enterInstructions;
   }
 
   override async onEnter(): Promise<void> {
     this.session.generateReply({
-      instructions:
-        "Get the reason for the visit before scheduling. Once you know it clearly enough to continue, record it and move on.",
+      instructions: this.enterInstructions,
     });
   }
 }

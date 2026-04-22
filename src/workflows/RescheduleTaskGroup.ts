@@ -5,6 +5,7 @@ import { BookingTask } from "../tasks/BookingTask.js";
 import { CancelAppointmentTask } from "../tasks/CancelAppointmentTask.js";
 import { ExistingAppointmentTask } from "../tasks/ExistingAppointmentTask.js";
 import { IdentifyPatientTask } from "../tasks/IdentifyPatientTask.js";
+import { VisitReasonTask } from "../tasks/VisitReasonTask.js";
 
 export interface RescheduleWorkflowResult {
   taskResults: Record<string, unknown>;
@@ -29,11 +30,17 @@ export async function runRescheduleTaskGroup(
     };
   }
 
+  const needsVisitReason = !state.scheduling.reasonForVisit;
+
   const taskGroup = new beta.TaskGroup({
     chatCtx: identifyTask.chatCtx.copy({ excludeInstructions: true }),
     summarizeChatCtx: true,
     onTaskCompleted: async ({ taskId }) => {
       if (taskId === "existing_appointment") {
+        state.workflow.activeFlow = needsVisitReason
+          ? "visit_reason"
+          : "availability";
+      } else if (taskId === "visit_reason") {
         state.workflow.activeFlow = "availability";
       } else if (taskId === "availability") {
         state.workflow.activeFlow = "booking";
@@ -51,6 +58,14 @@ export async function runRescheduleTaskGroup(
       "Identify which current appointment the caller wants to move before searching for the replacement.",
   });
 
+  if (needsVisitReason) {
+    taskGroup.add(() => new VisitReasonTask(chatCtx.copy(), state, "reschedule"), {
+      id: "visit_reason",
+      description:
+        "Collect or confirm the reason for the replacement visit before checking availability.",
+    });
+  }
+
   taskGroup.add(
     () => new AvailabilityTask(chatCtx.copy(), state, "reschedule"),
     {
@@ -66,11 +81,14 @@ export async function runRescheduleTaskGroup(
       "Book the replacement appointment once the caller agrees to it.",
   });
 
-  taskGroup.add(() => new CancelAppointmentTask(chatCtx.copy(), state), {
-    id: "cancel_original",
-    description:
-      "Cancel the original appointment only after the replacement has been booked and confirmed.",
-  });
+  taskGroup.add(
+    () => new CancelAppointmentTask(chatCtx.copy(), state, "reschedule"),
+    {
+      id: "cancel_original",
+      description:
+        "Cancel the original appointment only after the replacement has been booked and confirmed.",
+    },
+  );
 
   const result = await taskGroup.run();
 

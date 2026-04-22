@@ -126,4 +126,49 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain("patient: Maria Santos");
     expect(prompt).toContain("search one date at a time");
   });
+
+  it("keeps direct new-patient routing explicit in the router prompt", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+
+    expect(prompt).toContain(
+      "If no, go straight to new patient registration",
+    );
+    expect(prompt).toContain(
+      "if the caller clearly says they are new or says they have not been seen here before, go straight to registration",
+    );
+  });
+
+  it("pins spoken language and blocks tool internals in the base prompt", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+
+    expect(prompt).toContain(
+      "stay in that language until they switch or explicitly ask you to",
+    );
+    expect(prompt).toContain(
+      "Do not say tool names, parameters, raw tool outputs, internal reasoning, or technical identifiers",
+    );
+  });
+
+  it("includes the replacement-visit-reason step in the reschedule task prompt", () => {
+    const prompt = buildTaskPrompt({
+      mode: "reschedule",
+      stateSummary: "Current call state:\n- patient: Maria Santos",
+    });
+
+    expect(prompt).toContain(
+      "collect or confirm the reason for the replacement visit if needed",
+    );
+    expect(prompt).toContain("If a registration read-back or appointment confirmation is long, split it into short chunks");
+    expect(prompt).toContain("Reschedule order:");
+  });
+
+  it("keeps the scheduling pushback-then-transfer rule explicit", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+
+    expect(prompt).toContain("ask once what they need");
+    expect(prompt).toContain(
+      "if it is scheduling, push back once and try to help",
+    );
+    expect(prompt).toContain("if they ask again, transfer");
+  });
 });
