@@ -10,11 +10,13 @@ import {
   getOfficeConfigByPhone,
 } from "./offices.js";
 
-const WORKSPACE = join(
-  import.meta.dirname,
-  "..",
-  process.env.PROMPT_WORKSPACE || "workspace",
-);
+function getPromptWorkspace(): string {
+  return join(
+    import.meta.dirname,
+    "..",
+    process.env.PROMPT_WORKSPACE || "workspace",
+  );
+}
 
 const BASE_FILES: { file: string; tag: string }[] = [
   { file: "SOUL.md", tag: "role" },
@@ -24,6 +26,13 @@ const BASE_FILES: { file: string; tag: string }[] = [
 const ROUTER_FILES: { file: string; tag: string }[] = [
   { file: "ROUTER.md", tag: "router" },
 ];
+
+const TASK_WORKFLOW_CONTROL = [
+  "If the caller asks a quick office question mid-workflow, answer it with lookup_knowledge, then return to the last useful question in one short sentence.",
+  "If the caller asks for a transfer, follow the transfer rule and use transfer_call.",
+  "If the caller abandons the current goal or changes intent, such as schedule to cancel, confirm to reschedule, or scheduling to transfer, use request_workflow_change instead of forcing the current step to continue.",
+  'When resuming after a side question, do not recap the whole workflow. Give a brief bridge like: "ok, back to the appointment — what day works for you?"',
+].join("\n");
 
 /** Office-specific routing hints injected into the per-call context block.
  *  Lives here (not RUNBOOK) so each office only sees rules that apply to it.
@@ -82,7 +91,7 @@ function buildTaskOfficeContext(args: {
 }
 
 function readPromptFile(file: string): string {
-  return readFileSync(join(WORKSPACE, file), "utf-8").trim();
+  return readFileSync(join(getPromptWorkspace(), file), "utf-8").trim();
 }
 
 function buildPromptSections(files: { file: string; tag: string }[]): string {
@@ -158,6 +167,7 @@ export function buildTaskPrompt(args: {
   return [
     buildBasePrompt(),
     `<task_mode>\n${args.mode}\n</task_mode>`,
+    `<workflow_control>\n${TASK_WORKFLOW_CONTROL}\n</workflow_control>`,
     `<task_instructions>\n${readPromptFile(sectionByMode[args.mode])}\n</task_instructions>`,
     ...(officeContext
       ? [`<office_context>\n${officeContext}\n</office_context>`]
@@ -208,6 +218,18 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
     );
     lines.push(
       `Do NOT read back the names on file (HIPAA). If no match, ask for last name and DOB and try again.`,
+    );
+    return lines.join("\n");
+  }
+
+  if (lookup?.status === "lookup_error") {
+    const lines: string[] = [];
+    lines.push(`**PHONE LOOKUP UNAVAILABLE.**`);
+    lines.push(
+      `Do not treat this as "no match." The system could not complete the phone lookup, so ask whether they have been seen here before and identify them through the normal workflow before scheduling, appointment changes, or registration.`,
+    );
+    lines.push(
+      `If patient lookup or scheduling tools are also unavailable, apologize briefly and offer to transfer rather than guessing or creating duplicate records.`,
     );
     return lines.join("\n");
   }

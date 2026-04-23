@@ -240,6 +240,7 @@ describe("phase 1 state and tool guards", () => {
       { date: "2026-04-24" },
       { ctx: createCtx(state) },
     );
+    expect(state.scheduling.lastAvailabilityStatus).toBe("none");
     const second = await (get_availability as any).execute(
       { date: "2026-04-24" },
       { ctx: createCtx(state) },
@@ -247,6 +248,42 @@ describe("phase 1 state and tool guards", () => {
 
     expect(second).toContain("already checked");
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("records availability outages as explicit workflow failures", async () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: "+17275919997",
+      amdOfficePhone: "+17275919997",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+      phoneLookup: {
+        status: "verified",
+        patientId: "P123",
+        name: "Maria Santos",
+        dob: "03/05/1982",
+        phone: "+18135551234",
+        insuranceCarrier: "Florida Blue",
+        insPlanId: "IP1",
+        respPartyId: "RP1",
+        routing: "accepted",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [],
+      },
+    });
+    state.scheduling.reasonForVisit = "blurry vision";
+    vi.mocked(fetch).mockRejectedValue(new Error("network down"));
+
+    const result = await (get_availability as any).execute(
+      { date: "2026-04-24" },
+      { ctx: createCtx(state) },
+    );
+
+    expect(result).toContain("Availability search is temporarily unavailable");
+    expect(state.scheduling.lastAvailabilityStatus).toBe("error");
+    expect(state.workflow.lastFailure?.code).toBe("availability_unavailable");
   });
 
   it("requires a visit reason before checking availability", async () => {
@@ -426,6 +463,50 @@ describe("phase 1 state and tool guards", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("does not mark a slot booked when the booking API rejects it", async () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: "+17275919997",
+      amdOfficePhone: "+17275919997",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+      phoneLookup: {
+        status: "verified",
+        patientId: "P123",
+        name: "Maria Santos",
+        dob: "03/05/1982",
+        phone: "+18135551234",
+        insuranceCarrier: "Florida Blue",
+        insPlanId: "IP1",
+        respPartyId: "RP1",
+        routing: "accepted",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [],
+      },
+    });
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ status: "failed" }), { status: 200 }),
+    );
+
+    const result = await (book_appt as any).execute(
+      {
+        columnId: 11,
+        profileId: 22,
+        startDatetime: "2026-04-24T10:00",
+        duration: 30,
+        appointmentTypeId: 1007,
+      },
+      { ctx: createCtx(state) },
+    );
+
+    expect(result).toContain("booking did not complete");
+    expect(state.scheduling.bookedSlotsThisCall).toHaveLength(0);
+    expect(state.scheduling.selectedSlot).toBeNull();
+    expect(state.workflow.lastFailure?.code).toBe("booking_failed");
+  });
+
   it("rejects booking a slot not found in the latest availability results", async () => {
     const state = createInitialCallState({
       officeKey: "spring-hill",
@@ -507,6 +588,45 @@ describe("phase 1 state and tool guards", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("does not remove an appointment when cancellation is rejected", async () => {
+    const knownAppointment = appointment({ id: 77 });
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: "+17275919997",
+      amdOfficePhone: "+17275919997",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+      phoneLookup: {
+        status: "verified",
+        patientId: "P123",
+        name: "Maria Santos",
+        dob: "03/05/1982",
+        phone: "+18135551234",
+        insuranceCarrier: "Florida Blue",
+        insPlanId: "IP1",
+        respPartyId: "RP1",
+        routing: "accepted",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [knownAppointment],
+      },
+    });
+    state.scheduling.targetAppointmentId = 77;
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ status: "failed" }), { status: 200 }),
+    );
+
+    const result = await (cancel_appt as any).execute(
+      { appointmentId: 77 },
+      { ctx: createCtx(state) },
+    );
+
+    expect(result).toContain("cancellation did not complete");
+    expect(state.scheduling.appointments).toEqual([knownAppointment]);
+    expect(state.workflow.lastFailure?.code).toBe("cancellation_failed");
+  });
+
   it("tracks phone lookup as a match without treating it as caller-confirmed identity", () => {
     const state = createInitialCallState({
       officeKey: "spring-hill",
@@ -538,6 +658,29 @@ describe("phase 1 state and tool guards", () => {
     expect(state.scheduling.appointmentsSource).toBe("phone_lookup");
     expect(buildWorkingStateSummary(state, "identify")).toContain(
       "caller confirmed patient: no",
+    );
+  });
+
+  it("keeps phone lookup outages distinct from no-match callers", () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: "+17275919997",
+      amdOfficePhone: "+17275919997",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+      phoneLookup: {
+        status: "lookup_error",
+        message: "Phone lookup is temporarily unavailable.",
+      },
+    });
+
+    expect(state.identity.lookupMatchStatus).toBe("lookup_error");
+    expect(state.workflow.verificationStatus).toBe("lookup_error");
+    expect(state.workflow.registrationAllowed).toBe(false);
+    expect(state.workflow.lastFailure?.code).toBe("lookup_unavailable");
+    expect(buildWorkingStateSummary(state, "identify")).toContain(
+      "last failure: lookup_unavailable",
     );
   });
 
@@ -588,6 +731,47 @@ describe("phase 1 state and tool guards", () => {
     const task = new VisitReasonTask(new llm.ChatContext(), state);
 
     expect((task as any)._tools).toHaveProperty("route_to_spring_hill");
+    expect((task as any)._tools).toHaveProperty("lookup_knowledge");
+    expect((task as any)._tools).toHaveProperty("transfer_call");
+    expect((task as any)._tools).toHaveProperty("request_workflow_change");
+  });
+
+  it("records workflow intent switches from inside task tools", async () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: "+17275919997",
+      amdOfficePhone: "+17275919997",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+    });
+    state.workflow.intent = "schedule";
+    state.workflow.activeFlow = "visit_reason";
+    const task = new VisitReasonTask(new llm.ChatContext(), state);
+
+    const result = await (task as any)._tools.request_workflow_change.execute(
+      {
+        requestedIntent: "cancel",
+        reason: "caller said they need to cancel instead",
+      },
+      {
+        ctx: {
+          ...createCtx(state),
+          userData: state,
+        },
+      },
+    );
+
+    expect(result).toContain("Workflow paused for cancel");
+    expect(state.workflow.intent).toBe("cancel");
+    expect(state.workflow.activeFlow).toBe("none");
+    expect(state.workflow.appointmentIntent).toBe("cancel");
+    expect(state.workflow.interruption).toEqual({
+      requestedIntent: "cancel",
+      reason: "caller said they need to cancel instead",
+      previousIntent: "schedule",
+      previousActiveFlow: "visit_reason",
+    });
   });
 
   it("hides Spring Hill routing inside scheduling tasks after routing is already active", () => {

@@ -26,6 +26,12 @@ import {
   lookupByPhone,
 } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
+import {
+  FALLBACK_LLM_MODEL,
+  LLM_GENERATION_OPTIONS,
+  PRIMARY_LLM_MODEL,
+} from "./model-config.js";
+import { validateRuntimeEnv } from "./env.js";
 
 dotenv.config({ path: ".env.local" });
 
@@ -46,21 +52,19 @@ export default defineAgent({
 
   entry: async (ctx: JobContext) => {
     try {
+      validateRuntimeEnv();
+
       const vad = ctx.proc.userData.vad as silero.VAD;
 
       // temp=1 + top_p=0.9 per Chris Wirick (Baseten FDE) to reduce GLM looping
       const primaryLLM = new baseten.LLM({
-        model: "zai-org/GLM-4.7",
-        parallelToolCalls: false,
-        temperature: 1.0,
-        topP: 0.9,
+        model: PRIMARY_LLM_MODEL,
+        ...LLM_GENERATION_OPTIONS,
       });
 
       const fallbackLLM = new baseten.LLM({
-        model: "MiniMaxAI/MiniMax-M2.5",
-        parallelToolCalls: false,
-        temperature: 1.0,
-        topP: 0.9,
+        model: FALLBACK_LLM_MODEL,
+        ...LLM_GENERATION_OPTIONS,
       });
 
       const llmWithFallback = new llm.FallbackAdapter({
@@ -129,6 +133,8 @@ export default defineAgent({
         console.log(
           `[call] Multiple matches for ${callerPhone}: ${phoneLookup.matches.map((m) => m.firstName).join(", ")}`,
         );
+      } else if (phoneLookup?.status === "lookup_error") {
+        console.warn(`[call] Patient lookup unavailable for ${callerPhone}`);
       } else {
         console.log(`[call] No patient match for ${callerPhone}`);
       }
@@ -143,11 +149,6 @@ export default defineAgent({
         sipParticipantIdentity: participant.identity ?? "",
         callerPhone,
         phoneLookup,
-      });
-
-      await session.start({
-        agent,
-        room: ctx.room,
       });
 
       // Collect raw LiveKit metrics as single source of truth for analytics
@@ -264,6 +265,11 @@ export default defineAgent({
         } catch (err) {
           console.error("[shutdown] Failed to delete room:", err);
         }
+      });
+
+      await session.start({
+        agent,
+        room: ctx.room,
       });
     } catch (err) {
       console.error("[entry] FATAL:", err);

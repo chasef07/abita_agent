@@ -1,5 +1,9 @@
 import { llm } from "@livekit/agents";
-import type { CallState } from "../tools.js";
+import {
+  isWorkflowInterruptionResult,
+  type CallState,
+  type WorkflowInterruptionResult,
+} from "../tools.js";
 import { ExistingAppointmentTask } from "../tasks/ExistingAppointmentTask.js";
 import { IdentifyPatientTask } from "../tasks/IdentifyPatientTask.js";
 import {
@@ -9,6 +13,7 @@ import {
 
 export interface ConfirmWorkflowResult {
   taskResults: Record<string, unknown>;
+  interruption: WorkflowInterruptionResult | null;
 }
 
 function createConfirmTask(
@@ -29,6 +34,7 @@ export async function runConfirmTaskGroup(
   let currentChatCtx = chatCtx;
   let transition = applyConfirmTransition(state, { type: "START" });
   const taskResults: Record<string, unknown> = {};
+  let interruption: WorkflowInterruptionResult | null = null;
 
   while (transition.nextStep) {
     const taskId = transition.nextStep;
@@ -40,6 +46,10 @@ export async function runConfirmTaskGroup(
       const identifyResult = await identifyTask.run();
       taskResults[taskId] = identifyResult;
       currentChatCtx = identifyTask.chatCtx.copy({ excludeInstructions: true });
+      if (isWorkflowInterruptionResult(identifyResult)) {
+        interruption = identifyResult;
+        break;
+      }
 
       const identifyEvent =
         identifyResult.outcome === "registration_allowed" ||
@@ -57,10 +67,14 @@ export async function runConfirmTaskGroup(
     const result = await task.run();
     taskResults[taskId] = result;
     currentChatCtx = task.chatCtx.copy({ excludeInstructions: true });
+    if (isWorkflowInterruptionResult(result)) {
+      interruption = result;
+      break;
+    }
     transition = applyConfirmTransition(state, {
       type: "EXISTING_APPOINTMENT_SELECTED",
     });
   }
 
-  return { taskResults };
+  return { taskResults, interruption };
 }

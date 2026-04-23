@@ -1,6 +1,7 @@
 import { llm, voice } from "@livekit/agents";
 import { z } from "zod";
 import { buildTaskPrompt } from "../prompt.js";
+import { buildTaskEscapeTools } from "./escapeTools.js";
 import { startTaskReply } from "./startTaskReply.js";
 import {
   buildWorkingStateSummary,
@@ -32,6 +33,7 @@ export class ExistingAppointmentTask extends voice.AgentTask<
         effectiveOfficeKey: state.effectiveOfficeKey,
       }),
       tools: {
+        ...buildTaskEscapeTools((result) => this.complete(result as any)),
         load_existing_appointments: llm.tool({
           description:
             "Load the patient's current appointments if they are not already available in session state.",
@@ -39,7 +41,7 @@ export class ExistingAppointmentTask extends voice.AgentTask<
             const current = ctx.userData as CallState;
             if (
               current.scheduling.appointments.length === 0 ||
-              current.scheduling.appointmentsSource === "phone_lookup" ||
+              current.scheduling.appointmentsSource !== "confirm_appt" ||
               current.identity.switchedPatientThisCall ||
               !current.identity.callerConfirmedPatient
             ) {
@@ -55,8 +57,7 @@ export class ExistingAppointmentTask extends voice.AgentTask<
           },
         }),
         select_existing_appointment: llm.tool({
-          description:
-            "Select the existing appointment the caller wants to move or change once it is clear which one they mean.",
+          description: `Select the existing appointment the caller wants to ${mode === "confirm" ? "confirm" : mode === "cancel" ? "cancel" : "move or change"} once it is clear which one they mean.`,
           parameters: z.object({
             appointmentId: z
               .number()
@@ -83,7 +84,7 @@ export class ExistingAppointmentTask extends voice.AgentTask<
     const current = this.session.userData as CallState;
     if (
       current.scheduling.appointments.length === 1 &&
-      current.scheduling.appointmentsSource !== "phone_lookup" &&
+      current.scheduling.appointmentsSource === "confirm_appt" &&
       current.identity.callerConfirmedPatient
     ) {
       const onlyAppointment = current.scheduling.appointments[0]!;
@@ -92,9 +93,16 @@ export class ExistingAppointmentTask extends voice.AgentTask<
       return;
     }
 
+    const action =
+      this.mode === "confirm"
+        ? "confirm"
+        : this.mode === "cancel"
+          ? "cancel"
+          : "move or change";
+
     startTaskReply(
       this.session,
-      "Figure out which existing appointment the caller wants to move or change. If the appointments only came from phone lookup, or the active patient is not yet caller-confirmed, refresh them first. Then select the target appointment once it is clear.",
+      `Figure out which existing appointment the caller wants to ${action}. If the appointments were not loaded by the appointment lookup tool, or the active patient is not yet caller-confirmed, refresh them first. Then select the target appointment once it is clear.`,
     );
   }
 }

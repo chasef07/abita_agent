@@ -1,5 +1,6 @@
 import { llm, voice } from "@livekit/agents";
 import { buildTaskPrompt } from "../prompt.js";
+import { buildTaskEscapeTools } from "./escapeTools.js";
 import { startTaskReply } from "./startTaskReply.js";
 import {
   buildWorkingStateSummary,
@@ -40,6 +41,7 @@ export class CancelAppointmentTask extends voice.AgentTask<
         effectiveOfficeKey: state.effectiveOfficeKey,
       }),
       tools: {
+        ...buildTaskEscapeTools((result) => this.complete(result as any)),
         confirm_and_cancel_original_appointment: llm.tool({
           description: toolDescription,
           execute: async (_, { ctx }) => {

@@ -1,5 +1,9 @@
 import { llm } from "@livekit/agents";
-import type { CallState } from "../tools.js";
+import {
+  isWorkflowInterruptionResult,
+  type CallState,
+  type WorkflowInterruptionResult,
+} from "../tools.js";
 import { AvailabilityTask } from "../tasks/AvailabilityTask.js";
 import { BookingTask } from "../tasks/BookingTask.js";
 import { IdentifyPatientTask } from "../tasks/IdentifyPatientTask.js";
@@ -37,6 +41,7 @@ export async function runScheduleTaskGroup(
   let currentChatCtx = chatCtx;
   let transition = applyScheduleTransition(state, { type: "START" });
   const taskResults: Record<string, unknown> = {};
+  let interruption: WorkflowInterruptionResult | null = null;
 
   while (transition.nextStep) {
     const taskId = transition.nextStep;
@@ -44,6 +49,10 @@ export async function runScheduleTaskGroup(
     const result = await task.run();
     taskResults[taskId] = result;
     currentChatCtx = task.chatCtx.copy({ excludeInstructions: true });
+    if (isWorkflowInterruptionResult(result)) {
+      interruption = result;
+      break;
+    }
 
     transition = applyScheduleTransition(
       state,
@@ -51,5 +60,5 @@ export async function runScheduleTaskGroup(
     );
   }
 
-  return { taskResults };
+  return { taskResults, interruption };
 }

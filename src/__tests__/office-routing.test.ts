@@ -128,6 +128,8 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain("Current call state:");
     expect(prompt).toContain("patient: Maria Santos");
     expect(prompt).toContain("search one date at a time");
+    expect(prompt).toContain("use request_workflow_change");
+    expect(prompt).toContain("do not recap the whole workflow");
   });
 
   it("keeps new-patient routing explicit while gating direct registration in the router prompt", () => {
@@ -145,6 +147,20 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "use `run_registration_task` only after the identity flow has already allowed registration",
     );
+  });
+
+  it("does not treat phone lookup outages as no-match caller context", () => {
+    const prompt = buildPrompt(
+      {
+        status: "lookup_error",
+        message: "Phone lookup is temporarily unavailable.",
+      },
+      SPRING_HILL_OFFICE_PHONE,
+    );
+
+    expect(prompt).toContain("PHONE LOOKUP UNAVAILABLE");
+    expect(prompt).toContain(`Do not treat this as "no match."`);
+    expect(prompt).not.toContain("NO MATCH — This number is not in the system");
   });
 
   it("injects Crystal River routing rules into task prompts before routing", () => {

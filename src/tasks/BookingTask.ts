@@ -1,5 +1,6 @@
 import { llm, voice } from "@livekit/agents";
 import { buildTaskPrompt } from "../prompt.js";
+import { buildTaskEscapeTools } from "./escapeTools.js";
 import { startTaskReply } from "./startTaskReply.js";
 import {
   book_appt,
@@ -26,6 +27,7 @@ export class BookingTask extends voice.AgentTask<BookingTaskResult, CallState> {
         effectiveOfficeKey: state.effectiveOfficeKey,
       }),
       tools: {
+        ...buildTaskEscapeTools((result) => this.complete(result as any)),
         confirm_and_book_selected_slot: llm.tool({
           description:
             "Use this after the caller clearly agrees to the selected slot. This books the slot already stored in workflow state and completes the task on success.",

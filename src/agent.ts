@@ -5,6 +5,7 @@ import { llm, voice } from "@livekit/agents";
 import { buildPrompt } from "./prompt.js";
 import {
   buildTurnStateSummary,
+  isWorkflowInterruptionResult,
   type CallState,
   type PhoneLookupResult,
   update_insurance,
@@ -91,6 +92,10 @@ export class Agent extends voice.Agent {
             state,
           ).run();
 
+          if (isWorkflowInterruptionResult(result)) {
+            return `Workflow paused because the caller changed intent to ${result.requestedIntent}. Route the caller based on that new intent.`;
+          }
+
           if (result.outcome === "registration_allowed") {
             state.workflow.activeFlow = "register";
             return "Identity flow completed: registration is allowed. If the caller is truly new, continue with run_registration_task.";
@@ -112,6 +117,10 @@ export class Agent extends voice.Agent {
             this.chatCtx.copy({ excludeInstructions: true }),
             state,
           ).run();
+
+          if (isWorkflowInterruptionResult(result)) {
+            return `Registration paused because the caller changed intent to ${result.requestedIntent}. Route the caller based on that new intent.`;
+          }
 
           if (!result.registered) {
             state.workflow.activeFlow = "none";
@@ -136,6 +145,10 @@ export class Agent extends voice.Agent {
             state,
           );
 
+          if (result.interruption) {
+            return `Scheduling paused because the caller changed intent to ${result.interruption.requestedIntent}. Route the caller based on that new intent.`;
+          }
+
           const booking = result.taskResults["booking"] as
             | { booked?: boolean }
             | undefined;
@@ -156,6 +169,10 @@ export class Agent extends voice.Agent {
             this.chatCtx.copy({ excludeInstructions: true }),
             state,
           );
+
+          if (result.interruption) {
+            return `Rescheduling paused because the caller changed intent to ${result.interruption.requestedIntent}. Route the caller based on that new intent.`;
+          }
 
           const identify = result.taskResults["identify_patient"] as
             | { outcome?: "identified" | "registration_allowed" }
@@ -184,6 +201,10 @@ export class Agent extends voice.Agent {
             state,
           );
 
+          if (result.interruption) {
+            return `Confirmation paused because the caller changed intent to ${result.interruption.requestedIntent}. Route the caller based on that new intent.`;
+          }
+
           const identify = result.taskResults["identify_patient"] as
             | { outcome?: "identified" | "registration_allowed" }
             | undefined;
@@ -211,6 +232,10 @@ export class Agent extends voice.Agent {
             this.chatCtx.copy({ excludeInstructions: true }),
             state,
           );
+
+          if (result.interruption) {
+            return `Cancellation paused because the caller changed intent to ${result.interruption.requestedIntent}. Route the caller based on that new intent.`;
+          }
 
           const identify = result.taskResults["identify_patient"] as
             | { outcome?: "identified" | "registration_allowed" }

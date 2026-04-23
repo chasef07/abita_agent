@@ -1,6 +1,7 @@
 import { llm, voice } from "@livekit/agents";
 import { z } from "zod";
 import { buildTaskPrompt } from "../prompt.js";
+import { buildTaskEscapeTools } from "./escapeTools.js";
 import { startTaskReply } from "./startTaskReply.js";
 import {
   buildWorkingStateSummary,
@@ -32,6 +33,7 @@ export class AvailabilityTask extends voice.AgentTask<
         effectiveOfficeKey: state.effectiveOfficeKey,
       }),
       tools: {
+        ...buildTaskEscapeTools((result) => this.complete(result as any)),
         ...(shouldExposeRouteToSpringHill(state)
           ? { route_to_spring_hill }
           : {}),

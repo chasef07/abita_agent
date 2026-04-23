@@ -1,5 +1,9 @@
 import { llm } from "@livekit/agents";
-import type { CallState } from "../tools.js";
+import {
+  isWorkflowInterruptionResult,
+  type CallState,
+  type WorkflowInterruptionResult,
+} from "../tools.js";
 import { AvailabilityTask } from "../tasks/AvailabilityTask.js";
 import { BookingTask } from "../tasks/BookingTask.js";
 import { CancelAppointmentTask } from "../tasks/CancelAppointmentTask.js";
@@ -14,6 +18,7 @@ import {
 
 export interface RescheduleWorkflowResult {
   taskResults: Record<string, unknown>;
+  interruption: WorkflowInterruptionResult | null;
 }
 
 function createRescheduleTask(
@@ -42,6 +47,7 @@ export async function runRescheduleTaskGroup(
   let currentChatCtx = chatCtx;
   let transition = applyRescheduleTransition(state, { type: "START" });
   const taskResults: Record<string, unknown> = {};
+  let interruption: WorkflowInterruptionResult | null = null;
 
   while (transition.nextStep) {
     const taskId = transition.nextStep;
@@ -53,6 +59,10 @@ export async function runRescheduleTaskGroup(
       const identifyResult = await identifyTask.run();
       taskResults[taskId] = identifyResult;
       currentChatCtx = identifyTask.chatCtx.copy({ excludeInstructions: true });
+      if (isWorkflowInterruptionResult(identifyResult)) {
+        interruption = identifyResult;
+        break;
+      }
 
       const identifyEvent =
         identifyResult.outcome === "registration_allowed" ||
@@ -70,11 +80,15 @@ export async function runRescheduleTaskGroup(
     const result = await task.run();
     taskResults[taskId] = result;
     currentChatCtx = task.chatCtx.copy({ excludeInstructions: true });
+    if (isWorkflowInterruptionResult(result)) {
+      interruption = result;
+      break;
+    }
     transition = applyRescheduleTransition(
       state,
       mapRescheduleTaskResultToEvent(taskId),
     );
   }
 
-  return { taskResults };
+  return { taskResults, interruption };
 }

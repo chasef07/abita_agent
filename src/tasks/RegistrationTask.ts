@@ -1,5 +1,6 @@
 import { llm, voice } from "@livekit/agents";
 import { buildTaskPrompt } from "../prompt.js";
+import { buildTaskEscapeTools } from "./escapeTools.js";
 import { startTaskReply } from "./startTaskReply.js";
 import {
   add_patient,
@@ -30,6 +31,7 @@ export class RegistrationTask extends voice.AgentTask<
         effectiveOfficeKey: state.effectiveOfficeKey,
       }),
       tools: {
+        ...buildTaskEscapeTools((result) => this.complete(result as any)),
         ...(shouldExposeRouteToSpringHill(state)
           ? { route_to_spring_hill }
           : {}),

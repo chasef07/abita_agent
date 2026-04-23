@@ -765,7 +765,7 @@ describe("workflow e2e", () => {
         },
         {
           input:
-            "instructions: Figure out which existing appointment the caller wants to move or change. If the appointments only came from phone lookup, or the active patient is not yet caller-confirmed, refresh them first. Then select the target appointment once it is clear.",
+            "instructions: Figure out which existing appointment the caller wants to move or change. If the appointments were not loaded by the appointment lookup tool, or the active patient is not yet caller-confirmed, refresh them first. Then select the target appointment once it is clear.",
           content: "which appointment are you trying to move?",
         },
         {
@@ -942,7 +942,7 @@ describe("workflow e2e", () => {
         },
         {
           input:
-            "instructions: Figure out which existing appointment the caller wants to move or change. If the appointments only came from phone lookup, or the active patient is not yet caller-confirmed, refresh them first. Then select the target appointment once it is clear.",
+            "instructions: Figure out which existing appointment the caller wants to confirm. If the appointments were not loaded by the appointment lookup tool, or the active patient is not yet caller-confirmed, refresh them first. Then select the target appointment once it is clear.",
           toolCalls: [{ name: "load_existing_appointments" }],
         },
       ],
@@ -1006,7 +1006,7 @@ describe("workflow e2e", () => {
         },
         {
           input:
-            "instructions: Figure out which existing appointment the caller wants to move or change. If the appointments only came from phone lookup, or the active patient is not yet caller-confirmed, refresh them first. Then select the target appointment once it is clear.",
+            "instructions: Figure out which existing appointment the caller wants to cancel. If the appointments were not loaded by the appointment lookup tool, or the active patient is not yet caller-confirmed, refresh them first. Then select the target appointment once it is clear.",
           toolCalls: [{ name: "load_existing_appointments" }],
         },
         {
