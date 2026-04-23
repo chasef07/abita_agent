@@ -3,6 +3,7 @@ import { initializeLogger } from "../../node_modules/@livekit/agents/src/log.js"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExistingAppointmentTask } from "../tasks/ExistingAppointmentTask.js";
 import { IdentifyPatientTask } from "../tasks/IdentifyPatientTask.js";
+import { VisitReasonTask } from "../tasks/VisitReasonTask.js";
 import {
   add_patient,
   buildWorkingStateSummary,
@@ -11,6 +12,8 @@ import {
   confirm_appt,
   createInitialCallState,
   get_availability,
+  lookup_knowledge,
+  route_to_spring_hill,
   verify_patient,
   type CallState,
   type CallerAppointment,
@@ -536,5 +539,72 @@ describe("phase 1 state and tool guards", () => {
     expect(buildWorkingStateSummary(state, "identify")).toContain(
       "caller confirmed patient: no",
     );
+  });
+
+  it("switches knowledge and working-state office context after routing to Spring Hill", async () => {
+    const state = createInitialCallState({
+      officeKey: "crystal-river",
+      officePhone: "+13523202007",
+      amdOfficePhone: "+13523202007",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+    });
+
+    const before = await (lookup_knowledge as any).execute(
+      { question: "hours" },
+      { ctx: createCtx(state) },
+    );
+    expect(before).toContain("Practice Name: Eye Radiance");
+
+    await (route_to_spring_hill as any).execute({}, { ctx: createCtx(state) });
+
+    const after = await (lookup_knowledge as any).execute(
+      { question: "hours" },
+      { ctx: createCtx(state) },
+    );
+
+    expect(state.effectiveOfficeKey).toBe("spring-hill");
+    expect(after).toContain("Practice Name: Abita Eye Group");
+    expect(buildWorkingStateSummary(state, "schedule")).toContain(
+      "office: Abita Eye Group",
+    );
+    expect(buildWorkingStateSummary(state, "schedule")).toContain(
+      "inbound office: Eye Radiance",
+    );
+  });
+
+  it("exposes Spring Hill routing inside scheduling tasks before the call is routed", () => {
+    const state = createInitialCallState({
+      officeKey: "crystal-river",
+      officePhone: "+13523202007",
+      amdOfficePhone: "+13523202007",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+    });
+    state.workflow.intent = "schedule";
+
+    const task = new VisitReasonTask(new llm.ChatContext(), state);
+
+    expect((task as any)._tools).toHaveProperty("route_to_spring_hill");
+  });
+
+  it("hides Spring Hill routing inside scheduling tasks after routing is already active", () => {
+    const state = createInitialCallState({
+      officeKey: "crystal-river",
+      officePhone: "+13523202007",
+      amdOfficePhone: "+13523202007",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+    });
+    state.workflow.intent = "schedule";
+    state.effectiveOfficeKey = "spring-hill";
+    state.amdOfficePhone = "+17275919997";
+
+    const task = new VisitReasonTask(new llm.ChatContext(), state);
+
+    expect((task as any)._tools).not.toHaveProperty("route_to_spring_hill");
   });
 });

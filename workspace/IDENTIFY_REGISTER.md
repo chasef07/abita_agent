@@ -9,6 +9,7 @@ Rules:
 - If caller context already verified a single patient and the first name matches, stay with that patient
 - If the caller clearly switches to a child, spouse, or different patient, identify that person before continuing
 - If caller context says multiple matches, start with first name plus caller phone before asking for last name and DOB
+- If caller context has no match, ask whether they have been seen here before before moving into registration
 - If verify fails, retry with better identity info before moving into registration
 
 ## New Patient Entry

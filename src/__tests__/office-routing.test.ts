@@ -130,16 +130,47 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain("search one date at a time");
   });
 
-  it("keeps direct new-patient routing explicit in the router prompt", () => {
+  it("keeps new-patient routing explicit while gating direct registration in the router prompt", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
-    expect(prompt).toContain("If no, go straight to new patient registration");
     expect(prompt).toContain(
-      "if the caller clearly says they are new or says they have not been seen here before and caller context does not already have a matched patient, go straight to registration",
+      "If no, move into the identify or scheduling workflow so it can safely allow registration",
     );
     expect(prompt).toContain(
-      "if the caller clearly says they are new but caller context already has a matched patient on this phone number, prefer `run_schedule_task_group` or `run_identify_patient_task`",
+      "if the caller clearly says they are new or says they have not been seen here before, prefer `run_schedule_task_group` for scheduling or `run_identify_patient_task`",
     );
+    expect(prompt).toContain(
+      "use `run_registration_task` only after the identity flow has already allowed registration",
+    );
+  });
+
+  it("injects Crystal River routing rules into task prompts before routing", () => {
+    const prompt = buildTaskPrompt({
+      mode: "schedule",
+      stateSummary: "Current call state:\n- patient: not yet identified",
+      officeKey: "crystal-river",
+      effectiveOfficeKey: "crystal-river",
+    });
+
+    expect(prompt).toContain("Crystal River routing rules.");
+    expect(prompt).toContain(
+      "If routing becomes necessary after the workflow has already started, use the routing tool",
+    );
+  });
+
+  it("shows routed office context in task prompts after Spring Hill routing is active", () => {
+    const prompt = buildTaskPrompt({
+      mode: "schedule",
+      stateSummary: "Current call state:\n- patient: Maria Santos",
+      officeKey: "crystal-river",
+      effectiveOfficeKey: "spring-hill",
+    });
+
+    expect(prompt).toContain("Inbound office: Eye Radiance.");
+    expect(prompt).toContain(
+      "Scheduling tools are already routed to Abita Eye Group.",
+    );
+    expect(prompt).not.toContain("Crystal River routing rules.");
   });
 
   it("pins spoken language and blocks tool internals in the base prompt", () => {
@@ -291,6 +322,40 @@ describe("Crystal River prompt guidance", () => {
     );
     expect(turnStateMessages[0]?.textContent).toContain(
       "last availability: No openings returned for 2026-04-24.",
+    );
+  });
+
+  it("describes appointment selection as its own workflow step", () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: SPRING_HILL_OFFICE_PHONE,
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+      phoneLookup: {
+        status: "verified",
+        patientId: "P123",
+        name: "Maria Santos",
+        dob: "03/05/1982",
+        phone: "+18135551234",
+        insuranceCarrier: "Florida Blue",
+        insPlanId: "IP1",
+        respPartyId: "RP1",
+        routing: "accepted",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [],
+      },
+    });
+    state.workflow.intent = "confirm";
+    state.workflow.activeFlow = "existing_appointment";
+
+    const summary = buildTurnStateSummary(state);
+
+    expect(summary).toContain("active step: existing_appointment");
+    expect(summary).toContain(
+      "next focus: select the correct existing appointment before continuing",
     );
   });
 });

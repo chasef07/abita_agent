@@ -61,7 +61,12 @@ describe("cancel transition engine", () => {
   it("moves from appointment selection to cancellation", () => {
     const state = createState(verifiedLookup());
     applyCancelTransition(state, { type: "START" });
-    applyCancelTransition(state, { type: "IDENTITY_CONFIRMED" });
+    const identifyResult = applyCancelTransition(state, {
+      type: "IDENTITY_CONFIRMED",
+    });
+
+    expect(identifyResult.nextStep).toBe("existing_appointment");
+    expect(state.workflow.activeFlow).toBe("existing_appointment");
 
     const result = applyCancelTransition(state, {
       type: "EXISTING_APPOINTMENT_SELECTED",

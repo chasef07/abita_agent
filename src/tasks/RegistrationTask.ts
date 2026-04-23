@@ -5,6 +5,8 @@ import {
   buildWorkingStateSummary,
   check_insurance,
   type CallState,
+  route_to_spring_hill,
+  shouldExposeRouteToSpringHill,
 } from "../tools.js";
 
 export interface RegistrationTaskResult {
@@ -23,8 +25,13 @@ export class RegistrationTask extends voice.AgentTask<
       instructions: buildTaskPrompt({
         mode: "register",
         stateSummary: buildWorkingStateSummary(state, "register"),
+        officeKey: state.officeKey,
+        effectiveOfficeKey: state.effectiveOfficeKey,
       }),
       tools: {
+        ...(shouldExposeRouteToSpringHill(state)
+          ? { route_to_spring_hill }
+          : {}),
         check_insurance,
         submit_registration: llm.tool({
           description:

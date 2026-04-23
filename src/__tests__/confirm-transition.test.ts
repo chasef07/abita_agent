@@ -61,7 +61,12 @@ describe("confirm transition engine", () => {
   it("completes after an appointment is selected", () => {
     const state = createState(verifiedLookup());
     applyConfirmTransition(state, { type: "START" });
-    applyConfirmTransition(state, { type: "IDENTITY_CONFIRMED" });
+    const identifyResult = applyConfirmTransition(state, {
+      type: "IDENTITY_CONFIRMED",
+    });
+
+    expect(identifyResult.nextStep).toBe("existing_appointment");
+    expect(state.workflow.activeFlow).toBe("existing_appointment");
 
     const result = applyConfirmTransition(state, {
       type: "EXISTING_APPOINTMENT_SELECTED",

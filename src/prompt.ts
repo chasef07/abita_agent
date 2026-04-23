@@ -4,7 +4,11 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import type { PhoneLookupResult } from "./tools.js";
-import { getOfficeConfigByPhone } from "./offices.js";
+import {
+  type OfficeKey,
+  getOfficeConfig,
+  getOfficeConfigByPhone,
+} from "./offices.js";
 
 const WORKSPACE = join(
   import.meta.dirname,
@@ -26,6 +30,11 @@ const ROUTER_FILES: { file: string; tag: string }[] = [
  */
 function buildOfficeRoutingHints(trunkPhone: string): string {
   const office = getOfficeConfigByPhone(trunkPhone);
+  return buildOfficeRoutingHintsForOfficeKey(office.key);
+}
+
+function buildOfficeRoutingHintsForOfficeKey(officeKey: OfficeKey): string {
+  const office = getOfficeConfig(officeKey);
   if (office.key !== "crystal-river") return "";
   return [
     "**Crystal River routing rules.** If the caller is trying to schedule one of these visit types, explain that Spring Hill handles it, get their agreement, then route to Spring Hill:",
@@ -36,6 +45,40 @@ function buildOfficeRoutingHints(trunkPhone: string): string {
     "Do not route just because those words are mentioned in a FAQ, confirmation, or other non-scheduling context.",
     "Use the routing tool, not the transfer tool. Routing keeps the caller on the line with you so you can continue scheduling them at Spring Hill after they agree. Transferring sends them to a human, which is the wrong outcome here.",
   ].join("\n");
+}
+
+function buildTaskOfficeContext(args: {
+  officeKey?: OfficeKey;
+  effectiveOfficeKey?: OfficeKey;
+}): string | null {
+  if (!args.officeKey) return null;
+
+  const inboundOffice = getOfficeConfig(args.officeKey);
+  const effectiveOffice = getOfficeConfig(
+    args.effectiveOfficeKey ?? args.officeKey,
+  );
+  const lines: string[] = [];
+
+  if (effectiveOffice.key === inboundOffice.key) {
+    lines.push(`Current office: ${effectiveOffice.displayName}.`);
+  } else {
+    lines.push(
+      `Inbound office: ${inboundOffice.displayName}. Scheduling tools are already routed to ${effectiveOffice.displayName}.`,
+    );
+  }
+
+  if (
+    inboundOffice.features.routeToSpringHill &&
+    effectiveOffice.key !== "spring-hill"
+  ) {
+    lines.push("");
+    lines.push(buildOfficeRoutingHintsForOfficeKey(inboundOffice.key));
+    lines.push(
+      "If routing becomes necessary after the workflow has already started, use the routing tool before continuing with verification, registration, or availability.",
+    );
+  }
+
+  return lines.join("\n");
 }
 
 function readPromptFile(file: string): string {
@@ -95,6 +138,8 @@ export function buildTaskPrompt(args: {
     | "confirm"
     | "cancel";
   stateSummary: string;
+  officeKey?: OfficeKey;
+  effectiveOfficeKey?: OfficeKey;
 }): string {
   const sectionByMode: Record<typeof args.mode, string> = {
     identify: "IDENTIFY_REGISTER.md",
@@ -105,10 +150,18 @@ export function buildTaskPrompt(args: {
     cancel: "APPOINTMENT_CHANGES.md",
   };
 
+  const officeContext = buildTaskOfficeContext({
+    officeKey: args.officeKey,
+    effectiveOfficeKey: args.effectiveOfficeKey,
+  });
+
   return [
     buildBasePrompt(),
     `<task_mode>\n${args.mode}\n</task_mode>`,
     `<task_instructions>\n${readPromptFile(sectionByMode[args.mode])}\n</task_instructions>`,
+    ...(officeContext
+      ? [`<office_context>\n${officeContext}\n</office_context>`]
+      : []),
     `<working_state>\n${args.stateSummary}\n</working_state>`,
   ].join("\n\n");
 }
@@ -162,7 +215,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
   const lines: string[] = [];
   lines.push(`**NO MATCH — This number is not in the system.**`);
   lines.push(
-    `Ask "have you been seen here before?" early in the call. If no, go straight to new patient registration — no need to try verify_patient. If yes, collect their first name, last name, and date of birth and try verify_patient in case they're calling from a different phone. If not found, lead into registration.`,
+    `Ask "have you been seen here before?" early in the call. If no, move into the identify or scheduling workflow so it can safely allow registration. If yes, collect their first name, last name, and date of birth and try verify_patient in case they're calling from a different phone. If not found, lead into registration from the identity flow.`,
   );
   return lines.join("\n");
 }

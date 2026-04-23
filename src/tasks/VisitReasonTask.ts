@@ -1,7 +1,12 @@
 import { llm, voice } from "@livekit/agents";
 import { z } from "zod";
 import { buildTaskPrompt } from "../prompt.js";
-import { buildWorkingStateSummary, type CallState } from "../tools.js";
+import {
+  buildWorkingStateSummary,
+  type CallState,
+  route_to_spring_hill,
+  shouldExposeRouteToSpringHill,
+} from "../tools.js";
 
 export interface VisitReasonTaskResult {
   reasonForVisit: string;
@@ -28,8 +33,13 @@ export class VisitReasonTask extends voice.AgentTask<
       instructions: buildTaskPrompt({
         mode,
         stateSummary: buildWorkingStateSummary(state, mode),
+        officeKey: state.officeKey,
+        effectiveOfficeKey: state.effectiveOfficeKey,
       }),
       tools: {
+        ...(shouldExposeRouteToSpringHill(state)
+          ? { route_to_spring_hill }
+          : {}),
         record_visit_reason: llm.tool({
           description:
             "Record the caller's reason for the visit once it is clear enough to choose the correct scheduling path.",

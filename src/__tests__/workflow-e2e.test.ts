@@ -345,7 +345,7 @@ describe("workflow e2e", () => {
     await session.close();
   });
 
-  it("starts registration immediately when the caller clearly says they are new", async () => {
+  it("keeps direct registration closed until identity explicitly allows it", async () => {
     const { session, state } = await createSession({
       responses: [
         {
@@ -366,8 +366,8 @@ describe("workflow e2e", () => {
     expect(
       run1.expect.containsFunctionCall({ name: "run_registration_task" }),
     ).toBeTruthy();
-    expect(state.workflow.registrationAllowed).toBe(true);
-    expect(state.workflow.activeFlow).toBe("register");
+    expect(state.workflow.registrationAllowed).toBe(false);
+    expect(state.workflow.activeFlow).toBe("none");
     await session.close();
   });
 

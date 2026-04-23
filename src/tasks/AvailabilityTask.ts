@@ -5,6 +5,8 @@ import {
   buildWorkingStateSummary,
   get_availability,
   type CallState,
+  route_to_spring_hill,
+  shouldExposeRouteToSpringHill,
 } from "../tools.js";
 
 export interface AvailabilityTaskResult {
@@ -25,8 +27,13 @@ export class AvailabilityTask extends voice.AgentTask<
       instructions: buildTaskPrompt({
         mode,
         stateSummary: buildWorkingStateSummary(state, mode),
+        officeKey: state.officeKey,
+        effectiveOfficeKey: state.effectiveOfficeKey,
       }),
       tools: {
+        ...(shouldExposeRouteToSpringHill(state)
+          ? { route_to_spring_hill }
+          : {}),
         search_availability: llm.tool({
           description:
             "Search schedule availability for a specific date once the patient and visit reason are already known.",

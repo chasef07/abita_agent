@@ -63,7 +63,12 @@ describe("reschedule transition engine", () => {
   it("routes from appointment selection to visit reason when the reason is missing", () => {
     const state = createState(verifiedLookup());
     applyRescheduleTransition(state, { type: "START" });
-    applyRescheduleTransition(state, { type: "IDENTITY_CONFIRMED" });
+    const identifyResult = applyRescheduleTransition(state, {
+      type: "IDENTITY_CONFIRMED",
+    });
+
+    expect(identifyResult.nextStep).toBe("existing_appointment");
+    expect(state.workflow.activeFlow).toBe("existing_appointment");
 
     const result = applyRescheduleTransition(state, {
       type: "EXISTING_APPOINTMENT_SELECTED",

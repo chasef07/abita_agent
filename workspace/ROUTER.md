@@ -50,7 +50,8 @@ Always say the transfer message fully before calling `transfer_call`.
 Before scheduling or appointment changes:
 
 - identify the patient first -> use `run_identify_patient_task` when identity is not already resolved
-- if the caller clearly says they are new or says they have not been seen here before and caller context does not already have a matched patient, go straight to registration -> use `run_registration_task`
+- if the caller clearly says they are new or says they have not been seen here before, prefer `run_schedule_task_group` for scheduling or `run_identify_patient_task` so the workflow can safely unlock registration
+- use `run_registration_task` only after the identity flow has already allowed registration
 - if the caller clearly says they are new but caller context already has a matched patient on this phone number, prefer `run_schedule_task_group` or `run_identify_patient_task` so the workflow can safely switch patients before registration
 - if the caller might be new but it is not clear yet, resolve identity first -> use `run_identify_patient_task`
 - for fresh scheduling, prefer `run_schedule_task_group`

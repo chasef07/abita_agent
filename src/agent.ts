@@ -104,17 +104,9 @@ export class Agent extends voice.Agent {
       }),
       run_registration_task: llm.tool({
         description:
-          "Use this when the caller is a true new patient and registration must be completed before scheduling can continue. Prefer this when caller context does not already have a matched patient. If a matched patient is already loaded from this phone number but the caller says the visit is for a different new person, prefer run_schedule_task_group or run_identify_patient_task first so the workflow can safely switch patients before registration.",
+          "Use this only after the identity flow has already allowed registration for a true new patient. If registration is not already allowed in session state, use run_schedule_task_group or run_identify_patient_task first so the workflow can safely confirm whether registration is appropriate.",
         execute: async () => {
           const state = this.session.userData as CallState;
-          const canStartDirectRegistration =
-            !state.workflow.registrationAllowed &&
-            !state.identity.patientId &&
-            state.identity.lookupMatchStatus === "none";
-          if (canStartDirectRegistration) {
-            state.workflow.registrationAllowed = true;
-            state.workflow.verificationStatus = "no_match";
-          }
           state.workflow.activeFlow = "register";
           const result = await new RegistrationTask(
             this.chatCtx.copy({ excludeInstructions: true }),
@@ -250,6 +242,7 @@ export class Agent extends voice.Agent {
     chatCtx: llm.ChatContext,
     _newMessage: llm.ChatMessage,
   ): Promise<void> {
+    void _newMessage;
     const summary = buildTurnStateSummary(this.session.userData as CallState);
     if (!summary) return;
 

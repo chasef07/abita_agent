@@ -57,7 +57,7 @@ export function transitionRescheduleWorkflow(
       assertActiveFlow(state, ["identify"], event.type);
       return {
         nextStep: "existing_appointment",
-        activeFlow: "identify",
+        activeFlow: "existing_appointment",
         workflowComplete: false,
         workflowStopped: false,
       };
@@ -70,7 +70,7 @@ export function transitionRescheduleWorkflow(
         workflowStopped: true,
       };
     case "EXISTING_APPOINTMENT_SELECTED":
-      assertActiveFlow(state, ["identify"], event.type);
+      assertActiveFlow(state, ["existing_appointment"], event.type);
       if (state.scheduling.reasonForVisit) {
         return {
           nextStep: "availability",

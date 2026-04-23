@@ -27,6 +27,8 @@ export class ExistingAppointmentTask extends voice.AgentTask<
       instructions: buildTaskPrompt({
         mode,
         stateSummary: buildWorkingStateSummary(state, mode),
+        officeKey: state.officeKey,
+        effectiveOfficeKey: state.effectiveOfficeKey,
       }),
       tools: {
         load_existing_appointments: llm.tool({

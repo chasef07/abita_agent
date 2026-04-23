@@ -2,7 +2,19 @@
 
 This document describes the proposed v2 upgrade path for the voice agent platform.
 
-The current codebase is a strong workflow-oriented v1.5:
+## Status Note
+
+Much of the architecture described here has now landed in the codebase:
+
+- modular router and task prompts
+- structured `CallState`
+- scoped tasks
+- schedule, reschedule, confirm, and cancel workflow transitions
+- launch hardening for routed-office context, registration gating, and appointment-selection state
+
+The remaining post-launch roadmap is tracked in [AGENT_SOTA_NEXT_STEPS.md](/Users/chasefagen/livekit-agent/workspace/AGENT_SOTA_NEXT_STEPS.md).
+
+The current codebase is now a strong workflow-oriented v2 foundation:
 
 - modular prompts
 - structured hidden `CallState`
@@ -10,7 +22,7 @@ The current codebase is a strong workflow-oriented v1.5:
 - task-group workflows
 - code-level tool guards
 
-The main limitation is that workflow transitions are still distributed across the codebase instead of being driven by one explicit transition layer.
+The main limitation is that workflow execution is still partly distributed across the codebase instead of being fully driven by one explicit controller loop.
 
 ## Current Architecture
 
@@ -324,6 +336,12 @@ V2 is successful if:
 
 The next real implementation step is:
 
-- introduce a schedule-only transition engine and migrate `runScheduleTaskGroup` first
+- replace callback-driven task-group orchestration with a controller-driven workflow runner that executes exactly one `nextStep` at a time
 
-Do not start with all workflows at once.
+After that:
+
+- derive step tool allowlists from canonical workflow state
+- add explicit unhappy-path events and recovery states
+- add replay and eval coverage from real calls
+
+See [AGENT_SOTA_NEXT_STEPS.md](/Users/chasefagen/livekit-agent/workspace/AGENT_SOTA_NEXT_STEPS.md) for the prioritized post-launch track.

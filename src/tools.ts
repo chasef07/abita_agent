@@ -80,6 +80,7 @@ export type WorkingSummaryMode =
 
 export interface CallState {
   officeKey: OfficeKey;
+  effectiveOfficeKey: OfficeKey;
   officePhone: string;
   amdOfficePhone: string;
   sipRoomName: string;
@@ -115,6 +116,7 @@ export interface CallState {
     activeFlow:
       | "none"
       | "identify"
+      | "existing_appointment"
       | "register"
       | "visit_reason"
       | "availability"
@@ -186,6 +188,7 @@ export function createInitialCallState(args: {
 
   return {
     officeKey: args.officeKey,
+    effectiveOfficeKey: args.officeKey,
     officePhone: args.officePhone,
     amdOfficePhone: args.amdOfficePhone,
     sipRoomName: args.sipRoomName,
@@ -256,10 +259,31 @@ export function getSpringHillOfficePhone(): string {
 }
 
 export function getAmdOfficeForToolCall(
-  state: Pick<CallState, "officeKey" | "amdOfficePhone">,
+  state: Pick<CallState, "officeKey" | "amdOfficePhone"> &
+    Partial<Pick<CallState, "effectiveOfficeKey">>,
 ): string {
   return (
-    state.amdOfficePhone || getOfficeConfig(state.officeKey).amdOfficePhone
+    state.amdOfficePhone ||
+    getOfficeConfig(state.effectiveOfficeKey ?? state.officeKey).amdOfficePhone
+  );
+}
+
+export function getEffectiveOfficeKey(
+  state: Pick<CallState, "officeKey"> &
+    Partial<Pick<CallState, "effectiveOfficeKey">>,
+): OfficeKey {
+  return state.effectiveOfficeKey ?? state.officeKey;
+}
+
+export function shouldExposeRouteToSpringHill(
+  state: Pick<CallState, "officeKey" | "effectiveOfficeKey" | "workflow">,
+): boolean {
+  return (
+    getOfficeConfig(state.officeKey).features.routeToSpringHill &&
+    state.effectiveOfficeKey !== "spring-hill" &&
+    (state.workflow.intent === "unknown" ||
+      state.workflow.intent === "schedule" ||
+      state.workflow.intent === "reschedule")
   );
 }
 
@@ -408,9 +432,14 @@ export function buildWorkingStateSummary(
   mode: WorkingSummaryMode,
 ): string {
   const lines: string[] = [];
+  const inboundOffice = getOfficeConfig(state.officeKey);
+  const effectiveOffice = getOfficeConfig(getEffectiveOfficeKey(state));
   lines.push(`Current call state:`);
   lines.push(`- mode: ${mode}`);
-  lines.push(`- office: ${getOfficeConfig(state.officeKey).displayName}`);
+  lines.push(`- office: ${effectiveOffice.displayName}`);
+  if (effectiveOffice.key !== inboundOffice.key) {
+    lines.push(`- inbound office: ${inboundOffice.displayName}`);
+  }
   if (state.identity.patientName) {
     lines.push(`- patient: ${state.identity.patientName}`);
   } else {
@@ -462,6 +491,11 @@ export function buildTurnStateSummary(state: CallState): string | null {
   lines.push(`Current workflow state:`);
   lines.push(`- intent: ${state.workflow.intent}`);
   lines.push(`- active step: ${state.workflow.activeFlow}`);
+  if (state.effectiveOfficeKey !== state.officeKey) {
+    lines.push(
+      `- routed office: ${getOfficeConfig(state.effectiveOfficeKey).displayName}`,
+    );
+  }
   lines.push(
     `- patient: ${state.identity.patientName ?? "not yet identified"}`,
   );
@@ -501,6 +535,8 @@ export function buildTurnStateSummary(state: CallState): string | null {
   const nextFocusByFlow: Record<CallState["workflow"]["activeFlow"], string> = {
     none: "",
     identify: "identify the correct patient before continuing",
+    existing_appointment:
+      "select the correct existing appointment before continuing",
     register: "complete registration before scheduling continues",
     visit_reason: "capture the visit reason before availability",
     availability: "search one date at a time or record the chosen slot",
@@ -1046,6 +1082,7 @@ Use this when the caller reached Crystal River but the visit must be handled thr
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
     const springHillOffice = getSpringHillOfficePhone();
+    state.effectiveOfficeKey = "spring-hill";
     state.amdOfficePhone = springHillOffice;
     return `AMD routing switched to Spring Hill (${springHillOffice}). Continue the call without transferring.`;
   },
@@ -1084,7 +1121,10 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
   }),
   execute: async ({ plan }, { ctx }) => {
     const state = getState(ctx);
-    const result = matchInsurancePlanForOffice(state.officeKey, plan);
+    const result = matchInsurancePlanForOffice(
+      getEffectiveOfficeKey(state),
+      plan,
+    );
     state.insurance.checkedInsurancePlan = canonicalInsurancePlan(result);
     return buildInsuranceToolResponse(result);
   },
@@ -1105,7 +1145,9 @@ Answer naturally from the returned info — just the part that answers their que
       ),
   }),
   execute: async (_args, { ctx }) => {
-    const file = resolveKnowledgeFileForOffice(getState(ctx).officeKey);
+    const file = resolveKnowledgeFileForOffice(
+      getEffectiveOfficeKey(getState(ctx)),
+    );
     return readWorkspaceFile(file);
   },
 });
@@ -1129,7 +1171,9 @@ export const transfer_call = llm.tool({
     }
     try {
       state.conversation.transferred = true;
-      const transferNumber = getOfficeConfig(state.officeKey).transferNumber;
+      const transferNumber = getOfficeConfig(
+        getEffectiveOfficeKey(state),
+      ).transferNumber;
       await getSipClient().transferSipParticipant(
         state.sipRoomName,
         state.sipParticipantIdentity,

@@ -4,6 +4,19 @@
 
 This spec covers the first implementation of the agent rewrite.
 
+## Status Note
+
+This document captures the implementation spec for the main rewrite phases.
+
+Several items here have now shipped, and the codebase has also added launch hardening beyond the original spec:
+
+- effective routed-office state
+- appointment-selection as an explicit workflow phase
+- registration entry hard-gating
+- transition modules for all major appointment workflows
+
+For the current post-launch roadmap, see [AGENT_SOTA_NEXT_STEPS.md](/Users/chasefagen/livekit-agent/workspace/AGENT_SOTA_NEXT_STEPS.md).
+
 Included:
 
 - `CallState` redesign
@@ -113,6 +126,7 @@ Add this structure in `src/tools.ts`.
 ```ts
 export interface CallState {
   officeKey: OfficeKey;
+  effectiveOfficeKey: OfficeKey;
   officePhone: string;
   amdOfficePhone: string;
   sipRoomName: string;
@@ -135,11 +149,11 @@ export interface CallState {
     activeFlow:
       | "none"
       | "identify"
+      | "existing_appointment"
       | "register"
       | "visit_reason"
       | "availability"
       | "booking"
-      | "existing_appt"
       | "cancel";
     appointmentIntent: "schedule" | "confirm" | "cancel" | "reschedule" | null;
     verificationStatus: "not_started" | "single_match" | "multiple_matches" | "verified" | "no_match";
@@ -179,8 +193,6 @@ export interface CallState {
   };
 
   conversation: {
-    humanRequestCount: number;
-    lastToolCallFingerprint: string | null;
     transferred: boolean;
   };
 }
@@ -438,6 +450,8 @@ Replace monolithic prompt assembly with:
 - `buildBasePrompt()`
 - `buildRouterPrompt()`
 - `buildTaskPrompt(mode, stateSummary)`
+
+Task prompt assembly should also be able to include office-specific workflow context, including routed-office state when scheduling tools have already been switched to another office.
 
 Suggested functions:
 
@@ -734,4 +748,3 @@ Examples:
 
 - rescheduling books before canceling
 - changing the target appointment regresses correctly
-

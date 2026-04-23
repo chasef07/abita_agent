@@ -18,6 +18,7 @@ Track the rewrite phase by phase so it is clear:
 | 3 | Identity and Registration Tasks | Complete |
 | 4 | Scheduling Task Group | Complete |
 | 5 | Reschedule Task Group | Complete |
+| 6 | Transition Engine and Launch Hardening | Complete |
 
 ---
 
@@ -416,6 +417,88 @@ Ran successfully:
 
 ---
 
+## Phase 6: Transition Engine and Launch Hardening
+
+### Status
+
+Complete
+
+### What Changed
+
+Implemented in:
+
+- [src/workflows/engine/schedule-transition.ts](/Users/chasefagen/livekit-agent/src/workflows/engine/schedule-transition.ts)
+- [src/workflows/engine/reschedule-transition.ts](/Users/chasefagen/livekit-agent/src/workflows/engine/reschedule-transition.ts)
+- [src/workflows/engine/confirm-transition.ts](/Users/chasefagen/livekit-agent/src/workflows/engine/confirm-transition.ts)
+- [src/workflows/engine/cancel-transition.ts](/Users/chasefagen/livekit-agent/src/workflows/engine/cancel-transition.ts)
+- [src/tools.ts](/Users/chasefagen/livekit-agent/src/tools.ts)
+- [src/prompt.ts](/Users/chasefagen/livekit-agent/src/prompt.ts)
+- [src/agent.ts](/Users/chasefagen/livekit-agent/src/agent.ts)
+- [workspace/ROUTER.md](/Users/chasefagen/livekit-agent/workspace/ROUTER.md)
+- [workspace/IDENTIFY_REGISTER.md](/Users/chasefagen/livekit-agent/workspace/IDENTIFY_REGISTER.md)
+
+Changes:
+
+- added explicit transition modules for schedule, reschedule, confirm, and cancel
+- aligned task-group completion with typed workflow events
+- added turn-state summaries for active workflows
+- added a distinct appointment-selection phase for confirm, cancel, and reschedule
+- hardened registration so it only opens after identity flow explicitly allows it
+- added effective routed-office state so routing affects prompts, knowledge, insurance, transfers, and workflow context consistently
+- exposed Spring Hill routing inside relevant task-mode steps before the call has already been rerouted
+
+### Expected Benefits
+
+- workflow movement is easier to audit in one place
+- state summaries are more accurate during appointment-change flows
+- routed-office behavior is more consistent once a workflow has already started
+- duplicate or premature new-patient registration is harder to trigger
+- the codebase is closer to a controller-first architecture than the earlier hybrid rewrite phases
+
+### Why This Matters
+
+Before Phase 6, the rewrite had tasks and task groups, but several important behaviors still depended on scattered workflow state changes and prompt discipline.
+
+After Phase 6:
+
+- all major appointment workflows have explicit transition definitions
+- the runtime can describe active workflow state back to the model turn by turn
+- Crystal River to Spring Hill routing can survive inside task mode
+- registration is now unlocked by code-level workflow state rather than only router intent
+
+This is the phase that makes the rewrite launch-safe rather than only architecturally cleaner.
+
+### What It Does Not Solve Yet
+
+Phase 6 does **not** yet:
+
+- make the transition engine the sole execution controller
+- derive task tool allowlists from step state automatically
+- model unhappy-path recovery as first-class workflow states
+- add replay and eval coverage from real calls
+- fully separate control state from summary or observability state
+
+Those items are now tracked in [AGENT_SOTA_NEXT_STEPS.md](/Users/chasefagen/livekit-agent/workspace/AGENT_SOTA_NEXT_STEPS.md).
+
+### Validation
+
+Ran successfully:
+
+- `npm run format:check`
+- `npm run lint`
+- `npm run typecheck`
+- `npm run test`
+
+### Exit Criteria
+
+- explicit transition modules exist for all major appointment workflows
+- routed-office behavior remains consistent inside task-mode scheduling flows
+- registration entry is hard-gated by identity workflow state
+- active workflow summaries reflect appointment-selection state accurately
+- the full test suite passes
+
+---
+
 ## Overall Rewrite Outcome
 
 When all phases are complete, the agent should have:
@@ -432,3 +515,9 @@ The net effect should be a front desk receptionist that is both:
 
 - more reliable operationally
 - more natural conversationally
+
+## Next Strategic Work
+
+The rewrite is now at the point where the main remaining gains are post-launch SOTA work, not basic workflow scaffolding.
+
+That next track is documented in [AGENT_SOTA_NEXT_STEPS.md](/Users/chasefagen/livekit-agent/workspace/AGENT_SOTA_NEXT_STEPS.md).

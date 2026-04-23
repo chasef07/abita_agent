@@ -35,6 +35,8 @@ export class CancelAppointmentTask extends voice.AgentTask<
       instructions: buildTaskPrompt({
         mode: "cancel",
         stateSummary: buildWorkingStateSummary(state, "cancel"),
+        officeKey: state.officeKey,
+        effectiveOfficeKey: state.effectiveOfficeKey,
       }),
       tools: {
         confirm_and_cancel_original_appointment: llm.tool({

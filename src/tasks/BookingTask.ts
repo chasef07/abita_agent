@@ -21,6 +21,8 @@ export class BookingTask extends voice.AgentTask<BookingTaskResult, CallState> {
       instructions: buildTaskPrompt({
         mode,
         stateSummary: buildWorkingStateSummary(state, mode),
+        officeKey: state.officeKey,
+        effectiveOfficeKey: state.effectiveOfficeKey,
       }),
       tools: {
         confirm_and_book_selected_slot: llm.tool({

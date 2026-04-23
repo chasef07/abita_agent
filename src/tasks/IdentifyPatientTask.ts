@@ -5,6 +5,8 @@ import {
   buildWorkingStateSummary,
   clearActivePatientContext,
   type CallState,
+  route_to_spring_hill,
+  shouldExposeRouteToSpringHill,
   verify_patient,
 } from "../tools.js";
 
@@ -24,8 +26,13 @@ export class IdentifyPatientTask extends voice.AgentTask<
       instructions: buildTaskPrompt({
         mode: "identify",
         stateSummary: buildWorkingStateSummary(state, "identify"),
+        officeKey: state.officeKey,
+        effectiveOfficeKey: state.effectiveOfficeKey,
       }),
       tools: {
+        ...(shouldExposeRouteToSpringHill(state)
+          ? { route_to_spring_hill }
+          : {}),
         confirm_current_patient: llm.tool({
           description:
             "Use this when the active patient is already resolved from caller context, such as when the caller's first name matches the single pre-loaded patient.",
