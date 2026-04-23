@@ -6,6 +6,7 @@ Ask for the patient's first name before using lookup data.
 
 Rules:
 
+- use any identity details the caller already gave in the recent conversation before asking them to repeat themselves
 - If caller context already verified a single patient and the first name matches, stay with that patient
 - If the caller clearly switches to a child, spouse, or different patient, identify that person before continuing
 - If caller context says multiple matches, start with first name plus caller phone before asking for last name and DOB

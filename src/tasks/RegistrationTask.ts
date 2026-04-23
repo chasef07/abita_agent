@@ -1,5 +1,6 @@
 import { llm, voice } from "@livekit/agents";
 import { buildTaskPrompt } from "../prompt.js";
+import { startTaskReply } from "./startTaskReply.js";
 import {
   add_patient,
   buildWorkingStateSummary,
@@ -68,9 +69,9 @@ export class RegistrationTask extends voice.AgentTask<
       return;
     }
 
-    this.session.generateReply({
-      instructions:
-        "Complete new-patient registration. Collect the missing fields, confirm the critical details, then submit registration once everything required is ready.",
-    });
+    startTaskReply(
+      this.session,
+      "Complete new-patient registration. Collect the missing fields, confirm the critical details, then submit registration once everything required is ready.",
+    );
   }
 }

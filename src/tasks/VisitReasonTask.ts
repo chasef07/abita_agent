@@ -1,6 +1,7 @@
 import { llm, voice } from "@livekit/agents";
 import { z } from "zod";
 import { buildTaskPrompt } from "../prompt.js";
+import { startTaskReply } from "./startTaskReply.js";
 import {
   buildWorkingStateSummary,
   type CallState,
@@ -60,8 +61,6 @@ export class VisitReasonTask extends voice.AgentTask<
   }
 
   override async onEnter(): Promise<void> {
-    this.session.generateReply({
-      instructions: this.enterInstructions,
-    });
+    startTaskReply(this.session, this.enterInstructions);
   }
 }

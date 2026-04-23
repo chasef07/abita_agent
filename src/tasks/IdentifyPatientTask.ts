@@ -1,6 +1,7 @@
 import { llm, voice } from "@livekit/agents";
 import { z } from "zod";
 import { buildTaskPrompt } from "../prompt.js";
+import { startTaskReply } from "./startTaskReply.js";
 import {
   buildWorkingStateSummary,
   clearActivePatientContext,
@@ -97,9 +98,9 @@ export class IdentifyPatientTask extends voice.AgentTask<
   }
 
   override async onEnter(): Promise<void> {
-    this.session.generateReply({
-      instructions:
-        "Resolve who the patient is. If the current caller context already identifies the patient, confirm that and complete. If the caller is truly new or verification fails enough to move on, allow registration.",
-    });
+    startTaskReply(
+      this.session,
+      "Resolve who the patient is. If the current caller context already identifies the patient, confirm that and complete. If the caller is truly new or verification fails enough to move on, allow registration. Use any identity details already captured in the recent conversation before asking the caller to repeat them. If details are missing, ask only for the next missing identity field. Do not stall with filler while waiting to act.",
+    );
   }
 }

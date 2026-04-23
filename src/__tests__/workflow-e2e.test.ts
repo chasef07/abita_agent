@@ -27,12 +27,14 @@ let mockAvailabilityResult: unknown = scheduleAvailabilityResult();
 let mockVerifyPatientResult: unknown = [];
 let mockAddPatientResult: unknown = [];
 class ScriptedLLM extends llm.LLM {
-  private readonly responses = new Map<string, ScriptedResponse>();
+  private readonly responses = new Map<string, ScriptedResponse[]>();
 
   constructor(responses: ScriptedResponse[]) {
     super();
     for (const response of responses) {
-      this.responses.set(response.input, response);
+      const queue = this.responses.get(response.input) ?? [];
+      queue.push(response);
+      this.responses.set(response.input, queue);
     }
   }
 
@@ -52,7 +54,9 @@ class ScriptedLLM extends llm.LLM {
     toolChoice?: ToolChoice;
     extraKwargs?: Record<string, unknown>;
   }) {
-    const response = this.responses.get(this.getInputText(chatCtx));
+    const input = this.getInputText(chatCtx);
+    const queue = this.responses.get(input) ?? [];
+    const response = queue.shift();
     return new (class extends llm.LLMStream {
       constructor() {
         super(responseOwner, {
@@ -342,6 +346,57 @@ describe("workflow e2e", () => {
     ).toBeTruthy();
 
     expect(state.scheduling.bookedSlotsThisCall).toHaveLength(1);
+    await session.close();
+  });
+
+  it("lets identify task onEnter use inner tools immediately after a top-level handoff", async () => {
+    mockVerifyPatientResult = {
+      patientId: "P555",
+      name: "Taylor Test",
+      dob: "04/07/2000",
+      phone: "+18135551234",
+      insuranceCarrier: "Florida Blue",
+      insPlanId: "IP5",
+      respPartyId: "RP5",
+      routing: "accepted",
+      allowedProviders: [],
+      routingAmbiguous: false,
+      appointments: [],
+    };
+
+    const { session, state } = await createSession({
+      responses: [
+        {
+          input: "I need to schedule an appointment",
+          toolCalls: [{ name: "run_identify_patient_task" }],
+        },
+        {
+          input: "I need to schedule an appointment",
+          toolCalls: [
+            {
+              name: "verify_existing_patient",
+              args: {
+                firstName: "Taylor",
+                lastName: "Test",
+                dob: "04/07/2000",
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const run1 = await session
+      .run({ userInput: "I need to schedule an appointment" })
+      .wait();
+
+    expect(
+      run1.expect.containsFunctionCall({ name: "run_identify_patient_task" }),
+    ).toBeTruthy();
+    await settleTaskTransitions();
+    expect(state.workflow.verificationStatus).toBe("verified");
+    expect(state.identity.patientId).toBe("P555");
+    expect(state.workflow.activeFlow).toBe("none");
     await session.close();
   });
 

@@ -134,6 +134,9 @@ describe("Crystal River prompt guidance", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
     expect(prompt).toContain(
+      "once the caller's scheduling intent is clear, launch the appropriate workflow immediately",
+    );
+    expect(prompt).toContain(
       "If no, move into the identify or scheduling workflow so it can safely allow registration",
     );
     expect(prompt).toContain(

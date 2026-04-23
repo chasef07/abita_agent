@@ -1,6 +1,7 @@
 import { llm, voice } from "@livekit/agents";
 import { z } from "zod";
 import { buildTaskPrompt } from "../prompt.js";
+import { startTaskReply } from "./startTaskReply.js";
 import {
   buildWorkingStateSummary,
   get_availability,
@@ -76,6 +77,6 @@ export class AvailabilityTask extends voice.AgentTask<
     const prompt =
       "Search one date at a time, explain the result briefly, and move toward one selected slot. When the caller accepts a slot, record that selected slot and complete.";
 
-    this.session.generateReply({ instructions: prompt });
+    startTaskReply(this.session, prompt);
   }
 }

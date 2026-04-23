@@ -1,62 +1,66 @@
-import { beta, llm } from "@livekit/agents";
+import { llm } from "@livekit/agents";
 import type { CallState } from "../tools.js";
 import { ExistingAppointmentTask } from "../tasks/ExistingAppointmentTask.js";
 import { IdentifyPatientTask } from "../tasks/IdentifyPatientTask.js";
-import { applyConfirmTransition } from "./engine/confirm-transition.js";
+import {
+  applyConfirmTransition,
+  type ConfirmWorkflowStep,
+} from "./engine/confirm-transition.js";
 
 export interface ConfirmWorkflowResult {
   taskResults: Record<string, unknown>;
+}
+
+function createConfirmTask(
+  taskId: Exclude<ConfirmWorkflowStep, "identify_patient">,
+  chatCtx: llm.ChatContext,
+  state: CallState,
+) {
+  switch (taskId) {
+    case "existing_appointment":
+      return new ExistingAppointmentTask(chatCtx, state, "confirm");
+  }
 }
 
 export async function runConfirmTaskGroup(
   chatCtx: llm.ChatContext,
   state: CallState,
 ): Promise<ConfirmWorkflowResult> {
-  applyConfirmTransition(state, { type: "START" });
+  let currentChatCtx = chatCtx;
+  let transition = applyConfirmTransition(state, { type: "START" });
+  const taskResults: Record<string, unknown> = {};
 
-  const identifyTask = new IdentifyPatientTask(chatCtx.copy(), state);
-  const identifyResult = await identifyTask.run();
+  while (transition.nextStep) {
+    const taskId = transition.nextStep;
+    if (taskId === "identify_patient") {
+      const identifyTask = new IdentifyPatientTask(
+        currentChatCtx.copy(),
+        state,
+      );
+      const identifyResult = await identifyTask.run();
+      taskResults[taskId] = identifyResult;
+      currentChatCtx = identifyTask.chatCtx.copy({ excludeInstructions: true });
 
-  const identifyEvent =
-    identifyResult.outcome === "registration_allowed" ||
-    !state.identity.patientId
-      ? { type: "IDENTITY_UNRESOLVED" as const }
-      : { type: "IDENTITY_CONFIRMED" as const };
-  const identifyTransition = applyConfirmTransition(state, identifyEvent);
+      const identifyEvent =
+        identifyResult.outcome === "registration_allowed" ||
+        !state.identity.patientId
+          ? ({ type: "IDENTITY_UNRESOLVED" } as const)
+          : ({ type: "IDENTITY_CONFIRMED" } as const);
+      transition = applyConfirmTransition(state, identifyEvent);
+      if (transition.workflowStopped) {
+        break;
+      }
+      continue;
+    }
 
-  if (identifyTransition.workflowStopped) {
-    return {
-      taskResults: {
-        identify_patient: identifyResult,
-      },
-    };
+    const task = createConfirmTask(taskId, currentChatCtx.copy(), state);
+    const result = await task.run();
+    taskResults[taskId] = result;
+    currentChatCtx = task.chatCtx.copy({ excludeInstructions: true });
+    transition = applyConfirmTransition(state, {
+      type: "EXISTING_APPOINTMENT_SELECTED",
+    });
   }
 
-  const taskGroup = new beta.TaskGroup({
-    chatCtx: identifyTask.chatCtx.copy({ excludeInstructions: true }),
-    summarizeChatCtx: true,
-    onTaskCompleted: async () => {
-      applyConfirmTransition(state, {
-        type: "EXISTING_APPOINTMENT_SELECTED",
-      });
-    },
-  });
-
-  taskGroup.add(
-    () => new ExistingAppointmentTask(chatCtx.copy(), state, "confirm"),
-    {
-      id: "existing_appointment",
-      description:
-        "Identify which current appointment the caller wants to confirm.",
-    },
-  );
-
-  const result = await taskGroup.run();
-
-  return {
-    taskResults: {
-      identify_patient: identifyResult,
-      ...result.taskResults,
-    },
-  };
+  return { taskResults };
 }

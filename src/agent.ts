@@ -82,7 +82,7 @@ export class Agent extends voice.Agent {
       ...buildToolsForTrunk(trunkPhone),
       run_identify_patient_task: llm.tool({
         description:
-          "Use this when the patient must be identified before scheduling, appointment changes, or insurance updates can continue. This task resolves single-match, multiple-match, existing-patient, and true new-patient flows.",
+          "Use this when the patient must be identified before scheduling, appointment changes, or insurance updates can continue. If the caller already gave identity details in the recent conversation, this task should use them instead of collecting more at the router level. This task resolves single-match, multiple-match, existing-patient, and true new-patient flows.",
         execute: async () => {
           const state = this.session.userData as CallState;
           state.workflow.activeFlow = "identify";
@@ -128,7 +128,7 @@ export class Agent extends voice.Agent {
       }),
       run_schedule_task_group: llm.tool({
         description:
-          "Use this when the caller wants to schedule an appointment. This workflow handles identification, registration if needed, visit reason, availability, and booking.",
+          "Use this as soon as the caller clearly wants to schedule an appointment. Do not keep collecting first name, last name, date of birth, phone number, or visit details at the router level first unless you are only clarifying intent. This workflow handles identification, registration if needed, visit reason, availability, and booking.",
         execute: async () => {
           const state = this.session.userData as CallState;
           const result = await runScheduleTaskGroup(
@@ -149,7 +149,7 @@ export class Agent extends voice.Agent {
       }),
       run_reschedule_task_group: llm.tool({
         description:
-          "Use this when the caller wants to move or change an existing appointment. This workflow identifies the patient, selects the current appointment, books the replacement, and then cancels the old appointment.",
+          "Use this as soon as the caller clearly wants to move or change an existing appointment. Do not keep collecting identity or appointment-selection details at the router level first unless you are only clarifying intent. This workflow identifies the patient, selects the current appointment, books the replacement, and then cancels the old appointment.",
         execute: async () => {
           const state = this.session.userData as CallState;
           const result = await runRescheduleTaskGroup(
@@ -176,7 +176,7 @@ export class Agent extends voice.Agent {
       }),
       run_confirm_task_group: llm.tool({
         description:
-          "Use this when the caller wants to confirm an existing appointment. This workflow identifies the patient, resolves which appointment they mean, and then confirms the appointment details.",
+          "Use this as soon as the caller clearly wants to confirm an existing appointment. Do not keep collecting identity or appointment details at the router level first unless you are only clarifying intent. This workflow identifies the patient, resolves which appointment they mean, and then confirms the appointment details.",
         execute: async () => {
           const state = this.session.userData as CallState;
           const result = await runConfirmTaskGroup(
@@ -204,7 +204,7 @@ export class Agent extends voice.Agent {
       }),
       run_cancel_task_group: llm.tool({
         description:
-          "Use this when the caller wants to cancel an existing appointment. This workflow identifies the patient, resolves which appointment they mean, and then cancels it after confirmation.",
+          "Use this as soon as the caller clearly wants to cancel an existing appointment. Do not keep collecting identity or appointment details at the router level first unless you are only clarifying intent. This workflow identifies the patient, resolves which appointment they mean, and then cancels it after confirmation.",
         execute: async () => {
           const state = this.session.userData as CallState;
           const result = await runCancelTaskGroup(

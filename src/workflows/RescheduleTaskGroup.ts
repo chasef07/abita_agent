@@ -1,4 +1,4 @@
-import { beta, llm } from "@livekit/agents";
+import { llm } from "@livekit/agents";
 import type { CallState } from "../tools.js";
 import { AvailabilityTask } from "../tasks/AvailabilityTask.js";
 import { BookingTask } from "../tasks/BookingTask.js";
@@ -16,88 +16,65 @@ export interface RescheduleWorkflowResult {
   taskResults: Record<string, unknown>;
 }
 
+function createRescheduleTask(
+  taskId: RescheduleTaskId,
+  chatCtx: llm.ChatContext,
+  state: CallState,
+) {
+  switch (taskId) {
+    case "existing_appointment":
+      return new ExistingAppointmentTask(chatCtx, state);
+    case "visit_reason":
+      return new VisitReasonTask(chatCtx, state, "reschedule");
+    case "availability":
+      return new AvailabilityTask(chatCtx, state, "reschedule");
+    case "booking":
+      return new BookingTask(chatCtx, state, "reschedule");
+    case "cancel_original":
+      return new CancelAppointmentTask(chatCtx, state, "reschedule");
+  }
+}
+
 export async function runRescheduleTaskGroup(
   chatCtx: llm.ChatContext,
   state: CallState,
 ): Promise<RescheduleWorkflowResult> {
-  applyRescheduleTransition(state, { type: "START" });
+  let currentChatCtx = chatCtx;
+  let transition = applyRescheduleTransition(state, { type: "START" });
+  const taskResults: Record<string, unknown> = {};
 
-  const identifyTask = new IdentifyPatientTask(chatCtx.copy(), state);
-  const identifyResult = await identifyTask.run();
+  while (transition.nextStep) {
+    const taskId = transition.nextStep;
+    if (taskId === "identify_patient") {
+      const identifyTask = new IdentifyPatientTask(
+        currentChatCtx.copy(),
+        state,
+      );
+      const identifyResult = await identifyTask.run();
+      taskResults[taskId] = identifyResult;
+      currentChatCtx = identifyTask.chatCtx.copy({ excludeInstructions: true });
 
-  const identifyEvent =
-    identifyResult.outcome === "registration_allowed" ||
-    !state.identity.patientId
-      ? { type: "IDENTITY_UNRESOLVED" as const }
-      : { type: "IDENTITY_CONFIRMED" as const };
-  const identifyTransition = applyRescheduleTransition(state, identifyEvent);
+      const identifyEvent =
+        identifyResult.outcome === "registration_allowed" ||
+        !state.identity.patientId
+          ? ({ type: "IDENTITY_UNRESOLVED" } as const)
+          : ({ type: "IDENTITY_CONFIRMED" } as const);
+      transition = applyRescheduleTransition(state, identifyEvent);
+      if (transition.workflowStopped) {
+        break;
+      }
+      continue;
+    }
 
-  if (identifyTransition.workflowStopped) {
-    return {
-      taskResults: {
-        identify_patient: identifyResult,
-      },
-    };
-  }
-
-  const needsVisitReason = !state.scheduling.reasonForVisit;
-
-  const taskGroup = new beta.TaskGroup({
-    chatCtx: identifyTask.chatCtx.copy({ excludeInstructions: true }),
-    summarizeChatCtx: true,
-    onTaskCompleted: async ({ taskId }) => {
-      const event = mapRescheduleTaskResultToEvent(taskId as RescheduleTaskId);
-      applyRescheduleTransition(state, event);
-    },
-  });
-
-  taskGroup.add(() => new ExistingAppointmentTask(chatCtx.copy(), state), {
-    id: "existing_appointment",
-    description:
-      "Identify which current appointment the caller wants to move before searching for the replacement.",
-  });
-
-  if (needsVisitReason) {
-    taskGroup.add(
-      () => new VisitReasonTask(chatCtx.copy(), state, "reschedule"),
-      {
-        id: "visit_reason",
-        description:
-          "Collect or confirm the reason for the replacement visit before checking availability.",
-      },
+    const task = createRescheduleTask(taskId, currentChatCtx.copy(), state);
+    const result = await task.run();
+    taskResults[taskId] = result;
+    currentChatCtx = task.chatCtx.copy({ excludeInstructions: true });
+    transition = applyRescheduleTransition(
+      state,
+      mapRescheduleTaskResultToEvent(taskId),
     );
   }
 
-  taskGroup.add(
-    () => new AvailabilityTask(chatCtx.copy(), state, "reschedule"),
-    {
-      id: "availability",
-      description:
-        "Search for the replacement slot and select one that the caller wants.",
-    },
-  );
-
-  taskGroup.add(() => new BookingTask(chatCtx.copy(), state, "reschedule"), {
-    id: "booking",
-    description:
-      "Book the replacement appointment once the caller agrees to it.",
-  });
-
-  taskGroup.add(
-    () => new CancelAppointmentTask(chatCtx.copy(), state, "reschedule"),
-    {
-      id: "cancel_original",
-      description:
-        "Cancel the original appointment only after the replacement has been booked and confirmed.",
-    },
-  );
-
-  const result = await taskGroup.run();
-
-  return {
-    taskResults: {
-      identify_patient: identifyResult,
-      ...result.taskResults,
-    },
-  };
+  return { taskResults };
 }

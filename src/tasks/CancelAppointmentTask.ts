@@ -1,5 +1,6 @@
 import { llm, voice } from "@livekit/agents";
 import { buildTaskPrompt } from "../prompt.js";
+import { startTaskReply } from "./startTaskReply.js";
 import {
   buildWorkingStateSummary,
   cancel_appt,
@@ -67,8 +68,6 @@ export class CancelAppointmentTask extends voice.AgentTask<
   }
 
   override async onEnter(): Promise<void> {
-    this.session.generateReply({
-      instructions: this.enterInstructions,
-    });
+    startTaskReply(this.session, this.enterInstructions);
   }
 }

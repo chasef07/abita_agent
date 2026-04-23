@@ -1,78 +1,73 @@
-import { beta, llm } from "@livekit/agents";
+import { llm } from "@livekit/agents";
 import type { CallState } from "../tools.js";
 import { CancelAppointmentTask } from "../tasks/CancelAppointmentTask.js";
 import { ExistingAppointmentTask } from "../tasks/ExistingAppointmentTask.js";
 import { IdentifyPatientTask } from "../tasks/IdentifyPatientTask.js";
-import { applyCancelTransition } from "./engine/cancel-transition.js";
+import {
+  applyCancelTransition,
+  type CancelWorkflowStep,
+} from "./engine/cancel-transition.js";
 
 export interface CancelWorkflowResult {
   taskResults: Record<string, unknown>;
+}
+
+function createCancelTask(
+  taskId: Exclude<CancelWorkflowStep, "identify_patient">,
+  chatCtx: llm.ChatContext,
+  state: CallState,
+) {
+  switch (taskId) {
+    case "existing_appointment":
+      return new ExistingAppointmentTask(chatCtx, state, "cancel");
+    case "cancel_original":
+      return new CancelAppointmentTask(chatCtx, state, "cancel");
+  }
 }
 
 export async function runCancelTaskGroup(
   chatCtx: llm.ChatContext,
   state: CallState,
 ): Promise<CancelWorkflowResult> {
-  applyCancelTransition(state, { type: "START" });
+  let currentChatCtx = chatCtx;
+  let transition = applyCancelTransition(state, { type: "START" });
+  const taskResults: Record<string, unknown> = {};
 
-  const identifyTask = new IdentifyPatientTask(chatCtx.copy(), state);
-  const identifyResult = await identifyTask.run();
+  while (transition.nextStep) {
+    const taskId = transition.nextStep;
+    if (taskId === "identify_patient") {
+      const identifyTask = new IdentifyPatientTask(
+        currentChatCtx.copy(),
+        state,
+      );
+      const identifyResult = await identifyTask.run();
+      taskResults[taskId] = identifyResult;
+      currentChatCtx = identifyTask.chatCtx.copy({ excludeInstructions: true });
 
-  const identifyEvent =
-    identifyResult.outcome === "registration_allowed" ||
-    !state.identity.patientId
-      ? { type: "IDENTITY_UNRESOLVED" as const }
-      : { type: "IDENTITY_CONFIRMED" as const };
-  const identifyTransition = applyCancelTransition(state, identifyEvent);
+      const identifyEvent =
+        identifyResult.outcome === "registration_allowed" ||
+        !state.identity.patientId
+          ? ({ type: "IDENTITY_UNRESOLVED" } as const)
+          : ({ type: "IDENTITY_CONFIRMED" } as const);
+      transition = applyCancelTransition(state, identifyEvent);
+      if (transition.workflowStopped) {
+        break;
+      }
+      continue;
+    }
 
-  if (identifyTransition.workflowStopped) {
-    return {
-      taskResults: {
-        identify_patient: identifyResult,
-      },
-    };
+    const task = createCancelTask(taskId, currentChatCtx.copy(), state);
+    const result = await task.run();
+    taskResults[taskId] = result;
+    currentChatCtx = task.chatCtx.copy({ excludeInstructions: true });
+
+    transition = applyCancelTransition(
+      state,
+      taskId === "existing_appointment"
+        ? { type: "EXISTING_APPOINTMENT_SELECTED" }
+        : { type: "CANCELLATION_COMPLETED" },
+    );
   }
 
-  const taskGroup = new beta.TaskGroup({
-    chatCtx: identifyTask.chatCtx.copy({ excludeInstructions: true }),
-    summarizeChatCtx: true,
-    onTaskCompleted: async ({ taskId }) => {
-      if (taskId === "existing_appointment") {
-        applyCancelTransition(state, {
-          type: "EXISTING_APPOINTMENT_SELECTED",
-        });
-      } else if (taskId === "cancel_original") {
-        applyCancelTransition(state, {
-          type: "CANCELLATION_COMPLETED",
-        });
-      }
-    },
-  });
-
-  taskGroup.add(
-    () => new ExistingAppointmentTask(chatCtx.copy(), state, "cancel"),
-    {
-      id: "existing_appointment",
-      description:
-        "Identify which current appointment the caller wants to cancel.",
-    },
-  );
-
-  taskGroup.add(
-    () => new CancelAppointmentTask(chatCtx.copy(), state, "cancel"),
-    {
-      id: "cancel_original",
-      description:
-        "Cancel the identified appointment once the caller confirms they want it cancelled.",
-    },
-  );
-
-  const result = await taskGroup.run();
-
-  return {
-    taskResults: {
-      identify_patient: identifyResult,
-      ...result.taskResults,
-    },
-  };
+  return { taskResults };
 }

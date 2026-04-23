@@ -1,5 +1,6 @@
 import { llm, voice } from "@livekit/agents";
 import { buildTaskPrompt } from "../prompt.js";
+import { startTaskReply } from "./startTaskReply.js";
 import {
   book_appt,
   buildWorkingStateSummary,
@@ -52,9 +53,9 @@ export class BookingTask extends voice.AgentTask<BookingTaskResult, CallState> {
   }
 
   override async onEnter(): Promise<void> {
-    this.session.generateReply({
-      instructions:
-        "Confirm the selected slot briefly and book it once the caller agrees. Do not ask them to re-pick the slot unless they change their mind.",
-    });
+    startTaskReply(
+      this.session,
+      "Confirm the selected slot briefly and book it once the caller agrees. Do not ask them to re-pick the slot unless they change their mind.",
+    );
   }
 }
