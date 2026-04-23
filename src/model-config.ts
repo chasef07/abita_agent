@@ -1,5 +1,5 @@
 // Baseten OpenAI-compatible model identifiers.
-export const PRIMARY_LLM_MODEL = "zai-org/GLM-5";
+export const PRIMARY_LLM_MODEL = "zai-org/GLM-4.7";
 export const FALLBACK_LLM_MODEL = "MiniMaxAI/MiniMax-M2.5";
 
 export const LLM_GENERATION_OPTIONS = {

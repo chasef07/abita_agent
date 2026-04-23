@@ -6,8 +6,8 @@ import {
 } from "../model-config.js";
 
 describe("LLM model configuration", () => {
-  it("uses GLM 5 as the primary Baseten model", () => {
-    expect(PRIMARY_LLM_MODEL).toBe("zai-org/GLM-5");
+  it("uses GLM 4.7 as the primary Baseten model", () => {
+    expect(PRIMARY_LLM_MODEL).toBe("zai-org/GLM-4.7");
   });
 
   it("keeps MiniMax as the fallback model", () => {
