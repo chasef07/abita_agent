@@ -67,10 +67,30 @@ export interface CallerMultipleMatches {
   matches: Array<{ firstName: string }>;
 }
 
-export type PhoneLookupResult = CallerMatch | CallerMultipleMatches | null;
+export interface CallerLookupError {
+  status: "lookup_error";
+  message: string;
+}
+
+export type PhoneLookupResult =
+  | CallerMatch
+  | CallerMultipleMatches
+  | CallerLookupError
+  | null;
+
+export type AvailabilityStatus = "not_checked" | "found" | "none" | "error";
+
+export interface SelectedSlot {
+  startDatetime: string;
+  columnId: number;
+  profileId: number;
+  duration: number;
+  appointmentTypeId: number;
+}
 
 export interface CallState {
   officeKey: OfficeKey;
+  effectiveOfficeKey: OfficeKey;
   officePhone: string;
   amdOfficePhone: string;
   sipRoomName: string;
@@ -83,13 +103,93 @@ export interface CallState {
   insuranceCarrier: string | null;
   insPlanId: string | null;
   respPartyId: string | null;
+  lookupMatchStatus:
+    | "none"
+    | "single_match"
+    | "multiple_matches"
+    | "lookup_error";
+  originalLookupPatientId: string | null;
+  callerConfirmedPatient: boolean;
+  switchedPatientThisCall: boolean;
   checkedInsurancePlan: string | null;
   routing: string | null;
   allowedProviders: string[];
   routingAmbiguous: boolean;
   preauthRequired: boolean;
+  reasonForVisit: string | null;
+  lastAvailabilityQuery: {
+    date: string;
+    patientId: string | null;
+    reasonForVisit: string | null;
+    routing: string | null;
+    preauthRequired: boolean;
+    effectiveOfficeKey: OfficeKey;
+    amdOfficePhone: string;
+  } | null;
+  lastAvailabilityRaw: unknown | null;
+  lastAvailabilityStatus: AvailabilityStatus;
+  selectedSlot: SelectedSlot | null;
+  bookedSlotsThisCall: string[];
   appointments: CallerAppointment[];
+  appointmentsSource: "none" | "phone_lookup" | "confirm_appt";
   transferred: boolean;
+}
+
+export function createInitialCallState(args: {
+  officeKey: OfficeKey;
+  officePhone: string;
+  amdOfficePhone: string;
+  sipRoomName: string;
+  sipParticipantIdentity: string;
+  callerPhone: string;
+  phoneLookup?: PhoneLookupResult;
+}): CallState {
+  const verified =
+    args.phoneLookup?.status === "verified" ? args.phoneLookup : null;
+  const multiple = args.phoneLookup?.status === "multiple_matches";
+  const lookupError = args.phoneLookup?.status === "lookup_error";
+
+  return {
+    officeKey: args.officeKey,
+    effectiveOfficeKey: args.officeKey,
+    officePhone: args.officePhone,
+    amdOfficePhone: args.amdOfficePhone,
+    sipRoomName: args.sipRoomName,
+    sipParticipantIdentity: args.sipParticipantIdentity,
+    callerPhone: args.callerPhone,
+    patientId: verified?.patientId ?? null,
+    patientName: verified?.name ?? null,
+    dob: verified?.dob ?? null,
+    insuranceCarrier: verified?.insuranceCarrier ?? null,
+    insPlanId: verified?.insPlanId ?? null,
+    respPartyId: verified?.respPartyId ?? null,
+    lookupMatchStatus: verified
+      ? "single_match"
+      : multiple
+        ? "multiple_matches"
+        : lookupError
+          ? "lookup_error"
+          : "none",
+    originalLookupPatientId: verified?.patientId ?? null,
+    callerConfirmedPatient: false,
+    switchedPatientThisCall: false,
+    checkedInsurancePlan: verified?.insuranceCarrier ?? null,
+    routing: verified?.routing ?? null,
+    allowedProviders: verified?.allowedProviders ?? [],
+    routingAmbiguous: verified?.routingAmbiguous ?? false,
+    preauthRequired: false,
+    reasonForVisit: null,
+    lastAvailabilityQuery: null,
+    lastAvailabilityRaw: null,
+    lastAvailabilityStatus: "not_checked",
+    selectedSlot: null,
+    bookedSlotsThisCall: [],
+    appointments: verified?.appointments ?? [],
+    appointmentsSource: verified?.appointments?.length
+      ? "phone_lookup"
+      : "none",
+    transferred: false,
+  };
 }
 
 // Per-call state lives on session.userData so concurrent calls don't collide
@@ -102,27 +202,238 @@ export function getSpringHillOfficePhone(): string {
 }
 
 export function getAmdOfficeForToolCall(
-  state: Pick<CallState, "officeKey" | "amdOfficePhone">,
+  state: Pick<CallState, "officeKey" | "amdOfficePhone"> &
+    Partial<Pick<CallState, "effectiveOfficeKey">>,
 ): string {
   return (
-    state.amdOfficePhone || getOfficeConfig(state.officeKey).amdOfficePhone
+    state.amdOfficePhone ||
+    getOfficeConfig(state.effectiveOfficeKey ?? state.officeKey).amdOfficePhone
   );
+}
+
+function getEffectiveOfficeKey(
+  state: Pick<CallState, "officeKey"> &
+    Partial<Pick<CallState, "effectiveOfficeKey">>,
+): OfficeKey {
+  return state.effectiveOfficeKey ?? state.officeKey;
 }
 
 /** Apply patient data from an API response, resetting all patient fields so nothing stale lingers. */
 function applyPatientResult(state: CallState, result: any): void {
+  const previousPatientId = state.patientId;
+  const nextPatientId = result.patientId ?? null;
   state.patientId = result.patientId ?? null;
   state.patientName = result.name ?? null;
   state.dob = result.dob ?? null;
   state.insuranceCarrier = result.insuranceCarrier ?? null;
   state.insPlanId = result.insPlanId ?? null;
   state.respPartyId = result.respPartyId ?? null;
+  state.callerConfirmedPatient = true;
+  state.switchedPatientThisCall =
+    state.switchedPatientThisCall ||
+    (!!previousPatientId &&
+      !!nextPatientId &&
+      previousPatientId !== nextPatientId);
   state.checkedInsurancePlan = result.insuranceCarrier ?? null;
   state.routing = result.routing ?? null;
   state.allowedProviders = result.allowedProviders ?? [];
   state.routingAmbiguous = result.routingAmbiguous ?? false;
   state.preauthRequired = result.preauthRequired ?? false;
-  state.appointments = [];
+  state.reasonForVisit = null;
+  state.lastAvailabilityQuery = null;
+  state.lastAvailabilityRaw = null;
+  state.lastAvailabilityStatus = "not_checked";
+  state.selectedSlot = null;
+  state.appointments = extractAppointments(result);
+  state.appointmentsSource =
+    state.appointments.length > 0 ? "confirm_appt" : "none";
+}
+
+function extractAppointments(result: unknown): CallerAppointment[] {
+  if (Array.isArray(result)) return result as CallerAppointment[];
+  if (
+    result &&
+    typeof result === "object" &&
+    Array.isArray((result as { appointments?: unknown[] }).appointments)
+  ) {
+    return (result as { appointments: CallerAppointment[] }).appointments;
+  }
+  return [];
+}
+
+function extractAvailabilitySlots(result: unknown): SelectedSlot[] | null {
+  const rawSlots = Array.isArray(result)
+    ? result
+    : result &&
+        typeof result === "object" &&
+        Array.isArray((result as { slots?: unknown[] }).slots)
+      ? (result as { slots: unknown[] }).slots
+      : null;
+
+  if (!rawSlots) return null;
+
+  const slots = rawSlots
+    .map((slot) => {
+      if (!slot || typeof slot !== "object") return null;
+      const record = slot as Record<string, unknown>;
+      if (
+        typeof record.startDatetime !== "string" ||
+        typeof record.columnId !== "number" ||
+        typeof record.profileId !== "number" ||
+        typeof record.duration !== "number" ||
+        typeof record.appointmentTypeId !== "number"
+      ) {
+        return null;
+      }
+      return {
+        startDatetime: record.startDatetime,
+        columnId: record.columnId,
+        profileId: record.profileId,
+        duration: record.duration,
+        appointmentTypeId: record.appointmentTypeId,
+      } satisfies SelectedSlot;
+    })
+    .filter((slot): slot is SelectedSlot => slot !== null);
+
+  return slots;
+}
+
+function countAvailabilitySlots(result: unknown): number {
+  return extractAvailabilitySlots(result)?.length ?? 0;
+}
+
+function buildAvailabilityToolResponse(date: string, result: unknown): unknown {
+  const slots = extractAvailabilitySlots(result);
+  if (slots === null) return result;
+
+  if (slots.length === 0) {
+    return {
+      status: "none",
+      date,
+      message:
+        "No availability was returned for this date. Do not check this same date again; offer a different date.",
+      slots: [],
+    };
+  }
+
+  return {
+    status: "found",
+    date,
+    slotCount: slots.length,
+    message:
+      "Offer one slot at a time. Use the exact slot fields below if the caller accepts.",
+    slots: slots.slice(0, 5),
+  };
+}
+
+function isSelectedSlotFromLastAvailability(
+  result: unknown,
+  slot: SelectedSlot,
+): boolean | null {
+  const slots = extractAvailabilitySlots(result);
+  if (slots === null) return null;
+  return slots.some(
+    (candidate) =>
+      candidate.startDatetime === slot.startDatetime &&
+      candidate.columnId === slot.columnId &&
+      candidate.profileId === slot.profileId &&
+      candidate.duration === slot.duration &&
+      candidate.appointmentTypeId === slot.appointmentTypeId,
+  );
+}
+
+function slotFingerprint(args: {
+  patientId: string;
+  startDatetime: string;
+  columnId: number;
+  appointmentTypeId: number;
+}): string {
+  return [
+    args.patientId,
+    args.startDatetime,
+    args.columnId,
+    args.appointmentTypeId,
+  ].join(":");
+}
+
+function isSameAvailabilityQuery(
+  state: CallState,
+  query: CallState["lastAvailabilityQuery"],
+): boolean {
+  if (!state.lastAvailabilityQuery || !query) return false;
+  return (
+    state.lastAvailabilityQuery.date === query.date &&
+    state.lastAvailabilityQuery.patientId === query.patientId &&
+    state.lastAvailabilityQuery.reasonForVisit === query.reasonForVisit &&
+    state.lastAvailabilityQuery.routing === query.routing &&
+    state.lastAvailabilityQuery.preauthRequired === query.preauthRequired &&
+    state.lastAvailabilityQuery.effectiveOfficeKey ===
+      query.effectiveOfficeKey &&
+    state.lastAvailabilityQuery.amdOfficePhone === query.amdOfficePhone
+  );
+}
+
+function apiUnavailableMessage(action: string): string {
+  return `ERROR: ${action} is temporarily unavailable. Apologize briefly, avoid guessing, and either retry once or offer to transfer if the caller needs this handled now.`;
+}
+
+function todayIsoInEastern(): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) {
+    throw new Error("Could not determine current Eastern date");
+  }
+  return `${year}-${month}-${day}`;
+}
+
+function isIsoDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function isPastAppointment(appointment: CallerAppointment): boolean {
+  return isIsoDate(appointment.date) && appointment.date < todayIsoInEastern();
+}
+
+function normalizeNamePart(value: string): string {
+  return value.toLowerCase().replace(/[^a-z]/g, "");
+}
+
+function currentPatientNameMatches(
+  state: CallState,
+  firstName: string,
+  lastName: string,
+): boolean {
+  if (!state.patientName) return false;
+  const normalizedPatientName = normalizeNamePart(state.patientName);
+  return (
+    normalizedPatientName.includes(normalizeNamePart(firstName)) &&
+    normalizedPatientName.includes(normalizeNamePart(lastName))
+  );
+}
+
+function getResultStatus(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const status = (result as { status?: unknown }).status;
+  return typeof status === "string" ? status.toLowerCase() : null;
+}
+
+function isSuccessfulApiResult(
+  result: unknown,
+  acceptedStatuses: string[],
+): boolean {
+  const status = getResultStatus(result);
+  if (!status) return true;
+  if (["error", "failed", "failure", "rejected"].includes(status)) {
+    return false;
+  }
+  return ["ok", "success", ...acceptedStatuses].includes(status);
 }
 
 /** Pre-call phone lookup — called from main.ts before session starts. */
@@ -162,7 +473,11 @@ export async function lookupByPhone(
     }
     return null;
   } catch {
-    return null;
+    return {
+      status: "lookup_error",
+      message:
+        "Phone lookup is temporarily unavailable. Verify the caller normally; do not treat this as a confirmed no-match.",
+    };
   }
 }
 
@@ -233,15 +548,19 @@ After response:
     if (lastName) body.lastName = lastName;
     if (dob) body.dob = dob;
     if (usePhone) body.phone = getState(ctx).callerPhone;
-    const result = (await callApi(
-      "/api/verify-patient",
-      body,
-      getAmdOfficeForToolCall(getState(ctx)),
-    )) as any;
-    if (result?.patientId) {
-      applyPatientResult(getState(ctx), result);
+    try {
+      const result = (await callApi(
+        "/api/verify-patient",
+        body,
+        getAmdOfficeForToolCall(getState(ctx)),
+      )) as any;
+      if (result?.patientId) {
+        applyPatientResult(getState(ctx), result);
+      }
+      return result;
+    } catch {
+      return apiUnavailableMessage("Patient verification");
     }
-    return result;
   },
 });
 
@@ -287,20 +606,33 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
+    if (
+      state.patientId &&
+      currentPatientNameMatches(state, params.firstName, params.lastName)
+    ) {
+      return "ERROR: A patient is already verified for this call. Do not create a duplicate patient record; continue with the verified patient or run verify_patient if the caller is scheduling for someone else.";
+    }
+    if (!state.checkedInsurancePlan) {
+      return "ERROR: Run check_insurance first and use the canonical accepted plan before creating a patient.";
+    }
     const insurance = state.checkedInsurancePlan ?? params.insurance;
     const phone = params.phone ?? state.callerPhone;
     if (!phone) {
       return "ERROR: No phone number is available. Ask whether the number they're calling from is good; if not, collect the best phone number.";
     }
-    const result = (await callApi(
-      "/api/add-patient",
-      { ...params, insurance, phone },
-      getAmdOfficeForToolCall(state),
-    )) as any;
-    if (result?.patientId) {
-      applyPatientResult(state, result);
+    try {
+      const result = (await callApi(
+        "/api/add-patient",
+        { ...params, insurance, phone },
+        getAmdOfficeForToolCall(state),
+      )) as any;
+      if (result?.patientId) {
+        applyPatientResult(state, result);
+      }
+      return result;
+    } catch {
+      return apiUnavailableMessage("Patient registration");
     }
-    return result;
   },
 });
 
@@ -320,30 +652,40 @@ After response: session state updates automatically. If preauthRequired, schedul
     const state = getState(ctx);
     if (!state.patientId) return "ERROR: No patient verified yet.";
     const insuranceForMiddleware = state.checkedInsurancePlan ?? insurance;
-    const result = (await callApi(
-      "/api/patient/update-insurance",
-      {
-        patientId: state.patientId,
-        insPlanId: state.insPlanId ?? "",
-        respPartyId: state.respPartyId ?? "",
-        oldInsurance: state.insuranceCarrier ?? "",
-        insurance: insuranceForMiddleware,
-        subscriberName,
-        subscriberNum,
-      },
-      getAmdOfficeForToolCall(state),
-    )) as any;
-    if (result?.status === "updated") {
-      state.insuranceCarrier = result.newInsurance ?? state.insuranceCarrier;
-      state.insPlanId = result.insPlanId ?? null;
-      state.respPartyId = result.respPartyId ?? null;
-      state.routing = result.routing ?? state.routing;
-      state.allowedProviders =
-        result.allowedProviders ?? state.allowedProviders;
-      state.routingAmbiguous = result.routingAmbiguous ?? false;
-      state.preauthRequired = result.preauthRequired ?? false;
+    try {
+      const result = (await callApi(
+        "/api/patient/update-insurance",
+        {
+          patientId: state.patientId,
+          insPlanId: state.insPlanId ?? "",
+          respPartyId: state.respPartyId ?? "",
+          oldInsurance: state.insuranceCarrier ?? "",
+          insurance: insuranceForMiddleware,
+          subscriberName,
+          subscriberNum,
+        },
+        getAmdOfficeForToolCall(state),
+      )) as any;
+      if (result?.status === "updated") {
+        state.insuranceCarrier = result.newInsurance ?? state.insuranceCarrier;
+        state.checkedInsurancePlan =
+          result.newInsurance ?? insuranceForMiddleware;
+        state.insPlanId = result.insPlanId ?? null;
+        state.respPartyId = result.respPartyId ?? null;
+        state.routing = result.routing ?? state.routing;
+        state.allowedProviders =
+          result.allowedProviders ?? state.allowedProviders;
+        state.routingAmbiguous = result.routingAmbiguous ?? false;
+        state.preauthRequired = result.preauthRequired ?? false;
+        state.lastAvailabilityQuery = null;
+        state.lastAvailabilityRaw = null;
+        state.lastAvailabilityStatus = "not_checked";
+        state.selectedSlot = null;
+      }
+      return result;
+    } catch {
+      return apiUnavailableMessage("Insurance update");
     }
-    return result;
   },
 });
 
@@ -361,17 +703,68 @@ Rules: no same-day appointments — earliest is tomorrow. If the caller asks for
 After response: check if date shifted vs requested — tell caller if different. Suggest one best-fit slot (date + time). Mention the doctor only if asked or clinically relevant. If rejected, offer one alternative. Scan existing results before calling again. If no slots are returned, tell the caller that date has no openings and offer the nearest available date.`,
   parameters: z.object({
     date: z.string().describe("Start date to search, formatted YYYY-MM-DD"),
+    reasonForVisit: z
+      .string()
+      .optional()
+      .describe(
+        "The caller's reason for the visit, e.g. follow-up, cataract evaluation, eye irritation, or post-op",
+      ),
   }),
-  execute: async ({ date }, { ctx }) => {
+  execute: async ({ date, reasonForVisit }, { ctx }) => {
     const state = getState(ctx);
+    if (!state.patientId) {
+      return "ERROR: No patient verified yet. Verify the patient before checking availability.";
+    }
+    if (!isIsoDate(date)) {
+      return "ERROR: Date must be formatted YYYY-MM-DD.";
+    }
+    if (date <= todayIsoInEastern()) {
+      return "ERROR: Same-day or past appointments cannot be scheduled. Offer the earliest available date starting tomorrow.";
+    }
+    const visitReason = reasonForVisit?.trim() || state.reasonForVisit;
+    if (!visitReason) {
+      return "ERROR: Ask the caller the reason for the visit before checking availability.";
+    }
+    const effectiveOfficeKey = getEffectiveOfficeKey(state);
+    const amdOfficePhone = getAmdOfficeForToolCall(state);
+    const query: CallState["lastAvailabilityQuery"] = {
+      date,
+      patientId: state.patientId,
+      reasonForVisit: visitReason,
+      routing: state.routing,
+      preauthRequired: state.preauthRequired,
+      effectiveOfficeKey,
+      amdOfficePhone,
+    };
+    if (isSameAvailabilityQuery(state, query)) {
+      return `ERROR: Availability for ${date} was already checked for this patient, reason, routing, and office. Use the loaded result instead of calling this tool again, or ask for a different date.`;
+    }
     const body: Record<string, unknown> = { date };
     if (state.routing) body.routing = state.routing;
     if (state.preauthRequired) body.preauthRequired = true;
-    return callApi(
-      "/api/scheduler/availability",
-      body,
-      getAmdOfficeForToolCall(state),
-    );
+    try {
+      const result = await callApi(
+        "/api/scheduler/availability",
+        body,
+        amdOfficePhone,
+      );
+      state.reasonForVisit = visitReason;
+      state.lastAvailabilityQuery = query;
+      state.lastAvailabilityRaw = result;
+      state.lastAvailabilityStatus =
+        extractAvailabilitySlots(result) === null ||
+        countAvailabilitySlots(result) > 0
+          ? "found"
+          : "none";
+      state.selectedSlot = null;
+      return buildAvailabilityToolResponse(date, result);
+    } catch {
+      state.lastAvailabilityQuery = query;
+      state.lastAvailabilityRaw = null;
+      state.lastAvailabilityStatus = "error";
+      state.selectedSlot = null;
+      return apiUnavailableMessage("Availability lookup");
+    }
   },
 });
 
@@ -387,11 +780,18 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
     const state = getState(ctx);
     if (!state.patientId)
       return "ERROR: No patient verified yet. Run verify_patient first with the caller's firstName, lastName, and dob.";
-    return callApi(
-      "/api/patient/appointments",
-      { patientId: state.patientId },
-      getAmdOfficeForToolCall(state),
-    );
+    try {
+      const result = await callApi(
+        "/api/patient/appointments",
+        { patientId: state.patientId },
+        getAmdOfficeForToolCall(state),
+      );
+      state.appointments = extractAppointments(result);
+      state.appointmentsSource = "confirm_appt";
+      return result;
+    } catch {
+      return apiUnavailableMessage("Appointment lookup");
+    }
   },
 });
 
@@ -406,11 +806,35 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
       .describe("Appointment ID from the confirm_appt response"),
   }),
   execute: async ({ appointmentId }, { ctx }) => {
-    return callApi(
-      "/api/appointment/cancel",
-      { appointmentId },
-      getAmdOfficeForToolCall(getState(ctx)),
+    const state = getState(ctx);
+    if (!state.patientId) {
+      return "ERROR: No patient verified yet. Verify the patient before cancelling an appointment.";
+    }
+    const loadedAppointment = state.appointments.find(
+      (appointment) => appointment.id === appointmentId,
     );
+    if (!loadedAppointment) {
+      return "ERROR: That appointment ID is not loaded for this call. Use an appointment ID from caller context or run confirm_appt first.";
+    }
+    if (isPastAppointment(loadedAppointment)) {
+      return "ERROR: That appointment is in the past and cannot be cancelled. Only cancel an upcoming appointment.";
+    }
+    try {
+      const result = await callApi(
+        "/api/appointment/cancel",
+        { appointmentId },
+        getAmdOfficeForToolCall(state),
+      );
+      if (!isSuccessfulApiResult(result, ["cancelled", "canceled"])) {
+        return result;
+      }
+      state.appointments = state.appointments.filter(
+        (appointment) => appointment.id !== appointmentId,
+      );
+      return result;
+    } catch {
+      return apiUnavailableMessage("Appointment cancellation");
+    }
   },
 });
 
@@ -441,12 +865,48 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
     if (!state.patientId)
-      return "No patient verified yet. Verify the patient first.";
-    return callApi(
-      "/api/appointment/book",
-      { ...params, patientId: state.patientId },
-      getAmdOfficeForToolCall(state),
+      return "ERROR: No patient verified yet. Verify the patient first.";
+    if (!state.lastAvailabilityRaw) {
+      return "ERROR: No availability results are loaded. Run get_availability and offer a returned slot before booking.";
+    }
+    const selectedSlot: SelectedSlot = {
+      startDatetime: params.startDatetime,
+      columnId: params.columnId,
+      profileId: params.profileId,
+      duration: params.duration,
+      appointmentTypeId: params.appointmentTypeId,
+    };
+    const selectedFromLastAvailability = isSelectedSlotFromLastAvailability(
+      state.lastAvailabilityRaw,
+      selectedSlot,
     );
+    if (selectedFromLastAvailability === false) {
+      return "ERROR: That slot was not in the latest availability results. Offer one of the loaded slots or check another date.";
+    }
+    const fingerprint = slotFingerprint({
+      patientId: state.patientId,
+      startDatetime: params.startDatetime,
+      columnId: params.columnId,
+      appointmentTypeId: params.appointmentTypeId,
+    });
+    if (state.bookedSlotsThisCall.includes(fingerprint)) {
+      return "ERROR: This exact slot was already booked during this call. Do not call book_appt again for it.";
+    }
+    try {
+      const result = await callApi(
+        "/api/appointment/book",
+        { ...params, patientId: state.patientId },
+        getAmdOfficeForToolCall(state),
+      );
+      if (!isSuccessfulApiResult(result, ["booked"])) {
+        return result;
+      }
+      state.selectedSlot = selectedSlot;
+      state.bookedSlotsThisCall.push(fingerprint);
+      return result;
+    } catch {
+      return apiUnavailableMessage("Appointment booking");
+    }
   },
 });
 
@@ -459,7 +919,12 @@ Use this when the caller reached Crystal River but the visit must be handled thr
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
     const springHillOffice = getSpringHillOfficePhone();
+    state.effectiveOfficeKey = "spring-hill";
     state.amdOfficePhone = springHillOffice;
+    state.lastAvailabilityQuery = null;
+    state.lastAvailabilityRaw = null;
+    state.lastAvailabilityStatus = "not_checked";
+    state.selectedSlot = null;
     return `AMD routing switched to Spring Hill (${springHillOffice}). Continue the call without transferring.`;
   },
 });
@@ -497,7 +962,10 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
   }),
   execute: async ({ plan }, { ctx }) => {
     const state = getState(ctx);
-    const result = matchInsurancePlanForOffice(state.officeKey, plan);
+    const result = matchInsurancePlanForOffice(
+      getEffectiveOfficeKey(state),
+      plan,
+    );
     state.checkedInsurancePlan = canonicalInsurancePlan(result);
     return buildInsuranceToolResponse(result);
   },
@@ -518,7 +986,9 @@ Answer naturally from the returned info — just the part that answers their que
       ),
   }),
   execute: async (_args, { ctx }) => {
-    const file = resolveKnowledgeFileForOffice(getState(ctx).officeKey);
+    const file = resolveKnowledgeFileForOffice(
+      getEffectiveOfficeKey(getState(ctx)),
+    );
     return readWorkspaceFile(file);
   },
 });
@@ -542,7 +1012,9 @@ export const transfer_call = llm.tool({
     }
     try {
       state.transferred = true;
-      const transferNumber = getOfficeConfig(state.officeKey).transferNumber;
+      const transferNumber = getOfficeConfig(
+        getEffectiveOfficeKey(state),
+      ).transferNumber;
       await getSipClient().transferSipParticipant(
         state.sipRoomName,
         state.sipParticipantIdentity,

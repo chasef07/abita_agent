@@ -20,7 +20,11 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { RoomServiceClient } from "livekit-server-sdk";
-import { type CallState, lookupByPhone } from "./tools.js";
+import {
+  type CallState,
+  createInitialCallState,
+  lookupByPhone,
+} from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 
 dotenv.config({ path: ".env.local" });
@@ -125,34 +129,23 @@ export default defineAgent({
         console.log(
           `[call] Multiple matches for ${callerPhone}: ${phoneLookup.matches.map((m) => m.firstName).join(", ")}`,
         );
+      } else if (phoneLookup?.status === "lookup_error") {
+        console.warn(`[call] Patient lookup unavailable for ${callerPhone}`);
       } else {
         console.log(`[call] No patient match for ${callerPhone}`);
       }
 
       const agent = new Agent(phoneLookup, trunkPhone);
 
-      const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
-      session.userData = {
+      session.userData = createInitialCallState({
         officeKey: office.key,
         officePhone: trunkPhone,
         amdOfficePhone: office.amdOfficePhone,
         sipRoomName: ctx.room.name ?? "",
         sipParticipantIdentity: participant.identity ?? "",
         callerPhone,
-        patientId: verified?.patientId ?? null,
-        patientName: verified?.name ?? null,
-        dob: verified?.dob ?? null,
-        insuranceCarrier: verified?.insuranceCarrier ?? null,
-        insPlanId: verified?.insPlanId ?? null,
-        respPartyId: verified?.respPartyId ?? null,
-        checkedInsurancePlan: verified?.insuranceCarrier ?? null,
-        routing: verified?.routing ?? null,
-        allowedProviders: verified?.allowedProviders ?? [],
-        routingAmbiguous: verified?.routingAmbiguous ?? false,
-        preauthRequired: false,
-        appointments: verified?.appointments ?? [],
-        transferred: false,
-      };
+        phoneLookup,
+      });
 
       await session.start({
         agent,

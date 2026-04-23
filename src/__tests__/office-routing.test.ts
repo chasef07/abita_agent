@@ -95,4 +95,12 @@ describe("Crystal River prompt guidance", () => {
       `is the number you're calling from a good one on file?`,
     );
   });
+
+  it("does not route routine eye exams from Crystal River to Spring Hill", () => {
+    const prompt = buildPrompt(undefined, "+13523202007");
+
+    expect(prompt).toContain(
+      "Routine eye exam, annual exam, vision check, or glasses prescription is not a Spring Hill routing case.",
+    );
+  });
 });
