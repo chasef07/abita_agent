@@ -92,6 +92,21 @@ describe("reschedule transition engine", () => {
     expect(state.workflow.activeFlow).toBe("availability");
   });
 
+  it("stops when no current appointment can be found", () => {
+    const state = createState(verifiedLookup());
+    applyRescheduleTransition(state, { type: "START" });
+    applyRescheduleTransition(state, { type: "IDENTITY_CONFIRMED" });
+
+    const result = applyRescheduleTransition(state, {
+      type: "NO_EXISTING_APPOINTMENT",
+    });
+
+    expect(result.workflowStopped).toBe(true);
+    expect(result.workflowComplete).toBe(false);
+    expect(result.nextStep).toBeNull();
+    expect(state.workflow.activeFlow).toBe("none");
+  });
+
   it("moves from replacement booking to original cancellation", () => {
     const state = createState(verifiedLookup());
     applyRescheduleTransition(state, { type: "START" });
@@ -140,6 +155,13 @@ describe("reschedule transition engine", () => {
   it("maps reschedule task ids into typed events", () => {
     expect(mapRescheduleTaskResultToEvent("existing_appointment")).toEqual({
       type: "EXISTING_APPOINTMENT_SELECTED",
+    });
+    expect(
+      mapRescheduleTaskResultToEvent("existing_appointment", {
+        appointmentId: null,
+      }),
+    ).toEqual({
+      type: "NO_EXISTING_APPOINTMENT",
     });
     expect(mapRescheduleTaskResultToEvent("booking")).toEqual({
       type: "BOOKING_COMPLETED",

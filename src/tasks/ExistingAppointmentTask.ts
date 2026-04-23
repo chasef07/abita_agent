@@ -46,10 +46,22 @@ export class ExistingAppointmentTask extends voice.AgentTask<
               !current.identity.callerConfirmedPatient
             ) {
               const result = await (confirm_appt as any).execute({}, { ctx });
-              if (current.scheduling.appointments.length === 1) {
+              const refreshedAppointments =
+                current.scheduling.appointmentsSource === "confirm_appt" &&
+                !(typeof result === "string" && result.startsWith("ERROR:"));
+              if (
+                refreshedAppointments &&
+                current.scheduling.appointments.length === 1
+              ) {
                 const onlyAppointment = current.scheduling.appointments[0]!;
                 current.scheduling.targetAppointmentId = onlyAppointment.id;
                 this.complete({ appointmentId: onlyAppointment.id });
+              } else if (
+                refreshedAppointments &&
+                current.scheduling.appointments.length === 0
+              ) {
+                current.scheduling.targetAppointmentId = null;
+                this.complete({ appointmentId: null });
               }
               return result;
             }

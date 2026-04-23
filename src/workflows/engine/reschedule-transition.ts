@@ -12,6 +12,7 @@ export type RescheduleWorkflowEvent =
   | { type: "START" }
   | { type: "IDENTITY_CONFIRMED" }
   | { type: "IDENTITY_UNRESOLVED" }
+  | { type: "NO_EXISTING_APPOINTMENT" }
   | { type: "EXISTING_APPOINTMENT_SELECTED" }
   | { type: "VISIT_REASON_CAPTURED" }
   | { type: "SLOT_SELECTED" }
@@ -85,6 +86,14 @@ export function transitionRescheduleWorkflow(
         workflowComplete: false,
         workflowStopped: false,
       };
+    case "NO_EXISTING_APPOINTMENT":
+      assertActiveFlow(state, ["existing_appointment"], event.type);
+      return {
+        nextStep: null,
+        activeFlow: "none",
+        workflowComplete: false,
+        workflowStopped: true,
+      };
     case "VISIT_REASON_CAPTURED":
       assertActiveFlow(state, ["visit_reason"], event.type);
       return {
@@ -142,10 +151,18 @@ export type RescheduleTaskId = Exclude<
 
 export function mapRescheduleTaskResultToEvent(
   taskId: RescheduleTaskId,
+  result?: unknown,
 ): RescheduleWorkflowEvent {
   switch (taskId) {
-    case "existing_appointment":
+    case "existing_appointment": {
+      const existingAppointmentResult = result as
+        | { appointmentId?: number | null }
+        | undefined;
+      if (existingAppointmentResult?.appointmentId === null) {
+        return { type: "NO_EXISTING_APPOINTMENT" };
+      }
       return { type: "EXISTING_APPOINTMENT_SELECTED" };
+    }
     case "visit_reason":
       return { type: "VISIT_REASON_CAPTURED" };
     case "availability":

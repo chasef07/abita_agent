@@ -231,8 +231,8 @@ describe("phase 1 state and tool guards", () => {
         appointments: [],
       },
     });
-    vi.mocked(fetch).mockResolvedValue(
-      new Response(JSON.stringify([]), { status: 200 }),
+    vi.mocked(fetch).mockImplementation(
+      async () => new Response(JSON.stringify([]), { status: 200 }),
     );
     state.scheduling.reasonForVisit = "blurry vision";
 
@@ -248,6 +248,104 @@ describe("phase 1 state and tool guards", () => {
 
     expect(second).toContain("already checked");
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows same-date availability lookups after the routed office changes", async () => {
+    const state = createInitialCallState({
+      officeKey: "crystal-river",
+      officePhone: "+13523202007",
+      amdOfficePhone: "+13523202007",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+      phoneLookup: {
+        status: "verified",
+        patientId: "P123",
+        name: "Maria Santos",
+        dob: "03/05/1982",
+        phone: "+18135551234",
+        insuranceCarrier: "Florida Blue",
+        insPlanId: "IP1",
+        respPartyId: "RP1",
+        routing: "accepted",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [],
+      },
+    });
+    vi.mocked(fetch).mockImplementation(
+      async () => new Response(JSON.stringify([]), { status: 200 }),
+    );
+    state.scheduling.reasonForVisit = "cataract evaluation";
+
+    await (get_availability as any).execute(
+      { date: "2026-04-24" },
+      { ctx: createCtx(state) },
+    );
+    await (route_to_spring_hill as any).execute({}, { ctx: createCtx(state) });
+    const second = await (get_availability as any).execute(
+      { date: "2026-04-24" },
+      { ctx: createCtx(state) },
+    );
+
+    const requestBodies = vi
+      .mocked(fetch)
+      .mock.calls.map((call) =>
+        JSON.parse(((call[1] as RequestInit).body as string) ?? "{}"),
+      );
+    expect(Array.isArray(second)).toBe(true);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(requestBodies[0]?.office).toBe("+13523202007");
+    expect(requestBodies[1]?.office).toBe("+17275919997");
+  });
+
+  it("allows same-date availability lookups when preauth routing changes", async () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: "+17275919997",
+      amdOfficePhone: "+17275919997",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+      phoneLookup: {
+        status: "verified",
+        patientId: "P123",
+        name: "Maria Santos",
+        dob: "03/05/1982",
+        phone: "+18135551234",
+        insuranceCarrier: "Florida Blue",
+        insPlanId: "IP1",
+        respPartyId: "RP1",
+        routing: "accepted",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [],
+      },
+    });
+    vi.mocked(fetch).mockImplementation(
+      async () => new Response(JSON.stringify([]), { status: 200 }),
+    );
+    state.scheduling.reasonForVisit = "blurry vision";
+
+    await (get_availability as any).execute(
+      { date: "2026-04-24" },
+      { ctx: createCtx(state) },
+    );
+    state.insurance.preauthRequired = true;
+    const second = await (get_availability as any).execute(
+      { date: "2026-04-24" },
+      { ctx: createCtx(state) },
+    );
+
+    const requestBodies = vi
+      .mocked(fetch)
+      .mock.calls.map((call) =>
+        JSON.parse(((call[1] as RequestInit).body as string) ?? "{}"),
+      );
+    expect(Array.isArray(second)).toBe(true);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(requestBodies[0]?.preauthRequired).toBeUndefined();
+    expect(requestBodies[1]?.preauthRequired).toBe(true);
   });
 
   it("records availability outages as explicit workflow failures", async () => {
@@ -417,6 +515,107 @@ describe("phase 1 state and tool guards", () => {
 
     expect(state.scheduling.appointments).toHaveLength(1);
     expect(state.scheduling.appointmentsSource).toBe("confirm_appt");
+  });
+
+  it("completes existing-appointment selection when a successful refresh finds no appointments", async () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: "+17275919997",
+      amdOfficePhone: "+17275919997",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+      phoneLookup: {
+        status: "verified",
+        patientId: "P123",
+        name: "Maria Santos",
+        dob: "03/05/1982",
+        phone: "+18135551234",
+        insuranceCarrier: "Florida Blue",
+        insPlanId: "IP1",
+        respPartyId: "RP1",
+        routing: "accepted",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [],
+      },
+    });
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+
+    const task = new ExistingAppointmentTask(
+      new llm.ChatContext(),
+      state,
+      "confirm",
+    );
+
+    const result = await (
+      task as any
+    )._tools.load_existing_appointments.execute(
+      {},
+      {
+        ctx: {
+          ...createCtx(state),
+          userData: state,
+        },
+      },
+    );
+
+    expect(result).toEqual([]);
+    expect(task.done).toBe(true);
+    expect(state.scheduling.appointments).toHaveLength(0);
+    expect(state.scheduling.appointmentsSource).toBe("confirm_appt");
+    expect(state.scheduling.targetAppointmentId).toBeNull();
+  });
+
+  it("does not auto-select stale phone-lookup appointments when appointment refresh fails", async () => {
+    const state = createInitialCallState({
+      officeKey: "spring-hill",
+      officePhone: "+17275919997",
+      amdOfficePhone: "+17275919997",
+      sipRoomName: "room",
+      sipParticipantIdentity: "sip",
+      callerPhone: "+18135551234",
+      phoneLookup: {
+        status: "verified",
+        patientId: "P123",
+        name: "Maria Santos",
+        dob: "03/05/1982",
+        phone: "+18135551234",
+        insuranceCarrier: "Florida Blue",
+        insPlanId: "IP1",
+        respPartyId: "RP1",
+        routing: "accepted",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [appointment({ id: 77 })],
+      },
+    });
+    vi.mocked(fetch).mockRejectedValue(new Error("appointments down"));
+
+    const task = new ExistingAppointmentTask(
+      new llm.ChatContext(),
+      state,
+      "cancel",
+    );
+
+    const result = await (
+      task as any
+    )._tools.load_existing_appointments.execute(
+      {},
+      {
+        ctx: {
+          ...createCtx(state),
+          userData: state,
+        },
+      },
+    );
+
+    expect(result).toContain("Appointment lookup is temporarily unavailable");
+    expect(state.scheduling.appointments).toHaveLength(1);
+    expect(state.scheduling.appointmentsSource).toBe("phone_lookup");
+    expect(state.scheduling.targetAppointmentId).toBeNull();
   });
 
   it("blocks booking the same slot twice in one call", async () => {
@@ -734,6 +933,12 @@ describe("phase 1 state and tool guards", () => {
     expect((task as any)._tools).toHaveProperty("lookup_knowledge");
     expect((task as any)._tools).toHaveProperty("transfer_call");
     expect((task as any)._tools).toHaveProperty("request_workflow_change");
+    expect((task as any)._tools.request_workflow_change.description).toContain(
+      "For quick office questions, use lookup_knowledge",
+    );
+    expect((task as any)._tools.request_workflow_change.description).toContain(
+      "For transfer requests, use transfer_call directly",
+    );
   });
 
   it("records workflow intent switches from inside task tools", async () => {

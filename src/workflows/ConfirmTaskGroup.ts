@@ -71,9 +71,18 @@ export async function runConfirmTaskGroup(
       interruption = result;
       break;
     }
+    const existingAppointmentResult = result as {
+      appointmentId?: number | null;
+    };
     transition = applyConfirmTransition(state, {
-      type: "EXISTING_APPOINTMENT_SELECTED",
+      type:
+        existingAppointmentResult.appointmentId === null
+          ? "NO_EXISTING_APPOINTMENT"
+          : "EXISTING_APPOINTMENT_SELECTED",
     });
+    if (transition.workflowStopped) {
+      break;
+    }
   }
 
   return { taskResults, interruption };

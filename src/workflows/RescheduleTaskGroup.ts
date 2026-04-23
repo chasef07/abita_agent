@@ -86,8 +86,11 @@ export async function runRescheduleTaskGroup(
     }
     transition = applyRescheduleTransition(
       state,
-      mapRescheduleTaskResultToEvent(taskId),
+      mapRescheduleTaskResultToEvent(taskId, result),
     );
+    if (transition.workflowStopped) {
+      break;
+    }
   }
 
   return { taskResults, interruption };

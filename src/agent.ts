@@ -181,6 +181,13 @@ export class Agent extends voice.Agent {
             return "Reschedule workflow stopped because no existing patient could be resolved. If the caller is truly new, use the scheduling workflow instead.";
           }
 
+          const existing = result.taskResults["existing_appointment"] as
+            | { appointmentId?: number | null }
+            | undefined;
+          if (existing?.appointmentId === null) {
+            return "Reschedule workflow stopped because no existing appointment could be found. Offer to schedule a new appointment if that helps the caller.";
+          }
+
           const cancelled = result.taskResults["cancel_original"] as
             | { cancelled?: boolean }
             | undefined;
@@ -210,6 +217,13 @@ export class Agent extends voice.Agent {
             | undefined;
           if (identify?.outcome === "registration_allowed") {
             return "Confirmation workflow stopped because no existing patient could be resolved.";
+          }
+
+          const existing = result.taskResults["existing_appointment"] as
+            | { appointmentId?: number | null }
+            | undefined;
+          if (existing?.appointmentId === null) {
+            return "Confirmation workflow stopped because no existing appointment could be found. Offer to schedule if the caller needs an appointment.";
           }
 
           const appointmentId = state.scheduling.targetAppointmentId;
@@ -242,6 +256,13 @@ export class Agent extends voice.Agent {
             | undefined;
           if (identify?.outcome === "registration_allowed") {
             return "Cancellation workflow stopped because no existing patient could be resolved.";
+          }
+
+          const existing = result.taskResults["existing_appointment"] as
+            | { appointmentId?: number | null }
+            | undefined;
+          if (existing?.appointmentId === null) {
+            return "Cancellation workflow stopped because no existing appointment could be found.";
           }
 
           const cancelled = result.taskResults["cancel_original"] as

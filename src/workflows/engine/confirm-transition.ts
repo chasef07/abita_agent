@@ -6,6 +6,7 @@ export type ConfirmWorkflowEvent =
   | { type: "START" }
   | { type: "IDENTITY_CONFIRMED" }
   | { type: "IDENTITY_UNRESOLVED" }
+  | { type: "NO_EXISTING_APPOINTMENT" }
   | { type: "EXISTING_APPOINTMENT_SELECTED" };
 
 export interface ConfirmTransitionResult {
@@ -66,6 +67,14 @@ export function transitionConfirmWorkflow(
         activeFlow: "none",
         workflowComplete: true,
         workflowStopped: false,
+      };
+    case "NO_EXISTING_APPOINTMENT":
+      assertActiveFlow(state, ["existing_appointment"], event.type);
+      return {
+        nextStep: null,
+        activeFlow: "none",
+        workflowComplete: false,
+        workflowStopped: true,
       };
   }
 }

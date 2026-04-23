@@ -16,7 +16,7 @@ export function buildTaskEscapeTools(
     transfer_call,
     request_workflow_change: llm.tool({
       description:
-        "Use this when the caller changes what they want during the current workflow, such as switching from scheduling to canceling, confirming, rescheduling, asking a quick office question, or requesting a transfer. This pauses the current workflow and returns control to the front-desk router.",
+        "Use this when the caller changes what they want during the current workflow, such as switching from scheduling to canceling, confirming, or rescheduling. For quick office questions, use lookup_knowledge and then return to the current workflow instead. For transfer requests, use transfer_call directly.",
       parameters: z.object({
         requestedIntent: z
           .enum([

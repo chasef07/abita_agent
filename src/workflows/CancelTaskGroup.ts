@@ -75,12 +75,21 @@ export async function runCancelTaskGroup(
       break;
     }
 
+    const existingAppointmentResult = result as {
+      appointmentId?: number | null;
+    };
     transition = applyCancelTransition(
       state,
-      taskId === "existing_appointment"
-        ? { type: "EXISTING_APPOINTMENT_SELECTED" }
-        : { type: "CANCELLATION_COMPLETED" },
+      taskId === "existing_appointment" &&
+        existingAppointmentResult.appointmentId === null
+        ? { type: "NO_EXISTING_APPOINTMENT" }
+        : taskId === "existing_appointment"
+          ? { type: "EXISTING_APPOINTMENT_SELECTED" }
+          : { type: "CANCELLATION_COMPLETED" },
     );
+    if (transition.workflowStopped) {
+      break;
+    }
   }
 
   return { taskResults, interruption };

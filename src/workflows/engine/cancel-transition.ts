@@ -9,6 +9,7 @@ export type CancelWorkflowEvent =
   | { type: "START" }
   | { type: "IDENTITY_CONFIRMED" }
   | { type: "IDENTITY_UNRESOLVED" }
+  | { type: "NO_EXISTING_APPOINTMENT" }
   | { type: "EXISTING_APPOINTMENT_SELECTED" }
   | { type: "CANCELLATION_COMPLETED" };
 
@@ -70,6 +71,14 @@ export function transitionCancelWorkflow(
         activeFlow: "cancel",
         workflowComplete: false,
         workflowStopped: false,
+      };
+    case "NO_EXISTING_APPOINTMENT":
+      assertActiveFlow(state, ["existing_appointment"], event.type);
+      return {
+        nextStep: null,
+        activeFlow: "none",
+        workflowComplete: false,
+        workflowStopped: true,
       };
     case "CANCELLATION_COMPLETED":
       assertActiveFlow(state, ["cancel"], event.type);

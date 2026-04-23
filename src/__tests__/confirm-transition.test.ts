@@ -77,6 +77,21 @@ describe("confirm transition engine", () => {
     expect(state.workflow.activeFlow).toBe("none");
   });
 
+  it("stops when no current appointment can be found", () => {
+    const state = createState(verifiedLookup());
+    applyConfirmTransition(state, { type: "START" });
+    applyConfirmTransition(state, { type: "IDENTITY_CONFIRMED" });
+
+    const result = applyConfirmTransition(state, {
+      type: "NO_EXISTING_APPOINTMENT",
+    });
+
+    expect(result.workflowStopped).toBe(true);
+    expect(result.workflowComplete).toBe(false);
+    expect(result.nextStep).toBeNull();
+    expect(state.workflow.activeFlow).toBe("none");
+  });
+
   it("rejects invalid transitions so confirm bugs fail loudly", () => {
     const state = createState(verifiedLookup());
     applyConfirmTransition(state, { type: "START" });

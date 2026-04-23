@@ -195,6 +195,9 @@ export interface CallState {
       patientId: string | null;
       reasonForVisit: string | null;
       routing: string | null;
+      preauthRequired: boolean;
+      effectiveOfficeKey: OfficeKey;
+      amdOfficePhone: string;
     } | null;
     lastAvailabilitySummary: string | null;
     lastAvailabilityRaw: unknown | null;
@@ -467,7 +470,13 @@ function isSameAvailabilityQuery(
     state.scheduling.lastAvailabilityQuery.patientId === query.patientId &&
     state.scheduling.lastAvailabilityQuery.reasonForVisit ===
       query.reasonForVisit &&
-    state.scheduling.lastAvailabilityQuery.routing === query.routing
+    state.scheduling.lastAvailabilityQuery.routing === query.routing &&
+    state.scheduling.lastAvailabilityQuery.preauthRequired ===
+      query.preauthRequired &&
+    state.scheduling.lastAvailabilityQuery.effectiveOfficeKey ===
+      query.effectiveOfficeKey &&
+    state.scheduling.lastAvailabilityQuery.amdOfficePhone ===
+      query.amdOfficePhone
   );
 }
 
@@ -1115,11 +1124,15 @@ After response: check if date shifted vs requested — tell caller if different.
     if (!state.scheduling.reasonForVisit) {
       return "ERROR: The reason for the visit is required before checking availability. Ask the caller why they need to be seen first.";
     }
+    const amdOfficePhone = getAmdOfficeForToolCall(state);
     const query = {
       date,
       patientId: state.identity.patientId,
       reasonForVisit: state.scheduling.reasonForVisit,
       routing: state.insurance.routing,
+      preauthRequired: state.insurance.preauthRequired,
+      effectiveOfficeKey: getEffectiveOfficeKey(state),
+      amdOfficePhone,
     };
     if (isSameAvailabilityQuery(state, query)) {
       return `ERROR: Availability for ${date} was already checked. Reuse that result or ask for a different day.`;
@@ -1132,7 +1145,7 @@ After response: check if date shifted vs requested — tell caller if different.
       result = await callApi(
         "/api/scheduler/availability",
         body,
-        getAmdOfficeForToolCall(state),
+        amdOfficePhone,
       );
     } catch (err) {
       console.warn("[tools] get_availability failed:", err);

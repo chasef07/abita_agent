@@ -76,6 +76,21 @@ describe("cancel transition engine", () => {
     expect(state.workflow.activeFlow).toBe("cancel");
   });
 
+  it("stops when no current appointment can be found", () => {
+    const state = createState(verifiedLookup());
+    applyCancelTransition(state, { type: "START" });
+    applyCancelTransition(state, { type: "IDENTITY_CONFIRMED" });
+
+    const result = applyCancelTransition(state, {
+      type: "NO_EXISTING_APPOINTMENT",
+    });
+
+    expect(result.workflowStopped).toBe(true);
+    expect(result.workflowComplete).toBe(false);
+    expect(result.nextStep).toBeNull();
+    expect(state.workflow.activeFlow).toBe("none");
+  });
+
   it("completes after cancellation", () => {
     const state = createState(verifiedLookup());
     applyCancelTransition(state, { type: "START" });
