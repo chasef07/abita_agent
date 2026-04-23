@@ -20,18 +20,8 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { RoomServiceClient } from "livekit-server-sdk";
-import {
-  createInitialCallState,
-  type CallState,
-  lookupByPhone,
-} from "./tools.js";
+import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
-import {
-  FALLBACK_LLM_MODEL,
-  LLM_GENERATION_OPTIONS,
-  PRIMARY_LLM_MODEL,
-} from "./model-config.js";
-import { validateRuntimeEnv } from "./env.js";
 
 dotenv.config({ path: ".env.local" });
 
@@ -52,19 +42,21 @@ export default defineAgent({
 
   entry: async (ctx: JobContext) => {
     try {
-      validateRuntimeEnv();
-
       const vad = ctx.proc.userData.vad as silero.VAD;
 
       // temp=1 + top_p=0.9 per Chris Wirick (Baseten FDE) to reduce GLM looping
       const primaryLLM = new baseten.LLM({
-        model: PRIMARY_LLM_MODEL,
-        ...LLM_GENERATION_OPTIONS,
+        model: "zai-org/GLM-4.7",
+        parallelToolCalls: false,
+        temperature: 1.0,
+        topP: 0.9,
       });
 
       const fallbackLLM = new baseten.LLM({
-        model: FALLBACK_LLM_MODEL,
-        ...LLM_GENERATION_OPTIONS,
+        model: "MiniMaxAI/MiniMax-M2.5",
+        parallelToolCalls: false,
+        temperature: 1.0,
+        topP: 0.9,
       });
 
       const llmWithFallback = new llm.FallbackAdapter({
@@ -133,22 +125,38 @@ export default defineAgent({
         console.log(
           `[call] Multiple matches for ${callerPhone}: ${phoneLookup.matches.map((m) => m.firstName).join(", ")}`,
         );
-      } else if (phoneLookup?.status === "lookup_error") {
-        console.warn(`[call] Patient lookup unavailable for ${callerPhone}`);
       } else {
         console.log(`[call] No patient match for ${callerPhone}`);
       }
 
       const agent = new Agent(phoneLookup, trunkPhone);
 
-      session.userData = createInitialCallState({
+      const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
+      session.userData = {
         officeKey: office.key,
         officePhone: trunkPhone,
         amdOfficePhone: office.amdOfficePhone,
         sipRoomName: ctx.room.name ?? "",
         sipParticipantIdentity: participant.identity ?? "",
         callerPhone,
-        phoneLookup,
+        patientId: verified?.patientId ?? null,
+        patientName: verified?.name ?? null,
+        dob: verified?.dob ?? null,
+        insuranceCarrier: verified?.insuranceCarrier ?? null,
+        insPlanId: verified?.insPlanId ?? null,
+        respPartyId: verified?.respPartyId ?? null,
+        checkedInsurancePlan: verified?.insuranceCarrier ?? null,
+        routing: verified?.routing ?? null,
+        allowedProviders: verified?.allowedProviders ?? [],
+        routingAmbiguous: verified?.routingAmbiguous ?? false,
+        preauthRequired: false,
+        appointments: verified?.appointments ?? [],
+        transferred: false,
+      };
+
+      await session.start({
+        agent,
+        room: ctx.room,
       });
 
       // Collect raw LiveKit metrics as single source of truth for analytics
@@ -165,7 +173,7 @@ export default defineAgent({
       ctx.room.on("participantDisconnected", (p) => {
         if (p.identity === participant.identity) {
           console.log(
-            `[call] SIP participant ${p.identity} disconnected (transferred=${session.userData.conversation.transferred}), shutting down job`,
+            `[call] SIP participant ${p.identity} disconnected (transferred=${session.userData.transferred}), shutting down job`,
           );
           ctx.shutdown(`sip participant disconnected: ${p.identity}`);
         }
@@ -265,11 +273,6 @@ export default defineAgent({
         } catch (err) {
           console.error("[shutdown] Failed to delete room:", err);
         }
-      });
-
-      await session.start({
-        agent,
-        room: ctx.room,
       });
     } catch (err) {
       console.error("[entry] FATAL:", err);
