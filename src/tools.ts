@@ -20,10 +20,16 @@ import {
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
-const BASE_URL =
-  process.env.AMD_API_URL ??
+const DEFAULT_AMD_API_URL =
   "https://advancedmd-token-management-production.up.railway.app";
-const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
+
+function getAmdApiUrl(): string {
+  return process.env.AMD_API_URL ?? DEFAULT_AMD_API_URL;
+}
+
+function getAmdAuthToken(): string {
+  return process.env.AMD_API_TOKEN ?? "";
+}
 let _sipClient: SipClient | undefined;
 function getSipClient(): SipClient {
   _sipClient ??= new SipClient(
@@ -67,29 +73,158 @@ export interface CallerMultipleMatches {
   matches: Array<{ firstName: string }>;
 }
 
-export type PhoneLookupResult = CallerMatch | CallerMultipleMatches | null;
+export interface CallerLookupError {
+  status: "lookup_error";
+  message: string;
+}
+
+export type PhoneLookupResult =
+  | CallerMatch
+  | CallerMultipleMatches
+  | CallerLookupError
+  | null;
+
+export type WorkflowFailureCode =
+  | "lookup_unavailable"
+  | "verify_unavailable"
+  | "registration_unavailable"
+  | "insurance_update_unavailable"
+  | "availability_unavailable"
+  | "booking_failed"
+  | "cancellation_failed"
+  | "appointments_unavailable";
+
+export interface WorkflowFailure {
+  code: WorkflowFailureCode;
+  message: string;
+  recoverable: boolean;
+}
+
+export type WorkingSummaryMode =
+  | "router"
+  | "identify"
+  | "register"
+  | "schedule"
+  | "reschedule"
+  | "confirm"
+  | "cancel";
+
+export type WorkflowIntent =
+  | "unknown"
+  | "faq"
+  | "schedule"
+  | "confirm"
+  | "cancel"
+  | "reschedule"
+  | "transfer";
+
+export type WorkflowSwitchIntent = Exclude<WorkflowIntent, "unknown">;
+
+export type WorkflowActiveFlow =
+  | "none"
+  | "identify"
+  | "existing_appointment"
+  | "register"
+  | "visit_reason"
+  | "availability"
+  | "booking"
+  | "cancel";
+
+export interface WorkflowInterruptionResult {
+  interrupted: true;
+  requestedIntent: WorkflowSwitchIntent;
+  reason: string;
+}
 
 export interface CallState {
   officeKey: OfficeKey;
+  effectiveOfficeKey: OfficeKey;
   officePhone: string;
   amdOfficePhone: string;
   sipRoomName: string;
   sipParticipantIdentity: string;
   callerPhone: string;
-  // Populated by phone lookup, verify_patient, or add_patient
-  patientId: string | null;
-  patientName: string | null;
-  dob: string | null;
-  insuranceCarrier: string | null;
-  insPlanId: string | null;
-  respPartyId: string | null;
-  checkedInsurancePlan: string | null;
-  routing: string | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
-  preauthRequired: boolean;
-  appointments: CallerAppointment[];
-  transferred: boolean;
+  identity: {
+    lookupMatchStatus:
+      | "none"
+      | "single_match"
+      | "multiple_matches"
+      | "lookup_error";
+    patientId: string | null;
+    patientName: string | null;
+    dob: string | null;
+    insuranceCarrier: string | null;
+    insPlanId: string | null;
+    respPartyId: string | null;
+    originalLookupPatientId: string | null;
+    callerConfirmedPatient: boolean;
+    activePatientMatchesLookup: boolean;
+    activePatientSource:
+      | "phone_lookup"
+      | "verify_patient"
+      | "add_patient"
+      | null;
+    switchedPatientThisCall: boolean;
+  };
+  workflow: {
+    intent: WorkflowIntent;
+    activeFlow: WorkflowActiveFlow;
+    appointmentIntent: "schedule" | "confirm" | "cancel" | "reschedule" | null;
+    verificationStatus:
+      | "not_started"
+      | "single_match"
+      | "multiple_matches"
+      | "verified"
+      | "no_match"
+      | "lookup_error";
+    verificationAttempts: number;
+    registrationAllowed: boolean;
+    registrationComplete: boolean;
+    lastFailure: WorkflowFailure | null;
+    interruption: {
+      requestedIntent: WorkflowSwitchIntent;
+      reason: string;
+      previousIntent: WorkflowIntent;
+      previousActiveFlow: WorkflowActiveFlow;
+    } | null;
+  };
+  scheduling: {
+    reasonForVisit: string | null;
+    lastAvailabilityQuery: {
+      date: string;
+      patientId: string | null;
+      reasonForVisit: string | null;
+      routing: string | null;
+      preauthRequired: boolean;
+      effectiveOfficeKey: OfficeKey;
+      amdOfficePhone: string;
+    } | null;
+    lastAvailabilitySummary: string | null;
+    lastAvailabilityRaw: unknown | null;
+    lastAvailabilityStatus: "not_checked" | "found" | "none" | "error";
+    selectedSlot: {
+      startDatetime: string;
+      columnId: number;
+      profileId: number;
+      duration: number;
+      appointmentTypeId: number;
+    } | null;
+    bookedSlotsThisCall: string[];
+    targetAppointmentId: number | null;
+    appointments: CallerAppointment[];
+    appointmentsLoadedAt: string | null;
+    appointmentsSource: "none" | "phone_lookup" | "confirm_appt";
+  };
+  insurance: {
+    checkedInsurancePlan: string | null;
+    routing: string | null;
+    allowedProviders: string[];
+    routingAmbiguous: boolean;
+    preauthRequired: boolean;
+  };
+  conversation: {
+    transferred: boolean;
+  };
 }
 
 // Per-call state lives on session.userData so concurrent calls don't collide
@@ -97,32 +232,582 @@ function getState(ctx: voice.RunContext): CallState {
   return ctx.session.userData as CallState;
 }
 
+export function createInitialCallState(args: {
+  officeKey: OfficeKey;
+  officePhone: string;
+  amdOfficePhone: string;
+  sipRoomName: string;
+  sipParticipantIdentity: string;
+  callerPhone: string;
+  phoneLookup?: PhoneLookupResult;
+}): CallState {
+  const verified =
+    args.phoneLookup?.status === "verified" ? args.phoneLookup : null;
+  const multiple = args.phoneLookup?.status === "multiple_matches";
+  const lookupError =
+    args.phoneLookup?.status === "lookup_error" ? args.phoneLookup : null;
+
+  return {
+    officeKey: args.officeKey,
+    effectiveOfficeKey: args.officeKey,
+    officePhone: args.officePhone,
+    amdOfficePhone: args.amdOfficePhone,
+    sipRoomName: args.sipRoomName,
+    sipParticipantIdentity: args.sipParticipantIdentity,
+    callerPhone: args.callerPhone,
+    identity: {
+      lookupMatchStatus: verified
+        ? "single_match"
+        : multiple
+          ? "multiple_matches"
+          : lookupError
+            ? "lookup_error"
+            : "none",
+      patientId: verified?.patientId ?? null,
+      patientName: verified?.name ?? null,
+      dob: verified?.dob ?? null,
+      insuranceCarrier: verified?.insuranceCarrier ?? null,
+      insPlanId: verified?.insPlanId ?? null,
+      respPartyId: verified?.respPartyId ?? null,
+      originalLookupPatientId: verified?.patientId ?? null,
+      callerConfirmedPatient: false,
+      activePatientMatchesLookup: !!verified,
+      activePatientSource: verified ? "phone_lookup" : null,
+      switchedPatientThisCall: false,
+    },
+    workflow: {
+      intent: "unknown",
+      activeFlow: "none",
+      appointmentIntent: null,
+      verificationStatus: verified
+        ? "single_match"
+        : multiple
+          ? "multiple_matches"
+          : lookupError
+            ? "lookup_error"
+            : "not_started",
+      verificationAttempts: 0,
+      registrationAllowed: false,
+      registrationComplete: false,
+      lastFailure: lookupError
+        ? {
+            code: "lookup_unavailable",
+            message: lookupError.message,
+            recoverable: true,
+          }
+        : null,
+      interruption: null,
+    },
+    scheduling: {
+      reasonForVisit: null,
+      lastAvailabilityQuery: null,
+      lastAvailabilitySummary: null,
+      lastAvailabilityRaw: null,
+      lastAvailabilityStatus: "not_checked",
+      selectedSlot: null,
+      bookedSlotsThisCall: [],
+      targetAppointmentId: null,
+      appointments: verified?.appointments ?? [],
+      appointmentsLoadedAt: verified?.appointments?.length
+        ? new Date().toISOString()
+        : null,
+      appointmentsSource: verified?.appointments?.length
+        ? "phone_lookup"
+        : "none",
+    },
+    insurance: {
+      checkedInsurancePlan: verified?.insuranceCarrier ?? null,
+      routing: verified?.routing ?? null,
+      allowedProviders: verified?.allowedProviders ?? [],
+      routingAmbiguous: verified?.routingAmbiguous ?? false,
+      preauthRequired: false,
+    },
+    conversation: {
+      transferred: false,
+    },
+  };
+}
+
 export function getSpringHillOfficePhone(): string {
   return SPRING_HILL_OFFICE_PHONE;
 }
 
 export function getAmdOfficeForToolCall(
-  state: Pick<CallState, "officeKey" | "amdOfficePhone">,
+  state: Pick<CallState, "officeKey" | "amdOfficePhone"> &
+    Partial<Pick<CallState, "effectiveOfficeKey">>,
 ): string {
   return (
-    state.amdOfficePhone || getOfficeConfig(state.officeKey).amdOfficePhone
+    state.amdOfficePhone ||
+    getOfficeConfig(state.effectiveOfficeKey ?? state.officeKey).amdOfficePhone
   );
 }
 
+export function getEffectiveOfficeKey(
+  state: Pick<CallState, "officeKey"> &
+    Partial<Pick<CallState, "effectiveOfficeKey">>,
+): OfficeKey {
+  return state.effectiveOfficeKey ?? state.officeKey;
+}
+
+export function shouldExposeRouteToSpringHill(
+  state: Pick<CallState, "officeKey" | "effectiveOfficeKey" | "workflow">,
+): boolean {
+  return (
+    getOfficeConfig(state.officeKey).features.routeToSpringHill &&
+    state.effectiveOfficeKey !== "spring-hill" &&
+    (state.workflow.intent === "unknown" ||
+      state.workflow.intent === "schedule" ||
+      state.workflow.intent === "reschedule")
+  );
+}
+
+function extractAppointments(result: unknown): CallerAppointment[] {
+  if (Array.isArray(result)) return result as CallerAppointment[];
+  if (
+    result &&
+    typeof result === "object" &&
+    Array.isArray((result as { appointments?: unknown[] }).appointments)
+  ) {
+    return (result as { appointments: CallerAppointment[] }).appointments;
+  }
+  return [];
+}
+
+function buildAvailabilitySummary(date: string, result: unknown): string {
+  const slots = Array.isArray(result)
+    ? result
+    : result &&
+        typeof result === "object" &&
+        Array.isArray((result as { slots?: unknown[] }).slots)
+      ? (result as { slots: unknown[] }).slots
+      : [];
+  if (slots.length === 0) {
+    return `No openings returned for ${date}.`;
+  }
+  return `Found ${slots.length} opening${slots.length === 1 ? "" : "s"} for ${date}.`;
+}
+
+type SelectedSlot = NonNullable<CallState["scheduling"]["selectedSlot"]>;
+
+function extractAvailabilitySlots(result: unknown): SelectedSlot[] | null {
+  const rawSlots = Array.isArray(result)
+    ? result
+    : result &&
+        typeof result === "object" &&
+        Array.isArray((result as { slots?: unknown[] }).slots)
+      ? (result as { slots: unknown[] }).slots
+      : null;
+
+  if (!rawSlots) return null;
+
+  const slots = rawSlots
+    .map((slot) => {
+      if (!slot || typeof slot !== "object") return null;
+      const record = slot as Record<string, unknown>;
+      if (
+        typeof record.startDatetime !== "string" ||
+        typeof record.columnId !== "number" ||
+        typeof record.profileId !== "number" ||
+        typeof record.duration !== "number" ||
+        typeof record.appointmentTypeId !== "number"
+      ) {
+        return null;
+      }
+      return {
+        startDatetime: record.startDatetime,
+        columnId: record.columnId,
+        profileId: record.profileId,
+        duration: record.duration,
+        appointmentTypeId: record.appointmentTypeId,
+      } satisfies SelectedSlot;
+    })
+    .filter((slot): slot is SelectedSlot => slot !== null);
+
+  return slots;
+}
+
+function countAvailabilitySlots(result: unknown): number {
+  return extractAvailabilitySlots(result)?.length ?? 0;
+}
+
+function isSelectedSlotFromLastAvailability(
+  result: unknown,
+  slot: SelectedSlot,
+): boolean | null {
+  const slots = extractAvailabilitySlots(result);
+  if (slots === null) return null;
+  return slots.some(
+    (candidate) =>
+      candidate.startDatetime === slot.startDatetime &&
+      candidate.columnId === slot.columnId &&
+      candidate.profileId === slot.profileId &&
+      candidate.duration === slot.duration &&
+      candidate.appointmentTypeId === slot.appointmentTypeId,
+  );
+}
+
+export function slotFingerprint(args: {
+  patientId: string;
+  startDatetime: string;
+  columnId: number;
+  appointmentTypeId: number;
+}): string {
+  return [
+    args.patientId,
+    args.startDatetime,
+    args.columnId,
+    args.appointmentTypeId,
+  ].join(":");
+}
+
+function isSameAvailabilityQuery(
+  state: CallState,
+  query: CallState["scheduling"]["lastAvailabilityQuery"],
+): boolean {
+  if (!state.scheduling.lastAvailabilityQuery || !query) return false;
+  return (
+    state.scheduling.lastAvailabilityQuery.date === query.date &&
+    state.scheduling.lastAvailabilityQuery.patientId === query.patientId &&
+    state.scheduling.lastAvailabilityQuery.reasonForVisit ===
+      query.reasonForVisit &&
+    state.scheduling.lastAvailabilityQuery.routing === query.routing &&
+    state.scheduling.lastAvailabilityQuery.preauthRequired ===
+      query.preauthRequired &&
+    state.scheduling.lastAvailabilityQuery.effectiveOfficeKey ===
+      query.effectiveOfficeKey &&
+    state.scheduling.lastAvailabilityQuery.amdOfficePhone ===
+      query.amdOfficePhone
+  );
+}
+
+function looksLikePlaceholderRegistration(params: {
+  email: string;
+  street: string;
+}): boolean {
+  const email = params.email.trim().toLowerCase();
+  const street = params.street.trim().toLowerCase();
+  return email.endsWith("@example.com") || street.startsWith("123 main");
+}
+
+function parseAppointmentStart(appt: CallerAppointment): Date | null {
+  const parsed = new Date(`${appt.date} ${appt.time}`);
+  if (isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function hasOverlappingAppointment(
+  appointments: CallerAppointment[],
+  startDatetime: string,
+  durationMin: number,
+): boolean {
+  const start = new Date(startDatetime);
+  if (isNaN(start.getTime())) return false;
+  const end = new Date(start.getTime() + durationMin * 60_000);
+  return appointments.some((appt) => {
+    const apptStart = parseAppointmentStart(appt);
+    if (!apptStart) return false;
+    const apptEnd = new Date(apptStart.getTime() + durationMin * 60_000);
+    return start < apptEnd && apptStart < end;
+  });
+}
+
+export function recordWorkflowFailure(
+  state: CallState,
+  code: WorkflowFailureCode,
+  message: string,
+  recoverable = true,
+): void {
+  state.workflow.lastFailure = { code, message, recoverable };
+}
+
+export function clearWorkflowFailure(state: CallState): void {
+  state.workflow.lastFailure = null;
+}
+
+export function recordWorkflowInterruption(
+  state: CallState,
+  requestedIntent: WorkflowSwitchIntent,
+  reason: string,
+): WorkflowInterruptionResult {
+  state.workflow.interruption = {
+    requestedIntent,
+    reason,
+    previousIntent: state.workflow.intent,
+    previousActiveFlow: state.workflow.activeFlow,
+  };
+  state.workflow.intent = requestedIntent;
+  state.workflow.activeFlow = "none";
+  if (
+    requestedIntent === "schedule" ||
+    requestedIntent === "confirm" ||
+    requestedIntent === "cancel" ||
+    requestedIntent === "reschedule"
+  ) {
+    state.workflow.appointmentIntent = requestedIntent;
+  }
+  return { interrupted: true, requestedIntent, reason };
+}
+
+export function isWorkflowInterruptionResult(
+  result: unknown,
+): result is WorkflowInterruptionResult {
+  return (
+    !!result &&
+    typeof result === "object" &&
+    (result as { interrupted?: unknown }).interrupted === true
+  );
+}
+
+function apiUnavailableMessage(action: string): string {
+  return `ERROR: ${action} is temporarily unavailable. Apologize briefly, avoid guessing, and either retry once or offer to transfer if the caller needs this handled now.`;
+}
+
+function getResultStatus(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const status = (result as { status?: unknown }).status;
+  return typeof status === "string" ? status.toLowerCase() : null;
+}
+
+function isSuccessfulApiResult(
+  result: unknown,
+  acceptedStatuses: string[],
+): boolean {
+  const status = getResultStatus(result);
+  if (!status) return true;
+  if (["error", "failed", "failure", "rejected"].includes(status)) {
+    return false;
+  }
+  return ["ok", "success", ...acceptedStatuses].includes(status);
+}
+
+export function buildWorkingStateSummary(
+  state: CallState,
+  mode: WorkingSummaryMode,
+): string {
+  const lines: string[] = [];
+  const inboundOffice = getOfficeConfig(state.officeKey);
+  const effectiveOffice = getOfficeConfig(getEffectiveOfficeKey(state));
+  lines.push(`Current call state:`);
+  lines.push(`- mode: ${mode}`);
+  lines.push(`- office: ${effectiveOffice.displayName}`);
+  if (effectiveOffice.key !== inboundOffice.key) {
+    lines.push(`- inbound office: ${inboundOffice.displayName}`);
+  }
+  if (state.identity.patientName) {
+    lines.push(`- patient: ${state.identity.patientName}`);
+  } else {
+    lines.push(`- patient: not yet identified`);
+  }
+  lines.push(`- lookup match: ${state.identity.lookupMatchStatus}`);
+  lines.push(
+    `- caller confirmed patient: ${state.identity.callerConfirmedPatient ? "yes" : "no"}`,
+  );
+  lines.push(
+    `- active patient matches lookup: ${state.identity.activePatientMatchesLookup ? "yes" : "no"}`,
+  );
+  lines.push(`- intent: ${state.workflow.intent}`);
+  lines.push(`- active flow: ${state.workflow.activeFlow}`);
+  if (state.workflow.interruption) {
+    lines.push(
+      `- interrupted for: ${state.workflow.interruption.requestedIntent}`,
+    );
+  }
+  lines.push(`- verification status: ${state.workflow.verificationStatus}`);
+  if (state.workflow.lastFailure) {
+    lines.push(`- last failure: ${state.workflow.lastFailure.code}`);
+  }
+  if (state.scheduling.reasonForVisit) {
+    lines.push(`- visit reason: ${state.scheduling.reasonForVisit}`);
+  }
+  if (state.scheduling.lastAvailabilityStatus !== "not_checked") {
+    lines.push(
+      `- last availability status: ${state.scheduling.lastAvailabilityStatus}`,
+    );
+  }
+  if (state.scheduling.lastAvailabilitySummary) {
+    lines.push(
+      `- last availability: ${state.scheduling.lastAvailabilitySummary}`,
+    );
+  }
+  if (state.scheduling.appointmentsSource !== "none") {
+    lines.push(`- appointments source: ${state.scheduling.appointmentsSource}`);
+  }
+  if (state.scheduling.appointmentsLoadedAt) {
+    lines.push(
+      `- appointments loaded at: ${state.scheduling.appointmentsLoadedAt}`,
+    );
+  }
+  if (mode === "confirm" || mode === "cancel") {
+    lines.push(
+      `- target appointment selected: ${state.scheduling.targetAppointmentId ? "yes" : "no"}`,
+    );
+  }
+  if (state.workflow.registrationAllowed) {
+    lines.push(`- registration is currently allowed`);
+  }
+  return lines.join("\n");
+}
+
+export function buildTurnStateSummary(state: CallState): string | null {
+  if (state.workflow.activeFlow === "none") {
+    return null;
+  }
+
+  const lines: string[] = [];
+  lines.push(`Current workflow state:`);
+  lines.push(`- intent: ${state.workflow.intent}`);
+  lines.push(`- active step: ${state.workflow.activeFlow}`);
+  if (state.workflow.interruption) {
+    lines.push(
+      `- interrupted for: ${state.workflow.interruption.requestedIntent}`,
+    );
+  }
+  if (state.effectiveOfficeKey !== state.officeKey) {
+    lines.push(
+      `- routed office: ${getOfficeConfig(state.effectiveOfficeKey).displayName}`,
+    );
+  }
+  lines.push(
+    `- patient: ${state.identity.patientName ?? "not yet identified"}`,
+  );
+
+  if (state.workflow.registrationAllowed) {
+    lines.push(`- registration is allowed`);
+  }
+  if (state.workflow.lastFailure) {
+    lines.push(`- last failure: ${state.workflow.lastFailure.code}`);
+  }
+  if (state.scheduling.reasonForVisit) {
+    lines.push(`- visit reason: ${state.scheduling.reasonForVisit}`);
+  }
+  if (
+    (state.workflow.activeFlow === "availability" ||
+      state.workflow.activeFlow === "booking") &&
+    state.scheduling.lastAvailabilitySummary
+  ) {
+    lines.push(
+      `- last availability: ${state.scheduling.lastAvailabilitySummary}`,
+    );
+  }
+  if (
+    state.workflow.activeFlow === "booking" &&
+    state.scheduling.selectedSlot
+  ) {
+    lines.push(
+      `- selected slot: ${state.scheduling.selectedSlot.startDatetime}`,
+    );
+  }
+  if (
+    (state.workflow.intent === "confirm" ||
+      state.workflow.intent === "cancel" ||
+      state.workflow.intent === "reschedule") &&
+    state.scheduling.targetAppointmentId
+  ) {
+    lines.push(`- target appointment selected: yes`);
+  }
+
+  const nextFocusByFlow: Record<CallState["workflow"]["activeFlow"], string> = {
+    none: "",
+    identify: "identify the correct patient before continuing",
+    existing_appointment:
+      "select the correct existing appointment before continuing",
+    register: "complete registration before scheduling continues",
+    visit_reason: "capture the visit reason before availability",
+    availability: "search one date at a time or record the chosen slot",
+    booking: "confirm and book the selected slot already in state",
+    cancel: "confirm and cancel the selected appointment",
+  };
+
+  const nextFocus = nextFocusByFlow[state.workflow.activeFlow];
+  if (nextFocus) {
+    lines.push(`- next focus: ${nextFocus}`);
+  }
+
+  return lines.join("\n");
+}
+
 /** Apply patient data from an API response, resetting all patient fields so nothing stale lingers. */
-function applyPatientResult(state: CallState, result: any): void {
-  state.patientId = result.patientId ?? null;
-  state.patientName = result.name ?? null;
-  state.dob = result.dob ?? null;
-  state.insuranceCarrier = result.insuranceCarrier ?? null;
-  state.insPlanId = result.insPlanId ?? null;
-  state.respPartyId = result.respPartyId ?? null;
-  state.checkedInsurancePlan = result.insuranceCarrier ?? null;
-  state.routing = result.routing ?? null;
-  state.allowedProviders = result.allowedProviders ?? [];
-  state.routingAmbiguous = result.routingAmbiguous ?? false;
-  state.preauthRequired = result.preauthRequired ?? false;
-  state.appointments = [];
+function applyPatientResult(
+  state: CallState,
+  result: any,
+  source: "verify_patient" | "add_patient",
+): void {
+  const previousPatientId = state.identity.patientId;
+  const nextPatientId = result.patientId ?? null;
+  const originalLookupPatientId = state.identity.originalLookupPatientId;
+  state.identity.patientId = nextPatientId;
+  state.identity.patientName = result.name ?? null;
+  state.identity.dob = result.dob ?? null;
+  state.identity.insuranceCarrier = result.insuranceCarrier ?? null;
+  state.identity.insPlanId = result.insPlanId ?? null;
+  state.identity.respPartyId = result.respPartyId ?? null;
+  state.identity.callerConfirmedPatient = true;
+  state.identity.activePatientMatchesLookup =
+    !!originalLookupPatientId && originalLookupPatientId === nextPatientId;
+  state.identity.activePatientSource = source;
+  if (
+    previousPatientId &&
+    nextPatientId &&
+    previousPatientId !== nextPatientId
+  ) {
+    state.identity.switchedPatientThisCall = true;
+  }
+
+  state.insurance.checkedInsurancePlan = result.insuranceCarrier ?? null;
+  state.insurance.routing = result.routing ?? null;
+  state.insurance.allowedProviders = result.allowedProviders ?? [];
+  state.insurance.routingAmbiguous = result.routingAmbiguous ?? false;
+  state.insurance.preauthRequired = result.preauthRequired ?? false;
+
+  state.scheduling.reasonForVisit = null;
+  state.scheduling.lastAvailabilityQuery = null;
+  state.scheduling.lastAvailabilitySummary = null;
+  state.scheduling.lastAvailabilityRaw = null;
+  state.scheduling.lastAvailabilityStatus = "not_checked";
+  state.scheduling.selectedSlot = null;
+  state.scheduling.targetAppointmentId = null;
+  state.scheduling.appointments = extractAppointments(result);
+  state.scheduling.appointmentsLoadedAt = state.scheduling.appointments.length
+    ? new Date().toISOString()
+    : null;
+  state.scheduling.appointmentsSource = "none";
+}
+
+/** Clear the active patient context before switching into true new-patient registration. */
+export function clearActivePatientContext(state: CallState): void {
+  const hadResolvedPatient =
+    !!state.identity.patientId ||
+    !!state.identity.patientName ||
+    state.identity.activePatientSource !== null;
+
+  state.identity.patientId = null;
+  state.identity.patientName = null;
+  state.identity.dob = null;
+  state.identity.insuranceCarrier = null;
+  state.identity.insPlanId = null;
+  state.identity.respPartyId = null;
+  state.identity.callerConfirmedPatient = false;
+  state.identity.activePatientMatchesLookup = false;
+  state.identity.activePatientSource = null;
+  state.identity.switchedPatientThisCall =
+    state.identity.switchedPatientThisCall || hadResolvedPatient;
+
+  state.scheduling.reasonForVisit = null;
+  state.scheduling.lastAvailabilityQuery = null;
+  state.scheduling.lastAvailabilitySummary = null;
+  state.scheduling.lastAvailabilityRaw = null;
+  state.scheduling.lastAvailabilityStatus = "not_checked";
+  state.scheduling.selectedSlot = null;
+  state.scheduling.targetAppointmentId = null;
+  state.scheduling.appointments = [];
+  state.scheduling.appointmentsLoadedAt = null;
+  state.scheduling.appointmentsSource = "none";
+
+  state.insurance.checkedInsurancePlan = null;
+  state.insurance.routing = null;
+  state.insurance.allowedProviders = [];
+  state.insurance.routingAmbiguous = false;
+  state.insurance.preauthRequired = false;
 }
 
 /** Pre-call phone lookup — called from main.ts before session starts. */
@@ -161,8 +846,12 @@ export async function lookupByPhone(
       };
     }
     return null;
-  } catch {
-    return null;
+  } catch (err) {
+    console.warn("[tools] Phone lookup failed:", err);
+    return {
+      status: "lookup_error",
+      message: "Phone lookup is temporarily unavailable.",
+    };
   }
 }
 
@@ -174,11 +863,11 @@ async function callApi(
   if (office) {
     body.office = office;
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${getAmdApiUrl()}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: AUTH_TOKEN,
+      Authorization: getAmdAuthToken(),
     },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(10_000),
@@ -229,17 +918,44 @@ After response:
       ),
   }),
   execute: async ({ firstName, lastName, dob, usePhone }, { ctx }) => {
+    const state = getState(ctx);
     const body: Record<string, unknown> = { firstName };
     if (lastName) body.lastName = lastName;
     if (dob) body.dob = dob;
-    if (usePhone) body.phone = getState(ctx).callerPhone;
-    const result = (await callApi(
-      "/api/verify-patient",
-      body,
-      getAmdOfficeForToolCall(getState(ctx)),
-    )) as any;
+    if (usePhone) body.phone = state.callerPhone;
+    let result: any;
+    try {
+      result = await callApi(
+        "/api/verify-patient",
+        body,
+        getAmdOfficeForToolCall(state),
+      );
+    } catch (err) {
+      console.warn("[tools] verify_patient failed:", err);
+      recordWorkflowFailure(
+        state,
+        "verify_unavailable",
+        "Patient verification is temporarily unavailable.",
+      );
+      return apiUnavailableMessage("Patient verification");
+    }
     if (result?.patientId) {
-      applyPatientResult(getState(ctx), result);
+      applyPatientResult(state, result, "verify_patient");
+      state.workflow.verificationStatus = "verified";
+      state.workflow.verificationAttempts = 0;
+      state.workflow.registrationAllowed = false;
+      state.workflow.registrationComplete = false;
+      clearWorkflowFailure(state);
+    } else {
+      state.workflow.verificationAttempts += 1;
+      state.workflow.verificationStatus = usePhone
+        ? "multiple_matches"
+        : "no_match";
+      const reachedRegistrationFallback =
+        !usePhone && state.workflow.verificationAttempts >= 2;
+      state.workflow.registrationAllowed =
+        state.workflow.registrationAllowed || reachedRegistrationFallback;
+      state.workflow.registrationComplete = false;
     }
     return result;
   },
@@ -247,7 +963,7 @@ After response:
 
 // --- add_patient ---
 export const add_patient = llm.tool({
-  description: `Creates a new patient record. Use only when verify_patient returns no match. Every field must come from what the caller explicitly said — never fabricate or guess values.
+  description: `Creates a new patient record. Use this when the caller is clearly a true new patient, or after identity verification failed and registration is now allowed. Every field must come from what the caller explicitly said — never fabricate or guess values.
 
 Follow the registration order in the runbook. Key rules for this tool:
 - Run check_insurance first. Use the canonicalPlan from the latest check_insurance result for the insurance value sent to middleware. If the tool accepted a family alias like "Blue Cross" or "Oscar", do not rewrite it yourself.
@@ -287,18 +1003,45 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
-    const insurance = state.checkedInsurancePlan ?? params.insurance;
+    if (state.identity.patientId && !state.identity.switchedPatientThisCall) {
+      return "ERROR: A patient is already identified in this call. Do not register another patient unless the caller clearly switched to a different person.";
+    }
+    if (!state.workflow.registrationAllowed) {
+      return "ERROR: New-patient registration is not allowed yet. Verify the patient first, or confirm they are a true new patient.";
+    }
+    if (!state.insurance.checkedInsurancePlan) {
+      return "ERROR: Insurance has not been confirmed. Run check_insurance before calling add_patient.";
+    }
+    if (looksLikePlaceholderRegistration(params)) {
+      return "ERROR: Registration data looks like placeholder information. Collect the real values from the caller first.";
+    }
+    const insurance = state.insurance.checkedInsurancePlan ?? params.insurance;
     const phone = params.phone ?? state.callerPhone;
     if (!phone) {
       return "ERROR: No phone number is available. Ask whether the number they're calling from is good; if not, collect the best phone number.";
     }
-    const result = (await callApi(
-      "/api/add-patient",
-      { ...params, insurance, phone },
-      getAmdOfficeForToolCall(state),
-    )) as any;
+    let result: any;
+    try {
+      result = await callApi(
+        "/api/add-patient",
+        { ...params, insurance, phone },
+        getAmdOfficeForToolCall(state),
+      );
+    } catch (err) {
+      console.warn("[tools] add_patient failed:", err);
+      recordWorkflowFailure(
+        state,
+        "registration_unavailable",
+        "New-patient registration is temporarily unavailable.",
+      );
+      return apiUnavailableMessage("New-patient registration");
+    }
     if (result?.patientId) {
-      applyPatientResult(state, result);
+      applyPatientResult(state, result, "add_patient");
+      state.workflow.registrationAllowed = false;
+      state.workflow.registrationComplete = true;
+      state.workflow.verificationStatus = "verified";
+      clearWorkflowFailure(state);
     }
     return result;
   },
@@ -318,30 +1061,44 @@ After response: session state updates automatically. If preauthRequired, schedul
   }),
   execute: async ({ insurance, subscriberName, subscriberNum }, { ctx }) => {
     const state = getState(ctx);
-    if (!state.patientId) return "ERROR: No patient verified yet.";
-    const insuranceForMiddleware = state.checkedInsurancePlan ?? insurance;
-    const result = (await callApi(
-      "/api/patient/update-insurance",
-      {
-        patientId: state.patientId,
-        insPlanId: state.insPlanId ?? "",
-        respPartyId: state.respPartyId ?? "",
-        oldInsurance: state.insuranceCarrier ?? "",
-        insurance: insuranceForMiddleware,
-        subscriberName,
-        subscriberNum,
-      },
-      getAmdOfficeForToolCall(state),
-    )) as any;
+    if (!state.identity.patientId) return "ERROR: No patient verified yet.";
+    const insuranceForMiddleware =
+      state.insurance.checkedInsurancePlan ?? insurance;
+    let result: any;
+    try {
+      result = await callApi(
+        "/api/patient/update-insurance",
+        {
+          patientId: state.identity.patientId,
+          insPlanId: state.identity.insPlanId ?? "",
+          respPartyId: state.identity.respPartyId ?? "",
+          oldInsurance: state.identity.insuranceCarrier ?? "",
+          insurance: insuranceForMiddleware,
+          subscriberName,
+          subscriberNum,
+        },
+        getAmdOfficeForToolCall(state),
+      );
+    } catch (err) {
+      console.warn("[tools] update_insurance failed:", err);
+      recordWorkflowFailure(
+        state,
+        "insurance_update_unavailable",
+        "Insurance updates are temporarily unavailable.",
+      );
+      return apiUnavailableMessage("Insurance update");
+    }
     if (result?.status === "updated") {
-      state.insuranceCarrier = result.newInsurance ?? state.insuranceCarrier;
-      state.insPlanId = result.insPlanId ?? null;
-      state.respPartyId = result.respPartyId ?? null;
-      state.routing = result.routing ?? state.routing;
-      state.allowedProviders =
-        result.allowedProviders ?? state.allowedProviders;
-      state.routingAmbiguous = result.routingAmbiguous ?? false;
-      state.preauthRequired = result.preauthRequired ?? false;
+      state.identity.insuranceCarrier =
+        result.newInsurance ?? state.identity.insuranceCarrier;
+      state.identity.insPlanId = result.insPlanId ?? null;
+      state.identity.respPartyId = result.respPartyId ?? null;
+      state.insurance.routing = result.routing ?? state.insurance.routing;
+      state.insurance.allowedProviders =
+        result.allowedProviders ?? state.insurance.allowedProviders;
+      state.insurance.routingAmbiguous = result.routingAmbiguous ?? false;
+      state.insurance.preauthRequired = result.preauthRequired ?? false;
+      clearWorkflowFailure(state);
     }
     return result;
   },
@@ -351,10 +1108,7 @@ After response: session state updates automatically. If preauthRequired, schedul
 export const get_availability = llm.tool({
   description: `Gets schedule availability. Requires date (YYYY-MM-DD). Routing and preauth auto-applied from session state.
 
-Appointment type codes — you determine new/existing (from verify_patient) and adult/pediatric (from DOB). Ask the caller the reason for their visit before calling this tool so you pick the right code:
-- New 18+ = 1006, new under 18 = 1004
-- Existing 18+ = 1007, existing under 18 = 1005
-- Post-op (1008) = only if the caller says they're coming in for a post-op or follow-up after recent surgery.
+Ask the caller the reason for their visit before calling this tool. The workflow uses that reason to determine the correct scheduling path before availability is checked.
 
 Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. Under 18 = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
 
@@ -364,14 +1118,55 @@ After response: check if date shifted vs requested — tell caller if different.
   }),
   execute: async ({ date }, { ctx }) => {
     const state = getState(ctx);
+    if (!state.identity.patientId) {
+      return "ERROR: No patient identified yet. Verify or register the patient before checking availability.";
+    }
+    if (!state.scheduling.reasonForVisit) {
+      return "ERROR: The reason for the visit is required before checking availability. Ask the caller why they need to be seen first.";
+    }
+    const amdOfficePhone = getAmdOfficeForToolCall(state);
+    const query = {
+      date,
+      patientId: state.identity.patientId,
+      reasonForVisit: state.scheduling.reasonForVisit,
+      routing: state.insurance.routing,
+      preauthRequired: state.insurance.preauthRequired,
+      effectiveOfficeKey: getEffectiveOfficeKey(state),
+      amdOfficePhone,
+    };
+    if (isSameAvailabilityQuery(state, query)) {
+      return `ERROR: Availability for ${date} was already checked. Reuse that result or ask for a different day.`;
+    }
     const body: Record<string, unknown> = { date };
-    if (state.routing) body.routing = state.routing;
-    if (state.preauthRequired) body.preauthRequired = true;
-    return callApi(
-      "/api/scheduler/availability",
-      body,
-      getAmdOfficeForToolCall(state),
+    if (state.insurance.routing) body.routing = state.insurance.routing;
+    if (state.insurance.preauthRequired) body.preauthRequired = true;
+    let result: unknown;
+    try {
+      result = await callApi(
+        "/api/scheduler/availability",
+        body,
+        amdOfficePhone,
+      );
+    } catch (err) {
+      console.warn("[tools] get_availability failed:", err);
+      state.scheduling.lastAvailabilityStatus = "error";
+      recordWorkflowFailure(
+        state,
+        "availability_unavailable",
+        "Availability search is temporarily unavailable.",
+      );
+      return apiUnavailableMessage("Availability search");
+    }
+    state.scheduling.lastAvailabilityQuery = query;
+    state.scheduling.lastAvailabilityRaw = result;
+    state.scheduling.lastAvailabilitySummary = buildAvailabilitySummary(
+      date,
+      result,
     );
+    state.scheduling.lastAvailabilityStatus =
+      countAvailabilitySlots(result) > 0 ? "found" : "none";
+    clearWorkflowFailure(state);
+    return result;
   },
 });
 
@@ -379,19 +1174,37 @@ After response: check if date shifted vs requested — tell caller if different.
 export const confirm_appt = llm.tool({
   description: `Retrieves upcoming appointments (next 60 days) for a verified patient. Patient ID is read from session state automatically. Requires a verified patient — either from phone lookup or verify_patient.
 
-If appointments (with IDs) are already shown in the caller context from the phone lookup AND you haven't switched patients, you already have this data — skip this tool. Only call if you switched patients, need fresh data, or appointments weren't in the caller context.
+Use this tool when the workflow needs current appointment data in session state, especially after switching patients or when the task explicitly refreshes appointments from phone lookup data.
 
 Read back the nearest appointment: date, time, doctor, and location. If multiple, read one at a time. If none found, offer to schedule.`,
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
-    if (!state.patientId)
+    if (!state.identity.patientId)
       return "ERROR: No patient verified yet. Run verify_patient first with the caller's firstName, lastName, and dob.";
-    return callApi(
-      "/api/patient/appointments",
-      { patientId: state.patientId },
-      getAmdOfficeForToolCall(state),
-    );
+    let result: unknown;
+    try {
+      result = await callApi(
+        "/api/patient/appointments",
+        { patientId: state.identity.patientId },
+        getAmdOfficeForToolCall(state),
+      );
+    } catch (err) {
+      console.warn("[tools] confirm_appt failed:", err);
+      recordWorkflowFailure(
+        state,
+        "appointments_unavailable",
+        "Appointment lookup is temporarily unavailable.",
+      );
+      return apiUnavailableMessage("Appointment lookup");
+    }
+    state.scheduling.appointments = extractAppointments(result);
+    state.scheduling.appointmentsLoadedAt = state.scheduling.appointments.length
+      ? new Date().toISOString()
+      : null;
+    state.scheduling.appointmentsSource = "confirm_appt";
+    clearWorkflowFailure(state);
+    return result;
   },
 });
 
@@ -406,11 +1219,45 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
       .describe("Appointment ID from the confirm_appt response"),
   }),
   execute: async ({ appointmentId }, { ctx }) => {
-    return callApi(
-      "/api/appointment/cancel",
-      { appointmentId },
-      getAmdOfficeForToolCall(getState(ctx)),
+    const state = getState(ctx);
+    const knownAppointment =
+      state.scheduling.targetAppointmentId === appointmentId ||
+      state.scheduling.appointments.some((appt) => appt.id === appointmentId);
+    if (!knownAppointment) {
+      return "ERROR: That appointment is not currently loaded in session state. Confirm the appointment first before cancelling it.";
+    }
+    let result: unknown;
+    try {
+      result = await callApi(
+        "/api/appointment/cancel",
+        { appointmentId },
+        getAmdOfficeForToolCall(state),
+      );
+    } catch (err) {
+      console.warn("[tools] cancel_appt failed:", err);
+      recordWorkflowFailure(
+        state,
+        "cancellation_failed",
+        "Appointment cancellation failed.",
+      );
+      return apiUnavailableMessage("Appointment cancellation");
+    }
+    if (!isSuccessfulApiResult(result, ["cancelled", "canceled"])) {
+      recordWorkflowFailure(
+        state,
+        "cancellation_failed",
+        "Appointment cancellation was rejected.",
+      );
+      return "ERROR: The appointment cancellation did not complete. Do not tell the caller it was cancelled; retry once or offer to transfer.";
+    }
+    state.scheduling.appointments = state.scheduling.appointments.filter(
+      (appt) => appt.id !== appointmentId,
     );
+    if (state.scheduling.targetAppointmentId === appointmentId) {
+      state.scheduling.targetAppointmentId = null;
+    }
+    clearWorkflowFailure(state);
+    return result;
   },
 });
 
@@ -440,13 +1287,76 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
-    if (!state.patientId)
+    if (!state.identity.patientId)
       return "No patient verified yet. Verify the patient first.";
-    return callApi(
-      "/api/appointment/book",
-      { ...params, patientId: state.patientId },
-      getAmdOfficeForToolCall(state),
-    );
+    const fingerprint = slotFingerprint({
+      patientId: state.identity.patientId,
+      startDatetime: params.startDatetime,
+      columnId: params.columnId,
+      appointmentTypeId: params.appointmentTypeId,
+    });
+    if (state.scheduling.bookedSlotsThisCall.includes(fingerprint)) {
+      return "ERROR: That slot was already booked in this call.";
+    }
+    if (state.scheduling.lastAvailabilityRaw) {
+      const slotValidity = isSelectedSlotFromLastAvailability(
+        state.scheduling.lastAvailabilityRaw,
+        {
+          startDatetime: params.startDatetime,
+          columnId: params.columnId,
+          profileId: params.profileId,
+          duration: params.duration,
+          appointmentTypeId: params.appointmentTypeId,
+        },
+      );
+      if (slotValidity === false) {
+        return "ERROR: That slot is not in the most recent availability results. Search availability again or choose a returned slot.";
+      }
+    }
+    if (
+      hasOverlappingAppointment(
+        state.scheduling.appointments,
+        params.startDatetime,
+        params.duration,
+      ) &&
+      state.workflow.appointmentIntent !== "reschedule"
+    ) {
+      return "ERROR: This patient already has an appointment at that time. Confirm whether they want to reschedule before booking another.";
+    }
+    let result: unknown;
+    try {
+      result = await callApi(
+        "/api/appointment/book",
+        { ...params, patientId: state.identity.patientId },
+        getAmdOfficeForToolCall(state),
+      );
+    } catch (err) {
+      console.warn("[tools] book_appt failed:", err);
+      recordWorkflowFailure(
+        state,
+        "booking_failed",
+        "Appointment booking failed.",
+      );
+      return apiUnavailableMessage("Appointment booking");
+    }
+    if (!isSuccessfulApiResult(result, ["booked"])) {
+      recordWorkflowFailure(
+        state,
+        "booking_failed",
+        "Appointment booking was rejected.",
+      );
+      return "ERROR: The appointment booking did not complete. Do not tell the caller it was booked; retry once or offer a different time.";
+    }
+    state.scheduling.bookedSlotsThisCall.push(fingerprint);
+    state.scheduling.selectedSlot = {
+      startDatetime: params.startDatetime,
+      columnId: params.columnId,
+      profileId: params.profileId,
+      duration: params.duration,
+      appointmentTypeId: params.appointmentTypeId,
+    };
+    clearWorkflowFailure(state);
+    return result;
   },
 });
 
@@ -459,6 +1369,7 @@ Use this when the caller reached Crystal River but the visit must be handled thr
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
     const springHillOffice = getSpringHillOfficePhone();
+    state.effectiveOfficeKey = "spring-hill";
     state.amdOfficePhone = springHillOffice;
     return `AMD routing switched to Spring Hill (${springHillOffice}). Continue the call without transferring.`;
   },
@@ -497,8 +1408,11 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
   }),
   execute: async ({ plan }, { ctx }) => {
     const state = getState(ctx);
-    const result = matchInsurancePlanForOffice(state.officeKey, plan);
-    state.checkedInsurancePlan = canonicalInsurancePlan(result);
+    const result = matchInsurancePlanForOffice(
+      getEffectiveOfficeKey(state),
+      plan,
+    );
+    state.insurance.checkedInsurancePlan = canonicalInsurancePlan(result);
     return buildInsuranceToolResponse(result);
   },
 });
@@ -518,7 +1432,9 @@ Answer naturally from the returned info — just the part that answers their que
       ),
   }),
   execute: async (_args, { ctx }) => {
-    const file = resolveKnowledgeFileForOffice(getState(ctx).officeKey);
+    const file = resolveKnowledgeFileForOffice(
+      getEffectiveOfficeKey(getState(ctx)),
+    );
     return readWorkspaceFile(file);
   },
 });
@@ -531,7 +1447,7 @@ export const transfer_call = llm.tool({
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
     // Guard: prevent duplicate transfers (LLM sometimes calls this twice)
-    if (state.transferred) {
+    if (state.conversation.transferred) {
       return "Already transferred. No action needed.";
     }
     if (ctx.speechHandle) ctx.speechHandle.allowInterruptions = false;
@@ -541,8 +1457,10 @@ export const transfer_call = llm.tool({
       return "Could not transfer — no active SIP session.";
     }
     try {
-      state.transferred = true;
-      const transferNumber = getOfficeConfig(state.officeKey).transferNumber;
+      state.conversation.transferred = true;
+      const transferNumber = getOfficeConfig(
+        getEffectiveOfficeKey(state),
+      ).transferNumber;
       await getSipClient().transferSipParticipant(
         state.sipRoomName,
         state.sipParticipantIdentity,

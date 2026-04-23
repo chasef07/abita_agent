@@ -8,11 +8,11 @@ A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over
 |---|---|---|
 | Telephony | Twilio + Telnyx | Inbound SIP trunks → LiveKit Cloud SIP |
 | Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
-| STT | Deepgram `nova-3` | Streaming, multilingual |
-| LLM | Baseten (GLM-4.7 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
+| STT | AssemblyAI `u3-rt-pro` | Streaming turn-level transcription |
+| LLM | Baseten (GLM-5 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
 | TTS | ElevenLabs `eleven_flash_v2_5` | Streaming PCM |
 | VAD | Silero (local ONNX) | Prewarmed per job process |
-| Turn detection | LiveKit multilingual turn detector | Replaces simple VAD endpointing |
+| Turn handling | STT endpointing + adaptive interruption handling | Tuned for phone calls |
 | Medical backend | AdvancedMD via Railway middleware | Patient lookup, booking, insurance |
 
 ## Call flow
@@ -66,16 +66,20 @@ sequenceDiagram
 ```
 src/
 ├── main.ts          # Entry point: defineAgent, session setup, shutdown hooks, analytics POST
-├── agent.ts         # Agent class: wires tools, loads instructions, speaks greeting on onEnter
-├── prompt.ts        # Assembles system prompt from workspace/*.md + dynamic caller context
-├── tools.ts         # 10 LLM tools — all HTTP calls to the AdvancedMD middleware
-├── scribe-stt.ts    # (experimental) AssemblyAI via LiveKit Inference — not currently used
+├── agent.ts         # Router agent: wires workflow tools, direct tools, and greeting
+├── prompt.ts        # Assembles router/task prompts from workspace/*.md + dynamic state
+├── model-config.ts  # Baseten model IDs and generation options
+├── tools.ts         # Session state, AdvancedMD tools, knowledge lookup, SIP transfer
+├── tasks/           # Focused LiveKit tasks for identify/register/schedule steps
+├── workflows/       # Task-group orchestration for schedule/reschedule/confirm/cancel
 └── __tests__/       # Vitest unit tests
 
 workspace/            # Prompt source files (edit these to change agent behavior)
 ├── SOUL.md          # Identity / persona (top of prompt)
 ├── VOICE.md         # Speech style guidelines
-├── RUNBOOK.md       # Flow logic, tool usage, branching (bottom of prompt — highest attention)
+├── ROUTER.md        # Top-level routing and workflow launch rules
+├── *_*.md           # Task-specific instructions for identify/register/scheduling/changes
+├── RUNBOOK.md       # Legacy full flow reference
 ├── KNOWLEDGE_*.md   # Location-specific FAQ (hours, directions, insurance)
 └── INSURANCE_SPRING_HILL_CRYSTAL_RIVER.md  # Shared insurance plan routing logic for Spring Hill and Crystal River
 
@@ -87,12 +91,13 @@ Dockerfile           # Multi-stage: pnpm install → build → download-files �
 
 1. **SIP inbound** — caller dials a trunk number, LiveKit Cloud creates a room and fires a job request.
 2. **Job dispatch** — the agent worker (`abita-agent`) accepts the job. A forked child process (prewarmed with Silero VAD) runs `entry()` in `main.ts`.
-3. **Phone lookup** — before the session starts, `lookupByPhone(callerPhone, trunkPhone)` hits AdvancedMD. Three outcomes:
+3. **Phone lookup** — before the session starts, `lookupByPhone(callerPhone, trunkPhone)` hits AdvancedMD. Four outcomes:
    - **Verified** — single patient match. Name, DOB, insurance, appointments injected into the prompt. Agent skips verification.
    - **Multiple matches** — multiple patients on this number. Agent asks for first name only (HIPAA-safe).
    - **No match** — treated as new patient flow.
-4. **Session start** — `buildPrompt()` assembles the system prompt from `workspace/SOUL.md`, `VOICE.md`, `RUNBOOK.md`, then appends dynamic `<context>` (date/time + caller info). Tools are wired from `tools.ts`.
-5. **Conversation loop** — STT → LLM (with tool calling) → TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. Each tool is an HTTP call to the middleware.
+   - **Lookup error** — treated as unknown, not as no match. The agent identifies normally before changing records.
+4. **Session start** — `buildPrompt()` assembles the router prompt from `workspace/SOUL.md`, `VOICE.md`, `ROUTER.md`, then appends dynamic `<context>` (date/time + caller info). Tools are wired from `tools.ts` and task groups.
+5. **Conversation loop** — STT → LLM (with tool calling) → TTS. The router answers quick questions or launches scoped workflows like `run_schedule_task_group`, `run_reschedule_task_group`, `run_confirm_task_group`, and `run_cancel_task_group`. Those workflows use focused tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, and `lookup_knowledge`.
 6. **Disconnect or transfer**:
    - Caller hangs up → `participantDisconnected` listener → `ctx.shutdown()`
    - Agent calls `transfer_call` → SIP REFER to human staff
@@ -105,7 +110,7 @@ The system prompt is stitched from markdown files in `workspace/` in a specific 
 ```
 <role>     ← SOUL.md      (identity, sets the frame)
 <voice>    ← VOICE.md     (speech patterns)
-<runbook>  ← RUNBOOK.md   (tool usage, flow logic — most critical per-turn)
+<router>   ← ROUTER.md    (top-level intent routing and workflow launch rules)
 <context>                 (appended dynamically — date/time + caller data)
 ```
 
@@ -115,6 +120,11 @@ The system prompt is stitched from markdown files in `workspace/` in a specific 
 
 | Tool | Purpose |
 |---|---|
+| `run_identify_patient_task` | Resolve the active patient before protected workflows |
+| `run_registration_task` | Register a true new patient after identity flow allows it |
+| `run_schedule_task_group` | Identify/register, collect visit reason, find availability, and book |
+| `run_reschedule_task_group` | Select existing appointment, book replacement, then cancel original |
+| `run_confirm_task_group` / `run_cancel_task_group` | Resolve and confirm/cancel existing appointments |
 | `verify_patient` | Look up patient by first name + last name + DOB (or phone) |
 | `add_patient` | Register a new patient |
 | `update_insurance` | Update insurance on file |
@@ -130,7 +140,7 @@ All tools read/write `session.userData` (typed `CallState` in `tools.ts`), which
 
 ```bash
 pnpm install
-cp .env.example .env.local   # fill in LIVEKIT_*, DEEPGRAM_*, ELEVENLABS_*, BASETEN_*, AMD_API_TOKEN
+cp .env.example .env.local   # fill in LIVEKIT_*, ASSEMBLYAI_*, ELEVENLABS_*, BASETEN_*, AMD_API_TOKEN
 pnpm dev                     # runs src/main.ts via tsx with live reload
 ```
 
@@ -156,9 +166,9 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 | Var | Purpose |
 |---|---|
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud credentials |
-| `DEEPGRAM_API_KEY` | STT |
+| `ASSEMBLYAI_API_KEY` | STT |
 | `ELEVENLABS_API_KEY` | TTS |
-| `BASETEN_API_KEY` | LLM (GLM-4.7 + MiniMax fallback) |
+| `BASETEN_API_KEY` | LLM (GLM-5 + MiniMax fallback) |
 | `AMD_API_URL` / `AMD_API_TOKEN` | AdvancedMD middleware |
 | `ANALYTICS_URL` / `WEBHOOK_SECRET` | Post-call analytics endpoint |
 
@@ -178,4 +188,6 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 - [`ASSEMBLYAI.md`](./ASSEMBLYAI.md) — AssemblyAI STT design notes
 - [`TELNYX_SETUP.md`](./TELNYX_SETUP.md) — SIP trunk provisioning
 - [`CONTEXT-MANAGEMENT.md`](./CONTEXT-MANAGEMENT.md) — how `session.userData` flows through tools
-- [`workspace/RUNBOOK.md`](./workspace/RUNBOOK.md) — the operational heart of the agent
+- [`workspace/ROUTER.md`](./workspace/ROUTER.md) — top-level intent routing
+- [`workspace/SCHEDULE_RESCHEDULE.md`](./workspace/SCHEDULE_RESCHEDULE.md) — scheduling workflow instructions
+- [`workspace/APPOINTMENT_CHANGES.md`](./workspace/APPOINTMENT_CHANGES.md) — confirmation/cancellation workflow instructions
