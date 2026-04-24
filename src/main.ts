@@ -169,7 +169,7 @@ export default defineAgent({
       };
 
       session.on(voice.AgentSessionEventTypes.ConversationItemAdded, (ev) => {
-        if (ev.item.role !== "assistant" || ev.item.interrupted) return;
+        if (ev.item.role !== "assistant") return;
 
         const profile = selectAssemblyAISttProfileForAssistantText(
           ev.item.textContent ?? "",

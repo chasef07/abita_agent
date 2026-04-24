@@ -144,8 +144,6 @@ const READBACK_CUES = [
   "let me read",
   "read that back",
   "read back",
-  "i have",
-  "i've got",
   "that all right",
   "is that right",
   "is that correct",

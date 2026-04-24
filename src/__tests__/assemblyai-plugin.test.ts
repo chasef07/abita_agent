@@ -73,6 +73,11 @@ describe("official AssemblyAI plugin", () => {
     ).toBe("intake");
     expect(
       selectAssemblyAISttProfileForAssistantText(
+        "I have your first name, what's your date of birth?",
+      ),
+    ).toBe("intake");
+    expect(
+      selectAssemblyAISttProfileForAssistantText(
         "What's the best email address?",
       ),
     ).toBe("email");
