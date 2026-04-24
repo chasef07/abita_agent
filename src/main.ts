@@ -22,6 +22,12 @@ import { Agent } from "./agent.js";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
+import {
+  type AssemblyAISttProfile,
+  getAssemblyAISttOptions,
+  getAssemblyAISttProfileOptions,
+  selectAssemblyAISttProfileForAssistantText,
+} from "./stt-config.js";
 
 dotenv.config({ path: ".env.local" });
 
@@ -63,13 +69,9 @@ export default defineAgent({
         llms: [primaryLLM, fallbackLLM],
       });
 
+      const stt = new assemblyai.STT(getAssemblyAISttOptions());
       const session = new voice.AgentSession<CallState>({
-        stt: new assemblyai.STT({
-          speechModel: "u3-rt-pro",
-          vadThreshold: 0.3,
-          minTurnSilence: 275, // Small bump to reduce premature end-of-turn without adding too much latency.
-          maxTurnSilence: 2000, // Max time (ms) to wait before forcing the turn to end.
-        }),
+        stt,
         llm: llmWithFallback,
         tts: new elevenlabs.TTS({
           model: "eleven_flash_v2_5",
@@ -153,6 +155,33 @@ export default defineAgent({
         appointments: verified?.appointments ?? [],
         transferred: false,
       };
+
+      let activeSttProfile: AssemblyAISttProfile = "default";
+      const applySttProfile = (
+        profile: AssemblyAISttProfile,
+        reason: string,
+      ) => {
+        if (profile === activeSttProfile) return;
+
+        stt.updateOptions(getAssemblyAISttProfileOptions(profile));
+        activeSttProfile = profile;
+        console.log(`[stt] AssemblyAI profile=${profile} reason=${reason}`);
+      };
+
+      session.on(voice.AgentSessionEventTypes.ConversationItemAdded, (ev) => {
+        if (ev.item.role !== "assistant") return;
+
+        const profile = selectAssemblyAISttProfileForAssistantText(
+          ev.item.textContent ?? "",
+        );
+        applySttProfile(profile, "assistant_prompt");
+      });
+
+      session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (ev) => {
+        if (ev.isFinal) {
+          applySttProfile("default", "user_final");
+        }
+      });
 
       await session.start({
         agent,
