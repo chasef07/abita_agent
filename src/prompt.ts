@@ -129,7 +129,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
     }
     lines.push(``);
     lines.push(
-      `Do NOT use or say the patient's name before they say it. Ask: "can I get your first name?" If they say "${firstName}" (or close), they are verified — skip verify_patient entirely and go straight to what they need. If they give a different name (child, spouse), run verify_patient for that person.`,
+      `Do NOT use or say the patient's name before they say it. Ask: "can I get your first name?" Once they confirm, run verify_patient with their firstName and usePhone: true. Always call the tool even when session state is pre-loaded. If they give a different name (child, spouse), run verify_patient for that person instead.`,
     );
     return lines.join("\n");
   }
