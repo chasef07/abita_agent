@@ -97,6 +97,18 @@ function getState(ctx: voice.RunContext): CallState {
   return ctx.session.userData as CallState;
 }
 
+export function makeCurrentSpeechUninterruptible(
+  ctx: Pick<voice.RunContext, "speechHandle">,
+): boolean {
+  try {
+    ctx.speechHandle.allowInterruptions = false;
+    return true;
+  } catch (err) {
+    console.warn("[tools] Could not make current speech uninterruptible:", err);
+    return false;
+  }
+}
+
 export function getSpringHillOfficePhone(): string {
   return SPRING_HILL_OFFICE_PHONE;
 }
@@ -296,6 +308,9 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
     if (!phone) {
       return "ERROR: No phone number is available. Ask whether the number they're calling from is good; if not, collect the best phone number.";
     }
+    if (!makeCurrentSpeechUninterruptible(ctx)) {
+      return "Registration was interrupted before it could be submitted. Please confirm the patient details again.";
+    }
     const payload: Record<string, unknown> = { ...params, insurance, phone };
     if (typeof params.email === "string" && params.email.trim()) {
       payload.email = params.email.trim();
@@ -329,6 +344,9 @@ After response: session state updates automatically. If preauthRequired, schedul
   execute: async ({ insurance, subscriberName, subscriberNum }, { ctx }) => {
     const state = getState(ctx);
     if (!state.patientId) return "ERROR: No patient verified yet.";
+    if (!makeCurrentSpeechUninterruptible(ctx)) {
+      return "Insurance update was interrupted before it could be submitted. Please confirm the insurance details again.";
+    }
     const insuranceForMiddleware = state.checkedInsurancePlan ?? insurance;
     const result = (await callApi(
       "/api/patient/update-insurance",
@@ -416,6 +434,9 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
       .describe("Appointment ID from the confirm_appt response"),
   }),
   execute: async ({ appointmentId }, { ctx }) => {
+    if (!makeCurrentSpeechUninterruptible(ctx)) {
+      return "Cancellation was interrupted before it could be submitted. Please confirm the cancellation again.";
+    }
     return callApi(
       "/api/appointment/cancel",
       { appointmentId },
@@ -452,6 +473,9 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
     const state = getState(ctx);
     if (!state.patientId)
       return "No patient verified yet. Verify the patient first.";
+    if (!makeCurrentSpeechUninterruptible(ctx)) {
+      return "Booking was interrupted before it could be submitted. Please confirm the appointment slot again.";
+    }
     return callApi(
       "/api/appointment/book",
       { ...params, patientId: state.patientId },
@@ -544,7 +568,9 @@ export const transfer_call = llm.tool({
     if (state.transferred) {
       return "Already transferred. No action needed.";
     }
-    if (ctx.speechHandle) ctx.speechHandle.allowInterruptions = false;
+    if (!makeCurrentSpeechUninterruptible(ctx)) {
+      return "Transfer was interrupted before it could start. Please confirm the transfer again.";
+    }
     // Wait for the transfer announcement to finish playing before initiating
     await ctx.waitForPlayout();
     if (!state.sipRoomName || !state.sipParticipantIdentity) {

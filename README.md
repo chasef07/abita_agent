@@ -8,11 +8,11 @@ A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over
 |---|---|---|
 | Telephony | Twilio + Telnyx | Inbound SIP trunks → LiveKit Cloud SIP |
 | Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
-| STT | Deepgram `nova-3` | Streaming, multilingual |
+| STT | AssemblyAI | Streaming STT with adaptive keyterm/timing profiles |
 | LLM | Baseten (GLM-4.7 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
 | TTS | ElevenLabs `eleven_flash_v2_5` | Streaming PCM |
 | VAD | Silero (local ONNX) | Prewarmed per job process |
-| Turn detection | LiveKit multilingual turn detector | Replaces simple VAD endpointing |
+| Turn handling | LiveKit Agents | STT turn detection, adaptive interruptions, Silero VAD |
 | Medical backend | AdvancedMD via Railway middleware | Patient lookup, booking, insurance |
 
 ## Call flow
@@ -57,7 +57,7 @@ sequenceDiagram
     end
 
     W->>W: Shutdown hook
-    W->>AMD: POST analytics (metrics + audio + session report)
+    W->>AMD: POST analytics (usage + LLM plugin metrics + turn metrics + audio + session report)
     W->>LK: deleteRoom
 ```
 
@@ -68,8 +68,10 @@ src/
 ├── main.ts          # Entry point: defineAgent, session setup, shutdown hooks, analytics POST
 ├── agent.ts         # Agent class: wires tools, loads instructions, speaks greeting on onEnter
 ├── prompt.ts        # Assembles system prompt from workspace/*.md + dynamic caller context
-├── tools.ts         # 10 LLM tools — all HTTP calls to the AdvancedMD middleware
-├── scribe-stt.ts    # (experimental) AssemblyAI via LiveKit Inference — not currently used
+├── tools.ts         # LLM tools, CallState mutation, AdvancedMD middleware calls
+├── model-config.ts  # Primary/fallback Baseten model configuration
+├── stt-config.ts    # AssemblyAI keyterm and timing profiles
+├── scribe-stt.ts    # Experimental AssemblyAI adapter — not currently used
 └── __tests__/       # Vitest unit tests
 
 workspace/            # Prompt source files (edit these to change agent behavior)
@@ -77,7 +79,7 @@ workspace/            # Prompt source files (edit these to change agent behavior
 ├── VOICE.md         # Speech style guidelines
 ├── RUNBOOK.md       # Flow logic, tool usage, branching (bottom of prompt — highest attention)
 ├── KNOWLEDGE_*.md   # Location-specific FAQ (hours, directions, insurance)
-└── INSURANCE_SPRING_HILL_CRYSTAL_RIVER.md  # Shared insurance plan routing logic for Spring Hill and Crystal River
+└── INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json # Shared deterministic insurance routing
 
 livekit.toml         # LiveKit Cloud agent config (project + agent ID)
 Dockerfile           # Multi-stage: pnpm install → build → download-files → prune → run
@@ -92,11 +94,11 @@ Dockerfile           # Multi-stage: pnpm install → build → download-files �
    - **Multiple matches** — multiple patients on this number. Agent asks for first name only (HIPAA-safe).
    - **No match** — treated as new patient flow.
 4. **Session start** — `buildPrompt()` assembles the system prompt from `workspace/SOUL.md`, `VOICE.md`, `RUNBOOK.md`, then appends dynamic `<context>` (date/time + caller info). Tools are wired from `tools.ts`.
-5. **Conversation loop** — STT → LLM (with tool calling) → TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. Each tool is an HTTP call to the middleware.
+5. **Conversation loop** — AssemblyAI STT → Baseten LLM (with tool calling) → ElevenLabs TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. AdvancedMD-facing tools call the Railway middleware.
 6. **Disconnect or transfer**:
    - Caller hangs up → `participantDisconnected` listener → `ctx.shutdown()`
    - Agent calls `transfer_call` → SIP REFER to human staff
-7. **Shutdown hook** — captures the session report + audio recording, POSTs everything to `ANALYTICS_URL` with exponential backoff retry, deletes the room.
+7. **Shutdown hook** — captures LiveKit session usage, LLM plugin metrics, per-turn latency metrics, session report, and audio recording; POSTs everything to `ANALYTICS_URL` with exponential backoff retry; then deletes the room.
 
 ## Prompt assembly
 
@@ -111,7 +113,7 @@ The system prompt is stitched from markdown files in `workspace/` in a specific 
 
 **To change agent behavior, edit the workspace files.** The code doesn't need to change for prompt tweaks.
 
-## Tools (all HTTP → AdvancedMD middleware)
+## Tools
 
 | Tool | Purpose |
 |---|---|
@@ -122,15 +124,28 @@ The system prompt is stitched from markdown files in `workspace/` in a specific 
 | `confirm_appt` / `cancel_appt` / `book_appt` | Appointment management |
 | `check_insurance` | Eligibility check |
 | `lookup_knowledge` | Search location-specific FAQ (`KNOWLEDGE_*.md`) |
+| `route_to_spring_hill` | Switch Crystal River scheduling calls to Spring Hill AMD routing |
 | `transfer_call` | SIP REFER to human |
 
 All tools read/write `session.userData` (typed `CallState` in `tools.ts`), which holds the call's pre-loaded context and any data collected during the conversation.
+
+Side-effecting tools disable caller interruptions at the mutation boundary with `makeCurrentSpeechUninterruptible()` before they call the middleware:
+
+| Non-interruptible tool | Why |
+|---|---|
+| `add_patient` | Creates a patient record |
+| `update_insurance` | Changes insurance on file |
+| `cancel_appt` | Cancels an appointment |
+| `book_appt` | Books an appointment |
+| `transfer_call` | Initiates SIP transfer |
+
+Read-only/context tools remain interruptible so callers can naturally barge in during lookup or FAQ flow.
 
 ## Local development
 
 ```bash
 pnpm install
-cp .env.example .env.local   # fill in LIVEKIT_*, DEEPGRAM_*, ELEVENLABS_*, BASETEN_*, AMD_API_TOKEN
+cp .env.example .env.local   # fill in LIVEKIT_*, ASSEMBLYAI_*, ELEVENLABS_*, BASETEN_*, AMD_*
 pnpm dev                     # runs src/main.ts via tsx with live reload
 ```
 
@@ -156,11 +171,12 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 | Var | Purpose |
 |---|---|
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud credentials |
-| `DEEPGRAM_API_KEY` | STT |
+| `ASSEMBLYAI_API_KEY` | STT |
 | `ELEVENLABS_API_KEY` | TTS |
 | `BASETEN_API_KEY` | LLM (GLM-4.7 + MiniMax fallback) |
 | `AMD_API_URL` / `AMD_API_TOKEN` | AdvancedMD middleware |
 | `ANALYTICS_URL` / `WEBHOOK_SECRET` | Post-call analytics endpoint |
+| `PROMPT_WORKSPACE` | Optional alternate prompt workspace path |
 
 ## Secrets management
 

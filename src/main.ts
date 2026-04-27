@@ -4,7 +4,6 @@
 import {
   type JobContext,
   type JobProcess,
-  metrics as metricsLib,
   ServerOptions,
   cli,
   defineAgent,
@@ -32,6 +31,17 @@ import {
 
 dotenv.config({ path: ".env.local" });
 
+type TurnMetricSnapshot = {
+  itemId: string;
+  role: string;
+  type: string;
+  createdAt: number;
+  interrupted: boolean;
+  metrics: Record<string, unknown>;
+};
+
+type PluginMetricSnapshot = Record<string, unknown>;
+
 let _roomSvc: RoomServiceClient | undefined;
 function getRoomSvc(): RoomServiceClient {
   _roomSvc ??= new RoomServiceClient(
@@ -56,6 +66,12 @@ export default defineAgent({
 
       const llmWithFallback = new llm.FallbackAdapter({
         llms: [primaryLLM, fallbackLLM],
+      });
+      const llmMetrics: PluginMetricSnapshot[] = [];
+      llmWithFallback.on("metrics_collected", (metrics) => {
+        // Per-plugin metrics are not deprecated and preserve token-speed and
+        // peak-context analytics that cumulative session usage cannot express.
+        llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
       });
 
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
@@ -145,6 +161,10 @@ export default defineAgent({
         transferred: false,
       };
 
+      const startedAt = new Date();
+      const turnMetrics: TurnMetricSnapshot[] = [];
+      let latestUsage: Record<string, unknown> | undefined;
+
       let activeSttProfile: AssemblyAISttProfile = "default";
       const applySttProfile = (
         profile: AssemblyAISttProfile,
@@ -158,12 +178,32 @@ export default defineAgent({
       };
 
       session.on(voice.AgentSessionEventTypes.ConversationItemAdded, (ev) => {
+        const metrics = Object.fromEntries(
+          Object.entries(ev.item.metrics ?? {}).filter(
+            ([, value]) => value !== undefined,
+          ),
+        );
+        if (Object.keys(metrics).length > 0) {
+          turnMetrics.push({
+            itemId: ev.item.id,
+            role: ev.item.role,
+            type: ev.item.type,
+            createdAt: ev.createdAt,
+            interrupted: ev.item.interrupted,
+            metrics,
+          });
+        }
+
         if (ev.item.role !== "assistant") return;
 
         const profile = selectAssemblyAISttProfileForAssistantText(
           ev.item.textContent ?? "",
         );
         applySttProfile(profile, "assistant_prompt");
+      });
+
+      session.on(voice.AgentSessionEventTypes.SessionUsageUpdated, (ev) => {
+        latestUsage = ev.usage as unknown as Record<string, unknown>;
       });
 
       session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (ev) => {
@@ -175,14 +215,6 @@ export default defineAgent({
       await session.start({
         agent,
         room: ctx.room,
-      });
-
-      // Collect raw LiveKit metrics as single source of truth for analytics
-      const startedAt = new Date();
-      const rawMetrics: Record<string, unknown>[] = [];
-      session.on(voice.AgentSessionEventTypes.MetricsCollected, (ev: any) => {
-        metricsLib.logMetrics(ev.metrics);
-        rawMetrics.push({ ...ev.metrics });
       });
 
       // End the job when the SIP caller hangs up (or transfer completes).
@@ -224,7 +256,9 @@ export default defineAgent({
           );
         }
 
-        // Post raw metrics + session report to analytics dashboard
+        // Post usage, turn metrics, and session report to analytics dashboard.
+        // Session-level MetricsCollected is deprecated in LiveKit Agents; usage
+        // and ChatMessage.metrics are the supported observability surfaces.
         const analyticsUrl = process.env.ANALYTICS_URL;
         if (analyticsUrl) {
           const endedAt = new Date();
@@ -237,7 +271,9 @@ export default defineAgent({
             durationSec: Math.round(
               (endedAt.getTime() - startedAt.getTime()) / 1000,
             ),
-            metrics: rawMetrics,
+            usage: latestUsage ?? session.usage,
+            llmMetrics,
+            turnMetrics,
             sessionReport,
           };
 
