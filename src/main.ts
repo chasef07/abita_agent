@@ -22,6 +22,7 @@ import { Agent } from "./agent.js";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
+import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
   type AssemblyAISttProfile,
   getAssemblyAISttOptions,
@@ -50,20 +51,8 @@ export default defineAgent({
     try {
       const vad = ctx.proc.userData.vad as silero.VAD;
 
-      // temp=1 + top_p=0.9 per Chris Wirick (Baseten FDE) to reduce GLM looping
-      const primaryLLM = new baseten.LLM({
-        model: "zai-org/GLM-4.7",
-        parallelToolCalls: false,
-        temperature: 1.0,
-        topP: 0.9,
-      });
-
-      const fallbackLLM = new baseten.LLM({
-        model: "MiniMaxAI/MiniMax-M2.5",
-        parallelToolCalls: false,
-        temperature: 1.0,
-        topP: 0.9,
-      });
+      const primaryLLM = new baseten.LLM(primaryLLMOptions);
+      const fallbackLLM = new baseten.LLM(fallbackLLMOptions);
 
       const llmWithFallback = new llm.FallbackAdapter({
         llms: [primaryLLM, fallbackLLM],
