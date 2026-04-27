@@ -38,22 +38,6 @@ const FILES: { file: string; tag: string }[] = [
   { file: "RUNBOOK.md", tag: "runbook" },
 ];
 
-function formatIsoDateForTimeZone(date: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const year = parts.find((p) => p.type === "year")?.value;
-  const month = parts.find((p) => p.type === "month")?.value;
-  const day = parts.find((p) => p.type === "day")?.value;
-  if (!year || !month || !day) {
-    throw new Error("Could not format date for prompt context");
-  }
-  return `${year}-${month}-${day}`;
-}
-
 /** Build the full system prompt with caller-specific data baked in. */
 export function buildPrompt(
   phoneLookup?: PhoneLookupResult,
@@ -87,16 +71,11 @@ export function buildPrompt(
     minute: "2-digit",
     hour12: true,
   });
-  const todayIso = formatIsoDateForTimeZone(now, tz);
-  const tomorrowIso = formatIsoDateForTimeZone(
-    new Date(now.getTime() + 24 * 60 * 60 * 1000),
-    tz,
-  );
 
   const officeHints = buildOfficeRoutingHints(trunkPhone);
   const officeBlock = officeHints ? `\n\n${officeHints}` : "";
 
-  prompt += `\n\n<context>\nToday is ${date} (${todayIso}). Tomorrow is ${tomorrowIso}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}${officeBlock}\n</context>`;
+  prompt += `\n\n<context>\nToday is ${date}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}${officeBlock}\n</context>`;
 
   return prompt;
 }

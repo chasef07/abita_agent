@@ -106,9 +106,6 @@ describe("Crystal River prompt guidance", () => {
   it("tells the agent to convert relative dates silently", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
-    expect(prompt).toMatch(
-      /Today is .+ \(\d{4}-\d{2}-\d{2}\)\. Tomorrow is \d{4}-\d{2}-\d{2}\./,
-    );
     expect(prompt).toContain("Convert dates silently");
     expect(prompt).toContain("Do not explain the date math out loud");
     expect(prompt).not.toContain("Do the math");
