@@ -95,4 +95,28 @@ describe("Crystal River prompt guidance", () => {
       `is the number you're calling from a good one on file?`,
     );
   });
+
+  it("allows registration to continue when a new patient has no email", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+
+    expect(prompt).toContain("Email is optional");
+    expect(prompt).toContain("continue registration without it");
+  });
+
+  it("tells the agent to convert relative dates silently", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+
+    expect(prompt).toContain("Convert dates silently");
+    expect(prompt).toContain("Do not explain the date math out loud");
+    expect(prompt).not.toContain("Do the math");
+  });
+
+  it("prioritizes emergency and urgent eye symptoms before routine scheduling", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+
+    expect(prompt).toContain("Urgent / Emergency Calls");
+    expect(prompt).toContain("retinal tear");
+    expect(prompt).toContain("lightning bolts");
+    expect(prompt).toContain("Do not finish normal registration");
+  });
 });

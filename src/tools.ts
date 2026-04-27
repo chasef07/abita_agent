@@ -247,11 +247,12 @@ After response:
 
 // --- add_patient ---
 export const add_patient = llm.tool({
-  description: `Creates a new patient record. Use only when verify_patient returns no match. Every field must come from what the caller explicitly said — never fabricate or guess values.
+  description: `Creates a new patient record. Use only when verify_patient returns no match. Every submitted field must come from what the caller explicitly said — never fabricate or guess values.
 
 Follow the registration order in the runbook. Key rules for this tool:
 - Run check_insurance first. Use the canonicalPlan from the latest check_insurance result for the insurance value sent to middleware. If the tool accepted a family alias like "Blue Cross" or "Oscar", do not rewrite it yourself.
 - Ask "is the number you're calling from a good one on file?" If yes, omit phone and this tool will use the inbound caller number already stored in session state. If no, collect the best 10-digit phone number and pass it explicitly.
+- Email is optional. Ask once; if the caller says they do not have one, omit email and continue registration. Do not transfer just because email is missing.
 - If subscriber is "me" or "mine" = use patient name.
 - Member ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
 - Before submitting: read back name (spell last name letter by letter), DOB, insurance plan, and member ID. Wait for confirmation.
@@ -269,7 +270,10 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
       .describe(
         "Cell phone number, 10 digits only. Omit if the caller confirms the number they're calling from is the best number on file",
       ),
-    email: z.string().describe("Email address"),
+    email: z
+      .string()
+      .optional()
+      .describe("Email address, if the caller has one"),
     street: z.string().describe("Street address"),
     aptSuite: z
       .string()
@@ -292,9 +296,15 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
     if (!phone) {
       return "ERROR: No phone number is available. Ask whether the number they're calling from is good; if not, collect the best phone number.";
     }
+    const payload: Record<string, unknown> = { ...params, insurance, phone };
+    if (typeof params.email === "string" && params.email.trim()) {
+      payload.email = params.email.trim();
+    } else {
+      delete payload.email;
+    }
     const result = (await callApi(
       "/api/add-patient",
-      { ...params, insurance, phone },
+      payload,
       getAmdOfficeForToolCall(state),
     )) as any;
     if (result?.patientId) {
