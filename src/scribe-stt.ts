@@ -32,7 +32,7 @@ export class ScribeSTT extends stt.STT {
       streaming: true,
       interimResults: true,
     });
-    this.apiKey = opts?.apiKey ?? process.env.ELEVENLABS_API_KEY ?? "";
+    this.apiKey = opts?.apiKey ?? process.env.ELEVEN_API_KEY ?? "";
     this.language = opts?.language;
     this.modelId = opts?.modelId ?? "scribe_v2_realtime";
   }
