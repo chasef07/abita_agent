@@ -281,13 +281,10 @@ Key metrics to surface:
 - ASR transcript quality (for review)
 
 ## 3. Language detection + multilingual support
-**Status:** Partially done (2026-03-20)
+**Status:** Partially done
 
 ### Completed
-- Removed hardcoded `language: "en"` from STT — Scribe now auto-detects language
-- Made `ScribeSTT` language param optional; omitting it enables auto-detection
-- Transcript events now report detected language from Scribe (`data.language_code`) instead of hardcoded value
-- `MultilingualModel()` turn detector already in place — now receives actual detected language from STT
+- STT now uses the official AssemblyAI LiveKit plugin with keyterm and timing profiles
 - TTS (`eleven_flash_v2_5`) is already a multilingual model — responds in the language of the input text
 - Added Spanish language-switching instruction to SOUL.md
 
@@ -395,12 +392,9 @@ const verify_patient = llm.tool({
 Reference: https://docs.livekit.io/agents/logic/agents-handoffs/ (Session Userdata section)
 
 ## 7. Adaptive interruption handling
-**Status:** Blocked — waiting on `@livekit/agents-plugin-elevenlabs` STT support for Node.js
-**Depends on:** ElevenLabs STT plugin with aligned transcript support
+**Status:** Enabled with AssemblyAI STT
 
-LiveKit 1.2.0 added adaptive interruption detection (ML-based barge-in instead of fixed VAD thresholds). It requires the STT to support `alignedTranscript: "word"`. Our custom `ScribeSTT` adapter doesn't provide word-level timestamps reliably — the `COMMITTED_TRANSCRIPT_WITH_TIMESTAMPS` event from Scribe caused session crashes.
-
-When the official `@livekit/agents-plugin-elevenlabs` Node.js package adds STT support (Python already has it), swap out the custom `ScribeSTT` for the official plugin and enable adaptive interruption:
+The agent now uses LiveKit's adaptive interruption handling with the official AssemblyAI STT plugin:
 
 ```typescript
 turnHandling: {

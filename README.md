@@ -71,7 +71,6 @@ src/
 ├── tools.ts         # LLM tools, CallState mutation, AdvancedMD middleware calls
 ├── model-config.ts  # Primary/fallback Baseten model configuration
 ├── stt-config.ts    # AssemblyAI keyterm and timing profiles
-├── scribe-stt.ts    # Experimental AssemblyAI adapter — not currently used
 └── __tests__/       # Vitest unit tests
 
 workspace/            # Prompt source files (edit these to change agent behavior)
