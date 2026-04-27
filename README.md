@@ -9,7 +9,7 @@ A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over
 | Telephony | Twilio + Telnyx | Inbound SIP trunks → LiveKit Cloud SIP |
 | Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
 | STT | Deepgram `nova-3` | Streaming, multilingual |
-| LLM | Baseten (DeepSeek V4 Pro primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
+| LLM | Baseten (GLM-4.7 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
 | TTS | ElevenLabs `eleven_flash_v2_5` | Streaming PCM |
 | VAD | Silero (local ONNX) | Prewarmed per job process |
 | Turn detection | LiveKit multilingual turn detector | Replaces simple VAD endpointing |
@@ -158,7 +158,7 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud credentials |
 | `DEEPGRAM_API_KEY` | STT |
 | `ELEVENLABS_API_KEY` | TTS |
-| `BASETEN_API_KEY` | LLM (DeepSeek V4 Pro + MiniMax fallback) |
+| `BASETEN_API_KEY` | LLM (GLM-4.7 + MiniMax fallback) |
 | `AMD_API_URL` / `AMD_API_TOKEN` | AdvancedMD middleware |
 | `ANALYTICS_URL` / `WEBHOOK_SECRET` | Post-call analytics endpoint |
 
