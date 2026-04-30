@@ -9,7 +9,7 @@ A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over
 | Telephony | Twilio + Telnyx | Inbound SIP trunks → LiveKit Cloud SIP |
 | Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
 | STT | AssemblyAI | Streaming STT with adaptive keyterm/timing profiles |
-| LLM | Baseten (DeepSeek V4 Pro primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
+| LLM | Baseten (MiniMax-M2.5 primary, GLM-4.7 fallback) | Via `FallbackAdapter` |
 | TTS | ElevenLabs `eleven_flash_v2_5` | Streaming PCM |
 | VAD | Silero (local ONNX) | Prewarmed per job process |
 | Turn handling | LiveKit Agents | STT turn detection, adaptive interruptions, Silero VAD |
@@ -172,7 +172,7 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud credentials |
 | `ASSEMBLYAI_API_KEY` | STT |
 | `ELEVEN_API_KEY` | TTS |
-| `BASETEN_API_KEY` | LLM (DeepSeek V4 Pro + MiniMax fallback) |
+| `BASETEN_API_KEY` | LLM (MiniMax-M2.5 + GLM fallback) |
 | `AMD_API_URL` / `AMD_API_TOKEN` | AdvancedMD middleware |
 | `ANALYTICS_URL` / `WEBHOOK_SECRET` | Post-call analytics endpoint |
 | `PROMPT_WORKSPACE` | Optional alternate prompt workspace path |
