@@ -141,7 +141,6 @@ export default defineAgent({
       const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
       session.userData = {
         officeKey: office.key,
-        officePhone: trunkPhone,
         amdOfficePhone: office.amdOfficePhone,
         sipRoomName: ctx.room.name ?? "",
         sipParticipantIdentity: participant.identity ?? "",

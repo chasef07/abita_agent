@@ -71,7 +71,6 @@ export type PhoneLookupResult = CallerMatch | CallerMultipleMatches | null;
 
 export interface CallState {
   officeKey: OfficeKey;
-  officePhone: string;
   amdOfficePhone: string;
   sipRoomName: string;
   sipParticipantIdentity: string;
@@ -118,6 +117,16 @@ export function getAmdOfficeForToolCall(
 ): string {
   return (
     state.amdOfficePhone || getOfficeConfig(state.officeKey).amdOfficePhone
+  );
+}
+
+function normalizeBaseUrl(url: string): string {
+  return url.replace(/\/+$/, "");
+}
+
+export function getBaseUrlForOfficePhone(officePhone: string): string {
+  return normalizeBaseUrl(
+    getOfficeConfigByPhone(officePhone).middlewareBaseUrl ?? BASE_URL,
   );
 }
 
@@ -181,18 +190,16 @@ export async function lookupByPhone(
 async function callApi(
   path: string,
   body: Record<string, unknown>,
-  office?: string,
+  office: string,
 ): Promise<unknown> {
-  if (office) {
-    body.office = office;
-  }
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const payload = { ...body, office };
+  const res = await fetch(`${getBaseUrlForOfficePhone(office)}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: AUTH_TOKEN,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
     signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) {
@@ -241,17 +248,18 @@ After response:
       ),
   }),
   execute: async ({ firstName, lastName, dob, usePhone }, { ctx }) => {
+    const state = getState(ctx);
     const body: Record<string, unknown> = { firstName };
     if (lastName) body.lastName = lastName;
     if (dob) body.dob = dob;
-    if (usePhone) body.phone = getState(ctx).callerPhone;
+    if (usePhone) body.phone = state.callerPhone;
     const result = (await callApi(
       "/api/verify-patient",
       body,
-      getAmdOfficeForToolCall(getState(ctx)),
+      getAmdOfficeForToolCall(state),
     )) as any;
     if (result?.patientId) {
-      applyPatientResult(getState(ctx), result);
+      applyPatientResult(state, result);
     }
     return result;
   },
@@ -434,13 +442,14 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
       .describe("Appointment ID from the confirm_appt response"),
   }),
   execute: async ({ appointmentId }, { ctx }) => {
+    const state = getState(ctx);
     if (!makeCurrentSpeechUninterruptible(ctx)) {
       return "Cancellation was interrupted before it could be submitted. Please confirm the cancellation again.";
     }
     return callApi(
       "/api/appointment/cancel",
       { appointmentId },
-      getAmdOfficeForToolCall(getState(ctx)),
+      getAmdOfficeForToolCall(state),
     );
   },
 });

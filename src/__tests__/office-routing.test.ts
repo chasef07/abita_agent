@@ -3,9 +3,14 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildToolsForTrunk } from "../agent.js";
 import { buildPrompt } from "../prompt.js";
-import { getOfficeKeyByPhone, SPRING_HILL_OFFICE_PHONE } from "../offices.js";
+import {
+  DEV_OFFICE_PHONE,
+  getOfficeKeyByPhone,
+  SPRING_HILL_OFFICE_PHONE,
+} from "../offices.js";
 import {
   getAmdOfficeForToolCall,
+  getBaseUrlForOfficePhone,
   getSpringHillOfficePhone,
   resolveKnowledgeFileForOffice,
 } from "../tools.js";
@@ -14,6 +19,7 @@ describe("office routing helpers", () => {
   it("maps trunk numbers to office keys", () => {
     expect(getOfficeKeyByPhone("+13523202007")).toBe("crystal-river");
     expect(getOfficeKeyByPhone(SPRING_HILL_OFFICE_PHONE)).toBe("spring-hill");
+    expect(getOfficeKeyByPhone(DEV_OFFICE_PHONE)).toBe("dev");
   });
 
   it("rejects unsupported trunk numbers", () => {
@@ -43,6 +49,19 @@ describe("office routing helpers", () => {
         amdOfficePhone: "",
       }),
     ).toBe("+13523202007");
+
+    expect(
+      getAmdOfficeForToolCall({
+        officeKey: "dev",
+        amdOfficePhone: "",
+      }),
+    ).toBe(DEV_OFFICE_PHONE);
+  });
+
+  it("uses the dev middleware for the dev trunk", () => {
+    expect(getBaseUrlForOfficePhone(DEV_OFFICE_PHONE)).toBe(
+      "https://advancedmd-token-management-dev.up.railway.app",
+    );
   });
 
   it("maps Crystal River trunks to the Eye Radiance knowledge file", () => {
@@ -52,6 +71,9 @@ describe("office routing helpers", () => {
     expect(resolveKnowledgeFileForOffice("spring-hill")).toBe(
       "KNOWLEDGE_SPRINGHILL.md",
     );
+    expect(resolveKnowledgeFileForOffice("dev")).toBe(
+      "KNOWLEDGE_SPRINGHILL.md",
+    );
   });
 
   it("only exposes Spring Hill routing on Crystal River calls", () => {
@@ -59,6 +81,9 @@ describe("office routing helpers", () => {
       "route_to_spring_hill",
     );
     expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toHaveProperty(
+      "route_to_spring_hill",
+    );
+    expect(buildToolsForTrunk(DEV_OFFICE_PHONE)).not.toHaveProperty(
       "route_to_spring_hill",
     );
   });
