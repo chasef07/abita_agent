@@ -69,12 +69,21 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
 
 export const OFFICE_BY_PHONE: Record<string, OfficeKey> = Object.fromEntries(
   Object.values(OFFICE_CONFIGS).flatMap((office) =>
-    office.trunkPhones.map((phone) => [phone, office.key] as const),
+    office.trunkPhones.map(
+      (phone) => [normalizePhoneNumber(phone), office.key] as const,
+    ),
   ),
 );
 
+export function normalizePhoneNumber(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length > 0) return `+${digits}`;
+  return phone.trim();
+}
+
 export function getOfficeKeyByPhone(phone: string): OfficeKey {
-  const officeKey = OFFICE_BY_PHONE[phone];
+  const officeKey = OFFICE_BY_PHONE[normalizePhoneNumber(phone)];
   if (!officeKey) {
     throw new Error(`Unsupported trunk phone number: ${phone || "(empty)"}`);
   }

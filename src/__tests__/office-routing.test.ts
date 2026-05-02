@@ -6,6 +6,7 @@ import { buildPrompt } from "../prompt.js";
 import {
   DEV_OFFICE_PHONE,
   getOfficeKeyByPhone,
+  normalizePhoneNumber,
   SPRING_HILL_OFFICE_PHONE,
 } from "../offices.js";
 import {
@@ -20,6 +21,14 @@ describe("office routing helpers", () => {
     expect(getOfficeKeyByPhone("+13523202007")).toBe("crystal-river");
     expect(getOfficeKeyByPhone(SPRING_HILL_OFFICE_PHONE)).toBe("spring-hill");
     expect(getOfficeKeyByPhone(DEV_OFFICE_PHONE)).toBe("dev");
+  });
+
+  it("normalizes LiveKit phone attributes without a plus prefix", () => {
+    expect(normalizePhoneNumber("14843989071")).toBe(DEV_OFFICE_PHONE);
+    expect(getOfficeKeyByPhone("14843989071")).toBe("dev");
+    expect(getBaseUrlForOfficePhone("14843989071")).toBe(
+      "https://advancedmd-token-management-dev.up.railway.app",
+    );
   });
 
   it("rejects unsupported trunk numbers", () => {
