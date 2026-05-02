@@ -4,6 +4,10 @@ import type { TTSOptions as CartesiaTTSOptions } from "@livekit/agents-plugin-ca
 export const cartesiaTTSOptions = {
   model: "sonic-3",
   voice: "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
+  sampleRate: 16000,
+  speed: 0.92,
+  volume: 0.85,
+  apiVersion: "2026-03-01",
 } as const satisfies Partial<CartesiaTTSOptions>;
 
 const voiceAgentGenerationOptions = {
