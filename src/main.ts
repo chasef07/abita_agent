@@ -178,6 +178,8 @@ export default defineAgent({
       };
 
       session.on(voice.AgentSessionEventTypes.ConversationItemAdded, (ev) => {
+        if (ev.item.type !== "message") return;
+
         const metrics = Object.fromEntries(
           Object.entries(ev.item.metrics ?? {}).filter(
             ([, value]) => value !== undefined,
