@@ -1,8 +1,9 @@
 // offices.ts — Shared office registry for trunk routing, prompts, and tool behavior.
 
-export type OfficeKey = "spring-hill" | "crystal-river";
+export type OfficeKey = "spring-hill" | "crystal-river" | "dev";
 export const SPRING_HILL_OFFICE_PHONE = "+17275919997";
 export const CRYSTAL_RIVER_OFFICE_PHONE = "+13523202007";
+export const DEV_OFFICE_PHONE = "+14843989071";
 
 export interface OfficeConfig {
   key: OfficeKey;
@@ -12,6 +13,7 @@ export interface OfficeConfig {
   knowledgeFile: string;
   insuranceFile: string;
   amdOfficePhone: string;
+  middlewareBaseUrl?: string;
   transferNumber: string;
   features: {
     routeToSpringHill: boolean;
@@ -46,6 +48,21 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     transferNumber: DEFAULT_TRANSFER_NUMBER,
     features: {
       routeToSpringHill: true,
+    },
+  },
+  dev: {
+    key: "dev",
+    displayName: "Abita Dev",
+    trunkPhones: [DEV_OFFICE_PHONE],
+    greeting:
+      "thank you for calling Abita Eye Group, this is David, how can I help you?",
+    knowledgeFile: "KNOWLEDGE_SPRINGHILL.md",
+    insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+    amdOfficePhone: DEV_OFFICE_PHONE,
+    middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
+    transferNumber: DEFAULT_TRANSFER_NUMBER,
+    features: {
+      routeToSpringHill: false,
     },
   },
 };

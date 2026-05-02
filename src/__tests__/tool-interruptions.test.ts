@@ -219,7 +219,6 @@ function createToolContext() {
   const speechHandle = { allowInterruptions: true };
   const state: CallState = {
     officeKey: "spring-hill",
-    officePhone: "+17275919997",
     amdOfficePhone: "+17275919997",
     sipRoomName: "room",
     sipParticipantIdentity: "caller",
