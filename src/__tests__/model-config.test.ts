@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { fallbackLLMOptions, primaryLLMOptions } from "../model-config.js";
+import {
+  cartesiaTTSOptions,
+  fallbackLLMOptions,
+  primaryLLMOptions,
+} from "../model-config.js";
 
-describe("LLM model config", () => {
+describe("model config", () => {
   it("uses GLM as the primary Baseten model with MiniMax fallback", () => {
     expect(primaryLLMOptions.model).toBe("zai-org/GLM-4.7");
     expect(fallbackLLMOptions.model).toBe("MiniMaxAI/MiniMax-M2.5");
@@ -12,5 +16,12 @@ describe("LLM model config", () => {
     expect(fallbackLLMOptions.parallelToolCalls).toBe(false);
     expect(primaryLLMOptions.temperature).toBe(fallbackLLMOptions.temperature);
     expect(primaryLLMOptions.topP).toBe(fallbackLLMOptions.topP);
+  });
+
+  it("uses the Cartesia plugin options for TTS", () => {
+    expect(cartesiaTTSOptions).toMatchObject({
+      model: "sonic-3",
+      voice: "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
+    });
   });
 });
