@@ -1,11 +1,4 @@
 import type { BasetenLLMOptions } from "@livekit/agents-plugin-baseten";
-import type { TTSOptions as RimeTTSOptions } from "@livekit/agents-plugin-rime";
-
-export const rimeTTSOptions = {
-  modelId: "coda",
-  speaker: "marlu",
-  lang: "eng",
-} as const satisfies Partial<RimeTTSOptions>;
 
 const voiceAgentGenerationOptions = {
   parallelToolCalls: false,
