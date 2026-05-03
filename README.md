@@ -78,7 +78,7 @@ workspace/            # Prompt source files (edit these to change agent behavior
 ├── VOICE.md         # Speech style guidelines
 ├── RUNBOOK.md       # Flow logic, tool usage, branching (bottom of prompt — highest attention)
 ├── KNOWLEDGE_*.md   # Location-specific FAQ (hours, directions, insurance)
-└── INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json # Shared deterministic insurance routing
+└── INSURANCE_*.json # Office-specific deterministic insurance routing
 
 livekit.toml         # LiveKit Cloud agent config (project + agent ID)
 Dockerfile           # Multi-stage: pnpm install → build → download-files → prune → run

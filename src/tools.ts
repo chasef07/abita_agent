@@ -500,13 +500,14 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
 
 // --- route_to_spring_hill ---
 export const route_to_spring_hill = llm.tool({
-  description: `Switches AMD tool calls to the Spring Hill office without transferring the caller.
+  description: `Switches the active call workflow to the Spring Hill office without transferring the caller.
 
-Use this when the caller reached Crystal River but the visit must be handled through Spring Hill scheduling — especially pediatrics or cataract evaluation, workup, or surgery scheduling. Call this before verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, or book_appt for that visit. Keep the caller on the line and continue helping them normally.`,
+Use this when the caller reached Crystal River but the visit must be handled through Spring Hill scheduling — especially pediatrics, cataract evaluation/workup/surgery scheduling, or insurance accepted at Spring Hill but not Crystal River. Call this before verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, or book_appt for that visit. Keep the caller on the line and continue helping them normally.`,
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
     const springHillOffice = getSpringHillOfficePhone();
+    state.officeKey = "spring-hill";
     state.amdOfficePhone = springHillOffice;
     return `AMD routing switched to Spring Hill (${springHillOffice}). Continue the call without transferring.`;
   },
@@ -539,6 +540,8 @@ The tool returns a small summary for the model:
 - clarificationNeeded
 - callerMessage
 
+If Crystal River does not accept a plan but Spring Hill does, tell the caller Spring Hill accepts it and ask if they want to schedule there. If yes, call route_to_spring_hill before verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, or book_appt.
+
 Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
   parameters: z.object({
     plan: z.string().describe("The insurance plan name the caller mentioned"),
@@ -547,7 +550,24 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
     const state = getState(ctx);
     const result = matchInsurancePlanForOffice(state.officeKey, plan);
     state.checkedInsurancePlan = canonicalInsurancePlan(result);
-    return buildInsuranceToolResponse(result);
+    const response = buildInsuranceToolResponse(result);
+    if (
+      state.officeKey === "crystal-river" &&
+      result.status === "not_accepted"
+    ) {
+      const springHillResult = matchInsurancePlanForOffice("spring-hill", plan);
+      const springHillPlan = canonicalInsurancePlan(springHillResult);
+      if (springHillResult.status === "accepted" && springHillPlan) {
+        return {
+          ...response,
+          acceptedAtAlternateOffice: "Spring Hill",
+          alternateCanonicalPlan: springHillPlan,
+          routeTool: "route_to_spring_hill",
+          callerMessage: `${response.callerMessage} Spring Hill accepts ${springHillPlan}. Ask if they'd like to schedule there, then route to Spring Hill if they agree.`,
+        };
+      }
+    }
+    return response;
   },
 });
 

@@ -67,11 +67,10 @@
     },
     {
       "aliases": ["Humana"],
-      "status": "accepted",
-      "family": "Humana PPO",
-      "callerPlan": "Humana",
-      "canProceed": true,
-      "needsExactPlanName": true
+      "status": "needs_clarification",
+      "clarificationNeeded": "which Humana plan is on the card",
+      "canProceed": false,
+      "needsExactPlanName": false
     },
     {
       "aliases": ["Cigna"],

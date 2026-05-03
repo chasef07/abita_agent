@@ -6,10 +6,14 @@ import {
   matchInsurancePlan,
   matchInsurancePlanForOffice,
 } from "../insurance-rules.js";
+import { getOfficeConfig } from "../offices.js";
 
 describe("insurance matcher", () => {
   const reference = loadInsuranceReference(
     "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+  );
+  const crystalRiverReference = loadInsuranceReference(
+    "INSURANCE_CRYSTAL_RIVER.json",
   );
 
   it("accepts exact accepted plans", () => {
@@ -42,7 +46,6 @@ describe("insurance matcher", () => {
 
   it("matches middleware-backed shorthand aliases that can resolve server side", () => {
     const cases = [
-      ["Humana", "Humana PPO"],
       ["Cigna", "Cigna PPO"],
       ["Tricare", "Tricare Select"],
       ["Medicare", "Florida Medicare"],
@@ -74,6 +77,13 @@ describe("insurance matcher", () => {
     expect(result.clarificationNeeded).toContain("Medicaid");
   });
 
+  it("asks which Humana plan before deciding Spring Hill acceptance", () => {
+    const result = matchInsurancePlanForOffice("spring-hill", "Humana");
+    expect(result.status).toBe("needs_clarification");
+    expect(result.canProceed).toBe(false);
+    expect(result.clarificationNeeded).toContain("which Humana plan");
+  });
+
   it("works through office lookup helper", () => {
     const result = matchInsurancePlanForOffice("spring-hill", "BCBS");
     expect(result.status).toBe("accepted");
@@ -98,5 +108,52 @@ describe("insurance matcher", () => {
       clarificationNeeded: null,
       callerMessage: "yeah we take Blue Cross Blue Shield.",
     });
+  });
+
+  it("uses Crystal River's office-specific insurance map", () => {
+    expect(getOfficeConfig("crystal-river").insuranceFile).toBe(
+      "INSURANCE_CRYSTAL_RIVER.json",
+    );
+
+    const unitedHmo = matchInsurancePlanForOffice(
+      "crystal-river",
+      "United Healthcare HMO",
+    );
+    expect(unitedHmo.status).toBe("accepted");
+    expect(unitedHmo.matchedFamily).toBe("United Healthcare");
+
+    const humana = matchInsurancePlanForOffice("crystal-river", "Humana PPO");
+    expect(humana.status).toBe("not_accepted");
+    expect(humana.canProceed).toBe(false);
+
+    const genericHumana = matchInsurancePlanForOffice(
+      "crystal-river",
+      "Humana",
+    );
+    expect(genericHumana.status).toBe("needs_clarification");
+    expect(genericHumana.clarificationNeeded).toContain("which Humana plan");
+    expect(genericHumana.callerMessage).toContain(
+      "Crystal River does not accept Humana",
+    );
+
+    const blueSelect = matchInsurancePlan(
+      crystalRiverReference,
+      "I have Florida Blue HMO",
+    );
+    expect(blueSelect.status).toBe("not_accepted");
+  });
+
+  it("keeps Spring Hill Humana acceptance separate from Crystal River", () => {
+    const springHillHumana = matchInsurancePlanForOffice(
+      "spring-hill",
+      "Humana PPO",
+    );
+    const crystalRiverHumana = matchInsurancePlanForOffice(
+      "crystal-river",
+      "Humana PPO",
+    );
+
+    expect(springHillHumana.status).toBe("accepted");
+    expect(crystalRiverHumana.status).toBe("not_accepted");
   });
 });
