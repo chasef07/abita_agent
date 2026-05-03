@@ -79,7 +79,7 @@ export default defineAgent({
         stt,
         llm: llmWithFallback,
         tts: new elevenlabs.TTS({
-          model: "eleven_v3",
+          model: "eleven_flash_v2_5",
           voiceId: "7EzWGsX10sAS4c9m9cPf",
           encoding: "pcm_16000",
           voiceSettings: {

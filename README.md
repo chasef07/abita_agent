@@ -10,7 +10,7 @@ A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over
 | Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
 | STT | AssemblyAI | Streaming STT with adaptive keyterm/timing profiles |
 | LLM | Baseten (GLM-4.7 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
-| TTS | ElevenLabs `eleven_v3` | Streaming PCM |
+| TTS | ElevenLabs `eleven_flash_v2_5` | Streaming PCM |
 | VAD | Silero (local ONNX) | Prewarmed per job process |
 | Turn handling | LiveKit Agents | STT turn detection, adaptive interruptions, Silero VAD |
 | Medical backend | AdvancedMD via Railway middleware | Patient lookup, booking, insurance |
