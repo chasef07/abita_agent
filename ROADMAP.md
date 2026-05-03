@@ -285,12 +285,12 @@ Key metrics to surface:
 
 ### Completed
 - STT now uses the official AssemblyAI LiveKit plugin with keyterm and timing profiles
-- TTS (`inworld/inworld-tts-1.5-max`) is a multilingual LiveKit Inference model
+- TTS (`cartesia/sonic-3-2026-01-12`) is a multilingual LiveKit Inference model
 - Added Spanish language-switching instruction to SOUL.md
 
 ### Still needed
 - Test Spanish end-to-end on a real call
-- Verify the selected Inworld voice sounds natural in Spanish — may need a different voice
+- Verify the selected Cartesia voice sounds natural in Spanish — may need a different voice
 - Consider adding more languages beyond Spanish (Arabic, Vietnamese, etc.)
 - May need per-language system prompts or translation layer for non-English knowledge base content
 

@@ -1,11 +1,11 @@
-export const INWORLD_TTS_MODEL = "inworld/inworld-tts-1.5-max";
-export const DEFAULT_INWORLD_TTS_VOICE = "Edward";
-export const INWORLD_TTS_LANGUAGE = "en";
+export const CARTESIA_TTS_MODEL = "cartesia/sonic-3-2026-01-12";
+export const DEFAULT_CARTESIA_TTS_VOICE = "asher";
+export const CARTESIA_TTS_LANGUAGE = "en";
 
-export function getInworldTtsOptions() {
+export function getCartesiaTtsOptions() {
   return {
-    model: INWORLD_TTS_MODEL,
-    voice: process.env.INWORLD_TTS_VOICE ?? DEFAULT_INWORLD_TTS_VOICE,
-    language: INWORLD_TTS_LANGUAGE,
+    model: CARTESIA_TTS_MODEL,
+    voice: process.env.CARTESIA_TTS_VOICE ?? DEFAULT_CARTESIA_TTS_VOICE,
+    language: CARTESIA_TTS_LANGUAGE,
   };
 }
