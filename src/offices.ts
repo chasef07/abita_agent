@@ -45,7 +45,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     knowledgeFile: "KNOWLEDGE_EYERADIANCE.md",
     insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
     amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
-    transferNumber: DEFAULT_TRANSFER_NUMBER,
+    transferNumber: "+19546097250",
     features: {
       routeToSpringHill: true,
     },

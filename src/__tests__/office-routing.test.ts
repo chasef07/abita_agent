@@ -5,6 +5,7 @@ import { buildToolsForTrunk } from "../agent.js";
 import { buildPrompt } from "../prompt.js";
 import {
   DEV_OFFICE_PHONE,
+  getOfficeConfig,
   getOfficeKeyByPhone,
   normalizePhoneNumber,
   SPRING_HILL_OFFICE_PHONE,
@@ -83,6 +84,11 @@ describe("office routing helpers", () => {
     expect(resolveKnowledgeFileForOffice("dev")).toBe(
       "KNOWLEDGE_SPRINGHILL.md",
     );
+  });
+
+  it("uses the Eye Radiance human transfer number for Crystal River", () => {
+    expect(getOfficeConfig("crystal-river").transferNumber).toBe("+19546097250");
+    expect(getOfficeConfig("spring-hill").transferNumber).toBe("+18667968908");
   });
 
   it("only exposes Spring Hill routing on Crystal River calls", () => {
