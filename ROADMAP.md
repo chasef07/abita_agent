@@ -285,12 +285,12 @@ Key metrics to surface:
 
 ### Completed
 - STT now uses the official AssemblyAI LiveKit plugin with keyterm and timing profiles
-- TTS (`eleven_flash_v2_5`) is already a multilingual model — responds in the language of the input text
+- TTS (`inworld/inworld-tts-1.5-max`) is a multilingual LiveKit Inference model
 - Added Spanish language-switching instruction to SOUL.md
 
 ### Still needed
 - Test Spanish end-to-end on a real call
-- Verify ElevenLabs voice (`7EzWGsX10sAS4c9m9cPf`) sounds natural in Spanish — may need a different voice
+- Verify the selected Inworld voice sounds natural in Spanish — may need a different voice
 - Consider adding more languages beyond Spanish (Arabic, Vietnamese, etc.)
 - May need per-language system prompts or translation layer for non-English knowledge base content
 
