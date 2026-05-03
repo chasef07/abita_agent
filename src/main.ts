@@ -7,12 +7,12 @@ import {
   ServerOptions,
   cli,
   defineAgent,
+  inference,
   llm,
   voice,
 } from "@livekit/agents";
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
-import * as elevenlabs from "@livekit/agents-plugin-elevenlabs";
 import * as baseten from "@livekit/agents-plugin-baseten";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
@@ -22,6 +22,7 @@ import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
+import { getInworldTtsOptions } from "./tts-config.js";
 import {
   type AssemblyAISttProfile,
   getAssemblyAISttOptions,
@@ -78,18 +79,7 @@ export default defineAgent({
       const session = new voice.AgentSession<CallState>({
         stt,
         llm: llmWithFallback,
-        tts: new elevenlabs.TTS({
-          model: "eleven_flash_v2_5",
-          voiceId: "7EzWGsX10sAS4c9m9cPf",
-          encoding: "pcm_16000",
-          voiceSettings: {
-            stability: 0.65,
-            similarity_boost: 0.8,
-            style: 0,
-            speed: 0.88,
-            use_speaker_boost: false,
-          },
-        }),
+        tts: new inference.TTS(getInworldTtsOptions()),
         vad,
         // preemptiveGeneration: false,
         turnHandling: {

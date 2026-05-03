@@ -17,9 +17,6 @@ importers:
       '@livekit/agents-plugin-baseten':
         specifier: ^1.3.2
         version: 1.3.2(@livekit/agents@1.3.2(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.2))(@livekit/rtc-node@0.13.27)(zod@4.4.2)
-      '@livekit/agents-plugin-elevenlabs':
-        specifier: ^1.3.2
-        version: 1.3.2(@livekit/agents@1.3.2(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.2))(@livekit/rtc-node@0.13.27)
       '@livekit/agents-plugin-livekit':
         specifier: ^1.3.2
         version: 1.3.2(@livekit/agents@1.3.2(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.2))
@@ -585,12 +582,6 @@ packages:
 
   '@livekit/agents-plugin-baseten@1.3.2':
     resolution: {integrity: sha512-DmOv2B9SE043dKTC+0+IFK9gwLwvTpkl81YOVbR+WkC1UTP31/1zwvUFEc/aXy5AmrUIoQVlnlOtTqYigUOBmg==}
-    peerDependencies:
-      '@livekit/agents': 1.3.2
-      '@livekit/rtc-node': ^0.13.27
-
-  '@livekit/agents-plugin-elevenlabs@1.3.2':
-    resolution: {integrity: sha512-qV+sYhWdnu43hl1v86i/TDSb11xPDrwGuqf1PJzNF6EmoulKRRplt/m/9JKXCjooFbIWzKMjbPzm/Jf+p/luMQ==}
     peerDependencies:
       '@livekit/agents': 1.3.2
       '@livekit/rtc-node': ^0.13.27
@@ -2652,16 +2643,6 @@ snapshots:
       - bufferutil
       - utf-8-validate
       - zod
-
-  '@livekit/agents-plugin-elevenlabs@1.3.2(@livekit/agents@1.3.2(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.2))(@livekit/rtc-node@0.13.27)':
-    dependencies:
-      '@livekit/agents': 1.3.2(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.2)
-      '@livekit/mutex': 1.1.1
-      '@livekit/rtc-node': 0.13.27
-      ws: 8.20.0
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   '@livekit/agents-plugin-livekit@1.3.2(@livekit/agents@1.3.2(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.2))':
     dependencies:
