@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  cartesiaTTSOptions,
   fallbackLLMOptions,
   primaryLLMOptions,
+  rimeTTSOptions,
 } from "../model-config.js";
 
 describe("model config", () => {
@@ -18,14 +18,11 @@ describe("model config", () => {
     expect(primaryLLMOptions.topP).toBe(fallbackLLMOptions.topP);
   });
 
-  it("uses the Cartesia plugin options for TTS", () => {
-    expect(cartesiaTTSOptions).toMatchObject({
-      model: "sonic-3",
-      voice: "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
-      sampleRate: 16000,
-      speed: 0.92,
-      volume: 0.85,
-      apiVersion: "2026-03-01",
+  it("uses the Rime plugin options for TTS", () => {
+    expect(rimeTTSOptions).toMatchObject({
+      modelId: "coda",
+      speaker: "marlu",
+      lang: "eng",
     });
   });
 });

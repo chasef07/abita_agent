@@ -1,14 +1,11 @@
 import type { BasetenLLMOptions } from "@livekit/agents-plugin-baseten";
-import type { TTSOptions as CartesiaTTSOptions } from "@livekit/agents-plugin-cartesia";
+import type { TTSOptions as RimeTTSOptions } from "@livekit/agents-plugin-rime";
 
-export const cartesiaTTSOptions = {
-  model: "sonic-3",
-  voice: "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
-  sampleRate: 16000,
-  speed: 0.92,
-  volume: 0.85,
-  apiVersion: "2026-03-01",
-} as const satisfies Partial<CartesiaTTSOptions>;
+export const rimeTTSOptions = {
+  modelId: "coda",
+  speaker: "marlu",
+  lang: "eng",
+} as const satisfies Partial<RimeTTSOptions>;
 
 const voiceAgentGenerationOptions = {
   parallelToolCalls: false,

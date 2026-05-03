@@ -13,7 +13,7 @@ import {
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
-import * as cartesia from "@livekit/agents-plugin-cartesia";
+import * as rime from "@livekit/agents-plugin-rime";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -22,9 +22,9 @@ import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 import {
-  cartesiaTTSOptions,
   fallbackLLMOptions,
   primaryLLMOptions,
+  rimeTTSOptions,
 } from "./model-config.js";
 import {
   type AssemblyAISttProfile,
@@ -67,6 +67,10 @@ export default defineAgent({
 
       const primaryLLM = new baseten.LLM(primaryLLMOptions);
       const fallbackLLM = new baseten.LLM(fallbackLLMOptions);
+      const rimeApiKey = process.env.RIME_API_KEY?.trim();
+      if (!rimeApiKey) {
+        throw new Error("RIME_API_KEY is required for Rime TTS");
+      }
 
       const llmWithFallback = new llm.FallbackAdapter({
         llms: [primaryLLM, fallbackLLM],
@@ -82,7 +86,7 @@ export default defineAgent({
       const session = new voice.AgentSession<CallState>({
         stt,
         llm: llmWithFallback,
-        tts: new cartesia.TTS(cartesiaTTSOptions),
+        tts: new rime.TTS({ ...rimeTTSOptions, apiKey: rimeApiKey }),
         vad,
         // preemptiveGeneration: false,
         turnHandling: {
