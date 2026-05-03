@@ -285,7 +285,7 @@ Key metrics to surface:
 
 ### Completed
 - STT now uses the official AssemblyAI LiveKit plugin with keyterm and timing profiles
-- TTS (`cartesia/sonic-3-2026-01-12`) is a multilingual LiveKit Inference model
+- TTS (`sonic-3-latest`) uses the direct Cartesia plugin
 - Added Spanish language-switching instruction to SOUL.md
 
 ### Still needed

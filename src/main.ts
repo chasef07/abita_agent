@@ -7,13 +7,13 @@ import {
   ServerOptions,
   cli,
   defineAgent,
-  inference,
   llm,
   voice,
 } from "@livekit/agents";
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
+import * as cartesia from "@livekit/agents-plugin-cartesia";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -79,7 +79,7 @@ export default defineAgent({
       const session = new voice.AgentSession<CallState>({
         stt,
         llm: llmWithFallback,
-        tts: new inference.TTS(getCartesiaTtsOptions()),
+        tts: new cartesia.TTS(getCartesiaTtsOptions()),
         vad,
         // preemptiveGeneration: false,
         turnHandling: {

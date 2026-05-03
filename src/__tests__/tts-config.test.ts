@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 describe("TTS config", () => {
-  it("uses LiveKit Inference Cartesia TTS by default", () => {
+  it("uses direct Cartesia plugin TTS by default", () => {
     delete process.env.CARTESIA_TTS_VOICE;
 
     expect(getCartesiaTtsOptions()).toEqual({

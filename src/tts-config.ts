@@ -1,5 +1,6 @@
-export const CARTESIA_TTS_MODEL = "cartesia/sonic-3-2026-01-12";
-export const DEFAULT_CARTESIA_TTS_VOICE = "asher";
+export const CARTESIA_TTS_MODEL = "sonic-3-latest";
+export const DEFAULT_CARTESIA_TTS_VOICE =
+  "00967b2f-88a6-4a31-8153-110a92134b9f";
 export const CARTESIA_TTS_LANGUAGE = "en";
 
 export function getCartesiaTtsOptions() {
