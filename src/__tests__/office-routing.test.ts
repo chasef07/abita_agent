@@ -86,8 +86,8 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("uses the Eye Radiance human transfer number for Crystal River", () => {
-    expect(getOfficeConfig("crystal-river").transferNumber).toBe("+19546097250");
+  it("uses the shared human transfer number for live offices", () => {
+    expect(getOfficeConfig("crystal-river").transferNumber).toBe("+18667968908");
     expect(getOfficeConfig("spring-hill").transferNumber).toBe("+18667968908");
   });
 
