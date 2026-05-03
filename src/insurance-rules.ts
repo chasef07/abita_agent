@@ -15,6 +15,7 @@ export interface InsuranceAliasRule {
   family?: string;
   callerPlan?: string;
   clarificationNeeded?: string;
+  callerMessage?: string;
   canProceed: boolean;
   needsExactPlanName: boolean;
 }
@@ -158,7 +159,9 @@ export function matchInsurancePlan(
         canProceed: rule.canProceed,
         needsExactPlanName: rule.needsExactPlanName,
         clarificationNeeded,
-        callerMessage: `I can check that, but I need to know ${clarificationNeeded.toLowerCase()}.`,
+        callerMessage:
+          rule.callerMessage ??
+          `I can check that, but I need to know ${clarificationNeeded.toLowerCase()}.`,
       };
     }
 
@@ -173,9 +176,10 @@ export function matchInsurancePlan(
       needsExactPlanName: rule.needsExactPlanName,
       clarificationNeeded: null,
       callerMessage:
-        rule.status === "accepted"
+        rule.callerMessage ??
+        (rule.status === "accepted"
           ? buildAcceptedCallerMessage(callerPlan)
-          : `we don't accept ${callerPlan}.`,
+          : `we don't accept ${callerPlan}.`),
     };
   }
 

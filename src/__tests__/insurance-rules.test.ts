@@ -46,7 +46,6 @@ describe("insurance matcher", () => {
 
   it("matches middleware-backed shorthand aliases that can resolve server side", () => {
     const cases = [
-      ["Humana", "Humana PPO"],
       ["Cigna", "Cigna PPO"],
       ["Tricare", "Tricare Select"],
       ["Medicare", "Florida Medicare"],
@@ -76,6 +75,13 @@ describe("insurance matcher", () => {
     expect(result.status).toBe("needs_clarification");
     expect(result.canProceed).toBe(false);
     expect(result.clarificationNeeded).toContain("Medicaid");
+  });
+
+  it("asks which Humana plan before deciding Spring Hill acceptance", () => {
+    const result = matchInsurancePlanForOffice("spring-hill", "Humana");
+    expect(result.status).toBe("needs_clarification");
+    expect(result.canProceed).toBe(false);
+    expect(result.clarificationNeeded).toContain("which Humana plan");
   });
 
   it("works through office lookup helper", () => {
@@ -119,6 +125,16 @@ describe("insurance matcher", () => {
     const humana = matchInsurancePlanForOffice("crystal-river", "Humana PPO");
     expect(humana.status).toBe("not_accepted");
     expect(humana.canProceed).toBe(false);
+
+    const genericHumana = matchInsurancePlanForOffice(
+      "crystal-river",
+      "Humana",
+    );
+    expect(genericHumana.status).toBe("needs_clarification");
+    expect(genericHumana.clarificationNeeded).toContain("which Humana plan");
+    expect(genericHumana.callerMessage).toContain(
+      "Crystal River does not accept Humana",
+    );
 
     const blueSelect = matchInsurancePlan(
       crystalRiverReference,

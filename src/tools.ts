@@ -551,7 +551,10 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
     const result = matchInsurancePlanForOffice(state.officeKey, plan);
     state.checkedInsurancePlan = canonicalInsurancePlan(result);
     const response = buildInsuranceToolResponse(result);
-    if (state.officeKey === "crystal-river" && result.status !== "accepted") {
+    if (
+      state.officeKey === "crystal-river" &&
+      result.status === "not_accepted"
+    ) {
       const springHillResult = matchInsurancePlanForOffice("spring-hill", plan);
       const springHillPlan = canonicalInsurancePlan(springHillResult);
       if (springHillResult.status === "accepted" && springHillPlan) {

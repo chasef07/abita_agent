@@ -78,9 +78,32 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["Humana"],
+      "aliases": [
+        "Humana PPO",
+        "Humana Medicare",
+        "Humana Gold Plus",
+        "Humana Healthy Horizons",
+        "Humana Medicaid"
+      ],
       "status": "not_accepted",
       "family": "Humana",
+      "callerPlan": "Humana",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": ["Humana HMO", "Humana Care Plus", "Humana Premier HMO"],
+      "status": "not_accepted",
+      "family": "Humana HMO",
+      "callerPlan": "Humana HMO",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": ["Humana"],
+      "status": "needs_clarification",
+      "clarificationNeeded": "which Humana plan is on the card",
+      "callerMessage": "Crystal River does not accept Humana, but I can check whether Spring Hill accepts it. Which Humana plan is on the card?",
       "callerPlan": "Humana",
       "canProceed": false,
       "needsExactPlanName": false
@@ -103,7 +126,6 @@
     "Florida Blue BlueSelect",
     "Florida BlueSelect",
     "Florida Blue HMO",
-    "Humana",
     "Humana Care Plus",
     "Humana Gold Plus",
     "Humana Healthy Horizons",

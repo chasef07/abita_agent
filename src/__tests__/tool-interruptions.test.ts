@@ -270,6 +270,26 @@ describe("tool interruption handling", () => {
     expect(result.callerMessage).toContain("Spring Hill accepts Humana PPO");
   });
 
+  it("does not route Crystal River callers on plans that still need clarification", async () => {
+    const { ctx, state } = createToolContext();
+    state.officeKey = "crystal-river";
+    state.amdOfficePhone = "+13523202007";
+
+    const result = await check_insurance.execute(
+      { plan: "Oscar" },
+      { ctx, toolCallId: "test-check-insurance-clarify" },
+    );
+
+    expect(result).toMatchObject({
+      status: "needs_clarification",
+      canProceed: false,
+    });
+    expect(result).not.toHaveProperty("acceptedAtAlternateOffice");
+    expect(result).not.toHaveProperty("alternateCanonicalPlan");
+    expect(result).not.toHaveProperty("routeTool");
+    expect(result.callerMessage).toContain("can't confirm");
+  });
+
   it("routes the active Crystal River workflow to Spring Hill", async () => {
     const { ctx, state } = createToolContext();
     state.officeKey = "crystal-river";
