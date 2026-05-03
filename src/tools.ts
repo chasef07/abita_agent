@@ -485,9 +485,14 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
     if (!makeCurrentSpeechUninterruptible(ctx)) {
       return "Booking was interrupted before it could be submitted. Please confirm the appointment slot again.";
     }
+    const body = {
+      ...params,
+      patientId: state.patientId,
+      ...(state.patientName ? { patientName: state.patientName } : {}),
+    };
     return callApi(
       "/api/appointment/book",
-      { ...params, patientId: state.patientId },
+      body,
       getAmdOfficeForToolCall(state),
     );
   },

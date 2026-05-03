@@ -132,6 +132,40 @@ describe("tool interruption handling", () => {
     expect(ctx.waitForPlayout).toHaveBeenCalledOnce();
   });
 
+  it("attaches verified patient identity to booking requests", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "booked", appointmentId: 12345 }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx } = createToolContext();
+
+    await book_appt.execute(
+      {
+        columnId: 1,
+        profileId: 2,
+        startDatetime: "2026-04-28T09:00",
+        duration: 15,
+        appointmentTypeId: 1007,
+      },
+      { ctx, toolCallId: "test-book" },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody).toMatchObject({
+      appointmentTypeId: 1007,
+      columnId: 1,
+      duration: 15,
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+      profileId: 2,
+      startDatetime: "2026-04-28T09:00",
+    });
+  });
+
   it("does not run side effects if the speech already became interrupted", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const fetchMock = vi.fn();
