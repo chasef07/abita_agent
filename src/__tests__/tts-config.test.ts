@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   CARTESIA_TTS_LANGUAGE,
   CARTESIA_TTS_MODEL,
+  CARTESIA_TTS_SAMPLE_RATE,
   DEFAULT_CARTESIA_TTS_VOICE,
   getCartesiaTtsOptions,
 } from "../tts-config.js";
@@ -24,6 +25,7 @@ describe("TTS config", () => {
       model: CARTESIA_TTS_MODEL,
       voice: DEFAULT_CARTESIA_TTS_VOICE,
       language: CARTESIA_TTS_LANGUAGE,
+      sampleRate: CARTESIA_TTS_SAMPLE_RATE,
     });
   });
 
