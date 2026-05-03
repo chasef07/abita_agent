@@ -3,7 +3,9 @@ import {
   add_patient,
   book_appt,
   cancel_appt,
+  check_insurance,
   makeCurrentSpeechUninterruptible,
+  route_to_spring_hill,
   transfer_call,
   update_insurance,
   type CallState,
@@ -246,6 +248,40 @@ describe("tool interruption handling", () => {
     expect(ctx.waitForPlayout).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalled();
+  });
+
+  it("tells Crystal River callers when Spring Hill accepts insurance Crystal River does not", async () => {
+    const { ctx, state } = createToolContext();
+    state.officeKey = "crystal-river";
+    state.amdOfficePhone = "+13523202007";
+
+    const result = await check_insurance.execute(
+      { plan: "Humana PPO" },
+      { ctx, toolCallId: "test-check-insurance" },
+    );
+
+    expect(result).toMatchObject({
+      status: "not_accepted",
+      canProceed: false,
+      acceptedAtAlternateOffice: "Spring Hill",
+      alternateCanonicalPlan: "Humana PPO",
+      routeTool: "route_to_spring_hill",
+    });
+    expect(result.callerMessage).toContain("Spring Hill accepts Humana PPO");
+  });
+
+  it("routes the active Crystal River workflow to Spring Hill", async () => {
+    const { ctx, state } = createToolContext();
+    state.officeKey = "crystal-river";
+    state.amdOfficePhone = "+13523202007";
+
+    await route_to_spring_hill.execute(
+      {},
+      { ctx, toolCallId: "test-route-spring-hill" },
+    );
+
+    expect(state.officeKey).toBe("spring-hill");
+    expect(state.amdOfficePhone).toBe("+17275919997");
   });
 });
 

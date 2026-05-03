@@ -1,0 +1,116 @@
+{
+  "officeLabel": "Crystal River",
+  "aliasRules": [
+    {
+      "aliases": ["Blue Select", "Florida BlueSelect", "Florida Blue BlueSelect"],
+      "status": "not_accepted",
+      "family": "Blue Select",
+      "callerPlan": "Blue Select",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": ["Florida Blue HMO"],
+      "status": "not_accepted",
+      "family": "Florida Blue HMO",
+      "callerPlan": "Florida Blue HMO",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Aetna Commercial",
+        "Aetna PPO",
+        "Aetna Managed Choice",
+        "Aetna EPO",
+        "Aetna HMO"
+      ],
+      "status": "accepted",
+      "family": "Aetna",
+      "callerPlan": "Aetna Commercial",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Aetna Medicare", "Aetna Medicare PPO", "Aetna Medicare HMO"],
+      "status": "accepted",
+      "family": "Aetna Medicare",
+      "callerPlan": "Aetna Medicare",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Florida Blue",
+        "BCBS",
+        "Blue Cross",
+        "Blue Cross Blue Shield",
+        "BCBS out of state",
+        "Blue Cross out of state",
+        "Blue Cross Blue Shield out of state"
+      ],
+      "status": "accepted",
+      "family": "Florida Blue",
+      "callerPlan": "Blue Cross Blue Shield",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Medicare", "Standard Medicare"],
+      "status": "accepted",
+      "family": "Florida Medicare",
+      "callerPlan": "Medicare",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "United",
+        "UHC",
+        "United Healthcare",
+        "UnitedHealthcare",
+        "United Health Care"
+      ],
+      "status": "accepted",
+      "family": "United Healthcare",
+      "callerPlan": "United Healthcare",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Humana"],
+      "status": "not_accepted",
+      "family": "Humana",
+      "callerPlan": "Humana",
+      "canProceed": false,
+      "needsExactPlanName": false
+    }
+  ],
+  "acceptedPlans": [
+    "Aetna PPO",
+    "Aetna Managed Choice",
+    "Aetna EPO",
+    "Aetna HMO",
+    "Aetna Medicare PPO",
+    "Aetna Medicare HMO",
+    "Florida Blue",
+    "Florida Blue PPO Out of State",
+    "Florida Medicare",
+    "United Healthcare"
+  ],
+  "notAcceptedPlans": [
+    "Blue Select",
+    "Florida Blue BlueSelect",
+    "Florida BlueSelect",
+    "Florida Blue HMO",
+    "Humana",
+    "Humana Care Plus",
+    "Humana Gold Plus",
+    "Humana Healthy Horizons",
+    "Humana HMO",
+    "Humana Medicaid",
+    "Humana Medicare",
+    "Humana PPO",
+    "Humana Premier HMO"
+  ]
+}

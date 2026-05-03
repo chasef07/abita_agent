@@ -44,6 +44,9 @@ export interface InsuranceToolResponse {
   canonicalPlan: string | null;
   clarificationNeeded: string | null;
   callerMessage: string;
+  acceptedAtAlternateOffice?: string;
+  alternateCanonicalPlan?: string;
+  routeTool?: string;
 }
 
 const referenceCache = new Map<string, InsuranceReference>();
@@ -169,7 +172,10 @@ export function matchInsurancePlan(
       canProceed: rule.canProceed,
       needsExactPlanName: rule.needsExactPlanName,
       clarificationNeeded: null,
-      callerMessage: buildAcceptedCallerMessage(callerPlan),
+      callerMessage:
+        rule.status === "accepted"
+          ? buildAcceptedCallerMessage(callerPlan)
+          : `we don't accept ${callerPlan}.`,
     };
   }
 
