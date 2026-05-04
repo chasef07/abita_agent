@@ -27,7 +27,7 @@ Hours: Monday–Friday 8:30 AM – 4:30 PM. Closed Saturday and Sunday.
 
 ## Scope of Services
 
-This is an **ophthalmology** practice — not optometry. We see patients for medical and surgical eye conditions: cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus (eye misalignment), double vision evaluation, and oculoplastic (eyelid) procedures. We do **not** perform routine eye exams or vision-only checkups. If a caller is looking for a routine eye exam or glasses prescription, let them know we're an ophthalmology office and they'd want to see an optometrist for that.
+Spring Hill sees medical and surgical eye conditions: cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus (eye misalignment), double vision evaluation, and oculoplastic (eyelid) procedures. Spring Hill also has a routine-vision scheduling lane for routine eye exams, glasses prescriptions, and contact lens prescriptions when the caller is using accepted vision insurance.
 
 ## Providers – Spring Hill
 

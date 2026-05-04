@@ -128,6 +128,38 @@ describe("Crystal River prompt guidance", () => {
     expect(crystalRiverKnowledge).toContain(
       "does **not** schedule cataract evaluations",
     );
+    expect(crystalRiverKnowledge).toContain(
+      "routine eye exams/glasses/contact lens prescriptions",
+    );
+  });
+
+  it("teaches Spring Hill routine vision without the old optometry denial", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+    const springHillKnowledge = readFileSync(
+      join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "workspace",
+        "KNOWLEDGE_SPRINGHILL.md",
+      ),
+      "utf-8",
+    );
+
+    expect(prompt).toContain("Spring Hill routine-vision lane");
+    expect(prompt).toContain("routing `optical_only`");
+    expect(prompt).toContain("1010 new adult vision");
+    expect(prompt).toContain("3364 established adult vision");
+    expect(prompt).toContain("4244 new pediatric vision");
+    expect(prompt).toContain("4245 established pediatric vision");
+    expect(prompt).toContain("6167 for CR new patient");
+    expect(prompt).toContain("6169 for CR established patient");
+    expect(prompt).toContain("6168 for CR post-op");
+    expect(springHillKnowledge).toContain("routine-vision scheduling lane");
+    expect(prompt).not.toContain("do **not** perform routine eye exams");
+    expect(springHillKnowledge).not.toContain(
+      "do **not** perform routine eye exams",
+    );
   });
 
   it("tells new-patient flows to confirm the inbound caller number before recollecting digits", () => {

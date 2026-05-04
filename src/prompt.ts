@@ -25,10 +25,11 @@ function buildOfficeRoutingHints(trunkPhone: string): string {
     "**Crystal River routing rules.** If the caller is trying to schedule one of these visit types, explain that Spring Hill handles it, get their agreement, then route to Spring Hill:",
     "- A child, son, daughter, kid, or anyone implied to be under 18 — Crystal River does not see pediatric ophthalmology",
     "- Cataract evaluation, cataract surgery, cataract consult — handled at Spring Hill",
-    "- Routine eye exam, annual exam, vision check, glasses prescription — Crystal River is ophthalmology only",
+    "- Routine eye exam, annual exam, vision check, glasses prescription, contact lens prescription — use the Spring Hill routine-vision lane",
     "",
     "Do not route just because those words are mentioned in a FAQ, confirmation, or other non-scheduling context.",
     "Use the routing tool, not the transfer tool. Routing keeps the caller on the line with you so you can continue scheduling them at Spring Hill after they agree. Transferring sends them to a human, which is the wrong outcome here.",
+    "For routine vision, ask whether this is a routine eye exam or glasses/contact lens prescription using vision insurance, run check_insurance with coverageType routine_vision, then schedule with routing optical_only.",
   ].join("\n");
 }
 

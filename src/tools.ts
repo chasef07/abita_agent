@@ -15,7 +15,9 @@ import {
 import {
   buildInsuranceToolResponse,
   canonicalInsurancePlan,
+  normalizeCoverageType,
   matchInsurancePlanForOffice,
+  type InsuranceCoverageType,
 } from "./insurance-rules.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
@@ -83,7 +85,9 @@ export interface CallState {
   insPlanId: string | null;
   respPartyId: string | null;
   checkedInsurancePlan: string | null;
+  checkedInsuranceCoverageType: InsuranceCoverageType | null;
   routing: string | null;
+  lastAvailabilityRouting: string | null;
   allowedProviders: string[];
   routingAmbiguous: boolean;
   preauthRequired: boolean;
@@ -139,11 +143,31 @@ function applyPatientResult(state: CallState, result: any): void {
   state.insPlanId = result.insPlanId ?? null;
   state.respPartyId = result.respPartyId ?? null;
   state.checkedInsurancePlan = result.insuranceCarrier ?? null;
+  state.checkedInsuranceCoverageType =
+    result.routing === "optical_only" ? "routine_vision" : null;
   state.routing = result.routing ?? null;
+  state.lastAvailabilityRouting = null;
   state.allowedProviders = result.allowedProviders ?? [];
   state.routingAmbiguous = result.routingAmbiguous ?? false;
   state.preauthRequired = result.preauthRequired ?? false;
   state.appointments = [];
+}
+
+function routingForAvailability(
+  state: CallState,
+  routingOverride?: string | null,
+): string | null {
+  if (state.checkedInsuranceCoverageType === "routine_vision") {
+    return "optical_only";
+  }
+  if (routingOverride) return routingOverride;
+  return state.routing;
+}
+
+function ensureRoutineVisionOffice(state: CallState): void {
+  if (state.checkedInsuranceCoverageType !== "routine_vision") return;
+  state.officeKey = "spring-hill";
+  state.amdOfficePhone = getSpringHillOfficePhone();
 }
 
 /** Pre-call phone lookup — called from main.ts before session starts. */
@@ -271,6 +295,7 @@ export const add_patient = llm.tool({
 
 Follow the registration order in the runbook. Key rules for this tool:
 - Run check_insurance first. Use the canonicalPlan from the latest check_insurance result for the insurance value sent to middleware. If the tool accepted a family alias like "Blue Cross" or "Oscar", do not rewrite it yourself.
+- For a new routine-vision patient, check_insurance must use coverageType "routine_vision" first. This tool will attach that coverage type and canonical vision plan to the new patient payload.
 - Ask "is the number you're calling from a good one on file?" If yes, omit phone and this tool will use the inbound caller number already stored in session state. If no, collect the best 10-digit phone number and pass it explicitly.
 - Email is optional. Ask once; if the caller says they do not have one, omit email and continue registration. Do not transfer just because email is missing.
 - If subscriber is "me" or "mine" = use patient name.
@@ -319,7 +344,11 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
     if (!makeCurrentSpeechUninterruptible(ctx)) {
       return "Registration was interrupted before it could be submitted. Please confirm the patient details again.";
     }
+    ensureRoutineVisionOffice(state);
     const payload: Record<string, unknown> = { ...params, insurance, phone };
+    if (state.checkedInsuranceCoverageType === "routine_vision") {
+      payload.coverageType = "routine_vision";
+    }
     if (typeof params.email === "string" && params.email.trim()) {
       payload.email = params.email.trim();
     } else {
@@ -341,7 +370,7 @@ Preauth insurances: Humana Gold Plus, Humana Medicaid, United Healthcare HMO, Ae
 export const update_insurance = llm.tool({
   description: `Updates a verified patient's insurance. Requires verify_patient first. Confirm plan name and member ID with caller before submitting.
 
-Run check_insurance first and use the canonicalPlan from the latest result for the insurance value sent to middleware.
+Run check_insurance first with medical coverage and use the canonicalPlan from the latest result for the insurance value sent to middleware. Do not use update_insurance just to schedule a routine vision appointment for an existing patient; collect/check the vision insurance and schedule on the routine-vision lane instead.
 
 After response: session state updates automatically. If preauthRequired, scheduling starts two weeks out.`,
   parameters: z.object({
@@ -355,18 +384,22 @@ After response: session state updates automatically. If preauthRequired, schedul
     if (!makeCurrentSpeechUninterruptible(ctx)) {
       return "Insurance update was interrupted before it could be submitted. Please confirm the insurance details again.";
     }
-    const insuranceForMiddleware = state.checkedInsurancePlan ?? insurance;
+    const insuranceForMiddleware =
+      state.checkedInsuranceCoverageType === "medical"
+        ? (state.checkedInsurancePlan ?? insurance)
+        : insurance;
+    const payload: Record<string, unknown> = {
+      patientId: state.patientId,
+      insPlanId: state.insPlanId ?? "",
+      respPartyId: state.respPartyId ?? "",
+      oldInsurance: state.insuranceCarrier ?? "",
+      insurance: insuranceForMiddleware,
+      subscriberName,
+      subscriberNum,
+    };
     const result = (await callApi(
       "/api/patient/update-insurance",
-      {
-        patientId: state.patientId,
-        insPlanId: state.insPlanId ?? "",
-        respPartyId: state.respPartyId ?? "",
-        oldInsurance: state.insuranceCarrier ?? "",
-        insurance: insuranceForMiddleware,
-        subscriberName,
-        subscriberNum,
-      },
+      payload,
       getAmdOfficeForToolCall(state),
     )) as any;
     if (result?.status === "updated") {
@@ -388,20 +421,29 @@ export const get_availability = llm.tool({
   description: `Gets schedule availability. Requires date (YYYY-MM-DD). Routing and preauth auto-applied from session state.
 
 Appointment type codes — you determine new/existing (from verify_patient) and adult/pediatric (from DOB). Ask the caller the reason for their visit before calling this tool so you pick the right code:
-- New 18+ = 1006, new under 18 = 1004
-- Existing 18+ = 1007, existing under 18 = 1005
-- Post-op (1008) = only if the caller says they're coming in for a post-op or follow-up after recent surgery.
+- Medical Spring Hill: new 18+ = 1006, new under 18 = 1004, existing 18+ = 1007, existing under 18 = 1005, post-op = 1008.
+- Routine vision Spring Hill: use routing "optical_only"; new 18+ = 1010, existing 18+ = 3364, new under 18 = 4244, existing under 18 = 4245.
+- Crystal River: new patient = 6167, established patient = 6169, post-op = 6168.
 
-Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. Under 18 = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
+Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. Under 18 medical visits = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
 
 After response: check if date shifted vs requested — tell caller if different. Suggest one best-fit slot (date + time). Mention the doctor only if asked or clinically relevant. If rejected, offer one alternative. Scan existing results before calling again. If no slots are returned, tell the caller that date has no openings and offer the nearest available date.`,
   parameters: z.object({
     date: z.string().describe("Start date to search, formatted YYYY-MM-DD"),
+    routing: z
+      .enum(["bach_only", "bach_licht", "all_three", "optical_only"])
+      .optional()
+      .describe(
+        "Use optical_only only for routine eye exam or glasses/contact lens prescription visits using accepted vision insurance.",
+      ),
   }),
-  execute: async ({ date }, { ctx }) => {
+  execute: async ({ date, routing }, { ctx }) => {
     const state = getState(ctx);
+    ensureRoutineVisionOffice(state);
     const body: Record<string, unknown> = { date };
-    if (state.routing) body.routing = state.routing;
+    const effectiveRouting = routingForAvailability(state, routing);
+    state.lastAvailabilityRouting = effectiveRouting;
+    if (effectiveRouting) body.routing = effectiveRouting;
     if (state.preauthRequired) body.preauthRequired = true;
     return callApi(
       "/api/scheduler/availability",
@@ -458,6 +500,8 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
 export const book_appt = llm.tool({
   description: `Books an appointment. Pass columnId, profileId, startDatetime, duration, and appointmentTypeId from get_availability. Patient ID is read from session state automatically.
 
+Use the same routing lane that produced the selected slot. Routine vision slots must be booked with routing "optical_only" and one of the vision appointment type IDs. Crystal River slots must use the Crystal River appointment type IDs.
+
 The slot offer is the confirmation — if the caller said yes, book it. If fails, retry once. If still fails, offer different time or transfer.`,
   parameters: z.object({
     columnId: z
@@ -471,11 +515,17 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
       .describe("Slot datetime from get_availability, format YYYY-MM-DDTHH:MM"),
     duration: z
       .number()
-      .describe("Slot duration in minutes from get_availability (15 or 30)"),
+      .describe("Slot duration in minutes from get_availability"),
     appointmentTypeId: z
       .number()
       .describe(
-        "Appointment type: 1004=New Pediatric, 1005=Est Pediatric, 1006=New Adult, 1007=Est Adult, 1008=Post Op",
+        "Appointment type: 1004=New Pediatric Medical, 1005=Est Pediatric Medical, 1006=New Adult Medical, 1007=Est Adult Medical, 1008=Post Op, 1010=New Adult Vision, 3364=Est Adult Vision, 4244=New Pediatric Vision, 4245=Est Pediatric Vision, 6167=CR New, 6169=CR Established, 6168=CR Post Op",
+      ),
+    routing: z
+      .enum(["bach_only", "bach_licht", "all_three", "optical_only"])
+      .optional()
+      .describe(
+        "Same routing used for get_availability. Required as optical_only for routine vision slots.",
       ),
   }),
   execute: async (params, { ctx }) => {
@@ -485,10 +535,15 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
     if (!makeCurrentSpeechUninterruptible(ctx)) {
       return "Booking was interrupted before it could be submitted. Please confirm the appointment slot again.";
     }
+    ensureRoutineVisionOffice(state);
+    const routing =
+      state.lastAvailabilityRouting ??
+      routingForAvailability(state, params.routing);
     const body = {
       ...params,
       patientId: state.patientId,
       ...(state.patientName ? { patientName: state.patientName } : {}),
+      ...(routing ? { routing } : {}),
     };
     return callApi(
       "/api/appointment/book",
@@ -502,7 +557,7 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
 export const route_to_spring_hill = llm.tool({
   description: `Switches the active call workflow to the Spring Hill office without transferring the caller.
 
-Use this when the caller reached Crystal River but the visit must be handled through Spring Hill scheduling — especially pediatrics, cataract evaluation/workup/surgery scheduling, or insurance accepted at Spring Hill but not Crystal River. Call this before verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, or book_appt for that visit. Keep the caller on the line and continue helping them normally.`,
+Use this when the caller reached Crystal River but the visit must be handled through Spring Hill scheduling — especially pediatrics, cataract evaluation/workup/surgery scheduling, routine-vision scheduling, or insurance accepted at Spring Hill but not Crystal River. Call this before verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, or book_appt for that visit. Keep the caller on the line and continue helping them normally.`,
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
@@ -530,6 +585,7 @@ export const check_insurance = llm.tool({
   description: `Looks up whether the office accepts a specific insurance plan or family alias.
 
 Use when a caller asks if a plan is accepted or during new-patient registration.
+Use coverageType "routine_vision" only when the caller is scheduling a routine eye exam or glasses/contact lens prescription using vision insurance. Use medical for medical/surgical eye visits.
 If the caller gives a plan or family name that matches the insurance map, run this tool with that exact phrase.
 Do NOT force HMO, PPO, or Medicare as a default follow-up. Only ask for that kind of clarification if this tool returns clarificationNeeded.
 
@@ -545,11 +601,25 @@ If Crystal River does not accept a plan but Spring Hill does, tell the caller Sp
 Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
   parameters: z.object({
     plan: z.string().describe("The insurance plan name the caller mentioned"),
+    coverageType: z
+      .enum(["medical", "routine_vision"])
+      .optional()
+      .describe(
+        "medical for ophthalmology coverage; routine_vision for routine eye exam/glasses/contact lens prescription coverage.",
+      ),
   }),
-  execute: async ({ plan }, { ctx }) => {
+  execute: async ({ plan, coverageType }, { ctx }) => {
     const state = getState(ctx);
-    const result = matchInsurancePlanForOffice(state.officeKey, plan);
+    const normalizedCoverageType = normalizeCoverageType(coverageType);
+    const result = matchInsurancePlanForOffice(
+      state.officeKey,
+      plan,
+      normalizedCoverageType,
+    );
     state.checkedInsurancePlan = canonicalInsurancePlan(result);
+    state.checkedInsuranceCoverageType = state.checkedInsurancePlan
+      ? normalizedCoverageType
+      : null;
     const response = buildInsuranceToolResponse(result);
     if (
       state.officeKey === "crystal-river" &&

@@ -4,6 +4,8 @@ import { getOfficeConfig, type OfficeKey } from "./offices.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
+export type InsuranceCoverageType = "medical" | "routine_vision";
+
 export type InsuranceMatchStatus =
   | "accepted"
   | "not_accepted"
@@ -68,6 +70,27 @@ export function loadInsuranceReference(file: string): InsuranceReference {
   const parsed = JSON.parse(raw) as InsuranceReference;
   referenceCache.set(file, parsed);
   return parsed;
+}
+
+export function normalizeCoverageType(
+  coverageType?: string | null,
+): InsuranceCoverageType {
+  return coverageType === "routine_vision" ? "routine_vision" : "medical";
+}
+
+export function insuranceFileForCoverage(
+  officeKey: OfficeKey,
+  coverageType: InsuranceCoverageType = "medical",
+): string {
+  const office = getOfficeConfig(officeKey);
+  if (coverageType === "routine_vision") {
+    return (
+      office.visionInsuranceFile ??
+      getOfficeConfig("spring-hill").visionInsuranceFile ??
+      office.insuranceFile
+    );
+  }
+  return office.insuranceFile;
 }
 
 function findExactPlan(
@@ -141,11 +164,29 @@ export function matchInsurancePlan(
     };
   }
 
+  let bestAliasMatch: {
+    rule: InsuranceAliasRule;
+    alias: string;
+    normalizedAlias: string;
+  } | null = null;
+
   for (const rule of reference.aliasRules) {
-    const matchedAlias = rule.aliases.find((alias) =>
-      normalizedQuery.includes(normalizeInsuranceText(alias)),
-    );
-    if (!matchedAlias) continue;
+    for (const alias of rule.aliases) {
+      const normalizedAlias = normalizeInsuranceText(alias);
+      if (!normalizedAlias || !normalizedQuery.includes(normalizedAlias)) {
+        continue;
+      }
+      if (
+        !bestAliasMatch ||
+        normalizedAlias.length > bestAliasMatch.normalizedAlias.length
+      ) {
+        bestAliasMatch = { rule, alias, normalizedAlias };
+      }
+    }
+  }
+
+  if (bestAliasMatch) {
+    const { rule, alias: matchedAlias } = bestAliasMatch;
     if (rule.status === "needs_clarification") {
       const clarificationNeeded =
         rule.clarificationNeeded ??
@@ -200,8 +241,9 @@ export function matchInsurancePlan(
 export function matchInsurancePlanForOffice(
   officeKey: OfficeKey,
   query: string,
+  coverageType: InsuranceCoverageType = "medical",
 ): InsuranceLookupResult {
-  const file = getOfficeConfig(officeKey).insuranceFile;
+  const file = insuranceFileForCoverage(officeKey, coverageType);
   const reference = loadInsuranceReference(file);
   return matchInsurancePlan(reference, query);
 }
