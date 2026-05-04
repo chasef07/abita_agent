@@ -1,5 +1,5 @@
 export const RIME_TTS_MODEL_ID = "coda";
-export const DEFAULT_RIME_TTS_SPEAKER = "pilaster";
+export const DEFAULT_RIME_TTS_SPEAKER = "masonry";
 export const RIME_TTS_BASE_URL = "https://users-east.rime.ai/v1/rime-tts";
 export const RIME_TTS_SAMPLE_RATE = 16000;
 
