@@ -10,7 +10,7 @@ A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over
 | Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
 | STT | AssemblyAI | Streaming STT with adaptive keyterm/timing profiles |
 | LLM | Baseten (GLM-4.7 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
-| TTS | Rime plugin `coda` | Speaker defaults to `masonry`; east-region Rime endpoint; 16 kHz PCM |
+| TTS | Cartesia plugin `sonic-3-latest` | Voice defaults to `a167e0f3-df7e-4d52-a9c3-f949145efdab`; 16 kHz PCM |
 | VAD | Silero (local ONNX) | Prewarmed per job process |
 | Turn handling | LiveKit Agents | STT turn detection, adaptive interruptions, Silero VAD |
 | Medical backend | AdvancedMD via Railway middleware | Patient lookup, booking, insurance |
@@ -171,10 +171,8 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 |---|---|
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud credentials |
 | `ASSEMBLYAI_API_KEY` | STT |
-| `RIME_API_KEY` | TTS |
-| `RIME_TTS_MODEL_ID` | Optional TTS model override; defaults to `coda` |
-| `RIME_TTS_SPEAKER` | Optional TTS speaker override; defaults to `masonry` |
-| `RIME_TTS_BASE_URL` | Optional TTS endpoint override; defaults to `https://users-east.rime.ai/v1/rime-tts` |
+| `CARTESIA_API_KEY` | TTS |
+| `CARTESIA_TTS_VOICE` | Optional TTS voice override; defaults to `a167e0f3-df7e-4d52-a9c3-f949145efdab` |
 | `BASETEN_API_KEY` | LLM (GLM-4.7 + MiniMax fallback) |
 | `AMD_API_URL` / `AMD_API_TOKEN` | AdvancedMD middleware |
 | `ANALYTICS_URL` / `WEBHOOK_SECRET` | Post-call analytics endpoint |

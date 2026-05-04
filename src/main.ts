@@ -13,7 +13,7 @@ import {
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
-import * as rime from "@livekit/agents-plugin-rime";
+import * as cartesia from "@livekit/agents-plugin-cartesia";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -22,7 +22,7 @@ import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
-import { getRimeTtsOptions } from "./tts-config.js";
+import { getCartesiaTtsOptions } from "./tts-config.js";
 import {
   type AssemblyAISttProfile,
   getAssemblyAISttOptions,
@@ -79,7 +79,7 @@ export default defineAgent({
       const session = new voice.AgentSession<CallState>({
         stt,
         llm: llmWithFallback,
-        tts: new rime.TTS(getRimeTtsOptions()),
+        tts: new cartesia.TTS(getCartesiaTtsOptions()),
         vad,
         // preemptiveGeneration: false,
         turnHandling: {

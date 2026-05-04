@@ -1,57 +1,37 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  DEFAULT_RIME_TTS_SPEAKER,
-  RIME_TTS_BASE_URL,
-  RIME_TTS_MODEL_ID,
-  RIME_TTS_SAMPLE_RATE,
-  getRimeTtsOptions,
+  CARTESIA_TTS_LANGUAGE,
+  CARTESIA_TTS_MODEL,
+  CARTESIA_TTS_SAMPLE_RATE,
+  DEFAULT_CARTESIA_TTS_VOICE,
+  getCartesiaTtsOptions,
 } from "../tts-config.js";
 
-const originalModel = process.env.RIME_TTS_MODEL_ID;
-const originalSpeaker = process.env.RIME_TTS_SPEAKER;
-const originalBaseUrl = process.env.RIME_TTS_BASE_URL;
+const originalVoice = process.env.CARTESIA_TTS_VOICE;
 
 afterEach(() => {
-  if (originalModel === undefined) {
-    delete process.env.RIME_TTS_MODEL_ID;
+  if (originalVoice === undefined) {
+    delete process.env.CARTESIA_TTS_VOICE;
   } else {
-    process.env.RIME_TTS_MODEL_ID = originalModel;
-  }
-  if (originalSpeaker === undefined) {
-    delete process.env.RIME_TTS_SPEAKER;
-  } else {
-    process.env.RIME_TTS_SPEAKER = originalSpeaker;
-  }
-  if (originalBaseUrl === undefined) {
-    delete process.env.RIME_TTS_BASE_URL;
-  } else {
-    process.env.RIME_TTS_BASE_URL = originalBaseUrl;
+    process.env.CARTESIA_TTS_VOICE = originalVoice;
   }
 });
 
 describe("TTS config", () => {
-  it("uses direct Rime plugin TTS by default", () => {
-    delete process.env.RIME_TTS_MODEL_ID;
-    delete process.env.RIME_TTS_SPEAKER;
-    delete process.env.RIME_TTS_BASE_URL;
+  it("uses direct Cartesia plugin TTS by default", () => {
+    delete process.env.CARTESIA_TTS_VOICE;
 
-    expect(getRimeTtsOptions()).toEqual({
-      modelId: RIME_TTS_MODEL_ID,
-      speaker: DEFAULT_RIME_TTS_SPEAKER,
-      baseURL: RIME_TTS_BASE_URL,
-      samplingRate: RIME_TTS_SAMPLE_RATE,
+    expect(getCartesiaTtsOptions()).toEqual({
+      model: CARTESIA_TTS_MODEL,
+      voice: DEFAULT_CARTESIA_TTS_VOICE,
+      language: CARTESIA_TTS_LANGUAGE,
+      sampleRate: CARTESIA_TTS_SAMPLE_RATE,
     });
   });
 
-  it("allows the Rime model, speaker, and base URL to be changed without code changes", () => {
-    process.env.RIME_TTS_MODEL_ID = "arcana";
-    process.env.RIME_TTS_SPEAKER = "luna";
-    process.env.RIME_TTS_BASE_URL = "https://users.rime.ai/v1/rime-tts";
+  it("allows the Cartesia voice to be changed without code changes", () => {
+    process.env.CARTESIA_TTS_VOICE = "blake";
 
-    expect(getRimeTtsOptions()).toMatchObject({
-      modelId: "arcana",
-      speaker: "luna",
-      baseURL: "https://users.rime.ai/v1/rime-tts",
-    });
+    expect(getCartesiaTtsOptions().voice).toBe("blake");
   });
 });
