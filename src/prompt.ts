@@ -33,6 +33,14 @@ function buildOfficeRoutingHints(trunkPhone: string): string {
   ].join("\n");
 }
 
+function normalizeMeridiemSpacing(text: string): string {
+  return text.replace(
+    /\b(\d{1,2})(?::(\d{2}))?\s*([AaPp])\.?\s*([Mm])\.?\b/g,
+    (_match, hour: string, minute: string | undefined, period: string) =>
+      `${hour}${minute ? `:${minute}` : ""} ${period.toUpperCase()}M`,
+  );
+}
+
 const FILES: { file: string; tag: string }[] = [
   { file: "SOUL.md", tag: "role" },
   { file: "VOICE.md", tag: "voice" },
@@ -111,7 +119,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
         lines.push(`Upcoming appointments:`);
         for (const appt of upcoming) {
           lines.push(
-            `  - [ID: ${appt.id}] ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`,
+            `  - [ID: ${appt.id}] ${appt.date} at ${normalizeMeridiemSpacing(appt.time)} with ${appt.provider} (${appt.type})`,
           );
         }
       } else {
@@ -121,7 +129,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
         lines.push(`Past appointments (cannot be cancelled or modified):`);
         for (const appt of past) {
           lines.push(
-            `  - ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`,
+            `  - ${appt.date} at ${normalizeMeridiemSpacing(appt.time)} with ${appt.provider} (${appt.type})`,
           );
         }
       }

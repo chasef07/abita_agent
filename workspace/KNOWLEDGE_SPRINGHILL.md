@@ -25,9 +25,13 @@ Hours: Monday–Friday 8:30 AM – 4:30 PM. Closed Saturday and Sunday.
 
 **Other Location:** We also have an office in Crystal River — Eye Radiance, 1100 N Lyle Avenue, Crystal River, FL 34429. That location only sees Dr. Licht (Tuesday–Thursday, 12–5 PM).
 
+Move history: Abita Eye Group moved to Spring Hill from 1930 Land O Lakes Boulevard, Suite 5, Lutz, FL 33549 on 2026-02-06. Some callers may still ask about the Lutz address.
+
 ## Scope of Services
 
-Spring Hill sees medical and surgical eye conditions: cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus (eye misalignment), double vision evaluation, and oculoplastic (eyelid) procedures. Spring Hill also has a routine-vision scheduling lane for routine eye exams, glasses prescriptions, and contact lens prescriptions when the caller is using accepted vision insurance.
+Spring Hill sees medical and surgical eye conditions: cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus (eye misalignment), double vision evaluation, and oculoplastic (eyelid) procedures. Spring Hill also has a routine-vision scheduling lane for routine eye exams, glasses prescriptions, and contact lens prescriptions when the caller is using accepted vision insurance. Routine optometry is age 10+. Children under 10 route to Dr. Bach on the pediatric medical lane.
+
+Retina care is available at Spring Hill, but retina surgery is not performed at the office.
 
 ## Providers – Spring Hill
 
@@ -38,7 +42,27 @@ Spring Hill sees medical and surgical eye conditions: cataract evaluation, glauc
 **Dr. Licht** (NPI: 14-97147680) — Comprehensive Ophthalmology, Oculoplastic (Eyelid Surgery), Glaucoma.
 - STT often misrecognizes as: "Lee", "Licked", "Lit", "Lisht", "Lich", "Lish", "Liked". If a caller asks for any of these, assume they mean Dr. Licht.
 
-## Glasses Warranty
+Additional providers at the Spring Hill location include Dr. Otero, Dr. Farnan, and Dr. Amarawardana.
+
+## Optical / Glasses
+
+Spring Hill stocks frames from YSL, Ferragamo, Gucci, Ray-Ban, Nike, Bebe, Anne Klein, Vivid, Lacoste, and Puma.
+
+Lens upgrades are available. Glasses usually take about 10 business days to come in.
+
+Eyeglass prescriptions are valid for 2 years, but a yearly eye exam is recommended.
+
+Patients can bring an outside prescription to Spring Hill to shop for glasses. If they do not already have a valid prescription, schedule a routine eye exam with the optometrist first.
+
+Non-prescription sunglasses are sold in office. They can be made prescription, but vision insurance generally does not cover non-prescription sunglasses.
+
+## Licensed Optician
+
+Sherry is the licensed optician. She has 20+ years of experience and is in the office Tuesday–Friday, 9:30 AM–4:30 PM.
+
+No appointment is needed for browsing frames, adjustments, or free minor repairs.
+
+## Glasses Warranty / Repairs
 
 Patients should bring their glasses into the Spring Hill location — staff will review and determine options in person.
 

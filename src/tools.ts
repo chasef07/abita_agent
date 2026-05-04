@@ -277,6 +277,7 @@ After response:
     if (lastName) body.lastName = lastName;
     if (dob) body.dob = dob;
     if (usePhone) body.phone = state.callerPhone;
+    ensureRoutineVisionOffice(state);
     const result = (await callApi(
       "/api/verify-patient",
       body,
@@ -420,10 +421,7 @@ After response: session state updates automatically. If preauthRequired, schedul
 export const get_availability = llm.tool({
   description: `Gets schedule availability. Requires date (YYYY-MM-DD). Routing and preauth auto-applied from session state.
 
-Appointment type codes — you determine new/existing (from verify_patient) and adult/pediatric (from DOB). Ask the caller the reason for their visit before calling this tool so you pick the right code:
-- Medical Spring Hill: new 18+ = 1006, new under 18 = 1004, existing 18+ = 1007, existing under 18 = 1005, post-op = 1008.
-- Routine vision Spring Hill: use routing "optical_only"; new 18+ = 1010, existing 18+ = 3364, new under 18 = 4244, existing under 18 = 4245.
-- Crystal River: new patient = 6167, established patient = 6169, post-op = 6168.
+Ask the caller the reason for their visit before calling this tool so the scheduling lane is right. The API returns slots with the appointment details needed for booking.
 
 Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. Under 18 medical visits = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
 
@@ -500,7 +498,7 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
 export const book_appt = llm.tool({
   description: `Books an appointment. Pass columnId, profileId, startDatetime, duration, and appointmentTypeId from get_availability. Patient ID is read from session state automatically.
 
-Use the same routing lane that produced the selected slot. Routine vision slots must be booked with routing "optical_only" and one of the vision appointment type IDs. Crystal River slots must use the Crystal River appointment type IDs.
+Use the same routing lane that produced the selected slot. Pass the appointmentTypeId from the selected get_availability slot; do not invent one.
 
 The slot offer is the confirmation — if the caller said yes, book it. If fails, retry once. If still fails, offer different time or transfer.`,
   parameters: z.object({
@@ -518,9 +516,7 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
       .describe("Slot duration in minutes from get_availability"),
     appointmentTypeId: z
       .number()
-      .describe(
-        "Appointment type: 1004=New Pediatric Medical, 1005=Est Pediatric Medical, 1006=New Adult Medical, 1007=Est Adult Medical, 1008=Post Op, 1010=New Adult Vision, 3364=Est Adult Vision, 4244=New Pediatric Vision, 4245=Est Pediatric Vision, 6167=CR New, 6169=CR Established, 6168=CR Post Op",
-      ),
+      .describe("appointmentTypeId from the selected get_availability slot"),
     routing: z
       .enum(["bach_only", "bach_licht", "all_three", "optical_only"])
       .optional()

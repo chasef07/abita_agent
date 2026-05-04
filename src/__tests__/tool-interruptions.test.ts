@@ -9,6 +9,7 @@ import {
   route_to_spring_hill,
   transfer_call,
   update_insurance,
+  verify_patient,
   type CallState,
 } from "../tools.js";
 
@@ -223,6 +224,47 @@ describe("tool interruption handling", () => {
       routing: "optical_only",
       startDatetime: "2026-04-28T10:00",
     });
+  });
+
+  it("routes routine vision verification to Spring Hill after the vision insurance check", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        patientId: "patient-vision",
+        name: "Jane Doe",
+        dob: "01/01/1980",
+        insuranceCarrier: "VSP",
+        routing: "optical_only",
+        allowedProviders: [],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.officeKey = "crystal-river";
+    state.amdOfficePhone = "+13523202007";
+    state.patientId = null;
+
+    await check_insurance.execute(
+      { plan: "VSP", coverageType: "routine_vision" },
+      { ctx, toolCallId: "test-insurance" },
+    );
+
+    await verify_patient.execute(
+      { firstName: "Jane", lastName: "Doe", dob: "01/01/1980" },
+      { ctx, toolCallId: "test-verify" },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      firstName: "Jane",
+      lastName: "Doe",
+      dob: "01/01/1980",
+      office: "+17275919997",
+    });
+    expect(state.officeKey).toBe("spring-hill");
+    expect(state.checkedInsuranceCoverageType).toBe("routine_vision");
   });
 
   it("attaches checked routine vision coverage to new patient registration", async () => {
