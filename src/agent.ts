@@ -1,9 +1,12 @@
 // agent.ts — Agent definition
 // Instructions loaded from workspace/ files, tools wired below.
 
-import { voice } from "@livekit/agents";
+import { stt, voice } from "@livekit/agents";
+import type { AudioFrame } from "@livekit/rtc-node";
+import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
 import type { PhoneLookupResult } from "./tools.js";
+import type { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
   verify_patient,
   add_patient,
@@ -52,19 +55,39 @@ export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
 
 export class Agent extends voice.Agent {
   private greeting: string;
+  private languageRuntime?: VoiceLanguageRuntime;
 
-  constructor(phoneLookup?: PhoneLookupResult, trunkPhone?: string) {
+  constructor(
+    phoneLookup?: PhoneLookupResult,
+    trunkPhone?: string,
+    options: { languageRuntime?: VoiceLanguageRuntime } = {},
+  ) {
     const office = getOfficeConfigByPhone(trunkPhone ?? "");
     super({
       instructions: buildPrompt(phoneLookup, trunkPhone),
       tools: buildToolsForTrunk(trunkPhone),
     });
     this.greeting = office.greeting;
+    this.languageRuntime = options.languageRuntime;
   }
 
   override async onEnter(): Promise<void> {
     // Brief delay so the SIP audio path is fully established before speaking
     await new Promise((r) => setTimeout(r, 500));
     await this.session.say(this.greeting);
+  }
+
+  override async sttNode(
+    audio: ReadableStream<AudioFrame>,
+    modelSettings: voice.ModelSettings,
+  ): Promise<ReadableStream<stt.SpeechEvent | string> | null> {
+    const events = await voice.Agent.default.sttNode(
+      this,
+      audio,
+      modelSettings,
+    );
+    if (!events || !this.languageRuntime) return events;
+
+    return this.languageRuntime.observeSpeechEvents(events);
   }
 }

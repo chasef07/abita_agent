@@ -17,6 +17,7 @@ describe("official AssemblyAI plugin", () => {
 
     expect(stt.provider).toBe("AssemblyAI");
     expect(stt.model).toBe("u3-rt-pro");
+    expect(getAssemblyAISttOptions().languageDetection).toBe(true);
 
     stt.updateOptions(getAssemblyAISttProfileOptions("insurance"));
     stt.updateOptions(getAssemblyAISttProfileOptions("default"));

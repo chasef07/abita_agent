@@ -22,7 +22,11 @@ import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
-import { getCartesiaTtsOptions } from "./tts-config.js";
+import {
+  getCartesiaTtsOptions,
+  getCartesiaTtsOptionsByLanguage,
+} from "./tts-config.js";
+import { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
   type AssemblyAISttProfile,
   getAssemblyAISttOptions,
@@ -76,10 +80,15 @@ export default defineAgent({
       });
 
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
+      const ttsOptions = getCartesiaTtsOptions();
+      const tts = new cartesia.TTS(ttsOptions);
+      const languageRuntime = new VoiceLanguageRuntime(tts, {
+        ttsOptionsByLanguage: getCartesiaTtsOptionsByLanguage(ttsOptions.voice),
+      });
       const session = new voice.AgentSession<CallState>({
         stt,
         llm: llmWithFallback,
-        tts: new cartesia.TTS(getCartesiaTtsOptions()),
+        tts,
         vad,
         // preemptiveGeneration: false,
         turnHandling: {
@@ -126,7 +135,7 @@ export default defineAgent({
         console.log(`[call] No patient match for ${callerPhone}`);
       }
 
-      const agent = new Agent(phoneLookup, trunkPhone);
+      const agent = new Agent(phoneLookup, trunkPhone, { languageRuntime });
 
       const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
       session.userData = {
@@ -267,6 +276,7 @@ export default defineAgent({
             usage: latestUsage ?? session.usage,
             llmMetrics,
             turnMetrics,
+            language: languageRuntime.telemetry,
             sessionReport,
           };
 
