@@ -123,6 +123,7 @@ export type AssemblyAISttProfile = keyof typeof ASSEMBLYAI_STT_PROFILES;
 export function getAssemblyAISttOptions(): Partial<STTOptions> {
   return {
     speechModel: "u3-rt-pro",
+    languageDetection: true,
     ...ASSEMBLYAI_STT_PROFILES.default,
   };
 }

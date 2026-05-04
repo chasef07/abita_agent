@@ -4,6 +4,8 @@ import {
   CARTESIA_TTS_MODEL,
   CARTESIA_TTS_SAMPLE_RATE,
   DEFAULT_CARTESIA_TTS_VOICE,
+  SPANISH_CARTESIA_TTS_VOICE,
+  getCartesiaTtsOptionsByLanguage,
   getCartesiaTtsOptions,
 } from "../tts-config.js";
 
@@ -33,5 +35,18 @@ describe("TTS config", () => {
     process.env.CARTESIA_TTS_VOICE = "blake";
 
     expect(getCartesiaTtsOptions().voice).toBe("blake");
+  });
+
+  it("uses the dedicated Spanish Cartesia voice for Spanish turns", () => {
+    expect(getCartesiaTtsOptionsByLanguage("english-voice")).toEqual({
+      en: {
+        language: "en",
+        voice: "english-voice",
+      },
+      es: {
+        language: "es",
+        voice: SPANISH_CARTESIA_TTS_VOICE,
+      },
+    });
   });
 });
