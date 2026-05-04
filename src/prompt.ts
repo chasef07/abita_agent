@@ -25,11 +25,20 @@ function buildOfficeRoutingHints(trunkPhone: string): string {
     "**Crystal River routing rules.** If the caller is trying to schedule one of these visit types, explain that Spring Hill handles it, get their agreement, then route to Spring Hill:",
     "- A child, son, daughter, kid, or anyone implied to be under 18 — Crystal River does not see pediatric ophthalmology",
     "- Cataract evaluation, cataract surgery, cataract consult — handled at Spring Hill",
-    "- Routine eye exam, annual exam, vision check, glasses prescription — Crystal River is ophthalmology only",
+    "- Routine eye exam, annual exam, vision check, glasses prescription, contact lens prescription — use the Spring Hill routine-vision lane",
     "",
     "Do not route just because those words are mentioned in a FAQ, confirmation, or other non-scheduling context.",
     "Use the routing tool, not the transfer tool. Routing keeps the caller on the line with you so you can continue scheduling them at Spring Hill after they agree. Transferring sends them to a human, which is the wrong outcome here.",
+    "For routine vision, ask whether this is a routine eye exam or glasses/contact lens prescription using vision insurance, run check_insurance with coverageType routine_vision, then schedule with routing optical_only.",
   ].join("\n");
+}
+
+function normalizeMeridiemSpacing(text: string): string {
+  return text.replace(
+    /\b(\d{1,2})(?::(\d{2}))?\s*([AaPp])\.?\s*([Mm])\.?\b/g,
+    (_match, hour: string, minute: string | undefined, period: string) =>
+      `${hour}${minute ? `:${minute}` : ""} ${period.toUpperCase()}M`,
+  );
 }
 
 const FILES: { file: string; tag: string }[] = [
@@ -110,7 +119,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
         lines.push(`Upcoming appointments:`);
         for (const appt of upcoming) {
           lines.push(
-            `  - [ID: ${appt.id}] ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`,
+            `  - [ID: ${appt.id}] ${appt.date} at ${normalizeMeridiemSpacing(appt.time)} with ${appt.provider} (${appt.type})`,
           );
         }
       } else {
@@ -120,7 +129,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
         lines.push(`Past appointments (cannot be cancelled or modified):`);
         for (const appt of past) {
           lines.push(
-            `  - ${appt.date} at ${appt.time} with ${appt.provider} (${appt.type})`,
+            `  - ${appt.date} at ${normalizeMeridiemSpacing(appt.time)} with ${appt.provider} (${appt.type})`,
           );
         }
       }

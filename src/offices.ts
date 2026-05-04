@@ -12,6 +12,7 @@ export interface OfficeConfig {
   greeting: string;
   knowledgeFile: string;
   insuranceFile: string;
+  visionInsuranceFile?: string;
   amdOfficePhone: string;
   middlewareBaseUrl?: string;
   transferNumber: string;
@@ -30,6 +31,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
       "thank you for calling Abita Eye Group, this is David, how can I help you?",
     knowledgeFile: "KNOWLEDGE_SPRINGHILL.md",
     insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+    visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
     transferNumber: DEFAULT_TRANSFER_NUMBER,
     features: {
@@ -44,6 +46,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
       "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?",
     knowledgeFile: "KNOWLEDGE_EYERADIANCE.md",
     insuranceFile: "INSURANCE_CRYSTAL_RIVER.json",
+    visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
     transferNumber: DEFAULT_TRANSFER_NUMBER,
     features: {
@@ -58,6 +61,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
       "thank you for calling Abita Eye Group, this is David, how can I help you?",
     knowledgeFile: "KNOWLEDGE_SPRINGHILL.md",
     insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+    visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: DEV_OFFICE_PHONE,
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
     transferNumber: DEFAULT_TRANSFER_NUMBER,

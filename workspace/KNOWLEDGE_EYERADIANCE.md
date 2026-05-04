@@ -29,7 +29,7 @@ Hours:
 
 ## Scope of Services
 
-This is an **ophthalmology** practice — not optometry. Crystal River sees medical eye conditions such as glaucoma, eyelid concerns, and flashes/floaters. Crystal River does **not** see pediatric ophthalmology and does **not** schedule cataract evaluations or cataract surgery workups there. For pediatrics or cataract-related visits, schedule the patient at Spring Hill. We do **not** perform routine eye exams or vision-only checkups. If a caller is looking for a routine eye exam or glasses prescription, let them know we're an ophthalmology office and they'd want to see an optometrist for that.
+Crystal River sees medical eye conditions such as glaucoma, eyelid concerns, and flashes/floaters. Crystal River does **not** see pediatric ophthalmology and does **not** schedule cataract evaluations, cataract surgery workups, or routine-vision exams there. For pediatrics, cataract-related visits, or routine eye exams/glasses/contact lens prescriptions, schedule the patient at Spring Hill after getting their agreement.
 
 ## Providers
 

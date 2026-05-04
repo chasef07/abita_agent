@@ -1,0 +1,118 @@
+{
+  "officeLabel": "Spring Hill Routine Vision",
+  "aliasRules": [
+    {
+      "aliases": ["Eye Med", "Eye Med Vision", "EyeMed Vision Care", "Humana", "Aetna", "Unum", "Cigna"],
+      "status": "accepted",
+      "family": "EyeMed",
+      "callerPlan": "EyeMed",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["National Vision", "National Vision Administrators"],
+      "status": "accepted",
+      "family": "NVA",
+      "callerPlan": "NVA",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Davis Vision", "Superior", "Florida Blue", "BlueView", "Blue View", "Versant"],
+      "status": "accepted",
+      "family": "Davis",
+      "callerPlan": "Davis",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Spectera Vision", "United Healthcare", "United Health Care", "United Vision"],
+      "status": "accepted",
+      "family": "Spectera",
+      "callerPlan": "Spectera",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Soltice", "Solstice Vision"],
+      "status": "accepted",
+      "family": "Solstice",
+      "callerPlan": "Solstice",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Humana Gold Plus", "Simply Medicare", "Simply Medicaid", "Simply Medcaid", "Freedom", "Optimum", "Optimum Healthcare", "Aetna Better Health", "AvMed"],
+      "status": "accepted",
+      "family": "iCare",
+      "callerPlan": "iCare",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Sun Health", "SunHealth Vision"],
+      "status": "accepted",
+      "family": "SunHealth",
+      "callerPlan": "SunHealth",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Envolve Vision", "Ambetter", "Ambetter from Sunshine Health", "Sunshine"],
+      "status": "accepted",
+      "family": "Envolve",
+      "callerPlan": "Envolve",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["AmeriHealth", "Devoted"],
+      "status": "accepted",
+      "family": "Premier",
+      "callerPlan": "Premier",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["CarePlus", "Care Plus"],
+      "status": "accepted",
+      "family": "Alivi",
+      "callerPlan": "Alivi",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["Guardian Vision"],
+      "status": "accepted",
+      "family": "Guardian",
+      "callerPlan": "Guardian",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": ["MetLife", "Liberty Financial", "Lincoln Financial", "Lincoln Finacial"],
+      "status": "accepted",
+      "family": "VSP",
+      "callerPlan": "VSP",
+      "canProceed": true,
+      "needsExactPlanName": true
+    }
+  ],
+  "acceptedPlans": [
+    "VSP",
+    "EyeMed",
+    "NVA",
+    "Davis",
+    "Spectera",
+    "Solstice",
+    "iCare",
+    "SunHealth",
+    "Envolve",
+    "Premier",
+    "Alivi",
+    "Guardian",
+    "Superior",
+    "Versant"
+  ],
+  "notAcceptedPlans": []
+}

@@ -128,6 +128,52 @@ describe("Crystal River prompt guidance", () => {
     expect(crystalRiverKnowledge).toContain(
       "does **not** schedule cataract evaluations",
     );
+    expect(crystalRiverKnowledge).toContain(
+      "routine eye exams/glasses/contact lens prescriptions",
+    );
+  });
+
+  it("teaches Spring Hill routine vision without the old optometry denial", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+    const springHillKnowledge = readFileSync(
+      join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "workspace",
+        "KNOWLEDGE_SPRINGHILL.md",
+      ),
+      "utf-8",
+    );
+
+    expect(prompt).toContain("an eye care practice");
+    expect(prompt).toContain("Visit Type Triage");
+    expect(prompt).toContain(
+      "Before choosing a path, checking insurance, or searching availability",
+    );
+    expect(prompt).toContain(
+      "Reason for visit — classify medical/surgical vs routine vision",
+    );
+    expect(prompt).toContain("Spring Hill routine-vision lane");
+    expect(prompt).toContain("routing `optical_only`");
+    expect(prompt).not.toContain("1010");
+    expect(prompt).not.toContain("3364");
+    expect(prompt).not.toContain("4244");
+    expect(prompt).not.toContain("4245");
+    expect(prompt).not.toContain("6167");
+    expect(prompt).not.toContain("6169");
+    expect(prompt).not.toContain("6168");
+    expect(springHillKnowledge).toContain("routine-vision scheduling lane");
+    expect(springHillKnowledge).toContain("Routine optometry is age 10+");
+    expect(springHillKnowledge).toContain("Retina care is available");
+    expect(springHillKnowledge).toContain("YSL, Ferragamo, Gucci");
+    expect(springHillKnowledge).toContain("Sherry is the licensed optician");
+    expect(springHillKnowledge).toContain("10 business days");
+    expect(springHillKnowledge).toContain("1930 Land O Lakes Boulevard");
+    expect(prompt).not.toContain("do **not** perform routine eye exams");
+    expect(springHillKnowledge).not.toContain(
+      "do **not** perform routine eye exams",
+    );
   });
 
   it("tells new-patient flows to confirm the inbound caller number before recollecting digits", () => {
@@ -160,5 +206,51 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain("retinal tear");
     expect(prompt).toContain("lightning bolts");
     expect(prompt).toContain("Do not finish normal registration");
+  });
+
+  it("keeps appointment times TTS-safe with spaced AM and PM", () => {
+    const prompt = buildPrompt(
+      {
+        status: "verified",
+        patientId: "patient-1",
+        name: "Santos, Maria",
+        dob: "01/01/1980",
+        phone: "+17275551212",
+        insuranceCarrier: "Aetna",
+        insPlanId: "plan-1",
+        respPartyId: "resp-1",
+        routing: "all_three",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [
+          {
+            id: 123,
+            date: "2099-01-01",
+            time: "9:30AM",
+            provider: "Dr. Noel",
+            type: "Follow-up",
+            facility: "Spring Hill",
+            confirmed: true,
+          },
+          {
+            id: 124,
+            date: "2099-01-02",
+            time: "1pm",
+            provider: "Dr. Licht",
+            type: "Follow-up",
+            facility: "Spring Hill",
+            confirmed: true,
+          },
+        ],
+      },
+      SPRING_HILL_OFFICE_PHONE,
+    );
+
+    expect(prompt).toContain("9:30 AM");
+    expect(prompt).toContain("1 PM");
+    expect(prompt).not.toContain("9:30AM");
+    expect(prompt).not.toContain("1pm");
+    expect(prompt).toContain('Say "8:15 AM", "8 AM", or "7:00 PM"');
+    expect(prompt).not.toContain("eight fifteen a m");
   });
 });

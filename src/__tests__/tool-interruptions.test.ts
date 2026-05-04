@@ -4,10 +4,12 @@ import {
   book_appt,
   cancel_appt,
   check_insurance,
+  get_availability,
   makeCurrentSpeechUninterruptible,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
+  verify_patient,
   type CallState,
 } from "../tools.js";
 
@@ -168,6 +170,162 @@ describe("tool interruption handling", () => {
     });
   });
 
+  it("stores the routine vision routing lane from availability and reuses it for booking", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "ok" }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.officeKey = "crystal-river";
+    state.amdOfficePhone = "+13523202007";
+    state.routing = "all_three";
+
+    await check_insurance.execute(
+      { plan: "VSP", coverageType: "routine_vision" },
+      { ctx, toolCallId: "test-insurance" },
+    );
+
+    await get_availability.execute(
+      { date: "2026-04-28", routing: "all_three" },
+      { ctx, toolCallId: "test-availability" },
+    );
+
+    expect(state.officeKey).toBe("spring-hill");
+    expect(state.amdOfficePhone).toBe("+17275919997");
+    expect(state.lastAvailabilityRouting).toBe("optical_only");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      date: "2026-04-28",
+      office: "+17275919997",
+      routing: "optical_only",
+    });
+
+    await book_appt.execute(
+      {
+        columnId: 1600,
+        profileId: 1983,
+        startDatetime: "2026-04-28T10:00",
+        duration: 45,
+        appointmentTypeId: 1010,
+        routing: "all_three",
+      },
+      { ctx, toolCallId: "test-book" },
+    );
+
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      appointmentTypeId: 1010,
+      columnId: 1600,
+      duration: 45,
+      patientId: "patient-1",
+      profileId: 1983,
+      office: "+17275919997",
+      routing: "optical_only",
+      startDatetime: "2026-04-28T10:00",
+    });
+  });
+
+  it("routes routine vision verification to Spring Hill after the vision insurance check", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        patientId: "patient-vision",
+        name: "Jane Doe",
+        dob: "01/01/1980",
+        insuranceCarrier: "VSP",
+        routing: "optical_only",
+        allowedProviders: [],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.officeKey = "crystal-river";
+    state.amdOfficePhone = "+13523202007";
+    state.patientId = null;
+
+    await check_insurance.execute(
+      { plan: "VSP", coverageType: "routine_vision" },
+      { ctx, toolCallId: "test-insurance" },
+    );
+
+    await verify_patient.execute(
+      { firstName: "Jane", lastName: "Doe", dob: "01/01/1980" },
+      { ctx, toolCallId: "test-verify" },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      firstName: "Jane",
+      lastName: "Doe",
+      dob: "01/01/1980",
+      office: "+17275919997",
+    });
+    expect(state.officeKey).toBe("spring-hill");
+    expect(state.checkedInsuranceCoverageType).toBe("routine_vision");
+  });
+
+  it("attaches checked routine vision coverage to new patient registration", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "created",
+        patientId: "patient-2",
+        routing: "optical_only",
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.officeKey = "crystal-river";
+    state.amdOfficePhone = "+13523202007";
+    state.patientId = null;
+    state.patientName = null;
+    state.checkedInsurancePlan = null;
+    state.checkedInsuranceCoverageType = null;
+
+    const insuranceResult = await check_insurance.execute(
+      { plan: "Lincoln Finacial", coverageType: "routine_vision" },
+      { ctx, toolCallId: "test-insurance" },
+    );
+
+    expect(insuranceResult).toMatchObject({
+      status: "accepted",
+      canonicalPlan: "VSP",
+    });
+
+    await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34609",
+        sex: "female",
+        insurance: "Lincoln Finacial",
+        subscriberName: "Jane Doe",
+        subscriberNum: "ABC123",
+      },
+      { ctx, toolCallId: "test-add" },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      coverageType: "routine_vision",
+      insurance: "VSP",
+      office: "+17275919997",
+      subscriberNum: "ABC123",
+    });
+    expect(state.officeKey).toBe("spring-hill");
+    expect(state.routing).toBe("optical_only");
+  });
+
   it("does not run side effects if the speech already became interrupted", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const fetchMock = vi.fn();
@@ -320,7 +478,9 @@ function createToolContext() {
     insPlanId: "plan-1",
     respPartyId: "resp-1",
     checkedInsurancePlan: "Aetna",
-    routing: "accepted",
+    checkedInsuranceCoverageType: "medical",
+    routing: "all_three",
+    lastAvailabilityRouting: null,
     allowedProviders: [],
     routingAmbiguous: false,
     preauthRequired: false,

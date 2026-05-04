@@ -39,7 +39,7 @@ describe("insurance matcher", () => {
     expect(result.status).toBe("accepted");
     expect(result.canProceed).toBe(true);
     expect(result.needsExactPlanName).toBe(true);
-    expect(result.matchedAlias).toBe("Blue Cross");
+    expect(result.matchedAlias).toBe("Blue Cross Blue Shield");
     expect(result.matchedFamily).toBe("Florida Blue");
     expect(result.callerMessage).toBe("yeah we take Blue Cross Blue Shield.");
   });
@@ -89,6 +89,31 @@ describe("insurance matcher", () => {
     expect(result.status).toBe("accepted");
     expect(result.canProceed).toBe(true);
     expect(result.matchedFamily).toBe("Florida Blue");
+  });
+
+  it("uses the routine vision insurance map when requested", () => {
+    const cases = [
+      ["VSP", "VSP"],
+      ["Soltice", "Solstice"],
+      ["Lincoln Finacial", "VSP"],
+      ["Humana", "EyeMed"],
+      ["Humana Gold Plus", "iCare"],
+      ["Florida Blue", "Davis"],
+      ["United Health Care", "Spectera"],
+      ["Simply Medcaid", "iCare"],
+      ["CarePlus", "Alivi"],
+    ] as const;
+
+    for (const [query, family] of cases) {
+      const result = matchInsurancePlanForOffice(
+        "spring-hill",
+        query,
+        "routine_vision",
+      );
+      expect(result.status, query).toBe("accepted");
+      expect(result.canProceed, query).toBe(true);
+      expect(canonicalInsurancePlan(result), query).toBe(family);
+    }
   });
 
   it("exposes a canonical middleware plan for accepted family aliases", () => {
