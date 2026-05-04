@@ -36,6 +36,25 @@ function getSipClient(): SipClient {
   return _sipClient;
 }
 
+export const appointmentTypeIdSchema = z
+  .union([
+    z.literal(1006),
+    z.literal(1004),
+    z.literal(1007),
+    z.literal(1005),
+    z.literal(1008),
+    z.literal(1010),
+    z.literal(3364),
+    z.literal(4244),
+    z.literal(4245),
+    z.literal(6167),
+    z.literal(6169),
+    z.literal(6168),
+  ])
+  .describe(
+    "Allowed AMD appointment type ID. Spring Hill medical: 1006 new adult, 1004 new pediatric, 1007 established adult follow-up, 1005 established pediatric follow-up, 1008 post-op. Routine vision: 1010 new adult, 3364 established adult, 4244 new pediatric, 4245 established pediatric. Crystal River: 6167 new, 6169 established, 6168 post-op. Availability does not return appointmentTypeId.",
+  );
+
 // --- Session-scoped call state ---
 
 export interface CallerAppointment {
@@ -421,7 +440,7 @@ After response: session state updates automatically. If preauthRequired, schedul
 export const get_availability = llm.tool({
   description: `Gets schedule availability. Requires date (YYYY-MM-DD). Routing and preauth auto-applied from session state.
 
-Ask the caller the reason for their visit before calling this tool so the scheduling lane is right. The API returns slots with the appointment details needed for booking.
+Ask the caller the reason for their visit before calling this tool so the scheduling lane is right. The API returns slot timing and provider details needed for booking. It does not return appointmentTypeId.
 
 Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. Under 18 medical visits = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
 
@@ -496,9 +515,9 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
 
 // --- book_appt ---
 export const book_appt = llm.tool({
-  description: `Books an appointment. Pass columnId, profileId, startDatetime, duration, and appointmentTypeId from get_availability. Patient ID is read from session state automatically.
+  description: `Books an appointment. Pass columnId, profileId, startDatetime, and duration from get_availability. Patient ID is read from session state automatically.
 
-Use the same routing lane that produced the selected slot. Pass the appointmentTypeId from the selected get_availability slot; do not invent one.
+Use the same routing lane that produced the selected slot. Select appointmentTypeId only from the allowed enum based on office, patient status, age, routing lane, and visit type. Availability does not return appointmentTypeId, so do not claim it came from the slot.
 
 The slot offer is the confirmation — if the caller said yes, book it. If fails, retry once. If still fails, offer different time or transfer.`,
   parameters: z.object({
@@ -514,9 +533,7 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
     duration: z
       .number()
       .describe("Slot duration in minutes from get_availability"),
-    appointmentTypeId: z
-      .number()
-      .describe("appointmentTypeId from the selected get_availability slot"),
+    appointmentTypeId: appointmentTypeIdSchema,
     routing: z
       .enum(["bach_only", "bach_licht", "all_three", "optical_only"])
       .optional()

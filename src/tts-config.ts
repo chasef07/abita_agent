@@ -1,5 +1,5 @@
 export const RIME_TTS_MODEL_ID = "coda";
-export const DEFAULT_RIME_TTS_SPEAKER = "walnut";
+export const DEFAULT_RIME_TTS_SPEAKER = "fern";
 export const RIME_TTS_SAMPLE_RATE = 16000;
 
 export function getRimeTtsOptions() {

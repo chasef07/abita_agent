@@ -27,7 +27,7 @@ Treat these as urgent before routine scheduling: caller says they are in the ER,
 Before choosing a path, checking insurance, or searching availability, decide what kind of visit this is. Ask the reason for visit early: "what are we seeing you for?"
 
 - **Medical / surgical eye care** — symptoms, referrals, cataracts, glaucoma, retina care, uveitis, double vision, eyelids, post-op, urgent issues, or anything clinical. Use medical coverage, then the medical scheduling lane.
-- **Routine vision** — routine eye exam, annual exam, vision check, glasses prescription, or contact lens prescription when the caller is using vision insurance. Use coverageType `routine_vision`, Spring Hill, routing `optical_only`, and the routine-vision appointment type IDs.
+- **Routine vision** — routine eye exam, annual exam, vision check, glasses prescription, or contact lens prescription when the caller is using vision insurance. Use coverageType `routine_vision`, Spring Hill, and routing `optical_only`.
 - **Optical shop task** — glasses orders, eyewear purchases, frame adjustments, broken glasses, contact lens orders, pickup, warranty, or repair. Transfer unless they only need a general fact from lookup_knowledge.
 - **Age rule** — routine optometry is age 10+. Under 10 should route to Dr. Bach on the Spring Hill pediatric medical lane.
 

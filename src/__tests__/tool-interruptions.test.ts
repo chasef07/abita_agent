@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   add_patient,
+  appointmentTypeIdSchema,
   book_appt,
   cancel_appt,
   check_insurance,
@@ -168,6 +169,13 @@ describe("tool interruption handling", () => {
       profileId: 2,
       startDatetime: "2026-04-28T09:00",
     });
+  });
+
+  it("constrains booking to supported appointment type IDs", () => {
+    expect(appointmentTypeIdSchema.safeParse(1007).success).toBe(true);
+    expect(appointmentTypeIdSchema.safeParse(1010).success).toBe(true);
+    expect(appointmentTypeIdSchema.safeParse(6169).success).toBe(true);
+    expect(appointmentTypeIdSchema.safeParse(9999).success).toBe(false);
   });
 
   it("stores the routine vision routing lane from availability and reuses it for booking", async () => {
