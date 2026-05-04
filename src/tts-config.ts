@@ -1,14 +1,11 @@
-export const CARTESIA_TTS_MODEL = "sonic-3-latest";
-export const DEFAULT_CARTESIA_TTS_VOICE =
-  "a167e0f3-df7e-4d52-a9c3-f949145efdab";
-export const CARTESIA_TTS_LANGUAGE = "en";
-export const CARTESIA_TTS_SAMPLE_RATE = 16000;
+export const RIME_TTS_MODEL_ID = "coda";
+export const DEFAULT_RIME_TTS_SPEAKER = "walnut";
+export const RIME_TTS_SAMPLE_RATE = 16000;
 
-export function getCartesiaTtsOptions() {
+export function getRimeTtsOptions() {
   return {
-    model: CARTESIA_TTS_MODEL,
-    voice: process.env.CARTESIA_TTS_VOICE ?? DEFAULT_CARTESIA_TTS_VOICE,
-    language: CARTESIA_TTS_LANGUAGE,
-    sampleRate: CARTESIA_TTS_SAMPLE_RATE,
+    modelId: process.env.RIME_TTS_MODEL_ID ?? RIME_TTS_MODEL_ID,
+    speaker: process.env.RIME_TTS_SPEAKER ?? DEFAULT_RIME_TTS_SPEAKER,
+    samplingRate: RIME_TTS_SAMPLE_RATE,
   };
 }

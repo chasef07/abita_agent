@@ -10,7 +10,7 @@ A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over
 | Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
 | STT | AssemblyAI | Streaming STT with adaptive keyterm/timing profiles |
 | LLM | Baseten (GLM-4.7 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
-| TTS | Cartesia plugin `sonic-3-latest` | Voice defaults to `a167e0f3-df7e-4d52-a9c3-f949145efdab`; 16 kHz PCM |
+| TTS | Rime plugin `coda` | Speaker defaults to `walnut`; 16 kHz PCM |
 | VAD | Silero (local ONNX) | Prewarmed per job process |
 | Turn handling | LiveKit Agents | STT turn detection, adaptive interruptions, Silero VAD |
 | Medical backend | AdvancedMD via Railway middleware | Patient lookup, booking, insurance |
@@ -93,7 +93,7 @@ Dockerfile           # Multi-stage: pnpm install → build → download-files �
    - **Multiple matches** — multiple patients on this number. Agent asks for first name only (HIPAA-safe).
    - **No match** — treated as new patient flow.
 4. **Session start** — `buildPrompt()` assembles the system prompt from `workspace/SOUL.md`, `VOICE.md`, `RUNBOOK.md`, then appends dynamic `<context>` (date/time + caller info). Tools are wired from `tools.ts`.
-5. **Conversation loop** — AssemblyAI STT → Baseten LLM (with tool calling) → Cartesia TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. AdvancedMD-facing tools call the Railway middleware.
+5. **Conversation loop** — AssemblyAI STT → Baseten LLM (with tool calling) → Rime TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. AdvancedMD-facing tools call the Railway middleware.
 6. **Disconnect or transfer**:
    - Caller hangs up → `participantDisconnected` listener → `ctx.shutdown()`
    - Agent calls `transfer_call` → SIP REFER to human staff
@@ -171,8 +171,9 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 |---|---|
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud credentials |
 | `ASSEMBLYAI_API_KEY` | STT |
-| `CARTESIA_API_KEY` | TTS |
-| `CARTESIA_TTS_VOICE` | Optional TTS voice override; defaults to `00967b2f-88a6-4a31-8153-110a92134b9f` |
+| `RIME_API_KEY` | TTS |
+| `RIME_TTS_MODEL_ID` | Optional TTS model override; defaults to `coda` |
+| `RIME_TTS_SPEAKER` | Optional TTS speaker override; defaults to `walnut` |
 | `BASETEN_API_KEY` | LLM (GLM-4.7 + MiniMax fallback) |
 | `AMD_API_URL` / `AMD_API_TOKEN` | AdvancedMD middleware |
 | `ANALYTICS_URL` / `WEBHOOK_SECRET` | Post-call analytics endpoint |
