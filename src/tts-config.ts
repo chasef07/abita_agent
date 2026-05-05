@@ -1,31 +1,34 @@
-export const CARTESIA_TTS_MODEL = "sonic-3-latest";
-export const DEFAULT_CARTESIA_TTS_VOICE =
-  "a167e0f3-df7e-4d52-a9c3-f949145efdab";
-export const SPANISH_CARTESIA_TTS_VOICE =
-  "079e3a17-5545-4bc5-93e3-e11df6fe37b8";
-export const CARTESIA_TTS_LANGUAGE = "en";
-export const CARTESIA_TTS_SAMPLE_RATE = 16000;
+import type { TTSOptions as InworldTtsOptions } from "@livekit/agents-plugin-inworld";
 
-export function getCartesiaTtsOptions() {
+export const INWORLD_TTS_MODEL = "inworld-tts-2";
+export const DEFAULT_INWORLD_TTS_VOICE = "nate";
+export const SPANISH_INWORLD_TTS_VOICE = "Diego";
+export const INWORLD_TTS_SAMPLE_RATE = 16000;
+export const INWORLD_TTS_ENCODING = "PCM" satisfies InworldTtsOptions["encoding"];
+export const INWORLD_TTS_SPEAKING_RATE = 1.0;
+export const INWORLD_TTS_TEXT_NORMALIZATION =
+  "ON" satisfies InworldTtsOptions["textNormalization"];
+
+export function getInworldTtsOptions(): Partial<InworldTtsOptions> {
   return {
-    model: CARTESIA_TTS_MODEL,
-    voice: process.env.CARTESIA_TTS_VOICE ?? DEFAULT_CARTESIA_TTS_VOICE,
-    language: CARTESIA_TTS_LANGUAGE,
-    sampleRate: CARTESIA_TTS_SAMPLE_RATE,
+    model: INWORLD_TTS_MODEL,
+    voice: process.env.INWORLD_TTS_VOICE ?? DEFAULT_INWORLD_TTS_VOICE,
+    sampleRate: INWORLD_TTS_SAMPLE_RATE,
+    encoding: INWORLD_TTS_ENCODING,
+    speakingRate: INWORLD_TTS_SPEAKING_RATE,
+    textNormalization: INWORLD_TTS_TEXT_NORMALIZATION,
   };
 }
 
-export function getCartesiaTtsOptionsByLanguage(
-  englishVoice = process.env.CARTESIA_TTS_VOICE ?? DEFAULT_CARTESIA_TTS_VOICE,
+export function getInworldTtsOptionsByLanguage(
+  englishVoice = process.env.INWORLD_TTS_VOICE ?? DEFAULT_INWORLD_TTS_VOICE,
 ) {
   return {
     en: {
-      language: "en",
       voice: englishVoice,
     },
     es: {
-      language: "es",
-      voice: SPANISH_CARTESIA_TTS_VOICE,
+      voice: process.env.INWORLD_TTS_SPANISH_VOICE ?? SPANISH_INWORLD_TTS_VOICE,
     },
   } as const;
 }

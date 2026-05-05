@@ -13,7 +13,7 @@ import {
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
-import * as cartesia from "@livekit/agents-plugin-cartesia";
+import * as inworld from "@livekit/agents-plugin-inworld";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -23,8 +23,8 @@ import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
-  getCartesiaTtsOptions,
-  getCartesiaTtsOptionsByLanguage,
+  getInworldTtsOptions,
+  getInworldTtsOptionsByLanguage,
 } from "./tts-config.js";
 import { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
@@ -80,10 +80,10 @@ export default defineAgent({
       });
 
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
-      const ttsOptions = getCartesiaTtsOptions();
-      const tts = new cartesia.TTS(ttsOptions);
+      const ttsOptions = getInworldTtsOptions();
+      const tts = new inworld.TTS(ttsOptions);
       const languageRuntime = new VoiceLanguageRuntime(tts, {
-        ttsOptionsByLanguage: getCartesiaTtsOptionsByLanguage(ttsOptions.voice),
+        ttsOptionsByLanguage: getInworldTtsOptionsByLanguage(ttsOptions.voice),
       });
       const session = new voice.AgentSession<CallState>({
         stt,
