@@ -10,7 +10,7 @@ A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over
 | Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
 | STT | AssemblyAI | Streaming STT with adaptive keyterm/timing profiles |
 | LLM | Baseten (GLM-4.7 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
-| TTS | Inworld plugin `inworld-tts-2` | Voice defaults to `nate`; 16 kHz PCM |
+| TTS | Inworld plugin `inworld-tts-2` | Voice defaults to `Nate`; 16 kHz PCM |
 | VAD | Silero (local ONNX) | Prewarmed per job process |
 | Turn handling | LiveKit Agents | STT turn detection, adaptive interruptions, Silero VAD |
 | Medical backend | AdvancedMD via Railway middleware | Patient lookup, booking, insurance |
@@ -172,7 +172,7 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud credentials |
 | `ASSEMBLYAI_API_KEY` | STT |
 | `INWORLD_API_KEY` | TTS; Base64-encoded Inworld API key |
-| `INWORLD_TTS_VOICE` | Optional TTS voice override; defaults to `nate` |
+| `INWORLD_TTS_VOICE` | Optional TTS voice override; defaults to `Nate` |
 | `INWORLD_TTS_SPANISH_VOICE` | Optional Spanish voice override; defaults to `Diego` |
 | `BASETEN_API_KEY` | LLM (GLM-4.7 + MiniMax fallback) |
 | `AMD_API_URL` / `AMD_API_TOKEN` | AdvancedMD middleware |

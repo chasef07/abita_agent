@@ -62,6 +62,6 @@ describe("TTS config", () => {
   it("allows the Spanish Inworld voice to be changed without code changes", () => {
     process.env.INWORLD_TTS_SPANISH_VOICE = "Jose";
 
-    expect(getInworldTtsOptionsByLanguage("nate").es.voice).toBe("Jose");
+    expect(getInworldTtsOptionsByLanguage("Nate").es.voice).toBe("Jose");
   });
 });
