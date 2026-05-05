@@ -2,15 +2,9 @@
   "officeLabel": "Crystal River",
   "aliasRules": [
     {
-      "aliases": ["Blue Select", "Florida BlueSelect", "Florida Blue BlueSelect"],
-      "status": "not_accepted",
-      "family": "Blue Select",
-      "callerPlan": "Blue Select",
-      "canProceed": false,
-      "needsExactPlanName": false
-    },
-    {
-      "aliases": ["Florida Blue HMO"],
+      "aliases": [
+        "Florida Blue HMO"
+      ],
       "status": "not_accepted",
       "family": "Florida Blue HMO",
       "callerPlan": "Florida Blue HMO",
@@ -22,7 +16,6 @@
         "Aetna Commercial",
         "Aetna PPO",
         "Aetna Managed Choice",
-        "Aetna EPO",
         "Aetna HMO"
       ],
       "status": "accepted",
@@ -32,7 +25,11 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["Aetna Medicare", "Aetna Medicare PPO", "Aetna Medicare HMO"],
+      "aliases": [
+        "Aetna Medicare",
+        "Aetna Medicare PPO",
+        "Aetna Medicare HMO"
+      ],
       "status": "accepted",
       "family": "Aetna Medicare",
       "callerPlan": "Aetna Medicare",
@@ -56,7 +53,10 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["Medicare", "Standard Medicare"],
+      "aliases": [
+        "Medicare",
+        "Standard Medicare"
+      ],
       "status": "accepted",
       "family": "Florida Medicare",
       "callerPlan": "Medicare",
@@ -79,20 +79,10 @@
     },
     {
       "aliases": [
-        "Humana PPO",
-        "Humana Medicare",
-        "Humana Gold Plus",
-        "Humana Healthy Horizons",
-        "Humana Medicaid"
+        "Humana HMO",
+        "Humana Care Plus",
+        "Humana Premier HMO"
       ],
-      "status": "not_accepted",
-      "family": "Humana",
-      "callerPlan": "Humana",
-      "canProceed": false,
-      "needsExactPlanName": false
-    },
-    {
-      "aliases": ["Humana HMO", "Humana Care Plus", "Humana Premier HMO"],
       "status": "not_accepted",
       "family": "Humana HMO",
       "callerPlan": "Humana HMO",
@@ -100,11 +90,233 @@
       "needsExactPlanName": false
     },
     {
-      "aliases": ["Humana"],
+      "aliases": [
+        "Humana"
+      ],
       "status": "needs_clarification",
       "clarificationNeeded": "which Humana plan is on the card",
       "callerMessage": "Crystal River does not accept Humana, but I can check whether Spring Hill accepts it. Which Humana plan is on the card?",
       "callerPlan": "Humana",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Cigna"
+      ],
+      "status": "not_accepted",
+      "family": "Cigna",
+      "callerPlan": "Cigna",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Fl Blue Select",
+        "Florida Blue Select",
+        "Blue Select"
+      ],
+      "status": "not_accepted",
+      "family": "Florida BlueSelect",
+      "callerPlan": "Florida BlueSelect",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Fl Blue Steward",
+        "Florida Blue Steward"
+      ],
+      "status": "not_accepted",
+      "family": "Florida Blue Steward Tier 1",
+      "callerPlan": "Florida Blue Steward Tier 1",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Eye America"
+      ],
+      "status": "not_accepted",
+      "family": "Eye America AAO",
+      "callerPlan": "Eye America",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Av Med Medicare",
+        "AvMed Medicare",
+        "Av Med Medicare Advantage"
+      ],
+      "status": "not_accepted",
+      "family": "AvMed Medicare Advantage",
+      "callerPlan": "AvMed Medicare Advantage",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Miami Children's",
+        "Miami Children's Health Plan",
+        "Miami Children"
+      ],
+      "status": "not_accepted",
+      "family": "Miami Children's Health Plan",
+      "callerPlan": "Miami Children's Health Plan",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Doctors Health",
+        "Miami Dade Doctors Health",
+        "Miami Dade Ddoctors Health",
+        "Miami Dade Doctors Healthcare"
+      ],
+      "status": "not_accepted",
+      "family": "Doctors Health Medicare",
+      "callerPlan": "Doctors Health Medicare",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "All Medicaid Plans",
+        "Medicaid",
+        "Florida Medicaid",
+        "Molina Medicaid",
+        "Aetna Better Health",
+        "Aetna Better Health of Florida",
+        "Aetna Healthy Kids",
+        "Community Care Plan",
+        "Florida Community Care",
+        "Florida Complete Care",
+        "Humana Medicaid",
+        "Humana Healthy Horizons",
+        "Simply Medicaid",
+        "Simply Health",
+        "Vivida"
+      ],
+      "status": "not_accepted",
+      "family": "Medicaid",
+      "callerPlan": "Medicaid",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Ambetter",
+        "Ambetter Premier",
+        "Ambetter Select",
+        "Ambetter Value"
+      ],
+      "status": "not_accepted",
+      "family": "Ambetter",
+      "callerPlan": "Ambetter",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Staywell",
+        "Staywell Medicare"
+      ],
+      "status": "not_accepted",
+      "family": "Staywell Medicare",
+      "callerPlan": "Staywell",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Sunshine",
+        "Sunshine Health",
+        "Sunshine Medicaid"
+      ],
+      "status": "not_accepted",
+      "family": "Sunshine Medicaid",
+      "callerPlan": "Sunshine",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Aetna EPO"
+      ],
+      "status": "not_accepted",
+      "family": "Aetna EPO",
+      "callerPlan": "Aetna EPO",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Humana Gold Plus"
+      ],
+      "status": "not_accepted",
+      "family": "Humana Gold Plus",
+      "callerPlan": "Humana Gold Plus",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Cigna Local Plus"
+      ],
+      "status": "not_accepted",
+      "family": "Cigna Local Plus",
+      "callerPlan": "Cigna Local Plus",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Cigna Miami-Dade Public Schools"
+      ],
+      "status": "not_accepted",
+      "family": "Cigna Miami-Dade Public Schools",
+      "callerPlan": "Cigna Miami-Dade Public Schools",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Florida BlueSelect"
+      ],
+      "status": "not_accepted",
+      "family": "Florida BlueSelect",
+      "callerPlan": "Florida BlueSelect",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Florida Blue Steward Tier 1"
+      ],
+      "status": "not_accepted",
+      "family": "Florida Blue Steward Tier 1",
+      "callerPlan": "Florida Blue Steward Tier 1",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "AvMed Medicare Advantage"
+      ],
+      "status": "not_accepted",
+      "family": "AvMed Medicare Advantage",
+      "callerPlan": "AvMed Medicare Advantage",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Eye America AAO"
+      ],
+      "status": "not_accepted",
+      "family": "Eye America AAO",
+      "callerPlan": "Eye America",
       "canProceed": false,
       "needsExactPlanName": false
     }
@@ -112,7 +324,6 @@
   "acceptedPlans": [
     "Aetna PPO",
     "Aetna Managed Choice",
-    "Aetna EPO",
     "Aetna HMO",
     "Aetna Medicare PPO",
     "Aetna Medicare HMO",
@@ -133,6 +344,36 @@
     "Humana Medicaid",
     "Humana Medicare",
     "Humana PPO",
-    "Humana Premier HMO"
+    "Humana Premier HMO",
+    "Aetna EPO",
+    "Aetna EPO North Broward",
+    "Aetna EPO University of Miami",
+    "Miami Children's Health Plan",
+    "Cigna",
+    "Cigna Miami-Dade Public Schools",
+    "Doctors Health Medicare",
+    "AvMed Medicare Advantage",
+    "Cigna Local Plus",
+    "Eye America AAO",
+    "Florida Blue Steward Tier 1",
+    "Aetna Better Health",
+    "Aetna Better Health of Florida",
+    "Aetna Healthy Kids",
+    "Ambetter",
+    "Ambetter Premier",
+    "Ambetter Select",
+    "Ambetter Value",
+    "Community Care Plan",
+    "Florida Community Care",
+    "Florida Complete Care",
+    "Florida Medicaid",
+    "Medicaid",
+    "Molina Medicaid",
+    "Simply Medicaid",
+    "Simply Health",
+    "Staywell Medicare",
+    "Sunshine Health",
+    "Sunshine Medicaid",
+    "Vivida"
   ]
 }

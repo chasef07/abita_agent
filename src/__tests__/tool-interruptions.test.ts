@@ -436,6 +436,25 @@ describe("tool interruption handling", () => {
     expect(result.callerMessage).toContain("Spring Hill accepts Humana PPO");
   });
 
+  it("tells Crystal River callers when Spring Hill accepts an added office-specific rejection", async () => {
+    const { ctx, state } = createToolContext();
+    state.officeKey = "crystal-river";
+    state.amdOfficePhone = "+13523202007";
+
+    const result = await check_insurance.execute(
+      { plan: "Ambetter" },
+      { ctx, toolCallId: "test-check-ambetter" },
+    );
+
+    expect(result).toMatchObject({
+      status: "not_accepted",
+      canProceed: false,
+      acceptedAtAlternateOffice: "Spring Hill",
+      alternateCanonicalPlan: "Ambetter",
+      routeTool: "route_to_spring_hill",
+    });
+  });
+
   it("does not route Crystal River callers on plans that still need clarification", async () => {
     const { ctx, state } = createToolContext();
     state.officeKey = "crystal-river";
