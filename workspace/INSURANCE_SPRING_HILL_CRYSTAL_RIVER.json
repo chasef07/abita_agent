@@ -219,8 +219,8 @@
       "aliases": [
         "Cigna"
       ],
-      "status": "not_accepted",
-      "family": "Cigna",
+      "status": "needs_clarification",
+      "clarificationNeeded": "which Cigna plan is on the card",
       "callerPlan": "Cigna",
       "canProceed": false,
       "needsExactPlanName": false
@@ -470,7 +470,6 @@
     "Miami Children's Health Plan",
     "Humana Medicaid",
     "Florida BlueSelect",
-    "Cigna",
     "Cigna Miami-Dade Public Schools",
     "Doctors Health Medicare",
     "AvMed Medicare Advantage",

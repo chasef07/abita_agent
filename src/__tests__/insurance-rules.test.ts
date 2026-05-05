@@ -66,7 +66,6 @@ describe("insurance matcher", () => {
       "Miami Children's",
       "Humana Medicaid",
       "Fl Blue Select",
-      "Cigna",
       "Miami Dade Ddoctors Health",
       "Av Med Medicare Advantage",
       "Cigna Local Plus",
@@ -104,6 +103,10 @@ describe("insurance matcher", () => {
       "I have Cigna Local Plus",
     );
     expect(cignaLocalPlus.status).toBe("not_accepted");
+
+    const cigna = matchInsurancePlan(reference, "Cigna");
+    expect(cigna.status).toBe("needs_clarification");
+    expect(cigna.clarificationNeeded).toContain("which Cigna plan");
 
     const result = matchInsurancePlan(reference, "Molina");
     expect(result.status).toBe("needs_clarification");
@@ -186,7 +189,7 @@ describe("insurance matcher", () => {
       "Aetna Commercial",
     );
     expect(aetnaCommercial.status).toBe("accepted");
-    expect(aetnaCommercial.matchedFamily).toBe("Aetna");
+    expect(aetnaCommercial.matchedFamily).toBe("Aetna Commercial");
 
     const aetnaEpo = matchInsurancePlanForOffice("crystal-river", "Aetna EPO");
     expect(aetnaEpo.status).toBe("not_accepted");
@@ -220,6 +223,14 @@ describe("insurance matcher", () => {
     expect(genericHumana.callerMessage).toContain(
       "Crystal River does not accept Humana",
     );
+
+    const genericCigna = matchInsurancePlanForOffice("crystal-river", "Cigna");
+    expect(genericCigna.status).toBe("needs_clarification");
+    expect(genericCigna.clarificationNeeded).toContain("which Cigna plan");
+
+    const cignaHmo = matchInsurancePlanForOffice("crystal-river", "Cigna HMO");
+    expect(cignaHmo.status).toBe("accepted");
+    expect(cignaHmo.matchedFamily).toBe("Cigna HMO");
 
     const blueSelect = matchInsurancePlan(
       crystalRiverReference,

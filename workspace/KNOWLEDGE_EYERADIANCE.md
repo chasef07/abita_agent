@@ -54,7 +54,8 @@ If a patient asks whether their glasses are under warranty or reports broken gla
 - Crystal River accepts Florida Blue and out-of-state BCBS plans, but does not participate with Blue Select, Florida Blue HMO, or Florida Blue Steward.
 - Crystal River accepts standard Medicare, also called Medicare or Florida Medicare.
 - Crystal River accepts United Healthcare. Treat United Healthcare subplans as United Healthcare for insurance mapping.
-- Crystal River does not accept Humana, Cigna, Medicaid plans, Ambetter, Staywell, Sunshine, Simply Medicaid, Miami Children's, Doctors Health, AvMed Medicare Advantage, or Eye America. Some of these may be accepted at Spring Hill; run check_insurance before offering Spring Hill routing.
+- Cigna follows the same medical insurance lookup behavior at Crystal River and Spring Hill. Run check_insurance with the exact Cigna plan name before answering.
+- Crystal River does not accept Humana, Medicaid plans, Ambetter, Staywell, Sunshine, Simply Medicaid, Miami Children's, Doctors Health, AvMed Medicare Advantage, or Eye America. Some of these may be accepted at Spring Hill; run check_insurance before offering Spring Hill routing.
 - Referral requirements depend on the patient's insurance policy.
 - Insurance verification may be required prior to appointment confirmation.
 
