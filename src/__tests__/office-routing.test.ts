@@ -161,7 +161,7 @@ describe("Crystal River prompt guidance", () => {
       "Reason for visit — classify medical/surgical vs routine vision",
     );
     expect(prompt).toContain(
-      "triage first: \"is this for a routine eye exam or glasses/contact lens prescription, or for a medical eye visit?\"",
+      'triage first: "is this for a routine eye exam or glasses/contact lens prescription, or for a medical eye visit?"',
     );
     expect(prompt).toContain("Spring Hill routine-vision lane");
     expect(prompt).toContain("routing `optical_only`");
