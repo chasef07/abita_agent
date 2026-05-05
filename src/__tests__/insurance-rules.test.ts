@@ -46,7 +46,6 @@ describe("insurance matcher", () => {
 
   it("matches middleware-backed shorthand aliases that can resolve server side", () => {
     const cases = [
-      ["Cigna", "Cigna PPO"],
       ["Tricare", "Tricare Select"],
       ["Medicare", "Florida Medicare"],
     ] as const;
@@ -57,6 +56,30 @@ describe("insurance matcher", () => {
       expect(result.canProceed).toBe(true);
       expect(result.needsExactPlanName).toBe(true);
       expect(result.matchedFamily).toBe(family);
+    }
+  });
+
+  it("rejects the current Spring Hill medical do-not-accept plans", () => {
+    const cases = [
+      "Aetna EPO",
+      "Humana Gold Plus",
+      "Miami Children's",
+      "Humana Medicaid",
+      "Fl Blue Select",
+      "Miami Dade Ddoctors Health",
+      "Av Med Medicare Advantage",
+      "Cigna Local Plus",
+      "Eye America",
+      "Fl Blue HMO",
+      "Fl Blue Steward",
+      "Molina Marketplace",
+      "Preferred Care Partners",
+    ];
+
+    for (const plan of cases) {
+      const result = matchInsurancePlanForOffice("spring-hill", plan);
+      expect(result.status, plan).toBe("not_accepted");
+      expect(result.canProceed, plan).toBe(false);
     }
   });
 
@@ -71,6 +94,20 @@ describe("insurance matcher", () => {
   });
 
   it("asks for clarification on aliases middleware does not resolve safely", () => {
+    const cignaHmo = matchInsurancePlan(reference, "I have Cigna HMO");
+    expect(cignaHmo.status).toBe("accepted");
+    expect(cignaHmo.matchedFamily).toBe("Cigna HMO");
+
+    const cignaLocalPlus = matchInsurancePlan(
+      reference,
+      "I have Cigna Local Plus",
+    );
+    expect(cignaLocalPlus.status).toBe("not_accepted");
+
+    const cigna = matchInsurancePlan(reference, "Cigna");
+    expect(cigna.status).toBe("needs_clarification");
+    expect(cigna.clarificationNeeded).toContain("which Cigna plan");
+
     const result = matchInsurancePlan(reference, "Molina");
     expect(result.status).toBe("needs_clarification");
     expect(result.canProceed).toBe(false);
@@ -147,6 +184,32 @@ describe("insurance matcher", () => {
     expect(unitedHmo.status).toBe("accepted");
     expect(unitedHmo.matchedFamily).toBe("United Healthcare");
 
+    const aetnaCommercial = matchInsurancePlanForOffice(
+      "crystal-river",
+      "Aetna Commercial",
+    );
+    expect(aetnaCommercial.status).toBe("accepted");
+    expect(aetnaCommercial.matchedFamily).toBe("Aetna Commercial");
+
+    const aetnaEpo = matchInsurancePlanForOffice("crystal-river", "Aetna EPO");
+    expect(aetnaEpo.status).toBe("not_accepted");
+    expect(aetnaEpo.canProceed).toBe(false);
+
+    const ambetter = matchInsurancePlanForOffice("crystal-river", "Ambetter");
+    expect(ambetter.status).toBe("not_accepted");
+    expect(ambetter.canProceed).toBe(false);
+
+    const sunshine = matchInsurancePlanForOffice("crystal-river", "Sunshine");
+    expect(sunshine.status).toBe("not_accepted");
+    expect(sunshine.canProceed).toBe(false);
+
+    const simply = matchInsurancePlanForOffice(
+      "crystal-river",
+      "Simply Medicaid",
+    );
+    expect(simply.status).toBe("not_accepted");
+    expect(simply.canProceed).toBe(false);
+
     const humana = matchInsurancePlanForOffice("crystal-river", "Humana PPO");
     expect(humana.status).toBe("not_accepted");
     expect(humana.canProceed).toBe(false);
@@ -160,6 +223,14 @@ describe("insurance matcher", () => {
     expect(genericHumana.callerMessage).toContain(
       "Crystal River does not accept Humana",
     );
+
+    const genericCigna = matchInsurancePlanForOffice("crystal-river", "Cigna");
+    expect(genericCigna.status).toBe("needs_clarification");
+    expect(genericCigna.clarificationNeeded).toContain("which Cigna plan");
+
+    const cignaHmo = matchInsurancePlanForOffice("crystal-river", "Cigna HMO");
+    expect(cignaHmo.status).toBe("accepted");
+    expect(cignaHmo.matchedFamily).toBe("Cigna HMO");
 
     const blueSelect = matchInsurancePlan(
       crystalRiverReference,
