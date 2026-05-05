@@ -1,7 +1,7 @@
 import { stt } from "@livekit/agents";
 import { describe, expect, it, vi } from "vitest";
 import { VoiceLanguageRuntime } from "../language-runtime.js";
-import { SPANISH_CARTESIA_TTS_VOICE } from "../tts-config.js";
+import { SPANISH_INWORLD_TTS_VOICE } from "../tts-config.js";
 
 function speechEvent(
   type: stt.SpeechEventType,
@@ -22,15 +22,14 @@ function speechEvent(
 }
 
 describe("VoiceLanguageRuntime", () => {
-  it("switches Cartesia TTS to Spanish from AssemblyAI speech events", () => {
+  it("switches Inworld TTS to Spanish from AssemblyAI speech events", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime(
       { updateOptions },
       {
         ttsOptionsByLanguage: {
           es: {
-            language: "es",
-            voice: SPANISH_CARTESIA_TTS_VOICE,
+            voice: SPANISH_INWORLD_TTS_VOICE,
           },
         },
       },
@@ -41,8 +40,7 @@ describe("VoiceLanguageRuntime", () => {
     );
 
     expect(updateOptions).toHaveBeenCalledWith({
-      language: "es",
-      voice: SPANISH_CARTESIA_TTS_VOICE,
+      voice: SPANISH_INWORLD_TTS_VOICE,
     });
     expect(runtime.telemetry).toEqual({
       initialLanguage: "en",
@@ -60,12 +58,10 @@ describe("VoiceLanguageRuntime", () => {
       {
         ttsOptionsByLanguage: {
           en: {
-            language: "en",
             voice: englishVoice,
           },
           es: {
-            language: "es",
-            voice: SPANISH_CARTESIA_TTS_VOICE,
+            voice: SPANISH_INWORLD_TTS_VOICE,
           },
         },
       },
@@ -79,11 +75,9 @@ describe("VoiceLanguageRuntime", () => {
     );
 
     expect(updateOptions).toHaveBeenNthCalledWith(1, {
-      language: "es",
-      voice: SPANISH_CARTESIA_TTS_VOICE,
+      voice: SPANISH_INWORLD_TTS_VOICE,
     });
     expect(updateOptions).toHaveBeenNthCalledWith(2, {
-      language: "en",
       voice: englishVoice,
     });
     expect(runtime.telemetry.currentLanguage).toBe("en");

@@ -14,7 +14,6 @@ export type VoiceLanguageTelemetry = {
 };
 
 export type VoiceLanguageTtsOptions = {
-  language: VoiceLanguage;
   voice?: string;
 };
 
@@ -64,8 +63,8 @@ export class VoiceLanguageRuntime {
     this.currentLanguage = defaultLanguage;
     this.observedLanguages.add(defaultLanguage);
     this.ttsOptionsByLanguage = {
-      en: { language: "en" },
-      es: { language: "es" },
+      en: {},
+      es: {},
       ...options.ttsOptionsByLanguage,
     };
   }

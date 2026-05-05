@@ -1,52 +1,67 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  CARTESIA_TTS_LANGUAGE,
-  CARTESIA_TTS_MODEL,
-  CARTESIA_TTS_SAMPLE_RATE,
-  DEFAULT_CARTESIA_TTS_VOICE,
-  SPANISH_CARTESIA_TTS_VOICE,
-  getCartesiaTtsOptionsByLanguage,
-  getCartesiaTtsOptions,
+  DEFAULT_INWORLD_TTS_VOICE,
+  INWORLD_TTS_ENCODING,
+  INWORLD_TTS_MODEL,
+  INWORLD_TTS_SAMPLE_RATE,
+  INWORLD_TTS_SPEAKING_RATE,
+  INWORLD_TTS_TEXT_NORMALIZATION,
+  SPANISH_INWORLD_TTS_VOICE,
+  getInworldTtsOptions,
+  getInworldTtsOptionsByLanguage,
 } from "../tts-config.js";
 
-const originalVoice = process.env.CARTESIA_TTS_VOICE;
+const originalVoice = process.env.INWORLD_TTS_VOICE;
+const originalSpanishVoice = process.env.INWORLD_TTS_SPANISH_VOICE;
 
 afterEach(() => {
   if (originalVoice === undefined) {
-    delete process.env.CARTESIA_TTS_VOICE;
+    delete process.env.INWORLD_TTS_VOICE;
   } else {
-    process.env.CARTESIA_TTS_VOICE = originalVoice;
+    process.env.INWORLD_TTS_VOICE = originalVoice;
+  }
+
+  if (originalSpanishVoice === undefined) {
+    delete process.env.INWORLD_TTS_SPANISH_VOICE;
+  } else {
+    process.env.INWORLD_TTS_SPANISH_VOICE = originalSpanishVoice;
   }
 });
 
 describe("TTS config", () => {
-  it("uses direct Cartesia plugin TTS by default", () => {
-    delete process.env.CARTESIA_TTS_VOICE;
+  it("uses direct Inworld plugin TTS by default", () => {
+    delete process.env.INWORLD_TTS_VOICE;
 
-    expect(getCartesiaTtsOptions()).toEqual({
-      model: CARTESIA_TTS_MODEL,
-      voice: DEFAULT_CARTESIA_TTS_VOICE,
-      language: CARTESIA_TTS_LANGUAGE,
-      sampleRate: CARTESIA_TTS_SAMPLE_RATE,
+    expect(getInworldTtsOptions()).toEqual({
+      model: INWORLD_TTS_MODEL,
+      voice: DEFAULT_INWORLD_TTS_VOICE,
+      sampleRate: INWORLD_TTS_SAMPLE_RATE,
+      encoding: INWORLD_TTS_ENCODING,
+      speakingRate: INWORLD_TTS_SPEAKING_RATE,
+      textNormalization: INWORLD_TTS_TEXT_NORMALIZATION,
     });
   });
 
-  it("allows the Cartesia voice to be changed without code changes", () => {
-    process.env.CARTESIA_TTS_VOICE = "blake";
+  it("allows the Inworld voice to be changed without code changes", () => {
+    process.env.INWORLD_TTS_VOICE = "Nate";
 
-    expect(getCartesiaTtsOptions().voice).toBe("blake");
+    expect(getInworldTtsOptions().voice).toBe("Nate");
   });
 
-  it("uses the dedicated Spanish Cartesia voice for Spanish turns", () => {
-    expect(getCartesiaTtsOptionsByLanguage("english-voice")).toEqual({
+  it("uses the dedicated Spanish Inworld voice for Spanish turns", () => {
+    expect(getInworldTtsOptionsByLanguage("english-voice")).toEqual({
       en: {
-        language: "en",
         voice: "english-voice",
       },
       es: {
-        language: "es",
-        voice: SPANISH_CARTESIA_TTS_VOICE,
+        voice: SPANISH_INWORLD_TTS_VOICE,
       },
     });
+  });
+
+  it("allows the Spanish Inworld voice to be changed without code changes", () => {
+    process.env.INWORLD_TTS_SPANISH_VOICE = "Jose";
+
+    expect(getInworldTtsOptionsByLanguage("nate").es.voice).toBe("Jose");
   });
 });
