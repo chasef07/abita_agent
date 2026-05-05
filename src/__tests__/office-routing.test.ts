@@ -86,9 +86,9 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("uses the shared human transfer number for live offices", () => {
+  it("uses office-specific human transfer numbers for live offices", () => {
     expect(getOfficeConfig("crystal-river").transferNumber).toBe(
-      "+16182265883",
+      "+13527941244",
     );
     expect(getOfficeConfig("spring-hill").transferNumber).toBe("+16182265883");
   });

@@ -20,7 +20,8 @@ export interface OfficeConfig {
     routeToSpringHill: boolean;
   };
 }
-const LIVE_TRANSFER_NUMBER = "+16182265883";
+const SPRING_HILL_TRANSFER_NUMBER = "+16182265883";
+const CRYSTAL_RIVER_TRANSFER_NUMBER = "+13527941244";
 const DEFAULT_TRANSFER_NUMBER = "+18667968908";
 
 export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
@@ -34,7 +35,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
-    transferNumber: LIVE_TRANSFER_NUMBER,
+    transferNumber: SPRING_HILL_TRANSFER_NUMBER,
     features: {
       routeToSpringHill: false,
     },
@@ -49,7 +50,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     insuranceFile: "INSURANCE_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
-    transferNumber: LIVE_TRANSFER_NUMBER,
+    transferNumber: CRYSTAL_RIVER_TRANSFER_NUMBER,
     features: {
       routeToSpringHill: true,
     },
