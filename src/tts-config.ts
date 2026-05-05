@@ -1,7 +1,7 @@
 import type { TTSOptions as InworldTtsOptions } from "@livekit/agents-plugin-inworld";
 
 export const INWORLD_TTS_MODEL = "inworld-tts-2";
-export const DEFAULT_INWORLD_TTS_VOICE = "Nate";
+export const DEFAULT_INWORLD_TTS_VOICE = "Ashley";
 export const SPANISH_INWORLD_TTS_VOICE = "Diego";
 export const INWORLD_TTS_SAMPLE_RATE = 16000;
 export const INWORLD_TTS_ENCODING =

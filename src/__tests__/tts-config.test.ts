@@ -43,9 +43,9 @@ describe("TTS config", () => {
   });
 
   it("allows the Inworld voice to be changed without code changes", () => {
-    process.env.INWORLD_TTS_VOICE = "Nate";
+    process.env.INWORLD_TTS_VOICE = "Ashley";
 
-    expect(getInworldTtsOptions().voice).toBe("Nate");
+    expect(getInworldTtsOptions().voice).toBe("Ashley");
   });
 
   it("uses the dedicated Spanish Inworld voice for Spanish turns", () => {
@@ -62,6 +62,6 @@ describe("TTS config", () => {
   it("allows the Spanish Inworld voice to be changed without code changes", () => {
     process.env.INWORLD_TTS_SPANISH_VOICE = "Jose";
 
-    expect(getInworldTtsOptionsByLanguage("Nate").es.voice).toBe("Jose");
+    expect(getInworldTtsOptionsByLanguage("Ashley").es.voice).toBe("Jose");
   });
 });
