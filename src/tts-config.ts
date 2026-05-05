@@ -4,7 +4,8 @@ export const INWORLD_TTS_MODEL = "inworld-tts-2";
 export const DEFAULT_INWORLD_TTS_VOICE = "Nate";
 export const SPANISH_INWORLD_TTS_VOICE = "Diego";
 export const INWORLD_TTS_SAMPLE_RATE = 16000;
-export const INWORLD_TTS_ENCODING = "PCM" satisfies InworldTtsOptions["encoding"];
+export const INWORLD_TTS_ENCODING =
+  "PCM" satisfies InworldTtsOptions["encoding"];
 export const INWORLD_TTS_SPEAKING_RATE = 1.0;
 export const INWORLD_TTS_TEXT_NORMALIZATION =
   "ON" satisfies InworldTtsOptions["textNormalization"];
