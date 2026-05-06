@@ -152,7 +152,16 @@ describe("Crystal River prompt guidance", () => {
       "Before choosing a path, checking insurance, or searching availability",
     );
     expect(prompt).toContain(
+      `If the caller starts with a bare insurance question like "do you take Care Plus?"`,
+    );
+    expect(prompt).toContain(
+      "Medical and routine vision insurance lookups can have different answers for the same plan name",
+    );
+    expect(prompt).toContain(
       "Reason for visit — classify medical/surgical vs routine vision",
+    );
+    expect(prompt).toContain(
+      'triage first: "is this for a routine eye exam or glasses/contact lens prescription, or for a medical eye visit?"',
     );
     expect(prompt).toContain("Spring Hill routine-vision lane");
     expect(prompt).toContain("routing `optical_only`");

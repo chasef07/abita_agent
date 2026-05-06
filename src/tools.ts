@@ -597,8 +597,9 @@ export function resolveKnowledgeFileForOffice(officeKey: OfficeKey): string {
 export const check_insurance = llm.tool({
   description: `Looks up whether the office accepts a specific insurance plan or family alias.
 
-Use when a caller asks if a plan is accepted or during new-patient registration.
-Use coverageType "routine_vision" only when the caller is scheduling a routine eye exam or glasses/contact lens prescription using vision insurance. Use medical for medical/surgical eye visits.
+Use after the visit type is known when a caller asks if a plan is accepted or during new-patient registration.
+Do NOT call this tool for a bare insurance question until you know whether the caller means routine vision or medical/surgical eye care. Ask whether they mean routine eye exam/glasses/contacts or medical/surgical eye care.
+The medical and routine_vision lookups can return different answers for the same plan name. Use coverageType "routine_vision" only for routine eye exam, glasses prescription, or contact lens prescription using vision insurance. Use "medical" for medical/surgical eye visits.
 If the caller gives a plan or family name that matches the insurance map, run this tool with that exact phrase.
 Do NOT force HMO, PPO, or Medicare as a default follow-up. Only ask for that kind of clarification if this tool returns clarificationNeeded.
 
