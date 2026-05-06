@@ -1,6 +1,6 @@
 import type { TTSOptions as RimeTtsOptions } from "@livekit/agents-plugin-rime";
 
-export const RIME_TTS_MODEL_ID = "coda";
+export const RIME_TTS_MODEL_ID = "arcana";
 export const DEFAULT_RIME_TTS_SPEAKER = "vespera";
 export const SPANISH_RIME_TTS_SPEAKER = "luz";
 export const RIME_TTS_BASE_URL = "https://users-east.rime.ai/v1/rime-tts";
