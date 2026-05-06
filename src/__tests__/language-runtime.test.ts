@@ -29,6 +29,7 @@ describe("VoiceLanguageRuntime", () => {
         ttsOptionsByLanguage: {
           es: {
             speaker: "spanish-speaker",
+            lang: "spa",
           },
         },
       },
@@ -40,6 +41,7 @@ describe("VoiceLanguageRuntime", () => {
 
     expect(updateOptions).toHaveBeenCalledWith({
       speaker: "spanish-speaker",
+      lang: "spa",
     });
     expect(runtime.telemetry).toEqual({
       initialLanguage: "en",
@@ -58,9 +60,11 @@ describe("VoiceLanguageRuntime", () => {
         ttsOptionsByLanguage: {
           en: {
             speaker: englishSpeaker,
+            lang: "eng",
           },
           es: {
             speaker: "spanish-speaker",
+            lang: "spa",
           },
         },
       },
@@ -75,9 +79,11 @@ describe("VoiceLanguageRuntime", () => {
 
     expect(updateOptions).toHaveBeenNthCalledWith(1, {
       speaker: "spanish-speaker",
+      lang: "spa",
     });
     expect(updateOptions).toHaveBeenNthCalledWith(2, {
       speaker: englishSpeaker,
+      lang: "eng",
     });
     expect(runtime.telemetry.currentLanguage).toBe("en");
     expect(runtime.telemetry.languageSwitches).toBe(2);

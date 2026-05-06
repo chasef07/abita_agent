@@ -2,14 +2,19 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_RIME_TTS_SPEAKER,
   RIME_TTS_BASE_URL,
+  RIME_TTS_ENGLISH_LANGUAGE,
   RIME_TTS_MODEL_ID,
   RIME_TTS_SAMPLE_RATE,
+  RIME_TTS_SPANISH_LANGUAGE,
   RIME_TTS_SPEED_ALPHA,
+  SPANISH_RIME_TTS_SPEAKER,
   getRimeTtsOptions,
+  getRimeTtsOptionsByLanguage,
 } from "../tts-config.js";
 
 const originalModel = process.env.RIME_TTS_MODEL_ID;
 const originalSpeaker = process.env.RIME_TTS_SPEAKER;
+const originalSpanishSpeaker = process.env.RIME_TTS_SPANISH_SPEAKER;
 const originalBaseUrl = process.env.RIME_TTS_BASE_URL;
 
 afterEach(() => {
@@ -23,6 +28,12 @@ afterEach(() => {
     delete process.env.RIME_TTS_SPEAKER;
   } else {
     process.env.RIME_TTS_SPEAKER = originalSpeaker;
+  }
+
+  if (originalSpanishSpeaker === undefined) {
+    delete process.env.RIME_TTS_SPANISH_SPEAKER;
+  } else {
+    process.env.RIME_TTS_SPANISH_SPEAKER = originalSpanishSpeaker;
   }
 
   if (originalBaseUrl === undefined) {
@@ -57,5 +68,26 @@ describe("TTS config", () => {
       speaker: "luna",
       baseURL: "https://users.rime.ai/v1/rime-tts",
     });
+  });
+
+  it("uses Luz for Spanish turns and restores the English Rime speaker", () => {
+    delete process.env.RIME_TTS_SPANISH_SPEAKER;
+
+    expect(getRimeTtsOptionsByLanguage("english-speaker")).toEqual({
+      en: {
+        speaker: "english-speaker",
+        lang: RIME_TTS_ENGLISH_LANGUAGE,
+      },
+      es: {
+        speaker: SPANISH_RIME_TTS_SPEAKER,
+        lang: RIME_TTS_SPANISH_LANGUAGE,
+      },
+    });
+  });
+
+  it("allows the Spanish Rime speaker to be changed without code changes", () => {
+    process.env.RIME_TTS_SPANISH_SPEAKER = "mari";
+
+    expect(getRimeTtsOptionsByLanguage("vespera").es.speaker).toBe("mari");
   });
 });

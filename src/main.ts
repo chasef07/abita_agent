@@ -22,7 +22,10 @@ import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
-import { getRimeTtsOptions } from "./tts-config.js";
+import {
+  getRimeTtsOptions,
+  getRimeTtsOptionsByLanguage,
+} from "./tts-config.js";
 import { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
   type AssemblyAISttProfile,
@@ -77,8 +80,11 @@ export default defineAgent({
       });
 
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
-      const tts = new rime.TTS(getRimeTtsOptions());
-      const languageRuntime = new VoiceLanguageRuntime(tts);
+      const ttsOptions = getRimeTtsOptions();
+      const tts = new rime.TTS(ttsOptions);
+      const languageRuntime = new VoiceLanguageRuntime(tts, {
+        ttsOptionsByLanguage: getRimeTtsOptionsByLanguage(ttsOptions.speaker),
+      });
       const session = new voice.AgentSession<CallState>({
         stt,
         llm: llmWithFallback,
