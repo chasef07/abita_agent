@@ -2,6 +2,7 @@
 
 export type OfficeKey = "spring-hill" | "crystal-river" | "dev";
 export const SPRING_HILL_OFFICE_PHONE = "+17275919997";
+export const SPRING_HILL_813_TRUNK_PHONE = "+18135484830";
 export const CRYSTAL_RIVER_OFFICE_PHONE = "+13523202007";
 export const DEV_OFFICE_PHONE = "+14843989071";
 
@@ -28,7 +29,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
   "spring-hill": {
     key: "spring-hill",
     displayName: "Abita Eye Group",
-    trunkPhones: [SPRING_HILL_OFFICE_PHONE],
+    trunkPhones: [SPRING_HILL_OFFICE_PHONE, SPRING_HILL_813_TRUNK_PHONE],
     greeting:
       "thank you for calling Abita Eye Group, this is Ava, how can I help you?",
     knowledgeFile: "KNOWLEDGE_SPRINGHILL.md",
