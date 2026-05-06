@@ -28,8 +28,7 @@ export function getRimeTtsOptionsByLanguage(
       lang: RIME_TTS_ENGLISH_LANGUAGE,
     },
     es: {
-      speaker:
-        process.env.RIME_TTS_SPANISH_SPEAKER ?? SPANISH_RIME_TTS_SPEAKER,
+      speaker: process.env.RIME_TTS_SPANISH_SPEAKER ?? SPANISH_RIME_TTS_SPEAKER,
       lang: RIME_TTS_SPANISH_LANGUAGE,
     },
   } as const;

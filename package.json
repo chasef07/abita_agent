@@ -15,18 +15,18 @@
     "format:check": "prettier --check . --ignore-unknown"
   },
   "dependencies": {
-    "@livekit/agents": "^1.3.2",
-    "@livekit/agents-plugin-assemblyai": "1.3.2",
-    "@livekit/agents-plugin-baseten": "^1.3.2",
-    "@livekit/agents-plugin-livekit": "^1.3.2",
-    "@livekit/agents-plugin-rime": "1.3.2",
-    "@livekit/agents-plugin-silero": "^1.3.2",
+    "@livekit/agents": "^1.3.4",
+    "@livekit/agents-plugin-assemblyai": "1.3.4",
+    "@livekit/agents-plugin-baseten": "^1.3.4",
+    "@livekit/agents-plugin-livekit": "^1.3.4",
+    "@livekit/agents-plugin-rime": "1.3.4",
+    "@livekit/agents-plugin-silero": "^1.3.4",
     "@livekit/noise-cancellation-node": "^0.1.9",
     "@livekit/rtc-node": "^0.13.27",
     "dotenv": "^17.4.2",
     "livekit-server-sdk": "^2.15.2",
     "ws": "^8.20.0",
-    "zod": "^4.4.2"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -38,7 +38,7 @@
     "prettier": "^3.8.3",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.1",
+    "typescript-eslint": "^8.59.2",
     "vitest": "^4.1.5"
   }
 }
