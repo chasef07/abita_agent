@@ -4,6 +4,7 @@ import {
   RIME_TTS_BASE_URL,
   RIME_TTS_MODEL_ID,
   RIME_TTS_SAMPLE_RATE,
+  RIME_TTS_SPEED_ALPHA,
   getRimeTtsOptions,
 } from "../tts-config.js";
 
@@ -42,6 +43,7 @@ describe("TTS config", () => {
       speaker: DEFAULT_RIME_TTS_SPEAKER,
       baseURL: RIME_TTS_BASE_URL,
       samplingRate: RIME_TTS_SAMPLE_RATE,
+      speedAlpha: RIME_TTS_SPEED_ALPHA,
     });
   });
 
