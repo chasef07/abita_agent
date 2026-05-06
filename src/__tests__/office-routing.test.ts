@@ -6,8 +6,10 @@ import { buildPrompt } from "../prompt.js";
 import {
   DEV_OFFICE_PHONE,
   getOfficeConfig,
+  getOfficeConfigByPhone,
   getOfficeKeyByPhone,
   normalizePhoneNumber,
+  SPRING_HILL_813_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
 } from "../offices.js";
 import {
@@ -21,7 +23,20 @@ describe("office routing helpers", () => {
   it("maps trunk numbers to office keys", () => {
     expect(getOfficeKeyByPhone("+13523202007")).toBe("crystal-river");
     expect(getOfficeKeyByPhone(SPRING_HILL_OFFICE_PHONE)).toBe("spring-hill");
+    expect(getOfficeKeyByPhone(SPRING_HILL_813_TRUNK_PHONE)).toBe(
+      "spring-hill",
+    );
     expect(getOfficeKeyByPhone(DEV_OFFICE_PHONE)).toBe("dev");
+  });
+
+  it("routes the Spring Hill 813 trunk through the canonical AMD office phone", () => {
+    const office = getOfficeConfigByPhone(SPRING_HILL_813_TRUNK_PHONE);
+
+    expect(office.key).toBe("spring-hill");
+    expect(office.amdOfficePhone).toBe(SPRING_HILL_OFFICE_PHONE);
+    expect(buildToolsForTrunk(SPRING_HILL_813_TRUNK_PHONE)).not.toHaveProperty(
+      "route_to_spring_hill",
+    );
   });
 
   it("normalizes LiveKit phone attributes without a plus prefix", () => {
