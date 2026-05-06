@@ -53,6 +53,7 @@ describe("TTS config", () => {
       modelId: RIME_TTS_MODEL_ID,
       speaker: DEFAULT_RIME_TTS_SPEAKER,
       baseURL: RIME_TTS_BASE_URL,
+      lang: RIME_TTS_ENGLISH_LANGUAGE,
       samplingRate: RIME_TTS_SAMPLE_RATE,
       speedAlpha: RIME_TTS_SPEED_ALPHA,
     });
