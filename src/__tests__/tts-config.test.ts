@@ -1,67 +1,59 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  DEFAULT_INWORLD_TTS_VOICE,
-  INWORLD_TTS_ENCODING,
-  INWORLD_TTS_MODEL,
-  INWORLD_TTS_SAMPLE_RATE,
-  INWORLD_TTS_SPEAKING_RATE,
-  INWORLD_TTS_TEXT_NORMALIZATION,
-  SPANISH_INWORLD_TTS_VOICE,
-  getInworldTtsOptions,
-  getInworldTtsOptionsByLanguage,
+  DEFAULT_RIME_TTS_SPEAKER,
+  RIME_TTS_BASE_URL,
+  RIME_TTS_MODEL_ID,
+  RIME_TTS_SAMPLE_RATE,
+  getRimeTtsOptions,
 } from "../tts-config.js";
 
-const originalVoice = process.env.INWORLD_TTS_VOICE;
-const originalSpanishVoice = process.env.INWORLD_TTS_SPANISH_VOICE;
+const originalModel = process.env.RIME_TTS_MODEL_ID;
+const originalSpeaker = process.env.RIME_TTS_SPEAKER;
+const originalBaseUrl = process.env.RIME_TTS_BASE_URL;
 
 afterEach(() => {
-  if (originalVoice === undefined) {
-    delete process.env.INWORLD_TTS_VOICE;
+  if (originalModel === undefined) {
+    delete process.env.RIME_TTS_MODEL_ID;
   } else {
-    process.env.INWORLD_TTS_VOICE = originalVoice;
+    process.env.RIME_TTS_MODEL_ID = originalModel;
   }
 
-  if (originalSpanishVoice === undefined) {
-    delete process.env.INWORLD_TTS_SPANISH_VOICE;
+  if (originalSpeaker === undefined) {
+    delete process.env.RIME_TTS_SPEAKER;
   } else {
-    process.env.INWORLD_TTS_SPANISH_VOICE = originalSpanishVoice;
+    process.env.RIME_TTS_SPEAKER = originalSpeaker;
+  }
+
+  if (originalBaseUrl === undefined) {
+    delete process.env.RIME_TTS_BASE_URL;
+  } else {
+    process.env.RIME_TTS_BASE_URL = originalBaseUrl;
   }
 });
 
 describe("TTS config", () => {
-  it("uses direct Inworld plugin TTS by default", () => {
-    delete process.env.INWORLD_TTS_VOICE;
+  it("uses direct Rime plugin TTS by default", () => {
+    delete process.env.RIME_TTS_MODEL_ID;
+    delete process.env.RIME_TTS_SPEAKER;
+    delete process.env.RIME_TTS_BASE_URL;
 
-    expect(getInworldTtsOptions()).toEqual({
-      model: INWORLD_TTS_MODEL,
-      voice: DEFAULT_INWORLD_TTS_VOICE,
-      sampleRate: INWORLD_TTS_SAMPLE_RATE,
-      encoding: INWORLD_TTS_ENCODING,
-      speakingRate: INWORLD_TTS_SPEAKING_RATE,
-      textNormalization: INWORLD_TTS_TEXT_NORMALIZATION,
+    expect(getRimeTtsOptions()).toEqual({
+      modelId: RIME_TTS_MODEL_ID,
+      speaker: DEFAULT_RIME_TTS_SPEAKER,
+      baseURL: RIME_TTS_BASE_URL,
+      samplingRate: RIME_TTS_SAMPLE_RATE,
     });
   });
 
-  it("allows the Inworld voice to be changed without code changes", () => {
-    process.env.INWORLD_TTS_VOICE = "Ashley";
+  it("allows the Rime model, speaker, and base URL to be changed without code changes", () => {
+    process.env.RIME_TTS_MODEL_ID = "arcana";
+    process.env.RIME_TTS_SPEAKER = "luna";
+    process.env.RIME_TTS_BASE_URL = "https://users.rime.ai/v1/rime-tts";
 
-    expect(getInworldTtsOptions().voice).toBe("Ashley");
-  });
-
-  it("uses the dedicated Spanish Inworld voice for Spanish turns", () => {
-    expect(getInworldTtsOptionsByLanguage("english-voice")).toEqual({
-      en: {
-        voice: "english-voice",
-      },
-      es: {
-        voice: SPANISH_INWORLD_TTS_VOICE,
-      },
+    expect(getRimeTtsOptions()).toMatchObject({
+      modelId: "arcana",
+      speaker: "luna",
+      baseURL: "https://users.rime.ai/v1/rime-tts",
     });
-  });
-
-  it("allows the Spanish Inworld voice to be changed without code changes", () => {
-    process.env.INWORLD_TTS_SPANISH_VOICE = "Jose";
-
-    expect(getInworldTtsOptionsByLanguage("Ashley").es.voice).toBe("Jose");
   });
 });

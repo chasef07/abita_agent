@@ -13,7 +13,7 @@ import {
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
-import * as inworld from "@livekit/agents-plugin-inworld";
+import * as rime from "@livekit/agents-plugin-rime";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -22,10 +22,7 @@ import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
-import {
-  getInworldTtsOptions,
-  getInworldTtsOptionsByLanguage,
-} from "./tts-config.js";
+import { getRimeTtsOptions } from "./tts-config.js";
 import { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
   type AssemblyAISttProfile,
@@ -80,11 +77,8 @@ export default defineAgent({
       });
 
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
-      const ttsOptions = getInworldTtsOptions();
-      const tts = new inworld.TTS(ttsOptions);
-      const languageRuntime = new VoiceLanguageRuntime(tts, {
-        ttsOptionsByLanguage: getInworldTtsOptionsByLanguage(ttsOptions.voice),
-      });
+      const tts = new rime.TTS(getRimeTtsOptions());
+      const languageRuntime = new VoiceLanguageRuntime(tts);
       const session = new voice.AgentSession<CallState>({
         stt,
         llm: llmWithFallback,

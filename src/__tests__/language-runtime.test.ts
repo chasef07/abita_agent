@@ -1,7 +1,6 @@
 import { stt } from "@livekit/agents";
 import { describe, expect, it, vi } from "vitest";
 import { VoiceLanguageRuntime } from "../language-runtime.js";
-import { SPANISH_INWORLD_TTS_VOICE } from "../tts-config.js";
 
 function speechEvent(
   type: stt.SpeechEventType,
@@ -22,14 +21,14 @@ function speechEvent(
 }
 
 describe("VoiceLanguageRuntime", () => {
-  it("switches Inworld TTS to Spanish from AssemblyAI speech events", () => {
+  it("switches TTS options to Spanish from AssemblyAI speech events", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime(
       { updateOptions },
       {
         ttsOptionsByLanguage: {
           es: {
-            voice: SPANISH_INWORLD_TTS_VOICE,
+            speaker: "spanish-speaker",
           },
         },
       },
@@ -40,7 +39,7 @@ describe("VoiceLanguageRuntime", () => {
     );
 
     expect(updateOptions).toHaveBeenCalledWith({
-      voice: SPANISH_INWORLD_TTS_VOICE,
+      speaker: "spanish-speaker",
     });
     expect(runtime.telemetry).toEqual({
       initialLanguage: "en",
@@ -52,16 +51,16 @@ describe("VoiceLanguageRuntime", () => {
 
   it("switches back to English when the caller switches back", () => {
     const updateOptions = vi.fn();
-    const englishVoice = "english-voice-id";
+    const englishSpeaker = "english-speaker";
     const runtime = new VoiceLanguageRuntime(
       { updateOptions },
       {
         ttsOptionsByLanguage: {
           en: {
-            voice: englishVoice,
+            speaker: englishSpeaker,
           },
           es: {
-            voice: SPANISH_INWORLD_TTS_VOICE,
+            speaker: "spanish-speaker",
           },
         },
       },
@@ -75,13 +74,26 @@ describe("VoiceLanguageRuntime", () => {
     );
 
     expect(updateOptions).toHaveBeenNthCalledWith(1, {
-      voice: SPANISH_INWORLD_TTS_VOICE,
+      speaker: "spanish-speaker",
     });
     expect(updateOptions).toHaveBeenNthCalledWith(2, {
-      voice: englishVoice,
+      speaker: englishSpeaker,
     });
     expect(runtime.telemetry.currentLanguage).toBe("en");
     expect(runtime.telemetry.languageSwitches).toBe(2);
+  });
+
+  it("tracks language changes without updating TTS when no options are configured", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime({ updateOptions });
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "es"),
+    );
+
+    expect(updateOptions).not.toHaveBeenCalled();
+    expect(runtime.telemetry.currentLanguage).toBe("es");
+    expect(runtime.telemetry.languageSwitches).toBe(1);
   });
 
   it("ignores unsupported or non-transcript events", () => {

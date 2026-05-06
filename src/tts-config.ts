@@ -1,35 +1,15 @@
-import type { TTSOptions as InworldTtsOptions } from "@livekit/agents-plugin-inworld";
+import type { TTSOptions as RimeTtsOptions } from "@livekit/agents-plugin-rime";
 
-export const INWORLD_TTS_MODEL = "inworld-tts-2";
-export const DEFAULT_INWORLD_TTS_VOICE = "Ashley";
-export const SPANISH_INWORLD_TTS_VOICE = "Diego";
-export const INWORLD_TTS_SAMPLE_RATE = 16000;
-export const INWORLD_TTS_ENCODING =
-  "PCM" satisfies InworldTtsOptions["encoding"];
-export const INWORLD_TTS_SPEAKING_RATE = 1.0;
-export const INWORLD_TTS_TEXT_NORMALIZATION =
-  "ON" satisfies InworldTtsOptions["textNormalization"];
+export const RIME_TTS_MODEL_ID = "coda";
+export const DEFAULT_RIME_TTS_SPEAKER = "vespera";
+export const RIME_TTS_BASE_URL = "https://users-east.rime.ai/v1/rime-tts";
+export const RIME_TTS_SAMPLE_RATE = 16000;
 
-export function getInworldTtsOptions(): Partial<InworldTtsOptions> {
+export function getRimeTtsOptions(): Partial<RimeTtsOptions> {
   return {
-    model: INWORLD_TTS_MODEL,
-    voice: process.env.INWORLD_TTS_VOICE ?? DEFAULT_INWORLD_TTS_VOICE,
-    sampleRate: INWORLD_TTS_SAMPLE_RATE,
-    encoding: INWORLD_TTS_ENCODING,
-    speakingRate: INWORLD_TTS_SPEAKING_RATE,
-    textNormalization: INWORLD_TTS_TEXT_NORMALIZATION,
+    modelId: process.env.RIME_TTS_MODEL_ID ?? RIME_TTS_MODEL_ID,
+    speaker: process.env.RIME_TTS_SPEAKER ?? DEFAULT_RIME_TTS_SPEAKER,
+    baseURL: process.env.RIME_TTS_BASE_URL ?? RIME_TTS_BASE_URL,
+    samplingRate: RIME_TTS_SAMPLE_RATE,
   };
-}
-
-export function getInworldTtsOptionsByLanguage(
-  englishVoice = process.env.INWORLD_TTS_VOICE ?? DEFAULT_INWORLD_TTS_VOICE,
-) {
-  return {
-    en: {
-      voice: englishVoice,
-    },
-    es: {
-      voice: process.env.INWORLD_TTS_SPANISH_VOICE ?? SPANISH_INWORLD_TTS_VOICE,
-    },
-  } as const;
 }

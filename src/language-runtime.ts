@@ -13,9 +13,10 @@ export type VoiceLanguageTelemetry = {
   observedLanguages: VoiceLanguage[];
 };
 
-export type VoiceLanguageTtsOptions = {
-  voice?: string;
-};
+export type VoiceLanguageTtsOptions = Record<
+  string,
+  string | number | boolean | undefined
+>;
 
 export type TtsLanguageUpdater = {
   updateOptions(options: VoiceLanguageTtsOptions): void;
@@ -91,7 +92,10 @@ export class VoiceLanguageRuntime {
     const previousLanguage = this.currentLanguage;
     this.currentLanguage = voiceLanguage;
     this.languageSwitches += 1;
-    this.tts.updateOptions(this.ttsOptionsByLanguage[voiceLanguage]);
+    const ttsOptions = this.ttsOptionsByLanguage[voiceLanguage];
+    if (Object.keys(ttsOptions).length > 0) {
+      this.tts.updateOptions(ttsOptions);
+    }
 
     console.log(
       `[language] voice_language=${voiceLanguage} previous=${previousLanguage} detected=${detectedLanguage}`,
