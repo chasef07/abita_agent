@@ -83,7 +83,10 @@ export default defineAgent({
       const ttsOptions = getRimeTtsOptions();
       const tts = new rime.TTS(ttsOptions);
       const languageRuntime = new VoiceLanguageRuntime(tts, {
-        ttsOptionsByLanguage: getRimeTtsOptionsByLanguage(ttsOptions.speaker),
+        ttsOptionsByLanguage: getRimeTtsOptionsByLanguage(
+          ttsOptions.speaker,
+          ttsOptions.modelId,
+        ),
       });
       const session = new voice.AgentSession<CallState>({
         stt,

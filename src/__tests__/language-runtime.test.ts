@@ -52,6 +52,31 @@ describe("VoiceLanguageRuntime", () => {
     });
   });
 
+  it("switches from AssemblyAI interim events before final transcript", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime(
+      { updateOptions },
+      {
+        ttsOptionsByLanguage: {
+          es: {
+            speaker: "spanish-speaker",
+            lang: "spa",
+          },
+        },
+      },
+    );
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(stt.SpeechEventType.INTERIM_TRANSCRIPT, "es", "si"),
+    );
+
+    expect(updateOptions).toHaveBeenCalledWith({
+      speaker: "spanish-speaker",
+      lang: "spa",
+    });
+    expect(runtime.telemetry.currentLanguage).toBe("es");
+  });
+
   it("switches from AssemblyAI preflight events before final transcript", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime(
@@ -150,7 +175,7 @@ describe("VoiceLanguageRuntime", () => {
     expect(runtime.telemetry.currentLanguage).toBe("en");
   });
 
-  it("requires two strong English turns before switching back from Spanish", () => {
+  it("switches back to English from the next English transcript", () => {
     const updateOptions = vi.fn();
     const englishSpeaker = "english-speaker";
     const runtime = new VoiceLanguageRuntime(
@@ -183,13 +208,6 @@ describe("VoiceLanguageRuntime", () => {
         "I need help scheduling the appointment",
       ),
     );
-    runtime.updateFromSpeechEvent(
-      speechEvent(
-        stt.SpeechEventType.FINAL_TRANSCRIPT,
-        "en-US",
-        "Can you help me finish this in English",
-      ),
-    );
 
     expect(updateOptions).toHaveBeenNthCalledWith(1, {
       speaker: "spanish-speaker",
@@ -203,7 +221,49 @@ describe("VoiceLanguageRuntime", () => {
     expect(runtime.telemetry.languageSwitches).toBe(2);
   });
 
-  it("does not count preflight and final transcripts as two English turns", () => {
+  it("does not let interim English fallback pull an active Spanish call back to English", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime(
+      { updateOptions },
+      {
+        ttsOptionsByLanguage: {
+          en: {
+            speaker: "english-speaker",
+            lang: "eng",
+          },
+          es: {
+            speaker: "spanish-speaker",
+            lang: "spa",
+          },
+        },
+      },
+    );
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "es",
+        "necesito ayuda con mi cita",
+      ),
+    );
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.INTERIM_TRANSCRIPT,
+        "en",
+        "necesito ayuda",
+      ),
+    );
+
+    expect(updateOptions).toHaveBeenCalledTimes(1);
+    expect(updateOptions).toHaveBeenCalledWith({
+      speaker: "spanish-speaker",
+      lang: "spa",
+    });
+    expect(runtime.telemetry.currentLanguage).toBe("es");
+    expect(runtime.telemetry.languageSwitches).toBe(1);
+  });
+
+  it("reasserts TTS options on every transcript event in the current language", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime(
       { updateOptions },
@@ -231,24 +291,36 @@ describe("VoiceLanguageRuntime", () => {
     runtime.updateFromSpeechEvent(
       speechEvent(
         stt.SpeechEventType.PREFLIGHT_TRANSCRIPT,
-        "en",
-        "I need help scheduling the appointment",
+        "es",
+        "necesito una cita",
       ),
     );
     runtime.updateFromSpeechEvent(
       speechEvent(
         stt.SpeechEventType.FINAL_TRANSCRIPT,
-        "en",
-        "I need help scheduling the appointment",
+        "es",
+        "necesito una cita",
       ),
     );
 
-    expect(updateOptions).toHaveBeenCalledTimes(1);
+    expect(updateOptions).toHaveBeenCalledTimes(3);
+    expect(updateOptions).toHaveBeenNthCalledWith(1, {
+      speaker: "spanish-speaker",
+      lang: "spa",
+    });
+    expect(updateOptions).toHaveBeenNthCalledWith(2, {
+      speaker: "spanish-speaker",
+      lang: "spa",
+    });
+    expect(updateOptions).toHaveBeenNthCalledWith(3, {
+      speaker: "spanish-speaker",
+      lang: "spa",
+    });
     expect(runtime.telemetry.currentLanguage).toBe("es");
     expect(runtime.telemetry.languageSwitches).toBe(1);
   });
 
-  it("requires consecutive strong English turns to switch back", () => {
+  it("switches from short Spanish turns when AssemblyAI detects Spanish", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime(
       { updateOptions },
@@ -267,69 +339,7 @@ describe("VoiceLanguageRuntime", () => {
     );
 
     runtime.updateFromSpeechEvent(
-      speechEvent(
-        stt.SpeechEventType.FINAL_TRANSCRIPT,
-        "es",
-        "prefiero hablar en espanol",
-      ),
-    );
-    runtime.updateFromSpeechEvent(
-      speechEvent(
-        stt.SpeechEventType.FINAL_TRANSCRIPT,
-        "en",
-        "I need help scheduling the appointment",
-      ),
-    );
-    runtime.updateFromSpeechEvent(
-      speechEvent(
-        stt.SpeechEventType.FINAL_TRANSCRIPT,
-        "es",
-        "necesito ayuda con mi cita",
-      ),
-    );
-    runtime.updateFromSpeechEvent(
-      speechEvent(
-        stt.SpeechEventType.FINAL_TRANSCRIPT,
-        "en",
-        "Can you help me finish this form",
-      ),
-    );
-
-    expect(updateOptions).toHaveBeenCalledTimes(1);
-    expect(runtime.telemetry.currentLanguage).toBe("es");
-    expect(runtime.telemetry.languageSwitches).toBe(1);
-  });
-
-  it("does not switch back to English for numeric intake turns", () => {
-    const updateOptions = vi.fn();
-    const runtime = new VoiceLanguageRuntime(
-      { updateOptions },
-      {
-        ttsOptionsByLanguage: {
-          en: {
-            speaker: "english-speaker",
-            lang: "eng",
-          },
-          es: {
-            speaker: "spanish-speaker",
-            lang: "spa",
-          },
-        },
-      },
-    );
-
-    runtime.updateFromSpeechEvent(
-      speechEvent(
-        stt.SpeechEventType.FINAL_TRANSCRIPT,
-        "es",
-        "prefiero hablar en espanol",
-      ),
-    );
-    runtime.updateFromSpeechEvent(
-      speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "en", "34608"),
-    );
-    runtime.updateFromSpeechEvent(
-      speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "en", "H4 9 9 4 5"),
+      speechEvent(stt.SpeechEventType.INTERIM_TRANSCRIPT, "es", "si"),
     );
 
     expect(updateOptions).toHaveBeenCalledTimes(1);
@@ -359,7 +369,7 @@ describe("VoiceLanguageRuntime", () => {
     const runtime = new VoiceLanguageRuntime({ updateOptions });
 
     runtime.updateFromSpeechEvent(
-      speechEvent(stt.SpeechEventType.INTERIM_TRANSCRIPT, "es"),
+      speechEvent(stt.SpeechEventType.START_OF_SPEECH, "es"),
     );
     runtime.updateFromSpeechEvent(
       speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "fr"),

@@ -22,13 +22,16 @@ export function getRimeTtsOptions(): Partial<RimeTtsOptions> {
 
 export function getRimeTtsOptionsByLanguage(
   englishSpeaker = process.env.RIME_TTS_SPEAKER ?? DEFAULT_RIME_TTS_SPEAKER,
+  modelId = process.env.RIME_TTS_MODEL_ID ?? RIME_TTS_MODEL_ID,
 ) {
   return {
     en: {
+      modelId,
       speaker: englishSpeaker,
       lang: RIME_TTS_ENGLISH_LANGUAGE,
     },
     es: {
+      modelId,
       speaker: process.env.RIME_TTS_SPANISH_SPEAKER ?? SPANISH_RIME_TTS_SPEAKER,
       lang: RIME_TTS_SPANISH_LANGUAGE,
     },

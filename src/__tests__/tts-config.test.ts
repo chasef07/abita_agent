@@ -76,10 +76,12 @@ describe("TTS config", () => {
 
     expect(getRimeTtsOptionsByLanguage("english-speaker")).toEqual({
       en: {
+        modelId: RIME_TTS_MODEL_ID,
         speaker: "english-speaker",
         lang: RIME_TTS_ENGLISH_LANGUAGE,
       },
       es: {
+        modelId: RIME_TTS_MODEL_ID,
         speaker: SPANISH_RIME_TTS_SPEAKER,
         lang: RIME_TTS_SPANISH_LANGUAGE,
       },
@@ -90,5 +92,16 @@ describe("TTS config", () => {
     process.env.RIME_TTS_SPANISH_SPEAKER = "mari";
 
     expect(getRimeTtsOptionsByLanguage("vespera").es.speaker).toBe("mari");
+  });
+
+  it("uses the configured Rime model for every language update", () => {
+    process.env.RIME_TTS_MODEL_ID = "mistv2";
+    delete process.env.RIME_TTS_SPANISH_SPEAKER;
+
+    expect(getRimeTtsOptionsByLanguage("vespera").es).toMatchObject({
+      modelId: "mistv2",
+      speaker: SPANISH_RIME_TTS_SPEAKER,
+      lang: RIME_TTS_SPANISH_LANGUAGE,
+    });
   });
 });

@@ -10,7 +10,7 @@ A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over
 | Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
 | STT | AssemblyAI | Streaming STT with adaptive keyterm/timing profiles |
 | LLM | Baseten (GLM-4.7 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
-| TTS | Rime plugin `coda` | Speaker defaults to `vespera`; east-region Rime endpoint; 16 kHz PCM |
+| TTS | Rime plugin `arcana` | English speaker defaults to `vespera`; Spanish speaker defaults to `luz`; east-region Rime endpoint; 16 kHz PCM |
 | VAD | Silero (local ONNX) | Prewarmed per job process |
 | Turn handling | LiveKit Agents | STT turn detection, adaptive interruptions, Silero VAD |
 | Medical backend | AdvancedMD via Railway middleware | Patient lookup, booking, insurance |
@@ -172,7 +172,7 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud credentials |
 | `ASSEMBLYAI_API_KEY` | STT |
 | `RIME_API_KEY` | TTS |
-| `RIME_TTS_MODEL_ID` | Optional TTS model override; defaults to `coda` |
+| `RIME_TTS_MODEL_ID` | Optional TTS model override; defaults to `arcana` |
 | `RIME_TTS_SPEAKER` | Optional TTS speaker override; defaults to `vespera` |
 | `RIME_TTS_SPANISH_SPEAKER` | Optional Spanish TTS speaker override; defaults to `luz` |
 | `RIME_TTS_BASE_URL` | Optional TTS endpoint override; defaults to `https://users-east.rime.ai/v1/rime-tts` |
