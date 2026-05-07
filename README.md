@@ -144,7 +144,7 @@ Read-only/context tools remain interruptible so callers can naturally barge in d
 
 ```bash
 pnpm install
-cp .env.example .env.local   # fill in LIVEKIT_*, ASSEMBLYAI_*, BASETEN_*, AMD_*
+cp .env.example .env.local   # fill in LIVEKIT_*, BASETEN_*, AMD_*
 pnpm dev                     # runs src/main.ts via tsx with live reload
 ```
 
