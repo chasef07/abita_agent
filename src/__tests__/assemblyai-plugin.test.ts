@@ -60,18 +60,17 @@ describe("official AssemblyAI plugin", () => {
     expect(
       getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
     ).not.toContain("Children's Medical Services");
-    expect(
-      getAssemblyAISttProfileOptions("memberId").maxTurnSilence,
-    ).toBe(3000);
+    expect(getAssemblyAISttProfileOptions("memberId").maxTurnSilence).toBe(
+      3000,
+    );
     expect(
       getAssemblyAISttProfileOptions("intake").maxTurnSilence,
     ).toBeGreaterThan(
-      getAssemblyAISttProfileOptions("default").maxTurnSilence ??
-        0,
+      getAssemblyAISttProfileOptions("default").maxTurnSilence ?? 0,
     );
-    expect(
-      getAssemblyAISttProfileOptions("email").keytermsPrompt,
-    ).toContain("icloud.com");
+    expect(getAssemblyAISttProfileOptions("email").keytermsPrompt).toContain(
+      "icloud.com",
+    );
     expect(getAssemblyAISttProfileOptions("default").languageDetection).toBe(
       undefined,
     );

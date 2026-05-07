@@ -84,9 +84,7 @@ export default defineAgent({
       const tts = new cartesia.TTS(ttsOptions);
       const languageRuntime = new VoiceLanguageRuntime(tts, {
         appliedTtsLanguage: "en",
-        ttsOptionsByLanguage: getCartesiaTtsOptionsByLanguage(
-          ttsOptions.voice,
-        ),
+        ttsOptionsByLanguage: getCartesiaTtsOptionsByLanguage(ttsOptions.voice),
       });
       const session = new voice.AgentSession<CallState>({
         stt,
@@ -220,6 +218,9 @@ export default defineAgent({
       await session.start({
         agent,
         room: ctx.room,
+        inputOptions: {
+          participantIdentity: participant.identity,
+        },
       });
 
       // End the job when the SIP caller hangs up (or transfer completes).

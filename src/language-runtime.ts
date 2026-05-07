@@ -1,5 +1,8 @@
 import { stt } from "@livekit/agents";
-import { ReadableStream } from "node:stream/web";
+import {
+  ReadableStream,
+  type ReadableStreamDefaultReader,
+} from "node:stream/web";
 
 export const DEFAULT_VOICE_LANGUAGE = "en";
 export const SUPPORTED_VOICE_LANGUAGES = ["en", "es"] as const;
@@ -183,16 +186,23 @@ export class VoiceLanguageRuntime {
   observeSpeechEvents(
     events: ReadableStream<stt.SpeechEvent | string>,
   ): ReadableStream<stt.SpeechEvent | string> {
+    let reader: ReadableStreamDefaultReader<stt.SpeechEvent | string> | null =
+      null;
+    let cancelled = false;
+    let upstreamDone = false;
+
     return new ReadableStream<stt.SpeechEvent | string>({
       start: (controller) => {
-        const reader = events.getReader();
+        const activeReader = events.getReader();
+        reader = activeReader;
 
         const pump = async () => {
           try {
             while (true) {
-              const { done, value } = await reader.read();
+              const { done, value } = await activeReader.read();
               if (done) {
-                controller.close();
+                upstreamDone = true;
+                if (!cancelled) controller.close();
                 return;
               }
 
@@ -202,15 +212,23 @@ export class VoiceLanguageRuntime {
               controller.enqueue(value);
             }
           } catch (err) {
-            controller.error(err);
+            if (!cancelled) controller.error(err);
           } finally {
-            reader.releaseLock();
+            activeReader.releaseLock();
+            if (reader === activeReader) reader = null;
           }
         };
 
         void pump();
       },
-      cancel: (reason) => events.cancel(reason),
+      cancel: async (reason) => {
+        cancelled = true;
+        if (reader) {
+          await reader.cancel(reason);
+          return;
+        }
+        if (!upstreamDone) await events.cancel(reason);
+      },
     });
   }
 }

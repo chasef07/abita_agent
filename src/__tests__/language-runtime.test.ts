@@ -437,4 +437,18 @@ describe("VoiceLanguageRuntime", () => {
     expect(updateOptions).not.toHaveBeenCalled();
     expect(runtime.telemetry.currentLanguage).toBe("en");
   });
+
+  it("cancels the upstream speech event reader without canceling a locked stream", async () => {
+    const cancelUpstream = vi.fn();
+    const runtime = new VoiceLanguageRuntime({ updateOptions: vi.fn() });
+    const upstream = new ReadableStream<stt.SpeechEvent | string>({
+      cancel: cancelUpstream,
+    });
+    const observed = runtime.observeSpeechEvents(upstream);
+    const reader = observed.getReader();
+
+    await expect(reader.cancel("caller disconnected")).resolves.toBeUndefined();
+
+    expect(cancelUpstream).toHaveBeenCalledWith("caller disconnected");
+  });
 });

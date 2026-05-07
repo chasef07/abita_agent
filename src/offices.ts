@@ -31,7 +31,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     displayName: "Abita Eye Group",
     trunkPhones: [SPRING_HILL_OFFICE_PHONE, SPRING_HILL_813_TRUNK_PHONE],
     greeting:
-      "thank you for calling Abita Eye Group, this is Ava, how can I help you?",
+      "thank you for calling Abita Eye Group, this is David, how can I help you?",
     knowledgeFile: "KNOWLEDGE_SPRINGHILL.md",
     insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
@@ -61,7 +61,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     displayName: "Abita Dev",
     trunkPhones: [DEV_OFFICE_PHONE],
     greeting:
-      "thank you for calling Abita Eye Group, this is Ava, how can I help you?",
+      "thank you for calling Abita Eye Group, this is David, how can I help you?",
     knowledgeFile: "KNOWLEDGE_SPRINGHILL.md",
     insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
