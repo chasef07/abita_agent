@@ -4,11 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-patchedDependencies:
-  '@livekit/agents-plugin-rime@1.3.4':
-    hash: 259b075bffe53b2830ef771081c0846537791ed695348302d534413830c878c1
-    path: patches/@livekit__agents-plugin-rime@1.3.4.patch
-
 importers:
 
   .:
@@ -25,9 +20,6 @@ importers:
       '@livekit/agents-plugin-livekit':
         specifier: ^1.3.4
         version: 1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))
-      '@livekit/agents-plugin-rime':
-        specifier: 1.3.4
-        version: 1.3.4(patch_hash=259b075bffe53b2830ef771081c0846537791ed695348302d534413830c878c1)(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)
       '@livekit/agents-plugin-silero':
         specifier: ^1.3.4
         version: 1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)
@@ -598,12 +590,6 @@ packages:
     resolution: {integrity: sha512-ORh8f/29yhn+6bqyRnncDR2lyfr4xo3bljbUUrF3vyxyZE/5g8rpGNxq3zGgKNSnjy4HMhFCYWqrqt05K5isKQ==}
     peerDependencies:
       '@livekit/agents': 1.3.4
-
-  '@livekit/agents-plugin-rime@1.3.4':
-    resolution: {integrity: sha512-6i439E+xyG8BGw8WuQqoIjsiC9/IcWMZGjahdXnAYPKsJLJOM6pl+lLK6+pwu1i+YNO2iqDi71VM36Hj7kQYVg==}
-    peerDependencies:
-      '@livekit/agents': 1.3.4
-      '@livekit/rtc-node': ^0.13.27
 
   '@livekit/agents-plugin-silero@1.3.4':
     resolution: {integrity: sha512-6bLMoIAHAzimvftYH1KI1iYJNdiyvwSLY0Hej2qGwHZ/vFgJfhbwA0bVkDLde04fD2G9kF7G/uOM/mI1EsMucw==}
@@ -2678,15 +2664,6 @@ snapshots:
       '@huggingface/transformers': 3.7.2
       '@livekit/agents': 1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
       onnxruntime-node: 1.21.0
-
-  '@livekit/agents-plugin-rime@1.3.4(patch_hash=259b075bffe53b2830ef771081c0846537791ed695348302d534413830c878c1)(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)':
-    dependencies:
-      '@livekit/agents': 1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
-      '@livekit/rtc-node': 0.13.27
-      ws: 8.20.0
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   '@livekit/agents-plugin-silero@1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)':
     dependencies:

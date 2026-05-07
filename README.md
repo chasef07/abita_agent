@@ -10,7 +10,7 @@ A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over
 | Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
 | STT | AssemblyAI | Streaming STT with adaptive keyterm/timing profiles |
 | LLM | Baseten (GLM-4.7 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
-| TTS | Rime plugin `arcana` | English speaker defaults to `vespera`; Spanish speaker defaults to `luz`; east-region Rime endpoint; 16 kHz PCM |
+| TTS | LiveKit Inference Inworld `inworld/inworld-tts-2` | Voice defaults to `Sarah`; Spanish turns also use `Sarah`; 16 kHz PCM |
 | VAD | Silero (local ONNX) | Prewarmed per job process |
 | Turn handling | LiveKit Agents | STT turn detection, adaptive interruptions, Silero VAD |
 | Medical backend | AdvancedMD via Railway middleware | Patient lookup, booking, insurance |
@@ -93,7 +93,7 @@ Dockerfile           # Multi-stage: pnpm install → build → download-files �
    - **Multiple matches** — multiple patients on this number. Agent asks for first name only (HIPAA-safe).
    - **No match** — treated as new patient flow.
 4. **Session start** — `buildPrompt()` assembles the system prompt from `workspace/SOUL.md`, `VOICE.md`, `RUNBOOK.md`, then appends dynamic `<context>` (date/time + caller info). Tools are wired from `tools.ts`.
-5. **Conversation loop** — AssemblyAI STT → Baseten LLM (with tool calling) → Rime TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. AdvancedMD-facing tools call the Railway middleware.
+5. **Conversation loop** — AssemblyAI STT → Baseten LLM (with tool calling) → LiveKit Inference Inworld TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. AdvancedMD-facing tools call the Railway middleware.
 6. **Disconnect or transfer**:
    - Caller hangs up → `participantDisconnected` listener → `ctx.shutdown()`
    - Agent calls `transfer_call` → SIP REFER to human staff
@@ -144,7 +144,7 @@ Read-only/context tools remain interruptible so callers can naturally barge in d
 
 ```bash
 pnpm install
-cp .env.example .env.local   # fill in LIVEKIT_*, ASSEMBLYAI_*, RIME_*, BASETEN_*, AMD_*
+cp .env.example .env.local   # fill in LIVEKIT_*, ASSEMBLYAI_*, BASETEN_*, AMD_*
 pnpm dev                     # runs src/main.ts via tsx with live reload
 ```
 
@@ -171,11 +171,9 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 |---|---|
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud credentials |
 | `ASSEMBLYAI_API_KEY` | STT |
-| `RIME_API_KEY` | TTS |
-| `RIME_TTS_MODEL_ID` | Optional TTS model override; defaults to `arcana` |
-| `RIME_TTS_SPEAKER` | Optional TTS speaker override; defaults to `vespera` |
-| `RIME_TTS_SPANISH_SPEAKER` | Optional Spanish TTS speaker override; defaults to `luz` |
-| `RIME_TTS_BASE_URL` | Optional TTS endpoint override; defaults to `https://users-east.rime.ai/v1/rime-tts` |
+| `INWORLD_TTS_MODEL_ID` | Optional LiveKit Inference TTS model override; defaults to `inworld/inworld-tts-2` |
+| `INWORLD_TTS_VOICE` | Optional English TTS voice override; defaults to `Sarah` |
+| `INWORLD_TTS_SPANISH_VOICE` | Optional Spanish TTS voice override; defaults to `Sarah` |
 | `BASETEN_API_KEY` | LLM (GLM-4.7 + MiniMax fallback) |
 | `AMD_API_URL` / `AMD_API_TOKEN` | AdvancedMD middleware |
 | `ANALYTICS_URL` / `WEBHOOK_SECRET` | Post-call analytics endpoint |
