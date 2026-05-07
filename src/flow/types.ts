@@ -68,10 +68,10 @@ export interface CallFlowState {
     type: ConfirmationType;
     payload: unknown;
   };
-  lastToolCall?: {
+  lastGuardedToolCall?: {
     name: string;
     argsHash: string;
-    outcome: ToolOutcomeStatus;
+    guardAllowed: boolean;
   };
 }
 

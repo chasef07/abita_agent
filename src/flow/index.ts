@@ -1,5 +1,6 @@
 export * from "./context.js";
 export * from "./controller.js";
+export * from "./guards.js";
 export * from "./scheduling.js";
 export * from "./shadow.js";
 export * from "./state.js";

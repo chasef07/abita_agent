@@ -20,9 +20,12 @@ import {
   type InsuranceCoverageType,
 } from "./insurance-rules.js";
 import {
+  guardToolCall,
   nextPatientFlowStep,
   normalizeSchedulingRouting,
   type CallFlowState,
+  type GuardObservation,
+  type GuardedToolName,
 } from "./flow/index.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
@@ -97,6 +100,7 @@ export type PhoneLookupResult = CallerMatch | CallerMultipleMatches | null;
 
 export interface CallState {
   flow: CallFlowState;
+  flowGuardObservations: GuardObservation[];
   officeKey: OfficeKey;
   amdOfficePhone: string;
   sipRoomName: string;
@@ -123,6 +127,46 @@ export interface CallState {
 // Per-call state lives on session.userData so concurrent calls don't collide
 function getState(ctx: voice.RunContext): CallState {
   return ctx.session.userData as CallState;
+}
+
+function observeGuardOnly(
+  state: CallState,
+  toolName: GuardedToolName,
+  args?: unknown,
+): GuardObservation {
+  const observation = guardToolCall({
+    flow: state.flow,
+    toolName,
+    args,
+    stateFacts: {
+      checkedInsurancePlan: state.checkedInsurancePlan,
+      checkedInsuranceCoverageType: state.checkedInsuranceCoverageType,
+      patientId: state.patientId,
+      lastAvailabilityRouting: state.lastAvailabilityRouting,
+      officeKey: state.officeKey,
+    },
+  });
+  state.flowGuardObservations.push(observation);
+  state.flow.lastGuardedToolCall = {
+    name: toolName,
+    argsHash: observation.argsHash,
+    guardAllowed: observation.allowed,
+  };
+  if (!observation.allowed) {
+    console.log(
+      `[flow-guard] report_only ${JSON.stringify({
+        toolName: observation.toolName,
+        argsHash: observation.argsHash,
+        reason: observation.reason,
+        activeFlow: observation.activeFlow,
+        step: observation.step,
+        patientStatus: observation.patientStatus,
+        visitType: observation.visitType,
+        officeKey: observation.officeKey,
+      })}`,
+    );
+  }
+  return observation;
 }
 
 export function makeCurrentSpeechUninterruptible(
@@ -203,6 +247,11 @@ function ensureRoutineVisionOffice(state: CallState): void {
   if (state.checkedInsuranceCoverageType !== "routine_vision") return;
   state.officeKey = "spring-hill";
   state.amdOfficePhone = getSpringHillOfficePhone();
+  state.flow.officeKey = "spring-hill";
+  state.flow.activeFlow = "scheduling";
+  state.flow.visitType = "routine_vision";
+  state.flow.coverageType = "routine_vision";
+  state.flow.routing = "optical_only";
 }
 
 /** Pre-call phone lookup — called from main.ts before session starts. */
@@ -372,6 +421,7 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
+    observeGuardOnly(state, "add_patient", params);
     const insurance = state.checkedInsurancePlan ?? params.insurance;
     const phone = params.phone ?? state.callerPhone;
     if (!phone) {
@@ -472,7 +522,9 @@ After response: check if date shifted vs requested — tell caller if different.
   }),
   execute: async ({ date, routing }, { ctx }) => {
     const state = getState(ctx);
+    observeGuardOnly(state, "get_availability", { date, routing });
     ensureRoutineVisionOffice(state);
+    state.flow.step = "get_availability";
     const body: Record<string, unknown> = { date };
     const effectiveRouting = routingForAvailability(state, routing);
     state.lastAvailabilityRouting = effectiveRouting;
@@ -518,6 +570,7 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
   }),
   execute: async ({ appointmentId }, { ctx }) => {
     const state = getState(ctx);
+    observeGuardOnly(state, "cancel_appt", { appointmentId });
     if (!makeCurrentSpeechUninterruptible(ctx)) {
       return "Cancellation was interrupted before it could be submitted. Please confirm the cancellation again.";
     }
@@ -559,6 +612,7 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
+    observeGuardOnly(state, "book_appt", params);
     if (!state.patientId)
       return "No patient verified yet. Verify the patient first.";
     if (!makeCurrentSpeechUninterruptible(ctx)) {
@@ -590,6 +644,7 @@ Use this when the caller reached Crystal River but the visit must be handled thr
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
+    observeGuardOnly(state, "route_to_spring_hill");
     const springHillOffice = getSpringHillOfficePhone();
     state.officeKey = "spring-hill";
     state.amdOfficePhone = springHillOffice;
@@ -648,6 +703,7 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
   }),
   execute: async ({ plan, coverageType }, { ctx }) => {
     const state = getState(ctx);
+    observeGuardOnly(state, "check_insurance", { plan, coverageType });
     const normalizedCoverageType = normalizeCoverageType(coverageType);
     const result = matchInsurancePlanForOffice(
       state.officeKey,

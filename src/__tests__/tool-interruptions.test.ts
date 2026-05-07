@@ -210,6 +210,16 @@ describe("tool interruption handling", () => {
       office: "+17275919997",
       routing: "optical_only",
     });
+    expect(state.flowGuardObservations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          toolName: "get_availability",
+          allowed: false,
+          reason: "routine_vision_crystal_river_requires_route_to_spring_hill",
+          mode: "report_only",
+        }),
+      ]),
+    );
 
     await book_appt.execute(
       {
@@ -348,6 +358,16 @@ describe("tool interruption handling", () => {
     });
     expect(state.officeKey).toBe("spring-hill");
     expect(state.routing).toBe("optical_only");
+    expect(state.flowGuardObservations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          toolName: "add_patient",
+          allowed: true,
+          reason: "allowed",
+          mode: "report_only",
+        }),
+      ]),
+    );
   });
 
   it("does not run side effects if the speech already became interrupted", async () => {
@@ -455,6 +475,14 @@ describe("tool interruption handling", () => {
       step: "check_insurance",
       officeKey: "crystal-river",
     });
+    expect(state.flowGuardObservations).toEqual([
+      expect.objectContaining({
+        toolName: "check_insurance",
+        allowed: false,
+        reason: "visit_type_required_before_insurance",
+        mode: "report_only",
+      }),
+    ]);
   });
 
   it("tells Crystal River callers when Spring Hill accepts an added office-specific rejection", async () => {
@@ -526,6 +554,7 @@ function createToolContext() {
       routing: "all_three",
       coverageType: "medical",
     }),
+    flowGuardObservations: [],
     officeKey: "spring-hill",
     amdOfficePhone: "+17275919997",
     sipRoomName: "room",

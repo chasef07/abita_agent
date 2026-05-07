@@ -74,13 +74,15 @@ Implemented:
 - `prepareSchedulingPath` for visit triage, insurance/routing normalization,
   Crystal River to Spring Hill routing, urgent handling, and optical-shop
   transfer decisions.
+- `guardToolCall` for report-only guard observations. It records whether risky
+  tools would be allowed, but does not block execution.
 - Shadow observer wiring in `src/main.ts`: final user transcripts generate
   redacted flow predictions, tool executions are compared against the latest
   prediction, and shadow events are sent in the analytics payload under `flow`.
 - Flow state hydration from patient lookup/tool results in `src/tools.ts`.
 - Tests covering flow state creation, context packet output, scheduling-path
-  decisions, shadow mismatches, Spanish routine vision phrases, bare insurance
-  questions, and tool-side flow-state hydration.
+  decisions, report-only guards, shadow mismatches, Spanish routine vision
+  phrases, bare insurance questions, and tool-side flow-state hydration.
 
 Important non-goals for the current branch:
 
@@ -179,32 +181,20 @@ Ship in phases:
 
 ## Next implementation step
 
-The next step is not prompt cleanup. It is **shadow telemetry review + soft
-guard preparation**.
+The next step is not prompt cleanup. It is **real trace review + one narrow soft
+guard**.
 
-Build this next:
+Build this next only after report-only guard observations are visible in live
+call traces:
 
-1. Add a small `applyToolOutcomeToFlowState` helper so all state patches go
-   through one tested path instead of each tool mutating `flow` directly.
-2. Add `guardToolCall` in report-only mode. It should compute whether a tool is
-   currently allowed and return a structured observation, but it must not block
-   the tool yet.
-3. Add report-only guard checks for the first risky tools:
-   - `check_insurance`
-   - `route_to_spring_hill`
-   - `add_patient`
-   - `get_availability`
-   - `book_appt`
-4. Add analytics fields:
-   - `flow.currentState`
-   - `flow.shadowEvents`
-   - `flow.guardObservations`
-   - `flow.mismatchCount`
-5. Add tests proving valid paths are allowed and invalid paths are only reported,
-   not blocked.
+1. Review `flow.shadowEvents`, `flow.guardObservations`, and
+   `flow.mismatchCount` from real calls.
+2. Confirm the first enforcement candidate does not flag valid calls.
+3. Add a soft `not_allowed` response for that one guard only.
+4. Add tests proving the guard blocks the unsafe action and returns the next
+   safe step.
 
-Only after this is visible in real call traces should we turn any guard into a
-soft `not_allowed` response.
+Until real traces are reviewed, keep all guards report-only.
 
 The first guard to enforce later should be narrow: **do not call
 `get_availability` for routine vision on Crystal River until
@@ -216,10 +206,10 @@ The first guard to enforce later should be narrow: **do not call
    - Flow state, context compiler, `prepareSchedulingPath`, shadow predictions,
      tool observations, analytics payload fields, and tests.
 
-2. **Report-only guards** — next branch/slice.
+2. **Report-only guards** — current branch.
    - Add `guardToolCall` without blocking.
-   - Record tool name, allowed/blocked status, reason, expected step, actual
-     step, and flow state.
+   - Record tool name, stable argument hash, allowed/blocked status, reason,
+     and the current flow state snapshot.
    - Start with `check_insurance`, `route_to_spring_hill`, `add_patient`,
      `get_availability`, `book_appt`, and `cancel_appt`.
 
@@ -242,7 +232,8 @@ The first guard to enforce later should be narrow: **do not call
 
 6. **Scheduling sequencing guards**.
    - No `get_availability` before visit reason.
-   - No `book_appt` before patient verification or creation.
+   - No `book_appt` before patient verification, preloaded phone-match identity,
+     or creation.
    - No `book_appt` without recent availability and caller confirmation.
    - No duplicate same tool/same args unless caller changed the request.
    - No `cancel_appt` before appointment lookup and explicit cancellation
@@ -284,7 +275,7 @@ The first guard to enforce later should be narrow: **do not call
     - Enforce guards in this order:
       - Crystal River routine vision route before availability.
       - No `add_patient` before insurance check.
-      - No `book_appt` before verified/created patient.
+   - No `book_appt` before verified, preloaded phone-match, or created patient.
       - No `book_appt` before confirmation.
       - No duplicate same tool/same args.
       - No `cancel_appt` before cancellation confirmation.

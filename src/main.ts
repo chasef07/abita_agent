@@ -154,6 +154,7 @@ export default defineAgent({
           patientId: verified?.patientId ?? null,
           routing: verified?.routing ?? null,
         }),
+        flowGuardObservations: [],
         officeKey: office.key,
         amdOfficePhone: office.amdOfficePhone,
         sipRoomName: ctx.room.name ?? "",
@@ -329,6 +330,12 @@ export default defineAgent({
             flow: {
               currentState: session.userData.flow,
               shadowEvents: flowShadowEvents,
+              guardObservations: session.userData.flowGuardObservations,
+              mismatchCount: flowShadowEvents.filter(
+                (event) =>
+                  event.type === "flow_shadow_tool_observation" &&
+                  event.match === "mismatch",
+              ).length,
             },
             language: languageRuntime.telemetry,
             sessionReport,
