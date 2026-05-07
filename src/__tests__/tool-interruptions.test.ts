@@ -13,6 +13,7 @@ import {
   verify_patient,
   type CallState,
 } from "../tools.js";
+import { createInitialFlowState } from "../flow/index.js";
 
 type SpeechContext = Parameters<typeof makeCurrentSpeechUninterruptible>[0];
 type ToolContext = Parameters<typeof book_appt.execute>[1]["ctx"];
@@ -259,6 +260,14 @@ describe("tool interruption handling", () => {
       { ctx, toolCallId: "test-insurance" },
     );
 
+    expect(state.flow).toMatchObject({
+      activeFlow: "routing",
+      step: "route_office",
+      visitType: "routine_vision",
+      coverageType: "routine_vision",
+      routing: "optical_only",
+    });
+
     await verify_patient.execute(
       { firstName: "Jane", lastName: "Doe", dob: "01/01/1980" },
       { ctx, toolCallId: "test-verify" },
@@ -273,6 +282,13 @@ describe("tool interruption handling", () => {
     });
     expect(state.officeKey).toBe("spring-hill");
     expect(state.checkedInsuranceCoverageType).toBe("routine_vision");
+    expect(state.flow).toMatchObject({
+      officeKey: "spring-hill",
+      patientStatus: "verified",
+      visitType: "routine_vision",
+      coverageType: "routine_vision",
+      routing: "optical_only",
+    });
   });
 
   it("attaches checked routine vision coverage to new patient registration", async () => {
@@ -434,6 +450,11 @@ describe("tool interruption handling", () => {
       routeTool: "route_to_spring_hill",
     });
     expect(result.callerMessage).toContain("Spring Hill accepts Humana PPO");
+    expect(state.flow).toMatchObject({
+      activeFlow: "insurance",
+      step: "check_insurance",
+      officeKey: "crystal-river",
+    });
   });
 
   it("tells Crystal River callers when Spring Hill accepts an added office-specific rejection", async () => {
@@ -487,12 +508,24 @@ describe("tool interruption handling", () => {
 
     expect(state.officeKey).toBe("spring-hill");
     expect(state.amdOfficePhone).toBe("+17275919997");
+    expect(state.flow).toMatchObject({
+      officeKey: "spring-hill",
+      activeFlow: "scheduling",
+      patientStatus: "matched",
+      step: "verify_patient",
+    });
   });
 });
 
 function createToolContext() {
   const speechHandle = { allowInterruptions: true };
   const state: CallState = {
+    flow: createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      routing: "all_three",
+      coverageType: "medical",
+    }),
     officeKey: "spring-hill",
     amdOfficePhone: "+17275919997",
     sipRoomName: "room",

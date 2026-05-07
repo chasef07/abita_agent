@@ -20,6 +20,13 @@ import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
+import {
+  createFlowShadowPrediction,
+  createInitialFlowState,
+  observeFlowToolExecution,
+  type FlowShadowEvent,
+  type FlowShadowPrediction,
+} from "./flow/index.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
@@ -142,6 +149,11 @@ export default defineAgent({
 
       const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
       session.userData = {
+        flow: createInitialFlowState({
+          officeKey: office.key,
+          patientId: verified?.patientId ?? null,
+          routing: verified?.routing ?? null,
+        }),
         officeKey: office.key,
         amdOfficePhone: office.amdOfficePhone,
         sipRoomName: ctx.room.name ?? "",
@@ -166,6 +178,8 @@ export default defineAgent({
 
       const startedAt = new Date();
       const turnMetrics: TurnMetricSnapshot[] = [];
+      const flowShadowEvents: FlowShadowEvent[] = [];
+      let latestFlowShadowPrediction: FlowShadowPrediction | undefined;
       let latestUsage: Record<string, unknown> | undefined;
 
       let activeSttProfile: AssemblyAISttProfile = "default";
@@ -211,9 +225,42 @@ export default defineAgent({
         latestUsage = ev.usage as unknown as Record<string, unknown>;
       });
 
+      session.on(voice.AgentSessionEventTypes.FunctionToolsExecuted, (ev) => {
+        for (const call of ev.functionCalls) {
+          const observation = observeFlowToolExecution(
+            latestFlowShadowPrediction,
+            call.name,
+            ev.createdAt,
+          );
+          flowShadowEvents.push(observation);
+          if (observation.match === "mismatch") {
+            console.log(
+              `[flow-shadow] mismatch ${JSON.stringify({
+                toolName: observation.toolName,
+                expectedDecision: observation.expectedDecision,
+                mismatchReason: observation.mismatchReason,
+              })}`,
+            );
+          }
+        }
+      });
+
       session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (ev) => {
         if (ev.isFinal) {
           applySttProfile("default", "user_final");
+          latestFlowShadowPrediction = createFlowShadowPrediction(
+            session.userData.flow,
+            ev.transcript,
+            ev.createdAt,
+          );
+          flowShadowEvents.push(latestFlowShadowPrediction);
+          console.log(
+            `[flow-shadow] prediction ${JSON.stringify({
+              source: latestFlowShadowPrediction.source,
+              flowState: latestFlowShadowPrediction.flowState,
+              expectedDecision: latestFlowShadowPrediction.expectedDecision,
+            })}`,
+          );
         }
       });
 
@@ -279,6 +326,10 @@ export default defineAgent({
             usage: latestUsage ?? session.usage,
             llmMetrics,
             turnMetrics,
+            flow: {
+              currentState: session.userData.flow,
+              shadowEvents: flowShadowEvents,
+            },
             language: languageRuntime.telemetry,
             sessionReport,
           };

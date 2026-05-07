@@ -19,6 +19,11 @@ import {
   matchInsurancePlanForOffice,
   type InsuranceCoverageType,
 } from "./insurance-rules.js";
+import {
+  nextPatientFlowStep,
+  normalizeSchedulingRouting,
+  type CallFlowState,
+} from "./flow/index.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
@@ -91,6 +96,7 @@ export interface CallerMultipleMatches {
 export type PhoneLookupResult = CallerMatch | CallerMultipleMatches | null;
 
 export interface CallState {
+  flow: CallFlowState;
   officeKey: OfficeKey;
   amdOfficePhone: string;
   sipRoomName: string;
@@ -170,6 +176,16 @@ function applyPatientResult(state: CallState, result: any): void {
   state.routingAmbiguous = result.routingAmbiguous ?? false;
   state.preauthRequired = result.preauthRequired ?? false;
   state.appointments = [];
+  state.flow.patientStatus = result.patientId
+    ? "verified"
+    : state.flow.patientStatus;
+  state.flow.officeKey = state.officeKey;
+  state.flow.routing = normalizeSchedulingRouting(state.routing);
+  state.flow.coverageType = state.checkedInsuranceCoverageType ?? undefined;
+  state.flow.visitType =
+    state.checkedInsuranceCoverageType === "routine_vision"
+      ? "routine_vision"
+      : state.flow.visitType;
 }
 
 function routingForAvailability(
@@ -577,6 +593,14 @@ Use this when the caller reached Crystal River but the visit must be handled thr
     const springHillOffice = getSpringHillOfficePhone();
     state.officeKey = "spring-hill";
     state.amdOfficePhone = springHillOffice;
+    state.flow.officeKey = "spring-hill";
+    state.flow.activeFlow = "scheduling";
+    state.flow.step = nextPatientFlowStep(state.flow.patientStatus);
+    if (state.checkedInsuranceCoverageType === "routine_vision") {
+      state.flow.visitType = "routine_vision";
+      state.flow.coverageType = "routine_vision";
+      state.flow.routing = "optical_only";
+    }
     return `AMD routing switched to Spring Hill (${springHillOffice}). Continue the call without transferring.`;
   },
 });
@@ -634,6 +658,21 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
     state.checkedInsuranceCoverageType = state.checkedInsurancePlan
       ? normalizedCoverageType
       : null;
+    state.flow.officeKey = state.officeKey;
+    state.flow.activeFlow = "insurance";
+    state.flow.step =
+      result.status === "accepted"
+        ? nextPatientFlowStep(state.flow.patientStatus)
+        : "check_insurance";
+    state.flow.coverageType = state.checkedInsuranceCoverageType ?? undefined;
+    if (normalizedCoverageType === "routine_vision") {
+      state.flow.visitType = "routine_vision";
+      state.flow.routing = "optical_only";
+      if (state.officeKey === "crystal-river" && result.status === "accepted") {
+        state.flow.activeFlow = "routing";
+        state.flow.step = "route_office";
+      }
+    }
     const response = buildInsuranceToolResponse(result);
     if (
       state.officeKey === "crystal-river" &&
