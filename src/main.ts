@@ -7,13 +7,13 @@ import {
   ServerOptions,
   cli,
   defineAgent,
+  inference,
   llm,
   voice,
 } from "@livekit/agents";
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
-import * as rime from "@livekit/agents-plugin-rime";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -23,8 +23,8 @@ import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
-  getRimeTtsOptions,
-  getRimeTtsOptionsByLanguage,
+  getInworldTtsOptions,
+  getInworldTtsOptionsByLanguage,
 } from "./tts-config.js";
 import { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
@@ -80,12 +80,12 @@ export default defineAgent({
       });
 
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
-      const ttsOptions = getRimeTtsOptions();
-      const tts = new rime.TTS(ttsOptions);
+      const ttsOptions = getInworldTtsOptions();
+      const tts = new inference.TTS(ttsOptions);
       const languageRuntime = new VoiceLanguageRuntime(tts, {
-        ttsOptionsByLanguage: getRimeTtsOptionsByLanguage(
-          ttsOptions.speaker,
-          ttsOptions.modelId,
+        ttsOptionsByLanguage: getInworldTtsOptionsByLanguage(
+          ttsOptions.voice,
+          ttsOptions.model,
         ),
       });
       const session = new voice.AgentSession<CallState>({

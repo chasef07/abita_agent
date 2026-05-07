@@ -28,10 +28,7 @@ FROM base AS build
 WORKDIR /app
 
 # Copy just the dependency files first, for more efficient layer caching.
-# pnpm-workspace.yaml and patches/ are required before install because the
-# lockfile registers a patched dependency.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY patches ./patches
 
 # Install dependencies using pnpm
 # --frozen-lockfile ensures we use exact versions from pnpm-lock.yaml for reproducible builds

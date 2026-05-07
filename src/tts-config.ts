@@ -1,39 +1,42 @@
-import type { TTSOptions as RimeTtsOptions } from "@livekit/agents-plugin-rime";
+export const INWORLD_TTS_MODEL_ID = "inworld/inworld-tts-2";
+export const DEFAULT_INWORLD_TTS_VOICE = "Sarah";
+export const SPANISH_INWORLD_TTS_VOICE = "Sarah";
+export const INWORLD_TTS_SAMPLE_RATE = 16000;
+export const INWORLD_TTS_ENGLISH_LANGUAGE = "en";
+export const INWORLD_TTS_SPANISH_LANGUAGE = "es";
 
-export const RIME_TTS_MODEL_ID = "arcana";
-export const DEFAULT_RIME_TTS_SPEAKER = "vespera";
-export const SPANISH_RIME_TTS_SPEAKER = "luz";
-export const RIME_TTS_BASE_URL = "https://users-east.rime.ai/v1/rime-tts";
-export const RIME_TTS_SAMPLE_RATE = 16000;
-export const RIME_TTS_SPEED_ALPHA = 0.85;
-export const RIME_TTS_ENGLISH_LANGUAGE = "eng";
-export const RIME_TTS_SPANISH_LANGUAGE = "spa";
+export type InworldTtsOptions = {
+  model: string;
+  voice: string;
+  language: string;
+  sampleRate: number;
+};
 
-export function getRimeTtsOptions(): Partial<RimeTtsOptions> {
+export type InworldTtsLanguageOptions = Omit<InworldTtsOptions, "sampleRate">;
+
+export function getInworldTtsOptions(): InworldTtsOptions {
   return {
-    modelId: process.env.RIME_TTS_MODEL_ID ?? RIME_TTS_MODEL_ID,
-    speaker: process.env.RIME_TTS_SPEAKER ?? DEFAULT_RIME_TTS_SPEAKER,
-    baseURL: process.env.RIME_TTS_BASE_URL ?? RIME_TTS_BASE_URL,
-    lang: RIME_TTS_ENGLISH_LANGUAGE,
-    samplingRate: RIME_TTS_SAMPLE_RATE,
-    speedAlpha: RIME_TTS_SPEED_ALPHA,
+    model: process.env.INWORLD_TTS_MODEL_ID ?? INWORLD_TTS_MODEL_ID,
+    voice: process.env.INWORLD_TTS_VOICE ?? DEFAULT_INWORLD_TTS_VOICE,
+    language: INWORLD_TTS_ENGLISH_LANGUAGE,
+    sampleRate: INWORLD_TTS_SAMPLE_RATE,
   };
 }
 
-export function getRimeTtsOptionsByLanguage(
-  englishSpeaker = process.env.RIME_TTS_SPEAKER ?? DEFAULT_RIME_TTS_SPEAKER,
-  modelId = process.env.RIME_TTS_MODEL_ID ?? RIME_TTS_MODEL_ID,
-) {
+export function getInworldTtsOptionsByLanguage(
+  englishVoice = process.env.INWORLD_TTS_VOICE ?? DEFAULT_INWORLD_TTS_VOICE,
+  model = process.env.INWORLD_TTS_MODEL_ID ?? INWORLD_TTS_MODEL_ID,
+): Record<"en" | "es", InworldTtsLanguageOptions> {
   return {
     en: {
-      modelId,
-      speaker: englishSpeaker,
-      lang: RIME_TTS_ENGLISH_LANGUAGE,
+      model,
+      voice: englishVoice,
+      language: INWORLD_TTS_ENGLISH_LANGUAGE,
     },
     es: {
-      modelId,
-      speaker: process.env.RIME_TTS_SPANISH_SPEAKER ?? SPANISH_RIME_TTS_SPEAKER,
-      lang: RIME_TTS_SPANISH_LANGUAGE,
+      model,
+      voice: process.env.INWORLD_TTS_SPANISH_VOICE ?? SPANISH_INWORLD_TTS_VOICE,
+      language: INWORLD_TTS_SPANISH_LANGUAGE,
     },
-  } as const;
+  };
 }
