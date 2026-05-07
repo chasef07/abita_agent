@@ -159,7 +159,7 @@ export class VoiceLanguageRuntime {
     }
 
     const ttsOptions = this.ttsOptionsByLanguage[voiceLanguage];
-    if (Object.keys(ttsOptions).length > 0) {
+    if (languageChanged && Object.keys(ttsOptions).length > 0) {
       this.tts.updateOptions(ttsOptions);
     }
 

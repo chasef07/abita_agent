@@ -263,7 +263,7 @@ describe("VoiceLanguageRuntime", () => {
     expect(runtime.telemetry.languageSwitches).toBe(1);
   });
 
-  it("reasserts TTS options on every transcript event in the current language", () => {
+  it("does not reassert TTS options on transcript events in the current language", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime(
       { updateOptions },
@@ -303,16 +303,8 @@ describe("VoiceLanguageRuntime", () => {
       ),
     );
 
-    expect(updateOptions).toHaveBeenCalledTimes(3);
-    expect(updateOptions).toHaveBeenNthCalledWith(1, {
-      speaker: "spanish-speaker",
-      lang: "spa",
-    });
-    expect(updateOptions).toHaveBeenNthCalledWith(2, {
-      speaker: "spanish-speaker",
-      lang: "spa",
-    });
-    expect(updateOptions).toHaveBeenNthCalledWith(3, {
+    expect(updateOptions).toHaveBeenCalledTimes(1);
+    expect(updateOptions).toHaveBeenCalledWith({
       speaker: "spanish-speaker",
       lang: "spa",
     });
