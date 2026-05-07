@@ -82,6 +82,7 @@ export default defineAgent({
       const ttsOptions = getInworldTtsOptions();
       const tts = new inference.TTS(ttsOptions);
       const languageRuntime = new VoiceLanguageRuntime(tts, {
+        appliedTtsLanguage: "en",
         ttsOptionsByLanguage: getInworldTtsOptionsByLanguage(
           ttsOptions.voice,
           ttsOptions.model,
