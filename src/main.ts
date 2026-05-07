@@ -7,12 +7,13 @@ import {
   ServerOptions,
   cli,
   defineAgent,
-  inference,
   llm,
   voice,
 } from "@livekit/agents";
+import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
+import * as cartesia from "@livekit/agents-plugin-cartesia";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -22,8 +23,8 @@ import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
-  getInworldTtsOptions,
-  getInworldTtsOptionsByLanguage,
+  getCartesiaTtsOptions,
+  getCartesiaTtsOptionsByLanguage,
 } from "./tts-config.js";
 import { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
@@ -78,14 +79,13 @@ export default defineAgent({
         llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
       });
 
-      const stt = new inference.STT(getAssemblyAISttOptions());
-      const ttsOptions = getInworldTtsOptions();
-      const tts = new inference.TTS(ttsOptions);
+      const stt = new assemblyai.STT(getAssemblyAISttOptions());
+      const ttsOptions = getCartesiaTtsOptions();
+      const tts = new cartesia.TTS(ttsOptions);
       const languageRuntime = new VoiceLanguageRuntime(tts, {
         appliedTtsLanguage: "en",
-        ttsOptionsByLanguage: getInworldTtsOptionsByLanguage(
+        ttsOptionsByLanguage: getCartesiaTtsOptionsByLanguage(
           ttsOptions.voice,
-          ttsOptions.model,
         ),
       });
       const session = new voice.AgentSession<CallState>({

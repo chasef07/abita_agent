@@ -1,7 +1,8 @@
-export const ASSEMBLYAI_INFERENCE_STT_MODEL_ID = "assemblyai/u3-rt-pro";
+import type { STTOptions } from "@livekit/agents-plugin-assemblyai";
+
 export const ASSEMBLYAI_BASE_TIMING = {
   minTurnSilence: 275,
-  maxTurnSilence: 1000,
+  maxTurnSilence: 2000,
   vadThreshold: 0.3,
 } as const;
 
@@ -124,60 +125,27 @@ export const ASSEMBLYAI_STT_PROFILES = {
     maxTurnSilence: 4000,
     vadThreshold: 0.3,
   },
-} satisfies Record<string, AssemblyAISttProfileOptions>;
+} satisfies Record<string, Partial<STTOptions>>;
 
 export type AssemblyAISttProfile = keyof typeof ASSEMBLYAI_STT_PROFILES;
 
-export type AssemblyAISttProfileOptions = {
-  keytermsPrompt?: string[];
-  minTurnSilence?: number;
-  maxTurnSilence?: number;
-  vadThreshold?: number;
-};
-
-export type AssemblyAIInferenceModelOptions = {
-  keyterms_prompt?: string[];
-  language_detection?: boolean;
-  min_turn_silence?: number;
-  max_turn_silence?: number;
-  vad_threshold?: number;
-};
-
-export type AssemblyAIInferenceSttOptions = {
-  model: string;
-  modelOptions: AssemblyAIInferenceModelOptions;
-};
-
-function toAssemblyAIInferenceModelOptions(
-  options: AssemblyAISttProfileOptions,
-): AssemblyAIInferenceModelOptions {
+export function getAssemblyAISttOptions(): Partial<STTOptions> {
   return {
-    keyterms_prompt: options.keytermsPrompt
-      ? [...options.keytermsPrompt]
-      : undefined,
-    min_turn_silence: options.minTurnSilence,
-    max_turn_silence: options.maxTurnSilence,
-    vad_threshold: options.vadThreshold,
-  };
-}
-
-export function getAssemblyAISttOptions(): AssemblyAIInferenceSttOptions {
-  return {
-    model: ASSEMBLYAI_INFERENCE_STT_MODEL_ID,
-    modelOptions: {
-      language_detection: true,
-      ...toAssemblyAIInferenceModelOptions(ASSEMBLYAI_STT_PROFILES.default),
-    },
+    speechModel: "u3-rt-pro",
+    languageDetection: true,
+    ...ASSEMBLYAI_STT_PROFILES.default,
   };
 }
 
 export function getAssemblyAISttProfileOptions(
   profile: AssemblyAISttProfile,
-): Pick<AssemblyAIInferenceSttOptions, "modelOptions"> {
+): Partial<STTOptions> {
+  const options = ASSEMBLYAI_STT_PROFILES[profile];
   return {
-    modelOptions: toAssemblyAIInferenceModelOptions(
-      ASSEMBLYAI_STT_PROFILES[profile],
-    ),
+    ...options,
+    keytermsPrompt: options.keytermsPrompt
+      ? [...options.keytermsPrompt]
+      : undefined,
   };
 }
 

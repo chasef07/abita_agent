@@ -1,54 +1,31 @@
-export const INWORLD_TTS_MODEL_ID = "inworld/inworld-tts-2";
-export const DEFAULT_INWORLD_TTS_VOICE = "Sarah";
-export const SPANISH_INWORLD_TTS_VOICE = "Sarah";
-export const INWORLD_TTS_SAMPLE_RATE = 16000;
-export const INWORLD_TTS_SPEAKING_RATE = 0.85;
-export const INWORLD_TTS_ENGLISH_LANGUAGE = "en";
-export const INWORLD_TTS_SPANISH_LANGUAGE = "es";
+export const CARTESIA_TTS_MODEL = "sonic-3-latest";
+export const DEFAULT_CARTESIA_TTS_VOICE =
+  "a167e0f3-df7e-4d52-a9c3-f949145efdab";
+export const SPANISH_CARTESIA_TTS_VOICE =
+  "079e3a17-5545-4bc5-93e3-e11df6fe37b8";
+export const CARTESIA_TTS_LANGUAGE = "en";
+export const CARTESIA_TTS_SAMPLE_RATE = 16000;
 
-export type InworldTtsModelOptions = {
-  speaking_rate: number;
-};
-
-export type InworldTtsOptions = {
-  model: string;
-  voice: string;
-  language: string;
-  sampleRate: number;
-  modelOptions: InworldTtsModelOptions;
-};
-
-export type InworldTtsLanguageOptions = Omit<
-  InworldTtsOptions,
-  "sampleRate" | "modelOptions"
->;
-
-export function getInworldTtsOptions(): InworldTtsOptions {
+export function getCartesiaTtsOptions() {
   return {
-    model: process.env.INWORLD_TTS_MODEL_ID ?? INWORLD_TTS_MODEL_ID,
-    voice: process.env.INWORLD_TTS_VOICE ?? DEFAULT_INWORLD_TTS_VOICE,
-    language: INWORLD_TTS_ENGLISH_LANGUAGE,
-    sampleRate: INWORLD_TTS_SAMPLE_RATE,
-    modelOptions: {
-      speaking_rate: INWORLD_TTS_SPEAKING_RATE,
-    },
+    model: CARTESIA_TTS_MODEL,
+    voice: process.env.CARTESIA_TTS_VOICE ?? DEFAULT_CARTESIA_TTS_VOICE,
+    language: CARTESIA_TTS_LANGUAGE,
+    sampleRate: CARTESIA_TTS_SAMPLE_RATE,
   };
 }
 
-export function getInworldTtsOptionsByLanguage(
-  englishVoice = process.env.INWORLD_TTS_VOICE ?? DEFAULT_INWORLD_TTS_VOICE,
-  model = process.env.INWORLD_TTS_MODEL_ID ?? INWORLD_TTS_MODEL_ID,
-): Record<"en" | "es", InworldTtsLanguageOptions> {
+export function getCartesiaTtsOptionsByLanguage(
+  englishVoice = process.env.CARTESIA_TTS_VOICE ?? DEFAULT_CARTESIA_TTS_VOICE,
+) {
   return {
     en: {
-      model,
+      language: "en",
       voice: englishVoice,
-      language: INWORLD_TTS_ENGLISH_LANGUAGE,
     },
     es: {
-      model,
-      voice: process.env.INWORLD_TTS_SPANISH_VOICE ?? SPANISH_INWORLD_TTS_VOICE,
-      language: INWORLD_TTS_SPANISH_LANGUAGE,
+      language: "es",
+      voice: SPANISH_CARTESIA_TTS_VOICE,
     },
-  };
+  } as const;
 }
