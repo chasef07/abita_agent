@@ -24,6 +24,7 @@ export type TtsLanguageUpdater = {
 
 type VoiceLanguageRuntimeOptions = {
   defaultLanguage?: VoiceLanguage;
+  appliedTtsLanguage?: VoiceLanguage;
   ttsOptionsByLanguage?: Partial<
     Record<VoiceLanguage, VoiceLanguageTtsOptions>
   >;
@@ -99,6 +100,7 @@ export class VoiceLanguageRuntime {
   private currentLanguage: VoiceLanguage;
   private languageSwitches = 0;
   private readonly observedLanguages = new Set<VoiceLanguage>();
+  private appliedTtsLanguage: VoiceLanguage | null;
   private readonly ttsOptionsByLanguage: Record<
     VoiceLanguage,
     VoiceLanguageTtsOptions
@@ -111,6 +113,7 @@ export class VoiceLanguageRuntime {
     const defaultLanguage = options.defaultLanguage ?? DEFAULT_VOICE_LANGUAGE;
     this.initialLanguage = defaultLanguage;
     this.currentLanguage = defaultLanguage;
+    this.appliedTtsLanguage = options.appliedTtsLanguage ?? null;
     this.observedLanguages.add(defaultLanguage);
     this.ttsOptionsByLanguage = {
       en: {},
@@ -159,8 +162,13 @@ export class VoiceLanguageRuntime {
     }
 
     const ttsOptions = this.ttsOptionsByLanguage[voiceLanguage];
-    if (Object.keys(ttsOptions).length > 0) {
+    const ttsLanguageChanged = voiceLanguage !== this.appliedTtsLanguage;
+    if (
+      (languageChanged || ttsLanguageChanged) &&
+      Object.keys(ttsOptions).length > 0
+    ) {
       this.tts.updateOptions(ttsOptions);
+      this.appliedTtsLanguage = voiceLanguage;
     }
 
     if (languageChanged) {

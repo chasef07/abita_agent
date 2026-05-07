@@ -11,7 +11,6 @@ import {
   llm,
   voice,
 } from "@livekit/agents";
-import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
 import dotenv from "dotenv";
@@ -79,10 +78,11 @@ export default defineAgent({
         llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
       });
 
-      const stt = new assemblyai.STT(getAssemblyAISttOptions());
+      const stt = new inference.STT(getAssemblyAISttOptions());
       const ttsOptions = getInworldTtsOptions();
       const tts = new inference.TTS(ttsOptions);
       const languageRuntime = new VoiceLanguageRuntime(tts, {
+        appliedTtsLanguage: "en",
         ttsOptionsByLanguage: getInworldTtsOptionsByLanguage(
           ttsOptions.voice,
           ttsOptions.model,

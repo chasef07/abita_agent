@@ -263,7 +263,7 @@ describe("VoiceLanguageRuntime", () => {
     expect(runtime.telemetry.languageSwitches).toBe(1);
   });
 
-  it("reasserts TTS options on every transcript event in the current language", () => {
+  it("does not reassert TTS options on transcript events in the current language", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime(
       { updateOptions },
@@ -303,21 +303,80 @@ describe("VoiceLanguageRuntime", () => {
       ),
     );
 
-    expect(updateOptions).toHaveBeenCalledTimes(3);
-    expect(updateOptions).toHaveBeenNthCalledWith(1, {
-      speaker: "spanish-speaker",
-      lang: "spa",
-    });
-    expect(updateOptions).toHaveBeenNthCalledWith(2, {
-      speaker: "spanish-speaker",
-      lang: "spa",
-    });
-    expect(updateOptions).toHaveBeenNthCalledWith(3, {
+    expect(updateOptions).toHaveBeenCalledTimes(1);
+    expect(updateOptions).toHaveBeenCalledWith({
       speaker: "spanish-speaker",
       lang: "spa",
     });
     expect(runtime.telemetry.currentLanguage).toBe("es");
     expect(runtime.telemetry.languageSwitches).toBe(1);
+  });
+
+  it("applies same-language TTS options once when they have not already been applied", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime(
+      { updateOptions },
+      {
+        defaultLanguage: "es",
+        ttsOptionsByLanguage: {
+          es: {
+            speaker: "spanish-speaker",
+            lang: "spa",
+          },
+        },
+      },
+    );
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "es",
+        "necesito una cita",
+      ),
+    );
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "es",
+        "tambien necesito lentes",
+      ),
+    );
+
+    expect(updateOptions).toHaveBeenCalledTimes(1);
+    expect(updateOptions).toHaveBeenCalledWith({
+      speaker: "spanish-speaker",
+      lang: "spa",
+    });
+    expect(runtime.telemetry.currentLanguage).toBe("es");
+    expect(runtime.telemetry.languageSwitches).toBe(0);
+  });
+
+  it("does not update TTS for same-language transcripts when startup options are already applied", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime(
+      { updateOptions },
+      {
+        appliedTtsLanguage: "en",
+        ttsOptionsByLanguage: {
+          en: {
+            speaker: "english-speaker",
+            lang: "eng",
+          },
+        },
+      },
+    );
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "en",
+        "I need help scheduling",
+      ),
+    );
+
+    expect(updateOptions).not.toHaveBeenCalled();
+    expect(runtime.telemetry.currentLanguage).toBe("en");
+    expect(runtime.telemetry.languageSwitches).toBe(0);
   });
 
   it("switches from short Spanish turns when AssemblyAI detects Spanish", () => {

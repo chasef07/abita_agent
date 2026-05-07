@@ -4,6 +4,7 @@ import {
   INWORLD_TTS_ENGLISH_LANGUAGE,
   INWORLD_TTS_MODEL_ID,
   INWORLD_TTS_SAMPLE_RATE,
+  INWORLD_TTS_SPEAKING_RATE,
   INWORLD_TTS_SPANISH_LANGUAGE,
   SPANISH_INWORLD_TTS_VOICE,
   getInworldTtsOptions,
@@ -44,6 +45,9 @@ describe("TTS config", () => {
       voice: DEFAULT_INWORLD_TTS_VOICE,
       language: INWORLD_TTS_ENGLISH_LANGUAGE,
       sampleRate: INWORLD_TTS_SAMPLE_RATE,
+      modelOptions: {
+        speaking_rate: INWORLD_TTS_SPEAKING_RATE,
+      },
     });
   });
 
