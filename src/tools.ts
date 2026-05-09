@@ -701,7 +701,7 @@ export const transfer_call = llm.tool({
         state.sipRoomName,
         state.sipParticipantIdentity,
         `tel:${transferNumber}`,
-        { playDialtone: false },
+        { playDialtone: true },
       );
       const result = "Transfer initiated successfully.";
       console.log(
