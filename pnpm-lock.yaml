@@ -9,23 +9,23 @@ importers:
   .:
     dependencies:
       '@livekit/agents':
-        specifier: ^1.3.4
-        version: 1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
+        specifier: ^1.4.0
+        version: 1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/agents-plugin-assemblyai':
-        specifier: 1.3.4
-        version: 1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)
+        specifier: 1.4.0
+        version: 1.4.0(@livekit/agents@1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)
       '@livekit/agents-plugin-baseten':
-        specifier: ^1.3.4
-        version: 1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)(zod@4.4.3)
+        specifier: ^1.4.0
+        version: 1.4.0(@livekit/agents@1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)(zod@4.4.3)
       '@livekit/agents-plugin-cartesia':
-        specifier: 1.3.4
-        version: 1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)(zod@4.4.3)
+        specifier: 1.4.0
+        version: 1.4.0(@livekit/agents@1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)(zod@4.4.3)
       '@livekit/agents-plugin-livekit':
-        specifier: ^1.3.4
-        version: 1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))
+        specifier: ^1.4.0
+        version: 1.4.0(@livekit/agents@1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))
       '@livekit/agents-plugin-silero':
-        specifier: ^1.3.4
-        version: 1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)
+        specifier: ^1.4.0
+        version: 1.4.0(@livekit/agents@1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)
       '@livekit/noise-cancellation-node':
         specifier: ^0.1.9
         version: 0.1.9
@@ -49,8 +49,8 @@ importers:
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.3.0)
       '@types/node':
-        specifier: ^25.6.0
-        version: 25.6.0
+        specifier: ^25.6.2
+        version: 25.6.2
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -77,7 +77,7 @@ importers:
         version: 8.59.2(eslint@10.3.0)(typescript@6.0.3)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(jsdom@29.0.2)(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
+        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@29.0.2)(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.2)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
 
 packages:
 
@@ -403,8 +403,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@huggingface/jinja@0.5.8':
-    resolution: {integrity: sha512-ZdElB7DPS7QQS8ZnFc5RPPtkg+eN11z8AmIZWAyes6pSbwXqiFB/POVevvm01begdSX1ho9Gxln/F6qlQMsuaA==}
+  '@huggingface/jinja@0.5.9':
+    resolution: {integrity: sha512-uWTG+l3VJRsl7EXxYizuL3P+cCPoc3cRqbWWRcQN0FhejRfbdq0RNhCmbY/YDtnTcz9icdLYuLDjsnz4d8JMuw==}
     engines: {node: '>=18'}
 
   '@huggingface/tasks@0.19.90':
@@ -577,38 +577,38 @@ packages:
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
 
-  '@livekit/agents-plugin-assemblyai@1.3.4':
-    resolution: {integrity: sha512-1WJRVUzhgqpV+S+EjgCmimOIoySiGHtLYhxs7HGLZNH5UWbbvlEZz0jseWuzH4OpfHHUCz6TiqG2lOeuHYH4oQ==}
+  '@livekit/agents-plugin-assemblyai@1.4.0':
+    resolution: {integrity: sha512-WMsOD6n4+fC+Tn3Rkac1H0WrvcR+WoK6Y3e/ZbQG2PwUWNPqae1fx87dcqzyTkVQiX9Rjn+AC9rG6j6JtXQBqQ==}
     peerDependencies:
-      '@livekit/agents': 1.3.4
+      '@livekit/agents': 1.4.0
       '@livekit/rtc-node': ^0.13.27
 
-  '@livekit/agents-plugin-baseten@1.3.4':
-    resolution: {integrity: sha512-bK6dAlR9fFynFqeFa4QaET2adW9wpEO1izBn8f2NzzAMmmv10NqzSbIkILJWmW+nIjrJqsQe8BCBqxsW7YKpww==}
+  '@livekit/agents-plugin-baseten@1.4.0':
+    resolution: {integrity: sha512-PFkhOEwPqo865y+kTrlZ/BhrdpUpCm+TFsJOiGJDH79mM9xV2Wgw/hFE3z6j6nErkb6ZoENaxSZOKHjmVXi5MA==}
     peerDependencies:
-      '@livekit/agents': 1.3.4
+      '@livekit/agents': 1.4.0
       '@livekit/rtc-node': ^0.13.27
 
-  '@livekit/agents-plugin-cartesia@1.3.4':
-    resolution: {integrity: sha512-8jDpX5B3e9Xp6GhXIAnPUVaD7diRI24h10c/0M8hipnH6imy+NZ93YjTugzmceXwH82g31RQfqBcjrXvubuQuw==}
+  '@livekit/agents-plugin-cartesia@1.4.0':
+    resolution: {integrity: sha512-gvkmwmlm8aX9gYAuHQJcsr4whjsQzsCbz/QO9xCe31Tdgjn/shS99KoN7v11ItU3YMizVQZJH3sUVriKUu/ubw==}
     peerDependencies:
-      '@livekit/agents': 1.3.4
+      '@livekit/agents': 1.4.0
       '@livekit/rtc-node': ^0.13.27
       zod: ^3.25.76 || ^4.1.8
 
-  '@livekit/agents-plugin-livekit@1.3.4':
-    resolution: {integrity: sha512-ORh8f/29yhn+6bqyRnncDR2lyfr4xo3bljbUUrF3vyxyZE/5g8rpGNxq3zGgKNSnjy4HMhFCYWqrqt05K5isKQ==}
+  '@livekit/agents-plugin-livekit@1.4.0':
+    resolution: {integrity: sha512-g3wG35LSpTjvOnqDbyXqo6QeHP2dBRWSldVh8nKPKTaKUB0/d8FrQiBWgByJkc5mqU4Rk3KulHUzUeQlZx5fSA==}
     peerDependencies:
-      '@livekit/agents': 1.3.4
+      '@livekit/agents': 1.4.0
 
-  '@livekit/agents-plugin-silero@1.3.4':
-    resolution: {integrity: sha512-6bLMoIAHAzimvftYH1KI1iYJNdiyvwSLY0Hej2qGwHZ/vFgJfhbwA0bVkDLde04fD2G9kF7G/uOM/mI1EsMucw==}
+  '@livekit/agents-plugin-silero@1.4.0':
+    resolution: {integrity: sha512-9icaC1qt7SVEwZVSKOoMfy2i0yBHS+dgqqQV7WXen36PNJBDkcj2cwHkNpGxMplaOUNPZmOmDKYyLFiebJ1juA==}
     peerDependencies:
-      '@livekit/agents': 1.3.4
+      '@livekit/agents': 1.4.0
       '@livekit/rtc-node': ^0.13.27
 
-  '@livekit/agents@1.3.4':
-    resolution: {integrity: sha512-zO1EYTmWwhtTRPQraxC+LVx9SICZ9m5W+f2V8wPu3rGezPhAHx9FG0aY9WJnWUU6qfo3QuwI/NZR8uX7zTXepA==}
+  '@livekit/agents@1.4.0':
+    resolution: {integrity: sha512-ZC1New+i952T4Sxa+/P6RAEg73lTKsetZmLEeyBiuE015oV2wdAIsmGGEzEdWtBcxtmDSGlD+D4q9DkziVPVbQ==}
     peerDependencies:
       '@livekit/rtc-node': ^0.13.27
       zod: ^3.25.76 || ^4.1.8
@@ -647,8 +647,8 @@ packages:
   '@livekit/protocol@1.45.6':
     resolution: {integrity: sha512-YPDmrUiVe1EY/q/2bD+Fp+69DWq6LZgeH+G/KEbz07OIVf8hgAYzfb1FgiOdWLRpSj06+SuTmrOY604fWNuD3w==}
 
-  '@livekit/protocol@1.45.7':
-    resolution: {integrity: sha512-UVYtWQohAwowygFFglMKfgjVZMQncCEmHmsQX2yJDhgBf1nZQdfANgUJg+ifxZDTfVpNnQWQjikWMHViq5fh2Q==}
+  '@livekit/protocol@1.45.8':
+    resolution: {integrity: sha512-Q+l57E7w/xxOBFVWzdX5rkAZO7ffyF+rlDzNUYq2SU114+5aTyCq+PK4unaEVDNd4952Af7wteKr3sOgasGuaA==}
 
   '@livekit/rtc-ffi-bindings-darwin-arm64@0.12.52-patch.0':
     resolution: {integrity: sha512-IKUir6goV8yVRR7E2qrAP0JtH7gUyMkO0TG8G+dopO/fkXAsPpSealgI9fLcBJl0zhKK+eGCr741r6xR+xxsVw==}
@@ -1032,8 +1032,8 @@ packages:
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
-  '@types/node@25.6.0':
-    resolution: {integrity: sha512-+qIYRKdNYJwY3vRCZMdJbPLJAtGjQBudzZzdzwQYkEPQd+PJGixUL5QfvCLDaULoLv+RhT3LDkwEfKaAkgSmNQ==}
+  '@types/node@25.6.2':
+    resolution: {integrity: sha512-sokuT28dxf9JT5Kady1fsXOvI4HVpjZa95NKT5y9PNTIrs2AsobR4GFAA90ZG8M+nxVRLysCXsVj6eGC7Vbrlw==}
 
   '@types/pidusage@2.0.5':
     resolution: {integrity: sha512-MIiyZI4/MK9UGUXWt0jJcCZhVw7YdhBuTOuqP/BjuLDLZ2PmmViMIQgZiWxtaMicQfAz/kMrZ5T7PKxFSkTeUA==}
@@ -1775,8 +1775,8 @@ packages:
   onnxruntime-web@1.22.0-dev.20250409-89f8206ba4:
     resolution: {integrity: sha512-0uS76OPgH0hWCPrFKlL8kYVV7ckM7t/36HfbgoFw6Nd0CZVVbQC4PkrR8mBX8LtNUFZO25IQBqV2Hx2ho3FlbQ==}
 
-  openai@6.36.0:
-    resolution: {integrity: sha512-Has2YbIusMq9wQEierFsgf9c783dy1y9arX459LmphNacEkkM5yxi2RIyXP0LmkOroQyW19iTwALHL8Yf26UKA==}
+  openai@6.37.0:
+    resolution: {integrity: sha512-0H5dEGFmmLv6KSd0W1w2nyL8WsLkX6yoLeQpU+dZAOuGcany5qkYQMmj35ZrKgb6yiyYqpUzFOpR8mZQkgqeEQ==}
     hasBin: true
     peerDependencies:
       ws: ^8.18.0
@@ -1888,8 +1888,8 @@ packages:
     resolution: {integrity: sha512-cdGef/drWFoydD1JsMzuFf8100nZl+GT+yacc2bEced5f9Rjk4z+WtFUTBu9PhOi9j/jfmBPu0mMEY4wIdAF8A==}
     engines: {node: '>= 0.6.0'}
 
-  protobufjs@7.5.6:
-    resolution: {integrity: sha512-M71sTMB146U3u0di3yup8iM+zv8yPRNQVr1KK4tyBitl3qFvEGucq/rGDRShD2rsJhtN02RJaJ7j5X5hmy8SJg==}
+  protobufjs@7.5.7:
+    resolution: {integrity: sha512-NGnrxS/nLKUo5nkbVQxlC71sB4hdfImdYIbFeSCidxtwATx0AHRPcANSLd0q5Bb2BkoSWo2iisQhGg5/r+ihbA==}
     engines: {node: '>=12.0.0'}
 
   pump@3.0.4:
@@ -1964,6 +1964,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  semver@7.8.0:
+    resolution: {integrity: sha512-AcM7dV/5ul4EekoQ29Agm5vri8JNqRyj39o0qpX6vDF2GZrtutZl5RwgD1XnZjiTAfncsJhMI48QQH3sN87YNA==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   serialize-error@7.0.1:
     resolution: {integrity: sha512-8I8TjW5KMOKsZQTvoxjuSIa7foAwPWGOts+6o7sgjz41/qMD9VQHEDxi6PBvK2l0MXUmqZyNpUK+T2tQaaElvw==}
     engines: {node: '>=10'}
@@ -2027,8 +2032,8 @@ packages:
   symbol-tree@3.2.4:
     resolution: {integrity: sha512-9QNk5KwDF+Bvz+PyObkmSYjI5ksVUYtjW7AU22r2NKcfLJcXp96hkDWU3+XndOsUb+AQ9QhfzfCT2O+CNWT5Tw==}
 
-  tar@7.5.14:
-    resolution: {integrity: sha512-/7sHKgQO3JLP9ESlwTYUUftHUadOURUqq23xs1vjcnp8Vss6k0wCfzulyEtk5g91pjvnuriimGlyG7k6msrzRw==}
+  tar@7.5.15:
+    resolution: {integrity: sha512-dzGK0boVlC4W5QFuQN1EFSl3bIDYsk7Tj40U6eIBnK2k/8ml7TZ5agbI5j5+qnoVcAA+rNtBml8SEiLxZpNqRQ==}
     engines: {node: '>=18'}
 
   thread-stream@2.7.0:
@@ -2117,10 +2122,6 @@ packages:
 
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
-
-  uuid@14.0.0:
-    resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
-    hasBin: true
 
   vite@8.0.3:
     resolution: {integrity: sha512-B9ifbFudT1TFhfltfaIPgjo9Z3mDynBTJSUYxTjOQruf/zHH+ezCQKcoqO+h7a9Pw9Nm/OtlXAiGT1axBgwqrQ==}
@@ -2518,13 +2519,13 @@ snapshots:
     dependencies:
       '@huggingface/tasks': 0.19.90
 
-  '@huggingface/jinja@0.5.8': {}
+  '@huggingface/jinja@0.5.9': {}
 
   '@huggingface/tasks@0.19.90': {}
 
   '@huggingface/transformers@3.7.2':
     dependencies:
-      '@huggingface/jinja': 0.5.8
+      '@huggingface/jinja': 0.5.9
       onnxruntime-node: 1.21.0
       onnxruntime-web: 1.22.0-dev.20250409-89f8206ba4
       sharp: 0.34.5
@@ -2647,30 +2648,30 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@livekit/agents-plugin-assemblyai@1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)':
+  '@livekit/agents-plugin-assemblyai@1.4.0(@livekit/agents@1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)':
     dependencies:
-      '@livekit/agents': 1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.27
       ws: 8.20.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@livekit/agents-plugin-baseten@1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)(zod@4.4.3)':
+  '@livekit/agents-plugin-baseten@1.4.0(@livekit/agents@1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)(zod@4.4.3)':
     dependencies:
-      '@livekit/agents': 1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.27
       dotenv: 17.4.2
-      openai: 6.36.0(ws@8.20.0)(zod@4.4.3)
+      openai: 6.37.0(ws@8.20.0)(zod@4.4.3)
       ws: 8.20.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
       - zod
 
-  '@livekit/agents-plugin-cartesia@1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)(zod@4.4.3)':
+  '@livekit/agents-plugin-cartesia@1.4.0(@livekit/agents@1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)(zod@4.4.3)':
     dependencies:
-      '@livekit/agents': 1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.27
       ws: 8.20.0
       zod: 4.4.3
@@ -2678,16 +2679,16 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@livekit/agents-plugin-livekit@1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))':
+  '@livekit/agents-plugin-livekit@1.4.0(@livekit/agents@1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))':
     dependencies:
       '@huggingface/hub': 2.4.1
       '@huggingface/transformers': 3.7.2
-      '@livekit/agents': 1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
       onnxruntime-node: 1.21.0
 
-  '@livekit/agents-plugin-silero@1.3.4(@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)':
+  '@livekit/agents-plugin-silero@1.4.0(@livekit/agents@1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.27)':
     dependencies:
-      '@livekit/agents': 1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.27
       onnxruntime-node: 1.24.3
       ws: 8.20.0
@@ -2695,12 +2696,12 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@livekit/agents@1.3.4(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)':
+  '@livekit/agents@1.4.0(@livekit/rtc-node@0.13.27)(typescript@6.0.3)(zod@4.4.3)':
     dependencies:
       '@bufbuild/protobuf': 1.10.1
       '@ffmpeg-installer/ffmpeg': 1.1.0
       '@livekit/mutex': 1.1.1
-      '@livekit/protocol': 1.45.7
+      '@livekit/protocol': 1.45.8
       '@livekit/rtc-node': 0.13.27
       '@livekit/throws-transformer': 0.1.8(typescript@6.0.3)
       '@livekit/typed-emitter': 3.0.0
@@ -2724,12 +2725,11 @@ snapshots:
       json-schema: 0.4.0
       livekit-server-sdk: 2.15.2
       ofetch: 1.5.1
-      openai: 6.36.0(ws@8.20.0)(zod@4.4.3)
+      openai: 6.37.0(ws@8.20.0)(zod@4.4.3)
       pidusage: 4.0.1
       pino: 8.21.0
       pino-pretty: 11.3.0
       sharp: 0.34.5
-      uuid: 14.0.0
       ws: 8.20.0
       zod: 4.4.3
       zod-to-json-schema: 3.25.2(zod@4.4.3)
@@ -2771,7 +2771,7 @@ snapshots:
     dependencies:
       '@bufbuild/protobuf': 1.10.1
 
-  '@livekit/protocol@1.45.7':
+  '@livekit/protocol@1.45.8':
     dependencies:
       '@bufbuild/protobuf': 1.10.1
 
@@ -2893,7 +2893,7 @@ snapshots:
       '@types/shimmer': 1.2.0
       import-in-the-middle: 1.15.0
       require-in-the-middle: 7.5.2
-      semver: 7.7.4
+      semver: 7.8.0
       shimmer: 1.2.1
     transitivePeerDependencies:
       - supports-color
@@ -2919,7 +2919,7 @@ snapshots:
       '@opentelemetry/sdk-logs': 0.208.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-metrics': 2.2.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-base': 2.2.0(@opentelemetry/api@1.9.1)
-      protobufjs: 7.5.6
+      protobufjs: 7.5.7
 
   '@opentelemetry/otlp-transformer@0.54.2(@opentelemetry/api@1.9.1)':
     dependencies:
@@ -2930,7 +2930,7 @@ snapshots:
       '@opentelemetry/sdk-logs': 0.54.2(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-metrics': 1.27.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-base': 1.27.0(@opentelemetry/api@1.9.1)
-      protobufjs: 7.5.6
+      protobufjs: 7.5.7
 
   '@opentelemetry/propagator-b3@1.30.1(@opentelemetry/api@1.9.1)':
     dependencies:
@@ -3015,7 +3015,7 @@ snapshots:
       '@opentelemetry/propagator-b3': 1.30.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/propagator-jaeger': 1.30.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-base': 1.30.1(@opentelemetry/api@1.9.1)
-      semver: 7.7.4
+      semver: 7.8.0
 
   '@opentelemetry/semantic-conventions@1.27.0': {}
 
@@ -3122,7 +3122,7 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
-  '@types/node@25.6.0':
+  '@types/node@25.6.2':
     dependencies:
       undici-types: 7.19.2
 
@@ -3132,7 +3132,7 @@ snapshots:
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 25.6.0
+      '@types/node': 25.6.2
 
   '@typescript-eslint/eslint-plugin@8.59.2(@typescript-eslint/parser@8.59.2(eslint@10.3.0)(typescript@6.0.3))(eslint@10.3.0)(typescript@6.0.3)':
     dependencies:
@@ -3234,13 +3234,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.5(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))':
+  '@vitest/mocker@4.1.5(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.2)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))':
     dependencies:
       '@vitest/spy': 4.1.5
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3)
+      vite: 8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.2)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3)
 
   '@vitest/pretty-format@4.1.5':
     dependencies:
@@ -3633,7 +3633,7 @@ snapshots:
       es6-error: 4.1.1
       matcher: 3.0.0
       roarr: 2.15.4
-      semver: 7.7.4
+      semver: 7.8.0
       serialize-error: 7.0.1
 
   globals@17.6.0: {}
@@ -3885,7 +3885,7 @@ snapshots:
     dependencies:
       global-agent: 3.0.0
       onnxruntime-common: 1.21.0
-      tar: 7.5.14
+      tar: 7.5.15
 
   onnxruntime-node@1.24.3:
     dependencies:
@@ -3900,9 +3900,9 @@ snapshots:
       long: 5.3.2
       onnxruntime-common: 1.22.0-dev.20250409-89f8206ba4
       platform: 1.3.6
-      protobufjs: 7.5.6
+      protobufjs: 7.5.7
 
-  openai@6.36.0(ws@8.20.0)(zod@4.4.3):
+  openai@6.37.0(ws@8.20.0)(zod@4.4.3):
     optionalDependencies:
       ws: 8.20.0
       zod: 4.4.3
@@ -4046,7 +4046,7 @@ snapshots:
 
   process@0.11.10: {}
 
-  protobufjs@7.5.6:
+  protobufjs@7.5.7:
     dependencies:
       '@protobufjs/aspromise': 1.1.2
       '@protobufjs/base64': 1.1.2
@@ -4058,7 +4058,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.1
-      '@types/node': 25.6.0
+      '@types/node': 25.6.2
       long: 5.3.2
 
   pump@3.0.4:
@@ -4152,6 +4152,8 @@ snapshots:
 
   semver@7.7.4: {}
 
+  semver@7.8.0: {}
+
   serialize-error@7.0.1:
     dependencies:
       type-fest: 0.13.1
@@ -4160,7 +4162,7 @@ snapshots:
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
-      semver: 7.7.4
+      semver: 7.8.0
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.34.5
       '@img/sharp-darwin-x64': 0.34.5
@@ -4228,7 +4230,7 @@ snapshots:
   symbol-tree@3.2.4:
     optional: true
 
-  tar@7.5.14:
+  tar@7.5.15:
     dependencies:
       '@isaacs/fs-minipass': 4.0.1
       chownr: 3.0.0
@@ -4319,9 +4321,7 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  uuid@14.0.0: {}
-
-  vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3):
+  vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.2)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -4329,7 +4329,7 @@ snapshots:
       rolldown: 1.0.0-rc.12(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)
       tinyglobby: 0.2.16
     optionalDependencies:
-      '@types/node': 25.6.0
+      '@types/node': 25.6.2
       esbuild: 0.27.7
       fsevents: 2.3.3
       tsx: 4.21.0
@@ -4338,10 +4338,10 @@ snapshots:
       - '@emnapi/core'
       - '@emnapi/runtime'
 
-  vitest@4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(jsdom@29.0.2)(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3)):
+  vitest@4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@29.0.2)(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.2)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3)):
     dependencies:
       '@vitest/expect': 4.1.5
-      '@vitest/mocker': 4.1.5(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
+      '@vitest/mocker': 4.1.5(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.2)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
       '@vitest/pretty-format': 4.1.5
       '@vitest/runner': 4.1.5
       '@vitest/snapshot': 4.1.5
@@ -4358,11 +4358,11 @@ snapshots:
       tinyexec: 1.1.2
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vite: 8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3)
+      vite: 8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.6.2)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
-      '@types/node': 25.6.0
+      '@types/node': 25.6.2
       jsdom: 29.0.2
     transitivePeerDependencies:
       - msw
