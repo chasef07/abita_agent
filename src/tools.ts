@@ -95,7 +95,9 @@ export interface CallState {
   amdOfficePhone: string;
   sipRoomName: string;
   sipParticipantIdentity: string;
+  callId: string;
   callerPhone: string;
+  trunkPhone: string;
   // Populated by phone lookup, verify_patient, or add_patient
   patientId: string | null;
   patientName: string | null;
@@ -117,6 +119,20 @@ export interface CallState {
 // Per-call state lives on session.userData so concurrent calls don't collide
 function getState(ctx: voice.RunContext): CallState {
   return ctx.session.userData as CallState;
+}
+
+export function buildCallCenterHandoffHeaders(
+  state: Pick<CallState, "callId" | "callerPhone" | "officeKey" | "trunkPhone">,
+  transferNumber: string,
+): Record<string, string> {
+  return {
+    "X-Acuity-Caller-Phone": state.callerPhone,
+    "X-Acuity-Handoff": "call-center",
+    "X-Acuity-LiveKit-Call-Id": state.callId,
+    "X-Acuity-Office-Key": state.officeKey,
+    "X-Acuity-Transfer-Number": transferNumber,
+    "X-Acuity-Trunk-Phone": state.trunkPhone,
+  };
 }
 
 export function makeCurrentSpeechUninterruptible(
@@ -701,7 +717,11 @@ export const transfer_call = llm.tool({
         state.sipRoomName,
         state.sipParticipantIdentity,
         `tel:${transferNumber}`,
-        { playDialtone: false },
+        {
+          headers: buildCallCenterHandoffHeaders(state, transferNumber),
+          playDialtone: false,
+          ringingTimeout: 20,
+        },
       );
       const result = "Transfer initiated successfully.";
       console.log(
