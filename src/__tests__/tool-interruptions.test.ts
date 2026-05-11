@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   add_patient,
+  add_patient_note,
   appointmentTypeIdSchema,
   book_appt,
   cancel_appt,
@@ -103,6 +104,17 @@ describe("tool interruption handling", () => {
           ),
       },
       {
+        name: "add_patient_note",
+        run: (ctx: ToolContext) =>
+          add_patient_note.execute(
+            {
+              appointmentReason: "blurry vision",
+              referringDoctor: "none",
+            },
+            { ctx, toolCallId: "test-note" },
+          ),
+      },
+      {
         name: "book_appt",
         run: (ctx: ToolContext) =>
           book_appt.execute(
@@ -168,6 +180,38 @@ describe("tool interruption handling", () => {
       patientName: "Jane Doe",
       profileId: 2,
       startDatetime: "2026-04-28T09:00",
+    });
+  });
+
+  it("sends patient notes with session patient and office state", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "saved", noteId: "3135521" }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.patientId = "17603880";
+    state.officeKey = "crystal-river";
+    state.amdOfficePhone = "+13523202007";
+
+    await add_patient_note.execute(
+      {
+        appointmentReason: "blurry vision",
+        referringDoctor: "Dr. Smith",
+      },
+      { ctx, toolCallId: "test-note" },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://advancedmd-token-management-production.up.railway.app/api/patient/notes",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      patientId: "17603880",
+      note: "Appointment reason: blurry vision\nReferring doctor: Dr. Smith",
+      office: "+13523202007",
     });
   });
 
@@ -379,6 +423,17 @@ describe("tool interruption handling", () => {
           cancel_appt.execute(
             { appointmentId: 12345 },
             { ctx, toolCallId: "test-cancel" },
+          ),
+      },
+      {
+        name: "add_patient_note",
+        run: (ctx: ToolContext) =>
+          add_patient_note.execute(
+            {
+              appointmentReason: "blurry vision",
+              referringDoctor: "none",
+            },
+            { ctx, toolCallId: "test-note" },
           ),
       },
       {
