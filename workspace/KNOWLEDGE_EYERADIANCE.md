@@ -27,6 +27,10 @@ Hours:
 
 **Other Location:** We also have an office in Spring Hill — Abita Eye Group, 10495 SpringHill Drive, Springhill, FL 34608 (Monday–Friday, 8:30 AM – 4:30 PM). That location also sees Dr. Bach, Dr. Noel, and Dr. Licht. Dr. Licht practices at both locations.
 
+## After Hours
+
+If a caller needs to reach the after-hours doctor, provide this number: 727-379-4923.
+
 ## Scope of Services
 
 Crystal River sees medical eye conditions such as glaucoma, eyelid concerns, and flashes/floaters. Crystal River does **not** see pediatric ophthalmology and does **not** schedule cataract evaluations, cataract surgery workups, or routine-vision exams there. For pediatrics, cataract-related visits, or routine eye exams/glasses/contact lens prescriptions, schedule the patient at Spring Hill after getting their agreement.
