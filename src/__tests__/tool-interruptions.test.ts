@@ -4,6 +4,7 @@ import {
   add_patient_note,
   appointmentTypeIdSchema,
   book_appt,
+  buildCallCenterHandoffHeaders,
   cancel_appt,
   check_insurance,
   get_availability,
@@ -147,6 +148,19 @@ describe("tool interruption handling", () => {
 
     expect(speechHandle.allowInterruptions).toBe(false);
     expect(ctx.waitForPlayout).toHaveBeenCalledOnce();
+  });
+
+  it("builds call-center handoff SIP headers from the original inbound call", () => {
+    const { state } = createToolContext();
+
+    expect(buildCallCenterHandoffHeaders(state, "+16182265883")).toEqual({
+      "X-Acuity-Caller-Phone": "+17275551212",
+      "X-Acuity-Handoff": "call-center",
+      "X-Acuity-LiveKit-Call-Id": "call-123",
+      "X-Acuity-Office-Key": "spring-hill",
+      "X-Acuity-Transfer-Number": "+16182265883",
+      "X-Acuity-Trunk-Phone": "+17275919997",
+    });
   });
 
   it("attaches verified patient identity to booking requests", async () => {
@@ -552,7 +566,9 @@ function createToolContext() {
     amdOfficePhone: "+17275919997",
     sipRoomName: "room",
     sipParticipantIdentity: "caller",
+    callId: "call-123",
     callerPhone: "+17275551212",
+    trunkPhone: "+17275919997",
     patientId: "patient-1",
     patientName: "Jane Doe",
     dob: "01/01/1980",
