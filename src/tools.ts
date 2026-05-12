@@ -517,6 +517,8 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
 export const add_patient_note = llm.tool({
   description: `Adds a short operational note to the verified patient's AdvancedMD chart. Requires a verified patient from phone lookup, verify_patient, or add_patient.
 
+For scheduling workflows, collect the appointment reason and referring doctor during the call, but call this tool only after book_appt succeeds.
+
 Only save these two fields: appointment reason and referring doctor. If there is no referring doctor, set referringDoctor to "none". Do not include diagnoses, clinical judgments, raw transcripts, appointment times, insurance, patient demographics, or anything else.`,
   parameters: z.object({
     appointmentReason: z
