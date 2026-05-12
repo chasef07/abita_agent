@@ -14,6 +14,7 @@ import {
   get_availability,
   confirm_appt,
   cancel_appt,
+  add_patient_note,
   book_appt,
   check_insurance,
   lookup_knowledge,
@@ -29,6 +30,7 @@ type AgentTools = {
   get_availability: typeof get_availability;
   confirm_appt: typeof confirm_appt;
   cancel_appt: typeof cancel_appt;
+  add_patient_note: typeof add_patient_note;
   book_appt: typeof book_appt;
   check_insurance: typeof check_insurance;
   lookup_knowledge: typeof lookup_knowledge;
@@ -45,6 +47,7 @@ export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
     get_availability,
     confirm_appt,
     cancel_appt,
+    add_patient_note,
     book_appt,
     check_insurance,
     lookup_knowledge,

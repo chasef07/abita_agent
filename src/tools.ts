@@ -529,6 +529,49 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
   },
 });
 
+// --- add_patient_note ---
+export const add_patient_note = llm.tool({
+  description: `Adds a short operational note to the verified patient's AdvancedMD chart. Requires a verified patient from phone lookup, verify_patient, or add_patient.
+
+For scheduling workflows, collect the appointment reason and referring doctor during the call, but call this tool only after book_appt succeeds.
+
+Only save these two fields: appointment reason and referring doctor. If there is no referring doctor, set referringDoctor to "none". Do not include diagnoses, clinical judgments, raw transcripts, appointment times, insurance, patient demographics, or anything else.`,
+  parameters: z.object({
+    appointmentReason: z
+      .string()
+      .min(1)
+      .max(500)
+      .describe("The caller's stated appointment reason"),
+    referringDoctor: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe(
+        'The referring doctor name, or "none" if the caller was not referred',
+      ),
+  }),
+  execute: async ({ appointmentReason, referringDoctor }, { ctx }) => {
+    const state = getState(ctx);
+    if (!state.patientId) {
+      return "ERROR: No patient verified yet. Verify the patient before adding a note.";
+    }
+    const reason = appointmentReason.trim();
+    const referrer = referringDoctor.trim();
+    if (!reason || !referrer) {
+      return "ERROR: appointmentReason and referringDoctor are required.";
+    }
+    if (!makeCurrentSpeechUninterruptible(ctx)) {
+      return "The note was interrupted before it could be saved. Please confirm the note again.";
+    }
+    const note = `Appointment reason: ${reason}\nReferring doctor: ${referrer}`;
+    return callApi(
+      "/api/patient/notes",
+      { patientId: state.patientId, note },
+      getAmdOfficeForToolCall(state),
+    );
+  },
+});
+
 // --- book_appt ---
 export const book_appt = llm.tool({
   description: `Books an appointment. Pass columnId, profileId, startDatetime, and duration from get_availability. Patient ID is read from session state automatically.
@@ -719,7 +762,7 @@ export const transfer_call = llm.tool({
         `tel:${transferNumber}`,
         {
           headers: buildCallCenterHandoffHeaders(state, transferNumber),
-          playDialtone: false,
+          playDialtone: true,
           ringingTimeout: 20,
         },
       );

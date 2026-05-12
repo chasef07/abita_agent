@@ -172,9 +172,7 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "Medical and routine vision insurance lookups can have different answers for the same plan name",
     );
-    expect(prompt).toContain(
-      "Reason for visit — classify medical/surgical vs routine vision",
-    );
+    expect(prompt).toContain("Reason for visit and referring doctor");
     expect(prompt).toContain(
       'triage first: "is this for a routine eye exam or glasses/contact lens prescription, or for a medical eye visit?"',
     );
@@ -213,6 +211,20 @@ describe("Crystal River prompt guidance", () => {
 
     expect(prompt).toContain("Email is optional");
     expect(prompt).toContain("continue registration without it");
+  });
+
+  it("tells scheduling flows to save the patient note only after booking succeeds", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+
+    expect(prompt).toContain(
+      "ask reason for visit first, then ask whether a doctor referred them",
+    );
+    expect(prompt).toContain(
+      "After book_appt succeeds, call add_patient_note with appointmentReason and referringDoctor",
+    );
+    expect(prompt).toContain(
+      "Do not call add_patient_note before a successful booking",
+    );
   });
 
   it("tells the agent to convert relative dates silently", () => {
