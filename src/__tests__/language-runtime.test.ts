@@ -52,7 +52,7 @@ describe("VoiceLanguageRuntime", () => {
     });
   });
 
-  it("switches from AssemblyAI interim events before final transcript", () => {
+  it("ignores automatic language switches from interim transcripts", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime(
       { updateOptions },
@@ -70,11 +70,8 @@ describe("VoiceLanguageRuntime", () => {
       speechEvent(stt.SpeechEventType.INTERIM_TRANSCRIPT, "es", "si"),
     );
 
-    expect(updateOptions).toHaveBeenCalledWith({
-      speaker: "spanish-speaker",
-      lang: "spa",
-    });
-    expect(runtime.telemetry.currentLanguage).toBe("es");
+    expect(updateOptions).not.toHaveBeenCalled();
+    expect(runtime.telemetry.currentLanguage).toBe("en");
   });
 
   it("switches from AssemblyAI preflight events before final transcript", () => {
@@ -93,6 +90,35 @@ describe("VoiceLanguageRuntime", () => {
 
     runtime.updateFromSpeechEvent(
       speechEvent(stt.SpeechEventType.PREFLIGHT_TRANSCRIPT, "es"),
+    );
+
+    expect(updateOptions).toHaveBeenCalledWith({
+      speaker: "spanish-speaker",
+      lang: "spa",
+    });
+    expect(runtime.telemetry.currentLanguage).toBe("es");
+  });
+
+  it("switches to Spanish from explicit interim requests", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime(
+      { updateOptions },
+      {
+        ttsOptionsByLanguage: {
+          es: {
+            speaker: "spanish-speaker",
+            lang: "spa",
+          },
+        },
+      },
+    );
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.INTERIM_TRANSCRIPT,
+        "en-US",
+        "Spanish please",
+      ),
     );
 
     expect(updateOptions).toHaveBeenCalledWith({
@@ -175,7 +201,7 @@ describe("VoiceLanguageRuntime", () => {
     expect(runtime.telemetry.currentLanguage).toBe("en");
   });
 
-  it("switches back to English from the next English transcript", () => {
+  it("requires two strong English turns before switching back from Spanish", () => {
     const updateOptions = vi.fn();
     const englishSpeaker = "english-speaker";
     const runtime = new VoiceLanguageRuntime(
@@ -208,6 +234,13 @@ describe("VoiceLanguageRuntime", () => {
         "I need help scheduling the appointment",
       ),
     );
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "en-US",
+        "Can you help me finish this in English",
+      ),
+    );
 
     expect(updateOptions).toHaveBeenNthCalledWith(1, {
       speaker: "spanish-speaker",
@@ -219,6 +252,51 @@ describe("VoiceLanguageRuntime", () => {
     });
     expect(runtime.telemetry.currentLanguage).toBe("en");
     expect(runtime.telemetry.languageSwitches).toBe(2);
+  });
+
+  it("does not count preflight and final transcripts as two English turns", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime(
+      { updateOptions },
+      {
+        ttsOptionsByLanguage: {
+          en: {
+            speaker: "english-speaker",
+            lang: "eng",
+          },
+          es: {
+            speaker: "spanish-speaker",
+            lang: "spa",
+          },
+        },
+      },
+    );
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "es",
+        "prefiero hablar en espanol",
+      ),
+    );
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.PREFLIGHT_TRANSCRIPT,
+        "en",
+        "I need help scheduling the appointment",
+      ),
+    );
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "en",
+        "I need help scheduling the appointment",
+      ),
+    );
+
+    expect(updateOptions).toHaveBeenCalledTimes(1);
+    expect(runtime.telemetry.currentLanguage).toBe("es");
+    expect(runtime.telemetry.languageSwitches).toBe(1);
   });
 
   it("does not let interim English fallback pull an active Spanish call back to English", () => {
@@ -379,7 +457,7 @@ describe("VoiceLanguageRuntime", () => {
     expect(runtime.telemetry.languageSwitches).toBe(0);
   });
 
-  it("switches from short Spanish turns when AssemblyAI detects Spanish", () => {
+  it("does not switch from short ambiguous Spanish detections", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime(
       { updateOptions },
@@ -398,16 +476,43 @@ describe("VoiceLanguageRuntime", () => {
     );
 
     runtime.updateFromSpeechEvent(
-      speechEvent(stt.SpeechEventType.INTERIM_TRANSCRIPT, "es", "si"),
+      speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "es", "si"),
     );
 
-    expect(updateOptions).toHaveBeenCalledTimes(1);
-    expect(updateOptions).toHaveBeenCalledWith({
-      speaker: "spanish-speaker",
-      lang: "spa",
-    });
-    expect(runtime.telemetry.currentLanguage).toBe("es");
-    expect(runtime.telemetry.languageSwitches).toBe(1);
+    expect(updateOptions).not.toHaveBeenCalled();
+    expect(runtime.telemetry.currentLanguage).toBe("en");
+    expect(runtime.telemetry.languageSwitches).toBe(0);
+  });
+
+  it("does not switch to Spanish when detected Spanish contradicts English text", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime(
+      { updateOptions },
+      {
+        ttsOptionsByLanguage: {
+          en: {
+            speaker: "english-speaker",
+            lang: "eng",
+          },
+          es: {
+            speaker: "spanish-speaker",
+            lang: "spa",
+          },
+        },
+      },
+    );
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "es",
+        "I need help scheduling my appointment",
+      ),
+    );
+
+    expect(updateOptions).not.toHaveBeenCalled();
+    expect(runtime.telemetry.currentLanguage).toBe("en");
+    expect(runtime.telemetry.languageSwitches).toBe(0);
   });
 
   it("tracks language changes without updating TTS when no options are configured", () => {
