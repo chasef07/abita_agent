@@ -10,6 +10,7 @@ import {
   type OfficeKey,
   getOfficeConfig,
   getOfficeConfigByPhone,
+  getOfficeHandoffTarget,
   SPRING_HILL_OFFICE_PHONE,
 } from "./offices.js";
 import {
@@ -123,14 +124,15 @@ function getState(ctx: voice.RunContext): CallState {
 
 export function buildCallCenterHandoffHeaders(
   state: Pick<CallState, "callId" | "callerPhone" | "officeKey" | "trunkPhone">,
-  transferNumber: string,
+  handoffTarget: string,
+  handoffOfficeKey: OfficeKey = state.officeKey,
 ): Record<string, string> {
   return {
     "X-Acuity-Caller-Phone": state.callerPhone,
     "X-Acuity-Handoff": "call-center",
+    "X-Acuity-Handoff-Target": handoffTarget,
     "X-Acuity-LiveKit-Call-Id": state.callId,
-    "X-Acuity-Office-Key": state.officeKey,
-    "X-Acuity-Transfer-Number": transferNumber,
+    "X-Acuity-Office-Key": handoffOfficeKey,
     "X-Acuity-Trunk-Phone": state.trunkPhone,
   };
 }
@@ -157,6 +159,21 @@ export function getAmdOfficeForToolCall(
   return (
     state.amdOfficePhone || getOfficeConfig(state.officeKey).amdOfficePhone
   );
+}
+
+function getHandoffOfficeKey(
+  state: Pick<CallState, "officeKey" | "trunkPhone">,
+): OfficeKey {
+  if (!state.trunkPhone) return state.officeKey;
+  try {
+    return getOfficeConfigByPhone(state.trunkPhone).key;
+  } catch (err) {
+    console.warn(
+      `[tools] Could not resolve handoff office from original trunk ${state.trunkPhone}; falling back to active office ${state.officeKey}`,
+      err,
+    );
+    return state.officeKey;
+  }
 }
 
 function normalizeBaseUrl(url: string): string {
@@ -755,20 +772,25 @@ export const transfer_call = llm.tool({
     }
     try {
       state.transferred = true;
-      const transferNumber = getOfficeConfig(state.officeKey).transferNumber;
+      const handoffOfficeKey = getHandoffOfficeKey(state);
+      const handoffTarget = getOfficeHandoffTarget(handoffOfficeKey);
       await getSipClient().transferSipParticipant(
         state.sipRoomName,
         state.sipParticipantIdentity,
-        `tel:${transferNumber}`,
+        handoffTarget,
         {
-          headers: buildCallCenterHandoffHeaders(state, transferNumber),
+          headers: buildCallCenterHandoffHeaders(
+            state,
+            handoffTarget,
+            handoffOfficeKey,
+          ),
           playDialtone: true,
           ringingTimeout: 20,
         },
       );
       const result = "Transfer initiated successfully.";
       console.log(
-        `[tools] Transferred ${state.sipParticipantIdentity} to ${transferNumber}`,
+        `[tools] Transferred ${state.sipParticipantIdentity} to ${handoffTarget}`,
       );
       // Framework handles shutdown via close_on_disconnect when the
       // SIP participant leaves after the transfer completes.

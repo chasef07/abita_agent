@@ -1,13 +1,15 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { buildToolsForTrunk } from "../agent.js";
 import { buildPrompt } from "../prompt.js";
 import {
   DEV_OFFICE_PHONE,
   getOfficeConfig,
   getOfficeConfigByPhone,
+  getOfficeHandoffTarget,
   getOfficeKeyByPhone,
+  normalizeHandoffTarget,
   normalizePhoneNumber,
   SPRING_HILL_813_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
@@ -20,6 +22,14 @@ import {
 } from "../tools.js";
 
 describe("office routing helpers", () => {
+  afterEach(() => {
+    delete process.env.SPRING_HILL_HANDOFF_TARGET;
+    delete process.env.CRYSTAL_RIVER_HANDOFF_TARGET;
+    delete process.env.DEV_HANDOFF_TARGET;
+    delete process.env.TELNYX_VOICE_API_HANDOFF_TARGET;
+    delete process.env.OFFICE_HANDOFF_TARGET;
+  });
+
   it("maps trunk numbers to office keys", () => {
     expect(getOfficeKeyByPhone("+13523202007")).toBe("crystal-river");
     expect(getOfficeKeyByPhone(SPRING_HILL_OFFICE_PHONE)).toBe("spring-hill");
@@ -101,11 +111,42 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("uses office-specific human transfer numbers for live offices", () => {
-    expect(getOfficeConfig("crystal-river").transferNumber).toBe(
-      "+13527941244",
+  it("uses office-specific human handoff targets for live offices", () => {
+    expect(getOfficeConfig("crystal-river").handoffTarget).toBe(
+      "tel:+13527941244",
     );
-    expect(getOfficeConfig("spring-hill").transferNumber).toBe("+16182265883");
+    expect(getOfficeConfig("spring-hill").handoffTarget).toBe(
+      "tel:+16182265883",
+    );
+  });
+
+  it("normalizes handoff targets while allowing SIP URIs directly", () => {
+    expect(normalizeHandoffTarget("+16182265883")).toBe("tel:+16182265883");
+    expect(normalizeHandoffTarget("16182265883")).toBe("tel:+16182265883");
+    expect(normalizeHandoffTarget("tel:+16182265883")).toBe("tel:+16182265883");
+    expect(normalizeHandoffTarget("sip:office@sip.telnyx.com")).toBe(
+      "sip:office@sip.telnyx.com",
+    );
+  });
+
+  it("allows Spring Hill to use a Voice API SIP handoff target", () => {
+    process.env.SPRING_HILL_HANDOFF_TARGET =
+      "sip:+16182265883@livekitappacuity.sip.telnyx.com";
+
+    expect(getOfficeHandoffTarget("spring-hill")).toBe(
+      "sip:+16182265883@livekitappacuity.sip.telnyx.com",
+    );
+    expect(getOfficeHandoffTarget("crystal-river")).toBe("tel:+13527941244");
+  });
+
+  it("supports a shared Voice API env override for Spring Hill only", () => {
+    process.env.TELNYX_VOICE_API_HANDOFF_TARGET =
+      "sip:+16182265883@livekitappacuity.sip.telnyx.com";
+
+    expect(getOfficeHandoffTarget("spring-hill")).toBe(
+      "sip:+16182265883@livekitappacuity.sip.telnyx.com",
+    );
+    expect(getOfficeHandoffTarget("crystal-river")).toBe("tel:+13527941244");
   });
 
   it("only exposes Spring Hill routing on Crystal River calls", () => {
