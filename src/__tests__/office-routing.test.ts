@@ -120,6 +120,14 @@ describe("office routing helpers", () => {
     );
   });
 
+  it("introduces the Abita receptionist as AI and scheduling-capable", () => {
+    const greeting =
+      "Thanks for calling Abita Eye Group. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?";
+
+    expect(getOfficeConfig("spring-hill").greeting).toBe(greeting);
+    expect(getOfficeConfig("dev").greeting).toBe(greeting);
+  });
+
   it("normalizes handoff targets while allowing SIP URIs directly", () => {
     expect(normalizeHandoffTarget("+16182265883")).toBe("tel:+16182265883");
     expect(normalizeHandoffTarget("16182265883")).toBe("tel:+16182265883");
