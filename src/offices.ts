@@ -16,7 +16,7 @@ export interface OfficeConfig {
   visionInsuranceFile?: string;
   amdOfficePhone: string;
   middlewareBaseUrl?: string;
-  transferNumber: string;
+  handoffTarget: string;
   features: {
     routeToSpringHill: boolean;
   };
@@ -24,6 +24,14 @@ export interface OfficeConfig {
 const SPRING_HILL_TRANSFER_NUMBER = "+16182265883";
 const CRYSTAL_RIVER_TRANSFER_NUMBER = "+13527941244";
 const DEFAULT_TRANSFER_NUMBER = "+18667968908";
+const OFFICE_HANDOFF_TARGET_ENV: Record<OfficeKey, string[]> = {
+  "spring-hill": [
+    "SPRING_HILL_HANDOFF_TARGET",
+    "TELNYX_VOICE_API_HANDOFF_TARGET",
+  ],
+  "crystal-river": [],
+  dev: [],
+};
 
 export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
   "spring-hill": {
@@ -36,7 +44,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
-    transferNumber: SPRING_HILL_TRANSFER_NUMBER,
+    handoffTarget: `tel:${SPRING_HILL_TRANSFER_NUMBER}`,
     features: {
       routeToSpringHill: false,
     },
@@ -51,7 +59,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     insuranceFile: "INSURANCE_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
-    transferNumber: CRYSTAL_RIVER_TRANSFER_NUMBER,
+    handoffTarget: `tel:${CRYSTAL_RIVER_TRANSFER_NUMBER}`,
     features: {
       routeToSpringHill: true,
     },
@@ -67,7 +75,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: DEV_OFFICE_PHONE,
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
-    transferNumber: DEFAULT_TRANSFER_NUMBER,
+    handoffTarget: `tel:${DEFAULT_TRANSFER_NUMBER}`,
     features: {
       routeToSpringHill: false,
     },
@@ -103,4 +111,18 @@ export function getOfficeConfig(key: OfficeKey): OfficeConfig {
 
 export function getOfficeConfigByPhone(phone: string): OfficeConfig {
   return getOfficeConfig(getOfficeKeyByPhone(phone));
+}
+
+export function normalizeHandoffTarget(target: string): string {
+  const trimmed = target.trim();
+  if (/^(tel|sip):/i.test(trimmed)) return trimmed;
+  return `tel:${normalizePhoneNumber(trimmed)}`;
+}
+
+export function getOfficeHandoffTarget(key: OfficeKey): string {
+  for (const envVar of OFFICE_HANDOFF_TARGET_ENV[key]) {
+    const value = process.env[envVar]?.trim();
+    if (value) return normalizeHandoffTarget(value);
+  }
+  return normalizeHandoffTarget(getOfficeConfig(key).handoffTarget);
 }

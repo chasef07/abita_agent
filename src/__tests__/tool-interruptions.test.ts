@@ -1,4 +1,22 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const { transferSipParticipantMock } = vi.hoisted(() => ({
+  transferSipParticipantMock: vi.fn(),
+}));
+
+vi.mock("livekit-server-sdk", () => ({
+  SipClient: vi.fn(function SipClientMock() {
+    return {
+      transferSipParticipant: transferSipParticipantMock,
+    };
+  }),
+  RoomServiceClient: vi.fn(function RoomServiceClientMock() {
+    return {
+      deleteRoom: vi.fn(),
+    };
+  }),
+}));
+
 import {
   add_patient,
   add_patient_note,
@@ -21,6 +39,12 @@ type ToolContext = Parameters<typeof book_appt.execute>[1]["ctx"];
 
 describe("tool interruption handling", () => {
   afterEach(() => {
+    transferSipParticipantMock.mockReset();
+    delete process.env.SPRING_HILL_HANDOFF_TARGET;
+    delete process.env.CRYSTAL_RIVER_HANDOFF_TARGET;
+    delete process.env.DEV_HANDOFF_TARGET;
+    delete process.env.TELNYX_VOICE_API_HANDOFF_TARGET;
+    delete process.env.OFFICE_HANDOFF_TARGET;
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -153,14 +177,72 @@ describe("tool interruption handling", () => {
   it("builds call-center handoff SIP headers from the original inbound call", () => {
     const { state } = createToolContext();
 
-    expect(buildCallCenterHandoffHeaders(state, "+16182265883")).toEqual({
+    expect(
+      buildCallCenterHandoffHeaders(state, "sip:office@sip.telnyx.com"),
+    ).toEqual({
       "X-Acuity-Caller-Phone": "+17275551212",
       "X-Acuity-Handoff": "call-center",
+      "X-Acuity-Handoff-Target": "sip:office@sip.telnyx.com",
       "X-Acuity-LiveKit-Call-Id": "call-123",
       "X-Acuity-Office-Key": "spring-hill",
-      "X-Acuity-Transfer-Number": "+16182265883",
       "X-Acuity-Trunk-Phone": "+17275919997",
     });
+  });
+
+  it("transfers to a configured Telnyx SIP handoff target without forcing tel", async () => {
+    process.env.SPRING_HILL_HANDOFF_TARGET =
+      "sip:+16182265883@livekitappacuity.sip.telnyx.com";
+    transferSipParticipantMock.mockResolvedValue(undefined);
+    const { ctx } = createToolContext();
+
+    const result = await transfer_call.execute(
+      {},
+      { ctx, toolCallId: "test-transfer" },
+    );
+
+    expect(result).toBe("Transfer initiated successfully.");
+    expect(transferSipParticipantMock).toHaveBeenCalledWith(
+      "room",
+      "caller",
+      "sip:+16182265883@livekitappacuity.sip.telnyx.com",
+      {
+        headers: {
+          "X-Acuity-Caller-Phone": "+17275551212",
+          "X-Acuity-Handoff": "call-center",
+          "X-Acuity-Handoff-Target":
+            "sip:+16182265883@livekitappacuity.sip.telnyx.com",
+          "X-Acuity-LiveKit-Call-Id": "call-123",
+          "X-Acuity-Office-Key": "spring-hill",
+          "X-Acuity-Trunk-Phone": "+17275919997",
+        },
+        playDialtone: true,
+        ringingTimeout: 20,
+      },
+    );
+  });
+
+  it("keeps Crystal River transfers on the existing phone-number handoff", async () => {
+    transferSipParticipantMock.mockResolvedValue(undefined);
+    const { ctx, state } = createToolContext();
+    state.trunkPhone = "+13523202007";
+    state.officeKey = "spring-hill";
+    state.amdOfficePhone = "+17275919997";
+    state.patientId = "spring-hill-patient";
+
+    await transfer_call.execute({}, { ctx, toolCallId: "test-transfer" });
+
+    expect(transferSipParticipantMock).toHaveBeenCalledWith(
+      "room",
+      "caller",
+      "tel:+13527941244",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-Acuity-Handoff-Target": "tel:+13527941244",
+          "X-Acuity-Office-Key": "crystal-river",
+          "X-Acuity-Trunk-Phone": "+13523202007",
+        }),
+      }),
+    );
   });
 
   it("attaches verified patient identity to booking requests", async () => {

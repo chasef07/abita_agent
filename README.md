@@ -177,6 +177,8 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 | `INWORLD_TTS_SPANISH_VOICE` | Optional Spanish TTS voice override; defaults to `Sarah` |
 | `BASETEN_API_KEY` | LLM (GLM-4.7 + MiniMax fallback) |
 | `AMD_API_URL` / `AMD_API_TOKEN` | AdvancedMD middleware |
+| `SPRING_HILL_HANDOFF_TARGET` | Optional Spring Hill call-center handoff target; accepts `tel:+E164` or `sip:user@domain` |
+| `TELNYX_VOICE_API_HANDOFF_TARGET` | Optional Spring Hill Telnyx Voice API handoff target, for example `sip:+16182265883@livekitappacuity.sip.telnyx.com` |
 | `ANALYTICS_URL` / `WEBHOOK_SECRET` | Post-call analytics endpoint |
 | `PROMPT_WORKSPACE` | Optional alternate prompt workspace path |
 
