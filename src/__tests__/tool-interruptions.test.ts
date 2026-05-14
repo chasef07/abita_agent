@@ -33,6 +33,7 @@ import {
   verify_patient,
   type CallState,
 } from "../tools.js";
+import { HOLLYWOOD_OFFICE_PHONE, SWEETWATER_OFFICE_PHONE } from "../offices.js";
 
 type SpeechContext = Parameters<typeof makeCurrentSpeechUninterruptible>[0];
 type ToolContext = Parameters<typeof book_appt.execute>[1]["ctx"];
@@ -42,6 +43,8 @@ describe("tool interruption handling", () => {
     transferSipParticipantMock.mockReset();
     delete process.env.SPRING_HILL_HANDOFF_TARGET;
     delete process.env.CRYSTAL_RIVER_HANDOFF_TARGET;
+    delete process.env.HOLLYWOOD_HANDOFF_TARGET;
+    delete process.env.SWEETWATER_HANDOFF_TARGET;
     delete process.env.DEV_HANDOFF_TARGET;
     delete process.env.TELNYX_VOICE_API_HANDOFF_TARGET;
     delete process.env.OFFICE_HANDOFF_TARGET;
@@ -245,6 +248,42 @@ describe("tool interruption handling", () => {
     );
   });
 
+  it("transfers Hollywood and Sweetwater callers to the configured handoff number", async () => {
+    transferSipParticipantMock.mockResolvedValue(undefined);
+
+    const cases = [
+      ["hollywood", HOLLYWOOD_OFFICE_PHONE],
+      ["sweetwater", SWEETWATER_OFFICE_PHONE],
+    ] as const;
+
+    for (const [officeKey, officePhone] of cases) {
+      const { ctx, state } = createToolContext();
+      state.trunkPhone = officePhone;
+      state.officeKey = officeKey;
+      state.amdOfficePhone = officePhone;
+
+      await transfer_call.execute(
+        {},
+        { ctx, toolCallId: `test-transfer-${officeKey}` },
+      );
+
+      expect(transferSipParticipantMock).toHaveBeenLastCalledWith(
+        "room",
+        "caller",
+        "tel:+16184220360",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "X-Acuity-Handoff-Target": "tel:+16184220360",
+            "X-Acuity-Office-Key": officeKey,
+            "X-Acuity-Trunk-Phone": officePhone,
+          }),
+        }),
+      );
+    }
+
+    expect(transferSipParticipantMock).toHaveBeenCalledTimes(2);
+  });
+
   it("attaches verified patient identity to booking requests", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
@@ -274,8 +313,60 @@ describe("tool interruption handling", () => {
       duration: 15,
       patientId: "patient-1",
       patientName: "Jane Doe",
+      dob: "01/01/1980",
       profileId: 2,
       startDatetime: "2026-04-28T09:00",
+    });
+  });
+
+  it("forwards stored DOB to age-sensitive middleware requests", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "ok" }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx } = createToolContext();
+
+    await get_availability.execute(
+      { date: "2026-04-28" },
+      { ctx, toolCallId: "test-availability" },
+    );
+    await book_appt.execute(
+      {
+        columnId: 1,
+        profileId: 2,
+        startDatetime: "2026-04-28T09:00",
+        duration: 15,
+        appointmentTypeId: 1007,
+      },
+      { ctx, toolCallId: "test-book" },
+    );
+    await update_insurance.execute(
+      {
+        insurance: "Aetna",
+        subscriberName: "Jane Doe",
+        subscriberNum: "ABC123",
+      },
+      { ctx, toolCallId: "test-update" },
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      date: "2026-04-28",
+      dob: "01/01/1980",
+      routing: "all_three",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      patientId: "patient-1",
+      dob: "01/01/1980",
+      routing: "all_three",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject({
+      patientId: "patient-1",
+      dob: "01/01/1980",
+      insurance: "Aetna",
     });
   });
 
@@ -371,6 +462,62 @@ describe("tool interruption handling", () => {
       office: "+17275919997",
       routing: "optical_only",
       startDatetime: "2026-04-28T10:00",
+    });
+  });
+
+  it("keeps routine vision scheduling local for Hollywood and Sweetwater", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "ok" }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const cases = [
+      ["hollywood", HOLLYWOOD_OFFICE_PHONE],
+      ["sweetwater", SWEETWATER_OFFICE_PHONE],
+    ] as const;
+
+    for (const [officeKey, officePhone] of cases) {
+      const { ctx, state } = createToolContext();
+      state.officeKey = officeKey;
+      state.amdOfficePhone = officePhone;
+      state.trunkPhone = officePhone;
+      state.checkedInsurancePlan = null;
+      state.checkedInsuranceCoverageType = null;
+
+      const insuranceResult = await check_insurance.execute(
+        { plan: "VSP", coverageType: "routine_vision" },
+        { ctx, toolCallId: `test-insurance-${officeKey}` },
+      );
+
+      expect(insuranceResult).toMatchObject({
+        status: "accepted",
+        canonicalPlan: "VSP",
+      });
+
+      await get_availability.execute(
+        { date: "2026-04-28" },
+        { ctx, toolCallId: `test-availability-${officeKey}` },
+      );
+
+      expect(state.officeKey).toBe(officeKey);
+      expect(state.amdOfficePhone).toBe(officePhone);
+      expect(state.lastAvailabilityRouting).toBe("optical_only");
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      date: "2026-04-28",
+      dob: "01/01/1980",
+      office: HOLLYWOOD_OFFICE_PHONE,
+      routing: "optical_only",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      date: "2026-04-28",
+      dob: "01/01/1980",
+      office: SWEETWATER_OFFICE_PHONE,
+      routing: "optical_only",
     });
   });
 
