@@ -218,6 +218,8 @@ function routingForAvailability(
 
 function ensureRoutineVisionOffice(state: CallState): void {
   if (state.checkedInsuranceCoverageType !== "routine_vision") return;
+  if (!getOfficeConfig(state.officeKey).features.routeRoutineVisionToSpringHill)
+    return;
   state.officeKey = "spring-hill";
   state.amdOfficePhone = getSpringHillOfficePhone();
 }
@@ -443,6 +445,7 @@ After response: session state updates automatically. If preauthRequired, schedul
         : insurance;
     const payload: Record<string, unknown> = {
       patientId: state.patientId,
+      ...(state.dob ? { dob: state.dob } : {}),
       insPlanId: state.insPlanId ?? "",
       respPartyId: state.respPartyId ?? "",
       oldInsurance: state.insuranceCarrier ?? "",
@@ -493,6 +496,7 @@ After response: check if date shifted vs requested — tell caller if different.
     const body: Record<string, unknown> = { date };
     const effectiveRouting = routingForAvailability(state, routing);
     state.lastAvailabilityRouting = effectiveRouting;
+    if (state.dob) body.dob = state.dob;
     if (effectiveRouting) body.routing = effectiveRouting;
     if (state.preauthRequired) body.preauthRequired = true;
     return callApi(
@@ -632,6 +636,7 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
       ...params,
       patientId: state.patientId,
       ...(state.patientName ? { patientName: state.patientName } : {}),
+      ...(state.dob ? { dob: state.dob } : {}),
       ...(routing ? { routing } : {}),
     };
     return callApi(

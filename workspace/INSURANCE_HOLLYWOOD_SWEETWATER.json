@@ -1,0 +1,569 @@
+{
+  "officeLabel": "Hollywood and Sweetwater Medical",
+  "aliasRules": [
+    {
+      "aliases": [
+        "Aetna Commercial HMO And PPO",
+        "Aetna Commercial HMO PPO"
+      ],
+      "status": "accepted",
+      "family": "Aetna Commercial",
+      "callerPlan": "Aetna Commercial HMO And PPO",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Aetna EPO Plan North Broward"
+      ],
+      "status": "accepted",
+      "family": "Aetna EPO North Broward",
+      "callerPlan": "Aetna EPO Plan North Broward",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Aetna EPO Plan University Miami",
+        "Aetna EPO Plan University Of Miami"
+      ],
+      "status": "accepted",
+      "family": "Aetna EPO University Of Miami",
+      "callerPlan": "Aetna EPO Plan University Miami",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Aetna Healthy Kids Kid Care"
+      ],
+      "status": "accepted",
+      "family": "Aetna Healthy Kids",
+      "callerPlan": "Aetna Healthy Kids Kid Care",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Aetna Medicare PPO Medical"
+      ],
+      "status": "accepted",
+      "family": "Aetna Medicare PPO",
+      "callerPlan": "Aetna Medicare PPO Medical",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Aetna QHP",
+        "Aetna QHP Individual Exchange Plan"
+      ],
+      "status": "accepted",
+      "family": "Aetna QHP Individual Exchange",
+      "callerPlan": "Aetna QHP",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Ambetter Medical"
+      ],
+      "status": "accepted",
+      "family": "Ambetter",
+      "callerPlan": "Ambetter Medical",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Av Med"
+      ],
+      "status": "accepted",
+      "family": "AvMed",
+      "callerPlan": "Av Med",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Av Med Medicare",
+        "Av Med Medicare Advantage"
+      ],
+      "status": "not_accepted",
+      "family": "AvMed Medicare Advantage",
+      "callerPlan": "AvMed Medicare Advantage",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Care Health"
+      ],
+      "status": "not_accepted",
+      "family": "Care Health Plus",
+      "callerPlan": "Care Health Plus",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Care Plus",
+        "CarePlus"
+      ],
+      "status": "accepted",
+      "family": "CarePlus Medicare Medical",
+      "callerPlan": "Care Plus",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Children's Medical",
+        "Children's Medical Services",
+        "Childrens Medical"
+      ],
+      "status": "accepted",
+      "family": "Childrens Medical Services",
+      "callerPlan": "Childrens Medical",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Cigna"
+      ],
+      "status": "needs_clarification",
+      "clarificationNeeded": "which Cigna plan is on the card",
+      "callerPlan": "Cigna",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Cigna Miami-dade Public Schools"
+      ],
+      "status": "accepted",
+      "family": "Cigna Miami Dade Public Schools",
+      "callerPlan": "Cigna Miami-dade Public Schools",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Devoted"
+      ],
+      "status": "accepted",
+      "family": "Devoted Medicare HMO",
+      "callerPlan": "Devoted",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Doctors Health"
+      ],
+      "status": "accepted",
+      "family": "Doctors Health Medicare",
+      "callerPlan": "Doctors Health",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Fl Blue HMO"
+      ],
+      "status": "accepted",
+      "family": "Florida Blue HMO",
+      "callerPlan": "Fl Blue HMO",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Fl Blue Select",
+        "Florida Blue Select"
+      ],
+      "status": "not_accepted",
+      "family": "Florida Blue Select",
+      "callerPlan": "Florida Blue Select",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Fl Blue Steward",
+        "Florida Blue Steward"
+      ],
+      "status": "accepted",
+      "family": "Florida Blue Steward Tier 1",
+      "callerPlan": "Fl Blue Steward",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Freedom",
+        "Freedom Health"
+      ],
+      "status": "accepted",
+      "family": "Freedom Health Medicare",
+      "callerPlan": "Freedom",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Humana"
+      ],
+      "status": "accepted",
+      "family": "Humana PPO",
+      "callerPlan": "Humana",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Humana Premier HMO Access"
+      ],
+      "status": "accepted",
+      "family": "Humana Premier HMO",
+      "callerPlan": "Humana Premier HMO Access",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Straight Medicaid"
+      ],
+      "status": "accepted",
+      "family": "Medicaid",
+      "callerPlan": "Straight Medicaid",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Medicare Part B"
+      ],
+      "status": "accepted",
+      "family": "Medicare",
+      "callerPlan": "Medicare Part B",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Meritain"
+      ],
+      "status": "accepted",
+      "family": "Meritain Health",
+      "callerPlan": "Meritain",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Miami Children",
+        "Miami Childrens",
+        "Miami Children's",
+        "Miami Children's Health Plan"
+      ],
+      "status": "not_accepted",
+      "family": "Miami Children's Health Plan",
+      "callerPlan": "Miami Children's Health Plan",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Molina"
+      ],
+      "status": "needs_clarification",
+      "clarificationNeeded": "Medicaid, Medicare, or Marketplace",
+      "callerPlan": "Molina",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Multiplan",
+        "PHCS"
+      ],
+      "status": "accepted",
+      "family": "Multiplan PHCS",
+      "callerPlan": "Multiplan",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Optimum",
+        "Optimum Healthplan",
+        "Optimum Healthplan Medicare"
+      ],
+      "status": "accepted",
+      "family": "Optimum Healthcare",
+      "callerPlan": "Optimum",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Oscar",
+        "Oscar Health Plans"
+      ],
+      "status": "accepted",
+      "family": "Oscar Health",
+      "callerPlan": "Oscar",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Partners Direct"
+      ],
+      "status": "accepted",
+      "family": "Partners Direct Health",
+      "callerPlan": "Partners Direct",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Preferred Care",
+        "Preferred Care Partners Medical"
+      ],
+      "status": "accepted",
+      "family": "Preferred Care Partners",
+      "callerPlan": "Preferred Care",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Simply",
+        "Simply Healthcare"
+      ],
+      "status": "accepted",
+      "family": "Simply Medicaid",
+      "callerPlan": "Simply",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Simply Medicare Medical"
+      ],
+      "status": "accepted",
+      "family": "Simply Medicare",
+      "callerPlan": "Simply Medicare Medical",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Solis"
+      ],
+      "status": "accepted",
+      "family": "Solis Medicare",
+      "callerPlan": "Solis",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Tricare"
+      ],
+      "status": "accepted",
+      "family": "Tricare Select",
+      "callerPlan": "Tricare",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "United Health One"
+      ],
+      "status": "accepted",
+      "family": "UMR",
+      "callerPlan": "United Health One",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "UHC",
+        "United"
+      ],
+      "status": "accepted",
+      "family": "United Healthcare",
+      "callerPlan": "UHC",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "UHC Medicare",
+        "United Aarp Medicare Complete",
+        "United Healthcare Medicare Advantage"
+      ],
+      "status": "accepted",
+      "family": "United Healthcare Aarp Medicare",
+      "callerPlan": "UHC Medicare",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "United Healthcare Student Resources Medical"
+      ],
+      "status": "accepted",
+      "family": "United Healthcare Student Resources",
+      "callerPlan": "United Healthcare Student Resources Medical",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Ushealth",
+        "Ushealth Group"
+      ],
+      "status": "accepted",
+      "family": "US Health Group",
+      "callerPlan": "Ushealth",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "WellCare Medicaid Medical"
+      ],
+      "status": "accepted",
+      "family": "WellCare Medicaid",
+      "callerPlan": "WellCare Medicaid Medical",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "WellCare Medicare",
+        "WellCare Medicare Lppo Medical"
+      ],
+      "status": "accepted",
+      "family": "WellCare Medicare Lppo",
+      "callerPlan": "WellCare Medicare",
+      "canProceed": true,
+      "needsExactPlanName": true
+    }
+  ],
+  "acceptedPlans": [
+    "Aetna",
+    "Aetna Better Health",
+    "Aetna Better Health Of Florida",
+    "Aetna Commercial",
+    "Aetna Commercial HMO",
+    "Aetna Commercial PPO",
+    "Aetna EPO",
+    "Aetna EPO North Broward",
+    "Aetna EPO University Of Miami",
+    "Aetna HMO",
+    "Aetna Healthy Kids",
+    "Aetna Managed Choice",
+    "Aetna Medicare",
+    "Aetna Medicare HMO",
+    "Aetna Medicare PPO",
+    "Aetna PPO",
+    "Aetna QHP Individual Exchange",
+    "Ambetter",
+    "Ambetter Premier",
+    "Ambetter Select",
+    "Ambetter Value",
+    "AvMed",
+    "AvMed Select",
+    "CarePlus Medicare Medical",
+    "Childrens Medical Services",
+    "Cigna HMO",
+    "Cigna Miami Dade Public Schools",
+    "Cigna Open Access",
+    "Cigna PPO",
+    "Community Care Plan",
+    "Devoted Medicare HMO",
+    "Devoted Medicare PPO",
+    "Doctors Health Medicare",
+    "Eye America AAO",
+    "Eye Care Health Solutions",
+    "Florida Blue",
+    "Florida Blue HMO",
+    "Florida Blue Medicare HMO",
+    "Florida Blue Medicare PPO",
+    "Florida Blue PPO Federal Employee",
+    "Florida Blue PPO Out Of State",
+    "Florida Blue Steward Tier 1",
+    "Florida Community Care",
+    "Florida Complete Care",
+    "Florida Medicaid",
+    "Florida Medicare",
+    "Freedom Health Medicare",
+    "Humana HMO",
+    "Humana Medicaid",
+    "Humana Medicare",
+    "Humana Medicare HMO",
+    "Humana Medicare PPO",
+    "Humana PPO",
+    "Humana PPO Pos",
+    "Humana Premier HMO",
+    "Imagine Health",
+    "Medicaid",
+    "Medicare",
+    "Meritain Health",
+    "Molina Medicaid",
+    "Molina Medicare",
+    "Multiplan PHCS",
+    "Optimum Healthcare",
+    "Oscar Health",
+    "Partners Direct Health",
+    "Preferred Care Network",
+    "Preferred Care Partners",
+    "Preferred Care Partners Medical",
+    "Simply Medicaid",
+    "Simply Medicare",
+    "Solis Medicare",
+    "Staywell Medicare",
+    "SunHealth",
+    "Sunshine Medicaid",
+    "Tricare For Life",
+    "Tricare Forever",
+    "Tricare Prime",
+    "Tricare Select",
+    "UMR",
+    "US Health Group",
+    "United Healthcare",
+    "United Healthcare Aarp Medicare",
+    "United Healthcare All Savers",
+    "United Healthcare Global",
+    "United Healthcare Global Medical",
+    "United Healthcare Golden Rule",
+    "United Healthcare HMO",
+    "United Healthcare Individual Exchange",
+    "United Healthcare NHP",
+    "United Healthcare NHP HMO Access",
+    "United Healthcare NHP HMO Only",
+    "United Healthcare Oxford",
+    "United Healthcare Shared Services",
+    "United Healthcare Student Resources",
+    "United Healthcare Surest",
+    "WellCare",
+    "WellCare Medicaid",
+    "WellCare Medicare Lppo",
+    "iCare"
+  ],
+  "notAcceptedPlans": [
+    "AvMed Medicare Advantage",
+    "Care Health Plus",
+    "Cigna Local Plus",
+    "Florida Blue Select",
+    "Humana Gold Plus",
+    "Miami Children's Health Plan",
+    "Molina Marketplace"
+  ]
+}

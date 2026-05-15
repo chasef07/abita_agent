@@ -1,9 +1,24 @@
 // offices.ts — Shared office registry for trunk routing, prompts, and tool behavior.
 
-export type OfficeKey = "spring-hill" | "crystal-river" | "dev";
+export type OfficeKey =
+  | "spring-hill"
+  | "crystal-river"
+  | "hollywood"
+  | "sweetwater"
+  | "dev";
 export const SPRING_HILL_OFFICE_PHONE = "+17275919997";
 export const SPRING_HILL_813_TRUNK_PHONE = "+18135484830";
 export const CRYSTAL_RIVER_OFFICE_PHONE = "+13523202007";
+export const HOLLYWOOD_OFFICE_PHONE = "+19542872010";
+export const SWEETWATER_OFFICE_PHONE = "+17864657475";
+export const SWEETWATER_TRUNK_PHONES = [
+  SWEETWATER_OFFICE_PHONE,
+  "+17864654845",
+  "+17866134310",
+  "+17864657479",
+  "+17864654836",
+  "+17864654882",
+] as const;
 export const DEV_OFFICE_PHONE = "+14843989071";
 
 export interface OfficeConfig {
@@ -19,17 +34,20 @@ export interface OfficeConfig {
   handoffTarget: string;
   features: {
     routeToSpringHill: boolean;
+    routeRoutineVisionToSpringHill: boolean;
   };
 }
 const SPRING_HILL_TRANSFER_NUMBER = "+16182265883";
 const CRYSTAL_RIVER_TRANSFER_NUMBER = "+13527941244";
-const DEFAULT_TRANSFER_NUMBER = "+18667968908";
+const HOLLYWOOD_SWEETWATER_TRANSFER_NUMBER = "+16184220360";
 const OFFICE_HANDOFF_TARGET_ENV: Record<OfficeKey, string[]> = {
   "spring-hill": [
     "SPRING_HILL_HANDOFF_TARGET",
     "TELNYX_VOICE_API_HANDOFF_TARGET",
   ],
   "crystal-river": [],
+  hollywood: ["HOLLYWOOD_HANDOFF_TARGET"],
+  sweetwater: ["SWEETWATER_HANDOFF_TARGET"],
   dev: [],
 };
 
@@ -47,6 +65,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     handoffTarget: `tel:${SPRING_HILL_TRANSFER_NUMBER}`,
     features: {
       routeToSpringHill: false,
+      routeRoutineVisionToSpringHill: false,
     },
   },
   "crystal-river": {
@@ -62,6 +81,39 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     handoffTarget: `tel:${CRYSTAL_RIVER_TRANSFER_NUMBER}`,
     features: {
       routeToSpringHill: true,
+      routeRoutineVisionToSpringHill: true,
+    },
+  },
+  hollywood: {
+    key: "hollywood",
+    displayName: "Abita Eye Group Hollywood",
+    trunkPhones: [HOLLYWOOD_OFFICE_PHONE],
+    greeting:
+      "Thanks for calling Abita Eye Group Hollywood. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
+    knowledgeFile: "KNOWLEDGE_HOLLYWOOD.md",
+    insuranceFile: "INSURANCE_HOLLYWOOD_SWEETWATER.json",
+    visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
+    amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
+    handoffTarget: `tel:${HOLLYWOOD_SWEETWATER_TRANSFER_NUMBER}`,
+    features: {
+      routeToSpringHill: false,
+      routeRoutineVisionToSpringHill: false,
+    },
+  },
+  sweetwater: {
+    key: "sweetwater",
+    displayName: "Abita Eye Group Sweetwater",
+    trunkPhones: [...SWEETWATER_TRUNK_PHONES],
+    greeting:
+      "Thanks for calling Abita Eye Group Sweetwater. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
+    knowledgeFile: "KNOWLEDGE_SWEETWATER.md",
+    insuranceFile: "INSURANCE_HOLLYWOOD_SWEETWATER.json",
+    visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
+    amdOfficePhone: SWEETWATER_OFFICE_PHONE,
+    handoffTarget: `tel:${HOLLYWOOD_SWEETWATER_TRANSFER_NUMBER}`,
+    features: {
+      routeToSpringHill: false,
+      routeRoutineVisionToSpringHill: false,
     },
   },
   dev: {
@@ -75,9 +127,10 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: DEV_OFFICE_PHONE,
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
-    handoffTarget: `tel:${DEFAULT_TRANSFER_NUMBER}`,
+    handoffTarget: `tel:${SPRING_HILL_TRANSFER_NUMBER}`,
     features: {
       routeToSpringHill: false,
+      routeRoutineVisionToSpringHill: true,
     },
   },
 };

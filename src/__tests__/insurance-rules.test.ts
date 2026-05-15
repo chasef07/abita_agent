@@ -252,4 +252,71 @@ describe("insurance matcher", () => {
     expect(springHillHumana.status).toBe("accepted");
     expect(crystalRiverHumana.status).toBe("not_accepted");
   });
+
+  it("uses the Hollywood and Sweetwater medical insurance map", () => {
+    expect(getOfficeConfig("hollywood").insuranceFile).toBe(
+      "INSURANCE_HOLLYWOOD_SWEETWATER.json",
+    );
+    expect(getOfficeConfig("sweetwater").insuranceFile).toBe(
+      "INSURANCE_HOLLYWOOD_SWEETWATER.json",
+    );
+
+    const hollywoodAetnaEpo = matchInsurancePlanForOffice(
+      "hollywood",
+      "Aetna EPO",
+    );
+    expect(hollywoodAetnaEpo.status).toBe("accepted");
+    expect(canonicalInsurancePlan(hollywoodAetnaEpo)).toBe("Aetna EPO");
+
+    const sweetwaterCarePlus = matchInsurancePlanForOffice(
+      "sweetwater",
+      "Care Plus",
+    );
+    expect(sweetwaterCarePlus.status).toBe("accepted");
+    expect(canonicalInsurancePlan(sweetwaterCarePlus)).toBe(
+      "CarePlus Medicare Medical",
+    );
+
+    const hollywoodBlueSelect = matchInsurancePlanForOffice(
+      "hollywood",
+      "Florida Blue Select",
+    );
+    expect(hollywoodBlueSelect.status).toBe("not_accepted");
+    expect(hollywoodBlueSelect.canProceed).toBe(false);
+
+    const hollywoodCigna = matchInsurancePlanForOffice("hollywood", "Cigna");
+    expect(hollywoodCigna.status).toBe("needs_clarification");
+    expect(hollywoodCigna.canProceed).toBe(false);
+    expect(hollywoodCigna.clarificationNeeded).toContain("which Cigna plan");
+
+    const sweetwaterMolina = matchInsurancePlanForOffice(
+      "sweetwater",
+      "Molina",
+    );
+    expect(sweetwaterMolina.status).toBe("needs_clarification");
+    expect(sweetwaterMolina.canProceed).toBe(false);
+    expect(sweetwaterMolina.clarificationNeeded).toContain("Medicaid");
+
+    const hollywoodHumana = matchInsurancePlanForOffice("hollywood", "Humana");
+    expect(hollywoodHumana.status).toBe("accepted");
+    expect(canonicalInsurancePlan(hollywoodHumana)).toBe("Humana PPO");
+  });
+
+  it("uses the routine vision insurance map for Hollywood and Sweetwater", () => {
+    const hollywoodVsp = matchInsurancePlanForOffice(
+      "hollywood",
+      "VSP",
+      "routine_vision",
+    );
+    const sweetwaterVsp = matchInsurancePlanForOffice(
+      "sweetwater",
+      "VSP",
+      "routine_vision",
+    );
+
+    expect(hollywoodVsp.status).toBe("accepted");
+    expect(canonicalInsurancePlan(hollywoodVsp)).toBe("VSP");
+    expect(sweetwaterVsp.status).toBe("accepted");
+    expect(canonicalInsurancePlan(sweetwaterVsp)).toBe("VSP");
+  });
 });
