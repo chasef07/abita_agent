@@ -26,6 +26,7 @@ describe("official AssemblyAI plugin", () => {
     expect(getAssemblyAISttOptions().keytermsPrompt).toContain(
       "Abita Eye Group",
     );
+    expect(getAssemblyAISttOptions().keytermsPrompt).toContain("iCare");
     expect(getAssemblyAISttOptions().maxTurnSilence).toBe(2000);
 
     stt.updateOptions(getAssemblyAISttProfileOptions("insurance"));
@@ -54,6 +55,9 @@ describe("official AssemblyAI plugin", () => {
     expect(
       getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
     ).toContain("Aetna Better Health of Florida");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).toContain("iCare");
     expect(
       getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
     ).not.toContain("CHAMPVA");
