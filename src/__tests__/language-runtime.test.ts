@@ -26,7 +26,7 @@ function speechEvent(
 }
 
 describe("VoiceLanguageRuntime", () => {
-  it("switches TTS options to Spanish from AssemblyAI speech events", () => {
+  it("switches TTS options to Spanish from the first strong Spanish speech event", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime(
       { updateOptions },
@@ -43,9 +43,6 @@ describe("VoiceLanguageRuntime", () => {
     runtime.updateFromSpeechEvent(
       speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "es"),
     );
-    runtime.updateFromSpeechEvent(
-      speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "es"),
-    );
 
     expect(updateOptions).toHaveBeenCalledWith({
       speaker: "spanish-speaker",
@@ -57,6 +54,37 @@ describe("VoiceLanguageRuntime", () => {
       languageSwitches: 1,
       observedLanguages: ["en", "es"],
     });
+  });
+
+  it("switches to Spanish from strong text evidence when STT omits language", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime(
+      { updateOptions },
+      {
+        ttsOptionsByLanguage: {
+          es: {
+            speaker: "spanish-speaker",
+            lang: "spa",
+          },
+        },
+      },
+    );
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "",
+        "si necesito la direccion por favor",
+        null,
+      ),
+    );
+
+    expect(updateOptions).toHaveBeenCalledWith({
+      speaker: "spanish-speaker",
+      lang: "spa",
+    });
+    expect(runtime.telemetry.currentLanguage).toBe("es");
+    expect(runtime.telemetry.languageSwitches).toBe(1);
   });
 
   it("ignores automatic language switches from interim transcripts", () => {

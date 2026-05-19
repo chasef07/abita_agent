@@ -164,11 +164,20 @@ function isWeakLanguageEvidence(text: string): boolean {
   return words.length <= 2 && normalizedText.length < 18;
 }
 
-function hasSpanishTextEvidence(text: string): boolean {
+const SPANISH_TEXT_EVIDENCE_PATTERN =
+  /\b(hablo|hablar|ingles|espanol|necesito|quiero|puedo|puede|ayuda|cita|seguro|tarjeta|llamar|llamo|nombre|telefono|direccion|nacimiento|gracias|favor|tengo|dolor|ojo|ojos|lentes|receta|medico|clinica|buenos|buenas)\b/g;
+
+function countSpanishTextEvidence(text: string): number {
   const normalizedText = normalizeSpeechText(text);
-  return /\b(hablo|hablar|ingles|espanol|necesito|quiero|puedo|puede|ayuda|cita|seguro|tarjeta|llamar|llamo|nombre|telefono|direccion|nacimiento|gracias|favor|tengo|dolor|ojo|ojos|lentes|receta|medico|clinica|buenos|buenas)\b/.test(
-    normalizedText,
-  );
+  return [...normalizedText.matchAll(SPANISH_TEXT_EVIDENCE_PATTERN)].length;
+}
+
+function hasSpanishTextEvidence(text: string): boolean {
+  return countSpanishTextEvidence(text) > 0;
+}
+
+function hasStrongSpanishTextEvidence(text: string): boolean {
+  return countSpanishTextEvidence(text) >= 2;
 }
 
 function hasEnglishTextEvidence(text: string): boolean {
@@ -187,6 +196,15 @@ function contradictsDetectedLanguage(
   }
 
   return hasSpanishTextEvidence(text) && !hasEnglishTextEvidence(text);
+}
+
+function inferVoiceLanguageFromText(text: string): VoiceLanguage | null {
+  if (hasStrongSpanishTextEvidence(text)) return "es";
+  if (isWeakLanguageEvidence(text)) return null;
+
+  if (hasEnglishTextEvidence(text) && !hasSpanishTextEvidence(text)) return "en";
+
+  return null;
 }
 
 export class VoiceLanguageRuntime {
@@ -230,6 +248,9 @@ export class VoiceLanguageRuntime {
     if (ttsLanguageChanged && Object.keys(ttsOptions).length > 0) {
       this.tts.updateOptions(ttsOptions);
       this.appliedTtsLanguage = voiceLanguage;
+      console.log(
+        `[language] applied_tts_options voice_language=${voiceLanguage} tts_language=${String(ttsOptions.language ?? "")} voice=${String(ttsOptions.voice ?? "")}`,
+      );
     }
   }
 
@@ -248,14 +269,27 @@ export class VoiceLanguageRuntime {
       return nextLanguage === requestedLanguage;
     }
 
+    const strongSpanishSwitch =
+      nextLanguage === "es" && hasStrongSpanishTextEvidence(text);
+
     if (
       (languageConfidence !== null &&
         languageConfidence < LANGUAGE_SWITCH_CONFIDENCE_THRESHOLD) ||
-      isWeakLanguageEvidence(text) ||
+      (isWeakLanguageEvidence(text) && !strongSpanishSwitch) ||
       contradictsDetectedLanguage(nextLanguage, text)
     ) {
       this.resetPendingLanguage();
       return false;
+    }
+
+    if (
+      this.currentLanguage === "en" &&
+      nextLanguage === "es" &&
+      strongSpanishSwitch
+    ) {
+      this.preferredLanguage = nextLanguage;
+      this.resetPendingLanguage();
+      return true;
     }
 
     if (this.pendingLanguage === nextLanguage) {
@@ -309,10 +343,14 @@ export class VoiceLanguageRuntime {
     const alternative = event.alternatives?.[0];
     const detectedLanguage = alternative?.language;
     const detectedVoiceLanguage = toSupportedVoiceLanguage(detectedLanguage);
-    const requestedLanguage = requestedVoiceLanguage(alternative?.text ?? "");
-    const voiceLanguage = requestedLanguage ?? detectedVoiceLanguage;
-    if (!voiceLanguage) return null;
     const text = alternative?.text ?? "";
+    const requestedLanguage = requestedVoiceLanguage(text);
+    const inferredVoiceLanguage = inferVoiceLanguageFromText(text);
+    const voiceLanguage =
+      requestedLanguage ??
+      detectedVoiceLanguage ??
+      (detectedLanguage ? null : inferredVoiceLanguage);
+    if (!voiceLanguage) return null;
     const languageConfidence = getLanguageConfidence(alternative);
 
     if (detectedVoiceLanguage)
