@@ -6,6 +6,7 @@ function speechEvent(
   type: stt.SpeechEventType,
   language: string,
   text = "necesito ayuda con mi cita",
+  languageConfidence: number | null = 0.95,
 ): stt.SpeechEvent {
   return {
     type,
@@ -16,6 +17,9 @@ function speechEvent(
         startTime: 0,
         endTime: 1,
         confidence: 0.95,
+        ...(languageConfidence === null
+          ? {}
+          : { metadata: { languageConfidence } }),
       },
     ],
   };
@@ -36,6 +40,9 @@ describe("VoiceLanguageRuntime", () => {
       },
     );
 
+    runtime.updateFromSpeechEvent(
+      speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "es"),
+    );
     runtime.updateFromSpeechEvent(
       speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "es"),
     );
@@ -74,7 +81,7 @@ describe("VoiceLanguageRuntime", () => {
     expect(runtime.telemetry.currentLanguage).toBe("en");
   });
 
-  it("switches from AssemblyAI preflight events before final transcript", () => {
+  it("does not switch from AssemblyAI preflight events before final transcript", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime(
       { updateOptions },
@@ -92,14 +99,11 @@ describe("VoiceLanguageRuntime", () => {
       speechEvent(stt.SpeechEventType.PREFLIGHT_TRANSCRIPT, "es"),
     );
 
-    expect(updateOptions).toHaveBeenCalledWith({
-      speaker: "spanish-speaker",
-      lang: "spa",
-    });
-    expect(runtime.telemetry.currentLanguage).toBe("es");
+    expect(updateOptions).not.toHaveBeenCalled();
+    expect(runtime.telemetry.currentLanguage).toBe("en");
   });
 
-  it("switches to Spanish from explicit interim requests", () => {
+  it("does not switch to Spanish from explicit interim requests", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime(
       { updateOptions },
@@ -121,11 +125,8 @@ describe("VoiceLanguageRuntime", () => {
       ),
     );
 
-    expect(updateOptions).toHaveBeenCalledWith({
-      speaker: "spanish-speaker",
-      lang: "spa",
-    });
-    expect(runtime.telemetry.currentLanguage).toBe("es");
+    expect(updateOptions).not.toHaveBeenCalled();
+    expect(runtime.telemetry.currentLanguage).toBe("en");
   });
 
   it("switches to Spanish from explicit requests even when STT detects English", () => {
@@ -223,8 +224,8 @@ describe("VoiceLanguageRuntime", () => {
     runtime.updateFromSpeechEvent(
       speechEvent(
         stt.SpeechEventType.FINAL_TRANSCRIPT,
-        "es-US",
-        "necesito ayuda con mi cita",
+        "en-US",
+        "Spanish please",
       ),
     );
     runtime.updateFromSpeechEvent(
@@ -238,7 +239,7 @@ describe("VoiceLanguageRuntime", () => {
       speechEvent(
         stt.SpeechEventType.FINAL_TRANSCRIPT,
         "en-US",
-        "Can you help me finish this in English",
+        "Can you help me finish the appointment",
       ),
     );
 
@@ -321,7 +322,7 @@ describe("VoiceLanguageRuntime", () => {
       speechEvent(
         stt.SpeechEventType.FINAL_TRANSCRIPT,
         "es",
-        "necesito ayuda con mi cita",
+        "prefiero hablar en espanol",
       ),
     );
     runtime.updateFromSpeechEvent(
@@ -515,10 +516,88 @@ describe("VoiceLanguageRuntime", () => {
     expect(runtime.telemetry.languageSwitches).toBe(0);
   });
 
+  it("does not switch when language confidence is below the threshold", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime(
+      { updateOptions },
+      {
+        ttsOptionsByLanguage: {
+          es: {
+            speaker: "spanish-speaker",
+            lang: "spa",
+          },
+        },
+      },
+    );
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "es",
+        "necesito ayuda con mi cita",
+        0.7,
+      ),
+    );
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "es",
+        "quiero programar una cita",
+        0.7,
+      ),
+    );
+
+    expect(updateOptions).not.toHaveBeenCalled();
+    expect(runtime.telemetry.currentLanguage).toBe("en");
+    expect(runtime.telemetry.languageSwitches).toBe(0);
+  });
+
+  it("falls back to sticky final-turn detection when language confidence is missing", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime(
+      { updateOptions },
+      {
+        ttsOptionsByLanguage: {
+          es: {
+            speaker: "spanish-speaker",
+            lang: "spa",
+          },
+        },
+      },
+    );
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "es",
+        "necesito ayuda con mi cita",
+        null,
+      ),
+    );
+    runtime.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "es",
+        "quiero programar una cita",
+        null,
+      ),
+    );
+
+    expect(updateOptions).toHaveBeenCalledWith({
+      speaker: "spanish-speaker",
+      lang: "spa",
+    });
+    expect(runtime.telemetry.currentLanguage).toBe("es");
+    expect(runtime.telemetry.languageSwitches).toBe(1);
+  });
+
   it("tracks language changes without updating TTS when no options are configured", () => {
     const updateOptions = vi.fn();
     const runtime = new VoiceLanguageRuntime({ updateOptions });
 
+    runtime.updateFromSpeechEvent(
+      speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "es"),
+    );
     runtime.updateFromSpeechEvent(
       speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "es"),
     );

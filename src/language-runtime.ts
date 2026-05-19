@@ -6,6 +6,8 @@ import {
 
 export const DEFAULT_VOICE_LANGUAGE = "en";
 export const SUPPORTED_VOICE_LANGUAGES = ["en", "es"] as const;
+export const LANGUAGE_SWITCH_CONFIDENCE_THRESHOLD = 0.8;
+export const CONSECUTIVE_TURNS_TO_SWITCH_LANGUAGE = 2;
 
 export type VoiceLanguage = (typeof SUPPORTED_VOICE_LANGUAGES)[number];
 
@@ -39,7 +41,7 @@ const LANGUAGE_EVENT_TYPES = new Set<stt.SpeechEventType>([
   stt.SpeechEventType.FINAL_TRANSCRIPT,
 ]);
 
-const ENGLISH_TURNS_TO_SWITCH_BACK = 2;
+type SpeechAlternative = NonNullable<stt.SpeechEvent["alternatives"]>[number];
 
 function toSupportedVoiceLanguage(
   language?: string | null,
@@ -60,6 +62,47 @@ function normalizeSpeechText(text: string): string {
     .replace(/[^\w\s-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function readMetadataNumber(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+): number | null {
+  if (!metadata) return null;
+  return toFiniteNumber(metadata[key]);
+}
+
+function getLanguageConfidence(alternative?: SpeechAlternative): number | null {
+  if (!alternative) return null;
+
+  const metadata = alternative.metadata;
+  const directConfidence =
+    readMetadataNumber(metadata, "languageConfidence") ??
+    readMetadataNumber(metadata, "language_confidence");
+  if (directConfidence !== null) return directConfidence;
+
+  const assemblyai = metadata?.assemblyai;
+  if (isRecord(assemblyai)) {
+    return (
+      toFiniteNumber(assemblyai.languageConfidence) ??
+      toFiniteNumber(assemblyai.language_confidence)
+    );
+  }
+
+  return null;
 }
 
 function requestedVoiceLanguage(text: string): VoiceLanguage | null {
@@ -150,7 +193,8 @@ export class VoiceLanguageRuntime {
   private readonly initialLanguage: VoiceLanguage;
   private currentLanguage: VoiceLanguage;
   private preferredLanguage: VoiceLanguage | null = null;
-  private englishEvidenceTurns = 0;
+  private pendingLanguage: VoiceLanguage | null = null;
+  private pendingLanguageTurns = 0;
   private languageSwitches = 0;
   private readonly observedLanguages = new Set<VoiceLanguage>();
   private appliedTtsLanguage: VoiceLanguage | null;
@@ -175,6 +219,11 @@ export class VoiceLanguageRuntime {
     };
   }
 
+  private resetPendingLanguage(): void {
+    this.pendingLanguage = null;
+    this.pendingLanguageTurns = 0;
+  }
+
   private applyTtsOptionsForLanguage(voiceLanguage: VoiceLanguage): void {
     const ttsOptions = this.ttsOptionsByLanguage[voiceLanguage];
     const ttsLanguageChanged = voiceLanguage !== this.appliedTtsLanguage;
@@ -188,32 +237,39 @@ export class VoiceLanguageRuntime {
     nextLanguage: VoiceLanguage,
     text: string,
     eventType: stt.SpeechEventType,
+    languageConfidence: number | null,
   ): boolean {
+    if (eventType !== stt.SpeechEventType.FINAL_TRANSCRIPT) return false;
+
     const requestedLanguage = requestedVoiceLanguage(text);
     if (requestedLanguage) {
       this.preferredLanguage = requestedLanguage;
-      this.englishEvidenceTurns = 0;
+      this.resetPendingLanguage();
       return nextLanguage === requestedLanguage;
     }
 
-    if (eventType === stt.SpeechEventType.INTERIM_TRANSCRIPT) return false;
-    if (isWeakLanguageEvidence(text)) return false;
-    if (contradictsDetectedLanguage(nextLanguage, text)) return false;
-
-    if (this.preferredLanguage === "es" && nextLanguage === "en") {
-      if (eventType !== stt.SpeechEventType.FINAL_TRANSCRIPT) return false;
-
-      this.englishEvidenceTurns += 1;
-      if (this.englishEvidenceTurns < ENGLISH_TURNS_TO_SWITCH_BACK) {
-        return false;
-      }
-      this.preferredLanguage = "en";
-      this.englishEvidenceTurns = 0;
-      return true;
+    if (
+      (languageConfidence !== null &&
+        languageConfidence < LANGUAGE_SWITCH_CONFIDENCE_THRESHOLD) ||
+      isWeakLanguageEvidence(text) ||
+      contradictsDetectedLanguage(nextLanguage, text)
+    ) {
+      this.resetPendingLanguage();
+      return false;
     }
 
+    if (this.pendingLanguage === nextLanguage) {
+      this.pendingLanguageTurns += 1;
+    } else {
+      this.pendingLanguage = nextLanguage;
+      this.pendingLanguageTurns = 1;
+    }
+
+    if (this.pendingLanguageTurns < CONSECUTIVE_TURNS_TO_SWITCH_LANGUAGE)
+      return false;
+
     this.preferredLanguage = nextLanguage;
-    this.englishEvidenceTurns = 0;
+    this.resetPendingLanguage();
     return true;
   }
 
@@ -221,20 +277,20 @@ export class VoiceLanguageRuntime {
     currentLanguage: VoiceLanguage,
     detectedLanguage: VoiceLanguage | null,
     text: string,
+    eventType: stt.SpeechEventType,
   ): void {
     const requestedLanguage = requestedVoiceLanguage(text);
     if (requestedLanguage) {
       this.preferredLanguage = requestedLanguage;
-      this.englishEvidenceTurns = 0;
+      this.resetPendingLanguage();
       return;
     }
 
-    if (this.preferredLanguage === "es" && detectedLanguage === "es") {
-      this.englishEvidenceTurns = 0;
-    }
-
-    if (this.preferredLanguage === "en" && currentLanguage === "en") {
-      this.englishEvidenceTurns = 0;
+    if (
+      eventType === stt.SpeechEventType.FINAL_TRANSCRIPT &&
+      detectedLanguage === currentLanguage
+    ) {
+      this.resetPendingLanguage();
     }
   }
 
@@ -257,6 +313,7 @@ export class VoiceLanguageRuntime {
     const voiceLanguage = requestedLanguage ?? detectedVoiceLanguage;
     if (!voiceLanguage) return null;
     const text = alternative?.text ?? "";
+    const languageConfidence = getLanguageConfidence(alternative);
 
     if (detectedVoiceLanguage)
       this.observedLanguages.add(detectedVoiceLanguage);
@@ -267,12 +324,21 @@ export class VoiceLanguageRuntime {
         voiceLanguage,
         detectedVoiceLanguage,
         text,
+        event.type,
       );
-      this.applyTtsOptionsForLanguage(voiceLanguage);
+      if (event.type === stt.SpeechEventType.FINAL_TRANSCRIPT)
+        this.applyTtsOptionsForLanguage(voiceLanguage);
       return voiceLanguage;
     }
 
-    if (!this.shouldAcceptSwitch(voiceLanguage, text, event.type)) {
+    if (
+      !this.shouldAcceptSwitch(
+        voiceLanguage,
+        text,
+        event.type,
+        languageConfidence,
+      )
+    ) {
       return this.currentLanguage;
     }
 
