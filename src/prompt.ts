@@ -41,6 +41,19 @@ function normalizeMeridiemSpacing(text: string): string {
   );
 }
 
+function formatAppointmentContextLine(
+  appointment: NonNullable<
+    Extract<PhoneLookupResult, { status: "verified" }>["appointments"]
+  >[number],
+  includeId: boolean,
+): string {
+  const idPrefix = includeId ? `[ID: ${appointment.id}] ` : "";
+  const facility = appointment.facility?.trim()
+    ? ` at ${appointment.facility.trim()}`
+    : "";
+  return `  - ${idPrefix}${appointment.date} at ${normalizeMeridiemSpacing(appointment.time)} with ${appointment.provider} (${appointment.type})${facility}`;
+}
+
 const FILES: { file: string; tag: string }[] = [
   { file: "SOUL.md", tag: "role" },
   { file: "VOICE.md", tag: "voice" },
@@ -118,9 +131,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
       if (upcoming.length > 0) {
         lines.push(`Upcoming appointments:`);
         for (const appt of upcoming) {
-          lines.push(
-            `  - [ID: ${appt.id}] ${appt.date} at ${normalizeMeridiemSpacing(appt.time)} with ${appt.provider} (${appt.type})`,
-          );
+          lines.push(formatAppointmentContextLine(appt, true));
         }
       } else {
         lines.push(`No upcoming appointments.`);
@@ -128,9 +139,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
       if (past.length > 0) {
         lines.push(`Past appointments (cannot be cancelled or modified):`);
         for (const appt of past) {
-          lines.push(
-            `  - ${appt.date} at ${normalizeMeridiemSpacing(appt.time)} with ${appt.provider} (${appt.type})`,
-          );
+          lines.push(formatAppointmentContextLine(appt, false));
         }
       }
     } else {

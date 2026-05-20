@@ -450,4 +450,38 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain('Say "8:15 AM", "8 AM", or "7:00 PM"');
     expect(prompt).not.toContain("eight fifteen a m");
   });
+
+  it("includes preloaded appointment facility so confirmations use the actual office", () => {
+    const prompt = buildPrompt(
+      {
+        status: "verified",
+        patientId: "patient-1",
+        name: "Santos, Maria",
+        dob: "01/01/1980",
+        phone: "+17275551212",
+        insuranceCarrier: "Aetna",
+        insPlanId: "plan-1",
+        respPartyId: "resp-1",
+        routing: "bach_only",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [
+          {
+            id: 123,
+            date: "2099-01-01",
+            time: "9:30AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            facility: "Hollywood",
+            confirmed: true,
+          },
+        ],
+      },
+      HOLLYWOOD_OFFICE_PHONE,
+    );
+
+    expect(prompt).toContain(
+      "[ID: 123] 2099-01-01 at 9:30 AM with Dr. Bach (Follow-up) at Hollywood",
+    );
+  });
 });
