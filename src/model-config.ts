@@ -10,11 +10,11 @@ const voiceAgentGenerationOptions = {
 >;
 
 export const primaryLLMOptions = {
-  model: "zai-org/GLM-5",
+  model: "zai-org/GLM-4.7",
   ...voiceAgentGenerationOptions,
 } as const satisfies BasetenLLMOptions;
 
 export const fallbackLLMOptions = {
-  model: "zai-org/GLM-4.7",
+  model: "MiniMaxAI/MiniMax-M2.5",
   ...voiceAgentGenerationOptions,
 } as const satisfies BasetenLLMOptions;

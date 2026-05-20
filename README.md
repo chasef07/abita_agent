@@ -9,7 +9,7 @@ A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over
 | Telephony | Twilio + Telnyx | Inbound SIP trunks → LiveKit Cloud SIP |
 | Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
 | STT | AssemblyAI direct plugin `u3-rt-pro` | Adaptive keyterm/timing profiles via `stt.updateOptions`; uses `ASSEMBLYAI_API_KEY` |
-| LLM | Baseten (GLM-5 primary, GLM-4.7 fallback) | Via `FallbackAdapter` |
+| LLM | Baseten (GLM-4.7 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
 | TTS | Cartesia direct plugin `sonic-3-latest` | Voice defaults to `CARTESIA_TTS_VOICE` or the repo default voice ID; Spanish turns use the configured Spanish Cartesia voice; 16 kHz PCM |
 | VAD | Silero (local ONNX) | Prewarmed per job process |
 | Turn handling | LiveKit Agents | STT turn detection, adaptive interruptions, Silero VAD |
@@ -175,7 +175,7 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 | `ASSEMBLYAI_API_KEY` | Direct AssemblyAI STT plugin |
 | `CARTESIA_API_KEY` | Direct Cartesia TTS plugin |
 | `CARTESIA_TTS_VOICE` | Optional English Cartesia voice override |
-| `BASETEN_API_KEY` | LLM (GLM-5 + GLM-4.7 fallback) |
+| `BASETEN_API_KEY` | LLM (GLM-4.7 + MiniMax fallback) |
 | `AMD_API_URL` / `AMD_API_TOKEN` | AdvancedMD middleware |
 | `SPRING_HILL_HANDOFF_TARGET` | Optional Spring Hill call-center handoff target; accepts `tel:+E164` or `sip:user@domain` |
 | `TELNYX_VOICE_API_HANDOFF_TARGET` | Optional Spring Hill Telnyx Voice API handoff target, for example `sip:+16182265883@livekitappacuity.sip.telnyx.com` |

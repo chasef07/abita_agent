@@ -165,11 +165,11 @@ describe("call observability", () => {
 
   it("summarizes LLM fallback and cache metrics", () => {
     const summary = buildLlmSummary({
-      fallbackModel: "zai-org/GLM-4.7",
+      fallbackModel: "MiniMaxAI/MiniMax-M2.5",
       llmMetrics: [
         {
           completionTokens: 20,
-          metadata: { modelName: "zai-org/GLM-5" },
+          metadata: { modelName: "zai-org/GLM-4.7" },
           promptCachedTokens: 40,
           promptTokens: 100,
           ttftMs: 450,
@@ -177,7 +177,7 @@ describe("call observability", () => {
         },
         {
           completionTokens: 10,
-          metadata: { modelName: "zai-org/GLM-4.7" },
+          metadata: { modelName: "MiniMaxAI/MiniMax-M2.5" },
           promptCachedTokens: 80,
           promptTokens: 200,
           ttftMs: 550,
@@ -191,7 +191,7 @@ describe("call observability", () => {
       cachedPromptTokens: 120,
       completionTokens: 30,
       fallbackUsed: true,
-      modelsUsed: ["zai-org/GLM-5", "zai-org/GLM-4.7"],
+      modelsUsed: ["zai-org/GLM-4.7", "MiniMaxAI/MiniMax-M2.5"],
       peakPromptTokens: 200,
       promptTokens: 300,
     });
