@@ -18,6 +18,16 @@ import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
+import {
+  buildLlmSummary,
+  createEmptySessionEventAnalytics,
+  snapshotCloseEvent,
+  snapshotErrorEvent,
+  snapshotFalseInterruptionEvent,
+  snapshotOverlappingSpeechEvent,
+  snapshotToolExecutions,
+  type ToolExecutionAnalytics,
+} from "./call-observability.js";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 import { getOfficeConfigByPhone } from "./offices.js";
@@ -166,6 +176,8 @@ export default defineAgent({
 
       const startedAt = new Date();
       const turnMetrics: TurnMetricSnapshot[] = [];
+      const toolExecutions: ToolExecutionAnalytics[] = [];
+      const sessionEvents = createEmptySessionEventAnalytics();
       let latestUsage: Record<string, unknown> | undefined;
 
       let activeSttProfile: AssemblyAISttProfile = "default";
@@ -209,6 +221,30 @@ export default defineAgent({
 
       session.on(voice.AgentSessionEventTypes.SessionUsageUpdated, (ev) => {
         latestUsage = ev.usage as unknown as Record<string, unknown>;
+      });
+
+      session.on(voice.AgentSessionEventTypes.FunctionToolsExecuted, (ev) => {
+        toolExecutions.push(...snapshotToolExecutions(ev));
+      });
+
+      session.on(voice.AgentSessionEventTypes.Error, (ev) => {
+        sessionEvents.errors.push(snapshotErrorEvent(ev));
+      });
+
+      session.on(voice.AgentSessionEventTypes.Close, (ev) => {
+        sessionEvents.close = snapshotCloseEvent(ev);
+      });
+
+      session.on(voice.AgentSessionEventTypes.AgentFalseInterruption, (ev) => {
+        sessionEvents.falseInterruptions.push(
+          snapshotFalseInterruptionEvent(ev),
+        );
+      });
+
+      session.on(voice.AgentSessionEventTypes.OverlappingSpeech, (ev) => {
+        sessionEvents.overlappingSpeech.push(
+          snapshotOverlappingSpeechEvent(ev),
+        );
       });
 
       session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (ev) => {
@@ -280,7 +316,14 @@ export default defineAgent({
               (endedAt.getTime() - startedAt.getTime()) / 1000,
             ),
             usage: latestUsage ?? session.usage,
+            llmSummary: buildLlmSummary({
+              fallbackModel: fallbackLLMOptions.model,
+              llmMetrics,
+              usage: latestUsage ?? session.usage,
+            }),
             llmMetrics,
+            sessionEvents,
+            toolExecutions,
             turnMetrics,
             language: languageRuntime.telemetry,
             sessionReport,
