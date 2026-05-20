@@ -165,11 +165,11 @@ describe("call observability", () => {
 
   it("summarizes LLM fallback and cache metrics", () => {
     const summary = buildLlmSummary({
-      fallbackModel: "MiniMaxAI/MiniMax-M2.5",
+      fallbackModel: "deepseek-ai/DeepSeek-V4-Pro",
       llmMetrics: [
         {
           completionTokens: 20,
-          metadata: { modelName: "zai-org/GLM-4.7" },
+          metadata: { modelName: "zai-org/GLM-5.1" },
           promptCachedTokens: 40,
           promptTokens: 100,
           ttftMs: 450,
@@ -177,7 +177,7 @@ describe("call observability", () => {
         },
         {
           completionTokens: 10,
-          metadata: { modelName: "MiniMaxAI/MiniMax-M2.5" },
+          metadata: { modelName: "deepseek-ai/DeepSeek-V4-Pro" },
           promptCachedTokens: 80,
           promptTokens: 200,
           ttftMs: 550,
@@ -191,7 +191,7 @@ describe("call observability", () => {
       cachedPromptTokens: 120,
       completionTokens: 30,
       fallbackUsed: true,
-      modelsUsed: ["zai-org/GLM-4.7", "MiniMaxAI/MiniMax-M2.5"],
+      modelsUsed: ["zai-org/GLM-5.1", "deepseek-ai/DeepSeek-V4-Pro"],
       peakPromptTokens: 200,
       promptTokens: 300,
     });
