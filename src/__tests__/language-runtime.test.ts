@@ -49,10 +49,20 @@ describe("VoiceLanguageRuntime", () => {
       lang: "spa",
     });
     expect(runtime.telemetry).toEqual({
-      initialLanguage: "en",
+      acceptedLanguages: ["en", "es"],
       currentLanguage: "es",
+      initialLanguage: "en",
+      languageChanged: true,
       languageSwitches: 1,
       observedLanguages: ["en", "es"],
+      switchEvents: [
+        expect.objectContaining({
+          detectedLanguage: "es",
+          from: "en",
+          reason: "strong_text_evidence",
+          to: "es",
+        }),
+      ],
     });
   });
 
@@ -633,6 +643,55 @@ describe("VoiceLanguageRuntime", () => {
     expect(updateOptions).not.toHaveBeenCalled();
     expect(runtime.telemetry.currentLanguage).toBe("es");
     expect(runtime.telemetry.languageSwitches).toBe(1);
+  });
+
+  it("exposes languageChanged only after an accepted switch", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime({ updateOptions });
+
+    expect(runtime.telemetry.languageChanged).toBe(false);
+    expect(runtime.telemetry.acceptedLanguages).toEqual(["en"]);
+    expect(runtime.telemetry.switchEvents).toEqual([]);
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "es", "si", 0.3),
+    );
+
+    expect(runtime.telemetry.observedLanguages).toEqual(["en", "es"]);
+    expect(runtime.telemetry.languageChanged).toBe(false);
+    expect(runtime.telemetry.acceptedLanguages).toEqual(["en"]);
+    expect(runtime.telemetry.switchEvents).toEqual([]);
+  });
+
+  it("records accepted language switch history for evals", () => {
+    const updateOptions = vi.fn();
+    const runtime = new VoiceLanguageRuntime({ updateOptions });
+
+    runtime.updateFromSpeechEvent(
+      speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "es", "spanish please"),
+    );
+    runtime.updateFromSpeechEvent(
+      speechEvent(stt.SpeechEventType.FINAL_TRANSCRIPT, "en", "english please"),
+    );
+
+    expect(runtime.telemetry.languageChanged).toBe(true);
+    expect(runtime.telemetry.languageSwitches).toBe(2);
+    expect(runtime.telemetry.acceptedLanguages).toEqual(["en", "es", "en"]);
+    expect(runtime.telemetry.switchEvents).toEqual([
+      expect.objectContaining({
+        from: "en",
+        reason: "explicit_request",
+        to: "es",
+      }),
+      expect.objectContaining({
+        from: "es",
+        reason: "explicit_request",
+        to: "en",
+      }),
+    ]);
+    expect(JSON.stringify(runtime.telemetry.switchEvents)).not.toContain(
+      "transcriptSample",
+    );
   });
 
   it("ignores unsupported or non-transcript events", () => {

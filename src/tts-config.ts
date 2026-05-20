@@ -6,17 +6,21 @@ export const SPANISH_CARTESIA_TTS_VOICE =
 export const CARTESIA_TTS_LANGUAGE = "en";
 export const CARTESIA_TTS_SAMPLE_RATE = 16000;
 
+function configuredEnglishVoice() {
+  return process.env.CARTESIA_TTS_VOICE?.trim() || DEFAULT_CARTESIA_TTS_VOICE;
+}
+
 export function getCartesiaTtsOptions() {
   return {
     model: CARTESIA_TTS_MODEL,
-    voice: process.env.CARTESIA_TTS_VOICE ?? DEFAULT_CARTESIA_TTS_VOICE,
+    voice: configuredEnglishVoice(),
     language: CARTESIA_TTS_LANGUAGE,
     sampleRate: CARTESIA_TTS_SAMPLE_RATE,
   };
 }
 
 export function getCartesiaTtsOptionsByLanguage(
-  englishVoice = process.env.CARTESIA_TTS_VOICE ?? DEFAULT_CARTESIA_TTS_VOICE,
+  englishVoice = configuredEnglishVoice(),
 ) {
   return {
     en: {

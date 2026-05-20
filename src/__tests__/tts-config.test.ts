@@ -37,6 +37,15 @@ describe("TTS config", () => {
     expect(getCartesiaTtsOptions().voice).toBe("blake");
   });
 
+  it("ignores a blank Cartesia voice override", () => {
+    process.env.CARTESIA_TTS_VOICE = "";
+
+    expect(getCartesiaTtsOptions().voice).toBe(DEFAULT_CARTESIA_TTS_VOICE);
+    expect(getCartesiaTtsOptionsByLanguage().en.voice).toBe(
+      DEFAULT_CARTESIA_TTS_VOICE,
+    );
+  });
+
   it("uses the dedicated Spanish Cartesia voice for Spanish turns", () => {
     expect(getCartesiaTtsOptionsByLanguage("english-voice")).toEqual({
       en: {

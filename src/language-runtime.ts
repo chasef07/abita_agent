@@ -11,11 +11,28 @@ export const CONSECUTIVE_TURNS_TO_SWITCH_LANGUAGE = 2;
 
 export type VoiceLanguage = (typeof SUPPORTED_VOICE_LANGUAGES)[number];
 
+export type VoiceLanguageSwitchReason =
+  | "explicit_request"
+  | "strong_text_evidence"
+  | "stt_detection";
+
+export type VoiceLanguageSwitchEvent = {
+  createdAt: string;
+  detectedLanguage?: string;
+  from: VoiceLanguage;
+  languageConfidence?: number;
+  reason: VoiceLanguageSwitchReason;
+  to: VoiceLanguage;
+};
+
 export type VoiceLanguageTelemetry = {
+  acceptedLanguages: VoiceLanguage[];
   initialLanguage: VoiceLanguage;
   currentLanguage: VoiceLanguage;
+  languageChanged: boolean;
   languageSwitches: number;
   observedLanguages: VoiceLanguage[];
+  switchEvents: VoiceLanguageSwitchEvent[];
 };
 
 export type VoiceLanguageTtsOptions = Record<
@@ -202,7 +219,8 @@ function inferVoiceLanguageFromText(text: string): VoiceLanguage | null {
   if (hasStrongSpanishTextEvidence(text)) return "es";
   if (isWeakLanguageEvidence(text)) return null;
 
-  if (hasEnglishTextEvidence(text) && !hasSpanishTextEvidence(text)) return "en";
+  if (hasEnglishTextEvidence(text) && !hasSpanishTextEvidence(text))
+    return "en";
 
   return null;
 }
@@ -215,6 +233,8 @@ export class VoiceLanguageRuntime {
   private pendingLanguageTurns = 0;
   private languageSwitches = 0;
   private readonly observedLanguages = new Set<VoiceLanguage>();
+  private readonly acceptedLanguages: VoiceLanguage[];
+  private readonly switchEvents: VoiceLanguageSwitchEvent[] = [];
   private appliedTtsLanguage: VoiceLanguage | null;
   private readonly ttsOptionsByLanguage: Record<
     VoiceLanguage,
@@ -230,6 +250,7 @@ export class VoiceLanguageRuntime {
     this.currentLanguage = defaultLanguage;
     this.appliedTtsLanguage = options.appliedTtsLanguage ?? null;
     this.observedLanguages.add(defaultLanguage);
+    this.acceptedLanguages = [defaultLanguage];
     this.ttsOptionsByLanguage = {
       en: {},
       es: {},
@@ -330,10 +351,13 @@ export class VoiceLanguageRuntime {
 
   get telemetry(): VoiceLanguageTelemetry {
     return {
+      acceptedLanguages: [...this.acceptedLanguages],
       initialLanguage: this.initialLanguage,
       currentLanguage: this.currentLanguage,
+      languageChanged: this.languageSwitches > 0,
       languageSwitches: this.languageSwitches,
       observedLanguages: [...this.observedLanguages],
+      switchEvents: [...this.switchEvents],
     };
   }
 
@@ -352,6 +376,13 @@ export class VoiceLanguageRuntime {
       (detectedLanguage ? null : inferredVoiceLanguage);
     if (!voiceLanguage) return null;
     const languageConfidence = getLanguageConfidence(alternative);
+    const switchReason: VoiceLanguageSwitchReason = requestedLanguage
+      ? "explicit_request"
+      : voiceLanguage === "es" && hasStrongSpanishTextEvidence(text)
+        ? "strong_text_evidence"
+        : inferredVoiceLanguage === voiceLanguage && !detectedVoiceLanguage
+          ? "strong_text_evidence"
+          : "stt_detection";
 
     if (detectedVoiceLanguage)
       this.observedLanguages.add(detectedVoiceLanguage);
@@ -383,6 +414,15 @@ export class VoiceLanguageRuntime {
     const previousLanguage = this.currentLanguage;
     this.currentLanguage = voiceLanguage;
     this.languageSwitches += 1;
+    this.acceptedLanguages.push(voiceLanguage);
+    this.switchEvents.push({
+      createdAt: new Date().toISOString(),
+      ...(detectedLanguage ? { detectedLanguage } : {}),
+      from: previousLanguage,
+      ...(languageConfidence !== null ? { languageConfidence } : {}),
+      reason: switchReason,
+      to: voiceLanguage,
+    });
     this.applyTtsOptionsForLanguage(voiceLanguage);
 
     console.log(

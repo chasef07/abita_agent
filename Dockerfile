@@ -44,7 +44,7 @@ COPY . .
 RUN pnpm build
 
 # Pre-download ML models, then copy cache into /app and resolve symlinks
-RUN pnpm download-files && \
+RUN npx livekit-agents download-files && \
     cp -rL /root/.cache /app/.cache
 
 # Remove dev dependencies for a leaner production image

@@ -7,7 +7,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/main.js start",
-    "download-files": "node dist/main.js download-files",
+    "download-files": "livekit-agents download-files",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
