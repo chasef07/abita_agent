@@ -10,7 +10,7 @@ const voiceAgentGenerationOptions = {
 >;
 
 export const primaryLLMOptions = {
-  model: "deepseek-ai/DeepSeek-V4-Pro",
+  model: "zai-org/GLM-5",
   ...voiceAgentGenerationOptions,
 } as const satisfies BasetenLLMOptions;
 

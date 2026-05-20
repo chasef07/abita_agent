@@ -169,7 +169,7 @@ describe("call observability", () => {
       llmMetrics: [
         {
           completionTokens: 20,
-          metadata: { modelName: "deepseek-ai/DeepSeek-V4-Pro" },
+          metadata: { modelName: "zai-org/GLM-5" },
           promptCachedTokens: 40,
           promptTokens: 100,
           ttftMs: 450,
@@ -191,7 +191,7 @@ describe("call observability", () => {
       cachedPromptTokens: 120,
       completionTokens: 30,
       fallbackUsed: true,
-      modelsUsed: ["deepseek-ai/DeepSeek-V4-Pro", "zai-org/GLM-4.7"],
+      modelsUsed: ["zai-org/GLM-5", "zai-org/GLM-4.7"],
       peakPromptTokens: 200,
       promptTokens: 300,
     });

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { fallbackLLMOptions, primaryLLMOptions } from "../model-config.js";
 
 describe("LLM model config", () => {
-  it("uses DeepSeek V4 Pro as the primary Baseten model with GLM 4.7 fallback", () => {
-    expect(primaryLLMOptions.model).toBe("deepseek-ai/DeepSeek-V4-Pro");
+  it("uses GLM 5 as the primary Baseten model with GLM 4.7 fallback", () => {
+    expect(primaryLLMOptions.model).toBe("zai-org/GLM-5");
     expect(fallbackLLMOptions.model).toBe("zai-org/GLM-4.7");
   });
 
