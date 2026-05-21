@@ -1,107 +1,61 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  DEFAULT_RIME_TTS_SPEAKER,
-  RIME_TTS_BASE_URL,
-  RIME_TTS_ENGLISH_LANGUAGE,
-  RIME_TTS_MODEL_ID,
-  RIME_TTS_SAMPLE_RATE,
-  RIME_TTS_SPANISH_LANGUAGE,
-  RIME_TTS_SPEED_ALPHA,
-  SPANISH_RIME_TTS_SPEAKER,
-  getRimeTtsOptions,
-  getRimeTtsOptionsByLanguage,
+  CARTESIA_TTS_LANGUAGE,
+  CARTESIA_TTS_MODEL,
+  CARTESIA_TTS_SAMPLE_RATE,
+  DEFAULT_CARTESIA_TTS_VOICE,
+  SPANISH_CARTESIA_TTS_VOICE,
+  getCartesiaTtsOptions,
+  getCartesiaTtsOptionsByLanguage,
 } from "../tts-config.js";
 
-const originalModel = process.env.RIME_TTS_MODEL_ID;
-const originalSpeaker = process.env.RIME_TTS_SPEAKER;
-const originalSpanishSpeaker = process.env.RIME_TTS_SPANISH_SPEAKER;
-const originalBaseUrl = process.env.RIME_TTS_BASE_URL;
+const originalVoice = process.env.CARTESIA_TTS_VOICE;
 
 afterEach(() => {
-  if (originalModel === undefined) {
-    delete process.env.RIME_TTS_MODEL_ID;
+  if (originalVoice === undefined) {
+    delete process.env.CARTESIA_TTS_VOICE;
   } else {
-    process.env.RIME_TTS_MODEL_ID = originalModel;
-  }
-
-  if (originalSpeaker === undefined) {
-    delete process.env.RIME_TTS_SPEAKER;
-  } else {
-    process.env.RIME_TTS_SPEAKER = originalSpeaker;
-  }
-
-  if (originalSpanishSpeaker === undefined) {
-    delete process.env.RIME_TTS_SPANISH_SPEAKER;
-  } else {
-    process.env.RIME_TTS_SPANISH_SPEAKER = originalSpanishSpeaker;
-  }
-
-  if (originalBaseUrl === undefined) {
-    delete process.env.RIME_TTS_BASE_URL;
-  } else {
-    process.env.RIME_TTS_BASE_URL = originalBaseUrl;
+    process.env.CARTESIA_TTS_VOICE = originalVoice;
   }
 });
 
 describe("TTS config", () => {
-  it("uses direct Rime plugin TTS by default", () => {
-    delete process.env.RIME_TTS_MODEL_ID;
-    delete process.env.RIME_TTS_SPEAKER;
-    delete process.env.RIME_TTS_BASE_URL;
+  it("uses direct Cartesia plugin TTS by default", () => {
+    delete process.env.CARTESIA_TTS_VOICE;
 
-    expect(getRimeTtsOptions()).toEqual({
-      modelId: RIME_TTS_MODEL_ID,
-      speaker: DEFAULT_RIME_TTS_SPEAKER,
-      baseURL: RIME_TTS_BASE_URL,
-      lang: RIME_TTS_ENGLISH_LANGUAGE,
-      samplingRate: RIME_TTS_SAMPLE_RATE,
-      speedAlpha: RIME_TTS_SPEED_ALPHA,
+    expect(getCartesiaTtsOptions()).toEqual({
+      model: CARTESIA_TTS_MODEL,
+      voice: DEFAULT_CARTESIA_TTS_VOICE,
+      language: CARTESIA_TTS_LANGUAGE,
+      sampleRate: CARTESIA_TTS_SAMPLE_RATE,
     });
   });
 
-  it("allows the Rime model, speaker, and base URL to be changed without code changes", () => {
-    process.env.RIME_TTS_MODEL_ID = "arcana";
-    process.env.RIME_TTS_SPEAKER = "luna";
-    process.env.RIME_TTS_BASE_URL = "https://users.rime.ai/v1/rime-tts";
+  it("allows the Cartesia voice to be changed without code changes", () => {
+    process.env.CARTESIA_TTS_VOICE = "blake";
 
-    expect(getRimeTtsOptions()).toMatchObject({
-      modelId: "arcana",
-      speaker: "luna",
-      baseURL: "https://users.rime.ai/v1/rime-tts",
-    });
+    expect(getCartesiaTtsOptions().voice).toBe("blake");
   });
 
-  it("uses Luz for Spanish turns and restores the English Rime speaker", () => {
-    delete process.env.RIME_TTS_SPANISH_SPEAKER;
+  it("ignores a blank Cartesia voice override", () => {
+    process.env.CARTESIA_TTS_VOICE = "";
 
-    expect(getRimeTtsOptionsByLanguage("english-speaker")).toEqual({
+    expect(getCartesiaTtsOptions().voice).toBe(DEFAULT_CARTESIA_TTS_VOICE);
+    expect(getCartesiaTtsOptionsByLanguage().en.voice).toBe(
+      DEFAULT_CARTESIA_TTS_VOICE,
+    );
+  });
+
+  it("uses the dedicated Spanish Cartesia voice for Spanish turns", () => {
+    expect(getCartesiaTtsOptionsByLanguage("english-voice")).toEqual({
       en: {
-        modelId: RIME_TTS_MODEL_ID,
-        speaker: "english-speaker",
-        lang: RIME_TTS_ENGLISH_LANGUAGE,
+        language: "en",
+        voice: "english-voice",
       },
       es: {
-        modelId: RIME_TTS_MODEL_ID,
-        speaker: SPANISH_RIME_TTS_SPEAKER,
-        lang: RIME_TTS_SPANISH_LANGUAGE,
+        language: "es",
+        voice: SPANISH_CARTESIA_TTS_VOICE,
       },
-    });
-  });
-
-  it("allows the Spanish Rime speaker to be changed without code changes", () => {
-    process.env.RIME_TTS_SPANISH_SPEAKER = "mari";
-
-    expect(getRimeTtsOptionsByLanguage("vespera").es.speaker).toBe("mari");
-  });
-
-  it("uses the configured Rime model for every language update", () => {
-    process.env.RIME_TTS_MODEL_ID = "mistv2";
-    delete process.env.RIME_TTS_SPANISH_SPEAKER;
-
-    expect(getRimeTtsOptionsByLanguage("vespera").es).toMatchObject({
-      modelId: "mistv2",
-      speaker: SPANISH_RIME_TTS_SPEAKER,
-      lang: RIME_TTS_SPANISH_LANGUAGE,
     });
   });
 });

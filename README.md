@@ -8,9 +8,9 @@ A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over
 |---|---|---|
 | Telephony | Twilio + Telnyx | Inbound SIP trunks → LiveKit Cloud SIP |
 | Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
-| STT | AssemblyAI | Streaming STT with adaptive keyterm/timing profiles |
+| STT | AssemblyAI direct plugin `u3-rt-pro` | Adaptive keyterm/timing profiles via `stt.updateOptions`; uses `ASSEMBLYAI_API_KEY` |
 | LLM | Baseten (GLM-4.7 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
-| TTS | Rime plugin `arcana` | English speaker defaults to `vespera`; Spanish speaker defaults to `luz`; east-region Rime endpoint; 16 kHz PCM |
+| TTS | Cartesia direct plugin `sonic-3-latest` | Voice defaults to `CARTESIA_TTS_VOICE` or the repo default voice ID; Spanish turns use the configured Spanish Cartesia voice; 16 kHz PCM |
 | VAD | Silero (local ONNX) | Prewarmed per job process |
 | Turn handling | LiveKit Agents | STT turn detection, adaptive interruptions, Silero VAD |
 | Medical backend | AdvancedMD via Railway middleware | Patient lookup, booking, insurance |
@@ -93,7 +93,7 @@ Dockerfile           # Multi-stage: pnpm install → build → download-files �
    - **Multiple matches** — multiple patients on this number. Agent asks for first name only (HIPAA-safe).
    - **No match** — treated as new patient flow.
 4. **Session start** — `buildPrompt()` assembles the system prompt from `workspace/SOUL.md`, `VOICE.md`, `RUNBOOK.md`, then appends dynamic `<context>` (date/time + caller info). Tools are wired from `tools.ts`.
-5. **Conversation loop** — AssemblyAI STT → Baseten LLM (with tool calling) → Rime TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. AdvancedMD-facing tools call the Railway middleware.
+5. **Conversation loop** — AssemblyAI STT → Baseten LLM (with tool calling) → Cartesia TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. AdvancedMD-facing tools call the Railway middleware.
 6. **Disconnect or transfer**:
    - Caller hangs up → `participantDisconnected` listener → `ctx.shutdown()`
    - Agent calls `transfer_call` → SIP REFER to human staff
@@ -121,6 +121,7 @@ The system prompt is stitched from markdown files in `workspace/` in a specific 
 | `update_insurance` | Update insurance on file |
 | `get_availability` | Find open appointment slots |
 | `confirm_appt` / `cancel_appt` / `book_appt` | Appointment management |
+| `add_patient_note` | Save appointment reason and referring doctor on the verified patient |
 | `check_insurance` | Eligibility check |
 | `lookup_knowledge` | Search location-specific FAQ (`KNOWLEDGE_*.md`) |
 | `route_to_spring_hill` | Switch Crystal River scheduling calls to Spring Hill AMD routing |
@@ -135,6 +136,7 @@ Side-effecting tools disable caller interruptions at the mutation boundary with 
 | `add_patient` | Creates a patient record |
 | `update_insurance` | Changes insurance on file |
 | `cancel_appt` | Cancels an appointment |
+| `add_patient_note` | Writes a patient chart note |
 | `book_appt` | Books an appointment |
 | `transfer_call` | Initiates SIP transfer |
 
@@ -144,7 +146,7 @@ Read-only/context tools remain interruptible so callers can naturally barge in d
 
 ```bash
 pnpm install
-cp .env.example .env.local   # fill in LIVEKIT_*, ASSEMBLYAI_*, RIME_*, BASETEN_*, AMD_*
+cp .env.example .env.local   # fill in LIVEKIT_*, BASETEN_*, AMD_*
 pnpm dev                     # runs src/main.ts via tsx with live reload
 ```
 
@@ -170,14 +172,13 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 | Var | Purpose |
 |---|---|
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud credentials |
-| `ASSEMBLYAI_API_KEY` | STT |
-| `RIME_API_KEY` | TTS |
-| `RIME_TTS_MODEL_ID` | Optional TTS model override; defaults to `arcana` |
-| `RIME_TTS_SPEAKER` | Optional TTS speaker override; defaults to `vespera` |
-| `RIME_TTS_SPANISH_SPEAKER` | Optional Spanish TTS speaker override; defaults to `luz` |
-| `RIME_TTS_BASE_URL` | Optional TTS endpoint override; defaults to `https://users-east.rime.ai/v1/rime-tts` |
+| `ASSEMBLYAI_API_KEY` | Direct AssemblyAI STT plugin |
+| `CARTESIA_API_KEY` | Direct Cartesia TTS plugin |
+| `CARTESIA_TTS_VOICE` | Optional English Cartesia voice override |
 | `BASETEN_API_KEY` | LLM (GLM-4.7 + MiniMax fallback) |
 | `AMD_API_URL` / `AMD_API_TOKEN` | AdvancedMD middleware |
+| `SPRING_HILL_HANDOFF_TARGET` | Optional Spring Hill call-center handoff target; accepts `tel:+E164` or `sip:user@domain` |
+| `TELNYX_VOICE_API_HANDOFF_TARGET` | Optional Spring Hill Telnyx Voice API handoff target, for example `sip:+16182265883@livekitappacuity.sip.telnyx.com` |
 | `ANALYTICS_URL` / `WEBHOOK_SECRET` | Post-call analytics endpoint |
 | `PROMPT_WORKSPACE` | Optional alternate prompt workspace path |
 

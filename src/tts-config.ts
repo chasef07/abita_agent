@@ -1,39 +1,35 @@
-import type { TTSOptions as RimeTtsOptions } from "@livekit/agents-plugin-rime";
+export const CARTESIA_TTS_MODEL = "sonic-3-latest";
+export const DEFAULT_CARTESIA_TTS_VOICE =
+  "a167e0f3-df7e-4d52-a9c3-f949145efdab";
+export const SPANISH_CARTESIA_TTS_VOICE =
+  "079e3a17-5545-4bc5-93e3-e11df6fe37b8";
+export const CARTESIA_TTS_LANGUAGE = "en";
+export const CARTESIA_TTS_SAMPLE_RATE = 16000;
 
-export const RIME_TTS_MODEL_ID = "arcana";
-export const DEFAULT_RIME_TTS_SPEAKER = "vespera";
-export const SPANISH_RIME_TTS_SPEAKER = "luz";
-export const RIME_TTS_BASE_URL = "https://users-east.rime.ai/v1/rime-tts";
-export const RIME_TTS_SAMPLE_RATE = 16000;
-export const RIME_TTS_SPEED_ALPHA = 0.85;
-export const RIME_TTS_ENGLISH_LANGUAGE = "eng";
-export const RIME_TTS_SPANISH_LANGUAGE = "spa";
+function configuredEnglishVoice() {
+  return process.env.CARTESIA_TTS_VOICE?.trim() || DEFAULT_CARTESIA_TTS_VOICE;
+}
 
-export function getRimeTtsOptions(): Partial<RimeTtsOptions> {
+export function getCartesiaTtsOptions() {
   return {
-    modelId: process.env.RIME_TTS_MODEL_ID ?? RIME_TTS_MODEL_ID,
-    speaker: process.env.RIME_TTS_SPEAKER ?? DEFAULT_RIME_TTS_SPEAKER,
-    baseURL: process.env.RIME_TTS_BASE_URL ?? RIME_TTS_BASE_URL,
-    lang: RIME_TTS_ENGLISH_LANGUAGE,
-    samplingRate: RIME_TTS_SAMPLE_RATE,
-    speedAlpha: RIME_TTS_SPEED_ALPHA,
+    model: CARTESIA_TTS_MODEL,
+    voice: configuredEnglishVoice(),
+    language: CARTESIA_TTS_LANGUAGE,
+    sampleRate: CARTESIA_TTS_SAMPLE_RATE,
   };
 }
 
-export function getRimeTtsOptionsByLanguage(
-  englishSpeaker = process.env.RIME_TTS_SPEAKER ?? DEFAULT_RIME_TTS_SPEAKER,
-  modelId = process.env.RIME_TTS_MODEL_ID ?? RIME_TTS_MODEL_ID,
+export function getCartesiaTtsOptionsByLanguage(
+  englishVoice = configuredEnglishVoice(),
 ) {
   return {
     en: {
-      modelId,
-      speaker: englishSpeaker,
-      lang: RIME_TTS_ENGLISH_LANGUAGE,
+      language: "en",
+      voice: englishVoice,
     },
     es: {
-      modelId,
-      speaker: process.env.RIME_TTS_SPANISH_SPEAKER ?? SPANISH_RIME_TTS_SPEAKER,
-      lang: RIME_TTS_SPANISH_LANGUAGE,
+      language: "es",
+      voice: SPANISH_CARTESIA_TTS_VOICE,
     },
   } as const;
 }

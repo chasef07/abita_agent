@@ -27,6 +27,10 @@ Hours: Monday–Friday 8:30 AM – 4:30 PM. Closed Saturday and Sunday.
 
 Move history: Abita Eye Group moved to Spring Hill from 1930 Land O Lakes Boulevard, Suite 5, Lutz, FL 33549 on 2026-02-06. Some callers may still ask about the Lutz address.
 
+## After Hours
+
+If a caller needs to reach the after-hours doctor, provide this number: 727-379-4923.
+
 ## Scope of Services
 
 Spring Hill sees medical and surgical eye conditions: cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus (eye misalignment), double vision evaluation, and oculoplastic (eyelid) procedures. Spring Hill also has a routine-vision scheduling lane for routine eye exams, glasses prescriptions, and contact lens prescriptions when the caller is using accepted vision insurance. Routine optometry is age 10+. Children under 10 route to Dr. Bach on the pediatric medical lane.

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { initializeLogger } from "@livekit/agents";
 import { STT } from "@livekit/agents-plugin-assemblyai";
 import {
   ASSEMBLYAI_DEFAULT_KEYTERMS,
@@ -7,6 +8,10 @@ import {
   getAssemblyAISttProfileOptions,
   selectAssemblyAISttProfileForAssistantText,
 } from "../stt-config.js";
+
+beforeAll(() => {
+  initializeLogger({ pretty: false, level: "silent" });
+});
 
 describe("official AssemblyAI plugin", () => {
   it("supports the current U3 Pro STT configuration", () => {
@@ -18,6 +23,11 @@ describe("official AssemblyAI plugin", () => {
     expect(stt.provider).toBe("AssemblyAI");
     expect(stt.model).toBe("u3-rt-pro");
     expect(getAssemblyAISttOptions().languageDetection).toBe(true);
+    expect(getAssemblyAISttOptions().keytermsPrompt).toContain(
+      "Abita Eye Group",
+    );
+    expect(getAssemblyAISttOptions().keytermsPrompt).toContain("iCare");
+    expect(getAssemblyAISttOptions().maxTurnSilence).toBe(2000);
 
     stt.updateOptions(getAssemblyAISttProfileOptions("insurance"));
     stt.updateOptions(getAssemblyAISttProfileOptions("default"));
@@ -42,21 +52,59 @@ describe("official AssemblyAI plugin", () => {
   });
 
   it("defines reusable STT profiles for future phase-based updates", () => {
-    expect(ASSEMBLYAI_STT_PROFILES.insurance.keytermsPrompt).toContain(
-      "Aetna Better Health of Florida",
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).toContain("Aetna Better Health of Florida");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).toContain("iCare");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).not.toContain("CHAMPVA");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).not.toContain("Children's Medical Services");
+    expect(getAssemblyAISttProfileOptions("memberId").maxTurnSilence).toBe(
+      3000,
     );
-    expect(ASSEMBLYAI_STT_PROFILES.insurance.keytermsPrompt).not.toContain(
-      "CHAMPVA",
+    expect(
+      getAssemblyAISttProfileOptions("intake").maxTurnSilence,
+    ).toBeGreaterThan(
+      getAssemblyAISttProfileOptions("default").maxTurnSilence ?? 0,
     );
-    expect(ASSEMBLYAI_STT_PROFILES.insurance.keytermsPrompt).not.toContain(
-      "Children's Medical Services",
-    );
-    expect(ASSEMBLYAI_STT_PROFILES.memberId.maxTurnSilence).toBe(3000);
-    expect(ASSEMBLYAI_STT_PROFILES.intake.maxTurnSilence).toBeGreaterThan(
-      ASSEMBLYAI_STT_PROFILES.default.maxTurnSilence,
-    );
-    expect(ASSEMBLYAI_STT_PROFILES.email.keytermsPrompt).toContain(
+    expect(getAssemblyAISttProfileOptions("email").keytermsPrompt).toContain(
       "icloud.com",
+    );
+    expect(getAssemblyAISttProfileOptions("default").languageDetection).toBe(
+      undefined,
+    );
+  });
+
+  it("returns defensive copies of keyterm prompts for profile updates", () => {
+    const profileOptions = getAssemblyAISttProfileOptions("insurance");
+    profileOptions.keytermsPrompt?.push("mutated term");
+
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).not.toContain("mutated term");
+    expect(ASSEMBLYAI_STT_PROFILES.insurance.keytermsPrompt).not.toContain(
+      "mutated term",
+    );
+  });
+
+  it("does not mix AssemblyAI prompt instructions with keyterm prompts", () => {
+    expect(getAssemblyAISttOptions()).not.toHaveProperty("prompt");
+    expect(getAssemblyAISttProfileOptions("insurance")).not.toHaveProperty(
+      "prompt",
+    );
+    expect(getAssemblyAISttProfileOptions("memberId")).not.toHaveProperty(
+      "prompt",
+    );
+    expect(getAssemblyAISttProfileOptions("intake")).not.toHaveProperty(
+      "prompt",
+    );
+    expect(getAssemblyAISttProfileOptions("email")).not.toHaveProperty(
+      "prompt",
     );
   });
 

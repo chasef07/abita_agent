@@ -7,7 +7,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/main.js start",
-    "download-files": "node dist/main.js download-files",
+    "download-files": "livekit-agents download-files",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
@@ -15,30 +15,30 @@
     "format:check": "prettier --check . --ignore-unknown"
   },
   "dependencies": {
-    "@livekit/agents": "^1.3.4",
-    "@livekit/agents-plugin-assemblyai": "1.3.4",
-    "@livekit/agents-plugin-baseten": "^1.3.4",
-    "@livekit/agents-plugin-livekit": "^1.3.4",
-    "@livekit/agents-plugin-rime": "1.3.4",
-    "@livekit/agents-plugin-silero": "^1.3.4",
+    "@livekit/agents": "^1.4.3",
+    "@livekit/agents-plugin-assemblyai": "1.4.3",
+    "@livekit/agents-plugin-baseten": "^1.4.3",
+    "@livekit/agents-plugin-cartesia": "1.4.3",
+    "@livekit/agents-plugin-livekit": "^1.4.3",
+    "@livekit/agents-plugin-silero": "^1.4.3",
     "@livekit/noise-cancellation-node": "^0.1.9",
-    "@livekit/rtc-node": "^0.13.27",
+    "@livekit/rtc-node": "^0.13.28",
     "dotenv": "^17.4.2",
-    "livekit-server-sdk": "^2.15.2",
-    "ws": "^8.20.0",
+    "livekit-server-sdk": "^2.15.3",
+    "ws": "^8.20.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.9.0",
     "@types/ws": "^8.18.1",
-    "eslint": "^10.3.0",
+    "eslint": "^10.4.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.6.0",
     "prettier": "^3.8.3",
-    "tsx": "^4.21.0",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.2",
-    "vitest": "^4.1.5"
+    "typescript-eslint": "^8.59.4",
+    "vitest": "^4.1.6"
   }
 }

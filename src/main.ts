@@ -13,11 +13,21 @@ import {
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
-import * as rime from "@livekit/agents-plugin-rime";
+import * as cartesia from "@livekit/agents-plugin-cartesia";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
+import {
+  buildLlmSummary,
+  createEmptySessionEventAnalytics,
+  snapshotCloseEvent,
+  snapshotErrorEvent,
+  snapshotFalseInterruptionEvent,
+  snapshotOverlappingSpeechEvent,
+  snapshotToolExecutions,
+  type ToolExecutionAnalytics,
+} from "./call-observability.js";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 import {
@@ -30,8 +40,8 @@ import {
 import { getOfficeConfigByPhone } from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
-  getRimeTtsOptions,
-  getRimeTtsOptionsByLanguage,
+  getCartesiaTtsOptions,
+  getCartesiaTtsOptionsByLanguage,
 } from "./tts-config.js";
 import { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
@@ -87,13 +97,11 @@ export default defineAgent({
       });
 
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
-      const ttsOptions = getRimeTtsOptions();
-      const tts = new rime.TTS(ttsOptions);
+      const ttsOptions = getCartesiaTtsOptions();
+      const tts = new cartesia.TTS(ttsOptions);
       const languageRuntime = new VoiceLanguageRuntime(tts, {
-        ttsOptionsByLanguage: getRimeTtsOptionsByLanguage(
-          ttsOptions.speaker,
-          ttsOptions.modelId,
-        ),
+        appliedTtsLanguage: "en",
+        ttsOptionsByLanguage: getCartesiaTtsOptionsByLanguage(ttsOptions.voice),
       });
       const session = new voice.AgentSession<CallState>({
         stt,
@@ -159,7 +167,9 @@ export default defineAgent({
         amdOfficePhone: office.amdOfficePhone,
         sipRoomName: ctx.room.name ?? "",
         sipParticipantIdentity: participant.identity ?? "",
+        callId,
         callerPhone,
+        trunkPhone,
         patientId: verified?.patientId ?? null,
         patientName: verified?.name ?? null,
         dob: verified?.dob ?? null,
@@ -181,6 +191,8 @@ export default defineAgent({
       const turnMetrics: TurnMetricSnapshot[] = [];
       const flowShadowEvents: FlowShadowEvent[] = [];
       let latestFlowShadowPrediction: FlowShadowPrediction | undefined;
+      const toolExecutions: ToolExecutionAnalytics[] = [];
+      const sessionEvents = createEmptySessionEventAnalytics();
       let latestUsage: Record<string, unknown> | undefined;
 
       let activeSttProfile: AssemblyAISttProfile = "default";
@@ -244,6 +256,27 @@ export default defineAgent({
             );
           }
         }
+        toolExecutions.push(...snapshotToolExecutions(ev));
+      });
+
+      session.on(voice.AgentSessionEventTypes.Error, (ev) => {
+        sessionEvents.errors.push(snapshotErrorEvent(ev));
+      });
+
+      session.on(voice.AgentSessionEventTypes.Close, (ev) => {
+        sessionEvents.close = snapshotCloseEvent(ev);
+      });
+
+      session.on(voice.AgentSessionEventTypes.AgentFalseInterruption, (ev) => {
+        sessionEvents.falseInterruptions.push(
+          snapshotFalseInterruptionEvent(ev),
+        );
+      });
+
+      session.on(voice.AgentSessionEventTypes.OverlappingSpeech, (ev) => {
+        sessionEvents.overlappingSpeech.push(
+          snapshotOverlappingSpeechEvent(ev),
+        );
       });
 
       session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (ev) => {
@@ -268,6 +301,9 @@ export default defineAgent({
       await session.start({
         agent,
         room: ctx.room,
+        inputOptions: {
+          participantIdentity: participant.identity,
+        },
       });
 
       // End the job when the SIP caller hangs up (or transfer completes).
@@ -325,7 +361,14 @@ export default defineAgent({
               (endedAt.getTime() - startedAt.getTime()) / 1000,
             ),
             usage: latestUsage ?? session.usage,
+            llmSummary: buildLlmSummary({
+              fallbackModel: fallbackLLMOptions.model,
+              llmMetrics,
+              usage: latestUsage ?? session.usage,
+            }),
             llmMetrics,
+            sessionEvents,
+            toolExecutions,
             turnMetrics,
             flow: {
               currentState: session.userData.flow,

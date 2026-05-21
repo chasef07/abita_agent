@@ -1,16 +1,21 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { buildToolsForTrunk } from "../agent.js";
 import { buildPrompt } from "../prompt.js";
 import {
   DEV_OFFICE_PHONE,
   getOfficeConfig,
   getOfficeConfigByPhone,
+  getOfficeHandoffTarget,
   getOfficeKeyByPhone,
+  HOLLYWOOD_OFFICE_PHONE,
+  normalizeHandoffTarget,
   normalizePhoneNumber,
   SPRING_HILL_813_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
+  SWEETWATER_OFFICE_PHONE,
+  SWEETWATER_TRUNK_PHONES,
 } from "../offices.js";
 import {
   getAmdOfficeForToolCall,
@@ -20,12 +25,26 @@ import {
 } from "../tools.js";
 
 describe("office routing helpers", () => {
+  afterEach(() => {
+    delete process.env.SPRING_HILL_HANDOFF_TARGET;
+    delete process.env.CRYSTAL_RIVER_HANDOFF_TARGET;
+    delete process.env.HOLLYWOOD_HANDOFF_TARGET;
+    delete process.env.SWEETWATER_HANDOFF_TARGET;
+    delete process.env.DEV_HANDOFF_TARGET;
+    delete process.env.TELNYX_VOICE_API_HANDOFF_TARGET;
+    delete process.env.OFFICE_HANDOFF_TARGET;
+  });
+
   it("maps trunk numbers to office keys", () => {
     expect(getOfficeKeyByPhone("+13523202007")).toBe("crystal-river");
     expect(getOfficeKeyByPhone(SPRING_HILL_OFFICE_PHONE)).toBe("spring-hill");
     expect(getOfficeKeyByPhone(SPRING_HILL_813_TRUNK_PHONE)).toBe(
       "spring-hill",
     );
+    expect(getOfficeKeyByPhone(HOLLYWOOD_OFFICE_PHONE)).toBe("hollywood");
+    for (const phone of SWEETWATER_TRUNK_PHONES) {
+      expect(getOfficeKeyByPhone(phone)).toBe("sweetwater");
+    }
     expect(getOfficeKeyByPhone(DEV_OFFICE_PHONE)).toBe("dev");
   });
 
@@ -37,6 +56,26 @@ describe("office routing helpers", () => {
     expect(buildToolsForTrunk(SPRING_HILL_813_TRUNK_PHONE)).not.toHaveProperty(
       "route_to_spring_hill",
     );
+  });
+
+  it("routes Hollywood and Sweetwater trunks through their canonical AMD office phones", () => {
+    const hollywood = getOfficeConfigByPhone(HOLLYWOOD_OFFICE_PHONE);
+
+    expect(hollywood.key).toBe("hollywood");
+    expect(hollywood.amdOfficePhone).toBe(HOLLYWOOD_OFFICE_PHONE);
+    expect(buildToolsForTrunk(HOLLYWOOD_OFFICE_PHONE)).not.toHaveProperty(
+      "route_to_spring_hill",
+    );
+
+    for (const phone of SWEETWATER_TRUNK_PHONES) {
+      const sweetwater = getOfficeConfigByPhone(phone);
+
+      expect(sweetwater.key).toBe("sweetwater");
+      expect(sweetwater.amdOfficePhone).toBe(SWEETWATER_OFFICE_PHONE);
+      expect(buildToolsForTrunk(phone)).not.toHaveProperty(
+        "route_to_spring_hill",
+      );
+    }
   });
 
   it("normalizes LiveKit phone attributes without a plus prefix", () => {
@@ -89,9 +128,15 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("maps Crystal River trunks to the Eye Radiance knowledge file", () => {
+  it("maps offices to their knowledge files", () => {
     expect(resolveKnowledgeFileForOffice("crystal-river")).toBe(
       "KNOWLEDGE_EYERADIANCE.md",
+    );
+    expect(resolveKnowledgeFileForOffice("hollywood")).toBe(
+      "KNOWLEDGE_HOLLYWOOD.md",
+    );
+    expect(resolveKnowledgeFileForOffice("sweetwater")).toBe(
+      "KNOWLEDGE_SWEETWATER.md",
     );
     expect(resolveKnowledgeFileForOffice("spring-hill")).toBe(
       "KNOWLEDGE_SPRINGHILL.md",
@@ -101,11 +146,73 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("uses office-specific human transfer numbers for live offices", () => {
-    expect(getOfficeConfig("crystal-river").transferNumber).toBe(
-      "+13527941244",
+  it("uses office-specific human handoff targets for live offices", () => {
+    expect(getOfficeConfig("crystal-river").handoffTarget).toBe(
+      "tel:+13527941244",
     );
-    expect(getOfficeConfig("spring-hill").transferNumber).toBe("+16182265883");
+    expect(getOfficeConfig("spring-hill").handoffTarget).toBe(
+      "tel:+16182265883",
+    );
+    expect(getOfficeConfig("hollywood").handoffTarget).toBe("tel:+16184220360");
+    expect(getOfficeConfig("sweetwater").handoffTarget).toBe(
+      "tel:+16184220360",
+    );
+    expect(getOfficeHandoffTarget("hollywood")).toBe("tel:+16184220360");
+    expect(getOfficeHandoffTarget("sweetwater")).toBe("tel:+16184220360");
+  });
+
+  it("introduces the Abita receptionist as AI and scheduling-capable", () => {
+    const greeting =
+      "Thanks for calling Abita Eye Group. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?";
+
+    expect(getOfficeConfig("spring-hill").greeting).toBe(greeting);
+    expect(getOfficeConfig("dev").greeting).toBe(greeting);
+    expect(getOfficeConfig("hollywood").greeting).toBe(
+      "Thanks for calling Abita Eye Group Hollywood. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
+    );
+    expect(getOfficeConfig("sweetwater").greeting).toBe(
+      "Thanks for calling Abita Eye Group Sweetwater. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
+    );
+  });
+
+  it("normalizes handoff targets while allowing SIP URIs directly", () => {
+    expect(normalizeHandoffTarget("+16182265883")).toBe("tel:+16182265883");
+    expect(normalizeHandoffTarget("16182265883")).toBe("tel:+16182265883");
+    expect(normalizeHandoffTarget("tel:+16182265883")).toBe("tel:+16182265883");
+    expect(normalizeHandoffTarget("sip:office@sip.telnyx.com")).toBe(
+      "sip:office@sip.telnyx.com",
+    );
+  });
+
+  it("allows Spring Hill to use a Voice API SIP handoff target", () => {
+    process.env.SPRING_HILL_HANDOFF_TARGET =
+      "sip:+16182265883@livekitappacuity.sip.telnyx.com";
+
+    expect(getOfficeHandoffTarget("spring-hill")).toBe(
+      "sip:+16182265883@livekitappacuity.sip.telnyx.com",
+    );
+    expect(getOfficeHandoffTarget("crystal-river")).toBe("tel:+13527941244");
+  });
+
+  it("supports a shared Voice API env override for Spring Hill only", () => {
+    process.env.TELNYX_VOICE_API_HANDOFF_TARGET =
+      "sip:+16182265883@livekitappacuity.sip.telnyx.com";
+
+    expect(getOfficeHandoffTarget("spring-hill")).toBe(
+      "sip:+16182265883@livekitappacuity.sip.telnyx.com",
+    );
+    expect(getOfficeHandoffTarget("crystal-river")).toBe("tel:+13527941244");
+  });
+
+  it("supports office-specific handoff overrides for Hollywood and Sweetwater", () => {
+    process.env.HOLLYWOOD_HANDOFF_TARGET = "9545550100";
+    process.env.SWEETWATER_HANDOFF_TARGET =
+      "sip:sweetwater@livekitappacuity.sip.telnyx.com";
+
+    expect(getOfficeHandoffTarget("hollywood")).toBe("tel:+19545550100");
+    expect(getOfficeHandoffTarget("sweetwater")).toBe(
+      "sip:sweetwater@livekitappacuity.sip.telnyx.com",
+    );
   });
 
   it("only exposes Spring Hill routing on Crystal River calls", () => {
@@ -118,6 +225,14 @@ describe("office routing helpers", () => {
     expect(buildToolsForTrunk(DEV_OFFICE_PHONE)).not.toHaveProperty(
       "route_to_spring_hill",
     );
+    expect(buildToolsForTrunk(HOLLYWOOD_OFFICE_PHONE)).not.toHaveProperty(
+      "route_to_spring_hill",
+    );
+    for (const phone of SWEETWATER_TRUNK_PHONES) {
+      expect(buildToolsForTrunk(phone)).not.toHaveProperty(
+        "route_to_spring_hill",
+      );
+    }
   });
 });
 
@@ -172,9 +287,7 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "Medical and routine vision insurance lookups can have different answers for the same plan name",
     );
-    expect(prompt).toContain(
-      "Reason for visit — classify medical/surgical vs routine vision",
-    );
+    expect(prompt).toContain("Reason for visit and referring doctor");
     expect(prompt).toContain(
       'triage first: "is this for a routine eye exam or glasses/contact lens prescription, or for a medical eye visit?"',
     );
@@ -208,11 +321,71 @@ describe("Crystal River prompt guidance", () => {
     );
   });
 
+  it("keeps Hollywood and Sweetwater off the Crystal River routing prompt block", () => {
+    const hollywoodPrompt = buildPrompt(undefined, HOLLYWOOD_OFFICE_PHONE);
+    const sweetwaterPrompt = buildPrompt(undefined, SWEETWATER_OFFICE_PHONE);
+    const hollywoodKnowledge = readFileSync(
+      join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "workspace",
+        "KNOWLEDGE_HOLLYWOOD.md",
+      ),
+      "utf-8",
+    );
+    const sweetwaterKnowledge = readFileSync(
+      join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "workspace",
+        "KNOWLEDGE_SWEETWATER.md",
+      ),
+      "utf-8",
+    );
+
+    expect(hollywoodPrompt).not.toContain("route_to_spring_hill");
+    expect(sweetwaterPrompt).not.toContain("route_to_spring_hill");
+    expect(hollywoodKnowledge).toContain("Abita Eye Group Hollywood");
+    expect(hollywoodKnowledge).toContain("4330 Sheridan St, Suite 102B");
+    expect(hollywoodKnowledge).toContain("Route to ophthalmology");
+    expect(hollywoodKnowledge).toContain(
+      "does not perform retina surgical care",
+    );
+    expect(hollywoodKnowledge).toContain("Katie is the licensed optician");
+    expect(hollywoodKnowledge).toContain("@abitaeyegroup");
+    expect(hollywoodKnowledge).toContain("Dr. Bach");
+    expect(sweetwaterKnowledge).toContain("Abita Eye Group Sweetwater");
+    expect(sweetwaterKnowledge).toContain("12750 NW 17th St, #201");
+    expect(sweetwaterKnowledge).toContain("Route to ophthalmology");
+    expect(sweetwaterKnowledge).toContain(
+      "does not perform retina surgical care",
+    );
+    expect(sweetwaterKnowledge).toContain("Betty is the licensed optician");
+    expect(sweetwaterKnowledge).toContain("@abitaeyegroup");
+    expect(sweetwaterKnowledge).toContain("Dr. Maria Casas");
+  });
+
   it("allows registration to continue when a new patient has no email", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
     expect(prompt).toContain("Email is optional");
     expect(prompt).toContain("continue registration without it");
+  });
+
+  it("tells scheduling flows to save the patient note only after booking succeeds", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+
+    expect(prompt).toContain(
+      "ask reason for visit first, then ask whether a doctor referred them",
+    );
+    expect(prompt).toContain(
+      "After book_appt succeeds, call add_patient_note with appointmentReason and referringDoctor",
+    );
+    expect(prompt).toContain(
+      "Do not call add_patient_note before a successful booking",
+    );
   });
 
   it("tells the agent to convert relative dates silently", () => {
@@ -276,5 +449,39 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).not.toContain("1pm");
     expect(prompt).toContain('Say "8:15 AM", "8 AM", or "7:00 PM"');
     expect(prompt).not.toContain("eight fifteen a m");
+  });
+
+  it("includes preloaded appointment facility so confirmations use the actual office", () => {
+    const prompt = buildPrompt(
+      {
+        status: "verified",
+        patientId: "patient-1",
+        name: "Santos, Maria",
+        dob: "01/01/1980",
+        phone: "+17275551212",
+        insuranceCarrier: "Aetna",
+        insPlanId: "plan-1",
+        respPartyId: "resp-1",
+        routing: "bach_only",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [
+          {
+            id: 123,
+            date: "2099-01-01",
+            time: "9:30AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            facility: "Hollywood",
+            confirmed: true,
+          },
+        ],
+      },
+      HOLLYWOOD_OFFICE_PHONE,
+    );
+
+    expect(prompt).toContain(
+      "[ID: 123] 2099-01-01 at 9:30 AM with Dr. Bach (Follow-up) at Hollywood",
+    );
   });
 });

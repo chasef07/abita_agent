@@ -10,6 +10,7 @@ import {
   type OfficeKey,
   getOfficeConfig,
   getOfficeConfigByPhone,
+  getOfficeHandoffTarget,
   SPRING_HILL_OFFICE_PHONE,
 } from "./offices.js";
 import {
@@ -105,7 +106,9 @@ export interface CallState {
   amdOfficePhone: string;
   sipRoomName: string;
   sipParticipantIdentity: string;
+  callId: string;
   callerPhone: string;
+  trunkPhone: string;
   // Populated by phone lookup, verify_patient, or add_patient
   patientId: string | null;
   patientName: string | null;
@@ -169,6 +172,21 @@ function observeGuardOnly(
   return observation;
 }
 
+export function buildCallCenterHandoffHeaders(
+  state: Pick<CallState, "callId" | "callerPhone" | "officeKey" | "trunkPhone">,
+  handoffTarget: string,
+  handoffOfficeKey: OfficeKey = state.officeKey,
+): Record<string, string> {
+  return {
+    "X-Acuity-Caller-Phone": state.callerPhone,
+    "X-Acuity-Handoff": "call-center",
+    "X-Acuity-Handoff-Target": handoffTarget,
+    "X-Acuity-LiveKit-Call-Id": state.callId,
+    "X-Acuity-Office-Key": handoffOfficeKey,
+    "X-Acuity-Trunk-Phone": state.trunkPhone,
+  };
+}
+
 export function makeCurrentSpeechUninterruptible(
   ctx: Pick<voice.RunContext, "speechHandle">,
 ): boolean {
@@ -191,6 +209,21 @@ export function getAmdOfficeForToolCall(
   return (
     state.amdOfficePhone || getOfficeConfig(state.officeKey).amdOfficePhone
   );
+}
+
+function getHandoffOfficeKey(
+  state: Pick<CallState, "officeKey" | "trunkPhone">,
+): OfficeKey {
+  if (!state.trunkPhone) return state.officeKey;
+  try {
+    return getOfficeConfigByPhone(state.trunkPhone).key;
+  } catch (err) {
+    console.warn(
+      `[tools] Could not resolve handoff office from original trunk ${state.trunkPhone}; falling back to active office ${state.officeKey}`,
+      err,
+    );
+    return state.officeKey;
+  }
 }
 
 function normalizeBaseUrl(url: string): string {
@@ -245,6 +278,8 @@ function routingForAvailability(
 
 function ensureRoutineVisionOffice(state: CallState): void {
   if (state.checkedInsuranceCoverageType !== "routine_vision") return;
+  if (!getOfficeConfig(state.officeKey).features.routeRoutineVisionToSpringHill)
+    return;
   state.officeKey = "spring-hill";
   state.amdOfficePhone = getSpringHillOfficePhone();
   state.flow.officeKey = "spring-hill";
@@ -476,6 +511,7 @@ After response: session state updates automatically. If preauthRequired, schedul
         : insurance;
     const payload: Record<string, unknown> = {
       patientId: state.patientId,
+      ...(state.dob ? { dob: state.dob } : {}),
       insPlanId: state.insPlanId ?? "",
       respPartyId: state.respPartyId ?? "",
       oldInsurance: state.insuranceCarrier ?? "",
@@ -528,6 +564,7 @@ After response: check if date shifted vs requested — tell caller if different.
     const body: Record<string, unknown> = { date };
     const effectiveRouting = routingForAvailability(state, routing);
     state.lastAvailabilityRouting = effectiveRouting;
+    if (state.dob) body.dob = state.dob;
     if (effectiveRouting) body.routing = effectiveRouting;
     if (state.preauthRequired) body.preauthRequired = true;
     return callApi(
@@ -582,6 +619,49 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
   },
 });
 
+// --- add_patient_note ---
+export const add_patient_note = llm.tool({
+  description: `Adds a short operational note to the verified patient's AdvancedMD chart. Requires a verified patient from phone lookup, verify_patient, or add_patient.
+
+For scheduling workflows, collect the appointment reason and referring doctor during the call, but call this tool only after book_appt succeeds.
+
+Only save these two fields: appointment reason and referring doctor. If there is no referring doctor, set referringDoctor to "none". Do not include diagnoses, clinical judgments, raw transcripts, appointment times, insurance, patient demographics, or anything else.`,
+  parameters: z.object({
+    appointmentReason: z
+      .string()
+      .min(1)
+      .max(500)
+      .describe("The caller's stated appointment reason"),
+    referringDoctor: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe(
+        'The referring doctor name, or "none" if the caller was not referred',
+      ),
+  }),
+  execute: async ({ appointmentReason, referringDoctor }, { ctx }) => {
+    const state = getState(ctx);
+    if (!state.patientId) {
+      return "ERROR: No patient verified yet. Verify the patient before adding a note.";
+    }
+    const reason = appointmentReason.trim();
+    const referrer = referringDoctor.trim();
+    if (!reason || !referrer) {
+      return "ERROR: appointmentReason and referringDoctor are required.";
+    }
+    if (!makeCurrentSpeechUninterruptible(ctx)) {
+      return "The note was interrupted before it could be saved. Please confirm the note again.";
+    }
+    const note = `Appointment reason: ${reason}\nReferring doctor: ${referrer}`;
+    return callApi(
+      "/api/patient/notes",
+      { patientId: state.patientId, note },
+      getAmdOfficeForToolCall(state),
+    );
+  },
+});
+
 // --- book_appt ---
 export const book_appt = llm.tool({
   description: `Books an appointment. Pass columnId, profileId, startDatetime, and duration from get_availability. Patient ID is read from session state automatically.
@@ -626,6 +706,7 @@ The slot offer is the confirmation — if the caller said yes, book it. If fails
       ...params,
       patientId: state.patientId,
       ...(state.patientName ? { patientName: state.patientName } : {}),
+      ...(state.dob ? { dob: state.dob } : {}),
       ...(routing ? { routing } : {}),
     };
     return callApi(
@@ -791,16 +872,25 @@ export const transfer_call = llm.tool({
     }
     try {
       state.transferred = true;
-      const transferNumber = getOfficeConfig(state.officeKey).transferNumber;
+      const handoffOfficeKey = getHandoffOfficeKey(state);
+      const handoffTarget = getOfficeHandoffTarget(handoffOfficeKey);
       await getSipClient().transferSipParticipant(
         state.sipRoomName,
         state.sipParticipantIdentity,
-        `tel:${transferNumber}`,
-        { playDialtone: false },
+        handoffTarget,
+        {
+          headers: buildCallCenterHandoffHeaders(
+            state,
+            handoffTarget,
+            handoffOfficeKey,
+          ),
+          playDialtone: true,
+          ringingTimeout: 20,
+        },
       );
       const result = "Transfer initiated successfully.";
       console.log(
-        `[tools] Transferred ${state.sipParticipantIdentity} to ${transferNumber}`,
+        `[tools] Transferred ${state.sipParticipantIdentity} to ${handoffTarget}`,
       );
       // Framework handles shutdown via close_on_disconnect when the
       // SIP participant leaves after the transfer completes.
