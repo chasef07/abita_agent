@@ -145,17 +145,16 @@ describe("tool interruption handling", () => {
       },
       {
         name: "book_appt",
-        run: (ctx: ToolContext) =>
-          book_appt.execute(
+        run: (ctx: ToolContext) => {
+          seedLastAvailabilitySlot(ctx.session.userData as CallState);
+          return book_appt.execute(
             {
-              columnId: 1,
-              profileId: 2,
-              startDatetime: "2026-04-28T09:00",
-              duration: 15,
+              slotId: "A",
               appointmentTypeId: 1007,
             },
             { ctx, toolCallId: "test-book" },
-          ),
+          );
+        },
       },
     ];
 
@@ -294,13 +293,11 @@ describe("tool interruption handling", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { ctx } = createToolContext();
+    seedLastAvailabilitySlot(ctx.session.userData as CallState);
 
     await book_appt.execute(
       {
-        columnId: 1,
-        profileId: 2,
-        startDatetime: "2026-04-28T09:00",
-        duration: 15,
+        slotId: "A",
         appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book" },
@@ -320,6 +317,134 @@ describe("tool interruption handling", () => {
     });
   });
 
+  it("stores booking-token slots and hides raw scheduler IDs from the model", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        slots: [
+          {
+            provider: "Dr. Austin Bach (Overflow)",
+            time: "9:00 AM",
+            datetime: "2026-04-28T09:00",
+            columnId: 1598,
+            profileId: 620,
+            duration: 15,
+            bookingToken: "signed-token",
+          },
+        ],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+
+    const result = await get_availability.execute(
+      { date: "2026-04-28" },
+      { ctx, toolCallId: "test-availability" },
+    );
+
+    expect(result).toMatchObject({
+      slots: [
+        {
+          slotId: "A",
+          provider: "Dr. Bach",
+          time: "9:00 AM",
+          date: "2026-04-28",
+        },
+      ],
+    });
+    expect(
+      (result as { slots: Array<Record<string, unknown>> }).slots[0],
+    ).not.toHaveProperty("columnId");
+    expect(state.lastAvailabilitySlots[0]).toMatchObject({
+      slotId: "A",
+      bookingToken: "signed-token",
+      columnId: 1598,
+      profileId: 620,
+      duration: 15,
+    });
+  });
+
+  it("books selected slots with bookingToken instead of raw scheduler IDs", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "booked", appointmentId: 12345 }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state, { bookingToken: "signed-token" });
+
+    await book_appt.execute(
+      {
+        slotId: "A",
+        appointmentTypeId: 1007,
+      },
+      { ctx, toolCallId: "test-book" },
+    );
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody).toMatchObject({
+      bookingToken: "signed-token",
+      appointmentTypeId: 1007,
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+      dob: "01/01/1980",
+      routing: "all_three",
+    });
+    expect(requestBody).not.toHaveProperty("columnId");
+    expect(requestBody).not.toHaveProperty("profileId");
+    expect(state.lastAvailabilitySlots).toEqual([]);
+  });
+
+  it("clears cached slots when a booking token is rejected", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "error",
+        outcome: "invalid_booking_token",
+        message: "Invalid or expired booking token.",
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state, { bookingToken: "expired-token" });
+
+    const result = await book_appt.execute(
+      {
+        slotId: "A",
+        appointmentTypeId: 1007,
+      },
+      { ctx, toolCallId: "test-book" },
+    );
+
+    expect(result).toMatchObject({
+      status: "error",
+      outcome: "invalid_booking_token",
+    });
+    expect(state.lastAvailabilitySlots).toEqual([]);
+    expect(state.lastAvailabilityRouting).toBeNull();
+  });
+
+  it("clears cached availability when switching the active scheduling office", async () => {
+    const { ctx, state } = createToolContext();
+    state.officeKey = "crystal-river";
+    state.amdOfficePhone = "+13523202007";
+    seedLastAvailabilitySlot(state);
+
+    await route_to_spring_hill.execute({}, { ctx, toolCallId: "test-route" });
+
+    expect(state.officeKey).toBe("spring-hill");
+    expect(state.lastAvailabilitySlots).toEqual([]);
+    expect(state.lastAvailabilityRouting).toBeNull();
+  });
+
   it("forwards stored DOB to age-sensitive middleware requests", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
@@ -334,12 +459,10 @@ describe("tool interruption handling", () => {
       { date: "2026-04-28" },
       { ctx, toolCallId: "test-availability" },
     );
+    seedLastAvailabilitySlot(ctx.session.userData as CallState);
     await book_appt.execute(
       {
-        columnId: 1,
-        profileId: 2,
-        startDatetime: "2026-04-28T09:00",
-        duration: 15,
+        slotId: "A",
         appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book" },
@@ -452,14 +575,18 @@ describe("tool interruption handling", () => {
       ]),
     );
 
+    seedLastAvailabilitySlot(state, {
+      columnId: 1600,
+      profileId: 1983,
+      datetime: "2026-04-28T10:00",
+      duration: 45,
+      routing: "optical_only",
+    });
+
     await book_appt.execute(
       {
-        columnId: 1600,
-        profileId: 1983,
-        startDatetime: "2026-04-28T10:00",
-        duration: 45,
+        slotId: "A",
         appointmentTypeId: 1010,
-        routing: "all_three",
       },
       { ctx, toolCallId: "test-book" },
     );
@@ -720,10 +847,7 @@ describe("tool interruption handling", () => {
         run: (ctx: ToolContext) =>
           book_appt.execute(
             {
-              columnId: 1,
-              profileId: 2,
-              startDatetime: "2026-04-28T09:00",
-              duration: 15,
+              slotId: "A",
               appointmentTypeId: 1007,
             },
             { ctx, toolCallId: "test-book" },
@@ -870,6 +994,7 @@ function createToolContext() {
     checkedInsuranceCoverageType: "medical",
     routing: "all_three",
     lastAvailabilityRouting: null,
+    lastAvailabilitySlots: [],
     allowedProviders: [],
     routingAmbiguous: false,
     preauthRequired: false,
@@ -883,6 +1008,31 @@ function createToolContext() {
   } as unknown as ToolContext;
 
   return { ctx, speechHandle, state };
+}
+
+function seedLastAvailabilitySlot(
+  state: CallState,
+  overrides: Partial<CallState["lastAvailabilitySlots"][number]> = {},
+) {
+  const routing = overrides.routing ?? "all_three";
+  state.lastAvailabilityRouting = routing;
+  state.lastAvailabilitySlots = [
+    {
+      slotId: overrides.slotId ?? "A",
+      spoken: overrides.spoken ?? "2026-04-28 9:00 AM with Dr. Licht",
+      provider: overrides.provider ?? "Dr. Licht",
+      date: overrides.date ?? "2026-04-28",
+      time: overrides.time ?? "9:00 AM",
+      datetime: overrides.datetime ?? "2026-04-28T09:00",
+      columnId: overrides.columnId ?? 1,
+      profileId: overrides.profileId ?? 2,
+      duration: overrides.duration ?? 15,
+      routing,
+      ...(overrides.bookingToken
+        ? { bookingToken: overrides.bookingToken }
+        : {}),
+    },
+  ];
 }
 
 function createInterruptedToolContext() {

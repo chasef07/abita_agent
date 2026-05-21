@@ -785,8 +785,8 @@ Immediate sequence:
 4. Deploy.
 5. Confirm live calls contain `flow.currentState`, `flow.shadowEvents`,
    `flow.guardObservations`, stable tool argument hashes, availability search
-   counters, patient context state, empty pending-action ledgers, and
-   `mismatchCount`.
+   counters, cached availability slots, patient context state, empty
+   pending-action ledgers, and `mismatchCount`.
 6. Review 100-300 fresh calls after deploy before hard-blocking behavior.
 
 The next branch after this foundation should be **intent state plus turn-state
@@ -812,8 +812,8 @@ Required live signals:
 - active patient reference
 - patient context state
 - availability search counters
-- availability search records with cache/rejection fields present, even if the
-  current branch does not populate returned slots yet
+- availability search records with cached returned slots when availability
+  succeeds
 - pending-action ledger shape present, even if active pending actions are added
   in a later branch
 

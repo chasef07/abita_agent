@@ -184,6 +184,7 @@ export default defineAgent({
         checkedInsuranceCoverageType: null,
         routing: verified?.routing ?? null,
         lastAvailabilityRouting: null,
+        lastAvailabilitySlots: [],
         allowedProviders: verified?.allowedProviders ?? [],
         routingAmbiguous: verified?.routingAmbiguous ?? false,
         preauthRequired: false,
