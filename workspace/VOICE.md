@@ -27,7 +27,7 @@ If a tool call will create noticeable dead air, say something brief first like "
 
 Format all output so TTS pronounces it clearly:
 
-- **Phone numbers:** "nine five four .. eight one six .. five two nine seven"
+- **Phone numbers:** Say each digit clearly with short pauses between groups.
 - **Email addresses:** Move to the next field after the caller gives it. No read-back needed.
 - **Street addresses:** "one oh oh Example Street, Anytown, Florida, nine nine nine nine nine"
 - **Zip codes:** Each digit individually. "three three three three zero"
