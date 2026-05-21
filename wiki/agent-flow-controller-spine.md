@@ -771,6 +771,268 @@ Until representative shadow traces are reviewed, keep all guards report-only.
 Do not make the first enforced guard a broad workflow lock. The agent must still
 be able to answer FAQs, switch patients, and accept corrections mid-flow.
 
+## Immediate release decision
+
+Do not add the full intent controller to this branch before the foundation is
+merged. The current branch should stay a low-risk telemetry and state-foundation
+slice.
+
+Immediate sequence:
+
+1. Merge the latest `main` into `feature/flow-controller-spine`.
+2. Run the full validation bundle.
+3. Merge or PR the current spine branch.
+4. Deploy.
+5. Confirm live calls contain `flow.currentState`, `flow.shadowEvents`,
+   `flow.guardObservations`, stable tool argument hashes, availability search
+   counters, patient context state, empty pending-action ledgers, and
+   `mismatchCount`.
+6. Review 100-300 fresh calls after deploy before hard-blocking behavior.
+
+The next branch after this foundation should be **intent state plus turn-state
+injection**, not more prompt edits.
+
+## Jarvis-level roadmap
+
+The target is a stateful agent that can hold the caller's goal, active patient,
+pending side effects, and recovery path across interruptions without becoming a
+rigid workflow. The implementation should advance in these phases.
+
+### Phase 1: merge foundation
+
+Merge and deploy the current shadow spine. This phase is complete only when live
+analytics prove the new state fields exist on real calls.
+
+Required live signals:
+
+- `flow.currentState`
+- `flow.shadowEvents`
+- `flow.guardObservations`
+- `flow.mismatchCount`
+- active patient reference
+- patient context state
+- availability search counters
+- availability search records with cache/rejection fields present, even if the
+  current branch does not populate returned slots yet
+- pending-action ledger shape present, even if active pending actions are added
+  in a later branch
+
+### Phase 2: live trace review
+
+Review a fresh production sample after deployment. Start with 100-300 calls.
+
+Rank issues by:
+
+- repeated `get_availability`
+- duplicate availability signatures
+- booking after stale slots
+- verify loops
+- insurance loops
+- registration during existing-patient calls
+- multi-patient confusion
+- transfers after many tools
+
+Do not enforce from aggregate counts alone. For each proposed guard, review
+representative calls to separate real unsafe behavior from valid caller changes.
+
+### Phase 3: intent state
+
+Add an intent controller that writes `activeIntent` before side-effecting tools
+run.
+
+Intent state should classify:
+
+- `new_appointment`
+- `existing_appointment_confirm`
+- `existing_appointment_cancel`
+- `existing_appointment_reschedule`
+- `insurance_question`
+- `faq`
+- `new_patient_registration`
+- `transfer_request`
+- `unclear`
+
+Intent owns what the caller is trying to do. Flow step owns where the agent is
+inside that task. Patient ref owns who the task is about.
+
+Example target state:
+
+```txt
+activeIntent: insurance_question
+activePatientRef: caller
+activeFlow: insurance
+step: triage_visit_type
+nextAction: ask_medical_or_routine_vision
+blockedActions: add_patient, get_availability, book_appt
+```
+
+### Phase 4: turn-state injection
+
+Inject a compact state packet into each turn after the observed state is
+trustworthy. The packet should guide the model without exposing the whole state
+object.
+
+Target shape:
+
+```xml
+<turn_state>
+intent: existing_appointment_confirm
+activePatient: caller
+patientStatus: matched_not_verified
+task: appointment_management
+step: verify_patient
+nextAction: verify_or_load_appointment
+blockedActions: add_patient, get_availability, book_appt
+</turn_state>
+```
+
+Rules:
+
+- Keep the base prompt stable for caching.
+- Inject dynamic state later in context.
+- Include `nextAction` and `blockedActions`.
+- Do not inject raw transcripts or raw tool output.
+- Keep it short enough for voice latency.
+
+### Phase 5: first soft guard
+
+Enforce one narrow rule after shadow review proves low false-positive risk.
+
+Likely first candidates:
+
+- no duplicate same availability search signature
+- no repeated availability search after budget exhaustion
+- no booking against a stale or inactive slot
+- no `add_patient` unless active intent is registration and state has explicit
+  no-match/new-patient evidence
+
+The first enforced guard should return a structured `not_allowed` or safe no-op
+outcome, not throw an exception and not lock the full workflow.
+
+### Phase 6: patient-scoped tasks
+
+Make multi-patient calls first-class.
+
+Each patient context should own:
+
+- identity slots and provenance
+- verification status
+- insurance state
+- loaded appointments
+- active scheduling task
+- availability search cache
+- pending booking/cancel/add-patient actions
+
+The agent must be able to suspend one patient's task, switch to another patient,
+then return without mixing identity, insurance, availability, or booking state.
+
+### Phase 7: pending action ledger
+
+Every side effect should require a pending action with:
+
+- patient ref
+- action type
+- spoken summary
+- confirmation turn
+- source state
+- consumed flag
+- invalidation reason
+
+Applies to:
+
+- `book_appt`
+- `cancel_appt`
+- `add_patient`
+- `update_insurance`
+- `transfer_call`
+- office routing
+
+This is what prevents duplicate booking, accidental registration, and
+unconfirmed cancellations.
+
+### Phase 8: availability policy
+
+Availability becomes a controlled search instead of free-form tool repetition.
+
+Required behavior:
+
+- cache returned slots
+- reuse cached slots before searching again
+- dedupe same search signature
+- enforce a search budget
+- broaden after failed exact searches
+- invalidate on patient, visit type, insurance, office, routing, provider,
+  appointment type, or age-lane changes
+- recover cleanly after stale-slot booking errors
+
+### Phase 9: booking recovery
+
+Booking state should track:
+
+- selected slot
+- source availability search
+- appointment type id
+- routing lane
+- confirmation turn
+- attempt count
+- last error class
+
+Recovery rules:
+
+- Slot unavailable -> invalidate the slot and offer a cached alternative or
+  rerun availability.
+- Invalid appointment type -> invalidate appointment type/routing lane and
+  recompute before retry.
+- Duplicate booking against consumed action -> safe no-op.
+
+### Phase 10: eval and review loop
+
+Build evals from real calls, not imagined happy paths.
+
+Suites:
+
+- initial intent
+- existing vs new patient
+- insurance medical vs routine vision
+- Crystal River routing
+- spelling correction
+- multi-patient switching
+- availability loop prevention
+- stale-slot booking
+- cancellation confirmation
+- FAQ interruption and return
+
+Each suite should assert state, allowed tool, blocked tool, state patch, pending
+action state, and spoken response category.
+
+### Phase 11: prompt cleanup
+
+Only after code owns the rules:
+
+- remove duplicated business sequencing from prompt/runbook/tool prose
+- keep the prompt focused on voice, language, concise behavior, and objective
+- keep tool descriptions narrow and state-backed
+
+The prompt should guide how the agent sounds. Code should own what is allowed.
+
+### Phase 12: Jarvis-level completion criteria
+
+Call the agent "Jarvis-level" only when these are true in live traces and evals:
+
+- First-turn latency remains acceptable.
+- The agent tracks current caller intent.
+- The agent tracks the active patient.
+- The agent can switch patients and return.
+- Spelled and corrected facts override stale transcript guesses.
+- The agent does not repeat tools blindly.
+- Availability loops materially drop from the 1000-call baseline.
+- Booking happens once against the current slot and current patient.
+- Stale-slot booking errors trigger recovery, not repeated booking attempts.
+- Side effects require confirmed pending actions.
+- The model receives a small state packet each turn.
+- Evals cover the major failure modes.
+- Transfers and unresolved calls do not rise.
+
 ## Path to completion
 
 1. **Shadow spine** — current branch.
