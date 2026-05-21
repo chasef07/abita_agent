@@ -187,6 +187,17 @@ export function matchInsurancePlan(
 
   if (bestAliasMatch) {
     const { rule, alias: matchedAlias } = bestAliasMatch;
+    const rejectedAliasMatch = findRejectedAliasMatch(
+      reference.aliasRules,
+      normalizedQuery,
+    );
+    if (
+      rejectedAliasMatch &&
+      bestAliasMatch.rule.status !== "not_accepted" &&
+      normalizeInsuranceText(rejectedAliasMatch.alias).length > 0
+    ) {
+      return buildAliasMatchResult(query, rejectedAliasMatch);
+    }
     if (rule.status === "needs_clarification") {
       const clarificationNeeded =
         rule.clarificationNeeded ??
@@ -206,22 +217,7 @@ export function matchInsurancePlan(
       };
     }
 
-    const callerPlan = rule.callerPlan ?? rule.family ?? matchedAlias;
-    return {
-      status: rule.status,
-      query,
-      matchedPlan: null,
-      matchedAlias,
-      matchedFamily: rule.family ?? null,
-      canProceed: rule.canProceed,
-      needsExactPlanName: rule.needsExactPlanName,
-      clarificationNeeded: null,
-      callerMessage:
-        rule.callerMessage ??
-        (rule.status === "accepted"
-          ? buildAcceptedCallerMessage(callerPlan)
-          : `we don't accept ${callerPlan}.`),
-    };
+    return buildAliasMatchResult(query, bestAliasMatch);
   }
 
   return {
@@ -235,6 +231,58 @@ export function matchInsurancePlan(
     clarificationNeeded: "the exact plan name from the insurance card",
     callerMessage:
       "I can't confirm that plan from the shorthand alone. If you have the insurance card, I can check the exact plan name.",
+  };
+}
+
+function findRejectedAliasMatch(
+  rules: InsuranceAliasRule[],
+  normalizedQuery: string,
+): { rule: InsuranceAliasRule; alias: string; normalizedAlias: string } | null {
+  let rejectedMatch: {
+    rule: InsuranceAliasRule;
+    alias: string;
+    normalizedAlias: string;
+  } | null = null;
+
+  for (const rule of rules) {
+    if (rule.status !== "not_accepted") continue;
+    for (const alias of rule.aliases) {
+      const normalizedAlias = normalizeInsuranceText(alias);
+      if (!normalizedAlias || !normalizedQuery.includes(normalizedAlias)) {
+        continue;
+      }
+      if (
+        !rejectedMatch ||
+        normalizedAlias.length > rejectedMatch.normalizedAlias.length
+      ) {
+        rejectedMatch = { rule, alias, normalizedAlias };
+      }
+    }
+  }
+
+  return rejectedMatch;
+}
+
+function buildAliasMatchResult(
+  query: string,
+  match: { rule: InsuranceAliasRule; alias: string },
+): InsuranceLookupResult {
+  const { rule, alias: matchedAlias } = match;
+  const callerPlan = rule.callerPlan ?? rule.family ?? matchedAlias;
+  return {
+    status: rule.status,
+    query,
+    matchedPlan: null,
+    matchedAlias,
+    matchedFamily: rule.family ?? null,
+    canProceed: rule.canProceed,
+    needsExactPlanName: rule.needsExactPlanName,
+    clarificationNeeded: null,
+    callerMessage:
+      rule.callerMessage ??
+      (rule.status === "accepted"
+        ? buildAcceptedCallerMessage(callerPlan)
+        : `we don't accept ${callerPlan}.`),
   };
 }
 
