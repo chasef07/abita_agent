@@ -24,7 +24,6 @@ import {
   guardToolCall,
   nextPatientFlowStep,
   normalizeSchedulingRouting,
-  recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
   recordPatientVerificationAttempt,
   recordVerifiedPatient,
@@ -94,20 +93,6 @@ export interface CallerMultipleMatches {
 
 export type PhoneLookupResult = CallerMatch | CallerMultipleMatches | null;
 
-export interface StoredAvailabilitySlot {
-  slotId: string;
-  spoken: string;
-  provider: string;
-  date: string;
-  time: string;
-  datetime: string;
-  bookingToken?: string;
-  columnId?: number;
-  profileId?: number;
-  duration?: number;
-  routing: string | null;
-}
-
 export interface CallState {
   flow: CallFlowState;
   flowGuardObservations: GuardObservation[];
@@ -129,7 +114,6 @@ export interface CallState {
   checkedInsuranceCoverageType: InsuranceCoverageType | null;
   routing: string | null;
   lastAvailabilityRouting: string | null;
-  lastAvailabilitySlots: StoredAvailabilitySlot[];
   allowedProviders: string[];
   routingAmbiguous: boolean;
   preauthRequired: boolean;
@@ -258,7 +242,7 @@ function applyPatientResult(state: CallState, result: any): void {
   state.checkedInsuranceCoverageType =
     result.routing === "optical_only" ? "routine_vision" : null;
   state.routing = result.routing ?? null;
-  clearAvailabilitySelection(state);
+  state.lastAvailabilityRouting = null;
   state.allowedProviders = result.allowedProviders ?? [];
   state.routingAmbiguous = result.routingAmbiguous ?? false;
   state.preauthRequired = result.preauthRequired ?? false;
@@ -293,119 +277,10 @@ function routingForAvailability(
   return state.routing;
 }
 
-function clearAvailabilitySlots(state: CallState): void {
-  state.lastAvailabilitySlots = [];
-}
-
-function clearAvailabilitySelection(state: CallState): void {
-  clearAvailabilitySlots(state);
-  state.lastAvailabilityRouting = null;
-}
-
-function slotIdForIndex(index: number): string {
-  if (index >= 0 && index < 26) {
-    return String.fromCharCode("A".charCodeAt(0) + index);
-  }
-  return `slot_${index + 1}`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function publicProviderName(provider: string): string {
-  return provider
-    .replace("Dr. Austin Bach (Overflow)", "Dr. Bach")
-    .replace("Dr. Austin Bach", "Dr. Bach")
-    .replace("Dr. J. Licht", "Dr. Licht")
-    .replace("Dr. D. Noel", "Dr. Noel");
-}
-
-function slotDateFromDatetime(datetime: string): string {
-  return datetime.split("T")[0] ?? datetime;
-}
-
-function normalizeSlotId(slotId: string): string {
-  return slotId.trim().toUpperCase();
-}
-
-function storeAvailabilitySlots(
-  state: CallState,
-  rawResponse: unknown,
-  routing: string | null,
-): unknown {
-  if (!isRecord(rawResponse) || !Array.isArray(rawResponse.slots)) {
-    clearAvailabilitySlots(state);
-    return rawResponse;
-  }
-
-  const storedSlots: StoredAvailabilitySlot[] = [];
-  const modelSlots = rawResponse.slots.map((slot, index) => {
-    if (!isRecord(slot)) return slot;
-    const provider =
-      typeof slot.provider === "string"
-        ? publicProviderName(slot.provider)
-        : "";
-    const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
-    const time = typeof slot.time === "string" ? slot.time : "";
-    const date = slotDateFromDatetime(datetime);
-    const slotId = slotIdForIndex(index);
-    const spoken = [date, time, provider ? `with ${provider}` : ""]
-      .filter(Boolean)
-      .join(" ");
-
-    const storedSlot: StoredAvailabilitySlot = {
-      slotId,
-      spoken,
-      provider,
-      date,
-      time,
-      datetime,
-      routing,
-    };
-    if (typeof slot.bookingToken === "string") {
-      storedSlot.bookingToken = slot.bookingToken;
-    }
-    if (typeof slot.columnId === "number") storedSlot.columnId = slot.columnId;
-    if (typeof slot.profileId === "number")
-      storedSlot.profileId = slot.profileId;
-    if (typeof slot.duration === "number") storedSlot.duration = slot.duration;
-    storedSlots.push(storedSlot);
-
-    return {
-      slotId,
-      spoken,
-      provider,
-      date,
-      time,
-    };
-  });
-
-  state.lastAvailabilitySlots = storedSlots;
-  recordAvailabilityCachedSlots(state.flow, storedSlots);
-  return {
-    ...rawResponse,
-    slots: modelSlots,
-  };
-}
-
-function selectedAvailabilitySlot(
-  state: CallState,
-  slotId: string,
-): StoredAvailabilitySlot | null {
-  const normalized = normalizeSlotId(slotId);
-  return (
-    state.lastAvailabilitySlots.find(
-      (slot) => normalizeSlotId(slot.slotId) === normalized,
-    ) ?? null
-  );
-}
-
 function ensureRoutineVisionOffice(state: CallState): void {
   if (state.checkedInsuranceCoverageType !== "routine_vision") return;
   if (!getOfficeConfig(state.officeKey).features.routeRoutineVisionToSpringHill)
     return;
-  clearAvailabilitySelection(state);
   state.officeKey = "spring-hill";
   state.amdOfficePhone = getSpringHillOfficePhone();
   state.flow.officeKey = "spring-hill";
@@ -666,7 +541,6 @@ After response: session state updates automatically. If preauthRequired, schedul
         result.allowedProviders ?? state.allowedProviders;
       state.routingAmbiguous = result.routingAmbiguous ?? false;
       state.preauthRequired = result.preauthRequired ?? false;
-      clearAvailabilitySelection(state);
     }
     return result;
   },
@@ -714,7 +588,7 @@ After response: check if date shifted vs requested — tell caller if different.
       routing: effectiveRouting,
       date,
     });
-    return storeAvailabilitySlots(state, result, effectiveRouting);
+    return result;
   },
 });
 
@@ -807,16 +681,31 @@ Only save these two fields: appointment reason and referring doctor. If there is
 
 // --- book_appt ---
 export const book_appt = llm.tool({
-  description: `Books an appointment using slotId from the latest get_availability response. Patient ID is read from session state automatically.
+  description: `Books an appointment. Pass columnId, profileId, startDatetime, and duration from get_availability. Patient ID is read from session state automatically.
 
-Select appointmentTypeId only from the allowed enum based on office, patient status, age, routing lane, and visit type. Availability does not return appointmentTypeId, so do not claim it came from the slot.
+Use the same routing lane that produced the selected slot. Select appointmentTypeId only from the allowed enum based on office, patient status, age, routing lane, and visit type. Availability does not return appointmentTypeId, so do not claim it came from the slot.
 
-The slot offer is the confirmation — if the caller said yes, book that slotId. If it fails because the slot is unavailable, call get_availability again before trying another slot.`,
+The slot offer is the confirmation — if the caller said yes, book it. If fails, retry once. If still fails, offer different time or transfer.`,
   parameters: z.object({
-    slotId: z
+    columnId: z
+      .number()
+      .describe("columnId of the selected provider from get_availability"),
+    profileId: z
+      .number()
+      .describe("profileId of the selected provider from get_availability"),
+    startDatetime: z
       .string()
-      .describe("slotId of the caller-confirmed slot from get_availability"),
+      .describe("Slot datetime from get_availability, format YYYY-MM-DDTHH:MM"),
+    duration: z
+      .number()
+      .describe("Slot duration in minutes from get_availability"),
     appointmentTypeId: appointmentTypeIdSchema,
+    routing: z
+      .enum(["bach_only", "bach_licht", "all_three", "optical_only"])
+      .optional()
+      .describe(
+        "Same routing used for get_availability. Required as optical_only for routine vision slots.",
+      ),
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
@@ -827,61 +716,21 @@ The slot offer is the confirmation — if the caller said yes, book that slotId.
       return "Booking was interrupted before it could be submitted. Please confirm the appointment slot again.";
     }
     ensureRoutineVisionOffice(state);
-    const selectedSlot = selectedAvailabilitySlot(state, params.slotId);
-    if (!selectedSlot) {
-      return `ERROR: Slot ${params.slotId} is not available from the latest availability search. Call get_availability again and offer the returned slotId choices.`;
-    }
     const routing =
-      selectedSlot.routing ??
       state.lastAvailabilityRouting ??
-      routingForAvailability(state);
-    const usedBookingToken = Boolean(selectedSlot.bookingToken);
-    let slotPayload: Record<string, unknown>;
-    if (selectedSlot.bookingToken) {
-      slotPayload = { bookingToken: selectedSlot.bookingToken };
-    } else if (
-      selectedSlot.columnId &&
-      selectedSlot.profileId &&
-      selectedSlot.datetime &&
-      selectedSlot.duration
-    ) {
-      slotPayload = {
-        columnId: selectedSlot.columnId,
-        profileId: selectedSlot.profileId,
-        startDatetime: selectedSlot.datetime,
-        duration: selectedSlot.duration,
-      };
-    } else {
-      clearAvailabilitySlots(state);
-      return "ERROR: The selected slot is missing booking details. Call get_availability again and choose one of the returned slots.";
-    }
+      routingForAvailability(state, params.routing);
     const body = {
-      ...slotPayload,
-      appointmentTypeId: params.appointmentTypeId,
+      ...params,
       patientId: state.patientId,
       ...(state.patientName ? { patientName: state.patientName } : {}),
       ...(state.dob ? { dob: state.dob } : {}),
       ...(routing ? { routing } : {}),
     };
-    const result = await callApi(
+    return callApi(
       "/api/appointment/book",
       body,
       getAmdOfficeForToolCall(state),
     );
-    if (isRecord(result)) {
-      const message =
-        typeof result.message === "string" ? result.message.toLowerCase() : "";
-      const invalidatesSelection =
-        result.status === "booked" ||
-        result.outcome === "slot_unavailable" ||
-        result.outcome === "invalid_booking_token" ||
-        (usedBookingToken && result.status === "error") ||
-        message.includes("slot is no longer available");
-      if (invalidatesSelection) {
-        clearAvailabilitySelection(state);
-      }
-    }
-    return result;
   },
 });
 
@@ -895,7 +744,6 @@ Use this when the caller reached Crystal River but the visit must be handled thr
     const state = getState(ctx);
     observeGuardOnly(state, "route_to_spring_hill");
     const springHillOffice = getSpringHillOfficePhone();
-    clearAvailabilitySelection(state);
     state.officeKey = "spring-hill";
     state.amdOfficePhone = springHillOffice;
     state.flow.officeKey = "spring-hill";
