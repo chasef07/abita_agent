@@ -32,7 +32,87 @@ export type FlowStep =
 
 export type FlowLanguage = "en" | "es";
 
-export type PatientStatus = "unknown" | "matched" | "verified" | "new";
+export type IntentKind =
+  | "new_appointment"
+  | "existing_appointment_confirm"
+  | "existing_appointment_cancel"
+  | "existing_appointment_reschedule"
+  | "insurance_question"
+  | "faq"
+  | "new_patient_registration"
+  | "transfer_request"
+  | "unclear";
+
+export type PatientStatus =
+  | "unknown"
+  | "candidate"
+  | "matched"
+  | "verified"
+  | "new"
+  | "created";
+
+export type PatientRef = string;
+
+export type PatientRelationshipToCaller =
+  | "self"
+  | "child"
+  | "parent"
+  | "spouse"
+  | "other_family"
+  | "other"
+  | "unknown";
+
+export type TrackedSlotSource =
+  | "phone_lookup"
+  | "caller_spoken"
+  | "caller_spelled"
+  | "tool_result"
+  | "agent_inferred";
+
+export interface TrackedSlot {
+  value: string;
+  source: TrackedSlotSource;
+  confidence: "low" | "medium" | "high";
+  confirmed: boolean;
+  turnId?: string;
+}
+
+export interface CallerAppointment {
+  id: number;
+  date: string;
+  time: string;
+  provider: string;
+  type: string;
+  facility: string;
+  confirmed: boolean;
+}
+
+export interface InsuranceContext {
+  plan?: TrackedSlot;
+  coverageType?: InsuranceCoverageType;
+  canonicalPlan?: string;
+  checkedAtTurnId?: string;
+}
+
+export interface PatientContext {
+  ref: PatientRef;
+  status: PatientStatus;
+  relationshipToCaller?: PatientRelationshipToCaller;
+  firstName?: TrackedSlot;
+  lastName?: TrackedSlot;
+  dob?: TrackedSlot;
+  phone?: TrackedSlot;
+  patientId?: string;
+  verificationAttempts: number;
+  lastVerifiedArgsHash?: string;
+  lastNoMatchReason?: string;
+  canonicalNameSource?: "phone_lookup" | "caller_spelled" | "caller_spoken";
+  spellingConfirmed?: boolean;
+  insurance?: InsuranceContext;
+  appointments: CallerAppointment[];
+  activeSchedulingTaskId?: string;
+  activeAppointmentTaskIds: string[];
+}
 
 export type VisitType =
   | "medical"
@@ -53,11 +133,124 @@ export type ConfirmationType =
   | "transfer"
   | "end_call";
 
+export interface TaskFrame {
+  id: string;
+  kind:
+    | "schedule"
+    | "appointment_management"
+    | "insurance"
+    | "faq"
+    | "transfer";
+  patientRef?: PatientRef;
+  step: FlowStep;
+  returnTo?: string;
+  createdAt: number;
+}
+
+export type PendingAction =
+  | {
+      id: string;
+      type: "book_appt";
+      patientRef: PatientRef;
+      slotHash: string;
+      appointmentTypeId: number;
+      officeKey: OfficeKey;
+      routing?: SchedulingRouting;
+      availabilitySearchId: string;
+      spokenSummary: string;
+      confirmed: boolean;
+      consumed: boolean;
+      confirmationTurnId?: string;
+      createdTurnId: string;
+      lastBookingAttemptHash?: string;
+      bookingAttemptCount: number;
+      lastBookingErrorClass?:
+        | "slot_unavailable"
+        | "invalid_appointment_type"
+        | "duplicate_same_slot"
+        | "middleware_error"
+        | "unknown";
+      slotInvalidated: boolean;
+    }
+  | {
+      id: string;
+      type: "cancel_appt";
+      patientRef: PatientRef;
+      appointmentId: number;
+      spokenSummary: string;
+      confirmed: boolean;
+      consumed: boolean;
+      createdTurnId: string;
+    }
+  | {
+      id: string;
+      type: "add_patient";
+      patientRef: PatientRef;
+      requiredFieldsComplete: boolean;
+      spokenSummary: string;
+      confirmed: boolean;
+      consumed: boolean;
+      createdTurnId: string;
+    }
+  | {
+      id: string;
+      type: "update_insurance" | "transfer_call" | "route_office";
+      patientRef?: PatientRef;
+      spokenSummary: string;
+      confirmed: boolean;
+      consumed: boolean;
+      createdTurnId: string;
+    };
+
+export type AvailabilityFailureReason =
+  | "no_slots"
+  | "caller_rejected"
+  | "slot_unavailable"
+  | "invalid_appointment_type"
+  | "duplicate_search"
+  | "budget_exhausted";
+
+export interface CachedSlot {
+  slotHash: string;
+  startDatetime?: string;
+  columnId?: number;
+  profileId?: number;
+  duration?: number;
+  appointmentTypeId?: number;
+}
+
+export interface AvailabilitySearch {
+  id: string;
+  patientRef: PatientRef;
+  officeKey: OfficeKey;
+  visitType?: VisitType;
+  coverageType?: InsuranceCoverageType;
+  routing?: SchedulingRouting;
+  appointmentTypeId?: number;
+  requestedWindow?: string;
+  searchedKeys: string[];
+  cachedSlots: CachedSlot[];
+  rejectedSlotHashes: string[];
+  exactSearchCount: number;
+  broadenCount: number;
+  duplicateSearchCount: number;
+  maxSearches: number;
+  failureReasons: AvailabilityFailureReason[];
+  status: "active" | "exhausted" | "satisfied" | "invalidated";
+}
+
 export interface CallFlowState {
+  activeIntent: IntentKind | null;
   activeFlow: ActiveFlow;
   step: FlowStep;
   language: FlowLanguage;
   patientStatus: PatientStatus;
+  activePatientRef?: PatientRef;
+  patients: Record<PatientRef, PatientContext>;
+  taskStack: TaskFrame[];
+  currentTask?: TaskFrame;
+  pendingActions: PendingAction[];
+  availabilitySearches: AvailabilitySearch[];
   visitType?: VisitType;
   officeKey: OfficeKey;
   coverageType?: InsuranceCoverageType;

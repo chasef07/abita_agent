@@ -3,6 +3,7 @@ import {
   createInitialFlowState,
   guardToolCall,
   hashToolArgs,
+  recordAvailabilitySearch,
 } from "../flow/index.js";
 
 describe("flow report-only guards", () => {
@@ -190,6 +191,89 @@ describe("flow report-only guards", () => {
     expect(observation).toMatchObject({
       allowed: false,
       reason: "duplicate_tool_call_same_args",
+    });
+  });
+
+  it("reports duplicate availability search signatures", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.visitType = "medical";
+    flow.routing = "all_three";
+    recordAvailabilitySearch(flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      routing: "all_three",
+      date: "2026-06-01",
+    });
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "get_availability",
+      args: { date: "2026-06-01", routing: "all_three" },
+      stateFacts: { officeKey: "spring-hill" },
+    });
+
+    expect(observation).toMatchObject({
+      allowed: false,
+      reason: "availability_duplicate_search_signature",
+      availabilitySearchId: "availability_1",
+      availabilityExactSearchCount: 1,
+      availabilityDuplicateSearchCount: 1,
+    });
+  });
+
+  it("reports exhausted availability search budget", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.visitType = "medical";
+    flow.routing = "all_three";
+    for (const date of ["2026-06-01", "2026-06-02", "2026-06-03"]) {
+      recordAvailabilitySearch(flow, {
+        officeKey: "spring-hill",
+        visitType: "medical",
+        routing: "all_three",
+        date,
+      });
+    }
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "get_availability",
+      args: { date: "2026-06-04", routing: "all_three" },
+      stateFacts: { officeKey: "spring-hill" },
+    });
+
+    expect(observation).toMatchObject({
+      allowed: false,
+      reason: "availability_search_budget_exhausted",
+      availabilitySearchStatus: "exhausted",
+      availabilityExactSearchCount: 4,
+    });
+  });
+
+  it("projects availability budget status on the call that reaches the budget", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.visitType = "medical";
+    flow.routing = "all_three";
+    for (const date of ["2026-06-01", "2026-06-02"]) {
+      recordAvailabilitySearch(flow, {
+        officeKey: "spring-hill",
+        visitType: "medical",
+        routing: "all_three",
+        date,
+      });
+    }
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "get_availability",
+      args: { date: "2026-06-03", routing: "all_three" },
+      stateFacts: { officeKey: "spring-hill" },
+    });
+
+    expect(observation).toMatchObject({
+      allowed: true,
+      reason: "allowed",
+      availabilitySearchStatus: "exhausted",
+      availabilityExactSearchCount: 3,
     });
   });
 

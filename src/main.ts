@@ -160,6 +160,10 @@ export default defineAgent({
         flow: createInitialFlowState({
           officeKey: office.key,
           patientId: verified?.patientId ?? null,
+          patientName: verified?.name ?? null,
+          dob: verified?.dob ?? null,
+          callerPhone,
+          appointments: verified?.appointments ?? [],
           routing: verified?.routing ?? null,
         }),
         flowGuardObservations: [],
@@ -180,6 +184,7 @@ export default defineAgent({
         checkedInsuranceCoverageType: null,
         routing: verified?.routing ?? null,
         lastAvailabilityRouting: null,
+        lastAvailabilitySlots: [],
         allowedProviders: verified?.allowedProviders ?? [],
         routingAmbiguous: verified?.routingAmbiguous ?? false,
         preauthRequired: false,
