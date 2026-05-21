@@ -158,6 +158,21 @@
     },
     {
       "aliases": [
+        "Optimum",
+        "Optimum Healthcare",
+        "Optimum Healthplan",
+        "Optimum Healthplan Medicare",
+        "Optimum Medicare",
+        "Optimum Medicare Advantage"
+      ],
+      "status": "not_accepted",
+      "family": "Optimum Medicare Advantage",
+      "callerPlan": "Optimum",
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
         "Medicare"
       ],
       "status": "accepted",

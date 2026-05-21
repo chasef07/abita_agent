@@ -68,6 +68,7 @@ describe("insurance matcher", () => {
       "Fl Blue Select",
       "Miami Dade Ddoctors Health",
       "Av Med Medicare Advantage",
+      "Optimum Medicare Advantage",
       "Cigna Local Plus",
       "Eye America",
       "Fl Blue HMO",
@@ -91,6 +92,24 @@ describe("insurance matcher", () => {
     const uhcMedicare = matchInsurancePlan(reference, "UHC Medicare");
     expect(uhcMedicare.status).toBe("accepted");
     expect(uhcMedicare.matchedFamily).toBe("United Healthcare AARP Medicare");
+  });
+
+  it("rejects Optimum before the generic Medicare alias can match", () => {
+    const cases = [
+      ["spring-hill", "Optimum Medicare Advantage"],
+      ["spring-hill", "Optimum"],
+      ["spring-hill", "Optimum Florida Blue California"],
+      ["crystal-river", "Optimum Medicare Advantage"],
+      ["crystal-river", "Optimum"],
+      ["crystal-river", "Optimum Florida Blue California"],
+    ] as const;
+
+    for (const [office, query] of cases) {
+      const result = matchInsurancePlanForOffice(office, query, "medical");
+      expect(result.status, `${office} ${query}`).toBe("not_accepted");
+      expect(result.canProceed, `${office} ${query}`).toBe(false);
+      expect(canonicalInsurancePlan(result), `${office} ${query}`).toBeNull();
+    }
   });
 
   it("asks for clarification on aliases middleware does not resolve safely", () => {
@@ -138,6 +157,8 @@ describe("insurance matcher", () => {
       ["Florida Blue", "Davis"],
       ["United Health Care", "Spectera"],
       ["Simply Medcaid", "iCare"],
+      ["Optimum", "iCare"],
+      ["Optimum Healthcare", "iCare"],
       ["CarePlus", "Alivi"],
     ] as const;
 
