@@ -454,6 +454,20 @@
       "callerPlan": "WellCare Medicare",
       "canProceed": true,
       "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Self Pay",
+        "Self-Pay",
+        "Selfpay",
+        "Cash Pay",
+        "Cash"
+      ],
+      "status": "accepted",
+      "family": "Self Pay",
+      "callerPlan": "Self Pay",
+      "canProceed": true,
+      "needsExactPlanName": false
     }
   ],
   "acceptedPlans": [
@@ -555,7 +569,8 @@
     "WellCare",
     "WellCare Medicaid",
     "WellCare Medicare Lppo",
-    "iCare"
+    "iCare",
+    "Self Pay"
   ],
   "notAcceptedPlans": [
     "AvMed Medicare Advantage",

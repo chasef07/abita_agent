@@ -17,6 +17,7 @@ import {
   buildInsuranceToolResponse,
   canonicalInsurancePlan,
   normalizeCoverageType,
+  normalizeInsuranceText,
   matchInsurancePlanForOffice,
   type InsuranceCoverageType,
 } from "./insurance-rules.js";
@@ -477,8 +478,8 @@ Follow the registration order in the runbook. Key rules for this tool:
 - Ask "is the number you're calling from a good one on file?" If yes, omit phone and this tool will use the inbound caller number already stored in session state. If no, collect the best 10-digit phone number and pass it explicitly.
 - Email is optional. Ask once; if the caller says they do not have one, omit email and continue registration. Do not transfer just because email is missing.
 - If subscriber is "me" or "mine" = use patient name.
-- Member ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
-- Before submitting: read back name (spell last name letter by letter), DOB, insurance plan, and member ID. Wait for confirmation.
+- Member ID is required unless the caller is self-pay. For self-pay, use subscriberName as the patient name and subscriberNum "self pay". If an insured caller does not have their card, offer to hold.
+- Before submitting: read back name (spell last name letter by letter), DOB, insurance plan, and member ID when applicable. Wait for confirmation.
 
 After response: if routing "not_accepted", tell them. If preauthRequired, scheduling starts two weeks out. Go straight to scheduling — don't check appointments for a new patient.
 
@@ -509,12 +510,13 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
     insurance: z.string().describe("Insurance carrier name"),
     subscriberName: z
       .string()
-      .describe("Name of the person on the insurance policy"),
-    subscriberNum: z.string().describe("Insurance subscriber/member ID number"),
+      .describe("Name of the person on the insurance policy; for self-pay, use the patient name"),
+    subscriberNum: z.string().describe("Insurance subscriber/member ID number; for self-pay, use self pay"),
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
     const insurance = state.checkedInsurancePlan ?? params.insurance;
+    const selfPay = normalizeInsuranceText(insurance) === "self pay";
     const phone = params.phone ?? state.callerPhone;
     if (!phone) {
       return "ERROR: No phone number is available. Ask whether the number they're calling from is good; if not, collect the best phone number.";
@@ -524,6 +526,10 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
     }
     ensureRoutineVisionOffice(state);
     const payload: Record<string, unknown> = { ...params, insurance, phone };
+    if (selfPay) {
+      payload.subscriberNum = "self pay";
+      payload.subscriberName = params.subscriberName || `${params.firstName} ${params.lastName}`;
+    }
     if (state.checkedInsuranceCoverageType === "routine_vision") {
       payload.coverageType = "routine_vision";
     }
@@ -546,15 +552,15 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
 
 // --- update_insurance ---
 export const update_insurance = llm.tool({
-  description: `Updates a verified patient's insurance. Requires verify_patient first. Confirm plan name and member ID with caller before submitting.
+  description: `Updates a verified patient's insurance. Requires verify_patient first. Confirm plan name and member ID with caller before submitting. For self-pay, do not ask for a member ID; use subscriberNum "self pay".
 
-Run check_insurance first with medical coverage and use the canonicalPlan from the latest result for the insurance value sent to middleware. Do not use update_insurance just to schedule a routine vision appointment for an existing patient; collect/check the vision insurance and schedule on the routine-vision lane instead.
+Run check_insurance first with medical coverage and use the canonicalPlan from the latest result for the insurance value sent to middleware. Do not use update_insurance just to schedule a routine vision appointment for an existing patient; collect/check the accepted vision coverage or self-pay option and schedule on the routine-vision lane instead.
 
 After response: session state updates automatically. If preauthRequired, scheduling starts two weeks out.`,
   parameters: z.object({
     insurance: z.string().describe("New insurance plan name"),
-    subscriberName: z.string().describe("Name on the insurance card"),
-    subscriberNum: z.string().describe("Member/subscriber ID from the card"),
+    subscriberName: z.string().describe("Name on the insurance card; for self-pay, use the patient name"),
+    subscriberNum: z.string().describe("Member/subscriber ID from the card; for self-pay, use self pay"),
   }),
   execute: async ({ insurance, subscriberName, subscriberNum }, { ctx }) => {
     const state = getState(ctx);
@@ -566,6 +572,10 @@ After response: session state updates automatically. If preauthRequired, schedul
       state.checkedInsuranceCoverageType === "medical"
         ? (state.checkedInsurancePlan ?? insurance)
         : insurance;
+    const subscriberNumForMiddleware =
+      normalizeInsuranceText(insuranceForMiddleware) === "self pay"
+        ? "self pay"
+        : subscriberNum;
     const payload: Record<string, unknown> = {
       patientId: state.patientId,
       ...(state.dob ? { dob: state.dob } : {}),
@@ -574,7 +584,7 @@ After response: session state updates automatically. If preauthRequired, schedul
       oldInsurance: state.insuranceCarrier ?? "",
       insurance: insuranceForMiddleware,
       subscriberName,
-      subscriberNum,
+      subscriberNum: subscriberNumForMiddleware,
     };
     const result = (await callApi(
       "/api/patient/update-insurance",
@@ -611,7 +621,7 @@ After response: check if date shifted vs requested — tell caller if different.
       .enum(["bach_only", "bach_licht", "all_three", "optical_only"])
       .optional()
       .describe(
-        "Use optical_only only for routine eye exam or glasses/contact lens prescription visits using accepted vision insurance.",
+        "Use optical_only only for routine eye exam or glasses/contact lens prescription visits using accepted vision coverage or self-pay.",
       ),
   }),
   execute: async ({ date, routing }, { ctx }) => {
@@ -831,7 +841,7 @@ export const check_insurance = llm.tool({
 
 Use after the visit type is known when a caller asks if a plan is accepted or during new-patient registration.
 Do NOT call this tool for a bare insurance question until you know whether the caller means routine vision or medical/surgical eye care. Ask whether they mean routine eye exam/glasses/contacts or medical/surgical eye care.
-The medical and routine_vision lookups can return different answers for the same plan name. Use coverageType "routine_vision" only for routine eye exam, glasses prescription, or contact lens prescription using vision insurance. Use "medical" for medical/surgical eye visits.
+The medical and routine_vision lookups can return different answers for the same plan name. Use coverageType "routine_vision" only for routine eye exam, glasses prescription, or contact lens prescription using accepted vision coverage or self-pay. Use "medical" for medical/surgical eye visits.
 If the caller gives a plan or family name that matches the insurance map, run this tool with that exact phrase.
 Do NOT force HMO, PPO, or Medicare as a default follow-up. Only ask for that kind of clarification if this tool returns clarificationNeeded.
 

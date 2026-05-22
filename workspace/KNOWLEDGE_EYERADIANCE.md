@@ -79,6 +79,10 @@ Photo ID, insurance card, list of current medications, previous eye records (if 
 - Visit costs vary based on insurance and type of appointment.
 - Coverage details are determined after insurance verification.
 
+## Billing
+
+For any billing-related question, do not transfer the caller. Tell them to reach the billing department at (786) 446-8333.
+
 ## Scope Limitation
 
 This knowledge base provides general practice information only.

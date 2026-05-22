@@ -374,6 +374,20 @@
       "callerPlan": "Eye America",
       "canProceed": false,
       "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Self Pay",
+        "Self-Pay",
+        "Selfpay",
+        "Cash Pay",
+        "Cash"
+      ],
+      "status": "accepted",
+      "family": "Self Pay",
+      "callerPlan": "Self Pay",
+      "canProceed": true,
+      "needsExactPlanName": false
     }
   ],
   "acceptedPlans": [
@@ -391,7 +405,8 @@
     "Cigna HMO",
     "Cigna Medicare Advantage",
     "Cigna Open Access",
-    "Cigna PPO"
+    "Cigna PPO",
+    "Self Pay"
   ],
   "notAcceptedPlans": [
     "Blue Select",

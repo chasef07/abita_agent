@@ -34,6 +34,7 @@ Practice Name: Abita Eye Group Sweetwater
 Address: 12750 NW 17th St, #201, Miami, FL 33182
 Email: newpatient@abitaeye.com
 Phone: (786) 465-4836
+Fax: (305) 723-1910
 
 Hours: Monday-Thursday 8:30 AM-4:30 PM. Friday 8:30 AM-2:30 PM.
 
@@ -89,7 +90,11 @@ No appointment is needed to look at glasses or have current glasses adjusted. Be
 
 Sweetwater has its own medical insurance list in the agent insurance rules. Use `check_insurance` with coverageType `medical` for medical or surgical visits.
 
-Sweetwater also supports routine vision. For routine eye exams, glasses prescriptions, or contact lens prescriptions using vision insurance, use `check_insurance` with coverageType `routine_vision`, then schedule with routing `optical_only`.
+Sweetwater also supports routine vision. For routine eye exams, glasses prescriptions, or contact lens prescriptions using accepted vision coverage or self-pay, use `check_insurance` with coverageType `routine_vision`, then schedule with routing `optical_only`.
+
+## Billing
+
+For any billing-related question, do not transfer the caller. Tell them to reach the billing department at (786) 446-8333.
 
 ## What to Bring
 

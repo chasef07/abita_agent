@@ -33,7 +33,7 @@ If a caller needs to reach the after-hours doctor, provide this number: 727-379-
 
 ## Scope of Services
 
-Spring Hill sees medical and surgical eye conditions: cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus (eye misalignment), double vision evaluation, and oculoplastic (eyelid) procedures. Spring Hill also has a routine-vision scheduling lane for routine eye exams, glasses prescriptions, and contact lens prescriptions when the caller is using accepted vision insurance. Routine optometry is age 10+. Children under 10 route to Dr. Bach on the pediatric medical lane.
+Spring Hill sees medical and surgical eye conditions: cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus (eye misalignment), double vision evaluation, and oculoplastic (eyelid) procedures. Spring Hill also has a routine-vision scheduling lane for routine eye exams, glasses prescriptions, and contact lens prescriptions when the caller is using accepted vision coverage or self-pay. Routine optometry is age 10+. Children under 10 route to Dr. Bach on the pediatric medical lane.
 
 Retina care is available at Spring Hill, but retina surgery is not performed at the office.
 
@@ -69,6 +69,10 @@ No appointment is needed for browsing frames, adjustments, or free minor repairs
 ## Glasses Warranty / Repairs
 
 Patients should bring their glasses into the Spring Hill location — staff will review and determine options in person.
+
+## Billing
+
+For any billing-related question, do not transfer the caller. Tell them to reach the billing department at (786) 446-8333.
 
 ## What to Bring
 
