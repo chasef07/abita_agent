@@ -510,8 +510,14 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
     insurance: z.string().describe("Insurance carrier name"),
     subscriberName: z
       .string()
-      .describe("Name of the person on the insurance policy; for self-pay, use the patient name"),
-    subscriberNum: z.string().describe("Insurance subscriber/member ID number; for self-pay, use self pay"),
+      .describe(
+        "Name of the person on the insurance policy; for self-pay, use the patient name",
+      ),
+    subscriberNum: z
+      .string()
+      .describe(
+        "Insurance subscriber/member ID number; for self-pay, use self pay",
+      ),
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
@@ -528,7 +534,8 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
     const payload: Record<string, unknown> = { ...params, insurance, phone };
     if (selfPay) {
       payload.subscriberNum = "self pay";
-      payload.subscriberName = params.subscriberName || `${params.firstName} ${params.lastName}`;
+      payload.subscriberName =
+        params.subscriberName || `${params.firstName} ${params.lastName}`;
     }
     if (state.checkedInsuranceCoverageType === "routine_vision") {
       payload.coverageType = "routine_vision";
@@ -559,8 +566,16 @@ Run check_insurance first with medical coverage and use the canonicalPlan from t
 After response: session state updates automatically. If preauthRequired, scheduling starts two weeks out.`,
   parameters: z.object({
     insurance: z.string().describe("New insurance plan name"),
-    subscriberName: z.string().describe("Name on the insurance card; for self-pay, use the patient name"),
-    subscriberNum: z.string().describe("Member/subscriber ID from the card; for self-pay, use self pay"),
+    subscriberName: z
+      .string()
+      .describe(
+        "Name on the insurance card; for self-pay, use the patient name",
+      ),
+    subscriberNum: z
+      .string()
+      .describe(
+        "Member/subscriber ID from the card; for self-pay, use self pay",
+      ),
   }),
   execute: async ({ insurance, subscriberName, subscriberNum }, { ctx }) => {
     const state = getState(ctx);
