@@ -33,6 +33,7 @@ import { type CallState, lookupByPhone } from "./tools.js";
 import {
   createFlowShadowPrediction,
   createInitialFlowState,
+  applyIntentStateFromTranscript,
   observeFlowToolExecution,
   type FlowShadowEvent,
   type FlowShadowPrediction,
@@ -287,6 +288,7 @@ export default defineAgent({
       session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (ev) => {
         if (ev.isFinal) {
           applySttProfile("default", "user_final");
+          applyIntentStateFromTranscript(session.userData.flow, ev.transcript);
           latestFlowShadowPrediction = createFlowShadowPrediction(
             session.userData.flow,
             ev.transcript,

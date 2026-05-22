@@ -1,12 +1,16 @@
 // agent.ts — Agent definition
 // Instructions loaded from workspace/ files, tools wired below.
 
-import { stt, voice } from "@livekit/agents";
+import { llm, stt, voice } from "@livekit/agents";
 import type { AudioFrame } from "@livekit/rtc-node";
 import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
-import type { PhoneLookupResult } from "./tools.js";
+import type { CallState, PhoneLookupResult } from "./tools.js";
 import type { VoiceLanguageRuntime } from "./language-runtime.js";
+import {
+  applyIntentStateFromTranscript,
+  compileTurnStatePacket,
+} from "./flow/index.js";
 import {
   verify_patient,
   add_patient,
@@ -15,6 +19,8 @@ import {
   confirm_appt,
   cancel_appt,
   add_patient_note,
+  confirm_side_effect_action,
+  confirm_booking_action,
   book_appt,
   check_insurance,
   lookup_knowledge,
@@ -31,6 +37,8 @@ type AgentTools = {
   confirm_appt: typeof confirm_appt;
   cancel_appt: typeof cancel_appt;
   add_patient_note: typeof add_patient_note;
+  confirm_side_effect_action: typeof confirm_side_effect_action;
+  confirm_booking_action: typeof confirm_booking_action;
   book_appt: typeof book_appt;
   check_insurance: typeof check_insurance;
   lookup_knowledge: typeof lookup_knowledge;
@@ -48,6 +56,8 @@ export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
     confirm_appt,
     cancel_appt,
     add_patient_note,
+    confirm_side_effect_action,
+    confirm_booking_action,
     book_appt,
     check_insurance,
     lookup_knowledge,
@@ -78,6 +88,23 @@ export class Agent extends voice.Agent {
     // Brief delay so the SIP audio path is fully established before speaking
     await new Promise((r) => setTimeout(r, 500));
     await this.session.say(this.greeting);
+  }
+
+  override async onUserTurnCompleted(
+    chatCtx: llm.ChatContext,
+    newMessage: llm.ChatMessage,
+  ): Promise<void> {
+    const state = this.session.userData as CallState | undefined;
+    const transcript = newMessage.textContent ?? "";
+    if (!state?.flow || !transcript) return;
+
+    applyIntentStateFromTranscript(state.flow, transcript);
+    chatCtx.addMessage({
+      role: "system",
+      content: compileTurnStatePacket(state.flow),
+      id: `flow_turn_state_${newMessage.id}`,
+      createdAt: newMessage.createdAt + 1,
+    });
   }
 
   override async sttNode(

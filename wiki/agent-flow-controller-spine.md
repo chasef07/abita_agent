@@ -619,23 +619,64 @@ Implemented:
   transfer decisions.
 - `guardToolCall` for report-only guard observations. It records whether risky
   tools would be allowed, but does not block execution.
+- `evaluateFlowToolPolicy` for pre-side-effect policy decisions before
+  middleware/SIP calls.
+- Structured `ToolOutcome` policy responses for high-confidence blocked paths:
+  bare insurance checks before visit-type triage, availability before visit
+  type, duplicate/exhausted availability searches, registration before
+  insurance, cancellation before explicit confirmation, cancellation before a
+  loaded appointment, insurance updates before verification, and booking without
+  a matching confirmed pending action.
+- Report-only availability policy state for search signatures, cached slots,
+  duplicate counts, budget exhaustion, no-slot outcomes, invalidated searches,
+  stale-slot rejection, and duplicate detection after cached slots are already
+  satisfied.
+- Booking ledger state for slot-bound pending booking actions, booking attempt
+  hashes, booking error classes, consumed actions, and appointment-type
+  invalidation. `confirm_booking_action` creates the confirmed pending action
+  before `book_appt` submits the booking.
+- Shared pending side-effect actions for cancellation, registration, insurance
+  update, office routing, and transfer. `confirm_side_effect_action` creates the
+  confirmed action before those tools run, and the policy returns safe no-op
+  outcomes for duplicate consumed actions.
+- Intent state classification and controller decisions for new appointment,
+  existing appointment lookup/cancel/reschedule, insurance question, FAQ,
+  new-patient registration, transfer request, and unclear turns.
+- Compact `<turn_state>` packet injection in `Agent.onUserTurnCompleted`, using
+  the current hidden state without injecting raw transcripts or tool output.
 - Shadow observer wiring in `src/main.ts`: final user transcripts generate
   redacted flow predictions, tool executions are compared against the latest
   prediction, and shadow events are sent in the analytics payload under `flow`.
 - Flow state hydration from patient lookup/tool results in `src/tools.ts`.
+- Active patient context is synced back into the legacy top-level tool fields
+  before patient-bound middleware calls, so resumed patient tasks use the right
+  `patientId`, name, DOB, and appointment set.
 - Tests covering flow state creation, context packet output, scheduling-path
-  decisions, report-only guards, shadow mismatches, Spanish routine vision
-  phrases, bare insurance questions, and tool-side flow-state hydration.
+  decisions, intent classification, turn-state packet output, report-only
+  guards, shadow mismatches, Spanish routine vision phrases, bare insurance
+  questions, availability/booking recovery telemetry, and tool-side flow-state
+  hydration.
 
 Important non-goals for the current branch:
 
-- No hard blocking yet.
-- No prompt injection of the flow packet yet.
+- No broad hard blocking yet; only the tested policy responses above are active.
 - No LiveKit Tasks or TaskGroup.
 - No middleware contract changes yet.
 
-The current slice is a real shadow-mode spine: it observes and records expected
-flow decisions without changing what the live model is allowed to do.
+The current slice is an active state-injection plus shared policy spine: it
+guides the model with compact hidden state, records expected flow decisions, and
+blocks high-confidence unsafe repeats/no-confirmation/precondition paths. Broad
+transcript evals are not complete yet. It is not ready for controlled real-call
+testing until the local eval gates pass.
+
+Current step as of 2026-05-22:
+
+- Phase 1 local control-plane implementation is locally green.
+- Current work step: Phase 2, local eval and validation suite.
+- Next deliverable: transcript-style evals covering multi-patient switching,
+  caller corrections, stale-slot booking, cancellation confirmation, FAQ
+  interruption/return, and transfer recovery.
+- Phase 3 controlled real-call testing is blocked until those eval gates pass.
 
 ## State packet shape
 
@@ -714,83 +755,138 @@ Responsibilities:
 
 ## Rollout posture
 
-Ship in phases:
+The rollout posture has changed: finish the full Jarvis/stateful
+implementation locally, validate it with deterministic tests and transcript
+evals, then run controlled real-call testing.
 
-1. Shadow mode: compute expected next action and guard observations, do not
-   block.
-2. Telemetry verification: prove live calls persist the new flow fields and
-   guard observations; the current 1000-call baseline had none.
-3. Availability-first report-only policy: track search signatures, budgets,
-   cached slots, duplicate searches, and stale-slot invalidation.
-4. Patient-scoped harness: add patient registry, canonical slot provenance, task
-   stack, and multi-patient switching.
-5. Booking and pending-action ledger: track confirmation, slot provenance,
-   source availability search, attempt count, and booking error class.
-6. Soft guards: return structured `not_allowed` or safe no-op outcomes instead
-   of executing unsafe side effects.
-7. First enforced path: enforce one narrow, proven guard only after real traces
-   show it has low false-positive risk.
-8. Context injection: inject compact turn-level state after the observed state
-   and guard signals are trustworthy.
-9. Prompt cleanup: remove duplicated business rules only after tests, evals, and
-   live traces prove code owns those rules.
+Build and test in this order:
 
-## Next implementation step
+1. Complete the local control plane:
+   - intent state
+   - patient-scoped state
+   - canonical slot provenance and correction handling
+   - task stack and active task ownership
+   - pending action ledger
+   - availability policy
+   - booking and cancellation recovery
+   - structured tool outcomes
+   - compact turn-state injection
+   - prompt/tool prose cleanup after code owns the rules
+2. Add a single tool policy layer for risky tools. The policy layer may return
+   structured `not_allowed` or safe no-op outcomes, but it must be unit-tested
+   before any real-call run.
+3. Build transcript-style eval suites from known failure modes before deploying
+   the completed implementation.
+4. Run the full local validation bundle:
+   - typecheck
+   - unit tests
+   - lint
+   - format check
+   - transcript evals
+   - focused policy/side-effect tests
+5. Deploy to a controlled real-call test window with explicit rollback criteria.
+6. Review real calls, latency, transfers, unresolved calls, tool loops, and bad
+   side effects before broadening traffic.
 
-The next step is not prompt cleanup. It is **deployable shadow telemetry plus
-availability-first report-only hardening**.
+Real-call testing is the validation phase for the completed stateful
+implementation, not the point where missing control-plane pieces are first
+designed.
 
-The 1000-call review gives a strong baseline, but it cannot prove guard
-false-positive rates because those calls had no `flow` telemetry. Build the
-next slice in this order:
+## Next Implementation Step
 
-1. Deploy or otherwise verify that new calls persist `flow.shadowEvents`,
-   `flow.guardObservations`, `flow.mismatchCount`, stable tool argument hashes,
-   availability counters, pending action status, and patient/task identifiers.
-2. Add report-only availability policy state: search signatures, cached slots,
-   rejected slot hashes, exact search count, broaden count, duplicate count, and
-   budget status.
-3. Add report-only booking ledger state: selected slot hash, appointment type,
-   source availability search id, confirmation turn, attempt hash, attempt
-   count, and booking error class.
-4. Add patient-scoped canonical identity state for verification, spelling
-   corrections, and multi-patient switching.
-5. Review representative live traces from the highest-risk buckets before any
-   hard blocking: availability loops, duplicate searches, booking errors,
-   verification loops, insurance loops, and multi-patient calls.
-6. Enforce only the narrow guard with the cleanest shadow evidence. Based on the
-   current baseline, duplicate or over-budget availability is the leading
-   candidate to investigate, while Crystal River routine-vision routing remains
-   a good candidate if traces show low false-positive risk.
-7. Add a soft `not_allowed` or safe no-op response for that one guard only.
-8. Add tests proving the guard blocks the unsafe action, preserves valid
-   interruptions, and returns the next safe step.
+The next step is **full local implementation**, not another shadow-only slice.
 
-Until representative shadow traces are reviewed, keep all guards report-only.
+Remaining implementation order after the alignment review:
+
+1. **Finish pending-action creation and lifecycle**
+   - booking now creates a pending action from explicit confirmation through
+     `confirm_booking_action`; extend the same pattern to other side effects
+   - cancellation, registration, insurance-update, route, and transfer now use
+     `confirm_side_effect_action`
+   - consume successful actions and return safe no-op outcomes for duplicate
+     consumed actions
+   - cancel or rebuild pending actions when dependent state changes
+
+2. **Complete availability policy**
+   - reuse cached slots before searching again
+   - block or no-op duplicate same search signatures, including after a
+     successful cached-slot result
+   - enforce search budget and broaden/ask/transfer recovery
+   - keep no-slot, rejected-slot, stale-slot, and exhausted-state recovery
+     explicit
+
+3. **Intent/task split cleanup**
+   - keep appointment lookup, cancellation, and reschedule as separate
+     controller decisions
+   - cover FAQ interruption and return-to-task behavior
+   - keep transfer request distinct from office routing
+
+4. **Patient-scoped state model**
+   - active patient registry
+   - relationship to caller
+   - per-patient identity, insurance, appointments, scheduling task, and
+     availability cache
+   - explicit multi-patient switching and return
+
+5. **Canonical verification and correction handling**
+   - build `verify_patient`, `add_patient`, and `book_appt` arguments from
+     canonical patient state
+   - treat caller-spelled names as authoritative
+   - invalidate downstream state when patient, DOB, phone, visit type,
+     insurance, office, routing, provider, appointment type, or slot changes
+
+6. **Booking and cancellation policy**
+   - booking must match active patient, current slot, current routing lane,
+     appointment type, and source availability search
+   - slot-unavailable errors must invalidate the slot and recover to another
+     cached slot or new availability
+   - invalid appointment-type errors must invalidate the routing/appointment
+     lane before retry
+   - cancellation must require loaded appointment and explicit confirmation
+
+7. **Structured tool outcomes**
+   - normalize risky tool results into `ToolOutcome`
+   - return concise model-visible summaries while storing full state internally
+
+8. **Transcript eval harness**
+   - cover new appointment, existing appointment, cancellation, reschedule,
+     insurance medical/routine triage, Crystal River routing, new patient
+     registration, multi-patient switching, corrections, availability loops,
+     stale-slot booking, cancellation confirmation, FAQ interruption, and
+     transfer recovery
+
+9. **Real-call test runbook**
+   - define test window, monitored numbers/offices, success metrics, stop
+     conditions, rollback command, and post-test review checklist
+
+Until pending-action lifecycle and transcript evals pass locally, do not run
+real-call tests. During local implementation, hard policies may be enabled only
+when they return safe caller-facing outcomes and have focused tests.
 
 Do not make the first enforced guard a broad workflow lock. The agent must still
 be able to answer FAQs, switch patients, and accept corrections mid-flow.
 
 ## Immediate release decision
 
-Do not add the full intent controller to this branch before the foundation is
-merged. The current branch should stay a low-risk telemetry and state-foundation
-slice.
+The previous immediate-release decision is superseded. Do not merge this branch
+as only a shadow foundation if the goal is now to finish the full stateful
+agent before real-call testing.
 
 Immediate sequence:
 
-1. Merge the latest `main` into `feature/flow-controller-spine`.
-2. Run the full validation bundle.
-3. Merge or PR the current spine branch.
-4. Deploy.
-5. Confirm live calls contain `flow.currentState`, `flow.shadowEvents`,
-   `flow.guardObservations`, stable tool argument hashes, availability search
-   counters, cached availability slots, patient context state, empty
-   pending-action ledgers, and `mismatchCount`.
-6. Review 100-300 fresh calls after deploy before hard-blocking behavior.
+1. Keep `feature/flow-controller-spine` as the full implementation branch.
+2. Finish the pre-side-effect policy layer, availability policy, intent/task
+   split, patient-scoped state, canonical corrections, pending actions,
+   booking/cancellation policy, structured outcomes, evals, and the real-call
+   runbook.
+3. Run the full validation bundle locally.
+4. Open one reviewable PR that clearly labels which parts are active policy,
+   which are soft guards, and which are telemetry-only.
+5. Deploy to a controlled real-call test window.
+6. Review real-call traces before broad production traffic.
 
-The next branch after this foundation should be **intent state plus turn-state
-injection**, not more prompt edits.
+Any hard side-effect prevention must have tests and a safe caller-facing outcome
+before it is enabled for real calls.
 
 ## Jarvis-level roadmap
 
@@ -798,28 +894,43 @@ The target is a stateful agent that can hold the caller's goal, active patient,
 pending side effects, and recovery path across interruptions without becoming a
 rigid workflow. The implementation should advance in these phases.
 
-### Phase 1: merge foundation
+### Phase 1: full local control plane
 
-Merge and deploy the current shadow spine. This phase is complete only when live
-analytics prove the new state fields exist on real calls.
+Complete the stateful implementation before real-call testing.
 
-Required live signals:
+Required local signals:
 
 - `flow.currentState`
+- `flow.activeIntent`
 - `flow.shadowEvents`
 - `flow.guardObservations`
 - `flow.mismatchCount`
 - active patient reference
-- patient context state
-- availability search counters
-- availability search records with cached returned slots when availability
-  succeeds
-- pending-action ledger shape present, even if active pending actions are added
-  in a later branch
+- patient registry with per-patient context
+- active task/task stack state
+- availability search counters and cached slots
+- pending-action ledger with active and consumed actions
+- booking/cancellation recovery state
+- compact `<turn_state>` injection
+- structured tool outcomes for risky tools
 
-### Phase 2: live trace review
+### Phase 2: local eval and validation suite
 
-Review a fresh production sample after deployment. Start with 100-300 calls.
+Build and pass the local validation layer before controlled real-call testing.
+
+Required coverage:
+
+- unit tests for state transitions and policy decisions
+- transcript-style evals for known failure modes
+- side-effect tests proving unsafe duplicate calls return safe no-op or
+  `not_allowed` outcomes
+- latency-sensitive checks around turn-state packet size
+- regression tests for current successful scheduling/routing flows
+
+### Phase 3: controlled real-call test
+
+Deploy only after the full local control plane and eval suite pass. Start with a
+controlled real-call window, not broad production traffic.
 
 Rank issues by:
 
@@ -832,10 +943,11 @@ Rank issues by:
 - multi-patient confusion
 - transfers after many tools
 
-Do not enforce from aggregate counts alone. For each proposed guard, review
-representative calls to separate real unsafe behavior from valid caller changes.
+Review representative calls to separate real unsafe behavior from valid caller
+changes. Stop or roll back if unresolved calls, transfers, latency, or bad side
+effects rise.
 
-### Phase 3: intent state
+### Phase 4: intent state
 
 Add an intent controller that writes `activeIntent` before side-effecting tools
 run.
@@ -866,7 +978,7 @@ nextAction: ask_medical_or_routine_vision
 blockedActions: add_patient, get_availability, book_appt
 ```
 
-### Phase 4: turn-state injection
+### Phase 5: turn-state injection
 
 Inject a compact state packet into each turn after the observed state is
 trustworthy. The packet should guide the model without exposing the whole state
@@ -894,9 +1006,10 @@ Rules:
 - Do not inject raw transcripts or raw tool output.
 - Keep it short enough for voice latency.
 
-### Phase 5: first soft guard
+### Phase 6: first soft guard
 
-Enforce one narrow rule after shadow review proves low false-positive risk.
+Enable soft guards only after local tests pass and the controlled real-call test
+has an explicit rollback path.
 
 Likely first candidates:
 
@@ -909,7 +1022,7 @@ Likely first candidates:
 The first enforced guard should return a structured `not_allowed` or safe no-op
 outcome, not throw an exception and not lock the full workflow.
 
-### Phase 6: patient-scoped tasks
+### Phase 7: patient-scoped tasks
 
 Make multi-patient calls first-class.
 
@@ -926,7 +1039,7 @@ Each patient context should own:
 The agent must be able to suspend one patient's task, switch to another patient,
 then return without mixing identity, insurance, availability, or booking state.
 
-### Phase 7: pending action ledger
+### Phase 8: pending action ledger
 
 Every side effect should require a pending action with:
 
@@ -950,7 +1063,7 @@ Applies to:
 This is what prevents duplicate booking, accidental registration, and
 unconfirmed cancellations.
 
-### Phase 8: availability policy
+### Phase 9: availability policy
 
 Availability becomes a controlled search instead of free-form tool repetition.
 
@@ -965,7 +1078,7 @@ Required behavior:
   appointment type, or age-lane changes
 - recover cleanly after stale-slot booking errors
 
-### Phase 9: booking recovery
+### Phase 10: booking recovery
 
 Booking state should track:
 
@@ -985,7 +1098,7 @@ Recovery rules:
   recompute before retry.
 - Duplicate booking against consumed action -> safe no-op.
 
-### Phase 10: eval and review loop
+### Phase 11: eval and review loop
 
 Build evals from real calls, not imagined happy paths.
 
@@ -1005,7 +1118,7 @@ Suites:
 Each suite should assert state, allowed tool, blocked tool, state patch, pending
 action state, and spoken response category.
 
-### Phase 11: prompt cleanup
+### Phase 12: prompt cleanup
 
 Only after code owns the rules:
 
@@ -1015,7 +1128,7 @@ Only after code owns the rules:
 
 The prompt should guide how the agent sounds. Code should own what is allowed.
 
-### Phase 12: Jarvis-level completion criteria
+### Phase 13: Jarvis-level completion criteria
 
 Call the agent "Jarvis-level" only when these are true in live traces and evals:
 
@@ -1035,202 +1148,116 @@ Call the agent "Jarvis-level" only when these are true in live traces and evals:
 
 ## Path to completion
 
-1. **Shadow spine** — current branch.
-   - Flow state, context compiler, `prepareSchedulingPath`, shadow predictions,
-     tool observations, analytics payload fields, and tests.
+1. **Full implementation branch**.
+   - Keep `feature/flow-controller-spine` as the full Jarvis implementation
+     branch.
+   - Current completed base: flow state, intent state, turn-state injection,
+     shadow predictions, report-only guard observations, narrow policy
+     enforcement, structured policy outcomes, availability search telemetry,
+     booking confirmation actions, shared side-effect confirmation actions, and
+     booking attempt telemetry.
+   - Current patient-state slice: same-patient verification hydration no longer
+     invalidates current availability, conflicting patient verification switches
+     to a separate patient context, caller-spelled names keep authoritative
+     provenance, relationship-to-caller is tracked on patient contexts, quick
+     questions can suspend and return to the previous patient task, resumed
+     patient tasks sync into real tool execution state, and real patient changes
+     invalidate stale availability plus pending actions.
+   - Do not split a deploy-only shadow foundation unless the rollout goal
+     changes again.
 
-2. **Flow telemetry presence check**.
-   - Confirm new production calls actually persist `flow.shadowEvents`,
-     `flow.guardObservations`, `flow.mismatchCount`, stable tool argument
-     hashes, state snapshots, and final flow outcomes.
-   - Target `>95%` telemetry presence before using live traces to choose a hard
-     enforcement candidate.
+2. **Tool policy layer**.
+   - Put risky tools through shared policy before side effects.
+   - Return allowed patches or structured `not_allowed`/safe no-op outcomes.
+   - Applies to `verify_patient`, `check_insurance`, `add_patient`,
+     `get_availability`, `book_appt`, `cancel_appt`, `update_insurance`,
+     `route_to_spring_hill`, and `transfer_call`.
+   - Current active policy blocks bare insurance checks before visit-type triage,
+     availability before visit type, duplicate/exhausted availability,
+     registration before insurance, cancellation before explicit confirmation or
+     before a loaded appointment, insurance update before verification, and
+     booking without a matching confirmed pending action.
 
-3. **Report-only guards** — current branch plus availability counters.
-   - Keep `guardToolCall` non-blocking.
-   - Record tool name, stable argument hash, allowed/blocked status, reason,
-     current flow state snapshot, patient/task identifiers, pending action id,
-     availability search id, and invalidation reason.
-   - Start with `check_insurance`, `route_to_spring_hill`, `add_patient`,
-     `get_availability`, `book_appt`, and `cancel_appt`.
+3. **Availability policy**.
+   - Reuse cached slots before another search.
+   - Dedupe search signatures.
+   - Enforce search budget and broaden/ask/transfer recovery.
+   - Track no-slot, rejected-slot, stale-slot, exhausted, and invalidated states.
 
-4. **Real call review**.
-   - Review analytics for shadow mismatches, guard violations, repeated tool
-     calls, skipped insurance checks, bad Crystal River routing, premature
-     registration, and booking before confirmation.
-   - Manually inspect representative calls before enforcement: 10 availability
-     loop calls, 10 duplicate-search calls, 10 booking-error calls, 10
-     verification-loop calls, 10 insurance-loop calls, 10 multi-patient calls,
-     and 10 existing-appointment intent calls.
+4. **Patient-scoped state and correction engine**.
+   - Implemented base: patient registry, conflicting verification switches,
+     same-patient hydration, per-patient insurance/appointment hydration,
+     canonical slots, relationship-to-caller modeling, caller-spelled
+     provenance, task suspend/return, and downstream invalidation on patient
+     changes.
+   - Remaining: broader correction invalidation for appointment, provider, and
+     task ownership changes.
 
-5. **Availability search policy**.
-   - Move this ahead of the full patient-scoped rewrite because it is the
-     highest-volume measured issue.
-   - Cache searched date/routing keys and returned slots.
-   - Reuse cached slots before calling `get_availability` again.
-   - Record exact search count, broaden count, duplicate search count, rejected
-     slot hashes, and exhausted status.
-   - Enforce a small search budget before broadening, asking a new preference,
-     or transferring.
-   - Invalidate availability on patient, visit type, insurance, office, routing,
-     provider, appointment type, or age-lane changes.
+5. **Pending action ledger**.
+   - Create confirmed pending actions before side-effect tools run.
+   - Consume successful actions and return no-op for duplicate consumed actions.
+   - Cancel or rebuild actions on patient, visit type, office, insurance,
+     routing, slot, appointment, or relationship changes.
 
-6. **Tool-call signature dedupe**.
-   - Hash normalized tool arguments without PHI.
-   - Detect same tool plus same semantic arguments within one active task.
-   - Treat duplicate `get_availability`, duplicate `book_appt`, duplicate
-     `verify_patient`, and duplicate `check_insurance` as separate metrics
-     because the recovery path differs.
+6. **Booking and cancellation recovery**.
+   - Booking must match active patient, selected slot, appointment type, routing
+     lane, source search, and confirmation.
+   - Current behavior rejects slot-unavailable errors, keeps cached alternatives
+     when available, invalidates stale/invalid appointment-type lanes, and
+     returns structured recovery outcomes.
+   - Cancellation requires a loaded appointment and explicit confirmation,
+     consumes successful or already-cancelled actions, removes cancelled
+     appointments from patient state, resumes a suspended prior task when present,
+     and returns structured retry outcomes on not-found/provider failures.
 
-7. **Patient-scoped state model**.
-   - Add patient registry, active patient reference, candidate patients from
-     phone lookup, and per-patient appointment/insurance/scheduling state.
-   - Track fact provenance for names, DOB, phone, insurance, and appointment
-     reason.
-   - Treat caller-spelled values as authoritative unless explicitly corrected.
-   - Track relationship to caller, verification attempts, last verification
-     argument hash, no-match reason, canonical name source, and active
-     appointment task ids.
+7. **Structured tool outcomes**.
+   - Normalize risky tool outputs into `ToolOutcome`.
+   - Store full state internally.
+   - Return concise model-facing summaries.
+   - Current normalized risky outputs: verification success/not-found,
+     insurance checks and route-required outcomes, registration success/failure,
+     insurance update success/failure, appointment lookup
+     success/not-found/failure, booking success/recovery/failure, cancellation
+     success/recovery/failure, patient note save outcomes, office routing, and
+     transfer success/failure.
 
-8. **Canonical verification and correction handling**.
-   - Build `verify_patient`, `add_patient`, and `book_appt` arguments from
-     canonical patient state.
-   - When the caller corrects spelling, DOB, phone, visit type, insurance,
-     office, slot, or patient relationship, update the canonical slot first and
-     invalidate dependent downstream state.
-   - Do not let a transcript-normalized value override a caller-spelled value
-     unless the caller explicitly corrects it.
+8. **Prompt and tool prose cleanup**.
+   - Remove business sequencing from prompt/runbook/tool prose only after code
+     owns it.
+   - Keep voice, tone, language switching, and current objective in the prompt.
 
-9. **Intent triage controller**.
-   - Separate new appointment, existing appointment, cancellation, reschedule,
-     insurance question, FAQ, transfer, and unclear intent before side effects.
-   - Ask one clarifying question for unclear intent.
-   - Prevent registration unless there is an explicit new-patient or no-match
-     path.
+9. **Transcript eval harness**.
+   - Cover new appointment, existing appointment, cancellation, reschedule,
+     insurance medical/routine, Crystal River routing, registration,
+     multi-patient, caller corrections, availability loops, stale-slot booking,
+     cancellation confirmation, FAQ interruption, and transfer recovery.
+   - Assert state, allowed/blocked tool, state patch, pending action,
+     availability cache, and spoken category.
 
-10. **Booking and pending-action ledger**.
-   - Require pending confirmed actions for `add_patient`, `book_appt`,
-     `cancel_appt`, `update_insurance`, `route_to_spring_hill`, and
-     `transfer_call`.
-   - Mark actions consumed after successful side effects.
-   - Return safe no-op outcomes for duplicate calls against consumed actions.
-   - Tie `book_appt` to active patient, selected slot hash, appointment type,
-     office/routing lane, source availability search id, and confirmation turn.
+10. **Local release gate**.
+    - `pnpm exec tsc --noEmit`.
+    - `pnpm test`.
+    - `pnpm exec eslint .`.
+    - `pnpm run format:check`.
+    - Transcript evals.
+    - Focused side-effect/policy tests.
+    - `git diff --check`.
 
-11. **Booking error recovery**.
-   - On slot unavailable, invalidate the selected slot and return to cached
-     alternatives or availability search.
-   - On invalid appointment type, invalidate the appointment type/routing lane
-     before another booking attempt.
-   - Record booking attempt count and last error class before blocking retries.
+11. **Real-call test runbook**.
+    - Define test window, offices/numbers, operator expectations, monitored
+      dashboards/log commands, success metrics, stop conditions, rollback
+      command, and post-call review checklist.
 
-12. **First enforced guard**.
-   - Enforce only one narrow rule first, chosen from shadow data.
-   - Leading candidates after the 1000-call baseline are duplicate/over-budget
-     availability and stale-slot booking prevention.
-   - Crystal River routine vision route-before-availability remains a good
-     candidate if live traces show low false-positive risk.
-   - Return a structured `not_allowed` outcome, not an exception.
+12. **Controlled real-call test**.
+    - Deploy the completed implementation only after the local gate passes.
+    - Review every test call at first, then a 100-300 call sample.
+    - Stop or roll back on bad side effects, latency regression, transfer spike,
+      unresolved-call spike, or wrong-office/routing failures.
 
-13. **Insurance and registration sequencing guards**.
-   - New patient scheduling cannot call `add_patient` before `check_insurance`.
-   - Routine vision must use `coverageType: "routine_vision"`.
-   - Bare insurance questions must triage medical vs routine vision first.
-   - Unclear insurance plans must not proceed to registration.
-
-14. **Scheduling sequencing guards**.
-   - No `get_availability` before visit reason.
-   - No `book_appt` before patient verification, preloaded phone-match identity,
-     or creation.
-   - No `book_appt` without recent availability and caller confirmation.
-   - No duplicate same tool/same args unless caller changed the request.
-   - No `cancel_appt` before appointment lookup and explicit cancellation
-     confirmation.
-
-15. **Context packet injection**.
-   - Inject the compiled flow packet into model-visible context after guard
-     observations look sane.
-   - Keep the base prompt stable and put dynamic state later in context.
-   - Prefer `nextAction`, missing slots, active patient, and blocked actions
-     over long prose.
-
-16. **Prompt cleanup**.
-   - Remove duplicated business sequencing from `RUNBOOK.md` and tool
-     descriptions once code owns those rules.
-   - Keep prompt content focused on voice, tone, language switching, and current
-     objective.
-
-17. **Structured tool outcomes everywhere**.
-   - Gradually normalize real tool responses into `ToolOutcome`.
-   - Suggested order after the live-call review: `get_availability`,
-     `book_appt`, `verify_patient`, `check_insurance`, `add_patient`,
-     `route_to_spring_hill`, `cancel_appt`, `lookup_knowledge`,
-     `transfer_call`.
-   - Store full structured data in state when needed; return concise
-     model-visible summaries.
-
-18. **Additional meta-tools**.
-   - Keep `prepareSchedulingPath` as the first meta-tool.
-   - Add only if repeated traces justify them: `prepareAvailabilitySearch`,
-     `prepareAppointmentBooking`, `prepareNewPatientRegistration`,
-     `prepareCancellation`, `prepareTransfer`.
-
-19. **Decision-point evals**.
-   - Build a small first suite, then expand toward a failure-mode matrix.
-   - Cover insurance/routine vision, Crystal River routing, new-patient
-     registration, existing appointments, multi-patient calls, spelled-name
-     verification, availability loop prevention, booking confirmation, booking
-     error recovery, cancellation, transfer, and side-task FAQ recovery.
-   - Assert active patient, flow step, allowed tool, blocked tool, state patch,
-     pending action state, availability cache state, and spoken response
-     category.
-
-20. **Gradual enforcement**.
-   - Enforce guards in this order only if shadow data supports the false-positive
-     risk:
-     - No duplicate same availability search signature.
-     - No repeated availability search after budget is exhausted.
-     - No booking against a slot outside the active availability search.
-     - No retry of a slot-unavailable booking without a new slot.
-     - Crystal River routine vision route before availability.
-     - No `add_patient` before insurance check.
-     - No `book_appt` before verified, preloaded phone-match, or created
-       patient.
-     - No `book_appt` before confirmation.
-     - No `cancel_appt` before cancellation confirmation.
-
-21. **Analytics visibility**.
-   - Each call should show current flow state, shadow predictions, actual tool
-     calls, guard observations, blocked actions, and final outcome.
-   - Add patient/task identifiers, pending action status, availability search
-     counters, and invalidation reasons.
-   - Keep raw PHI out of guard hashes and analytics unless explicitly required
-     by downstream review.
-
-22. **Success metrics against the 1000-call baseline**.
-   - Flow telemetry presence: from 0% to `>95%`.
-   - Availability 3+ rate: from 6.5% to `<2%`.
-   - Availability 5+ rate: from 2.5% to `<0.5%`.
-   - Duplicate availability searches: from 3.4% to `<1%`.
-   - Booking repeat attempts: from 1.1% to near zero unless the caller changed
-     slot or appointment details.
-   - Transfer after 3+ tools should fall without increasing bad bookings,
-     unresolved calls, or latency.
-
-23. **Completion criteria**.
-   - Prompt is smaller and no longer owns business sequencing.
-   - Tool results are structured.
-   - Controller owns routing and scheduling gates.
-   - Patient context owns identity, appointments, and patient-specific tasks.
-   - Pending action ledger owns side-effect confirmation and duplicate
-     prevention.
-   - Availability search policy prevents loops.
-   - Evals cover risky flows, caller corrections, booking error recovery, and
-     multi-patient switching.
-   - Live traces show fewer skipped insurance/routing/booking mistakes.
-   - Live traces show fewer repeated availability loops.
-   - Transfers and unresolved calls do not increase.
-   - No meaningful latency regression.
+13. **Production promotion**.
+    - Promote only after real-call evidence shows fewer repeated availability
+      loops, no increase in transfers/unresolved calls, no bad bookings or
+      cancellations, and acceptable latency.
 
 ## Plan review verdict
 

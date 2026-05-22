@@ -3,6 +3,7 @@ import {
   createInitialFlowState,
   guardToolCall,
   hashToolArgs,
+  recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
 } from "../flow/index.js";
 
@@ -139,6 +140,21 @@ describe("flow report-only guards", () => {
     });
   });
 
+  it("reports check_insurance before visit type or coverage type is known", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "check_insurance",
+      args: { plan: "Care Plus" },
+    });
+
+    expect(observation).toMatchObject({
+      allowed: false,
+      reason: "visit_type_required_before_insurance",
+    });
+  });
+
   it("reports booking before availability", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
     flow.patientStatus = "verified";
@@ -170,6 +186,27 @@ describe("flow report-only guards", () => {
     expect(observation).toMatchObject({
       allowed: false,
       reason: "cancel_confirmation_not_tracked",
+    });
+  });
+
+  it("reports cancellation before the appointment is loaded", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.patientStatus = "verified";
+    flow.step = "cancel";
+    flow.pendingConfirmation = {
+      type: "cancel",
+      payload: { appointmentId: 12345 },
+    };
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "cancel_appt",
+      args: { appointmentId: 12345 },
+    });
+
+    expect(observation).toMatchObject({
+      allowed: false,
+      reason: "cancel_requires_loaded_appointment",
     });
   });
 
@@ -216,6 +253,35 @@ describe("flow report-only guards", () => {
       allowed: false,
       reason: "availability_duplicate_search_signature",
       availabilitySearchId: "availability_1",
+      availabilityExactSearchCount: 1,
+      availabilityDuplicateSearchCount: 1,
+    });
+  });
+
+  it("reports duplicate availability searches even after slots were cached", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.visitType = "medical";
+    flow.routing = "all_three";
+    recordAvailabilitySearch(flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      routing: "all_three",
+      date: "2026-06-01",
+    });
+    recordAvailabilityCachedSlots(flow, [{ slotId: "A" }]);
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "get_availability",
+      args: { date: "2026-06-01", routing: "all_three" },
+      stateFacts: { officeKey: "spring-hill" },
+    });
+
+    expect(observation).toMatchObject({
+      allowed: false,
+      reason: "availability_duplicate_search_signature",
+      availabilitySearchId: "availability_1",
+      availabilitySearchStatus: "satisfied",
       availabilityExactSearchCount: 1,
       availabilityDuplicateSearchCount: 1,
     });

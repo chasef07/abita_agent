@@ -162,6 +162,8 @@ export type PendingAction =
       consumed: boolean;
       confirmationTurnId?: string;
       createdTurnId: string;
+      invalidated?: boolean;
+      invalidationReason?: string;
       lastBookingAttemptHash?: string;
       bookingAttemptCount: number;
       lastBookingErrorClass?:
@@ -177,29 +179,41 @@ export type PendingAction =
       type: "cancel_appt";
       patientRef: PatientRef;
       appointmentId: number;
+      argsHash: string;
       spokenSummary: string;
       confirmed: boolean;
       consumed: boolean;
+      confirmationTurnId?: string;
       createdTurnId: string;
+      invalidated?: boolean;
+      invalidationReason?: string;
     }
   | {
       id: string;
       type: "add_patient";
       patientRef: PatientRef;
       requiredFieldsComplete: boolean;
+      argsHash: string;
       spokenSummary: string;
       confirmed: boolean;
       consumed: boolean;
+      confirmationTurnId?: string;
       createdTurnId: string;
+      invalidated?: boolean;
+      invalidationReason?: string;
     }
   | {
       id: string;
       type: "update_insurance" | "transfer_call" | "route_office";
       patientRef?: PatientRef;
+      argsHash: string;
       spokenSummary: string;
       confirmed: boolean;
       consumed: boolean;
+      confirmationTurnId?: string;
       createdTurnId: string;
+      invalidated?: boolean;
+      invalidationReason?: string;
     };
 
 export type AvailabilityFailureReason =
@@ -209,6 +223,16 @@ export type AvailabilityFailureReason =
   | "invalid_appointment_type"
   | "duplicate_search"
   | "budget_exhausted";
+
+export type AvailabilityInvalidationReason =
+  | "patient_changed"
+  | "visit_type_changed"
+  | "insurance_changed"
+  | "office_changed"
+  | "routing_changed"
+  | "provider_restriction_changed"
+  | "appointment_type_invalid"
+  | "booking_completed";
 
 export interface CachedSlot {
   slotHash: string;
@@ -236,6 +260,7 @@ export interface AvailabilitySearch {
   duplicateSearchCount: number;
   maxSearches: number;
   failureReasons: AvailabilityFailureReason[];
+  lastInvalidationReason?: AvailabilityInvalidationReason;
   status: "active" | "exhausted" | "satisfied" | "invalidated";
 }
 

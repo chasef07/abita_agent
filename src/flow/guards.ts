@@ -4,12 +4,15 @@ import type { AvailabilitySearchInspection } from "./availability.js";
 import type { CallFlowState } from "./types.js";
 
 export type GuardedToolName =
+  | "verify_patient"
   | "check_insurance"
   | "route_to_spring_hill"
   | "add_patient"
   | "get_availability"
   | "book_appt"
-  | "cancel_appt";
+  | "cancel_appt"
+  | "update_insurance"
+  | "transfer_call";
 
 export type GuardObservationReason =
   | "allowed"
@@ -22,7 +25,17 @@ export type GuardObservationReason =
   | "availability_search_budget_exhausted"
   | "booking_requires_verified_or_created_patient"
   | "booking_requires_recent_availability"
-  | "cancel_confirmation_not_tracked";
+  | "booking_requires_pending_action"
+  | "booking_confirmation_required"
+  | "booking_action_already_consumed"
+  | "booking_slot_invalidated"
+  | "cancel_confirmation_not_tracked"
+  | "cancel_requires_loaded_appointment"
+  | "update_insurance_requires_verified_patient"
+  | "side_effect_requires_pending_action"
+  | "side_effect_confirmation_required"
+  | "side_effect_action_already_consumed"
+  | "side_effect_action_invalidated";
 
 export interface GuardToolCallInput {
   flow: CallFlowState;
@@ -47,6 +60,7 @@ export interface GuardObservation {
   allowed: boolean;
   reason: GuardObservationReason;
   activeFlow: CallFlowState["activeFlow"];
+  activeIntent: CallFlowState["activeIntent"];
   step: CallFlowState["step"];
   patientStatus: CallFlowState["patientStatus"];
   activePatientRef?: CallFlowState["activePatientRef"];
@@ -92,6 +106,7 @@ export function guardToolCall({
     allowed: reason === "allowed",
     reason,
     activeFlow: flow.activeFlow,
+    activeIntent: flow.activeIntent,
     step: flow.step,
     patientStatus: flow.patientStatus,
     activePatientRef: flow.activePatientRef,
@@ -119,7 +134,7 @@ function guardReason(
   if (
     toolName === "check_insurance" &&
     !flow.visitType &&
-    flow.step !== "check_insurance" &&
+    !flow.coverageType &&
     !coverageType
   ) {
     return "visit_type_required_before_insurance";
@@ -172,14 +187,56 @@ function guardReason(
     return "booking_requires_recent_availability";
   }
 
+  if (toolName === "update_insurance" && !stateFacts.patientId) {
+    return "update_insurance_requires_verified_patient";
+  }
+
   if (
     toolName === "cancel_appt" &&
-    flow.pendingConfirmation?.type !== "cancel"
+    flow.pendingConfirmation?.type !== "cancel" &&
+    !hasPendingCancelAction(flow, argsHash)
   ) {
     return "cancel_confirmation_not_tracked";
   }
 
+  if (toolName === "cancel_appt" && !hasLoadedAppointment(flow, args)) {
+    return "cancel_requires_loaded_appointment";
+  }
+
   return "allowed";
+}
+
+function hasPendingCancelAction(
+  flow: CallFlowState,
+  argsHash: string,
+): boolean {
+  return flow.pendingActions.some(
+    (action) =>
+      action.type === "cancel_appt" &&
+      action.argsHash === argsHash &&
+      action.confirmed &&
+      !action.consumed &&
+      !action.invalidated,
+  );
+}
+
+function hasLoadedAppointment(flow: CallFlowState, args: unknown): boolean {
+  const appointmentId = appointmentIdFromArgs(args);
+  if (typeof appointmentId !== "number") return false;
+  const patient = flow.patients[flow.activePatientRef ?? "caller"];
+  return Boolean(
+    patient?.appointments.some(
+      (appointment) => appointment.id === appointmentId,
+    ),
+  );
+}
+
+function appointmentIdFromArgs(args: unknown): number | undefined {
+  if (!args || typeof args !== "object" || Array.isArray(args)) {
+    return undefined;
+  }
+  const appointmentId = (args as { appointmentId?: unknown }).appointmentId;
+  return typeof appointmentId === "number" ? appointmentId : undefined;
 }
 
 function availabilitySearchRequestFromGuard(

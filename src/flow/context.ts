@@ -4,6 +4,7 @@ export interface FlowContextDirectives {
   currentObjective: string;
   allowedActions: string[];
   blockedActions: string[];
+  nextAction?: string;
 }
 
 function formatList(values: string[]): string {
@@ -49,6 +50,7 @@ export function directivesForFlowState(
           "Explain the office routing and get agreement before switching the active workflow.",
         allowedActions: [
           "explain_routing",
+          "confirm_side_effect_action",
           "route_to_spring_hill",
           "prepareSchedulingPath",
         ],
@@ -65,7 +67,11 @@ export function directivesForFlowState(
       return {
         currentObjective:
           "Collect only the missing registration fields, then read back the required fields before submitting.",
-        allowedActions: ["ask_missing_registration_field", "add_patient"],
+        allowedActions: [
+          "ask_missing_registration_field",
+          "confirm_side_effect_action",
+          "add_patient",
+        ],
         blockedActions: ["get_availability", "book_appt", "cancel_appt"],
       };
     case "get_availability":
@@ -79,15 +85,30 @@ export function directivesForFlowState(
       return {
         currentObjective:
           "Confirm the exact appointment slot before booking it.",
-        allowedActions: ["ask_booking_confirmation", "book_appt"],
+        allowedActions: [
+          "ask_booking_confirmation",
+          "confirm_booking_action",
+          "book_appt",
+        ],
         blockedActions: ["cancel_appt", "transfer_call"],
       };
     case "confirm_cancel":
       return {
         currentObjective:
           "Confirm the caller wants to cancel the specific appointment before cancelling.",
-        allowedActions: ["ask_cancel_confirmation", "cancel_appt"],
+        allowedActions: [
+          "ask_cancel_confirmation",
+          "confirm_side_effect_action",
+          "cancel_appt",
+        ],
         blockedActions: ["book_appt"],
+      };
+    case "handoff":
+      return {
+        currentObjective:
+          "Confirm the caller should be transferred before starting the handoff.",
+        allowedActions: ["confirm_side_effect_action", "transfer_call"],
+        blockedActions: ["book_appt", "cancel_appt"],
       };
     default:
       return {
@@ -133,4 +154,34 @@ export function compileFlowContextPacket(
     directives.currentObjective,
     "</current_objective>",
   ].join("\n");
+}
+
+export function compileTurnStatePacket(
+  flow: CallFlowState,
+  overrides: Partial<FlowContextDirectives> = {},
+): string {
+  const directives = {
+    ...directivesForFlowState(flow),
+    ...overrides,
+  };
+
+  return [
+    "<turn_state>",
+    `intent: ${flow.activeIntent ?? "unclear"}`,
+    `activePatient: ${flow.activePatientRef ?? "unknown"}`,
+    `patientStatus: ${formatPatientStatus(flow)}`,
+    `task: ${flow.currentTask?.kind ?? flow.activeFlow}`,
+    `step: ${flow.step}`,
+    `visitType: ${flow.visitType ?? "unknown"}`,
+    `office: ${flow.officeKey}`,
+    `nextAction: ${directives.nextAction ?? directives.allowedActions[0] ?? "continue"}`,
+    `blockedActions: ${formatList(directives.blockedActions)}`,
+    "</turn_state>",
+  ].join("\n");
+}
+
+function formatPatientStatus(flow: CallFlowState): string {
+  if (flow.patientStatus === "matched") return "matched_not_verified";
+  if (flow.patientStatus === "candidate") return "candidate_not_verified";
+  return flow.patientStatus;
 }
