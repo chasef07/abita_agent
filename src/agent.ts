@@ -7,11 +7,9 @@ import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
 import type { CallState, PhoneLookupResult } from "./tools.js";
 import type { VoiceLanguageRuntime } from "./language-runtime.js";
+import { compileTurnStatePacket } from "./flow/index.js";
 import {
-  applyIntentStateFromTranscript,
-  compileTurnStatePacket,
-} from "./flow/index.js";
-import {
+  record_turn_understanding,
   verify_patient,
   add_patient,
   update_insurance,
@@ -30,6 +28,7 @@ import {
 import { getOfficeConfigByPhone } from "./offices.js";
 
 type AgentTools = {
+  record_turn_understanding: typeof record_turn_understanding;
   verify_patient: typeof verify_patient;
   add_patient: typeof add_patient;
   update_insurance: typeof update_insurance;
@@ -49,6 +48,7 @@ type AgentTools = {
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
   const office = getOfficeConfigByPhone(trunkPhone ?? "");
   return {
+    record_turn_understanding,
     verify_patient,
     add_patient,
     update_insurance,
@@ -73,7 +73,9 @@ export class Agent extends voice.Agent {
   constructor(
     phoneLookup?: PhoneLookupResult,
     trunkPhone?: string,
-    options: { languageRuntime?: VoiceLanguageRuntime } = {},
+    options: {
+      languageRuntime?: VoiceLanguageRuntime;
+    } = {},
   ) {
     const office = getOfficeConfigByPhone(trunkPhone ?? "");
     super({
@@ -98,10 +100,17 @@ export class Agent extends voice.Agent {
     const transcript = newMessage.textContent ?? "";
     if (!state?.flow || !transcript) return;
 
-    applyIntentStateFromTranscript(state.flow, transcript);
+    state.latestUserTranscript = transcript;
+    state.turnUnderstandingAppliedForTranscript = null;
     chatCtx.addMessage({
       role: "system",
-      content: compileTurnStatePacket(state.flow),
+      content: [
+        compileTurnStatePacket(state.flow),
+        "",
+        "<state_update_required>",
+        "Before answering the caller or calling any other tool for this user turn, call record_turn_understanding exactly once with the structured semantic update for the latest caller message. After it returns, continue from the updated turn_state.",
+        "</state_update_required>",
+      ].join("\n"),
       id: `flow_turn_state_${newMessage.id}`,
       createdAt: newMessage.createdAt + 1,
     });

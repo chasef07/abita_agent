@@ -23,6 +23,8 @@ import {
 } from "./insurance-rules.js";
 import {
   evaluateFlowToolPolicy,
+  applyTurnUnderstandingFromTranscript,
+  compileTurnStatePacket,
   createPendingBookingAction,
   createPendingSideEffectAction,
   completeCurrentTaskAndResume,
@@ -52,6 +54,7 @@ import {
   type GuardedToolName,
   type SideEffectToolName,
   type ToolOutcome,
+  turnUnderstandingSchema,
 } from "./flow/index.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
@@ -164,6 +167,15 @@ export interface StoredAvailabilitySlot {
 export interface CallState {
   flow: CallFlowState;
   flowGuardObservations: GuardObservation[];
+  latestUserTranscript?: string | null;
+  turnUnderstandingAppliedForTranscript?: string | null;
+  lastTurnUnderstanding?: {
+    goal: string;
+    appointmentAction?: string | null;
+    confidence: number;
+    activeIntent: CallFlowState["activeIntent"];
+    activePatientRef?: string;
+  };
   officeKey: OfficeKey;
   amdOfficePhone: string;
   sipRoomName: string;
@@ -203,6 +215,8 @@ function evaluatePolicyForState(
     booking?: Parameters<typeof evaluateFlowToolPolicy>[0]["booking"];
   } = {},
 ): ToolOutcome | null {
+  const turnGate = evaluateTurnUnderstandingGate(state, toolName);
+  if (turnGate) return turnGate;
   syncSessionPatientFromActiveFlow(state);
   const decision = evaluateFlowToolPolicy({
     flow: state.flow,
@@ -243,6 +257,29 @@ function evaluatePolicyForState(
   }
   if (!decision.outcome) return null;
   return withToolFacts(decision.outcome, state);
+}
+
+function evaluateTurnUnderstandingGate(
+  state: CallState,
+  toolName: string,
+): ToolOutcome | null {
+  if (!requiresTurnUnderstandingBeforeTool(state)) return null;
+  return toolOutcome(
+    "not_allowed",
+    state.flow.step,
+    "Update the call state first by calling record_turn_understanding, then continue.",
+    {
+      reason: "turn_understanding_required",
+      toolName,
+    },
+    true,
+  );
+}
+
+function requiresTurnUnderstandingBeforeTool(state: CallState): boolean {
+  const transcript = state.latestUserTranscript?.trim();
+  if (!transcript) return false;
+  return state.turnUnderstandingAppliedForTranscript !== transcript;
 }
 
 function withToolFacts(outcome: ToolOutcome, state: CallState): ToolOutcome {
@@ -298,6 +335,16 @@ function apiResultLooksSuccessful(result: unknown): boolean {
   const outcome =
     typeof result.outcome === "string" ? result.outcome.toLowerCase() : "";
   return status !== "error" && outcome !== "error";
+}
+
+function hasSuccessfulBookingForActivePatient(state: CallState): boolean {
+  const activePatientRef = state.flow.activePatientRef ?? "caller";
+  return state.flow.pendingActions.some(
+    (action) =>
+      action.type === "book_appt" &&
+      action.patientRef === activePatientRef &&
+      action.consumed,
+  );
 }
 
 function cancellationFailureReason(result: unknown): string {
@@ -874,6 +921,59 @@ async function callApi(
   return res.json();
 }
 
+// --- record_turn_understanding ---
+export const record_turn_understanding = llm.tool({
+  description: `Internal memory update. Call this exactly once at the start of every user turn before answering the caller or calling any other tool.
+
+Use it to provide the structured semantic state update for the caller's latest turn. This is not a side-effect tool and should never be mentioned to the caller.
+
+If the caller only says a backchannel like "yes", "okay", or "mm-hmm", still call this tool with goal "unclear", interruption "backchannel", and the right confidence/evidence.`,
+  parameters: turnUnderstandingSchema,
+  execute: async (understanding, { ctx }) => {
+    const state = getState(ctx);
+    const transcript = state.latestUserTranscript?.trim() ?? "";
+
+    if (
+      transcript &&
+      state.turnUnderstandingAppliedForTranscript === transcript
+    ) {
+      return {
+        status: "already_recorded",
+        turnState: compileTurnStatePacket(state.flow),
+        instruction:
+          "Continue from this turn_state. Do not call record_turn_understanding again for this same user turn.",
+      };
+    }
+
+    const update = applyTurnUnderstandingFromTranscript(
+      state.flow,
+      transcript,
+      understanding,
+    );
+    state.turnUnderstandingAppliedForTranscript = transcript || null;
+    state.lastTurnUnderstanding = {
+      goal: update.understanding.goal,
+      appointmentAction: update.understanding.appointmentAction,
+      confidence: update.understanding.confidence,
+      activeIntent: state.flow.activeIntent,
+      activePatientRef: state.flow.activePatientRef,
+    };
+
+    return {
+      status: "recorded",
+      goal: update.understanding.goal,
+      appointmentAction: update.understanding.appointmentAction,
+      activeIntent: state.flow.activeIntent,
+      activeFlow: state.flow.activeFlow,
+      step: state.flow.step,
+      activePatientRef: state.flow.activePatientRef,
+      turnState: compileTurnStatePacket(state.flow),
+      instruction:
+        "Continue from this updated turn_state. Now answer naturally or call the next allowed tool.",
+    };
+  },
+});
+
 // --- verify_patient ---
 export const verify_patient = llm.tool({
   description: `Verifies a patient's identity.
@@ -1249,6 +1349,8 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
+    const turnGate = evaluateTurnUnderstandingGate(state, "confirm_appt");
+    if (turnGate) return turnGate;
     syncSessionPatientFromActiveFlow(state);
     if (!state.patientId) {
       return toolOutcome(
@@ -1397,6 +1499,8 @@ Only save these two fields: appointment reason and referring doctor. If there is
   }),
   execute: async ({ appointmentReason, referringDoctor }, { ctx }) => {
     const state = getState(ctx);
+    const turnGate = evaluateTurnUnderstandingGate(state, "add_patient_note");
+    if (turnGate) return turnGate;
     syncSessionPatientFromActiveFlow(state);
     if (!state.patientId) {
       return toolOutcome(
@@ -1404,6 +1508,15 @@ Only save these two fields: appointment reason and referring doctor. If there is
         "verify_patient",
         "Verify the patient before adding a note.",
         { reason: "note_requires_verified_patient" },
+        true,
+      );
+    }
+    if (!hasSuccessfulBookingForActivePatient(state)) {
+      return toolOutcome(
+        "not_allowed",
+        "book",
+        "Save the appointment note only after a successful booking.",
+        { reason: "note_requires_successful_booking" },
         true,
       );
     }
@@ -1481,6 +1594,11 @@ export const confirm_side_effect_action = llm.tool({
   }),
   execute: async (params, { ctx, toolCallId }) => {
     const state = getState(ctx);
+    const turnGate = evaluateTurnUnderstandingGate(
+      state,
+      "confirm_side_effect_action",
+    );
+    if (turnGate) return turnGate;
     syncSessionPatientFromActiveFlow(state);
     const actionType = sideEffectActionTypeForTool(params.action);
     let sideEffectArgs: unknown = {};
@@ -1576,6 +1694,11 @@ export const confirm_booking_action = llm.tool({
   }),
   execute: async (params, { ctx, toolCallId }) => {
     const state = getState(ctx);
+    const turnGate = evaluateTurnUnderstandingGate(
+      state,
+      "confirm_booking_action",
+    );
+    if (turnGate) return turnGate;
     syncSessionPatientFromActiveFlow(state);
     if (!state.patientId) {
       return {
@@ -1997,8 +2120,10 @@ Answer naturally from the returned info — just the part that answers their que
       ),
   }),
   execute: async (_args, { ctx }) => {
-    const file = resolveKnowledgeFileForOffice(getState(ctx).officeKey);
     const state = getState(ctx);
+    const turnGate = evaluateTurnUnderstandingGate(state, "lookup_knowledge");
+    if (turnGate) return turnGate;
+    const file = resolveKnowledgeFileForOffice(state.officeKey);
     const result = readWorkspaceFile(file);
     if (state.flow.currentTask?.kind === "faq") {
       completeCurrentTaskAndResume(state.flow);

@@ -126,6 +126,32 @@ export type SchedulingRouting =
   | "all_three"
   | "optical_only";
 
+export type SchedulingGoalStatus =
+  | "collecting"
+  | "ready_for_availability"
+  | "offering_slot"
+  | "confirming_booking"
+  | "booked"
+  | "interrupted";
+
+export interface SchedulingGoalState {
+  patientRef?: PatientRef;
+  status: SchedulingGoalStatus;
+  appointmentAction?: "schedule" | "confirm" | "cancel" | "reschedule";
+  visitReason?: string;
+  visitType?: VisitType;
+  preferredWindow?: string;
+  selectedSlotId?: string;
+  bookingConfirmed?: boolean;
+  noteDraft?: {
+    appointmentReason?: string;
+    referringDoctor?: string;
+  };
+  lastConfidence?: number;
+  evidence?: string[];
+  updatedAt: number;
+}
+
 export type ConfirmationType =
   | "book"
   | "cancel"
@@ -227,6 +253,7 @@ export type AvailabilityFailureReason =
 export type AvailabilityInvalidationReason =
   | "patient_changed"
   | "visit_type_changed"
+  | "preferred_window_changed"
   | "insurance_changed"
   | "office_changed"
   | "routing_changed"
@@ -276,6 +303,7 @@ export interface CallFlowState {
   currentTask?: TaskFrame;
   pendingActions: PendingAction[];
   availabilitySearches: AvailabilitySearch[];
+  schedulingGoal?: SchedulingGoalState;
   visitType?: VisitType;
   officeKey: OfficeKey;
   coverageType?: InsuranceCoverageType;

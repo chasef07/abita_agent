@@ -25,10 +25,13 @@ import {
   buildCallCenterHandoffHeaders,
   cancel_appt,
   check_insurance,
+  confirm_appt,
   confirm_booking_action,
   confirm_side_effect_action,
   get_availability,
+  lookup_knowledge,
   makeCurrentSpeechUninterruptible,
+  record_turn_understanding,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
@@ -92,6 +95,85 @@ describe("tool interruption handling", () => {
 
     expect(result).toBe(false);
     expect(warn).toHaveBeenCalledOnce();
+  });
+
+  it("requires main-agent turn understanding before guarded tools on a new user turn", async () => {
+    const { ctx, state } = createToolContext();
+    state.latestUserTranscript = "I need to move my appointment next week";
+    state.turnUnderstandingAppliedForTranscript = null;
+
+    const appointmentLookupBlocked = await confirm_appt.execute(
+      {},
+      { ctx, toolCallId: "test-confirm-appt" },
+    );
+    expect(appointmentLookupBlocked).toMatchObject({
+      outcome: "not_allowed",
+      facts: {
+        reason: "turn_understanding_required",
+        toolName: "confirm_appt",
+      },
+    });
+
+    const faqBlocked = await lookup_knowledge.execute(
+      { question: "office hours" },
+      { ctx, toolCallId: "test-lookup" },
+    );
+    expect(faqBlocked).toMatchObject({
+      outcome: "not_allowed",
+      facts: {
+        reason: "turn_understanding_required",
+        toolName: "lookup_knowledge",
+      },
+    });
+
+    const blocked = await verify_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+      },
+      { ctx, toolCallId: "test-verify" },
+    );
+
+    expect(blocked).toMatchObject({
+      outcome: "not_allowed",
+      facts: {
+        reason: "turn_understanding_required",
+        toolName: "verify_patient",
+      },
+    });
+
+    const recorded = await record_turn_understanding.execute(
+      {
+        goal: "manage_existing_appointment",
+        appointmentAction: "reschedule",
+        patient: {
+          patientMentioned: "caller",
+          relationshipToCaller: "self",
+        },
+        scheduling: {
+          preferredWindow: "next week",
+        },
+        interruption: "none",
+        confidence: 0.9,
+        evidence: ["move my appointment", "next week"],
+      },
+      { ctx, toolCallId: "test-understanding" },
+    );
+
+    expect(recorded).toMatchObject({
+      status: "recorded",
+      goal: "manage_existing_appointment",
+      appointmentAction: "reschedule",
+      activeIntent: "existing_appointment_reschedule",
+    });
+    expect(state.turnUnderstandingAppliedForTranscript).toBe(
+      "I need to move my appointment next week",
+    );
+    expect(state.flow.schedulingGoal).toMatchObject({
+      appointmentAction: "reschedule",
+      preferredWindow: "next week",
+    });
   });
 
   it("marks side-effecting tools as uninterruptible before the side effect", async () => {
@@ -163,14 +245,16 @@ describe("tool interruption handling", () => {
       },
       {
         name: "add_patient_note",
-        run: (ctx: ToolContext) =>
-          add_patient_note.execute(
+        run: (ctx: ToolContext) => {
+          seedSuccessfulBooking(ctx.session.userData as CallState);
+          return add_patient_note.execute(
             {
               appointmentReason: "blurry vision",
               referringDoctor: "none",
             },
             { ctx, toolCallId: "test-note" },
-          ),
+          );
+        },
       },
       {
         name: "book_appt",
@@ -275,6 +359,7 @@ describe("tool interruption handling", () => {
       {},
       { ctx, toolCallId: "test-transfer-first" },
     );
+    expect(state.transferred).toBe(false);
     seedPendingSideEffectAction(state, "transfer_call");
     const second = await transfer_call.execute(
       {},
@@ -295,6 +380,24 @@ describe("tool interruption handling", () => {
     expect(state.transferred).toBe(true);
     expect(transferSipParticipantMock).toHaveBeenCalledTimes(2);
     expect(error).toHaveBeenCalledOnce();
+  });
+
+  it("returns a safe no-op if transfer is called after transfer already started", async () => {
+    transferSipParticipantMock.mockResolvedValue(undefined);
+    const { ctx, state } = createToolContext();
+    state.transferred = true;
+
+    const result = await transfer_call.execute(
+      {},
+      { ctx, toolCallId: "test-transfer-duplicate" },
+    );
+
+    expect(result).toMatchObject({
+      outcome: "success",
+      nextStep: "answer",
+      facts: { reason: "transfer_already_started" },
+    });
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 
   it("keeps Crystal River transfers on the existing phone-number handoff", async () => {
@@ -959,6 +1062,7 @@ describe("tool interruption handling", () => {
     state.officeKey = "crystal-river";
     state.amdOfficePhone = "+13523202007";
     state.flow.patients[state.flow.activePatientRef!].patientId = "17603880";
+    seedSuccessfulBooking(state);
 
     await add_patient_note.execute(
       {
@@ -976,6 +1080,31 @@ describe("tool interruption handling", () => {
       patientId: "17603880",
       note: "Appointment reason: blurry vision\nReferring doctor: Dr. Smith",
       office: "+13523202007",
+    });
+  });
+
+  it("blocks patient notes until a booking succeeded for the active patient", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state, speechHandle } = createToolContext();
+    state.patientId = "17603880";
+    state.flow.patients[state.flow.activePatientRef!].patientId = "17603880";
+
+    const result = await add_patient_note.execute(
+      {
+        appointmentReason: "blurry vision",
+        referringDoctor: "Dr. Smith",
+      },
+      { ctx, toolCallId: "test-note-before-booking" },
+    );
+
+    expect(speechHandle.allowInterruptions).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "book",
+      facts: { reason: "note_requires_successful_booking" },
     });
   });
 
@@ -1614,14 +1743,16 @@ describe("tool interruption handling", () => {
       },
       {
         name: "add_patient_note",
-        run: (ctx: ToolContext) =>
-          add_patient_note.execute(
+        run: (ctx: ToolContext) => {
+          seedSuccessfulBooking(ctx.session.userData as CallState);
+          return add_patient_note.execute(
             {
               appointmentReason: "blurry vision",
               referringDoctor: "none",
             },
             { ctx, toolCallId: "test-note" },
-          ),
+          );
+        },
       },
       {
         name: "book_appt",
@@ -1850,6 +1981,13 @@ function seedPendingBookingAction(
     confirmationTurnId:
       overrides.confirmed === false ? undefined : "test-confirm-booking",
   });
+}
+
+function seedSuccessfulBooking(state: CallState) {
+  seedLastAvailabilitySlot(state);
+  const action = seedPendingBookingAction(state);
+  action.consumed = true;
+  return action;
 }
 
 function seedPendingSideEffectAction(

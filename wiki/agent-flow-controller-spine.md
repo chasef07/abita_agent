@@ -13,12 +13,17 @@ Those primitives are useful for bounded collection flows, but the core Abita
 business rules need to be explicit TypeScript that can be unit-tested without a
 voice session.
 
+Related architecture note: `agent-harness-learnings.md` captures the
+state-update tool, reducer, memory, pre-call state, and LLM/harness balance
+decisions behind this phase plan.
+
 ## Core architecture
 
 ```txt
 caller audio
   -> STT and language runtime
-  -> intent and slot extraction
+  -> main LLM record_turn_understanding state-update tool
+  -> deterministic state reducer
   -> flow controller
   -> allowed tool or meta-tool
   -> structured outcome
@@ -30,12 +35,13 @@ The LLM owns:
 - natural conversation
 - bilingual phrasing
 - empathy and tone
-- extracting caller-provided facts
+- proposing structured `TurnUnderstanding` from each caller turn
 - asking the next human-friendly question
 - recognizing that the caller changed topics or corrected a prior fact
 
 Code owns:
 
+- accepting or ignoring the proposed `TurnUnderstanding`
 - active flow and step
 - active patient or patient candidate
 - known facts, missing facts, and fact provenance
@@ -75,9 +81,12 @@ the facts currently known, the active task, which patient those facts belong to,
 which actions are safe, and what should be invalidated if the caller corrects
 something.
 
-The current branch is a valid shadow-mode first slice. The next meaningful
-upgrade is to make the harness operationally stricter in three places before
-hard enforcement expands:
+The earlier branch was a valid shadow-mode first slice. The current branch has
+now moved the live path to an active semantic reducer: the main LLM proposes
+structured turn understanding through `record_turn_understanding`, and
+TypeScript applies the state changes. The harness should now stay
+operationally strict in three places before controlled real-call testing
+expands:
 
 1. **Availability policy**: dedupe searches, cache slots, cap repeated
    `get_availability` calls, and force broaden/ask/transfer behavior after a
@@ -639,23 +648,38 @@ Implemented:
   update, office routing, and transfer. `confirm_side_effect_action` creates the
   confirmed action before those tools run, and the policy returns safe no-op
   outcomes for duplicate consumed actions.
-- Intent state classification and controller decisions for new appointment,
+- Semantic `TurnUnderstanding` schema and reducer for new appointment,
   existing appointment lookup/cancel/reschedule, insurance question, FAQ,
-  new-patient registration, transfer request, and unclear turns.
+  new-patient registration, transfer request, patient identity details,
+  preferred windows, visit type, insurance plan, corrections, backchannels, and
+  unclear turns.
+- Live runtime turn understanding via the main LLM's internal
+  `record_turn_understanding` tool: the model proposes structured semantic
+  state, TypeScript applies the reducer, and the tool returns the resulting
+  `<turn_state>`. Final transcript events no longer mutate flow state with
+  keyword rules.
 - Compact `<turn_state>` packet injection in `Agent.onUserTurnCompleted`, using
   the current hidden state without injecting raw transcripts or tool output.
-- Shadow observer wiring in `src/main.ts`: final user transcripts generate
-  redacted flow predictions, tool executions are compared against the latest
-  prediction, and shadow events are sent in the analytics payload under `flow`.
+- The old flow-shadow prediction loop is no longer on the live runtime path.
+  Analytics keeps `flow.shadowEvents` and `mismatchCount` shape-compatible for
+  now, but the values are empty/zero until replaced by real semantic eval
+  telemetry.
 - Flow state hydration from patient lookup/tool results in `src/tools.ts`.
 - Active patient context is synced back into the legacy top-level tool fields
   before patient-bound middleware calls, so resumed patient tasks use the right
   `patientId`, name, DOB, and appointment set.
+- First-name confirmation for a single pre-call phone lookup match marks that
+  patient verified without another middleware verification call.
+- Transfer requests during recoverable scheduling get one controller-owned
+  pushback before transfer is offered on a repeated request.
+- Patient note writes are blocked until the active patient has a successful
+  consumed booking action, keeping appointment reason/referrer notes tied to a
+  completed booking.
 - Tests covering flow state creation, context packet output, scheduling-path
-  decisions, intent classification, turn-state packet output, report-only
-  guards, shadow mismatches, Spanish routine vision phrases, bare insurance
-  questions, availability/booking recovery telemetry, and tool-side flow-state
-  hydration.
+  decisions, legacy intent classification, semantic turn-understanding reducer,
+  turn-state packet output, report-only guards, shadow observer compatibility,
+  Spanish routine vision phrases, bare insurance questions,
+  availability/booking recovery telemetry, and tool-side flow-state hydration.
 
 Important non-goals for the current branch:
 
@@ -664,19 +688,35 @@ Important non-goals for the current branch:
 - No middleware contract changes yet.
 
 The current slice is an active state-injection plus shared policy spine: it
-guides the model with compact hidden state, records expected flow decisions, and
-blocks high-confidence unsafe repeats/no-confirmation/precondition paths. Broad
-transcript evals are not complete yet. It is not ready for controlled real-call
-testing until the local eval gates pass.
+guides the model with compact hidden state, applies semantic caller-memory
+updates before each response, and blocks high-confidence unsafe
+repeats/no-confirmation/precondition paths. Phase 2 local eval gates are
+complete; the next gate is controlled real-call testing after the full local
+validation bundle passes on this active reducer branch.
 
 Current step as of 2026-05-22:
 
 - Phase 1 local control-plane implementation is locally green.
-- Current work step: Phase 2, local eval and validation suite.
-- Next deliverable: transcript-style evals covering multi-patient switching,
-  caller corrections, stale-slot booking, cancellation confirmation, FAQ
-  interruption/return, and transfer recovery.
-- Phase 3 controlled real-call testing is blocked until those eval gates pass.
+- Phase 2 local eval and validation suite is locally green.
+- Phase 2.5 semantic state reducer is implemented: `TurnUnderstanding` is now
+  the live state front door, not keyword-only intent mutation or shadow-only
+  prediction.
+- Latest local gate passed: `pnpm exec tsc --noEmit`, `pnpm test` (194 tests),
+  `pnpm exec eslint .`, `pnpm run format:check`, and `git diff --check`.
+- Added transcript-replay eval harness in
+  `src/__tests__/transcript-eval-harness.test.ts`.
+- Added reducer/schema coverage in `src/__tests__/turn-understanding.test.ts`.
+- Current eval coverage includes pre-call appointment state, cancellation
+  confirmation, past-appointment filtering, duplicate availability loops,
+  pending booking actions, stale-slot recovery, invalid appointment-type
+  recovery, multi-patient scoping, FAQ suspend/resume, first-name pre-call
+  verification, reschedule ordering, transfer pushback, transfer gating,
+  duplicate transfer/cancellation no-ops, transfer failure recovery, patient-note
+  timing, Spring Hill routing confirmation, and compact turn-state privacy/size
+  assertions.
+- Next deliverable: Phase 3 controlled real-call testing against live calls,
+  with every test call reviewed for repeated availability, stale booking,
+  cancellation, patient-context, transfer, and latency issues.
 
 ## State packet shape
 
@@ -691,6 +731,7 @@ language: es
 patientStatus: new
 office: crystal-river
 visitType: routine_vision
+schedulingGoal: schedule collecting
 missingSlots: insurancePlan
 allowedActions: ask_insurance_plan, check_insurance, prepareSchedulingPath
 blockedActions: add_patient, get_availability, book_appt, cancel_appt
@@ -794,74 +835,64 @@ designed.
 
 ## Next Implementation Step
 
-The next step is **full local implementation**, not another shadow-only slice.
+The next step is **validation plus controlled real-call testing**, not another
+shadow-only slice. The local implementation is now active enough to test live
+call behavior, but it still needs the local release gate and runbook before
+traffic expands.
 
-Remaining implementation order after the alignment review:
+Release-gate checklist after the semantic reducer cutover:
 
-1. **Finish pending-action creation and lifecycle**
-   - booking now creates a pending action from explicit confirmation through
-     `confirm_booking_action`; extend the same pattern to other side effects
-   - cancellation, registration, insurance-update, route, and transfer now use
-     `confirm_side_effect_action`
-   - consume successful actions and return safe no-op outcomes for duplicate
-     consumed actions
-   - cancel or rebuild pending actions when dependent state changes
+1. **Pending-action creation and lifecycle**
+   - Implemented locally for booking and shared side effects through
+     `confirm_booking_action` and `confirm_side_effect_action`.
+   - Covered locally for successful consumption, duplicate consumed no-ops, and
+     invalidation when dependent state changes.
 
-2. **Complete availability policy**
-   - reuse cached slots before searching again
-   - block or no-op duplicate same search signatures, including after a
-     successful cached-slot result
-   - enforce search budget and broaden/ask/transfer recovery
-   - keep no-slot, rejected-slot, stale-slot, and exhausted-state recovery
-     explicit
+2. **Availability policy**
+   - Implemented locally for duplicate search signatures, cached slot reuse,
+     search budget, no-slot/rejected-slot/stale-slot/invalidated recovery, and
+     booking error recovery.
 
 3. **Intent/task split cleanup**
-   - keep appointment lookup, cancellation, and reschedule as separate
-     controller decisions
-   - cover FAQ interruption and return-to-task behavior
-   - keep transfer request distinct from office routing
+   - Implemented locally for appointment lookup, cancellation, reschedule, FAQ
+     interruption/return, transfer request, and office routing separation.
 
 4. **Patient-scoped state model**
-   - active patient registry
-   - relationship to caller
-   - per-patient identity, insurance, appointments, scheduling task, and
-     availability cache
-   - explicit multi-patient switching and return
+   - Implemented locally for active patient registry, relationship to caller,
+     per-patient identity/insurance/appointments/tasks, multi-patient switching,
+     and return from interruptions.
 
 5. **Canonical verification and correction handling**
-   - build `verify_patient`, `add_patient`, and `book_appt` arguments from
-     canonical patient state
-   - treat caller-spelled names as authoritative
-   - invalidate downstream state when patient, DOB, phone, visit type,
-     insurance, office, routing, provider, appointment type, or slot changes
+   - Implemented locally for canonical patient state, caller-spelled name
+     provenance, pre-call first-name confirmation, patient/visit/insurance
+     invalidation, and active-patient tool-state sync.
 
 6. **Booking and cancellation policy**
-   - booking must match active patient, current slot, current routing lane,
-     appointment type, and source availability search
-   - slot-unavailable errors must invalidate the slot and recover to another
-     cached slot or new availability
-   - invalid appointment-type errors must invalidate the routing/appointment
-     lane before retry
-   - cancellation must require loaded appointment and explicit confirmation
+   - Implemented locally for active patient/current slot/routing/appointment
+     type/source search/confirmation checks, stale-slot recovery,
+     invalid-appointment-type recovery, loaded appointment requirements, and
+     explicit cancellation confirmation.
 
 7. **Structured tool outcomes**
-   - normalize risky tool results into `ToolOutcome`
-   - return concise model-visible summaries while storing full state internally
+   - Implemented locally for risky verification, insurance, registration,
+     appointment lookup, booking, cancellation, note, office route, and transfer
+     outcomes.
 
 8. **Transcript eval harness**
-   - cover new appointment, existing appointment, cancellation, reschedule,
-     insurance medical/routine triage, Crystal River routing, new patient
-     registration, multi-patient switching, corrections, availability loops,
-     stale-slot booking, cancellation confirmation, FAQ interruption, and
-     transfer recovery
+   - Implemented locally for the current Phase 2/2.5 gate, including explicit
+     semantic turn-understanding inputs instead of keyword-only transcript
+     intent mutation.
 
 9. **Real-call test runbook**
-   - define test window, monitored numbers/offices, success metrics, stop
-     conditions, rollback command, and post-test review checklist
+   - Next missing artifact: define test window, monitored numbers/offices,
+     success metrics, stop conditions, rollback command, and post-test review
+     checklist.
 
-Until pending-action lifecycle and transcript evals pass locally, do not run
-real-call tests. During local implementation, hard policies may be enabled only
-when they return safe caller-facing outcomes and have focused tests.
+Pending-action lifecycle and transcript evals now pass locally. Before
+real-call tests, run the full release gate and write down the controlled test
+window, monitored numbers, stop conditions, and rollback command. During local
+implementation, hard policies may be enabled only when they return safe
+caller-facing outcomes and have focused tests.
 
 Do not make the first enforced guard a broad workflow lock. The agent must still
 be able to answer FAQs, switch patients, and accept corrections mid-flow.
@@ -902,12 +933,12 @@ Required local signals:
 
 - `flow.currentState`
 - `flow.activeIntent`
-- `flow.shadowEvents`
 - `flow.guardObservations`
-- `flow.mismatchCount`
+- semantic turn-understanding reducer state
 - active patient reference
 - patient registry with per-patient context
 - active task/task stack state
+- scheduling goal memory with preferred window and selected slot
 - availability search counters and cached slots
 - pending-action ledger with active and consumed actions
 - booking/cancellation recovery state
@@ -918,6 +949,8 @@ Required local signals:
 
 Build and pass the local validation layer before controlled real-call testing.
 
+Status as of 2026-05-22: complete locally.
+
 Required coverage:
 
 - unit tests for state transitions and policy decisions
@@ -926,6 +959,48 @@ Required coverage:
   `not_allowed` outcomes
 - latency-sensitive checks around turn-state packet size
 - regression tests for current successful scheduling/routing flows
+
+Current green local coverage includes:
+
+- pre-call appointments loaded from phone lookup state without requiring
+  `confirm_appt` again
+- first-name confirmation of a single pre-call matched patient
+- explicit cancellation confirmation and loaded-appointment requirements
+- past-appointment filtering before cancellation
+- reschedule ordering that keeps cancellation gated while booking proceeds
+- duplicate availability search blocking, cached alternatives, stale-slot
+  recovery, invalid appointment-type recovery, and booking confirmation ledger
+- multi-patient task scoping and patient-change invalidation
+- FAQ suspend/resume during scheduling
+- one-time scheduling transfer pushback plus transfer ledger/no-op/failure
+  recovery
+- patient-note timing after successful booking
+- Spring Hill routine-vision routing confirmation
+- compact `<turn_state>` packet privacy and size checks
+- semantic turn-understanding reducer coverage for reschedule windows, negated
+  cancellation, child-patient switching, stale-state invalidation, and schema
+  parsing
+
+### Phase 2.5: semantic reducer runtime cutover
+
+Status as of 2026-05-22: implemented locally.
+
+Runtime behavior:
+
+- `src/agent.ts` stores the latest caller transcript and injects a requirement
+  that the main LLM call `record_turn_understanding` before answering or using
+  business tools.
+- `src/tools.ts` exposes `record_turn_understanding`, validates the schema, runs
+  the reducer, and returns the updated turn-state packet.
+- Final `UserInputTranscribed` events reset STT profile only; they no longer
+  update flow state with keyword intent logic.
+- The reducer writes patient identity, relationship, visit type, coverage type,
+  preferred window, selected slot, booking confirmation, note draft, and active
+  intent from a typed schema.
+- If state-update input is missing or invalid, workflow tools are blocked until
+  `record_turn_understanding` runs. This includes appointment lookup, knowledge
+  lookup, confirmation recorders, and side-effect tools. The runtime does not
+  fall back to keyword intent mutation.
 
 ### Phase 3: controlled real-call test
 
@@ -951,6 +1026,10 @@ effects rise.
 
 Add an intent controller that writes `activeIntent` before side-effecting tools
 run.
+
+Status as of 2026-05-22: implemented through the semantic reducer. The legacy
+keyword classifier has been removed; tests and shadow prediction now use
+structured `TurnUnderstanding` inputs instead of transcript keyword inference.
 
 Intent state should classify:
 
@@ -984,6 +1063,9 @@ Inject a compact state packet into each turn after the observed state is
 trustworthy. The packet should guide the model without exposing the whole state
 object.
 
+Status as of 2026-05-22: implemented in `Agent.onUserTurnCompleted` after the
+semantic reducer applies the current turn.
+
 Target shape:
 
 ```xml
@@ -993,6 +1075,9 @@ activePatient: caller
 patientStatus: matched_not_verified
 task: appointment_management
 step: verify_patient
+visitType: unknown
+scheduling: confirm collecting
+office: spring-hill
 nextAction: verify_or_load_appointment
 blockedActions: add_patient, get_availability, book_appt
 </turn_state>
@@ -1152,10 +1237,10 @@ Call the agent "Jarvis-level" only when these are true in live traces and evals:
    - Keep `feature/flow-controller-spine` as the full Jarvis implementation
      branch.
    - Current completed base: flow state, intent state, turn-state injection,
-     shadow predictions, report-only guard observations, narrow policy
-     enforcement, structured policy outcomes, availability search telemetry,
-     booking confirmation actions, shared side-effect confirmation actions, and
-     booking attempt telemetry.
+     semantic turn-understanding state update/reduction, report-only guard
+     observations, narrow policy enforcement, structured policy outcomes,
+     availability search telemetry, booking confirmation actions, shared
+     side-effect confirmation actions, and booking attempt telemetry.
    - Current patient-state slice: same-patient verification hydration no longer
      invalidates current availability, conflicting patient verification switches
      to a separate patient context, caller-spelled names keep authoritative
@@ -1233,6 +1318,17 @@ Call the agent "Jarvis-level" only when these are true in live traces and evals:
      cancellation confirmation, FAQ interruption, and transfer recovery.
    - Assert state, allowed/blocked tool, state patch, pending action,
      availability cache, and spoken category.
+   - Started with a thin replay harness seeded from pre-call state and mocked
+     tool outcomes. The harness treats pre-call appointments as loaded state, so
+     skipped `confirm_appt` is valid when the active patient did not change; the
+     hard safety gates are loaded appointment state plus explicit pending
+     cancellation confirmation.
+   - Current status: Phase 2 coverage is complete for the local gate, including
+     pre-call first-name verification, reschedule ordering, patient-note timing,
+     duplicate transfer/cancellation no-ops, transfer failure recovery, and
+     compact turn-state privacy/size assertions. Phase 2.5 adds semantic
+     reducer coverage so the harness no longer depends on keyword-only intent
+     mutation.
 
 10. **Local release gate**.
     - `pnpm exec tsc --noEmit`.

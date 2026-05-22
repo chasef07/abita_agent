@@ -5,6 +5,7 @@ import type {
   IntentKind,
   ToolOutcome,
 } from "./types.js";
+import { completeCurrentTaskAndResume } from "./state.js";
 
 export type FlowControllerEvent =
   | {
@@ -33,14 +34,29 @@ export function nextFlowDecision({
     return decisionFromToolOutcome(event.outcome);
   }
 
-  if (event.intent === "transfer_request") {
+  const intent =
+    event.intent === "unclear" && state.activeIntent
+      ? state.activeIntent
+      : event.intent;
+
+  if (intent === "transfer_request") {
+    if (shouldPushBackTransferDuringScheduling(state)) {
+      state.completedSteps.push("transfer_pushback_offered");
+      resumeSchedulingAfterTransferPushback(state);
+      return {
+        type: "say",
+        instruction:
+          "Acknowledge the request, explain you can help finish scheduling, and continue the scheduling path. Transfer only if they ask again.",
+      };
+    }
+
     return {
       type: "transfer",
       reason: "caller requested a human or named staff member",
     };
   }
 
-  if (event.intent === "unclear") {
+  if (intent === "unclear") {
     return {
       type: "ask",
       slot: "intent",
@@ -49,7 +65,7 @@ export function nextFlowDecision({
     };
   }
 
-  if (event.intent === "faq") {
+  if (intent === "faq") {
     return {
       type: "call_tool",
       tool: "lookup_knowledge",
@@ -57,20 +73,20 @@ export function nextFlowDecision({
     };
   }
 
-  if (event.intent === "existing_appointment_confirm") {
+  if (intent === "existing_appointment_confirm") {
     return decisionForAppointmentLookup(state);
   }
 
-  if (event.intent === "existing_appointment_cancel") {
+  if (intent === "existing_appointment_cancel") {
     return decisionForCancellation(state);
   }
 
-  if (event.intent === "existing_appointment_reschedule") {
+  if (intent === "existing_appointment_reschedule") {
     return decisionForReschedule(state);
   }
 
   if (
-    isSchedulingOrInsuranceIntent(event.intent) &&
+    isSchedulingOrInsuranceIntent(intent) &&
     !event.visitReason &&
     !state.visitType
   ) {
@@ -82,7 +98,7 @@ export function nextFlowDecision({
     };
   }
 
-  if (isSchedulingOrInsuranceIntent(event.intent)) {
+  if (isSchedulingOrInsuranceIntent(intent)) {
     return {
       type: "call_meta_tool",
       tool: "prepareSchedulingPath",
@@ -109,6 +125,42 @@ function isSchedulingOrInsuranceIntent(intent: IntentKind): boolean {
     intent === "new_patient_registration" ||
     intent === "insurance_question"
   );
+}
+
+function shouldPushBackTransferDuringScheduling(state: CallFlowState): boolean {
+  return (
+    !state.completedSteps.includes("transfer_pushback_offered") &&
+    hasRecoverableSchedulingTask(state)
+  );
+}
+
+function hasRecoverableSchedulingTask(state: CallFlowState): boolean {
+  if (
+    state.activeFlow === "scheduling" ||
+    state.currentTask?.kind === "schedule"
+  ) {
+    return true;
+  }
+  if (
+    state.currentTask?.kind === "transfer" &&
+    state.currentTask.returnTo &&
+    state.taskStack.some(
+      (task) =>
+        task.id === state.currentTask?.returnTo && task.kind === "schedule",
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function resumeSchedulingAfterTransferPushback(state: CallFlowState): void {
+  if (state.currentTask?.kind === "transfer") {
+    completeCurrentTaskAndResume(state);
+  }
+  if (state.currentTask?.kind === "schedule") {
+    state.activeIntent = "new_appointment";
+  }
 }
 
 function hasAppointmentManagementPatient(state: CallFlowState): boolean {

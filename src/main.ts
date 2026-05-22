@@ -30,14 +30,7 @@ import {
 } from "./call-observability.js";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
-import {
-  createFlowShadowPrediction,
-  createInitialFlowState,
-  applyIntentStateFromTranscript,
-  observeFlowToolExecution,
-  type FlowShadowEvent,
-  type FlowShadowPrediction,
-} from "./flow/index.js";
+import { createInitialFlowState } from "./flow/index.js";
 import { getOfficeConfigByPhone } from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
@@ -96,7 +89,6 @@ export default defineAgent({
         // peak-context analytics that cumulative session usage cannot express.
         llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
       });
-
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
       const ttsOptions = getCartesiaTtsOptions();
       const tts = new cartesia.TTS(ttsOptions);
@@ -168,6 +160,8 @@ export default defineAgent({
           routing: verified?.routing ?? null,
         }),
         flowGuardObservations: [],
+        latestUserTranscript: null,
+        turnUnderstandingAppliedForTranscript: null,
         officeKey: office.key,
         amdOfficePhone: office.amdOfficePhone,
         sipRoomName: ctx.room.name ?? "",
@@ -195,8 +189,6 @@ export default defineAgent({
 
       const startedAt = new Date();
       const turnMetrics: TurnMetricSnapshot[] = [];
-      const flowShadowEvents: FlowShadowEvent[] = [];
-      let latestFlowShadowPrediction: FlowShadowPrediction | undefined;
       const toolExecutions: ToolExecutionAnalytics[] = [];
       const sessionEvents = createEmptySessionEventAnalytics();
       let latestUsage: Record<string, unknown> | undefined;
@@ -245,23 +237,6 @@ export default defineAgent({
       });
 
       session.on(voice.AgentSessionEventTypes.FunctionToolsExecuted, (ev) => {
-        for (const call of ev.functionCalls) {
-          const observation = observeFlowToolExecution(
-            latestFlowShadowPrediction,
-            call.name,
-            ev.createdAt,
-          );
-          flowShadowEvents.push(observation);
-          if (observation.match === "mismatch") {
-            console.log(
-              `[flow-shadow] mismatch ${JSON.stringify({
-                toolName: observation.toolName,
-                expectedDecision: observation.expectedDecision,
-                mismatchReason: observation.mismatchReason,
-              })}`,
-            );
-          }
-        }
         toolExecutions.push(...snapshotToolExecutions(ev));
       });
 
@@ -288,20 +263,6 @@ export default defineAgent({
       session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (ev) => {
         if (ev.isFinal) {
           applySttProfile("default", "user_final");
-          applyIntentStateFromTranscript(session.userData.flow, ev.transcript);
-          latestFlowShadowPrediction = createFlowShadowPrediction(
-            session.userData.flow,
-            ev.transcript,
-            ev.createdAt,
-          );
-          flowShadowEvents.push(latestFlowShadowPrediction);
-          console.log(
-            `[flow-shadow] prediction ${JSON.stringify({
-              source: latestFlowShadowPrediction.source,
-              flowState: latestFlowShadowPrediction.flowState,
-              expectedDecision: latestFlowShadowPrediction.expectedDecision,
-            })}`,
-          );
         }
       });
 
@@ -379,13 +340,9 @@ export default defineAgent({
             turnMetrics,
             flow: {
               currentState: session.userData.flow,
-              shadowEvents: flowShadowEvents,
+              shadowEvents: [],
               guardObservations: session.userData.flowGuardObservations,
-              mismatchCount: flowShadowEvents.filter(
-                (event) =>
-                  event.type === "flow_shadow_tool_observation" &&
-                  event.match === "mismatch",
-              ).length,
+              mismatchCount: 0,
             },
             language: languageRuntime.telemetry,
             sessionReport,

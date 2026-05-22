@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyIntentStateFromTranscript,
+  applyTurnUnderstandingFromTranscript,
   classifyVisitType,
   compileFlowContextPacket,
   compileTurnStatePacket,
@@ -13,7 +13,6 @@ import {
   hashToolArgs,
   invalidateAvailabilitySearches,
   invalidatePendingActionsForStateChange,
-  inferCallerIntentFromTranscript,
   nextFlowDecision,
   observeFlowToolExecution,
   prepareSchedulingPath,
@@ -26,6 +25,8 @@ import {
   resumePatientTask,
   startPatientTask,
   snapshotActivePatientIdentity,
+  turnUnderstandingToInferredIntent,
+  type TurnUnderstanding,
 } from "../flow/index.js";
 
 describe("flow state and context packet", () => {
@@ -100,25 +101,25 @@ describe("flow state and context packet", () => {
     expect(packet).not.toContain("patient-1");
   });
 
-  it("classifies existing appointment intents before generic scheduling", () => {
+  it("maps structured turn understanding to appointment and scheduling intents", () => {
     expect(
-      inferCallerIntentFromTranscript("I need to reschedule my appointment"),
+      turnUnderstandingToInferredIntent(
+        appointmentManagementTurn("reschedule"),
+      ),
     ).toMatchObject({
       activeIntent: "existing_appointment_reschedule",
     });
     expect(
-      inferCallerIntentFromTranscript("what time is my appointment"),
+      turnUnderstandingToInferredIntent(appointmentManagementTurn("confirm")),
     ).toMatchObject({
       activeIntent: "existing_appointment_confirm",
     });
     expect(
-      inferCallerIntentFromTranscript("do I have an appointment tomorrow"),
-    ).toMatchObject({
-      activeIntent: "existing_appointment_confirm",
-    });
-    expect(
-      inferCallerIntentFromTranscript(
-        "I need to schedule a glaucoma follow up",
+      turnUnderstandingToInferredIntent(
+        scheduleTurn({
+          visitReason: "glaucoma follow up",
+          visitType: "medical",
+        }),
       ),
     ).toMatchObject({
       activeIntent: "new_appointment",
@@ -129,11 +130,19 @@ describe("flow state and context packet", () => {
   it("writes active intent without clearing it on ambiguous backchannels", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
 
-    const first = applyIntentStateFromTranscript(
+    const first = applyTurnUnderstandingFromTranscript(
       flow,
       "do you take VSP for routine vision",
+      insuranceTurn({
+        plan: "VSP",
+        coverageType: "routine_vision",
+      }),
     );
-    const backchannel = applyIntentStateFromTranscript(flow, "yes");
+    const backchannel = applyTurnUnderstandingFromTranscript(
+      flow,
+      "yes",
+      backchannelTurn(),
+    );
 
     expect(first).toMatchObject({
       changed: true,
@@ -311,9 +320,17 @@ describe("flow state and context packet", () => {
       patientName: "Jane Doe",
     });
 
-    applyIntentStateFromTranscript(flow, "I need to schedule a glaucoma visit");
+    applyTurnUnderstandingFromTranscript(
+      flow,
+      "I need to schedule a glaucoma visit",
+      scheduleTurn({ visitReason: "glaucoma visit", visitType: "medical" }),
+    );
     const scheduleTask = flow.currentTask!;
-    applyIntentStateFromTranscript(flow, "what are your hours");
+    applyTurnUnderstandingFromTranscript(
+      flow,
+      "what are your hours",
+      faqTurn("hours"),
+    );
 
     expect(flow.currentTask).toMatchObject({
       kind: "faq",
@@ -977,7 +994,7 @@ describe("flow shadow observer", () => {
 
     const prediction = createFlowShadowPrediction(
       flow,
-      "do you take Care Plus",
+      insuranceTurn({ plan: "Care Plus" }),
       123,
     );
     const observation = observeFlowToolExecution(prediction, "check_insurance");
@@ -1000,7 +1017,7 @@ describe("flow shadow observer", () => {
 
     const prediction = createFlowShadowPrediction(
       flow,
-      "I need to schedule a glaucoma follow up",
+      scheduleTurn({ visitReason: "glaucoma follow up", visitType: "medical" }),
     );
     const observation = observeFlowToolExecution(prediction, "verify_patient");
 
@@ -1011,3 +1028,94 @@ describe("flow shadow observer", () => {
     expect(observation.match).toBe("not_applicable");
   });
 });
+
+function appointmentManagementTurn(
+  appointmentAction: "confirm" | "cancel" | "reschedule",
+): TurnUnderstanding {
+  return {
+    goal: "manage_existing_appointment",
+    appointmentAction,
+    patient: {
+      patientMentioned: "caller",
+      relationshipToCaller: "self",
+    },
+    scheduling: {},
+    interruption: "none",
+    confidence: 0.92,
+    evidence: [`${appointmentAction} appointment`],
+  };
+}
+
+function scheduleTurn({
+  visitReason,
+  visitType,
+  preferredWindow,
+}: {
+  visitReason?: string;
+  visitType?: "medical" | "routine_vision" | "optical_shop" | "urgent";
+  preferredWindow?: string;
+} = {}): TurnUnderstanding {
+  return {
+    goal: "schedule",
+    appointmentAction: null,
+    patient: {
+      patientMentioned: "caller",
+      relationshipToCaller: "self",
+    },
+    scheduling: {
+      visitReason,
+      visitType,
+      preferredWindow,
+    },
+    interruption: "none",
+    confidence: 0.91,
+    evidence: [visitReason ?? "schedule appointment"],
+  };
+}
+
+function insuranceTurn({
+  plan,
+  coverageType,
+}: {
+  plan?: string;
+  coverageType?: "medical" | "routine_vision";
+}): TurnUnderstanding {
+  return {
+    goal: "insurance_question",
+    appointmentAction: null,
+    patient: {
+      patientMentioned: "caller",
+      relationshipToCaller: "self",
+    },
+    scheduling: {},
+    insurance: {
+      plan,
+      coverageType,
+    },
+    interruption: "none",
+    confidence: 0.88,
+    evidence: [plan ?? "insurance"],
+  };
+}
+
+function faqTurn(topic: string): TurnUnderstanding {
+  return {
+    goal: "faq",
+    appointmentAction: null,
+    scheduling: {},
+    interruption: "faq",
+    confidence: 0.88,
+    evidence: [topic],
+  };
+}
+
+function backchannelTurn(): TurnUnderstanding {
+  return {
+    goal: "unclear",
+    appointmentAction: null,
+    scheduling: {},
+    interruption: "backchannel",
+    confidence: 0.77,
+    evidence: ["yes"],
+  };
+}

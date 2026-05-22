@@ -74,7 +74,7 @@ export function createInitialFlowState({
     patientName: patientName ?? undefined,
     dob: dob ?? undefined,
     phone: callerPhone ?? undefined,
-    appointments: appointments ?? [],
+    appointments: upcomingAppointments(appointments ?? []),
     source: patientId ? "phone_lookup" : "agent_inferred",
   });
 
@@ -152,9 +152,45 @@ export function createPatientContext({
     canonicalNameSource:
       source === "phone_lookup" ? "phone_lookup" : "caller_spoken",
     spellingConfirmed: false,
-    appointments,
+    appointments: upcomingAppointments(appointments),
     activeAppointmentTaskIds: [],
   };
+}
+
+export function confirmPreloadedPatientIdentityFromTranscript(
+  flow: CallFlowState,
+  transcript: string,
+): PatientContext | undefined {
+  const patient = flow.patients[flow.activePatientRef ?? DEFAULT_PATIENT_REF];
+  if (
+    flow.patientStatus !== "matched" ||
+    patient?.status !== "matched" ||
+    !patient.patientId ||
+    !patient.firstName?.value
+  ) {
+    return undefined;
+  }
+
+  const transcriptWords = wordsForMatch(transcript);
+  const firstName = normalizeIdentityValue(patient.firstName.value);
+  if (!firstName || !transcriptWords.has(firstName)) return undefined;
+
+  patient.status = "verified";
+  patient.firstName = { ...patient.firstName, confirmed: true };
+  if (patient.lastName) {
+    patient.lastName = { ...patient.lastName, confirmed: true };
+  }
+  if (patient.dob) {
+    patient.dob = { ...patient.dob, confirmed: true };
+  }
+  flow.patientStatus = "verified";
+  if (flow.step === "verify_patient") {
+    flow.step = stepAfterPreloadedPatientConfirmation(flow);
+    if (flow.currentTask) {
+      flow.currentTask.step = flow.step;
+    }
+  }
+  return patient;
 }
 
 export interface PatientIdentitySnapshot {
@@ -505,7 +541,7 @@ export function recordVerifiedPatient(
     patient.phone = trackedSlot(result.phone, source, "medium", true);
   }
   if (result.appointments) {
-    patient.appointments = result.appointments;
+    patient.appointments = upcomingAppointments(result.appointments);
   }
   patient.status = result.patientId ? "verified" : patient.status;
   flow.patientStatus = patient.status;
@@ -769,6 +805,17 @@ function splitPatientName(patientName: string): {
   firstName?: string;
   lastName?: string;
 } {
+  const [lastName, firstAndMiddle] = patientName
+    .split(",", 2)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (lastName && firstAndMiddle) {
+    return {
+      firstName: firstAndMiddle.split(/\s+/).filter(Boolean)[0],
+      lastName,
+    };
+  }
+
   const parts = patientName.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return {};
   if (parts.length === 1) return { firstName: parts[0] };
@@ -776,6 +823,44 @@ function splitPatientName(patientName: string): {
     firstName: parts[0],
     lastName: parts.slice(1).join(" "),
   };
+}
+
+function stepAfterPreloadedPatientConfirmation(flow: CallFlowState): FlowStep {
+  if (flow.activeFlow === "appointment_management") {
+    if (flow.activeIntent === "existing_appointment_cancel") {
+      return "confirm_cancel";
+    }
+    return "answer";
+  }
+  if (flow.activeFlow === "scheduling") {
+    return "get_availability";
+  }
+  return nextPatientFlowStep("verified");
+}
+
+function wordsForMatch(value: string): Set<string> {
+  return new Set(
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .split(/\s+/)
+      .map((word) => word.trim())
+      .filter(Boolean),
+  );
+}
+
+function upcomingAppointments(
+  appointments: CallerAppointment[],
+  now = new Date(),
+): CallerAppointment[] {
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  return appointments.filter((appointment) => {
+    const date = new Date(appointment.date);
+    if (Number.isNaN(date.getTime())) return false;
+    date.setHours(0, 0, 0, 0);
+    return date >= today;
+  });
 }
 
 function hashStateArgs(value: unknown): string {

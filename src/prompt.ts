@@ -98,6 +98,7 @@ export function buildPrompt(
   const officeBlock = officeHints ? `\n\n${officeHints}` : "";
 
   prompt += `\n\n<context>\nToday is ${date}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}${officeBlock}\n</context>`;
+  prompt += `\n\n<state_memory_contract>\nAt the start of every user turn, before answering the caller or calling any other tool, call record_turn_understanding exactly once with the structured semantic update for the latest caller message. This is an internal memory update, not a patient-facing action. After it returns, continue from the returned turn_state. Never mention record_turn_understanding to the caller.\n</state_memory_contract>`;
 
   return prompt;
 }

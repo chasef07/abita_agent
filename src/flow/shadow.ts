@@ -1,6 +1,9 @@
 import { compileFlowContextPacket } from "./context.js";
 import { type FlowControllerEvent, nextFlowDecision } from "./controller.js";
-import { inferCallerIntentFromTranscript } from "./intent.js";
+import {
+  turnUnderstandingToInferredIntent,
+  type TurnUnderstanding,
+} from "./understanding.js";
 import type { CallFlowState, FlowDecision, IntentKind } from "./types.js";
 
 export interface FlowShadowDecisionSummary {
@@ -44,10 +47,10 @@ export type FlowShadowEvent = FlowShadowPrediction | FlowShadowToolObservation;
 
 export function createFlowShadowPrediction(
   flow: CallFlowState,
-  transcript: string,
+  understanding: TurnUnderstanding,
   createdAt: number = Date.now(),
 ): FlowShadowPrediction {
-  const event = inferFlowControllerEvent(transcript);
+  const event = flowControllerEventFromUnderstanding(understanding);
   const expectedDecision = nextFlowDecision({ state: flow, event });
 
   return {
@@ -124,10 +127,10 @@ export function observeFlowToolExecution(
   };
 }
 
-function inferFlowControllerEvent(
-  transcript: string,
+function flowControllerEventFromUnderstanding(
+  understanding: TurnUnderstanding,
 ): Extract<FlowControllerEvent, { type: "caller_intent" }> {
-  const inferred = inferCallerIntentFromTranscript(transcript);
+  const inferred = turnUnderstandingToInferredIntent(understanding);
 
   return {
     type: "caller_intent",

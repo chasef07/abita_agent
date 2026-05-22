@@ -141,6 +141,7 @@ export function compileFlowContextPacket(
     `visitType: ${flow.visitType ?? "unknown"}`,
     `coverageType: ${flow.coverageType ?? "unknown"}`,
     `routing: ${flow.routing ?? "unknown"}`,
+    `schedulingGoal: ${formatSchedulingGoal(flow)}`,
     `task: ${flow.currentTask?.kind ?? flow.activeFlow}`,
     `pendingActions: ${flow.pendingActions.length}`,
     `availabilitySearches: ${flow.availabilitySearches.length}`,
@@ -173,6 +174,7 @@ export function compileTurnStatePacket(
     `task: ${flow.currentTask?.kind ?? flow.activeFlow}`,
     `step: ${flow.step}`,
     `visitType: ${flow.visitType ?? "unknown"}`,
+    `scheduling: ${formatSchedulingGoal(flow)}`,
     `office: ${flow.officeKey}`,
     `nextAction: ${directives.nextAction ?? directives.allowedActions[0] ?? "continue"}`,
     `blockedActions: ${formatList(directives.blockedActions)}`,
@@ -184,4 +186,19 @@ function formatPatientStatus(flow: CallFlowState): string {
   if (flow.patientStatus === "matched") return "matched_not_verified";
   if (flow.patientStatus === "candidate") return "candidate_not_verified";
   return flow.patientStatus;
+}
+
+function formatSchedulingGoal(flow: CallFlowState): string {
+  const goal = flow.schedulingGoal;
+  if (!goal) return "none";
+
+  const parts = [
+    goal.appointmentAction ?? "schedule",
+    goal.status,
+    goal.preferredWindow ? `window=${goal.preferredWindow}` : undefined,
+    goal.bookingConfirmed ? "bookingConfirmed" : undefined,
+    goal.selectedSlotId ? "selectedSlot=known" : undefined,
+  ].filter(Boolean);
+
+  return parts.join(" ");
 }
