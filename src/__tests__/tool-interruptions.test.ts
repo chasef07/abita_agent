@@ -176,6 +176,26 @@ describe("tool interruption handling", () => {
     });
   });
 
+  it("does not require turn understanding when the flow harness is disabled", async () => {
+    const { ctx, state } = createToolContext();
+    state.flowHarnessEnabled = false;
+    state.latestUserTranscript = "what are your office hours?";
+    state.turnUnderstandingAppliedForTranscript = null;
+
+    const result = await lookup_knowledge.execute(
+      { question: "office hours" },
+      { ctx, toolCallId: "test-lookup-disabled-harness" },
+    );
+
+    expect(result).not.toMatchObject({
+      outcome: "not_allowed",
+      facts: {
+        reason: "turn_understanding_required",
+      },
+    });
+    expect(String(result)).toContain("Abita Eye Group");
+  });
+
   it("marks side-effecting tools as uninterruptible before the side effect", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
@@ -645,6 +665,31 @@ describe("tool interruption handling", () => {
       nextStep: "confirm_booking",
       facts: { reason: "booking_requires_pending_action" },
     });
+  });
+
+  it("uses legacy direct booking when the flow harness is disabled", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "booked", appointmentId: 12345 }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.flowHarnessEnabled = false;
+    seedLastAvailabilitySlot(state, { bookingToken: "signed-token" });
+
+    const result = await book_appt.execute(
+      {
+        slotId: "A",
+        appointmentTypeId: 1007,
+      },
+      { ctx, toolCallId: "test-book-disabled-harness" },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
+    expect(state.flow.pendingActions).toEqual([]);
   });
 
   it("blocks booking when the pending booking action is not confirmed", async () => {
@@ -1901,6 +1946,7 @@ function createToolContext() {
       routing: "all_three",
       coverageType: "medical",
     }),
+    flowHarnessEnabled: true,
     flowGuardObservations: [],
     officeKey: "spring-hill",
     amdOfficePhone: "+17275919997",

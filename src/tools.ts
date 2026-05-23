@@ -166,6 +166,7 @@ export interface StoredAvailabilitySlot {
 
 export interface CallState {
   flow: CallFlowState;
+  flowHarnessEnabled?: boolean;
   flowGuardObservations: GuardObservation[];
   latestUserTranscript?: string | null;
   turnUnderstandingAppliedForTranscript?: string | null;
@@ -215,6 +216,7 @@ function evaluatePolicyForState(
     booking?: Parameters<typeof evaluateFlowToolPolicy>[0]["booking"];
   } = {},
 ): ToolOutcome | null {
+  if (!isFlowHarnessEnabled(state)) return null;
   const turnGate = evaluateTurnUnderstandingGate(state, toolName);
   if (turnGate) return turnGate;
   syncSessionPatientFromActiveFlow(state);
@@ -263,6 +265,7 @@ function evaluateTurnUnderstandingGate(
   state: CallState,
   toolName: string,
 ): ToolOutcome | null {
+  if (!isFlowHarnessEnabled(state)) return null;
   if (!requiresTurnUnderstandingBeforeTool(state)) return null;
   return toolOutcome(
     "not_allowed",
@@ -274,6 +277,10 @@ function evaluateTurnUnderstandingGate(
     },
     true,
   );
+}
+
+function isFlowHarnessEnabled(state: Pick<CallState, "flowHarnessEnabled">) {
+  return state.flowHarnessEnabled === true;
 }
 
 function requiresTurnUnderstandingBeforeTool(state: CallState): boolean {
@@ -846,6 +853,64 @@ function publicAvailabilitySlots(slots: StoredAvailabilitySlot[]) {
   }));
 }
 
+async function submitLegacyBooking(
+  state: CallState,
+  selectedSlot: StoredAvailabilitySlot,
+  appointmentTypeId: number,
+): Promise<unknown> {
+  const routing =
+    selectedSlot.routing ??
+    state.lastAvailabilityRouting ??
+    routingForAvailability(state);
+  const usedBookingToken = Boolean(selectedSlot.bookingToken);
+  let slotPayload: Record<string, unknown>;
+  if (selectedSlot.bookingToken) {
+    slotPayload = { bookingToken: selectedSlot.bookingToken };
+  } else if (
+    selectedSlot.columnId &&
+    selectedSlot.profileId &&
+    selectedSlot.datetime &&
+    selectedSlot.duration
+  ) {
+    slotPayload = {
+      columnId: selectedSlot.columnId,
+      profileId: selectedSlot.profileId,
+      startDatetime: selectedSlot.datetime,
+      duration: selectedSlot.duration,
+    };
+  } else {
+    clearAvailabilitySlots(state);
+    return "ERROR: The selected slot is missing booking details. Call get_availability again and choose one of the returned slots.";
+  }
+  const body = {
+    ...slotPayload,
+    appointmentTypeId,
+    patientId: state.patientId,
+    ...(state.patientName ? { patientName: state.patientName } : {}),
+    ...(state.dob ? { dob: state.dob } : {}),
+    ...(routing ? { routing } : {}),
+  };
+  const result = await callApi(
+    "/api/appointment/book",
+    body,
+    getAmdOfficeForToolCall(state),
+  );
+  if (isRecord(result)) {
+    const message =
+      typeof result.message === "string" ? result.message.toLowerCase() : "";
+    const invalidatesSelection =
+      result.status === "booked" ||
+      result.outcome === "slot_unavailable" ||
+      result.outcome === "invalid_booking_token" ||
+      (usedBookingToken && result.status === "error") ||
+      message.includes("slot is no longer available");
+    if (invalidatesSelection) {
+      clearAvailabilitySelection(state);
+    }
+  }
+  return result;
+}
+
 function ensureRoutineVisionOffice(state: CallState): void {
   if (state.checkedInsuranceCoverageType !== "routine_vision") return;
   if (!getOfficeConfig(state.officeKey).features.routeRoutineVisionToSpringHill)
@@ -933,6 +998,13 @@ If the caller only says a backchannel like "yes", "okay", or "mm-hmm", still cal
   parameters: turnUnderstandingSchema,
   execute: async (understanding, { ctx }) => {
     const state = getState(ctx);
+    if (!isFlowHarnessEnabled(state)) {
+      return {
+        status: "disabled",
+        instruction:
+          "Flow harness is disabled for this trunk. Continue with the normal tool flow.",
+      };
+    }
     const transcript = state.latestUserTranscript?.trim() ?? "";
 
     if (
@@ -1319,6 +1391,9 @@ After response: check if date shifted vs requested — tell caller if different.
       getAmdOfficeForToolCall(state),
     );
     state.lastAvailabilityRouting = effectiveRouting;
+    if (!isFlowHarnessEnabled(state)) {
+      return storeAvailabilitySlots(state, result, effectiveRouting);
+    }
     recordAvailabilitySearch(state.flow, {
       patientRef: state.flow.activePatientRef,
       officeKey: state.officeKey,
@@ -1762,7 +1837,7 @@ export const book_appt = llm.tool({
 
 Select appointmentTypeId only from the allowed enum based on office, patient status, age, routing lane, and visit type. Availability does not return appointmentTypeId, so do not claim it came from the slot.
 
-After the caller says yes to the exact slot, call confirm_booking_action first, then call this tool with the same slotId and appointmentTypeId. If booking fails because the slot is unavailable, call get_availability again before trying another slot.`,
+Only book after the caller says yes to the exact offered slot. If booking fails because the slot is unavailable, call get_availability again before trying another slot.`,
   parameters: z.object({
     slotId: z
       .string()
@@ -1837,6 +1912,9 @@ After the caller says yes to the exact slot, call confirm_booking_action first, 
         { reason: "speech_interrupted" },
         true,
       );
+    }
+    if (!isFlowHarnessEnabled(state)) {
+      return submitLegacyBooking(state, selectedSlot, params.appointmentTypeId);
     }
     const bookingAttempt = recordBookingAttempt(state.flow, {
       ...bookingPolicyFacts,

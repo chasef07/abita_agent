@@ -7,7 +7,10 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import type { PhoneLookupResult } from "./tools.js";
-import { getOfficeConfigByPhone } from "./offices.js";
+import {
+  getOfficeConfigByPhone,
+  isFlowHarnessEnabledForTrunk,
+} from "./offices.js";
 
 const WORKSPACE = join(
   import.meta.dirname,
@@ -60,6 +63,11 @@ const FILES: { file: string; tag: string }[] = [
   { file: "RUNBOOK.md", tag: "runbook" },
 ];
 
+const FLOW_HARNESS_FILE = {
+  file: "FLOW_HARNESS_RUNBOOK.md",
+  tag: "flow_harness_runbook",
+};
+
 /** Build the full system prompt with caller-specific data baked in. */
 export function buildPrompt(
   phoneLookup?: PhoneLookupResult,
@@ -69,10 +77,20 @@ export function buildPrompt(
   if (!trunkPhone) {
     throw new Error("buildPrompt requires a trunk phone number");
   }
+  const flowHarnessEnabled = isFlowHarnessEnabledForTrunk(trunkPhone);
 
   for (const { file, tag } of FILES) {
     const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
     sections.push(`<${tag}>\n${content}\n</${tag}>`);
+  }
+  if (flowHarnessEnabled) {
+    const content = readFileSync(
+      join(WORKSPACE, FLOW_HARNESS_FILE.file),
+      "utf-8",
+    ).trim();
+    sections.push(
+      `<${FLOW_HARNESS_FILE.tag}>\n${content}\n</${FLOW_HARNESS_FILE.tag}>`,
+    );
   }
 
   let prompt = sections.join("\n\n");
@@ -98,7 +116,9 @@ export function buildPrompt(
   const officeBlock = officeHints ? `\n\n${officeHints}` : "";
 
   prompt += `\n\n<context>\nToday is ${date}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}${officeBlock}\n</context>`;
-  prompt += `\n\n<state_memory_contract>\nAt the start of every user turn, before answering the caller or calling any other tool, call record_turn_understanding exactly once with the structured semantic update for the latest caller message. This is an internal memory update, not a patient-facing action. After it returns, continue from the returned turn_state. Never mention record_turn_understanding to the caller.\n</state_memory_contract>`;
+  if (flowHarnessEnabled) {
+    prompt += `\n\n<state_memory_contract>\nAt the start of every user turn, before answering the caller or calling any other tool, call record_turn_understanding exactly once with the structured semantic update for the latest caller message. This is an internal memory update, not a patient-facing action. After it returns, continue from the returned turn_state. Never mention record_turn_understanding to the caller.\n</state_memory_contract>`;
+  }
 
   return prompt;
 }

@@ -25,10 +25,13 @@ import {
   route_to_spring_hill,
   transfer_call,
 } from "./tools.js";
-import { getOfficeConfigByPhone } from "./offices.js";
+import {
+  getOfficeConfigByPhone,
+  isFlowHarnessEnabledForTrunk,
+} from "./offices.js";
 
 type AgentTools = {
-  record_turn_understanding: typeof record_turn_understanding;
+  record_turn_understanding?: typeof record_turn_understanding;
   verify_patient: typeof verify_patient;
   add_patient: typeof add_patient;
   update_insurance: typeof update_insurance;
@@ -36,8 +39,8 @@ type AgentTools = {
   confirm_appt: typeof confirm_appt;
   cancel_appt: typeof cancel_appt;
   add_patient_note: typeof add_patient_note;
-  confirm_side_effect_action: typeof confirm_side_effect_action;
-  confirm_booking_action: typeof confirm_booking_action;
+  confirm_side_effect_action?: typeof confirm_side_effect_action;
+  confirm_booking_action?: typeof confirm_booking_action;
   book_appt: typeof book_appt;
   check_insurance: typeof check_insurance;
   lookup_knowledge: typeof lookup_knowledge;
@@ -47,8 +50,9 @@ type AgentTools = {
 
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
   const office = getOfficeConfigByPhone(trunkPhone ?? "");
+  const flowHarnessEnabled = isFlowHarnessEnabledForTrunk(trunkPhone);
   return {
-    record_turn_understanding,
+    ...(flowHarnessEnabled ? { record_turn_understanding } : {}),
     verify_patient,
     add_patient,
     update_insurance,
@@ -56,8 +60,9 @@ export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
     confirm_appt,
     cancel_appt,
     add_patient_note,
-    confirm_side_effect_action,
-    confirm_booking_action,
+    ...(flowHarnessEnabled
+      ? { confirm_side_effect_action, confirm_booking_action }
+      : {}),
     book_appt,
     check_insurance,
     lookup_knowledge,
@@ -98,7 +103,7 @@ export class Agent extends voice.Agent {
   ): Promise<void> {
     const state = this.session.userData as CallState | undefined;
     const transcript = newMessage.textContent ?? "";
-    if (!state?.flow || !transcript) return;
+    if (!state?.flowHarnessEnabled || !state.flow || !transcript) return;
 
     state.latestUserTranscript = transcript;
     state.turnUnderstandingAppliedForTranscript = null;

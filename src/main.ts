@@ -31,7 +31,10 @@ import {
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
 import { createInitialFlowState } from "./flow/index.js";
-import { getOfficeConfigByPhone } from "./offices.js";
+import {
+  getOfficeConfigByPhone,
+  isFlowHarnessEnabledForTrunk,
+} from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
   getCartesiaTtsOptions,
@@ -149,6 +152,7 @@ export default defineAgent({
       const agent = new Agent(phoneLookup, trunkPhone, { languageRuntime });
 
       const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
+      const flowHarnessEnabled = isFlowHarnessEnabledForTrunk(trunkPhone);
       session.userData = {
         flow: createInitialFlowState({
           officeKey: office.key,
@@ -159,6 +163,7 @@ export default defineAgent({
           appointments: verified?.appointments ?? [],
           routing: verified?.routing ?? null,
         }),
+        flowHarnessEnabled,
         flowGuardObservations: [],
         latestUserTranscript: null,
         turnUnderstandingAppliedForTranscript: null,
