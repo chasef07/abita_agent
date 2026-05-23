@@ -10,6 +10,7 @@ import {
   getOfficeHandoffTarget,
   getOfficeKeyByPhone,
   HOLLYWOOD_OFFICE_PHONE,
+  isFlowHarnessEnabledForTrunk,
   normalizeHandoffTarget,
   normalizePhoneNumber,
   SPRING_HILL_813_TRUNK_PHONE,
@@ -33,6 +34,7 @@ describe("office routing helpers", () => {
     delete process.env.DEV_HANDOFF_TARGET;
     delete process.env.TELNYX_VOICE_API_HANDOFF_TARGET;
     delete process.env.OFFICE_HANDOFF_TARGET;
+    delete process.env.FLOW_HARNESS_TRUNK_PHONES;
   });
 
   it("maps trunk numbers to office keys", () => {
@@ -84,6 +86,27 @@ describe("office routing helpers", () => {
     expect(getBaseUrlForOfficePhone("14843989071")).toBe(
       "https://advancedmd-token-management-dev.up.railway.app",
     );
+  });
+
+  it("enables the flow harness only for the demo trunk by default", () => {
+    delete process.env.FLOW_HARNESS_TRUNK_PHONES;
+
+    expect(isFlowHarnessEnabledForTrunk(DEV_OFFICE_PHONE)).toBe(true);
+    expect(isFlowHarnessEnabledForTrunk("14843989071")).toBe(true);
+    expect(isFlowHarnessEnabledForTrunk(SPRING_HILL_OFFICE_PHONE)).toBe(false);
+    expect(isFlowHarnessEnabledForTrunk("+13523202007")).toBe(false);
+    expect(isFlowHarnessEnabledForTrunk(HOLLYWOOD_OFFICE_PHONE)).toBe(false);
+    for (const phone of SWEETWATER_TRUNK_PHONES) {
+      expect(isFlowHarnessEnabledForTrunk(phone)).toBe(false);
+    }
+  });
+
+  it("allows the flow harness trunk list to be overridden explicitly", () => {
+    process.env.FLOW_HARNESS_TRUNK_PHONES = `13523202007, ${SPRING_HILL_OFFICE_PHONE}`;
+
+    expect(isFlowHarnessEnabledForTrunk("+13523202007")).toBe(true);
+    expect(isFlowHarnessEnabledForTrunk(SPRING_HILL_OFFICE_PHONE)).toBe(true);
+    expect(isFlowHarnessEnabledForTrunk(DEV_OFFICE_PHONE)).toBe(false);
   });
 
   it("rejects unsupported trunk numbers", () => {
@@ -233,6 +256,54 @@ describe("office routing helpers", () => {
         "route_to_spring_hill",
       );
     }
+  });
+
+  it("only exposes flow harness tools on demo trunk calls", () => {
+    const demoTools = buildToolsForTrunk(DEV_OFFICE_PHONE);
+    expect(demoTools).toHaveProperty("record_turn_understanding");
+    expect(demoTools).toHaveProperty("confirm_booking_action");
+    expect(demoTools).toHaveProperty("confirm_side_effect_action");
+
+    const liveTrunks = [
+      SPRING_HILL_OFFICE_PHONE,
+      SPRING_HILL_813_TRUNK_PHONE,
+      "+13523202007",
+      HOLLYWOOD_OFFICE_PHONE,
+      ...SWEETWATER_TRUNK_PHONES,
+    ];
+
+    for (const phone of liveTrunks) {
+      const tools = buildToolsForTrunk(phone);
+      expect(tools).not.toHaveProperty("record_turn_understanding");
+      expect(tools).not.toHaveProperty("confirm_booking_action");
+      expect(tools).not.toHaveProperty("confirm_side_effect_action");
+    }
+  });
+});
+
+describe("flow harness prompt gating", () => {
+  afterEach(() => {
+    delete process.env.FLOW_HARNESS_TRUNK_PHONES;
+  });
+
+  it("injects state harness instructions only for the demo trunk", () => {
+    const prompt = buildPrompt(undefined, DEV_OFFICE_PHONE);
+
+    expect(prompt).toContain("<flow_harness_runbook>");
+    expect(prompt).toContain("<state_memory_contract>");
+    expect(prompt).toContain("record_turn_understanding");
+    expect(prompt).toContain("confirm_booking_action");
+    expect(prompt).toContain("confirm_side_effect_action");
+  });
+
+  it("keeps flow harness instructions out of live-office prompts", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+
+    expect(prompt).not.toContain("<flow_harness_runbook>");
+    expect(prompt).not.toContain("<state_memory_contract>");
+    expect(prompt).not.toContain("record_turn_understanding");
+    expect(prompt).not.toContain("confirm_booking_action");
+    expect(prompt).not.toContain("confirm_side_effect_action");
   });
 });
 

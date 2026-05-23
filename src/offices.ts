@@ -20,6 +20,7 @@ export const SWEETWATER_TRUNK_PHONES = [
   "+17864654882",
 ] as const;
 export const DEV_OFFICE_PHONE = "+14843989071";
+const DEFAULT_FLOW_HARNESS_TRUNK_PHONES = [DEV_OFFICE_PHONE];
 
 export interface OfficeConfig {
   key: OfficeKey;
@@ -148,6 +149,16 @@ export function normalizePhoneNumber(phone: string): string {
   if (digits.length === 10) return `+1${digits}`;
   if (digits.length > 0) return `+${digits}`;
   return phone.trim();
+}
+
+export function isFlowHarnessEnabledForTrunk(phone?: string | null): boolean {
+  if (!phone) return false;
+  const configuredPhones =
+    process.env.FLOW_HARNESS_TRUNK_PHONES?.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean) ?? DEFAULT_FLOW_HARNESS_TRUNK_PHONES;
+  const allowedPhones = new Set(configuredPhones.map(normalizePhoneNumber));
+  return allowedPhones.has(normalizePhoneNumber(phone));
 }
 
 export function getOfficeKeyByPhone(phone: string): OfficeKey {

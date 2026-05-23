@@ -139,6 +139,12 @@ export function classifyToolOutput(
   switch (toolName) {
     case "book_appt":
       if (
+        isRecord(parsed?.facts) &&
+        parsed.facts.reason === "booking_action_already_consumed"
+      ) {
+        return "duplicate_tool_call";
+      }
+      if (
         status === "booked" ||
         asString(parsed?.appointmentId) ||
         asString(parsed?.id) ||
@@ -147,6 +153,10 @@ export function classifyToolOutput(
         return "appointment_booked";
       }
       return "appointment_not_booked";
+    case "confirm_booking_action":
+      return "booking_action_confirmed";
+    case "confirm_side_effect_action":
+      return "side_effect_action_confirmed";
     case "cancel_appt":
       return "appointment_cancelled";
     case "confirm_appt":

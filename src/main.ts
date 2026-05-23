@@ -30,7 +30,11 @@ import {
 } from "./call-observability.js";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { type CallState, lookupByPhone } from "./tools.js";
-import { getOfficeConfigByPhone } from "./offices.js";
+import { createInitialFlowState } from "./flow/index.js";
+import {
+  getOfficeConfigByPhone,
+  isFlowHarnessEnabledForTrunk,
+} from "./offices.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
   getCartesiaTtsOptions,
@@ -88,7 +92,6 @@ export default defineAgent({
         // peak-context analytics that cumulative session usage cannot express.
         llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
       });
-
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
       const ttsOptions = getCartesiaTtsOptions();
       const tts = new cartesia.TTS(ttsOptions);
@@ -149,7 +152,21 @@ export default defineAgent({
       const agent = new Agent(phoneLookup, trunkPhone, { languageRuntime });
 
       const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
+      const flowHarnessEnabled = isFlowHarnessEnabledForTrunk(trunkPhone);
       session.userData = {
+        flow: createInitialFlowState({
+          officeKey: office.key,
+          patientId: verified?.patientId ?? null,
+          patientName: verified?.name ?? null,
+          dob: verified?.dob ?? null,
+          callerPhone,
+          appointments: verified?.appointments ?? [],
+          routing: verified?.routing ?? null,
+        }),
+        flowHarnessEnabled,
+        flowGuardObservations: [],
+        latestUserTranscript: null,
+        turnUnderstandingAppliedForTranscript: null,
         officeKey: office.key,
         amdOfficePhone: office.amdOfficePhone,
         sipRoomName: ctx.room.name ?? "",
@@ -326,6 +343,12 @@ export default defineAgent({
             sessionEvents,
             toolExecutions,
             turnMetrics,
+            flow: {
+              currentState: session.userData.flow,
+              shadowEvents: [],
+              guardObservations: session.userData.flowGuardObservations,
+              mismatchCount: 0,
+            },
             language: languageRuntime.telemetry,
             sessionReport,
           };
