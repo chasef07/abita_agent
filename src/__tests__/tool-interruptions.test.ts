@@ -26,8 +26,6 @@ import {
   cancel_appt,
   check_insurance,
   confirm_appt,
-  confirm_booking_action,
-  confirm_side_effect_action,
   get_availability,
   lookup_knowledge,
   makeCurrentSpeechUninterruptible,
@@ -658,7 +656,7 @@ describe("tool interruption handling", () => {
       { ctx, toolCallId: "test-book-policy" },
     );
 
-    expect(speechHandle.allowInterruptions).toBe(true);
+    expect(speechHandle.allowInterruptions).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       outcome: "not_allowed",
@@ -716,7 +714,7 @@ describe("tool interruption handling", () => {
     });
   });
 
-  it("creates a pending booking action from confirmation before booking", async () => {
+  it("creates a pending booking action inside book_appt after state confirmation", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
       json: async () => ({ status: "booked", appointmentId: 12345 }),
@@ -726,29 +724,7 @@ describe("tool interruption handling", () => {
 
     const { ctx, state } = createToolContext();
     seedLastAvailabilitySlot(state);
-
-    const confirmation = await confirm_booking_action.execute(
-      {
-        slotId: "A",
-        appointmentTypeId: 1007,
-      },
-      { ctx, toolCallId: "test-confirm-booking" },
-    );
-
-    expect(confirmation).toMatchObject({
-      outcome: "success",
-      nextStep: "book",
-      facts: {
-        pendingActionId: "pending_book_1",
-        slotId: "A",
-      },
-    });
-    expect(state.flow.pendingActions[0]).toMatchObject({
-      type: "book_appt",
-      confirmed: true,
-      consumed: false,
-      confirmationTurnId: "test-confirm-booking",
-    });
+    markBookingConfirmedInState(state, "A");
 
     await book_appt.execute(
       {
@@ -760,7 +736,10 @@ describe("tool interruption handling", () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(state.flow.pendingActions[0]).toMatchObject({
+      type: "book_appt",
+      confirmed: true,
       consumed: true,
+      confirmationTurnId: "test-book",
     });
   });
 
@@ -774,13 +753,7 @@ describe("tool interruption handling", () => {
 
     const { ctx, state } = createToolContext();
     seedLastAvailabilitySlot(state);
-    await confirm_booking_action.execute(
-      {
-        slotId: "A",
-        appointmentTypeId: 1007,
-      },
-      { ctx, toolCallId: "test-confirm-booking" },
-    );
+    markBookingConfirmedInState(state, "A");
     await book_appt.execute(
       {
         slotId: "A",
@@ -1109,6 +1082,17 @@ describe("tool interruption handling", () => {
     state.amdOfficePhone = "+13523202007";
     state.flow.patients[state.flow.activePatientRef!].patientId = "17603880";
     seedSuccessfulBooking(state);
+    state.flow.schedulingGoal = {
+      status: "booked",
+      patientRef: state.flow.activePatientRef,
+      appointmentAction: "schedule",
+      visitReason: "blurry vision",
+      noteDraft: {
+        appointmentReason: "blurry vision",
+        referringDoctor: "Dr. Smith",
+      },
+      updatedAt: Date.now(),
+    };
 
     await add_patient_note.execute(
       {
@@ -1129,6 +1113,41 @@ describe("tool interruption handling", () => {
     });
   });
 
+  it("blocks ungrounded patient note details when the flow harness is enabled", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.patientId = "17603880";
+    state.flow.patients[state.flow.activePatientRef!].patientId = "17603880";
+    seedSuccessfulBooking(state);
+    state.flow.schedulingGoal = {
+      status: "booked",
+      patientRef: state.flow.activePatientRef,
+      appointmentAction: "schedule",
+      visitReason: "itchy eye",
+      noteDraft: {
+        appointmentReason: "itchy eye",
+      },
+      updatedAt: Date.now(),
+    };
+
+    const result = await add_patient_note.execute(
+      {
+        appointmentReason: "itchy eye",
+        referringDoctor: "Dr. Tickle My Cock",
+      },
+      { ctx, toolCallId: "test-ungrounded-note" },
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "collect_visit_reason",
+      facts: { reason: "note_requires_grounded_details" },
+    });
+  });
+
   it("blocks patient notes until a booking succeeded for the active patient", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -1145,7 +1164,7 @@ describe("tool interruption handling", () => {
       { ctx, toolCallId: "test-note-before-booking" },
     );
 
-    expect(speechHandle.allowInterruptions).toBe(true);
+    expect(speechHandle.allowInterruptions).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       outcome: "not_allowed",
@@ -1184,13 +1203,6 @@ describe("tool interruption handling", () => {
       nextStep: "route_office",
       routeTool: "route_to_spring_hill",
     });
-    await confirm_side_effect_action.execute(
-      {
-        action: "route_to_spring_hill",
-        spokenSummary: "Route routine vision scheduling to Spring Hill.",
-      },
-      { ctx, toolCallId: "test-confirm-route" },
-    );
     await route_to_spring_hill.execute(
       {},
       { ctx, toolCallId: "test-route-spring-hill" },
@@ -1561,7 +1573,7 @@ describe("tool interruption handling", () => {
     );
   });
 
-  it("blocks cancellation before explicit cancellation confirmation reaches state", async () => {
+  it("blocks cancellation before the appointment is loaded into state", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1573,16 +1585,16 @@ describe("tool interruption handling", () => {
       { ctx, toolCallId: "test-cancel-policy" },
     );
 
-    expect(speechHandle.allowInterruptions).toBe(true);
+    expect(speechHandle.allowInterruptions).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       outcome: "not_allowed",
       nextStep: "confirm_cancel",
-      facts: { reason: "cancel_confirmation_not_tracked" },
+      facts: { reason: "cancel_requires_loaded_appointment" },
     });
   });
 
-  it("creates and consumes a pending cancellation action from confirmation", async () => {
+  it("creates and consumes a pending cancellation action from the final tool call", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
       json: async () => ({ status: "cancelled" }),
@@ -1592,30 +1604,6 @@ describe("tool interruption handling", () => {
 
     const { ctx, state } = createToolContext();
     seedLoadedAppointment(state, 12345);
-
-    const confirmation = await confirm_side_effect_action.execute(
-      {
-        action: "cancel_appt",
-        appointmentId: 12345,
-        spokenSummary: "Cancel appointment 12345.",
-      },
-      { ctx, toolCallId: "test-confirm-cancel" },
-    );
-
-    expect(confirmation).toMatchObject({
-      outcome: "success",
-      nextStep: "cancel",
-      facts: {
-        action: "cancel_appt",
-        pendingActionId: "pending_cancel_appt_1",
-      },
-    });
-    expect(state.flow.pendingActions[0]).toMatchObject({
-      type: "cancel_appt",
-      appointmentId: 12345,
-      confirmed: true,
-      consumed: false,
-    });
 
     const cancelResult = await cancel_appt.execute(
       { appointmentId: 12345 },
@@ -1629,6 +1617,9 @@ describe("tool interruption handling", () => {
       facts: { appointmentId: 12345 },
     });
     expect(state.flow.pendingActions[0]).toMatchObject({
+      type: "cancel_appt",
+      appointmentId: 12345,
+      confirmed: true,
       consumed: true,
     });
     expect(state.appointments).toEqual([]);
@@ -1676,14 +1667,6 @@ describe("tool interruption handling", () => {
       createdAt: 200,
     });
     seedLoadedAppointment(state, 12345);
-    await confirm_side_effect_action.execute(
-      {
-        action: "cancel_appt",
-        appointmentId: 12345,
-        spokenSummary: "Cancel appointment 12345.",
-      },
-      { ctx, toolCallId: "test-confirm-cancel" },
-    );
 
     const result = await cancel_appt.execute(
       { appointmentId: 12345 },
@@ -1702,24 +1685,26 @@ describe("tool interruption handling", () => {
     expect(state.flow.activeFlow).toBe("scheduling");
   });
 
-  it("blocks transfer before a confirmed pending side-effect action exists", async () => {
+  it("creates and consumes a pending transfer action from the final tool call", async () => {
     transferSipParticipantMock.mockResolvedValue(undefined);
-    const { ctx, speechHandle } = createToolContext();
+    const { ctx, state, speechHandle } = createToolContext();
 
     const result = await transfer_call.execute(
       {},
       { ctx, toolCallId: "test-transfer-policy" },
     );
 
-    expect(speechHandle.allowInterruptions).toBe(true);
-    expect(transferSipParticipantMock).not.toHaveBeenCalled();
+    expect(speechHandle.allowInterruptions).toBe(false);
+    expect(transferSipParticipantMock).toHaveBeenCalledOnce();
     expect(result).toMatchObject({
-      outcome: "not_allowed",
+      outcome: "success",
       nextStep: "handoff",
-      facts: {
-        reason: "side_effect_requires_pending_action",
-        toolName: "transfer_call",
-      },
+      speak: "Transfer initiated successfully.",
+    });
+    expect(state.flow.pendingActions[0]).toMatchObject({
+      type: "transfer_call",
+      confirmed: true,
+      consumed: true,
     });
   });
 
@@ -2005,6 +1990,21 @@ function seedLastAvailabilitySlot(
         : {}),
     },
   ];
+}
+
+function markBookingConfirmedInState(state: CallState, slotId = "A") {
+  state.flow.schedulingGoal = {
+    ...(state.flow.schedulingGoal ?? {
+      status: "confirming_booking",
+      updatedAt: Date.now(),
+    }),
+    status: "confirming_booking",
+    patientRef: state.flow.activePatientRef,
+    appointmentAction: "schedule",
+    selectedSlotId: slotId,
+    bookingConfirmed: true,
+    updatedAt: Date.now(),
+  };
 }
 
 function seedPendingBookingAction(

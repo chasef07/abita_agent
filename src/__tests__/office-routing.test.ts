@@ -261,8 +261,8 @@ describe("office routing helpers", () => {
   it("only exposes flow harness tools on demo trunk calls", () => {
     const demoTools = buildToolsForTrunk(DEV_OFFICE_PHONE);
     expect(demoTools).toHaveProperty("record_turn_understanding");
-    expect(demoTools).toHaveProperty("confirm_booking_action");
-    expect(demoTools).toHaveProperty("confirm_side_effect_action");
+    expect(demoTools).not.toHaveProperty("confirm_booking_action");
+    expect(demoTools).not.toHaveProperty("confirm_side_effect_action");
 
     const liveTrunks = [
       SPRING_HILL_OFFICE_PHONE,
@@ -292,8 +292,8 @@ describe("flow harness prompt gating", () => {
     expect(prompt).toContain("<flow_harness_runbook>");
     expect(prompt).toContain("<state_memory_contract>");
     expect(prompt).toContain("record_turn_understanding");
-    expect(prompt).toContain("confirm_booking_action");
-    expect(prompt).toContain("confirm_side_effect_action");
+    expect(prompt).not.toContain("confirm_booking_action");
+    expect(prompt).not.toContain("confirm_side_effect_action");
   });
 
   it("keeps flow harness instructions out of live-office prompts", () => {

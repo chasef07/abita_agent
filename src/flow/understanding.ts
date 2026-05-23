@@ -388,7 +388,11 @@ function applySchedulingUnderstanding(
     ...(preferredWindow ? { preferredWindow } : {}),
     ...(selectedSlotId ? { selectedSlotId } : {}),
     ...(bookingConfirmed !== undefined ? { bookingConfirmed } : {}),
-    noteDraft: mergeNoteDraft(flow.schedulingGoal?.noteDraft, scheduling?.note),
+    noteDraft: mergeNoteDraft(
+      flow.schedulingGoal?.noteDraft,
+      scheduling?.note,
+      understanding.evidence,
+    ),
     lastConfidence: understanding.confidence,
     evidence: understanding.evidence?.slice(0, 4) ?? [],
     updatedAt: Date.now(),
@@ -626,17 +630,50 @@ function isSchedulingGoal(goal: TurnGoal): boolean {
 function mergeNoteDraft(
   existing: NonNullable<CallFlowState["schedulingGoal"]>["noteDraft"],
   note?: TurnUnderstandingNote,
+  evidence: string[] = [],
 ): NonNullable<CallFlowState["schedulingGoal"]>["noteDraft"] {
+  const nextAppointmentReason = cleanString(note?.appointmentReason);
+  const nextReferringDoctor = cleanString(note?.referringDoctor);
   const appointmentReason =
-    cleanString(note?.appointmentReason) ?? existing?.appointmentReason;
+    nextAppointmentReason &&
+    noteValueIsGroundedInEvidence(nextAppointmentReason, evidence)
+      ? nextAppointmentReason
+      : existing?.appointmentReason;
   const referringDoctor =
-    cleanString(note?.referringDoctor) ?? existing?.referringDoctor;
+    nextReferringDoctor &&
+    noteValueIsGroundedInEvidence(nextReferringDoctor, evidence)
+      ? nextReferringDoctor
+      : existing?.referringDoctor;
 
   if (!appointmentReason && !referringDoctor) return undefined;
   return {
     ...(appointmentReason ? { appointmentReason } : {}),
     ...(referringDoctor ? { referringDoctor } : {}),
   };
+}
+
+function noteValueIsGroundedInEvidence(
+  value: string,
+  evidence: string[] = [],
+): boolean {
+  const normalizedValue = normalizeEvidenceText(value);
+  if (!normalizedValue) return false;
+  if (normalizedValue === "none") return true;
+
+  const normalizedEvidence = normalizeEvidenceText(evidence.join(" "));
+  if (!normalizedEvidence) return false;
+  if (normalizedEvidence.includes(normalizedValue)) return true;
+
+  const withoutTitle = normalizedValue.replace(/^(doctor|dr)\s+/, "").trim();
+  return withoutTitle.length >= 3 && normalizedEvidence.includes(withoutTitle);
+}
+
+function normalizeEvidenceText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function invalidateStateForNewFacts(

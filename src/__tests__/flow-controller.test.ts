@@ -1076,9 +1076,9 @@ describe("deterministic turn router", () => {
     expect(turn.resolvedMetaDecision).toBeUndefined();
     expect(turn.decision).toMatchObject({
       type: "call_tool",
-      tool: "confirm_booking_action",
+      tool: "book_appt",
     });
-    expect(turn.turnState).toContain("nextAction: confirm_booking_action");
+    expect(turn.turnState).toContain("nextAction: book_appt");
     expect(flow).toMatchObject({
       activeFlow: "scheduling",
       step: "confirm_booking",
@@ -1122,7 +1122,7 @@ describe("deterministic turn router", () => {
 
     expect(turn.decision).toMatchObject({
       type: "call_tool",
-      tool: "confirm_booking_action",
+      tool: "book_appt",
     });
     expect(turn.decision).not.toMatchObject({
       type: "call_tool",
@@ -1180,7 +1180,7 @@ describe("deterministic turn router", () => {
     });
     expect(turn.decision).not.toMatchObject({
       type: "call_tool",
-      tool: "confirm_booking_action",
+      tool: "book_appt",
     });
     expect(flow.schedulingGoal?.selectedSlotId).toBeUndefined();
     expect(flow.schedulingGoal?.bookingConfirmed).toBeUndefined();

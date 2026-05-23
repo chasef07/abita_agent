@@ -8,8 +8,8 @@ describe("LLM model config", () => {
   });
 
   it("keeps voice-agent generation options aligned across primary and fallback models", () => {
-    expect(primaryLLMOptions.parallelToolCalls).toBe(false);
-    expect(fallbackLLMOptions.parallelToolCalls).toBe(false);
+    expect(primaryLLMOptions.parallelToolCalls).toBe(true);
+    expect(fallbackLLMOptions.parallelToolCalls).toBe(true);
     expect(primaryLLMOptions.temperature).toBe(fallbackLLMOptions.temperature);
     expect(primaryLLMOptions.topP).toBe(fallbackLLMOptions.topP);
   });

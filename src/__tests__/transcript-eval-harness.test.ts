@@ -505,7 +505,7 @@ describe("transcript replay eval harness", () => {
     });
   });
 
-  it("requires a pending booking action before booking a slot", () => {
+  it("requires reducer-confirmed booking state before booking a slot", () => {
     const harness = new TranscriptEvalHarness();
     harness.verifyPrecallPatient();
     harness.startAvailability();

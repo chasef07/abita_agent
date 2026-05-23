@@ -81,6 +81,16 @@ describe("call observability", () => {
         false,
       ),
     ).toBe("tool_error");
+    expect(
+      classifyToolOutput(
+        "book_appt",
+        JSON.stringify({
+          outcome: "success",
+          facts: { appointmentId: 9960766 },
+        }),
+        false,
+      ),
+    ).toBe("appointment_booked");
     expect(classifyToolOutput("book_appt", "timeout", true)).toBe(
       "middleware_error",
     );

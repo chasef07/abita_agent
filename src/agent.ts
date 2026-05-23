@@ -17,8 +17,6 @@ import {
   confirm_appt,
   cancel_appt,
   add_patient_note,
-  confirm_side_effect_action,
-  confirm_booking_action,
   book_appt,
   check_insurance,
   lookup_knowledge,
@@ -39,8 +37,6 @@ type AgentTools = {
   confirm_appt: typeof confirm_appt;
   cancel_appt: typeof cancel_appt;
   add_patient_note: typeof add_patient_note;
-  confirm_side_effect_action?: typeof confirm_side_effect_action;
-  confirm_booking_action?: typeof confirm_booking_action;
   book_appt: typeof book_appt;
   check_insurance: typeof check_insurance;
   lookup_knowledge: typeof lookup_knowledge;
@@ -60,9 +56,6 @@ export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
     confirm_appt,
     cancel_appt,
     add_patient_note,
-    ...(flowHarnessEnabled
-      ? { confirm_side_effect_action, confirm_booking_action }
-      : {}),
     book_appt,
     check_insurance,
     lookup_knowledge,

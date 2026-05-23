@@ -160,7 +160,7 @@ function decisionForActiveSchedulingStep(
   ) {
     return {
       type: "call_tool",
-      tool: "confirm_booking_action",
+      tool: "book_appt",
       args: { slotId: state.schedulingGoal.selectedSlotId },
     };
   }
@@ -182,7 +182,7 @@ function decisionForActiveSchedulingStep(
     if (state.schedulingGoal?.bookingConfirmed === true) {
       return {
         type: "call_tool",
-        tool: "confirm_booking_action",
+        tool: "book_appt",
         args: state.schedulingGoal.selectedSlotId
           ? { slotId: state.schedulingGoal.selectedSlotId }
           : {},
