@@ -1130,6 +1130,62 @@ describe("deterministic turn router", () => {
     });
   });
 
+  it("does not confirm stale slots when confirmation includes new scheduling facts", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.step = "confirm_booking";
+    flow.visitType = "routine_vision";
+    flow.coverageType = "routine_vision";
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "annual eye exam",
+      preferredWindow: "Monday morning",
+      selectedSlotId: "routine-slot-1",
+      updatedAt: Date.now(),
+    };
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "yes, but actually this is for a glaucoma follow up",
+      understanding: scheduleTurn({
+        visitReason: "glaucoma follow up",
+        visitType: "medical",
+        bookingConfirmed: true,
+      }),
+    });
+
+    expect(turn.resolvedMetaDecision).toMatchObject({
+      outcome: {
+        outcome: "success",
+        nextStep: "get_availability",
+        facts: {
+          visitType: "medical",
+          coverageType: "medical",
+        },
+      },
+    });
+    expect(turn.decision).toMatchObject({
+      type: "ask",
+      slot: "preferredDate",
+    });
+    expect(turn.decision).not.toMatchObject({
+      type: "call_tool",
+      tool: "confirm_booking_action",
+    });
+    expect(flow.schedulingGoal?.selectedSlotId).toBeUndefined();
+    expect(flow.schedulingGoal?.bookingConfirmed).toBeUndefined();
+  });
+
   it("moves rejected booking confirmations back to availability", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
@@ -1306,6 +1362,47 @@ describe("deterministic turn router", () => {
       coverageType: "medical",
       visitType: "medical",
     });
+  });
+
+  it("preserves existing completed step markers when resolving meta patches", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.completedSteps = ["transfer_pushback_offered"];
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "I need an annual eye exam with VSP",
+      understanding: {
+        ...scheduleTurn({
+          visitReason: "annual eye exam",
+          visitType: "routine_vision",
+        }),
+        insurance: {
+          plan: "VSP",
+          coverageType: "routine_vision",
+        },
+      },
+    });
+
+    expect(turn.resolvedMetaDecision).toMatchObject({
+      outcome: {
+        outcome: "success",
+        nextStep: "get_availability",
+      },
+    });
+    expect(flow.completedSteps).toEqual(
+      expect.arrayContaining([
+        "transfer_pushback_offered",
+        "triage_visit_type",
+        "check_insurance",
+      ]),
+    );
   });
 
   it("routes Crystal River routine vision through confirmation before tools", () => {

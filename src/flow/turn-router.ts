@@ -79,7 +79,7 @@ export function resolveMetaDecision(
     officeKey: args.officeKey ?? flow.officeKey,
     patientStatus: args.patientStatus ?? flow.patientStatus,
   });
-  applyFlowStatePatch(flow, outcome.statePatch);
+  applyMetaStatePatch(flow, outcome.statePatch);
 
   return {
     decision: nextFlowDecision({
@@ -95,6 +95,32 @@ export function resolveMetaDecision(
       outcome,
     },
   };
+}
+
+function applyMetaStatePatch(
+  flow: CallFlowState,
+  patch: Partial<CallFlowState> | undefined,
+): void {
+  if (!patch?.completedSteps) {
+    applyFlowStatePatch(flow, patch);
+    return;
+  }
+
+  applyFlowStatePatch(flow, {
+    ...patch,
+    completedSteps: mergeCompletedSteps(
+      flow.completedSteps,
+      patch.completedSteps,
+    ),
+  });
+}
+
+function mergeCompletedSteps(existing: string[], next: string[]): string[] {
+  const merged = [...existing];
+  for (const step of next) {
+    if (!merged.includes(step)) merged.push(step);
+  }
+  return merged;
 }
 
 export function instructionForFlowDecision(decision: FlowDecision): string {

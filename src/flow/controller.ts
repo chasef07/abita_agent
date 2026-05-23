@@ -147,10 +147,16 @@ function decisionForActiveSchedulingStep(
   event: Extract<FlowControllerEvent, { type: "caller_intent" }>,
 ): FlowDecision | undefined {
   if (state.activeFlow !== "scheduling") return undefined;
+  const hasNewPathFacts = hasNewSchedulingPathFacts(event);
+
+  if (hasNewPathFacts) {
+    clearStaleBookingSelection(state);
+  }
 
   if (
     state.schedulingGoal?.bookingConfirmed === true &&
-    state.schedulingGoal.selectedSlotId
+    state.schedulingGoal.selectedSlotId &&
+    !hasNewPathFacts
   ) {
     return {
       type: "call_tool",
@@ -163,7 +169,7 @@ function decisionForActiveSchedulingStep(
     state.step === "get_availability" &&
     state.schedulingGoal?.preferredWindow &&
     !state.schedulingGoal.selectedSlotId &&
-    !hasNewSchedulingPathFacts(event)
+    !hasNewPathFacts
   ) {
     return {
       type: "call_tool",
@@ -172,7 +178,7 @@ function decisionForActiveSchedulingStep(
     };
   }
 
-  if (state.step === "confirm_booking") {
+  if (state.step === "confirm_booking" && !hasNewPathFacts) {
     if (state.schedulingGoal?.bookingConfirmed === true) {
       return {
         type: "call_tool",
@@ -217,6 +223,15 @@ function decisionForActiveSchedulingStep(
   }
 
   return undefined;
+}
+
+function clearStaleBookingSelection(state: CallFlowState): void {
+  if (!state.schedulingGoal?.selectedSlotId) return;
+  delete state.schedulingGoal.selectedSlotId;
+  delete state.schedulingGoal.bookingConfirmed;
+  if (state.schedulingGoal.status === "confirming_booking") {
+    state.schedulingGoal.status = "ready_for_availability";
+  }
 }
 
 function hasNewSchedulingPathFacts(
