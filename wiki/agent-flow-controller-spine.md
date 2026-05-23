@@ -626,10 +626,17 @@ Implemented:
 - `prepareSchedulingPath` for visit triage, insurance/routing normalization,
   Crystal River to Spring Hill routing, urgent handling, and optical-shop
   transfer decisions.
+- `advanceFlowForTurn` as the first deterministic turn-router layer after
+  `record_turn_understanding`: it applies semantic state, resolves internal
+  meta decisions like `prepareSchedulingPath`, and returns a concrete next
+  action instead of leaking meta-tool decisions to the model/harness.
 - `guardToolCall` for report-only guard observations. It records whether risky
   tools would be allowed, but does not block execution.
 - `evaluateFlowToolPolicy` for pre-side-effect policy decisions before
   middleware/SIP calls.
+- Explicit guard `enforcement` metadata distinguishes observe-only findings from
+  runtime blocks while preserving the existing `mode: report_only` analytics
+  shape.
 - Structured `ToolOutcome` policy responses for high-confidence blocked paths:
   bare insurance checks before visit-type triage, availability before visit
   type, duplicate/exhausted availability searches, registration before
@@ -677,8 +684,8 @@ Implemented:
   completed booking.
 - Tests covering flow state creation, context packet output, scheduling-path
   decisions, legacy intent classification, semantic turn-understanding reducer,
-  turn-state packet output, report-only guards, shadow observer compatibility,
-  Spanish routine vision phrases, bare insurance questions,
+  deterministic turn routing, turn-state packet output, report-only guards,
+  shadow observer compatibility, Spanish routine vision phrases, bare insurance questions,
   availability/booking recovery telemetry, and tool-side flow-state hydration.
 
 Important non-goals for the current branch:
@@ -1237,9 +1244,10 @@ Call the agent "Jarvis-level" only when these are true in live traces and evals:
    - Keep `feature/flow-controller-spine` as the full Jarvis implementation
      branch.
    - Current completed base: flow state, intent state, turn-state injection,
-     semantic turn-understanding state update/reduction, report-only guard
-     observations, narrow policy enforcement, structured policy outcomes,
-     availability search telemetry, booking confirmation actions, shared
+     semantic turn-understanding state update/reduction, deterministic
+     turn-router resolution, report-only guard observations, narrow policy
+     enforcement, structured policy outcomes, availability search telemetry,
+     booking confirmation actions, shared
      side-effect confirmation actions, and booking attempt telemetry.
    - Current patient-state slice: same-patient verification hydration no longer
      invalidates current availability, conflicting patient verification switches

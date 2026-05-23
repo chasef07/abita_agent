@@ -413,11 +413,21 @@ function applyInsuranceUnderstanding(
     }
   }
 
-  updateActivePatientInsurance(flow, {
-    plan,
-    coverageType,
-    source: "caller_spoken",
-  });
+  if (plan) {
+    updateActivePatientInsurance(flow, {
+      plan,
+      coverageType,
+      source: "caller_spoken",
+    });
+    return;
+  }
+
+  if (coverageType && shouldAttachCoverageToCallerSpokenPlan(flow)) {
+    updateActivePatientInsurance(flow, {
+      coverageType,
+      source: "caller_spoken",
+    });
+  }
 }
 
 function applySchedulingGoalAfterIntent(
@@ -538,6 +548,14 @@ function coverageTypeForVisitType(
   if (visitType === "routine_vision") return "routine_vision";
   if (visitType === "medical" || visitType === "urgent") return "medical";
   return undefined;
+}
+
+function shouldAttachCoverageToCallerSpokenPlan(flow: CallFlowState): boolean {
+  const patient = flow.patients[flow.activePatientRef ?? "caller"];
+  return (
+    patient?.insurance?.plan?.source === "caller_spoken" &&
+    !patient.insurance.coverageType
+  );
 }
 
 function relationshipForMention(

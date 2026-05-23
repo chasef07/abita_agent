@@ -266,14 +266,17 @@ export function prepareSchedulingPath(
   }
 
   if (!input.insurancePlan) {
+    const patientStep = nextPatientFlowStep(input.patientStatus);
     const nextStep =
-      coverageType === "routine_vision" || input.patientStatus !== "verified"
-        ? "check_insurance"
-        : nextPatientFlowStep(input.patientStatus);
+      patientStep === "verify_patient"
+        ? "verify_patient"
+        : coverageType === "routine_vision" || input.patientStatus === "new"
+          ? "check_insurance"
+          : patientStep;
+    const needsClarification = nextStep !== "get_availability";
 
     return {
-      outcome:
-        nextStep === "check_insurance" ? "needs_clarification" : "success",
+      outcome: needsClarification ? "needs_clarification" : "success",
       nextStep,
       statePatch: {
         ...baseStatePatch(
@@ -284,13 +287,20 @@ export function prepareSchedulingPath(
           routing,
         ),
         step: nextStep,
-        requiredSlots: nextStep === "check_insurance" ? ["insurancePlan"] : [],
+        requiredSlots:
+          nextStep === "check_insurance"
+            ? ["insurancePlan"]
+            : nextStep === "verify_patient"
+              ? ["patientIdentity"]
+              : [],
       },
       speak:
         nextStep === "check_insurance"
           ? "Ask which insurance plan they will be using before scheduling."
-          : "Proceed to the next scheduling step.",
-      retryable: nextStep === "check_insurance",
+          : nextStep === "verify_patient"
+            ? "Verify which patient is calling before checking insurance or scheduling."
+            : "Proceed to the next scheduling step.",
+      retryable: needsClarification,
       facts: {
         visitType,
         coverageType,

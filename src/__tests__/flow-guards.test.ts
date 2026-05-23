@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createInitialFlowState,
+  evaluateFlowToolPolicy,
   guardToolCall,
   hashToolArgs,
   recordAvailabilityCachedSlots,
@@ -24,10 +25,33 @@ describe("flow report-only guards", () => {
     expect(observation).toMatchObject({
       type: "flow_guard_observation",
       mode: "report_only",
+      enforcement: "observe",
       allowed: false,
       reason: "routine_vision_crystal_river_requires_route_to_spring_hill",
       toolName: "get_availability",
       createdAt: 123,
+    });
+  });
+
+  it("marks runtime policy blocks separately from report-only observations", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+
+    const decision = evaluateFlowToolPolicy({
+      flow,
+      toolName: "check_insurance",
+      args: { plan: "Care Plus" },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      observation: {
+        mode: "report_only",
+        enforcement: "block",
+        reason: "visit_type_required_before_insurance",
+      },
+      outcome: {
+        nextStep: "triage_visit_type",
+      },
     });
   });
 

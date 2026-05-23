@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyTurnUnderstandingFromTranscript,
+  advanceFlowForTurn,
   compileTurnStatePacket,
   completeCurrentTaskAndResume,
   consumePendingSideEffectAction,
@@ -74,6 +75,21 @@ class TranscriptEvalHarness {
   }
 
   hear(transcript: string, understanding: TurnUnderstanding): CallerTurnResult {
+    const turn = advanceFlowForTurn({
+      flow: this.flow,
+      transcript,
+      understanding,
+    });
+    return {
+      transcript,
+      decision: turn.decision,
+    };
+  }
+
+  apply(
+    transcript: string,
+    understanding: TurnUnderstanding,
+  ): CallerTurnResult {
     const update = applyTurnUnderstandingFromTranscript(
       this.flow,
       transcript,
@@ -430,8 +446,8 @@ describe("transcript replay eval harness", () => {
       scheduleTurn({ visitReason: "glaucoma visit", visitType: "medical" }),
     );
     expect(schedulingTurn.decision).toMatchObject({
-      type: "call_meta_tool",
-      tool: "prepareSchedulingPath",
+      type: "ask",
+      slot: "patientIdentity",
     });
     expect(harness.flow).toMatchObject({
       activeFlow: "scheduling",
@@ -670,8 +686,8 @@ describe("transcript replay eval harness", () => {
       scheduleTurn({ visitReason: "glaucoma visit", visitType: "medical" }),
     );
     expect(schedulingTurn.decision).toMatchObject({
-      type: "call_meta_tool",
-      tool: "prepareSchedulingPath",
+      type: "ask",
+      slot: "patientIdentity",
     });
     const scheduleTask = harness.flow.currentTask;
     expect(scheduleTask).toMatchObject({ kind: "schedule" });

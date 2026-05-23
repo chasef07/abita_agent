@@ -5,6 +5,7 @@ import type {
   IntentKind,
   ToolOutcome,
 } from "./types.js";
+import { classifyVisitType } from "./scheduling.js";
 import { completeCurrentTaskAndResume } from "./state.js";
 
 export type FlowControllerEvent =
@@ -85,6 +86,14 @@ export function nextFlowDecision({
     return decisionForReschedule(state);
   }
 
+  const activeSchedulingDecision = decisionForActiveSchedulingStep(
+    state,
+    event,
+  );
+  if (isSchedulingOrInsuranceIntent(intent) && activeSchedulingDecision) {
+    return activeSchedulingDecision;
+  }
+
   if (
     isSchedulingOrInsuranceIntent(intent) &&
     !event.visitReason &&
@@ -99,15 +108,21 @@ export function nextFlowDecision({
   }
 
   if (isSchedulingOrInsuranceIntent(intent)) {
+    const coverageType =
+      event.coverageType ??
+      coverageTypeForVisitReason(event.visitReason) ??
+      (event.visitReason ? undefined : state.coverageType);
     return {
       type: "call_meta_tool",
       tool: "prepareSchedulingPath",
       args: {
         officeKey: state.officeKey,
         patientStatus: state.patientStatus,
-        visitReason: event.visitReason,
-        insurancePlan: event.insurancePlan,
-        coverageType: event.coverageType,
+        visitReason: event.visitReason ?? state.schedulingGoal?.visitReason,
+        insurancePlan:
+          event.insurancePlan ??
+          storedInsurancePlanForCoverage(state, coverageType),
+        coverageType,
       },
     };
   }
@@ -125,6 +140,122 @@ function isSchedulingOrInsuranceIntent(intent: IntentKind): boolean {
     intent === "new_patient_registration" ||
     intent === "insurance_question"
   );
+}
+
+function decisionForActiveSchedulingStep(
+  state: CallFlowState,
+  event: Extract<FlowControllerEvent, { type: "caller_intent" }>,
+): FlowDecision | undefined {
+  if (state.activeFlow !== "scheduling") return undefined;
+
+  if (
+    state.schedulingGoal?.bookingConfirmed === true &&
+    state.schedulingGoal.selectedSlotId
+  ) {
+    return {
+      type: "call_tool",
+      tool: "confirm_booking_action",
+      args: { slotId: state.schedulingGoal.selectedSlotId },
+    };
+  }
+
+  if (
+    state.step === "get_availability" &&
+    state.schedulingGoal?.preferredWindow &&
+    !state.schedulingGoal.selectedSlotId &&
+    !hasNewSchedulingPathFacts(event)
+  ) {
+    return {
+      type: "call_tool",
+      tool: "get_availability",
+      args: {},
+    };
+  }
+
+  if (state.step === "confirm_booking") {
+    if (state.schedulingGoal?.bookingConfirmed === true) {
+      return {
+        type: "call_tool",
+        tool: "confirm_booking_action",
+        args: state.schedulingGoal.selectedSlotId
+          ? { slotId: state.schedulingGoal.selectedSlotId }
+          : {},
+      };
+    }
+
+    if (state.schedulingGoal?.bookingConfirmed === false) {
+      moveSchedulingBackToAvailability(state);
+      if (state.schedulingGoal.preferredWindow) {
+        return {
+          type: "call_tool",
+          tool: "get_availability",
+          args: {},
+        };
+      }
+      return {
+        type: "ask",
+        slot: "preferredDate",
+        promptHint:
+          "Ask what day or general time window works instead of the rejected slot.",
+      };
+    }
+
+    return {
+      type: "ask",
+      slot: "bookingConfirmation",
+      promptHint:
+        "Ask whether they want the exact appointment slot that was just offered.",
+    };
+  }
+
+  if (state.step === "book") {
+    return {
+      type: "call_tool",
+      tool: "book_appt",
+      args: {},
+    };
+  }
+
+  return undefined;
+}
+
+function hasNewSchedulingPathFacts(
+  event: Extract<FlowControllerEvent, { type: "caller_intent" }>,
+): boolean {
+  return Boolean(
+    event.visitReason || event.insurancePlan || event.coverageType,
+  );
+}
+
+function coverageTypeForVisitReason(
+  visitReason?: string,
+): InsuranceCoverageType | undefined {
+  const visitType = classifyVisitType(visitReason);
+  if (visitType === "routine_vision") return "routine_vision";
+  if (visitType === "medical" || visitType === "urgent") return "medical";
+  return undefined;
+}
+
+function storedInsurancePlanForCoverage(
+  state: CallFlowState,
+  coverageType?: InsuranceCoverageType,
+): string | undefined {
+  const insurance = activePatient(state)?.insurance;
+  if (!insurance || !coverageType || insurance.coverageType !== coverageType) {
+    return undefined;
+  }
+  return insurance.canonicalPlan ?? insurance.plan?.value;
+}
+
+function moveSchedulingBackToAvailability(state: CallFlowState): void {
+  state.step = "get_availability";
+  if (state.currentTask?.kind === "schedule") {
+    state.currentTask.step = "get_availability";
+  }
+  if (state.schedulingGoal) {
+    state.schedulingGoal.status = "ready_for_availability";
+    delete state.schedulingGoal.selectedSlotId;
+  }
 }
 
 function shouldPushBackTransferDuringScheduling(state: CallFlowState): boolean {

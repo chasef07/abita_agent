@@ -23,7 +23,7 @@ import {
 } from "./insurance-rules.js";
 import {
   evaluateFlowToolPolicy,
-  applyTurnUnderstandingFromTranscript,
+  advanceFlowForTurn,
   compileTurnStatePacket,
   createPendingBookingAction,
   createPendingSideEffectAction,
@@ -673,8 +673,10 @@ function updateCurrentTaskStep(
   state: CallState,
   nextStep: ToolOutcome["nextStep"],
 ): void {
-  if (!state.flow.currentTask) return;
-  state.flow.currentTask.step = nextStep;
+  state.flow.step = nextStep;
+  if (state.flow.currentTask) {
+    state.flow.currentTask.step = nextStep;
+  }
 }
 
 function publicProviderName(provider: string): string {
@@ -945,31 +947,32 @@ If the caller only says a backchannel like "yes", "okay", or "mm-hmm", still cal
       };
     }
 
-    const update = applyTurnUnderstandingFromTranscript(
-      state.flow,
+    const turn = advanceFlowForTurn({
+      flow: state.flow,
       transcript,
       understanding,
-    );
+    });
     state.turnUnderstandingAppliedForTranscript = transcript || null;
     state.lastTurnUnderstanding = {
-      goal: update.understanding.goal,
-      appointmentAction: update.understanding.appointmentAction,
-      confidence: update.understanding.confidence,
+      goal: turn.update.understanding.goal,
+      appointmentAction: turn.update.understanding.appointmentAction,
+      confidence: turn.update.understanding.confidence,
       activeIntent: state.flow.activeIntent,
       activePatientRef: state.flow.activePatientRef,
     };
 
     return {
       status: "recorded",
-      goal: update.understanding.goal,
-      appointmentAction: update.understanding.appointmentAction,
+      goal: turn.update.understanding.goal,
+      appointmentAction: turn.update.understanding.appointmentAction,
       activeIntent: state.flow.activeIntent,
       activeFlow: state.flow.activeFlow,
       step: state.flow.step,
       activePatientRef: state.flow.activePatientRef,
-      turnState: compileTurnStatePacket(state.flow),
-      instruction:
-        "Continue from this updated turn_state. Now answer naturally or call the next allowed tool.",
+      turnState: turn.turnState,
+      controllerDecision: turn.decision,
+      resolvedMetaDecision: turn.resolvedMetaDecision,
+      instruction: turn.instruction,
     };
   },
 });

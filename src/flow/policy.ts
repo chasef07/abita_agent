@@ -71,7 +71,10 @@ export function evaluateFlowToolPolicy({
   if (guardOutcome) {
     return {
       allowed: false,
-      observation: guardObservation,
+      observation: observationWithReason(
+        guardObservation,
+        guardObservation.reason,
+      ),
       outcome: guardOutcome,
     };
   }
@@ -488,6 +491,7 @@ function observationWithReason(
   return {
     ...observation,
     allowed: false,
+    enforcement: "block",
     reason,
   };
 }

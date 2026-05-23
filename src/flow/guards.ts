@@ -54,6 +54,7 @@ export interface GuardToolCallInput {
 export interface GuardObservation {
   type: "flow_guard_observation";
   mode: "report_only";
+  enforcement: "observe" | "block";
   createdAt: number;
   toolName: GuardedToolName;
   argsHash: string;
@@ -100,6 +101,7 @@ export function guardToolCall({
   return {
     type: "flow_guard_observation",
     mode: "report_only",
+    enforcement: "observe",
     createdAt,
     toolName,
     argsHash,

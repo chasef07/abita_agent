@@ -546,6 +546,7 @@ describe("tool interruption handling", () => {
       profileId: 620,
       duration: 15,
     });
+    expect(state.flow.step).toBe("confirm_booking");
   });
 
   it("returns cached availability instead of repeating an identical satisfied search", async () => {

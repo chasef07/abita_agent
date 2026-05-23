@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyTurnUnderstandingFromTranscript,
+  advanceFlowForTurn,
   classifyVisitType,
   compileFlowContextPacket,
   compileTurnStatePacket,
@@ -988,6 +989,351 @@ describe("nextFlowDecision", () => {
   });
 });
 
+describe("deterministic turn router", () => {
+  it("resolves scheduling meta-decisions into a concrete next action", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "I need a glaucoma follow up",
+      understanding: scheduleTurn({
+        visitReason: "glaucoma follow up",
+        visitType: "medical",
+      }),
+    });
+
+    expect(turn.resolvedMetaDecision).toMatchObject({
+      tool: "prepareSchedulingPath",
+      outcome: { outcome: "needs_clarification" },
+    });
+    expect(turn.decision).toMatchObject({
+      type: "ask",
+      slot: "patientIdentity",
+    });
+    expect(turn.instruction).toContain("patient");
+    expect(flow).toMatchObject({
+      activeFlow: "scheduling",
+      step: "verify_patient",
+      visitType: "medical",
+      coverageType: "medical",
+    });
+  });
+
+  it("uses pre-call first-name confirmation to skip verification and ask for date", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "This is Jane, I need a glaucoma follow up",
+      understanding: scheduleTurn({
+        visitReason: "glaucoma follow up",
+        visitType: "medical",
+      }),
+    });
+
+    expect(turn.decision).toMatchObject({
+      type: "ask",
+      slot: "preferredDate",
+    });
+    expect(flow).toMatchObject({
+      patientStatus: "verified",
+      step: "get_availability",
+    });
+  });
+
+  it("preserves booking confirmation steps instead of re-running path setup", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.step = "confirm_booking";
+    flow.visitType = "medical";
+    flow.coverageType = "medical";
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "glaucoma follow up",
+      selectedSlotId: "slot-1",
+      updatedAt: Date.now(),
+    };
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "yes that time works",
+      understanding: scheduleTurn({ bookingConfirmed: true }),
+    });
+
+    expect(turn.resolvedMetaDecision).toBeUndefined();
+    expect(turn.decision).toMatchObject({
+      type: "call_tool",
+      tool: "confirm_booking_action",
+    });
+    expect(turn.turnState).toContain("nextAction: confirm_booking_action");
+    expect(flow).toMatchObject({
+      activeFlow: "scheduling",
+      step: "confirm_booking",
+      schedulingGoal: {
+        status: "confirming_booking",
+        bookingConfirmed: true,
+        selectedSlotId: "slot-1",
+      },
+    });
+  });
+
+  it("honors booking confirmation even if availability left the flow step stale", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.step = "get_availability";
+    flow.visitType = "medical";
+    flow.coverageType = "medical";
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "ready_for_availability",
+      appointmentAction: "schedule",
+      visitReason: "glaucoma follow up",
+      preferredWindow: "Monday morning",
+      selectedSlotId: "slot-1",
+      updatedAt: Date.now(),
+    };
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "yes that time works",
+      understanding: scheduleTurn({ bookingConfirmed: true }),
+    });
+
+    expect(turn.decision).toMatchObject({
+      type: "call_tool",
+      tool: "confirm_booking_action",
+    });
+    expect(turn.decision).not.toMatchObject({
+      type: "call_tool",
+      tool: "get_availability",
+    });
+  });
+
+  it("moves rejected booking confirmations back to availability", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.step = "confirm_booking";
+    flow.visitType = "medical";
+    flow.coverageType = "medical";
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "glaucoma follow up",
+      preferredWindow: "Monday morning",
+      selectedSlotId: "slot-1",
+      updatedAt: Date.now(),
+    };
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "No, can we do Tuesday instead?",
+      understanding: scheduleTurn({
+        preferredWindow: "Tuesday",
+        bookingConfirmed: false,
+      }),
+    });
+
+    expect(turn.decision).toMatchObject({
+      type: "call_tool",
+      tool: "get_availability",
+    });
+    expect(turn.turnState).toContain("nextAction: get_availability");
+    expect(flow).toMatchObject({
+      activeFlow: "scheduling",
+      step: "get_availability",
+      schedulingGoal: {
+        status: "ready_for_availability",
+        preferredWindow: "Tuesday",
+        bookingConfirmed: false,
+      },
+    });
+    expect(flow.schedulingGoal?.selectedSlotId).toBeUndefined();
+  });
+
+  it("does not skip Crystal River routine-vision routing when the caller gives a date", () => {
+    const flow = createInitialFlowState({
+      officeKey: "crystal-river",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "I need a routine eye exam next Tuesday",
+      understanding: scheduleTurn({
+        visitReason: "routine eye exam",
+        visitType: "routine_vision",
+        preferredWindow: "next Tuesday",
+      }),
+    });
+
+    expect(turn.decision).toMatchObject({
+      type: "confirm",
+      confirmation: { type: "route_office" },
+    });
+    expect(turn.decision).not.toMatchObject({
+      type: "call_tool",
+      tool: "get_availability",
+    });
+    expect(flow).toMatchObject({
+      activeFlow: "routing",
+      step: "route_office",
+      officeKey: "crystal-river",
+    });
+  });
+
+  it("does not reuse medical insurance for routine-vision scheduling", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.patients.caller.insurance = {
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
+    };
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "I need a routine eye exam",
+      understanding: scheduleTurn({
+        visitReason: "routine eye exam",
+        visitType: "routine_vision",
+      }),
+    });
+
+    expect(turn.resolvedMetaDecision).toMatchObject({
+      outcome: {
+        outcome: "needs_clarification",
+        nextStep: "check_insurance",
+      },
+    });
+    expect(turn.decision).toMatchObject({
+      type: "ask",
+      slot: "insurancePlan",
+    });
+    expect(flow).toMatchObject({
+      activeFlow: "scheduling",
+      step: "check_insurance",
+      coverageType: "routine_vision",
+      visitType: "routine_vision",
+    });
+  });
+
+  it("derives fresh coverage from a new visit reason instead of stale state", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.step = "get_availability";
+    flow.visitType = "routine_vision";
+    flow.coverageType = "routine_vision";
+    flow.patients.caller.insurance = {
+      canonicalPlan: "VSP",
+      coverageType: "routine_vision",
+    };
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "Actually, this is for a glaucoma follow up",
+      understanding: scheduleTurn({
+        visitReason: "glaucoma follow up",
+      }),
+    });
+
+    expect(turn.resolvedMetaDecision).toMatchObject({
+      outcome: {
+        outcome: "success",
+        nextStep: "get_availability",
+        facts: {
+          visitType: "medical",
+          coverageType: "medical",
+        },
+      },
+    });
+    expect(turn.resolvedMetaDecision?.outcome.facts).not.toHaveProperty(
+      "canonicalPlan",
+    );
+    expect(turn.decision).toMatchObject({
+      type: "ask",
+      slot: "preferredDate",
+    });
+    expect(flow).toMatchObject({
+      activeFlow: "scheduling",
+      step: "get_availability",
+      coverageType: "medical",
+      visitType: "medical",
+    });
+  });
+
+  it("routes Crystal River routine vision through confirmation before tools", () => {
+    const flow = createInitialFlowState({ officeKey: "crystal-river" });
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "I need a routine eye exam",
+      understanding: scheduleTurn({
+        visitReason: "routine eye exam",
+        visitType: "routine_vision",
+      }),
+    });
+
+    expect(turn.decision).toMatchObject({
+      type: "confirm",
+      confirmation: { type: "route_office" },
+    });
+    expect(flow).toMatchObject({
+      activeFlow: "routing",
+      step: "route_office",
+      visitType: "routine_vision",
+      coverageType: "routine_vision",
+      routing: "optical_only",
+    });
+  });
+});
+
 describe("flow shadow observer", () => {
   it("predicts no tool call for a bare insurance question before visit type is known", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
@@ -1050,10 +1396,14 @@ function scheduleTurn({
   visitReason,
   visitType,
   preferredWindow,
+  selectedSlotId,
+  bookingConfirmed,
 }: {
   visitReason?: string;
   visitType?: "medical" | "routine_vision" | "optical_shop" | "urgent";
   preferredWindow?: string;
+  selectedSlotId?: string;
+  bookingConfirmed?: boolean;
 } = {}): TurnUnderstanding {
   return {
     goal: "schedule",
@@ -1066,6 +1416,8 @@ function scheduleTurn({
       visitReason,
       visitType,
       preferredWindow,
+      selectedSlotId,
+      bookingConfirmed,
     },
     interruption: "none",
     confidence: 0.91,
