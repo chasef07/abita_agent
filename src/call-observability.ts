@@ -120,6 +120,18 @@ function normalizedStatus(
   return asString(output?.status)?.toLowerCase() ?? null;
 }
 
+function normalizedOutcome(
+  output: Record<string, unknown> | null,
+): string | null {
+  return asString(output?.outcome)?.toLowerCase() ?? null;
+}
+
+function normalizedReason(output: Record<string, unknown> | null): string {
+  return isRecord(output?.facts)
+    ? (asString(output.facts.reason)?.toLowerCase() ?? "")
+    : "";
+}
+
 function normalizedOutputText(output: string | undefined): string {
   return typeof output === "string" ? output.toLowerCase() : "";
 }
@@ -133,6 +145,8 @@ export function classifyToolOutput(
 
   const parsed = parseJsonObject(output);
   const status = normalizedStatus(parsed);
+  const outcome = normalizedOutcome(parsed);
+  const reason = normalizedReason(parsed);
   if (status === "error") return "tool_error";
   const outputText = normalizedOutputText(output);
 
@@ -146,6 +160,7 @@ export function classifyToolOutput(
       }
       if (
         status === "booked" ||
+        status === "ok" ||
         asString(parsed?.appointmentId) ||
         (isRecord(parsed?.facts) && asString(parsed.facts.appointmentId)) ||
         asString(parsed?.id) ||
@@ -159,12 +174,41 @@ export function classifyToolOutput(
     case "confirm_side_effect_action":
       return "side_effect_action_confirmed";
     case "cancel_appt":
-      return "appointment_cancelled";
+      if (
+        outcome === "not_allowed" ||
+        outcome === "needs_clarification" ||
+        status === "not_found" ||
+        outcome === "not_found" ||
+        outcome === "error" ||
+        reason === "appointment_not_found" ||
+        reason === "cancel_failed" ||
+        reason === "middleware_error" ||
+        reason.startsWith("cancel_requires_") ||
+        reason.startsWith("side_effect_") ||
+        reason === "speech_interrupted"
+      ) {
+        return "appointment_not_cancelled";
+      }
+      if (
+        outcome === "success" ||
+        status === "cancelled" ||
+        status === "ok" ||
+        status === "success" ||
+        parsed?.ok === true
+      ) {
+        return "appointment_cancelled";
+      }
+      return "appointment_not_cancelled";
     case "confirm_appt":
       return "appointment_confirmed";
     case "transfer_call":
-      if (/\balready transferred\b/.test(outputText))
+      if (
+        reason === "transfer_already_started" ||
+        /\balready transferred\b/.test(outputText) ||
+        /\btransfer already started\b/.test(outputText)
+      ) {
         return "duplicate_tool_call";
+      }
       if (
         /\bcould not transfer\b/.test(outputText) ||
         /\btransfer was interrupted\b/.test(outputText) ||
@@ -204,6 +248,7 @@ function toolExecutionStatus(
     isError ||
     outputClass === "middleware_error" ||
     outputClass === "tool_error" ||
+    outputClass === "appointment_not_cancelled" ||
     outputClass === "transfer_failed"
   ) {
     return "error";

@@ -289,9 +289,13 @@ describe("flow harness prompt gating", () => {
   it("injects state harness instructions only for the demo trunk", () => {
     const prompt = buildPrompt(undefined, DEV_OFFICE_PHONE);
 
+    expect(prompt).toContain("<harness_operating_contract>");
     expect(prompt).toContain("<flow_harness_runbook>");
     expect(prompt).toContain("<state_memory_contract>");
+    expect(prompt).toContain("<context_capsules>");
     expect(prompt).toContain("record_turn_understanding");
+    expect(prompt).not.toContain("<runbook>");
+    expect(prompt).not.toContain("RUNBOOK.md - How to Handle Every Call");
     expect(prompt).not.toContain("confirm_booking_action");
     expect(prompt).not.toContain("confirm_side_effect_action");
   });
@@ -301,9 +305,28 @@ describe("flow harness prompt gating", () => {
 
     expect(prompt).not.toContain("<flow_harness_runbook>");
     expect(prompt).not.toContain("<state_memory_contract>");
+    expect(prompt).toContain("<runbook>");
     expect(prompt).not.toContain("record_turn_understanding");
     expect(prompt).not.toContain("confirm_booking_action");
     expect(prompt).not.toContain("confirm_side_effect_action");
+  });
+
+  it("does not treat pre-call lookup failures as no-match callers", () => {
+    const prompt = buildPrompt(
+      {
+        status: "lookup_failed",
+        phone: "+17275551212",
+        reason: "middleware_error",
+        retryable: true,
+        lookupDurationMs: 250,
+      },
+      SPRING_HILL_OFFICE_PHONE,
+    );
+
+    expect(prompt).toContain("PHONE LOOKUP UNAVAILABLE");
+    expect(prompt).toContain("do not say they are new");
+    expect(prompt).toContain("use verify_patient");
+    expect(prompt).not.toContain("NO MATCH");
   });
 });
 

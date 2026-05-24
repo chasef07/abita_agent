@@ -2,24 +2,17 @@
 // Each tool makes an HTTP call to the AdvancedMD middleware on Railway.
 
 import { llm, voice } from "@livekit/agents";
-import { SipClient } from "livekit-server-sdk";
-import { readFileSync } from "fs";
-import { join } from "path";
 import { z } from "zod";
 import {
-  type OfficeKey,
   getOfficeConfig,
-  getOfficeConfigByPhone,
-  getOfficeHandoffTarget,
   SPRING_HILL_OFFICE_PHONE,
-} from "./offices.js";
+} from "./customer/profile.js";
 import {
   buildInsuranceToolResponse,
   canonicalInsurancePlan,
   normalizeCoverageType,
   matchInsurancePlanForOffice,
   type InsuranceToolResponse,
-  type InsuranceCoverageType,
 } from "./insurance-rules.js";
 import {
   evaluateFlowToolPolicy,
@@ -47,30 +40,34 @@ import {
   startPatientTask,
   updateActivePatientInsurance,
   type AvailabilityInvalidationReason,
-  type CallFlowState,
   type CallerAppointment,
-  type GuardObservation,
   type GuardedToolName,
   type SideEffectToolName,
   type ToolOutcome,
   turnUnderstandingSchema,
 } from "./flow/index.js";
+import { callApi } from "./tooling/advancedmd-client.js";
+import { lookupOfficeKnowledge } from "./tooling/knowledge.js";
+import { transferCallerToOffice } from "./tooling/handoff.js";
+import type {
+  CallState,
+  StoredAvailabilitySlot,
+} from "./tooling/call-state.js";
+import { refreshDynamicToolsForSession } from "./tooling/dynamic-tool-refresh.js";
 
-const WORKSPACE = join(import.meta.dirname, "..", "workspace");
-
-const BASE_URL =
-  process.env.AMD_API_URL ??
-  "https://advancedmd-token-management-production.up.railway.app";
-const AUTH_TOKEN = process.env.AMD_API_TOKEN ?? "";
-let _sipClient: SipClient | undefined;
-function getSipClient(): SipClient {
-  _sipClient ??= new SipClient(
-    process.env.LIVEKIT_URL!,
-    process.env.LIVEKIT_API_KEY!,
-    process.env.LIVEKIT_API_SECRET!,
-  );
-  return _sipClient;
-}
+export { buildCallCenterHandoffHeaders } from "./tooling/handoff.js";
+export {
+  getBaseUrlForOfficePhone,
+  lookupByPhone,
+} from "./tooling/advancedmd-client.js";
+export { resolveKnowledgeFileForOffice } from "./tooling/knowledge.js";
+export type {
+  CallerMatch,
+  CallerMultipleMatches,
+  CallState,
+  PhoneLookupResult,
+  StoredAvailabilitySlot,
+} from "./tooling/call-state.js";
 
 export const appointmentTypeIdSchema = z
   .union([
@@ -123,84 +120,6 @@ const updateInsuranceParameters = z.object({
   subscriberName: z.string().describe("Name on the insurance card"),
   subscriberNum: z.string().describe("Member/subscriber ID from the card"),
 });
-
-// --- Session-scoped call state ---
-
-export interface CallerMatch {
-  status: "verified";
-  patientId: string;
-  name: string;
-  dob: string;
-  phone: string;
-  insuranceCarrier: string;
-  insPlanId: string | null;
-  respPartyId: string | null;
-  routing: string;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
-  appointments: CallerAppointment[] | null;
-}
-
-export interface CallerMultipleMatches {
-  status: "multiple_matches";
-  message: string;
-  matches: Array<{ firstName: string }>;
-}
-
-export type PhoneLookupResult = CallerMatch | CallerMultipleMatches | null;
-
-export interface StoredAvailabilitySlot {
-  slotId: string;
-  spoken: string;
-  provider: string;
-  date: string;
-  time: string;
-  datetime: string;
-  bookingToken?: string;
-  columnId?: number;
-  profileId?: number;
-  duration?: number;
-  routing: string | null;
-}
-
-export interface CallState {
-  flow: CallFlowState;
-  flowHarnessEnabled?: boolean;
-  flowGuardObservations: GuardObservation[];
-  latestUserTranscript?: string | null;
-  turnUnderstandingAppliedForTranscript?: string | null;
-  lastTurnUnderstanding?: {
-    goal: string;
-    appointmentAction?: string | null;
-    confidence: number;
-    activeIntent: CallFlowState["activeIntent"];
-    activePatientRef?: string;
-  };
-  officeKey: OfficeKey;
-  amdOfficePhone: string;
-  sipRoomName: string;
-  sipParticipantIdentity: string;
-  callId: string;
-  callerPhone: string;
-  trunkPhone: string;
-  // Populated by phone lookup, verify_patient, or add_patient
-  patientId: string | null;
-  patientName: string | null;
-  dob: string | null;
-  insuranceCarrier: string | null;
-  insPlanId: string | null;
-  respPartyId: string | null;
-  checkedInsurancePlan: string | null;
-  checkedInsuranceCoverageType: InsuranceCoverageType | null;
-  routing: string | null;
-  lastAvailabilityRouting: string | null;
-  lastAvailabilitySlots: StoredAvailabilitySlot[];
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
-  preauthRequired: boolean;
-  appointments: CallerAppointment[];
-  transferred: boolean;
-}
 
 // Per-call state lives on session.userData so concurrent calls don't collide
 function getState(ctx: voice.RunContext): CallState {
@@ -574,7 +493,13 @@ function apiResultLooksSuccessful(result: unknown): boolean {
     typeof result.status === "string" ? result.status.toLowerCase() : "";
   const outcome =
     typeof result.outcome === "string" ? result.outcome.toLowerCase() : "";
-  return status !== "error" && outcome !== "error";
+  const text = `${status} ${outcome}`;
+  return (
+    !text.includes("error") &&
+    !text.includes("fail") &&
+    !text.includes("not_found") &&
+    !text.includes("not found")
+  );
 }
 
 function hasSuccessfulBookingForActivePatient(state: CallState): boolean {
@@ -626,19 +551,58 @@ function toolOutcome(
   };
 }
 
-export function buildCallCenterHandoffHeaders(
-  state: Pick<CallState, "callId" | "callerPhone" | "officeKey" | "trunkPhone">,
-  handoffTarget: string,
-  handoffOfficeKey: OfficeKey = state.officeKey,
-): Record<string, string> {
+function withMiddlewareResult(
+  outcome: ToolOutcome,
+  middlewareResult: unknown,
+): ToolOutcome & { middlewareResult: unknown } {
+  if (isRecord(middlewareResult)) {
+    const topLevelMiddlewareResult = filteredTopLevelMiddlewareResult(
+      middlewareResult,
+      outcome,
+    );
+    return {
+      ...topLevelMiddlewareResult,
+      ...outcome,
+      middlewareResult,
+    };
+  }
   return {
-    "X-Acuity-Caller-Phone": state.callerPhone,
-    "X-Acuity-Handoff": "call-center",
-    "X-Acuity-Handoff-Target": handoffTarget,
-    "X-Acuity-LiveKit-Call-Id": state.callId,
-    "X-Acuity-Office-Key": handoffOfficeKey,
-    "X-Acuity-Trunk-Phone": state.trunkPhone,
+    ...outcome,
+    middlewareResult,
   };
+}
+
+function filteredTopLevelMiddlewareResult(
+  middlewareResult: Record<string, unknown>,
+  outcome: ToolOutcome,
+): Record<string, unknown> {
+  const entries = Object.entries(middlewareResult).filter(([key]) => {
+    if (key === "middlewareResult") return false;
+    if (key in outcome) return false;
+    if (
+      key === "status" &&
+      middlewareStatusConflicts(middlewareResult, outcome)
+    ) {
+      return false;
+    }
+    return true;
+  });
+  return Object.fromEntries(entries);
+}
+
+function middlewareStatusConflicts(
+  middlewareResult: Record<string, unknown>,
+  outcome: ToolOutcome,
+): boolean {
+  const rawStatus =
+    typeof middlewareResult.status === "string"
+      ? middlewareResult.status.toLowerCase()
+      : "";
+  if (!rawStatus) return false;
+  return (
+    outcome.outcome === "success" &&
+    (rawStatus.includes("error") || rawStatus.includes("fail"))
+  );
 }
 
 export function makeCurrentSpeechUninterruptible(
@@ -662,31 +626,6 @@ export function getAmdOfficeForToolCall(
 ): string {
   return (
     state.amdOfficePhone || getOfficeConfig(state.officeKey).amdOfficePhone
-  );
-}
-
-function getHandoffOfficeKey(
-  state: Pick<CallState, "officeKey" | "trunkPhone">,
-): OfficeKey {
-  if (!state.trunkPhone) return state.officeKey;
-  try {
-    return getOfficeConfigByPhone(state.trunkPhone).key;
-  } catch (err) {
-    console.warn(
-      `[tools] Could not resolve handoff office from original trunk ${state.trunkPhone}; falling back to active office ${state.officeKey}`,
-      err,
-    );
-    return state.officeKey;
-  }
-}
-
-function normalizeBaseUrl(url: string): string {
-  return url.replace(/\/+$/, "");
-}
-
-export function getBaseUrlForOfficePhone(officePhone: string): string {
-  return normalizeBaseUrl(
-    getOfficeConfigByPhone(officePhone).middlewareBaseUrl ?? BASE_URL,
   );
 }
 
@@ -1044,6 +983,10 @@ function normalizeInsuranceOutcome(
       : response.status === "needs_clarification"
         ? "needs_clarification"
         : "not_allowed";
+  if (routeRequired) {
+    state.flow.activeFlow = "routing";
+    updateCurrentTaskStep(state, "route_office");
+  }
 
   return {
     ...response,
@@ -1128,11 +1071,20 @@ async function submitLegacyBooking(
     body,
     getAmdOfficeForToolCall(state),
   );
+  const legacyBookingSucceeded = legacyBookingLooksSuccessful(result);
+  if (legacyBookingSucceeded) {
+    recordSuccessfulLegacyBooking(
+      state,
+      selectedSlot,
+      appointmentTypeId,
+      routing,
+    );
+  }
   if (isRecord(result)) {
     const message =
       typeof result.message === "string" ? result.message.toLowerCase() : "";
     const invalidatesSelection =
-      result.status === "booked" ||
+      legacyBookingSucceeded ||
       result.outcome === "slot_unavailable" ||
       result.outcome === "invalid_booking_token" ||
       (usedBookingToken && result.status === "error") ||
@@ -1142,6 +1094,38 @@ async function submitLegacyBooking(
     }
   }
   return result;
+}
+
+function legacyBookingLooksSuccessful(result: unknown): boolean {
+  if (!isRecord(result)) return false;
+  const status =
+    typeof result.status === "string" ? result.status.toLowerCase() : "";
+  return (
+    status === "booked" ||
+    status === "ok" ||
+    (status === "success" && Boolean(result.appointmentId))
+  );
+}
+
+function recordSuccessfulLegacyBooking(
+  state: CallState,
+  selectedSlot: StoredAvailabilitySlot,
+  appointmentTypeId: number,
+  routing: string | null,
+): void {
+  const action = createPendingBookingAction(state.flow, {
+    patientRef: state.flow.activePatientRef,
+    slotHash: selectedSlot.slotId,
+    appointmentTypeId,
+    officeKey: state.officeKey,
+    routing,
+    spokenSummary: selectedSlot.spoken,
+    confirmed: true,
+    createdTurnId: "legacy_book_appt",
+    confirmationTurnId: "legacy_book_appt",
+  });
+  action.confirmed = true;
+  action.consumed = true;
 }
 
 function ensureConfirmedBookingActionFromState(
@@ -1195,69 +1179,6 @@ function ensureRoutineVisionOffice(state: CallState): void {
   state.flow.routing = "optical_only";
 }
 
-/** Pre-call phone lookup — called from main.ts before session starts. */
-export async function lookupByPhone(
-  phone: string,
-  trunkPhone: string,
-): Promise<PhoneLookupResult> {
-  try {
-    const office = getOfficeConfigByPhone(trunkPhone);
-    const data = (await callApi(
-      "/api/patient-lookup",
-      { phone },
-      office.amdOfficePhone,
-    )) as any;
-    if (data.status === "verified") {
-      return {
-        status: "verified",
-        patientId: data.patientId,
-        name: data.name,
-        dob: data.dob,
-        phone: data.phone,
-        insuranceCarrier: data.insuranceCarrier,
-        insPlanId: data.insPlanId ?? null,
-        respPartyId: data.respPartyId ?? null,
-        routing: data.routing,
-        allowedProviders: data.allowedProviders ?? [],
-        routingAmbiguous: data.routingAmbiguous ?? false,
-        appointments: data.appointments ?? null,
-      };
-    }
-    if (data.status === "multiple_matches") {
-      return {
-        status: "multiple_matches",
-        message: data.message,
-        matches: data.matches,
-      };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function callApi(
-  path: string,
-  body: Record<string, unknown>,
-  office: string,
-): Promise<unknown> {
-  const payload = { ...body, office };
-  const res = await fetch(`${getBaseUrlForOfficePhone(office)}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: AUTH_TOKEN,
-    },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API error ${res.status}: ${text}`);
-  }
-  return res.json();
-}
-
 // --- record_turn_understanding ---
 export const record_turn_understanding = llm.tool({
   description: `Internal memory update. Call this exactly once at the start of every user turn before answering the caller or calling any other tool.
@@ -1303,6 +1224,10 @@ If the caller only says a backchannel like "yes", "okay", or "mm-hmm", still cal
       activeIntent: state.flow.activeIntent,
       activePatientRef: state.flow.activePatientRef,
     };
+    await refreshDynamicToolsForSession(
+      ctx.session as voice.AgentSession<CallState>,
+      "turn_understanding_recorded",
+    );
 
     return {
       status: "recorded",
@@ -1418,28 +1343,34 @@ After response:
     )) as any;
     if (result?.patientId) {
       applyPatientResult(state, result);
-      return toolOutcome(
-        "success",
-        state.flow.step,
-        "Patient verified.",
-        {
-          patientStatus: state.flow.patientStatus,
-          routing: state.routing,
-          routingAmbiguous: state.routingAmbiguous,
-          preauthRequired: state.preauthRequired,
-        },
-        false,
+      return withMiddlewareResult(
+        toolOutcome(
+          "success",
+          state.flow.step,
+          "Patient verified.",
+          {
+            patientStatus: state.flow.patientStatus,
+            routing: state.routing,
+            routingAmbiguous: state.routingAmbiguous,
+            preauthRequired: state.preauthRequired,
+          },
+          false,
+        ),
+        result,
       );
     }
-    return toolOutcome(
-      "not_found",
-      "collect_registration",
-      "No matching patient was found. Retry with corrected identity details or move into registration if the caller is new.",
-      {
-        reason: "patient_not_found",
-        result,
-      },
-      true,
+    return withMiddlewareResult(
+      toolOutcome(
+        "not_found",
+        "collect_registration",
+        "No matching patient was found. Retry with corrected identity details or move into registration if the caller is new.",
+        {
+          reason: "patient_not_found",
+          result,
+        },
+        true,
+      ),
+      result,
     );
   },
 });
@@ -1455,7 +1386,7 @@ Follow the registration order in the runbook. Key rules for this tool:
 - Email is optional. Ask once; if the caller says they do not have one, omit email and continue registration. Do not transfer just because email is missing.
 - If subscriber is "me" or "mine" = use patient name.
 - Member ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
-- Before submitting: read back name (spell last name letter by letter), DOB, insurance plan, and member ID. Wait for confirmation, then call this tool directly.
+- Before submitting: read back name (spell last name letter by letter), DOB, insurance plan, and member ID. Wait for confirmation, then call this tool directly. If the tool says the confirmation was interrupted, read back and confirm again before retrying.
 
 After response: if routing "not_accepted", tell them. If preauthRequired, scheduling starts two weeks out. Go straight to scheduling — don't check appointments for a new patient.
 
@@ -1464,6 +1395,15 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
   execute: async (params, { ctx, toolCallId }) => {
     const state = getState(ctx);
     const speechReady = makeCurrentSpeechUninterruptible(ctx);
+    if (!speechReady) {
+      return toolOutcome(
+        "not_allowed",
+        "collect_registration",
+        "Registration was interrupted before it could be submitted. Please confirm the patient details again.",
+        { reason: "speech_interrupted" },
+        true,
+      );
+    }
     const policyResponse = evaluatePolicyForState(
       state,
       "add_patient",
@@ -1481,15 +1421,6 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
         "collect_registration",
         "Ask whether the number they're calling from is good; if not, collect the best phone number.",
         { reason: "registration_requires_phone" },
-        true,
-      );
-    }
-    if (!speechReady) {
-      return toolOutcome(
-        "not_allowed",
-        "collect_registration",
-        "Registration was interrupted before it could be submitted. Please confirm the patient details again.",
-        { reason: "speech_interrupted" },
         true,
       );
     }
@@ -1511,27 +1442,33 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
     if (result?.patientId) {
       consumeSideEffectActionForState(state, "add_patient", params);
       applyPatientResult(state, result);
-      return toolOutcome(
-        "success",
-        "get_availability",
-        "Patient registration submitted successfully.",
-        {
-          patientStatus: state.flow.patientStatus,
-          routing: state.routing,
-          preauthRequired: state.preauthRequired,
-        },
-        false,
+      return withMiddlewareResult(
+        toolOutcome(
+          "success",
+          "get_availability",
+          "Patient registration submitted successfully.",
+          {
+            patientStatus: state.flow.patientStatus,
+            routing: state.routing,
+            preauthRequired: state.preauthRequired,
+          },
+          false,
+        ),
+        result,
       );
     }
-    return toolOutcome(
-      "error",
-      "collect_registration",
-      "Registration did not complete. Confirm the registration details and try again or transfer.",
-      {
-        reason: "registration_failed",
-        result,
-      },
-      true,
+    return withMiddlewareResult(
+      toolOutcome(
+        "error",
+        "collect_registration",
+        "Registration did not complete. Confirm the registration details and try again or transfer.",
+        {
+          reason: "registration_failed",
+          result,
+        },
+        true,
+      ),
+      result,
     );
   },
 });
@@ -1542,7 +1479,7 @@ export const update_insurance = llm.tool({
 
 Run check_insurance first with medical coverage and use the canonicalPlan from the latest result for the insurance value sent to middleware. Do not use update_insurance just to schedule a routine vision appointment for an existing patient; collect/check the vision insurance and schedule on the routine-vision lane instead.
 
-After response: session state updates automatically. If preauthRequired, scheduling starts two weeks out.`,
+After response: session state updates automatically. If preauthRequired, scheduling starts two weeks out. If the tool says the confirmation was interrupted, confirm the insurance details again before retrying.`,
   parameters: updateInsuranceParameters,
   execute: async (
     { insurance, subscriberName, subscriberNum },
@@ -1550,6 +1487,15 @@ After response: session state updates automatically. If preauthRequired, schedul
   ) => {
     const state = getState(ctx);
     const speechReady = makeCurrentSpeechUninterruptible(ctx);
+    if (!speechReady) {
+      return toolOutcome(
+        "not_allowed",
+        "check_insurance",
+        "Insurance update was interrupted before it could be submitted. Please confirm the insurance details again.",
+        { reason: "speech_interrupted" },
+        true,
+      );
+    }
     const policyResponse = evaluatePolicyForState(
       state,
       "update_insurance",
@@ -1569,15 +1515,6 @@ After response: session state updates automatically. If preauthRequired, schedul
         "verify_patient",
         "Verify the patient before updating insurance.",
         { reason: "update_insurance_requires_verified_patient" },
-        true,
-      );
-    }
-    if (!speechReady) {
-      return toolOutcome(
-        "not_allowed",
-        "check_insurance",
-        "Insurance update was interrupted before it could be submitted. Please confirm the insurance details again.",
-        { reason: "speech_interrupted" },
         true,
       );
     }
@@ -1620,26 +1557,32 @@ After response: session state updates automatically. If preauthRequired, schedul
         canonicalPlan: state.checkedInsurancePlan ?? state.insuranceCarrier,
       });
       clearAvailabilitySelection(state, "insurance_changed");
-      return toolOutcome(
-        "success",
-        nextPatientFlowStep(state.flow.patientStatus),
-        "Insurance updated successfully.",
-        {
-          routing: state.routing,
-          preauthRequired: state.preauthRequired,
-        },
-        false,
+      return withMiddlewareResult(
+        toolOutcome(
+          "success",
+          nextPatientFlowStep(state.flow.patientStatus),
+          "Insurance updated successfully.",
+          {
+            routing: state.routing,
+            preauthRequired: state.preauthRequired,
+          },
+          false,
+        ),
+        result,
       );
     }
-    return toolOutcome(
-      "error",
-      "check_insurance",
-      "Insurance update did not complete. Confirm the insurance details and try again or transfer.",
-      {
-        reason: "insurance_update_failed",
-        result,
-      },
-      true,
+    return withMiddlewareResult(
+      toolOutcome(
+        "error",
+        "check_insurance",
+        "Insurance update did not complete. Confirm the insurance details and try again or transfer.",
+        {
+          reason: "insurance_update_failed",
+          result,
+        },
+        true,
+      ),
+      result,
     );
   },
 });
@@ -1723,6 +1666,19 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
     const turnGate = evaluateTurnUnderstandingGate(state, "confirm_appt");
     if (turnGate) return turnGate;
     syncSessionPatientFromActiveFlow(state);
+    if (
+      isFlowHarnessEnabled(state) &&
+      state.flow.patientStatus !== "verified" &&
+      state.flow.patientStatus !== "created"
+    ) {
+      return toolOutcome(
+        "not_allowed",
+        "verify_patient",
+        "Confirm the preloaded patient identity or verify the patient before looking up appointments.",
+        { reason: "appointment_lookup_requires_verified_patient" },
+        true,
+      );
+    }
     if (!state.patientId) {
       return toolOutcome(
         "not_allowed",
@@ -1745,25 +1701,31 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
         kind: "appointment_management",
         step: appointments.length > 0 ? "confirm_cancel" : "answer",
       });
-      return toolOutcome(
-        appointments.length > 0 ? "success" : "not_found",
-        appointments.length > 0 ? "confirm_cancel" : "answer",
-        appointments.length > 0
-          ? "Appointments loaded. Read back the relevant appointment before taking action."
-          : "No upcoming appointments were found.",
-        { appointments },
-        false,
+      return withMiddlewareResult(
+        toolOutcome(
+          appointments.length > 0 ? "success" : "not_found",
+          appointments.length > 0 ? "confirm_cancel" : "answer",
+          appointments.length > 0
+            ? "Appointments loaded. Read back the relevant appointment before taking action."
+            : "No upcoming appointments were found.",
+          { appointments },
+          false,
+        ),
+        result,
       );
     }
-    return toolOutcome(
-      "error",
-      "answer",
-      "Could not load appointments. Try again or transfer.",
-      {
-        reason: "appointment_lookup_failed",
-        result,
-      },
-      true,
+    return withMiddlewareResult(
+      toolOutcome(
+        "error",
+        "answer",
+        "Could not load appointments. Try again or transfer.",
+        {
+          reason: "appointment_lookup_failed",
+          result,
+        },
+        true,
+      ),
+      result,
     );
   },
 });
@@ -1772,7 +1734,7 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
 export const cancel_appt = llm.tool({
   description: `Cancels an appointment. You MUST call this tool to cancel — an appointment is not cancelled until this tool executes successfully. Never tell the caller an appointment is cancelled without calling this tool first.
 
-Requires appointmentId — use the ID from the caller context (phone lookup) or from a confirm_appt response. Read back the details and confirm the caller wants it cancelled before calling this tool. If they want to reschedule, book the new appointment first, then cancel.`,
+Requires appointmentId — use the ID from the caller context (phone lookup) or from a confirm_appt response. Read back the details and confirm the caller wants it cancelled before calling this tool. If they want to reschedule, book the new appointment first, then cancel. If the tool says the confirmation was interrupted, confirm the cancellation again before retrying.`,
   parameters: z.object({
     appointmentId: z
       .number()
@@ -1781,6 +1743,15 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
   execute: async ({ appointmentId }, { ctx, toolCallId }) => {
     const state = getState(ctx);
     const speechReady = makeCurrentSpeechUninterruptible(ctx);
+    if (!speechReady) {
+      return toolOutcome(
+        "not_allowed",
+        "confirm_cancel",
+        "Cancellation was interrupted before it could be submitted. Please confirm the cancellation again.",
+        { reason: "speech_interrupted" },
+        true,
+      );
+    }
     const policyResponse = evaluatePolicyForState(
       state,
       "cancel_appt",
@@ -1792,15 +1763,6 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
       },
     );
     if (policyResponse) return policyResponse;
-    if (!speechReady) {
-      return toolOutcome(
-        "not_allowed",
-        "confirm_cancel",
-        "Cancellation was interrupted before it could be submitted. Please confirm the cancellation again.",
-        { reason: "speech_interrupted" },
-        true,
-      );
-    }
     const result = await callApi(
       "/api/appointment/cancel",
       { appointmentId },
@@ -1808,8 +1770,9 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
     );
     const cancelResultReason = cancellationFailureReason(result);
     if (
-      apiResultLooksSuccessful(result) ||
-      cancelResultReason === "appointment_already_cancelled"
+      cancelResultReason === "appointment_already_cancelled" ||
+      (cancelResultReason === "cancel_failed" &&
+        apiResultLooksSuccessful(result))
     ) {
       consumeSideEffectActionForState(state, "cancel_appt", { appointmentId });
       removeAppointmentById(state, appointmentId);
@@ -1822,35 +1785,41 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
         updateCurrentTaskStep(state, "answer");
         state.flow.step = "answer";
       }
-      return toolOutcome(
-        "success",
-        resumedTask?.step ?? "answer",
-        cancelResultReason === "appointment_already_cancelled"
-          ? "That appointment was already cancelled. No further cancellation is needed."
-          : "Cancellation submitted successfully.",
-        {
-          appointmentId,
-          resumedTaskId: resumedTask?.id,
-          ...(cancelResultReason === "appointment_already_cancelled"
-            ? { reason: cancelResultReason }
-            : {}),
-        },
-        false,
+      return withMiddlewareResult(
+        toolOutcome(
+          "success",
+          resumedTask?.step ?? "answer",
+          cancelResultReason === "appointment_already_cancelled"
+            ? "That appointment was already cancelled. No further cancellation is needed."
+            : "Cancellation submitted successfully.",
+          {
+            appointmentId,
+            resumedTaskId: resumedTask?.id,
+            ...(cancelResultReason === "appointment_already_cancelled"
+              ? { reason: cancelResultReason }
+              : {}),
+          },
+          false,
+        ),
+        result,
       );
     }
     const reason = cancelResultReason;
-    return toolOutcome(
-      reason === "appointment_not_found" ? "not_found" : "error",
-      "confirm_cancel",
-      reason === "appointment_not_found"
-        ? "That appointment was not found. Load the patient's appointments again before cancelling."
-        : "Cancellation did not complete. Confirm the appointment and try again or transfer.",
-      {
-        reason,
-        appointmentId,
-        result,
-      },
-      true,
+    return withMiddlewareResult(
+      toolOutcome(
+        reason === "appointment_not_found" ? "not_found" : "error",
+        "confirm_cancel",
+        reason === "appointment_not_found"
+          ? "That appointment was not found. Load the patient's appointments again before cancelling."
+          : "Cancellation did not complete. Confirm the appointment and try again or transfer.",
+        {
+          reason,
+          appointmentId,
+          result,
+        },
+        true,
+      ),
+      result,
     );
   },
 });
@@ -1929,20 +1898,26 @@ Only save these two fields: appointment reason and referring doctor. If there is
       getAmdOfficeForToolCall(state),
     );
     if (apiResultLooksSuccessful(result)) {
-      return toolOutcome(
-        "success",
-        "answer",
-        "Patient note saved.",
-        { result },
-        false,
+      return withMiddlewareResult(
+        toolOutcome(
+          "success",
+          "answer",
+          "Patient note saved.",
+          { result },
+          false,
+        ),
+        result,
       );
     }
-    return toolOutcome(
-      "error",
-      "collect_visit_reason",
-      "The note did not save. Confirm the note details and try again or transfer.",
-      { reason: "note_save_failed", result },
-      true,
+    return withMiddlewareResult(
+      toolOutcome(
+        "error",
+        "collect_visit_reason",
+        "The note did not save. Confirm the note details and try again or transfer.",
+        { reason: "note_save_failed", result },
+        true,
+      ),
+      result,
     );
   },
 });
@@ -1953,7 +1928,7 @@ export const book_appt = llm.tool({
 
 Select appointmentTypeId only from the allowed enum based on office, patient status, age, routing lane, and visit type. Availability does not return appointmentTypeId, so do not claim it came from the slot.
 
-Only book after the caller says yes to the exact offered slot. If booking fails because the slot is unavailable, call get_availability again before trying another slot.`,
+Only book after the caller says yes to the exact offered slot. If the tool says the confirmation was interrupted, confirm the exact slot again before retrying. If booking fails because the slot is unavailable, call get_availability again before trying another slot.`,
   parameters: z.object({
     slotId: z
       .string()
@@ -2017,6 +1992,15 @@ Only book after the caller says yes to the exact offered slot. If booking fails 
       officeKey: state.officeKey,
       routing,
     };
+    if (!speechReady) {
+      return toolOutcome(
+        "not_allowed",
+        "confirm_booking",
+        "Booking was interrupted before it could be submitted. Please confirm the appointment slot again.",
+        { reason: "speech_interrupted" },
+        true,
+      );
+    }
     ensureConfirmedBookingActionFromState(
       state,
       selectedSlot,
@@ -2027,15 +2011,6 @@ Only book after the caller says yes to the exact offered slot. If booking fails 
       booking: bookingPolicyFacts,
     });
     if (policyResponse) return policyResponse;
-    if (!speechReady) {
-      return toolOutcome(
-        "not_allowed",
-        "confirm_booking",
-        "Booking was interrupted before it could be submitted. Please confirm the appointment slot again.",
-        { reason: "speech_interrupted" },
-        true,
-      );
-    }
     if (!isFlowHarnessEnabled(state)) {
       return submitLegacyBooking(state, selectedSlot, params.appointmentTypeId);
     }
@@ -2099,16 +2074,19 @@ Only book after the caller says yes to the exact offered slot. If booking fails 
     if (bookingResult.consumed) {
       clearAvailabilitySelection(state);
       updateCurrentTaskStep(state, "answer");
-      return toolOutcome(
-        "success",
-        "answer",
-        "Appointment booked successfully.",
-        {
-          slotId: selectedSlot.slotId,
-          appointmentTypeId: params.appointmentTypeId,
-          appointmentId: isRecord(result) ? result.appointmentId : undefined,
-        },
-        false,
+      return withMiddlewareResult(
+        toolOutcome(
+          "success",
+          "answer",
+          "Appointment booked successfully.",
+          {
+            slotId: selectedSlot.slotId,
+            appointmentTypeId: params.appointmentTypeId,
+            appointmentId: isRecord(result) ? result.appointmentId : undefined,
+          },
+          false,
+        ),
+        result,
       );
     }
     if (bookingResult.errorClass === "slot_unavailable") {
@@ -2117,33 +2095,39 @@ Only book after the caller says yes to the exact offered slot. If booking fails 
         state,
         remainingSlots.length > 0 ? "confirm_booking" : "get_availability",
       );
-      return toolOutcome(
-        "error",
-        remainingSlots.length > 0 ? "confirm_booking" : "get_availability",
-        remainingSlots.length > 0
-          ? "That slot is no longer available. Offer one of the remaining cached slots or search again."
-          : "That slot is no longer available. Search availability again before booking.",
-        {
-          reason: "slot_unavailable",
-          slotId: selectedSlot.slotId,
-          cachedSlots: publicAvailabilitySlots(remainingSlots),
-        },
-        true,
+      return withMiddlewareResult(
+        toolOutcome(
+          "error",
+          remainingSlots.length > 0 ? "confirm_booking" : "get_availability",
+          remainingSlots.length > 0
+            ? "That slot is no longer available. Offer one of the remaining cached slots or search again."
+            : "That slot is no longer available. Search availability again before booking.",
+          {
+            reason: "slot_unavailable",
+            slotId: selectedSlot.slotId,
+            cachedSlots: publicAvailabilitySlots(remainingSlots),
+          },
+          true,
+        ),
+        result,
       );
     }
     if (bookingResult.errorClass === "invalid_appointment_type") {
       clearAvailabilitySelection(state, "appointment_type_invalid");
       updateCurrentTaskStep(state, "get_availability");
-      return toolOutcome(
-        "error",
-        "get_availability",
-        "That appointment type does not match the selected lane. Recompute the lane and search availability again.",
-        {
-          reason: "invalid_appointment_type",
-          slotId: selectedSlot.slotId,
-          appointmentTypeId: params.appointmentTypeId,
-        },
-        true,
+      return withMiddlewareResult(
+        toolOutcome(
+          "error",
+          "get_availability",
+          "That appointment type does not match the selected lane. Recompute the lane and search availability again.",
+          {
+            reason: "invalid_appointment_type",
+            slotId: selectedSlot.slotId,
+            appointmentTypeId: params.appointmentTypeId,
+          },
+          true,
+        ),
+        result,
       );
     }
     if (
@@ -2151,15 +2135,18 @@ Only book after the caller says yes to the exact offered slot. If booking fails 
       (usedBookingToken && isRecord(result) && result.status === "error")
     ) {
       updateCurrentTaskStep(state, "confirm_booking");
-      return toolOutcome(
-        "error",
-        "confirm_booking",
-        "Booking did not complete. Confirm the slot again or search availability if the slot is stale.",
-        {
-          reason: bookingResult.errorClass ?? "booking_failed",
-          slotId: selectedSlot.slotId,
-        },
-        true,
+      return withMiddlewareResult(
+        toolOutcome(
+          "error",
+          "confirm_booking",
+          "Booking did not complete. Confirm the slot again or search availability if the slot is stale.",
+          {
+            reason: bookingResult.errorClass ?? "booking_failed",
+            slotId: selectedSlot.slotId,
+          },
+          true,
+        ),
+        result,
       );
     }
     return result;
@@ -2170,20 +2157,11 @@ Only book after the caller says yes to the exact offered slot. If booking fails 
 export const route_to_spring_hill = llm.tool({
   description: `Switches the active call workflow to the Spring Hill office without transferring the caller.
 
-Use this when the caller reached Crystal River but the visit must be handled through Spring Hill scheduling — especially pediatrics, cataract evaluation/workup/surgery scheduling, routine-vision scheduling, or insurance accepted at Spring Hill but not Crystal River. Explain the Spring Hill routing and get agreement, then call this before verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, or book_appt for that visit. Keep the caller on the line and continue helping them normally.`,
+Use this when the caller reached Crystal River but the visit must be handled through Spring Hill scheduling — especially pediatrics, cataract evaluation/workup/surgery scheduling, routine-vision scheduling, or insurance accepted at Spring Hill but not Crystal River. Explain the Spring Hill routing and get agreement, then call this before verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, or book_appt for that visit. If interrupted, get agreement again before retrying. Keep the caller on the line and continue helping them normally.`,
   parameters: z.object({}),
   execute: async (_, { ctx, toolCallId }) => {
     const state = getState(ctx);
     const speechReady = makeCurrentSpeechUninterruptible(ctx);
-    const policyResponse = evaluatePolicyForState(
-      state,
-      "route_to_spring_hill",
-      {},
-      {
-        sideEffectConfirmation: { toolCallId },
-      },
-    );
-    if (policyResponse) return policyResponse;
     if (!speechReady) {
       return toolOutcome(
         "not_allowed",
@@ -2193,6 +2171,15 @@ Use this when the caller reached Crystal River but the visit must be handled thr
         true,
       );
     }
+    const policyResponse = evaluatePolicyForState(
+      state,
+      "route_to_spring_hill",
+      {},
+      {
+        sideEffectConfirmation: { toolCallId },
+      },
+    );
+    if (policyResponse) return policyResponse;
     const springHillOffice = getSpringHillOfficePhone();
     consumeSideEffectActionForState(state, "route_to_spring_hill", {});
     clearAvailabilitySelection(state, "office_changed");
@@ -2219,18 +2206,6 @@ Use this when the caller reached Crystal River but the visit must be handled thr
     );
   },
 });
-
-// --- Cached file reads (loaded once per file, never change at runtime) ---
-const workspaceFileCache: Record<string, string> = {};
-
-function readWorkspaceFile(file: string): string {
-  workspaceFileCache[file] ??= readFileSync(join(WORKSPACE, file), "utf-8");
-  return workspaceFileCache[file];
-}
-
-export function resolveKnowledgeFileForOffice(officeKey: OfficeKey): string {
-  return getOfficeConfig(officeKey).knowledgeFile;
-}
 
 // --- check_insurance ---
 export const check_insurance = llm.tool({
@@ -2337,13 +2312,12 @@ Answer naturally from the returned info — just the part that answers their que
         "What the caller is asking about (e.g. 'office hours', 'do you see kids', 'what should I bring')",
       ),
   }),
-  execute: async (_args, { ctx }) => {
+  execute: async ({ question }, { ctx }) => {
     const state = getState(ctx);
     makeCurrentSpeechUninterruptible(ctx);
     const turnGate = evaluateTurnUnderstandingGate(state, "lookup_knowledge");
     if (turnGate) return turnGate;
-    const file = resolveKnowledgeFileForOffice(state.officeKey);
-    const result = readWorkspaceFile(file);
+    const result = lookupOfficeKnowledge(state.officeKey, question);
     if (state.flow.currentTask?.kind === "faq") {
       completeCurrentTaskAndResume(state.flow);
     }
@@ -2354,19 +2328,28 @@ Answer naturally from the returned info — just the part that answers their que
 // --- transfer_call ---
 export const transfer_call = llm.tool({
   description:
-    "Transfers the caller to the office. Say your transfer message (see RUNBOOK), get explicit agreement, and wait for it to finish BEFORE calling this tool. Call once — after it executes the SIP session disconnects and your turn is over.",
+    "Transfers the caller to the office. Say your transfer message (see RUNBOOK), get explicit agreement, and wait for it to finish BEFORE calling this tool. Call once and do not call in parallel; duplicate in-flight calls are ignored. After it executes the SIP session disconnects and your turn is over.",
   parameters: z.object({}),
   execute: async (_, { ctx, toolCallId }) => {
     const state = getState(ctx);
     const speechReady = makeCurrentSpeechUninterruptible(ctx);
     // Guard: prevent duplicate transfers (LLM sometimes calls this twice)
-    if (state.transferred) {
+    if (state.transferred || state.transferInFlight) {
       return toolOutcome(
         "success",
         "answer",
-        "Already transferred. No action needed.",
+        "Transfer already started. No action needed.",
         { reason: "transfer_already_started" },
         false,
+      );
+    }
+    if (!speechReady) {
+      return toolOutcome(
+        "not_allowed",
+        "handoff",
+        "Transfer was interrupted before it could start. Please confirm the transfer again.",
+        { reason: "speech_interrupted" },
+        true,
       );
     }
     const policyResponse = evaluatePolicyForState(
@@ -2378,45 +2361,25 @@ export const transfer_call = llm.tool({
       },
     );
     if (policyResponse) return policyResponse;
-    if (!speechReady) {
-      return toolOutcome(
-        "not_allowed",
-        "handoff",
-        "Transfer was interrupted before it could start. Please confirm the transfer again.",
-        { reason: "speech_interrupted" },
-        true,
-      );
-    }
-    // Wait for the transfer announcement to finish playing before initiating
-    await ctx.waitForPlayout();
-    if (!state.sipRoomName || !state.sipParticipantIdentity) {
-      return toolOutcome(
-        "error",
-        "handoff",
-        "Could not transfer - no active SIP session.",
-        { reason: "missing_sip_session" },
-        true,
-      );
-    }
+    state.transferInFlight = true;
     try {
-      const handoffOfficeKey = getHandoffOfficeKey(state);
-      const handoffTarget = getOfficeHandoffTarget(handoffOfficeKey);
-      await getSipClient().transferSipParticipant(
-        state.sipRoomName,
-        state.sipParticipantIdentity,
-        handoffTarget,
-        {
-          headers: buildCallCenterHandoffHeaders(
-            state,
-            handoffTarget,
-            handoffOfficeKey,
-          ),
-          playDialtone: true,
-          ringingTimeout: 20,
-        },
-      );
+      // Wait for the transfer announcement to finish playing before initiating
+      await ctx.waitForPlayout();
+      if (!state.sipRoomName || !state.sipParticipantIdentity) {
+        state.transferInFlight = false;
+        return toolOutcome(
+          "error",
+          "handoff",
+          "Could not transfer - no active SIP session.",
+          { reason: "missing_sip_session" },
+          true,
+        );
+      }
+      const { handoffOfficeKey, handoffTarget } =
+        await transferCallerToOffice(state);
       consumeSideEffectActionForState(state, "transfer_call", {});
       state.transferred = true;
+      state.transferInFlight = false;
       console.log(
         `[tools] Transferred ${state.sipParticipantIdentity} to ${handoffTarget}`,
       );
@@ -2432,6 +2395,7 @@ export const transfer_call = llm.tool({
         false,
       );
     } catch (err) {
+      state.transferInFlight = false;
       console.error("[tools] Transfer failed:", err);
       return toolOutcome(
         "error",

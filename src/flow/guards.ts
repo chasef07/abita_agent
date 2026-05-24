@@ -29,6 +29,7 @@ export type GuardObservationReason =
   | "booking_confirmation_required"
   | "booking_action_already_consumed"
   | "booking_slot_invalidated"
+  | "cancel_requires_verified_or_created_patient"
   | "cancel_confirmation_not_tracked"
   | "cancel_requires_loaded_appointment"
   | "update_insurance_requires_verified_patient"
@@ -170,18 +171,9 @@ function guardReason(
     return "availability_search_budget_exhausted";
   }
 
-  if (
-    flow.lastGuardedToolCall?.name === toolName &&
-    flow.lastGuardedToolCall.argsHash === argsHash
-  ) {
-    return "duplicate_tool_call_same_args";
-  }
-
-  const hasBookablePatient =
-    flow.patientStatus === "verified" ||
-    flow.patientStatus === "created" ||
-    (flow.patientStatus === "matched" && Boolean(stateFacts.patientId));
-  if (toolName === "book_appt" && !hasBookablePatient) {
+  const hasVerifiedOrCreatedPatient =
+    flow.patientStatus === "verified" || flow.patientStatus === "created";
+  if (toolName === "book_appt" && !hasVerifiedOrCreatedPatient) {
     return "booking_requires_verified_or_created_patient";
   }
 
@@ -193,16 +185,33 @@ function guardReason(
     return "update_insurance_requires_verified_patient";
   }
 
+  if (toolName === "cancel_appt" && !hasVerifiedOrCreatedPatient) {
+    return "cancel_requires_verified_or_created_patient";
+  }
+
+  const hasConsumedCancel = hasConsumedCancelAction(flow, argsHash);
   if (
     toolName === "cancel_appt" &&
     flow.pendingConfirmation?.type !== "cancel" &&
-    !hasPendingCancelAction(flow, argsHash)
+    !hasPendingCancelAction(flow, argsHash) &&
+    !hasConsumedCancel
   ) {
     return "cancel_confirmation_not_tracked";
   }
 
-  if (toolName === "cancel_appt" && !hasLoadedAppointment(flow, args)) {
+  if (
+    toolName === "cancel_appt" &&
+    !hasConsumedCancel &&
+    !hasLoadedAppointment(flow, args)
+  ) {
     return "cancel_requires_loaded_appointment";
+  }
+
+  if (
+    flow.lastGuardedToolCall?.name === toolName &&
+    flow.lastGuardedToolCall.argsHash === argsHash
+  ) {
+    return "duplicate_tool_call_same_args";
   }
 
   return "allowed";
@@ -218,6 +227,20 @@ function hasPendingCancelAction(
       action.argsHash === argsHash &&
       action.confirmed &&
       !action.consumed &&
+      !action.invalidated,
+  );
+}
+
+function hasConsumedCancelAction(
+  flow: CallFlowState,
+  argsHash: string,
+): boolean {
+  return flow.pendingActions.some(
+    (action) =>
+      action.type === "cancel_appt" &&
+      action.argsHash === argsHash &&
+      action.confirmed &&
+      action.consumed &&
       !action.invalidated,
   );
 }

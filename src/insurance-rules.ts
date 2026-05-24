@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
-import { getOfficeConfig, type OfficeKey } from "./offices.js";
+import { getOfficeConfig, type OfficeKey } from "./customer/profile.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 

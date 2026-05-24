@@ -329,6 +329,15 @@ function outcomeForGuardReason(
         facts: { reason },
         retryable: true,
       };
+    case "cancel_requires_verified_or_created_patient":
+      return {
+        outcome: "not_allowed",
+        nextStep: "verify_patient",
+        speak:
+          "Confirm the preloaded patient identity or verify the patient before cancelling.",
+        facts: { reason },
+        retryable: true,
+      };
     case "booking_requires_recent_availability":
       return {
         outcome: "not_allowed",

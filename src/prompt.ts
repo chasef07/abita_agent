@@ -6,11 +6,11 @@
 
 import { readFileSync } from "fs";
 import { join } from "path";
-import type { PhoneLookupResult } from "./tools.js";
+import type { PhoneLookupResult } from "./tooling/call-state.js";
 import {
   getOfficeConfigByPhone,
   isFlowHarnessEnabledForTrunk,
-} from "./offices.js";
+} from "./customer/profile.js";
 
 const WORKSPACE = join(
   import.meta.dirname,
@@ -57,9 +57,12 @@ function formatAppointmentContextLine(
   return `  - ${idPrefix}${appointment.date} at ${normalizeMeridiemSpacing(appointment.time)} with ${appointment.provider} (${appointment.type})${facility}`;
 }
 
-const FILES: { file: string; tag: string }[] = [
+const BASE_FILES: { file: string; tag: string }[] = [
   { file: "SOUL.md", tag: "role" },
   { file: "VOICE.md", tag: "voice" },
+];
+
+const LEGACY_FILES: { file: string; tag: string }[] = [
   { file: "RUNBOOK.md", tag: "runbook" },
 ];
 
@@ -79,11 +82,12 @@ export function buildPrompt(
   }
   const flowHarnessEnabled = isFlowHarnessEnabledForTrunk(trunkPhone);
 
-  for (const { file, tag } of FILES) {
+  for (const { file, tag } of BASE_FILES) {
     const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
     sections.push(`<${tag}>\n${content}\n</${tag}>`);
   }
   if (flowHarnessEnabled) {
+    sections.push(buildHarnessOperatingContract());
     const content = readFileSync(
       join(WORKSPACE, FLOW_HARNESS_FILE.file),
       "utf-8",
@@ -91,6 +95,11 @@ export function buildPrompt(
     sections.push(
       `<${FLOW_HARNESS_FILE.tag}>\n${content}\n</${FLOW_HARNESS_FILE.tag}>`,
     );
+  } else {
+    for (const { file, tag } of LEGACY_FILES) {
+      const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
+      sections.push(`<${tag}>\n${content}\n</${tag}>`);
+    }
   }
 
   let prompt = sections.join("\n\n");
@@ -123,7 +132,18 @@ export function buildPrompt(
   return prompt;
 }
 
-/** Build the caller context block injected into the RUNBOOK. */
+function buildHarnessOperatingContract(): string {
+  return [
+    "<harness_operating_contract>",
+    "The TypeScript flow harness owns workflow state, tool sequencing, and side-effect safety. Follow the latest <turn_state> and <context_capsules> injected after each caller turn over any general habit or example.",
+    "At the start of each caller turn, update state with record_turn_understanding, then use the returned controllerDecision, turnState, and instruction to choose the next action.",
+    "Use tool descriptions for exact schemas. Do not submit side-effect tools until the current state packet says the required facts and explicit confirmation are present.",
+    "Keep spoken responses to 1-3 concise sentences and ask one question at a time.",
+    "</harness_operating_contract>",
+  ].join("\n");
+}
+
+/** Build the caller context block injected into the prompt. */
 function buildCallerContext(lookup: PhoneLookupResult): string {
   if (lookup?.status === "verified") {
     const firstName =
@@ -132,7 +152,11 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
     lines.push(`**SINGLE MATCH — Session state is pre-loaded.**`);
     lines.push(`Name: ${lookup.name} (first name: ${firstName})`);
     lines.push(`DOB: ${lookup.dob}`);
-    lines.push(`Insurance: ${lookup.insuranceCarrier}`);
+    if (lookup.insuranceCarrier) {
+      lines.push(`Insurance: ${lookup.insuranceCarrier}`);
+    } else {
+      lines.push(`Insurance: not on file.`);
+    }
     if (lookup.routingAmbiguous) {
       lines.push(`Routing is ambiguous — needs plan type clarification.`);
     }
@@ -194,10 +218,25 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
     return lines.join("\n");
   }
 
+  if (lookup?.status === "lookup_failed") {
+    return buildLookupFailedContext(lookup);
+  }
+
   const lines: string[] = [];
   lines.push(`**NO MATCH — This number is not in the system.**`);
   lines.push(
     `Ask "have you been seen here before?" early in the call. If no, go straight to new patient registration — no need to try verify_patient. If yes, collect their first name, last name, and date of birth and try verify_patient in case they're calling from a different phone. If not found, lead into registration.`,
   );
   return lines.join("\n");
+}
+
+function buildLookupFailedContext(
+  lookup: Extract<PhoneLookupResult, { status: "lookup_failed" }>,
+): string {
+  return [
+    `**PHONE LOOKUP UNAVAILABLE — Identity is not preloaded.**`,
+    `The pre-call lookup failed before the session started. Do not tell the caller technical details and do not say they are new just because lookup failed.`,
+    `Ask what they need first. If they are an existing patient, collect first name, last name, and DOB, then use verify_patient. If they say they are new, continue into registration after visit-type and insurance triage.`,
+    `Lookup failure reason for internal routing only: ${lookup.reason}.`,
+  ].join("\n");
 }

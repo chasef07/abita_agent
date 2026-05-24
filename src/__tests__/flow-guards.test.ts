@@ -126,7 +126,32 @@ describe("flow report-only guards", () => {
     });
   });
 
-  it("allows booking for a preloaded phone match after availability", () => {
+  it("allows booking for a verified preloaded phone match after availability", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.visitType = "medical";
+    flow.step = "book";
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "book_appt",
+      stateFacts: {
+        patientId: "patient-1",
+        lastAvailabilityRouting: "all_three",
+      },
+    });
+
+    expect(observation).toMatchObject({
+      allowed: true,
+      reason: "allowed",
+    });
+  });
+
+  it("reports booking for an unconfirmed preloaded phone match", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
       patientId: "patient-1",
@@ -144,8 +169,8 @@ describe("flow report-only guards", () => {
     });
 
     expect(observation).toMatchObject({
-      allowed: true,
-      reason: "allowed",
+      allowed: false,
+      reason: "booking_requires_verified_or_created_patient",
     });
   });
 
@@ -210,6 +235,105 @@ describe("flow report-only guards", () => {
     expect(observation).toMatchObject({
       allowed: false,
       reason: "cancel_confirmation_not_tracked",
+    });
+  });
+
+  it("reports cancellation for an unconfirmed preloaded phone match", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      appointments: [
+        {
+          id: 12345,
+          date: "2026-06-01",
+          time: "9:00 AM",
+          provider: "Dr. Bach",
+          type: "Follow-up",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+      ],
+    });
+    flow.step = "cancel";
+    flow.pendingConfirmation = {
+      type: "cancel",
+      payload: { appointmentId: 12345 },
+    };
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "cancel_appt",
+      args: { appointmentId: 12345 },
+    });
+
+    expect(observation).toMatchObject({
+      allowed: false,
+      reason: "cancel_requires_verified_or_created_patient",
+    });
+  });
+
+  it("prioritizes unverified booking over duplicate same-args calls", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+    });
+    const args = { slotId: "A", appointmentTypeId: 123 };
+    flow.step = "book";
+    flow.lastGuardedToolCall = {
+      name: "book_appt",
+      argsHash: hashToolArgs(args),
+      guardAllowed: false,
+    };
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "book_appt",
+      args,
+    });
+
+    expect(observation).toMatchObject({
+      allowed: false,
+      reason: "booking_requires_verified_or_created_patient",
+    });
+  });
+
+  it("prioritizes unverified cancellation over duplicate same-args calls", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      appointments: [
+        {
+          id: 12345,
+          date: "2026-06-01",
+          time: "9:00 AM",
+          provider: "Dr. Bach",
+          type: "Follow-up",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+      ],
+    });
+    const args = { appointmentId: 12345 };
+    flow.step = "cancel";
+    flow.pendingConfirmation = {
+      type: "cancel",
+      payload: args,
+    };
+    flow.lastGuardedToolCall = {
+      name: "cancel_appt",
+      argsHash: hashToolArgs(args),
+      guardAllowed: false,
+    };
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "cancel_appt",
+      args,
+    });
+
+    expect(observation).toMatchObject({
+      allowed: false,
+      reason: "cancel_requires_verified_or_created_patient",
     });
   });
 

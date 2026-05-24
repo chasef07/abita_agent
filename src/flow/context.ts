@@ -166,7 +166,25 @@ export function compileTurnStatePacket(
     `nextAction: ${directives.nextAction ?? directives.allowedActions[0] ?? "continue"}`,
     `blockedActions: ${formatList(directives.blockedActions)}`,
     "</turn_state>",
+    "",
+    compileContextCapsules(flow, directives),
   ].join("\n");
+}
+
+export function compileContextCapsules(
+  flow: CallFlowState,
+  directives: FlowContextDirectives = directivesForFlowState(flow),
+): string {
+  const capsules = [
+    `objective: ${shortObjectiveForStep(flow.step, directives)}`,
+    `patient: ${formatPatientCapsule(flow)}`,
+    stepSpecificCapsule(flow),
+    appointmentCapsule(flow),
+    schedulingCapsule(flow),
+    confirmationCapsule(flow),
+  ].filter(Boolean);
+
+  return ["<context_capsules>", ...capsules, "</context_capsules>"].join("\n");
 }
 
 function formatPatientStatus(flow: CallFlowState): string {
@@ -188,4 +206,156 @@ function formatSchedulingGoal(flow: CallFlowState): string {
   ].filter(Boolean);
 
   return parts.join(" ");
+}
+
+function activePatient(flow: CallFlowState) {
+  return flow.patients[flow.activePatientRef ?? "caller"];
+}
+
+function formatPatientCapsule(flow: CallFlowState): string {
+  const patient = activePatient(flow);
+  if (!patient) return `${formatPatientStatus(flow)}; no patient facts loaded`;
+
+  const facts = [
+    formatPatientStatus(flow),
+    patient.firstName?.confirmed ? "firstName=confirmed" : undefined,
+    patient.dob?.confirmed
+      ? "dob=confirmed"
+      : patient.dob
+        ? "dob=known"
+        : undefined,
+    patient.relationshipToCaller && patient.relationshipToCaller !== "unknown"
+      ? `relationship=${patient.relationshipToCaller}`
+      : undefined,
+    patient.appointments.length > 0
+      ? `loadedAppointments=${patient.appointments.length}`
+      : undefined,
+  ].filter(Boolean);
+
+  return facts.join("; ") || formatPatientStatus(flow);
+}
+
+function stepSpecificCapsule(flow: CallFlowState): string {
+  switch (flow.step) {
+    case "understand_intent":
+      return "step: listen first; do not use business tools yet.";
+    case "triage_visit_type":
+      return "step: ask visit reason; classify before insurance or availability.";
+    case "check_insurance":
+      return `step: check plan with coverageType=${flow.coverageType ?? "unknown"}.`;
+    case "route_office":
+      return "step: explain routing, get agreement, then route without transfer.";
+    case "verify_patient":
+      return "step: verify active patient; first-name confirmation can verify a preloaded match.";
+    case "collect_registration":
+      return "step: collect missing registration fields, confirm key fields, then add_patient.";
+    case "collect_visit_reason":
+      return "step: collect reason and referring doctor; use none if no referrer.";
+    case "get_availability":
+      return "step: ask date/window if missing, then search right lane once.";
+    case "confirm_booking":
+      return "step: offer one best slot; wait for explicit yes before booking.";
+    case "book":
+      return "step: book confirmed slot; save note only after booking succeeds.";
+    case "confirm_cancel":
+      return "step: read back exact loaded appointment and get cancel confirmation.";
+    case "cancel":
+      return "step: cancel only the confirmed loaded appointment.";
+    case "handoff":
+      return "step: say transfer message, get agreement, wait for playout, transfer once.";
+    case "answer":
+      return "step: answer from tool results or lookup_knowledge, then pause.";
+  }
+}
+
+function appointmentCapsule(flow: CallFlowState): string {
+  const patient = activePatient(flow);
+  if (!patient?.appointments.length) return "";
+  if (
+    flow.activeFlow !== "appointment_management" &&
+    !flow.activeIntent?.startsWith("existing_appointment") &&
+    flow.step !== "confirm_cancel" &&
+    flow.step !== "cancel"
+  ) {
+    return "";
+  }
+
+  return `appointments: loaded=${patient.appointments.length}; use caller context or tool result for exact ID/date.`;
+}
+
+function schedulingCapsule(flow: CallFlowState): string {
+  const goal = flow.schedulingGoal;
+  const latestSearch = [...flow.availabilitySearches]
+    .reverse()
+    .find((search) => search.status !== "invalidated");
+  const facts = [
+    goal?.visitReason ? "reason=known" : undefined,
+    goal?.preferredWindow ? "preferredWindow=known" : undefined,
+    goal?.noteDraft?.appointmentReason ? "noteReason=known" : undefined,
+    goal?.noteDraft?.referringDoctor ? "referrer=known" : undefined,
+    latestSearch
+      ? `availability=${latestSearch.status}; searches=${latestSearch.exactSearchCount}/${latestSearch.maxSearches}; cachedSlots=${latestSearch.cachedSlots.length}`
+      : undefined,
+  ].filter(Boolean);
+
+  return facts.length > 0 ? `scheduling_context: ${facts.join("; ")}` : "";
+}
+
+function shortObjectiveForStep(
+  step: CallFlowState["step"],
+  directives: FlowContextDirectives,
+): string {
+  switch (step) {
+    case "triage_visit_type":
+      return "classify visit";
+    case "check_insurance":
+      return "check coverage";
+    case "route_office":
+      return "route with agreement";
+    case "verify_patient":
+      return "verify patient";
+    case "collect_registration":
+      return "collect registration";
+    case "collect_visit_reason":
+      return "collect scheduling note facts";
+    case "get_availability":
+      return "search availability";
+    case "confirm_booking":
+      return "confirm slot";
+    case "book":
+      return "book confirmed slot";
+    case "confirm_cancel":
+      return "confirm cancellation";
+    case "cancel":
+      return "cancel confirmed appointment";
+    case "handoff":
+      return "transfer safely";
+    case "answer":
+      return "answer and pause";
+    case "understand_intent":
+      return "understand intent";
+    default:
+      return directives.currentObjective;
+  }
+}
+
+function confirmationCapsule(flow: CallFlowState): string {
+  const pending = flow.pendingActions.filter(
+    (action) => !action.consumed && !action.invalidated,
+  );
+  const facts = [
+    flow.pendingConfirmation
+      ? `pendingConfirmation=${flow.pendingConfirmation.type}`
+      : undefined,
+    pending.length > 0
+      ? `pendingActions=${pending
+          .map(
+            (action) =>
+              `${action.type}:${action.confirmed ? "confirmed" : "needs_confirmation"}`,
+          )
+          .join(",")}`
+      : undefined,
+  ].filter(Boolean);
+
+  return facts.length > 0 ? `confirmation_context: ${facts.join("; ")}` : "";
 }

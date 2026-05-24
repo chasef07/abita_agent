@@ -4,7 +4,7 @@ import {
   normalizeCoverageType,
   type InsuranceCoverageType,
 } from "../insurance-rules.js";
-import type { OfficeKey } from "../offices.js";
+import type { OfficeKey } from "../customer/profile.js";
 import type {
   CallFlowState,
   PatientStatus,

@@ -15,23 +15,19 @@
     "format:check": "prettier --check . --ignore-unknown"
   },
   "dependencies": {
-    "@livekit/agents": "^1.4.3",
-    "@livekit/agents-plugin-assemblyai": "1.4.3",
-    "@livekit/agents-plugin-baseten": "^1.4.3",
-    "@livekit/agents-plugin-cartesia": "1.4.3",
-    "@livekit/agents-plugin-livekit": "^1.4.3",
-    "@livekit/agents-plugin-silero": "^1.4.3",
-    "@livekit/noise-cancellation-node": "^0.1.9",
+    "@livekit/agents": "^1.4.4",
+    "@livekit/agents-plugin-assemblyai": "1.4.4",
+    "@livekit/agents-plugin-baseten": "^1.4.4",
+    "@livekit/agents-plugin-cartesia": "1.4.4",
+    "@livekit/agents-plugin-silero": "^1.4.4",
     "@livekit/rtc-node": "^0.13.28",
     "dotenv": "^17.4.2",
     "livekit-server-sdk": "^2.15.3",
-    "ws": "^8.20.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.9.0",
-    "@types/ws": "^8.18.1",
+    "@types/node": "^25.9.1",
     "eslint": "^10.4.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.6.0",
@@ -39,6 +35,6 @@
     "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.4",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.7"
   }
 }

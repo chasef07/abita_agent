@@ -310,7 +310,7 @@ describe("transcript replay eval harness", () => {
     });
 
     const turn = harness.hear(
-      "I need to cancel my appointment",
+      "This is Jane, I need to cancel my appointment",
       appointmentManagementTurn("cancel"),
     );
 
@@ -349,6 +349,7 @@ describe("transcript replay eval harness", () => {
 
   it("does not allow cancellation when confirmation exists but the appointment is not loaded", () => {
     const harness = new TranscriptEvalHarness({ appointments: [] });
+    harness.verifyPrecallPatient();
     harness.hear(
       "Please cancel my appointment",
       appointmentManagementTurn("cancel"),
@@ -384,6 +385,7 @@ describe("transcript replay eval harness", () => {
       expect.objectContaining({ id: futureId }),
     ]);
 
+    harness.verifyPrecallPatient();
     harness.confirmSideEffect(
       "cancel_appt",
       { appointmentId: pastId },
@@ -532,7 +534,7 @@ describe("transcript replay eval harness", () => {
     });
 
     const turn = harness.hear(
-      "I need to reschedule my appointment",
+      "This is Jane, I need to reschedule my appointment",
       appointmentManagementTurn("reschedule"),
     );
 

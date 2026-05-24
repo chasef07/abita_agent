@@ -4,7 +4,7 @@
 
 This note captures the architecture decisions behind the stateful Jarvis
 scheduling agent. The goal is to keep the reasoning separate from the phase
-plan in `agent-flow-controller-spine.md`.
+plan in `../architecture/flow-controller-spine.md`.
 
 The core conclusion: the LLM should remain the conversational engine, but it
 should not be the only holder of memory or safety policy. The harness gives the

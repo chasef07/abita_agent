@@ -1,5 +1,7 @@
 # Agent Flow Controller Spine
 
+Current implementation contract: `flow-controller-current-contract.md`.
+
 ## Why this exists
 
 Abita's current agent works, but too much business control lives in prompt prose,
@@ -13,7 +15,7 @@ Those primitives are useful for bounded collection flows, but the core Abita
 business rules need to be explicit TypeScript that can be unit-tested without a
 voice session.
 
-Related architecture note: `agent-harness-learnings.md` captures the
+Related architecture note: `../history/flow-harness-learnings.md` captures the
 state-update tool, reducer, memory, pre-call state, and LLM/harness balance
 decisions behind this phase plan.
 

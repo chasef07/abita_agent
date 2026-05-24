@@ -309,7 +309,7 @@ This gives the model the WHY, which Anthropic's research shows helps it generali
 
 **Our prompt:** All behavioral rules are in SOUL.md (at the top) and VOICE.md (third section). By the time conversation turns accumulate, these rules are far from the model's strongest attention zone.
 
-**Recommendation:** Already addressed in CONTEXT-MANAGEMENT.md Phase 3 (state injection via `onUserTurnCompleted`). The injected state summary should include a brief behavioral reminder alongside the call state.
+**Recommendation:** Already addressed in `../architecture/context-management.md` Phase 3 (state injection via `onUserTurnCompleted`). The injected state summary should include a brief behavioral reminder alongside the call state.
 
 ---
 
