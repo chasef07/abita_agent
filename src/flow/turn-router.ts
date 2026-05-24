@@ -154,7 +154,7 @@ export function nextActionForFlowDecision(decision: FlowDecision): string {
     case "say":
       return "respond";
     case "transfer":
-      return "confirm_side_effect_action";
+      return "transfer_call";
     case "end_call":
       return "end_call";
   }

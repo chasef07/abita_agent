@@ -20,6 +20,10 @@ afterEach(() => {
 });
 
 describe("TTS config", () => {
+  it("uses Cartesia Sonic 3.5", () => {
+    expect(CARTESIA_TTS_MODEL).toBe("sonic-3.5");
+  });
+
   it("uses direct Cartesia plugin TTS by default", () => {
     delete process.env.CARTESIA_TTS_VOICE;
 

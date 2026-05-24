@@ -379,8 +379,7 @@ function evaluateBookingPolicy(
       outcome: {
         outcome: "not_allowed",
         nextStep: "confirm_booking",
-        speak:
-          "Confirm the exact slot and create a pending booking action before booking.",
+        speak: "Confirm the exact slot before booking.",
         facts: { reason: "booking_requires_pending_action" },
         retryable: true,
       },
@@ -420,8 +419,7 @@ function evaluateBookingPolicy(
     outcome: {
       outcome: "not_allowed",
       nextStep: "confirm_booking",
-      speak:
-        "Confirm the exact slot and create a pending booking action before booking.",
+      speak: "Confirm the exact slot before booking.",
       facts: { reason: "booking_requires_pending_action" },
       retryable: true,
     },

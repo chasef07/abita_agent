@@ -33,7 +33,6 @@ import {
   invalidateAvailabilitySearches,
   invalidatePendingActionsForStateChange,
   nextPatientFlowStep,
-  nextStepForSideEffectAction,
   normalizeSchedulingRouting,
   recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
@@ -214,13 +213,17 @@ function evaluatePolicyForState(
   args?: unknown,
   options: {
     booking?: Parameters<typeof evaluateFlowToolPolicy>[0]["booking"];
+    sideEffectConfirmation?: {
+      toolCallId: string;
+      spokenSummary?: string;
+    };
   } = {},
 ): ToolOutcome | null {
   if (!isFlowHarnessEnabled(state)) return null;
   const turnGate = evaluateTurnUnderstandingGate(state, toolName);
   if (turnGate) return turnGate;
   syncSessionPatientFromActiveFlow(state);
-  const decision = evaluateFlowToolPolicy({
+  let decision = evaluateFlowToolPolicy({
     flow: state.flow,
     toolName,
     args,
@@ -233,6 +236,32 @@ function evaluatePolicyForState(
     },
     booking: options.booking,
   });
+  if (
+    options.sideEffectConfirmation &&
+    shouldAutoConfirmSideEffect(decision, toolName)
+  ) {
+    const sideEffectConfirmationOutcome =
+      ensureConfirmedSideEffectActionFromToolCall(
+        state,
+        toolName,
+        args,
+        options.sideEffectConfirmation,
+      );
+    if (sideEffectConfirmationOutcome) return sideEffectConfirmationOutcome;
+    decision = evaluateFlowToolPolicy({
+      flow: state.flow,
+      toolName,
+      args,
+      stateFacts: {
+        checkedInsurancePlan: state.checkedInsurancePlan,
+        checkedInsuranceCoverageType: state.checkedInsuranceCoverageType,
+        patientId: state.patientId,
+        lastAvailabilityRouting: state.lastAvailabilityRouting,
+        officeKey: state.officeKey,
+      },
+      booking: options.booking,
+    });
+  }
   const { observation } = decision;
   state.flowGuardObservations.push(observation);
   state.flow.lastGuardedToolCall = {
@@ -283,6 +312,87 @@ function isFlowHarnessEnabled(state: Pick<CallState, "flowHarnessEnabled">) {
   return state.flowHarnessEnabled === true;
 }
 
+function shouldAutoConfirmSideEffect(
+  decision: ReturnType<typeof evaluateFlowToolPolicy>,
+  toolName: GuardedToolName,
+): boolean {
+  if (!isSideEffectToolName(toolName)) return false;
+  const reason = decision.outcome?.facts?.reason;
+  return (
+    reason === "side_effect_requires_pending_action" ||
+    reason === "side_effect_confirmation_required" ||
+    reason === "cancel_confirmation_not_tracked"
+  );
+}
+
+function isSideEffectToolName(
+  toolName: GuardedToolName,
+): toolName is SideEffectToolName {
+  return (
+    toolName === "add_patient" ||
+    toolName === "cancel_appt" ||
+    toolName === "update_insurance" ||
+    toolName === "route_to_spring_hill" ||
+    toolName === "transfer_call"
+  );
+}
+
+function evaluatePatientNoteGrounding(
+  state: CallState,
+  appointmentReason: string,
+  referringDoctor: string,
+): ToolOutcome | null {
+  if (!isFlowHarnessEnabled(state)) return null;
+  const goal = state.flow.schedulingGoal;
+  if (!goal) return null;
+
+  const expectedReason = goal.noteDraft?.appointmentReason ?? goal.visitReason;
+  const expectedReferrer = goal.noteDraft?.referringDoctor;
+  const referrerIsNone = normalizeNoteValue(referringDoctor) === "none";
+  const reasonMatches = expectedReason
+    ? noteValuesMatch(appointmentReason, expectedReason)
+    : false;
+  const referrerMatches = expectedReferrer
+    ? noteValuesMatch(referringDoctor, expectedReferrer)
+    : referrerIsNone;
+
+  if (
+    reasonMatches &&
+    referrerMatches &&
+    !hasUnsafeChartNoteValue(referringDoctor)
+  ) {
+    return null;
+  }
+
+  return toolOutcome(
+    "not_allowed",
+    "collect_visit_reason",
+    'Save the patient note only after the caller explicitly states the appointment reason and referring doctor. If there is no referring doctor, use "none".',
+    {
+      reason: "note_requires_grounded_details",
+      hasExpectedReason: Boolean(expectedReason),
+      hasExpectedReferrer: Boolean(expectedReferrer),
+    },
+    true,
+  );
+}
+
+function noteValuesMatch(actual: string, expected: string): boolean {
+  return normalizeNoteValue(actual) === normalizeNoteValue(expected);
+}
+
+function normalizeNoteValue(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasUnsafeChartNoteValue(value: string): boolean {
+  return /\b(cock|dick|fuck|shit|bitch|cunt)\b/i.test(value);
+}
+
 function requiresTurnUnderstandingBeforeTool(state: CallState): boolean {
   const transcript = state.latestUserTranscript?.trim();
   if (!transcript) return false;
@@ -322,6 +432,129 @@ function pendingSideEffectLookup(
     patientRef: state.flow.activePatientRef,
     ...(typeof appointmentId === "number" ? { appointmentId } : {}),
   };
+}
+
+function hasMatchingSideEffectAction(
+  state: CallState,
+  toolName: SideEffectToolName,
+  args: unknown,
+): boolean {
+  const lookup = pendingSideEffectLookup(state, toolName, args);
+  return state.flow.pendingActions.some((action) => {
+    if (action.type !== lookup.type) return false;
+    if (action.argsHash !== lookup.argsHash) return false;
+    if (
+      lookup.patientRef !== undefined &&
+      "patientRef" in action &&
+      action.patientRef !== lookup.patientRef
+    ) {
+      return false;
+    }
+    if (
+      lookup.appointmentId !== undefined &&
+      action.type === "cancel_appt" &&
+      action.appointmentId !== lookup.appointmentId
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function ensureConfirmedSideEffectActionFromToolCall(
+  state: CallState,
+  toolName: GuardedToolName,
+  args: unknown,
+  confirmation:
+    | {
+        toolCallId: string;
+        spokenSummary?: string;
+      }
+    | undefined,
+): ToolOutcome | null {
+  if (!confirmation || !isSideEffectToolName(toolName)) return null;
+
+  const sideEffectArgs = args ?? {};
+  const existingAction = hasMatchingSideEffectAction(
+    state,
+    toolName,
+    sideEffectArgs,
+  );
+  let appointmentId: number | undefined;
+  let requiredFieldsComplete: boolean | undefined;
+
+  if (toolName === "cancel_appt") {
+    if (!isRecord(sideEffectArgs)) {
+      return toolOutcome(
+        "not_allowed",
+        "confirm_cancel",
+        "Choose the exact appointment, read it back, and confirm before cancelling.",
+        { reason: "cancel_requires_loaded_appointment" },
+        true,
+      );
+    }
+    const rawAppointmentId = sideEffectArgs.appointmentId;
+    if (typeof rawAppointmentId !== "number") {
+      return toolOutcome(
+        "not_allowed",
+        "confirm_cancel",
+        "Choose the exact appointment, read it back, and confirm before cancelling.",
+        { reason: "cancel_requires_loaded_appointment" },
+        true,
+      );
+    }
+    appointmentId = rawAppointmentId;
+    if (!existingAction && !activeAppointmentById(state, appointmentId)) {
+      return toolOutcome(
+        "not_allowed",
+        "confirm_cancel",
+        "Load the patient's appointments and choose the exact appointment before cancelling.",
+        { reason: "cancel_requires_loaded_appointment" },
+        true,
+      );
+    }
+    state.flow.pendingConfirmation = {
+      type: "cancel",
+      payload: { appointmentId },
+    };
+  }
+
+  if (toolName === "add_patient") {
+    requiredFieldsComplete = true;
+  }
+
+  const actionType = sideEffectActionTypeForTool(toolName);
+  const action = createPendingSideEffectAction(state.flow, {
+    type: actionType,
+    argsHash: hashToolArgs(sideEffectArgs),
+    spokenSummary:
+      confirmation.spokenSummary ?? defaultSideEffectSummary(toolName),
+    patientRef: state.flow.activePatientRef,
+    appointmentId,
+    requiredFieldsComplete,
+    confirmed: true,
+    createdTurnId: confirmation.toolCallId,
+    confirmationTurnId: confirmation.toolCallId,
+  });
+  action.confirmed = true;
+  action.confirmationTurnId ??= confirmation.toolCallId;
+
+  return null;
+}
+
+function defaultSideEffectSummary(toolName: SideEffectToolName): string {
+  switch (toolName) {
+    case "add_patient":
+      return "Create the confirmed patient registration.";
+    case "cancel_appt":
+      return "Cancel the confirmed appointment.";
+    case "route_to_spring_hill":
+      return "Switch the active scheduling office to Spring Hill.";
+    case "transfer_call":
+      return "Transfer the caller to the office.";
+    case "update_insurance":
+      return "Submit the confirmed insurance update.";
+  }
 }
 
 function consumeSideEffectActionForState(
@@ -911,6 +1144,43 @@ async function submitLegacyBooking(
   return result;
 }
 
+function ensureConfirmedBookingActionFromState(
+  state: CallState,
+  selectedSlot: StoredAvailabilitySlot,
+  appointmentTypeId: number,
+  toolCallId: string,
+) {
+  const selectedSlotId = state.flow.schedulingGoal?.selectedSlotId;
+  const bookingConfirmed = state.flow.schedulingGoal?.bookingConfirmed === true;
+  if (
+    !bookingConfirmed ||
+    !selectedSlotId ||
+    normalizeSlotId(selectedSlotId) !== normalizeSlotId(selectedSlot.slotId)
+  ) {
+    return undefined;
+  }
+
+  const routing =
+    selectedSlot.routing ??
+    state.lastAvailabilityRouting ??
+    routingForAvailability(state);
+  const action = createPendingBookingAction(state.flow, {
+    patientRef: state.flow.activePatientRef,
+    slotHash: selectedSlot.slotId,
+    appointmentTypeId,
+    officeKey: state.officeKey,
+    routing,
+    spokenSummary: selectedSlot.spoken,
+    confirmed: true,
+    createdTurnId: toolCallId,
+    confirmationTurnId: toolCallId,
+  });
+  action.confirmed = true;
+  action.confirmationTurnId ??= toolCallId;
+  state.flow.step = "book";
+  return action;
+}
+
 function ensureRoutineVisionOffice(state: CallState): void {
   if (state.checkedInsuranceCoverageType !== "routine_vision") return;
   if (!getOfficeConfig(state.officeKey).features.routeRoutineVisionToSpringHill)
@@ -998,6 +1268,7 @@ If the caller only says a backchannel like "yes", "okay", or "mm-hmm", still cal
   parameters: turnUnderstandingSchema,
   execute: async (understanding, { ctx }) => {
     const state = getState(ctx);
+    makeCurrentSpeechUninterruptible(ctx);
     if (!isFlowHarnessEnabled(state)) {
       return {
         status: "disabled",
@@ -1104,6 +1375,7 @@ After response:
     { ctx },
   ) => {
     const state = getState(ctx);
+    makeCurrentSpeechUninterruptible(ctx);
     const policyResponse = evaluatePolicyForState(state, "verify_patient", {
       firstName,
       lastName,
@@ -1183,15 +1455,23 @@ Follow the registration order in the runbook. Key rules for this tool:
 - Email is optional. Ask once; if the caller says they do not have one, omit email and continue registration. Do not transfer just because email is missing.
 - If subscriber is "me" or "mine" = use patient name.
 - Member ID is required — do not imply registration is almost done until you have it. If they don't have their card, offer to hold.
-- Before submitting: read back name (spell last name letter by letter), DOB, insurance plan, and member ID. Wait for confirmation.
+- Before submitting: read back name (spell last name letter by letter), DOB, insurance plan, and member ID. Wait for confirmation, then call this tool directly.
 
 After response: if routing "not_accepted", tell them. If preauthRequired, scheduling starts two weeks out. Go straight to scheduling — don't check appointments for a new patient.
 
 Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO, Cigna HMO, Tricare Prime, Tricare Forever.`,
   parameters: addPatientParameters,
-  execute: async (params, { ctx }) => {
+  execute: async (params, { ctx, toolCallId }) => {
     const state = getState(ctx);
-    const policyResponse = evaluatePolicyForState(state, "add_patient", params);
+    const speechReady = makeCurrentSpeechUninterruptible(ctx);
+    const policyResponse = evaluatePolicyForState(
+      state,
+      "add_patient",
+      params,
+      {
+        sideEffectConfirmation: { toolCallId },
+      },
+    );
     if (policyResponse) return policyResponse;
     const insurance = state.checkedInsurancePlan ?? params.insurance;
     const phone = params.phone ?? state.callerPhone;
@@ -1204,7 +1484,7 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
         true,
       );
     }
-    if (!makeCurrentSpeechUninterruptible(ctx)) {
+    if (!speechReady) {
       return toolOutcome(
         "not_allowed",
         "collect_registration",
@@ -1258,19 +1538,30 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
 
 // --- update_insurance ---
 export const update_insurance = llm.tool({
-  description: `Updates a verified patient's insurance. Requires verify_patient first. Confirm plan name and member ID with caller before submitting.
+  description: `Updates a verified patient's insurance. Requires verify_patient first. Confirm plan name and member ID with caller before calling this tool.
 
 Run check_insurance first with medical coverage and use the canonicalPlan from the latest result for the insurance value sent to middleware. Do not use update_insurance just to schedule a routine vision appointment for an existing patient; collect/check the vision insurance and schedule on the routine-vision lane instead.
 
 After response: session state updates automatically. If preauthRequired, scheduling starts two weeks out.`,
   parameters: updateInsuranceParameters,
-  execute: async ({ insurance, subscriberName, subscriberNum }, { ctx }) => {
+  execute: async (
+    { insurance, subscriberName, subscriberNum },
+    { ctx, toolCallId },
+  ) => {
     const state = getState(ctx);
-    const policyResponse = evaluatePolicyForState(state, "update_insurance", {
-      insurance,
-      subscriberName,
-      subscriberNum,
-    });
+    const speechReady = makeCurrentSpeechUninterruptible(ctx);
+    const policyResponse = evaluatePolicyForState(
+      state,
+      "update_insurance",
+      {
+        insurance,
+        subscriberName,
+        subscriberNum,
+      },
+      {
+        sideEffectConfirmation: { toolCallId },
+      },
+    );
     if (policyResponse) return policyResponse;
     if (!state.patientId) {
       return toolOutcome(
@@ -1281,7 +1572,7 @@ After response: session state updates automatically. If preauthRequired, schedul
         true,
       );
     }
-    if (!makeCurrentSpeechUninterruptible(ctx)) {
+    if (!speechReady) {
       return toolOutcome(
         "not_allowed",
         "check_insurance",
@@ -1373,6 +1664,7 @@ After response: check if date shifted vs requested — tell caller if different.
   }),
   execute: async ({ date, routing }, { ctx }) => {
     const state = getState(ctx);
+    makeCurrentSpeechUninterruptible(ctx);
     const policyResponse = evaluatePolicyForState(state, "get_availability", {
       date,
       routing,
@@ -1427,6 +1719,7 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
+    makeCurrentSpeechUninterruptible(ctx);
     const turnGate = evaluateTurnUnderstandingGate(state, "confirm_appt");
     if (turnGate) return turnGate;
     syncSessionPatientFromActiveFlow(state);
@@ -1479,19 +1772,27 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
 export const cancel_appt = llm.tool({
   description: `Cancels an appointment. You MUST call this tool to cancel — an appointment is not cancelled until this tool executes successfully. Never tell the caller an appointment is cancelled without calling this tool first.
 
-Requires appointmentId — use the ID from the caller context (phone lookup) or from a confirm_appt response. Read back the details and confirm the caller wants it cancelled before calling. If they want to reschedule, book the new appointment first, then cancel.`,
+Requires appointmentId — use the ID from the caller context (phone lookup) or from a confirm_appt response. Read back the details and confirm the caller wants it cancelled before calling this tool. If they want to reschedule, book the new appointment first, then cancel.`,
   parameters: z.object({
     appointmentId: z
       .number()
       .describe("Appointment ID from the confirm_appt response"),
   }),
-  execute: async ({ appointmentId }, { ctx }) => {
+  execute: async ({ appointmentId }, { ctx, toolCallId }) => {
     const state = getState(ctx);
-    const policyResponse = evaluatePolicyForState(state, "cancel_appt", {
-      appointmentId,
-    });
+    const speechReady = makeCurrentSpeechUninterruptible(ctx);
+    const policyResponse = evaluatePolicyForState(
+      state,
+      "cancel_appt",
+      {
+        appointmentId,
+      },
+      {
+        sideEffectConfirmation: { toolCallId },
+      },
+    );
     if (policyResponse) return policyResponse;
-    if (!makeCurrentSpeechUninterruptible(ctx)) {
+    if (!speechReady) {
       return toolOutcome(
         "not_allowed",
         "confirm_cancel",
@@ -1577,6 +1878,7 @@ Only save these two fields: appointment reason and referring doctor. If there is
   }),
   execute: async ({ appointmentReason, referringDoctor }, { ctx }) => {
     const state = getState(ctx);
+    const speechReady = makeCurrentSpeechUninterruptible(ctx);
     const turnGate = evaluateTurnUnderstandingGate(state, "add_patient_note");
     if (turnGate) return turnGate;
     syncSessionPatientFromActiveFlow(state);
@@ -1609,7 +1911,9 @@ Only save these two fields: appointment reason and referring doctor. If there is
         true,
       );
     }
-    if (!makeCurrentSpeechUninterruptible(ctx)) {
+    const noteGrounding = evaluatePatientNoteGrounding(state, reason, referrer);
+    if (noteGrounding) return noteGrounding;
+    if (!speechReady) {
       return toolOutcome(
         "not_allowed",
         "collect_visit_reason",
@@ -1643,194 +1947,6 @@ Only save these two fields: appointment reason and referring doctor. If there is
   },
 });
 
-// --- confirm_side_effect_action ---
-export const confirm_side_effect_action = llm.tool({
-  description: `Records the caller's explicit confirmation before a side-effect tool runs. Use this after reading back the exact details for cancellation, registration, insurance update, Spring Hill routing, or human transfer. This tool only records confirmation; it does not submit the side effect.`,
-  parameters: z.object({
-    action: z
-      .enum([
-        "cancel_appt",
-        "add_patient",
-        "update_insurance",
-        "route_to_spring_hill",
-        "transfer_call",
-      ])
-      .describe("The side-effect tool the caller explicitly confirmed"),
-    spokenSummary: z
-      .string()
-      .describe("Concise summary of the details read back to the caller"),
-    appointmentId: z
-      .number()
-      .optional()
-      .describe("Required when action is cancel_appt"),
-    addPatient: addPatientParameters
-      .optional()
-      .describe("Required when action is add_patient"),
-    updateInsurance: updateInsuranceParameters
-      .optional()
-      .describe("Required when action is update_insurance"),
-  }),
-  execute: async (params, { ctx, toolCallId }) => {
-    const state = getState(ctx);
-    const turnGate = evaluateTurnUnderstandingGate(
-      state,
-      "confirm_side_effect_action",
-    );
-    if (turnGate) return turnGate;
-    syncSessionPatientFromActiveFlow(state);
-    const actionType = sideEffectActionTypeForTool(params.action);
-    let sideEffectArgs: unknown = {};
-    let appointmentId: number | undefined;
-    let requiredFieldsComplete: boolean | undefined;
-
-    if (params.action === "cancel_appt") {
-      if (typeof params.appointmentId !== "number") {
-        return {
-          outcome: "not_allowed",
-          nextStep: "confirm_cancel",
-          speak:
-            "Choose the exact appointment ID, read it back, and confirm before cancelling.",
-          facts: { reason: "side_effect_requires_pending_action" },
-          retryable: true,
-        } satisfies ToolOutcome;
-      }
-      if (!activeAppointmentById(state, params.appointmentId)) {
-        return toolOutcome(
-          "not_allowed",
-          "confirm_cancel",
-          "Load the patient's appointments and choose the exact appointment before confirming cancellation.",
-          { reason: "cancel_requires_loaded_appointment" },
-          true,
-        );
-      }
-      appointmentId = params.appointmentId;
-      sideEffectArgs = { appointmentId };
-      state.flow.pendingConfirmation = {
-        type: "cancel",
-        payload: { appointmentId },
-      };
-    } else if (params.action === "add_patient") {
-      if (!params.addPatient) {
-        return {
-          outcome: "not_allowed",
-          nextStep: "collect_registration",
-          speak:
-            "Include the registration fields that were read back before confirming registration.",
-          facts: { reason: "side_effect_requires_pending_action" },
-          retryable: true,
-        } satisfies ToolOutcome;
-      }
-      sideEffectArgs = params.addPatient;
-      requiredFieldsComplete = true;
-    } else if (params.action === "update_insurance") {
-      if (!params.updateInsurance) {
-        return {
-          outcome: "not_allowed",
-          nextStep: "check_insurance",
-          speak:
-            "Include the insurance update fields that were read back before confirming the update.",
-          facts: { reason: "side_effect_requires_pending_action" },
-          retryable: true,
-        } satisfies ToolOutcome;
-      }
-      sideEffectArgs = params.updateInsurance;
-    }
-
-    const action = createPendingSideEffectAction(state.flow, {
-      type: actionType,
-      argsHash: hashToolArgs(sideEffectArgs),
-      spokenSummary: params.spokenSummary,
-      patientRef: state.flow.activePatientRef,
-      appointmentId,
-      requiredFieldsComplete,
-      confirmed: true,
-      createdTurnId: toolCallId,
-      confirmationTurnId: toolCallId,
-    });
-
-    return {
-      outcome: "success",
-      nextStep: nextStepForSideEffectAction(actionType),
-      speak: "Confirmation recorded. Submit the confirmed action now.",
-      facts: {
-        pendingActionId: action.id,
-        action: params.action,
-      },
-      retryable: false,
-    } satisfies ToolOutcome;
-  },
-});
-
-// --- confirm_booking_action ---
-export const confirm_booking_action = llm.tool({
-  description: `Records the caller's explicit confirmation for one offered appointment slot. Call this immediately after the caller says yes to a specific slot, before calling book_appt. This only creates the pending booking action; it does not book the appointment.`,
-  parameters: z.object({
-    slotId: z
-      .string()
-      .describe("slotId of the exact slot the caller confirmed"),
-    appointmentTypeId: appointmentTypeIdSchema,
-  }),
-  execute: async (params, { ctx, toolCallId }) => {
-    const state = getState(ctx);
-    const turnGate = evaluateTurnUnderstandingGate(
-      state,
-      "confirm_booking_action",
-    );
-    if (turnGate) return turnGate;
-    syncSessionPatientFromActiveFlow(state);
-    if (!state.patientId) {
-      return {
-        outcome: "not_allowed",
-        nextStep: "verify_patient",
-        speak: "Verify or create the patient before confirming a booking.",
-        facts: { reason: "booking_requires_verified_or_created_patient" },
-        retryable: true,
-      } satisfies ToolOutcome;
-    }
-
-    const selectedSlot = selectedAvailabilitySlot(state, params.slotId);
-    if (!selectedSlot) {
-      return {
-        outcome: "not_allowed",
-        nextStep: "get_availability",
-        speak:
-          "That slot is not available from the latest availability search. Search availability again before confirming.",
-        facts: { reason: "booking_requires_recent_availability" },
-        retryable: true,
-      } satisfies ToolOutcome;
-    }
-
-    const routing =
-      selectedSlot.routing ??
-      state.lastAvailabilityRouting ??
-      routingForAvailability(state);
-    const action = createPendingBookingAction(state.flow, {
-      patientRef: state.flow.activePatientRef,
-      slotHash: selectedSlot.slotId,
-      appointmentTypeId: params.appointmentTypeId,
-      officeKey: state.officeKey,
-      routing,
-      spokenSummary: selectedSlot.spoken,
-      confirmed: true,
-      createdTurnId: toolCallId,
-      confirmationTurnId: toolCallId,
-    });
-    state.flow.step = "book";
-
-    return {
-      outcome: "success",
-      nextStep: "book",
-      speak: "Booking confirmation recorded. Submit the booking now.",
-      facts: {
-        pendingActionId: action.id,
-        slotId: selectedSlot.slotId,
-        spokenSummary: selectedSlot.spoken,
-      },
-      retryable: false,
-    } satisfies ToolOutcome;
-  },
-});
-
 // --- book_appt ---
 export const book_appt = llm.tool({
   description: `Books an appointment using slotId from the latest get_availability response. Patient ID is read from session state automatically.
@@ -1844,8 +1960,9 @@ Only book after the caller says yes to the exact offered slot. If booking fails 
       .describe("slotId of the caller-confirmed slot from get_availability"),
     appointmentTypeId: appointmentTypeIdSchema,
   }),
-  execute: async (params, { ctx }) => {
+  execute: async (params, { ctx, toolCallId }) => {
     const state = getState(ctx);
+    const speechReady = makeCurrentSpeechUninterruptible(ctx);
     if (!state.patientId) {
       const policyResponse = evaluatePolicyForState(state, "book_appt", params);
       return (
@@ -1900,11 +2017,17 @@ Only book after the caller says yes to the exact offered slot. If booking fails 
       officeKey: state.officeKey,
       routing,
     };
+    ensureConfirmedBookingActionFromState(
+      state,
+      selectedSlot,
+      params.appointmentTypeId,
+      toolCallId,
+    );
     const policyResponse = evaluatePolicyForState(state, "book_appt", params, {
       booking: bookingPolicyFacts,
     });
     if (policyResponse) return policyResponse;
-    if (!makeCurrentSpeechUninterruptible(ctx)) {
+    if (!speechReady) {
       return toolOutcome(
         "not_allowed",
         "confirm_booking",
@@ -1924,8 +2047,7 @@ Only book after the caller says yes to the exact offered slot. If booking fails 
       return {
         outcome: "not_allowed",
         nextStep: "confirm_booking",
-        speak:
-          "Confirm the exact slot and create a pending booking action before booking.",
+        speak: "Confirm the exact slot before booking.",
         facts: { reason: "booking_requires_pending_action" },
         retryable: true,
       } satisfies ToolOutcome;
@@ -2048,15 +2170,29 @@ Only book after the caller says yes to the exact offered slot. If booking fails 
 export const route_to_spring_hill = llm.tool({
   description: `Switches the active call workflow to the Spring Hill office without transferring the caller.
 
-Use this when the caller reached Crystal River but the visit must be handled through Spring Hill scheduling — especially pediatrics, cataract evaluation/workup/surgery scheduling, routine-vision scheduling, or insurance accepted at Spring Hill but not Crystal River. Call this before verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, or book_appt for that visit. Keep the caller on the line and continue helping them normally.`,
+Use this when the caller reached Crystal River but the visit must be handled through Spring Hill scheduling — especially pediatrics, cataract evaluation/workup/surgery scheduling, routine-vision scheduling, or insurance accepted at Spring Hill but not Crystal River. Explain the Spring Hill routing and get agreement, then call this before verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, or book_appt for that visit. Keep the caller on the line and continue helping them normally.`,
   parameters: z.object({}),
-  execute: async (_, { ctx }) => {
+  execute: async (_, { ctx, toolCallId }) => {
     const state = getState(ctx);
+    const speechReady = makeCurrentSpeechUninterruptible(ctx);
     const policyResponse = evaluatePolicyForState(
       state,
       "route_to_spring_hill",
+      {},
+      {
+        sideEffectConfirmation: { toolCallId },
+      },
     );
     if (policyResponse) return policyResponse;
+    if (!speechReady) {
+      return toolOutcome(
+        "not_allowed",
+        "route_office",
+        "Office routing was interrupted before it could be changed. Please confirm the routing again.",
+        { reason: "speech_interrupted" },
+        true,
+      );
+    }
     const springHillOffice = getSpringHillOfficePhone();
     consumeSideEffectActionForState(state, "route_to_spring_hill", {});
     clearAvailabilitySelection(state, "office_changed");
@@ -2127,6 +2263,7 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
   }),
   execute: async ({ plan, coverageType }, { ctx }) => {
     const state = getState(ctx);
+    makeCurrentSpeechUninterruptible(ctx);
     const policyResponse = evaluatePolicyForState(state, "check_insurance", {
       plan,
       coverageType,
@@ -2202,6 +2339,7 @@ Answer naturally from the returned info — just the part that answers their que
   }),
   execute: async (_args, { ctx }) => {
     const state = getState(ctx);
+    makeCurrentSpeechUninterruptible(ctx);
     const turnGate = evaluateTurnUnderstandingGate(state, "lookup_knowledge");
     if (turnGate) return turnGate;
     const file = resolveKnowledgeFileForOffice(state.officeKey);
@@ -2216,10 +2354,11 @@ Answer naturally from the returned info — just the part that answers their que
 // --- transfer_call ---
 export const transfer_call = llm.tool({
   description:
-    "Transfers the caller to the office. Say your transfer message (see RUNBOOK) and wait for it to finish BEFORE calling this tool. Call once — after it executes the SIP session disconnects and your turn is over.",
+    "Transfers the caller to the office. Say your transfer message (see RUNBOOK), get explicit agreement, and wait for it to finish BEFORE calling this tool. Call once — after it executes the SIP session disconnects and your turn is over.",
   parameters: z.object({}),
-  execute: async (_, { ctx }) => {
+  execute: async (_, { ctx, toolCallId }) => {
     const state = getState(ctx);
+    const speechReady = makeCurrentSpeechUninterruptible(ctx);
     // Guard: prevent duplicate transfers (LLM sometimes calls this twice)
     if (state.transferred) {
       return toolOutcome(
@@ -2230,9 +2369,16 @@ export const transfer_call = llm.tool({
         false,
       );
     }
-    const policyResponse = evaluatePolicyForState(state, "transfer_call");
+    const policyResponse = evaluatePolicyForState(
+      state,
+      "transfer_call",
+      {},
+      {
+        sideEffectConfirmation: { toolCallId },
+      },
+    );
     if (policyResponse) return policyResponse;
-    if (!makeCurrentSpeechUninterruptible(ctx)) {
+    if (!speechReady) {
       return toolOutcome(
         "not_allowed",
         "handoff",

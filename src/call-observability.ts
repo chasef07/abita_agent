@@ -147,6 +147,7 @@ export function classifyToolOutput(
       if (
         status === "booked" ||
         asString(parsed?.appointmentId) ||
+        (isRecord(parsed?.facts) && asString(parsed.facts.appointmentId)) ||
         asString(parsed?.id) ||
         parsed?.ok === true
       ) {

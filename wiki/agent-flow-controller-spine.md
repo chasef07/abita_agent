@@ -649,11 +649,11 @@ Implemented:
   satisfied.
 - Booking ledger state for slot-bound pending booking actions, booking attempt
   hashes, booking error classes, consumed actions, and appointment-type
-  invalidation. `confirm_booking_action` creates the confirmed pending action
-  before `book_appt` submits the booking.
+  invalidation. `book_appt` creates the confirmed pending action internally
+  from reducer state before it submits the booking.
 - Shared pending side-effect actions for cancellation, registration, insurance
-  update, office routing, and transfer. `confirm_side_effect_action` creates the
-  confirmed action before those tools run, and the policy returns safe no-op
+  update, office routing, and transfer. The final side-effect tools create the
+  confirmed action internally before they run, and the policy returns safe no-op
   outcomes for duplicate consumed actions.
 - Semantic `TurnUnderstanding` schema and reducer for new appointment,
   existing appointment lookup/cancel/reschedule, insurance question, FAQ,
@@ -851,7 +851,7 @@ Release-gate checklist after the semantic reducer cutover:
 
 1. **Pending-action creation and lifecycle**
    - Implemented locally for booking and shared side effects through
-     `confirm_booking_action` and `confirm_side_effect_action`.
+     reducer-confirmed state inside the final side-effect tools.
    - Covered locally for successful consumption, duplicate consumed no-ops, and
      invalidation when dependent state changes.
 
