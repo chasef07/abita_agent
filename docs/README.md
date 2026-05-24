@@ -6,6 +6,7 @@ Start here when you need context beyond the runtime code.
 
 - `architecture/flow-controller-current-contract.md` — current enforced flow harness behavior.
 - `architecture/flow-controller-spine.md` — longer design background for the harness.
+- `architecture/flow-harness-hardening-spec.md` — proposed fixes for reschedule state, cancel confirmation, end-call handling, verification guards, availability sanitization, and fallback telemetry.
 - `architecture/sdk-flow-testing-and-dynamic-tools.md` — next spec for LiveKit SDK-level flow tests and state-scoped tool exposure.
 - `architecture/context-management.md` — older context/session-state design notes.
 - `architecture/language-observability.md` — language switching and telemetry design notes.

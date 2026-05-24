@@ -705,6 +705,7 @@ describe("tool interruption handling", () => {
       json: async () => ({
         status: "success",
         outcome: "availability_found",
+        dateShifted: true,
         slots: [
           {
             provider: "Dr. Austin Bach (Overflow)",
@@ -713,6 +714,7 @@ describe("tool interruption handling", () => {
             columnId: 1598,
             profileId: 620,
             duration: 15,
+            requiresForce: true,
             bookingToken: "signed-token",
           },
         ],
@@ -732,19 +734,22 @@ describe("tool interruption handling", () => {
       slots: [
         {
           slotId: "A",
-          provider: "Dr. Austin Bach (Overflow)",
-          publicProvider: "Dr. Bach",
+          provider: "Dr. Bach",
+          spoken: "2026-04-28 9:00 AM with Dr. Bach",
           time: "9:00 AM",
           date: "2026-04-28",
-          columnId: 1598,
-          profileId: 620,
-          duration: 15,
-          bookingToken: "signed-token",
+          dateShifted: true,
         },
       ],
     });
-    expect((result as { slots: Array<Record<string, unknown>> }).slots[0])
-      .toHaveProperty("columnId", 1598);
+    const modelSlot = (result as { slots: Array<Record<string, unknown>> })
+      .slots[0];
+    expect(modelSlot).not.toHaveProperty("bookingToken");
+    expect(modelSlot).not.toHaveProperty("columnId");
+    expect(modelSlot).not.toHaveProperty("profileId");
+    expect(modelSlot).not.toHaveProperty("duration");
+    expect(modelSlot).not.toHaveProperty("requiresForce");
+    expect(modelSlot).not.toHaveProperty("datetime");
     expect(result).not.toHaveProperty("middlewareResult");
     expect(state.lastAvailabilitySlots[0]).toMatchObject({
       slotId: "A",

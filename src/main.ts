@@ -42,7 +42,6 @@ import {
 import { bindDynamicToolRefresher } from "./tooling/dynamic-tool-refresh.js";
 import {
   applyDynamicToolsToAgent,
-  dynamicToolsEnabled,
   refreshAgentToolsForSession,
 } from "./tooling/tool-registry.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
@@ -147,8 +146,7 @@ export default defineAgent({
       // Phone lookup before session start so context is ready for the first LLM turn.
       const preCall = await loadPreCallBootstrap({ callerPhone, trunkPhone });
       const { office, phoneLookup, verified, flowHarnessEnabled } = preCall;
-      const flowDynamicToolsEnabled =
-        flowHarnessEnabled && dynamicToolsEnabled();
+      const flowDynamicToolsEnabled = flowHarnessEnabled;
       console.log(formatPhoneLookupLogLine(callerPhone, phoneLookup));
 
       const agent = new Agent(phoneLookup, trunkPhone, { languageRuntime });
