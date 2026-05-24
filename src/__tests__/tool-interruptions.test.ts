@@ -57,7 +57,12 @@ function bookingArgs(
   slotId = "A",
   appointmentKind: BookingAppointmentKind = "medical",
 ) {
-  return { slotId, appointmentKind };
+  return {
+    slotId,
+    appointmentKind,
+    appointmentReason: "blurry vision",
+    referringDoctor: "none",
+  };
 }
 
 describe("tool interruption handling", () => {
@@ -692,6 +697,8 @@ describe("tool interruption handling", () => {
       patientId: "patient-1",
       patientName: "Jane Doe",
       dob: "01/01/1980",
+      appointmentReason: "blurry vision",
+      referringDoctor: "none",
     });
     expect(requestBody).not.toHaveProperty("appointmentTypeId");
     expect(requestBody).not.toHaveProperty("columnId");
@@ -1490,7 +1497,7 @@ describe("tool interruption handling", () => {
     seedPendingBookingAction(state);
 
     await book_appt.execute(
-      { slotId: "A", appointmentKind: "post_op" },
+      bookingArgs("A", "post_op"),
       { ctx, toolCallId: "test-book-post-op" },
     );
 
@@ -2590,14 +2597,20 @@ function seedLastAvailabilitySlot(
 }
 
 function markBookingConfirmedInState(state: CallState, slotId = "A") {
+  const existing = state.flow.schedulingGoal;
   state.flow.schedulingGoal = {
-    ...(state.flow.schedulingGoal ?? {
+    ...(existing ?? {
       status: "confirming_booking",
       updatedAt: Date.now(),
     }),
     status: "confirming_booking",
     patientRef: state.flow.activePatientRef,
     appointmentAction: "schedule",
+    visitReason: existing?.visitReason ?? "blurry vision",
+    noteDraft: existing?.noteDraft ?? {
+      appointmentReason: "blurry vision",
+      referringDoctor: "none",
+    },
     selectedSlotId: slotId,
     bookingConfirmed: true,
     updatedAt: Date.now(),

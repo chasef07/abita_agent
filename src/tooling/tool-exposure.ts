@@ -116,9 +116,7 @@ function visibleToolNamesForStep(
     case "triage_visit_type":
       return ["lookup_knowledge"];
     case "answer":
-      return hasSuccessfulBookingForActivePatient(state)
-        ? ["add_patient_note", "lookup_knowledge"]
-        : ["lookup_knowledge"];
+      return ["lookup_knowledge"];
     case "check_insurance":
       return ["check_insurance", "lookup_knowledge"];
     case "route_office":
@@ -132,9 +130,7 @@ function visibleToolNamesForStep(
     case "collect_registration":
       return ["add_patient", "check_insurance", "lookup_knowledge"];
     case "collect_visit_reason":
-      return hasSuccessfulBookingForActivePatient(state)
-        ? ["add_patient_note", "lookup_knowledge"]
-        : ["lookup_knowledge"];
+      return ["lookup_knowledge"];
     case "get_availability":
       return shouldExposeInsuranceUpdate(state)
         ? ["update_insurance", "get_availability", "lookup_knowledge"]
@@ -188,16 +184,6 @@ function legacyToolNamesForOffice(
 
 function hasCurrentAvailability(state: CallState): boolean {
   return state.lastAvailabilitySlots.length > 0;
-}
-
-function hasSuccessfulBookingForActivePatient(state: CallState): boolean {
-  const activePatientRef = state.flow.activePatientRef ?? "caller";
-  return state.flow.pendingActions.some(
-    (action) =>
-      action.type === "book_appt" &&
-      action.patientRef === activePatientRef &&
-      action.consumed,
-  );
 }
 
 function needsAppointmentLookup(state: CallState): boolean {

@@ -1058,6 +1058,8 @@ async function submitLegacyBooking(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
   appointmentKind?: AppointmentKind,
+  appointmentReason?: string,
+  referringDoctor?: string,
 ): Promise<unknown> {
   const routing =
     selectedSlot.routing ??
@@ -1074,6 +1076,8 @@ async function submitLegacyBooking(
     bookingToken,
     ...appointmentIntent,
     patientId: state.patientId,
+    ...(appointmentReason ? { appointmentReason } : {}),
+    ...(referringDoctor ? { referringDoctor } : {}),
     ...(state.patientName ? { patientName: state.patientName } : {}),
     ...(state.dob ? { dob: state.dob } : {}),
     ...(routing ? { routing } : {}),
@@ -1896,12 +1900,24 @@ export const book_appt = llm.tool({
 
 The middleware resolves the AMD appointment type from the selected slot, patient status, DOB, routing lane, and appointment kind. Do not choose or mention numeric AMD appointment type IDs.
 
+Include the caller-provided appointment reason and referring doctor. The middleware saves those as an AP appointment note immediately after the appointment is booked; do not call add_patient_note after a successful booking.
+
 Only book after the caller says yes to the exact offered slot. If the tool says the confirmation was interrupted, confirm the exact slot again before retrying. If booking fails because the slot is unavailable, call get_availability again before trying another slot.`,
   parameters: z.object({
     slotId: z
       .string()
       .describe("slotId of the caller-confirmed slot from get_availability"),
     appointmentKind: appointmentKindSchema,
+    appointmentReason: z
+      .string()
+      .trim()
+      .min(1)
+      .describe("Caller-provided reason for the appointment."),
+    referringDoctor: z
+      .string()
+      .trim()
+      .min(1)
+      .describe('Caller-provided referring doctor, or "none" if none.'),
   }),
   execute: async (params, { ctx, toolCallId }) => {
     const state = getState(ctx);
@@ -1952,6 +1968,14 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
       selectedSlot.routing ??
       state.lastAvailabilityRouting ??
       routingForAvailability(state);
+    const appointmentReason = params.appointmentReason.trim();
+    const referringDoctor = params.referringDoctor.trim();
+    const noteGrounding = evaluatePatientNoteGrounding(
+      state,
+      appointmentReason,
+      referringDoctor,
+    );
+    if (noteGrounding) return noteGrounding;
     const bookingPolicyFacts = {
       patientRef: state.flow.activePatientRef,
       slotHash: selectedSlot.slotId,
@@ -1975,7 +1999,13 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
     const bookingToken = bookingTokenForSelectedSlot(state, selectedSlot);
     if (typeof bookingToken !== "string") return bookingToken;
     if (!isFlowHarnessEnabled(state)) {
-      return submitLegacyBooking(state, selectedSlot, params.appointmentKind);
+      return submitLegacyBooking(
+        state,
+        selectedSlot,
+        params.appointmentKind,
+        appointmentReason,
+        referringDoctor,
+      );
     }
     const bookingAttempt = recordBookingAttempt(state.flow, {
       ...bookingPolicyFacts,
@@ -1999,6 +2029,8 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
       bookingToken,
       ...appointmentIntent,
       patientId: state.patientId,
+      appointmentReason,
+      referringDoctor,
       ...(state.patientName ? { patientName: state.patientName } : {}),
       ...(state.dob ? { dob: state.dob } : {}),
       ...(routing ? { routing } : {}),

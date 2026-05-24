@@ -468,17 +468,17 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain("continue registration without it");
   });
 
-  it("tells scheduling flows to save the patient note only after booking succeeds", () => {
+  it("tells scheduling flows to send note facts in book_appt", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
     expect(prompt).toContain(
       "ask reason for visit first, then ask whether a doctor referred them",
     );
     expect(prompt).toContain(
-      "After book_appt succeeds, call add_patient_note with appointmentReason and referringDoctor",
+      "Send `appointmentReason` and `referringDoctor` in book_appt",
     );
     expect(prompt).toContain(
-      "Do not call add_patient_note before a successful booking",
+      "Do not call add_patient_note for normal scheduling notes",
     );
   });
 
