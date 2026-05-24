@@ -5,7 +5,7 @@ import type {
   IntentKind,
   VisitType,
 } from "./types.js";
-import { startPatientTask } from "./state.js";
+import { ensureActivePatientContext, startPatientTask } from "./state.js";
 
 export interface InferredCallerIntent {
   activeIntent: IntentKind;
@@ -77,8 +77,11 @@ function applyIntentStartingPoint(
       return;
     case "new_patient_registration":
       flow.activeFlow = "new_patient";
-      flow.patientStatus =
-        flow.patientStatus === "unknown" ? "new" : flow.patientStatus;
+      if (flow.patientStatus === "unknown") {
+        flow.patientStatus = "new";
+        const patient = ensureActivePatientContext(flow);
+        if (patient.status === "unknown") patient.status = "new";
+      }
       flow.step = hasVisitContext
         ? "collect_registration"
         : "triage_visit_type";

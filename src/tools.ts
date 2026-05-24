@@ -76,9 +76,8 @@ export type {
 
 const appointmentKindSchema = z
   .enum(["medical", "routine_vision", "post_op"])
-  .optional()
   .describe(
-    "Optional human-level appointment kind. Use post_op only for recent surgery follow-up; otherwise omit when the scheduling lane already makes the kind clear.",
+    "Required human-level appointment kind for the selected slot. Use post_op only for recent surgery follow-up.",
   );
 
 type AppointmentKind = "medical" | "routine_vision" | "post_op";
@@ -559,60 +558,6 @@ function toolOutcome(
   };
 }
 
-function withMiddlewareResult(
-  outcome: ToolOutcome,
-  middlewareResult: unknown,
-): ToolOutcome & { middlewareResult: unknown } {
-  if (isRecord(middlewareResult)) {
-    const topLevelMiddlewareResult = filteredTopLevelMiddlewareResult(
-      middlewareResult,
-      outcome,
-    );
-    return {
-      ...topLevelMiddlewareResult,
-      ...outcome,
-      middlewareResult,
-    };
-  }
-  return {
-    ...outcome,
-    middlewareResult,
-  };
-}
-
-function filteredTopLevelMiddlewareResult(
-  middlewareResult: Record<string, unknown>,
-  outcome: ToolOutcome,
-): Record<string, unknown> {
-  const entries = Object.entries(middlewareResult).filter(([key]) => {
-    if (key === "middlewareResult") return false;
-    if (key in outcome) return false;
-    if (
-      key === "status" &&
-      middlewareStatusConflicts(middlewareResult, outcome)
-    ) {
-      return false;
-    }
-    return true;
-  });
-  return Object.fromEntries(entries);
-}
-
-function middlewareStatusConflicts(
-  middlewareResult: Record<string, unknown>,
-  outcome: ToolOutcome,
-): boolean {
-  const rawStatus =
-    typeof middlewareResult.status === "string"
-      ? middlewareResult.status.toLowerCase()
-      : "";
-  if (!rawStatus) return false;
-  return (
-    outcome.outcome === "success" &&
-    (rawStatus.includes("error") || rawStatus.includes("fail"))
-  );
-}
-
 export function makeCurrentSpeechUninterruptible(
   ctx: Pick<voice.RunContext, "speechHandle">,
 ): boolean {
@@ -923,20 +868,6 @@ function extractAppointments(
   return null;
 }
 
-function sanitizedAppointmentLookupResult(
-  result: unknown,
-  appointments: CallerAppointment[],
-): unknown {
-  if (Array.isArray(result)) return appointments;
-  if (isRecord(result)) {
-    return {
-      ...result,
-      appointments,
-    };
-  }
-  return result;
-}
-
 function activeAppointmentById(
   state: CallState,
   appointmentId: number,
@@ -1010,10 +941,8 @@ function storeAvailabilitySlots(
   const storedSlots: StoredAvailabilitySlot[] = [];
   const modelSlots = rawResponse.slots.map((slot, index) => {
     if (!isRecord(slot)) return slot;
-    const provider =
-      typeof slot.provider === "string"
-        ? publicProviderName(slot.provider)
-        : "";
+    const rawProvider = typeof slot.provider === "string" ? slot.provider : "";
+    const provider = rawProvider ? publicProviderName(rawProvider) : "";
     const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
     const time = typeof slot.time === "string" ? slot.time : "";
     const date = slotDateFromDatetime(datetime);
@@ -1041,9 +970,10 @@ function storeAvailabilitySlots(
     storedSlots.push(storedSlot);
 
     return {
+      ...slot,
       slotId,
       spoken,
-      provider,
+      publicProvider: provider,
       date,
       time,
     };
@@ -1054,41 +984,6 @@ function storeAvailabilitySlots(
     ...rawResponse,
     slots: modelSlots,
   };
-}
-
-function normalizeAvailabilityOutcome(
-  state: CallState,
-  modelResult: unknown,
-): unknown {
-  if (!isRecord(modelResult)) return modelResult;
-  const slots = Array.isArray(modelResult.slots) ? modelResult.slots : [];
-  if (slots.length > 0) {
-    updateCurrentTaskStep(state, "confirm_booking");
-    return {
-      ...modelResult,
-      outcome: "success",
-      nextStep: "confirm_booking",
-      speak:
-        "Availability found. Offer one best-fit slot and confirm before booking.",
-      facts: {
-        slots,
-      },
-      retryable: false,
-    } satisfies ToolOutcome & Record<string, unknown>;
-  }
-
-  updateCurrentTaskStep(state, "get_availability");
-  return {
-    ...modelResult,
-    outcome: "needs_clarification",
-    nextStep: "get_availability",
-    speak:
-      "No availability was found for that search. Ask for a different date or broaden the search.",
-    facts: {
-      reason: "no_slots",
-    },
-    retryable: true,
-  } satisfies ToolOutcome & Record<string, unknown>;
 }
 
 function normalizeInsuranceOutcome(
@@ -1464,35 +1359,9 @@ After response:
     )) as any;
     if (result?.patientId) {
       applyPatientResult(state, result);
-      return withMiddlewareResult(
-        toolOutcome(
-          "success",
-          state.flow.step,
-          "Patient verified.",
-          {
-            patientStatus: state.flow.patientStatus,
-            routing: state.routing,
-            routingAmbiguous: state.routingAmbiguous,
-            preauthRequired: state.preauthRequired,
-          },
-          false,
-        ),
-        result,
-      );
+      return result;
     }
-    return withMiddlewareResult(
-      toolOutcome(
-        "not_found",
-        "collect_registration",
-        "No matching patient was found. Retry with corrected identity details or move into registration if the caller is new.",
-        {
-          reason: "patient_not_found",
-          result,
-        },
-        true,
-      ),
-      result,
-    );
+    return result;
   },
 });
 
@@ -1569,34 +1438,9 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
     if (result?.patientId) {
       consumeSideEffectActionForState(state, "add_patient", params);
       applyPatientResult(state, result);
-      return withMiddlewareResult(
-        toolOutcome(
-          "success",
-          "get_availability",
-          "Patient registration submitted successfully.",
-          {
-            patientStatus: state.flow.patientStatus,
-            routing: state.routing,
-            preauthRequired: state.preauthRequired,
-          },
-          false,
-        ),
-        result,
-      );
+      return result;
     }
-    return withMiddlewareResult(
-      toolOutcome(
-        "error",
-        "collect_registration",
-        "Registration did not complete. Confirm the registration details and try again or transfer.",
-        {
-          reason: "registration_failed",
-          result,
-        },
-        true,
-      ),
-      result,
-    );
+    return result;
   },
 });
 
@@ -1688,33 +1532,10 @@ After response: session state updates automatically. If preauthRequired, schedul
         canonicalPlan: state.checkedInsurancePlan ?? state.insuranceCarrier,
       });
       clearAvailabilitySelection(state, "insurance_changed");
-      return withMiddlewareResult(
-        toolOutcome(
-          "success",
-          nextPatientFlowStep(state.flow.patientStatus),
-          "Insurance updated successfully.",
-          {
-            routing: state.routing,
-            preauthRequired: state.preauthRequired,
-          },
-          false,
-        ),
-        result,
-      );
+      updateCurrentTaskStep(state, nextPatientFlowStep(state.flow.patientStatus));
+      return result;
     }
-    return withMiddlewareResult(
-      toolOutcome(
-        "error",
-        "check_insurance",
-        "Insurance update did not complete. Confirm the insurance details and try again or transfer.",
-        {
-          reason: "insurance_update_failed",
-          result,
-        },
-        true,
-      ),
-      result,
-    );
+    return result;
   },
 });
 
@@ -1779,7 +1600,13 @@ After response: check if date shifted vs requested — tell caller if different.
         duration: slot.duration,
       })),
     );
-    return normalizeAvailabilityOutcome(state, modelResult);
+    updateCurrentTaskStep(
+      state,
+      state.lastAvailabilitySlots.length > 0
+        ? "confirm_booking"
+        : "get_availability",
+    );
+    return modelResult;
   },
 });
 
@@ -1835,32 +1662,9 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
         kind: "appointment_management",
         step: appointments.length > 0 ? "confirm_cancel" : "answer",
       });
-      return withMiddlewareResult(
-        toolOutcome(
-          appointments.length > 0 ? "success" : "not_found",
-          appointments.length > 0 ? "confirm_cancel" : "answer",
-          appointments.length > 0
-            ? "Appointments loaded. Read back the relevant appointment before taking action."
-            : "No upcoming appointments were found.",
-          { appointments },
-          false,
-        ),
-        sanitizedAppointmentLookupResult(result, appointments),
-      );
+      return result;
     }
-    return withMiddlewareResult(
-      toolOutcome(
-        "error",
-        "answer",
-        "Could not load appointments. Try again or transfer.",
-        {
-          reason: "appointment_lookup_failed",
-          result,
-        },
-        true,
-      ),
-      result,
-    );
+    return result;
   },
 });
 
@@ -1942,48 +1746,9 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
         updateCurrentTaskStep(state, "answer");
         state.flow.step = "answer";
       }
-      return withMiddlewareResult(
-        toolOutcome(
-          "success",
-          resumedTask?.step ?? "answer",
-          cancelResultReason === "appointment_already_cancelled"
-            ? "That appointment was already cancelled. No further cancellation is needed."
-            : "Cancellation submitted successfully.",
-          {
-            appointmentId,
-            resumedTaskId: resumedTask?.id,
-            ...(cancelResultReason === "appointment_already_cancelled"
-              ? { reason: cancelResultReason }
-              : {}),
-          },
-          false,
-        ),
-        result,
-      );
+      return result;
     }
-    const reason = cancelResultReason;
-    return withMiddlewareResult(
-      toolOutcome(
-        reason === "appointment_not_found"
-          ? "not_found"
-          : reason === "cancel_token_invalid"
-            ? "not_allowed"
-            : "error",
-        "confirm_cancel",
-        reason === "appointment_not_found"
-          ? "That appointment was not found. Load the patient's appointments again before cancelling."
-          : reason === "cancel_token_invalid"
-            ? "Load the patient's appointments again, choose the appointment to cancel, and confirm it."
-            : "Cancellation did not complete. Confirm the appointment and try again or transfer.",
-        {
-          reason,
-          appointmentId,
-          result,
-        },
-        true,
-      ),
-      result,
-    );
+    return result;
   },
 });
 
@@ -2061,27 +1826,10 @@ Only save these two fields: appointment reason and referring doctor. If there is
       getAmdOfficeForToolCall(state),
     );
     if (apiResultLooksSuccessful(result)) {
-      return withMiddlewareResult(
-        toolOutcome(
-          "success",
-          "answer",
-          "Patient note saved.",
-          { result },
-          false,
-        ),
-        result,
-      );
+      updateCurrentTaskStep(state, "answer");
+      return result;
     }
-    return withMiddlewareResult(
-      toolOutcome(
-        "error",
-        "collect_visit_reason",
-        "The note did not save. Confirm the note details and try again or transfer.",
-        { reason: "note_save_failed", result },
-        true,
-      ),
-      result,
-    );
+    return result;
   },
 });
 
@@ -2212,20 +1960,7 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
     if (bookingResult.consumed) {
       clearAvailabilitySelection(state);
       updateCurrentTaskStep(state, "answer");
-      return withMiddlewareResult(
-        toolOutcome(
-          "success",
-          "answer",
-          "Appointment booked successfully.",
-          {
-            slotId: selectedSlot.slotId,
-            appointmentKind: appointmentIntent.visitKind,
-            appointmentId: isRecord(result) ? result.appointmentId : undefined,
-          },
-          false,
-        ),
-        result,
-      );
+      return result;
     }
     if (bookingResult.errorClass === "slot_unavailable") {
       const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
@@ -2233,80 +1968,25 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
         state,
         remainingSlots.length > 0 ? "confirm_booking" : "get_availability",
       );
-      return withMiddlewareResult(
-        toolOutcome(
-          "error",
-          remainingSlots.length > 0 ? "confirm_booking" : "get_availability",
-          remainingSlots.length > 0
-            ? "That slot is no longer available. Offer one of the remaining cached slots or search again."
-            : "That slot is no longer available. Search availability again before booking.",
-          {
-            reason: "slot_unavailable",
-            slotId: selectedSlot.slotId,
-            cachedSlots: publicAvailabilitySlots(remainingSlots),
-          },
-          true,
-        ),
-        result,
-      );
+      return result;
     }
     if (bookingResult.errorClass === "invalid_appointment_type") {
       clearAvailabilitySelection(state, "appointment_type_invalid");
       updateCurrentTaskStep(state, "get_availability");
-      return withMiddlewareResult(
-        toolOutcome(
-          "error",
-          "get_availability",
-          "That appointment type does not match the selected lane. Recompute the lane and search availability again.",
-          {
-            reason: "invalid_appointment_type",
-            slotId: selectedSlot.slotId,
-            appointmentKind: appointmentIntent.visitKind,
-          },
-          true,
-        ),
-        result,
-      );
+      return result;
     }
     if (isRecord(result) && result.outcome === "appointment_type_unresolved") {
       const missing = appointmentTypeMissingFacts(result);
       const nextStep = nextStepForAppointmentTypeUnresolved(missing);
       updateCurrentTaskStep(state, nextStep);
-      return withMiddlewareResult(
-        toolOutcome(
-          "needs_clarification",
-          nextStep,
-          typeof result.message === "string"
-            ? result.message
-            : "Confirm the missing appointment details before booking.",
-          {
-            reason: "appointment_type_unresolved",
-            missing,
-            slotId: selectedSlot.slotId,
-          },
-          true,
-        ),
-        result,
-      );
+      return result;
     }
     if (
       bookingResult.errorClass === "middleware_error" ||
       (isRecord(result) && result.status === "error")
     ) {
       updateCurrentTaskStep(state, "confirm_booking");
-      return withMiddlewareResult(
-        toolOutcome(
-          "error",
-          "confirm_booking",
-          "Booking did not complete. Confirm the slot again or search availability if the slot is stale.",
-          {
-            reason: bookingResult.errorClass ?? "booking_failed",
-            slotId: selectedSlot.slotId,
-          },
-          true,
-        ),
-        result,
-      );
+      return result;
     }
     return result;
   },

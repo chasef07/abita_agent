@@ -17,6 +17,7 @@ export type FlowControllerEvent =
       visitType?: VisitType;
       insurancePlan?: string;
       coverageType?: InsuranceCoverageType;
+      pathFactsChanged?: boolean;
     }
   | {
       type: "tool_outcome";
@@ -166,7 +167,7 @@ function decisionForActiveSchedulingStep(
     return {
       type: "call_tool",
       tool: "book_appt",
-      args: { slotId: state.schedulingGoal.selectedSlotId },
+      args: bookingArgsForState(state, state.schedulingGoal.selectedSlotId),
     };
   }
 
@@ -185,12 +186,25 @@ function decisionForActiveSchedulingStep(
 
   if (state.step === "confirm_booking" && !hasNewPathFacts) {
     if (state.schedulingGoal?.bookingConfirmed === true) {
+      if (!state.schedulingGoal.selectedSlotId) {
+        if (state.schedulingGoal.preferredWindow) {
+          return {
+            type: "call_tool",
+            tool: "get_availability",
+            args: {},
+          };
+        }
+        return {
+          type: "ask",
+          slot: "preferredDate",
+          promptHint:
+            "Ask what day or general time window works for the appointment.",
+        };
+      }
       return {
         type: "call_tool",
         tool: "book_appt",
-        args: state.schedulingGoal.selectedSlotId
-          ? { slotId: state.schedulingGoal.selectedSlotId }
-          : {},
+        args: bookingArgsForState(state, state.schedulingGoal.selectedSlotId),
       };
     }
 
@@ -220,14 +234,55 @@ function decisionForActiveSchedulingStep(
   }
 
   if (state.step === "book") {
+    if (!state.schedulingGoal?.selectedSlotId) {
+      return {
+        type: "ask",
+        slot: "bookingConfirmation",
+        promptHint:
+          "Ask whether they want the exact appointment slot that was just offered.",
+      };
+    }
     return {
       type: "call_tool",
       tool: "book_appt",
-      args: {},
+      args: bookingArgsForState(state, state.schedulingGoal.selectedSlotId),
     };
   }
 
   return undefined;
+}
+
+type BookingAppointmentKind = "medical" | "routine_vision" | "post_op";
+
+function bookingArgsForState(
+  state: CallFlowState,
+  slotId: string,
+): { slotId: string; appointmentKind: BookingAppointmentKind } {
+  return {
+    slotId,
+    appointmentKind: appointmentKindForState(state),
+  };
+}
+
+function appointmentKindForState(state: CallFlowState): BookingAppointmentKind {
+  if (
+    state.routing === "optical_only" ||
+    state.visitType === "routine_vision" ||
+    state.schedulingGoal?.visitType === "routine_vision"
+  ) {
+    return "routine_vision";
+  }
+  if (looksLikePostOpVisit(state.schedulingGoal?.visitReason)) {
+    return "post_op";
+  }
+  return "medical";
+}
+
+function looksLikePostOpVisit(visitReason: string | undefined): boolean {
+  const normalized = visitReason?.trim().toLowerCase() ?? "";
+  return /\bpost\s*-?\s*op\b|\bpost\s+operative\b|\bpostoperative\b|\bsurgery\s+follow\s*-?\s*up\b|\brecent\s+surgery\b/.test(
+    normalized,
+  );
 }
 
 function clearStaleBookingSelection(state: CallFlowState): void {
@@ -242,9 +297,7 @@ function clearStaleBookingSelection(state: CallFlowState): void {
 function hasNewSchedulingPathFacts(
   event: Extract<FlowControllerEvent, { type: "caller_intent" }>,
 ): boolean {
-  return Boolean(
-    event.visitReason || event.insurancePlan || event.coverageType,
-  );
+  return event.pathFactsChanged === true;
 }
 
 function coverageTypeForVisitReason(

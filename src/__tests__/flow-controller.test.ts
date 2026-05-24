@@ -210,6 +210,100 @@ describe("flow state and context packet", () => {
     expect(flow.activeIntent).toBe("insurance_question");
   });
 
+  it("does not resolve meta state changes for low-confidence unclear turns", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.activeIntent = "insurance_question";
+    flow.activeFlow = "insurance";
+    flow.step = "check_insurance";
+    flow.visitType = "routine_vision";
+    flow.coverageType = "routine_vision";
+    flow.routing = "optical_only";
+
+    const before = {
+      activeIntent: flow.activeIntent,
+      activeFlow: flow.activeFlow,
+      step: flow.step,
+      visitType: flow.visitType,
+      coverageType: flow.coverageType,
+      routing: flow.routing,
+    };
+    const result = advanceFlowForTurn({
+      flow,
+      transcript: "uh, maybe, I'm not sure",
+      understanding: {
+        goal: "unclear",
+        appointmentAction: null,
+        interruption: "none",
+        confidence: 0.32,
+        evidence: ["not sure"],
+      },
+    });
+
+    expect(result.decision).toMatchObject({
+      type: "ask",
+      slot: "clarification",
+    });
+    expect({
+      activeIntent: flow.activeIntent,
+      activeFlow: flow.activeFlow,
+      step: flow.step,
+      visitType: flow.visitType,
+      coverageType: flow.coverageType,
+      routing: flow.routing,
+    }).toEqual(before);
+  });
+
+  it("keeps new-patient registration status aligned while collecting identity facts", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+
+    advanceFlowForTurn({
+      flow,
+      transcript: "I am a new patient and need a routine eye exam",
+      understanding: {
+        goal: "register_new_patient",
+        appointmentAction: null,
+        patient: {
+          patientMentioned: "caller",
+          relationshipToCaller: "self",
+        },
+        scheduling: {
+          visitReason: "routine eye exam",
+          visitType: "routine_vision",
+        },
+        interruption: "none",
+        confidence: 0.93,
+        evidence: ["new patient", "routine eye exam"],
+      },
+    });
+
+    expect(flow.patientStatus).toBe("new");
+    expect(flow.patients.caller.status).toBe("new");
+
+    advanceFlowForTurn({
+      flow,
+      transcript: "my first name is Maria",
+      understanding: {
+        goal: "register_new_patient",
+        appointmentAction: null,
+        patient: {
+          patientMentioned: "caller",
+          relationshipToCaller: "self",
+          firstName: "Maria",
+        },
+        interruption: "none",
+        confidence: 0.9,
+        evidence: ["first name is Maria"],
+      },
+    });
+
+    expect(flow.patientStatus).toBe("new");
+    expect(flow.patients.caller).toMatchObject({
+      status: "new",
+      firstName: { value: "Maria" },
+    });
+    expect(flow.patientStatus).not.toBe("candidate");
+  });
+
   it("records patient verification attempts into canonical patient state", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
 
@@ -1197,6 +1291,7 @@ describe("deterministic turn router", () => {
     expect(turn.decision).toMatchObject({
       type: "call_tool",
       tool: "book_appt",
+      args: { slotId: "slot-1", appointmentKind: "medical" },
     });
     expect(turn.turnState).toContain("nextAction: book_appt");
     expect(flow).toMatchObject({
@@ -1243,10 +1338,65 @@ describe("deterministic turn router", () => {
     expect(turn.decision).toMatchObject({
       type: "call_tool",
       tool: "book_appt",
+      args: { slotId: "slot-1", appointmentKind: "medical" },
     });
     expect(turn.decision).not.toMatchObject({
       type: "call_tool",
       tool: "get_availability",
+    });
+  });
+
+  it("does not clear the selected slot when confirmation repeats known visit facts", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.step = "get_availability";
+    flow.visitType = "medical";
+    flow.coverageType = "medical";
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "ready_for_availability",
+      appointmentAction: "schedule",
+      visitReason: "double vision",
+      visitType: "medical",
+      preferredWindow: "tomorrow",
+      selectedSlotId: "C",
+      updatedAt: Date.now(),
+    };
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "Yes, book it.",
+      understanding: scheduleTurn({
+        visitReason: "double vision",
+        visitType: "medical",
+        preferredWindow: "tomorrow",
+        selectedSlotId: "C",
+        bookingConfirmed: true,
+      }),
+    });
+
+    expect(turn.update.pathFactsChanged).toBe(false);
+    expect(turn.decision).toMatchObject({
+      type: "call_tool",
+      tool: "book_appt",
+      args: { slotId: "C", appointmentKind: "medical" },
+    });
+    expect(turn.instruction).toBe(
+      "Call book_appt next using the current turn_state and caller-provided details.",
+    );
+    expect(turn.turnState).toContain("nextAction: book_appt");
+    expect(turn.turnState).not.toContain("nextAction: ask_preferred_date");
+    expect(flow.schedulingGoal).toMatchObject({
+      bookingConfirmed: true,
+      selectedSlotId: "C",
     });
   });
 
@@ -1284,6 +1434,7 @@ describe("deterministic turn router", () => {
       }),
     });
 
+    expect(turn.update.pathFactsChanged).toBe(true);
     expect(turn.resolvedMetaDecision).toMatchObject({
       outcome: {
         outcome: "success",

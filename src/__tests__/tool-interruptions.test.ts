@@ -51,6 +51,14 @@ import { buildToolsForState } from "../tooling/tool-registry.js";
 
 type SpeechContext = Parameters<typeof makeCurrentSpeechUninterruptible>[0];
 type ToolContext = Parameters<typeof book_appt.execute>[1]["ctx"];
+type BookingAppointmentKind = "medical" | "routine_vision" | "post_op";
+
+function bookingArgs(
+  slotId = "A",
+  appointmentKind: BookingAppointmentKind = "medical",
+) {
+  return { slotId, appointmentKind };
+}
 
 describe("tool interruption handling", () => {
   afterEach(() => {
@@ -194,7 +202,7 @@ describe("tool interruption handling", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("stores appointment cancel tokens outside the model-facing appointment result", async () => {
+  it("returns raw appointment lookup payload while storing sanitized appointment state", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
       json: async () => ({
@@ -228,13 +236,11 @@ describe("tool interruption handling", () => {
     });
     expect(state.appointments[0]).not.toHaveProperty("cancelToken");
     expect(result).toMatchObject({
-      outcome: "success",
-      facts: {
-        appointments: [expect.objectContaining({ id: 12345 })],
-      },
+      status: "found",
+      appointments: [expect.objectContaining({ id: 12345 })],
     });
-    expect(JSON.stringify(result)).not.toContain("cancel-token-12345");
-    expect(JSON.stringify(result)).not.toContain("cancelToken");
+    expect(JSON.stringify(result)).toContain("cancel-token-12345");
+    expect(JSON.stringify(result)).toContain("cancelToken");
   });
 
   it("does not require turn understanding when the flow harness is disabled", async () => {
@@ -375,9 +381,7 @@ describe("tool interruption handling", () => {
           seedLastAvailabilitySlot(state);
           seedPendingBookingAction(state);
           return book_appt.execute(
-            {
-              slotId: "A",
-            },
+            bookingArgs(),
             { ctx, toolCallId: "test-book" },
           );
         },
@@ -623,9 +627,7 @@ describe("tool interruption handling", () => {
     seedPendingBookingAction(state);
 
     await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book" },
     );
 
@@ -679,15 +681,19 @@ describe("tool interruption handling", () => {
       slots: [
         {
           slotId: "A",
-          provider: "Dr. Bach",
+          provider: "Dr. Austin Bach (Overflow)",
+          publicProvider: "Dr. Bach",
           time: "9:00 AM",
           date: "2026-04-28",
+          columnId: 1598,
+          profileId: 620,
+          duration: 15,
+          bookingToken: "signed-token",
         },
       ],
     });
-    expect(
-      (result as { slots: Array<Record<string, unknown>> }).slots[0],
-    ).not.toHaveProperty("columnId");
+    expect((result as { slots: Array<Record<string, unknown>> }).slots[0])
+      .toHaveProperty("columnId", 1598);
     expect(result).not.toHaveProperty("middlewareResult");
     expect(state.lastAvailabilitySlots[0]).toMatchObject({
       slotId: "A",
@@ -752,9 +758,7 @@ describe("tool interruption handling", () => {
     seedPendingBookingAction(state);
 
     await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book" },
     );
 
@@ -784,9 +788,7 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state);
 
     const result = await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book-policy" },
     );
 
@@ -808,9 +810,7 @@ describe("tool interruption handling", () => {
     seedPendingBookingAction(state);
 
     const result = await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book-missing-token" },
     );
 
@@ -840,9 +840,7 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state, { bookingToken: "signed-token" });
 
     const result = await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book-disabled-harness" },
     );
 
@@ -877,15 +875,11 @@ describe("tool interruption handling", () => {
       });
 
       const result = await book_appt.execute(
-        {
-          slotId: "A",
-        },
+        bookingArgs(),
         { ctx, toolCallId: `test-book-legacy-success-${index}` },
       );
       const duplicate = await book_appt.execute(
-        {
-          slotId: "A",
-        },
+        bookingArgs(),
         { ctx, toolCallId: `test-book-legacy-duplicate-${index}` },
       );
 
@@ -909,9 +903,7 @@ describe("tool interruption handling", () => {
     seedPendingBookingAction(state, { confirmed: false });
 
     const result = await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book-unconfirmed" },
     );
 
@@ -935,14 +927,13 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state);
     markBookingConfirmedInState(state, "A");
 
-    await book_appt.execute(
-      {
-        slotId: "A",
-      },
+    const result = await book_appt.execute(
+      bookingArgs(),
       { ctx, toolCallId: "test-book" },
     );
 
     expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
     expect(state.flow.pendingActions[0]).toMatchObject({
       type: "book_appt",
       confirmed: true,
@@ -963,16 +954,12 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state);
     markBookingConfirmedInState(state, "A");
     await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book" },
     );
 
     const duplicate = await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book-duplicate" },
     );
 
@@ -1031,9 +1018,7 @@ describe("tool interruption handling", () => {
     seedPendingBookingAction(state);
 
     await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book-child" },
     );
 
@@ -1062,19 +1047,14 @@ describe("tool interruption handling", () => {
     seedPendingBookingAction(state);
 
     const result = await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book" },
     );
 
     expect(result).toMatchObject({
-      outcome: "error",
-      nextStep: "get_availability",
-      facts: {
-        reason: "slot_unavailable",
-        slotId: "A",
-      },
+      status: "error",
+      outcome: "invalid_booking_token",
+      message: "Invalid or expired booking token.",
     });
     expect(state.lastAvailabilitySlots).toEqual([]);
     expect(state.lastAvailabilityRouting).toBeNull();
@@ -1135,20 +1115,14 @@ describe("tool interruption handling", () => {
     seedPendingBookingAction(state);
 
     const result = await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book" },
     );
 
     expect(result).toMatchObject({
-      outcome: "error",
-      nextStep: "confirm_booking",
-      facts: {
-        reason: "slot_unavailable",
-        slotId: "A",
-        cachedSlots: [expect.objectContaining({ slotId: "B" })],
-      },
+      status: "error",
+      outcome: "slot_unavailable",
+      message: "Slot is no longer available.",
     });
     expect(state.lastAvailabilitySlots).toEqual([
       expect.objectContaining({ slotId: "B" }),
@@ -1184,19 +1158,14 @@ describe("tool interruption handling", () => {
     seedPendingBookingAction(state);
 
     const result = await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book" },
     );
 
     expect(result).toMatchObject({
-      outcome: "error",
-      nextStep: "get_availability",
-      facts: {
-        reason: "invalid_appointment_type",
-        slotId: "A",
-      },
+      status: "error",
+      outcome: "invalid_appointment_type",
+      message: "Invalid appointment type for this slot.",
     });
     expect(state.lastAvailabilitySlots).toEqual([]);
     expect(state.flow.availabilitySearches[0]).toMatchObject({
@@ -1223,21 +1192,17 @@ describe("tool interruption handling", () => {
     seedPendingBookingAction(state);
 
     const result = await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book-unresolved-type" },
     );
 
     expect(result).toMatchObject({
-      outcome: "needs_clarification",
-      nextStep: "verify_patient",
-      facts: {
-        reason: "appointment_type_unresolved",
-        missing: ["dob"],
-        slotId: "A",
-      },
+      status: "error",
+      outcome: "appointment_type_unresolved",
+      missing: ["dob"],
+      message: "Verify the patient's DOB before booking.",
     });
+    expect(state.flow.step).toBe("verify_patient");
     expect(state.lastAvailabilitySlots).toHaveLength(1);
   });
 
@@ -1273,9 +1238,7 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state);
     seedPendingBookingAction(state);
     await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs(),
       { ctx, toolCallId: "test-book" },
     );
     const updateParams = {
@@ -1434,7 +1397,7 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state);
 
     await book_appt.execute(
-      { slotId: "A" },
+      bookingArgs(),
       { ctx, toolCallId: "test-legacy-book" },
     );
     const noteResult = await add_patient_note.execute(
@@ -1446,11 +1409,8 @@ describe("tool interruption handling", () => {
     );
 
     expect(noteResult).toMatchObject({
-      outcome: "success",
-      nextStep: "answer",
-      facts: {
-        result: { status: "saved", noteId: "note-1" },
-      },
+      status: "saved",
+      noteId: "note-1",
     });
     expect(state.flow.pendingActions).toContainEqual(
       expect.objectContaining({
@@ -1541,9 +1501,7 @@ describe("tool interruption handling", () => {
     seedPendingBookingAction(state);
 
     await book_appt.execute(
-      {
-        slotId: "A",
-      },
+      bookingArgs("A", "routine_vision"),
       { ctx, toolCallId: "test-book" },
     );
 
@@ -1938,12 +1896,9 @@ describe("tool interruption handling", () => {
       status: "created",
       insuranceAdded: false,
       insuranceMessage: "Insurance was not attached by middleware",
-      outcome: "success",
-      middlewareResult: {
-        insuranceAdded: false,
-        insuranceMessage: "Insurance was not attached by middleware",
-      },
     });
+    expect(result).not.toHaveProperty("outcome");
+    expect(result).not.toHaveProperty("middlewareResult");
   });
 
   it("blocks cancellation before the appointment is loaded into state", async () => {
@@ -2015,9 +1970,7 @@ describe("tool interruption handling", () => {
     });
     expect(requestBody).not.toHaveProperty("office");
     expect(cancelResult).toMatchObject({
-      outcome: "success",
-      nextStep: "answer",
-      facts: { appointmentId: 12345 },
+      status: "cancelled",
     });
     expect(state.flow.pendingActions[0]).toMatchObject({
       type: "cancel_appt",
@@ -2065,12 +2018,7 @@ describe("tool interruption handling", () => {
     );
 
     expect(result).toMatchObject({
-      outcome: "not_found",
-      nextStep: "confirm_cancel",
-      facts: {
-        reason: "appointment_not_found",
-        appointmentId: 12345,
-      },
+      status: "not_found",
     });
     expect(state.appointments).toHaveLength(1);
     expect(state.appointmentCancelTokens).toMatchObject({
@@ -2103,17 +2051,14 @@ describe("tool interruption handling", () => {
     );
 
     expect(result).toMatchObject({
-      outcome: "not_allowed",
-      nextStep: "confirm_cancel",
-      facts: {
-        reason: "cancel_token_invalid",
-        appointmentId: 12345,
-      },
+      status: "error",
+      message:
+        "Invalid or expired cancel token. Please load appointments again and choose the appointment to cancel.",
     });
     expect(state.appointments).toHaveLength(1);
   });
 
-  it("keeps conflicting raw middleware status nested when cancellation is normalized as success", async () => {
+  it("returns already-cancelled middleware payload directly while updating state as resolved", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => ({
@@ -2135,17 +2080,11 @@ describe("tool interruption handling", () => {
     );
 
     expect(result).toMatchObject({
-      outcome: "success",
-      facts: {
-        reason: "appointment_already_cancelled",
-        appointmentId: 12345,
-      },
-      middlewareResult: {
-        status: "error",
-        message: "appointment already cancelled",
-      },
+      status: "error",
+      message: "appointment already cancelled",
     });
-    expect(result).not.toHaveProperty("status");
+    expect(result).not.toHaveProperty("middlewareResult");
+    expect(state.appointments).toEqual([]);
   });
 
   it("returns to a suspended scheduling task after successful cancellation", async () => {
@@ -2178,12 +2117,7 @@ describe("tool interruption handling", () => {
     );
 
     expect(result).toMatchObject({
-      outcome: "success",
-      nextStep: "get_availability",
-      facts: {
-        appointmentId: 12345,
-        resumedTaskId: scheduleTask.id,
-      },
+      status: "cancelled",
     });
     expect(state.flow.currentTask?.id).toBe(scheduleTask.id);
     expect(state.flow.activeFlow).toBe("scheduling");
@@ -2296,9 +2230,7 @@ describe("tool interruption handling", () => {
           seedLastAvailabilitySlot(state);
           seedPendingBookingAction(state);
           return book_appt.execute(
-            {
-              slotId: "A",
-            },
+            bookingArgs(),
             { ctx, toolCallId: "test-book" },
           );
         },
@@ -2394,7 +2326,7 @@ describe("tool interruption handling", () => {
           markBookingConfirmedInState(state);
         },
         run: (ctx: ToolContext) =>
-          book_appt.execute({ slotId: "A" }, { ctx, toolCallId: "test-book" }),
+          book_appt.execute(bookingArgs(), { ctx, toolCallId: "test-book" }),
       },
     ];
 
