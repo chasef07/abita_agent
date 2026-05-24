@@ -65,7 +65,7 @@ export class Agent extends voice.Agent {
         compileTurnStatePacket(state.flow),
         "",
         "<state_update_required>",
-        "Before answering the caller or calling any other tool for this user turn, call record_turn_understanding exactly once with the structured semantic update for the latest caller message. After it returns, continue from the updated turn_state.",
+        "Before answering the caller or calling any other tool for this user turn, call record_turn_understanding exactly once with the structured semantic update for the latest caller message. After it returns, follow its compact command packet: nextAction, optional tool/args, and instruction.",
         "</state_update_required>",
       ].join("\n"),
       id: `flow_turn_state_${newMessage.id}`,

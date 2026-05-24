@@ -18,7 +18,6 @@ import {
 import {
   evaluateFlowToolPolicy,
   advanceFlowForTurn,
-  compileTurnStatePacket,
   createPendingBookingAction,
   createPendingSideEffectAction,
   completeCurrentTaskAndResume,
@@ -42,10 +41,12 @@ import {
   updateActivePatientInsurance,
   type AvailabilityInvalidationReason,
   type CallerAppointment,
+  type FlowTurnAdvanceResult,
   type GuardedToolName,
   type SideEffectToolName,
   type ToolOutcome,
   turnUnderstandingSchema,
+  nextActionForFlowDecision,
 } from "./flow/index.js";
 import { callApi } from "./tooling/advancedmd-client.js";
 import { lookupOfficeKnowledge } from "./tooling/knowledge.js";
@@ -1195,6 +1196,67 @@ function ensureRoutineVisionOffice(state: CallState): void {
   state.flow.routing = "optical_only";
 }
 
+function compactTurnCommandResponse(turn: FlowTurnAdvanceResult) {
+  const decision = turn.decision;
+  const nextAction = nextActionForFlowDecision(decision);
+  const base = {
+    status: "recorded",
+    nextAction,
+    ...(turn.update.pathFactsChanged ? { factsChanged: true } : {}),
+  };
+
+  switch (decision.type) {
+    case "ask":
+      return {
+        ...base,
+        action: "ask",
+        slot: decision.slot,
+        instruction: decision.promptHint,
+      };
+    case "call_tool":
+      return {
+        ...base,
+        action: "call_tool",
+        tool: decision.tool,
+        args: decision.args,
+        instruction: `Call ${decision.tool} now.`,
+      };
+    case "call_meta_tool":
+      return {
+        ...base,
+        action: "internal",
+        tool: decision.tool,
+        args: decision.args,
+        instruction: `Resolve ${decision.tool} internally before continuing.`,
+      };
+    case "confirm":
+      return {
+        ...base,
+        action: "confirm",
+        confirmation: decision.confirmation.type,
+        instruction: `Read back the ${decision.confirmation.type} details and get explicit confirmation.`,
+      };
+    case "say":
+      return {
+        ...base,
+        action: "respond",
+        instruction: decision.instruction,
+      };
+    case "transfer":
+      return {
+        ...base,
+        action: "transfer",
+        instruction: `Follow the transfer confirmation path before transfer_call. Reason: ${decision.reason}.`,
+      };
+    case "end_call":
+      return {
+        ...base,
+        action: "end_call",
+        instruction: `End the call only after a natural closeout. Reason: ${decision.reason}.`,
+      };
+  }
+}
+
 // --- record_turn_understanding ---
 export const record_turn_understanding = llm.tool({
   description: `Internal memory update. Call this exactly once at the start of every user turn before answering the caller or calling any other tool.
@@ -1221,9 +1283,10 @@ If the caller only says a backchannel like "yes", "okay", or "mm-hmm", still cal
     ) {
       return {
         status: "already_recorded",
-        turnState: compileTurnStatePacket(state.flow),
+        nextAction: "continue",
+        action: "continue",
         instruction:
-          "Continue from this turn_state. Do not call record_turn_understanding again for this same user turn.",
+          "Continue from the previous command. Do not call record_turn_understanding again for this same user turn.",
       };
     }
 
@@ -1245,19 +1308,7 @@ If the caller only says a backchannel like "yes", "okay", or "mm-hmm", still cal
       "turn_understanding_recorded",
     );
 
-    return {
-      status: "recorded",
-      goal: turn.update.understanding.goal,
-      appointmentAction: turn.update.understanding.appointmentAction,
-      activeIntent: state.flow.activeIntent,
-      activeFlow: state.flow.activeFlow,
-      step: state.flow.step,
-      activePatientRef: state.flow.activePatientRef,
-      turnState: turn.turnState,
-      controllerDecision: turn.decision,
-      resolvedMetaDecision: turn.resolvedMetaDecision,
-      instruction: turn.instruction,
-    };
+    return compactTurnCommandResponse(turn);
   },
 });
 
