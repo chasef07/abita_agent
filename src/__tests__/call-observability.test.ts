@@ -242,7 +242,7 @@ describe("call observability", () => {
       llmMetrics: [
         {
           completionTokens: 20,
-          metadata: { modelName: "zai-org/GLM-5.1" },
+          metadata: { modelName: "zai-org/GLM-4.7" },
           promptCachedTokens: 40,
           promptTokens: 100,
           ttftMs: 450,
@@ -264,7 +264,7 @@ describe("call observability", () => {
       cachedPromptTokens: 120,
       completionTokens: 30,
       fallbackUsed: true,
-      modelsUsed: ["zai-org/GLM-5.1", "MiniMaxAI/MiniMax-M2.5"],
+      modelsUsed: ["zai-org/GLM-4.7", "MiniMaxAI/MiniMax-M2.5"],
       peakPromptTokens: 200,
       promptTokens: 300,
     });
