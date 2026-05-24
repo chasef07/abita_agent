@@ -2,7 +2,15 @@
   "officeLabel": "Spring Hill Routine Vision",
   "aliasRules": [
     {
-      "aliases": ["Eye Med", "Eye Med Vision", "EyeMed Vision Care", "Humana", "Aetna", "Unum", "Cigna"],
+      "aliases": [
+        "Eye Med",
+        "Eye Med Vision",
+        "EyeMed Vision Care",
+        "Humana",
+        "Aetna",
+        "Unum",
+        "Cigna"
+      ],
       "status": "accepted",
       "family": "EyeMed",
       "callerPlan": "EyeMed",
@@ -10,7 +18,10 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["National Vision", "National Vision Administrators"],
+      "aliases": [
+        "National Vision",
+        "National Vision Administrators"
+      ],
       "status": "accepted",
       "family": "NVA",
       "callerPlan": "NVA",
@@ -18,7 +29,14 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["Davis Vision", "Superior", "Florida Blue", "BlueView", "Blue View", "Versant"],
+      "aliases": [
+        "Davis Vision",
+        "Superior",
+        "Florida Blue",
+        "BlueView",
+        "Blue View",
+        "Versant"
+      ],
       "status": "accepted",
       "family": "Davis",
       "callerPlan": "Davis",
@@ -26,7 +44,12 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["Spectera Vision", "United Healthcare", "United Health Care", "United Vision"],
+      "aliases": [
+        "Spectera Vision",
+        "United Healthcare",
+        "United Health Care",
+        "United Vision"
+      ],
       "status": "accepted",
       "family": "Spectera",
       "callerPlan": "Spectera",
@@ -34,7 +57,10 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["Soltice", "Solstice Vision"],
+      "aliases": [
+        "Soltice",
+        "Solstice Vision"
+      ],
       "status": "accepted",
       "family": "Solstice",
       "callerPlan": "Solstice",
@@ -42,7 +68,17 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["Humana Gold Plus", "Simply Medicare", "Simply Medicaid", "Simply Medcaid", "Freedom", "Optimum", "Optimum Healthcare", "Aetna Better Health", "AvMed"],
+      "aliases": [
+        "Humana Gold Plus",
+        "Simply Medicare",
+        "Simply Medicaid",
+        "Simply Medcaid",
+        "Freedom",
+        "Optimum",
+        "Optimum Healthcare",
+        "Aetna Better Health",
+        "AvMed"
+      ],
       "status": "accepted",
       "family": "iCare",
       "callerPlan": "iCare",
@@ -50,7 +86,10 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["Sun Health", "SunHealth Vision"],
+      "aliases": [
+        "Sun Health",
+        "SunHealth Vision"
+      ],
       "status": "accepted",
       "family": "SunHealth",
       "callerPlan": "SunHealth",
@@ -58,7 +97,12 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["Envolve Vision", "Ambetter", "Ambetter from Sunshine Health", "Sunshine"],
+      "aliases": [
+        "Envolve Vision",
+        "Ambetter",
+        "Ambetter from Sunshine Health",
+        "Sunshine"
+      ],
       "status": "accepted",
       "family": "Envolve",
       "callerPlan": "Envolve",
@@ -66,7 +110,10 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["AmeriHealth", "Devoted"],
+      "aliases": [
+        "AmeriHealth",
+        "Devoted"
+      ],
       "status": "accepted",
       "family": "Premier",
       "callerPlan": "Premier",
@@ -74,7 +121,10 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["CarePlus", "Care Plus"],
+      "aliases": [
+        "CarePlus",
+        "Care Plus"
+      ],
       "status": "accepted",
       "family": "Alivi",
       "callerPlan": "Alivi",
@@ -82,7 +132,9 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["Guardian Vision"],
+      "aliases": [
+        "Guardian Vision"
+      ],
       "status": "accepted",
       "family": "Guardian",
       "callerPlan": "Guardian",
@@ -90,12 +142,42 @@
       "needsExactPlanName": true
     },
     {
-      "aliases": ["MetLife", "Liberty Financial", "Lincoln Financial", "Lincoln Finacial"],
+      "aliases": [
+        "MetLife",
+        "Liberty Financial",
+        "Lincoln Financial",
+        "Lincoln Finacial"
+      ],
       "status": "accepted",
       "family": "VSP",
       "callerPlan": "VSP",
       "canProceed": true,
       "needsExactPlanName": true
+    },
+    {
+      "aliases": [
+        "Oscar",
+        "Oscar Health"
+      ],
+      "status": "accepted",
+      "family": "Oscar",
+      "callerPlan": "Oscar",
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Self Pay",
+        "Self-Pay",
+        "Selfpay",
+        "Cash Pay",
+        "Cash"
+      ],
+      "status": "accepted",
+      "family": "Self Pay",
+      "callerPlan": "Self Pay",
+      "canProceed": true,
+      "needsExactPlanName": false
     }
   ],
   "acceptedPlans": [
@@ -112,7 +194,9 @@
     "Alivi",
     "Guardian",
     "Superior",
-    "Versant"
+    "Versant",
+    "Oscar",
+    "Self Pay"
   ],
   "notAcceptedPlans": []
 }

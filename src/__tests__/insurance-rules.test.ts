@@ -160,6 +160,9 @@ describe("insurance matcher", () => {
       ["Optimum", "iCare"],
       ["Optimum Healthcare", "iCare"],
       ["CarePlus", "Alivi"],
+      ["Oscar", "Oscar"],
+      ["I have Oscar", "Oscar"],
+      ["Self Pay", "Self Pay"],
     ] as const;
 
     for (const [query, family] of cases) {
@@ -178,6 +181,14 @@ describe("insurance matcher", () => {
     const result = matchInsurancePlan(reference, "Oscar");
 
     expect(canonicalInsurancePlan(result)).toBe("Oscar Health");
+  });
+
+  it("accepts self-pay as a medical option", () => {
+    const result = matchInsurancePlanForOffice("spring-hill", "self-pay");
+
+    expect(result.status).toBe("accepted");
+    expect(result.canProceed).toBe(true);
+    expect(canonicalInsurancePlan(result)).toBe("Self Pay");
   });
 
   it("builds a trimmed tool response for the model", () => {

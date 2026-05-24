@@ -400,6 +400,20 @@
       "callerPlan": "Eye America",
       "canProceed": false,
       "needsExactPlanName": false
+    },
+    {
+      "aliases": [
+        "Self Pay",
+        "Self-Pay",
+        "Selfpay",
+        "Cash Pay",
+        "Cash"
+      ],
+      "status": "accepted",
+      "family": "Self Pay",
+      "callerPlan": "Self Pay",
+      "canProceed": true,
+      "needsExactPlanName": false
     }
   ],
   "acceptedPlans": [
@@ -469,7 +483,8 @@
     "United Healthcare Student Resources",
     "United Healthcare Surest",
     "Vivida",
-    "Wellcare"
+    "Wellcare",
+    "Self Pay"
   ],
   "notAcceptedPlans": [
     "Care Plus",

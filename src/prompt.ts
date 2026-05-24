@@ -32,7 +32,7 @@ function buildOfficeRoutingHints(trunkPhone: string): string {
     "",
     "Do not route just because those words are mentioned in a FAQ, confirmation, or other non-scheduling context.",
     "Use the routing tool, not the transfer tool. Routing keeps the caller on the line with you so you can continue scheduling them at Spring Hill after they agree. Transferring sends them to a human, which is the wrong outcome here.",
-    "For routine vision, ask whether this is a routine eye exam or glasses/contact lens prescription using vision insurance, run check_insurance with coverageType routine_vision, then schedule with routing optical_only.",
+    "For routine vision, ask whether this is a routine eye exam or glasses/contact lens prescription using accepted vision coverage or self-pay, run check_insurance with coverageType routine_vision, then schedule with routing optical_only.",
   ].join("\n");
 }
 
