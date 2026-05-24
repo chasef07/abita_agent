@@ -4,6 +4,7 @@ import type {
   FlowDecision,
   IntentKind,
   ToolOutcome,
+  VisitType,
 } from "./types.js";
 import { classifyVisitType } from "./scheduling.js";
 import { completeCurrentTaskAndResume } from "./state.js";
@@ -13,6 +14,7 @@ export type FlowControllerEvent =
       type: "caller_intent";
       intent: IntentKind;
       visitReason?: string;
+      visitType?: VisitType;
       insurancePlan?: string;
       coverageType?: InsuranceCoverageType;
     }
@@ -108,6 +110,8 @@ export function nextFlowDecision({
   }
 
   if (isSchedulingOrInsuranceIntent(intent)) {
+    const visitType =
+      event.visitType ?? (event.visitReason ? undefined : state.visitType);
     const coverageType =
       event.coverageType ??
       coverageTypeForVisitReason(event.visitReason) ??
@@ -119,6 +123,7 @@ export function nextFlowDecision({
         officeKey: state.officeKey,
         patientStatus: state.patientStatus,
         visitReason: event.visitReason ?? state.schedulingGoal?.visitReason,
+        visitType,
         insurancePlan:
           event.insurancePlan ??
           storedInsurancePlanForCoverage(state, coverageType),

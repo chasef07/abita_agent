@@ -42,6 +42,7 @@ export function advanceFlowForTurn({
       type: "caller_intent",
       intent: update.inferred.activeIntent,
       visitReason: update.inferred.visitReason,
+      visitType: update.inferred.visitType,
       insurancePlan: update.inferred.insurancePlan,
       coverageType: update.inferred.coverageType,
     },

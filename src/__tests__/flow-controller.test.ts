@@ -1125,6 +1125,47 @@ describe("deterministic turn router", () => {
     });
   });
 
+  it("advances a stale triage scheduling step once visit context arrives", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.step = "triage_visit_type";
+    flow.requiredSlots = ["visitReason"];
+    startPatientTask(flow, { kind: "schedule", step: "triage_visit_type" });
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "it's blurry",
+      understanding: scheduleTurn({
+        visitReason: "blurry vision",
+        visitType: "medical",
+      }),
+    });
+
+    expect(turn.decision).toMatchObject({
+      type: "ask",
+      slot: "preferredDate",
+    });
+    expect(flow).toMatchObject({
+      activeFlow: "scheduling",
+      step: "get_availability",
+      visitType: "medical",
+      coverageType: "medical",
+      requiredSlots: [],
+      currentTask: {
+        kind: "schedule",
+        step: "get_availability",
+      },
+    });
+  });
+
   it("preserves booking confirmation steps instead of re-running path setup", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",

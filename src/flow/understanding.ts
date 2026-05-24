@@ -11,6 +11,7 @@ import {
   confirmPreloadedPatientIdentityFromTranscript,
   ensureActivePatientContext,
   hasActivePatientIdentityChanged,
+  nextPatientFlowStep,
   recordPatientVerificationAttempt,
   setActivePatientRelationship,
   snapshotActivePatientIdentity,
@@ -213,16 +214,18 @@ export function turnUnderstandingToInferredIntent(
   }
 
   const visitReason = cleanString(understanding.scheduling?.visitReason);
+  const visitType = understanding.scheduling?.visitType ?? undefined;
   const insurancePlan = cleanString(understanding.insurance?.plan);
   const coverageType =
     understanding.insurance?.coverageType ??
-    coverageTypeForVisitType(understanding.scheduling?.visitType ?? undefined);
+    coverageTypeForVisitType(visitType);
 
   const inferred: InferredCallerIntent = {
     activeIntent: intentForTurnUnderstanding(understanding),
   };
 
   if (visitReason) inferred.visitReason = visitReason;
+  if (visitType) inferred.visitType = visitType;
   if (insurancePlan) inferred.insurancePlan = insurancePlan;
   if (coverageType) inferred.coverageType = coverageType;
   return inferred;
@@ -397,6 +400,11 @@ function applySchedulingUnderstanding(
     evidence: understanding.evidence?.slice(0, 4) ?? [],
     updatedAt: Date.now(),
   };
+
+  advanceSchedulingStepAfterVisitContext(
+    flow,
+    Boolean(visitReason || visitType),
+  );
 }
 
 function applyInsuranceUnderstanding(
@@ -543,6 +551,33 @@ function schedulingStatusForStep(
       return "offering_slot";
     default:
       return "collecting";
+  }
+}
+
+function advanceSchedulingStepAfterVisitContext(
+  flow: CallFlowState,
+  hasVisitContext: boolean,
+): void {
+  if (!hasVisitContext || flow.step !== "triage_visit_type") return;
+  if (
+    flow.activeIntent !== "new_appointment" &&
+    flow.activeFlow !== "scheduling" &&
+    flow.currentTask?.kind !== "schedule"
+  ) {
+    return;
+  }
+
+  const nextStep = nextPatientFlowStep(flow.patientStatus);
+  flow.activeFlow = "scheduling";
+  flow.step = nextStep;
+  flow.requiredSlots =
+    nextStep === "verify_patient"
+      ? ["patientIdentity"]
+      : nextStep === "collect_registration"
+        ? ["patientIdentity"]
+        : [];
+  if (flow.currentTask?.kind === "schedule") {
+    flow.currentTask.step = nextStep;
   }
 }
 

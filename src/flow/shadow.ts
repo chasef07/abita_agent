@@ -136,6 +136,7 @@ function flowControllerEventFromUnderstanding(
     type: "caller_intent",
     intent: inferred.activeIntent,
     ...(inferred.visitReason ? { visitReason: inferred.visitReason } : {}),
+    ...(inferred.visitType ? { visitType: inferred.visitType } : {}),
     ...(inferred.insurancePlan
       ? { insurancePlan: inferred.insurancePlan }
       : {}),

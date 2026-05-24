@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createInitialFlowState,
+  createPendingBookingAction,
   evaluateFlowToolPolicy,
   guardToolCall,
   hashToolArgs,
@@ -148,6 +149,59 @@ describe("flow report-only guards", () => {
     expect(observation).toMatchObject({
       allowed: true,
       reason: "allowed",
+    });
+  });
+
+  it("allows booking from cached availability when routing is default", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.visitType = "medical";
+    flow.coverageType = "medical";
+    flow.step = "book";
+    recordAvailabilitySearch(flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      coverageType: "medical",
+      date: "2026-05-25",
+    });
+    recordAvailabilityCachedSlots(flow, [{ slotId: "H" }]);
+    createPendingBookingAction(flow, {
+      slotHash: "H",
+      appointmentTypeId: 1007,
+      officeKey: "spring-hill",
+      spokenSummary: "2026-05-25 9:30 AM with Dr. Noel",
+      confirmed: true,
+      createdTurnId: "test-booking-action",
+      confirmationTurnId: "test-booking-confirmed",
+    });
+
+    const decision = evaluateFlowToolPolicy({
+      flow,
+      toolName: "book_appt",
+      args: { slotId: "H", appointmentTypeId: 1007 },
+      stateFacts: {
+        patientId: "patient-1",
+        lastAvailabilityRouting: null,
+        officeKey: "spring-hill",
+      },
+      booking: {
+        slotHash: "H",
+        appointmentTypeId: 1007,
+        officeKey: "spring-hill",
+        routing: null,
+      },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: true,
+      observation: {
+        allowed: true,
+        reason: "allowed",
+      },
     });
   });
 

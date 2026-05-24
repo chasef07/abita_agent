@@ -1,10 +1,16 @@
 import type { InsuranceCoverageType } from "../insurance-rules.js";
-import type { CallFlowState, FlowStep, IntentKind } from "./types.js";
+import type {
+  CallFlowState,
+  FlowStep,
+  IntentKind,
+  VisitType,
+} from "./types.js";
 import { startPatientTask } from "./state.js";
 
 export interface InferredCallerIntent {
   activeIntent: IntentKind;
   visitReason?: string;
+  visitType?: VisitType;
   insurancePlan?: string;
   coverageType?: InsuranceCoverageType;
 }

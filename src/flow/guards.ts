@@ -177,7 +177,11 @@ function guardReason(
     return "booking_requires_verified_or_created_patient";
   }
 
-  if (toolName === "book_appt" && !stateFacts.lastAvailabilityRouting) {
+  if (
+    toolName === "book_appt" &&
+    !stateFacts.lastAvailabilityRouting &&
+    !hasCachedAvailabilityForBooking(flow, args)
+  ) {
     return "booking_requires_recent_availability";
   }
 
@@ -254,6 +258,33 @@ function hasLoadedAppointment(flow: CallFlowState, args: unknown): boolean {
       (appointment) => appointment.id === appointmentId,
     ),
   );
+}
+
+function hasCachedAvailabilityForBooking(
+  flow: CallFlowState,
+  args: unknown,
+): boolean {
+  const slotHash = slotHashFromBookingArgs(args);
+  return flow.availabilitySearches.some((search) => {
+    if (search.status === "invalidated") return false;
+    if (search.cachedSlots.length === 0) return false;
+    if (!slotHash) return true;
+    return search.cachedSlots.some(
+      (slot) => normalizeSlotHash(slot.slotHash) === slotHash,
+    );
+  });
+}
+
+function slotHashFromBookingArgs(args: unknown): string | undefined {
+  if (!args || typeof args !== "object" || Array.isArray(args)) {
+    return undefined;
+  }
+  const slotId = (args as { slotId?: unknown }).slotId;
+  return typeof slotId === "string" ? normalizeSlotHash(slotId) : undefined;
+}
+
+function normalizeSlotHash(slotHash: string): string {
+  return slotHash.trim().toUpperCase();
 }
 
 function appointmentIdFromArgs(args: unknown): number | undefined {

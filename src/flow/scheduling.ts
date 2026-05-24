@@ -18,6 +18,7 @@ export interface PrepareSchedulingPathInput {
   officeKey: OfficeKey;
   patientStatus: PatientStatus;
   visitReason?: string;
+  visitType?: VisitType;
   insurancePlan?: string;
   coverageType?: InsuranceCoverageType;
 }
@@ -107,6 +108,7 @@ const MEDICAL_PATTERNS = [
   /\buveitis\b/,
   /\bsymptoms?\b/,
   /\bmedical\b/,
+  /\bblurry vision\b/,
   /\bcatarata\b/,
   /\bvision borrosa\b/,
   /\bdolor\b.*\bojo\b/,
@@ -166,7 +168,7 @@ function baseStatePatch(
 export function prepareSchedulingPath(
   input: PrepareSchedulingPathInput,
 ): PrepareSchedulingPathOutcome {
-  const visitType = classifyVisitType(input.visitReason);
+  const visitType = input.visitType ?? classifyVisitType(input.visitReason);
 
   if (!visitType) {
     return {
