@@ -1,6 +1,6 @@
 # SDK Flow Testing and Dynamic Tool Exposure
 
-Status: partially implemented behind `FLOW_DYNAMIC_TOOLS_ENABLED`.
+Status: implemented by default for flow-harness trunks.
 
 ## Purpose
 
@@ -24,7 +24,10 @@ keeping the existing TypeScript guards as the final authority.
 - `Agent.onUserTurnCompleted` injects a turn-state packet and requires
   `record_turn_understanding` before any other guarded tool for the latest user
   transcript.
-- `buildToolsForTrunk` currently exposes most tools for a harness-enabled trunk.
+- `buildToolsForTrunk` exposes the safe fallback tool set for a
+  harness-enabled trunk.
+- On startup and after each state update, harness-enabled calls refresh to the
+  current flow-state-specific tool set.
 - `evaluateTurnUnderstandingGate` and `evaluateFlowToolPolicy` block unsafe tool
   calls after the model attempts them.
 - `parallelToolCalls` is currently enabled in the Baseten generation options.
@@ -307,12 +310,12 @@ The wrappers still enforce policy, so fallback is safer than ending a live call.
 1. Add SDK-level tests without changing runtime behavior.
 2. Add pure `buildToolsForState` tests.
 3. Add the dynamic update spike test.
-4. Wire startup and post-`record_turn_understanding` refresh behind an env flag:
-   `FLOW_DYNAMIC_TOOLS_ENABLED`.
-5. Enable locally on the dev trunk only.
-6. Run synthetic tests and one manual SIP call.
-7. If stable, enable for the same trunk set as `FLOW_HARNESS_TRUNK_PHONES`.
-8. Remove the env flag only after enough call traces show no same-turn tool loss.
+4. Wire startup and post-`record_turn_understanding` refresh for every
+   flow-harness call.
+5. Run synthetic tests and one manual SIP call on the dev trunk.
+6. If stable, broaden `FLOW_HARNESS_TRUNK_PHONES` to the next controlled trunk.
+7. Keep wrapper policy guards as the fallback authority if SDK tool refresh
+   fails.
 
 ## Open Questions
 
@@ -329,7 +332,8 @@ The wrappers still enforce policy, so fallback is safer than ending a live call.
 
 - SDK-level tests cover first-tool gating and current SDK dynamic refresh
   behavior.
-- The model-visible tool set changes based on flow state under an env flag.
+- The model-visible tool set changes based on flow state for every
+  flow-harness call.
 - Wrapper-level policy behavior is unchanged and still tested.
 - Call logs show visible tool names and refresh reasons without PII.
 - No provider migration, runbook deletion, or handoff/task refactor is bundled

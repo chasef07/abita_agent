@@ -45,11 +45,6 @@ const ALL_TOOLS: AgentToolMap = {
 
 export type AgentTools = Partial<AgentToolMap>;
 
-export function dynamicToolsEnabled(): boolean {
-  const raw = process.env.FLOW_DYNAMIC_TOOLS_ENABLED?.trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes";
-}
-
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
   const office = getOfficeConfigByPhone(trunkPhone ?? "");
   const flowHarnessEnabled = isFlowHarnessEnabledForTrunk(trunkPhone);

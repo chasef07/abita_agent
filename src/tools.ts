@@ -946,7 +946,10 @@ function storeAvailabilitySlots(
     const provider = rawProvider ? publicProviderName(rawProvider) : "";
     const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
     const time = typeof slot.time === "string" ? slot.time : "";
-    const date = slotDateFromDatetime(datetime);
+    const date =
+      typeof slot.date === "string"
+        ? slot.date
+        : slotDateFromDatetime(datetime);
     const slotId = slotIdForIndex(index);
     const spoken = [date, time, provider ? `with ${provider}` : ""]
       .filter(Boolean)
@@ -970,14 +973,17 @@ function storeAvailabilitySlots(
     if (typeof slot.duration === "number") storedSlot.duration = slot.duration;
     storedSlots.push(storedSlot);
 
-    return {
-      ...slot,
+    const modelSlot: Record<string, unknown> = {
       slotId,
       spoken,
-      publicProvider: provider,
+      provider,
       date,
       time,
     };
+    if (typeof rawResponse.dateShifted === "boolean") {
+      modelSlot.dateShifted = rawResponse.dateShifted;
+    }
+    return modelSlot;
   });
 
   state.lastAvailabilitySlots = storedSlots;

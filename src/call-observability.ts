@@ -370,13 +370,31 @@ function metricMetadataModel(metric: Record<string, unknown>): string | null {
 
   const modelName = asString(metadata.modelName);
   const provider = asString(metadata.modelProvider);
-  if (provider && modelName) return `${provider}/${modelName}`;
+  if (provider && provider !== "unknown" && modelName) {
+    return `${provider}/${modelName}`;
+  }
   return modelName;
 }
 
 function addModel(models: Set<string>, model: unknown): void {
-  const value = asString(model);
+  const value = normalizeLlmModelName(asString(model));
   if (value) models.add(value);
+}
+
+function normalizeLlmModelName(model: string | null): string | null {
+  if (!model) return null;
+  const normalized = model.trim();
+  if (!normalized) return null;
+  if (
+    normalized === "FallbackAdapter" ||
+    normalized.endsWith("/FallbackAdapter")
+  ) {
+    return null;
+  }
+  if (normalized.startsWith("unknown/")) {
+    return normalizeLlmModelName(normalized.slice("unknown/".length));
+  }
+  return normalized;
 }
 
 function addUsageModels(models: Set<string>, usage: unknown): void {
@@ -479,16 +497,13 @@ export function buildLlmSummary(input: {
   }
 
   const modelsUsed = [...models];
-  const fallbackUsed =
-    modelsUsed.some(
-      (model) =>
-        model === input.fallbackModel ||
-        model.endsWith(`/${input.fallbackModel}`),
-    ) ||
-    modelsUsed.length > 1 ||
-    input.llmMetrics.some(
-      (metric) => metricMetadataModel(metric) === input.fallbackModel,
-    );
+  const fallbackModel = normalizeLlmModelName(input.fallbackModel);
+  const fallbackUsed = Boolean(
+    fallbackModel &&
+      modelsUsed.some(
+        (model) => model === fallbackModel || model.endsWith(`/${fallbackModel}`),
+      ),
+  );
 
   return {
     ...(ttftValues.length > 0

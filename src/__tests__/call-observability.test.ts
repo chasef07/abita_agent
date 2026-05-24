@@ -270,4 +270,57 @@ describe("call observability", () => {
     });
     expect(summary.cacheHitRate).toBeCloseTo(0.4);
   });
+
+  it("does not count FallbackAdapter wrapper labels as real fallback", () => {
+    const summary = buildLlmSummary({
+      fallbackModel: "MiniMaxAI/MiniMax-M2.5",
+      llmMetrics: [
+        {
+          completionTokens: 20,
+          metadata: {
+            modelName: "zai-org/GLM-4.7",
+            modelProvider: "unknown",
+          },
+          promptCachedTokens: 40,
+          promptTokens: 100,
+          ttftMs: 450,
+          type: "llm_metrics",
+        },
+        {
+          completionTokens: 20,
+          metadata: {
+            modelName: "FallbackAdapter",
+            modelProvider: "unknown",
+          },
+          promptCachedTokens: 40,
+          promptTokens: 100,
+          ttftMs: 450,
+          type: "llm_metrics",
+        },
+      ],
+      usage: {
+        modelUsage: [
+          {
+            inputCachedTokens: 40,
+            inputTokens: 100,
+            model: "unknown/zai-org/GLM-4.7",
+            outputTokens: 20,
+            type: "llm_usage",
+          },
+          {
+            inputCachedTokens: 40,
+            inputTokens: 100,
+            model: "FallbackAdapter",
+            outputTokens: 20,
+            type: "llm_usage",
+          },
+        ],
+      },
+    });
+
+    expect(summary).toMatchObject({
+      fallbackUsed: false,
+      modelsUsed: ["zai-org/GLM-4.7"],
+    });
+  });
 });
