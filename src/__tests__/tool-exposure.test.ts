@@ -101,6 +101,20 @@ describe("dynamic tool exposure", () => {
     ]);
   });
 
+  it("keeps appointment lookup exposed if appointment-management state drifts to availability", () => {
+    const state = createCallState();
+    state.flow.activeFlow = "appointment_management";
+    state.flow.activeIntent = "existing_appointment_confirm";
+    state.flow.patientStatus = "verified";
+    state.flow.patients[state.flow.activePatientRef!].status = "verified";
+    state.flow.step = "get_availability";
+
+    expect(buildToolsForState(state).visibleToolNames).toEqual([
+      "confirm_appt",
+      "lookup_knowledge",
+    ]);
+  });
+
   it("hides appointment lookup before a preloaded patient is verified", () => {
     const state = createCallState();
     state.flow.step = "verify_patient";

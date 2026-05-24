@@ -232,7 +232,7 @@ export function switchActivePatient(
   const before = previous ? snapshotPatientIdentity(previous) : undefined;
   const patient = ensureActivePatientContext(flow, ref);
   flow.patientStatus = patient.status;
-  flow.step = nextPatientFlowStep(patient.status);
+  setFlowStep(flow, stepAfterPatientVerification(flow, patient.status));
   const after = snapshotPatientIdentity(patient);
 
   return {
@@ -492,7 +492,7 @@ export function recordPatientVerificationAttempt(
     phone: args.usePhone ? args.phone : undefined,
   });
   flow.patientStatus = patient.status;
-  flow.step = nextPatientFlowStep(patient.status);
+  setFlowStep(flow, nextPatientFlowStep(patient.status));
   return patient;
 }
 
@@ -545,7 +545,7 @@ export function recordVerifiedPatient(
   }
   patient.status = result.patientId ? "verified" : patient.status;
   flow.patientStatus = patient.status;
-  flow.step = nextPatientFlowStep(patient.status);
+  setFlowStep(flow, stepAfterPatientVerification(flow, patient.status));
 
   const after = snapshotPatientIdentity(patient);
   return {
@@ -826,6 +826,17 @@ function splitPatientName(patientName: string): {
 }
 
 function stepAfterPreloadedPatientConfirmation(flow: CallFlowState): FlowStep {
+  return stepAfterPatientVerification(flow, "verified");
+}
+
+function stepAfterPatientVerification(
+  flow: CallFlowState,
+  patientStatus: PatientStatus,
+): FlowStep {
+  if (patientStatus !== "verified" && patientStatus !== "created") {
+    return nextPatientFlowStep(patientStatus);
+  }
+
   if (flow.activeFlow === "appointment_management") {
     if (flow.activeIntent === "existing_appointment_cancel") {
       return "confirm_cancel";
@@ -835,7 +846,17 @@ function stepAfterPreloadedPatientConfirmation(flow: CallFlowState): FlowStep {
   if (flow.activeFlow === "scheduling") {
     return "get_availability";
   }
-  return nextPatientFlowStep("verified");
+  return nextPatientFlowStep(patientStatus);
+}
+
+function setFlowStep(flow: CallFlowState, step: FlowStep): void {
+  flow.step = step;
+  if (
+    flow.currentTask &&
+    activeFlowForTaskKind(flow.currentTask.kind) === flow.activeFlow
+  ) {
+    flow.currentTask.step = step;
+  }
 }
 
 function wordsForMatch(value: string): Set<string> {

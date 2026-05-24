@@ -107,14 +107,15 @@ function visibleToolNamesForStep(
   state: CallState,
   office: OfficeConfig,
 ): AgentToolName[] {
+  if (needsAppointmentLookup(state)) {
+    return ["confirm_appt", "lookup_knowledge"];
+  }
+
   switch (state.flow.step) {
     case "understand_intent":
     case "triage_visit_type":
       return ["lookup_knowledge"];
     case "answer":
-      if (needsAppointmentLookup(state)) {
-        return ["confirm_appt", "lookup_knowledge"];
-      }
       return hasSuccessfulBookingForActivePatient(state)
         ? ["add_patient_note", "lookup_knowledge"]
         : ["lookup_knowledge"];
