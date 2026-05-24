@@ -1,8 +1,8 @@
 import { getOfficeConfigByPhone, type OfficeKey } from "../customer/profile.js";
 import type {
-  CallerAppointment,
   CallerLookupFailed,
   PhoneLookupResult,
+  StoredCallerAppointment,
 } from "./call-state.js";
 
 const DEFAULT_BASE_URL =
@@ -34,8 +34,10 @@ export async function callApi(
   path: string,
   body: Record<string, unknown>,
   office: string,
+  options: { includeOffice?: boolean } = {},
 ): Promise<unknown> {
-  const payload = { ...body, office };
+  const payload =
+    options.includeOffice === false ? { ...body } : { ...body, office };
   const res = await fetch(`${getBaseUrlForOfficePhone(office)}${path}`, {
     method: "POST",
     headers: {
@@ -76,7 +78,7 @@ export async function lookupByPhone(
       routing?: string;
       allowedProviders?: string[];
       routingAmbiguous?: boolean;
-      appointments?: CallerAppointment[] | null;
+      appointments?: StoredCallerAppointment[] | null;
       message?: string;
       matches?: Array<{ firstName: string }>;
     } & Record<string, unknown>;

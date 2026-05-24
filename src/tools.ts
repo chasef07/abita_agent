@@ -49,9 +49,12 @@ import {
 import { callApi } from "./tooling/advancedmd-client.js";
 import { lookupOfficeKnowledge } from "./tooling/knowledge.js";
 import { transferCallerToOffice } from "./tooling/handoff.js";
-import type {
-  CallState,
-  StoredAvailabilitySlot,
+import {
+  appointmentCancelTokenMap,
+  publicCallerAppointments,
+  type CallState,
+  type StoredAvailabilitySlot,
+  type StoredCallerAppointment,
 } from "./tooling/call-state.js";
 import { refreshDynamicToolsForSession } from "./tooling/dynamic-tool-refresh.js";
 
@@ -67,26 +70,17 @@ export type {
   CallState,
   PhoneLookupResult,
   StoredAvailabilitySlot,
+  StoredCallerAppointment,
 } from "./tooling/call-state.js";
 
-export const appointmentTypeIdSchema = z
-  .union([
-    z.literal(1006),
-    z.literal(1004),
-    z.literal(1007),
-    z.literal(1005),
-    z.literal(1008),
-    z.literal(1010),
-    z.literal(3364),
-    z.literal(4244),
-    z.literal(4245),
-    z.literal(6167),
-    z.literal(6169),
-    z.literal(6168),
-  ])
+const appointmentKindSchema = z
+  .enum(["medical", "routine_vision", "post_op"])
+  .optional()
   .describe(
-    "Allowed AMD appointment type ID. Spring Hill medical: 1006 new adult, 1004 new pediatric, 1007 established adult follow-up, 1005 established pediatric follow-up, 1008 post-op. Routine vision: 1010 new adult, 3364 established adult, 4244 new pediatric, 4245 established pediatric. Crystal River: 6167 new, 6169 established, 6168 post-op. Availability does not return appointmentTypeId.",
+    "Optional human-level appointment kind. Use post_op only for recent surgery follow-up; otherwise omit when the scheduling lane already makes the kind clear.",
   );
+
+type AppointmentKind = "medical" | "routine_vision" | "post_op";
 
 const addPatientParameters = z.object({
   firstName: z.string().describe("Patient's first name"),
@@ -531,6 +525,9 @@ function cancellationFailureReason(result: unknown): string {
   ) {
     return "appointment_not_found";
   }
+  if (text.includes("canceltoken") || text.includes("cancel token")) {
+    return "cancel_token_invalid";
+  }
   if (status === "error") return "middleware_error";
   return "cancel_failed";
 }
@@ -631,7 +628,8 @@ export function getAmdOfficeForToolCall(
 
 /** Apply patient data from an API response, resetting all patient fields so nothing stale lingers. */
 function applyPatientResult(state: CallState, result: any): void {
-  const appointments = result.appointments ?? [];
+  const rawAppointments = extractAppointments(result) ?? [];
+  const appointments = publicCallerAppointments(rawAppointments);
   const patientChange = recordVerifiedPatient(state.flow, {
     patientId: result.patientId ?? null,
     patientName: result.name ?? null,
@@ -639,6 +637,12 @@ function applyPatientResult(state: CallState, result: any): void {
     phone: result.phone ?? null,
     appointments,
   });
+  if (String(result.status ?? "").toLowerCase() === "created") {
+    const patient = ensureActivePatientContext(state.flow);
+    patient.status = "created";
+    state.flow.patientStatus = "created";
+    state.flow.step = nextPatientFlowStep("created");
+  }
   const invalidatePatientState = shouldInvalidatePatientScopedState(
     state,
     result,
@@ -662,6 +666,7 @@ function applyPatientResult(state: CallState, result: any): void {
   state.routingAmbiguous = result.routingAmbiguous ?? false;
   state.preauthRequired = result.preauthRequired ?? false;
   state.appointments = appointments;
+  state.appointmentCancelTokens = appointmentCancelTokenMap(rawAppointments);
   state.flow.officeKey = state.officeKey;
   state.flow.routing = normalizeSchedulingRouting(state.routing);
   state.flow.coverageType = state.checkedInsuranceCoverageType ?? undefined;
@@ -736,6 +741,7 @@ function clearSessionPatientRecord(
   state.routingAmbiguous = false;
   state.preauthRequired = false;
   state.appointments = [];
+  state.appointmentCancelTokens = {};
   state.flow.coverageType = undefined;
   state.flow.routing = undefined;
 }
@@ -774,6 +780,85 @@ function routingForAvailability(
   }
   if (routingOverride) return routingOverride;
   return state.routing;
+}
+
+function appointmentIntentForBooking(
+  state: CallState,
+  routing: string | null,
+  appointmentKind?: AppointmentKind,
+): Record<string, unknown> {
+  const visitKind = inferAppointmentKindForBooking(
+    state,
+    routing,
+    appointmentKind,
+  );
+  const visitCategory =
+    visitKind === "routine_vision" ? "routine_vision" : "medical";
+  const visitReason = state.flow.schedulingGoal?.visitReason?.trim();
+
+  return {
+    visitCategory,
+    visitKind,
+    patientStatus: patientStatusForAppointmentIntent(state),
+    ...(visitKind === "post_op" ? { isPostOp: true } : {}),
+    ...(visitReason ? { visitReason } : {}),
+  };
+}
+
+function inferAppointmentKindForBooking(
+  state: CallState,
+  routing: string | null,
+  appointmentKind?: AppointmentKind,
+): AppointmentKind {
+  if (appointmentKind) return appointmentKind;
+  if (
+    routing === "optical_only" ||
+    state.checkedInsuranceCoverageType === "routine_vision" ||
+    state.flow.visitType === "routine_vision" ||
+    state.flow.schedulingGoal?.visitType === "routine_vision"
+  ) {
+    return "routine_vision";
+  }
+  if (looksLikePostOpVisit(state.flow.schedulingGoal?.visitReason)) {
+    return "post_op";
+  }
+  return "medical";
+}
+
+function patientStatusForAppointmentIntent(
+  state: CallState,
+): "new" | "established" {
+  return state.flow.patientStatus === "created" ||
+    state.flow.patientStatus === "new"
+    ? "new"
+    : "established";
+}
+
+function looksLikePostOpVisit(visitReason: string | undefined): boolean {
+  const normalized = visitReason?.trim().toLowerCase() ?? "";
+  return /\bpost\s*-?\s*op\b|\bpost\s+operative\b|\bpostoperative\b|\bsurgery\s+follow\s*-?\s*up\b|\brecent\s+surgery\b/.test(
+    normalized,
+  );
+}
+
+function appointmentTypeMissingFacts(
+  result: Record<string, unknown>,
+): string[] {
+  return Array.isArray(result.missing)
+    ? result.missing.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function nextStepForAppointmentTypeUnresolved(
+  missing: string[],
+): ToolOutcome["nextStep"] {
+  if (missing.includes("routeToSpringHill") || missing.includes("routing")) {
+    return "route_office";
+  }
+  if (missing.includes("patientStatus") || missing.includes("dob")) {
+    return "verify_patient";
+  }
+  return "collect_visit_reason";
 }
 
 function clearAvailabilitySlots(state: CallState): void {
@@ -817,12 +902,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function extractAppointments(result: unknown): CallerAppointment[] | null {
-  if (Array.isArray(result)) return result as CallerAppointment[];
+function extractAppointments(
+  result: unknown,
+): StoredCallerAppointment[] | null {
+  if (Array.isArray(result)) return result as StoredCallerAppointment[];
   if (isRecord(result) && Array.isArray(result.appointments)) {
-    return result.appointments as CallerAppointment[];
+    return result.appointments as StoredCallerAppointment[];
   }
   return null;
+}
+
+function sanitizedAppointmentLookupResult(
+  result: unknown,
+  appointments: CallerAppointment[],
+): unknown {
+  if (Array.isArray(result)) return appointments;
+  if (isRecord(result)) {
+    return {
+      ...result,
+      appointments,
+    };
+  }
+  return result;
 }
 
 function activeAppointmentById(
@@ -838,10 +939,21 @@ function activeAppointmentById(
   );
 }
 
+function cancelTokenForAppointment(
+  state: CallState,
+  appointmentId: number,
+): string | null {
+  const token = state.appointmentCancelTokens?.[String(appointmentId)];
+  return token?.trim() ? token : null;
+}
+
 function removeAppointmentById(state: CallState, appointmentId: number): void {
   state.appointments = state.appointments.filter(
     (appointment) => appointment.id !== appointmentId,
   );
+  if (state.appointmentCancelTokens) {
+    delete state.appointmentCancelTokens[String(appointmentId)];
+  }
   ensureActivePatientContext(state.flow).appointments =
     ensureActivePatientContext(state.flow).appointments.filter(
       (appointment) => appointment.id !== appointmentId,
@@ -1032,35 +1144,22 @@ function publicAvailabilitySlots(slots: StoredAvailabilitySlot[]) {
 async function submitLegacyBooking(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
-  appointmentTypeId: number,
+  appointmentKind?: AppointmentKind,
 ): Promise<unknown> {
   const routing =
     selectedSlot.routing ??
     state.lastAvailabilityRouting ??
     routingForAvailability(state);
-  const usedBookingToken = Boolean(selectedSlot.bookingToken);
-  let slotPayload: Record<string, unknown>;
-  if (selectedSlot.bookingToken) {
-    slotPayload = { bookingToken: selectedSlot.bookingToken };
-  } else if (
-    selectedSlot.columnId &&
-    selectedSlot.profileId &&
-    selectedSlot.datetime &&
-    selectedSlot.duration
-  ) {
-    slotPayload = {
-      columnId: selectedSlot.columnId,
-      profileId: selectedSlot.profileId,
-      startDatetime: selectedSlot.datetime,
-      duration: selectedSlot.duration,
-    };
-  } else {
-    clearAvailabilitySlots(state);
-    return "ERROR: The selected slot is missing booking details. Call get_availability again and choose one of the returned slots.";
-  }
+  const bookingToken = bookingTokenForSelectedSlot(state, selectedSlot);
+  if (typeof bookingToken !== "string") return bookingToken;
+  const appointmentIntent = appointmentIntentForBooking(
+    state,
+    routing,
+    appointmentKind,
+  );
   const body = {
-    ...slotPayload,
-    appointmentTypeId,
+    bookingToken,
+    ...appointmentIntent,
     patientId: state.patientId,
     ...(state.patientName ? { patientName: state.patientName } : {}),
     ...(state.dob ? { dob: state.dob } : {}),
@@ -1070,15 +1169,11 @@ async function submitLegacyBooking(
     "/api/appointment/book",
     body,
     getAmdOfficeForToolCall(state),
+    { includeOffice: false },
   );
   const legacyBookingSucceeded = legacyBookingLooksSuccessful(result);
   if (legacyBookingSucceeded) {
-    recordSuccessfulLegacyBooking(
-      state,
-      selectedSlot,
-      appointmentTypeId,
-      routing,
-    );
+    recordSuccessfulLegacyBooking(state, selectedSlot, routing);
   }
   if (isRecord(result)) {
     const message =
@@ -1087,7 +1182,7 @@ async function submitLegacyBooking(
       legacyBookingSucceeded ||
       result.outcome === "slot_unavailable" ||
       result.outcome === "invalid_booking_token" ||
-      (usedBookingToken && result.status === "error") ||
+      result.status === "error" ||
       message.includes("slot is no longer available");
     if (invalidatesSelection) {
       clearAvailabilitySelection(state);
@@ -1107,16 +1202,33 @@ function legacyBookingLooksSuccessful(result: unknown): boolean {
   );
 }
 
+function bookingTokenForSelectedSlot(
+  state: CallState,
+  selectedSlot: StoredAvailabilitySlot,
+): string | ToolOutcome {
+  const bookingToken = selectedSlot.bookingToken?.trim();
+  if (bookingToken) return bookingToken;
+  clearAvailabilitySelection(state);
+  return toolOutcome(
+    "not_allowed",
+    "get_availability",
+    "That cached slot is missing a signed booking token. Search availability again and choose one of the returned slots.",
+    {
+      reason: "booking_requires_booking_token",
+      slotId: selectedSlot.slotId,
+    },
+    true,
+  );
+}
+
 function recordSuccessfulLegacyBooking(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
-  appointmentTypeId: number,
   routing: string | null,
 ): void {
   const action = createPendingBookingAction(state.flow, {
     patientRef: state.flow.activePatientRef,
     slotHash: selectedSlot.slotId,
-    appointmentTypeId,
     officeKey: state.officeKey,
     routing,
     spokenSummary: selectedSlot.spoken,
@@ -1131,7 +1243,6 @@ function recordSuccessfulLegacyBooking(
 function ensureConfirmedBookingActionFromState(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
-  appointmentTypeId: number,
   toolCallId: string,
 ) {
   const selectedSlotId = state.flow.schedulingGoal?.selectedSlotId;
@@ -1151,7 +1262,6 @@ function ensureConfirmedBookingActionFromState(
   const action = createPendingBookingAction(state.flow, {
     patientRef: state.flow.activePatientRef,
     slotHash: selectedSlot.slotId,
-    appointmentTypeId,
     officeKey: state.officeKey,
     routing,
     spokenSummary: selectedSlot.spoken,
@@ -1591,7 +1701,7 @@ After response: session state updates automatically. If preauthRequired, schedul
 export const get_availability = llm.tool({
   description: `Gets schedule availability. Requires date (YYYY-MM-DD). Routing and preauth auto-applied from session state.
 
-Ask the caller the reason for their visit before calling this tool so the scheduling lane is right. The API returns slot timing and provider details needed for booking. It does not return appointmentTypeId.
+Ask the caller the reason for their visit before calling this tool so the scheduling lane is right. The API returns slot timing and provider details needed for booking. The middleware resolves the AMD appointment type during booking.
 
 Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. Under 18 medical visits = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
 
@@ -1693,9 +1803,12 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
       { patientId: state.patientId },
       getAmdOfficeForToolCall(state),
     );
-    const appointments = extractAppointments(result);
-    if (appointments) {
+    const rawAppointments = extractAppointments(result);
+    if (rawAppointments) {
+      const appointments = publicCallerAppointments(rawAppointments);
       state.appointments = appointments;
+      state.appointmentCancelTokens =
+        appointmentCancelTokenMap(rawAppointments);
       ensureActivePatientContext(state.flow).appointments = appointments;
       startPatientTask(state.flow, {
         kind: "appointment_management",
@@ -1711,7 +1824,7 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
           { appointments },
           false,
         ),
-        result,
+        sanitizedAppointmentLookupResult(result, appointments),
       );
     }
     return withMiddlewareResult(
@@ -1763,10 +1876,33 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
       },
     );
     if (policyResponse) return policyResponse;
+    if (!state.patientId) {
+      return toolOutcome(
+        "not_allowed",
+        "verify_patient",
+        "Verify the patient before cancelling.",
+        { reason: "cancel_requires_verified_or_created_patient" },
+        true,
+      );
+    }
+    const cancelToken = cancelTokenForAppointment(state, appointmentId);
+    if (!cancelToken) {
+      return toolOutcome(
+        "not_allowed",
+        "confirm_cancel",
+        "Load the patient's appointments again, read back the exact appointment, and confirm before cancelling.",
+        {
+          reason: "cancel_requires_cancel_token",
+          appointmentId,
+        },
+        true,
+      );
+    }
     const result = await callApi(
       "/api/appointment/cancel",
-      { appointmentId },
+      { appointmentId, patientId: state.patientId, cancelToken },
       getAmdOfficeForToolCall(state),
+      { includeOffice: false },
     );
     const cancelResultReason = cancellationFailureReason(result);
     if (
@@ -1807,11 +1943,17 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
     const reason = cancelResultReason;
     return withMiddlewareResult(
       toolOutcome(
-        reason === "appointment_not_found" ? "not_found" : "error",
+        reason === "appointment_not_found"
+          ? "not_found"
+          : reason === "cancel_token_invalid"
+            ? "not_allowed"
+            : "error",
         "confirm_cancel",
         reason === "appointment_not_found"
           ? "That appointment was not found. Load the patient's appointments again before cancelling."
-          : "Cancellation did not complete. Confirm the appointment and try again or transfer.",
+          : reason === "cancel_token_invalid"
+            ? "Load the patient's appointments again, choose the appointment to cancel, and confirm it."
+            : "Cancellation did not complete. Confirm the appointment and try again or transfer.",
         {
           reason,
           appointmentId,
@@ -1926,14 +2068,14 @@ Only save these two fields: appointment reason and referring doctor. If there is
 export const book_appt = llm.tool({
   description: `Books an appointment using slotId from the latest get_availability response. Patient ID is read from session state automatically.
 
-Select appointmentTypeId only from the allowed enum based on office, patient status, age, routing lane, and visit type. Availability does not return appointmentTypeId, so do not claim it came from the slot.
+The middleware resolves the AMD appointment type from the selected slot, patient status, DOB, routing lane, and appointment kind. Do not choose or mention numeric AMD appointment type IDs.
 
 Only book after the caller says yes to the exact offered slot. If the tool says the confirmation was interrupted, confirm the exact slot again before retrying. If booking fails because the slot is unavailable, call get_availability again before trying another slot.`,
   parameters: z.object({
     slotId: z
       .string()
       .describe("slotId of the caller-confirmed slot from get_availability"),
-    appointmentTypeId: appointmentTypeIdSchema,
+    appointmentKind: appointmentKindSchema,
   }),
   execute: async (params, { ctx, toolCallId }) => {
     const state = getState(ctx);
@@ -1962,7 +2104,6 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
           booking: {
             patientRef: state.flow.activePatientRef,
             slotHash: normalizeSlotId(params.slotId),
-            appointmentTypeId: params.appointmentTypeId,
             officeKey: state.officeKey,
             routing:
               state.lastAvailabilityRouting ?? routingForAvailability(state),
@@ -1988,7 +2129,6 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
     const bookingPolicyFacts = {
       patientRef: state.flow.activePatientRef,
       slotHash: selectedSlot.slotId,
-      appointmentTypeId: params.appointmentTypeId,
       officeKey: state.officeKey,
       routing,
     };
@@ -2001,18 +2141,15 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
         true,
       );
     }
-    ensureConfirmedBookingActionFromState(
-      state,
-      selectedSlot,
-      params.appointmentTypeId,
-      toolCallId,
-    );
+    ensureConfirmedBookingActionFromState(state, selectedSlot, toolCallId);
     const policyResponse = evaluatePolicyForState(state, "book_appt", params, {
       booking: bookingPolicyFacts,
     });
     if (policyResponse) return policyResponse;
+    const bookingToken = bookingTokenForSelectedSlot(state, selectedSlot);
+    if (typeof bookingToken !== "string") return bookingToken;
     if (!isFlowHarnessEnabled(state)) {
-      return submitLegacyBooking(state, selectedSlot, params.appointmentTypeId);
+      return submitLegacyBooking(state, selectedSlot, params.appointmentKind);
     }
     const bookingAttempt = recordBookingAttempt(state.flow, {
       ...bookingPolicyFacts,
@@ -2027,35 +2164,14 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
         retryable: true,
       } satisfies ToolOutcome;
     }
-    const usedBookingToken = Boolean(selectedSlot.bookingToken);
-    let slotPayload: Record<string, unknown>;
-    if (selectedSlot.bookingToken) {
-      slotPayload = { bookingToken: selectedSlot.bookingToken };
-    } else if (
-      selectedSlot.columnId &&
-      selectedSlot.profileId &&
-      selectedSlot.datetime &&
-      selectedSlot.duration
-    ) {
-      slotPayload = {
-        columnId: selectedSlot.columnId,
-        profileId: selectedSlot.profileId,
-        startDatetime: selectedSlot.datetime,
-        duration: selectedSlot.duration,
-      };
-    } else {
-      clearAvailabilitySlots(state);
-      return toolOutcome(
-        "error",
-        "get_availability",
-        "The selected slot is missing booking details. Search availability again and choose one of the returned slots.",
-        { reason: "slot_missing_booking_details", slotId: selectedSlot.slotId },
-        true,
-      );
-    }
+    const appointmentIntent = appointmentIntentForBooking(
+      state,
+      routing,
+      params.appointmentKind,
+    );
     const body = {
-      ...slotPayload,
-      appointmentTypeId: params.appointmentTypeId,
+      bookingToken,
+      ...appointmentIntent,
       patientId: state.patientId,
       ...(state.patientName ? { patientName: state.patientName } : {}),
       ...(state.dob ? { dob: state.dob } : {}),
@@ -2065,6 +2181,7 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
       "/api/appointment/book",
       body,
       getAmdOfficeForToolCall(state),
+      { includeOffice: false },
     );
     const bookingResult = recordBookingResult(
       state.flow,
@@ -2081,7 +2198,7 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
           "Appointment booked successfully.",
           {
             slotId: selectedSlot.slotId,
-            appointmentTypeId: params.appointmentTypeId,
+            appointmentKind: appointmentIntent.visitKind,
             appointmentId: isRecord(result) ? result.appointmentId : undefined,
           },
           false,
@@ -2123,7 +2240,28 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
           {
             reason: "invalid_appointment_type",
             slotId: selectedSlot.slotId,
-            appointmentTypeId: params.appointmentTypeId,
+            appointmentKind: appointmentIntent.visitKind,
+          },
+          true,
+        ),
+        result,
+      );
+    }
+    if (isRecord(result) && result.outcome === "appointment_type_unresolved") {
+      const missing = appointmentTypeMissingFacts(result);
+      const nextStep = nextStepForAppointmentTypeUnresolved(missing);
+      updateCurrentTaskStep(state, nextStep);
+      return withMiddlewareResult(
+        toolOutcome(
+          "needs_clarification",
+          nextStep,
+          typeof result.message === "string"
+            ? result.message
+            : "Confirm the missing appointment details before booking.",
+          {
+            reason: "appointment_type_unresolved",
+            missing,
+            slotId: selectedSlot.slotId,
           },
           true,
         ),
@@ -2132,7 +2270,7 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
     }
     if (
       bookingResult.errorClass === "middleware_error" ||
-      (usedBookingToken && isRecord(result) && result.status === "error")
+      (isRecord(result) && result.status === "error")
     ) {
       updateCurrentTaskStep(state, "confirm_booking");
       return withMiddlewareResult(

@@ -57,7 +57,7 @@ export interface AvailabilitySearchInspection {
 export interface BookingAttemptRecordInput {
   patientRef?: PatientRef;
   slotHash: string;
-  appointmentTypeId: number;
+  appointmentTypeId?: number;
   officeKey: OfficeKey;
   routing?: SchedulingRouting | string | null;
   spokenSummary: string;
@@ -75,7 +75,7 @@ export interface BookingAttemptRecordResult {
 export interface PendingBookingActionInput {
   patientRef?: PatientRef;
   slotHash: string;
-  appointmentTypeId: number;
+  appointmentTypeId?: number;
   officeKey: OfficeKey;
   routing?: SchedulingRouting | string | null;
   spokenSummary: string;
@@ -481,7 +481,7 @@ function findMatchingBookingAction(
   input: {
     patientRef: PatientRef;
     slotHash: string;
-    appointmentTypeId: number;
+    appointmentTypeId?: number;
     officeKey: OfficeKey;
     routing?: SchedulingRouting;
     availabilitySearchId: string;
@@ -562,7 +562,7 @@ function createBookingAction(
   input: {
     patientRef: PatientRef;
     slotHash: string;
-    appointmentTypeId: number;
+    appointmentTypeId?: number;
     officeKey: OfficeKey;
     routing?: SchedulingRouting;
     availabilitySearchId: string;

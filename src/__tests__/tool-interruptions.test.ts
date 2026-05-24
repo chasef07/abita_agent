@@ -20,7 +20,6 @@ vi.mock("livekit-server-sdk", () => ({
 import {
   add_patient,
   add_patient_note,
-  appointmentTypeIdSchema,
   book_appt,
   buildCallCenterHandoffHeaders,
   cancel_appt,
@@ -195,6 +194,49 @@ describe("tool interruption handling", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("stores appointment cancel tokens outside the model-facing appointment result", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "found",
+        appointments: [
+          {
+            id: 12345,
+            date: "Monday, June 1, 2026",
+            time: "9:00 AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            facility: "Spring Hill",
+            confirmed: true,
+            cancelToken: "cancel-token-12345",
+          },
+        ],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+
+    const result = await confirm_appt.execute(
+      {},
+      { ctx, toolCallId: "test-confirm-appt-tokens" },
+    );
+
+    expect(state.appointmentCancelTokens).toEqual({
+      "12345": "cancel-token-12345",
+    });
+    expect(state.appointments[0]).not.toHaveProperty("cancelToken");
+    expect(result).toMatchObject({
+      outcome: "success",
+      facts: {
+        appointments: [expect.objectContaining({ id: 12345 })],
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("cancel-token-12345");
+    expect(JSON.stringify(result)).not.toContain("cancelToken");
+  });
+
   it("does not require turn understanding when the flow harness is disabled", async () => {
     const { ctx, state } = createToolContext();
     state.flowHarnessEnabled = false;
@@ -335,7 +377,6 @@ describe("tool interruption handling", () => {
           return book_appt.execute(
             {
               slotId: "A",
-              appointmentTypeId: 1007,
             },
             { ctx, toolCallId: "test-book" },
           );
@@ -584,7 +625,6 @@ describe("tool interruption handling", () => {
     await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book" },
     );
@@ -592,15 +632,18 @@ describe("tool interruption handling", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
     const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(requestBody).toMatchObject({
-      appointmentTypeId: 1007,
-      columnId: 1,
-      duration: 15,
+      bookingToken: "signed-token",
+      visitCategory: "medical",
+      visitKind: "medical",
+      patientStatus: "established",
       patientId: "patient-1",
       patientName: "Jane Doe",
       dob: "01/01/1980",
-      profileId: 2,
-      startDatetime: "2026-04-28T09:00",
     });
+    expect(requestBody).not.toHaveProperty("appointmentTypeId");
+    expect(requestBody).not.toHaveProperty("columnId");
+    expect(requestBody).not.toHaveProperty("profileId");
+    expect(requestBody).not.toHaveProperty("office");
   });
 
   it("stores booking-token slots and hides raw scheduler IDs from the model", async () => {
@@ -711,7 +754,6 @@ describe("tool interruption handling", () => {
     await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book" },
     );
@@ -719,14 +761,18 @@ describe("tool interruption handling", () => {
     const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(requestBody).toMatchObject({
       bookingToken: "signed-token",
-      appointmentTypeId: 1007,
+      visitCategory: "medical",
+      visitKind: "medical",
+      patientStatus: "established",
       patientId: "patient-1",
       patientName: "Jane Doe",
       dob: "01/01/1980",
       routing: "all_three",
     });
+    expect(requestBody).not.toHaveProperty("appointmentTypeId");
     expect(requestBody).not.toHaveProperty("columnId");
     expect(requestBody).not.toHaveProperty("profileId");
+    expect(requestBody).not.toHaveProperty("office");
     expect(state.lastAvailabilitySlots).toEqual([]);
   });
 
@@ -740,7 +786,6 @@ describe("tool interruption handling", () => {
     const result = await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book-policy" },
     );
@@ -754,7 +799,35 @@ describe("tool interruption handling", () => {
     });
   });
 
-  it("uses legacy direct booking when the flow harness is disabled", async () => {
+  it("blocks booking cached slots that are missing a signed booking token", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state, { bookingToken: null });
+    seedPendingBookingAction(state);
+
+    const result = await book_appt.execute(
+      {
+        slotId: "A",
+      },
+      { ctx, toolCallId: "test-book-missing-token" },
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "get_availability",
+      facts: {
+        reason: "booking_requires_booking_token",
+        slotId: "A",
+      },
+    });
+    expect(state.lastAvailabilitySlots).toEqual([]);
+    expect(state.lastAvailabilityRouting).toBeNull();
+  });
+
+  it("uses signed-token booking when the flow harness is disabled", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
       json: async () => ({ status: "booked", appointmentId: 12345 }),
@@ -769,7 +842,6 @@ describe("tool interruption handling", () => {
     const result = await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book-disabled-harness" },
     );
@@ -807,14 +879,12 @@ describe("tool interruption handling", () => {
       const result = await book_appt.execute(
         {
           slotId: "A",
-          appointmentTypeId: 1007,
         },
         { ctx, toolCallId: `test-book-legacy-success-${index}` },
       );
       const duplicate = await book_appt.execute(
         {
           slotId: "A",
-          appointmentTypeId: 1007,
         },
         { ctx, toolCallId: `test-book-legacy-duplicate-${index}` },
       );
@@ -841,7 +911,6 @@ describe("tool interruption handling", () => {
     const result = await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book-unconfirmed" },
     );
@@ -869,7 +938,6 @@ describe("tool interruption handling", () => {
     await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book" },
     );
@@ -897,7 +965,6 @@ describe("tool interruption handling", () => {
     await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book" },
     );
@@ -905,7 +972,6 @@ describe("tool interruption handling", () => {
     const duplicate = await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book-duplicate" },
     );
@@ -967,7 +1033,6 @@ describe("tool interruption handling", () => {
     await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book-child" },
     );
@@ -999,7 +1064,6 @@ describe("tool interruption handling", () => {
     const result = await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book" },
     );
@@ -1041,6 +1105,7 @@ describe("tool interruption handling", () => {
         columnId: 1,
         profileId: 2,
         duration: 15,
+        bookingToken: "signed-token-a",
         routing: "all_three",
       },
       {
@@ -1053,6 +1118,7 @@ describe("tool interruption handling", () => {
         columnId: 3,
         profileId: 4,
         duration: 15,
+        bookingToken: "signed-token-b",
         routing: "all_three",
       },
     ];
@@ -1071,7 +1137,6 @@ describe("tool interruption handling", () => {
     const result = await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book" },
     );
@@ -1121,7 +1186,6 @@ describe("tool interruption handling", () => {
     const result = await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book" },
     );
@@ -1139,6 +1203,42 @@ describe("tool interruption handling", () => {
       status: "invalidated",
       lastInvalidationReason: "appointment_type_invalid",
     });
+  });
+
+  it("asks for missing details when middleware cannot resolve appointment type", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "error",
+        outcome: "appointment_type_unresolved",
+        missing: ["dob"],
+        message: "Verify the patient's DOB before booking.",
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state);
+    seedPendingBookingAction(state);
+
+    const result = await book_appt.execute(
+      {
+        slotId: "A",
+      },
+      { ctx, toolCallId: "test-book-unresolved-type" },
+    );
+
+    expect(result).toMatchObject({
+      outcome: "needs_clarification",
+      nextStep: "verify_patient",
+      facts: {
+        reason: "appointment_type_unresolved",
+        missing: ["dob"],
+        slotId: "A",
+      },
+    });
+    expect(state.lastAvailabilitySlots).toHaveLength(1);
   });
 
   it("clears cached availability when switching the active scheduling office", async () => {
@@ -1175,7 +1275,6 @@ describe("tool interruption handling", () => {
     await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1007,
       },
       { ctx, toolCallId: "test-book" },
     );
@@ -1335,7 +1434,7 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state);
 
     await book_appt.execute(
-      { slotId: "A", appointmentTypeId: 1007 },
+      { slotId: "A" },
       { ctx, toolCallId: "test-legacy-book" },
     );
     const noteResult = await add_patient_note.execute(
@@ -1362,11 +1461,32 @@ describe("tool interruption handling", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("constrains booking to supported appointment type IDs", () => {
-    expect(appointmentTypeIdSchema.safeParse(1007).success).toBe(true);
-    expect(appointmentTypeIdSchema.safeParse(1010).success).toBe(true);
-    expect(appointmentTypeIdSchema.safeParse(6169).success).toBe(true);
-    expect(appointmentTypeIdSchema.safeParse(9999).success).toBe(false);
+  it("sends appointment kind intent instead of raw appointment type IDs", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "booked", appointmentId: 12345 }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state);
+    seedPendingBookingAction(state);
+
+    await book_appt.execute(
+      { slotId: "A", appointmentKind: "post_op" },
+      { ctx, toolCallId: "test-book-post-op" },
+    );
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody).toMatchObject({
+      bookingToken: "signed-token",
+      visitCategory: "medical",
+      visitKind: "post_op",
+      isPostOp: true,
+      patientStatus: "established",
+    });
+    expect(requestBody).not.toHaveProperty("appointmentTypeId");
   });
 
   it("stores the routine vision routing lane from availability and reuses it for booking", async () => {
@@ -1411,32 +1531,36 @@ describe("tool interruption handling", () => {
       routing: "optical_only",
     });
     seedLastAvailabilitySlot(state, {
+      bookingToken: "routine-vision-token",
       columnId: 1600,
       profileId: 1983,
       datetime: "2026-04-28T10:00",
       duration: 45,
       routing: "optical_only",
     });
-    seedPendingBookingAction(state, { appointmentTypeId: 1010 });
+    seedPendingBookingAction(state);
 
     await book_appt.execute(
       {
         slotId: "A",
-        appointmentTypeId: 1010,
       },
       { ctx, toolCallId: "test-book" },
     );
 
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
-      appointmentTypeId: 1010,
-      columnId: 1600,
-      duration: 45,
+      bookingToken: "routine-vision-token",
+      visitCategory: "routine_vision",
+      visitKind: "routine_vision",
+      patientStatus: "established",
       patientId: "patient-1",
-      profileId: 1983,
-      office: "+17275919997",
       routing: "optical_only",
-      startDatetime: "2026-04-28T10:00",
     });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).not.toHaveProperty(
+      "appointmentTypeId",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).not.toHaveProperty(
+      "office",
+    );
   });
 
   it("keeps routine vision scheduling local for Hollywood and Sweetwater", async () => {
@@ -1843,6 +1967,29 @@ describe("tool interruption handling", () => {
     });
   });
 
+  it("blocks cancellation when the loaded appointment has no cancel token", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLoadedAppointment(state, 12345, null);
+
+    const result = await cancel_appt.execute(
+      { appointmentId: 12345 },
+      { ctx, toolCallId: "test-cancel-missing-token" },
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "confirm_cancel",
+      facts: {
+        reason: "cancel_requires_cancel_token",
+        appointmentId: 12345,
+      },
+    });
+  });
+
   it("creates and consumes a pending cancellation action from the final tool call", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
@@ -1860,6 +2007,13 @@ describe("tool interruption handling", () => {
     );
 
     expect(fetchMock).toHaveBeenCalledOnce();
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody).toMatchObject({
+      appointmentId: 12345,
+      patientId: "patient-1",
+      cancelToken: "cancel-token-12345",
+    });
+    expect(requestBody).not.toHaveProperty("office");
     expect(cancelResult).toMatchObject({
       outcome: "success",
       nextStep: "answer",
@@ -1872,6 +2026,7 @@ describe("tool interruption handling", () => {
       consumed: true,
     });
     expect(state.appointments).toEqual([]);
+    expect(state.appointmentCancelTokens).not.toHaveProperty("12345");
     expect(
       state.flow.patients[state.flow.activePatientRef!].appointments,
     ).toEqual([]);
@@ -1918,10 +2073,44 @@ describe("tool interruption handling", () => {
       },
     });
     expect(state.appointments).toHaveLength(1);
+    expect(state.appointmentCancelTokens).toMatchObject({
+      "12345": "cancel-token-12345",
+    });
     expect(state.flow.pendingActions[0]).toMatchObject({
       type: "cancel_appt",
       consumed: false,
     });
+  });
+
+  it("maps invalid cancel-token responses to reload-and-confirm guidance", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "error",
+        message:
+          "Invalid or expired cancel token. Please load appointments again and choose the appointment to cancel.",
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLoadedAppointment(state, 12345);
+
+    const result = await cancel_appt.execute(
+      { appointmentId: 12345 },
+      { ctx, toolCallId: "test-cancel-invalid-token" },
+    );
+
+    expect(result).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "confirm_cancel",
+      facts: {
+        reason: "cancel_token_invalid",
+        appointmentId: 12345,
+      },
+    });
+    expect(state.appointments).toHaveLength(1);
   });
 
   it("keeps conflicting raw middleware status nested when cancellation is normalized as success", async () => {
@@ -2109,7 +2298,6 @@ describe("tool interruption handling", () => {
           return book_appt.execute(
             {
               slotId: "A",
-              appointmentTypeId: 1007,
             },
             { ctx, toolCallId: "test-book" },
           );
@@ -2206,10 +2394,7 @@ describe("tool interruption handling", () => {
           markBookingConfirmedInState(state);
         },
         run: (ctx: ToolContext) =>
-          book_appt.execute(
-            { slotId: "A", appointmentTypeId: 1007 },
-            { ctx, toolCallId: "test-book" },
-          ),
+          book_appt.execute({ slotId: "A" }, { ctx, toolCallId: "test-book" }),
       },
     ];
 
@@ -2366,6 +2551,7 @@ function createToolContext() {
     routingAmbiguous: false,
     preauthRequired: false,
     appointments: [],
+    appointmentCancelTokens: {},
     transferred: false,
     transferInFlight: false,
   };
@@ -2381,11 +2567,22 @@ function createToolContext() {
   return { ctx, speechHandle, state };
 }
 
+type AvailabilitySlotOverrides = Omit<
+  Partial<CallState["lastAvailabilitySlots"][number]>,
+  "bookingToken"
+> & {
+  bookingToken?: string | null;
+};
+
 function seedLastAvailabilitySlot(
   state: CallState,
-  overrides: Partial<CallState["lastAvailabilitySlots"][number]> = {},
+  overrides: AvailabilitySlotOverrides = {},
 ) {
   const routing = overrides.routing ?? "all_three";
+  const bookingToken =
+    overrides.bookingToken === null
+      ? undefined
+      : (overrides.bookingToken ?? "signed-token");
   state.lastAvailabilityRouting = routing;
   state.lastAvailabilitySlots = [
     {
@@ -2399,9 +2596,7 @@ function seedLastAvailabilitySlot(
       profileId: overrides.profileId ?? 2,
       duration: overrides.duration ?? 15,
       routing,
-      ...(overrides.bookingToken
-        ? { bookingToken: overrides.bookingToken }
-        : {}),
+      ...(bookingToken ? { bookingToken } : {}),
     },
   ];
 }
@@ -2433,7 +2628,9 @@ function seedPendingBookingAction(
 
   return createPendingBookingAction(state.flow, {
     slotHash: slot.slotId,
-    appointmentTypeId: overrides.appointmentTypeId ?? 1007,
+    ...(overrides.appointmentTypeId !== undefined
+      ? { appointmentTypeId: overrides.appointmentTypeId }
+      : {}),
     officeKey: state.officeKey,
     routing: slot.routing ?? state.lastAvailabilityRouting,
     spokenSummary: slot.spoken,
@@ -2487,7 +2684,11 @@ function seedPendingSideEffectAction(
   });
 }
 
-function seedLoadedAppointment(state: CallState, appointmentId = 12345) {
+function seedLoadedAppointment(
+  state: CallState,
+  appointmentId = 12345,
+  cancelToken: string | null = `cancel-token-${appointmentId}`,
+) {
   const appointment = {
     id: appointmentId,
     date: "2026-06-01",
@@ -2506,6 +2707,12 @@ function seedLoadedAppointment(state: CallState, appointmentId = 12345) {
     ...activePatient.appointments.filter((item) => item.id !== appointmentId),
     appointment,
   ];
+  state.appointmentCancelTokens ??= {};
+  if (cancelToken) {
+    state.appointmentCancelTokens[String(appointmentId)] = cancelToken;
+  } else {
+    delete state.appointmentCancelTokens[String(appointmentId)];
+  }
 }
 
 function expectInterruptedOutcome(result: unknown, toolName: string) {

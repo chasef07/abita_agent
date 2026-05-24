@@ -9,6 +9,10 @@ import type { AgentToolName } from "./tool-exposure.js";
 
 export type { CallerAppointment } from "../flow/index.js";
 
+export interface StoredCallerAppointment extends CallerAppointment {
+  cancelToken?: string;
+}
+
 export interface CallerMatch {
   status: "verified";
   patientId: string;
@@ -21,7 +25,7 @@ export interface CallerMatch {
   routing: string;
   allowedProviders: string[];
   routingAmbiguous: boolean;
-  appointments: CallerAppointment[] | null;
+  appointments: StoredCallerAppointment[] | null;
   lookupDurationMs?: number;
 }
 
@@ -123,6 +127,41 @@ export interface CallState {
   routingAmbiguous: boolean;
   preauthRequired: boolean;
   appointments: CallerAppointment[];
+  appointmentCancelTokens?: Record<string, string>;
   transferred: boolean;
   transferInFlight?: boolean;
+}
+
+export function publicCallerAppointments(
+  appointments: readonly StoredCallerAppointment[] | null | undefined,
+): CallerAppointment[] {
+  return (appointments ?? []).map(
+    ({ id, date, time, provider, type, facility, confirmed }) => ({
+      id,
+      date,
+      time,
+      provider,
+      type,
+      facility,
+      confirmed,
+    }),
+  );
+}
+
+export function appointmentCancelTokenMap(
+  appointments: readonly StoredCallerAppointment[] | null | undefined,
+): Record<string, string> {
+  return Object.fromEntries(
+    (appointments ?? [])
+      .filter(
+        (appointment) =>
+          typeof appointment.id === "number" &&
+          typeof appointment.cancelToken === "string" &&
+          appointment.cancelToken.trim().length > 0,
+      )
+      .map((appointment) => [
+        String(appointment.id),
+        appointment.cancelToken as string,
+      ]),
+  );
 }
