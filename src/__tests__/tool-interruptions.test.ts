@@ -169,16 +169,67 @@ describe("tool interruption handling", () => {
 
     expect(recorded).toMatchObject({
       status: "recorded",
-      goal: "manage_existing_appointment",
-      appointmentAction: "reschedule",
-      activeIntent: "existing_appointment_reschedule",
+      nextAction: "confirm_appt",
+      action: "call_tool",
+      tool: "confirm_appt",
+      args: {},
+      instruction: "Call confirm_appt now.",
     });
+    expect(recorded).not.toHaveProperty("turnState");
+    expect(recorded).not.toHaveProperty("controllerDecision");
+    expect(recorded).not.toHaveProperty("resolvedMetaDecision");
+    expect(recorded).not.toHaveProperty("activeFlow");
     expect(state.turnUnderstandingAppliedForTranscript).toBe(
       "I need to move my appointment next week",
     );
     expect(state.flow.schedulingGoal).toMatchObject({
       appointmentAction: "reschedule",
       preferredWindow: "next week",
+    });
+  });
+
+  it("returns a compact command packet with exact booking args", async () => {
+    const { ctx, state } = createToolContext();
+    state.latestUserTranscript = "Yes, book it.";
+    state.turnUnderstandingAppliedForTranscript = null;
+    state.flow.activeIntent = "new_appointment";
+    state.flow.activeFlow = "scheduling";
+    state.flow.step = "confirm_booking";
+    state.flow.visitType = "medical";
+    state.flow.coverageType = "medical";
+    state.flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "double vision",
+      visitType: "medical",
+      preferredWindow: "tomorrow",
+      selectedSlotId: "C",
+      updatedAt: Date.now(),
+    };
+
+    const recorded = await record_turn_understanding.execute(
+      {
+        goal: "schedule",
+        appointmentAction: null,
+        scheduling: {
+          selectedSlotId: "C",
+          bookingConfirmed: true,
+        },
+        interruption: "none",
+        confidence: 0.95,
+        evidence: ["Yes, book it"],
+      },
+      { ctx, toolCallId: "test-understanding-book" },
+    );
+
+    expect(recorded).toEqual({
+      status: "recorded",
+      nextAction: "book_appt",
+      action: "call_tool",
+      tool: "book_appt",
+      args: { slotId: "C", appointmentKind: "medical" },
+      instruction: "Call book_appt now.",
     });
   });
 
