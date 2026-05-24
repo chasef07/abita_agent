@@ -161,6 +161,7 @@ describe("insurance matcher", () => {
       ["Optimum Healthcare", "iCare"],
       ["CarePlus", "Alivi"],
       ["Oscar", "Oscar"],
+      ["I have Oscar", "Oscar"],
       ["Self Pay", "Self Pay"],
     ] as const;
 
