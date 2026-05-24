@@ -605,6 +605,59 @@ describe("flow state and context packet", () => {
     });
   });
 
+  it("keeps appointment lookup active after verifying an appointment-management patient", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+    });
+    flow.activeFlow = "appointment_management";
+    flow.activeIntent = "existing_appointment_confirm";
+    flow.step = "verify_patient";
+    startPatientTask(flow, {
+      kind: "appointment_management",
+      step: "verify_patient",
+      patientRef: "caller",
+      createdAt: 1,
+    });
+    recordPatientVerificationAttempt(flow, {
+      firstName: "Tree",
+      phone: "+19546097250",
+      usePhone: true,
+      relationshipToCaller: "self",
+      source: "caller_spelled",
+    });
+
+    recordVerifiedPatient(flow, {
+      patientId: "6050016",
+      patientName: "TEST,TREE",
+      dob: "01/01/1987",
+      phone: "(195) 460-97250",
+      appointments: [],
+    });
+
+    expect(flow).toMatchObject({
+      activeFlow: "appointment_management",
+      activeIntent: "existing_appointment_confirm",
+      patientStatus: "verified",
+      step: "answer",
+      currentTask: {
+        kind: "appointment_management",
+        step: "answer",
+      },
+    });
+    expect(
+      nextFlowDecision({
+        state: flow,
+        event: {
+          type: "caller_intent",
+          intent: "existing_appointment_confirm",
+        },
+      }),
+    ).toMatchObject({
+      type: "call_tool",
+      tool: "confirm_appt",
+    });
+  });
+
   it("records availability search signatures and budget state", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
     flow.visitType = "medical";
