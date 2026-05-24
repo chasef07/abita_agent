@@ -492,7 +492,7 @@ export function recordPatientVerificationAttempt(
     phone: args.usePhone ? args.phone : undefined,
   });
   flow.patientStatus = patient.status;
-  flow.step = "verify_patient";
+  flow.step = nextPatientFlowStep(patient.status);
   return patient;
 }
 

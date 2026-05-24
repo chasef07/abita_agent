@@ -36,6 +36,22 @@ export function advanceFlowForTurn({
     transcript,
     understanding,
   );
+  if (isLowConfidenceNoop(update)) {
+    const decision: FlowDecision = {
+      type: "ask",
+      slot: "clarification",
+      promptHint:
+        "Ask one short clarifying question before changing workflow state.",
+    };
+    return {
+      update,
+      decision,
+      turnState: compileTurnStatePacket(flow, {
+        nextAction: nextActionForFlowDecision(decision),
+      }),
+      instruction: instructionForFlowDecision(decision),
+    };
+  }
   const initialDecision = nextFlowDecision({
     state: flow,
     event: {
@@ -45,6 +61,7 @@ export function advanceFlowForTurn({
       visitType: update.inferred.visitType,
       insurancePlan: update.inferred.insurancePlan,
       coverageType: update.inferred.coverageType,
+      pathFactsChanged: update.pathFactsChanged,
     },
   });
   const resolved = resolveMetaDecision(flow, initialDecision);
@@ -59,6 +76,10 @@ export function advanceFlowForTurn({
     instruction: instructionForFlowDecision(decision),
     ...(resolved.meta ? { resolvedMetaDecision: resolved.meta } : {}),
   };
+}
+
+function isLowConfidenceNoop(update: TurnUnderstandingStateUpdate): boolean {
+  return update.inferred.activeIntent === "unclear" && !update.changed;
 }
 
 export function resolveMetaDecision(

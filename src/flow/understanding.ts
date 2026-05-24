@@ -118,6 +118,7 @@ type TurnUnderstandingNote = NonNullable<
 
 export interface TurnUnderstandingStateUpdate extends IntentStateUpdate {
   understanding: TurnUnderstanding;
+  pathFactsChanged: boolean;
 }
 
 export function createUnclearTurnUnderstanding(
@@ -163,13 +164,22 @@ export function applyTurnUnderstanding(
       previousIntent: flow.activeIntent,
       changed: false,
       understanding: normalized,
+      pathFactsChanged: false,
     };
   }
 
   const patientSnapshot = snapshotActivePatientIdentity(flow);
+  const visitReasonBefore = flow.schedulingGoal?.visitReason;
   const visitTypeBefore = flow.visitType;
   const coverageTypeBefore = flow.coverageType;
   const preferredWindowBefore = flow.schedulingGoal?.preferredWindow;
+  const insurancePlanBefore = activePatientInsurancePlan(flow);
+  const pathFactsChanged = schedulingPathFactsChanged(normalized, {
+    coverageType: coverageTypeBefore,
+    insurancePlan: insurancePlanBefore,
+    visitReason: visitReasonBefore,
+    visitType: visitTypeBefore,
+  });
 
   applyPatientUnderstanding(flow, normalized);
   applySchedulingUnderstanding(flow, normalized);
@@ -203,6 +213,7 @@ export function applyTurnUnderstanding(
   return {
     ...update,
     understanding: normalized,
+    pathFactsChanged,
   };
 }
 
@@ -717,6 +728,51 @@ function invalidateStateForNewFacts(
 ): void {
   invalidateAvailabilitySearches(flow, reason);
   invalidatePendingActionsForStateChange(flow, reason);
+}
+
+function schedulingPathFactsChanged(
+  understanding: TurnUnderstanding,
+  before: {
+    coverageType?: string;
+    insurancePlan?: string;
+    visitReason?: string;
+    visitType?: string;
+  },
+): boolean {
+  const visitReason = cleanString(understanding.scheduling?.visitReason);
+  const visitType = understanding.scheduling?.visitType ?? undefined;
+  const coverageType =
+    understanding.insurance?.coverageType ?? coverageTypeForVisitType(visitType);
+  const insurancePlan = cleanString(understanding.insurance?.plan);
+
+  return (
+    trackedFactChanged(visitReason, before.visitReason) ||
+    trackedFactChanged(visitType, before.visitType) ||
+    trackedFactChanged(coverageType, before.coverageType) ||
+    trackedFactChanged(insurancePlan, before.insurancePlan)
+  );
+}
+
+function trackedFactChanged(
+  next: string | undefined,
+  previous: string | undefined,
+): boolean {
+  if (!next) return false;
+  if (!previous) return true;
+  return normalizeFactForComparison(next) !== normalizeFactForComparison(previous);
+}
+
+function normalizeFactForComparison(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function activePatientInsurancePlan(flow: CallFlowState): string | undefined {
+  const patient = flow.patients[flow.activePatientRef ?? "caller"];
+  return patient?.insurance?.canonicalPlan ?? patient?.insurance?.plan?.value;
 }
 
 function cleanString(value?: string | null): string | undefined {

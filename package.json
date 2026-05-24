@@ -9,6 +9,7 @@
     "start": "node dist/main.js start",
     "download-files": "livekit-agents download-files",
     "test": "vitest run",
+    "test:historical-flow": "tsx scripts/replay-historical-flow.ts",
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write . --ignore-unknown",
