@@ -99,6 +99,51 @@ describe("flow state and context packet", () => {
     expect(packet).toContain("step: verify_patient");
     expect(packet).toContain("nextAction: ask_patient_name");
     expect(packet).toContain("blockedActions: add_patient");
+    expect(packet).toContain("<context_capsules>");
+    expect(packet).toContain("objective: verify patient");
+    expect(packet).not.toContain("patient-1");
+  });
+
+  it("injects loaded appointment and pending confirmation capsules", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+      appointments: [
+        {
+          id: 12345,
+          date: "2026-06-01",
+          time: "9:00 AM",
+          provider: "Dr. Bach",
+          type: "Follow-up",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+      ],
+    });
+    flow.activeFlow = "appointment_management";
+    flow.step = "confirm_cancel";
+    flow.pendingConfirmation = {
+      type: "cancel",
+      payload: { appointmentId: 12345 },
+    };
+    createPendingSideEffectAction(flow, {
+      type: "cancel_appt",
+      argsHash: hashToolArgs({ appointmentId: 12345 }),
+      spokenSummary: "Cancel June first at 9 AM with Dr. Bach",
+      appointmentId: 12345,
+      confirmed: false,
+      createdTurnId: "turn-1",
+    });
+
+    const packet = compileTurnStatePacket(flow);
+
+    expect(packet).toContain("<context_capsules>");
+    expect(packet).toContain("step: read back exact loaded appointment");
+    expect(packet).toContain("appointments: loaded=1");
+    expect(packet).toContain("pendingConfirmation=cancel");
+    expect(packet).toContain("pendingActions=cancel_appt:needs_confirmation");
+    expect(packet).not.toContain("12345");
     expect(packet).not.toContain("patient-1");
   });
 
@@ -926,6 +971,8 @@ describe("nextFlowDecision", () => {
         },
       ],
     });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
 
     expect(
       nextFlowDecision({
@@ -962,6 +1009,38 @@ describe("nextFlowDecision", () => {
     ).toMatchObject({
       type: "ask",
       slot: "preferredDate",
+    });
+  });
+
+  it("requires patient verification before appointment management decisions", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+      appointments: [
+        {
+          id: 123,
+          date: "2026-06-01",
+          time: "9:00 AM",
+          provider: "Dr. Bach",
+          type: "Follow-up",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+      ],
+    });
+
+    expect(
+      nextFlowDecision({
+        state: flow,
+        event: {
+          type: "caller_intent",
+          intent: "existing_appointment_cancel",
+        },
+      }),
+    ).toMatchObject({
+      type: "ask",
+      slot: "patientIdentity",
     });
   });
 

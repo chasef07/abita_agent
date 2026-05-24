@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
-import type { OfficeKey } from "../offices.js";
+import type { OfficeKey } from "../customer/profile.js";
 import { normalizeSchedulingRouting } from "./state.js";
 import type {
   AvailabilitySearch,

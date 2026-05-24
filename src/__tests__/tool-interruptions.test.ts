@@ -48,6 +48,7 @@ import {
   startPatientTask,
 } from "../flow/index.js";
 import { HOLLYWOOD_OFFICE_PHONE, SWEETWATER_OFFICE_PHONE } from "../offices.js";
+import { buildToolsForState } from "../tooling/tool-registry.js";
 
 type SpeechContext = Parameters<typeof makeCurrentSpeechUninterruptible>[0];
 type ToolContext = Parameters<typeof book_appt.execute>[1]["ctx"];
@@ -174,6 +175,26 @@ describe("tool interruption handling", () => {
     });
   });
 
+  it("blocks appointment lookup for a preloaded patient until identity is confirmed", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { ctx, state } = createToolContext();
+    state.flow.patientStatus = "matched";
+    state.flow.patients[state.flow.activePatientRef!].status = "matched";
+
+    const result = await confirm_appt.execute(
+      {},
+      { ctx, toolCallId: "test-confirm-appt-unverified" },
+    );
+
+    expect(result).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "verify_patient",
+      facts: { reason: "appointment_lookup_requires_verified_patient" },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("does not require turn understanding when the flow harness is disabled", async () => {
     const { ctx, state } = createToolContext();
     state.flowHarnessEnabled = false;
@@ -192,6 +213,37 @@ describe("tool interruption handling", () => {
       },
     });
     expect(String(result)).toContain("Abita Eye Group");
+  });
+
+  it("returns targeted knowledge sections instead of the full office markdown", async () => {
+    const { ctx, state } = createToolContext();
+    state.flowHarnessEnabled = false;
+
+    const result = await lookup_knowledge.execute(
+      { question: "what are your office hours?" },
+      { ctx, toolCallId: "test-targeted-knowledge" },
+    );
+
+    const text = String(result);
+    expect(text).toContain("Knowledge source: KNOWLEDGE_SPRINGHILL.md");
+    expect(text).toContain("Hours:");
+    expect(text).not.toContain("## Urgency Screening");
+    expect(text).not.toContain("## What to Bring");
+  });
+
+  it("keeps scope facts for contact lens knowledge questions", async () => {
+    const { ctx, state } = createToolContext();
+    state.flowHarnessEnabled = false;
+
+    const result = await lookup_knowledge.execute(
+      { question: "do you do contact lens prescriptions?" },
+      { ctx, toolCallId: "test-contact-lens-knowledge" },
+    );
+
+    const text = String(result);
+    expect(text).toContain("## Scope of Services");
+    expect(text).toContain("contact lens prescriptions");
+    expect(text).toContain("## Optical / Glasses");
   });
 
   it("marks side-effecting tools as uninterruptible before the side effect", async () => {
@@ -400,6 +452,42 @@ describe("tool interruption handling", () => {
     expect(error).toHaveBeenCalledOnce();
   });
 
+  it("keeps parallel transfer calls to one SIP transfer", async () => {
+    let resolveTransfer!: () => void;
+    transferSipParticipantMock.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveTransfer = resolve;
+        }),
+    );
+    const { ctx, state } = createToolContext();
+
+    const first = transfer_call.execute(
+      {},
+      { ctx, toolCallId: "test-transfer-first" },
+    );
+    expect(state.transferInFlight).toBe(true);
+
+    const duplicate = await transfer_call.execute(
+      {},
+      { ctx, toolCallId: "test-transfer-duplicate" },
+    );
+
+    expect(duplicate).toMatchObject({
+      outcome: "success",
+      facts: { reason: "transfer_already_started" },
+    });
+    expect(transferSipParticipantMock).toHaveBeenCalledOnce();
+
+    resolveTransfer();
+    await expect(first).resolves.toMatchObject({
+      outcome: "success",
+      nextStep: "handoff",
+    });
+    expect(state.transferred).toBe(true);
+    expect(state.transferInFlight).toBe(false);
+  });
+
   it("returns a safe no-op if transfer is called after transfer already started", async () => {
     transferSipParticipantMock.mockResolvedValue(undefined);
     const { ctx, state } = createToolContext();
@@ -557,6 +645,7 @@ describe("tool interruption handling", () => {
     expect(
       (result as { slots: Array<Record<string, unknown>> }).slots[0],
     ).not.toHaveProperty("columnId");
+    expect(result).not.toHaveProperty("middlewareResult");
     expect(state.lastAvailabilitySlots[0]).toMatchObject({
       slotId: "A",
       bookingToken: "signed-token",
@@ -687,7 +776,58 @@ describe("tool interruption handling", () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
-    expect(state.flow.pendingActions).toEqual([]);
+    expect(state.flow.pendingActions).toContainEqual(
+      expect.objectContaining({
+        type: "book_appt",
+        consumed: true,
+      }),
+    );
+  });
+
+  it("clears legacy availability for successful non-booked status variants", async () => {
+    const successResults = [
+      { status: "ok" },
+      { status: "success", appointmentId: 12345 },
+    ];
+
+    for (const [index, apiResult] of successResults.entries()) {
+      const fetchMock = vi.fn().mockImplementation(async () => ({
+        ok: true,
+        json: async () => apiResult,
+        text: async () => "",
+      }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      const { ctx, state } = createToolContext();
+      state.flowHarnessEnabled = false;
+      seedLastAvailabilitySlot(state, {
+        bookingToken: `signed-token-${index}`,
+      });
+
+      const result = await book_appt.execute(
+        {
+          slotId: "A",
+          appointmentTypeId: 1007,
+        },
+        { ctx, toolCallId: `test-book-legacy-success-${index}` },
+      );
+      const duplicate = await book_appt.execute(
+        {
+          slotId: "A",
+          appointmentTypeId: 1007,
+        },
+        { ctx, toolCallId: `test-book-legacy-duplicate-${index}` },
+      );
+
+      expect(result).toMatchObject(apiResult);
+      expect(duplicate).toMatchObject({
+        outcome: "not_allowed",
+        facts: { reason: "booking_requires_recent_availability" },
+      });
+      expect(state.lastAvailabilitySlots).toEqual([]);
+      expect(fetchMock).toHaveBeenCalledOnce();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("blocks booking when the pending booking action is not confirmed", async () => {
@@ -1173,6 +1313,55 @@ describe("tool interruption handling", () => {
     });
   });
 
+  it("allows notes after a successful legacy booking when the flow harness is disabled", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({ status: "booked", appointmentId: 12345 }),
+        text: async () => "",
+      }))
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({ status: "saved", noteId: "note-1" }),
+        text: async () => "",
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.flowHarnessEnabled = false;
+    state.patientId = "17603880";
+    state.flow.patients[state.flow.activePatientRef!].patientId = "17603880";
+    seedLastAvailabilitySlot(state);
+
+    await book_appt.execute(
+      { slotId: "A", appointmentTypeId: 1007 },
+      { ctx, toolCallId: "test-legacy-book" },
+    );
+    const noteResult = await add_patient_note.execute(
+      {
+        appointmentReason: "blurry vision",
+        referringDoctor: "none",
+      },
+      { ctx, toolCallId: "test-note-after-legacy-booking" },
+    );
+
+    expect(noteResult).toMatchObject({
+      outcome: "success",
+      nextStep: "answer",
+      facts: {
+        result: { status: "saved", noteId: "note-1" },
+      },
+    });
+    expect(state.flow.pendingActions).toContainEqual(
+      expect.objectContaining({
+        type: "book_appt",
+        consumed: true,
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("constrains booking to supported appointment type IDs", () => {
     expect(appointmentTypeIdSchema.safeParse(1007).success).toBe(true);
     expect(appointmentTypeIdSchema.safeParse(1010).success).toBe(true);
@@ -1573,6 +1762,66 @@ describe("tool interruption handling", () => {
     );
   });
 
+  it("returns the raw middleware payload when add_patient succeeds", async () => {
+    const middlewareResult = {
+      status: "created",
+      patientId: "patient-2",
+      name: "Doe, Jane",
+      dob: "01/01/1980",
+      phone: "+17275551212",
+      insuranceCarrier: "VSP",
+      insPlanId: null,
+      respPartyId: null,
+      routing: "optical_only",
+      allowedProviders: [],
+      routingAmbiguous: false,
+      appointments: [],
+      insuranceAdded: false,
+      insuranceMessage: "Insurance was not attached by middleware",
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => middlewareResult,
+        text: async () => "",
+      })),
+    );
+
+    const { ctx, state } = createToolContext();
+    const params = {
+      firstName: "Jane",
+      lastName: "Doe",
+      dob: "01/01/1980",
+      street: "123 Main St",
+      aptSuite: "",
+      city: "Spring Hill",
+      state: "FL",
+      zip: "34609",
+      sex: "female" as const,
+      insurance: "VSP",
+      subscriberName: "Jane Doe",
+      subscriberNum: "ABC123",
+    };
+    seedPendingSideEffectAction(state, "add_patient", params);
+
+    const result = await add_patient.execute(params, {
+      ctx,
+      toolCallId: "test-add-raw-result",
+    });
+
+    expect(result).toMatchObject({
+      status: "created",
+      insuranceAdded: false,
+      insuranceMessage: "Insurance was not attached by middleware",
+      outcome: "success",
+      middlewareResult: {
+        insuranceAdded: false,
+        insuranceMessage: "Insurance was not attached by middleware",
+      },
+    });
+  });
+
   it("blocks cancellation before the appointment is loaded into state", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -1642,6 +1891,72 @@ describe("tool interruption handling", () => {
         pendingActionId: "pending_cancel_appt_1",
       },
     });
+  });
+
+  it("does not treat a not-found cancellation response as success", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "not_found" }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLoadedAppointment(state, 12345);
+
+    const result = await cancel_appt.execute(
+      { appointmentId: 12345 },
+      { ctx, toolCallId: "test-cancel-not-found" },
+    );
+
+    expect(result).toMatchObject({
+      outcome: "not_found",
+      nextStep: "confirm_cancel",
+      facts: {
+        reason: "appointment_not_found",
+        appointmentId: 12345,
+      },
+    });
+    expect(state.appointments).toHaveLength(1);
+    expect(state.flow.pendingActions[0]).toMatchObject({
+      type: "cancel_appt",
+      consumed: false,
+    });
+  });
+
+  it("keeps conflicting raw middleware status nested when cancellation is normalized as success", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          status: "error",
+          message: "appointment already cancelled",
+        }),
+        text: async () => "",
+      })),
+    );
+
+    const { ctx, state } = createToolContext();
+    seedLoadedAppointment(state, 12345);
+
+    const result = await cancel_appt.execute(
+      { appointmentId: 12345 },
+      { ctx, toolCallId: "test-cancel-already-cancelled" },
+    );
+
+    expect(result).toMatchObject({
+      outcome: "success",
+      facts: {
+        reason: "appointment_already_cancelled",
+        appointmentId: 12345,
+      },
+      middlewareResult: {
+        status: "error",
+        message: "appointment already cancelled",
+      },
+    });
+    expect(result).not.toHaveProperty("status");
   });
 
   it("returns to a suspended scheduling task after successful cancellation", async () => {
@@ -1826,6 +2141,93 @@ describe("tool interruption handling", () => {
     expect(warn).toHaveBeenCalled();
   });
 
+  it("does not store confirmed pending actions when speech is already interrupted", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const addParams = {
+      firstName: "Jane",
+      lastName: "Doe",
+      dob: "01/01/1980",
+      street: "123 Main St",
+      aptSuite: "",
+      city: "Spring Hill",
+      state: "FL",
+      zip: "34609",
+      sex: "female" as const,
+      insurance: "Aetna",
+      subscriberName: "Jane Doe",
+      subscriberNum: "ABC123",
+    };
+    const updateParams = {
+      insurance: "Aetna",
+      subscriberName: "Jane Doe",
+      subscriberNum: "ABC123",
+    };
+
+    const cases = [
+      {
+        name: "add_patient",
+        run: (ctx: ToolContext) =>
+          add_patient.execute(addParams, { ctx, toolCallId: "test-add" }),
+      },
+      {
+        name: "update_insurance",
+        run: (ctx: ToolContext) =>
+          update_insurance.execute(updateParams, {
+            ctx,
+            toolCallId: "test-update",
+          }),
+      },
+      {
+        name: "cancel_appt",
+        setup: (state: CallState) => seedLoadedAppointment(state, 12345),
+        run: (ctx: ToolContext) =>
+          cancel_appt.execute(
+            { appointmentId: 12345 },
+            { ctx, toolCallId: "test-cancel" },
+          ),
+      },
+      {
+        name: "route_to_spring_hill",
+        run: (ctx: ToolContext) =>
+          route_to_spring_hill.execute({}, { ctx, toolCallId: "test-route" }),
+      },
+      {
+        name: "transfer_call",
+        run: (ctx: ToolContext) =>
+          transfer_call.execute({}, { ctx, toolCallId: "test-transfer" }),
+      },
+      {
+        name: "book_appt",
+        setup: (state: CallState) => {
+          seedLastAvailabilitySlot(state);
+          markBookingConfirmedInState(state);
+        },
+        run: (ctx: ToolContext) =>
+          book_appt.execute(
+            { slotId: "A", appointmentTypeId: 1007 },
+            { ctx, toolCallId: "test-book" },
+          ),
+      },
+    ];
+
+    for (const testCase of cases) {
+      const { ctx, state } = createInterruptedToolContext();
+      testCase.setup?.(state);
+
+      const result = await testCase.run(ctx);
+
+      expectInterruptedOutcome(result, testCase.name);
+      expect(state.flow.pendingActions, testCase.name).toEqual([]);
+      expect(state.transferInFlight, testCase.name).not.toBe(true);
+    }
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
+  });
+
   it("tells Crystal River callers when Spring Hill accepts insurance Crystal River does not", async () => {
     const { ctx, state } = createToolContext();
     state.officeKey = "crystal-river";
@@ -1845,10 +2247,13 @@ describe("tool interruption handling", () => {
     });
     expect(result.callerMessage).toContain("Spring Hill accepts Humana PPO");
     expect(state.flow).toMatchObject({
-      activeFlow: "insurance",
-      step: "check_insurance",
+      activeFlow: "routing",
+      step: "route_office",
       officeKey: "crystal-river",
     });
+    expect(buildToolsForState(state).visibleToolNames).toContain(
+      "route_to_spring_hill",
+    );
     expect(state.flowGuardObservations).toEqual([
       expect.objectContaining({
         toolName: "check_insurance",
@@ -1902,6 +2307,8 @@ describe("tool interruption handling", () => {
     const { ctx, state } = createToolContext();
     state.officeKey = "crystal-river";
     state.amdOfficePhone = "+13523202007";
+    state.flow.patientStatus = "matched";
+    state.flow.patients[state.flow.activePatientRef!].status = "matched";
     seedPendingSideEffectAction(state, "route_to_spring_hill");
 
     await route_to_spring_hill.execute(
@@ -1933,6 +2340,10 @@ function createToolContext() {
     }),
     flowHarnessEnabled: true,
     flowGuardObservations: [],
+    preCallLookup: {
+      status: "verified",
+      durationMs: 12,
+    },
     officeKey: "spring-hill",
     amdOfficePhone: "+17275919997",
     sipRoomName: "room",
@@ -1956,12 +2367,15 @@ function createToolContext() {
     preauthRequired: false,
     appointments: [],
     transferred: false,
+    transferInFlight: false,
   };
   const ctx = {
     session: { userData: state },
     speechHandle,
     waitForPlayout: vi.fn(),
   } as unknown as ToolContext;
+  state.flow.patientStatus = "verified";
+  state.flow.patients[state.flow.activePatientRef!].status = "verified";
   state.flow.visitType = "medical";
 
   return { ctx, speechHandle, state };

@@ -309,16 +309,16 @@ function resumeSchedulingAfterTransferPushback(state: CallFlowState): void {
   }
 }
 
-function hasAppointmentManagementPatient(state: CallFlowState): boolean {
+function hasVerifiedAppointmentManagementPatient(
+  state: CallFlowState,
+): boolean {
   return (
-    state.patientStatus === "matched" ||
-    state.patientStatus === "verified" ||
-    state.patientStatus === "created"
+    state.patientStatus === "verified" || state.patientStatus === "created"
   );
 }
 
 function decisionForAppointmentLookup(state: CallFlowState): FlowDecision {
-  if (!hasAppointmentManagementPatient(state)) {
+  if (!hasVerifiedAppointmentManagementPatient(state)) {
     return askForAppointmentManagementPatient();
   }
 
@@ -330,7 +330,7 @@ function decisionForAppointmentLookup(state: CallFlowState): FlowDecision {
 }
 
 function decisionForCancellation(state: CallFlowState): FlowDecision {
-  if (!hasAppointmentManagementPatient(state)) {
+  if (!hasVerifiedAppointmentManagementPatient(state)) {
     return askForAppointmentManagementPatient();
   }
 
@@ -355,7 +355,7 @@ function decisionForCancellation(state: CallFlowState): FlowDecision {
 }
 
 function decisionForReschedule(state: CallFlowState): FlowDecision {
-  if (!hasAppointmentManagementPatient(state)) {
+  if (!hasVerifiedAppointmentManagementPatient(state)) {
     return askForAppointmentManagementPatient();
   }
 

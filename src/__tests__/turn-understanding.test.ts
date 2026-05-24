@@ -22,7 +22,7 @@ describe("turn understanding reducer", () => {
 
     const update = applyTurnUnderstandingFromTranscript(
       flow,
-      "Could we push it into next week, mornings if possible?",
+      "This is Jane. Could we push it into next week, mornings if possible?",
       {
         goal: "manage_existing_appointment",
         appointmentAction: "reschedule",
@@ -74,7 +74,7 @@ describe("turn understanding reducer", () => {
 
     const update = applyTurnUnderstandingFromTranscript(
       flow,
-      "No don't cancel it, I just need to know what time it is.",
+      "This is Jane. No don't cancel it, I just need to know what time it is.",
       {
         goal: "manage_existing_appointment",
         appointmentAction: "confirm",

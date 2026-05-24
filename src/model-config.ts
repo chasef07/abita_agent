@@ -10,7 +10,7 @@ const voiceAgentGenerationOptions = {
 >;
 
 export const primaryLLMOptions = {
-  model: "zai-org/GLM-4.7",
+  model: "zai-org/GLM-5.1",
   ...voiceAgentGenerationOptions,
 } as const satisfies BasetenLLMOptions;
 
