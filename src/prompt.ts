@@ -6,7 +6,10 @@
 
 import { readFileSync } from "fs";
 import { join } from "path";
-import type { PhoneLookupResult } from "./tooling/call-state.js";
+import {
+  upcomingStoredCallerAppointments,
+  type PhoneLookupResult,
+} from "./tooling/call-state.js";
 import {
   getOfficeConfigByPhone,
   isFlowHarnessEnabledForTrunk,
@@ -161,18 +164,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
       lines.push(`Routing is ambiguous — needs plan type clarification.`);
     }
     if (lookup.appointments && lookup.appointments.length > 0) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const upcoming: typeof lookup.appointments = [];
-      const past: typeof lookup.appointments = [];
-      for (const appt of lookup.appointments) {
-        const apptDate = new Date(appt.date);
-        if (!isNaN(apptDate.getTime()) && apptDate >= today) {
-          upcoming.push(appt);
-        } else {
-          past.push(appt);
-        }
-      }
+      const upcoming = upcomingStoredCallerAppointments(lookup.appointments);
       if (upcoming.length > 0) {
         lines.push(`Upcoming appointments:`);
         for (const appt of upcoming) {
@@ -180,12 +172,6 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
         }
       } else {
         lines.push(`No upcoming appointments.`);
-      }
-      if (past.length > 0) {
-        lines.push(`Past appointments (cannot be cancelled or modified):`);
-        for (const appt of past) {
-          lines.push(formatAppointmentContextLine(appt, false));
-        }
       }
     } else {
       lines.push(`No appointments on file.`);

@@ -135,7 +135,7 @@ export interface CallState {
 export function publicCallerAppointments(
   appointments: readonly StoredCallerAppointment[] | null | undefined,
 ): CallerAppointment[] {
-  return (appointments ?? []).map(
+  return upcomingStoredCallerAppointments(appointments).map(
     ({ id, date, time, provider, type, facility, confirmed }) => ({
       id,
       date,
@@ -152,7 +152,7 @@ export function appointmentCancelTokenMap(
   appointments: readonly StoredCallerAppointment[] | null | undefined,
 ): Record<string, string> {
   return Object.fromEntries(
-    (appointments ?? [])
+    upcomingStoredCallerAppointments(appointments)
       .filter(
         (appointment) =>
           typeof appointment.id === "number" &&
@@ -163,5 +163,88 @@ export function appointmentCancelTokenMap(
         String(appointment.id),
         appointment.cancelToken as string,
       ]),
+  );
+}
+
+export function upcomingStoredCallerAppointments(
+  appointments: readonly StoredCallerAppointment[] | null | undefined,
+  now = new Date(),
+): StoredCallerAppointment[] {
+  return (appointments ?? []).filter((appointment) =>
+    isUpcomingCallerAppointment(appointment, now),
+  );
+}
+
+export function isUpcomingCallerAppointment(
+  appointment: Pick<StoredCallerAppointment, "date" | "time">,
+  now = new Date(),
+): boolean {
+  const startsAt = parseAppointmentWallClock(
+    appointment.date,
+    appointment.time,
+  );
+  if (!startsAt) return false;
+  return startsAt.getTime() > easternWallClock(now).getTime();
+}
+
+const EASTERN_TIME_ZONE = "America/New_York";
+
+function parseAppointmentWallClock(date: string, time: string): Date | null {
+  const parsed = new Date(date);
+  const appointmentTime = parseAppointmentTime(time);
+  if (Number.isNaN(parsed.getTime()) || !appointmentTime) return null;
+  return new Date(
+    Date.UTC(
+      parsed.getFullYear(),
+      parsed.getMonth(),
+      parsed.getDate(),
+      appointmentTime.hour,
+      appointmentTime.minute,
+      0,
+    ),
+  );
+}
+
+function parseAppointmentTime(
+  time: string,
+): { hour: number; minute: number } | null {
+  const match = time
+    .trim()
+    .match(/^(\d{1,2})(?::(\d{2}))?\s*([AaPp])\.?\s*([Mm])\.?$/);
+  if (!match) return null;
+  const rawHour = Number(match[1]);
+  const minute = Number(match[2] ?? "0");
+  if (rawHour < 1 || rawHour > 12 || minute < 0 || minute > 59) return null;
+
+  const period = match[3].toUpperCase();
+  let hour = rawHour;
+  if (period === "A" && hour === 12) hour = 0;
+  if (period === "P" && hour !== 12) hour += 12;
+  return { hour, minute };
+}
+
+function easternWallClock(now: Date): Date {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: EASTERN_TIME_ZONE,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const parts = Object.fromEntries(
+    formatter.formatToParts(now).map((part) => [part.type, Number(part.value)]),
+  );
+  return new Date(
+    Date.UTC(
+      parts.year,
+      parts.month - 1,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+    ),
   );
 }

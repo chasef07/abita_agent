@@ -578,4 +578,47 @@ describe("Crystal River prompt guidance", () => {
       "[ID: 123] 2099-01-01 at 9:30 AM with Dr. Bach (Follow-up) at Hollywood",
     );
   });
+
+  it("does not include past preloaded appointments in caller context", () => {
+    const prompt = buildPrompt(
+      {
+        status: "verified",
+        patientId: "patient-1",
+        name: "Santos, Maria",
+        dob: "01/01/1980",
+        phone: "+17275551212",
+        insuranceCarrier: "Aetna",
+        insPlanId: "plan-1",
+        respPartyId: "resp-1",
+        routing: "bach_only",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [
+          {
+            id: 111,
+            date: "2020-01-01",
+            time: "9:30AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            facility: "Hollywood",
+            confirmed: true,
+          },
+          {
+            id: 222,
+            date: "2099-01-01",
+            time: "9:30AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            facility: "Hollywood",
+            confirmed: true,
+          },
+        ],
+      },
+      HOLLYWOOD_OFFICE_PHONE,
+    );
+
+    expect(prompt).toContain("[ID: 222]");
+    expect(prompt).not.toContain("[ID: 111]");
+    expect(prompt).not.toContain("Past appointments");
+  });
 });
