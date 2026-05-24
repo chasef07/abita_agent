@@ -179,7 +179,7 @@ export type PendingAction =
       type: "book_appt";
       patientRef: PatientRef;
       slotHash: string;
-      appointmentTypeId: number;
+      appointmentTypeId?: number;
       officeKey: OfficeKey;
       routing?: SchedulingRouting;
       availabilitySearchId: string;

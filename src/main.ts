@@ -30,7 +30,11 @@ import {
 } from "./call-observability.js";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { createInitialFlowState } from "./flow/index.js";
-import type { CallState } from "./tooling/call-state.js";
+import {
+  appointmentCancelTokenMap,
+  publicCallerAppointments,
+  type CallState,
+} from "./tooling/call-state.js";
 import {
   formatPhoneLookupLogLine,
   loadPreCallBootstrap,
@@ -156,7 +160,7 @@ export default defineAgent({
           patientName: verified?.name ?? null,
           dob: verified?.dob ?? null,
           callerPhone,
-          appointments: verified?.appointments ?? [],
+          appointments: publicCallerAppointments(verified?.appointments),
           routing: verified?.routing ?? null,
         }),
         flowHarnessEnabled,
@@ -186,7 +190,10 @@ export default defineAgent({
         allowedProviders: verified?.allowedProviders ?? [],
         routingAmbiguous: verified?.routingAmbiguous ?? false,
         preauthRequired: false,
-        appointments: verified?.appointments ?? [],
+        appointments: publicCallerAppointments(verified?.appointments),
+        appointmentCancelTokens: appointmentCancelTokenMap(
+          verified?.appointments,
+        ),
         transferred: false,
         transferInFlight: false,
       };
