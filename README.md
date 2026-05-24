@@ -68,7 +68,11 @@ src/
 ├── main.ts          # Entry point: defineAgent, session setup, shutdown hooks, analytics POST
 ├── agent.ts         # Agent class: wires tools, loads instructions, speaks greeting on onEnter
 ├── prompt.ts        # Assembles system prompt from workspace/*.md + dynamic caller context
-├── tools.ts         # LLM tools, CallState mutation, AdvancedMD middleware calls
+├── tools.ts         # LLM tool definitions and flow-policy integration
+├── flow/            # Reusable state harness and guarded workflow policy
+├── tooling/         # Middleware client, call state, handoff, and knowledge helpers
+├── customer/        # Active customer profile re-export
+├── customers/abita/ # Abita office registry, trunk routing, greetings, and feature flags
 ├── model-config.ts  # Primary/fallback Baseten model configuration
 ├── stt-config.ts    # AssemblyAI keyterm and timing profiles
 └── __tests__/       # Vitest unit tests
@@ -76,7 +80,8 @@ src/
 workspace/            # Prompt source files (edit these to change agent behavior)
 ├── SOUL.md          # Identity / persona (top of prompt)
 ├── VOICE.md         # Speech style guidelines
-├── RUNBOOK.md       # Flow logic, tool usage, branching (bottom of prompt — highest attention)
+├── RUNBOOK.md       # Legacy full-runbook prompt for non-harness trunks
+├── FLOW_HARNESS_RUNBOOK.md # Compact harness contract for enabled trunks
 ├── KNOWLEDGE_*.md   # Location-specific FAQ (hours, directions, insurance)
 └── INSURANCE_*.json # Office-specific deterministic insurance routing
 
@@ -88,12 +93,13 @@ Dockerfile           # Multi-stage: pnpm install → build → download-files �
 
 1. **SIP inbound** — caller dials a trunk number, LiveKit Cloud creates a room and fires a job request.
 2. **Job dispatch** — the agent worker (`abita-agent`) accepts the job. A forked child process (prewarmed with Silero VAD) runs `entry()` in `main.ts`.
-3. **Phone lookup** — before the session starts, `lookupByPhone(callerPhone, trunkPhone)` hits AdvancedMD. Three outcomes:
+3. **Phone lookup** — before the session starts, `loadPreCallBootstrap(callerPhone, trunkPhone)` resolves the office, harness flag, and AdvancedMD phone lookup. Four lookup outcomes:
    - **Verified** — single patient match. Name, DOB, insurance, appointments injected into the prompt. Agent skips verification.
    - **Multiple matches** — multiple patients on this number. Agent asks for first name only (HIPAA-safe).
-   - **No match** — treated as new patient flow.
-4. **Session start** — `buildPrompt()` assembles the system prompt from `workspace/SOUL.md`, `VOICE.md`, `RUNBOOK.md`, then appends dynamic `<context>` (date/time + caller info). Tools are wired from `tools.ts`.
-5. **Conversation loop** — AssemblyAI STT → Baseten LLM (with tool calling) → Cartesia TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. AdvancedMD-facing tools call the Railway middleware.
+   - **No match** — caller is not found from the inbound number.
+   - **Lookup failed** — middleware/auth/network failure. The agent must not treat this as a new patient; it verifies normally if the caller says they are existing.
+4. **Session start** — `buildPrompt()` assembles either the legacy full prompt (`SOUL.md` + `VOICE.md` + `RUNBOOK.md`) or the harness prompt (`SOUL.md` + `VOICE.md` + compact harness contract), then appends dynamic `<context>` (date/time + caller info). Tools are wired from `tools.ts`.
+5. **Conversation loop** — AssemblyAI STT → Baseten LLM (with tool calling) → Cartesia TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. AdvancedMD-facing tools call the Railway middleware through `src/tooling/advancedmd-client.ts`.
 6. **Disconnect or transfer**:
    - Caller hangs up → `participantDisconnected` listener → `ctx.shutdown()`
    - Agent calls `transfer_call` → SIP REFER to human staff
@@ -101,7 +107,7 @@ Dockerfile           # Multi-stage: pnpm install → build → download-files �
 
 ## Prompt assembly
 
-The system prompt is stitched from markdown files in `workspace/` in a specific order. This matters for LLM attention (U-shaped curve — ends get more attention than middle):
+The legacy system prompt is stitched from markdown files in `workspace/` in a specific order. This matters for LLM attention (U-shaped curve — ends get more attention than middle):
 
 ```
 <role>     ← SOUL.md      (identity, sets the frame)
@@ -110,7 +116,9 @@ The system prompt is stitched from markdown files in `workspace/` in a specific 
 <context>                 (appended dynamically — date/time + caller data)
 ```
 
-**To change agent behavior, edit the workspace files.** The code doesn't need to change for prompt tweaks.
+Harness-enabled trunks intentionally skip the full `RUNBOOK.md`. They receive a compact harness contract at session start and a fresh `<turn_state>` plus `<context_capsules>` packet after each caller turn. That keeps the model focused on the current objective, loaded patient facts, appointments, pending confirmations, cached slots, and blocked actions.
+
+For legacy prompt tweaks, edit the workspace files. For harness behavior, prefer code changes in `src/flow/*` plus tests.
 
 ## Tools
 
@@ -123,11 +131,11 @@ The system prompt is stitched from markdown files in `workspace/` in a specific 
 | `confirm_appt` / `cancel_appt` / `book_appt` | Appointment management |
 | `add_patient_note` | Save appointment reason and referring doctor on the verified patient |
 | `check_insurance` | Eligibility check |
-| `lookup_knowledge` | Search location-specific FAQ (`KNOWLEDGE_*.md`) |
+| `lookup_knowledge` | Return targeted sections from location-specific FAQ (`KNOWLEDGE_*.md`) |
 | `route_to_spring_hill` | Switch Crystal River scheduling calls to Spring Hill AMD routing |
 | `transfer_call` | SIP REFER to human |
 
-All tools read/write `session.userData` (typed `CallState` in `tools.ts`), which holds the call's pre-loaded context and any data collected during the conversation.
+All tools read/write `session.userData` (typed `CallState` in `src/tooling/call-state.ts`), which holds the call's pre-loaded context and any data collected during the conversation.
 
 Side-effecting tools disable caller interruptions at the mutation boundary with `makeCurrentSpeechUninterruptible()` before they call the middleware:
 
@@ -142,6 +150,10 @@ Side-effecting tools disable caller interruptions at the mutation boundary with 
 
 Read-only/context tools remain interruptible so callers can naturally barge in during lookup or FAQ flow.
 
+## Porting the architecture
+
+The flow controller in `src/flow/` is the reusable harness. Customer-specific routing, greetings, trunk numbers, transfer targets, knowledge files, and insurance files live behind the active customer profile at `src/customer/profile.ts`, which currently re-exports `src/customers/abita/profile.ts`. To port the architecture, add a new `src/customers/<customer>/profile.ts`, point `src/customer/profile.ts` at it, and provide that customer's `workspace/` knowledge and prompt files.
+
 ## Local development
 
 ```bash
@@ -150,7 +162,7 @@ cp .env.example .env.local   # fill in LIVEKIT_*, BASETEN_*, AMD_*
 pnpm dev                     # runs src/main.ts via tsx with live reload
 ```
 
-Test against a SIP trunk requires a real Twilio/Telnyx setup — see `TELNYX_SETUP.md`.
+Test against a SIP trunk requires a real Twilio/Telnyx setup — see [`docs/ops/telnyx-setup.md`](./docs/ops/telnyx-setup.md).
 
 ## Deploy
 
@@ -188,14 +200,12 @@ gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 
 ## Known issues & history
 
-- **2026-04-09** — `@livekit/agents@1.2.3` ProcPool concurrency bug caused missed inbound calls when two rang simultaneously. Fixed by bump to 1.2.4. See [`INCIDENT-2026-04-09-concurrent-dispatch.md`](./INCIDENT-2026-04-09-concurrent-dispatch.md).
+- **2026-04-09** — `@livekit/agents@1.2.3` ProcPool concurrency bug caused missed inbound calls when two rang simultaneously. Fixed by bump to 1.2.4. See [`docs/history/incident-2026-04-09-concurrent-dispatch.md`](./docs/history/incident-2026-04-09-concurrent-dispatch.md).
 
 ## Further reading
 
-- [`CLAUDE.md`](./CLAUDE.md) — guidance for AI coding assistants working in this repo
-- [`ROADMAP.md`](./ROADMAP.md) — planned improvements
-- [`PROMPT-IMPROVEMENTS.md`](./PROMPT-IMPROVEMENTS.md) — prompt change log
-- [`ASSEMBLYAI.md`](./ASSEMBLYAI.md) — AssemblyAI STT design notes
-- [`TELNYX_SETUP.md`](./TELNYX_SETUP.md) — SIP trunk provisioning
-- [`CONTEXT-MANAGEMENT.md`](./CONTEXT-MANAGEMENT.md) — how `session.userData` flows through tools
+- [`docs/README.md`](./docs/README.md) — short context map for architecture and historical docs
+- [`docs/architecture/flow-controller-current-contract.md`](./docs/architecture/flow-controller-current-contract.md) — current flow harness contract
+- [`docs/ops/assemblyai.md`](./docs/ops/assemblyai.md) — AssemblyAI STT design notes
+- [`docs/ops/telnyx-setup.md`](./docs/ops/telnyx-setup.md) — SIP trunk provisioning
 - [`workspace/RUNBOOK.md`](./workspace/RUNBOOK.md) — the operational heart of the agent

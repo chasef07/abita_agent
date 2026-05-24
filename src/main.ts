@@ -29,8 +29,22 @@ import {
   type ToolExecutionAnalytics,
 } from "./call-observability.js";
 import { RoomServiceClient } from "livekit-server-sdk";
-import { type CallState, lookupByPhone } from "./tools.js";
-import { getOfficeConfigByPhone } from "./offices.js";
+import { createInitialFlowState } from "./flow/index.js";
+import {
+  appointmentCancelTokenMap,
+  publicCallerAppointments,
+  type CallState,
+} from "./tooling/call-state.js";
+import {
+  formatPhoneLookupLogLine,
+  loadPreCallBootstrap,
+} from "./tooling/precall-bootstrap.js";
+import { bindDynamicToolRefresher } from "./tooling/dynamic-tool-refresh.js";
+import {
+  applyDynamicToolsToAgent,
+  dynamicToolsEnabled,
+  refreshAgentToolsForSession,
+} from "./tooling/tool-registry.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
   getCartesiaTtsOptions,
@@ -88,7 +102,6 @@ export default defineAgent({
         // peak-context analytics that cumulative session usage cannot express.
         llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
       });
-
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
       const ttsOptions = getCartesiaTtsOptions();
       const tts = new cartesia.TTS(ttsOptions);
@@ -131,25 +144,31 @@ export default defineAgent({
         `[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`,
       );
 
-      // Phone lookup before session start so context is ready for the first LLM turn
-      const office = getOfficeConfigByPhone(trunkPhone);
-      const phoneLookup = await lookupByPhone(callerPhone, trunkPhone);
-      if (phoneLookup?.status === "verified") {
-        console.log(
-          `[call] Caller match: ${phoneLookup.name} (ID: ${phoneLookup.patientId})`,
-        );
-      } else if (phoneLookup?.status === "multiple_matches") {
-        console.log(
-          `[call] Multiple matches for ${callerPhone}: ${phoneLookup.matches.map((m) => m.firstName).join(", ")}`,
-        );
-      } else {
-        console.log(`[call] No patient match for ${callerPhone}`);
-      }
+      // Phone lookup before session start so context is ready for the first LLM turn.
+      const preCall = await loadPreCallBootstrap({ callerPhone, trunkPhone });
+      const { office, phoneLookup, verified, flowHarnessEnabled } = preCall;
+      const flowDynamicToolsEnabled =
+        flowHarnessEnabled && dynamicToolsEnabled();
+      console.log(formatPhoneLookupLogLine(callerPhone, phoneLookup));
 
       const agent = new Agent(phoneLookup, trunkPhone, { languageRuntime });
 
-      const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
       session.userData = {
+        flow: createInitialFlowState({
+          officeKey: office.key,
+          patientId: verified?.patientId ?? null,
+          patientName: verified?.name ?? null,
+          dob: verified?.dob ?? null,
+          callerPhone,
+          appointments: publicCallerAppointments(verified?.appointments),
+          routing: verified?.routing ?? null,
+        }),
+        flowHarnessEnabled,
+        flowGuardObservations: [],
+        preCallLookup: preCall.telemetry,
+        latestUserTranscript: null,
+        turnUnderstandingAppliedForTranscript: null,
+        dynamicToolsEnabled: flowDynamicToolsEnabled,
         officeKey: office.key,
         amdOfficePhone: office.amdOfficePhone,
         sipRoomName: ctx.room.name ?? "",
@@ -171,9 +190,19 @@ export default defineAgent({
         allowedProviders: verified?.allowedProviders ?? [],
         routingAmbiguous: verified?.routingAmbiguous ?? false,
         preauthRequired: false,
-        appointments: verified?.appointments ?? [],
+        appointments: publicCallerAppointments(verified?.appointments),
+        appointmentCancelTokens: appointmentCancelTokenMap(
+          verified?.appointments,
+        ),
         transferred: false,
+        transferInFlight: false,
       };
+      if (flowDynamicToolsEnabled) {
+        await applyDynamicToolsToAgent(agent, session.userData, "startup");
+        bindDynamicToolRefresher(session, (reason) =>
+          refreshAgentToolsForSession(session, reason),
+        );
+      }
 
       const startedAt = new Date();
       const turnMetrics: TurnMetricSnapshot[] = [];
@@ -226,6 +255,7 @@ export default defineAgent({
 
       session.on(voice.AgentSessionEventTypes.FunctionToolsExecuted, (ev) => {
         toolExecutions.push(...snapshotToolExecutions(ev));
+        void refreshAgentToolsForSession(session, "tools_executed");
       });
 
       session.on(voice.AgentSessionEventTypes.Error, (ev) => {
@@ -326,6 +356,13 @@ export default defineAgent({
             sessionEvents,
             toolExecutions,
             turnMetrics,
+            flow: {
+              currentState: session.userData.flow,
+              shadowEvents: [],
+              guardObservations: session.userData.flowGuardObservations,
+              mismatchCount: 0,
+            },
+            preCallLookup: session.userData.preCallLookup,
             language: languageRuntime.telemetry,
             sessionReport,
           };

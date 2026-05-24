@@ -1,7 +1,7 @@
 import type { BasetenLLMOptions } from "@livekit/agents-plugin-baseten";
 
 const voiceAgentGenerationOptions = {
-  parallelToolCalls: false,
+  parallelToolCalls: true,
   temperature: 1.0,
   topP: 0.9,
 } as const satisfies Pick<

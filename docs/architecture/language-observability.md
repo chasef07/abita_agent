@@ -289,7 +289,7 @@ Update the stale operator-facing docs to match the runtime:
   direct Cartesia TTS.
 - `.env.example` should remove stale Inworld TTS variables and include the
   Cartesia variables the code actually reads.
-- `ASSEMBLYAI.md` should stop describing LiveKit Inference as the active path
+- `../ops/assemblyai.md` should stop describing LiveKit Inference as the active path
   unless it is clearly marked as historical.
 - `Dockerfile` should use `npx livekit-agents download-files` instead of the
   deprecated `pnpm download-files` wrapper.

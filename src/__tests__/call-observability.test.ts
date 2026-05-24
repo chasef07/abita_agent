@@ -69,6 +69,17 @@ describe("call observability", () => {
     ).toBe("duplicate_tool_call");
     expect(
       classifyToolOutput(
+        "transfer_call",
+        JSON.stringify({
+          outcome: "success",
+          facts: { reason: "transfer_already_started" },
+          speak: "Transfer already started. No action needed.",
+        }),
+        false,
+      ),
+    ).toBe("duplicate_tool_call");
+    expect(
+      classifyToolOutput(
         "verify_patient",
         JSON.stringify({ status: "multiple_matches" }),
         false,
@@ -81,6 +92,49 @@ describe("call observability", () => {
         false,
       ),
     ).toBe("tool_error");
+    expect(
+      classifyToolOutput(
+        "book_appt",
+        JSON.stringify({
+          outcome: "success",
+          facts: { appointmentId: 9960766 },
+        }),
+        false,
+      ),
+    ).toBe("appointment_booked");
+    expect(
+      classifyToolOutput("book_appt", JSON.stringify({ status: "ok" }), false),
+    ).toBe("appointment_booked");
+    expect(
+      classifyToolOutput(
+        "cancel_appt",
+        JSON.stringify({
+          outcome: "not_found",
+          facts: { reason: "appointment_not_found" },
+        }),
+        false,
+      ),
+    ).toBe("appointment_not_cancelled");
+    expect(
+      classifyToolOutput(
+        "cancel_appt",
+        JSON.stringify({
+          outcome: "not_allowed",
+          facts: { reason: "cancel_requires_verified_or_created_patient" },
+        }),
+        false,
+      ),
+    ).toBe("appointment_not_cancelled");
+    expect(
+      classifyToolOutput(
+        "cancel_appt",
+        JSON.stringify({
+          outcome: "success",
+          facts: { appointmentId: 12345 },
+        }),
+        false,
+      ),
+    ).toBe("appointment_cancelled");
     expect(classifyToolOutput("book_appt", "timeout", true)).toBe(
       "middleware_error",
     );
@@ -119,6 +173,25 @@ describe("call observability", () => {
       })[0],
     ).toMatchObject({
       outputClass: "transfer_failed",
+      status: "error",
+    });
+
+    expect(
+      snapshotToolExecutions({
+        functionCalls: [{ callId: "call_3", name: "cancel_appt" }],
+        functionCallOutputs: [
+          {
+            callId: "call_3",
+            isError: false,
+            output: JSON.stringify({
+              outcome: "not_found",
+              facts: { reason: "appointment_not_found" },
+            }),
+          },
+        ],
+      })[0],
+    ).toMatchObject({
+      outputClass: "appointment_not_cancelled",
       status: "error",
     });
   });

@@ -45,6 +45,7 @@ coverage/
 README.md
 CONTRIBUTING.md
 LICENSE
+docs/
 
 # Coding agent files
 .claude/
