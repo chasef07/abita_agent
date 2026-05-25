@@ -7,6 +7,7 @@ import {
   type IntentStateUpdate,
 } from "./intent.js";
 import { invalidatePendingActionsForStateChange } from "./pending-actions.js";
+import { activeWorkflowCommandForState } from "./plans/active-command.js";
 import {
   confirmPreloadedPatientIdentityFromTranscript,
   ensureActivePatientContext,
@@ -26,6 +27,7 @@ import type {
   PatientRelationshipToCaller,
   TrackedSlotSource,
   VisitType,
+  WorkflowCommand,
 } from "./types.js";
 import { classifyVisitType } from "./scheduling.js";
 
@@ -146,7 +148,7 @@ export function inferObviousTurnUnderstanding(
   const normalized = normalizeEvidenceText(cleaned);
   if (!normalized) return undefined;
 
-  const activeCommand = flow.lastWorkflowCommand;
+  const activeCommand = activeWorkflowCommandForState(flow);
   const evidence = [cleaned];
   const affirmative = isAffirmative(normalized);
   const negative = isNegative(normalized);
@@ -184,7 +186,7 @@ export function inferObviousTurnUnderstanding(
         goal: "manage_existing_appointment",
         appointmentAction: "reschedule",
         scheduling: {
-          selectedSlotId: selectedSlotForConfirmation(flow),
+          selectedSlotId: selectedSlotForConfirmation(flow, activeCommand),
           bookingConfirmed: confirmed,
         },
         confidence: 0.95,
@@ -196,7 +198,7 @@ export function inferObviousTurnUnderstanding(
       return {
         goal: "schedule",
         scheduling: {
-          selectedSlotId: selectedSlotForConfirmation(flow),
+          selectedSlotId: selectedSlotForConfirmation(flow, activeCommand),
           bookingConfirmed: confirmed,
         },
         confidence: 0.95,
@@ -960,7 +962,7 @@ function transferRequestFromTranscript(normalized: string): boolean {
 
 function isBookingConfirmationFlow(
   flow: CallFlowState,
-  command: CallFlowState["lastWorkflowCommand"],
+  command: WorkflowCommand | undefined,
 ): boolean {
   return (
     flow.step === "confirm_booking" ||
@@ -972,7 +974,7 @@ function isBookingConfirmationFlow(
 
 function isRescheduleConfirmationFlow(
   flow: CallFlowState,
-  command: CallFlowState["lastWorkflowCommand"],
+  command: WorkflowCommand | undefined,
 ): boolean {
   return (
     flow.activeIntent === "existing_appointment_reschedule" ||
@@ -983,8 +985,11 @@ function isRescheduleConfirmationFlow(
   );
 }
 
-function selectedSlotForConfirmation(flow: CallFlowState): string | undefined {
-  const args = flow.lastWorkflowCommand?.args;
+function selectedSlotForConfirmation(
+  flow: CallFlowState,
+  command: WorkflowCommand | undefined,
+): string | undefined {
+  const args = command?.args;
   const commandSlotId =
     args && typeof args === "object" && !Array.isArray(args)
       ? (args as { slotId?: unknown }).slotId
@@ -1005,7 +1010,7 @@ function latestCachedSlotId(flow: CallFlowState): string | undefined {
 
 function shouldTreatTranscriptAsVisitReason(
   flow: CallFlowState,
-  command: CallFlowState["lastWorkflowCommand"],
+  command: WorkflowCommand | undefined,
   transcript: string,
 ): boolean {
   if (!transcript || transcript.length > 120) return false;
@@ -1018,7 +1023,7 @@ function shouldTreatTranscriptAsVisitReason(
 
 function shouldTreatTranscriptAsPreferredWindow(
   flow: CallFlowState,
-  command: CallFlowState["lastWorkflowCommand"],
+  command: WorkflowCommand | undefined,
   normalized: string,
 ): boolean {
   if (

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyTurnUnderstandingFromTranscript,
   advanceFlowForTurn,
+  activeWorkflowCommandForState,
   classifyVisitType,
   compileFlowContextPacket,
   compileTurnStatePacket,
@@ -94,15 +95,14 @@ describe("flow state and context packet", () => {
     const packet = compileTurnStatePacket(flow);
 
     expect(packet).toContain("<turn_state>");
-    expect(packet).toContain("intent: existing_appointment_confirm");
-    expect(packet).toContain("activePatient: caller");
+    expect(packet).toContain("task: appointment_confirm");
+    expect(packet).toContain("patient: caller matched_not_verified");
     expect(packet).toContain("patientStatus: matched_not_verified");
-    expect(packet).toContain("task: appointment_management");
-    expect(packet).toContain("step: verify_patient");
-    expect(packet).toContain("nextAction: ask_patient_name");
-    expect(packet).toContain("blockedSideEffects: add_patient");
-    expect(packet).toContain("<context_capsules>");
-    expect(packet).toContain("objective: verify patient");
+    expect(packet).toContain("phase: needs_verified_patient");
+    expect(packet).toContain("missing: patientIdentity");
+    expect(packet).toContain("next: ask");
+    expect(packet).toContain("suggestedTool: verify_patient");
+    expect(packet).toContain("blockedSideEffects: none");
     expect(packet).not.toContain("patient-1");
   });
 
@@ -1351,6 +1351,10 @@ describe("deterministic turn router", () => {
       status: "confirming_booking",
       appointmentAction: "schedule",
       visitReason: "glaucoma follow up",
+      noteDraft: {
+        appointmentReason: "glaucoma follow up",
+        referringDoctor: "none",
+      },
       selectedSlotId: "slot-1",
       updatedAt: Date.now(),
     };
@@ -1379,6 +1383,45 @@ describe("deterministic turn router", () => {
     });
   });
 
+  it("collects the referring doctor before booking a confirmed slot", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.step = "confirm_booking";
+    flow.visitType = "medical";
+    flow.coverageType = "medical";
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "post-op",
+      selectedSlotId: "slot-1",
+      updatedAt: Date.now(),
+    };
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "yes that time works",
+      understanding: scheduleTurn({ bookingConfirmed: true }),
+    });
+
+    expect(turn.decision).toMatchObject({
+      type: "ask",
+      slot: "referringDoctor",
+    });
+    expect(turn.decision).not.toMatchObject({
+      type: "call_tool",
+      tool: "book_appt",
+    });
+    expect(turn.turnState).toContain("missing: referringDoctor");
+    expect(turn.turnState).toContain("bookingConfirmed=true");
+  });
+
   it("honors booking confirmation even if availability left the flow step stale", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
@@ -1398,6 +1441,10 @@ describe("deterministic turn router", () => {
       status: "ready_for_availability",
       appointmentAction: "schedule",
       visitReason: "glaucoma follow up",
+      noteDraft: {
+        appointmentReason: "glaucoma follow up",
+        referringDoctor: "none",
+      },
       preferredWindow: "Monday morning",
       selectedSlotId: "slot-1",
       updatedAt: Date.now(),
@@ -1479,9 +1526,9 @@ describe("deterministic turn router", () => {
     expect(flow).toMatchObject({
       step: "get_availability",
       visitType: "medical",
-      lastWorkflowCommand: {
-        tool: "get_availability",
-      },
+    });
+    expect(activeWorkflowCommandForState(flow)).toMatchObject({
+      tool: "get_availability",
     });
   });
 
@@ -1694,6 +1741,10 @@ describe("deterministic turn router", () => {
       appointmentAction: "schedule",
       visitReason: "double vision",
       visitType: "medical",
+      noteDraft: {
+        appointmentReason: "double vision",
+        referringDoctor: "none",
+      },
       preferredWindow: "tomorrow",
       selectedSlotId: "C",
       updatedAt: Date.now(),

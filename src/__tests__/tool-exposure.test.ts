@@ -182,7 +182,7 @@ describe("dynamic tool exposure", () => {
     );
   });
 
-  it("keeps add_patient_note visible after booking succeeds", () => {
+  it("keeps add_patient_note hidden after booking succeeds", () => {
     const state = createCallState();
     state.flow.step = "answer";
     state.flow.pendingActions.push({
@@ -206,7 +206,7 @@ describe("dynamic tool exposure", () => {
     expect(buildToolsForState(state).visibleToolNames).toEqual(
       DEV_BROAD_TOOL_NAMES,
     );
-    expect(buildToolsForState(state).visibleToolNames).toContain(
+    expect(buildToolsForState(state).visibleToolNames).not.toContain(
       "add_patient_note",
     );
   });
@@ -232,7 +232,6 @@ const DEV_BROAD_TOOL_NAMES = [
   "get_availability",
   "confirm_appt",
   "cancel_appt",
-  "add_patient_note",
   "book_appt",
   "check_insurance",
   "lookup_knowledge",

@@ -53,7 +53,6 @@ export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
     "get_availability",
     "confirm_appt",
     "cancel_appt",
-    "add_patient_note",
     "book_appt",
     "check_insurance",
     "lookup_knowledge",

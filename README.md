@@ -129,7 +129,6 @@ For legacy prompt tweaks, edit the workspace files. For harness behavior, prefer
 | `update_insurance` | Update insurance on file |
 | `get_availability` | Find open appointment slots |
 | `confirm_appt` / `cancel_appt` / `book_appt` | Appointment management |
-| `add_patient_note` | Save appointment reason and referring doctor on the verified patient |
 | `check_insurance` | Eligibility check |
 | `lookup_knowledge` | Return targeted sections from location-specific FAQ (`KNOWLEDGE_*.md`) |
 | `route_to_spring_hill` | Switch Crystal River scheduling calls to Spring Hill AMD routing |
@@ -144,8 +143,7 @@ Side-effecting tools disable caller interruptions at the mutation boundary with 
 | `add_patient` | Creates a patient record |
 | `update_insurance` | Changes insurance on file |
 | `cancel_appt` | Cancels an appointment |
-| `add_patient_note` | Writes a patient chart note |
-| `book_appt` | Books an appointment |
+| `book_appt` | Books an appointment and carries appointment-note metadata |
 | `transfer_call` | Initiates SIP transfer |
 
 Read-only/context tools remain interruptible so callers can naturally barge in during lookup or FAQ flow.

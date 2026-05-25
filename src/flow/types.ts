@@ -509,7 +509,6 @@ export interface CallFlowState {
   currentTask?: TaskFrame;
   taskPlans?: Record<string, ParentTaskPlan>;
   activeTaskPlanId?: string;
-  lastWorkflowCommand?: WorkflowCommand;
   pendingActions: PendingAction[];
   availabilitySearches: AvailabilitySearch[];
   schedulingGoal?: SchedulingGoalState;

@@ -1,4 +1,5 @@
 import type { CallFlowState, WorkflowCommand } from "./types.js";
+import { activeWorkflowCommandForState } from "./plans/active-command.js";
 
 export interface FlowContextDirectives {
   currentObjective: string;
@@ -18,15 +19,9 @@ export function directivesForFlowState(
     case "triage_visit_type":
       return {
         currentObjective:
-          "Find out what the caller needs to be seen for before checking insurance or scheduling.",
+          "Find out what the caller needs to be seen for so scheduling guidance can stay accurate.",
         allowedActions: ["ask_visit_reason", "prepareSchedulingPath"],
-        blockedActions: [
-          "check_insurance",
-          "add_patient",
-          "get_availability",
-          "book_appt",
-          "cancel_appt",
-        ],
+        blockedActions: ["add_patient", "book_appt", "cancel_appt"],
       };
     case "check_insurance":
       return {
@@ -37,12 +32,7 @@ export function directivesForFlowState(
           "check_insurance",
           "prepareSchedulingPath",
         ],
-        blockedActions: [
-          "add_patient",
-          "get_availability",
-          "book_appt",
-          "cancel_appt",
-        ],
+        blockedActions: ["add_patient", "book_appt", "cancel_appt"],
       };
     case "route_office":
       return {
@@ -53,21 +43,21 @@ export function directivesForFlowState(
           "route_to_spring_hill",
           "prepareSchedulingPath",
         ],
-        blockedActions: ["transfer_call", "get_availability", "book_appt"],
+        blockedActions: ["transfer_call", "book_appt"],
       };
     case "verify_patient":
       return {
         currentObjective:
           "Verify the patient before using patient or scheduling tools.",
         allowedActions: ["ask_patient_name", "ask_dob", "verify_patient"],
-        blockedActions: ["add_patient", "get_availability", "book_appt"],
+        blockedActions: ["add_patient", "book_appt"],
       };
     case "collect_registration":
       return {
         currentObjective:
           "Collect only the missing registration fields, then read back the required fields before submitting.",
         allowedActions: ["ask_missing_registration_field", "add_patient"],
-        blockedActions: ["get_availability", "book_appt", "cancel_appt"],
+        blockedActions: ["book_appt", "cancel_appt"],
       };
     case "get_availability":
       return {
@@ -102,7 +92,7 @@ export function directivesForFlowState(
         currentObjective:
           "Understand the caller's intent and choose the safest next step.",
         allowedActions: ["ask_clarifying_question", "lookup_knowledge"],
-        blockedActions: ["add_patient", "get_availability", "book_appt"],
+        blockedActions: ["add_patient", "book_appt"],
       };
   }
 }
@@ -148,7 +138,7 @@ export function compileTurnStatePacket(
   flow: CallFlowState,
   overrides: Partial<FlowContextDirectives> = {},
 ): string {
-  const workflowCommand = activeWorkflowCommand(flow);
+  const workflowCommand = activeWorkflowCommandForState(flow);
   if (workflowCommand) {
     return compileWorkflowTurnStatePacket(flow, workflowCommand);
   }
@@ -174,17 +164,6 @@ export function compileTurnStatePacket(
     "",
     compileContextCapsules(flow, directives),
   ].join("\n");
-}
-
-function activeWorkflowCommand(
-  flow: CallFlowState,
-): WorkflowCommand | undefined {
-  const command = flow.lastWorkflowCommand;
-  if (!command || command.commandSource !== "task_plan") return undefined;
-  if (flow.activeTaskPlanId && command.taskId !== flow.activeTaskPlanId) {
-    return undefined;
-  }
-  return command;
 }
 
 function compileWorkflowTurnStatePacket(

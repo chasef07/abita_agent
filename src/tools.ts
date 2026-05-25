@@ -40,7 +40,6 @@ import {
   recordVerifiedPatient,
   snapshotActivePatientIdentity,
   sideEffectActionTypeForTool,
-  startPatientTask,
   updateActivePatientInsurance,
   type AvailabilityInvalidationReason,
   type CallerAppointment,
@@ -279,6 +278,60 @@ function evaluatePatientNoteGrounding(
     },
     true,
   );
+}
+
+function resolveBookingNoteMetadata(
+  state: CallState,
+  appointmentReason: string,
+  referringDoctor: string,
+):
+  | {
+      appointmentReason: string;
+      referringDoctor: string;
+    }
+  | ToolOutcome {
+  const stateReason =
+    state.flow.schedulingGoal?.noteDraft?.appointmentReason ??
+    state.flow.schedulingGoal?.visitReason;
+  const trimmedReason = appointmentReason.trim();
+  const trimmedReferrer = referringDoctor.trim();
+  const hasMeaningfulReason =
+    trimmedReason.length > 0 && !isGenericBookingReason(trimmedReason);
+
+  if (!hasMeaningfulReason && !stateReason) {
+    return toolOutcome(
+      "needs_clarification",
+      "collect_visit_reason",
+      "Ask for the appointment reason before booking.",
+      {
+        reason: "booking_note_metadata_missing",
+        missingFacts: ["appointmentReason"],
+      },
+      true,
+    );
+  }
+
+  if (!trimmedReferrer) {
+    return toolOutcome(
+      "needs_clarification",
+      "collect_visit_reason",
+      'Ask who referred them, or use "none" if there is no referring doctor.',
+      {
+        reason: "booking_note_metadata_missing",
+        missingFacts: ["referringDoctor"],
+      },
+      true,
+    );
+  }
+
+  return {
+    appointmentReason: hasMeaningfulReason ? trimmedReason : stateReason!,
+    referringDoctor: trimmedReferrer,
+  };
+}
+
+function isGenericBookingReason(value: string): boolean {
+  return /^(appointment|appt|visit|office visit|booking)$/i.test(value.trim());
 }
 
 function noteValuesMatch(actual: string, expected: string): boolean {
@@ -857,10 +910,6 @@ function storeAppointmentLookupResult(
   );
   ensureActivePatientContext(state.flow).appointments = appointments;
   recordAppointmentLookupResult(state.flow, appointments.length);
-  startPatientTask(state.flow, {
-    kind: "appointment_management",
-    step: appointments.length > 0 ? "confirm_cancel" : "answer",
-  });
   return true;
 }
 
@@ -2283,14 +2332,13 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
       selectedSlot.routing ??
       state.lastAvailabilityRouting ??
       routingForAvailability(state);
-    const appointmentReason = params.appointmentReason.trim();
-    const referringDoctor = params.referringDoctor.trim();
-    const noteGrounding = evaluatePatientNoteGrounding(
+    const bookingMetadata = resolveBookingNoteMetadata(
       state,
-      appointmentReason,
-      referringDoctor,
+      params.appointmentReason,
+      params.referringDoctor,
     );
-    if (noteGrounding) return noteGrounding;
+    if ("outcome" in bookingMetadata) return bookingMetadata;
+    const { appointmentReason, referringDoctor } = bookingMetadata;
     const bookingPolicyFacts = {
       patientRef: state.flow.activePatientRef,
       slotHash: selectedSlot.slotId,

@@ -263,13 +263,6 @@ describe("turn understanding reducer", () => {
     flow.patients.caller.status = "verified";
     flow.activeIntent = "existing_appointment_cancel";
     flow.activeFlow = "appointment_management";
-    const command = planNextCommand(flow);
-    flow.lastWorkflowCommand = {
-      ...command,
-      confirmationType: "cancel",
-      statePatch: undefined,
-    };
-
     expect(inferObviousTurnUnderstanding(flow, "correct")).toMatchObject({
       goal: "manage_existing_appointment",
       appointmentAction: "cancel",

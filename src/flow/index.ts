@@ -4,6 +4,7 @@ export * from "./guards.js";
 export * from "./intent.js";
 export * from "./pending-actions.js";
 export * from "./plans/appointment-management.js";
+export * from "./plans/active-command.js";
 export * from "./plans/scheduling.js";
 export * from "./plans/simple.js";
 export * from "./plans/task-planner.js";

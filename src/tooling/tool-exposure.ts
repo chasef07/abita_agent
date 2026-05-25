@@ -1,6 +1,7 @@
 import type { llm } from "@livekit/agents";
 import type { OfficeConfig } from "../customer/profile.js";
 import type { CallFlowState, WorkflowToolName } from "../flow/index.js";
+import { activeWorkflowCommandForState } from "../flow/index.js";
 import type { CallState } from "./call-state.js";
 
 export type ModelFacingWorkflowToolName = WorkflowToolName;
@@ -90,8 +91,8 @@ function visibleToolNamesForState(
 function exposureReasonForState(state: CallState): string {
   if (!state.flowHarnessEnabled) return "legacy_harness_disabled";
   if (pendingTurnUnderstanding(state)) return "turn_update_pending_broad";
-  const command = state.flow.lastWorkflowCommand;
-  if (command?.commandSource === "task_plan") {
+  const command = activeWorkflowCommandForState(state.flow);
+  if (command) {
     return `planner_guidance_broad:${command.taskKind}:${command.phase}`;
   }
   return `flow_step_broad:${state.flow.step}`;
@@ -111,7 +112,6 @@ function legacyToolNamesForOffice(
     "get_availability",
     "confirm_appt",
     "cancel_appt",
-    "add_patient_note",
     "book_appt",
     "check_insurance",
     "lookup_knowledge",

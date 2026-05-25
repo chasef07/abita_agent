@@ -337,6 +337,27 @@ function planActiveSchedulingStep(
     effectiveGoal?.bookingConfirmed === true &&
     effectiveGoal.selectedSlotId
   ) {
+    const missingNoteFact = nextMissingBookingNoteFact(effectiveGoal);
+    if (missingNoteFact) {
+      return command(flow, plan, {
+        phase: "collecting_booking_note",
+        knownFacts: schedulingKnownFacts(flow),
+        missingFacts: [missingNoteFact],
+        nextAction: "ask",
+        slot: missingNoteFact.key,
+        allowedTools: [],
+        blockedActions: [
+          {
+            action: "book_appt",
+            reason: "booking note metadata must be collected before booking",
+            until: missingNoteFact.label,
+          },
+        ],
+        instruction: instructionForMissingBookingNoteFact(missingNoteFact.key),
+        step: "collect_visit_reason",
+        statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+      });
+    }
     return command(flow, plan, {
       phase: "booking",
       knownFacts: schedulingKnownFacts(flow),
@@ -476,6 +497,27 @@ function planActiveSchedulingStep(
         instruction:
           "Ask whether they want the exact appointment slot that was just offered.",
         step: "confirm_booking",
+        statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+      });
+    }
+    const missingNoteFact = nextMissingBookingNoteFact(effectiveGoal);
+    if (missingNoteFact) {
+      return command(flow, plan, {
+        phase: "collecting_booking_note",
+        knownFacts: schedulingKnownFacts(flow),
+        missingFacts: [missingNoteFact],
+        nextAction: "ask",
+        slot: missingNoteFact.key,
+        allowedTools: [],
+        blockedActions: [
+          {
+            action: "book_appt",
+            reason: "booking note metadata must be collected before booking",
+            until: missingNoteFact.label,
+          },
+        ],
+        instruction: instructionForMissingBookingNoteFact(missingNoteFact.key),
+        step: "collect_visit_reason",
         statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
       });
     }
@@ -688,6 +730,12 @@ function schedulingKnownFacts(
       : undefined,
     flow.routing ? { key: "routing", value: flow.routing } : undefined,
     goal?.visitReason ? { key: "visitReason", value: "known" } : undefined,
+    goal?.noteDraft?.appointmentReason
+      ? { key: "appointmentReason", value: "known" }
+      : undefined,
+    goal?.noteDraft?.referringDoctor
+      ? { key: "referringDoctor", value: "known" }
+      : undefined,
     goal?.preferredWindow
       ? { key: "preferredWindow", value: goal.preferredWindow }
       : undefined,
@@ -752,6 +800,47 @@ function notePayloadForBooking(flow: CallFlowState): {
       "appointment",
     referringDoctor: draft?.referringDoctor ?? "none",
   };
+}
+
+function nextMissingBookingNoteFact(
+  goal: SchedulingGoalState | undefined,
+): { key: "appointmentReason" | "referringDoctor"; label: string } | undefined {
+  const reason = cleanBookingNoteValue(
+    goal?.noteDraft?.appointmentReason ?? goal?.visitReason,
+  );
+  if (!reason || isGenericBookingReason(reason)) {
+    return {
+      key: "appointmentReason",
+      label: "appointment reason",
+    };
+  }
+
+  if (!cleanBookingNoteValue(goal?.noteDraft?.referringDoctor)) {
+    return {
+      key: "referringDoctor",
+      label: 'referring doctor or "none"',
+    };
+  }
+
+  return undefined;
+}
+
+function instructionForMissingBookingNoteFact(
+  key: "appointmentReason" | "referringDoctor",
+): string {
+  if (key === "appointmentReason") {
+    return "Ask for the appointment reason before booking.";
+  }
+  return "Ask who referred them, or whether there is no referring doctor. Do not ask for surgery details; the appointment reason is already known.";
+}
+
+function cleanBookingNoteValue(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function isGenericBookingReason(value: string): boolean {
+  return /^(appointment|appt|visit|office visit|booking)$/i.test(value.trim());
 }
 
 function looksLikePostOpVisit(visitReason: string | undefined): boolean {

@@ -41,6 +41,7 @@ import {
   createPendingSideEffectAction,
   createInitialFlowState,
   hashToolArgs,
+  activeWorkflowCommandForState,
   applyPlannerPatch,
   planNextCommand,
   recordAvailabilityCachedSlots,
@@ -213,6 +214,10 @@ describe("tool interruption handling", () => {
       status: "confirming_booking",
       appointmentAction: "schedule",
       visitReason: "double vision",
+      noteDraft: {
+        appointmentReason: "double vision",
+        referringDoctor: "none",
+      },
       visitType: "medical",
       preferredWindow: "tomorrow",
       selectedSlotId: "C",
@@ -249,6 +254,56 @@ describe("tool interruption handling", () => {
         referringDoctor: "none",
       },
       instruction: "Call book_appt now.",
+    });
+  });
+
+  it("asks only for the referring doctor when booking is confirmed and the reason is known", async () => {
+    const { ctx, state } = createToolContext();
+    state.latestUserTranscript = "Yes, book it.";
+    state.turnUnderstandingAppliedForTranscript = null;
+    state.flow.activeIntent = "new_appointment";
+    state.flow.activeFlow = "scheduling";
+    state.flow.step = "confirm_booking";
+    state.flow.visitType = "medical";
+    state.flow.coverageType = "medical";
+    state.flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "post-op",
+      visitType: "medical",
+      preferredWindow: "next week",
+      selectedSlotId: "B",
+      updatedAt: Date.now(),
+    };
+
+    const recorded = await record_turn_understanding.execute(
+      {
+        goal: "schedule",
+        appointmentAction: null,
+        scheduling: {
+          selectedSlotId: "B",
+          bookingConfirmed: true,
+        },
+        interruption: "none",
+        confidence: 0.95,
+        evidence: ["Yes, book it"],
+      },
+      { ctx, toolCallId: "test-understanding-missing-referrer" },
+    );
+
+    expect(recorded).toMatchObject({
+      status: "recorded",
+      task: "scheduling",
+      phase: "collecting_booking_note",
+      nextAction: "ask",
+      action: "ask",
+      missingFacts: ["referringDoctor"],
+      instruction:
+        "Ask who referred them, or whether there is no referring doctor. Do not ask for surgery details; the appointment reason is already known.",
+    });
+    expect(recorded).not.toMatchObject({
+      tool: "book_appt",
     });
   });
 
@@ -454,7 +509,7 @@ describe("tool interruption handling", () => {
       missingFacts: [],
     });
     expect(result.planner).not.toMatchObject({ tool: "confirm_appt" });
-    expect(state.flow.lastWorkflowCommand).toMatchObject({
+    expect(activeWorkflowCommandForState(state.flow)).toMatchObject({
       taskKind: "appointment_cancel",
       phase: "complete",
       nextAction: "respond",
@@ -1296,6 +1351,56 @@ describe("tool interruption handling", () => {
       slotHash: "C",
       confirmed: true,
       consumed: true,
+    });
+  });
+
+  it("does not reject booking when the live context has a shorter post-op reason", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "booked", appointmentId: 12345 }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state, {
+      slotId: "B",
+      spoken: "2026-06-02 2:00 PM with Dr. Licht",
+      provider: "Dr. Licht",
+      date: "2026-06-02",
+      time: "2:00 PM",
+      datetime: "2026-06-02T14:00",
+    });
+    seedPendingBookingAction(state);
+    state.flow.schedulingGoal = {
+      patientRef: state.flow.activePatientRef,
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "Post-op.",
+      selectedSlotId: "B",
+      bookingConfirmed: true,
+      updatedAt: Date.now(),
+    };
+
+    const result = await book_appt.execute(
+      {
+        slotId: "B",
+        appointmentKind: "post_op",
+        appointmentReason: "post-op follow-up for dry eye surgery",
+        referringDoctor: "Dr. Licht",
+      },
+      {
+        ctx,
+        toolCallId: "test-book-post-op-expanded-reason",
+      },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody).toMatchObject({
+      appointmentReason: "post-op follow-up for dry eye surgery",
+      referringDoctor: "Dr. Licht",
     });
   });
 

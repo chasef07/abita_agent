@@ -47,10 +47,6 @@ export function applyPlannerPatch(
   if (patch?.currentTask) flow.currentTask = patch.currentTask;
   if (patch?.taskStack) flow.taskStack = patch.taskStack;
   if (patch?.schedulingGoal) flow.schedulingGoal = patch.schedulingGoal;
-  flow.lastWorkflowCommand = {
-    ...command,
-    statePatch: undefined,
-  };
 }
 
 export function flowDecisionForWorkflowCommand(

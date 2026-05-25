@@ -569,7 +569,7 @@ export function recordAppointmentLookupResult(
   flow: CallFlowState,
   appointmentCount: number,
 ): void {
-  const taskId = flow.activeTaskPlanId ?? flow.lastWorkflowCommand?.taskId;
+  const taskId = flow.activeTaskPlanId;
   const plan = taskId ? flow.taskPlans?.[taskId] : undefined;
   if (!isAppointmentLookupPlan(plan)) return;
 
