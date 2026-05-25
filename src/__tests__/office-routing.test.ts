@@ -192,6 +192,9 @@ describe("office routing helpers", () => {
 
     expect(getOfficeConfig("spring-hill").greeting).toBe(greeting);
     expect(getOfficeConfig("dev").greeting).toBe(greeting);
+    expect(getOfficeConfig("crystal-river").greeting).toBe(
+      "Thank you for calling Eye Radiance powered by Abeeta Eye Group. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
+    );
     expect(getOfficeConfig("hollywood").greeting).toBe(
       "Thanks for calling Abita Eye Group Hollywood. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
     );

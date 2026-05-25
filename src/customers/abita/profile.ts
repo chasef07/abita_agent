@@ -77,7 +77,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     displayName: "Eye Radiance",
     trunkPhones: [CRYSTAL_RIVER_OFFICE_PHONE],
     greeting:
-      "Thank you for calling Eye Radiance powered by Abeeta Eye Group. How can I help you?",
+      "Thank you for calling Eye Radiance powered by Abeeta Eye Group. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
     knowledgeFile: "KNOWLEDGE_EYERADIANCE.md",
     insuranceFile: "INSURANCE_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
