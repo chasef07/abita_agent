@@ -24,7 +24,6 @@ export type GuardObservationReason =
   | "availability_requires_visit_type"
   | "availability_duplicate_search_signature"
   | "availability_search_budget_exhausted"
-  | "tool_not_allowed_by_planner"
   | "booking_requires_verified_or_created_patient"
   | "booking_requires_recent_availability"
   | "booking_requires_pending_action"

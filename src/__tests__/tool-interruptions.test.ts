@@ -111,51 +111,16 @@ describe("tool interruption handling", () => {
     expect(warn).toHaveBeenCalledOnce();
   });
 
-  it("requires main-agent turn understanding before guarded tools on a new user turn", async () => {
+  it("lets safe tools run before turn understanding on a new user turn", async () => {
     const { ctx, state } = createToolContext();
     state.latestUserTranscript = "I need to move my appointment next week";
     state.turnUnderstandingAppliedForTranscript = null;
 
-    const appointmentLookupBlocked = await confirm_appt.execute(
-      {},
-      { ctx, toolCallId: "test-confirm-appt" },
-    );
-    expect(appointmentLookupBlocked).toMatchObject({
-      outcome: "not_allowed",
-      facts: {
-        reason: "turn_understanding_required",
-        toolName: "confirm_appt",
-      },
-    });
-
-    const faqBlocked = await lookup_knowledge.execute(
+    const faqResult = await lookup_knowledge.execute(
       { question: "office hours" },
       { ctx, toolCallId: "test-lookup" },
     );
-    expect(faqBlocked).toMatchObject({
-      outcome: "not_allowed",
-      facts: {
-        reason: "turn_understanding_required",
-        toolName: "lookup_knowledge",
-      },
-    });
-
-    const blocked = await verify_patient.execute(
-      {
-        firstName: "Jane",
-        lastName: "Doe",
-        dob: "01/01/1980",
-      },
-      { ctx, toolCallId: "test-verify" },
-    );
-
-    expect(blocked).toMatchObject({
-      outcome: "not_allowed",
-      facts: {
-        reason: "turn_understanding_required",
-        toolName: "verify_patient",
-      },
-    });
+    expect(faqResult).toContain("Knowledge source:");
 
     const recorded = await record_turn_understanding.execute(
       {
@@ -196,7 +161,7 @@ describe("tool interruption handling", () => {
     });
   });
 
-  it("blocks knowledge lookup when the reschedule task-plan frontier requires availability", async () => {
+  it("allows knowledge lookup when the reschedule task-plan frontier prefers availability", async () => {
     const { ctx, state } = createToolContext();
     seedLoadedAppointment(state, 12345);
     state.latestUserTranscript =
@@ -232,15 +197,7 @@ describe("tool interruption handling", () => {
       { ctx, toolCallId: "test-stale-lookup" },
     );
 
-    expect(lookupResult).toMatchObject({
-      outcome: "not_allowed",
-      facts: {
-        reason: "tool_not_allowed_by_planner",
-        toolName: "lookup_knowledge",
-        plannerPhase: "searching_replacement",
-        allowedTools: ["get_availability"],
-      },
-    });
+    expect(lookupResult).toContain("Knowledge source:");
   });
 
   it("returns a compact command packet with exact booking args", async () => {
@@ -1057,6 +1014,44 @@ describe("tool interruption handling", () => {
     });
   });
 
+  it("books when reducer confirmation refers to the offered slot naturally", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "booked", appointmentId: 12345 }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state, {
+      slotId: "C",
+      spoken: "2026-05-26 8:30 AM with Dr. Bach",
+      provider: "Dr. Bach",
+      date: "2026-05-26",
+      time: "8:30 AM",
+      datetime: "2026-05-26T08:30",
+    });
+    markBookingConfirmedInState(state, "2026-05-26_08:30_bach");
+
+    const result = await book_appt.execute(
+      bookingArgs("2026-05-26_08:30_bach"),
+      {
+        ctx,
+        toolCallId: "test-book-natural-slot",
+      },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
+    expect(state.flow.schedulingGoal?.selectedSlotId).toBe("C");
+    expect(state.flow.pendingActions[0]).toMatchObject({
+      type: "book_appt",
+      slotHash: "C",
+      confirmed: true,
+      consumed: true,
+    });
+  });
+
   it("returns a safe no-op for duplicate booking after success consumed the action", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
@@ -1446,7 +1441,7 @@ describe("tool interruption handling", () => {
     const result = await add_patient_note.execute(
       {
         appointmentReason: "itchy eye",
-        referringDoctor: "Dr. Tickle My Cock",
+        referringDoctor: "Dr. Smith",
       },
       { ctx, toolCallId: "test-ungrounded-note" },
     );

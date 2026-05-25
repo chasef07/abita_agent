@@ -253,7 +253,7 @@ Target context rules:
   tokens, or internal IDs unless the next tool call requires them.
 - Appointment summaries should be speakable. Internal IDs stay wrapper-owned.
 - If a tool remains visible because SDK context is stale, wrapper policy must
-  still enforce the latest `WorkflowCommand.allowedTools`.
+  still enforce concrete prerequisites rather than a planner allow-list.
 
 ## Core Design
 
@@ -408,18 +408,21 @@ Each parent plan owns:
 
 ## Tool Exposure
 
-Dynamic tool exposure should be derived from the current planner command, not
-from broad `flow.step` tables alone.
+Dynamic tool exposure should keep the workflow tool set broad. The current
+planner command is guidance for the model, not a hard visibility or allow-list
+boundary.
 
 Rules:
 
-- `record_turn_understanding` remains required once per new caller turn.
-- After semantic facts are recorded, expose only `WorkflowCommand.allowedTools`.
-- Wrapper guards remain the security boundary.
-- Dynamic exposure is latency and steerability control, not the only safety
-  layer.
+- `record_turn_understanding` remains preferred once per new caller turn, but
+  workflow tools are not blocked solely because it has not run yet.
+- After semantic facts are recorded, keep the broad workflow tool set visible.
+- Wrapper guards remain the security boundary for concrete prerequisites:
+  verified patient, current availability, loaded appointment, explicit
+  confirmation, and duplicate/stale action protection.
+- Dynamic exposure is latency and steerability control, not the safety layer.
 - SDK tool visibility can lag inside an already-running model turn, so wrappers
-  must enforce the latest planner command even when a stale tool remains visible.
+  must enforce concrete state, not a stale planner allow-list.
 - Side-effect tools remain serialized through pending actions even if the LLM or
   SDK attempts parallel calls.
 
@@ -1203,7 +1206,7 @@ Blocked:
 - booking and cancelling in parallel
 - transfer plus another side effect
 - duplicate availability searches with the same signature
-- tool calls that bypass the current `WorkflowCommand.allowedTools`
+- side-effect tool calls missing concrete prerequisites or confirmation
 
 The side-effect ledger remains the final authority. Dynamic tools reduce the
 chance of bad calls, but pending actions prevent damage.
@@ -1391,14 +1394,13 @@ Current:
 
 Target:
 
-- Pending turns still expose `record_turn_understanding` plus the current safe
-  fallback set because the SDK may capture tools before the state update runs.
-- After turn understanding is recorded, visible tools come from
-  `lastWorkflowCommand.allowedTools`.
-- Wrapper gates reject calls outside the latest planner command even if stale
-  SDK visibility shows the tool.
-- `lookup_knowledge` is visible only when the planner says the active frontier
-  is informational.
+- Pending turns expose `record_turn_understanding` plus the broad workflow tool
+  set because the SDK may capture tools before the state update runs.
+- After turn understanding is recorded, the broad workflow tool set remains
+  visible.
+- Wrapper gates reject calls only when concrete state is missing or stale, not
+  because the tool is outside the latest planner command.
+- `lookup_knowledge` remains visible broadly.
 - Add a model-facing `reschedule_appt` tool or an internal planner command with
   the same contract. The model should not orchestrate direct `book_appt` plus
   `cancel_appt` for reschedules.
@@ -1420,11 +1422,10 @@ Target:
 - The `reschedule_appt` pending action must carry the note payload required for
   the replacement appointment, not trigger a later `add_patient_note` action.
 - A side-effect wrapper must validate:
-  - turn understanding was recorded for the latest turn
-  - tool is in latest `WorkflowCommand.allowedTools`
   - pending action exists when required
   - pending action is confirmed and unconsumed
   - patient/task IDs match
+  - required patient, appointment, availability, and note facts exist
 - For reschedule, success means the replacement appointment exists and the old
   appointment is cancelled. Anything less is `partial_failure`, not success.
 
@@ -1433,8 +1434,8 @@ Target:
 Current:
 
 - Existing reducer and tool-exposure tests cover many step-level behaviors.
-- SDK-level tests verify `record_turn_understanding` gating and dynamic tool
-  refresh behavior.
+- SDK-level tests verify broad tool exposure, concrete prerequisite gates, and
+  dynamic tool refresh behavior.
 
 Target:
 
@@ -1501,12 +1502,13 @@ Target:
   replacement. Include the replacement appointment note payload in that action.
   Do not call `add_patient_note` as a separate reschedule step.
 
-### Phase 5: Tool Exposure From Planner
+### Phase 5: Broad Tool Exposure With Concrete Guards
 
-- Make dynamic tool exposure consume `WorkflowCommand.allowedTools`.
-- Keep wrapper gates unchanged.
-- Keep wrapper enforcement tied to the latest planner command because SDK tool
-  visibility can lag during the current model turn.
+- Keep the broad workflow tool set visible.
+- Use `WorkflowCommand.allowedTools` as planner guidance and telemetry, not as
+  a hard tool frontier.
+- Keep wrapper enforcement tied to concrete state because SDK tool visibility
+  can lag during the current model turn.
 - Add telemetry for hidden-tool attempted calls and planner phase.
 
 ### Phase 6: Expand Appointment Management

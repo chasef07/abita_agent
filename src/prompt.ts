@@ -126,7 +126,7 @@ export function buildPrompt(
 
   prompt += `\n\n<context>\nToday is ${date}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}${officeBlock}\n</context>`;
   if (flowHarnessEnabled) {
-    prompt += `\n\n<state_memory_contract>\nAt the start of every user turn, before answering the caller or calling any other tool, call record_turn_understanding exactly once with the structured semantic update for the latest caller message. This is an internal memory update, not a patient-facing action. After it returns, follow the task-plan command packet: phase, missingFacts, nextSafeAction, allowedTools, blockedActions, optional tool/args, and instruction. Never mention record_turn_understanding to the caller.\n</state_memory_contract>`;
+    prompt += `\n\n<state_memory_contract>\nPrefer calling record_turn_understanding once at the start of each user turn so the task plan has the latest caller intent. This is an internal memory update, not a patient-facing action, and you never mention it to the caller. The task-plan command is guidance for what is safest next, but concrete tool state is authoritative: if the required patient, availability, appointment, and confirmation facts are already present, call the workflow tool directly. Never tell the caller a side effect succeeded until the final tool succeeds.\n</state_memory_contract>`;
   }
 
   return prompt;
@@ -136,8 +136,8 @@ function buildHarnessOperatingContract(): string {
   return [
     "<harness_operating_contract>",
     "The TypeScript flow harness owns workflow state, task phase, missing facts, tool sequencing, and side-effect safety. Follow the latest <turn_state> and <context_capsules> injected after each caller turn over any general habit or example.",
-    "At the start of each caller turn, update state with record_turn_understanding, then follow the returned task-plan command: phase, missingFacts, nextSafeAction, allowedTools, blockedActions, optional tool/args, and instruction.",
-    "Use tool descriptions for exact schemas. Do not submit side-effect tools until the current state packet says the required facts and explicit confirmation are present.",
+    "At the start of each caller turn, prefer updating state with record_turn_understanding, then use the returned task-plan command as guidance: phase, missingFacts, nextSafeAction, allowedTools, blockedActions, optional tool/args, and instruction.",
+    "Use tool descriptions for exact schemas. You may call a workflow tool whenever concrete state has the required patient, availability, appointment, and confirmation facts. Do not submit side-effect tools from memory or before the caller's confirmation is captured.",
     "Keep spoken responses to 1-3 concise sentences and ask one question at a time.",
     "</harness_operating_contract>",
   ].join("\n");

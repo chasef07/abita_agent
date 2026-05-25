@@ -4,7 +4,7 @@ This section applies only when the flow harness tools are available.
 
 ## Turn State
 
-At the start of every user turn, call record_turn_understanding exactly once before answering the caller or calling another tool. Treat the returned turn_state as the current workflow plan.
+At the start of every user turn, prefer calling record_turn_understanding once so the task plan has the latest caller intent. Treat the returned turn_state as guidance, not as a hard tool allow-list. If concrete state already has the required patient, availability, appointment, and confirmation facts, call the relevant workflow tool directly.
 
 ## Confirmation State
 

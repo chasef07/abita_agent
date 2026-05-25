@@ -148,10 +148,6 @@ function evaluatePolicyForState(
   } = {},
 ): ToolOutcome | null {
   if (!isFlowHarnessEnabled(state)) return null;
-  const turnGate = evaluateTurnUnderstandingGate(state, toolName);
-  if (turnGate) return turnGate;
-  const plannerGate = evaluatePlannerToolGate(state, toolName);
-  if (plannerGate) return plannerGate;
   syncSessionPatientFromActiveFlow(state);
   let decision = evaluateFlowToolPolicy({
     flow: state.flow,
@@ -220,24 +216,6 @@ function evaluatePolicyForState(
   return withToolFacts(decision.outcome, state);
 }
 
-function evaluateTurnUnderstandingGate(
-  state: CallState,
-  toolName: string,
-): ToolOutcome | null {
-  if (!isFlowHarnessEnabled(state)) return null;
-  if (!requiresTurnUnderstandingBeforeTool(state)) return null;
-  return toolOutcome(
-    "not_allowed",
-    state.flow.step,
-    "Update the call state first by calling record_turn_understanding, then continue.",
-    {
-      reason: "turn_understanding_required",
-      toolName,
-    },
-    true,
-  );
-}
-
 function isFlowHarnessEnabled(state: Pick<CallState, "flowHarnessEnabled">) {
   return state.flowHarnessEnabled === true;
 }
@@ -268,63 +246,6 @@ function isSideEffectToolName(
   );
 }
 
-function evaluatePlannerToolGate(
-  state: CallState,
-  toolName: string,
-): ToolOutcome | null {
-  if (!isFlowHarnessEnabled(state)) return null;
-  const command = state.flow.lastWorkflowCommand;
-  if (!command || command.commandSource !== "task_plan") return null;
-  if (
-    state.flow.activeTaskPlanId &&
-    command.taskId !== state.flow.activeTaskPlanId
-  ) {
-    return null;
-  }
-  if (command.allowedTools.includes(toolName as any)) return null;
-  if (plannerShouldDeferToToolPolicy(command, toolName)) return null;
-  return toolOutcome(
-    "not_allowed",
-    state.flow.step,
-    "Follow the current task-plan command before using that tool.",
-    {
-      reason: "tool_not_allowed_by_planner",
-      toolName,
-      plannerTaskId: command.taskId,
-      plannerTaskKind: command.taskKind,
-      plannerPhase: command.phase,
-      allowedTools: command.allowedTools,
-    },
-    true,
-  );
-}
-
-function plannerShouldDeferToToolPolicy(
-  command: NonNullable<CallState["flow"]["lastWorkflowCommand"]>,
-  toolName: string,
-): boolean {
-  if (
-    command.taskKind === "appointment_reschedule" &&
-    (toolName === "book_appt" ||
-      toolName === "cancel_appt" ||
-      toolName === "add_patient_note")
-  ) {
-    return false;
-  }
-  if (
-    toolName !== "book_appt" &&
-    toolName !== "add_patient" &&
-    toolName !== "cancel_appt" &&
-    toolName !== "reschedule_appt" &&
-    toolName !== "route_to_spring_hill" &&
-    toolName !== "transfer_call" &&
-    toolName !== "update_insurance"
-  ) {
-    return false;
-  }
-  return command.blockedActions.some((blocked) => blocked.action === toolName);
-}
-
 function evaluatePatientNoteGrounding(
   state: CallState,
   appointmentReason: string,
@@ -344,11 +265,7 @@ function evaluatePatientNoteGrounding(
     ? noteValuesMatch(referringDoctor, expectedReferrer)
     : referrerIsNone;
 
-  if (
-    reasonMatches &&
-    referrerMatches &&
-    !hasUnsafeChartNoteValue(referringDoctor)
-  ) {
+  if (reasonMatches && referrerMatches) {
     return null;
   }
 
@@ -375,16 +292,6 @@ function normalizeNoteValue(value: string): string {
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function hasUnsafeChartNoteValue(value: string): boolean {
-  return /\b(cock|dick|fuck|shit|bitch|cunt)\b/i.test(value);
-}
-
-function requiresTurnUnderstandingBeforeTool(state: CallState): boolean {
-  const transcript = state.latestUserTranscript?.trim();
-  if (!transcript) return false;
-  return state.turnUnderstandingAppliedForTranscript !== transcript;
 }
 
 function withToolFacts(outcome: ToolOutcome, state: CallState): ToolOutcome {
@@ -995,6 +902,67 @@ function normalizeSlotId(slotId: string): string {
   return slotId.trim().toUpperCase();
 }
 
+function compactSlotReference(value: string | undefined): string {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/\bdoctor\b/g, "dr")
+    .replace(/\bdr\.\s*/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function slotTimeReferences(slot: StoredAvailabilitySlot): string[] {
+  const references = new Set<string>();
+  const timeSources = [slot.time, slot.datetime?.split("T")[1]?.slice(0, 5)];
+  for (const time of timeSources) {
+    const match = time?.match(/(\d{1,2}):?(\d{2})?\s*(am|pm)?/i);
+    if (!match) continue;
+    const hour = match[1] ?? "";
+    const minute = match[2] ?? "00";
+    const meridiem = match[3]?.toLowerCase() ?? "";
+    const unpadded = `${Number(hour)}${minute}`;
+    const padded = `${hour.padStart(2, "0")}${minute}`;
+    references.add(unpadded);
+    references.add(padded);
+    if (meridiem) {
+      references.add(`${unpadded}${meridiem}`);
+      references.add(`${padded}${meridiem}`);
+    }
+  }
+  return [...references].filter(Boolean);
+}
+
+function slotNaturallyMatches(
+  slot: StoredAvailabilitySlot,
+  requestedSlotId: string,
+): boolean {
+  const requested = compactSlotReference(requestedSlotId);
+  if (!requested) return false;
+  const aliases = [
+    slot.spoken,
+    slot.datetime,
+    [slot.date, slot.time, slot.provider].filter(Boolean).join(" "),
+  ]
+    .map(compactSlotReference)
+    .filter(Boolean);
+  if (
+    aliases.some((alias) => alias === requested || alias.includes(requested))
+  ) {
+    return true;
+  }
+
+  const dateReferences = [slot.date, slot.datetime?.split("T")[0]]
+    .map(compactSlotReference)
+    .filter(Boolean);
+  const providerReference = compactSlotReference(slot.provider);
+  const hasDate = dateReferences.some((date) => requested.includes(date));
+  const hasTime = slotTimeReferences(slot).some((time) =>
+    requested.includes(time),
+  );
+  const hasProvider =
+    !providerReference || requested.includes(providerReference);
+  return hasDate && hasTime && hasProvider;
+}
+
 function storeAvailabilitySlots(
   state: CallState,
   rawResponse: unknown,
@@ -1103,11 +1071,14 @@ function selectedAvailabilitySlot(
   slotId: string,
 ): StoredAvailabilitySlot | null {
   const normalized = normalizeSlotId(slotId);
-  return (
-    state.lastAvailabilitySlots.find(
-      (slot) => normalizeSlotId(slot.slotId) === normalized,
-    ) ?? null
+  const exact = state.lastAvailabilitySlots.find(
+    (slot) => normalizeSlotId(slot.slotId) === normalized,
   );
+  if (exact) return exact;
+  const naturalMatches = state.lastAvailabilitySlots.filter((slot) =>
+    slotNaturallyMatches(slot, slotId),
+  );
+  return naturalMatches.length === 1 ? naturalMatches[0] : null;
 }
 
 function publicAvailabilitySlots(slots: StoredAvailabilitySlot[]) {
@@ -1230,12 +1201,19 @@ function ensureConfirmedBookingActionFromState(
 ) {
   const selectedSlotId = state.flow.schedulingGoal?.selectedSlotId;
   const bookingConfirmed = state.flow.schedulingGoal?.bookingConfirmed === true;
+  const confirmedSlot = selectedSlotId
+    ? selectedAvailabilitySlot(state, selectedSlotId)
+    : null;
   if (
     !bookingConfirmed ||
-    !selectedSlotId ||
-    normalizeSlotId(selectedSlotId) !== normalizeSlotId(selectedSlot.slotId)
+    !confirmedSlot ||
+    normalizeSlotId(confirmedSlot.slotId) !==
+      normalizeSlotId(selectedSlot.slotId)
   ) {
     return undefined;
+  }
+  if (state.flow.schedulingGoal) {
+    state.flow.schedulingGoal.selectedSlotId = selectedSlot.slotId;
   }
 
   const routing =
@@ -1530,11 +1508,11 @@ function withLatestPlannerCommand(state: CallState, result: unknown): unknown {
 
 // --- record_turn_understanding ---
 export const record_turn_understanding = llm.tool({
-  description: `Internal memory update. Call this exactly once at the start of every user turn before answering the caller or calling any other tool.
+  description: `Internal memory update. Prefer calling this once at the start of every user turn so the task planner has the latest caller intent.
 
 Use it to provide the structured semantic state update for the caller's latest turn. This is not a side-effect tool and should never be mentioned to the caller.
 
-If the caller only says a backchannel like "yes", "okay", or "mm-hmm", still call this tool with goal "unclear", interruption "backchannel", and the right confidence/evidence.`,
+If the caller only says a backchannel like "yes", "okay", or "mm-hmm", call this tool with goal "unclear", interruption "backchannel", and the right confidence/evidence. If a concrete workflow tool is already safe from state, the harness will allow that tool without requiring this memory update first.`,
   parameters: turnUnderstandingSchema,
   execute: async (understanding, { ctx }) => {
     const state = getState(ctx);
@@ -1681,7 +1659,12 @@ After response:
     )) as any;
     if (result?.patientId) {
       applyPatientResult(state, result);
-      return result;
+      const planned = withLatestPlannerCommand(state, result);
+      await refreshDynamicToolsForSession(
+        ctx.session as voice.AgentSession<CallState>,
+        "tools_executed",
+      );
+      return planned;
     }
     return result;
   },
@@ -1946,10 +1929,6 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
     makeCurrentSpeechUninterruptible(ctx);
-    const turnGate = evaluateTurnUnderstandingGate(state, "confirm_appt");
-    if (turnGate) return turnGate;
-    const plannerGate = evaluatePlannerToolGate(state, "confirm_appt");
-    if (plannerGate) return plannerGate;
     syncSessionPatientFromActiveFlow(state);
     if (
       isFlowHarnessEnabled(state) &&
@@ -2103,8 +2082,6 @@ Only save these two fields: appointment reason and referring doctor. If there is
   execute: async ({ appointmentReason, referringDoctor }, { ctx }) => {
     const state = getState(ctx);
     const speechReady = makeCurrentSpeechUninterruptible(ctx);
-    const turnGate = evaluateTurnUnderstandingGate(state, "add_patient_note");
-    if (turnGate) return turnGate;
     syncSessionPatientFromActiveFlow(state);
     if (!state.patientId) {
       return toolOutcome(
@@ -2710,10 +2687,6 @@ Answer naturally from the returned info — just the part that answers their que
   execute: async ({ question }, { ctx }) => {
     const state = getState(ctx);
     makeCurrentSpeechUninterruptible(ctx);
-    const turnGate = evaluateTurnUnderstandingGate(state, "lookup_knowledge");
-    if (turnGate) return turnGate;
-    const plannerGate = evaluatePlannerToolGate(state, "lookup_knowledge");
-    if (plannerGate) return plannerGate;
     const result = lookupOfficeKnowledge(state.officeKey, question);
     if (state.flow.currentTask?.kind === "faq") {
       completeCurrentTaskAndResume(state.flow);

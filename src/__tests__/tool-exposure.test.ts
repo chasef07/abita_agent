@@ -16,15 +16,14 @@ describe("dynamic tool exposure", () => {
 
     const decision = buildToolsForState(state);
 
-    expect(decision.reason).toBe("turn_update_pending");
+    expect(decision.reason).toBe("turn_update_pending_broad");
     expect(decision.visibleToolNames).toEqual([
       "record_turn_understanding",
-      "lookup_knowledge",
+      ...DEV_BROAD_TOOL_NAMES,
     ]);
-    expect(decision.visibleToolNames).not.toContain("book_appt");
   });
 
-  it("keeps only current-step tools after record_turn_understanding while pending", () => {
+  it("keeps broad workflow tools visible while a user turn is pending", () => {
     const state = createCallState();
     state.flow.step = "confirm_booking";
     state.lastAvailabilitySlots = [
@@ -43,13 +42,11 @@ describe("dynamic tool exposure", () => {
 
     expect(buildToolsForState(state).visibleToolNames).toEqual([
       "record_turn_understanding",
-      "book_appt",
-      "get_availability",
-      "lookup_knowledge",
+      ...DEV_BROAD_TOOL_NAMES,
     ]);
   });
 
-  it("maps check_insurance state to insurance and knowledge tools", () => {
+  it("keeps all workflow tools visible during insurance state", () => {
     const state = createCallState();
     state.flow.step = "check_insurance";
     state.flow.activeFlow = "insurance";
@@ -57,20 +54,18 @@ describe("dynamic tool exposure", () => {
 
     const decision = buildToolsForState(state);
 
-    expect(decision.visibleToolNames).toEqual([
-      "check_insurance",
-      "lookup_knowledge",
-    ]);
+    expect(decision.visibleToolNames).toEqual(DEV_BROAD_TOOL_NAMES);
+    expect(decision.visibleToolNames).toContain("check_insurance");
   });
 
-  it("does not expose booking until current availability exists", () => {
+  it("exposes booking while policy guards missing availability", () => {
     const state = createCallState();
     state.flow.step = "confirm_booking";
 
-    expect(buildToolsForState(state).visibleToolNames).toEqual([
-      "get_availability",
-      "lookup_knowledge",
-    ]);
+    expect(buildToolsForState(state).visibleToolNames).toEqual(
+      DEV_BROAD_TOOL_NAMES,
+    );
+    expect(buildToolsForState(state).visibleToolNames).toContain("book_appt");
 
     state.lastAvailabilitySlots = [
       {
@@ -84,14 +79,12 @@ describe("dynamic tool exposure", () => {
       },
     ];
 
-    expect(buildToolsForState(state).visibleToolNames).toEqual([
-      "book_appt",
-      "get_availability",
-      "lookup_knowledge",
-    ]);
+    expect(buildToolsForState(state).visibleToolNames).toEqual(
+      DEV_BROAD_TOOL_NAMES,
+    );
   });
 
-  it("exposes appointment lookup when appointment management is answering from a verified patient", () => {
+  it("keeps appointment lookup visible with the broad workflow set", () => {
     const state = createCallState();
     state.flow.activeFlow = "appointment_management";
     state.flow.activeIntent = "existing_appointment_confirm";
@@ -99,13 +92,15 @@ describe("dynamic tool exposure", () => {
     state.flow.patients[state.flow.activePatientRef!].status = "verified";
     state.flow.step = "answer";
 
-    expect(buildToolsForState(state).visibleToolNames).toEqual([
+    expect(buildToolsForState(state).visibleToolNames).toEqual(
+      DEV_BROAD_TOOL_NAMES,
+    );
+    expect(buildToolsForState(state).visibleToolNames).toContain(
       "confirm_appt",
-      "lookup_knowledge",
-    ]);
+    );
   });
 
-  it("keeps appointment lookup exposed if appointment-management state drifts to availability", () => {
+  it("keeps appointment lookup visible even if appointment-management state drifts", () => {
     const state = createCallState();
     state.flow.activeFlow = "appointment_management";
     state.flow.activeIntent = "existing_appointment_confirm";
@@ -113,13 +108,12 @@ describe("dynamic tool exposure", () => {
     state.flow.patients[state.flow.activePatientRef!].status = "verified";
     state.flow.step = "get_availability";
 
-    expect(buildToolsForState(state).visibleToolNames).toEqual([
-      "confirm_appt",
-      "lookup_knowledge",
-    ]);
+    expect(buildToolsForState(state).visibleToolNames).toEqual(
+      DEV_BROAD_TOOL_NAMES,
+    );
   });
 
-  it("uses planner allowed tools after reschedule facts are recorded", () => {
+  it("uses planner state as exposure context without narrowing tools", () => {
     const state = createCallState();
     state.flow.activeIntent = "existing_appointment_reschedule";
     state.flow.activeFlow = "appointment_management";
@@ -148,33 +142,33 @@ describe("dynamic tool exposure", () => {
     const command = planNextCommand(state.flow);
     applyPlannerPatch(state.flow, command);
 
-    expect(buildToolsForState(state).visibleToolNames).toEqual([
-      "get_availability",
-    ]);
+    const decision = buildToolsForState(state);
+    expect(decision.reason).toBe(
+      "planner_guidance_broad:appointment_reschedule:searching_replacement",
+    );
+    expect(decision.visibleToolNames).toEqual(DEV_BROAD_TOOL_NAMES);
   });
 
-  it("hides appointment lookup before a preloaded patient is verified", () => {
+  it("keeps appointment lookup visible before a preloaded patient is verified", () => {
     const state = createCallState();
     state.flow.step = "verify_patient";
     state.flow.patientStatus = "matched";
     state.flow.patients[state.flow.activePatientRef!].status = "matched";
 
-    expect(buildToolsForState(state).visibleToolNames).toEqual([
-      "verify_patient",
-      "lookup_knowledge",
-    ]);
+    expect(buildToolsForState(state).visibleToolNames).toEqual(
+      DEV_BROAD_TOOL_NAMES,
+    );
   });
 
-  it("hides cancellation tools before a preloaded patient is verified", () => {
+  it("keeps cancellation tools visible before a preloaded patient is verified", () => {
     const state = createCallState();
     state.flow.step = "confirm_cancel";
     state.flow.patientStatus = "matched";
     state.flow.patients[state.flow.activePatientRef!].status = "matched";
 
-    expect(buildToolsForState(state).visibleToolNames).toEqual([
-      "verify_patient",
-      "lookup_knowledge",
-    ]);
+    expect(buildToolsForState(state).visibleToolNames).toEqual(
+      DEV_BROAD_TOOL_NAMES,
+    );
   });
 
   it("keeps update_insurance visible after accepted medical insurance for a verified patient", () => {
@@ -184,14 +178,12 @@ describe("dynamic tool exposure", () => {
     state.checkedInsurancePlan = "United Healthcare";
     state.checkedInsuranceCoverageType = "medical";
 
-    expect(buildToolsForState(state).visibleToolNames).toEqual([
-      "update_insurance",
-      "get_availability",
-      "lookup_knowledge",
-    ]);
+    expect(buildToolsForState(state).visibleToolNames).toEqual(
+      DEV_BROAD_TOOL_NAMES,
+    );
   });
 
-  it("does not expose add_patient_note after booking succeeds", () => {
+  it("keeps add_patient_note visible after booking succeeds", () => {
     const state = createCallState();
     state.flow.step = "answer";
     state.flow.pendingActions.push({
@@ -212,9 +204,12 @@ describe("dynamic tool exposure", () => {
       slotInvalidated: false,
     });
 
-    expect(buildToolsForState(state).visibleToolNames).toEqual([
-      "lookup_knowledge",
-    ]);
+    expect(buildToolsForState(state).visibleToolNames).toEqual(
+      DEV_BROAD_TOOL_NAMES,
+    );
+    expect(buildToolsForState(state).visibleToolNames).toContain(
+      "add_patient_note",
+    );
   });
 
   it("uses the legacy broad tool set when the flow harness is disabled", () => {
@@ -230,6 +225,21 @@ describe("dynamic tool exposure", () => {
     );
   });
 });
+
+const DEV_BROAD_TOOL_NAMES = [
+  "verify_patient",
+  "add_patient",
+  "update_insurance",
+  "get_availability",
+  "confirm_appt",
+  "cancel_appt",
+  "add_patient_note",
+  "book_appt",
+  "reschedule_appt",
+  "check_insurance",
+  "lookup_knowledge",
+  "transfer_call",
+] as const;
 
 function createCallState(overrides: Partial<CallState> = {}): CallState {
   return {

@@ -418,8 +418,8 @@ describe("transcript replay eval harness", () => {
     ).toMatchObject({
       allowed: false,
       outcome: {
-        nextStep: "get_availability",
-        facts: { reason: "tool_not_allowed_by_planner" },
+        nextStep: "confirm_booking",
+        facts: { reason: "availability_duplicate_search_signature" },
       },
     });
   });
@@ -515,7 +515,7 @@ describe("transcript replay eval harness", () => {
     });
   });
 
-  it("keeps reschedule on the book-new-slot-before-cancel path", () => {
+  it("keeps reschedule guarded by concrete prerequisites", () => {
     const harness = new TranscriptEvalHarness({
       appointments: [appointment(12345)],
     });
@@ -534,7 +534,7 @@ describe("transcript replay eval harness", () => {
     ).toMatchObject({
       allowed: false,
       outcome: {
-        facts: { reason: "tool_not_allowed_by_planner" },
+        facts: { reason: "cancel_confirmation_not_tracked" },
       },
     });
 
@@ -543,15 +543,13 @@ describe("transcript replay eval harness", () => {
     expect(harness.bookingPolicy()).toMatchObject({
       allowed: false,
       outcome: {
-        facts: { reason: "tool_not_allowed_by_planner" },
+        facts: { reason: "booking_requires_pending_action" },
       },
     });
     harness.confirmBooking();
     expect(harness.bookingPolicy()).toMatchObject({
-      allowed: false,
-      outcome: {
-        facts: { reason: "tool_not_allowed_by_planner" },
-      },
+      allowed: true,
+      observation: { reason: "allowed" },
     });
   });
 
