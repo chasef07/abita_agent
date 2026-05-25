@@ -188,7 +188,7 @@ describe("tool interruption handling", () => {
     expect(recorded).toMatchObject({
       phase: "searching_replacement",
       tool: "get_availability",
-      allowedTools: ["get_availability"],
+      suggestedTool: "get_availability",
     });
 
     const lookupResult = await lookup_knowledge.execute(
@@ -241,7 +241,7 @@ describe("tool interruption handling", () => {
       nextAction: "book_appt",
       action: "call_tool",
       tool: "book_appt",
-      allowedTools: ["book_appt"],
+      suggestedTool: "book_appt",
       args: {
         slotId: "C",
         appointmentKind: "medical",
@@ -311,6 +311,156 @@ describe("tool interruption handling", () => {
     });
     expect(JSON.stringify(result)).toContain("cancel-token-12345");
     expect(JSON.stringify(result)).toContain("cancelToken");
+  });
+
+  it("auto-loads appointments after verification when appointment planner asks for lookup", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({
+          status: "verified",
+          patientId: "patient-2",
+          name: "TEST,CHASE",
+          dob: "04/07/2000",
+          phone: "(954) 609-7250",
+        }),
+        text: async () => "",
+      }))
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({
+          status: "found",
+          appointments: [
+            {
+              id: 12345,
+              date: "Tuesday, June 2, 2026",
+              time: "1:30 PM",
+              provider: "Dr. Licht",
+              type: "Crystal River Established Patient",
+              facility: "Crystal River",
+              confirmed: true,
+              cancelToken: "cancel-token-12345",
+            },
+          ],
+        }),
+        text: async () => "",
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    resetToUnverifiedAppointmentTask(state, "cancel my appointment");
+
+    await record_turn_understanding.execute(
+      {
+        goal: "manage_existing_appointment",
+        appointmentAction: "cancel",
+        patient: {
+          patientMentioned: "caller",
+          relationshipToCaller: "self",
+        },
+        interruption: "none",
+        confidence: 0.9,
+        evidence: ["cancel my appointment"],
+      },
+      { ctx, toolCallId: "test-understanding-cancel" },
+    );
+
+    const result = (await verify_patient.execute(
+      { firstName: "Chase", lastName: "Test", dob: "04/07/2000" },
+      { ctx, toolCallId: "test-verify-auto-lookup" },
+    )) as Record<string, unknown>;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1][0])).toContain(
+      "/api/patient/appointments",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      patientId: "patient-2",
+    });
+    expect(result.appointmentLookup).toMatchObject({
+      status: "found",
+      appointments: [expect.objectContaining({ id: 12345 })],
+    });
+    expect(result.planner).toMatchObject({
+      task: "appointment_cancel",
+      nextAction: "confirm",
+    });
+    expect(result.planner).not.toMatchObject({ tool: "confirm_appt" });
+    expect(state.appointments).toContainEqual(
+      expect.objectContaining({ id: 12345 }),
+    );
+    expect(state.appointmentCancelTokens).toMatchObject({
+      "12345": "cancel-token-12345",
+    });
+  });
+
+  it("records no-appointment lookup results so the planner does not ask for confirm_appt again", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({
+          status: "verified",
+          patientId: "patient-2",
+          name: "TEST,CHASE",
+          dob: "04/07/2000",
+          phone: "(954) 609-7250",
+        }),
+        text: async () => "",
+      }))
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({
+          status: "no_appointments",
+          patientId: "patient-2",
+          message: "No appointments found for this patient",
+        }),
+        text: async () => "",
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    resetToUnverifiedAppointmentTask(state, "cancel my appointment");
+
+    await record_turn_understanding.execute(
+      {
+        goal: "manage_existing_appointment",
+        appointmentAction: "cancel",
+        patient: {
+          patientMentioned: "caller",
+          relationshipToCaller: "self",
+        },
+        interruption: "none",
+        confidence: 0.9,
+        evidence: ["cancel my appointment"],
+      },
+      { ctx, toolCallId: "test-understanding-cancel-empty" },
+    );
+
+    const result = (await verify_patient.execute(
+      { firstName: "Chase", lastName: "Test", dob: "04/07/2000" },
+      { ctx, toolCallId: "test-verify-auto-empty-lookup" },
+    )) as Record<string, unknown>;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.appointmentLookup).toMatchObject({
+      status: "no_appointments",
+    });
+    expect(result.planner).toMatchObject({
+      task: "appointment_cancel",
+      phase: "complete",
+      nextAction: "respond",
+      missingFacts: [],
+    });
+    expect(result.planner).not.toMatchObject({ tool: "confirm_appt" });
+    expect(state.flow.lastWorkflowCommand).toMatchObject({
+      taskKind: "appointment_cancel",
+      phase: "complete",
+      nextAction: "respond",
+      missingFacts: [],
+    });
+    expect(state.appointments).toEqual([]);
   });
 
   it("does not require turn understanding when the flow harness is disabled", async () => {
@@ -2964,6 +3114,22 @@ function seedLoadedAppointment(
   } else {
     delete state.appointmentCancelTokens[String(appointmentId)];
   }
+}
+
+function resetToUnverifiedAppointmentTask(
+  state: CallState,
+  transcript: string,
+) {
+  state.flow = createInitialFlowState({
+    officeKey: "spring-hill",
+  });
+  state.patientId = null;
+  state.patientName = null;
+  state.dob = null;
+  state.appointments = [];
+  state.appointmentCancelTokens = {};
+  state.latestUserTranscript = transcript;
+  state.turnUnderstandingAppliedForTranscript = null;
 }
 
 function expectInterruptedOutcome(result: unknown, toolName: string) {

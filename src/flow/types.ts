@@ -227,6 +227,7 @@ export interface WorkflowCommand {
   slot?: string;
   tool?: WorkflowToolName;
   args?: unknown;
+  suggestedTool?: WorkflowToolName;
   allowedTools: WorkflowToolName[];
   blockedActions: BlockedAction[];
   statePatch?: PlannerStatePatch;

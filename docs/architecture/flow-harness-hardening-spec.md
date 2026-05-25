@@ -419,7 +419,7 @@ Normalize model usage before reporting:
 
 - Filter adapter/wrapper labels from `modelsUsed`, including `FallbackAdapter`
   and provider-prefixed variants that end in `/FallbackAdapter`.
-- Keep actual model names, for example `zai-org/GLM-4.7`.
+- Keep actual model names, for example `zai-org/GLM-5`.
 - Set `fallbackUsed: true` only if the configured fallback child model appears
   in normalized LLM metrics or provider metadata explicitly reports fallback
   selection.
@@ -429,7 +429,7 @@ Expected summary for the trace shape:
 
 ```json
 {
-  "modelsUsed": ["zai-org/GLM-4.7"],
+  "modelsUsed": ["zai-org/GLM-5"],
   "fallbackUsed": false
 }
 ```
@@ -626,11 +626,11 @@ Forbidden model-visible fields:
 
 ### Fallback Telemetry
 
-Given metrics include `zai-org/GLM-4.7` and `FallbackAdapter` labels only:
+Given metrics include `zai-org/GLM-5` and `FallbackAdapter` labels only:
 
 Expected:
 
-- `modelsUsed: ["zai-org/GLM-4.7"]`
+- `modelsUsed: ["zai-org/GLM-5"]`
 - `fallbackUsed: false`
 
 Given metrics include two real child models:

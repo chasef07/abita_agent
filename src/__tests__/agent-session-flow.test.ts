@@ -59,45 +59,24 @@ describe("agent session flow integration", () => {
     await session.close();
   });
 
-  it("records turn understanding and then allows a follow-up tool", async () => {
-    const llmModel = new ScriptedToolAwareLLM(({ callIndex }) => {
-      if (callIndex === 0) {
-        return {
-          type: "tool",
-          name: "record_turn_understanding",
-          args: scheduleUnderstanding(),
-        };
-      }
-      if (callIndex === 1) {
-        return {
-          type: "tool",
-          name: "lookup_knowledge",
-          args: { question: "office hours" },
-        };
-      }
-      return { type: "message", content: "done" };
-    });
-    const { session, state } = await createFixture({ llmModel });
-    state.latestUserTranscript =
-      "I need a routine vision appointment next week";
-    state.turnUnderstandingAppliedForTranscript = null;
-
-    const result = session.run({
-      userInput: "I need a routine vision appointment next week",
-    });
-    await result.wait();
+  it("auto-records obvious scheduling intent before the model responds", async () => {
+    const llmModel = new ScriptedToolAwareLLM(() => ({
+      type: "message",
+      content: "done",
+    }));
+    const { session, state, agent } = await createFixture({ llmModel });
+    await agent.onUserTurnCompleted(
+      new llm.ChatContext(),
+      llm.ChatMessage.create({
+        role: "user",
+        content: "I need a routine vision appointment next week",
+      }),
+    );
 
     expect(state.turnUnderstandingAppliedForTranscript).toBe(
       "I need a routine vision appointment next week",
     );
     expect(state.flow.activeIntent).toBe("new_appointment");
-    expect(functionCallNames(result.events)).toEqual([
-      "record_turn_understanding",
-      "lookup_knowledge",
-    ]);
-    expect(functionOutputText(result.events)).not.toContain(
-      "turn_understanding_required",
-    );
     await session.close();
   });
 
@@ -127,57 +106,36 @@ describe("agent session flow integration", () => {
     await session.close();
   });
 
-  it("keeps downstream tools visible while record_turn_understanding is pending", async () => {
-    const seenToolSets: string[][] = [];
-    const llmModel = new ScriptedToolAwareLLM(({ callIndex, toolNames }) => {
-      seenToolSets.push(toolNames);
-      if (callIndex === 0) {
-        return {
-          type: "tool",
-          name: "record_turn_understanding",
-          args: scheduleUnderstanding(),
-        };
-      }
-      if (callIndex === 1) {
-        return toolNames.includes("get_availability")
-          ? {
-              type: "tool",
-              name: "lookup_knowledge",
-              args: { question: "office hours" },
-            }
-          : {
-              type: "tool",
-              name: "missing_tool",
-              args: {},
-            };
-      }
-      return { type: "message", content: "done" };
-    });
-    const { session, state } = await createFixture({
+  it("keeps downstream tools visible while automatic turn understanding is pending", async () => {
+    const llmModel = new ScriptedToolAwareLLM(() => ({
+      type: "message",
+      content: "done",
+    }));
+    const { session, state, agent } = await createFixture({
       llmModel,
       dynamicToolsEnabled: true,
     });
-    state.latestUserTranscript = "I need a medical appointment next Monday";
-    state.turnUnderstandingAppliedForTranscript = null;
     state.flow.activeFlow = "scheduling";
     state.flow.step = "get_availability";
-    await refreshAgentToolsForSession(session, "turn_update_pending");
+    state.flow.patientStatus = "verified";
+    state.flow.patients[state.flow.activePatientRef!].status = "verified";
+    await agent.onUserTurnCompleted(
+      new llm.ChatContext(),
+      llm.ChatMessage.create({
+        role: "user",
+        content: "I need a medical appointment next Monday",
+      }),
+    );
 
-    const result = session.run({
-      userInput: "I need a medical appointment next Monday",
-    });
-    await result.wait();
-
-    expect(seenToolSets[0][0]).toBe("record_turn_understanding");
-    expect(seenToolSets[0]).toContain("get_availability");
-    expect(seenToolSets[1]).toContain("get_availability");
-    expect(functionCallNames(result.events)).toEqual([
+    expect(state.latestToolExposure?.visibleToolNames).not.toContain(
       "record_turn_understanding",
-      "lookup_knowledge",
-    ]);
+    );
+    expect(state.latestToolExposure?.visibleToolNames).toContain(
+      "get_availability",
+    );
     expect(state.latestToolExposure).toMatchObject({
-      reason: "planner_guidance_broad:scheduling:needs_verified_patient",
-      refreshReason: "turn_understanding_recorded",
+      reason: "planner_guidance_broad:scheduling:searching_availability",
+      refreshReason: "turn_update_auto_recorded",
     });
     await session.close();
   });
@@ -339,24 +297,6 @@ function createCallState(overrides: Partial<CallState> = {}): CallState {
     transferred: false,
     transferInFlight: false,
     ...overrides,
-  };
-}
-
-function scheduleUnderstanding() {
-  return {
-    goal: "schedule",
-    patient: {
-      patientMentioned: "caller",
-      relationshipToCaller: "self",
-    },
-    scheduling: {
-      visitType: "medical",
-      visitReason: "eye exam",
-      preferredWindow: "next Monday",
-    },
-    interruption: "none",
-    confidence: 0.92,
-    evidence: ["appointment", "next Monday"],
   };
 }
 

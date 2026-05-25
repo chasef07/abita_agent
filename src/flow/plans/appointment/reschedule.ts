@@ -16,8 +16,10 @@ import {
   taskPlanId,
 } from "../common.js";
 import {
+  appointmentLookupKnownFact,
   mergeEvidence,
   resolveTargetAppointment,
+  resolveAppointmentLookup,
   speakableAppointmentSummary,
 } from "./shared.js";
 
@@ -95,6 +97,11 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
   }
   const verified = isVerified(patient, flow);
   const appointments = patient?.appointments ?? [];
+  const lookup = resolveAppointmentLookup(
+    verified,
+    appointments,
+    existingPlan?.lookup,
+  );
   const evidence = mergeEvidence(
     existingPlan?.targetSelectionEvidence,
     flow.schedulingGoal?.evidence,
@@ -124,21 +131,16 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     replacementSlotId,
     rescheduleConfirmed,
   });
+  const effectivePhase: AppointmentReschedulePlan["phase"] =
+    verified && lookup.noneFound ? "complete" : phase;
   const plan: AppointmentReschedulePlan = {
     id,
     kind: "appointment_reschedule",
     taskFrameId: flow.currentTask?.id,
     patientRef,
-    phase,
+    phase: effectivePhase,
     objective: "replace the selected existing appointment with a new slot",
-    lookup: {
-      phase: !verified
-        ? "needs_verified_patient"
-        : appointments.length > 0
-          ? "appointments_loaded"
-          : "loading_appointments",
-      loadedAppointmentCount: appointments.length,
-    },
+    lookup: lookup.subplan,
     targetAppointmentId: oldAppointment?.id,
     targetAppointmentSummary: oldAppointment
       ? speakableAppointmentSummary(oldAppointment)
@@ -152,7 +154,8 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     appointmentReason: note.appointmentReason,
     referringDoctor: note.referringDoctor,
     rescheduleConfirmed,
-    replacementBookedAppointmentId: existingPlan?.replacementBookedAppointmentId,
+    replacementBookedAppointmentId:
+      existingPlan?.replacementBookedAppointmentId,
     oldCancelled: existingPlan?.oldCancelled,
     createdAt: existingPlan?.createdAt ?? Date.now(),
     updatedAt: Date.now(),
@@ -174,7 +177,23 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     });
   }
 
-  if (appointments.length === 0) {
+  if (lookup.noneFound) {
+    return command(flow, plan, {
+      phase: "complete",
+      knownFacts: [
+        ...knownRescheduleFacts(patient, flow, plan),
+        appointmentLookupKnownFact(lookup),
+      ],
+      missingFacts: [],
+      nextAction: "respond",
+      allowedTools: [],
+      blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
+      instruction:
+        "Tell the caller you do not see any upcoming appointments to reschedule, then ask if they would like to schedule a new appointment.",
+    });
+  }
+
+  if (lookup.needsLookup) {
     return command(flow, plan, {
       phase,
       knownFacts: knownRescheduleFacts(patient, flow, plan),
@@ -317,7 +336,8 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     blockedActions: [
       {
         action: "cancel_appt",
-        reason: "book the replacement appointment before cancelling the old one",
+        reason:
+          "book the replacement appointment before cancelling the old one",
       },
       {
         action: "add_patient_note",

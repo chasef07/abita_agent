@@ -1,6 +1,63 @@
-import type { AppointmentCancelPlan, CallerAppointment } from "../../types.js";
+import type {
+  AppointmentCancelPlan,
+  AppointmentLookupSubplan,
+  CallerAppointment,
+  PlannerFact,
+} from "../../types.js";
 
 type TargetSelectionStatus = AppointmentCancelPlan["targetSelectionStatus"];
+
+export interface ResolvedAppointmentLookup {
+  subplan: AppointmentLookupSubplan;
+  phase: AppointmentLookupSubplan["phase"];
+  loaded: boolean;
+  noneFound: boolean;
+  needsLookup: boolean;
+  complete: boolean;
+  count: number;
+}
+
+export function resolveAppointmentLookup(
+  verified: boolean,
+  appointments: CallerAppointment[],
+  existingLookup?: AppointmentLookupSubplan,
+): ResolvedAppointmentLookup {
+  const count = appointments.length;
+  const phase: AppointmentLookupSubplan["phase"] = !verified
+    ? "needs_verified_patient"
+    : count > 0
+      ? "appointments_loaded"
+      : existingLookup?.phase === "none_found"
+        ? "none_found"
+        : existingLookup?.phase === "lookup_failed"
+          ? "lookup_failed"
+          : "loading_appointments";
+
+  return {
+    phase,
+    count,
+    loaded: phase === "appointments_loaded",
+    noneFound: phase === "none_found",
+    needsLookup: phase === "loading_appointments",
+    complete: phase === "appointments_loaded" || phase === "none_found",
+    subplan: {
+      ...(existingLookup ?? {}),
+      phase,
+      loadedAppointmentCount: count,
+    },
+  };
+}
+
+export function appointmentLookupKnownFact(
+  lookup: ResolvedAppointmentLookup,
+): PlannerFact {
+  return {
+    key: "appointments",
+    value: lookup.noneFound
+      ? "none found"
+      : `${lookup.count} loaded appointment(s)`,
+  };
+}
 
 export function mergeEvidence(
   existing: string[] | undefined,

@@ -15,8 +15,10 @@ import {
   taskPlanId,
 } from "../common.js";
 import {
+  appointmentLookupKnownFact,
   mergeEvidence,
   resolveTargetAppointment,
+  resolveAppointmentLookup,
   speakableAppointmentSummary,
 } from "./shared.js";
 
@@ -31,6 +33,11 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
   );
   const verified = isVerified(patient, flow);
   const appointments = patient?.appointments ?? [];
+  const lookup = resolveAppointmentLookup(
+    verified,
+    appointments,
+    existingPlan?.lookup,
+  );
   const evidence = mergeEvidence(
     existingPlan?.targetSelectionEvidence,
     flow.schedulingGoal?.evidence,
@@ -50,21 +57,16 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
     selectionStatus: selection.status,
     cancelConfirmed,
   });
+  const effectivePhase: AppointmentCancelPlan["phase"] =
+    verified && lookup.noneFound ? "complete" : phase;
   const plan: AppointmentCancelPlan = {
     id,
     kind: "appointment_cancel",
     taskFrameId: flow.currentTask?.id,
     patientRef,
-    phase,
+    phase: effectivePhase,
     objective: "cancel one selected existing appointment after confirmation",
-    lookup: {
-      phase: !verified
-        ? "needs_verified_patient"
-        : appointments.length > 0
-          ? "appointments_loaded"
-          : "loading_appointments",
-      loadedAppointmentCount: appointments.length,
-    },
+    lookup: lookup.subplan,
     targetAppointmentId: targetAppointment?.id,
     targetAppointmentSummary: targetAppointment
       ? speakableAppointmentSummary(targetAppointment)
@@ -98,7 +100,28 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
     });
   }
 
-  if (appointments.length === 0) {
+  if (lookup.noneFound) {
+    return command(flow, plan, {
+      phase: "complete",
+      knownFacts: [
+        ...knownPatientFacts(patient, flow),
+        appointmentLookupKnownFact(lookup),
+      ],
+      missingFacts: [],
+      nextAction: "respond",
+      allowedTools: [],
+      blockedActions: [
+        {
+          action: "cancel_appt",
+          reason: "no upcoming appointment was found to cancel",
+        },
+      ],
+      instruction:
+        "Tell the caller you do not see any upcoming appointments to cancel, then ask if there is anything else you can help with.",
+    });
+  }
+
+  if (lookup.needsLookup) {
     return command(flow, plan, {
       phase,
       knownFacts: knownPatientFacts(patient, flow),

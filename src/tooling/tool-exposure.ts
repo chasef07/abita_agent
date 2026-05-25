@@ -87,10 +87,6 @@ function visibleToolNamesForState(
   }
 
   const broadTools = legacyToolNamesForOffice(office, false);
-  if (pendingTurnUnderstanding(state)) {
-    return dedupe(["record_turn_understanding", ...broadTools]);
-  }
-
   return broadTools;
 }
 

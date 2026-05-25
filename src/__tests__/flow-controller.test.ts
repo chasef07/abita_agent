@@ -100,7 +100,7 @@ describe("flow state and context packet", () => {
     expect(packet).toContain("task: appointment_management");
     expect(packet).toContain("step: verify_patient");
     expect(packet).toContain("nextAction: ask_patient_name");
-    expect(packet).toContain("blockedActions: add_patient");
+    expect(packet).toContain("blockedSideEffects: add_patient");
     expect(packet).toContain("<context_capsules>");
     expect(packet).toContain("objective: verify patient");
     expect(packet).not.toContain("patient-1");
@@ -1367,7 +1367,7 @@ describe("deterministic turn router", () => {
       tool: "book_appt",
       args: { slotId: "slot-1", appointmentKind: "medical" },
     });
-    expect(turn.turnState).toContain("nextAction: book_appt");
+    expect(turn.turnState).toContain("next: call_tool book_appt");
     expect(flow).toMatchObject({
       activeFlow: "scheduling",
       step: "confirm_booking",
@@ -1475,7 +1475,7 @@ describe("deterministic turn router", () => {
       tool: "get_availability",
     });
     expect(turn.turnState).toContain("phase: searching_replacement");
-    expect(turn.turnState).toContain("allowedTools: get_availability");
+    expect(turn.turnState).toContain("suggestedTool: get_availability");
     expect(flow).toMatchObject({
       step: "get_availability",
       visitType: "medical",
@@ -1722,8 +1722,8 @@ describe("deterministic turn router", () => {
     expect(turn.instruction).toBe(
       "Call book_appt next using the current turn_state and caller-provided details.",
     );
-    expect(turn.turnState).toContain("nextAction: book_appt");
-    expect(turn.turnState).not.toContain("nextAction: ask_preferred_date");
+    expect(turn.turnState).toContain("next: call_tool book_appt");
+    expect(turn.turnState).not.toContain("ask_preferred_date");
     expect(flow.schedulingGoal).toMatchObject({
       bookingConfirmed: true,
       selectedSlotId: "C",
@@ -1824,7 +1824,7 @@ describe("deterministic turn router", () => {
       type: "call_tool",
       tool: "get_availability",
     });
-    expect(turn.turnState).toContain("nextAction: get_availability");
+    expect(turn.turnState).toContain("next: call_tool get_availability");
     expect(flow).toMatchObject({
       activeFlow: "scheduling",
       step: "get_availability",

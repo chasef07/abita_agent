@@ -4,6 +4,7 @@ import {
   createInitialFlowState,
   createPendingBookingAction,
   flowDecisionForWorkflowCommand,
+  inferObviousTurnUnderstanding,
   planNextCommand,
   parseTurnUnderstanding,
   recordAvailabilityCachedSlots,
@@ -221,6 +222,61 @@ describe("turn understanding reducer", () => {
         coverageType: "routine_vision",
       },
     } satisfies Partial<TurnUnderstanding>);
+  });
+
+  it("infers a booking confirmation from an affirmative reply", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+    });
+    flow.activeFlow = "scheduling";
+    flow.activeIntent = "new_appointment";
+    flow.step = "confirm_booking";
+    flow.schedulingGoal = {
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "double vision",
+      selectedSlotId: "B",
+      updatedAt: Date.now(),
+    };
+
+    expect(inferObviousTurnUnderstanding(flow, "yes that works")).toMatchObject(
+      {
+        goal: "schedule",
+        scheduling: {
+          selectedSlotId: "B",
+          bookingConfirmed: true,
+        },
+      },
+    );
+  });
+
+  it("infers cancel confirmation from a planner confirmation state", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+      appointments: [appointment(12345)],
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "existing_appointment_cancel";
+    flow.activeFlow = "appointment_management";
+    const command = planNextCommand(flow);
+    flow.lastWorkflowCommand = {
+      ...command,
+      confirmationType: "cancel",
+      statePatch: undefined,
+    };
+
+    expect(inferObviousTurnUnderstanding(flow, "correct")).toMatchObject({
+      goal: "manage_existing_appointment",
+      appointmentAction: "cancel",
+      confirmation: {
+        cancelConfirmed: true,
+      },
+    });
   });
 });
 

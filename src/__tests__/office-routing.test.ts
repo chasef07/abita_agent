@@ -263,14 +263,14 @@ describe("office routing helpers", () => {
     }
   });
 
-  it("exposes flow harness tools on demo and Crystal River trunk calls", () => {
+  it("keeps flow harness memory updates internal on demo and Crystal River trunk calls", () => {
     const demoTools = buildToolsForTrunk(DEV_OFFICE_PHONE);
-    expect(demoTools).toHaveProperty("record_turn_understanding");
+    expect(demoTools).not.toHaveProperty("record_turn_understanding");
     expect(demoTools).not.toHaveProperty("confirm_booking_action");
     expect(demoTools).not.toHaveProperty("confirm_side_effect_action");
 
     const crystalRiverTools = buildToolsForTrunk(CRYSTAL_RIVER_OFFICE_PHONE);
-    expect(crystalRiverTools).toHaveProperty("record_turn_understanding");
+    expect(crystalRiverTools).not.toHaveProperty("record_turn_understanding");
     expect(crystalRiverTools).not.toHaveProperty("confirm_booking_action");
     expect(crystalRiverTools).not.toHaveProperty("confirm_side_effect_action");
 
@@ -302,7 +302,8 @@ describe("flow harness prompt gating", () => {
     expect(prompt).toContain("<flow_harness_runbook>");
     expect(prompt).toContain("<state_memory_contract>");
     expect(prompt).toContain("<context_capsules>");
-    expect(prompt).toContain("record_turn_understanding");
+    expect(prompt).toContain("suggestedTool");
+    expect(prompt).not.toContain("record_turn_understanding");
     expect(prompt).not.toContain("<runbook>");
     expect(prompt).not.toContain("RUNBOOK.md - How to Handle Every Call");
     expect(prompt).not.toContain("confirm_booking_action");
@@ -317,7 +318,8 @@ describe("flow harness prompt gating", () => {
     expect(crystalRiverPrompt).toContain("<flow_harness_runbook>");
     expect(crystalRiverPrompt).toContain("<state_memory_contract>");
     expect(crystalRiverPrompt).toContain("<context_capsules>");
-    expect(crystalRiverPrompt).toContain("record_turn_understanding");
+    expect(crystalRiverPrompt).toContain("suggestedTool");
+    expect(crystalRiverPrompt).not.toContain("record_turn_understanding");
     expect(crystalRiverPrompt).not.toContain("<runbook>");
     expect(crystalRiverPrompt).not.toContain(
       "RUNBOOK.md - How to Handle Every Call",

@@ -169,7 +169,7 @@ export function compileTurnStatePacket(
     `scheduling: ${formatSchedulingGoal(flow)}`,
     `office: ${flow.officeKey}`,
     `nextAction: ${directives.nextAction ?? directives.allowedActions[0] ?? "continue"}`,
-    `blockedActions: ${formatList(directives.blockedActions)}`,
+    `blockedSideEffects: ${formatList(directives.blockedActions.filter(isSideEffectAction))}`,
     "</turn_state>",
     "",
     compileContextCapsules(flow, directives),
@@ -203,13 +203,11 @@ function compileWorkflowTurnStatePacket(
     `patient: ${flow.activePatientRef ?? command.patientRef ?? "unknown"} ${formatPatientStatus(flow)}`,
     `patientStatus: ${formatPatientStatus(flow)}`,
     `phase: ${command.phase}`,
-    `objective: ${command.objective}`,
     `known: ${formatPlannerFacts(command.knownFacts)}`,
     `missing: ${formatPlannerMissingFacts(command.missingFacts)}`,
-    `nextSafeAction: ${nextSafeAction}`,
-    `nextAction: ${command.tool ?? command.nextAction}`,
-    `allowedTools: ${formatList(command.allowedTools)}`,
-    `blockedActions: ${formatPlannerBlockedActions(command.blockedActions)}`,
+    `next: ${nextSafeAction}`,
+    `suggestedTool: ${command.suggestedTool ?? command.tool ?? "none"}`,
+    `blockedSideEffects: ${formatPlannerBlockedActions(sideEffectBlockedActions(command.blockedActions))}`,
     "</turn_state>",
   ]
     .filter((line) => line !== "")
@@ -239,6 +237,25 @@ function formatPlannerBlockedActions(
         : `${blocked.action}`,
     )
     .join("; ");
+}
+
+function sideEffectBlockedActions(
+  blockedActions: WorkflowCommand["blockedActions"],
+): WorkflowCommand["blockedActions"] {
+  return blockedActions.filter((blocked) => isSideEffectAction(blocked.action));
+}
+
+function isSideEffectAction(action: string): boolean {
+  return (
+    action === "book_appt" ||
+    action === "cancel_appt" ||
+    action === "add_patient" ||
+    action === "update_insurance" ||
+    action === "transfer_call" ||
+    action === "route_to_spring_hill" ||
+    action === "add_patient_note" ||
+    action === "reschedule_appt"
+  );
 }
 
 export function compileContextCapsules(

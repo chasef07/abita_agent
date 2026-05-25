@@ -135,6 +135,20 @@ describe("call observability", () => {
         false,
       ),
     ).toBe("appointment_cancelled");
+    expect(
+      classifyToolOutput(
+        "confirm_appt",
+        JSON.stringify({ status: "found", appointments: [{ id: 12345 }] }),
+        false,
+      ),
+    ).toBe("appointments_found");
+    expect(
+      classifyToolOutput(
+        "confirm_appt",
+        JSON.stringify({ status: "no_appointments" }),
+        false,
+      ),
+    ).toBe("appointments_not_found");
     expect(classifyToolOutput("book_appt", "timeout", true)).toBe(
       "middleware_error",
     );
@@ -242,7 +256,7 @@ describe("call observability", () => {
       llmMetrics: [
         {
           completionTokens: 20,
-          metadata: { modelName: "zai-org/GLM-4.7" },
+          metadata: { modelName: "zai-org/GLM-5" },
           promptCachedTokens: 40,
           promptTokens: 100,
           ttftMs: 450,
@@ -264,7 +278,7 @@ describe("call observability", () => {
       cachedPromptTokens: 120,
       completionTokens: 30,
       fallbackUsed: true,
-      modelsUsed: ["zai-org/GLM-4.7", "MiniMaxAI/MiniMax-M2.5"],
+      modelsUsed: ["zai-org/GLM-5", "MiniMaxAI/MiniMax-M2.5"],
       peakPromptTokens: 200,
       promptTokens: 300,
     });
@@ -278,7 +292,7 @@ describe("call observability", () => {
         {
           completionTokens: 20,
           metadata: {
-            modelName: "zai-org/GLM-4.7",
+            modelName: "zai-org/GLM-5",
             modelProvider: "unknown",
           },
           promptCachedTokens: 40,
@@ -303,7 +317,7 @@ describe("call observability", () => {
           {
             inputCachedTokens: 40,
             inputTokens: 100,
-            model: "unknown/zai-org/GLM-4.7",
+            model: "unknown/zai-org/GLM-5",
             outputTokens: 20,
             type: "llm_usage",
           },
@@ -320,7 +334,7 @@ describe("call observability", () => {
 
     expect(summary).toMatchObject({
       fallbackUsed: false,
-      modelsUsed: ["zai-org/GLM-4.7"],
+      modelsUsed: ["zai-org/GLM-5"],
     });
   });
 });

@@ -27,6 +27,7 @@ import type {
   TrackedSlotSource,
   VisitType,
 } from "./types.js";
+import { classifyVisitType } from "./scheduling.js";
 
 const relationshipSchema = z.enum([
   "self",
@@ -135,6 +136,152 @@ export function createUnclearTurnUnderstanding(
     confidence: input.confidence ?? 0,
     evidence: input.evidence ?? [],
   };
+}
+
+export function inferObviousTurnUnderstanding(
+  flow: CallFlowState,
+  transcript: string,
+): TurnUnderstanding | undefined {
+  const cleaned = transcript.trim();
+  const normalized = normalizeEvidenceText(cleaned);
+  if (!normalized) return undefined;
+
+  const activeCommand = flow.lastWorkflowCommand;
+  const evidence = [cleaned];
+  const affirmative = isAffirmative(normalized);
+  const negative = isNegative(normalized);
+
+  if (affirmative || negative) {
+    const confirmed = affirmative;
+    if (activeCommand?.confirmationType === "cancel") {
+      return {
+        goal: "manage_existing_appointment",
+        appointmentAction: "cancel",
+        confirmation: { cancelConfirmed: confirmed },
+        confidence: 0.95,
+        evidence,
+      };
+    }
+    if (activeCommand?.confirmationType === "route_office") {
+      return {
+        goal: "schedule",
+        confirmation: { routeConfirmed: confirmed },
+        confidence: 0.95,
+        evidence,
+      };
+    }
+    if (activeCommand?.confirmationType === "transfer") {
+      return {
+        goal: "transfer_request",
+        confirmation: { transferConfirmed: confirmed },
+        confidence: 0.95,
+        evidence,
+      };
+    }
+
+    if (isRescheduleConfirmationFlow(flow, activeCommand)) {
+      return {
+        goal: "manage_existing_appointment",
+        appointmentAction: "reschedule",
+        scheduling: {
+          selectedSlotId: selectedSlotForConfirmation(flow),
+          bookingConfirmed: confirmed,
+        },
+        confidence: 0.95,
+        evidence,
+      };
+    }
+
+    if (isBookingConfirmationFlow(flow, activeCommand)) {
+      return {
+        goal: "schedule",
+        scheduling: {
+          selectedSlotId: selectedSlotForConfirmation(flow),
+          bookingConfirmed: confirmed,
+        },
+        confidence: 0.95,
+        evidence,
+      };
+    }
+  }
+
+  const appointmentAction = appointmentActionFromTranscript(normalized);
+  if (appointmentAction) {
+    return {
+      goal: "manage_existing_appointment",
+      appointmentAction,
+      patient: { patientMentioned: "caller", relationshipToCaller: "self" },
+      confidence: 0.88,
+      evidence,
+    };
+  }
+
+  if (scheduleIntentFromTranscript(normalized)) {
+    const visitType = classifyVisitType(cleaned) ?? undefined;
+    const preferredWindow = hasPreferredWindowCue(normalized)
+      ? cleaned
+      : undefined;
+    return {
+      goal: "schedule",
+      scheduling:
+        visitType || preferredWindow
+          ? {
+              ...(visitType ? { visitType, visitReason: cleaned } : {}),
+              ...(preferredWindow ? { preferredWindow } : {}),
+            }
+          : undefined,
+      confidence: 0.82,
+      evidence,
+    };
+  }
+
+  if (insuranceQuestionFromTranscript(normalized)) {
+    return {
+      goal: "insurance_question",
+      confidence: 0.82,
+      evidence,
+    };
+  }
+
+  if (transferRequestFromTranscript(normalized)) {
+    return {
+      goal: "transfer_request",
+      interruption: "transfer_request",
+      confidence: 0.86,
+      evidence,
+    };
+  }
+
+  if (shouldTreatTranscriptAsVisitReason(flow, activeCommand, cleaned)) {
+    const visitType = classifyVisitType(cleaned) ?? undefined;
+    return {
+      goal: "schedule",
+      scheduling: {
+        visitReason: cleaned,
+        ...(visitType ? { visitType } : {}),
+      },
+      confidence: visitType ? 0.86 : 0.72,
+      evidence,
+    };
+  }
+
+  if (shouldTreatTranscriptAsPreferredWindow(flow, activeCommand, normalized)) {
+    return {
+      goal:
+        flow.activeIntent === "existing_appointment_reschedule"
+          ? "manage_existing_appointment"
+          : "schedule",
+      appointmentAction:
+        flow.activeIntent === "existing_appointment_reschedule"
+          ? "reschedule"
+          : null,
+      scheduling: { preferredWindow: cleaned },
+      confidence: 0.76,
+      evidence,
+    };
+  }
+
+  return undefined;
 }
 
 export function parseTurnUnderstanding(
@@ -766,6 +913,134 @@ function normalizeEvidenceText(value: string): string {
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isAffirmative(normalized: string): boolean {
+  return /^(yes|yeah|yep|correct|right|sure|ok|okay|perfect|that works|sounds good|that sounds good|go ahead|please do|yup)\b/.test(
+    normalized,
+  );
+}
+
+function isNegative(normalized: string): boolean {
+  return /^(no|nope|not that|that does not work|doesn t work|different|another|not correct)\b/.test(
+    normalized,
+  );
+}
+
+function appointmentActionFromTranscript(
+  normalized: string,
+): TurnUnderstanding["appointmentAction"] | undefined {
+  if (/\b(reschedule|re schedule|move|change)\b/.test(normalized)) {
+    return "reschedule";
+  }
+  if (/\b(cancel|cancelation|cancellation)\b/.test(normalized)) {
+    return "cancel";
+  }
+  if (/\b(confirm|check my appointment|appointment time)\b/.test(normalized)) {
+    return "confirm";
+  }
+  return undefined;
+}
+
+function scheduleIntentFromTranscript(normalized: string): boolean {
+  return /\b(schedule|book|make|set up|get on the schedule|availability|openings|appointment)\b/.test(
+    normalized,
+  );
+}
+
+function insuranceQuestionFromTranscript(normalized: string): boolean {
+  return /\b(insurance|coverage|plan|do you take|accept)\b/.test(normalized);
+}
+
+function transferRequestFromTranscript(normalized: string): boolean {
+  return /\b(human|person|front desk|office|representative|someone|transfer)\b/.test(
+    normalized,
+  );
+}
+
+function isBookingConfirmationFlow(
+  flow: CallFlowState,
+  command: CallFlowState["lastWorkflowCommand"],
+): boolean {
+  return (
+    flow.step === "confirm_booking" ||
+    command?.phase === "confirming_booking" ||
+    command?.missingFacts.some((fact) => fact.key === "bookingConfirmation") ===
+      true
+  );
+}
+
+function isRescheduleConfirmationFlow(
+  flow: CallFlowState,
+  command: CallFlowState["lastWorkflowCommand"],
+): boolean {
+  return (
+    flow.activeIntent === "existing_appointment_reschedule" ||
+    command?.taskKind === "appointment_reschedule" ||
+    command?.missingFacts.some(
+      (fact) => fact.key === "rescheduleConfirmation",
+    ) === true
+  );
+}
+
+function selectedSlotForConfirmation(flow: CallFlowState): string | undefined {
+  const args = flow.lastWorkflowCommand?.args;
+  const commandSlotId =
+    args && typeof args === "object" && !Array.isArray(args)
+      ? (args as { slotId?: unknown }).slotId
+      : undefined;
+  return (
+    flow.schedulingGoal?.selectedSlotId ??
+    (typeof commandSlotId === "string" ? commandSlotId : undefined) ??
+    latestCachedSlotId(flow)
+  );
+}
+
+function latestCachedSlotId(flow: CallFlowState): string | undefined {
+  return [...flow.availabilitySearches]
+    .reverse()
+    .find((search) => search.status !== "invalidated")?.cachedSlots[0]
+    ?.slotHash;
+}
+
+function shouldTreatTranscriptAsVisitReason(
+  flow: CallFlowState,
+  command: CallFlowState["lastWorkflowCommand"],
+  transcript: string,
+): boolean {
+  if (!transcript || transcript.length > 120) return false;
+  return (
+    flow.step === "triage_visit_type" ||
+    flow.step === "collect_visit_reason" ||
+    command?.missingFacts.some((fact) => fact.key === "visitReason") === true
+  );
+}
+
+function shouldTreatTranscriptAsPreferredWindow(
+  flow: CallFlowState,
+  command: CallFlowState["lastWorkflowCommand"],
+  normalized: string,
+): boolean {
+  if (
+    flow.step !== "get_availability" &&
+    command?.missingFacts.some(
+      (fact) =>
+        fact.key === "preferredDate" ||
+        fact.key === "replacementWindow" ||
+        fact.key === "availability" ||
+        fact.key === "replacementAvailability",
+    ) !== true
+  ) {
+    return false;
+  }
+
+  return hasPreferredWindowCue(normalized);
+}
+
+function hasPreferredWindowCue(normalized: string): boolean {
+  return /\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|later|earlier|next week|this week|january|february|march|april|may|june|july|august|september|october|november|december|\d{1,2}(st|nd|rd|th)?|\d{1,2}:\d{2})\b/.test(
+    normalized,
+  );
 }
 
 function invalidateStateForNewFacts(

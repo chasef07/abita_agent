@@ -5,6 +5,9 @@ import type {
   CallFlowState,
   CallerAppointment,
   InsuranceContext,
+  AppointmentConfirmPlan,
+  AppointmentCancelPlan,
+  AppointmentReschedulePlan,
   PatientContext,
   PatientRef,
   PatientRelationshipToCaller,
@@ -16,6 +19,11 @@ import type {
   TrackedSlot,
   TrackedSlotSource,
 } from "./types.js";
+
+type AppointmentLookupPlan =
+  | AppointmentConfirmPlan
+  | AppointmentCancelPlan
+  | AppointmentReschedulePlan;
 
 export interface CreateInitialFlowStateInput {
   officeKey: OfficeKey;
@@ -555,6 +563,39 @@ export function recordVerifiedPatient(
     switchedPatient: previousPatientRef !== targetPatientRef,
     identityChanged: !sameIdentitySnapshot(before, after),
   };
+}
+
+export function recordAppointmentLookupResult(
+  flow: CallFlowState,
+  appointmentCount: number,
+): void {
+  const taskId = flow.activeTaskPlanId ?? flow.lastWorkflowCommand?.taskId;
+  const plan = taskId ? flow.taskPlans?.[taskId] : undefined;
+  if (!isAppointmentLookupPlan(plan)) return;
+
+  flow.taskPlans = {
+    ...(flow.taskPlans ?? {}),
+    [plan.id]: {
+      ...plan,
+      lookup: {
+        ...plan.lookup,
+        phase: appointmentCount > 0 ? "appointments_loaded" : "none_found",
+        loadedAppointmentCount: appointmentCount,
+      },
+      updatedAt: Date.now(),
+    },
+  };
+}
+
+function isAppointmentLookupPlan(plan: unknown): plan is AppointmentLookupPlan {
+  return (
+    typeof plan === "object" &&
+    plan !== null &&
+    "kind" in plan &&
+    (plan.kind === "appointment_confirm" ||
+      plan.kind === "appointment_cancel" ||
+      plan.kind === "appointment_reschedule")
+  );
 }
 
 export function updateActivePatientInsurance(

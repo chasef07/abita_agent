@@ -113,6 +113,7 @@ export default defineAgent({
         llm: llmWithFallback,
         tts,
         vad,
+        maxToolSteps: 5,
         // preemptiveGeneration: false,
         turnHandling: {
           turnDetection: "stt",

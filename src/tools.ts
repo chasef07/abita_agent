@@ -17,8 +17,7 @@ import {
 } from "./insurance-rules.js";
 import {
   evaluateFlowToolPolicy,
-  advanceFlowForTurn,
-  applyPlannerPatch,
+  advanceWorkflow,
   compactWorkflowCommand,
   createPendingBookingAction,
   createPendingSideEffectAction,
@@ -31,6 +30,7 @@ import {
   normalizeSchedulingRouting,
   recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
+  recordAppointmentLookupResult,
   recordBookingAttempt,
   recordBookingResult,
   ensureActivePatientContext,
@@ -48,9 +48,9 @@ import {
   type PendingAction,
   type SideEffectToolName,
   type ToolOutcome,
+  type WorkflowCommand,
   turnUnderstandingSchema,
   nextActionForFlowDecision,
-  planNextCommand,
 } from "./flow/index.js";
 import { callApi } from "./tooling/advancedmd-client.js";
 import { lookupOfficeKnowledge } from "./tooling/knowledge.js";
@@ -842,6 +842,60 @@ function extractAppointments(
   return null;
 }
 
+function isNoAppointmentsResult(result: unknown): boolean {
+  return isRecord(result) && result.status === "no_appointments";
+}
+
+function storeAppointmentLookupResult(
+  state: CallState,
+  result: unknown,
+): boolean {
+  const rawAppointments = extractAppointments(result);
+  if (!rawAppointments && !isNoAppointmentsResult(result)) return false;
+
+  const appointments = publicCallerAppointments(rawAppointments ?? []);
+  state.appointments = appointments;
+  state.appointmentCancelTokens = appointmentCancelTokenMap(
+    rawAppointments ?? [],
+  );
+  ensureActivePatientContext(state.flow).appointments = appointments;
+  recordAppointmentLookupResult(state.flow, appointments.length);
+  startPatientTask(state.flow, {
+    kind: "appointment_management",
+    step: appointments.length > 0 ? "confirm_cancel" : "answer",
+  });
+  return true;
+}
+
+async function lookupAppointmentsForVerifiedPatient(
+  state: CallState,
+): Promise<unknown> {
+  const result = await callApi(
+    "/api/patient/appointments",
+    { patientId: state.patientId },
+    getAmdOfficeForToolCall(state),
+  );
+  storeAppointmentLookupResult(state, result);
+  return result;
+}
+
+function shouldAutoLookupAppointmentsAfterVerification(
+  state: CallState,
+  command: WorkflowCommand | undefined,
+): boolean {
+  if (!isFlowHarnessEnabled(state)) return false;
+  if (!state.patientId) return false;
+  if (!command) return false;
+  if (command.nextAction !== "call_tool" || command.tool !== "confirm_appt") {
+    return false;
+  }
+  return (
+    command.taskKind === "appointment_confirm" ||
+    command.taskKind === "appointment_cancel" ||
+    command.taskKind === "appointment_reschedule"
+  );
+}
+
 function activeAppointmentById(
   state: CallState,
   appointmentId: number,
@@ -1442,8 +1496,7 @@ function updateReschedulePlanAfterResult(
       updatedAt: Date.now(),
     },
   };
-  const command = planNextCommand(state.flow);
-  applyPlannerPatch(state.flow, command);
+  advanceWorkflow(state.flow, { type: "facts_changed" });
 }
 
 function markRescheduleReplacementBooked(
@@ -1521,7 +1574,7 @@ function compactTurnCommandResponse(turn: FlowTurnAdvanceResult) {
       phase: compact.phase,
       missingFacts: compact.missingFacts,
       nextAction: compact.nextAction,
-      ...(turn.update.pathFactsChanged ? { factsChanged: true } : {}),
+      ...(turn.update?.pathFactsChanged ? { factsChanged: true } : {}),
       action:
         command.nextAction === "call_tool"
           ? "call_tool"
@@ -1530,8 +1583,10 @@ function compactTurnCommandResponse(turn: FlowTurnAdvanceResult) {
             : command.nextAction,
       ...(command.tool ? { tool: command.tool } : {}),
       ...(command.args ? { args: command.args } : {}),
-      allowedTools: command.allowedTools,
-      blockedActions: compact.blockedActions,
+      ...(compact.suggestedTool
+        ? { suggestedTool: compact.suggestedTool }
+        : {}),
+      blockedSideEffects: compact.blockedSideEffects,
       instruction: command.instruction,
     };
   }
@@ -1541,7 +1596,7 @@ function compactTurnCommandResponse(turn: FlowTurnAdvanceResult) {
   const base = {
     status: "recorded",
     nextAction,
-    ...(turn.update.pathFactsChanged ? { factsChanged: true } : {}),
+    ...(turn.update?.pathFactsChanged ? { factsChanged: true } : {}),
   };
 
   switch (decision.type) {
@@ -1605,9 +1660,9 @@ function withLatestPlannerCommand(state: CallState, result: unknown): unknown {
   ) {
     return result;
   }
-  const command = planNextCommand(state.flow);
-  applyPlannerPatch(state.flow, command);
-  const planner = compactWorkflowCommand(command);
+  const turn = advanceWorkflow(state.flow, { type: "facts_changed" });
+  if (!turn.workflowCommand) return result;
+  const planner = compactWorkflowCommand(turn.workflowCommand);
   if (isRecord(result)) {
     return {
       ...result,
@@ -1622,7 +1677,7 @@ function withLatestPlannerCommand(state: CallState, result: unknown): unknown {
 
 // --- record_turn_understanding ---
 export const record_turn_understanding = llm.tool({
-  description: `Internal memory update. Prefer calling this once at the start of every user turn so the task planner has the latest caller intent.
+  description: `Internal fallback memory update. The reducer normally records obvious caller intent before the model responds, so this tool should only be used if it is explicitly exposed and the current turn_state is missing a material caller fact.
 
 Use it to provide the structured semantic state update for the caller's latest turn. This is not a side-effect tool and should never be mentioned to the caller.
 
@@ -1653,19 +1708,21 @@ If the caller only says a backchannel like "yes", "okay", or "mm-hmm", call this
       };
     }
 
-    const turn = advanceFlowForTurn({
-      flow: state.flow,
+    const turn = advanceWorkflow(state.flow, {
+      type: "caller_intent_recorded",
       transcript,
       understanding,
     });
     state.turnUnderstandingAppliedForTranscript = transcript || null;
-    state.lastTurnUnderstanding = {
-      goal: turn.update.understanding.goal,
-      appointmentAction: turn.update.understanding.appointmentAction,
-      confidence: turn.update.understanding.confidence,
-      activeIntent: state.flow.activeIntent,
-      activePatientRef: state.flow.activePatientRef,
-    };
+    if (turn.update) {
+      state.lastTurnUnderstanding = {
+        goal: turn.update.understanding.goal,
+        appointmentAction: turn.update.understanding.appointmentAction,
+        confidence: turn.update.understanding.confidence,
+        activeIntent: state.flow.activeIntent,
+        activePatientRef: state.flow.activePatientRef,
+      };
+    }
     await refreshDynamicToolsForSession(
       ctx.session as voice.AgentSession<CallState>,
       "turn_understanding_recorded",
@@ -1773,6 +1830,23 @@ After response:
     )) as any;
     if (result?.patientId) {
       applyPatientResult(state, result);
+      if (isFlowHarnessEnabled(state)) {
+        const turn = advanceWorkflow(state.flow, { type: "patient_verified" });
+        const command = turn.workflowCommand;
+        if (shouldAutoLookupAppointmentsAfterVerification(state, command)) {
+          const appointmentLookup =
+            await lookupAppointmentsForVerifiedPatient(state);
+          const planned = withLatestPlannerCommand(state, {
+            ...result,
+            appointmentLookup,
+          });
+          await refreshDynamicToolsForSession(
+            ctx.session as voice.AgentSession<CallState>,
+            "tools_executed",
+          );
+          return planned;
+        }
+      }
       const planned = withLatestPlannerCommand(state, result);
       await refreshDynamicToolsForSession(
         ctx.session as voice.AgentSession<CallState>,
@@ -2066,22 +2140,8 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
         true,
       );
     }
-    const result = await callApi(
-      "/api/patient/appointments",
-      { patientId: state.patientId },
-      getAmdOfficeForToolCall(state),
-    );
-    const rawAppointments = extractAppointments(result);
-    if (rawAppointments) {
-      const appointments = publicCallerAppointments(rawAppointments);
-      state.appointments = appointments;
-      state.appointmentCancelTokens =
-        appointmentCancelTokenMap(rawAppointments);
-      ensureActivePatientContext(state.flow).appointments = appointments;
-      startPatientTask(state.flow, {
-        kind: "appointment_management",
-        step: appointments.length > 0 ? "confirm_cancel" : "answer",
-      });
+    const result = await lookupAppointmentsForVerifiedPatient(state);
+    if (extractAppointments(result) || isNoAppointmentsResult(result)) {
       return withLatestPlannerCommand(state, result);
     }
     return result;

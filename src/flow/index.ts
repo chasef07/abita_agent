@@ -8,6 +8,7 @@ export * from "./plans/scheduling.js";
 export * from "./plans/simple.js";
 export * from "./plans/task-planner.js";
 export * from "./policy.js";
+export * from "./reducer.js";
 export * from "./scheduling.js";
 export * from "./shadow.js";
 export * from "./state.js";

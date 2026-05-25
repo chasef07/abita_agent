@@ -126,7 +126,7 @@ export function buildPrompt(
 
   prompt += `\n\n<context>\nToday is ${date}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}${officeBlock}\n</context>`;
   if (flowHarnessEnabled) {
-    prompt += `\n\n<state_memory_contract>\nPrefer calling record_turn_understanding once at the start of each user turn so the task plan has the latest caller intent. This is an internal memory update, not a patient-facing action, and you never mention it to the caller. The task-plan command is guidance for what is safest next, but concrete tool state is authoritative: if the required patient, availability, appointment, and confirmation facts are already present, call the workflow tool directly. Never tell the caller a side effect succeeded until the final tool succeeds.\n</state_memory_contract>`;
+    prompt += `\n\n<state_memory_contract>\nThe reducer records obvious caller intent before each model turn and injects a compact turn_state. Treat suggestedTool as guidance, not as the safety boundary. Concrete tool state is authoritative: if the required patient, availability, appointment, and confirmation facts are already present, call the workflow tool directly. Side effects still require explicit caller confirmation and a successful tool result before you say they are done.\n</state_memory_contract>`;
   }
 
   return prompt;
@@ -135,9 +135,9 @@ export function buildPrompt(
 function buildHarnessOperatingContract(): string {
   return [
     "<harness_operating_contract>",
-    "The TypeScript flow harness owns workflow state, task phase, missing facts, tool sequencing, and side-effect safety. Follow the latest <turn_state> and <context_capsules> injected after each caller turn over any general habit or example.",
-    "At the start of each caller turn, prefer updating state with record_turn_understanding, then use the returned task-plan command as guidance: phase, missingFacts, nextSafeAction, allowedTools, blockedActions, optional tool/args, and instruction.",
-    "Use tool descriptions for exact schemas. You may call a workflow tool whenever concrete state has the required patient, availability, appointment, and confirmation facts. Do not submit side-effect tools from memory or before the caller's confirmation is captured.",
+    "The TypeScript flow harness owns workflow state, task phase, missing facts, and side-effect safety. Use the latest <turn_state> and <context_capsules> injected after each caller turn as guidance over any general habit or example.",
+    "The reducer records obvious caller intent before planning. Use the compact task state as guidance: phase, known facts, missing facts, next, suggestedTool, and blockedSideEffects. Treat suggestedTool as the recommended frontier, not as a hard allow-list.",
+    "Use tool descriptions for exact schemas. You may call a workflow tool whenever concrete state has the required patient, availability, appointment, and confirmation facts. Read-only tools can run when their prerequisites are met; side-effect tools require explicit caller confirmation and policy approval.",
     "Keep spoken responses to 1-3 concise sentences and ask one question at a time.",
     "</harness_operating_contract>",
   ].join("\n");

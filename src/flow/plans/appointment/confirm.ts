@@ -5,21 +5,36 @@ import type {
 } from "../../types.js";
 import {
   command,
+  existingPlanOfKind,
   existingPlanCreatedAt,
   isVerified,
   knownPatientFacts,
   taskPlanId,
 } from "../common.js";
+import {
+  appointmentLookupKnownFact,
+  resolveAppointmentLookup,
+} from "./shared.js";
 
 export function planConfirm(flow: CallFlowState): WorkflowCommand {
   const patientRef = flow.activePatientRef ?? "caller";
   const patient = flow.patients[patientRef];
   const id = taskPlanId(flow, "appointment_confirm");
+  const existingPlan = existingPlanOfKind<AppointmentConfirmPlan>(
+    flow,
+    id,
+    "appointment_confirm",
+  );
   const verified = isVerified(patient, flow);
   const appointments = patient?.appointments ?? [];
+  const lookup = resolveAppointmentLookup(
+    verified,
+    appointments,
+    existingPlan?.lookup,
+  );
   const phase: AppointmentConfirmPlan["phase"] = !verified
     ? "needs_lookup"
-    : appointments.length > 0
+    : lookup.complete
       ? "complete"
       : "needs_lookup";
   const plan: AppointmentConfirmPlan = {
@@ -29,14 +44,7 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
     patientRef,
     phase,
     objective: "read back the patient's upcoming appointment details",
-    lookup: {
-      phase: !verified
-        ? "needs_verified_patient"
-        : appointments.length > 0
-          ? "appointments_loaded"
-          : "loading_appointments",
-      loadedAppointmentCount: appointments.length,
-    },
+    lookup: lookup.subplan,
     createdAt: existingPlanCreatedAt(flow, id),
     updatedAt: Date.now(),
   };
@@ -62,7 +70,23 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
     });
   }
 
-  if (appointments.length === 0) {
+  if (lookup.noneFound) {
+    return command(flow, plan, {
+      phase: "complete",
+      knownFacts: [
+        ...knownPatientFacts(patient, flow),
+        appointmentLookupKnownFact(lookup),
+      ],
+      missingFacts: [],
+      nextAction: "respond",
+      allowedTools: [],
+      blockedActions: [],
+      instruction:
+        "Tell the caller you do not see any upcoming appointments, then ask if they would like to schedule one.",
+    });
+  }
+
+  if (lookup.needsLookup) {
     return command(flow, plan, {
       phase: "loading_appointments",
       knownFacts: knownPatientFacts(patient, flow),
@@ -82,10 +106,7 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
     phase: "complete",
     knownFacts: [
       ...knownPatientFacts(patient, flow),
-      {
-        key: "appointments",
-        value: `${appointments.length} loaded appointment(s)`,
-      },
+      appointmentLookupKnownFact(lookup),
     ],
     missingFacts: [],
     nextAction: "respond",

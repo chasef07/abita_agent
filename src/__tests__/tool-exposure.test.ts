@@ -9,7 +9,7 @@ import type { CallState } from "../tooling/call-state.js";
 import { buildToolsForState } from "../tooling/tool-registry.js";
 
 describe("dynamic tool exposure", () => {
-  it("keeps record_turn_understanding first while a user turn is pending", () => {
+  it("keeps record_turn_understanding hidden while a user turn is pending", () => {
     const state = createCallState();
     state.latestUserTranscript = "I need to schedule an appointment";
     state.turnUnderstandingAppliedForTranscript = null;
@@ -17,10 +17,10 @@ describe("dynamic tool exposure", () => {
     const decision = buildToolsForState(state);
 
     expect(decision.reason).toBe("turn_update_pending_broad");
-    expect(decision.visibleToolNames).toEqual([
+    expect(decision.visibleToolNames).toEqual(DEV_BROAD_TOOL_NAMES);
+    expect(decision.visibleToolNames).not.toContain(
       "record_turn_understanding",
-      ...DEV_BROAD_TOOL_NAMES,
-    ]);
+    );
   });
 
   it("keeps broad workflow tools visible while a user turn is pending", () => {
@@ -40,10 +40,9 @@ describe("dynamic tool exposure", () => {
     state.latestUserTranscript = "yes that appointment works";
     state.turnUnderstandingAppliedForTranscript = null;
 
-    expect(buildToolsForState(state).visibleToolNames).toEqual([
-      "record_turn_understanding",
-      ...DEV_BROAD_TOOL_NAMES,
-    ]);
+    expect(buildToolsForState(state).visibleToolNames).toEqual(
+      DEV_BROAD_TOOL_NAMES,
+    );
   });
 
   it("keeps all workflow tools visible during insurance state", () => {

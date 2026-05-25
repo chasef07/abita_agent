@@ -7,7 +7,11 @@ import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
 import type { CallState, PhoneLookupResult } from "./tooling/call-state.js";
 import type { VoiceLanguageRuntime } from "./language-runtime.js";
-import { compileTurnStatePacket } from "./flow/index.js";
+import {
+  advanceWorkflow,
+  compileTurnStatePacket,
+  inferObviousTurnUnderstanding,
+} from "./flow/index.js";
 import { getOfficeConfigByPhone } from "./customer/profile.js";
 import {
   buildToolsForTrunk as buildToolsForTrunkFromRegistry,
@@ -58,15 +62,38 @@ export class Agent extends voice.Agent {
 
     state.latestUserTranscript = transcript;
     state.turnUnderstandingAppliedForTranscript = null;
-    await refreshAgentToolsForSession(this.session, "turn_update_pending");
+    const inferred = inferObviousTurnUnderstanding(state.flow, transcript);
+    if (inferred) {
+      const turn = advanceWorkflow(state.flow, {
+        type: "caller_intent_recorded",
+        transcript,
+        understanding: inferred,
+      });
+      state.turnUnderstandingAppliedForTranscript = transcript;
+      if (turn.update) {
+        state.lastTurnUnderstanding = {
+          goal: turn.update.understanding.goal,
+          appointmentAction: turn.update.understanding.appointmentAction,
+          confidence: turn.update.understanding.confidence,
+          activeIntent: state.flow.activeIntent,
+          activePatientRef: state.flow.activePatientRef,
+        };
+      }
+    }
+    await refreshAgentToolsForSession(
+      this.session,
+      inferred ? "turn_update_auto_recorded" : "turn_update_pending",
+    );
     chatCtx.addMessage({
       role: "system",
       content: [
         compileTurnStatePacket(state.flow),
         "",
-        "<state_update_required>",
-        "Prefer calling record_turn_understanding once for this user turn so the planner has the latest caller intent. If concrete state already has the required patient, availability, appointment, and confirmation facts, you may call the relevant workflow tool directly. Use the task-plan command as guidance, not a hard allow-list, and never claim a side effect succeeded until the final tool succeeds.",
-        "</state_update_required>",
+        "<workflow_guidance>",
+        inferred
+          ? "The reducer already recorded the obvious caller intent for this turn. Use the current turn_state as guidance, and call the suggested read-only tool when prerequisites are met. Side effects still require explicit confirmation and policy approval."
+          : "No automatic intent update was applied. Use the current turn_state, caller wording, and concrete tool facts to either ask one clarifying question or call a safe workflow tool. Side effects still require explicit confirmation and policy approval.",
+        "</workflow_guidance>",
       ].join("\n"),
       id: `flow_turn_state_${newMessage.id}`,
       createdAt: newMessage.createdAt + 1,

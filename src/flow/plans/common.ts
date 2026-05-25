@@ -94,6 +94,7 @@ export function flowDecisionForWorkflowCommand(
 }
 
 export function compactWorkflowCommand(command: WorkflowCommand) {
+  const blockedSideEffects = sideEffectBlockedActions(command.blockedActions);
   return {
     task: command.taskKind,
     taskId: command.taskId,
@@ -101,10 +102,10 @@ export function compactWorkflowCommand(command: WorkflowCommand) {
     missingFacts: command.missingFacts.map((fact) => fact.key),
     nextAction: command.tool ?? command.nextAction,
     action: command.nextAction,
+    ...(command.suggestedTool ? { suggestedTool: command.suggestedTool } : {}),
     ...(command.tool ? { tool: command.tool } : {}),
     ...(command.args ? { args: command.args } : {}),
-    allowedTools: command.allowedTools,
-    blockedActions: command.blockedActions.map((blocked) => blocked.action),
+    blockedSideEffects: blockedSideEffects.map((blocked) => blocked.action),
     instruction: command.instruction,
   };
 }
@@ -174,6 +175,7 @@ export function command(
     slot: input.slot,
     tool: input.tool,
     args: input.args,
+    suggestedTool: input.tool ?? input.allowedTools[0],
     allowedTools: input.allowedTools,
     blockedActions: input.blockedActions,
     confirmationType: input.confirmationType,
@@ -182,6 +184,23 @@ export function command(
     resolvedMetaDecision: input.resolvedMetaDecision,
     statePatch,
   };
+}
+
+function sideEffectBlockedActions(blockedActions: BlockedAction[]) {
+  return blockedActions.filter((blocked) => isSideEffectAction(blocked.action));
+}
+
+function isSideEffectAction(action: string): boolean {
+  return (
+    action === "book_appt" ||
+    action === "cancel_appt" ||
+    action === "add_patient" ||
+    action === "update_insurance" ||
+    action === "transfer_call" ||
+    action === "route_to_spring_hill" ||
+    action === "add_patient_note" ||
+    action === "reschedule_appt"
+  );
 }
 
 export function taskPlanId(

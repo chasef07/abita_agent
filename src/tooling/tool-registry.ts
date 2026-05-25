@@ -2,7 +2,6 @@ import { voice } from "@livekit/agents";
 import {
   getOfficeConfig,
   getOfficeConfigByPhone,
-  isFlowHarnessEnabledForTrunk,
 } from "../customer/profile.js";
 import {
   add_patient,
@@ -47,11 +46,7 @@ export type AgentTools = Partial<AgentToolMap>;
 
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
   const office = getOfficeConfigByPhone(trunkPhone ?? "");
-  const flowHarnessEnabled = isFlowHarnessEnabledForTrunk(trunkPhone);
   return toolsFromNames([
-    ...(flowHarnessEnabled
-      ? (["record_turn_understanding"] as AgentToolName[])
-      : []),
     "verify_patient",
     "add_patient",
     "update_insurance",
