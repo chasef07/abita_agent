@@ -1649,7 +1649,6 @@ describe("deterministic turn router", () => {
     });
     expect(command.allowedTools).not.toContain("add_patient_note");
     expect(command.allowedTools).not.toContain("cancel_appt");
-    expect(command.allowedTools).not.toContain("reschedule_appt");
 
     const activePlan = flow.taskPlans?.[flow.activeTaskPlanId!];
     expect(activePlan?.kind).toBe("appointment_reschedule");
@@ -1673,7 +1672,6 @@ describe("deterministic turn router", () => {
       args: { appointmentId: 12345 },
     });
     expect(cancelCommand.allowedTools).not.toContain("book_appt");
-    expect(cancelCommand.allowedTools).not.toContain("reschedule_appt");
   });
 
   it("does not clear the selected slot when confirmation repeats known visit facts", () => {

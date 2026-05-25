@@ -3,10 +3,7 @@ import type { OfficeConfig } from "../customer/profile.js";
 import type { CallFlowState, WorkflowToolName } from "../flow/index.js";
 import type { CallState } from "./call-state.js";
 
-export type ModelFacingWorkflowToolName = Exclude<
-  WorkflowToolName,
-  "reschedule_appt"
->;
+export type ModelFacingWorkflowToolName = WorkflowToolName;
 
 export type AgentToolName =
   | "record_turn_understanding"

@@ -198,8 +198,7 @@ function isSideEffectAction(action: string): boolean {
     action === "update_insurance" ||
     action === "transfer_call" ||
     action === "route_to_spring_hill" ||
-    action === "add_patient_note" ||
-    action === "reschedule_appt"
+    action === "add_patient_note"
   );
 }
 

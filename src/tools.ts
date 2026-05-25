@@ -46,7 +46,6 @@ import {
   type CallerAppointment,
   type FlowTurnAdvanceResult,
   type GuardedToolName,
-  type PendingAction,
   type SideEffectToolName,
   type ToolOutcome,
   type WorkflowCommand,
@@ -240,7 +239,6 @@ function isSideEffectToolName(
   return (
     toolName === "add_patient" ||
     toolName === "cancel_appt" ||
-    toolName === "reschedule_appt" ||
     toolName === "update_insurance" ||
     toolName === "route_to_spring_hill" ||
     toolName === "transfer_call"
@@ -444,8 +442,6 @@ function defaultSideEffectSummary(toolName: SideEffectToolName): string {
       return "Create the confirmed patient registration.";
     case "cancel_appt":
       return "Cancel the confirmed appointment.";
-    case "reschedule_appt":
-      return "Replace the confirmed old appointment with the confirmed new slot.";
     case "route_to_spring_hill":
       return "Switch the active scheduling office to Spring Hill.";
     case "transfer_call":
@@ -1363,141 +1359,10 @@ function ensureConfirmedBookingActionFromState(
   return action;
 }
 
-function ensureConfirmedRescheduleActionFromState(
-  state: CallState,
-  selectedSlot: StoredAvailabilitySlot,
-  oldAppointment: CallerAppointment,
-  params: {
-    slotId: string;
-    appointmentReason: string;
-    referringDoctor: string;
-  },
-  toolCallId: string,
-) {
-  const selectedSlotId = state.flow.schedulingGoal?.selectedSlotId;
-  const bookingConfirmed = state.flow.schedulingGoal?.bookingConfirmed === true;
-  if (
-    !bookingConfirmed ||
-    !selectedSlotId ||
-    normalizeSlotId(selectedSlotId) !== normalizeSlotId(selectedSlot.slotId)
-  ) {
-    return undefined;
-  }
-
-  const activeSearch = [...state.flow.availabilitySearches]
-    .reverse()
-    .find((search) =>
-      search.cachedSlots.some(
-        (slot) =>
-          normalizeSlotId(slot.slotHash) === normalizeSlotId(params.slotId),
-      ),
-    );
-  const action = createPendingSideEffectAction(state.flow, {
-    type: "reschedule_appt",
-    argsHash: hashToolArgs({
-      slotId: params.slotId,
-      appointmentReason: params.appointmentReason,
-      referringDoctor: params.referringDoctor,
-    }),
-    spokenSummary: `Replace ${oldAppointment.date} ${oldAppointment.time} with ${selectedSlot.spoken}`,
-    patientRef: state.flow.activePatientRef,
-    oldAppointmentId: oldAppointment.id,
-    slotHash: selectedSlot.slotId,
-    availabilitySearchId: activeSearch?.id,
-    appointmentReason: params.appointmentReason,
-    referringDoctor: params.referringDoctor,
-    confirmed: true,
-    createdTurnId: toolCallId,
-    confirmationTurnId: toolCallId,
-  });
-  action.confirmed = true;
-  action.confirmationTurnId ??= toolCallId;
-  state.flow.step = "book";
-  return action;
-}
-
 function activeReschedulePlan(state: CallState) {
   const planId = state.flow.activeTaskPlanId;
   const plan = planId ? state.flow.taskPlans?.[planId] : undefined;
   return plan?.kind === "appointment_reschedule" ? plan : undefined;
-}
-
-function findReschedulePendingAction(
-  state: CallState,
-  params: {
-    slotId: string;
-    appointmentReason: string;
-    referringDoctor: string;
-  },
-  oldAppointmentId: number,
-): Extract<PendingAction, { type: "reschedule_appt" }> | undefined {
-  const argsHash = hashToolArgs({
-    slotId: params.slotId,
-    appointmentReason: params.appointmentReason,
-    referringDoctor: params.referringDoctor,
-  });
-  return [...state.flow.pendingActions]
-    .reverse()
-    .find(
-      (action): action is Extract<PendingAction, { type: "reschedule_appt" }> =>
-        action.type === "reschedule_appt" &&
-        action.oldAppointmentId === oldAppointmentId &&
-        action.argsHash === argsHash &&
-        !action.consumed &&
-        !action.invalidated,
-    );
-}
-
-function recordReschedulePartialFailure(
-  state: CallState,
-  params: {
-    slotId: string;
-    appointmentReason: string;
-    referringDoctor: string;
-  },
-  oldAppointmentId: number,
-  reason: string,
-  cancelResult?: unknown,
-): ToolOutcome & { status: "partial_failure"; cancelResult?: unknown } {
-  const action = findReschedulePendingAction(state, params, oldAppointmentId);
-  if (action) {
-    action.partialFailureReason = reason;
-  }
-  updateReschedulePlanAfterResult(state, "partial_failure", reason);
-  updateCurrentTaskStep(state, "handoff");
-  return {
-    status: "partial_failure",
-    outcome: "partial_failure",
-    nextStep: "handoff",
-    speak:
-      "The replacement appointment was booked, but the old appointment could not be cancelled automatically. Route this to the office for recovery before ending the call.",
-    facts: {
-      reason,
-      oldAppointmentId,
-      replacementBooked: true,
-    },
-    retryable: false,
-    ...(cancelResult ? { cancelResult } : {}),
-  };
-}
-
-function updateReschedulePlanAfterResult(
-  state: CallState,
-  phase: "complete" | "partial_failure",
-  partialFailureReason?: string,
-): void {
-  const plan = activeReschedulePlan(state);
-  if (!plan) return;
-  state.flow.taskPlans = {
-    ...(state.flow.taskPlans ?? {}),
-    [plan.id]: {
-      ...plan,
-      phase,
-      partialFailureReason,
-      updatedAt: Date.now(),
-    },
-  };
-  advanceWorkflow(state.flow, { type: "facts_changed" });
 }
 
 function markRescheduleReplacementBooked(
@@ -1540,14 +1405,6 @@ function markRescheduleOldAppointmentCancelled(
     },
   };
   return true;
-}
-
-function cancellationLooksSuccessful(result: unknown): boolean {
-  return (
-    cancellationFailureReason(result) === "appointment_already_cancelled" ||
-    (cancellationFailureReason(result) === "cancel_failed" &&
-      apiResultLooksSuccessful(result))
-  );
 }
 
 function ensureRoutineVisionOffice(state: CallState): void {
@@ -2543,207 +2400,6 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
   },
 });
 
-// --- reschedule_appt ---
-export const reschedule_appt = llm.tool({
-  description: `Replaces one selected existing appointment with one caller-confirmed replacement slot. Patient ID and old appointment selection are read from planner state.
-
-Use only when the current task-plan command says reschedule_appt is allowed. Do not call book_appt, cancel_appt, or add_patient_note separately for a reschedule.
-
-Include the caller-provided appointment reason and referring doctor. If there is no referring doctor, use "none".`,
-  parameters: z.object({
-    slotId: z
-      .string()
-      .describe("slotId of the caller-confirmed replacement slot"),
-    appointmentKind: appointmentKindSchema.optional(),
-    appointmentReason: z
-      .string()
-      .trim()
-      .min(1)
-      .describe("Caller-provided reason for the replacement appointment."),
-    referringDoctor: z
-      .string()
-      .trim()
-      .min(1)
-      .describe('Caller-provided referring doctor, or "none" if none.'),
-  }),
-  execute: async (params, { ctx, toolCallId }) => {
-    const state = getState(ctx);
-    const speechReady = makeCurrentSpeechUninterruptible(ctx);
-    if (!state.patientId) {
-      const policyResponse = evaluatePolicyForState(
-        state,
-        "reschedule_appt",
-        params,
-      );
-      return (
-        policyResponse ??
-        toolOutcome(
-          "not_allowed",
-          "verify_patient",
-          "Verify the patient before rescheduling.",
-          { reason: "reschedule_requires_verified_or_created_patient" },
-          true,
-        )
-      );
-    }
-    ensureRoutineVisionOffice(state);
-    const selectedSlot = selectedAvailabilitySlot(state, params.slotId);
-    if (!selectedSlot) {
-      const policyResponse = evaluatePolicyForState(
-        state,
-        "reschedule_appt",
-        params,
-      );
-      if (policyResponse) return policyResponse;
-      return toolOutcome(
-        "not_allowed",
-        "get_availability",
-        "That replacement slot is not available from the latest availability search. Search availability again before rescheduling.",
-        {
-          reason: "reschedule_requires_recent_availability",
-          slotId: params.slotId,
-        },
-        true,
-      );
-    }
-    const plan = activeReschedulePlan(state);
-    const oldAppointmentId = plan?.targetAppointmentId;
-    if (typeof oldAppointmentId !== "number") {
-      return toolOutcome(
-        "not_allowed",
-        "confirm_cancel",
-        "Select the exact old appointment before rescheduling.",
-        { reason: "reschedule_requires_selected_old_appointment" },
-        true,
-      );
-    }
-    const oldAppointment = activeAppointmentById(state, oldAppointmentId);
-    if (!oldAppointment) {
-      return toolOutcome(
-        "not_allowed",
-        "confirm_cancel",
-        "Load the patient's appointments and select the old appointment before rescheduling.",
-        { reason: "reschedule_requires_loaded_appointment" },
-        true,
-      );
-    }
-    const appointmentReason = params.appointmentReason.trim();
-    const referringDoctor = params.referringDoctor.trim();
-    const noteGrounding = evaluatePatientNoteGrounding(
-      state,
-      appointmentReason,
-      referringDoctor,
-    );
-    if (noteGrounding) return noteGrounding;
-    if (!speechReady) {
-      return toolOutcome(
-        "not_allowed",
-        "confirm_booking",
-        "Reschedule was interrupted before it could be submitted. Please confirm the old appointment and replacement slot again.",
-        { reason: "speech_interrupted" },
-        true,
-      );
-    }
-    ensureConfirmedRescheduleActionFromState(
-      state,
-      selectedSlot,
-      oldAppointment,
-      {
-        slotId: params.slotId,
-        appointmentReason,
-        referringDoctor,
-      },
-      toolCallId,
-    );
-    const policyResponse = evaluatePolicyForState(
-      state,
-      "reschedule_appt",
-      params,
-    );
-    if (policyResponse) return policyResponse;
-    const bookingToken = bookingTokenForSelectedSlot(state, selectedSlot);
-    if (typeof bookingToken !== "string") return bookingToken;
-    const routing =
-      selectedSlot.routing ??
-      state.lastAvailabilityRouting ??
-      routingForAvailability(state);
-    const appointmentIntent = appointmentIntentForBooking(
-      state,
-      routing,
-      params.appointmentKind,
-    );
-    const bookingBody = {
-      bookingToken,
-      ...appointmentIntent,
-      patientId: state.patientId,
-      appointmentReason,
-      referringDoctor,
-      ...(state.patientName ? { patientName: state.patientName } : {}),
-      ...(state.dob ? { dob: state.dob } : {}),
-      ...(routing ? { routing } : {}),
-    };
-    const bookingResult = await callApi(
-      "/api/appointment/book",
-      bookingBody,
-      getAmdOfficeForToolCall(state),
-      { includeOffice: false },
-    );
-    if (!legacyBookingLooksSuccessful(bookingResult)) {
-      updateCurrentTaskStep(state, "confirm_booking");
-      return bookingResult;
-    }
-    const pendingAction = findReschedulePendingAction(
-      state,
-      params,
-      oldAppointmentId,
-    );
-    if (pendingAction && isRecord(bookingResult)) {
-      const appointmentId = bookingResult.appointmentId;
-      if (typeof appointmentId === "number") {
-        pendingAction.bookedReplacementAppointmentId = appointmentId;
-      }
-    }
-    const cancelToken = cancelTokenForAppointment(state, oldAppointmentId);
-    if (!cancelToken) {
-      return recordReschedulePartialFailure(
-        state,
-        params,
-        oldAppointmentId,
-        "cancel_token_missing_after_replacement_booked",
-      );
-    }
-    const cancelResult = await callApi(
-      "/api/appointment/cancel",
-      {
-        appointmentId: oldAppointmentId,
-        patientId: state.patientId,
-        cancelToken,
-      },
-      getAmdOfficeForToolCall(state),
-      { includeOffice: false },
-    );
-    if (!cancellationLooksSuccessful(cancelResult)) {
-      return recordReschedulePartialFailure(
-        state,
-        params,
-        oldAppointmentId,
-        "old_appointment_cancel_failed",
-        cancelResult,
-      );
-    }
-    consumeSideEffectActionForState(state, "reschedule_appt", params);
-    removeAppointmentById(state, oldAppointmentId);
-    clearAvailabilitySelection(state);
-    updateReschedulePlanAfterResult(state, "complete");
-    updateCurrentTaskStep(state, "answer");
-    return {
-      status: "rescheduled",
-      bookedReplacement: bookingResult,
-      cancelledOldAppointment: cancelResult,
-    };
-  },
-});
-
 // --- route_to_spring_hill ---
 export const route_to_spring_hill = llm.tool({
   description: `Switches the active call workflow to the Spring Hill office without transferring the caller.
@@ -2802,9 +2458,8 @@ Use this when the caller reached Crystal River but the visit must be handled thr
 export const check_insurance = llm.tool({
   description: `Looks up whether the office accepts a specific insurance plan or family alias.
 
-Use after the visit type is known when a caller asks if a plan is accepted or during new-patient registration.
-Do NOT call this tool for a bare insurance question until you know whether the caller means routine vision or medical/surgical eye care. Ask whether they mean routine eye exam/glasses/contacts or medical/surgical eye care.
-The medical and routine_vision lookups can return different answers for the same plan name. Use coverageType "routine_vision" only for routine eye exam, glasses prescription, or contact lens prescription using accepted vision coverage or self-pay. Use "medical" for medical/surgical eye visits.
+Prefer using this after the visit type is known when a caller asks if a plan is accepted or during new-patient registration.
+The medical and routine_vision lookups can return different answers for the same plan name. If coverageType is not known, omit it and the lookup defaults to medical; if the answer may differ for routine vision, ask a follow-up after the lookup. Use coverageType "routine_vision" only for routine eye exam, glasses prescription, or contact lens prescription using accepted vision coverage or self-pay. Use "medical" for medical/surgical eye visits.
 If the caller gives a plan or family name that matches the insurance map, run this tool with that exact phrase.
 Do NOT force HMO, PPO, or Medicare as a default follow-up. Only ask for that kind of clarification if this tool returns clarificationNeeded.
 

@@ -36,11 +36,11 @@ describe("flow report-only guards", () => {
 
   it("marks runtime policy blocks separately from report-only observations", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.patientStatus = "new";
 
     const decision = evaluateFlowToolPolicy({
       flow,
-      toolName: "check_insurance",
-      args: { plan: "Care Plus" },
+      toolName: "add_patient",
     });
 
     expect(decision).toMatchObject({
@@ -48,10 +48,10 @@ describe("flow report-only guards", () => {
       observation: {
         mode: "report_only",
         enforcement: "block",
-        reason: "visit_type_required_before_insurance",
+        reason: "new_patient_requires_insurance_check_before_registration",
       },
       outcome: {
-        nextStep: "triage_visit_type",
+        nextStep: "check_insurance",
       },
     });
   });
@@ -261,7 +261,7 @@ describe("flow report-only guards", () => {
     });
   });
 
-  it("reports check_insurance before visit type or coverage type is known", () => {
+  it("allows check_insurance before visit type or coverage type is known", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
 
     const observation = guardToolCall({
@@ -271,8 +271,8 @@ describe("flow report-only guards", () => {
     });
 
     expect(observation).toMatchObject({
-      allowed: false,
-      reason: "visit_type_required_before_insurance",
+      allowed: true,
+      reason: "allowed",
     });
   });
 

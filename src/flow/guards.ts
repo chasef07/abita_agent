@@ -10,7 +10,6 @@ export type GuardedToolName =
   | "add_patient"
   | "get_availability"
   | "book_appt"
-  | "reschedule_appt"
   | "cancel_appt"
   | "update_insurance"
   | "transfer_call";
@@ -18,7 +17,6 @@ export type GuardedToolName =
 export type GuardObservationReason =
   | "allowed"
   | "duplicate_tool_call_same_args"
-  | "visit_type_required_before_insurance"
   | "routine_vision_crystal_river_requires_route_to_spring_hill"
   | "new_patient_requires_insurance_check_before_registration"
   | "availability_duplicate_search_signature"
@@ -29,8 +27,6 @@ export type GuardObservationReason =
   | "booking_confirmation_required"
   | "booking_action_already_consumed"
   | "booking_slot_invalidated"
-  | "reschedule_requires_verified_or_created_patient"
-  | "reschedule_requires_recent_availability"
   | "cancel_requires_verified_or_created_patient"
   | "cancel_confirmation_not_tracked"
   | "cancel_requires_loaded_appointment"
@@ -135,16 +131,6 @@ function guardReason(
   stateFacts: NonNullable<GuardToolCallInput["stateFacts"]>,
   availabilityInspection?: AvailabilitySearchInspection,
 ): GuardObservationReason {
-  const coverageType = coverageTypeFromArgs(args);
-  if (
-    toolName === "check_insurance" &&
-    !flow.visitType &&
-    !flow.coverageType &&
-    !coverageType
-  ) {
-    return "visit_type_required_before_insurance";
-  }
-
   if (
     toolName === "get_availability" &&
     flow.visitType === "routine_vision" &&
@@ -175,24 +161,12 @@ function guardReason(
     return "booking_requires_verified_or_created_patient";
   }
 
-  if (toolName === "reschedule_appt" && !hasVerifiedOrCreatedPatient) {
-    return "reschedule_requires_verified_or_created_patient";
-  }
-
   if (
     toolName === "book_appt" &&
     !stateFacts.lastAvailabilityRouting &&
     !hasCachedAvailabilityForBooking(flow, args)
   ) {
     return "booking_requires_recent_availability";
-  }
-
-  if (
-    toolName === "reschedule_appt" &&
-    !stateFacts.lastAvailabilityRouting &&
-    !hasCachedAvailabilityForBooking(flow, args)
-  ) {
-    return "reschedule_requires_recent_availability";
   }
 
   if (toolName === "update_insurance" && !stateFacts.patientId) {
@@ -327,16 +301,6 @@ function availabilitySearchRequestFromGuard(
         : (flow.routing ?? stateFacts.lastAvailabilityRouting),
     date: typeof toolArgs.date === "string" ? toolArgs.date : undefined,
   };
-}
-
-function coverageTypeFromArgs(
-  args: unknown,
-): "medical" | "routine_vision" | undefined {
-  if (!args || typeof args !== "object" || Array.isArray(args)) {
-    return undefined;
-  }
-  const value = (args as { coverageType?: unknown }).coverageType;
-  return value === "medical" || value === "routine_vision" ? value : undefined;
 }
 
 export function hashToolArgs(args: unknown): string {

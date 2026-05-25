@@ -172,7 +172,6 @@ export type WorkflowToolName =
   | "cancel_appt"
   | "add_patient_note"
   | "book_appt"
-  | "reschedule_appt"
   | "check_insurance"
   | "lookup_knowledge"
   | "route_to_spring_hill"
@@ -420,26 +419,6 @@ export type PendingAction =
       createdTurnId: string;
       invalidated?: boolean;
       invalidationReason?: string;
-    }
-  | {
-      id: string;
-      type: "reschedule_appt";
-      patientRef: PatientRef;
-      oldAppointmentId: number;
-      slotHash: string;
-      availabilitySearchId?: string;
-      argsHash: string;
-      spokenSummary: string;
-      appointmentReason: string;
-      referringDoctor: string;
-      confirmed: boolean;
-      consumed: boolean;
-      confirmationTurnId?: string;
-      createdTurnId: string;
-      invalidated?: boolean;
-      invalidationReason?: string;
-      bookedReplacementAppointmentId?: number;
-      partialFailureReason?: string;
     }
   | {
       id: string;

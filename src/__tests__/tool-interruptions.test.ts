@@ -2623,11 +2623,6 @@ describe("tool interruption handling", () => {
         consumed: true,
       }),
     );
-    expect(
-      state.flow.pendingActions.some(
-        (action) => action.type === "reschedule_appt",
-      ),
-    ).toBe(false);
     expect(state.appointments.map((appointment) => appointment.id)).toEqual([
       67890,
     ]);

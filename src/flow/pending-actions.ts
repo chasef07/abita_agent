@@ -15,7 +15,6 @@ export type SideEffectActionType = SideEffectPendingAction["type"];
 export type SideEffectToolName =
   | "add_patient"
   | "cancel_appt"
-  | "reschedule_appt"
   | "update_insurance"
   | "route_to_spring_hill"
   | "transfer_call";
@@ -26,11 +25,6 @@ export interface PendingSideEffectActionInput {
   spokenSummary: string;
   patientRef?: PatientRef;
   appointmentId?: number;
-  oldAppointmentId?: number;
-  slotHash?: string;
-  availabilitySearchId?: string;
-  appointmentReason?: string;
-  referringDoctor?: string;
   requiredFieldsComplete?: boolean;
   confirmed?: boolean;
   createdTurnId: string;
@@ -42,7 +36,6 @@ export interface SideEffectActionLookupInput {
   argsHash: string;
   patientRef?: PatientRef;
   appointmentId?: number;
-  oldAppointmentId?: number;
 }
 
 export function sideEffectActionTypeForTool(
@@ -59,8 +52,6 @@ export function nextStepForSideEffectAction(
       return "collect_registration";
     case "cancel_appt":
       return "confirm_cancel";
-    case "reschedule_appt":
-      return "confirm_booking";
     case "route_office":
       return "route_office";
     case "transfer_call":
@@ -80,7 +71,6 @@ export function createPendingSideEffectAction(
     argsHash: input.argsHash,
     patientRef,
     appointmentId: input.appointmentId,
-    oldAppointmentId: input.oldAppointmentId,
     includeConsumed: true,
     includeInvalidated: true,
   });
@@ -106,30 +96,6 @@ export function createPendingSideEffectAction(
       type: "cancel_appt",
       patientRef,
       appointmentId: input.appointmentId,
-    };
-    flow.pendingActions.push(action);
-    return action;
-  }
-
-  if (input.type === "reschedule_appt") {
-    if (typeof input.oldAppointmentId !== "number") {
-      throw new Error("reschedule pending action requires oldAppointmentId");
-    }
-    if (!input.slotHash) {
-      throw new Error("reschedule pending action requires slotHash");
-    }
-    if (!input.appointmentReason || !input.referringDoctor) {
-      throw new Error("reschedule pending action requires note payload");
-    }
-    const action: SideEffectPendingAction = {
-      ...base,
-      type: "reschedule_appt",
-      patientRef,
-      oldAppointmentId: input.oldAppointmentId,
-      slotHash: input.slotHash,
-      availabilitySearchId: input.availabilitySearchId,
-      appointmentReason: input.appointmentReason,
-      referringDoctor: input.referringDoctor,
     };
     flow.pendingActions.push(action);
     return action;
@@ -255,13 +221,6 @@ function findSideEffectAction(
         action.type === "cancel_appt" &&
         typeof input.appointmentId === "number" &&
         action.appointmentId !== input.appointmentId
-      ) {
-        return false;
-      }
-      if (
-        action.type === "reschedule_appt" &&
-        typeof input.oldAppointmentId === "number" &&
-        action.oldAppointmentId !== input.oldAppointmentId
       ) {
         return false;
       }

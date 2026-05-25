@@ -124,7 +124,6 @@ function isPendingSideEffectTool(
   return (
     toolName === "add_patient" ||
     toolName === "cancel_appt" ||
-    toolName === "reschedule_appt" ||
     toolName === "update_insurance" ||
     toolName === "route_to_spring_hill" ||
     toolName === "transfer_call"
@@ -256,8 +255,6 @@ function pendingActionInstruction(toolName: SideEffectToolName): string {
       return "Read back the registration details and record the caller's explicit confirmation before creating the patient.";
     case "cancel_appt":
       return "Read back the appointment and record explicit cancellation confirmation before cancelling.";
-    case "reschedule_appt":
-      return "Read back the old appointment and exact replacement slot, then record explicit reschedule confirmation before submitting.";
     case "route_to_spring_hill":
       return "Explain the Spring Hill routing and record the caller's agreement before switching the scheduling office.";
     case "transfer_call":
@@ -271,15 +268,6 @@ function outcomeForGuardReason(
   reason: GuardObservationReason,
 ): ToolOutcome | undefined {
   switch (reason) {
-    case "visit_type_required_before_insurance":
-      return {
-        outcome: "needs_clarification",
-        nextStep: "triage_visit_type",
-        speak:
-          "Ask whether this is for routine vision, glasses or contacts, or for medical or surgical eye care before checking insurance.",
-        facts: { reason },
-        retryable: true,
-      };
     case "routine_vision_crystal_river_requires_route_to_spring_hill":
       return {
         outcome: "route_required",
@@ -321,23 +309,6 @@ function outcomeForGuardReason(
         outcome: "not_allowed",
         nextStep: "verify_patient",
         speak: "Verify or create the patient before booking.",
-        facts: { reason },
-        retryable: true,
-      };
-    case "reschedule_requires_verified_or_created_patient":
-      return {
-        outcome: "not_allowed",
-        nextStep: "verify_patient",
-        speak: "Verify the patient before rescheduling.",
-        facts: { reason },
-        retryable: true,
-      };
-    case "reschedule_requires_recent_availability":
-      return {
-        outcome: "not_allowed",
-        nextStep: "get_availability",
-        speak:
-          "Get current replacement availability before rescheduling. Do not reschedule from memory or stale slots.",
         facts: { reason },
         retryable: true,
       };
