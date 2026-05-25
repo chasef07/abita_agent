@@ -656,6 +656,52 @@ describe("flow state and context packet", () => {
     );
   });
 
+  it("does not retry appointment lookup after middleware reports lookup unavailable", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+    });
+    flow.activeFlow = "appointment_management";
+    flow.activeIntent = "existing_appointment_confirm";
+    flow.step = "verify_patient";
+    startPatientTask(flow, {
+      kind: "appointment_management",
+      step: "verify_patient",
+      patientRef: "caller",
+      createdAt: 1,
+    });
+
+    recordPatientVerificationAttempt(flow, {
+      firstName: "Jane",
+      lastName: "Doe",
+      dob: "01/01/1980",
+      relationshipToCaller: "self",
+    });
+    recordVerifiedPatient(flow, {
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "01/01/1980",
+      appointments: [],
+      appointmentsStatus: "error",
+    });
+
+    const command = planNextCommand(flow);
+
+    expect(flowDecisionForWorkflowCommand(command)).toMatchObject({
+      type: "say",
+    });
+    expect(command).toMatchObject({
+      taskKind: "appointment_confirm",
+      phase: "complete",
+      nextAction: "respond",
+      knownFacts: expect.arrayContaining([
+        { key: "appointments", value: "lookup unavailable" },
+      ]),
+    });
+    expect(command).not.toMatchObject({
+      tool: "verify_patient",
+    });
+  });
+
   it("records availability search signatures and budget state", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
     flow.visitType = "medical";

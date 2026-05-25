@@ -88,6 +88,22 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
     });
   }
 
+  if (lookup.lookupFailed) {
+    return command(flow, plan, {
+      phase: "complete",
+      knownFacts: [
+        ...knownPatientFacts(patient, flow),
+        appointmentLookupKnownFact(lookup),
+      ],
+      missingFacts: [],
+      nextAction: "respond",
+      allowedTools: [],
+      blockedActions: [],
+      instruction:
+        "Tell the caller the appointment lookup is unavailable right now, then offer to help schedule or transfer if they need appointment details.",
+    });
+  }
+
   if (lookup.needsLookup) {
     const resolveArgs = verifiedPatientResolveArgs(patient);
     if (!resolveArgs) {

@@ -14,6 +14,7 @@ export interface ResolvedAppointmentLookup {
   phase: AppointmentLookupSubplan["phase"];
   loaded: boolean;
   noneFound: boolean;
+  lookupFailed: boolean;
   needsLookup: boolean;
   complete: boolean;
   count: number;
@@ -45,8 +46,12 @@ export function resolveAppointmentLookup(
     count,
     loaded: phase === "appointments_loaded",
     noneFound: phase === "none_found",
-    needsLookup: phase === "loading_appointments" || phase === "lookup_failed",
-    complete: phase === "appointments_loaded" || phase === "none_found",
+    lookupFailed: phase === "lookup_failed",
+    needsLookup: phase === "loading_appointments",
+    complete:
+      phase === "appointments_loaded" ||
+      phase === "none_found" ||
+      phase === "lookup_failed",
     subplan: {
       ...(existingLookup ?? {}),
       phase,
@@ -60,9 +65,11 @@ export function appointmentLookupKnownFact(
 ): PlannerFact {
   return {
     key: "appointments",
-    value: lookup.noneFound
-      ? "none found"
-      : `${lookup.count} loaded appointment(s)`,
+    value: lookup.lookupFailed
+      ? "lookup unavailable"
+      : lookup.noneFound
+        ? "none found"
+        : `${lookup.count} loaded appointment(s)`,
   };
 }
 

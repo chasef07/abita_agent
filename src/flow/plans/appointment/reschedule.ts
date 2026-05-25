@@ -134,7 +134,7 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     rescheduleConfirmed,
   });
   const effectivePhase: AppointmentReschedulePlan["phase"] =
-    verified && lookup.noneFound ? "complete" : phase;
+    verified && (lookup.noneFound || lookup.lookupFailed) ? "complete" : phase;
   const plan: AppointmentReschedulePlan = {
     id,
     kind: "appointment_reschedule",
@@ -192,6 +192,22 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
       blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
       instruction:
         "Tell the caller you do not see any upcoming appointments to reschedule, then ask if they would like to schedule a new appointment.",
+    });
+  }
+
+  if (lookup.lookupFailed) {
+    return command(flow, plan, {
+      phase: "complete",
+      knownFacts: [
+        ...knownRescheduleFacts(patient, flow, plan),
+        appointmentLookupKnownFact(lookup),
+      ],
+      missingFacts: [],
+      nextAction: "respond",
+      allowedTools: [],
+      blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
+      instruction:
+        "Tell the caller the appointment lookup is unavailable right now, and offer to transfer them for rescheduling help.",
     });
   }
 

@@ -60,7 +60,7 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
     cancelConfirmed,
   });
   const effectivePhase: AppointmentCancelPlan["phase"] =
-    verified && lookup.noneFound ? "complete" : phase;
+    verified && (lookup.noneFound || lookup.lookupFailed) ? "complete" : phase;
   const plan: AppointmentCancelPlan = {
     id,
     kind: "appointment_cancel",
@@ -120,6 +120,28 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
       ],
       instruction:
         "Tell the caller you do not see any upcoming appointments to cancel, then ask if there is anything else you can help with.",
+    });
+  }
+
+  if (lookup.lookupFailed) {
+    return command(flow, plan, {
+      phase: "complete",
+      knownFacts: [
+        ...knownPatientFacts(patient, flow),
+        appointmentLookupKnownFact(lookup),
+      ],
+      missingFacts: [],
+      nextAction: "respond",
+      allowedTools: [],
+      blockedActions: [
+        {
+          action: "cancel_appt",
+          reason:
+            "appointment list is unavailable, so no exact appointment can be cancelled",
+        },
+      ],
+      instruction:
+        "Tell the caller the appointment lookup is unavailable right now, and offer to transfer them for cancellation help.",
     });
   }
 
