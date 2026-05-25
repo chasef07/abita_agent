@@ -1154,8 +1154,12 @@ describe("tool interruption handling", () => {
     expect(state.lastAvailabilitySlots).toEqual([]);
   });
 
-  it("blocks booking before the caller confirms the exact slot", async () => {
-    const fetchMock = vi.fn();
+  it("books cached slots without a separate confirmation guard", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "booked", appointmentId: 12345 }),
+      text: async () => "",
+    }));
     vi.stubGlobal("fetch", fetchMock);
 
     const { ctx, state, speechHandle } = createToolContext();
@@ -1167,11 +1171,13 @@ describe("tool interruption handling", () => {
     });
 
     expect(speechHandle.allowInterruptions).toBe(false);
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      outcome: "not_allowed",
-      nextStep: "confirm_booking",
-      facts: { reason: "booking_confirmation_required" },
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
+    expect(state.flow.pendingActions[0]).toMatchObject({
+      type: "book_appt",
+      confirmed: true,
+      consumed: true,
+      confirmationTurnId: "test-book-policy",
     });
   });
 
@@ -1268,8 +1274,12 @@ describe("tool interruption handling", () => {
     }
   });
 
-  it("blocks booking when the pending booking action is not confirmed", async () => {
-    const fetchMock = vi.fn();
+  it("does not let an unconfirmed pending booking action block the booking", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "booked", appointmentId: 12345 }),
+      text: async () => "",
+    }));
     vi.stubGlobal("fetch", fetchMock);
 
     const { ctx, state } = createToolContext();
@@ -1281,11 +1291,13 @@ describe("tool interruption handling", () => {
       toolCallId: "test-book-unconfirmed",
     });
 
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      outcome: "not_allowed",
-      nextStep: "confirm_booking",
-      facts: { reason: "booking_confirmation_required" },
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
+    expect(state.flow.pendingActions[0]).toMatchObject({
+      type: "book_appt",
+      confirmed: true,
+      confirmationTurnId: "test-book-unconfirmed",
+      consumed: true,
     });
   });
 
@@ -1577,6 +1589,101 @@ describe("tool interruption handling", () => {
         reason: "booking_action_already_consumed",
         pendingActionId: "pending_book_1",
       },
+    });
+  });
+
+  it("reuses cached alternatives for an immediate reschedule after booking", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({ status: "booked", appointmentId: 11111 }),
+        text: async () => "",
+      }))
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({ status: "booked", appointmentId: 22222 }),
+        text: async () => "",
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.flow.routing = "bach_licht";
+    state.lastAvailabilityRouting = "bach_licht";
+    state.lastAvailabilitySlots = [
+      {
+        slotId: "A",
+        spoken: "2026-06-02 1:30 PM with Dr. Licht",
+        provider: "Dr. Licht",
+        date: "2026-06-02",
+        time: "1:30 PM",
+        datetime: "2026-06-02T13:30",
+        columnId: 1593,
+        profileId: 2064,
+        duration: 30,
+        routing: "bach_licht",
+        bookingToken: "signed-token-a",
+      },
+      {
+        slotId: "D",
+        spoken: "2026-06-02 3:00 PM with Dr. Licht",
+        provider: "Dr. Licht",
+        date: "2026-06-02",
+        time: "3:00 PM",
+        datetime: "2026-06-02T15:00",
+        columnId: 1593,
+        profileId: 2064,
+        duration: 30,
+        routing: "bach_licht",
+        bookingToken: "signed-token-d",
+      },
+    ];
+    recordAvailabilitySearch(state.flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      routing: "bach_licht",
+      date: "2026-06-01",
+    });
+    recordAvailabilityCachedSlots(state.flow, [
+      { slotId: "A", datetime: "2026-06-02T13:30" },
+      { slotId: "D", datetime: "2026-06-02T15:00" },
+    ]);
+
+    await book_appt.execute(bookingArgs("A", "post_op"), {
+      ctx,
+      toolCallId: "test-book-original",
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(state.lastAvailabilitySlots).toEqual([
+      expect.objectContaining({ slotId: "D" }),
+    ]);
+    expect(state.flow.availabilitySearches[0]).toMatchObject({
+      status: "satisfied",
+      cachedSlots: [expect.objectContaining({ slotHash: "D" })],
+    });
+
+    const replacement = await book_appt.execute(
+      {
+        slotId: "D",
+        appointmentKind: "post_op",
+        appointmentReason: "post-op follow-up",
+        referringDoctor: "Dr. Licht",
+      },
+      {
+        ctx,
+        toolCallId: "test-book-replacement-from-cache",
+      },
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(replacement).toMatchObject({
+      status: "booked",
+      appointmentId: 22222,
+    });
+    const secondRequestBody = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(secondRequestBody).toMatchObject({
+      bookingToken: "signed-token-d",
     });
   });
 

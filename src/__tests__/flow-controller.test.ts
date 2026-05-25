@@ -10,6 +10,7 @@ import {
   createInitialFlowState,
   createPendingBookingAction,
   createPendingSideEffectAction,
+  evaluateFlowToolPolicy,
   createFlowShadowPrediction,
   hasActivePatientIdentityChanged,
   hashToolArgs,
@@ -886,9 +887,79 @@ describe("flow state and context packet", () => {
         consumed: true,
       },
       availabilitySearch: {
-        status: "invalidated",
-        lastInvalidationReason: "booking_completed",
+        status: "active",
+        cachedSlots: [],
       },
+    });
+  });
+
+  it("does not treat reused slot labels from a new availability search as consumed", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.visitType = "medical";
+    flow.routing = "all_three";
+    recordAvailabilitySearch(flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      routing: "all_three",
+      date: "2026-06-01",
+    });
+    recordAvailabilityCachedSlots(flow, [{ slotId: "A" }]);
+    createPendingBookingAction(flow, {
+      slotHash: "A",
+      appointmentTypeId: 1007,
+      officeKey: "spring-hill",
+      routing: "all_three",
+      spokenSummary: "2026-06-01 9:00 with Dr. Bach",
+      confirmed: true,
+      createdTurnId: "test-create-booking-action",
+      confirmationTurnId: "test-confirm-booking",
+    });
+    const firstAttempt = recordBookingAttempt(flow, {
+      slotHash: "A",
+      appointmentTypeId: 1007,
+      officeKey: "spring-hill",
+      routing: "all_three",
+      spokenSummary: "2026-06-01 9:00 with Dr. Bach",
+    });
+    recordBookingResult(flow, firstAttempt.action!.id, {
+      status: "booked",
+      appointmentId: 12345,
+    });
+
+    const nextSearch = recordAvailabilitySearch(flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      routing: "all_three",
+      date: "2026-06-02",
+    });
+    recordAvailabilityCachedSlots(flow, [{ slotId: "A" }]);
+
+    expect(nextSearch.search.id).toBe("availability_2");
+    expect(
+      evaluateFlowToolPolicy({
+        flow,
+        toolName: "book_appt",
+        args: { slotId: "A", appointmentTypeId: 1007 },
+        stateFacts: {
+          patientId: "patient-1",
+          lastAvailabilityRouting: "all_three",
+          officeKey: "spring-hill",
+        },
+        booking: {
+          slotHash: "A",
+          appointmentTypeId: 1007,
+          officeKey: "spring-hill",
+          routing: "all_three",
+        },
+      }),
+    ).toMatchObject({
+      allowed: true,
+      observation: { reason: "allowed" },
     });
   });
 

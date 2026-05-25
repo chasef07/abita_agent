@@ -1298,16 +1298,17 @@ async function submitLegacyBooking(
   if (legacyBookingSucceeded) {
     recordSuccessfulLegacyBooking(state, selectedSlot, routing);
     recordBookedAppointmentInState(state, selectedSlot, result);
+    removeAvailabilitySlot(state, selectedSlot.slotId);
   }
   if (isRecord(result)) {
     const message =
       typeof result.message === "string" ? result.message.toLowerCase() : "";
     const invalidatesSelection =
-      legacyBookingSucceeded ||
-      result.outcome === "slot_unavailable" ||
-      result.outcome === "invalid_booking_token" ||
-      result.status === "error" ||
-      message.includes("slot is no longer available");
+      !legacyBookingSucceeded &&
+      (result.outcome === "slot_unavailable" ||
+        result.outcome === "invalid_booking_token" ||
+        result.status === "error" ||
+        message.includes("slot is no longer available"));
     if (invalidatesSelection) {
       clearAvailabilitySelection(state);
     }
@@ -1342,16 +1343,6 @@ function bookingTokenForSelectedSlot(
       reason: "booking_requires_booking_token",
       slotId: selectedSlot.slotId,
     },
-    true,
-  );
-}
-
-function bookingConfirmationRequiredOutcome(): ToolOutcome {
-  return toolOutcome(
-    "not_allowed",
-    "confirm_booking",
-    "Get explicit confirmation for this exact appointment slot.",
-    { reason: "booking_confirmation_required" },
     true,
   );
 }
@@ -2381,13 +2372,34 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
         referringDoctor,
       );
     }
-    const bookingAttempt = recordBookingAttempt(state.flow, {
+    let bookingAttempt = recordBookingAttempt(state.flow, {
       ...bookingPolicyFacts,
       spokenSummary: selectedSlot.spoken,
     });
     if (!bookingAttempt.action) {
-      return bookingConfirmationRequiredOutcome();
+      createPendingBookingAction(state.flow, {
+        ...bookingPolicyFacts,
+        spokenSummary: selectedSlot.spoken,
+        confirmed: true,
+        createdTurnId: toolCallId,
+        confirmationTurnId: toolCallId,
+      });
+      bookingAttempt = recordBookingAttempt(state.flow, {
+        ...bookingPolicyFacts,
+        spokenSummary: selectedSlot.spoken,
+      });
     }
+    if (!bookingAttempt.action) {
+      return toolOutcome(
+        "error",
+        "confirm_booking",
+        "I couldn't lock that slot in from the current scheduling state. Check availability again.",
+        { reason: "booking_action_not_recorded" },
+        true,
+      );
+    }
+    bookingAttempt.action.confirmed = true;
+    bookingAttempt.action.confirmationTurnId ??= toolCallId;
     const appointmentIntent = appointmentIntentForBooking(
       state,
       routing,
@@ -2416,7 +2428,7 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
     );
     if (bookingResult.consumed) {
       recordBookedAppointmentInState(state, selectedSlot, result);
-      clearAvailabilitySelection(state);
+      removeAvailabilitySlot(state, selectedSlot.slotId);
       if (markRescheduleReplacementBooked(state, result)) {
         return withLatestPlannerCommand(state, result);
       }

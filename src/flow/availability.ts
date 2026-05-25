@@ -96,7 +96,14 @@ export function inspectAvailabilitySearch(
   request: AvailabilitySearchRequest,
 ): AvailabilitySearchInspection {
   const searchKey = buildAvailabilitySearchKey(request);
-  const search = findActiveAvailabilitySearch(flow, request);
+  let search = findActiveAvailabilitySearch(flow, request);
+  if (
+    search &&
+    !search.searchedKeys.includes(searchKey) &&
+    searchHasConsumedBookingAction(flow, search.id)
+  ) {
+    search = undefined;
+  }
   const duplicate = Boolean(search?.searchedKeys.includes(searchKey));
   const maxSearches =
     search?.maxSearches ??
@@ -131,6 +138,13 @@ export function recordAvailabilitySearch(
   const patientRef = request.patientRef ?? flow.activePatientRef ?? "caller";
   const searchKey = buildAvailabilitySearchKey(request);
   let search = findActiveAvailabilitySearch(flow, request);
+  if (
+    search &&
+    !search.searchedKeys.includes(searchKey) &&
+    searchHasConsumedBookingAction(flow, search.id)
+  ) {
+    search = undefined;
+  }
 
   if (!search) {
     search = {
@@ -375,8 +389,7 @@ export function recordBookingResult(
   if (resultClass === "success") {
     action.consumed = true;
     if (availabilitySearch) {
-      availabilitySearch.status = "invalidated";
-      availabilitySearch.lastInvalidationReason = "booking_completed";
+      removeCachedSlotFromSearch(availabilitySearch, action.slotHash);
     }
     return { action, availabilitySearch, consumed: true };
   }
@@ -508,6 +521,11 @@ function findHistoricalBookingAction(
 ): BookAppointmentPendingAction | undefined {
   const patientRef = input.patientRef ?? flow.activePatientRef ?? "caller";
   const routing = normalizeSchedulingRouting(input.routing);
+  const availabilitySearch = findAvailabilitySearchBySlotHash(
+    flow,
+    input.slotHash,
+  );
+  const availabilitySearchId = availabilitySearch?.id;
 
   return [...flow.pendingActions]
     .reverse()
@@ -521,6 +539,8 @@ function findHistoricalBookingAction(
         action.slotHash === input.slotHash &&
         action.appointmentTypeId === input.appointmentTypeId &&
         action.officeKey === input.officeKey &&
+        (!availabilitySearchId ||
+          action.availabilitySearchId === availabilitySearchId) &&
         (routing === undefined || action.routing === routing),
     );
 }
@@ -640,6 +660,31 @@ function pushFailureReason(
   if (!search.failureReasons.includes(reason)) {
     search.failureReasons.push(reason);
   }
+}
+
+function removeCachedSlotFromSearch(
+  search: AvailabilitySearch,
+  slotHash: string,
+): void {
+  search.cachedSlots = search.cachedSlots.filter(
+    (slot) => slot.slotHash !== slotHash,
+  );
+  if (search.cachedSlots.length === 0 && search.status === "satisfied") {
+    search.status =
+      search.exactSearchCount >= search.maxSearches ? "exhausted" : "active";
+  }
+}
+
+function searchHasConsumedBookingAction(
+  flow: CallFlowState,
+  availabilitySearchId: string,
+): boolean {
+  return flow.pendingActions.some(
+    (action) =>
+      action.type === "book_appt" &&
+      action.consumed &&
+      action.availabilitySearchId === availabilitySearchId,
+  );
 }
 
 function hashStateArgs(value: unknown): string {

@@ -365,84 +365,20 @@ function evaluateBookingPolicy(
   flow: CallFlowState,
   booking: Omit<BookingAttemptRecordInput, "spokenSummary"> | undefined,
 ): { reason: GuardObservationReason; outcome: ToolOutcome } | undefined {
-  if (!booking) {
-    return {
-      reason: "booking_confirmation_required",
-      outcome: {
-        outcome: "not_allowed",
-        nextStep: "confirm_booking",
-        speak: "Get explicit confirmation for this exact appointment slot.",
-        facts: { reason: "booking_confirmation_required" },
-        retryable: true,
-      },
-    };
-  }
+  if (!booking) return undefined;
 
   const activeAction = findPendingBookingAction(flow, booking);
   if (activeAction?.slotInvalidated) {
     return invalidatedBookingOutcome();
   }
-  if (activeAction) {
-    if (!activeAction.confirmed) {
-      return {
-        reason: "booking_confirmation_required",
-        outcome: {
-          outcome: "not_allowed",
-          nextStep: "confirm_booking",
-          speak: "Get explicit confirmation for this exact appointment slot.",
-          facts: {
-            reason: "booking_confirmation_required",
-            pendingActionId: activeAction.id,
-          },
-          retryable: true,
-        },
-      };
-    }
-    return undefined;
-  }
+  if (activeAction) return undefined;
 
   const consumedAction = findConsumedBookingAction(flow, booking);
   if (consumedAction?.consumed) {
     return consumedBookingOutcome(consumedAction.id);
   }
 
-  if (hasCallerConfirmedBookingSelection(flow, booking)) {
-    return undefined;
-  }
-
-  return {
-    reason: "booking_confirmation_required",
-    outcome: {
-      outcome: "not_allowed",
-      nextStep: "confirm_booking",
-      speak: "Get explicit confirmation for this exact appointment slot.",
-      facts: { reason: "booking_confirmation_required" },
-      retryable: true,
-    },
-  };
-}
-
-function hasCallerConfirmedBookingSelection(
-  flow: CallFlowState,
-  booking: Omit<BookingAttemptRecordInput, "spokenSummary"> | undefined,
-): boolean {
-  const goal = flow.schedulingGoal;
-  if (!booking || goal?.bookingConfirmed !== true || !goal.selectedSlotId) {
-    return false;
-  }
-
-  return (
-    normalizeBookingSlotId(goal.selectedSlotId) ===
-      normalizeBookingSlotId(booking.slotHash) &&
-    (!booking.patientRef ||
-      !goal.patientRef ||
-      booking.patientRef === goal.patientRef) &&
-    (!booking.officeKey || booking.officeKey === flow.officeKey)
-  );
-}
-
-function normalizeBookingSlotId(value: string): string {
-  return value.trim().toUpperCase();
+  return undefined;
 }
 
 function evaluateHistoricalBookingPolicy(

@@ -494,20 +494,10 @@ describe("transcript replay eval harness", () => {
     });
   });
 
-  it("requires caller-confirmed booking state before booking a slot", () => {
+  it("allows booking from cached availability without a separate confirmation state", () => {
     const harness = new TranscriptEvalHarness();
     harness.verifyPrecallPatient();
     harness.startAvailability();
-
-    expect(harness.bookingPolicy()).toMatchObject({
-      allowed: false,
-      outcome: {
-        nextStep: "confirm_booking",
-        facts: { reason: "booking_confirmation_required" },
-      },
-    });
-
-    harness.confirmBooking();
 
     expect(harness.bookingPolicy()).toMatchObject({
       allowed: true,
@@ -540,13 +530,6 @@ describe("transcript replay eval harness", () => {
 
     harness.verifyPrecallPatient();
     harness.startAvailability();
-    expect(harness.bookingPolicy()).toMatchObject({
-      allowed: false,
-      outcome: {
-        facts: { reason: "booking_confirmation_required" },
-      },
-    });
-    harness.confirmBooking();
     expect(harness.bookingPolicy()).toMatchObject({
       allowed: true,
       observation: { reason: "allowed" },
