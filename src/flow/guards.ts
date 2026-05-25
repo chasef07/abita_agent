@@ -21,7 +21,6 @@ export type GuardObservationReason =
   | "visit_type_required_before_insurance"
   | "routine_vision_crystal_river_requires_route_to_spring_hill"
   | "new_patient_requires_insurance_check_before_registration"
-  | "availability_requires_visit_type"
   | "availability_duplicate_search_signature"
   | "availability_search_budget_exhausted"
   | "booking_requires_verified_or_created_patient"
@@ -160,10 +159,6 @@ function guardReason(
     !stateFacts.checkedInsuranceCoverageType
   ) {
     return "new_patient_requires_insurance_check_before_registration";
-  }
-
-  if (toolName === "get_availability" && !flow.visitType) {
-    return "availability_requires_visit_type";
   }
 
   if (toolName === "get_availability" && availabilityInspection?.duplicate) {

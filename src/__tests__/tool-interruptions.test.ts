@@ -980,6 +980,53 @@ describe("tool interruption handling", () => {
     expect(state.flow.step).toBe("confirm_booking");
   });
 
+  it("allows availability when visit type context is missing", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        slots: [
+          {
+            provider: "Dr. Austin Bach",
+            time: "10:00 AM",
+            datetime: "2026-04-28T10:00",
+            columnId: 1598,
+            profileId: 620,
+            duration: 15,
+            bookingToken: "signed-token",
+          },
+        ],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.flow.visitType = undefined;
+    state.flow.coverageType = undefined;
+
+    const result = await get_availability.execute(
+      { date: "2026-04-28" },
+      { ctx, toolCallId: "test-availability-missing-visit-type" },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({
+      status: "success",
+      slots: [{ slotId: "A", time: "10:00 AM" }],
+    });
+    expect(state.flow.visitType).toBe("medical");
+    expect(state.flow.coverageType).toBe("medical");
+    expect(state.flowGuardObservations).toEqual([
+      expect.objectContaining({
+        toolName: "get_availability",
+        allowed: true,
+        reason: "allowed",
+      }),
+    ]);
+  });
+
   it("returns cached availability instead of repeating an identical satisfied search", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

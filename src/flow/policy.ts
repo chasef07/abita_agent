@@ -289,14 +289,6 @@ function outcomeForGuardReason(
         facts: { reason, routeTool: "route_to_spring_hill" },
         retryable: true,
       };
-    case "availability_requires_visit_type":
-      return {
-        outcome: "needs_clarification",
-        nextStep: "triage_visit_type",
-        speak: "Ask what the visit is for before searching availability.",
-        facts: { reason },
-        retryable: true,
-      };
     case "availability_duplicate_search_signature":
       return {
         outcome: "not_allowed",

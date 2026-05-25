@@ -77,6 +77,24 @@ describe("flow report-only guards", () => {
     });
   });
 
+  it("does not block read-only availability just because visit type is missing", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+
+    const decision = evaluateFlowToolPolicy({
+      flow,
+      toolName: "get_availability",
+      args: { date: "2026-06-01" },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: true,
+      observation: {
+        reason: "allowed",
+      },
+    });
+    expect(decision.outcome).toBeUndefined();
+  });
+
   it("reports add_patient before insurance check", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
     flow.patientStatus = "new";

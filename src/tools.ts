@@ -18,6 +18,7 @@ import {
 import {
   evaluateFlowToolPolicy,
   advanceWorkflow,
+  classifyVisitType,
   compactWorkflowCommand,
   createPendingBookingAction,
   createPendingSideEffectAction,
@@ -1563,6 +1564,32 @@ function ensureRoutineVisionOffice(state: CallState): void {
   state.flow.routing = "optical_only";
 }
 
+function ensureAvailabilityVisitContext(state: CallState): void {
+  if (state.flow.visitType) return;
+
+  const knownCoverageType =
+    state.flow.coverageType ?? state.checkedInsuranceCoverageType;
+  const inferredVisitType =
+    state.flow.schedulingGoal?.visitType ??
+    classifyVisitType(state.flow.schedulingGoal?.visitReason);
+
+  const visitType =
+    inferredVisitType ??
+    (knownCoverageType === "routine_vision" || state.routing === "optical_only"
+      ? "routine_vision"
+      : "medical");
+
+  state.flow.visitType = visitType;
+  if (visitType === "routine_vision") {
+    state.flow.coverageType = "routine_vision";
+    state.flow.routing = "optical_only";
+    return;
+  }
+  if (visitType === "medical" || visitType === "urgent") {
+    state.flow.coverageType ??= "medical";
+  }
+}
+
 function compactTurnCommandResponse(turn: FlowTurnAdvanceResult) {
   if (turn.workflowCommand?.commandSource === "task_plan") {
     const command = turn.workflowCommand;
@@ -2056,6 +2083,7 @@ After response: check if date shifted vs requested — tell caller if different.
   execute: async ({ date, routing }, { ctx }) => {
     const state = getState(ctx);
     makeCurrentSpeechUninterruptible(ctx);
+    ensureAvailabilityVisitContext(state);
     const policyResponse = evaluatePolicyForState(state, "get_availability", {
       date,
       routing,
