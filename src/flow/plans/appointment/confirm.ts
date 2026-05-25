@@ -14,6 +14,7 @@ import {
 import {
   appointmentLookupKnownFact,
   resolveAppointmentLookup,
+  verifiedPatientResolveArgs,
 } from "./shared.js";
 
 export function planConfirm(flow: CallFlowState): WorkflowCommand {
@@ -88,6 +89,22 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
   }
 
   if (lookup.needsLookup) {
+    const resolveArgs = verifiedPatientResolveArgs(patient);
+    if (!resolveArgs) {
+      return command(flow, plan, {
+        phase: "needs_verified_patient",
+        knownFacts: knownPatientFacts(patient, flow),
+        missingFacts: [
+          { key: "patientIdentity", label: "verified patient identity" },
+        ],
+        nextAction: "ask",
+        slot: "patientIdentity",
+        allowedTools: ["verify_patient"],
+        blockedActions: [],
+        instruction:
+          "Ask for the patient's name and date of birth before looking up appointments.",
+      });
+    }
     return command(flow, plan, {
       phase: "loading_appointments",
       knownFacts: knownPatientFacts(patient, flow),
@@ -96,11 +113,11 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
       ],
       nextAction: "call_tool",
       tool: "verify_patient",
-      args: {},
+      args: resolveArgs,
       allowedTools: ["verify_patient"],
       blockedActions: [],
       instruction:
-        "Call verify_patient now to reload the verified patient with appointments.",
+        "Call verify_patient with the patient's name and date of birth to load appointments.",
     });
   }
 

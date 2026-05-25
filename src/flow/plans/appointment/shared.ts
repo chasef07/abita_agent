@@ -3,6 +3,7 @@ import type {
   AppointmentCancelPlan,
   AppointmentLookupSubplan,
   CallerAppointment,
+  PatientContext,
   PlannerFact,
 } from "../../types.js";
 
@@ -63,6 +64,15 @@ export function appointmentLookupKnownFact(
       ? "none found"
       : `${lookup.count} loaded appointment(s)`,
   };
+}
+
+export function verifiedPatientResolveArgs(
+  patient: PatientContext | undefined,
+): { firstName: string; lastName: string; dob: string } | null {
+  const firstName = patient?.firstName?.value;
+  const lastName = patient?.lastName?.value;
+  const dob = patient?.dob?.value;
+  return firstName && lastName && dob ? { firstName, lastName, dob } : null;
 }
 
 export function mergeEvidence(

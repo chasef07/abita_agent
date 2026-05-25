@@ -21,6 +21,7 @@ import {
   resolveTargetAppointment,
   resolveAppointmentLookup,
   speakableAppointmentSummary,
+  verifiedPatientResolveArgs,
 } from "./shared.js";
 
 const RESCHEDULE_BLOCKED_ACTIONS: BlockedAction[] = [
@@ -195,6 +196,22 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
   }
 
   if (lookup.needsLookup) {
+    const resolveArgs = verifiedPatientResolveArgs(patient);
+    if (!resolveArgs) {
+      return command(flow, plan, {
+        phase,
+        knownFacts: knownRescheduleFacts(patient, flow, plan),
+        missingFacts: [
+          { key: "patientIdentity", label: "verified patient identity" },
+        ],
+        nextAction: "ask",
+        slot: "patientIdentity",
+        allowedTools: ["verify_patient"],
+        blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
+        instruction:
+          "Ask for the patient's name and date of birth before changing an existing appointment.",
+      });
+    }
     return command(flow, plan, {
       phase,
       knownFacts: knownRescheduleFacts(patient, flow, plan),
@@ -203,11 +220,11 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
       ],
       nextAction: "call_tool",
       tool: "verify_patient",
-      args: {},
+      args: resolveArgs,
       allowedTools: ["verify_patient"],
       blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
       instruction:
-        "Call verify_patient now to reload the verified patient with appointments.",
+        "Call verify_patient with the patient's name and date of birth to load appointments.",
     });
   }
 

@@ -31,7 +31,6 @@ import {
   normalizeSchedulingRouting,
   recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
-  recordAppointmentLookupResult,
   recordBookingAttempt,
   recordBookingResult,
   ensureActivePatientContext,
@@ -932,111 +931,6 @@ function isNoAppointmentsResult(result: unknown): boolean {
   );
 }
 
-function storeAppointmentLookupResult(
-  state: CallState,
-  result: unknown,
-): boolean {
-  const rawAppointments = extractAppointments(result);
-  const appointmentsStatus = appointmentStatusFromResult(
-    result,
-    rawAppointments,
-  );
-  if (appointmentsStatus === "error") {
-    state.appointmentsStatus = "error";
-    ensureActivePatientContext(state.flow).appointmentsStatus = "error";
-    return false;
-  }
-  if (!rawAppointments && appointmentsStatus !== "none") return false;
-
-  const appointments = publicCallerAppointments(rawAppointments ?? []);
-  state.appointments = appointments;
-  state.appointmentsStatus =
-    appointmentsStatus ?? (appointments.length > 0 ? "found" : "none");
-  state.appointmentCancelTokens = appointmentCancelTokenMap(
-    rawAppointments ?? [],
-  );
-  const activePatient = ensureActivePatientContext(state.flow);
-  activePatient.appointments = appointments;
-  activePatient.appointmentsStatus = state.appointmentsStatus;
-  recordAppointmentLookupResult(state.flow, appointments.length);
-  return true;
-}
-
-function cachedAppointmentLookupResult(
-  state: CallState,
-): Record<string, unknown> | null {
-  if (!state.patientId) return null;
-  if (state.appointmentsStatus === "none") {
-    return {
-      status: "verified",
-      patientId: state.patientId,
-      appointmentsStatus: "none",
-      appointments: [],
-      message: "Patient verified, no appointments found",
-    };
-  }
-  if (state.appointmentsStatus === "found" && state.appointments.length > 0) {
-    return {
-      status: "verified",
-      patientId: state.patientId,
-      appointmentsStatus: "found",
-      appointments: state.appointments,
-      message: `Patient verified with ${state.appointments.length} appointment(s)`,
-    };
-  }
-  return null;
-}
-
-async function lookupAppointmentsForVerifiedPatient(
-  state: CallState,
-): Promise<unknown> {
-  const result = await callApi(
-    "/api/patient/resolve",
-    { patientId: state.patientId, includeAppointments: true },
-    getAmdOfficeForToolCall(state),
-  );
-  storeAppointmentLookupResult(state, result);
-  return result;
-}
-
-async function resolveCurrentPatientFromState(
-  state: CallState,
-): Promise<unknown> {
-  syncSessionPatientFromActiveFlow(state);
-  if (
-    isFlowHarnessEnabled(state) &&
-    state.flow.patientStatus !== "verified" &&
-    state.flow.patientStatus !== "created"
-  ) {
-    return toolOutcome(
-      "not_allowed",
-      "verify_patient",
-      "Confirm the preloaded patient identity or verify the patient before looking up appointments.",
-      { reason: "appointment_lookup_requires_verified_patient" },
-      true,
-    );
-  }
-  if (!state.patientId) {
-    return toolOutcome(
-      "not_allowed",
-      "verify_patient",
-      "Verify the patient before looking up appointments.",
-      { reason: "appointment_lookup_requires_verified_patient" },
-      true,
-    );
-  }
-  const cachedResult = cachedAppointmentLookupResult(state);
-  if (cachedResult) {
-    recordAppointmentLookupResult(state.flow, state.appointments.length);
-    return withLatestPlannerCommand(state, cachedResult);
-  }
-  const result = await lookupAppointmentsForVerifiedPatient(state);
-  if (extractAppointments(result) || isNoAppointmentsResult(result)) {
-    return withLatestPlannerCommand(state, result);
-  }
-  return result;
-}
-
 function activeAppointmentById(
   state: CallState,
   appointmentId: number,
@@ -1772,13 +1666,11 @@ If the caller only says a backchannel like "yes", "okay", or "mm-hmm", call this
 
 // --- verify_patient ---
 export const verify_patient = llm.tool({
-  description: `Single existing-patient lookup tool. Verifies or reloads a patient and always asks middleware to include upcoming appointments in the same call.
+  description: `Single existing-patient lookup tool. Verifies a patient and always asks middleware to include upcoming appointments in the same call.
 
 For MULTIPLE MATCHES (caller context says multiple patients on this number): just pass firstName and phone — the middleware matches by phone + first name. Do NOT ask for last name or DOB upfront.
 
 For all other cases: pass firstName, lastName, and dob (MM/DD/YYYY).
-
-If the patient is already verified and appointments were not loaded or need a retry, call this tool with no fields. The tool will use the verified patient already in session state.
 
 Do NOT call if phone lookup already verified the patient (single match + confirmed first name). Check CALLER CONTEXT first.
 
@@ -1790,7 +1682,7 @@ After response:
 - If not found with full details: ask them to spell their name and retry with corrections.
 - If still not found after retry: lead into registration — "ok no worries, let me get you set up."`,
   parameters: z.object({
-    firstName: z.string().optional().describe("Patient's first name"),
+    firstName: z.string().describe("Patient's first name"),
     lastName: z
       .string()
       .optional()
@@ -1828,10 +1720,6 @@ After response:
   ) => {
     const state = getState(ctx);
     makeCurrentSpeechUninterruptible(ctx);
-    const hasLookupFields = Boolean(firstName || lastName || dob || usePhone);
-    if (!hasLookupFields) {
-      return resolveCurrentPatientFromState(state);
-    }
     if (usePhone && !firstName) {
       return toolOutcome(
         "needs_clarification",
@@ -2160,7 +2048,7 @@ After response: check if date shifted vs requested — tell caller if different.
 export const cancel_appt = llm.tool({
   description: `Cancels an appointment. You MUST call this tool to cancel — an appointment is not cancelled until this tool executes successfully. Never tell the caller an appointment is cancelled without calling this tool first.
 
-Requires appointmentId — use the ID from the caller context or from a verify_patient appointment-refresh response. Read back the details and confirm the caller wants it cancelled before calling this tool. If they want to reschedule, book the new appointment first, then cancel. If the tool says the confirmation was interrupted, confirm the cancellation again before retrying.`,
+Requires appointmentId — use the ID from the caller context or from a verify_patient response. Read back the details and confirm the caller wants it cancelled before calling this tool. If they want to reschedule, book the new appointment first, then cancel. If the tool says the confirmation was interrupted, confirm the cancellation again before retrying.`,
   parameters: z.object({
     appointmentId: z
       .number()

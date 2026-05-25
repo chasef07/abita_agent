@@ -144,9 +144,9 @@ describe("tool interruption handling", () => {
       nextAction: "verify_patient",
       action: "call_tool",
       tool: "verify_patient",
-      args: {},
+      args: { firstName: "Jane", lastName: "Doe", dob: "01/01/1980" },
       instruction:
-        "Call verify_patient now to reload the verified patient with appointments.",
+        "Call verify_patient with the patient's name and date of birth to load appointments.",
     });
     expect(recorded).not.toHaveProperty("turnState");
     expect(recorded).not.toHaveProperty("controllerDecision");
@@ -307,22 +307,20 @@ describe("tool interruption handling", () => {
     });
   });
 
-  it("blocks appointment lookup for a preloaded patient until identity is confirmed", async () => {
+  it("requires identity fields before resolving a patient", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const { ctx, state } = createToolContext();
-    state.flow.patientStatus = "matched";
-    state.flow.patients[state.flow.activePatientRef!].status = "matched";
+    const { ctx } = createToolContext();
 
     const result = await verify_patient.execute(
-      {},
-      { ctx, toolCallId: "test-verify-refresh-unverified" },
+      { firstName: "Jane" },
+      { ctx, toolCallId: "test-verify-missing-identity" },
     );
 
     expect(result).toMatchObject({
-      outcome: "not_allowed",
+      outcome: "needs_clarification",
       nextStep: "verify_patient",
-      facts: { reason: "appointment_lookup_requires_verified_patient" },
+      facts: { reason: "patient_lookup_requires_last_name_and_dob" },
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -354,8 +352,8 @@ describe("tool interruption handling", () => {
     const { ctx, state } = createToolContext();
 
     const result = await verify_patient.execute(
-      {},
-      { ctx, toolCallId: "test-verify-refresh-tokens" },
+      { firstName: "Jane", lastName: "Doe", dob: "01/01/1980" },
+      { ctx, toolCallId: "test-verify-with-appointments-tokens" },
     );
 
     expect(state.appointmentCancelTokens).toEqual({

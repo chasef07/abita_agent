@@ -20,6 +20,7 @@ import {
   resolveTargetAppointment,
   resolveAppointmentLookup,
   speakableAppointmentSummary,
+  verifiedPatientResolveArgs,
 } from "./shared.js";
 
 export function planCancel(flow: CallFlowState): WorkflowCommand {
@@ -123,6 +124,28 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
   }
 
   if (lookup.needsLookup) {
+    const resolveArgs = verifiedPatientResolveArgs(patient);
+    if (!resolveArgs) {
+      return command(flow, plan, {
+        phase,
+        knownFacts: knownPatientFacts(patient, flow),
+        missingFacts: [
+          { key: "patientIdentity", label: "verified patient identity" },
+        ],
+        nextAction: "ask",
+        slot: "patientIdentity",
+        allowedTools: ["verify_patient"],
+        blockedActions: [
+          {
+            action: "cancel_appt",
+            reason: "appointment list must be loaded before cancellation",
+          },
+        ],
+        instruction:
+          "Ask for the patient's name and date of birth before looking up appointments.",
+        step: "verify_patient",
+      });
+    }
     return command(flow, plan, {
       phase,
       knownFacts: knownPatientFacts(patient, flow),
@@ -131,7 +154,7 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
       ],
       nextAction: "call_tool",
       tool: "verify_patient",
-      args: {},
+      args: resolveArgs,
       allowedTools: ["verify_patient"],
       blockedActions: [
         {
@@ -140,7 +163,7 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
         },
       ],
       instruction:
-        "Call verify_patient now to reload the verified patient with appointments.",
+        "Call verify_patient with the patient's name and date of birth to load appointments.",
       step: "confirm_cancel",
     });
   }

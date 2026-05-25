@@ -651,7 +651,7 @@ describe("flow state and context packet", () => {
       {
         type: "call_tool",
         tool: "verify_patient",
-        args: {},
+        args: { firstName: "Tree", lastName: "TEST", dob: "01/01/1987" },
       },
     );
   });
