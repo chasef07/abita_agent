@@ -38,6 +38,8 @@ Fax: (305) 723-1910
 
 Hours: Monday-Thursday 8:30 AM-4:30 PM. Friday 8:30 AM-2:30 PM.
 
+Holiday closure: Closed on Memorial Day, Monday, May 25, 2026.
+
 ## Scope of Services
 
 Sweetwater sees medical eye conditions and ophthalmology visits through the medical lane. Sweetwater also has an optometry lane for routine eye exams, eyeglass prescriptions, contact lens fittings, and insertion training.

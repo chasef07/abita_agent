@@ -23,6 +23,8 @@ Fax: (305)-675-3370
 
 Hours: Monday–Friday 8:30 AM – 4:30 PM. Closed Saturday and Sunday.
 
+Holiday closure: Closed on Memorial Day, Monday, May 25, 2026.
+
 **Other Location:** We also have an office in Crystal River — Eye Radiance, 1100 N Lyle Avenue, Crystal River, FL 34429. That location only sees Dr. Licht (Tuesday–Thursday, 12–5 PM).
 
 Move history: Abita Eye Group moved to Spring Hill from 1930 Land O Lakes Boulevard, Suite 5, Lutz, FL 33549 on 2026-02-06. Some callers may still ask about the Lutz address.
