@@ -315,7 +315,7 @@ describe("transcript replay eval harness", () => {
       allowed: false,
       outcome: {
         nextStep: "confirm_cancel",
-        facts: { reason: "side_effect_requires_pending_action" },
+        facts: { reason: "side_effect_confirmation_required" },
       },
     });
 
@@ -494,7 +494,7 @@ describe("transcript replay eval harness", () => {
     });
   });
 
-  it("requires reducer-confirmed booking state before booking a slot", () => {
+  it("requires caller-confirmed booking state before booking a slot", () => {
     const harness = new TranscriptEvalHarness();
     harness.verifyPrecallPatient();
     harness.startAvailability();
@@ -503,7 +503,7 @@ describe("transcript replay eval harness", () => {
       allowed: false,
       outcome: {
         nextStep: "confirm_booking",
-        facts: { reason: "booking_requires_pending_action" },
+        facts: { reason: "booking_confirmation_required" },
       },
     });
 
@@ -543,7 +543,7 @@ describe("transcript replay eval harness", () => {
     expect(harness.bookingPolicy()).toMatchObject({
       allowed: false,
       outcome: {
-        facts: { reason: "booking_requires_pending_action" },
+        facts: { reason: "booking_confirmation_required" },
       },
     });
     harness.confirmBooking();
@@ -713,7 +713,7 @@ describe("transcript replay eval harness", () => {
       allowed: false,
       outcome: {
         nextStep: "handoff",
-        facts: { reason: "side_effect_requires_pending_action" },
+        facts: { reason: "side_effect_confirmation_required" },
       },
     });
 
@@ -737,7 +737,7 @@ describe("transcript replay eval harness", () => {
       outcome: {
         nextStep: "route_office",
         facts: {
-          reason: "side_effect_requires_pending_action",
+          reason: "side_effect_confirmation_required",
           toolName: "route_to_spring_hill",
         },
       },

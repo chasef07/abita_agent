@@ -254,6 +254,22 @@ export function inferObviousTurnUnderstanding(
     };
   }
 
+  if (shouldTreatTranscriptAsReferringDoctor(activeCommand, cleaned)) {
+    return {
+      goal: "schedule",
+      scheduling: {
+        note: {
+          referringDoctor: referringDoctorValueFromTranscript(
+            cleaned,
+            normalized,
+          ),
+        },
+      },
+      confidence: 0.9,
+      evidence,
+    };
+  }
+
   if (shouldTreatTranscriptAsVisitReason(flow, activeCommand, cleaned)) {
     const visitType = classifyVisitType(cleaned) ?? undefined;
     return {
@@ -1014,6 +1030,7 @@ function shouldTreatTranscriptAsVisitReason(
   transcript: string,
 ): boolean {
   if (!transcript || transcript.length > 120) return false;
+  if (commandHasMissingFact(command, "referringDoctor")) return false;
   return (
     flow.step === "triage_visit_type" ||
     flow.step === "collect_visit_reason" ||
@@ -1040,6 +1057,36 @@ function shouldTreatTranscriptAsPreferredWindow(
   }
 
   return hasPreferredWindowCue(normalized);
+}
+
+function shouldTreatTranscriptAsReferringDoctor(
+  command: WorkflowCommand | undefined,
+  transcript: string,
+): boolean {
+  if (!commandHasMissingFact(command, "referringDoctor")) return false;
+  const trimmed = transcript.trim();
+  return trimmed.length > 0 && trimmed.length <= 120;
+}
+
+function referringDoctorValueFromTranscript(
+  transcript: string,
+  normalized: string,
+): string {
+  if (isNoReferringDoctorResponse(normalized)) return "none";
+  return transcript.trim();
+}
+
+function isNoReferringDoctorResponse(normalized: string): boolean {
+  return /\b(no referring doctor|no referral|none|nobody referred|no one referred|don t have one|do not have one|i don t have one|i do not have one|not referred|self referred)\b/.test(
+    normalized,
+  );
+}
+
+function commandHasMissingFact(
+  command: WorkflowCommand | undefined,
+  key: string,
+): boolean {
+  return command?.missingFacts.some((fact) => fact.key === key) === true;
 }
 
 function hasPreferredWindowCue(normalized: string): boolean {

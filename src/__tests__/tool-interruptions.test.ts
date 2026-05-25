@@ -1154,7 +1154,7 @@ describe("tool interruption handling", () => {
     expect(state.lastAvailabilitySlots).toEqual([]);
   });
 
-  it("blocks booking before a confirmed pending booking action exists", async () => {
+  it("blocks booking before the caller confirms the exact slot", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1171,7 +1171,7 @@ describe("tool interruption handling", () => {
     expect(result).toMatchObject({
       outcome: "not_allowed",
       nextStep: "confirm_booking",
-      facts: { reason: "booking_requires_pending_action" },
+      facts: { reason: "booking_confirmation_required" },
     });
   });
 
@@ -1401,6 +1401,153 @@ describe("tool interruption handling", () => {
     expect(requestBody).toMatchObject({
       appointmentReason: "post-op follow-up for dry eye surgery",
       referringDoctor: "Dr. Licht",
+    });
+  });
+
+  it("books a broad post-op reason with no referring doctor", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "booked", appointmentId: 12345 }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state, {
+      slotId: "B",
+      spoken: "2026-06-02 2:00 PM with Dr. Licht",
+      provider: "Dr. Licht",
+      date: "2026-06-02",
+      time: "2:00 PM",
+      datetime: "2026-06-02T14:00",
+    });
+    seedPendingBookingAction(state);
+    state.flow.schedulingGoal = {
+      patientRef: state.flow.activePatientRef,
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "Post-op.",
+      selectedSlotId: "B",
+      bookingConfirmed: true,
+      updatedAt: Date.now(),
+    };
+
+    const result = await book_appt.execute(
+      {
+        slotId: "B",
+        appointmentKind: "post_op",
+        appointmentReason: "post-op follow-up",
+        referringDoctor: "none",
+      },
+      {
+        ctx,
+        toolCallId: "test-book-post-op-no-referrer",
+      },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody).toMatchObject({
+      appointmentReason: "post-op follow-up",
+      referringDoctor: "none",
+    });
+  });
+
+  it("books a confirmed post-op slot after the reducer records no referring doctor", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "booked", appointmentId: 12345 }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state, {
+      slotId: "B",
+      spoken: "2026-06-02 2:00 PM with Dr. Licht",
+      provider: "Dr. Licht",
+      date: "2026-06-02",
+      time: "2:00 PM",
+      datetime: "2026-06-02T14:00",
+    });
+    state.flow.schedulingGoal = {
+      patientRef: state.flow.activePatientRef,
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "post-op visit",
+      selectedSlotId: "B",
+      bookingConfirmed: true,
+      noteDraft: {
+        appointmentReason: "post-op visit",
+        referringDoctor: "none",
+      },
+      updatedAt: Date.now(),
+    };
+
+    const result = await book_appt.execute(
+      {
+        slotId: "B",
+        appointmentKind: "post_op",
+        appointmentReason: "post-op visit",
+        referringDoctor: "none",
+      },
+      {
+        ctx,
+        toolCallId: "test-book-reducer-no-referrer",
+      },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
+    expect(state.flow.pendingActions[0]).toMatchObject({
+      type: "book_appt",
+      slotHash: "B",
+      confirmed: true,
+      consumed: true,
+    });
+  });
+
+  it("asks only for referring doctor when book_appt is missing it", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state);
+    markBookingConfirmedInState(state, "A");
+    state.flow.schedulingGoal = {
+      patientRef: state.flow.activePatientRef,
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "post-op follow-up",
+      selectedSlotId: "A",
+      bookingConfirmed: true,
+      updatedAt: Date.now(),
+    };
+
+    const result = await book_appt.execute(
+      {
+        slotId: "A",
+        appointmentKind: "post_op",
+        appointmentReason: "post-op follow-up",
+        referringDoctor: "",
+      },
+      {
+        ctx,
+        toolCallId: "test-book-missing-referrer",
+      },
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      outcome: "needs_clarification",
+      nextStep: "collect_visit_reason",
+      speak:
+        "Ask who referred them, or whether there is no referring doctor. Do not ask for surgery details; the appointment reason is already known.",
+      facts: {
+        reason: "booking_note_metadata_missing",
+        missingFacts: ["referringDoctor"],
+      },
     });
   });
 

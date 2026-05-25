@@ -175,13 +175,13 @@ function sideEffectRequiredOutcome(
   actionType: ReturnType<typeof sideEffectActionTypeForTool>,
 ): { reason: GuardObservationReason; outcome: ToolOutcome } {
   return {
-    reason: "side_effect_requires_pending_action",
+    reason: "side_effect_confirmation_required",
     outcome: {
       outcome: "not_allowed",
       nextStep: nextStepForSideEffectAction(actionType),
       speak: pendingActionInstruction(toolName),
       facts: {
-        reason: "side_effect_requires_pending_action",
+        reason: "side_effect_confirmation_required",
         toolName,
       },
       retryable: true,
@@ -367,12 +367,12 @@ function evaluateBookingPolicy(
 ): { reason: GuardObservationReason; outcome: ToolOutcome } | undefined {
   if (!booking) {
     return {
-      reason: "booking_requires_pending_action",
+      reason: "booking_confirmation_required",
       outcome: {
         outcome: "not_allowed",
         nextStep: "confirm_booking",
-        speak: "Confirm the exact slot before booking.",
-        facts: { reason: "booking_requires_pending_action" },
+        speak: "Get explicit confirmation for this exact appointment slot.",
+        facts: { reason: "booking_confirmation_required" },
         retryable: true,
       },
     };
@@ -406,16 +406,43 @@ function evaluateBookingPolicy(
     return consumedBookingOutcome(consumedAction.id);
   }
 
+  if (hasCallerConfirmedBookingSelection(flow, booking)) {
+    return undefined;
+  }
+
   return {
-    reason: "booking_requires_pending_action",
+    reason: "booking_confirmation_required",
     outcome: {
       outcome: "not_allowed",
       nextStep: "confirm_booking",
-      speak: "Confirm the exact slot before booking.",
-      facts: { reason: "booking_requires_pending_action" },
+      speak: "Get explicit confirmation for this exact appointment slot.",
+      facts: { reason: "booking_confirmation_required" },
       retryable: true,
     },
   };
+}
+
+function hasCallerConfirmedBookingSelection(
+  flow: CallFlowState,
+  booking: Omit<BookingAttemptRecordInput, "spokenSummary"> | undefined,
+): boolean {
+  const goal = flow.schedulingGoal;
+  if (!booking || goal?.bookingConfirmed !== true || !goal.selectedSlotId) {
+    return false;
+  }
+
+  return (
+    normalizeBookingSlotId(goal.selectedSlotId) ===
+      normalizeBookingSlotId(booking.slotHash) &&
+    (!booking.patientRef ||
+      !goal.patientRef ||
+      booking.patientRef === goal.patientRef) &&
+    (!booking.officeKey || booking.officeKey === flow.officeKey)
+  );
+}
+
+function normalizeBookingSlotId(value: string): string {
+  return value.trim().toUpperCase();
 }
 
 function evaluateHistoricalBookingPolicy(

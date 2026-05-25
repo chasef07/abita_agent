@@ -13,6 +13,7 @@ import {
   createFlowShadowPrediction,
   hasActivePatientIdentityChanged,
   hashToolArgs,
+  inferObviousTurnUnderstanding,
   invalidateAvailabilitySearches,
   invalidatePendingActionsForStateChange,
   observeFlowToolExecution,
@@ -1420,6 +1421,63 @@ describe("deterministic turn router", () => {
     });
     expect(turn.turnState).toContain("missing: referringDoctor");
     expect(turn.turnState).toContain("bookingConfirmed=true");
+  });
+
+  it("keeps confirmed slot state when the caller says there is no referring doctor", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.step = "confirm_booking";
+    flow.visitType = "medical";
+    flow.coverageType = "medical";
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "post-op visit",
+      selectedSlotId: "B",
+      bookingConfirmed: true,
+      updatedAt: Date.now(),
+    };
+
+    const understanding = inferObviousTurnUnderstanding(
+      flow,
+      "I don't have one.",
+    );
+    expect(understanding).toBeDefined();
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "I don't have one.",
+      understanding: understanding!,
+    });
+
+    expect(turn.update.pathFactsChanged).toBe(false);
+    expect(turn.decision).toMatchObject({
+      type: "call_tool",
+      tool: "book_appt",
+      args: {
+        slotId: "B",
+        appointmentKind: "post_op",
+        appointmentReason: "post-op visit",
+        referringDoctor: "none",
+      },
+    });
+    expect(flow.schedulingGoal).toMatchObject({
+      visitReason: "post-op visit",
+      selectedSlotId: "B",
+      bookingConfirmed: true,
+      noteDraft: {
+        referringDoctor: "none",
+      },
+    });
   });
 
   it("honors booking confirmation even if availability left the flow step stale", () => {

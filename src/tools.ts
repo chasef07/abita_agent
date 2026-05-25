@@ -226,7 +226,6 @@ function shouldAutoConfirmSideEffect(
   if (!isSideEffectToolName(toolName)) return false;
   const reason = decision.outcome?.facts?.reason;
   return (
-    reason === "side_effect_requires_pending_action" ||
     reason === "side_effect_confirmation_required" ||
     reason === "cancel_confirmation_not_tracked"
   );
@@ -315,7 +314,7 @@ function resolveBookingNoteMetadata(
     return toolOutcome(
       "needs_clarification",
       "collect_visit_reason",
-      'Ask who referred them, or use "none" if there is no referring doctor.',
+      "Ask who referred them, or whether there is no referring doctor. Do not ask for surgery details; the appointment reason is already known.",
       {
         reason: "booking_note_metadata_missing",
         missingFacts: ["referringDoctor"],
@@ -1347,6 +1346,16 @@ function bookingTokenForSelectedSlot(
   );
 }
 
+function bookingConfirmationRequiredOutcome(): ToolOutcome {
+  return toolOutcome(
+    "not_allowed",
+    "confirm_booking",
+    "Get explicit confirmation for this exact appointment slot.",
+    { reason: "booking_confirmation_required" },
+    true,
+  );
+}
+
 function recordSuccessfulLegacyBooking(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
@@ -2264,7 +2273,9 @@ export const book_appt = llm.tool({
 
 The middleware resolves the AMD appointment type from the selected slot, patient status, DOB, routing lane, and appointment kind. Do not choose or mention numeric AMD appointment type IDs.
 
-Include the caller-provided appointment reason and referring doctor. The middleware saves those as an AP appointment note immediately after the appointment is booked; do not call add_patient_note after a successful booking.
+Include the caller-provided appointment reason and referring doctor. A broad reason from any earlier caller turn is enough, like post-op follow-up, blurry vision, or routine eye exam. If there is no referring doctor, the caller is unsure, or nobody referred them, set referringDoctor to "none". Do not ask for extra clinical or surgery details once the reason is usable.
+
+The middleware saves those two booking-note fields during booking.
 
 Only book after the caller says yes to the exact offered slot. If the tool says the confirmation was interrupted, confirm the exact slot again before retrying. If booking fails because the slot is unavailable, call get_availability again before trying another slot.`,
   parameters: z.object({
@@ -2375,13 +2386,7 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
       spokenSummary: selectedSlot.spoken,
     });
     if (!bookingAttempt.action) {
-      return {
-        outcome: "not_allowed",
-        nextStep: "confirm_booking",
-        speak: "Confirm the exact slot before booking.",
-        facts: { reason: "booking_requires_pending_action" },
-        retryable: true,
-      } satisfies ToolOutcome;
+      return bookingConfirmationRequiredOutcome();
     }
     const appointmentIntent = appointmentIntentForBooking(
       state,

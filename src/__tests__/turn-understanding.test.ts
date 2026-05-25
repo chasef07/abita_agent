@@ -252,6 +252,43 @@ describe("turn understanding reducer", () => {
     );
   });
 
+  it("infers no referring doctor without overwriting the visit reason", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeFlow = "scheduling";
+    flow.activeIntent = "new_appointment";
+    flow.step = "confirm_booking";
+    flow.schedulingGoal = {
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "post-op visit",
+      selectedSlotId: "B",
+      bookingConfirmed: true,
+      updatedAt: Date.now(),
+    };
+
+    expect(
+      inferObviousTurnUnderstanding(flow, "I don't have one."),
+    ).toMatchObject({
+      goal: "schedule",
+      scheduling: {
+        note: {
+          referringDoctor: "none",
+        },
+      },
+    });
+    expect(
+      inferObviousTurnUnderstanding(flow, "I don't have one.")?.scheduling,
+    ).not.toMatchObject({
+      visitReason: "I don't have one.",
+    });
+  });
+
   it("infers cancel confirmation from a planner confirmation state", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",

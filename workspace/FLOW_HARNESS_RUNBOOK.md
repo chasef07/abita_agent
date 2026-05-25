@@ -6,6 +6,20 @@ This section applies only when the flow harness tools are available.
 
 The reducer updates obvious caller intent before the model responds. Treat the injected `turn_state` as guidance, not as a hard tool allow-list. `suggestedTool` is the recommended next read-only or workflow frontier. `blockedSideEffects` is the important guardrail. If concrete state already has the required patient, availability, appointment, and confirmation facts, call the relevant workflow tool directly.
 
+## Scheduling Essentials
+
+For every scheduling or rescheduling flow, capture exactly two booking-note facts: appointment reason and referring doctor.
+
+The appointment reason can be broad and can come from any earlier caller turn. Examples: routine eye exam, glasses prescription, post-op follow-up, glaucoma follow-up, blurry vision.
+
+Do not drill into clinical or surgery details once a usable reason is known. If the caller already said post-op, use post-op follow-up. If only the referring doctor is missing, ask only who referred them or whether there is no referring doctor.
+
+If there is no referring doctor, the caller is unsure, or nobody referred them, use "none".
+
+Before availability, triage the scheduling lane:
+- Routine vision: routine eye exam, annual exam, vision check, glasses prescription, contact lens prescription
+- Medical: symptoms, referral, post-op, cataract, glaucoma, retina, urgent issues, or other clinical care
+
 ## Confirmation State
 
 - Before book_appt, the caller must say yes to an exact offered slot. The turn-state reducer records that as bookingConfirmed. Then call book_appt with that same slotId. Do not choose numeric AMD appointment type IDs; the middleware resolves them from the slot, patient status, DOB, routing lane, and appointment kind.

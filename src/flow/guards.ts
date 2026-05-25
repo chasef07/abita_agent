@@ -23,7 +23,6 @@ export type GuardObservationReason =
   | "availability_search_budget_exhausted"
   | "booking_requires_verified_or_created_patient"
   | "booking_requires_recent_availability"
-  | "booking_requires_pending_action"
   | "booking_confirmation_required"
   | "booking_action_already_consumed"
   | "booking_slot_invalidated"
@@ -31,7 +30,6 @@ export type GuardObservationReason =
   | "cancel_confirmation_not_tracked"
   | "cancel_requires_loaded_appointment"
   | "update_insurance_requires_verified_patient"
-  | "side_effect_requires_pending_action"
   | "side_effect_confirmation_required"
   | "side_effect_action_already_consumed"
   | "side_effect_action_invalidated";

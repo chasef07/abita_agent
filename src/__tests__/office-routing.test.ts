@@ -303,6 +303,22 @@ describe("flow harness prompt gating", () => {
     expect(prompt).toContain("<state_memory_contract>");
     expect(prompt).toContain("<context_capsules>");
     expect(prompt).toContain("suggestedTool");
+    expect(prompt).toContain("## Scheduling Essentials");
+    expect(prompt).toContain(
+      "capture exactly two booking-note facts: appointment reason and referring doctor",
+    );
+    expect(prompt).toContain(
+      "Do not drill into clinical or surgery details once a usable reason is known",
+    );
+    expect(prompt).toContain(
+      'If there is no referring doctor, the caller is unsure, or nobody referred them, use "none"',
+    );
+    expect(prompt).toContain(
+      "Routine vision: routine eye exam, annual exam, vision check, glasses prescription, contact lens prescription",
+    );
+    expect(prompt).toContain(
+      "Medical: symptoms, referral, post-op, cataract, glaucoma, retina, urgent issues, or other clinical care",
+    );
     expect(prompt).not.toContain("record_turn_understanding");
     expect(prompt).not.toContain("<runbook>");
     expect(prompt).not.toContain("RUNBOOK.md - How to Handle Every Call");
@@ -319,6 +335,7 @@ describe("flow harness prompt gating", () => {
     expect(crystalRiverPrompt).toContain("<state_memory_contract>");
     expect(crystalRiverPrompt).toContain("<context_capsules>");
     expect(crystalRiverPrompt).toContain("suggestedTool");
+    expect(crystalRiverPrompt).toContain("## Scheduling Essentials");
     expect(crystalRiverPrompt).not.toContain("record_turn_understanding");
     expect(crystalRiverPrompt).not.toContain("<runbook>");
     expect(crystalRiverPrompt).not.toContain(
