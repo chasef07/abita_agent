@@ -1,22 +1,9 @@
 import type { llm } from "@livekit/agents";
 import type { OfficeConfig } from "../customer/profile.js";
-import type { CallFlowState } from "../flow/index.js";
+import type { CallFlowState, WorkflowToolName } from "../flow/index.js";
 import type { CallState } from "./call-state.js";
 
-export type AgentToolName =
-  | "record_turn_understanding"
-  | "verify_patient"
-  | "add_patient"
-  | "update_insurance"
-  | "get_availability"
-  | "confirm_appt"
-  | "cancel_appt"
-  | "add_patient_note"
-  | "book_appt"
-  | "check_insurance"
-  | "lookup_knowledge"
-  | "route_to_spring_hill"
-  | "transfer_call";
+export type AgentToolName = "record_turn_understanding" | WorkflowToolName;
 
 export type AgentToolMap = Record<
   AgentToolName,
@@ -50,6 +37,7 @@ const ALL_TOOL_NAMES: AgentToolName[] = [
   "cancel_appt",
   "add_patient_note",
   "book_appt",
+  "reschedule_appt",
   "check_insurance",
   "lookup_knowledge",
   "route_to_spring_hill",
@@ -99,8 +87,25 @@ function visibleToolNamesForState(
     ]);
   }
 
+  const plannerToolNames = visibleToolNamesForPlannerCommand(state);
+  if (plannerToolNames) return plannerToolNames;
+
   const base = visibleToolNamesForStep(state, office);
   return dedupe(base);
+}
+
+function visibleToolNamesForPlannerCommand(
+  state: CallState,
+): AgentToolName[] | undefined {
+  const command = state.flow.lastWorkflowCommand;
+  if (!command || command.commandSource !== "task_plan") return undefined;
+  if (
+    state.flow.activeTaskPlanId &&
+    command.taskId !== state.flow.activeTaskPlanId
+  ) {
+    return undefined;
+  }
+  return dedupe(command.allowedTools);
 }
 
 function visibleToolNamesForStep(
@@ -154,6 +159,10 @@ function visibleToolNamesForStep(
 function exposureReasonForState(state: CallState): string {
   if (!state.flowHarnessEnabled) return "legacy_harness_disabled";
   if (pendingTurnUnderstanding(state)) return "turn_update_pending";
+  const command = state.flow.lastWorkflowCommand;
+  if (command?.commandSource === "task_plan") {
+    return `planner:${command.taskKind}:${command.phase}`;
+  }
   return `flow_step:${state.flow.step}`;
 }
 
@@ -173,6 +182,7 @@ function legacyToolNamesForOffice(
     "cancel_appt",
     "add_patient_note",
     "book_appt",
+    "reschedule_appt",
     "check_insurance",
     "lookup_knowledge",
     ...(office.features.routeToSpringHill

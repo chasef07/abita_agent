@@ -1,4 +1,4 @@
-import type { CallFlowState } from "./types.js";
+import type { CallFlowState, WorkflowCommand } from "./types.js";
 
 export interface FlowContextDirectives {
   currentObjective: string;
@@ -148,6 +148,11 @@ export function compileTurnStatePacket(
   flow: CallFlowState,
   overrides: Partial<FlowContextDirectives> = {},
 ): string {
+  const workflowCommand = activeWorkflowCommand(flow);
+  if (workflowCommand) {
+    return compileWorkflowTurnStatePacket(flow, workflowCommand);
+  }
+
   const directives = {
     ...directivesForFlowState(flow),
     ...overrides,
@@ -169,6 +174,71 @@ export function compileTurnStatePacket(
     "",
     compileContextCapsules(flow, directives),
   ].join("\n");
+}
+
+function activeWorkflowCommand(
+  flow: CallFlowState,
+): WorkflowCommand | undefined {
+  const command = flow.lastWorkflowCommand;
+  if (!command || command.commandSource !== "task_plan") return undefined;
+  if (flow.activeTaskPlanId && command.taskId !== flow.activeTaskPlanId) {
+    return undefined;
+  }
+  return command;
+}
+
+function compileWorkflowTurnStatePacket(
+  flow: CallFlowState,
+  command: WorkflowCommand,
+): string {
+  const nextSafeAction =
+    command.nextAction === "call_tool" && command.tool
+      ? `call_tool ${command.tool}`
+      : command.nextAction;
+
+  return [
+    "<turn_state>",
+    `task: ${command.taskKind}`,
+    `taskId: ${command.taskId}`,
+    `patient: ${flow.activePatientRef ?? command.patientRef ?? "unknown"} ${formatPatientStatus(flow)}`,
+    `patientStatus: ${formatPatientStatus(flow)}`,
+    `phase: ${command.phase}`,
+    `objective: ${command.objective}`,
+    `known: ${formatPlannerFacts(command.knownFacts)}`,
+    `missing: ${formatPlannerMissingFacts(command.missingFacts)}`,
+    `nextSafeAction: ${nextSafeAction}`,
+    `nextAction: ${command.tool ?? command.nextAction}`,
+    `allowedTools: ${formatList(command.allowedTools)}`,
+    `blockedActions: ${formatPlannerBlockedActions(command.blockedActions)}`,
+    "</turn_state>",
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
+function formatPlannerFacts(facts: WorkflowCommand["knownFacts"]): string {
+  if (facts.length === 0) return "none";
+  return facts.map((fact) => `${fact.key}=${fact.value}`).join("; ");
+}
+
+function formatPlannerMissingFacts(
+  missingFacts: WorkflowCommand["missingFacts"],
+): string {
+  if (missingFacts.length === 0) return "none";
+  return missingFacts.map((fact) => fact.key).join(", ");
+}
+
+function formatPlannerBlockedActions(
+  blockedActions: WorkflowCommand["blockedActions"],
+): string {
+  if (blockedActions.length === 0) return "none";
+  return blockedActions
+    .map((blocked) =>
+      blocked.until
+        ? `${blocked.action} until ${blocked.until}`
+        : `${blocked.action}`,
+    )
+    .join("; ");
 }
 
 export function compileContextCapsules(

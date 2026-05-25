@@ -176,7 +176,7 @@ describe("agent session flow integration", () => {
       "lookup_knowledge",
     ]);
     expect(state.latestToolExposure).toMatchObject({
-      reason: "flow_step:verify_patient",
+      reason: "planner:scheduling:needs_verified_patient",
       refreshReason: "turn_understanding_recorded",
     });
     await session.close();

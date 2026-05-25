@@ -143,6 +143,9 @@ export interface SchedulingGoalState {
   preferredWindow?: string;
   selectedSlotId?: string;
   bookingConfirmed?: boolean;
+  cancelConfirmed?: boolean;
+  routeConfirmed?: boolean;
+  transferConfirmed?: boolean;
   noteDraft?: {
     appointmentReason?: string;
     referringDoctor?: string;
@@ -155,9 +158,209 @@ export interface SchedulingGoalState {
 export type ConfirmationType =
   | "book"
   | "cancel"
+  | "reschedule"
   | "route_office"
   | "transfer"
   | "end_call";
+
+export type WorkflowToolName =
+  | "verify_patient"
+  | "add_patient"
+  | "update_insurance"
+  | "get_availability"
+  | "confirm_appt"
+  | "cancel_appt"
+  | "add_patient_note"
+  | "book_appt"
+  | "reschedule_appt"
+  | "check_insurance"
+  | "lookup_knowledge"
+  | "route_to_spring_hill"
+  | "transfer_call";
+
+export interface PlannerFact {
+  key: string;
+  value: string;
+}
+
+export interface MissingFact {
+  key: string;
+  label: string;
+}
+
+export interface BlockedAction {
+  action: WorkflowToolName | string;
+  reason: string;
+  until?: string;
+}
+
+export type WorkflowTaskKind =
+  | "intent_triage"
+  | "knowledge_answer"
+  | "appointment_confirm"
+  | "appointment_cancel"
+  | "appointment_reschedule"
+  | "scheduling"
+  | "registration"
+  | "insurance"
+  | "transfer"
+  | "end_call";
+
+export type WorkflowCommandAction =
+  | "ask"
+  | "call_tool"
+  | "confirm"
+  | "respond"
+  | "complete";
+
+export type WorkflowCommandSource = "task_plan";
+
+export interface WorkflowCommand {
+  taskId: string;
+  taskKind: ParentTaskPlan["kind"] | TaskFrame["kind"] | ActiveFlow;
+  patientRef?: PatientRef;
+  phase: string;
+  objective: string;
+  knownFacts: PlannerFact[];
+  missingFacts: MissingFact[];
+  nextAction: WorkflowCommandAction;
+  slot?: string;
+  tool?: WorkflowToolName;
+  args?: unknown;
+  allowedTools: WorkflowToolName[];
+  blockedActions: BlockedAction[];
+  statePatch?: PlannerStatePatch;
+  confirmationType?: ConfirmationType;
+  resolvedMetaDecision?: {
+    tool: "prepareSchedulingPath";
+    outcome: ToolOutcome;
+  };
+  instruction: string;
+  commandSource: WorkflowCommandSource;
+}
+
+export interface PlannerStatePatch {
+  taskPlans?: Record<string, ParentTaskPlan>;
+  activeTaskPlanId?: string;
+  activeIntent?: IntentKind | null;
+  activeFlow?: ActiveFlow;
+  step?: FlowStep;
+  patientStatus?: PatientStatus;
+  visitType?: VisitType;
+  officeKey?: OfficeKey;
+  coverageType?: InsuranceCoverageType;
+  routing?: SchedulingRouting;
+  requiredSlots?: string[];
+  completedSteps?: string[];
+  pendingConfirmation?: CallFlowState["pendingConfirmation"];
+  currentTask?: TaskFrame;
+  taskStack?: TaskFrame[];
+  schedulingGoal?: SchedulingGoalState;
+}
+
+export interface AppointmentLookupSubplan {
+  phase:
+    | "needs_verified_patient"
+    | "loading_appointments"
+    | "appointments_loaded"
+    | "none_found"
+    | "lookup_failed";
+  loadedAppointmentCount: number;
+  refreshedAtTurnId?: string;
+}
+
+export interface AppointmentConfirmPlan {
+  id: string;
+  kind: "appointment_confirm";
+  taskFrameId?: string;
+  patientRef?: PatientRef;
+  phase:
+    | "needs_lookup"
+    | "presenting_appointments"
+    | "confirmation_answered"
+    | "complete";
+  objective: string;
+  lookup: AppointmentLookupSubplan;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AppointmentCancelPlan {
+  id: string;
+  kind: "appointment_cancel";
+  taskFrameId?: string;
+  patientRef?: PatientRef;
+  phase:
+    | "needs_lookup"
+    | "selecting_appointment"
+    | "confirming_cancel"
+    | "cancelling"
+    | "cancelled"
+    | "complete";
+  objective: string;
+  lookup: AppointmentLookupSubplan;
+  targetAppointmentId?: number;
+  targetAppointmentSummary?: string;
+  targetSelectionStatus: "none" | "ambiguous" | "selected";
+  targetSelectionEvidence: string[];
+  cancelConfirmed?: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AppointmentReschedulePlan {
+  id: string;
+  kind: "appointment_reschedule";
+  taskFrameId?: string;
+  patientRef?: PatientRef;
+  phase:
+    | "requested"
+    | "needs_verified_patient"
+    | "loading_existing_appointments"
+    | "selecting_old_appointment"
+    | "collecting_replacement_window"
+    | "searching_replacement"
+    | "offering_replacement"
+    | "confirming_reschedule"
+    | "rescheduling"
+    | "complete"
+    | "partial_failure";
+  objective: string;
+  lookup: AppointmentLookupSubplan;
+  targetAppointmentId?: number;
+  targetAppointmentSummary?: string;
+  targetSelectionStatus: "none" | "ambiguous" | "selected";
+  targetSelectionEvidence: string[];
+  replacementSlotId?: string;
+  replacementSlotSummary?: string;
+  appointmentReason?: string;
+  referringDoctor?: string;
+  rescheduleConfirmed?: boolean;
+  rescheduleOperationId?: string;
+  partialFailureReason?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface GenericTaskPlan {
+  id: string;
+  kind: Exclude<
+    WorkflowTaskKind,
+    "appointment_confirm" | "appointment_cancel" | "appointment_reschedule"
+  >;
+  taskFrameId?: string;
+  patientRef?: PatientRef;
+  phase: string;
+  objective: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type ParentTaskPlan =
+  | AppointmentConfirmPlan
+  | AppointmentCancelPlan
+  | AppointmentReschedulePlan
+  | GenericTaskPlan;
 
 export interface TaskFrame {
   id: string;
@@ -213,6 +416,26 @@ export type PendingAction =
       createdTurnId: string;
       invalidated?: boolean;
       invalidationReason?: string;
+    }
+  | {
+      id: string;
+      type: "reschedule_appt";
+      patientRef: PatientRef;
+      oldAppointmentId: number;
+      slotHash: string;
+      availabilitySearchId?: string;
+      argsHash: string;
+      spokenSummary: string;
+      appointmentReason: string;
+      referringDoctor: string;
+      confirmed: boolean;
+      consumed: boolean;
+      confirmationTurnId?: string;
+      createdTurnId: string;
+      invalidated?: boolean;
+      invalidationReason?: string;
+      bookedReplacementAppointmentId?: number;
+      partialFailureReason?: string;
     }
   | {
       id: string;
@@ -301,6 +524,9 @@ export interface CallFlowState {
   patients: Record<PatientRef, PatientContext>;
   taskStack: TaskFrame[];
   currentTask?: TaskFrame;
+  taskPlans?: Record<string, ParentTaskPlan>;
+  activeTaskPlanId?: string;
+  lastWorkflowCommand?: WorkflowCommand;
   pendingActions: PendingAction[];
   availabilitySearches: AvailabilitySearch[];
   schedulingGoal?: SchedulingGoalState;
@@ -328,6 +554,7 @@ export type ToolOutcomeStatus =
   | "not_allowed"
   | "route_required"
   | "transfer_required"
+  | "partial_failure"
   | "error";
 
 export interface ToolOutcome {
