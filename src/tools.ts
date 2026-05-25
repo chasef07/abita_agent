@@ -891,8 +891,9 @@ function shouldReplaceAppointmentState(
   appointments: StoredCallerAppointment[] | null,
   status: PatientAppointmentsStatus | null,
 ): boolean {
-  if (!appointments) return false;
-  return status !== "error" && status !== "skipped";
+  if (status === "error" || status === "skipped") return false;
+  if (appointments) return true;
+  return status === "none";
 }
 
 function isNoAppointmentsResult(result: unknown): boolean {
@@ -1087,20 +1088,16 @@ async function refreshCancelTokenForAppointment(
     result,
     rawAppointments,
   );
-  if (
-    !rawAppointments ||
-    appointmentsStatus === "error" ||
-    appointmentsStatus === "skipped"
-  ) {
+  if (appointmentsStatus === "error" || appointmentsStatus === "skipped") {
     state.appointmentsStatus = appointmentsStatus ?? state.appointmentsStatus;
     return null;
   }
 
-  const appointments = publicCallerAppointments(rawAppointments);
+  const appointments = publicCallerAppointments(rawAppointments ?? []);
   state.appointmentsStatus =
     appointmentsStatus ?? (appointments.length > 0 ? "found" : "none");
   state.appointments = appointments;
-  state.appointmentCancelTokens = appointmentCancelTokenMap(rawAppointments);
+  state.appointmentCancelTokens = appointmentCancelTokenMap(rawAppointments ?? []);
   ensureActivePatientContext(state.flow).appointments = appointments;
   return cancelTokenForAppointment(state, appointmentId);
 }

@@ -205,22 +205,28 @@ export function classifyToolOutput(
         return "appointments_found";
       }
       return "appointment_lookup_returned";
-    case "resolve_patient":
-      if (status === "verified") {
-        const appointmentsStatus = asString(
-          parsed?.appointmentsStatus,
-        )?.toLowerCase();
-        if (appointmentsStatus === "found") return "patient_appointments_found";
-        if (appointmentsStatus === "none") return "patient_appointments_none";
-        if (appointmentsStatus === "error")
-          return "patient_verified_appt_error";
-        return "patient_verified";
+    case "resolve_patient": {
+      const appointmentsStatus = asString(
+        parsed?.appointmentsStatus,
+      )?.toLowerCase();
+      if (appointmentsStatus === "found" || status === "found") {
+        return "patient_appointments_found";
       }
+      if (
+        appointmentsStatus === "none" ||
+        status === "no_appointments" ||
+        status === "none"
+      ) {
+        return "patient_appointments_none";
+      }
+      if (appointmentsStatus === "error") return "patient_verified_appt_error";
+      if (status === "verified") return "patient_verified";
       if (status === "multiple_matches") return "patient_multiple_matches";
       if (status === "not_found" || status === "no_match") {
         return "patient_not_found";
       }
       return "patient_lookup_returned";
+    }
     case "transfer_call":
       if (
         reason === "transfer_already_started" ||
