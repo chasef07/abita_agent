@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { DEV_OFFICE_PHONE } from "../customer/profile.js";
-import { createInitialFlowState } from "../flow/index.js";
+import {
+  applyPlannerPatch,
+  createInitialFlowState,
+  planNextCommand,
+} from "../flow/index.js";
 import type { CallState } from "../tooling/call-state.js";
 import { buildToolsForState } from "../tooling/tool-registry.js";
 
@@ -112,6 +116,40 @@ describe("dynamic tool exposure", () => {
     expect(buildToolsForState(state).visibleToolNames).toEqual([
       "confirm_appt",
       "lookup_knowledge",
+    ]);
+  });
+
+  it("uses planner allowed tools after reschedule facts are recorded", () => {
+    const state = createCallState();
+    state.flow.activeIntent = "existing_appointment_reschedule";
+    state.flow.activeFlow = "appointment_management";
+    state.flow.patientStatus = "verified";
+    state.flow.patients[state.flow.activePatientRef!].status = "verified";
+    state.flow.patients[state.flow.activePatientRef!].appointments = [
+      {
+        id: 12345,
+        date: "2026-06-01",
+        time: "8:00 AM",
+        provider: "Dr. Bach",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: true,
+      },
+    ];
+    state.flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "collecting",
+      appointmentAction: "reschedule",
+      preferredWindow: "Monday at 1 PM",
+      evidence: ["Dr. Bach", "Monday at 1 PM"],
+      updatedAt: Date.now(),
+    };
+
+    const command = planNextCommand(state.flow);
+    applyPlannerPatch(state.flow, command);
+
+    expect(buildToolsForState(state).visibleToolNames).toEqual([
+      "get_availability",
     ]);
   });
 

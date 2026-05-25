@@ -3,7 +3,8 @@ import {
   applyTurnUnderstandingFromTranscript,
   createInitialFlowState,
   createPendingBookingAction,
-  nextFlowDecision,
+  flowDecisionForWorkflowCommand,
+  planNextCommand,
   parseTurnUnderstanding,
   recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
@@ -50,18 +51,12 @@ describe("turn understanding reducer", () => {
         preferredWindow: "next week mornings",
       },
     });
-    expect(
-      nextFlowDecision({
-        state: flow,
-        event: {
-          type: "caller_intent",
-          intent: update.inferred.activeIntent,
-        },
-      }),
-    ).toMatchObject({
-      type: "ask",
-      slot: "preferredDate",
-    });
+    expect(flowDecisionForWorkflowCommand(planNextCommand(flow))).toMatchObject(
+      {
+        type: "call_tool",
+        tool: "get_availability",
+      },
+    );
   });
 
   it("honors semantic negation instead of treating every cancel mention as cancellation", () => {
@@ -91,18 +86,11 @@ describe("turn understanding reducer", () => {
 
     expect(flow.activeIntent).toBe("existing_appointment_confirm");
     expect(update.inferred.activeIntent).toBe("existing_appointment_confirm");
-    expect(
-      nextFlowDecision({
-        state: flow,
-        event: {
-          type: "caller_intent",
-          intent: update.inferred.activeIntent,
-        },
-      }),
-    ).toMatchObject({
-      type: "call_tool",
-      tool: "confirm_appt",
-    });
+    expect(flowDecisionForWorkflowCommand(planNextCommand(flow))).toMatchObject(
+      {
+        type: "say",
+      },
+    );
   });
 
   it("switches from pre-call caller state to a child patient and invalidates stale side effects", () => {

@@ -1,6 +1,12 @@
 # SDK Flow Testing and Dynamic Tool Exposure
 
-Status: implemented by default for flow-harness trunks.
+Status: implemented by default for current flow-harness trunks. Superseded for
+future tool-exposure design by `task-plan-flow-harness.md`.
+
+This document describes the current SDK-level dynamic-tool behavior and the
+tests that protect it. For the next implementation, planner-owned
+`WorkflowCommand.allowedTools` from `task-plan-flow-harness.md` is the source of
+truth.
 
 ## Purpose
 

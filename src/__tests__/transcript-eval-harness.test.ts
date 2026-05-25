@@ -10,7 +10,8 @@ import {
   createPendingSideEffectAction,
   evaluateFlowToolPolicy,
   hashToolArgs,
-  nextFlowDecision,
+  flowDecisionForWorkflowCommand,
+  planNextCommand,
   recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
   recordBookingAttempt,
@@ -90,25 +91,10 @@ class TranscriptEvalHarness {
     transcript: string,
     understanding: TurnUnderstanding,
   ): CallerTurnResult {
-    const update = applyTurnUnderstandingFromTranscript(
-      this.flow,
-      transcript,
-      understanding,
-    );
-    const { activeIntent, coverageType, insurancePlan, visitReason } =
-      update.inferred;
+    applyTurnUnderstandingFromTranscript(this.flow, transcript, understanding);
     return {
       transcript,
-      decision: nextFlowDecision({
-        state: this.flow,
-        event: {
-          type: "caller_intent",
-          intent: activeIntent,
-          coverageType,
-          insurancePlan,
-          visitReason,
-        },
-      }),
+      decision: flowDecisionForWorkflowCommand(planNextCommand(this.flow)),
     };
   }
 
@@ -329,7 +315,7 @@ describe("transcript replay eval harness", () => {
       allowed: false,
       outcome: {
         nextStep: "confirm_cancel",
-        facts: { reason: "cancel_confirmation_not_tracked" },
+        facts: { reason: "side_effect_requires_pending_action" },
       },
     });
 
@@ -432,8 +418,8 @@ describe("transcript replay eval harness", () => {
     ).toMatchObject({
       allowed: false,
       outcome: {
-        nextStep: "confirm_booking",
-        facts: { reason: "availability_duplicate_search_signature" },
+        nextStep: "get_availability",
+        facts: { reason: "tool_not_allowed_by_planner" },
       },
     });
   });
@@ -503,7 +489,8 @@ describe("transcript replay eval harness", () => {
     );
 
     expect(secondHumanRequest.decision).toMatchObject({
-      type: "transfer",
+      type: "confirm",
+      confirmation: { type: "transfer" },
     });
   });
 
@@ -547,8 +534,7 @@ describe("transcript replay eval harness", () => {
     ).toMatchObject({
       allowed: false,
       outcome: {
-        nextStep: "confirm_cancel",
-        facts: { reason: "cancel_confirmation_not_tracked" },
+        facts: { reason: "tool_not_allowed_by_planner" },
       },
     });
 
@@ -557,13 +543,15 @@ describe("transcript replay eval harness", () => {
     expect(harness.bookingPolicy()).toMatchObject({
       allowed: false,
       outcome: {
-        facts: { reason: "booking_requires_pending_action" },
+        facts: { reason: "tool_not_allowed_by_planner" },
       },
     });
     harness.confirmBooking();
     expect(harness.bookingPolicy()).toMatchObject({
-      allowed: true,
-      observation: { reason: "allowed" },
+      allowed: false,
+      outcome: {
+        facts: { reason: "tool_not_allowed_by_planner" },
+      },
     });
   });
 

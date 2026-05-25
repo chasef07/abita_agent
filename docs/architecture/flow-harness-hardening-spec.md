@@ -1,6 +1,12 @@
 # Flow Harness Hardening Spec
 
-Status: proposed
+Status: historical issue analysis. Superseded for implementation by
+`task-plan-flow-harness.md`.
+
+Use `task-plan-flow-harness.md` as the source of truth when this document
+conflicts with the newer planner design. In particular, the newer spec replaces
+this document's older reschedule ledger with one model-facing `reschedule_appt`
+action that carries the replacement appointment note payload.
 
 Source trace: `SCL_GUJUpVwo8xwB`, reviewed on May 24, 2026.
 

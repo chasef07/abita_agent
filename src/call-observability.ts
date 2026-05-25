@@ -500,9 +500,9 @@ export function buildLlmSummary(input: {
   const fallbackModel = normalizeLlmModelName(input.fallbackModel);
   const fallbackUsed = Boolean(
     fallbackModel &&
-      modelsUsed.some(
-        (model) => model === fallbackModel || model.endsWith(`/${fallbackModel}`),
-      ),
+    modelsUsed.some(
+      (model) => model === fallbackModel || model.endsWith(`/${fallbackModel}`),
+    ),
   );
 
   return {

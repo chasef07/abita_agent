@@ -29,6 +29,7 @@ import {
   lookup_knowledge,
   makeCurrentSpeechUninterruptible,
   record_turn_understanding,
+  reschedule_appt,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
@@ -41,6 +42,8 @@ import {
   createPendingSideEffectAction,
   createInitialFlowState,
   hashToolArgs,
+  applyPlannerPatch,
+  planNextCommand,
   recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
   resumePatientTask,
@@ -193,6 +196,53 @@ describe("tool interruption handling", () => {
     });
   });
 
+  it("blocks knowledge lookup when the reschedule task-plan frontier requires availability", async () => {
+    const { ctx, state } = createToolContext();
+    seedLoadedAppointment(state, 12345);
+    state.latestUserTranscript =
+      "Move my Dr. Bach appointment to Monday at 1 PM";
+    state.turnUnderstandingAppliedForTranscript = null;
+
+    const recorded = await record_turn_understanding.execute(
+      {
+        goal: "manage_existing_appointment",
+        appointmentAction: "reschedule",
+        patient: {
+          patientMentioned: "caller",
+          relationshipToCaller: "self",
+        },
+        scheduling: {
+          preferredWindow: "Monday at 1 PM",
+        },
+        interruption: "none",
+        confidence: 0.94,
+        evidence: ["Dr. Bach", "Monday at 1 PM"],
+      },
+      { ctx, toolCallId: "test-understanding-reschedule-availability" },
+    );
+
+    expect(recorded).toMatchObject({
+      phase: "searching_replacement",
+      tool: "get_availability",
+      allowedTools: ["get_availability"],
+    });
+
+    const lookupResult = await lookup_knowledge.execute(
+      { question: "availability with Dr. Bach Monday at 1 PM" },
+      { ctx, toolCallId: "test-stale-lookup" },
+    );
+
+    expect(lookupResult).toMatchObject({
+      outcome: "not_allowed",
+      facts: {
+        reason: "tool_not_allowed_by_planner",
+        toolName: "lookup_knowledge",
+        plannerPhase: "searching_replacement",
+        allowedTools: ["get_availability"],
+      },
+    });
+  });
+
   it("returns a compact command packet with exact booking args", async () => {
     const { ctx, state } = createToolContext();
     state.latestUserTranscript = "Yes, book it.";
@@ -228,12 +278,20 @@ describe("tool interruption handling", () => {
       { ctx, toolCallId: "test-understanding-book" },
     );
 
-    expect(recorded).toEqual({
+    expect(recorded).toMatchObject({
       status: "recorded",
+      task: "scheduling",
+      phase: "booking",
       nextAction: "book_appt",
       action: "call_tool",
       tool: "book_appt",
-      args: { slotId: "C", appointmentKind: "medical" },
+      allowedTools: ["book_appt"],
+      args: {
+        slotId: "C",
+        appointmentKind: "medical",
+        appointmentReason: "double vision",
+        referringDoctor: "none",
+      },
       instruction: "Call book_appt now.",
     });
   });
@@ -436,10 +494,10 @@ describe("tool interruption handling", () => {
           const state = ctx.session.userData as CallState;
           seedLastAvailabilitySlot(state);
           seedPendingBookingAction(state);
-          return book_appt.execute(
-            bookingArgs(),
-            { ctx, toolCallId: "test-book" },
-          );
+          return book_appt.execute(bookingArgs(), {
+            ctx,
+            toolCallId: "test-book",
+          });
         },
       },
     ];
@@ -682,10 +740,7 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state);
     seedPendingBookingAction(state);
 
-    await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book" },
-    );
+    await book_appt.execute(bookingArgs(), { ctx, toolCallId: "test-book" });
 
     expect(fetchMock).toHaveBeenCalledOnce();
     const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -820,10 +875,7 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state, { bookingToken: "signed-token" });
     seedPendingBookingAction(state);
 
-    await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book" },
-    );
+    await book_appt.execute(bookingArgs(), { ctx, toolCallId: "test-book" });
 
     const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(requestBody).toMatchObject({
@@ -850,10 +902,10 @@ describe("tool interruption handling", () => {
     const { ctx, state, speechHandle } = createToolContext();
     seedLastAvailabilitySlot(state);
 
-    const result = await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book-policy" },
-    );
+    const result = await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-book-policy",
+    });
 
     expect(speechHandle.allowInterruptions).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -872,10 +924,10 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state, { bookingToken: null });
     seedPendingBookingAction(state);
 
-    const result = await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book-missing-token" },
-    );
+    const result = await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-book-missing-token",
+    });
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toMatchObject({
@@ -902,10 +954,10 @@ describe("tool interruption handling", () => {
     state.flowHarnessEnabled = false;
     seedLastAvailabilitySlot(state, { bookingToken: "signed-token" });
 
-    const result = await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book-disabled-harness" },
-    );
+    const result = await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-book-disabled-harness",
+    });
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
@@ -937,14 +989,14 @@ describe("tool interruption handling", () => {
         bookingToken: `signed-token-${index}`,
       });
 
-      const result = await book_appt.execute(
-        bookingArgs(),
-        { ctx, toolCallId: `test-book-legacy-success-${index}` },
-      );
-      const duplicate = await book_appt.execute(
-        bookingArgs(),
-        { ctx, toolCallId: `test-book-legacy-duplicate-${index}` },
-      );
+      const result = await book_appt.execute(bookingArgs(), {
+        ctx,
+        toolCallId: `test-book-legacy-success-${index}`,
+      });
+      const duplicate = await book_appt.execute(bookingArgs(), {
+        ctx,
+        toolCallId: `test-book-legacy-duplicate-${index}`,
+      });
 
       expect(result).toMatchObject(apiResult);
       expect(duplicate).toMatchObject({
@@ -965,10 +1017,10 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state);
     seedPendingBookingAction(state, { confirmed: false });
 
-    const result = await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book-unconfirmed" },
-    );
+    const result = await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-book-unconfirmed",
+    });
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toMatchObject({
@@ -990,10 +1042,10 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state);
     markBookingConfirmedInState(state, "A");
 
-    const result = await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book" },
-    );
+    const result = await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-book",
+    });
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
@@ -1016,15 +1068,12 @@ describe("tool interruption handling", () => {
     const { ctx, state } = createToolContext();
     seedLastAvailabilitySlot(state);
     markBookingConfirmedInState(state, "A");
-    await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book" },
-    );
+    await book_appt.execute(bookingArgs(), { ctx, toolCallId: "test-book" });
 
-    const duplicate = await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book-duplicate" },
-    );
+    const duplicate = await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-book-duplicate",
+    });
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(duplicate).toMatchObject({
@@ -1080,10 +1129,10 @@ describe("tool interruption handling", () => {
     recordAvailabilityCachedSlots(state.flow, [{ slotId: "A" }]);
     seedPendingBookingAction(state);
 
-    await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book-child" },
-    );
+    await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-book-child",
+    });
 
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       patientId: "patient-2",
@@ -1109,10 +1158,10 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state, { bookingToken: "expired-token" });
     seedPendingBookingAction(state);
 
-    const result = await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book" },
-    );
+    const result = await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-book",
+    });
 
     expect(result).toMatchObject({
       status: "error",
@@ -1177,10 +1226,10 @@ describe("tool interruption handling", () => {
     ]);
     seedPendingBookingAction(state);
 
-    const result = await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book" },
-    );
+    const result = await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-book",
+    });
 
     expect(result).toMatchObject({
       status: "error",
@@ -1220,10 +1269,10 @@ describe("tool interruption handling", () => {
     recordAvailabilityCachedSlots(state.flow, [{ slotId: "A" }]);
     seedPendingBookingAction(state);
 
-    const result = await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book" },
-    );
+    const result = await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-book",
+    });
 
     expect(result).toMatchObject({
       status: "error",
@@ -1254,10 +1303,10 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state);
     seedPendingBookingAction(state);
 
-    const result = await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book-unresolved-type" },
-    );
+    const result = await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-book-unresolved-type",
+    });
 
     expect(result).toMatchObject({
       status: "error",
@@ -1300,10 +1349,7 @@ describe("tool interruption handling", () => {
     const state = ctx.session.userData as CallState;
     seedLastAvailabilitySlot(state);
     seedPendingBookingAction(state);
-    await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-book" },
-    );
+    await book_appt.execute(bookingArgs(), { ctx, toolCallId: "test-book" });
     const updateParams = {
       insurance: "Aetna",
       subscriberName: "Jane Doe",
@@ -1459,10 +1505,10 @@ describe("tool interruption handling", () => {
     state.flow.patients[state.flow.activePatientRef!].patientId = "17603880";
     seedLastAvailabilitySlot(state);
 
-    await book_appt.execute(
-      bookingArgs(),
-      { ctx, toolCallId: "test-legacy-book" },
-    );
+    await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-legacy-book",
+    });
     const noteResult = await add_patient_note.execute(
       {
         appointmentReason: "blurry vision",
@@ -1496,10 +1542,10 @@ describe("tool interruption handling", () => {
     seedLastAvailabilitySlot(state);
     seedPendingBookingAction(state);
 
-    await book_appt.execute(
-      bookingArgs("A", "post_op"),
-      { ctx, toolCallId: "test-book-post-op" },
-    );
+    await book_appt.execute(bookingArgs("A", "post_op"), {
+      ctx,
+      toolCallId: "test-book-post-op",
+    });
 
     const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(requestBody).toMatchObject({
@@ -1563,10 +1609,10 @@ describe("tool interruption handling", () => {
     });
     seedPendingBookingAction(state);
 
-    await book_appt.execute(
-      bookingArgs("A", "routine_vision"),
-      { ctx, toolCallId: "test-book" },
-    );
+    await book_appt.execute(bookingArgs("A", "routine_vision"), {
+      ctx,
+      toolCallId: "test-book",
+    });
 
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
       bookingToken: "routine-vision-token",
@@ -2186,6 +2232,88 @@ describe("tool interruption handling", () => {
     expect(state.flow.activeFlow).toBe("scheduling");
   });
 
+  it("submits reschedule as one model-facing action with note payload", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({ status: "booked", appointmentId: 67890 }),
+        text: async () => "",
+      }))
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({ status: "cancelled" }),
+        text: async () => "",
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLoadedAppointment(state, 12345);
+    seedLastAvailabilitySlot(state, { bookingToken: "replacement-token" });
+    state.flow.activeIntent = "existing_appointment_reschedule";
+    state.flow.activeFlow = "appointment_management";
+    state.flow.visitType = "medical";
+    state.flow.coverageType = "medical";
+    state.flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "confirming_booking",
+      appointmentAction: "reschedule",
+      preferredWindow: "Monday at 1 PM",
+      selectedSlotId: "A",
+      bookingConfirmed: true,
+      noteDraft: {
+        appointmentReason: "pressure follow-up",
+        referringDoctor: "none",
+      },
+      evidence: ["Dr. Bach", "Monday at 1 PM"],
+      updatedAt: Date.now(),
+    };
+    recordAvailabilitySearch(state.flow, {
+      patientRef: "caller",
+      officeKey: "spring-hill",
+      visitType: "medical",
+      coverageType: "medical",
+      routing: "all_three",
+      date: "2026-04-28",
+    });
+    recordAvailabilityCachedSlots(state.flow, [{ slotId: "A" }]);
+    applyPlannerPatch(state.flow, planNextCommand(state.flow));
+
+    const result = await reschedule_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "pressure follow-up",
+        referringDoctor: "none",
+      },
+      { ctx, toolCallId: "test-reschedule" },
+    );
+
+    expect(result).toMatchObject({ status: "rescheduled" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      bookingToken: "replacement-token",
+      patientId: "patient-1",
+      appointmentReason: "pressure follow-up",
+      referringDoctor: "none",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      appointmentId: 12345,
+      patientId: "patient-1",
+      cancelToken: "cancel-token-12345",
+    });
+    expect(state.flow.pendingActions).toContainEqual(
+      expect.objectContaining({
+        type: "reschedule_appt",
+        oldAppointmentId: 12345,
+        appointmentReason: "pressure follow-up",
+        referringDoctor: "none",
+        confirmed: true,
+        consumed: true,
+      }),
+    );
+    expect(state.appointments).toEqual([]);
+  });
+
   it("creates and consumes a pending transfer action from the final tool call", async () => {
     transferSipParticipantMock.mockResolvedValue(undefined);
     const { ctx, state, speechHandle } = createToolContext();
@@ -2292,10 +2420,10 @@ describe("tool interruption handling", () => {
           const state = ctx.session.userData as CallState;
           seedLastAvailabilitySlot(state);
           seedPendingBookingAction(state);
-          return book_appt.execute(
-            bookingArgs(),
-            { ctx, toolCallId: "test-book" },
-          );
+          return book_appt.execute(bookingArgs(), {
+            ctx,
+            toolCallId: "test-book",
+          });
         },
       },
     ];

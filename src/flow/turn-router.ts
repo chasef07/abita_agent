@@ -1,13 +1,20 @@
-import { nextFlowDecision } from "./controller.js";
 import { compileTurnStatePacket } from "./context.js";
-import { prepareSchedulingPath } from "./scheduling.js";
-import { applyFlowStatePatch } from "./state.js";
+import {
+  applyPlannerPatch,
+  flowDecisionForWorkflowCommand,
+  planNextCommand,
+} from "./plans/task-planner.js";
 import {
   applyTurnUnderstandingFromTranscript,
   type TurnUnderstanding,
   type TurnUnderstandingStateUpdate,
 } from "./understanding.js";
-import type { CallFlowState, FlowDecision, ToolOutcome } from "./types.js";
+import type {
+  CallFlowState,
+  FlowDecision,
+  ToolOutcome,
+  WorkflowCommand,
+} from "./types.js";
 
 export interface ResolvedMetaDecision {
   tool: "prepareSchedulingPath";
@@ -19,6 +26,7 @@ export interface FlowTurnAdvanceResult {
   decision: FlowDecision;
   turnState: string;
   instruction: string;
+  workflowCommand?: WorkflowCommand;
   resolvedMetaDecision?: ResolvedMetaDecision;
 }
 
@@ -52,20 +60,14 @@ export function advanceFlowForTurn({
       instruction: instructionForFlowDecision(decision),
     };
   }
-  const initialDecision = nextFlowDecision({
-    state: flow,
-    event: {
-      type: "caller_intent",
-      intent: update.inferred.activeIntent,
-      visitReason: update.inferred.visitReason,
-      visitType: update.inferred.visitType,
-      insurancePlan: update.inferred.insurancePlan,
-      coverageType: update.inferred.coverageType,
-      pathFactsChanged: update.pathFactsChanged,
-    },
+  const workflowCommand = planNextCommand(flow, {
+    pathFactsChanged: update.pathFactsChanged,
+    preservePreferredWindowOnPathChange: Boolean(
+      update.understanding.scheduling?.preferredWindow,
+    ),
   });
-  const resolved = resolveMetaDecision(flow, initialDecision);
-  const decision = resolved.decision;
+  applyPlannerPatch(flow, workflowCommand);
+  const decision = flowDecisionForWorkflowCommand(workflowCommand);
 
   return {
     update,
@@ -74,75 +76,15 @@ export function advanceFlowForTurn({
       nextAction: nextActionForFlowDecision(decision),
     }),
     instruction: instructionForFlowDecision(decision),
-    ...(resolved.meta ? { resolvedMetaDecision: resolved.meta } : {}),
+    workflowCommand,
+    ...(workflowCommand.resolvedMetaDecision
+      ? { resolvedMetaDecision: workflowCommand.resolvedMetaDecision }
+      : {}),
   };
 }
 
 function isLowConfidenceNoop(update: TurnUnderstandingStateUpdate): boolean {
   return update.inferred.activeIntent === "unclear" && !update.changed;
-}
-
-export function resolveMetaDecision(
-  flow: CallFlowState,
-  decision: FlowDecision,
-): { decision: FlowDecision; meta?: ResolvedMetaDecision } {
-  if (decision.type !== "call_meta_tool") return { decision };
-  if (decision.tool !== "prepareSchedulingPath") return { decision };
-
-  const args =
-    decision.args && typeof decision.args === "object"
-      ? (decision.args as Parameters<typeof prepareSchedulingPath>[0])
-      : {
-          officeKey: flow.officeKey,
-          patientStatus: flow.patientStatus,
-        };
-  const outcome = prepareSchedulingPath({
-    ...args,
-    officeKey: args.officeKey ?? flow.officeKey,
-    patientStatus: args.patientStatus ?? flow.patientStatus,
-  });
-  applyMetaStatePatch(flow, outcome.statePatch);
-
-  return {
-    decision: nextFlowDecision({
-      state: flow,
-      event: {
-        type: "tool_outcome",
-        toolName: decision.tool,
-        outcome,
-      },
-    }),
-    meta: {
-      tool: "prepareSchedulingPath",
-      outcome,
-    },
-  };
-}
-
-function applyMetaStatePatch(
-  flow: CallFlowState,
-  patch: Partial<CallFlowState> | undefined,
-): void {
-  if (!patch?.completedSteps) {
-    applyFlowStatePatch(flow, patch);
-    return;
-  }
-
-  applyFlowStatePatch(flow, {
-    ...patch,
-    completedSteps: mergeCompletedSteps(
-      flow.completedSteps,
-      patch.completedSteps,
-    ),
-  });
-}
-
-function mergeCompletedSteps(existing: string[], next: string[]): string[] {
-  const merged = [...existing];
-  for (const step of next) {
-    if (!merged.includes(step)) merged.push(step);
-  }
-  return merged;
 }
 
 export function instructionForFlowDecision(decision: FlowDecision): string {

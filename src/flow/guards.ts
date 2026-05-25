@@ -10,6 +10,7 @@ export type GuardedToolName =
   | "add_patient"
   | "get_availability"
   | "book_appt"
+  | "reschedule_appt"
   | "cancel_appt"
   | "update_insurance"
   | "transfer_call";
@@ -23,12 +24,15 @@ export type GuardObservationReason =
   | "availability_requires_visit_type"
   | "availability_duplicate_search_signature"
   | "availability_search_budget_exhausted"
+  | "tool_not_allowed_by_planner"
   | "booking_requires_verified_or_created_patient"
   | "booking_requires_recent_availability"
   | "booking_requires_pending_action"
   | "booking_confirmation_required"
   | "booking_action_already_consumed"
   | "booking_slot_invalidated"
+  | "reschedule_requires_verified_or_created_patient"
+  | "reschedule_requires_recent_availability"
   | "cancel_requires_verified_or_created_patient"
   | "cancel_confirmation_not_tracked"
   | "cancel_requires_loaded_appointment"
@@ -177,12 +181,24 @@ function guardReason(
     return "booking_requires_verified_or_created_patient";
   }
 
+  if (toolName === "reschedule_appt" && !hasVerifiedOrCreatedPatient) {
+    return "reschedule_requires_verified_or_created_patient";
+  }
+
   if (
     toolName === "book_appt" &&
     !stateFacts.lastAvailabilityRouting &&
     !hasCachedAvailabilityForBooking(flow, args)
   ) {
     return "booking_requires_recent_availability";
+  }
+
+  if (
+    toolName === "reschedule_appt" &&
+    !stateFacts.lastAvailabilityRouting &&
+    !hasCachedAvailabilityForBooking(flow, args)
+  ) {
+    return "reschedule_requires_recent_availability";
   }
 
   if (toolName === "update_insurance" && !stateFacts.patientId) {

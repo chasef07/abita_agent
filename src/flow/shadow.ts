@@ -1,10 +1,14 @@
 import { compileFlowContextPacket } from "./context.js";
-import { type FlowControllerEvent, nextFlowDecision } from "./controller.js";
 import {
+  applyTurnUnderstanding,
   turnUnderstandingToInferredIntent,
   type TurnUnderstanding,
 } from "./understanding.js";
 import type { CallFlowState, FlowDecision, IntentKind } from "./types.js";
+import {
+  flowDecisionForWorkflowCommand,
+  planNextCommand,
+} from "./plans/task-planner.js";
 
 export interface FlowShadowDecisionSummary {
   type: FlowDecision["type"];
@@ -50,17 +54,25 @@ export function createFlowShadowPrediction(
   understanding: TurnUnderstanding,
   createdAt: number = Date.now(),
 ): FlowShadowPrediction {
-  const event = flowControllerEventFromUnderstanding(understanding);
-  const expectedDecision = nextFlowDecision({ state: flow, event });
+  const shadowFlow = cloneFlowState(flow);
+  const update = applyTurnUnderstanding(shadowFlow, understanding);
+  const command = planNextCommand(shadowFlow, {
+    pathFactsChanged: update.pathFactsChanged,
+    preservePreferredWindowOnPathChange: Boolean(
+      update.understanding.scheduling?.preferredWindow,
+    ),
+  });
+  const expectedDecision = flowDecisionForWorkflowCommand(command);
+  const inferred = turnUnderstandingToInferredIntent(understanding);
 
   return {
     type: "flow_shadow_prediction",
     createdAt,
     source: {
-      intent: event.intent,
-      hasVisitReason: Boolean(event.visitReason),
-      hasInsurancePlan: Boolean(event.insurancePlan),
-      coverageType: event.coverageType,
+      intent: inferred.activeIntent,
+      hasVisitReason: Boolean(inferred.visitReason),
+      hasInsurancePlan: Boolean(inferred.insurancePlan),
+      coverageType: inferred.coverageType,
     },
     flowState: {
       activeFlow: flow.activeFlow,
@@ -127,21 +139,8 @@ export function observeFlowToolExecution(
   };
 }
 
-function flowControllerEventFromUnderstanding(
-  understanding: TurnUnderstanding,
-): Extract<FlowControllerEvent, { type: "caller_intent" }> {
-  const inferred = turnUnderstandingToInferredIntent(understanding);
-
-  return {
-    type: "caller_intent",
-    intent: inferred.activeIntent,
-    ...(inferred.visitReason ? { visitReason: inferred.visitReason } : {}),
-    ...(inferred.visitType ? { visitType: inferred.visitType } : {}),
-    ...(inferred.insurancePlan
-      ? { insurancePlan: inferred.insurancePlan }
-      : {}),
-    ...(inferred.coverageType ? { coverageType: inferred.coverageType } : {}),
-  };
+function cloneFlowState(flow: CallFlowState): CallFlowState {
+  return structuredClone(flow) as CallFlowState;
 }
 
 function summarizeDecision(decision: FlowDecision): FlowShadowDecisionSummary {

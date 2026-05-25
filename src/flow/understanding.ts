@@ -99,6 +99,7 @@ export const turnUnderstandingSchema = z.object({
   confirmation: z
     .object({
       cancelConfirmed: z.boolean().nullable().optional(),
+      routeConfirmed: z.boolean().nullable().optional(),
       transferConfirmed: z.boolean().nullable().optional(),
     })
     .optional(),
@@ -295,6 +296,8 @@ function normalizeTurnUnderstanding(
       ? {
           cancelConfirmed:
             understanding.confirmation.cancelConfirmed ?? undefined,
+          routeConfirmed:
+            understanding.confirmation.routeConfirmed ?? undefined,
           transferConfirmed:
             understanding.confirmation.transferConfirmed ?? undefined,
         }
@@ -458,7 +461,14 @@ function applySchedulingGoalAfterIntent(
   understanding: TurnUnderstanding,
   activeIntent: IntentKind,
 ): void {
-  if (!flow.schedulingGoal && !isSchedulingGoal(understanding.goal)) return;
+  const confirmationState = confirmationStateForUnderstanding(understanding);
+  if (
+    !flow.schedulingGoal &&
+    !isSchedulingGoal(understanding.goal) &&
+    !confirmationState
+  ) {
+    return;
+  }
 
   flow.schedulingGoal = {
     ...(flow.schedulingGoal ?? {
@@ -473,10 +483,46 @@ function applySchedulingGoalAfterIntent(
       flow.step,
       understanding.goal === "faq" || understanding.goal === "transfer_request",
     ),
+    ...confirmationState,
     lastConfidence: understanding.confidence,
     evidence: understanding.evidence?.slice(0, 4) ?? [],
     updatedAt: Date.now(),
   };
+}
+
+function confirmationStateForUnderstanding(
+  understanding: TurnUnderstanding,
+): Pick<
+  NonNullable<CallFlowState["schedulingGoal"]>,
+  | "bookingConfirmed"
+  | "cancelConfirmed"
+  | "routeConfirmed"
+  | "transferConfirmed"
+> | null {
+  const confirmation = understanding.confirmation;
+  const scheduling = understanding.scheduling;
+  const next: Pick<
+    NonNullable<CallFlowState["schedulingGoal"]>,
+    | "bookingConfirmed"
+    | "cancelConfirmed"
+    | "routeConfirmed"
+    | "transferConfirmed"
+  > = {};
+
+  if (scheduling?.bookingConfirmed != null) {
+    next.bookingConfirmed = scheduling.bookingConfirmed;
+  }
+  if (confirmation?.cancelConfirmed != null) {
+    next.cancelConfirmed = confirmation.cancelConfirmed;
+  }
+  if (confirmation?.routeConfirmed != null) {
+    next.routeConfirmed = confirmation.routeConfirmed;
+  }
+  if (confirmation?.transferConfirmed != null) {
+    next.transferConfirmed = confirmation.transferConfirmed;
+  }
+
+  return Object.keys(next).length > 0 ? next : null;
 }
 
 function intentForTurnUnderstanding(
@@ -742,7 +788,8 @@ function schedulingPathFactsChanged(
   const visitReason = cleanString(understanding.scheduling?.visitReason);
   const visitType = understanding.scheduling?.visitType ?? undefined;
   const coverageType =
-    understanding.insurance?.coverageType ?? coverageTypeForVisitType(visitType);
+    understanding.insurance?.coverageType ??
+    coverageTypeForVisitType(visitType);
   const insurancePlan = cleanString(understanding.insurance?.plan);
 
   return (
@@ -759,7 +806,9 @@ function trackedFactChanged(
 ): boolean {
   if (!next) return false;
   if (!previous) return true;
-  return normalizeFactForComparison(next) !== normalizeFactForComparison(previous);
+  return (
+    normalizeFactForComparison(next) !== normalizeFactForComparison(previous)
+  );
 }
 
 function normalizeFactForComparison(value: string): string {

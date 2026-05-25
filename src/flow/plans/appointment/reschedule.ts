@@ -1,0 +1,416 @@
+import type {
+  AppointmentReschedulePlan,
+  BlockedAction,
+  CallFlowState,
+  CallerAppointment,
+  PatientContext,
+  PlannerFact,
+  WorkflowCommand,
+} from "../../types.js";
+import {
+  command,
+  existingPlanOfKind,
+  isPlannerFact,
+  isVerified,
+  knownPatientFacts,
+  taskPlanId,
+} from "../common.js";
+import {
+  mergeEvidence,
+  resolveTargetAppointment,
+  speakableAppointmentSummary,
+} from "./shared.js";
+
+const RESCHEDULE_BLOCKED_ACTIONS: BlockedAction[] = [
+  {
+    action: "reschedule_appt",
+    reason:
+      "replacement slot and explicit full reschedule confirmation required",
+    until: "offered replacement slot is confirmed",
+  },
+  {
+    action: "book_appt",
+    reason: "reschedule must be one planner-approved replacement action",
+  },
+  {
+    action: "cancel_appt",
+    reason: "do not cancel the old appointment directly during reschedule",
+  },
+  {
+    action: "add_patient_note",
+    reason: "replacement note payload belongs inside reschedule_appt",
+  },
+];
+
+export function planReschedule(flow: CallFlowState): WorkflowCommand {
+  const patientRef = flow.activePatientRef ?? "caller";
+  const patient = flow.patients[patientRef];
+  const id = taskPlanId(flow, "appointment_reschedule");
+  const existingPlan = existingPlanOfKind<AppointmentReschedulePlan>(
+    flow,
+    id,
+    "appointment_reschedule",
+  );
+  if (existingPlan?.phase === "partial_failure") {
+    return command(flow, existingPlan, {
+      phase: "partial_failure",
+      knownFacts: knownRescheduleFacts(
+        flow.patients[flow.activePatientRef ?? "caller"],
+        flow,
+        existingPlan,
+      ),
+      missingFacts: [
+        {
+          key: "officeRecovery",
+          label: "human recovery for partially completed reschedule",
+        },
+      ],
+      nextAction: "call_tool",
+      tool: "transfer_call",
+      args: {},
+      allowedTools: ["transfer_call"],
+      blockedActions: [
+        {
+          action: "reschedule_appt",
+          reason: "replacement may already be booked; human recovery required",
+        },
+      ],
+      instruction:
+        "Route to the office for recovery because the replacement was booked but the old appointment was not safely cancelled.",
+      step: "handoff",
+    });
+  }
+  if (existingPlan?.phase === "complete") {
+    return command(flow, existingPlan, {
+      phase: "complete",
+      knownFacts: knownRescheduleFacts(
+        flow.patients[flow.activePatientRef ?? "caller"],
+        flow,
+        existingPlan,
+      ),
+      missingFacts: [],
+      nextAction: "complete",
+      allowedTools: [],
+      blockedActions: [],
+      instruction:
+        "Tell the caller the appointment has been rescheduled and ask if they need anything else.",
+      step: "answer",
+    });
+  }
+  const verified = isVerified(patient, flow);
+  const appointments = patient?.appointments ?? [];
+  const evidence = mergeEvidence(
+    existingPlan?.targetSelectionEvidence,
+    flow.schedulingGoal?.evidence,
+  );
+  const selection = resolveTargetAppointment(
+    appointments,
+    evidence,
+    existingPlan?.targetAppointmentId,
+  );
+  const oldAppointment = selection.appointment;
+  const preferredWindow = flow.schedulingGoal?.preferredWindow;
+  const latestAvailability = latestUsableAvailability(flow);
+  const replacementSlotId =
+    flow.schedulingGoal?.selectedSlotId ??
+    existingPlan?.replacementSlotId ??
+    firstCachedSlot(latestAvailability);
+  const rescheduleConfirmed =
+    flow.schedulingGoal?.bookingConfirmed === true ||
+    existingPlan?.rescheduleConfirmed === true;
+  const note = notePayloadForReschedule(flow, oldAppointment, existingPlan);
+  const phase = reschedulePhase({
+    verified,
+    appointments,
+    selectionStatus: selection.status,
+    preferredWindow,
+    latestAvailability,
+    replacementSlotId,
+    rescheduleConfirmed,
+  });
+  const plan: AppointmentReschedulePlan = {
+    id,
+    kind: "appointment_reschedule",
+    taskFrameId: flow.currentTask?.id,
+    patientRef,
+    phase,
+    objective: "replace the selected existing appointment with a new slot",
+    lookup: {
+      phase: !verified
+        ? "needs_verified_patient"
+        : appointments.length > 0
+          ? "appointments_loaded"
+          : "loading_appointments",
+      loadedAppointmentCount: appointments.length,
+    },
+    targetAppointmentId: oldAppointment?.id,
+    targetAppointmentSummary: oldAppointment
+      ? speakableAppointmentSummary(oldAppointment)
+      : undefined,
+    targetSelectionStatus: selection.status,
+    targetSelectionEvidence: evidence,
+    replacementSlotId,
+    replacementSlotSummary: replacementSlotId
+      ? `replacement slot ${replacementSlotId}`
+      : undefined,
+    appointmentReason: note.appointmentReason,
+    referringDoctor: note.referringDoctor,
+    rescheduleConfirmed,
+    createdAt: existingPlan?.createdAt ?? Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  if (!verified) {
+    return command(flow, plan, {
+      phase,
+      knownFacts: knownRescheduleFacts(patient, flow, plan),
+      missingFacts: [
+        { key: "patientIdentity", label: "verified patient identity" },
+      ],
+      nextAction: "ask",
+      slot: "patientIdentity",
+      allowedTools: ["verify_patient"],
+      blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
+      instruction:
+        "Ask for the patient's name and date of birth before changing an existing appointment.",
+    });
+  }
+
+  if (appointments.length === 0) {
+    return command(flow, plan, {
+      phase,
+      knownFacts: knownRescheduleFacts(patient, flow, plan),
+      missingFacts: [
+        { key: "loadedAppointments", label: "current appointment list" },
+      ],
+      nextAction: "call_tool",
+      tool: "confirm_appt",
+      args: {},
+      allowedTools: ["confirm_appt"],
+      blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
+      instruction: "Call confirm_appt now.",
+    });
+  }
+
+  if (selection.status !== "selected") {
+    return command(flow, plan, {
+      phase,
+      knownFacts: knownRescheduleFacts(patient, flow, plan),
+      missingFacts: [
+        {
+          key: "oldAppointment",
+          label: "which existing appointment should be moved",
+        },
+      ],
+      nextAction: "ask",
+      slot: "oldAppointment",
+      allowedTools: [],
+      blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
+      instruction:
+        "Ask which existing appointment they want to move before searching replacement availability.",
+    });
+  }
+
+  if (!preferredWindow) {
+    return command(flow, plan, {
+      phase,
+      knownFacts: knownRescheduleFacts(patient, flow, plan),
+      missingFacts: [
+        {
+          key: "replacementWindow",
+          label: "day or time window for the replacement appointment",
+        },
+      ],
+      nextAction: "ask",
+      slot: "preferredDate",
+      allowedTools: [],
+      blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
+      instruction:
+        "Ask what day or time window works for the replacement appointment.",
+    });
+  }
+
+  if (!latestAvailability?.cachedSlots.length && !replacementSlotId) {
+    return command(flow, plan, {
+      phase,
+      knownFacts: knownRescheduleFacts(patient, flow, plan),
+      missingFacts: [
+        {
+          key: "replacementAvailability",
+          label: "available replacement appointment slot",
+        },
+      ],
+      nextAction: "call_tool",
+      tool: "get_availability",
+      args: {},
+      allowedTools: ["get_availability"],
+      blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
+      instruction: "Call get_availability now.",
+      step: "get_availability",
+      visitType: visitTypeForAppointment(oldAppointment),
+      coverageType: coverageTypeForAppointment(oldAppointment),
+      schedulingGoalStatus: "ready_for_availability",
+    });
+  }
+
+  if (!flow.schedulingGoal?.selectedSlotId || !rescheduleConfirmed) {
+    return command(flow, plan, {
+      phase,
+      knownFacts: knownRescheduleFacts(patient, flow, plan),
+      missingFacts: [
+        {
+          key: "rescheduleConfirmation",
+          label:
+            "explicit yes to replace the old appointment with the offered slot",
+        },
+      ],
+      nextAction: "ask",
+      slot: "rescheduleConfirmation",
+      allowedTools: [],
+      blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
+      instruction:
+        "Offer one replacement slot and ask for explicit confirmation to replace the old appointment with that exact slot.",
+      step: "confirm_booking",
+    });
+  }
+
+  return command(flow, plan, {
+    phase,
+    knownFacts: knownRescheduleFacts(patient, flow, plan),
+    missingFacts: [],
+    nextAction: "call_tool",
+    tool: "reschedule_appt",
+    args: {
+      slotId: flow.schedulingGoal.selectedSlotId,
+      appointmentReason: note.appointmentReason,
+      referringDoctor: note.referringDoctor,
+    },
+    allowedTools: ["reschedule_appt"],
+    blockedActions: [
+      {
+        action: "book_appt",
+        reason: "reschedule must be submitted through reschedule_appt",
+      },
+      {
+        action: "cancel_appt",
+        reason: "reschedule must be submitted through reschedule_appt",
+      },
+      {
+        action: "add_patient_note",
+        reason: "reschedule_appt carries the replacement note payload",
+      },
+    ],
+    instruction: "Call reschedule_appt now.",
+    step: "book",
+  });
+}
+
+function knownRescheduleFacts(
+  patient: PatientContext | undefined,
+  flow: CallFlowState,
+  plan: AppointmentReschedulePlan,
+): PlannerFact[] {
+  return [
+    ...knownPatientFacts(patient, flow),
+    plan.targetAppointmentSummary
+      ? { key: "oldAppointment", value: plan.targetAppointmentSummary }
+      : undefined,
+    flow.schedulingGoal?.preferredWindow
+      ? {
+          key: "preferredWindow",
+          value: flow.schedulingGoal.preferredWindow,
+        }
+      : undefined,
+    plan.replacementSlotId
+      ? { key: "replacementSlot", value: plan.replacementSlotId }
+      : undefined,
+    plan.appointmentReason
+      ? { key: "appointmentReason", value: plan.appointmentReason }
+      : undefined,
+    plan.referringDoctor
+      ? { key: "referringDoctor", value: plan.referringDoctor }
+      : undefined,
+  ].filter(isPlannerFact);
+}
+
+function latestUsableAvailability(flow: CallFlowState) {
+  return [...flow.availabilitySearches]
+    .reverse()
+    .find((search) => search.status !== "invalidated");
+}
+
+function firstCachedSlot(
+  search: ReturnType<typeof latestUsableAvailability>,
+): string | undefined {
+  return search?.cachedSlots[0]?.slotHash;
+}
+
+function reschedulePhase({
+  verified,
+  appointments,
+  selectionStatus,
+  preferredWindow,
+  latestAvailability,
+  replacementSlotId,
+  rescheduleConfirmed,
+}: {
+  verified: boolean;
+  appointments: CallerAppointment[];
+  selectionStatus: AppointmentReschedulePlan["targetSelectionStatus"];
+  preferredWindow?: string;
+  latestAvailability: ReturnType<typeof latestUsableAvailability>;
+  replacementSlotId?: string;
+  rescheduleConfirmed: boolean;
+}): AppointmentReschedulePlan["phase"] {
+  if (!verified) return "needs_verified_patient";
+  if (appointments.length === 0) return "loading_existing_appointments";
+  if (selectionStatus !== "selected") return "selecting_old_appointment";
+  if (!preferredWindow) return "collecting_replacement_window";
+  if (!latestAvailability?.cachedSlots.length && !replacementSlotId) {
+    return "searching_replacement";
+  }
+  if (!replacementSlotId) return "offering_replacement";
+  if (!rescheduleConfirmed) return "confirming_reschedule";
+  return "rescheduling";
+}
+
+function notePayloadForReschedule(
+  flow: CallFlowState,
+  oldAppointment: CallerAppointment | undefined,
+  existingPlan: AppointmentReschedulePlan | undefined,
+): { appointmentReason: string; referringDoctor: string } {
+  const draft = flow.schedulingGoal?.noteDraft;
+  return {
+    appointmentReason:
+      draft?.appointmentReason ??
+      existingPlan?.appointmentReason ??
+      oldAppointment?.type ??
+      "existing appointment reschedule",
+    referringDoctor:
+      draft?.referringDoctor ?? existingPlan?.referringDoctor ?? "none",
+  };
+}
+
+function visitTypeForAppointment(
+  appointment: CallerAppointment | undefined,
+): CallFlowState["visitType"] {
+  const text =
+    `${appointment?.type ?? ""} ${appointment?.facility ?? ""}`.toLowerCase();
+  if (
+    text.includes("routine") ||
+    text.includes("vision") ||
+    text.includes("glasses") ||
+    text.includes("contact")
+  ) {
+    return "routine_vision";
+  }
+  return "medical";
+}
+
+function coverageTypeForAppointment(
+  appointment: CallerAppointment | undefined,
+): CallFlowState["coverageType"] {
+  return visitTypeForAppointment(appointment) === "routine_vision"
+    ? "routine_vision"
+    : "medical";
+}

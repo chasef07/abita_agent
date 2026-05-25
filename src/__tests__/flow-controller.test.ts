@@ -14,8 +14,10 @@ import {
   hashToolArgs,
   invalidateAvailabilitySearches,
   invalidatePendingActionsForStateChange,
-  nextFlowDecision,
   observeFlowToolExecution,
+  applyPlannerPatch,
+  flowDecisionForWorkflowCommand,
+  planNextCommand,
   prepareSchedulingPath,
   recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
@@ -644,18 +646,12 @@ describe("flow state and context packet", () => {
         step: "answer",
       },
     });
-    expect(
-      nextFlowDecision({
-        state: flow,
-        event: {
-          type: "caller_intent",
-          intent: "existing_appointment_confirm",
-        },
-      }),
-    ).toMatchObject({
-      type: "call_tool",
-      tool: "confirm_appt",
-    });
+    expect(flowDecisionForWorkflowCommand(planNextCommand(flow))).toMatchObject(
+      {
+        type: "call_tool",
+        tool: "confirm_appt",
+      },
+    );
   });
 
   it("records availability search signatures and budget state", () => {
@@ -1082,18 +1078,15 @@ describe("prepareSchedulingPath", () => {
   });
 });
 
-describe("nextFlowDecision", () => {
+describe("task-plan command planner", () => {
   it("asks for visit type before answering a bare insurance question", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.activeIntent = "insurance_question";
+    flow.activeFlow = "insurance";
+    flow.step = "triage_visit_type";
+    flow.requiredSlots = ["visitReason"];
 
-    const decision = nextFlowDecision({
-      state: flow,
-      event: {
-        type: "caller_intent",
-        intent: "insurance_question",
-        insurancePlan: "Care Plus",
-      },
-    });
+    const decision = flowDecisionForWorkflowCommand(planNextCommand(flow));
 
     expect(decision).toMatchObject({
       type: "ask",
@@ -1101,7 +1094,7 @@ describe("nextFlowDecision", () => {
     });
   });
 
-  it("distinguishes appointment lookup, cancellation, and reschedule decisions", () => {
+  it("distinguishes appointment lookup, cancellation, and reschedule commands", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
       patientId: "patient-1",
@@ -1121,42 +1114,26 @@ describe("nextFlowDecision", () => {
     flow.patientStatus = "verified";
     flow.patients.caller.status = "verified";
 
-    expect(
-      nextFlowDecision({
-        state: flow,
-        event: {
-          type: "caller_intent",
-          intent: "existing_appointment_confirm",
-        },
-      }),
-    ).toMatchObject({
-      type: "call_tool",
-      tool: "confirm_appt",
-    });
-    expect(
-      nextFlowDecision({
-        state: flow,
-        event: {
-          type: "caller_intent",
-          intent: "existing_appointment_cancel",
-        },
-      }),
-    ).toMatchObject({
-      type: "confirm",
-      confirmation: { type: "cancel" },
-    });
-    expect(
-      nextFlowDecision({
-        state: flow,
-        event: {
-          type: "caller_intent",
-          intent: "existing_appointment_reschedule",
-        },
-      }),
-    ).toMatchObject({
-      type: "ask",
-      slot: "preferredDate",
-    });
+    flow.activeIntent = "existing_appointment_confirm";
+    expect(flowDecisionForWorkflowCommand(planNextCommand(flow))).toMatchObject(
+      {
+        type: "say",
+      },
+    );
+    flow.activeIntent = "existing_appointment_cancel";
+    expect(flowDecisionForWorkflowCommand(planNextCommand(flow))).toMatchObject(
+      {
+        type: "confirm",
+        confirmation: { type: "cancel" },
+      },
+    );
+    flow.activeIntent = "existing_appointment_reschedule";
+    expect(flowDecisionForWorkflowCommand(planNextCommand(flow))).toMatchObject(
+      {
+        type: "ask",
+        slot: "preferredDate",
+      },
+    );
   });
 
   it("requires patient verification before appointment management decisions", () => {
@@ -1176,37 +1153,30 @@ describe("nextFlowDecision", () => {
         },
       ],
     });
+    flow.activeIntent = "existing_appointment_cancel";
 
-    expect(
-      nextFlowDecision({
-        state: flow,
-        event: {
-          type: "caller_intent",
-          intent: "existing_appointment_cancel",
-        },
-      }),
-    ).toMatchObject({
-      type: "ask",
-      slot: "patientIdentity",
-    });
+    expect(flowDecisionForWorkflowCommand(planNextCommand(flow))).toMatchObject(
+      {
+        type: "ask",
+        slot: "patientIdentity",
+      },
+    );
   });
 
   it("requires confirmation before office routing", () => {
     const flow = createInitialFlowState({ officeKey: "crystal-river" });
-    const outcome = prepareSchedulingPath({
-      officeKey: "crystal-river",
-      patientStatus: "unknown",
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "collecting",
+      appointmentAction: "schedule",
       visitReason: "routine eye exam",
-    });
+      visitType: "routine_vision",
+      updatedAt: Date.now(),
+    };
 
-    const decision = nextFlowDecision({
-      state: flow,
-      event: {
-        type: "tool_outcome",
-        toolName: "prepareSchedulingPath",
-        outcome,
-      },
-    });
+    const decision = flowDecisionForWorkflowCommand(planNextCommand(flow));
 
     expect(decision).toMatchObject({
       type: "confirm",
@@ -1397,6 +1367,237 @@ describe("deterministic turn router", () => {
       type: "call_tool",
       tool: "get_availability",
     });
+  });
+
+  it("uses the task-plan frontier to search replacement availability for reschedule", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Tree",
+      dob: "1987-01-01",
+      appointments: [
+        {
+          id: 12345,
+          date: "2026-06-01",
+          time: "8:00 AM",
+          provider: "Dr. Bach",
+          type: "Follow-up",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+      ],
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "Move my Dr. Bach appointment to Monday at 1 PM",
+      understanding: {
+        goal: "manage_existing_appointment",
+        appointmentAction: "reschedule",
+        patient: {
+          patientMentioned: "caller",
+          relationshipToCaller: "self",
+        },
+        scheduling: {
+          preferredWindow: "Monday at 1 PM",
+        },
+        interruption: "none",
+        confidence: 0.94,
+        evidence: ["Dr. Bach", "Monday at 1 PM"],
+      },
+    });
+
+    expect(turn.workflowCommand).toMatchObject({
+      taskKind: "appointment_reschedule",
+      phase: "searching_replacement",
+      nextAction: "call_tool",
+      tool: "get_availability",
+      allowedTools: ["get_availability"],
+      missingFacts: [
+        expect.objectContaining({ key: "replacementAvailability" }),
+      ],
+    });
+    expect(turn.decision).toMatchObject({
+      type: "call_tool",
+      tool: "get_availability",
+    });
+    expect(turn.turnState).toContain("phase: searching_replacement");
+    expect(turn.turnState).toContain("allowedTools: get_availability");
+    expect(flow).toMatchObject({
+      step: "get_availability",
+      visitType: "medical",
+      lastWorkflowCommand: {
+        tool: "get_availability",
+      },
+    });
+  });
+
+  it("closes appointment-confirm plans after appointment details are loaded", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Tree",
+      dob: "1987-01-01",
+      appointments: [
+        {
+          id: 12345,
+          date: "2026-06-01",
+          time: "8:00 AM",
+          provider: "Dr. Bach",
+          type: "Follow-up",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+      ],
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "existing_appointment_confirm";
+    flow.activeFlow = "appointment_management";
+    startPatientTask(flow, {
+      kind: "appointment_management",
+      step: "answer",
+    });
+
+    const command = planNextCommand(flow);
+    applyPlannerPatch(flow, command);
+
+    expect(command).toMatchObject({
+      taskKind: "appointment_confirm",
+      phase: "complete",
+      nextAction: "respond",
+      allowedTools: [],
+      missingFacts: [],
+    });
+  });
+
+  it("asks which old appointment to move when target selection is ambiguous", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Tree",
+      dob: "1987-01-01",
+      appointments: [
+        {
+          id: 111,
+          date: "2026-06-01",
+          time: "8:00 AM",
+          provider: "Dr. Bach",
+          type: "Follow-up",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+        {
+          id: 222,
+          date: "2026-06-08",
+          time: "8:00 AM",
+          provider: "Dr. Bach",
+          type: "Follow-up",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+      ],
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript: "Move my Dr. Bach appointment to Monday at 1 PM",
+      understanding: {
+        goal: "manage_existing_appointment",
+        appointmentAction: "reschedule",
+        patient: {
+          patientMentioned: "caller",
+          relationshipToCaller: "self",
+        },
+        scheduling: {
+          preferredWindow: "Monday at 1 PM",
+        },
+        interruption: "none",
+        confidence: 0.94,
+        evidence: ["Dr. Bach", "Monday at 1 PM"],
+      },
+    });
+
+    expect(turn.workflowCommand).toMatchObject({
+      phase: "selecting_old_appointment",
+      nextAction: "ask",
+      slot: "oldAppointment",
+      allowedTools: [],
+      missingFacts: [expect.objectContaining({ key: "oldAppointment" })],
+    });
+  });
+
+  it("plans one confirmed reschedule action with the note payload", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Tree",
+      dob: "1987-01-01",
+      appointments: [
+        {
+          id: 12345,
+          date: "2026-06-01",
+          time: "8:00 AM",
+          provider: "Dr. Bach",
+          type: "Follow-up",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+      ],
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "existing_appointment_reschedule";
+    flow.activeFlow = "appointment_management";
+    startPatientTask(flow, {
+      kind: "appointment_management",
+      step: "confirm_booking",
+    });
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "confirming_booking",
+      appointmentAction: "reschedule",
+      preferredWindow: "Monday at 1 PM",
+      selectedSlotId: "A",
+      bookingConfirmed: true,
+      noteDraft: {
+        appointmentReason: "pressure follow-up",
+        referringDoctor: "none",
+      },
+      evidence: ["Dr. Bach", "Monday at 1 PM"],
+      updatedAt: Date.now(),
+    };
+    recordAvailabilitySearch(flow, {
+      patientRef: "caller",
+      officeKey: "spring-hill",
+      visitType: "medical",
+      coverageType: "medical",
+      routing: "all_three",
+      date: "2026-06-01",
+    });
+    recordAvailabilityCachedSlots(flow, [{ slotId: "A" }]);
+
+    const command = planNextCommand(flow);
+    applyPlannerPatch(flow, command);
+
+    expect(command).toMatchObject({
+      phase: "rescheduling",
+      nextAction: "call_tool",
+      tool: "reschedule_appt",
+      allowedTools: ["reschedule_appt"],
+      args: {
+        slotId: "A",
+        appointmentReason: "pressure follow-up",
+        referringDoctor: "none",
+      },
+    });
+    expect(command.allowedTools).not.toContain("add_patient_note");
+    expect(command.allowedTools).not.toContain("book_appt");
+    expect(command.allowedTools).not.toContain("cancel_appt");
   });
 
   it("does not clear the selected slot when confirmation repeats known visit facts", () => {
@@ -1779,7 +1980,7 @@ describe("flow shadow observer", () => {
     });
   });
 
-  it("marks internal meta-tool predictions as not applicable for live tool comparison", () => {
+  it("compares planner predictions against live tool attempts", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
 
     const prediction = createFlowShadowPrediction(
@@ -1789,10 +1990,13 @@ describe("flow shadow observer", () => {
     const observation = observeFlowToolExecution(prediction, "verify_patient");
 
     expect(prediction.expectedDecision).toMatchObject({
-      type: "call_meta_tool",
-      tool: "prepareSchedulingPath",
+      type: "ask",
+      slot: "patientIdentity",
     });
-    expect(observation.match).toBe("not_applicable");
+    expect(observation).toMatchObject({
+      match: "mismatch",
+      mismatchReason: "expected ask, got tool verify_patient",
+    });
   });
 });
 
