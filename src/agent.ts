@@ -65,7 +65,7 @@ export class Agent extends voice.Agent {
         compileTurnStatePacket(state.flow),
         "",
         "<state_update_required>",
-        "Before answering the caller or calling any other tool for this user turn, call record_turn_understanding exactly once with the structured semantic update for the latest caller message. After it returns, follow its compact command packet: nextAction, optional tool/args, and instruction.",
+        "Prefer calling record_turn_understanding once for this user turn so the planner has the latest caller intent. If concrete state already has the required patient, availability, appointment, and confirmation facts, you may call the relevant workflow tool directly. Use the task-plan command as guidance, not a hard allow-list, and never claim a side effect succeeded until the final tool succeeds.",
         "</state_update_required>",
       ].join("\n"),
       id: `flow_turn_state_${newMessage.id}`,

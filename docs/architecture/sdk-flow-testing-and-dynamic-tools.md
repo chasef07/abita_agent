@@ -4,15 +4,14 @@ Status: implemented by default for current flow-harness trunks. Superseded for
 future tool-exposure design by `task-plan-flow-harness.md`.
 
 This document describes the current SDK-level dynamic-tool behavior and the
-tests that protect it. For the next implementation, planner-owned
-`WorkflowCommand.allowedTools` from `task-plan-flow-harness.md` is the source of
-truth.
+tests that protect it. The planner command from `task-plan-flow-harness.md`
+guides the model, while concrete wrapper policy remains the source of truth.
 
 ## Purpose
 
-The current flow harness has code-owned state and wrapper-level tool guards, but
-the model can still see a broad tool set. That makes the prompt carry too much
-responsibility and forces the wrappers to catch avoidable bad calls.
+The current flow harness has code-owned state, broad model-facing tool exposure,
+and wrapper-level guards. The model gets enough tools to recover from messy live
+turns, while wrappers catch unsafe calls based on concrete state.
 
 This spec covers the next two changes:
 
@@ -113,11 +112,11 @@ only in tests. Do not add a separate production agent path.
 
 ### Required Tests
 
-1. **Harness requires turn understanding first**
+1. **Harness allows safe tools before turn understanding**
    - Given a harness-enabled call with `latestUserTranscript` set and
      `turnUnderstandingAppliedForTranscript` unset.
-   - Fake LLM attempts `lookup_knowledge` or `verify_patient` first.
-   - Assert the tool output is `not_allowed` with
+   - Fake LLM attempts a safe concrete tool such as `lookup_knowledge` first.
+   - Assert the tool executes and does not return
      `reason: "turn_understanding_required"`.
 
 2. **State update allows the next tool**
@@ -234,56 +233,50 @@ throwing and let startup apply the initial tool set.
 When harness is enabled and the latest user transcript has not been recorded:
 
 - Show `record_turn_understanding` first.
-- Also show the current flow step's safe tool set.
-- Keep wrapper-level `turn_understanding_required` gates on all guarded tools.
+- Also show the broad workflow tool set.
+- Do not use wrapper-level `turn_understanding_required` gates. The memory
+  update steers the model, but concrete tool prerequisites are the safety
+  boundary.
 
 This is required because the LiveKit SDK captures tool context for the current
 LLM run before `record_turn_understanding` executes. If every other tool were
 hidden, the post-record continuation in that same run would still be unable to
-use newly exposed tools. The state-update gate remains the authority: if the
-model attempts another guarded tool before recording the turn, the wrapper
-returns `turn_understanding_required`.
+use newly exposed tools. The state update remains useful telemetry and planning
+context, but a safe tool should not be blocked just because the state update has
+not run yet.
 
 ### Post-Understanding Tool Map
 
-Start with a conservative map derived from `directivesForFlowState`, translated
-from model actions into real tool names.
+Expose the broad workflow tool set after turn understanding as well. The planner
+packet stays visible as guidance, while tool wrappers enforce concrete
+prerequisites such as verified patient, current availability, loaded
+appointment, and explicit confirmation.
 
-| Flow step | Visible tools after turn understanding |
-| --- | --- |
-| `understand_intent` | `lookup_knowledge` |
-| `triage_visit_type` | `lookup_knowledge` |
-| `check_insurance` | `check_insurance`, `lookup_knowledge` |
-| `route_office` | `route_to_spring_hill`, `lookup_knowledge` |
-| `verify_patient` | `verify_patient`, `confirm_appt`, `lookup_knowledge` |
-| `collect_registration` | `add_patient`, `check_insurance`, `lookup_knowledge` |
-| `get_availability` | `get_availability`, `lookup_knowledge` |
-| `confirm_booking` | `book_appt`, `get_availability`, `lookup_knowledge` |
-| `confirm_cancel` | `cancel_appt`, `confirm_appt`, `lookup_knowledge` |
-| `handoff` | `transfer_call`, `lookup_knowledge` |
-| post-booking note state | `add_patient_note`, `lookup_knowledge` |
+Visible tools are:
 
-Rules layered on top of the table:
+- `verify_patient`
+- `add_patient`
+- `update_insurance`
+- `get_availability`
+- `confirm_appt`
+- `cancel_appt`
+- `add_patient_note`
+- `book_appt`
+- `reschedule_appt`
+- `check_insurance`
+- `lookup_knowledge`
+- `route_to_spring_hill` when the office feature allows it
+- `transfer_call`
 
-- `record_turn_understanding` is visible only when a latest user transcript is
-  pending, or in tests that explicitly need it.
-- `route_to_spring_hill` is visible only when the active office feature allows
-  it and the flow state needs that routing path.
-- `transfer_call` is visible only from `handoff` or an explicit confirmed
-  transfer pending action.
-- `book_appt` is visible only when there is current availability state and the
-  flow is in booking confirmation.
-- `add_patient_note` is visible only after a successful booking and only when
-  the required note fields are grounded.
-- Unknown/default states expose only `lookup_knowledge` after turn
-  understanding.
+`record_turn_understanding` is visible only when a latest user transcript is
+pending, or in tests that explicitly need it.
 
 ### Logging and Telemetry
 
 Each refresh should log a compact line:
 
 ```txt
-[flow-tools] visible=["record_turn_understanding"] reason="turn_update_pending"
+[flow-tools] visible=["record_turn_understanding","verify_patient",...] reason="turn_update_pending_broad"
 ```
 
 Do not log patient IDs, appointment IDs, DOB, member IDs, or raw transcripts.

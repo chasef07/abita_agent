@@ -32,7 +32,7 @@ describe("agent session flow integration", () => {
     initializeLogger({ pretty: false, level: "silent" });
   });
 
-  it("blocks guarded tools until record_turn_understanding runs", async () => {
+  it("allows safe tools even before record_turn_understanding runs", async () => {
     const llmModel = new ScriptedToolAwareLLM(({ callIndex }) =>
       callIndex === 0
         ? {
@@ -52,10 +52,10 @@ describe("agent session flow integration", () => {
     await result.wait();
 
     expect(functionCallNames(result.events)).toContain("lookup_knowledge");
-    expect(functionOutputText(result.events)).toContain(
+    expect(functionOutputText(result.events)).not.toContain(
       "turn_understanding_required",
     );
-    expect(functionOutputText(result.events)).toContain("lookup_knowledge");
+    expect(functionOutputText(result.events)).toContain("Knowledge source:");
     await session.close();
   });
 
@@ -176,7 +176,7 @@ describe("agent session flow integration", () => {
       "lookup_knowledge",
     ]);
     expect(state.latestToolExposure).toMatchObject({
-      reason: "planner:scheduling:needs_verified_patient",
+      reason: "planner_guidance_broad:scheduling:needs_verified_patient",
       refreshReason: "turn_understanding_recorded",
     });
     await session.close();

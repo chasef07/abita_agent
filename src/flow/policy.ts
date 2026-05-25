@@ -51,17 +51,6 @@ export function evaluateFlowToolPolicy({
     stateFacts,
     createdAt,
   });
-  const plannerDecision = evaluatePlannerToolPolicy(flow, toolName);
-  if (plannerDecision) {
-    return {
-      allowed: false,
-      observation: observationWithReason(
-        guardObservation,
-        plannerDecision.reason,
-      ),
-      outcome: plannerDecision.outcome,
-    };
-  }
   if (toolName === "book_appt") {
     const historicalBookingDecision = evaluateHistoricalBookingPolicy(
       flow,
@@ -140,56 +129,6 @@ function isPendingSideEffectTool(
     toolName === "route_to_spring_hill" ||
     toolName === "transfer_call"
   );
-}
-
-function evaluatePlannerToolPolicy(
-  flow: CallFlowState,
-  toolName: GuardedToolName,
-): { reason: GuardObservationReason; outcome: ToolOutcome } | undefined {
-  const command = flow.lastWorkflowCommand;
-  if (!command || command.commandSource !== "task_plan") return undefined;
-  if (flow.activeTaskPlanId && command.taskId !== flow.activeTaskPlanId) {
-    return undefined;
-  }
-  if (command.allowedTools.includes(toolName)) return undefined;
-  if (plannerShouldDeferToSideEffectPolicy(command, toolName)) {
-    return undefined;
-  }
-
-  return {
-    reason: "tool_not_allowed_by_planner",
-    outcome: {
-      outcome: "not_allowed",
-      nextStep: flow.step,
-      speak: "Follow the current task-plan command before using that tool.",
-      facts: {
-        reason: "tool_not_allowed_by_planner",
-        toolName,
-        plannerTaskId: command.taskId,
-        plannerTaskKind: command.taskKind,
-        plannerPhase: command.phase,
-        allowedTools: command.allowedTools,
-      },
-      retryable: true,
-    },
-  };
-}
-
-function plannerShouldDeferToSideEffectPolicy(
-  command: CallFlowState["lastWorkflowCommand"],
-  toolName: GuardedToolName,
-): boolean {
-  if (!command) return false;
-  if (
-    command.taskKind === "appointment_reschedule" &&
-    (toolName === "book_appt" || toolName === "cancel_appt")
-  ) {
-    return false;
-  }
-  if (!isPendingSideEffectTool(toolName) && toolName !== "book_appt") {
-    return false;
-  }
-  return command.blockedActions.some((blocked) => blocked.action === toolName);
 }
 
 function evaluateSideEffectPolicy(
@@ -375,14 +314,6 @@ function outcomeForGuardReason(
           "The exact search budget is exhausted. Broaden the date window, offer cached alternatives, or transfer if needed.",
         facts: { reason },
         retryable: false,
-      };
-    case "tool_not_allowed_by_planner":
-      return {
-        outcome: "not_allowed",
-        nextStep: "answer",
-        speak: "Follow the current task-plan command before using that tool.",
-        facts: { reason },
-        retryable: true,
       };
     case "new_patient_requires_insurance_check_before_registration":
       return {
