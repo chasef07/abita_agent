@@ -91,8 +91,7 @@ export async function lookupByPhone(
         !isNonEmptyString(data.patientId) ||
         !isNonEmptyString(data.name) ||
         !isNonEmptyString(data.dob) ||
-        !isNonEmptyString(data.phone) ||
-        !isNonEmptyString(data.routing)
+        !isNonEmptyString(data.phone)
       ) {
         return {
           status: "lookup_failed",
@@ -116,7 +115,7 @@ export async function lookupByPhone(
           : null,
         insPlanId: data.insPlanId ?? null,
         respPartyId: data.respPartyId ?? null,
-        routing: data.routing,
+        routing: isNonEmptyString(data.routing) ? data.routing : null,
         allowedProviders: data.allowedProviders ?? [],
         routingAmbiguous: data.routingAmbiguous ?? false,
         appointmentsStatus,

@@ -141,7 +141,6 @@ describe("pre-call bootstrap", () => {
           name: "Doe, Jane",
           dob: "01/01/1980",
           phone: "+17275551212",
-          routing: "all_three",
           appointments: [
             {
               id: 12345,
@@ -166,6 +165,7 @@ describe("pre-call bootstrap", () => {
     expect(result).toMatchObject({
       status: "verified",
       insuranceCarrier: null,
+      routing: null,
       appointments: [expect.objectContaining({ id: 12345 })],
     });
   });

@@ -171,7 +171,6 @@ export type WorkflowToolName =
   | "add_patient"
   | "update_insurance"
   | "get_availability"
-  | "confirm_appt"
   | "cancel_appt"
   | "add_patient_note"
   | "book_appt"

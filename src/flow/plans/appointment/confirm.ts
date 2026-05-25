@@ -62,7 +62,7 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
       allowedTools: ["verify_patient"],
       blockedActions: [
         {
-          action: "confirm_appt",
+          action: "appointment_lookup",
           reason: "patient must be verified before appointment lookup",
         },
       ],
@@ -95,11 +95,12 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
         { key: "loadedAppointments", label: "current appointment list" },
       ],
       nextAction: "call_tool",
-      tool: "confirm_appt",
+      tool: "verify_patient",
       args: {},
-      allowedTools: ["confirm_appt"],
+      allowedTools: ["verify_patient"],
       blockedActions: [],
-      instruction: "Call confirm_appt now.",
+      instruction:
+        "Call verify_patient now to reload the verified patient with appointments.",
     });
   }
 

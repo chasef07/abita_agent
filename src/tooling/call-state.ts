@@ -23,7 +23,7 @@ export interface CallerMatch {
   insuranceCarrier: string | null;
   insPlanId: string | null;
   respPartyId: string | null;
-  routing: string;
+  routing: string | null;
   allowedProviders: string[];
   routingAmbiguous: boolean;
   appointmentsStatus?: AppointmentLoadStatus | null;

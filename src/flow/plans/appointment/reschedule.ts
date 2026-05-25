@@ -202,11 +202,12 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
         { key: "loadedAppointments", label: "current appointment list" },
       ],
       nextAction: "call_tool",
-      tool: "confirm_appt",
+      tool: "verify_patient",
       args: {},
-      allowedTools: ["confirm_appt"],
+      allowedTools: ["verify_patient"],
       blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
-      instruction: "Call confirm_appt now.",
+      instruction:
+        "Call verify_patient now to reload the verified patient with appointments.",
     });
   }
 

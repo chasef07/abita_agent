@@ -24,7 +24,6 @@ import {
   buildCallCenterHandoffHeaders,
   cancel_appt,
   check_insurance,
-  confirm_appt,
   get_availability,
   lookup_knowledge,
   makeCurrentSpeechUninterruptible,
@@ -142,11 +141,12 @@ describe("tool interruption handling", () => {
 
     expect(recorded).toMatchObject({
       status: "recorded",
-      nextAction: "confirm_appt",
+      nextAction: "verify_patient",
       action: "call_tool",
-      tool: "confirm_appt",
+      tool: "verify_patient",
       args: {},
-      instruction: "Call confirm_appt now.",
+      instruction:
+        "Call verify_patient now to reload the verified patient with appointments.",
     });
     expect(recorded).not.toHaveProperty("turnState");
     expect(recorded).not.toHaveProperty("controllerDecision");
@@ -314,9 +314,9 @@ describe("tool interruption handling", () => {
     state.flow.patientStatus = "matched";
     state.flow.patients[state.flow.activePatientRef!].status = "matched";
 
-    const result = await confirm_appt.execute(
+    const result = await verify_patient.execute(
       {},
-      { ctx, toolCallId: "test-confirm-appt-unverified" },
+      { ctx, toolCallId: "test-verify-refresh-unverified" },
     );
 
     expect(result).toMatchObject({
@@ -353,9 +353,9 @@ describe("tool interruption handling", () => {
 
     const { ctx, state } = createToolContext();
 
-    const result = await confirm_appt.execute(
+    const result = await verify_patient.execute(
       {},
-      { ctx, toolCallId: "test-confirm-appt-tokens" },
+      { ctx, toolCallId: "test-verify-refresh-tokens" },
     );
 
     expect(state.appointmentCancelTokens).toEqual({
@@ -440,7 +440,10 @@ describe("tool interruption handling", () => {
       task: "appointment_cancel",
       nextAction: "confirm",
     });
-    expect(result.planner).not.toMatchObject({ tool: "confirm_appt" });
+    expect(result.planner).not.toMatchObject({
+      tool: "verify_patient",
+      args: {},
+    });
     expect(state.appointments).toContainEqual(
       expect.objectContaining({ id: 12345 }),
     );
@@ -449,7 +452,7 @@ describe("tool interruption handling", () => {
     });
   });
 
-  it("records no-appointment lookup results so the planner does not ask for confirm_appt again", async () => {
+  it("records no-appointment lookup results so the planner does not ask for appointment refresh again", async () => {
     const fetchMock = vi.fn().mockImplementationOnce(async () => ({
       ok: true,
       json: async () => ({
@@ -500,7 +503,10 @@ describe("tool interruption handling", () => {
       nextAction: "respond",
       missingFacts: [],
     });
-    expect(result.planner).not.toMatchObject({ tool: "confirm_appt" });
+    expect(result.planner).not.toMatchObject({
+      tool: "verify_patient",
+      args: {},
+    });
     expect(activeWorkflowCommandForState(state.flow)).toMatchObject({
       taskKind: "appointment_cancel",
       phase: "complete",

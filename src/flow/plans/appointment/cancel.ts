@@ -130,16 +130,17 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
         { key: "loadedAppointments", label: "current appointment list" },
       ],
       nextAction: "call_tool",
-      tool: "confirm_appt",
+      tool: "verify_patient",
       args: {},
-      allowedTools: ["confirm_appt"],
+      allowedTools: ["verify_patient"],
       blockedActions: [
         {
           action: "cancel_appt",
           reason: "appointment list must be loaded before cancellation",
         },
       ],
-      instruction: "Call confirm_appt now.",
+      instruction:
+        "Call verify_patient now to reload the verified patient with appointments.",
       step: "confirm_cancel",
     });
   }

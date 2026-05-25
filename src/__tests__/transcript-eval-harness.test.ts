@@ -306,7 +306,8 @@ describe("transcript replay eval harness", () => {
     });
     expect(turn.decision).not.toMatchObject({
       type: "call_tool",
-      tool: "confirm_appt",
+      tool: "verify_patient",
+      args: {},
     });
 
     expect(

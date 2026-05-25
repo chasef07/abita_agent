@@ -348,7 +348,7 @@ function appointmentCapsule(flow: CallFlowState): string {
   }
 
   if (patient.appointmentsStatus === "none") {
-    return "appointments: none found; do not call confirm_appt again unless the caller changed patients or asks to retry.";
+    return "appointments: none found; do not refresh appointments again unless the caller changed patients or asks to retry.";
   }
 
   return `appointments: loaded=${patient.appointments.length}; use caller context or tool result for exact ID/date.`;

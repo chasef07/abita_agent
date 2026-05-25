@@ -650,7 +650,8 @@ describe("flow state and context packet", () => {
     expect(flowDecisionForWorkflowCommand(planNextCommand(flow))).toMatchObject(
       {
         type: "call_tool",
-        tool: "confirm_appt",
+        tool: "verify_patient",
+        args: {},
       },
     );
   });

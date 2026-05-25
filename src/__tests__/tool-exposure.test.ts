@@ -83,7 +83,7 @@ describe("dynamic tool exposure", () => {
     );
   });
 
-  it("keeps appointment lookup visible with the broad workflow set", () => {
+  it("keeps the patient lookup tool visible with the broad workflow set", () => {
     const state = createCallState();
     state.flow.activeFlow = "appointment_management";
     state.flow.activeIntent = "existing_appointment_confirm";
@@ -95,6 +95,9 @@ describe("dynamic tool exposure", () => {
       DEV_BROAD_TOOL_NAMES,
     );
     expect(buildToolsForState(state).visibleToolNames).toContain(
+      "verify_patient",
+    );
+    expect(buildToolsForState(state).visibleToolNames).not.toContain(
       "confirm_appt",
     );
   });
@@ -230,7 +233,6 @@ const DEV_BROAD_TOOL_NAMES = [
   "add_patient",
   "update_insurance",
   "get_availability",
-  "confirm_appt",
   "cancel_appt",
   "book_appt",
   "check_insurance",
