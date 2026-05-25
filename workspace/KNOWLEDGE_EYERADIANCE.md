@@ -25,6 +25,8 @@ Hours:
 - Tuesday – Thursday: 12:00 PM – 5:00 PM
 - Closed Monday, Friday, Saturday and Sunday
 
+Holiday closure: Closed on Memorial Day, Monday, May 25, 2026.
+
 **Other Location:** We also have an office in Spring Hill — Abita Eye Group, 10495 SpringHill Drive, Springhill, FL 34608 (Monday–Friday, 8:30 AM – 4:30 PM). That location also sees Dr. Bach, Dr. Noel, and Dr. Licht. Dr. Licht practices at both locations.
 
 ## After Hours
