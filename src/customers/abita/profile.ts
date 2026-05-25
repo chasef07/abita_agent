@@ -20,7 +20,10 @@ export const SWEETWATER_TRUNK_PHONES = [
   "+17864654882",
 ] as const;
 export const DEV_OFFICE_PHONE = "+14843989071";
-const DEFAULT_FLOW_HARNESS_TRUNK_PHONES = [DEV_OFFICE_PHONE];
+const DEFAULT_FLOW_HARNESS_TRUNK_PHONES = [
+  DEV_OFFICE_PHONE,
+  CRYSTAL_RIVER_OFFICE_PHONE,
+];
 
 export interface OfficeConfig {
   key: OfficeKey;

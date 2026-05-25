@@ -840,6 +840,57 @@ describe("flow state and context packet", () => {
     });
   });
 
+  it("treats partial booking responses with an appointment ID as booked", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+    });
+    flow.visitType = "medical";
+    flow.routing = "all_three";
+    recordAvailabilitySearch(flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      routing: "all_three",
+      date: "2026-06-01",
+    });
+    recordAvailabilityCachedSlots(flow, [{ slotId: "A" }]);
+    createPendingBookingAction(flow, {
+      slotHash: "A",
+      appointmentTypeId: 1007,
+      officeKey: "spring-hill",
+      routing: "all_three",
+      spokenSummary: "2026-06-01 9:00 with Dr. Bach",
+      confirmed: true,
+      createdTurnId: "test-create-booking-action",
+      confirmationTurnId: "test-confirm-booking",
+    });
+
+    const attempt = recordBookingAttempt(flow, {
+      slotHash: "A",
+      appointmentTypeId: 1007,
+      officeKey: "spring-hill",
+      routing: "all_three",
+      spokenSummary: "2026-06-01 9:00 with Dr. Bach",
+    });
+    const result = recordBookingResult(flow, attempt.action!.id, {
+      status: "partial",
+      appointmentId: 12345,
+      noteStatus: "failed",
+    });
+
+    expect(result).toMatchObject({
+      consumed: true,
+      action: {
+        type: "book_appt",
+        consumed: true,
+      },
+      availabilitySearch: {
+        status: "invalidated",
+        lastInvalidationReason: "booking_completed",
+      },
+    });
+  });
+
   it("records booking attempts and rejects stale slots in report-only state", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",

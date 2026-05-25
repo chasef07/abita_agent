@@ -610,6 +610,7 @@ function classifyBookingResult(
   if (
     status === "booked" ||
     status === "ok" ||
+    (status === "partial" && record.appointmentId) ||
     (status === "success" && record.appointmentId)
   ) {
     return "success";

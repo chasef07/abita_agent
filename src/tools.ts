@@ -855,12 +855,82 @@ function activeAppointmentById(
   );
 }
 
+function appointmentIdFromBookingResult(result: unknown): number | null {
+  if (!isRecord(result)) return null;
+  const appointmentId = result.appointmentId;
+  if (typeof appointmentId === "number") return appointmentId;
+  if (typeof appointmentId === "string" && /^\d+$/.test(appointmentId)) {
+    return Number(appointmentId);
+  }
+  return null;
+}
+
+function recordBookedAppointmentInState(
+  state: CallState,
+  selectedSlot: StoredAvailabilitySlot,
+  result: unknown,
+): void {
+  const appointmentId = appointmentIdFromBookingResult(result);
+  if (appointmentId === null) return;
+
+  const provider =
+    isRecord(result) && typeof result.providerName === "string"
+      ? publicProviderName(result.providerName)
+      : selectedSlot.provider;
+  const facility =
+    isRecord(result) && typeof result.locationName === "string"
+      ? result.locationName
+      : getOfficeConfig(state.officeKey).displayName;
+  const type =
+    isRecord(result) && typeof result.appointmentTypeName === "string"
+      ? result.appointmentTypeName
+      : "Appointment";
+  const appointment: CallerAppointment = {
+    id: appointmentId,
+    date: selectedSlot.date,
+    time: selectedSlot.time,
+    provider,
+    type,
+    facility,
+    confirmed: true,
+  };
+  state.appointments = [
+    ...state.appointments.filter((item) => item.id !== appointmentId),
+    appointment,
+  ];
+  const activePatient = ensureActivePatientContext(state.flow);
+  activePatient.appointments = [
+    ...activePatient.appointments.filter((item) => item.id !== appointmentId),
+    appointment,
+  ];
+}
+
 function cancelTokenForAppointment(
   state: CallState,
   appointmentId: number,
 ): string | null {
   const token = state.appointmentCancelTokens?.[String(appointmentId)];
   return token?.trim() ? token : null;
+}
+
+async function refreshCancelTokenForAppointment(
+  state: CallState,
+  appointmentId: number,
+): Promise<string | null> {
+  if (!state.patientId) return null;
+  const result = await callApi(
+    "/api/patient/appointments",
+    { patientId: state.patientId },
+    getAmdOfficeForToolCall(state),
+  );
+  const rawAppointments = extractAppointments(result);
+  if (!rawAppointments) return null;
+
+  const appointments = publicCallerAppointments(rawAppointments);
+  state.appointments = appointments;
+  state.appointmentCancelTokens = appointmentCancelTokenMap(rawAppointments);
+  ensureActivePatientContext(state.flow).appointments = appointments;
+  return cancelTokenForAppointment(state, appointmentId);
 }
 
 function removeAppointmentById(state: CallState, appointmentId: number): void {
@@ -1128,6 +1198,7 @@ async function submitLegacyBooking(
   const legacyBookingSucceeded = legacyBookingLooksSuccessful(result);
   if (legacyBookingSucceeded) {
     recordSuccessfulLegacyBooking(state, selectedSlot, routing);
+    recordBookedAppointmentInState(state, selectedSlot, result);
   }
   if (isRecord(result)) {
     const message =
@@ -1152,6 +1223,7 @@ function legacyBookingLooksSuccessful(result: unknown): boolean {
   return (
     status === "booked" ||
     status === "ok" ||
+    (status === "partial" && Boolean(result.appointmentId)) ||
     (status === "success" && Boolean(result.appointmentId))
   );
 }
@@ -2016,7 +2088,13 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
         true,
       );
     }
-    const cancelToken = cancelTokenForAppointment(state, appointmentId);
+    let cancelToken = cancelTokenForAppointment(state, appointmentId);
+    if (!cancelToken && activeAppointmentById(state, appointmentId)) {
+      cancelToken = await refreshCancelTokenForAppointment(
+        state,
+        appointmentId,
+      );
+    }
     if (!cancelToken) {
       return toolOutcome(
         "not_allowed",
@@ -2290,6 +2368,7 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
       result,
     );
     if (bookingResult.consumed) {
+      recordBookedAppointmentInState(state, selectedSlot, result);
       clearAvailabilitySelection(state);
       updateCurrentTaskStep(state, "answer");
       return result;

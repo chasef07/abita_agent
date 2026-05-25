@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { buildToolsForTrunk } from "../agent.js";
 import { buildPrompt } from "../prompt.js";
 import {
+  CRYSTAL_RIVER_OFFICE_PHONE,
   DEV_OFFICE_PHONE,
   getOfficeConfig,
   getOfficeConfigByPhone,
@@ -88,13 +89,14 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("enables the flow harness only for the demo trunk by default", () => {
+  it("enables the flow harness for demo and Crystal River trunks by default", () => {
     delete process.env.FLOW_HARNESS_TRUNK_PHONES;
 
     expect(isFlowHarnessEnabledForTrunk(DEV_OFFICE_PHONE)).toBe(true);
     expect(isFlowHarnessEnabledForTrunk("14843989071")).toBe(true);
+    expect(isFlowHarnessEnabledForTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).toBe(true);
+    expect(isFlowHarnessEnabledForTrunk("13523202007")).toBe(true);
     expect(isFlowHarnessEnabledForTrunk(SPRING_HILL_OFFICE_PHONE)).toBe(false);
-    expect(isFlowHarnessEnabledForTrunk("+13523202007")).toBe(false);
     expect(isFlowHarnessEnabledForTrunk(HOLLYWOOD_OFFICE_PHONE)).toBe(false);
     for (const phone of SWEETWATER_TRUNK_PHONES) {
       expect(isFlowHarnessEnabledForTrunk(phone)).toBe(false);
@@ -258,16 +260,20 @@ describe("office routing helpers", () => {
     }
   });
 
-  it("only exposes flow harness tools on demo trunk calls", () => {
+  it("exposes flow harness tools on demo and Crystal River trunk calls", () => {
     const demoTools = buildToolsForTrunk(DEV_OFFICE_PHONE);
     expect(demoTools).toHaveProperty("record_turn_understanding");
     expect(demoTools).not.toHaveProperty("confirm_booking_action");
     expect(demoTools).not.toHaveProperty("confirm_side_effect_action");
 
+    const crystalRiverTools = buildToolsForTrunk(CRYSTAL_RIVER_OFFICE_PHONE);
+    expect(crystalRiverTools).toHaveProperty("record_turn_understanding");
+    expect(crystalRiverTools).not.toHaveProperty("confirm_booking_action");
+    expect(crystalRiverTools).not.toHaveProperty("confirm_side_effect_action");
+
     const liveTrunks = [
       SPRING_HILL_OFFICE_PHONE,
       SPRING_HILL_813_TRUNK_PHONE,
-      "+13523202007",
       HOLLYWOOD_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
     ];
@@ -286,7 +292,7 @@ describe("flow harness prompt gating", () => {
     delete process.env.FLOW_HARNESS_TRUNK_PHONES;
   });
 
-  it("injects state harness instructions only for the demo trunk", () => {
+  it("injects state harness instructions for demo and Crystal River trunks", () => {
     const prompt = buildPrompt(undefined, DEV_OFFICE_PHONE);
 
     expect(prompt).toContain("<harness_operating_contract>");
@@ -298,6 +304,23 @@ describe("flow harness prompt gating", () => {
     expect(prompt).not.toContain("RUNBOOK.md - How to Handle Every Call");
     expect(prompt).not.toContain("confirm_booking_action");
     expect(prompt).not.toContain("confirm_side_effect_action");
+
+    const crystalRiverPrompt = buildPrompt(
+      undefined,
+      CRYSTAL_RIVER_OFFICE_PHONE,
+    );
+
+    expect(crystalRiverPrompt).toContain("<harness_operating_contract>");
+    expect(crystalRiverPrompt).toContain("<flow_harness_runbook>");
+    expect(crystalRiverPrompt).toContain("<state_memory_contract>");
+    expect(crystalRiverPrompt).toContain("<context_capsules>");
+    expect(crystalRiverPrompt).toContain("record_turn_understanding");
+    expect(crystalRiverPrompt).not.toContain("<runbook>");
+    expect(crystalRiverPrompt).not.toContain(
+      "RUNBOOK.md - How to Handle Every Call",
+    );
+    expect(crystalRiverPrompt).not.toContain("confirm_booking_action");
+    expect(crystalRiverPrompt).not.toContain("confirm_side_effect_action");
   });
 
   it("keeps flow harness instructions out of live-office prompts", () => {
@@ -331,7 +354,7 @@ describe("flow harness prompt gating", () => {
 });
 
 describe("Crystal River prompt guidance", () => {
-  it("keeps office-specific facts in the Crystal River knowledge file, not a special prompt block", () => {
+  it("includes harness routing guidance while keeping office facts in the Crystal River knowledge file", () => {
     const prompt = buildPrompt(undefined, "+13523202007");
     const crystalRiverKnowledge = readFileSync(
       join(
@@ -344,7 +367,7 @@ describe("Crystal River prompt guidance", () => {
       "utf-8",
     );
 
-    expect(prompt).not.toContain("route_to_spring_hill");
+    expect(prompt).toContain("route_to_spring_hill");
     expect(prompt).not.toContain("do not transfer just for that");
     expect(crystalRiverKnowledge).toContain(
       "does **not** see pediatric ophthalmology",

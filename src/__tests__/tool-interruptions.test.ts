@@ -718,6 +718,57 @@ describe("tool interruption handling", () => {
     expect(requestBody).not.toHaveProperty("office");
   });
 
+  it("stores partial booking results with appointment IDs as booked appointments", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "partial",
+        appointmentId: 12345,
+        providerName: "Dr. D. Noel",
+        locationName: "Spring Hill",
+        appointmentTypeName: "Established Adult Medical (Follow Up)",
+        noteStatus: "failed",
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state, {
+      provider: "Dr. Noel",
+      date: "2026-05-26",
+      time: "10:00 AM",
+      datetime: "2026-05-26T10:00",
+    });
+    seedPendingBookingAction(state);
+
+    const result = await book_appt.execute(bookingArgs(), {
+      ctx,
+      toolCallId: "test-book-partial",
+    });
+
+    expect(result).toMatchObject({
+      status: "partial",
+      appointmentId: 12345,
+    });
+    expect(state.flow.pendingActions[0]).toMatchObject({
+      type: "book_appt",
+      consumed: true,
+    });
+    expect(state.appointments).toContainEqual({
+      id: 12345,
+      date: "2026-05-26",
+      time: "10:00 AM",
+      provider: "Dr. Noel",
+      type: "Established Adult Medical (Follow Up)",
+      facility: "Spring Hill",
+      confirmed: true,
+    });
+    expect(
+      state.flow.patients[state.flow.activePatientRef!].appointments,
+    ).toContainEqual(expect.objectContaining({ id: 12345 }));
+  });
+
   it("stores booking-token slots and hides raw scheduler IDs from the model", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
@@ -2026,8 +2077,33 @@ describe("tool interruption handling", () => {
     });
   });
 
-  it("blocks cancellation when the loaded appointment has no cancel token", async () => {
-    const fetchMock = vi.fn();
+  it("refreshes a missing cancel token for a loaded appointment before cancelling", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({
+          status: "found",
+          appointments: [
+            {
+              id: 12345,
+              date: "2026-06-01",
+              time: "9:00 AM",
+              provider: "Dr. Bach",
+              type: "Follow-up",
+              facility: "Spring Hill",
+              confirmed: true,
+              cancelToken: "fresh-cancel-token",
+            },
+          ],
+        }),
+        text: async () => "",
+      }))
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({ status: "cancelled" }),
+        text: async () => "",
+      }));
     vi.stubGlobal("fetch", fetchMock);
 
     const { ctx, state } = createToolContext();
@@ -2038,15 +2114,20 @@ describe("tool interruption handling", () => {
       { ctx, toolCallId: "test-cancel-missing-token" },
     );
 
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      outcome: "not_allowed",
-      nextStep: "confirm_cancel",
-      facts: {
-        reason: "cancel_requires_cancel_token",
-        appointmentId: 12345,
-      },
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      patientId: "patient-1",
     });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      appointmentId: 12345,
+      patientId: "patient-1",
+      cancelToken: "fresh-cancel-token",
+    });
+    expect(result).toMatchObject({
+      status: "cancelled",
+    });
+    expect(state.appointments).toEqual([]);
+    expect(state.appointmentCancelTokens).not.toHaveProperty("12345");
   });
 
   it("creates and consumes a pending cancellation action from the final tool call", async () => {
