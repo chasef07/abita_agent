@@ -8,9 +8,10 @@ The longer architecture notes remain historical design context.
 - Every call gets `session.userData.flow`.
 - Every call records `session.userData.preCallLookup` with explicit
   `verified`, `multiple_matches`, `no_match`, or `lookup_failed` status.
-- The live enforcement harness is enabled only when the inbound trunk is in
-  `FLOW_HARNESS_TRUNK_PHONES`; otherwise the legacy tool path remains active.
-- The default enabled trunk is the dev trunk.
+- The live enforcement harness is enabled when the inbound trunk is in
+  `FLOW_HARNESS_TRUNK_PHONES`, or in the default enabled trunk set when that
+  env var is unset; otherwise the legacy tool path remains active.
+- The default enabled trunks are dev, Spring Hill, and Crystal River.
 
 ## Turn State
 

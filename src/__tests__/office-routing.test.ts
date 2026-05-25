@@ -89,14 +89,19 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("enables the flow harness for demo and Crystal River trunks by default", () => {
+  it("enables the flow harness for demo, Spring Hill, and Crystal River trunks by default", () => {
     delete process.env.FLOW_HARNESS_TRUNK_PHONES;
 
     expect(isFlowHarnessEnabledForTrunk(DEV_OFFICE_PHONE)).toBe(true);
     expect(isFlowHarnessEnabledForTrunk("14843989071")).toBe(true);
+    expect(isFlowHarnessEnabledForTrunk(SPRING_HILL_OFFICE_PHONE)).toBe(true);
+    expect(isFlowHarnessEnabledForTrunk("17275919997")).toBe(true);
+    expect(isFlowHarnessEnabledForTrunk(SPRING_HILL_813_TRUNK_PHONE)).toBe(
+      true,
+    );
+    expect(isFlowHarnessEnabledForTrunk("18135484830")).toBe(true);
     expect(isFlowHarnessEnabledForTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).toBe(true);
     expect(isFlowHarnessEnabledForTrunk("13523202007")).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk(SPRING_HILL_OFFICE_PHONE)).toBe(false);
     expect(isFlowHarnessEnabledForTrunk(HOLLYWOOD_OFFICE_PHONE)).toBe(false);
     for (const phone of SWEETWATER_TRUNK_PHONES) {
       expect(isFlowHarnessEnabledForTrunk(phone)).toBe(false);
@@ -104,10 +109,11 @@ describe("office routing helpers", () => {
   });
 
   it("allows the flow harness trunk list to be overridden explicitly", () => {
-    process.env.FLOW_HARNESS_TRUNK_PHONES = `13523202007, ${SPRING_HILL_OFFICE_PHONE}`;
+    process.env.FLOW_HARNESS_TRUNK_PHONES = `13523202007, ${SWEETWATER_OFFICE_PHONE}`;
 
     expect(isFlowHarnessEnabledForTrunk("+13523202007")).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk(SPRING_HILL_OFFICE_PHONE)).toBe(true);
+    expect(isFlowHarnessEnabledForTrunk(SWEETWATER_OFFICE_PHONE)).toBe(true);
+    expect(isFlowHarnessEnabledForTrunk(SPRING_HILL_OFFICE_PHONE)).toBe(false);
     expect(isFlowHarnessEnabledForTrunk(DEV_OFFICE_PHONE)).toBe(false);
   });
 
@@ -263,25 +269,19 @@ describe("office routing helpers", () => {
     }
   });
 
-  it("keeps flow harness memory updates internal on demo and Crystal River trunk calls", () => {
-    const demoTools = buildToolsForTrunk(DEV_OFFICE_PHONE);
-    expect(demoTools).not.toHaveProperty("record_turn_understanding");
-    expect(demoTools).not.toHaveProperty("confirm_booking_action");
-    expect(demoTools).not.toHaveProperty("confirm_side_effect_action");
-
-    const crystalRiverTools = buildToolsForTrunk(CRYSTAL_RIVER_OFFICE_PHONE);
-    expect(crystalRiverTools).not.toHaveProperty("record_turn_understanding");
-    expect(crystalRiverTools).not.toHaveProperty("confirm_booking_action");
-    expect(crystalRiverTools).not.toHaveProperty("confirm_side_effect_action");
-
-    const liveTrunks = [
+  it("keeps flow harness memory updates internal on harness and live trunk calls", () => {
+    const harnessTrunks = [
+      DEV_OFFICE_PHONE,
       SPRING_HILL_OFFICE_PHONE,
       SPRING_HILL_813_TRUNK_PHONE,
+      CRYSTAL_RIVER_OFFICE_PHONE,
+    ];
+    const liveNonHarnessTrunks = [
       HOLLYWOOD_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
     ];
 
-    for (const phone of liveTrunks) {
+    for (const phone of [...harnessTrunks, ...liveNonHarnessTrunks]) {
       const tools = buildToolsForTrunk(phone);
       expect(tools).not.toHaveProperty("record_turn_understanding");
       expect(tools).not.toHaveProperty("confirm_booking_action");
@@ -295,7 +295,7 @@ describe("flow harness prompt gating", () => {
     delete process.env.FLOW_HARNESS_TRUNK_PHONES;
   });
 
-  it("injects state harness instructions for demo and Crystal River trunks", () => {
+  it("injects state harness instructions for demo, Spring Hill, and Crystal River trunks", () => {
     const prompt = buildPrompt(undefined, DEV_OFFICE_PHONE);
 
     expect(prompt).toContain("<harness_operating_contract>");
@@ -314,11 +314,16 @@ describe("flow harness prompt gating", () => {
       'If there is no referring doctor, the caller is unsure, or nobody referred them, use "none"',
     );
     expect(prompt).toContain(
-      "Routine vision: routine eye exam, annual exam, vision check, glasses prescription, contact lens prescription",
+      "Routine vision: routine eye exam, glasses prescription, or contact lens prescription using accepted vision coverage or self-pay",
     );
     expect(prompt).toContain(
-      "Medical: symptoms, referral, post-op, cataract, glaucoma, retina, urgent issues, or other clinical care",
+      "Medical: symptoms, referral, post-op, cataract, glaucoma, retina, urgent issues, or other clinical care.",
     );
+    expect(prompt).toContain(
+      "Optical shop tasks: glasses orders, repairs, pickup, warranty, frames, or contact lens orders usually transfer",
+    );
+    expect(prompt).toContain("## Side Effects");
+    expect(prompt).not.toContain("## Confirmation State");
     expect(prompt).not.toContain("record_turn_understanding");
     expect(prompt).not.toContain("<runbook>");
     expect(prompt).not.toContain("RUNBOOK.md - How to Handle Every Call");
@@ -343,10 +348,31 @@ describe("flow harness prompt gating", () => {
     );
     expect(crystalRiverPrompt).not.toContain("confirm_booking_action");
     expect(crystalRiverPrompt).not.toContain("confirm_side_effect_action");
+
+    for (const phone of [
+      SPRING_HILL_OFFICE_PHONE,
+      SPRING_HILL_813_TRUNK_PHONE,
+    ]) {
+      const springHillPrompt = buildPrompt(undefined, phone);
+
+      expect(springHillPrompt).toContain("<harness_operating_contract>");
+      expect(springHillPrompt).toContain("<flow_harness_runbook>");
+      expect(springHillPrompt).toContain("<state_memory_contract>");
+      expect(springHillPrompt).toContain("<context_capsules>");
+      expect(springHillPrompt).toContain("suggestedTool");
+      expect(springHillPrompt).toContain("## Scheduling Essentials");
+      expect(springHillPrompt).not.toContain("record_turn_understanding");
+      expect(springHillPrompt).not.toContain("<runbook>");
+      expect(springHillPrompt).not.toContain(
+        "RUNBOOK.md - How to Handle Every Call",
+      );
+      expect(springHillPrompt).not.toContain("confirm_booking_action");
+      expect(springHillPrompt).not.toContain("confirm_side_effect_action");
+    }
   });
 
-  it("keeps flow harness instructions out of live-office prompts", () => {
-    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+  it("keeps flow harness instructions out of non-harness live-office prompts", () => {
+    const prompt = buildPrompt(undefined, HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).not.toContain("<flow_harness_runbook>");
     expect(prompt).not.toContain("<state_memory_contract>");
@@ -389,7 +415,7 @@ describe("Crystal River prompt guidance", () => {
       "utf-8",
     );
 
-    expect(prompt).toContain("route_to_spring_hill");
+    expect(prompt).toContain("Use the routing tool, not the transfer tool");
     expect(prompt).not.toContain("do not transfer just for that");
     expect(crystalRiverKnowledge).toContain(
       "does **not** see pediatric ophthalmology",
@@ -416,22 +442,15 @@ describe("Crystal River prompt guidance", () => {
     );
 
     expect(prompt).toContain("an eye care practice");
-    expect(prompt).toContain("Visit Type Triage");
+    expect(prompt).toContain("<flow_harness_runbook>");
+    expect(prompt).toContain("## Scheduling Essentials");
     expect(prompt).toContain(
+      "capture exactly two booking-note facts: appointment reason and referring doctor",
+    );
+    expect(prompt).not.toContain("Visit Type Triage");
+    expect(prompt).not.toContain(
       "Before choosing a path, checking insurance, or searching availability",
     );
-    expect(prompt).toContain(
-      `If the caller starts with a bare insurance question like "do you take Care Plus?"`,
-    );
-    expect(prompt).toContain(
-      "Medical and routine vision insurance lookups can have different answers for the same plan name",
-    );
-    expect(prompt).toContain("Reason for visit and referring doctor");
-    expect(prompt).toContain(
-      'triage first: "is this for a routine eye exam or glasses/contact lens prescription, or for a medical eye visit?"',
-    );
-    expect(prompt).toContain("Spring Hill routine-vision lane");
-    expect(prompt).toContain("routing `optical_only`");
     expect(prompt).not.toContain("1010");
     expect(prompt).not.toContain("3364");
     expect(prompt).not.toContain("4244");
@@ -452,12 +471,13 @@ describe("Crystal River prompt guidance", () => {
     );
   });
 
-  it("tells new-patient flows to confirm the inbound caller number before recollecting digits", () => {
+  it("keeps legacy registration detail out of the Spring Hill harness prompt", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
-    expect(prompt).toContain(
+    expect(prompt).not.toContain(
       `is the number you're calling from a good one on file?`,
     );
+    expect(prompt).not.toContain("Email is optional");
   });
 
   it("keeps Hollywood and Sweetwater off the Crystal River routing prompt block", () => {
@@ -506,29 +526,31 @@ describe("Crystal River prompt guidance", () => {
     expect(sweetwaterKnowledge).toContain("Dr. Maria Casas");
   });
 
-  it("allows registration to continue when a new patient has no email", () => {
-    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+  it("keeps legacy registration guidance in non-harness prompts", () => {
+    const prompt = buildPrompt(undefined, HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).toContain("Email is optional");
     expect(prompt).toContain("continue registration without it");
   });
 
-  it("tells scheduling flows to send note facts in book_appt", () => {
+  it("keeps compact side-effect guidance in the Spring Hill harness prompt", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
     expect(prompt).toContain(
-      "ask reason for visit first, then ask whether a doctor referred them",
+      "capture exactly two booking-note facts: appointment reason and referring doctor",
     );
     expect(prompt).toContain(
-      "Send `appointmentReason` and `referringDoctor` in book_appt",
+      "Side effects require explicit caller confirmation and a successful tool result before you say they are done.",
     );
     expect(prompt).toContain(
-      "Do not call add_patient_note for normal scheduling notes",
+      "For reschedules, book the replacement first, then cancel the old appointment after booking succeeds.",
     );
+    expect(prompt).not.toContain("## Confirmation State");
+    expect(prompt).not.toContain("Do not call add_patient_note separately");
   });
 
-  it("tells the agent to convert relative dates silently", () => {
-    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+  it("keeps legacy date guidance in non-harness prompts", () => {
+    const prompt = buildPrompt(undefined, HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).toContain("Convert dates silently");
     expect(prompt).toContain("Do not explain the date math out loud");
@@ -538,10 +560,10 @@ describe("Crystal River prompt guidance", () => {
   it("prioritizes emergency and urgent eye symptoms before routine scheduling", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
-    expect(prompt).toContain("Urgent / Emergency Calls");
-    expect(prompt).toContain("retinal tear");
-    expect(prompt).toContain("lightning bolts");
-    expect(prompt).toContain("Do not finish normal registration");
+    expect(prompt).toContain("## Emergency");
+    expect(prompt).toContain("sudden vision loss");
+    expect(prompt).toContain("retinal tear or detachment concern");
+    expect(prompt).toContain("clinical direction is needed");
   });
 
   it("keeps appointment times TTS-safe with spaced AM and PM", () => {
