@@ -1582,7 +1582,7 @@ describe("deterministic turn router", () => {
     });
   });
 
-  it("plans one confirmed reschedule action with the note payload", () => {
+  it("plans a confirmed reschedule as replacement booking then old cancellation", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
       patientId: "patient-1",
@@ -1636,19 +1636,44 @@ describe("deterministic turn router", () => {
     applyPlannerPatch(flow, command);
 
     expect(command).toMatchObject({
-      phase: "rescheduling",
+      phase: "booking_replacement",
       nextAction: "call_tool",
-      tool: "reschedule_appt",
-      allowedTools: ["reschedule_appt"],
+      tool: "book_appt",
+      allowedTools: ["book_appt"],
       args: {
         slotId: "A",
+        appointmentKind: "medical",
         appointmentReason: "pressure follow-up",
         referringDoctor: "none",
       },
     });
     expect(command.allowedTools).not.toContain("add_patient_note");
-    expect(command.allowedTools).not.toContain("book_appt");
     expect(command.allowedTools).not.toContain("cancel_appt");
+    expect(command.allowedTools).not.toContain("reschedule_appt");
+
+    const activePlan = flow.taskPlans?.[flow.activeTaskPlanId!];
+    expect(activePlan?.kind).toBe("appointment_reschedule");
+    if (activePlan?.kind !== "appointment_reschedule") {
+      throw new Error("expected appointment reschedule plan");
+    }
+    flow.taskPlans![activePlan.id] = {
+      ...activePlan,
+      phase: "cancelling_old_appointment",
+      replacementBookedAppointmentId: 67890,
+      updatedAt: Date.now(),
+    };
+
+    const cancelCommand = planNextCommand(flow);
+
+    expect(cancelCommand).toMatchObject({
+      phase: "cancelling_old_appointment",
+      nextAction: "call_tool",
+      tool: "cancel_appt",
+      allowedTools: ["cancel_appt"],
+      args: { appointmentId: 12345 },
+    });
+    expect(cancelCommand.allowedTools).not.toContain("book_appt");
+    expect(cancelCommand.allowedTools).not.toContain("reschedule_appt");
   });
 
   it("does not clear the selected slot when confirmation repeats known visit facts", () => {

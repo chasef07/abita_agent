@@ -147,6 +147,7 @@ describe("dynamic tool exposure", () => {
       "planner_guidance_broad:appointment_reschedule:searching_replacement",
     );
     expect(decision.visibleToolNames).toEqual(DEV_BROAD_TOOL_NAMES);
+    expect(decision.visibleToolNames).not.toContain("reschedule_appt");
   });
 
   it("keeps appointment lookup visible before a preloaded patient is verified", () => {
@@ -235,7 +236,6 @@ const DEV_BROAD_TOOL_NAMES = [
   "cancel_appt",
   "add_patient_note",
   "book_appt",
-  "reschedule_appt",
   "check_insurance",
   "lookup_knowledge",
   "transfer_call",

@@ -23,22 +23,18 @@ import {
 
 const RESCHEDULE_BLOCKED_ACTIONS: BlockedAction[] = [
   {
-    action: "reschedule_appt",
+    action: "book_appt",
     reason:
       "replacement slot and explicit full reschedule confirmation required",
     until: "offered replacement slot is confirmed",
   },
   {
-    action: "book_appt",
-    reason: "reschedule must be one planner-approved replacement action",
-  },
-  {
     action: "cancel_appt",
-    reason: "do not cancel the old appointment directly during reschedule",
+    reason: "book the replacement appointment before cancelling the old one",
   },
   {
     action: "add_patient_note",
-    reason: "replacement note payload belongs inside reschedule_appt",
+    reason: "replacement note payload belongs inside book_appt",
   },
 ];
 
@@ -71,7 +67,7 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
       allowedTools: ["transfer_call"],
       blockedActions: [
         {
-          action: "reschedule_appt",
+          action: "book_appt",
           reason: "replacement may already be booked; human recovery required",
         },
       ],
@@ -156,6 +152,8 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     appointmentReason: note.appointmentReason,
     referringDoctor: note.referringDoctor,
     rescheduleConfirmed,
+    replacementBookedAppointmentId: existingPlan?.replacementBookedAppointmentId,
+    oldCancelled: existingPlan?.oldCancelled,
     createdAt: existingPlan?.createdAt ?? Date.now(),
     updatedAt: Date.now(),
   };
@@ -253,6 +251,35 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     });
   }
 
+  if (
+    typeof plan.replacementBookedAppointmentId === "number" &&
+    oldAppointment &&
+    !plan.oldCancelled
+  ) {
+    return command(flow, plan, {
+      phase: "cancelling_old_appointment",
+      knownFacts: knownRescheduleFacts(patient, flow, plan),
+      missingFacts: [],
+      nextAction: "call_tool",
+      tool: "cancel_appt",
+      args: { appointmentId: oldAppointment.id },
+      allowedTools: ["cancel_appt"],
+      blockedActions: [
+        {
+          action: "book_appt",
+          reason: "replacement appointment is already booked",
+        },
+        {
+          action: "add_patient_note",
+          reason: "replacement note payload was already saved by book_appt",
+        },
+      ],
+      instruction:
+        "Call cancel_appt now for the old appointment so the reschedule is completed.",
+      step: "cancel",
+    });
+  }
+
   if (!flow.schedulingGoal?.selectedSlotId || !rescheduleConfirmed) {
     return command(flow, plan, {
       phase,
@@ -275,32 +302,29 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
   }
 
   return command(flow, plan, {
-    phase,
+    phase: "booking_replacement",
     knownFacts: knownRescheduleFacts(patient, flow, plan),
     missingFacts: [],
     nextAction: "call_tool",
-    tool: "reschedule_appt",
+    tool: "book_appt",
     args: {
       slotId: flow.schedulingGoal.selectedSlotId,
+      appointmentKind: appointmentKindForReschedule(flow, oldAppointment),
       appointmentReason: note.appointmentReason,
       referringDoctor: note.referringDoctor,
     },
-    allowedTools: ["reschedule_appt"],
+    allowedTools: ["book_appt"],
     blockedActions: [
       {
-        action: "book_appt",
-        reason: "reschedule must be submitted through reschedule_appt",
-      },
-      {
         action: "cancel_appt",
-        reason: "reschedule must be submitted through reschedule_appt",
+        reason: "book the replacement appointment before cancelling the old one",
       },
       {
         action: "add_patient_note",
-        reason: "reschedule_appt carries the replacement note payload",
+        reason: "book_appt carries the replacement note payload",
       },
     ],
-    instruction: "Call reschedule_appt now.",
+    instruction: "Call book_appt now for the replacement appointment.",
     step: "book",
   });
 }
@@ -329,6 +353,18 @@ function knownRescheduleFacts(
       : undefined,
     plan.referringDoctor
       ? { key: "referringDoctor", value: plan.referringDoctor }
+      : undefined,
+    typeof plan.replacementBookedAppointmentId === "number"
+      ? {
+          key: "replacementBookedAppointment",
+          value: String(plan.replacementBookedAppointmentId),
+        }
+      : undefined,
+    plan.oldCancelled
+      ? {
+          key: "oldAppointmentCancelled",
+          value: "true",
+        }
       : undefined,
   ].filter(isPlannerFact);
 }
@@ -371,7 +407,7 @@ function reschedulePhase({
   }
   if (!replacementSlotId) return "offering_replacement";
   if (!rescheduleConfirmed) return "confirming_reschedule";
-  return "rescheduling";
+  return "booking_replacement";
 }
 
 function notePayloadForReschedule(
@@ -383,6 +419,7 @@ function notePayloadForReschedule(
   return {
     appointmentReason:
       draft?.appointmentReason ??
+      flow.schedulingGoal?.visitReason ??
       existingPlan?.appointmentReason ??
       oldAppointment?.type ??
       "existing appointment reschedule",
@@ -403,6 +440,25 @@ function visitTypeForAppointment(
     text.includes("contact")
   ) {
     return "routine_vision";
+  }
+  return "medical";
+}
+
+function appointmentKindForReschedule(
+  flow: CallFlowState,
+  oldAppointment: CallerAppointment | undefined,
+): "medical" | "routine_vision" | "post_op" {
+  if (visitTypeForAppointment(oldAppointment) === "routine_vision") {
+    return "routine_vision";
+  }
+  const reason =
+    `${flow.schedulingGoal?.visitReason ?? ""} ${oldAppointment?.type ?? ""}`.toLowerCase();
+  if (
+    /\bpost\s*-?\s*op\b|\bpost\s+operative\b|\bpostoperative\b|\bsurgery\s+follow\s*-?\s*up\b|\brecent\s+surgery\b/.test(
+      reason,
+    )
+  ) {
+    return "post_op";
   }
   return "medical";
 }

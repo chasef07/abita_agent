@@ -3,7 +3,14 @@ import type { OfficeConfig } from "../customer/profile.js";
 import type { CallFlowState, WorkflowToolName } from "../flow/index.js";
 import type { CallState } from "./call-state.js";
 
-export type AgentToolName = "record_turn_understanding" | WorkflowToolName;
+export type ModelFacingWorkflowToolName = Exclude<
+  WorkflowToolName,
+  "reschedule_appt"
+>;
+
+export type AgentToolName =
+  | "record_turn_understanding"
+  | ModelFacingWorkflowToolName;
 
 export type AgentToolMap = Record<
   AgentToolName,
@@ -37,7 +44,6 @@ const ALL_TOOL_NAMES: AgentToolName[] = [
   "cancel_appt",
   "add_patient_note",
   "book_appt",
-  "reschedule_appt",
   "check_insurance",
   "lookup_knowledge",
   "route_to_spring_hill",
@@ -114,7 +120,6 @@ function legacyToolNamesForOffice(
     "cancel_appt",
     "add_patient_note",
     "book_appt",
-    "reschedule_appt",
     "check_insurance",
     "lookup_knowledge",
     ...(office.features.routeToSpringHill

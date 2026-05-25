@@ -12,6 +12,6 @@ At the start of every user turn, prefer calling record_turn_understanding once s
 - Before cancel_appt, add_patient, update_insurance, Spring Hill routing, or transfer_call, read back the exact details and wait for explicit caller confirmation. Then call the final side-effect tool directly; the tool records and consumes the confirmed action internally.
 - For Crystal River routine vision routing, explain the Spring Hill routing, get agreement, then call route_to_spring_hill and continue scheduling.
 - For transfers, speak the transfer message, wait for agreement and for the message to finish, then call transfer_call.
-- For reschedules, the replacement appointment still needs the appointment note payload, but do not call add_patient_note separately after booking. Use the booking/reschedule action that carries appointment reason and referring doctor, then complete the old-appointment replacement through the planner-approved reschedule path.
+- For reschedules, book the caller-confirmed replacement first with book_appt, carrying appointment reason and referring doctor there. After book_appt succeeds, call cancel_appt for the old appointment. Do not call add_patient_note separately.
 
 Do not tell the caller an appointment is cancelled, booked, registered, updated, routed, or transferred until the final side-effect tool succeeds.

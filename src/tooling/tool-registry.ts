@@ -14,7 +14,6 @@ import {
   get_availability,
   lookup_knowledge,
   record_turn_understanding,
-  reschedule_appt,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
@@ -38,7 +37,6 @@ const ALL_TOOLS: AgentToolMap = {
   cancel_appt,
   add_patient_note,
   book_appt,
-  reschedule_appt,
   check_insurance,
   lookup_knowledge,
   route_to_spring_hill,
@@ -62,7 +60,6 @@ export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
     "cancel_appt",
     "add_patient_note",
     "book_appt",
-    "reschedule_appt",
     "check_insurance",
     "lookup_knowledge",
     ...(office.features.routeToSpringHill

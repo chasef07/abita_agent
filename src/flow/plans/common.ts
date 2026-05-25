@@ -288,7 +288,6 @@ export function operationalBlockedActions(reason: string): BlockedAction[] {
     { action: "get_availability", reason },
     { action: "book_appt", reason },
     { action: "cancel_appt", reason },
-    { action: "reschedule_appt", reason },
     { action: "route_to_spring_hill", reason },
     { action: "transfer_call", reason },
   ];

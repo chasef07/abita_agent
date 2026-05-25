@@ -322,7 +322,8 @@ export interface AppointmentReschedulePlan {
     | "searching_replacement"
     | "offering_replacement"
     | "confirming_reschedule"
-    | "rescheduling"
+    | "booking_replacement"
+    | "cancelling_old_appointment"
     | "complete"
     | "partial_failure";
   objective: string;
@@ -336,6 +337,8 @@ export interface AppointmentReschedulePlan {
   appointmentReason?: string;
   referringDoctor?: string;
   rescheduleConfirmed?: boolean;
+  replacementBookedAppointmentId?: number;
+  oldCancelled?: boolean;
   rescheduleOperationId?: string;
   partialFailureReason?: string;
   createdAt: number;

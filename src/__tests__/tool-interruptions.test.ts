@@ -29,7 +29,6 @@ import {
   lookup_knowledge,
   makeCurrentSpeechUninterruptible,
   record_turn_understanding,
-  reschedule_appt,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
@@ -2308,12 +2307,18 @@ describe("tool interruption handling", () => {
     expect(state.flow.activeFlow).toBe("scheduling");
   });
 
-  it("submits reschedule as one model-facing action with note payload", async () => {
+  it("submits reschedule as replacement booking followed by old cancellation", async () => {
     const fetchMock = vi
       .fn()
       .mockImplementationOnce(async () => ({
         ok: true,
-        json: async () => ({ status: "booked", appointmentId: 67890 }),
+        json: async () => ({
+          status: "booked",
+          appointmentId: 67890,
+          providerName: "Dr. J. Licht",
+          locationName: "Spring Hill",
+          appointmentTypeName: "Follow-up",
+        }),
         text: async () => "",
       }))
       .mockImplementationOnce(async () => ({
@@ -2355,23 +2360,59 @@ describe("tool interruption handling", () => {
     recordAvailabilityCachedSlots(state.flow, [{ slotId: "A" }]);
     applyPlannerPatch(state.flow, planNextCommand(state.flow));
 
-    const result = await reschedule_appt.execute(
+    const bookingResult = await book_appt.execute(
       {
         slotId: "A",
+        appointmentKind: "medical",
         appointmentReason: "pressure follow-up",
         referringDoctor: "none",
       },
-      { ctx, toolCallId: "test-reschedule" },
+      { ctx, toolCallId: "test-book-replacement" },
     );
 
-    expect(result).toMatchObject({ status: "rescheduled" });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(bookingResult).toMatchObject({
+      status: "booked",
+      planner: {
+        nextAction: "cancel_appt",
+        tool: "cancel_appt",
+        args: { appointmentId: 12345 },
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       bookingToken: "replacement-token",
       patientId: "patient-1",
       appointmentReason: "pressure follow-up",
       referringDoctor: "none",
     });
+    expect(state.flow.pendingActions).toContainEqual(
+      expect.objectContaining({
+        type: "book_appt",
+        slotHash: "A",
+        confirmed: true,
+        consumed: true,
+      }),
+    );
+    const activePlan = state.flow.taskPlans?.[state.flow.activeTaskPlanId!];
+    expect(activePlan).toMatchObject({
+      kind: "appointment_reschedule",
+      replacementBookedAppointmentId: 67890,
+      oldCancelled: false,
+    });
+
+    const cancelResult = await cancel_appt.execute(
+      { appointmentId: 12345 },
+      { ctx, toolCallId: "test-cancel-old-appointment" },
+    );
+
+    expect(cancelResult).toMatchObject({
+      status: "cancelled",
+      planner: {
+        action: "complete",
+        phase: "complete",
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
       appointmentId: 12345,
       patientId: "patient-1",
@@ -2379,15 +2420,20 @@ describe("tool interruption handling", () => {
     });
     expect(state.flow.pendingActions).toContainEqual(
       expect.objectContaining({
-        type: "reschedule_appt",
-        oldAppointmentId: 12345,
-        appointmentReason: "pressure follow-up",
-        referringDoctor: "none",
+        type: "cancel_appt",
+        appointmentId: 12345,
         confirmed: true,
         consumed: true,
       }),
     );
-    expect(state.appointments).toEqual([]);
+    expect(
+      state.flow.pendingActions.some(
+        (action) => action.type === "reschedule_appt",
+      ),
+    ).toBe(false);
+    expect(state.appointments.map((appointment) => appointment.id)).toEqual([
+      67890,
+    ]);
   });
 
   it("creates and consumes a pending transfer action from the final tool call", async () => {

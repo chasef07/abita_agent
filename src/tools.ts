@@ -1446,6 +1446,48 @@ function updateReschedulePlanAfterResult(
   applyPlannerPatch(state.flow, command);
 }
 
+function markRescheduleReplacementBooked(
+  state: CallState,
+  result: unknown,
+): boolean {
+  const plan = activeReschedulePlan(state);
+  if (!plan || typeof plan.targetAppointmentId !== "number") return false;
+  const replacementBookedAppointmentId = appointmentIdFromBookingResult(result);
+  if (replacementBookedAppointmentId === null) return false;
+  state.flow.taskPlans = {
+    ...(state.flow.taskPlans ?? {}),
+    [plan.id]: {
+      ...plan,
+      phase: "cancelling_old_appointment",
+      replacementBookedAppointmentId,
+      oldCancelled: false,
+      updatedAt: Date.now(),
+    },
+  };
+  state.flow.activeIntent = "existing_appointment_reschedule";
+  state.flow.activeFlow = "appointment_management";
+  updateCurrentTaskStep(state, "cancel");
+  return true;
+}
+
+function markRescheduleOldAppointmentCancelled(
+  state: CallState,
+  appointmentId: number,
+): boolean {
+  const plan = activeReschedulePlan(state);
+  if (!plan || plan.targetAppointmentId !== appointmentId) return false;
+  state.flow.taskPlans = {
+    ...(state.flow.taskPlans ?? {}),
+    [plan.id]: {
+      ...plan,
+      phase: "complete",
+      oldCancelled: true,
+      updatedAt: Date.now(),
+    },
+  };
+  return true;
+}
+
 function cancellationLooksSuccessful(result: unknown): boolean {
   return (
     cancellationFailureReason(result) === "appointment_already_cancelled" ||
@@ -2121,6 +2163,10 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
     ) {
       consumeSideEffectActionForState(state, "cancel_appt", { appointmentId });
       removeAppointmentById(state, appointmentId);
+      const completedReschedule = markRescheduleOldAppointmentCancelled(
+        state,
+        appointmentId,
+      );
       state.flow.pendingConfirmation = undefined;
       const resumedTask =
         state.flow.currentTask?.kind === "appointment_management"
@@ -2129,6 +2175,9 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
       if (!resumedTask) {
         updateCurrentTaskStep(state, "answer");
         state.flow.step = "answer";
+      }
+      if (completedReschedule) {
+        return withLatestPlannerCommand(state, result);
       }
       return result;
     }
@@ -2370,6 +2419,9 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
     if (bookingResult.consumed) {
       recordBookedAppointmentInState(state, selectedSlot, result);
       clearAvailabilitySelection(state);
+      if (markRescheduleReplacementBooked(state, result)) {
+        return withLatestPlannerCommand(state, result);
+      }
       updateCurrentTaskStep(state, "answer");
       return result;
     }

@@ -1,16 +1,18 @@
 # Task-Plan Flow Harness Spec
 
-Status: source of truth for the next flow-harness implementation. Not yet fully
-implemented.
+Status: historical planning spec. The current implementation and tests are the
+source of truth where they differ from this document.
 
 Source traces: `SCL_ctXMgWUCKsZg` and `SCL_kPv8L7nVVxtm`, reviewed on
 May 24, 2026.
 
 ## Source Of Truth
 
-Use this document as the implementation source of truth for the next harness
-rewrite. Older architecture notes remain useful background, but when they
-conflict with this spec, this spec wins.
+Use this document as background for the task-plan design. The current
+implementation intentionally diverges from the older `reschedule_appt` model:
+reschedules now book the replacement with `book_appt`, carrying the note
+payload, then cancel the old appointment with `cancel_appt` after the
+replacement succeeds.
 
 The current implementation is still step/`nextAction` based. The target
 implementation is task-plan based.
@@ -62,8 +64,8 @@ automaton that computes the first blocked frontier of the task.
 - Runtime context changes from step/`nextAction` to task phase, known facts,
   missing facts, next safe action, allowed tools, and blocked actions.
 - The first implementation slice is appointment management only.
-- Reschedule is one confirmed model-facing action, `reschedule_appt`, carrying
-  the replacement appointment note payload.
+- Reschedule follows the legacy-proven sequence: `book_appt` for the
+  replacement with the note payload, then `cancel_appt` for the old appointment.
 - Wrapper guards and pending actions remain the safety boundary.
 
 ## Scope
