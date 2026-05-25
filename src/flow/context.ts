@@ -59,7 +59,7 @@ export function directivesForFlowState(
       return {
         currentObjective:
           "Verify the patient before using patient or scheduling tools.",
-        allowedActions: ["ask_patient_name", "ask_dob", "verify_patient"],
+        allowedActions: ["ask_patient_name", "ask_dob", "resolve_patient"],
         blockedActions: ["add_patient", "get_availability", "book_appt"],
       };
     case "collect_registration":

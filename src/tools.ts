@@ -59,6 +59,7 @@ import {
   appointmentCancelTokenMap,
   publicCallerAppointments,
   type CallState,
+  type PatientAppointmentsStatus,
   type StoredAvailabilitySlot,
   type StoredCallerAppointment,
 } from "./tooling/call-state.js";
@@ -558,14 +559,22 @@ export function getAmdOfficeForToolCall(
 
 /** Apply patient data from an API response, resetting all patient fields so nothing stale lingers. */
 function applyPatientResult(state: CallState, result: any): void {
-  const rawAppointments = extractAppointments(result) ?? [];
-  const appointments = publicCallerAppointments(rawAppointments);
+  const rawAppointments = extractAppointments(result);
+  const appointmentsStatus = appointmentStatusFromResult(
+    result,
+    rawAppointments,
+  );
+  const shouldReplaceAppointments = shouldReplaceAppointmentState(
+    rawAppointments,
+    appointmentsStatus,
+  );
+  const appointments = publicCallerAppointments(rawAppointments ?? []);
   const patientChange = recordVerifiedPatient(state.flow, {
     patientId: result.patientId ?? null,
     patientName: result.name ?? null,
     dob: result.dob ?? null,
     phone: result.phone ?? null,
-    appointments,
+    ...(shouldReplaceAppointments ? { appointments } : {}),
   });
   if (String(result.status ?? "").toLowerCase() === "created") {
     const patient = ensureActivePatientContext(state.flow);
@@ -595,8 +604,20 @@ function applyPatientResult(state: CallState, result: any): void {
   state.allowedProviders = result.allowedProviders ?? [];
   state.routingAmbiguous = result.routingAmbiguous ?? false;
   state.preauthRequired = result.preauthRequired ?? false;
-  state.appointments = appointments;
-  state.appointmentCancelTokens = appointmentCancelTokenMap(rawAppointments);
+  state.appointmentsStatus = appointmentsStatus ?? null;
+  if (shouldReplaceAppointments) {
+    state.appointments = appointments;
+    state.appointmentCancelTokens = appointmentCancelTokenMap(
+      rawAppointments ?? [],
+    );
+    if (appointmentsStatus === "found" || appointmentsStatus === "none") {
+      recordAppointmentLookupResult(state.flow, appointments.length);
+    }
+  } else if (invalidatePatientState) {
+    state.appointments = [];
+    state.appointmentCancelTokens = {};
+    ensureActivePatientContext(state.flow).appointments = [];
+  }
   state.flow.officeKey = state.officeKey;
   state.flow.routing = normalizeSchedulingRouting(state.routing);
   state.flow.coverageType = state.checkedInsuranceCoverageType ?? undefined;
@@ -670,6 +691,7 @@ function clearSessionPatientRecord(
   state.allowedProviders = [];
   state.routingAmbiguous = false;
   state.preauthRequired = false;
+  state.appointmentsStatus = null;
   state.appointments = [];
   state.appointmentCancelTokens = {};
   state.flow.coverageType = undefined;
@@ -685,6 +707,9 @@ function syncSessionPatientFromActiveFlow(state: CallState): void {
   );
   state.dob = patient.dob?.value ?? null;
   state.appointments = [...patient.appointments];
+  if (patient.appointments.length > 0 && !state.appointmentsStatus) {
+    state.appointmentsStatus = "found";
+  }
   state.flow.patientStatus = patient.status;
 
   if (patient.insurance) {
@@ -842,8 +867,40 @@ function extractAppointments(
   return null;
 }
 
+function appointmentStatusFromResult(
+  result: unknown,
+  appointments: StoredCallerAppointment[] | null,
+): PatientAppointmentsStatus | null {
+  if (isRecord(result) && typeof result.appointmentsStatus === "string") {
+    const status = result.appointmentsStatus.toLowerCase();
+    if (
+      status === "found" ||
+      status === "none" ||
+      status === "skipped" ||
+      status === "error"
+    ) {
+      return status;
+    }
+  }
+  if (isRecord(result) && result.status === "no_appointments") return "none";
+  if (appointments && appointments.length > 0) return "found";
+  return null;
+}
+
+function shouldReplaceAppointmentState(
+  appointments: StoredCallerAppointment[] | null,
+  status: PatientAppointmentsStatus | null,
+): boolean {
+  if (!appointments) return false;
+  return status !== "error" && status !== "skipped";
+}
+
 function isNoAppointmentsResult(result: unknown): boolean {
-  return isRecord(result) && result.status === "no_appointments";
+  return (
+    isRecord(result) &&
+    (result.status === "no_appointments" ||
+      result.appointmentsStatus === "none")
+  );
 }
 
 function storeAppointmentLookupResult(
@@ -851,9 +908,22 @@ function storeAppointmentLookupResult(
   result: unknown,
 ): boolean {
   const rawAppointments = extractAppointments(result);
-  if (!rawAppointments && !isNoAppointmentsResult(result)) return false;
+  const appointmentsStatus = appointmentStatusFromResult(
+    result,
+    rawAppointments,
+  );
+  if (
+    appointmentsStatus === "error" ||
+    appointmentsStatus === "skipped" ||
+    (!rawAppointments && !isNoAppointmentsResult(result))
+  ) {
+    state.appointmentsStatus = appointmentsStatus ?? state.appointmentsStatus;
+    return false;
+  }
 
   const appointments = publicCallerAppointments(rawAppointments ?? []);
+  state.appointmentsStatus =
+    appointmentsStatus ?? (appointments.length > 0 ? "found" : "none");
   state.appointments = appointments;
   state.appointmentCancelTokens = appointmentCancelTokenMap(
     rawAppointments ?? [],
@@ -871,11 +941,42 @@ async function lookupAppointmentsForVerifiedPatient(
   state: CallState,
 ): Promise<unknown> {
   const result = await callApi(
-    "/api/patient/appointments",
-    { patientId: state.patientId },
+    "/api/patient/resolve",
+    { patientId: state.patientId, includeAppointments: true },
     getAmdOfficeForToolCall(state),
   );
   storeAppointmentLookupResult(state, result);
+  return result;
+}
+
+async function resolvePatientAppointments(state: CallState): Promise<unknown> {
+  syncSessionPatientFromActiveFlow(state);
+  if (
+    isFlowHarnessEnabled(state) &&
+    state.flow.patientStatus !== "verified" &&
+    state.flow.patientStatus !== "created"
+  ) {
+    return toolOutcome(
+      "not_allowed",
+      "verify_patient",
+      "Confirm the preloaded patient identity or verify the patient before looking up appointments.",
+      { reason: "appointment_lookup_requires_verified_patient" },
+      true,
+    );
+  }
+  if (!state.patientId) {
+    return toolOutcome(
+      "not_allowed",
+      "verify_patient",
+      "Verify the patient before looking up appointments.",
+      { reason: "appointment_lookup_requires_verified_patient" },
+      true,
+    );
+  }
+  const result = await lookupAppointmentsForVerifiedPatient(state);
+  if (extractAppointments(result) || isNoAppointmentsResult(result)) {
+    return withLatestPlannerCommand(state, result);
+  }
   return result;
 }
 
@@ -886,9 +987,13 @@ function shouldAutoLookupAppointmentsAfterVerification(
   if (!isFlowHarnessEnabled(state)) return false;
   if (!state.patientId) return false;
   if (!command) return false;
-  if (command.nextAction !== "call_tool" || command.tool !== "confirm_appt") {
+  if (
+    command.nextAction !== "call_tool" ||
+    command.tool !== "resolve_patient"
+  ) {
     return false;
   }
+  if (state.appointmentsStatus) return false;
   return (
     command.taskKind === "appointment_confirm" ||
     command.taskKind === "appointment_cancel" ||
@@ -973,14 +1078,27 @@ async function refreshCancelTokenForAppointment(
 ): Promise<string | null> {
   if (!state.patientId) return null;
   const result = await callApi(
-    "/api/patient/appointments",
-    { patientId: state.patientId },
+    "/api/patient/resolve",
+    { patientId: state.patientId, includeAppointments: true },
     getAmdOfficeForToolCall(state),
   );
   const rawAppointments = extractAppointments(result);
-  if (!rawAppointments) return null;
+  const appointmentsStatus = appointmentStatusFromResult(
+    result,
+    rawAppointments,
+  );
+  if (
+    !rawAppointments ||
+    appointmentsStatus === "error" ||
+    appointmentsStatus === "skipped"
+  ) {
+    state.appointmentsStatus = appointmentsStatus ?? state.appointmentsStatus;
+    return null;
+  }
 
   const appointments = publicCallerAppointments(rawAppointments);
+  state.appointmentsStatus =
+    appointmentsStatus ?? (appointments.length > 0 ? "found" : "none");
   state.appointments = appointments;
   state.appointmentCancelTokens = appointmentCancelTokenMap(rawAppointments);
   ensureActivePatientContext(state.flow).appointments = appointments;
@@ -1732,15 +1850,17 @@ If the caller only says a backchannel like "yes", "okay", or "mm-hmm", call this
   },
 });
 
-// --- verify_patient ---
-export const verify_patient = llm.tool({
-  description: `Verifies a patient's identity.
+// --- resolve_patient ---
+export const resolve_patient = llm.tool({
+  description: `The single patient-read tool. Use it to verify/load a patient and to refresh that verified patient's upcoming appointments.
 
 For MULTIPLE MATCHES (caller context says multiple patients on this number): just pass firstName and phone — the middleware matches by phone + first name. Do NOT ask for last name or DOB upfront.
 
 For all other cases: pass firstName, lastName, and dob (MM/DD/YYYY).
 
-Do NOT call if phone lookup already verified the patient (single match + confirmed first name). Check CALLER CONTEXT first.
+For appointment confirmation/cancellation/reschedule after a patient is already verified: call this with mode "appointments". Do not use a separate appointment lookup tool.
+
+Do NOT call if phone lookup already verified the patient (single match + confirmed first name) and appointments are already shown in caller context. Check CALLER CONTEXT first.
 
 After response:
 - If verified: let them know and move on.
@@ -1748,9 +1868,17 @@ After response:
 - If routing is "not_accepted": tell them straightforwardly.
 - If not found and you only sent firstName + phone: ask for last name and DOB and retry with full details.
 - If not found with full details: ask them to spell their name and retry with corrections.
-- If still not found after retry: lead into registration — "ok no worries, let me get you set up."`,
+- If still not found after retry: lead into registration — "ok no worries, let me get you set up."
+- If appointmentsStatus is "none": tell them you do not see upcoming appointments and offer to schedule if relevant.
+- If appointmentsStatus is "error": patient verification still succeeded, but appointment lookup can be retried later with mode "appointments".`,
   parameters: z.object({
-    firstName: z.string().describe("Patient's first name"),
+    mode: z
+      .enum(["verify", "appointments"])
+      .optional()
+      .describe(
+        "Use verify to identify a patient. Use appointments to refresh upcoming appointments for the already verified patient.",
+      ),
+    firstName: z.string().optional().describe("Patient's first name"),
     lastName: z
       .string()
       .optional()
@@ -1783,12 +1911,42 @@ After response:
       ),
   }),
   execute: async (
-    { firstName, lastName, dob, usePhone, nameSource, relationshipToCaller },
+    {
+      mode,
+      firstName,
+      lastName,
+      dob,
+      usePhone,
+      nameSource,
+      relationshipToCaller,
+    },
     { ctx },
   ) => {
     const state = getState(ctx);
     makeCurrentSpeechUninterruptible(ctx);
-    const policyResponse = evaluatePolicyForState(state, "verify_patient", {
+    const wantsAppointmentRefresh =
+      mode === "appointments" ||
+      (!firstName &&
+        !lastName &&
+        !dob &&
+        !usePhone &&
+        Boolean(state.patientId));
+    if (wantsAppointmentRefresh) {
+      return resolvePatientAppointments(state);
+    }
+
+    if (!firstName && !lastName && !dob && !usePhone) {
+      return toolOutcome(
+        "needs_clarification",
+        "verify_patient",
+        "Ask for the patient's name and date of birth before looking them up.",
+        { reason: "patient_lookup_requires_identity" },
+        true,
+      );
+    }
+
+    const policyResponse = evaluatePolicyForState(state, "resolve_patient", {
+      mode: "verify",
       firstName,
       lastName,
       dob,
@@ -1818,13 +1976,15 @@ After response:
         dob: dob ?? null,
       });
     }
-    const body: Record<string, unknown> = { firstName };
+    const body: Record<string, unknown> = {};
+    if (firstName) body.firstName = firstName;
     if (lastName) body.lastName = lastName;
     if (dob) body.dob = dob;
     if (usePhone) body.phone = state.callerPhone;
+    body.includeAppointments = true;
     ensureRoutineVisionOffice(state);
     const result = (await callApi(
-      "/api/verify-patient",
+      "/api/patient/resolve",
       body,
       getAmdOfficeForToolCall(state),
     )) as any;
@@ -1860,7 +2020,7 @@ After response:
 
 // --- add_patient ---
 export const add_patient = llm.tool({
-  description: `Creates a new patient record. Use only when verify_patient returns no match. Every submitted field must come from what the caller explicitly said — never fabricate or guess values.
+  description: `Creates a new patient record. Use only when resolve_patient returns no match. Every submitted field must come from what the caller explicitly said — never fabricate or guess values.
 
 Follow the registration order in the runbook. Key rules for this tool:
 - Run check_insurance first. Use the canonicalPlan from the latest check_insurance result for the insurance value sent to middleware. If the tool accepted a family alias like "Blue Cross" or "Oscar", do not rewrite it yourself.
@@ -1939,7 +2099,7 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
 
 // --- update_insurance ---
 export const update_insurance = llm.tool({
-  description: `Updates a verified patient's insurance. Requires verify_patient first. Confirm plan name and member ID with caller before calling this tool. For self-pay, do not ask for a member ID; use subscriberNum "self pay".
+  description: `Updates a verified patient's insurance. Requires resolve_patient first. Confirm plan name and member ID with caller before calling this tool. For self-pay, do not ask for a member ID; use subscriberNum "self pay".
 
 Run check_insurance first with medical coverage and use the canonicalPlan from the latest result for the insurance value sent to middleware. Do not use update_insurance just to schedule a routine vision appointment for an existing patient; collect/check the accepted vision coverage or self-pay option and schedule on the routine-vision lane instead.
 
@@ -2106,57 +2266,17 @@ After response: check if date shifted vs requested — tell caller if different.
   },
 });
 
-// --- confirm_appt ---
-export const confirm_appt = llm.tool({
-  description: `Retrieves upcoming appointments (next 60 days) for a verified patient. Patient ID is read from session state automatically. Requires a verified patient — either from phone lookup or verify_patient.
-
-If appointments (with IDs) are already shown in the caller context from the phone lookup AND you haven't switched patients, you already have this data — skip this tool. Only call if you switched patients, need fresh data, or appointments weren't in the caller context.
-
-Read back the nearest appointment: date, time, doctor, and location. If multiple, read one at a time. If none found, offer to schedule.`,
-  parameters: z.object({}),
-  execute: async (_, { ctx }) => {
-    const state = getState(ctx);
-    makeCurrentSpeechUninterruptible(ctx);
-    syncSessionPatientFromActiveFlow(state);
-    if (
-      isFlowHarnessEnabled(state) &&
-      state.flow.patientStatus !== "verified" &&
-      state.flow.patientStatus !== "created"
-    ) {
-      return toolOutcome(
-        "not_allowed",
-        "verify_patient",
-        "Confirm the preloaded patient identity or verify the patient before looking up appointments.",
-        { reason: "appointment_lookup_requires_verified_patient" },
-        true,
-      );
-    }
-    if (!state.patientId) {
-      return toolOutcome(
-        "not_allowed",
-        "verify_patient",
-        "Verify the patient before looking up appointments.",
-        { reason: "appointment_lookup_requires_verified_patient" },
-        true,
-      );
-    }
-    const result = await lookupAppointmentsForVerifiedPatient(state);
-    if (extractAppointments(result) || isNoAppointmentsResult(result)) {
-      return withLatestPlannerCommand(state, result);
-    }
-    return result;
-  },
-});
-
 // --- cancel_appt ---
 export const cancel_appt = llm.tool({
   description: `Cancels an appointment. You MUST call this tool to cancel — an appointment is not cancelled until this tool executes successfully. Never tell the caller an appointment is cancelled without calling this tool first.
 
-Requires appointmentId — use the ID from the caller context (phone lookup) or from a confirm_appt response. Read back the details and confirm the caller wants it cancelled before calling this tool. If they want to reschedule, book the new appointment first, then cancel. If the tool says the confirmation was interrupted, confirm the cancellation again before retrying.`,
+Requires appointmentId — use the ID from the caller context (phone lookup) or from a resolve_patient appointments response. Read back the details and confirm the caller wants it cancelled before calling this tool. If they want to reschedule, book the new appointment first, then cancel. If the tool says the confirmation was interrupted, confirm the cancellation again before retrying.`,
   parameters: z.object({
     appointmentId: z
       .number()
-      .describe("Appointment ID from the confirm_appt response"),
+      .describe(
+        "Appointment ID from the resolve_patient appointments response",
+      ),
   }),
   execute: async ({ appointmentId }, { ctx, toolCallId }) => {
     const state = getState(ctx);
@@ -2247,7 +2367,7 @@ Requires appointmentId — use the ID from the caller context (phone lookup) or 
 
 // --- add_patient_note ---
 export const add_patient_note = llm.tool({
-  description: `Adds a short operational note to the verified patient's AdvancedMD chart. Requires a verified patient from phone lookup, verify_patient, or add_patient.
+  description: `Adds a short operational note to the verified patient's AdvancedMD chart. Requires a verified patient from phone lookup, resolve_patient, or add_patient.
 
 For scheduling workflows, collect the appointment reason and referring doctor during the call, but call this tool only after book_appt succeeds.
 
@@ -2720,7 +2840,7 @@ Include the caller-provided appointment reason and referring doctor. If there is
 export const route_to_spring_hill = llm.tool({
   description: `Switches the active call workflow to the Spring Hill office without transferring the caller.
 
-Use this when the caller reached Crystal River but the visit must be handled through Spring Hill scheduling — especially pediatrics, cataract evaluation/workup/surgery scheduling, routine-vision scheduling, or insurance accepted at Spring Hill but not Crystal River. Explain the Spring Hill routing and get agreement, then call this before verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, or book_appt for that visit. If interrupted, get agreement again before retrying. Keep the caller on the line and continue helping them normally.`,
+Use this when the caller reached Crystal River but the visit must be handled through Spring Hill scheduling — especially pediatrics, cataract evaluation/workup/surgery scheduling, routine-vision scheduling, or insurance accepted at Spring Hill but not Crystal River. Explain the Spring Hill routing and get agreement, then call this before resolve_patient, add_patient, update_insurance, get_availability, cancel_appt, or book_appt for that visit. If interrupted, get agreement again before retrying. Keep the caller on the line and continue helping them normally.`,
   parameters: z.object({}),
   execute: async (_, { ctx, toolCallId }) => {
     const state = getState(ctx);
@@ -2787,7 +2907,7 @@ The tool returns a small summary for the model:
 - clarificationNeeded
 - callerMessage
 
-If Crystal River does not accept a plan but Spring Hill does, tell the caller Spring Hill accepts it and ask if they want to schedule there. If yes, call route_to_spring_hill before verify_patient, add_patient, update_insurance, get_availability, confirm_appt, cancel_appt, or book_appt.
+If Crystal River does not accept a plan but Spring Hill does, tell the caller Spring Hill accepts it and ask if they want to schedule there. If yes, call route_to_spring_hill before resolve_patient, add_patient, update_insurance, get_availability, cancel_appt, or book_appt.
 
 Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
   parameters: z.object({

@@ -58,10 +58,10 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
       ],
       nextAction: "ask",
       slot: "patientIdentity",
-      allowedTools: ["verify_patient"],
+      allowedTools: ["resolve_patient"],
       blockedActions: [
         {
-          action: "confirm_appt",
+          action: "resolve_patient",
           reason: "patient must be verified before appointment lookup",
         },
       ],
@@ -94,11 +94,11 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
         { key: "loadedAppointments", label: "current appointment list" },
       ],
       nextAction: "call_tool",
-      tool: "confirm_appt",
-      args: {},
-      allowedTools: ["confirm_appt"],
+      tool: "resolve_patient",
+      args: { mode: "appointments" },
+      allowedTools: ["resolve_patient"],
       blockedActions: [],
-      instruction: "Call confirm_appt now.",
+      instruction: "Call resolve_patient with mode appointments now.",
     });
   }
 

@@ -353,7 +353,7 @@ describe("flow harness prompt gating", () => {
 
     expect(prompt).toContain("PHONE LOOKUP UNAVAILABLE");
     expect(prompt).toContain("do not say they are new");
-    expect(prompt).toContain("use verify_patient");
+    expect(prompt).toContain("use resolve_patient");
     expect(prompt).not.toContain("NO MATCH");
   });
 });
@@ -541,6 +541,7 @@ describe("Crystal River prompt guidance", () => {
         routing: "all_three",
         allowedProviders: [],
         routingAmbiguous: false,
+        appointmentsStatus: "found",
         appointments: [
           {
             id: 123,
@@ -587,6 +588,7 @@ describe("Crystal River prompt guidance", () => {
         routing: "bach_only",
         allowedProviders: [],
         routingAmbiguous: false,
+        appointmentsStatus: "found",
         appointments: [
           {
             id: 123,

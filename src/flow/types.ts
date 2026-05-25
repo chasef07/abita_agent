@@ -164,11 +164,10 @@ export type ConfirmationType =
   | "end_call";
 
 export type WorkflowToolName =
-  | "verify_patient"
+  | "resolve_patient"
   | "add_patient"
   | "update_insurance"
   | "get_availability"
-  | "confirm_appt"
   | "cancel_appt"
   | "add_patient_note"
   | "book_appt"

@@ -262,7 +262,7 @@ export function planScheduling(
       phase: "needs_verified_patient",
       slot: "patientIdentity",
       label: "verified patient identity",
-      allowedTools: ["verify_patient"],
+      allowedTools: ["resolve_patient"],
       blockedActions: [
         {
           action: "get_availability",

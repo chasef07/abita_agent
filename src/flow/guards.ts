@@ -4,6 +4,7 @@ import type { AvailabilitySearchInspection } from "./availability.js";
 import type { CallFlowState } from "./types.js";
 
 export type GuardedToolName =
+  | "resolve_patient"
   | "verify_patient"
   | "check_insurance"
   | "route_to_spring_hill"

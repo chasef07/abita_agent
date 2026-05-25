@@ -87,7 +87,7 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
       ],
       nextAction: "ask",
       slot: "patientIdentity",
-      allowedTools: ["verify_patient"],
+      allowedTools: ["resolve_patient"],
       blockedActions: [
         {
           action: "cancel_appt",
@@ -129,16 +129,16 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
         { key: "loadedAppointments", label: "current appointment list" },
       ],
       nextAction: "call_tool",
-      tool: "confirm_appt",
-      args: {},
-      allowedTools: ["confirm_appt"],
+      tool: "resolve_patient",
+      args: { mode: "appointments" },
+      allowedTools: ["resolve_patient"],
       blockedActions: [
         {
           action: "cancel_appt",
           reason: "appointment list must be loaded before cancellation",
         },
       ],
-      instruction: "Call confirm_appt now.",
+      instruction: "Call resolve_patient with mode appointments now.",
       step: "confirm_cancel",
     });
   }

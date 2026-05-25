@@ -36,11 +36,10 @@ export interface ToolExposureDecision {
 
 const ALL_TOOL_NAMES: AgentToolName[] = [
   "record_turn_understanding",
-  "verify_patient",
+  "resolve_patient",
   "add_patient",
   "update_insurance",
   "get_availability",
-  "confirm_appt",
   "cancel_appt",
   "add_patient_note",
   "book_appt",
@@ -108,11 +107,10 @@ function legacyToolNamesForOffice(
     ...(includeTurnUnderstanding
       ? (["record_turn_understanding"] as const)
       : []),
-    "verify_patient",
+    "resolve_patient",
     "add_patient",
     "update_insurance",
     "get_availability",
-    "confirm_appt",
     "cancel_appt",
     "add_patient_note",
     "book_appt",

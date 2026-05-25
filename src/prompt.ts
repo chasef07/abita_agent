@@ -160,7 +160,9 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
     if (lookup.routingAmbiguous) {
       lines.push(`Routing is ambiguous — needs plan type clarification.`);
     }
-    if (lookup.appointments && lookup.appointments.length > 0) {
+    if (lookup.appointmentsStatus === "error") {
+      lines.push(`Appointments: lookup unavailable.`);
+    } else if (lookup.appointments && lookup.appointments.length > 0) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const upcoming: typeof lookup.appointments = [];
@@ -187,12 +189,14 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
           lines.push(formatAppointmentContextLine(appt, false));
         }
       }
+    } else if (lookup.appointmentsStatus === "none") {
+      lines.push(`No upcoming appointments.`);
     } else {
-      lines.push(`No appointments on file.`);
+      lines.push(`Appointments: not loaded.`);
     }
     lines.push(``);
     lines.push(
-      `Do NOT use or say the patient's name before they say it. Ask: "can I get your first name?" If they say "${firstName}" (or close), they are verified — skip verify_patient entirely and go straight to what they need. If they give a different name (child, spouse), run verify_patient for that person.`,
+      `Do NOT use or say the patient's name before they say it. Ask: "can I get your first name?" If they say "${firstName}" (or close), they are verified — skip resolve_patient entirely and go straight to what they need. If they give a different name (child, spouse), run resolve_patient for that person.`,
     );
     return lines.join("\n");
   }
@@ -210,7 +214,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
       `You MUST say: "I see a few patients associated with this number, can I get the patient's first name?"`,
     );
     lines.push(
-      `Do NOT ask for last name or DOB upfront — just the first name is enough. Run verify_patient with firstName and usePhone: true. The phone is injected automatically from the session.`,
+      `Do NOT ask for last name or DOB upfront — just the first name is enough. Run resolve_patient with firstName and usePhone: true. The phone is injected automatically from the session.`,
     );
     lines.push(
       `Do NOT read back the names on file (HIPAA). If no match, ask for last name and DOB and try again.`,
@@ -225,7 +229,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
   const lines: string[] = [];
   lines.push(`**NO MATCH — This number is not in the system.**`);
   lines.push(
-    `Ask "have you been seen here before?" early in the call. If no, go straight to new patient registration — no need to try verify_patient. If yes, collect their first name, last name, and date of birth and try verify_patient in case they're calling from a different phone. If not found, lead into registration.`,
+    `Ask "have you been seen here before?" early in the call. If no, go straight to new patient registration — no need to try resolve_patient. If yes, collect their first name, last name, and date of birth and try resolve_patient in case they're calling from a different phone. If not found, lead into registration.`,
   );
   return lines.join("\n");
 }
@@ -236,7 +240,7 @@ function buildLookupFailedContext(
   return [
     `**PHONE LOOKUP UNAVAILABLE — Identity is not preloaded.**`,
     `The pre-call lookup failed before the session started. Do not tell the caller technical details and do not say they are new just because lookup failed.`,
-    `Ask what they need first. If they are an existing patient, collect first name, last name, and DOB, then use verify_patient. If they say they are new, continue into registration after visit-type and insurance triage.`,
+    `Ask what they need first. If they are an existing patient, collect first name, last name, and DOB, then use resolve_patient. If they say they are new, continue into registration after visit-type and insurance triage.`,
     `Lookup failure reason for internal routing only: ${lookup.reason}.`,
   ].join("\n");
 }

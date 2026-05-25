@@ -42,7 +42,7 @@ sequenceDiagram
         Models->>W: Transcript
         W->>Models: LLM completion (+ tool calls)
         Models->>W: Reply + tool invocations
-        W->>AMD: verify_patient / book_appt / etc.
+        W->>AMD: resolve_patient / book_appt / etc.
         AMD-->>W: Results
         W->>Caller: Response (via TTS)
     end
@@ -99,7 +99,7 @@ Dockerfile           # Multi-stage: pnpm install → build → download-files �
    - **No match** — caller is not found from the inbound number.
    - **Lookup failed** — middleware/auth/network failure. The agent must not treat this as a new patient; it verifies normally if the caller says they are existing.
 4. **Session start** — `buildPrompt()` assembles either the legacy full prompt (`SOUL.md` + `VOICE.md` + `RUNBOOK.md`) or the harness prompt (`SOUL.md` + `VOICE.md` + compact harness contract), then appends dynamic `<context>` (date/time + caller info). Tools are wired from `tools.ts`.
-5. **Conversation loop** — AssemblyAI STT → Baseten LLM (with tool calling) → Cartesia TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. AdvancedMD-facing tools call the Railway middleware through `src/tooling/advancedmd-client.ts`.
+5. **Conversation loop** — AssemblyAI STT → Baseten LLM (with tool calling) → Cartesia TTS. The LLM calls tools like `resolve_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. AdvancedMD-facing tools call the Railway middleware through `src/tooling/advancedmd-client.ts`.
 6. **Disconnect or transfer**:
    - Caller hangs up → `participantDisconnected` listener → `ctx.shutdown()`
    - Agent calls `transfer_call` → SIP REFER to human staff
@@ -124,11 +124,11 @@ For legacy prompt tweaks, edit the workspace files. For harness behavior, prefer
 
 | Tool | Purpose |
 |---|---|
-| `verify_patient` | Look up patient by first name + last name + DOB (or phone) |
+| `resolve_patient` | Look up patient by first name + last name + DOB (or phone), and refresh upcoming appointments |
 | `add_patient` | Register a new patient |
 | `update_insurance` | Update insurance on file |
 | `get_availability` | Find open appointment slots |
-| `confirm_appt` / `cancel_appt` / `book_appt` | Appointment management |
+| `cancel_appt` / `book_appt` | Appointment management |
 | `add_patient_note` | Save appointment reason and referring doctor on the verified patient |
 | `check_insurance` | Eligibility check |
 | `lookup_knowledge` | Return targeted sections from location-specific FAQ (`KNOWLEDGE_*.md`) |

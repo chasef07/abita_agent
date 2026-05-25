@@ -1,6 +1,7 @@
 import { getOfficeConfigByPhone, type OfficeKey } from "../customer/profile.js";
 import type {
   CallerLookupFailed,
+  PatientAppointmentsStatus,
   PhoneLookupResult,
   StoredCallerAppointment,
 } from "./call-state.js";
@@ -63,8 +64,8 @@ export async function lookupByPhone(
   try {
     const office = getOfficeConfigByPhone(trunkPhone);
     const data = (await callApi(
-      "/api/patient-lookup",
-      { phone },
+      "/api/patient/resolve",
+      { phone, includeAppointments: true },
       office.amdOfficePhone,
     )) as {
       status?: string;
@@ -78,6 +79,7 @@ export async function lookupByPhone(
       routing?: string;
       allowedProviders?: string[];
       routingAmbiguous?: boolean;
+      appointmentsStatus?: PatientAppointmentsStatus;
       appointments?: StoredCallerAppointment[] | null;
       message?: string;
       matches?: Array<{ firstName: string }>;
@@ -113,6 +115,7 @@ export async function lookupByPhone(
         routing: data.routing,
         allowedProviders: data.allowedProviders ?? [],
         routingAmbiguous: data.routingAmbiguous ?? false,
+        appointmentsStatus: data.appointmentsStatus ?? null,
         appointments: data.appointments ?? null,
         lookupDurationMs,
       };

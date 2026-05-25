@@ -293,6 +293,7 @@ function createCallState(overrides: Partial<CallState> = {}): CallState {
     allowedProviders: [],
     routingAmbiguous: false,
     preauthRequired: false,
+    appointmentsStatus: null,
     appointments: [],
     transferred: false,
     transferInFlight: false,

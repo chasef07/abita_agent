@@ -95,7 +95,7 @@ describe("dynamic tool exposure", () => {
       DEV_BROAD_TOOL_NAMES,
     );
     expect(buildToolsForState(state).visibleToolNames).toContain(
-      "confirm_appt",
+      "resolve_patient",
     );
   });
 
@@ -218,7 +218,7 @@ describe("dynamic tool exposure", () => {
     const decision = buildToolsForState(state);
 
     expect(decision.reason).toBe("legacy_harness_disabled");
-    expect(decision.visibleToolNames).toContain("verify_patient");
+    expect(decision.visibleToolNames).toContain("resolve_patient");
     expect(decision.visibleToolNames).toContain("book_appt");
     expect(decision.visibleToolNames).not.toContain(
       "record_turn_understanding",
@@ -227,11 +227,10 @@ describe("dynamic tool exposure", () => {
 });
 
 const DEV_BROAD_TOOL_NAMES = [
-  "verify_patient",
+  "resolve_patient",
   "add_patient",
   "update_insurance",
   "get_availability",
-  "confirm_appt",
   "cancel_appt",
   "add_patient_note",
   "book_appt",
@@ -281,6 +280,7 @@ function createCallState(overrides: Partial<CallState> = {}): CallState {
     allowedProviders: [],
     routingAmbiguous: false,
     preauthRequired: false,
+    appointmentsStatus: null,
     appointments: [],
     transferred: false,
     transferInFlight: false,

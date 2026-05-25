@@ -11,14 +11,12 @@ describe("pre-call bootstrap", () => {
   });
 
   it("returns an explicit no_match outcome instead of null", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({ status: "not_found", message: "No match" }),
-        text: async () => "",
-      })),
-    );
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ status: "not_found", message: "No match" }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
 
     const result = await lookupByPhone(
       "+17275551212",
@@ -29,6 +27,13 @@ describe("pre-call bootstrap", () => {
       status: "no_match",
       phone: "+17275551212",
       message: "No match",
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      "/api/patient/resolve",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      phone: "+17275551212",
+      includeAppointments: true,
     });
   });
 
@@ -98,6 +103,7 @@ describe("pre-call bootstrap", () => {
           routing: "all_three",
           allowedProviders: [],
           routingAmbiguous: false,
+          appointmentsStatus: "none",
           appointments: [],
         }),
         text: async () => "",
@@ -132,6 +138,7 @@ describe("pre-call bootstrap", () => {
           dob: "01/01/1980",
           phone: "+17275551212",
           routing: "all_three",
+          appointmentsStatus: "found",
           appointments: [
             {
               id: 12345,
@@ -156,6 +163,7 @@ describe("pre-call bootstrap", () => {
     expect(result).toMatchObject({
       status: "verified",
       insuranceCarrier: null,
+      appointmentsStatus: "found",
       appointments: [expect.objectContaining({ id: 12345 })],
     });
   });

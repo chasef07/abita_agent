@@ -80,11 +80,11 @@ describe("call observability", () => {
     ).toBe("duplicate_tool_call");
     expect(
       classifyToolOutput(
-        "verify_patient",
+        "resolve_patient",
         JSON.stringify({ status: "multiple_matches" }),
         false,
       ),
-    ).toBe("multiple_patient_matches");
+    ).toBe("patient_multiple_matches");
     expect(
       classifyToolOutput(
         "book_appt",
@@ -137,18 +137,26 @@ describe("call observability", () => {
     ).toBe("appointment_cancelled");
     expect(
       classifyToolOutput(
-        "confirm_appt",
-        JSON.stringify({ status: "found", appointments: [{ id: 12345 }] }),
+        "resolve_patient",
+        JSON.stringify({
+          status: "verified",
+          appointmentsStatus: "found",
+          appointments: [{ id: 12345 }],
+        }),
         false,
       ),
-    ).toBe("appointments_found");
+    ).toBe("patient_appointments_found");
     expect(
       classifyToolOutput(
-        "confirm_appt",
-        JSON.stringify({ status: "no_appointments" }),
+        "resolve_patient",
+        JSON.stringify({
+          status: "verified",
+          appointmentsStatus: "none",
+          appointments: [],
+        }),
         false,
       ),
-    ).toBe("appointments_not_found");
+    ).toBe("patient_appointments_none");
     expect(classifyToolOutput("book_appt", "timeout", true)).toBe(
       "middleware_error",
     );

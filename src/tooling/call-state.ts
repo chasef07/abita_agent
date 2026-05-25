@@ -13,6 +13,8 @@ export interface StoredCallerAppointment extends CallerAppointment {
   cancelToken?: string;
 }
 
+export type PatientAppointmentsStatus = "found" | "none" | "skipped" | "error";
+
 export interface CallerMatch {
   status: "verified";
   patientId: string;
@@ -25,6 +27,7 @@ export interface CallerMatch {
   routing: string;
   allowedProviders: string[];
   routingAmbiguous: boolean;
+  appointmentsStatus: PatientAppointmentsStatus | null;
   appointments: StoredCallerAppointment[] | null;
   lookupDurationMs?: number;
 }
@@ -126,6 +129,7 @@ export interface CallState {
   allowedProviders: string[];
   routingAmbiguous: boolean;
   preauthRequired: boolean;
+  appointmentsStatus: PatientAppointmentsStatus | null;
   appointments: CallerAppointment[];
   appointmentCancelTokens?: Record<string, string>;
   transferred: boolean;

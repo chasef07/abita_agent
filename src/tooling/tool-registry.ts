@@ -9,14 +9,13 @@ import {
   book_appt,
   cancel_appt,
   check_insurance,
-  confirm_appt,
   get_availability,
   lookup_knowledge,
   record_turn_understanding,
+  resolve_patient,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
-  verify_patient,
 } from "../tools.js";
 import type { CallState } from "./call-state.js";
 import {
@@ -28,11 +27,10 @@ import {
 
 const ALL_TOOLS: AgentToolMap = {
   record_turn_understanding,
-  verify_patient,
+  resolve_patient,
   add_patient,
   update_insurance,
   get_availability,
-  confirm_appt,
   cancel_appt,
   add_patient_note,
   book_appt,
@@ -47,11 +45,10 @@ export type AgentTools = Partial<AgentToolMap>;
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
   const office = getOfficeConfigByPhone(trunkPhone ?? "");
   return toolsFromNames([
-    "verify_patient",
+    "resolve_patient",
     "add_patient",
     "update_insurance",
     "get_availability",
-    "confirm_appt",
     "cancel_appt",
     "add_patient_note",
     "book_appt",

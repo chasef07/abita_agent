@@ -189,6 +189,7 @@ export default defineAgent({
         allowedProviders: verified?.allowedProviders ?? [],
         routingAmbiguous: verified?.routingAmbiguous ?? false,
         preauthRequired: false,
+        appointmentsStatus: verified?.appointmentsStatus ?? null,
         appointments: publicCallerAppointments(verified?.appointments),
         appointmentCancelTokens: appointmentCancelTokenMap(
           verified?.appointments,

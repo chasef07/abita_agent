@@ -170,7 +170,7 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
       ],
       nextAction: "ask",
       slot: "patientIdentity",
-      allowedTools: ["verify_patient"],
+      allowedTools: ["resolve_patient"],
       blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
       instruction:
         "Ask for the patient's name and date of birth before changing an existing appointment.",
@@ -201,11 +201,11 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
         { key: "loadedAppointments", label: "current appointment list" },
       ],
       nextAction: "call_tool",
-      tool: "confirm_appt",
-      args: {},
-      allowedTools: ["confirm_appt"],
+      tool: "resolve_patient",
+      args: { mode: "appointments" },
+      allowedTools: ["resolve_patient"],
       blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
-      instruction: "Call confirm_appt now.",
+      instruction: "Call resolve_patient with mode appointments now.",
     });
   }
 
