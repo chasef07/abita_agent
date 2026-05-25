@@ -101,6 +101,7 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     verified,
     appointments,
     existingPlan?.lookup,
+    patient?.appointmentsStatus,
   );
   const evidence = mergeEvidence(
     existingPlan?.targetSelectionEvidence,

@@ -160,7 +160,9 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
     if (lookup.routingAmbiguous) {
       lines.push(`Routing is ambiguous — needs plan type clarification.`);
     }
-    if (lookup.appointments && lookup.appointments.length > 0) {
+    if (lookup.appointmentsStatus === "error") {
+      lines.push(`Appointment lookup unavailable.`);
+    } else if (lookup.appointments && lookup.appointments.length > 0) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const upcoming: typeof lookup.appointments = [];
@@ -187,8 +189,10 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
           lines.push(formatAppointmentContextLine(appt, false));
         }
       }
-    } else {
+    } else if (lookup.appointmentsStatus === "none") {
       lines.push(`No appointments on file.`);
+    } else {
+      lines.push(`Appointments were not preloaded.`);
     }
     lines.push(``);
     lines.push(

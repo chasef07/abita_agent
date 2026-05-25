@@ -41,13 +41,13 @@ import {
   snapshotActivePatientIdentity,
   sideEffectActionTypeForTool,
   updateActivePatientInsurance,
+  type AppointmentLoadStatus,
   type AvailabilityInvalidationReason,
   type CallerAppointment,
   type FlowTurnAdvanceResult,
   type GuardedToolName,
   type SideEffectToolName,
   type ToolOutcome,
-  type WorkflowCommand,
   turnUnderstandingSchema,
   nextActionForFlowDecision,
 } from "./flow/index.js";
@@ -607,7 +607,12 @@ export function getAmdOfficeForToolCall(
 
 /** Apply patient data from an API response, resetting all patient fields so nothing stale lingers. */
 function applyPatientResult(state: CallState, result: any): void {
-  const rawAppointments = extractAppointments(result) ?? [];
+  const extractedAppointments = extractAppointments(result);
+  const appointmentsStatus = appointmentStatusFromResult(
+    result,
+    extractedAppointments,
+  );
+  const rawAppointments = extractedAppointments ?? [];
   const appointments = publicCallerAppointments(rawAppointments);
   const patientChange = recordVerifiedPatient(state.flow, {
     patientId: result.patientId ?? null,
@@ -615,6 +620,7 @@ function applyPatientResult(state: CallState, result: any): void {
     dob: result.dob ?? null,
     phone: result.phone ?? null,
     appointments,
+    appointmentsStatus,
   });
   if (String(result.status ?? "").toLowerCase() === "created") {
     const patient = ensureActivePatientContext(state.flow);
@@ -644,6 +650,7 @@ function applyPatientResult(state: CallState, result: any): void {
   state.allowedProviders = result.allowedProviders ?? [];
   state.routingAmbiguous = result.routingAmbiguous ?? false;
   state.preauthRequired = result.preauthRequired ?? false;
+  state.appointmentsStatus = appointmentsStatus;
   state.appointments = appointments;
   state.appointmentCancelTokens = appointmentCancelTokenMap(rawAppointments);
   state.flow.officeKey = state.officeKey;
@@ -719,6 +726,7 @@ function clearSessionPatientRecord(
   state.allowedProviders = [];
   state.routingAmbiguous = false;
   state.preauthRequired = false;
+  state.appointmentsStatus = null;
   state.appointments = [];
   state.appointmentCancelTokens = {};
   state.flow.coverageType = undefined;
@@ -734,6 +742,7 @@ function syncSessionPatientFromActiveFlow(state: CallState): void {
   );
   state.dob = patient.dob?.value ?? null;
   state.appointments = [...patient.appointments];
+  state.appointmentsStatus = patient.appointmentsStatus ?? null;
   state.flow.patientStatus = patient.status;
 
   if (patient.insurance) {
@@ -891,8 +900,36 @@ function extractAppointments(
   return null;
 }
 
+function extractAppointmentsStatus(
+  result: unknown,
+): AppointmentLoadStatus | null {
+  if (!isRecord(result)) return null;
+  const status = result.appointmentsStatus;
+  return status === "found" ||
+    status === "none" ||
+    status === "skipped" ||
+    status === "error"
+    ? status
+    : null;
+}
+
+function appointmentStatusFromResult(
+  result: unknown,
+  appointments: StoredCallerAppointment[] | null,
+): AppointmentLoadStatus | null {
+  const explicitStatus = extractAppointmentsStatus(result);
+  if (explicitStatus) return explicitStatus;
+  if (isNoAppointmentsResult(result)) return "none";
+  if (appointments) return appointments.length > 0 ? "found" : "none";
+  return null;
+}
+
 function isNoAppointmentsResult(result: unknown): boolean {
-  return isRecord(result) && result.status === "no_appointments";
+  return (
+    isRecord(result) &&
+    (result.status === "no_appointments" ||
+      result.appointmentsStatus === "none")
+  );
 }
 
 function storeAppointmentLookupResult(
@@ -900,45 +937,66 @@ function storeAppointmentLookupResult(
   result: unknown,
 ): boolean {
   const rawAppointments = extractAppointments(result);
-  if (!rawAppointments && !isNoAppointmentsResult(result)) return false;
+  const appointmentsStatus = appointmentStatusFromResult(
+    result,
+    rawAppointments,
+  );
+  if (appointmentsStatus === "error") {
+    state.appointmentsStatus = "error";
+    ensureActivePatientContext(state.flow).appointmentsStatus = "error";
+    return false;
+  }
+  if (!rawAppointments && appointmentsStatus !== "none") return false;
 
   const appointments = publicCallerAppointments(rawAppointments ?? []);
   state.appointments = appointments;
+  state.appointmentsStatus =
+    appointmentsStatus ?? (appointments.length > 0 ? "found" : "none");
   state.appointmentCancelTokens = appointmentCancelTokenMap(
     rawAppointments ?? [],
   );
-  ensureActivePatientContext(state.flow).appointments = appointments;
+  const activePatient = ensureActivePatientContext(state.flow);
+  activePatient.appointments = appointments;
+  activePatient.appointmentsStatus = state.appointmentsStatus;
   recordAppointmentLookupResult(state.flow, appointments.length);
   return true;
+}
+
+function cachedAppointmentLookupResult(
+  state: CallState,
+): Record<string, unknown> | null {
+  if (!state.patientId) return null;
+  if (state.appointmentsStatus === "none") {
+    return {
+      status: "verified",
+      patientId: state.patientId,
+      appointmentsStatus: "none",
+      appointments: [],
+      message: "Patient verified, no appointments found",
+    };
+  }
+  if (state.appointmentsStatus === "found" && state.appointments.length > 0) {
+    return {
+      status: "verified",
+      patientId: state.patientId,
+      appointmentsStatus: "found",
+      appointments: state.appointments,
+      message: `Patient verified with ${state.appointments.length} appointment(s)`,
+    };
+  }
+  return null;
 }
 
 async function lookupAppointmentsForVerifiedPatient(
   state: CallState,
 ): Promise<unknown> {
   const result = await callApi(
-    "/api/patient/appointments",
-    { patientId: state.patientId },
+    "/api/patient/resolve",
+    { patientId: state.patientId, includeAppointments: true },
     getAmdOfficeForToolCall(state),
   );
   storeAppointmentLookupResult(state, result);
   return result;
-}
-
-function shouldAutoLookupAppointmentsAfterVerification(
-  state: CallState,
-  command: WorkflowCommand | undefined,
-): boolean {
-  if (!isFlowHarnessEnabled(state)) return false;
-  if (!state.patientId) return false;
-  if (!command) return false;
-  if (command.nextAction !== "call_tool" || command.tool !== "confirm_appt") {
-    return false;
-  }
-  return (
-    command.taskKind === "appointment_confirm" ||
-    command.taskKind === "appointment_cancel" ||
-    command.taskKind === "appointment_reschedule"
-  );
 }
 
 function activeAppointmentById(
@@ -1018,8 +1076,8 @@ async function refreshCancelTokenForAppointment(
 ): Promise<string | null> {
   if (!state.patientId) return null;
   const result = await callApi(
-    "/api/patient/appointments",
-    { patientId: state.patientId },
+    "/api/patient/resolve",
+    { patientId: state.patientId, includeAppointments: true },
     getAmdOfficeForToolCall(state),
   );
   const rawAppointments = extractAppointments(result);
@@ -1764,30 +1822,17 @@ After response:
     if (lastName) body.lastName = lastName;
     if (dob) body.dob = dob;
     if (usePhone) body.phone = state.callerPhone;
+    body.includeAppointments = true;
     ensureRoutineVisionOffice(state);
     const result = (await callApi(
-      "/api/verify-patient",
+      "/api/patient/resolve",
       body,
       getAmdOfficeForToolCall(state),
     )) as any;
     if (result?.patientId) {
       applyPatientResult(state, result);
       if (isFlowHarnessEnabled(state)) {
-        const turn = advanceWorkflow(state.flow, { type: "patient_verified" });
-        const command = turn.workflowCommand;
-        if (shouldAutoLookupAppointmentsAfterVerification(state, command)) {
-          const appointmentLookup =
-            await lookupAppointmentsForVerifiedPatient(state);
-          const planned = withLatestPlannerCommand(state, {
-            ...result,
-            appointmentLookup,
-          });
-          await refreshDynamicToolsForSession(
-            ctx.session as voice.AgentSession<CallState>,
-            "tools_executed",
-          );
-          return planned;
-        }
+        advanceWorkflow(state.flow, { type: "patient_verified" });
       }
       const planned = withLatestPlannerCommand(state, result);
       await refreshDynamicToolsForSession(
@@ -2053,7 +2098,7 @@ After response: check if date shifted vs requested — tell caller if different.
 export const confirm_appt = llm.tool({
   description: `Retrieves upcoming appointments (next 60 days) for a verified patient. Patient ID is read from session state automatically. Requires a verified patient — either from phone lookup or verify_patient.
 
-If appointments (with IDs) are already shown in the caller context from the phone lookup AND you haven't switched patients, you already have this data — skip this tool. Only call if you switched patients, need fresh data, or appointments weren't in the caller context.
+If appointments (with IDs) or "no appointments on file" are already shown in the caller context AND you haven't switched patients, you already have this data — skip this tool. Only call if you switched patients, need fresh data, appointment lookup was unavailable, or appointments weren't in the caller context.
 
 Read back the nearest appointment: date, time, doctor, and location. If multiple, read one at a time. If none found, offer to schedule.`,
   parameters: z.object({}),
@@ -2082,6 +2127,11 @@ Read back the nearest appointment: date, time, doctor, and location. If multiple
         { reason: "appointment_lookup_requires_verified_patient" },
         true,
       );
+    }
+    const cachedResult = cachedAppointmentLookupResult(state);
+    if (cachedResult) {
+      recordAppointmentLookupResult(state.flow, state.appointments.length);
+      return withLatestPlannerCommand(state, cachedResult);
     }
     const result = await lookupAppointmentsForVerifiedPatient(state);
     if (extractAppointments(result) || isNoAppointmentsResult(result)) {

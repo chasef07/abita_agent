@@ -31,6 +31,7 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
     verified,
     appointments,
     existingPlan?.lookup,
+    patient?.appointmentsStatus,
   );
   const phase: AppointmentConfirmPlan["phase"] = !verified
     ? "needs_lookup"

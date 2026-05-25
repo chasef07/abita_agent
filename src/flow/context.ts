@@ -335,7 +335,9 @@ function stepSpecificCapsule(flow: CallFlowState): string {
 
 function appointmentCapsule(flow: CallFlowState): string {
   const patient = activePatient(flow);
-  if (!patient?.appointments.length) return "";
+  if (!patient?.appointments.length && patient?.appointmentsStatus !== "none") {
+    return "";
+  }
   if (
     flow.activeFlow !== "appointment_management" &&
     !flow.activeIntent?.startsWith("existing_appointment") &&
@@ -343,6 +345,10 @@ function appointmentCapsule(flow: CallFlowState): string {
     flow.step !== "cancel"
   ) {
     return "";
+  }
+
+  if (patient.appointmentsStatus === "none") {
+    return "appointments: none found; do not call confirm_appt again unless the caller changed patients or asks to retry.";
   }
 
   return `appointments: loaded=${patient.appointments.length}; use caller context or tool result for exact ID/date.`;

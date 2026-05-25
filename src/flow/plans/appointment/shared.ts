@@ -1,4 +1,5 @@
 import type {
+  AppointmentLoadStatus,
   AppointmentCancelPlan,
   AppointmentLookupSubplan,
   CallerAppointment,
@@ -21,24 +22,29 @@ export function resolveAppointmentLookup(
   verified: boolean,
   appointments: CallerAppointment[],
   existingLookup?: AppointmentLookupSubplan,
+  appointmentStatus?: AppointmentLoadStatus,
 ): ResolvedAppointmentLookup {
   const count = appointments.length;
   const phase: AppointmentLookupSubplan["phase"] = !verified
     ? "needs_verified_patient"
     : count > 0
       ? "appointments_loaded"
-      : existingLookup?.phase === "none_found"
+      : appointmentStatus === "none"
         ? "none_found"
-        : existingLookup?.phase === "lookup_failed"
+        : appointmentStatus === "error"
           ? "lookup_failed"
-          : "loading_appointments";
+          : existingLookup?.phase === "none_found"
+            ? "none_found"
+            : existingLookup?.phase === "lookup_failed"
+              ? "lookup_failed"
+              : "loading_appointments";
 
   return {
     phase,
     count,
     loaded: phase === "appointments_loaded",
     noneFound: phase === "none_found",
-    needsLookup: phase === "loading_appointments",
+    needsLookup: phase === "loading_appointments" || phase === "lookup_failed",
     complete: phase === "appointments_loaded" || phase === "none_found",
     subplan: {
       ...(existingLookup ?? {}),

@@ -87,6 +87,8 @@ export interface CallerAppointment {
   confirmed: boolean;
 }
 
+export type AppointmentLoadStatus = "found" | "none" | "skipped" | "error";
+
 export interface InsuranceContext {
   plan?: TrackedSlot;
   coverageType?: InsuranceCoverageType;
@@ -110,6 +112,7 @@ export interface PatientContext {
   spellingConfirmed?: boolean;
   insurance?: InsuranceContext;
   appointments: CallerAppointment[];
+  appointmentsStatus?: AppointmentLoadStatus;
   activeSchedulingTaskId?: string;
   activeAppointmentTaskIds: string[];
 }

@@ -1,5 +1,6 @@
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type {
+  AppointmentLoadStatus,
   CallFlowState,
   CallerAppointment,
   GuardObservation,
@@ -25,6 +26,8 @@ export interface CallerMatch {
   routing: string;
   allowedProviders: string[];
   routingAmbiguous: boolean;
+  appointmentsStatus?: AppointmentLoadStatus | null;
+  appointmentsMessage?: string | null;
   appointments: StoredCallerAppointment[] | null;
   lookupDurationMs?: number;
 }
@@ -126,6 +129,7 @@ export interface CallState {
   allowedProviders: string[];
   routingAmbiguous: boolean;
   preauthRequired: boolean;
+  appointmentsStatus: AppointmentLoadStatus | null;
   appointments: CallerAppointment[];
   appointmentCancelTokens?: Record<string, string>;
   transferred: boolean;

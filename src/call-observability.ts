@@ -200,8 +200,17 @@ export function classifyToolOutput(
       }
       return "appointment_not_cancelled";
     case "confirm_appt":
-      if (status === "no_appointments") return "appointments_not_found";
-      if (status === "found" || Array.isArray(parsed?.appointments)) {
+      if (
+        status === "no_appointments" ||
+        parsed?.appointmentsStatus === "none"
+      ) {
+        return "appointments_not_found";
+      }
+      if (
+        status === "found" ||
+        parsed?.appointmentsStatus === "found" ||
+        Array.isArray(parsed?.appointments)
+      ) {
         return "appointments_found";
       }
       return "appointment_lookup_returned";

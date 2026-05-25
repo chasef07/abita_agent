@@ -160,6 +160,7 @@ export default defineAgent({
           dob: verified?.dob ?? null,
           callerPhone,
           appointments: publicCallerAppointments(verified?.appointments),
+          appointmentsStatus: verified?.appointmentsStatus ?? null,
           routing: verified?.routing ?? null,
         }),
         flowHarnessEnabled,
@@ -189,6 +190,7 @@ export default defineAgent({
         allowedProviders: verified?.allowedProviders ?? [],
         routingAmbiguous: verified?.routingAmbiguous ?? false,
         preauthRequired: false,
+        appointmentsStatus: verified?.appointmentsStatus ?? null,
         appointments: publicCallerAppointments(verified?.appointments),
         appointmentCancelTokens: appointmentCancelTokenMap(
           verified?.appointments,
