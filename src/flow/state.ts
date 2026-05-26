@@ -433,12 +433,16 @@ function firstCandidateFirstName(
 }
 
 function directFirstNameAnswer(transcript: string): string | undefined {
+  const prefixedNameAnswer =
+    /^(?:it'?s|this is|my name is|i am|i'm|the name is)\s+/i.test(transcript);
   const stripped = transcript
     .trim()
     .replace(/^(?:it'?s|this is|my name is|i am|i'm|the name is)\s+/i, "")
     .trim();
   const words = [...wordsForMatch(stripped)];
-  if (words.length === 0 || words.length > 2) return undefined;
+  if (words.length === 0) return undefined;
+  if (!prefixedNameAnswer && words.length > 1) return undefined;
+  if (prefixedNameAnswer && words.length > 2) return undefined;
   const first = stripped
     .split(/\s+/)
     .filter(Boolean)[0]

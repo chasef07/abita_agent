@@ -647,4 +647,45 @@ describe("Crystal River prompt guidance", () => {
       "[ID: 123] 2099-01-01 at 9:30 AM with Dr. Bach (Follow-up) at Hollywood",
     );
   });
+
+  it("makes the single-match pre-call contract explicit", () => {
+    const prompt = buildPrompt(
+      {
+        status: "verified",
+        patientId: "patient-1",
+        name: "Santos, Maria",
+        dob: "01/01/1980",
+        phone: "+17275551212",
+        insuranceCarrier: "Aetna",
+        insPlanId: "plan-1",
+        respPartyId: "resp-1",
+        routing: "bach_only",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointments: [
+          {
+            id: 123,
+            date: "2099-01-01",
+            time: "9:30AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            facility: "Hollywood",
+            confirmed: true,
+          },
+        ],
+      },
+      HOLLYWOOD_OFFICE_PHONE,
+    );
+
+    expect(prompt).toContain("<pre_call_context>");
+    expect(prompt).toContain(
+      "Phone lookup found exactly one existing patient for this caller.",
+    );
+    expect(prompt).toContain("- Ask for first name only.");
+    expect(prompt).toContain("- Do not call verify_patient for this caller.");
+    expect(prompt).toContain(
+      "- Use the preloaded appointment list for appointment changes and cancellations.",
+    );
+    expect(prompt).toContain("Preloaded facts available after confirmation:");
+  });
 });

@@ -69,6 +69,18 @@ describe("flow state and context packet", () => {
       patientId: "patient-1",
       patientName: "Doe, Jane",
       dob: "1980-01-01",
+      appointments: [
+        {
+          id: 20744749,
+          date: "Tuesday, June 2, 2026",
+          time: "10:15 AM",
+          provider: "Dr. Licht",
+          type: "New Adult Medical",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+      ],
+      appointmentsStatus: "found",
       callerPhone: "+17275551212",
       preCall: {
         status: "single_match_pending_confirmation",
@@ -82,7 +94,18 @@ describe("flow state and context packet", () => {
             dob: "1980-01-01",
             patientId: "patient-1",
             relationshipToCaller: "self",
-            appointments: [],
+            appointments: [
+              {
+                id: 20744749,
+                date: "Tuesday, June 2, 2026",
+                time: "10:15 AM",
+                provider: "Dr. Licht",
+                type: "New Adult Medical",
+                facility: "Spring Hill",
+                confirmed: true,
+              },
+            ],
+            appointmentsStatus: "found",
           },
         ],
         selectedCandidateRef: "caller",
@@ -113,7 +136,48 @@ describe("flow state and context packet", () => {
 
     const after = compileTurnStatePacket(flow);
     expect(after).toContain("preCall: single_match_confirmed");
+    expect(after).toContain("do not call verify_patient");
+    expect(after).toContain("use preloaded appointment IDs 20744749");
     expect(after).toContain("firstName=confirmed");
+  });
+
+  it("does not treat a workflow phrase as a different pre-call first name", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      callerPhone: "+17275551212",
+      preCall: {
+        status: "single_match_pending_confirmation",
+        source: "phone_lookup",
+        callerPhone: "+17275551212",
+        candidates: [
+          {
+            ref: "caller",
+            firstName: "Jane",
+            patientId: "patient-1",
+            relationshipToCaller: "self",
+            appointments: [],
+          },
+        ],
+        selectedCandidateRef: "caller",
+        identityPromotion: "none",
+      },
+    });
+
+    const result = applyPreCallIdentityFromTranscript(
+      flow,
+      "Appointment change.",
+    );
+
+    expect(result).toBeUndefined();
+    expect(flow.activePatientRef).toBe("caller");
+    expect(Object.keys(flow.patients)).toEqual(["caller"]);
+    expect(flow.preCall).toMatchObject({
+      status: "single_match_pending_confirmation",
+      selectedCandidateRef: "caller",
+      identityPromotion: "none",
+    });
   });
 
   it("moves a nonmatching first-name answer into normal patient verification", () => {

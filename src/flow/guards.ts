@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { inspectAvailabilitySearch } from "./availability.js";
 import type { AvailabilitySearchInspection } from "./availability.js";
+import { DEFAULT_PATIENT_REF } from "./state.js";
 import type { CallFlowState } from "./types.js";
 
 export type GuardedToolName =
@@ -17,6 +18,7 @@ export type GuardedToolName =
 export type GuardObservationReason =
   | "allowed"
   | "duplicate_tool_call_same_args"
+  | "verify_patient_pre_call_already_confirmed"
   | "routine_vision_crystal_river_requires_route_to_spring_hill"
   | "new_patient_requires_insurance_check_before_registration"
   | "availability_duplicate_search_signature"
@@ -130,6 +132,13 @@ function guardReason(
   availabilityInspection?: AvailabilitySearchInspection,
 ): GuardObservationReason {
   if (
+    toolName === "verify_patient" &&
+    confirmedSingleMatchPreCallCaller(flow)
+  ) {
+    return "verify_patient_pre_call_already_confirmed";
+  }
+
+  if (
     toolName === "get_availability" &&
     flow.visitType === "routine_vision" &&
     (stateFacts.officeKey ?? flow.officeKey) === "crystal-river"
@@ -201,6 +210,15 @@ function guardReason(
   }
 
   return "allowed";
+}
+
+function confirmedSingleMatchPreCallCaller(flow: CallFlowState): boolean {
+  const preCall = flow.preCall;
+  if (preCall?.status !== "single_match_confirmed") return false;
+  const selectedRef = preCall.selectedCandidateRef ?? DEFAULT_PATIENT_REF;
+  if (selectedRef !== DEFAULT_PATIENT_REF) return false;
+  const caller = flow.patients[DEFAULT_PATIENT_REF];
+  return Boolean(caller?.patientId);
 }
 
 function hasPendingCancelAction(

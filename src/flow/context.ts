@@ -399,7 +399,12 @@ function preCallTurnStateLine(flow: CallFlowState): string | undefined {
     return "preCall: single_match_pending_confirmation; ask caller for first name only.";
   }
   if (preCall.status === "single_match_confirmed") {
-    return "preCall: single_match_confirmed";
+    const appointmentIds = confirmedPreCallAppointmentIds(flow);
+    const appointmentHint =
+      appointmentIds.length > 0
+        ? `use preloaded appointment IDs ${appointmentIds.join(", ")}`
+        : "use preloaded caller facts";
+    return `preCall: single_match_confirmed; caller is verified from phone lookup first-name challenge; do not call verify_patient; ${appointmentHint}.`;
   }
   if (preCall.status === "multiple_matches_pending_selection") {
     const duplicateHint =
@@ -449,6 +454,22 @@ function preCallCapsule(flow: CallFlowState): string {
     return "preCall: no phone match; do not open registration until caller says they are new or verification fails.";
   }
   return "preCall: lookup unavailable; do not assume new patient.";
+}
+
+function confirmedPreCallAppointmentIds(flow: CallFlowState): string[] {
+  const patient = activePatient(flow);
+  if (patient?.appointments.length) {
+    return patient.appointments.map((appointment) => String(appointment.id));
+  }
+
+  const preCall = flow.preCall;
+  const selectedRef = preCall?.selectedCandidateRef ?? flow.activePatientRef;
+  const candidate = preCall?.candidates.find(
+    (match) => match.ref === selectedRef,
+  );
+  return (
+    candidate?.appointments.map((appointment) => String(appointment.id)) ?? []
+  );
 }
 
 function schedulingCapsule(flow: CallFlowState): string {
