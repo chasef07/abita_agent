@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SPRING_HILL_OFFICE_PHONE } from "../offices.js";
 import { lookupByPhone } from "../tooling/advancedmd-client.js";
-import { loadPreCallBootstrap } from "../tooling/precall-bootstrap.js";
+import {
+  buildPreCallContextState,
+  loadPreCallBootstrap,
+} from "../tooling/precall-bootstrap.js";
 
 describe("pre-call bootstrap", () => {
   afterEach(() => {
@@ -128,6 +131,76 @@ describe("pre-call bootstrap", () => {
       includeAppointments: true,
     });
     expect(bootstrap.telemetry.durationMs).toEqual(expect.any(Number));
+  });
+
+  it("maps lookup outcomes into harness-owned pre-call state", () => {
+    const single = buildPreCallContextState(
+      {
+        status: "verified",
+        patientId: "patient-1",
+        name: "Doe, Jane",
+        dob: "01/01/1980",
+        phone: "+17275551212",
+        insuranceCarrier: null,
+        insPlanId: null,
+        respPartyId: null,
+        routing: null,
+        allowedProviders: [],
+        routingAmbiguous: false,
+        appointmentsStatus: "none",
+        appointmentsMessage: null,
+        appointments: [],
+      },
+      "+17275551212",
+    );
+
+    expect(single).toMatchObject({
+      status: "single_match_pending_confirmation",
+      selectedCandidateRef: "caller",
+      appointmentLoadStatus: "none",
+      candidates: [
+        {
+          ref: "caller",
+          firstName: "Jane",
+          lastName: "Doe",
+          patientId: "patient-1",
+          relationshipToCaller: "self",
+        },
+      ],
+    });
+
+    const multiple = buildPreCallContextState(
+      {
+        status: "multiple_matches",
+        message: "multiple",
+        matches: [{ firstName: "Jane" }, { firstName: "Maria" }],
+      },
+      "+17275551212",
+    );
+
+    expect(multiple).toMatchObject({
+      status: "multiple_matches_pending_selection",
+      candidates: [
+        { ref: "precall:1", firstName: "Jane" },
+        { ref: "precall:2", firstName: "Maria" },
+      ],
+    });
+
+    expect(
+      buildPreCallContextState(
+        {
+          status: "lookup_failed",
+          phone: "+17275551212",
+          reason: "network_error",
+          retryable: true,
+        },
+        "+17275551212",
+      ),
+    ).toMatchObject({
+      status: "lookup_failed",
+      failureReason: "network_error",
+      retryable: true,
+    });
   });
 
   it("keeps verified caller context when insurance is missing", async () => {

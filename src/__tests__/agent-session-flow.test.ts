@@ -80,6 +80,150 @@ describe("agent session flow integration", () => {
     await session.close();
   });
 
+  it("applies pre-call first-name confirmation even when there is no scheduling intent", async () => {
+    const llmModel = new ScriptedToolAwareLLM(() => ({
+      type: "message",
+      content: "done",
+    }));
+    const { session, state, agent } = await createFixture({ llmModel });
+    state.flow.preCall = {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: "caller",
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          patientId: "patient-1",
+          relationshipToCaller: "self",
+          appointments: [],
+        },
+      ],
+      selectedCandidateRef: "caller",
+      identityPromotion: "none",
+    };
+
+    await agent.onUserTurnCompleted(
+      new llm.ChatContext(),
+      llm.ChatMessage.create({
+        role: "user",
+        content: "Jane",
+      }),
+    );
+
+    expect(state.turnUnderstandingAppliedForTranscript).toBe("Jane");
+    expect(state.flow.preCall.status).toBe("single_match_confirmed");
+    expect(state.flow.patientStatus).toBe("verified");
+    await session.close();
+  });
+
+  it("clears patient-scoped state when pre-call identity switches patients", async () => {
+    const llmModel = new ScriptedToolAwareLLM(() => ({
+      type: "message",
+      content: "done",
+    }));
+    const { session, state, agent } = await createFixture({ llmModel });
+    state.flow.preCall = {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: "caller",
+          firstName: "Jane",
+          patientId: "patient-1",
+          relationshipToCaller: "self",
+          appointments: [],
+        },
+      ],
+      selectedCandidateRef: "caller",
+      identityPromotion: "none",
+    };
+    state.flow.availabilitySearches = [
+      {
+        id: "search-1",
+        patientRef: "caller",
+        officeKey: "dev",
+        searchedKeys: [],
+        cachedSlots: [],
+        rejectedSlotHashes: [],
+        exactSearchCount: 0,
+        broadenCount: 0,
+        duplicateSearchCount: 0,
+        maxSearches: 3,
+        failureReasons: [],
+        status: "active",
+      },
+    ];
+    state.flow.pendingActions = [
+      {
+        id: "pending_cancel_1",
+        type: "cancel_appt",
+        patientRef: "caller",
+        appointmentId: 123,
+        argsHash: "cancel-123",
+        spokenSummary: "cancel old appointment",
+        confirmed: true,
+        consumed: false,
+        createdTurnId: "turn-1",
+      },
+    ];
+    state.lastAvailabilityRouting = "all_three";
+    state.lastAvailabilitySlots = [
+      {
+        slotId: "slot-1",
+        spoken: "Monday at 9 AM",
+        provider: "Dr. Bach",
+        date: "2026-06-01",
+        time: "9:00 AM",
+        datetime: "2026-06-01T09:00:00",
+        routing: "all_three",
+      },
+    ];
+    state.appointments = [
+      {
+        id: 123,
+        date: "2026-06-01",
+        time: "9:00 AM",
+        provider: "Dr. Bach",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: true,
+      },
+    ];
+    state.appointmentCancelTokens = { "123": "stale-token" };
+
+    await agent.onUserTurnCompleted(
+      new llm.ChatContext(),
+      llm.ChatMessage.create({
+        role: "user",
+        content: "Maria",
+      }),
+    );
+
+    expect(state.flow.activePatientRef).toMatch(/^candidate:/);
+    expect(state.patientId).toBeNull();
+    expect(state.patientName).toBe("Maria");
+    expect(state.dob).toBeNull();
+    expect(state.checkedInsurancePlan).toBeNull();
+    expect(state.routing).toBeNull();
+    expect(state.appointments).toEqual([]);
+    expect(state.appointmentCancelTokens).toEqual({});
+    expect(state.lastAvailabilityRouting).toBeNull();
+    expect(state.lastAvailabilitySlots).toEqual([]);
+    expect(state.flow.availabilitySearches[0]).toMatchObject({
+      status: "invalidated",
+      lastInvalidationReason: "patient_changed",
+    });
+    expect(state.flow.pendingActions[0]).toMatchObject({
+      invalidated: true,
+      invalidationReason: "patient_changed",
+    });
+    await session.close();
+  });
+
   it("keeps legacy tool behavior when the flow harness is disabled", async () => {
     const llmModel = new ScriptedToolAwareLLM(({ callIndex }) =>
       callIndex === 0

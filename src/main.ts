@@ -36,6 +36,7 @@ import {
   type CallState,
 } from "./tooling/call-state.js";
 import {
+  buildPreCallContextState,
   formatPhoneLookupLogLine,
   loadPreCallBootstrap,
 } from "./tooling/precall-bootstrap.js";
@@ -162,6 +163,7 @@ export default defineAgent({
           appointments: publicCallerAppointments(verified?.appointments),
           appointmentsStatus: verified?.appointmentsStatus ?? null,
           routing: verified?.routing ?? null,
+          preCall: buildPreCallContextState(phoneLookup, callerPhone),
         }),
         flowHarnessEnabled,
         flowGuardObservations: [],

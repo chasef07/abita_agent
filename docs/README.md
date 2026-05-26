@@ -5,6 +5,7 @@ Start here when you need context beyond the runtime code.
 ## Current Architecture
 
 - `architecture/task-plan-flow-harness.md` — source of truth for the next flow-harness implementation: whole-task phase, known facts, missing facts, planner-owned tool exposure, and appointment-management first slice.
+- `architecture/precall-context-harness-spec.md` — target spec for harness-owned pre-call phone lookup, identity confirmation, multiple-match handling, appointment load state, and model-visible context injection.
 - `architecture/flow-controller-current-contract.md` — current enforced flow harness behavior before the task-plan rewrite.
 - `architecture/flow-controller-spine.md` — longer design background for the harness.
 - `architecture/flow-harness-hardening-spec.md` — historical issue analysis; superseded by `task-plan-flow-harness.md` for implementation details.

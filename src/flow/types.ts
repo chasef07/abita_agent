@@ -89,6 +89,47 @@ export interface CallerAppointment {
 
 export type AppointmentLoadStatus = "found" | "none" | "skipped" | "error";
 
+export type PreCallIdentityStatus =
+  | "not_attempted"
+  | "single_match_pending_confirmation"
+  | "single_match_confirmed"
+  | "multiple_matches_pending_selection"
+  | "multiple_match_selected_pending_verification"
+  | "multiple_match_confirmed"
+  | "no_match"
+  | "lookup_failed";
+
+export type PreCallIdentityPromotion =
+  | "none"
+  | "first_name_confirmed"
+  | "candidate_selected"
+  | "verify_patient_required";
+
+export interface PreCallPatientCandidate {
+  ref: PatientRef;
+  firstName?: string;
+  lastName?: string;
+  dob?: string;
+  patientId?: string;
+  relationshipToCaller?: PatientRelationshipToCaller;
+  appointments: CallerAppointment[];
+  appointmentsStatus?: AppointmentLoadStatus;
+}
+
+export interface PreCallContextState {
+  status: PreCallIdentityStatus;
+  source: "phone_lookup";
+  callerPhone: string;
+  lookupDurationMs?: number;
+  failureReason?: string;
+  retryable?: boolean;
+  candidates: PreCallPatientCandidate[];
+  selectedCandidateRef?: PatientRef;
+  appointmentLoadStatus?: AppointmentLoadStatus;
+  appointmentMessage?: string;
+  identityPromotion?: PreCallIdentityPromotion;
+}
+
 export interface InsuranceContext {
   plan?: TrackedSlot;
   coverageType?: InsuranceCoverageType;
@@ -507,6 +548,7 @@ export interface CallFlowState {
   patientStatus: PatientStatus;
   activePatientRef?: PatientRef;
   patients: Record<PatientRef, PatientContext>;
+  preCall?: PreCallContextState;
   taskStack: TaskFrame[];
   currentTask?: TaskFrame;
   taskPlans?: Record<string, ParentTaskPlan>;

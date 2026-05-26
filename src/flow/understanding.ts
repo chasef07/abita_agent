@@ -9,7 +9,7 @@ import {
 import { invalidatePendingActionsForStateChange } from "./pending-actions.js";
 import { activeWorkflowCommandForState } from "./plans/active-command.js";
 import {
-  confirmPreloadedPatientIdentityFromTranscript,
+  applyPreCallIdentityFromTranscript,
   ensureActivePatientContext,
   hasActivePatientIdentityChanged,
   nextPatientFlowStep,
@@ -315,7 +315,7 @@ export function applyTurnUnderstandingFromTranscript(
   transcript: string,
   understanding: TurnUnderstanding,
 ): TurnUnderstandingStateUpdate {
-  confirmPreloadedPatientIdentityFromTranscript(flow, transcript);
+  applyPreCallIdentityFromTranscript(flow, transcript);
   return applyTurnUnderstanding(flow, understanding);
 }
 
