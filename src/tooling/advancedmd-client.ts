@@ -90,8 +90,7 @@ export async function lookupByPhone(
       if (
         !isNonEmptyString(data.patientId) ||
         !isNonEmptyString(data.name) ||
-        !isNonEmptyString(data.dob) ||
-        !isNonEmptyString(data.phone)
+        !isNonEmptyString(data.dob)
       ) {
         return {
           status: "lookup_failed",
@@ -109,7 +108,7 @@ export async function lookupByPhone(
         patientId: data.patientId,
         name: data.name,
         dob: data.dob,
-        phone: data.phone,
+        phone: isNonEmptyString(data.phone) ? data.phone : phone,
         insuranceCarrier: isNonEmptyString(data.insuranceCarrier)
           ? data.insuranceCarrier
           : null,
