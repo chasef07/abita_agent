@@ -256,7 +256,9 @@ export function recordAvailabilityCachedSlots(
     duration: slot.duration,
   }));
   if (search.cachedSlots.length > 0) {
-    search.status = "satisfied";
+    if (search.status !== "exhausted") {
+      search.status = "satisfied";
+    }
   } else {
     if (search.status === "satisfied") {
       search.status =

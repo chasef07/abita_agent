@@ -332,6 +332,8 @@ function planActiveSchedulingStep(
     ? schedulingGoalWithoutStaleSelection(goal)
     : undefined;
   const effectiveGoal = goalPatch ?? goal;
+  const latestCachedSearch = latestAvailabilitySearchWithCachedSlots(flow);
+  const latestSearch = latestUsableAvailabilitySearch(flow);
 
   if (
     effectiveGoal?.bookingConfirmed === true &&
@@ -383,6 +385,21 @@ function planActiveSchedulingStep(
     effectiveGoal?.preferredWindow &&
     !effectiveGoal.selectedSlotId
   ) {
+    if (latestCachedSearch) {
+      return askFromCachedAvailability(flow, plan, {
+        statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+      });
+    }
+    if (latestSearch?.status === "exhausted") {
+      return askAfterAvailabilityBudget(flow, plan, {
+        statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+      });
+    }
+    if (latestSearch && availabilitySearchHasAttempts(latestSearch)) {
+      return askAfterAvailabilityAttempt(flow, plan, {
+        statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+      });
+    }
     return command(flow, plan, {
       phase: "searching_availability",
       knownFacts: schedulingKnownFacts(flow),
@@ -410,41 +427,13 @@ function planActiveSchedulingStep(
 
   if (flow.step === "confirm_booking") {
     if (effectiveGoal?.bookingConfirmed === false) {
+      const rejectedSlotId = effectiveGoal.selectedSlotId;
       const retryGoal = schedulingGoalWithoutStaleSelection(effectiveGoal, {
         preservePreferredWindow: true,
       });
-      if (retryGoal?.preferredWindow) {
-        return command(flow, plan, {
-          phase: "searching_alternative",
-          knownFacts: schedulingKnownFacts(flow),
-          missingFacts: [
-            {
-              key: "replacementAvailability",
-              label: "alternative appointment slot",
-            },
-          ],
-          nextAction: "call_tool",
-          tool: "get_availability",
-          args: {},
-          allowedTools: ["get_availability"],
-          blockedActions: [
-            {
-              action: "book_appt",
-              reason: "caller rejected the offered slot",
-            },
-          ],
-          instruction: "Call get_availability for another option.",
-          step: "get_availability",
-          statePatch: retryGoal ? { schedulingGoal: retryGoal } : undefined,
-        });
-      }
-      return askSchedulingSlot(flow, plan, {
-        phase: "collecting_preferred_window",
-        slot: "preferredDate",
-        label: "day or time window for a different appointment",
-        instruction:
-          "Ask what day or general time window works instead of the rejected slot.",
+      return planAvailabilityFrontier(flow, plan, {
         statePatch: retryGoal ? { schedulingGoal: retryGoal } : undefined,
+        rejectedSlotId,
       });
     }
 
@@ -545,7 +534,7 @@ function planAvailabilityFrontier(
   input: Pick<
     Parameters<typeof command>[2],
     "statePatch" | "resolvedMetaDecision"
-  >,
+  > & { rejectedSlotId?: string },
 ): WorkflowCommand {
   const preferredWindow =
     input.statePatch?.schedulingGoal !== undefined
@@ -558,6 +547,27 @@ function planAvailabilityFrontier(
       label: "day or time window for the appointment",
       instruction:
         "Ask what day or general time window works for the appointment.",
+      statePatch: input.statePatch,
+      resolvedMetaDecision: input.resolvedMetaDecision,
+    });
+  }
+  const latestCachedSearch = latestAvailabilitySearchWithCachedSlots(flow);
+  if (latestCachedSearch) {
+    return askFromCachedAvailability(flow, plan, {
+      rejectedSlotId: input.rejectedSlotId,
+      statePatch: input.statePatch,
+      resolvedMetaDecision: input.resolvedMetaDecision,
+    });
+  }
+  const latestSearch = latestUsableAvailabilitySearch(flow);
+  if (latestSearch?.status === "exhausted") {
+    return askAfterAvailabilityBudget(flow, plan, {
+      statePatch: input.statePatch,
+      resolvedMetaDecision: input.resolvedMetaDecision,
+    });
+  }
+  if (latestSearch && availabilitySearchHasAttempts(latestSearch)) {
+    return askAfterAvailabilityAttempt(flow, plan, {
       statePatch: input.statePatch,
       resolvedMetaDecision: input.resolvedMetaDecision,
     });
@@ -584,6 +594,130 @@ function planAvailabilityFrontier(
     ],
     instruction: "Call get_availability now.",
     step: "get_availability",
+    statePatch: input.statePatch,
+    resolvedMetaDecision: input.resolvedMetaDecision,
+  });
+}
+
+function askFromCachedAvailability(
+  flow: CallFlowState,
+  plan: GenericTaskPlan,
+  input: {
+    rejectedSlotId?: string;
+    statePatch?: PlannerStatePatch;
+    resolvedMetaDecision?: WorkflowCommand["resolvedMetaDecision"];
+  } = {},
+): WorkflowCommand {
+  const rejectedText = input.rejectedSlotId
+    ? ` Do not offer slot ${input.rejectedSlotId} again unless the caller asks for it.`
+    : "";
+  return command(flow, plan, {
+    phase: "offering_cached_availability",
+    knownFacts: schedulingKnownFacts(flow),
+    missingFacts: [
+      {
+        key: "bookingConfirmation",
+        label: "caller response to a cached available slot",
+      },
+    ],
+    nextAction: "ask",
+    slot: "bookingConfirmation",
+    allowedTools: [],
+    blockedActions: [
+      {
+        action: "book_appt",
+        reason: "caller must explicitly confirm the offered slot",
+      },
+      {
+        action: "get_availability",
+        reason:
+          "cached availability is already available for this scheduling request",
+        until: "caller gives a different date, month, or time window",
+      },
+    ],
+    instruction:
+      "Offer one cached availability option or say the cached options do not match the requested window, then ask whether they want that option, a different window, or a transfer." +
+      rejectedText,
+    step: "confirm_booking",
+    statePatch: input.statePatch,
+    resolvedMetaDecision: input.resolvedMetaDecision,
+  });
+}
+
+function askAfterAvailabilityBudget(
+  flow: CallFlowState,
+  plan: GenericTaskPlan,
+  input: {
+    statePatch?: PlannerStatePatch;
+    resolvedMetaDecision?: WorkflowCommand["resolvedMetaDecision"];
+  } = {},
+): WorkflowCommand {
+  return command(flow, plan, {
+    phase: "availability_budget_exhausted",
+    knownFacts: schedulingKnownFacts(flow),
+    missingFacts: [
+      {
+        key: "preferredDate",
+        label: "broader or different appointment window",
+      },
+    ],
+    nextAction: "ask",
+    slot: "preferredDate",
+    allowedTools: [],
+    blockedActions: [
+      {
+        action: "get_availability",
+        reason:
+          "availability search budget is exhausted for the current request",
+        until: "caller gives a different date, month, or time window",
+      },
+      {
+        action: "book_appt",
+        reason: "caller has not confirmed an available slot",
+      },
+    ],
+    instruction:
+      "Do not search again for the same window. Offer any cached options if present; otherwise ask for a different date or time window, or offer to transfer.",
+    step: "confirm_booking",
+    statePatch: input.statePatch,
+    resolvedMetaDecision: input.resolvedMetaDecision,
+  });
+}
+
+function askAfterAvailabilityAttempt(
+  flow: CallFlowState,
+  plan: GenericTaskPlan,
+  input: {
+    statePatch?: PlannerStatePatch;
+    resolvedMetaDecision?: WorkflowCommand["resolvedMetaDecision"];
+  } = {},
+): WorkflowCommand {
+  return command(flow, plan, {
+    phase: "availability_needs_clarification",
+    knownFacts: schedulingKnownFacts(flow),
+    missingFacts: [
+      {
+        key: "preferredDate",
+        label: "different appointment window",
+      },
+    ],
+    nextAction: "ask",
+    slot: "preferredDate",
+    allowedTools: [],
+    blockedActions: [
+      {
+        action: "get_availability",
+        reason: "availability was already checked for the current request",
+        until: "caller gives a different date, month, or time window",
+      },
+      {
+        action: "book_appt",
+        reason: "caller has not confirmed an available slot",
+      },
+    ],
+    instruction:
+      "Do not search again for the same window. Say what was found or not found, then ask for a different date or time window, or offer to transfer.",
+    step: "confirm_booking",
     statePatch: input.statePatch,
     resolvedMetaDecision: input.resolvedMetaDecision,
   });
@@ -690,13 +824,32 @@ function schedulingGoalWithoutStaleSelection(
     updatedAt: Date.now(),
   };
   delete next.selectedSlotId;
-  if (next.bookingConfirmed === true) {
-    delete next.bookingConfirmed;
-  }
+  delete next.bookingConfirmed;
   if (!options.preservePreferredWindow) {
     delete next.preferredWindow;
   }
   return next;
+}
+
+function latestAvailabilitySearchWithCachedSlots(flow: CallFlowState) {
+  return [...flow.availabilitySearches]
+    .reverse()
+    .find(
+      (search) =>
+        search.status !== "invalidated" && search.cachedSlots.length > 0,
+    );
+}
+
+function latestUsableAvailabilitySearch(flow: CallFlowState) {
+  return [...flow.availabilitySearches]
+    .reverse()
+    .find((search) => search.status !== "invalidated");
+}
+
+function availabilitySearchHasAttempts(
+  search: NonNullable<ReturnType<typeof latestUsableAvailabilitySearch>>,
+): boolean {
+  return search.exactSearchCount > 0 || search.duplicateSearchCount > 0;
 }
 
 function storedInsurancePlanForCoverage(

@@ -189,6 +189,49 @@ describe("flow state and context packet", () => {
     });
   });
 
+  it("promotes a single pre-call match after a near first-name variant", () => {
+    const flow = createInitialFlowState({
+      officeKey: "sweetwater",
+      patientId: "patient-1",
+      patientName: "Dorado Avila, Gabriela",
+      dob: "09/13/1991",
+      appointments: [],
+      appointmentsStatus: "none",
+      callerPhone: "+17866511470",
+      preCall: {
+        status: "single_match_pending_confirmation",
+        source: "phone_lookup",
+        callerPhone: "+17866511470",
+        candidates: [
+          {
+            ref: "caller",
+            firstName: "GABRIELA",
+            lastName: "DORADO AVILA",
+            dob: "09/13/1991",
+            patientId: "patient-1",
+            relationshipToCaller: "self",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+        ],
+        selectedCandidateRef: "caller",
+        identityPromotion: "none",
+      },
+    });
+
+    const result = applyPreCallIdentityFromTranscript(flow, "Gabriella.");
+
+    expect(result).toMatchObject({
+      changed: true,
+      promotion: "first_name_confirmed",
+      selectedCandidateRef: "caller",
+    });
+    expect(flow.preCall?.status).toBe("single_match_confirmed");
+    expect(flow.patientStatus).toBe("verified");
+    expect(flow.activePatientRef).toBe("caller");
+    expect(Object.keys(flow.patients)).toEqual(["caller"]);
+  });
+
   it("does not treat a workflow phrase as a different pre-call first name", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
@@ -315,6 +358,109 @@ describe("flow state and context packet", () => {
     );
     expect(packet).not.toContain("Jane");
     expect(packet).not.toContain("Maria");
+  });
+
+  it("selects a unique multiple-match candidate from a full-name answer", () => {
+    const flow = createInitialFlowState({
+      officeKey: "hollywood",
+      callerPhone: "+17864587893",
+      preCall: {
+        status: "multiple_matches_pending_selection",
+        source: "phone_lookup",
+        callerPhone: "+17864587893",
+        candidates: [
+          { ref: "precall:1", firstName: "Andy", appointments: [] },
+          { ref: "precall:2", firstName: "Liam", appointments: [] },
+        ],
+        identityPromotion: "none",
+      },
+    });
+
+    const result = applyPreCallIdentityFromTranscript(flow, "Andy Santana.");
+
+    expect(result).toMatchObject({
+      changed: true,
+      promotion: "candidate_selected",
+      selectedCandidateRef: "precall:1",
+    });
+    expect(flow.preCall).toMatchObject({
+      status: "multiple_match_selected_pending_verification",
+      selectedCandidateRef: "precall:1",
+    });
+    expect(flow.activePatientRef).toBe("precall:1");
+    expect(flow.patientStatus).toBe("candidate");
+    expect(Object.keys(flow.patients)).toEqual(["caller", "precall:1"]);
+  });
+
+  it("does not create multiple-match candidates from filler acknowledgements", () => {
+    const flow = createInitialFlowState({
+      officeKey: "hollywood",
+      callerPhone: "+17864587893",
+      preCall: {
+        status: "multiple_matches_pending_selection",
+        source: "phone_lookup",
+        callerPhone: "+17864587893",
+        candidates: [
+          { ref: "precall:1", firstName: "Andy", appointments: [] },
+          { ref: "precall:2", firstName: "Liam", appointments: [] },
+        ],
+        identityPromotion: "none",
+      },
+    });
+
+    expect(applyPreCallIdentityFromTranscript(flow, "Yeah.")).toBeUndefined();
+    expect(applyPreCallIdentityFromTranscript(flow, "Hello.")).toBeUndefined();
+    expect(
+      applyPreCallIdentityFromTranscript(flow, "Thank you."),
+    ).toBeUndefined();
+
+    expect(flow.preCall).toMatchObject({
+      status: "multiple_matches_pending_selection",
+      identityPromotion: "none",
+    });
+    expect(flow.activePatientRef).toBe("caller");
+    expect(flow.patientStatus).toBe("unknown");
+    expect(Object.keys(flow.patients)).toEqual(["caller"]);
+  });
+
+  it("closes multiple-match pre-call state when verification finds a unique phone candidate", () => {
+    const flow = createInitialFlowState({
+      officeKey: "hollywood",
+      callerPhone: "+17864587893",
+      preCall: {
+        status: "multiple_matches_pending_selection",
+        source: "phone_lookup",
+        callerPhone: "+17864587893",
+        candidates: [
+          { ref: "precall:1", firstName: "Andy", appointments: [] },
+          { ref: "precall:2", firstName: "Liam", appointments: [] },
+        ],
+        identityPromotion: "none",
+      },
+    });
+
+    recordPatientVerificationAttempt(flow, {
+      firstName: "Andy",
+      phone: "+17864587893",
+      usePhone: true,
+    });
+    recordVerifiedPatient(flow, {
+      patientId: "17611539",
+      patientName: "SANTANA,ANDY",
+      dob: "08/09/2021",
+      appointments: [],
+    });
+
+    expect(flow.preCall).toMatchObject({
+      status: "multiple_match_confirmed",
+      selectedCandidateRef: "caller",
+      identityPromotion: "candidate_selected",
+    });
+    expect(flow.activePatientRef).toBe("caller");
+    expect(flow.patientStatus).toBe("verified");
+
+    expect(applyPreCallIdentityFromTranscript(flow, "Yeah.")).toBeUndefined();
+    expect(Object.keys(flow.patients)).toEqual(["caller"]);
   });
 
   it("marks a selected multiple-match candidate confirmed after verification", () => {
@@ -1070,6 +1216,36 @@ describe("flow state and context packet", () => {
     });
   });
 
+  it("keeps exhausted availability searches exhausted after caching slots", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.visitType = "medical";
+    flow.routing = "all_three";
+
+    recordAvailabilitySearch(flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      routing: "all_three",
+      date: "2026-06-01",
+      maxSearches: 2,
+    });
+    recordAvailabilitySearch(flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      routing: "all_three",
+      date: "2026-06-02",
+      maxSearches: 2,
+    });
+
+    const search = recordAvailabilityCachedSlots(flow, [{ slotId: "A" }]);
+
+    expect(search).toMatchObject({
+      status: "exhausted",
+      cachedSlots: [{ slotHash: "A" }],
+      exactSearchCount: 2,
+      failureReasons: ["budget_exhausted"],
+    });
+  });
+
   it("hydrates cached availability slots on the active search", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
     flow.visitType = "medical";
@@ -1681,6 +1857,68 @@ describe("task-plan command planner", () => {
       type: "confirm",
       confirmation: { type: "route_office" },
     });
+  });
+
+  it("offers cached availability instead of chaining another search after a rejected slot", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+      dob: "1980-01-01",
+      routing: "all_three",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.step = "confirm_booking";
+    flow.visitType = "medical";
+    flow.coverageType = "medical";
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      visitReason: "glaucoma follow up",
+      preferredWindow: "afternoon appointments in June",
+      selectedSlotId: "A",
+      bookingConfirmed: false,
+      noteDraft: {
+        appointmentReason: "glaucoma follow up",
+        referringDoctor: "none",
+      },
+      updatedAt: Date.now(),
+    };
+    recordAvailabilitySearch(flow, {
+      patientRef: "caller",
+      officeKey: "spring-hill",
+      visitType: "medical",
+      coverageType: "medical",
+      routing: "all_three",
+      date: "2026-06-02",
+    });
+    recordAvailabilityCachedSlots(flow, [{ slotId: "A" }, { slotId: "B" }]);
+
+    const command = planNextCommand(flow);
+    applyPlannerPatch(flow, command);
+
+    expect(command).toMatchObject({
+      phase: "offering_cached_availability",
+      nextAction: "ask",
+      slot: "bookingConfirmation",
+      allowedTools: [],
+      blockedActions: expect.arrayContaining([
+        expect.objectContaining({ action: "get_availability" }),
+      ]),
+    });
+    expect(command).not.toMatchObject({
+      tool: "get_availability",
+    });
+    expect(flowDecisionForWorkflowCommand(command)).toMatchObject({
+      type: "ask",
+      slot: "bookingConfirmation",
+    });
+    expect(flow.schedulingGoal).not.toHaveProperty("selectedSlotId");
+    expect(flow.schedulingGoal).not.toHaveProperty("bookingConfirmed");
   });
 });
 
@@ -2385,10 +2623,10 @@ describe("deterministic turn router", () => {
       schedulingGoal: {
         status: "ready_for_availability",
         preferredWindow: "Tuesday",
-        bookingConfirmed: false,
       },
     });
     expect(flow.schedulingGoal?.selectedSlotId).toBeUndefined();
+    expect(flow.schedulingGoal?.bookingConfirmed).toBeUndefined();
   });
 
   it("does not skip Crystal River routine-vision routing when the caller gives a date", () => {

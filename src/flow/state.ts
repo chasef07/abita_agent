@@ -331,7 +331,7 @@ function applyMultipleMatchPreCallIdentity(
   preCall: PreCallContextState,
   transcript: string,
 ): PreCallIdentityReducerResult | undefined {
-  const spokenFirstName = directFirstNameAnswer(transcript);
+  const spokenFirstName = multipleMatchFirstNameAnswer(preCall, transcript);
   if (!spokenFirstName) return undefined;
 
   const spoken = normalizeIdentityValue(spokenFirstName);
@@ -434,6 +434,34 @@ function activatePreCallCandidate(
   return patient;
 }
 
+function multipleMatchFirstNameAnswer(
+  preCall: PreCallContextState,
+  transcript: string,
+): string | undefined {
+  const direct = directFirstNameAnswer(transcript);
+  if (direct) return direct;
+
+  const mentionedCandidate = uniqueMentionedPreCallCandidate(
+    preCall,
+    transcript,
+  );
+  if (mentionedCandidate?.firstName) return mentionedCandidate.firstName;
+
+  return shortFullNameAnswerFirstName(transcript);
+}
+
+function uniqueMentionedPreCallCandidate(
+  preCall: PreCallContextState,
+  transcript: string,
+): PreCallPatientCandidate | undefined {
+  const words = wordsForMatch(transcript);
+  const matches = preCall.candidates.filter((candidate) => {
+    const firstName = normalizeIdentityValue(candidate.firstName);
+    return Boolean(firstName && words.has(firstName));
+  });
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 function firstCandidateFirstName(
   preCall: PreCallContextState,
 ): string | undefined {
@@ -444,7 +472,7 @@ function firstCandidateFirstName(
 
 function directFirstNameAnswer(transcript: string): string | undefined {
   const spelled = spelledNameAnswer(transcript);
-  if (spelled) return spelled;
+  if (spelled && isUsableSpokenFirstName(spelled)) return spelled;
 
   const prefixedNameAnswer = nameAnswerPrefixPattern.test(transcript.trim());
   const stripped = transcript
@@ -459,11 +487,70 @@ function directFirstNameAnswer(transcript: string): string | undefined {
     .split(/\s+/)
     .filter(Boolean)[0]
     ?.replace(/[^a-zA-Z'-]/g, "");
-  return first || undefined;
+  return isUsableSpokenFirstName(first) ? first : undefined;
+}
+
+function shortFullNameAnswerFirstName(transcript: string): string | undefined {
+  const stripped = transcript
+    .trim()
+    .replace(nameAnswerPrefixPattern, "")
+    .trim();
+  const tokens = stripped
+    .split(/\s+/)
+    .map((token) => token.replace(/[^a-zA-Z'-]/g, ""))
+    .filter(Boolean);
+  if (tokens.length !== 2) return undefined;
+  if (!tokens.every(isUsableSpokenFirstName)) return undefined;
+  return tokens[0];
 }
 
 const nameAnswerPrefixPattern =
   /^(?:it'?s|this is|my(?: first)? name is|i am|i'm|the(?: first)? name is|first name is|patient'?s first name is|the patient'?s first name is|it'?s spelled|it is spelled|spelled)\s+/i;
+
+const nonIdentityFirstNameAnswers = new Set([
+  "ah",
+  "appointment",
+  "appointments",
+  "availability",
+  "available",
+  "bye",
+  "correct",
+  "exam",
+  "fine",
+  "friday",
+  "goodbye",
+  "hello",
+  "hi",
+  "issue",
+  "left",
+  "monday",
+  "no",
+  "nope",
+  "ok",
+  "okay",
+  "right",
+  "schedule",
+  "scheduling",
+  "thank",
+  "sure",
+  "thanks",
+  "thursday",
+  "tuesday",
+  "wednesday",
+  "you",
+  "yeah",
+  "yep",
+  "yes",
+]);
+
+function isUsableSpokenFirstName(value?: string): value is string {
+  const normalized = normalizeIdentityValue(value);
+  return Boolean(
+    normalized &&
+    /^[a-z][a-z'-]*$/i.test(value ?? "") &&
+    !nonIdentityFirstNameAnswers.has(normalized),
+  );
+}
 
 function transcriptConfirmsFirstName(
   transcript: string,
@@ -472,7 +559,68 @@ function transcriptConfirmsFirstName(
   const expected = normalizeIdentityValue(expectedFirstName);
   if (!expected) return false;
   if (wordsForMatch(transcript).has(expected)) return true;
-  return normalizeIdentityValue(directFirstNameAnswer(transcript)) === expected;
+
+  const spoken = directFirstNameAnswer(transcript);
+  const normalizedSpoken = normalizeIdentityValue(spoken);
+  return Boolean(
+    normalizedSpoken &&
+    (normalizedSpoken === expected ||
+      firstNamesAreFuzzyMatch(normalizedSpoken, expected)),
+  );
+}
+
+function firstNamesAreFuzzyMatch(spoken: string, expected: string): boolean {
+  const normalizedSpoken = normalizeFirstNameForFuzzyMatch(spoken);
+  const normalizedExpected = normalizeFirstNameForFuzzyMatch(expected);
+  if (
+    normalizedSpoken.length < 5 ||
+    normalizedExpected.length < 5 ||
+    normalizedSpoken[0] !== normalizedExpected[0] ||
+    Math.abs(normalizedSpoken.length - normalizedExpected.length) > 1
+  ) {
+    return false;
+  }
+
+  return editDistanceAtMostOne(normalizedSpoken, normalizedExpected);
+}
+
+function normalizeFirstNameForFuzzyMatch(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z]/gi, "")
+    .toLowerCase();
+}
+
+function editDistanceAtMostOne(left: string, right: string): boolean {
+  if (left === right) return true;
+  if (Math.abs(left.length - right.length) > 1) return false;
+
+  let differences = 0;
+  let leftIndex = 0;
+  let rightIndex = 0;
+
+  while (leftIndex < left.length && rightIndex < right.length) {
+    if (left[leftIndex] === right[rightIndex]) {
+      leftIndex += 1;
+      rightIndex += 1;
+      continue;
+    }
+
+    differences += 1;
+    if (differences > 1) return false;
+
+    if (left.length > right.length) {
+      leftIndex += 1;
+    } else if (right.length > left.length) {
+      rightIndex += 1;
+    } else {
+      leftIndex += 1;
+      rightIndex += 1;
+    }
+  }
+
+  return true;
 }
 
 function firstNameSourceForTranscript(transcript: string): CallerNameSource {
@@ -911,7 +1059,32 @@ function recordPreCallVerificationResult(
   ) {
     flow.preCall.status = "multiple_match_confirmed";
     flow.preCall.identityPromotion = "candidate_selected";
+    return;
   }
+
+  if (flow.preCall.status === "multiple_matches_pending_selection") {
+    const patient = flow.patients[targetPatientRef];
+    flow.preCall.status = "multiple_match_confirmed";
+    flow.preCall.selectedCandidateRef = targetPatientRef;
+    flow.preCall.identityPromotion = uniquePreCallCandidateForVerifiedPatient(
+      flow.preCall,
+      patient,
+    )
+      ? "candidate_selected"
+      : "verify_patient_required";
+  }
+}
+
+function uniquePreCallCandidateForVerifiedPatient(
+  preCall: PreCallContextState,
+  patient: PatientContext | undefined,
+): PreCallPatientCandidate | undefined {
+  const firstName = normalizeIdentityValue(patient?.firstName?.value);
+  if (!firstName) return undefined;
+  const matches = preCall.candidates.filter(
+    (candidate) => normalizeIdentityValue(candidate.firstName) === firstName,
+  );
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 export function recordAppointmentLookupResult(
