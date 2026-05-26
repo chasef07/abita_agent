@@ -396,7 +396,7 @@ function preCallTurnStateLine(flow: CallFlowState): string | undefined {
     return "preCall: single_match_pending_confirmation; different first name given; verify active patient normally.";
   }
   if (preCall.status === "single_match_pending_confirmation") {
-    return "preCall: single_match_pending_confirmation; ask caller for first name only.";
+    return "preCall: single_match_pending_confirmation; ask caller to spell patient's first name only.";
   }
   if (preCall.status === "single_match_confirmed") {
     const appointmentIds = confirmedPreCallAppointmentIds(flow);
@@ -409,8 +409,8 @@ function preCallTurnStateLine(flow: CallFlowState): string | undefined {
   if (preCall.status === "multiple_matches_pending_selection") {
     const duplicateHint =
       preCall.identityPromotion === "verify_patient_required"
-        ? "; if first name is ambiguous or unmatched, ask last name and DOB"
-        : "; ask first name only";
+        ? "; if first name is ambiguous or unmatched, ask spelled last name and DOB"
+        : "; ask spelled first name only";
     return `preCall: multiple_matches_pending_selection${duplicateHint}; do not read candidate names.`;
   }
   if (preCall.status === "multiple_match_selected_pending_verification") {
@@ -442,7 +442,7 @@ function preCallCapsule(flow: CallFlowState): string {
     return "preCall: single phone match; first-name challenge pending; do not say the preloaded name.";
   }
   if (preCall.status === "multiple_matches_pending_selection") {
-    return `preCall: multiple phone matches (${preCall.candidates.length}); ask for first name without reading names aloud.`;
+    return `preCall: multiple phone matches (${preCall.candidates.length}); ask for spelled first name without reading names aloud.`;
   }
   if (preCall.status === "multiple_match_selected_pending_verification") {
     return "preCall: one phone-match candidate selected by first name; verify with caller phone before side effects.";

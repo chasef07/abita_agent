@@ -1682,7 +1682,7 @@ If the caller only says a backchannel like "yes", "okay", or "mm-hmm", call this
 export const verify_patient = llm.tool({
   description: `Single existing-patient lookup tool. Verifies a patient and always asks middleware to include upcoming appointments in the same call.
 
-For MULTIPLE MATCHES (caller context says multiple patients on this number): just pass firstName and phone — the middleware matches by phone + first name. Do NOT ask for last name or DOB upfront.
+For MULTIPLE MATCHES (caller context says multiple patients on this number): ask for the spelled first name, then pass firstName and phone — the middleware matches by phone + first name. Do NOT ask for last name or DOB upfront.
 
 For all other cases: pass firstName, lastName, and dob (MM/DD/YYYY).
 
@@ -1696,12 +1696,14 @@ After response:
 - If not found with full details: ask them to spell their name and retry with corrections.
 - If still not found after retry: lead into registration — "ok no worries, let me get you set up."`,
   parameters: z.object({
-    firstName: z.string().describe("Patient's first name"),
+    firstName: z
+      .string()
+      .describe("Patient's first name as spelled by the caller when available"),
     lastName: z
       .string()
       .optional()
       .describe(
-        "Patient's last name (optional for multiple-match phone lookup)",
+        "Patient's last name as spelled by the caller when available (optional for multiple-match phone lookup)",
       ),
     dob: z
       .string()

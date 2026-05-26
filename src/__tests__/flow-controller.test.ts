@@ -141,6 +141,54 @@ describe("flow state and context packet", () => {
     expect(after).toContain("firstName=confirmed");
   });
 
+  it("promotes a single pre-call match after spelled first-name confirmation", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Jane",
+      dob: "1980-01-01",
+      appointments: [],
+      appointmentsStatus: "none",
+      callerPhone: "+17275551212",
+      preCall: {
+        status: "single_match_pending_confirmation",
+        source: "phone_lookup",
+        callerPhone: "+17275551212",
+        candidates: [
+          {
+            ref: "caller",
+            firstName: "Jane",
+            lastName: "Doe",
+            dob: "1980-01-01",
+            patientId: "patient-1",
+            relationshipToCaller: "self",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+        ],
+        selectedCandidateRef: "caller",
+        identityPromotion: "none",
+      },
+    });
+
+    const result = applyPreCallIdentityFromTranscript(
+      flow,
+      "My first name is J-A-N-E.",
+    );
+
+    expect(result).toMatchObject({
+      changed: true,
+      promotion: "first_name_confirmed",
+      selectedCandidateRef: "caller",
+    });
+    expect(flow.preCall?.status).toBe("single_match_confirmed");
+    expect(flow.patientStatus).toBe("verified");
+    expect(flow.patients.caller?.firstName).toMatchObject({
+      value: "Jane",
+      confirmed: true,
+    });
+  });
+
   it("does not treat a workflow phrase as a different pre-call first name", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
@@ -204,7 +252,7 @@ describe("flow state and context packet", () => {
       },
     });
 
-    const result = applyPreCallIdentityFromTranscript(flow, "Maria");
+    const result = applyPreCallIdentityFromTranscript(flow, "M-A-R-I-A");
 
     expect(result).toMatchObject({
       changed: true,
@@ -213,6 +261,10 @@ describe("flow state and context packet", () => {
     expect(flow.activePatientRef).toMatch(/^candidate:/);
     expect(flow.patientStatus).toBe("candidate");
     expect(flow.step).toBe("verify_patient");
+    expect(flow.patients[flow.activePatientRef]?.firstName).toMatchObject({
+      source: "caller_spelled",
+      confidence: "high",
+    });
     expect(flow.preCall).toMatchObject({
       status: "single_match_pending_confirmation",
       identityPromotion: "verify_patient_required",
@@ -238,7 +290,7 @@ describe("flow state and context packet", () => {
       },
     });
 
-    const result = applyPreCallIdentityFromTranscript(flow, "Maria");
+    const result = applyPreCallIdentityFromTranscript(flow, "M-A-R-I-A");
 
     expect(result).toMatchObject({
       changed: true,
@@ -252,6 +304,10 @@ describe("flow state and context packet", () => {
     expect(flow.activePatientRef).toBe("precall:2");
     expect(flow.patientStatus).toBe("candidate");
     expect(flow.step).toBe("verify_patient");
+    expect(flow.patients["precall:2"]?.firstName).toMatchObject({
+      source: "caller_spelled",
+      confidence: "high",
+    });
 
     const packet = compileTurnStatePacket(flow);
     expect(packet).toContain(
@@ -331,7 +387,7 @@ describe("flow state and context packet", () => {
     expect(flow.activePatientRef).toBe("caller");
 
     const packet = compileTurnStatePacket(flow);
-    expect(packet).toContain("ask last name and DOB");
+    expect(packet).toContain("ask spelled last name and DOB");
     expect(packet).not.toContain("Maria");
   });
 

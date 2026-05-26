@@ -309,6 +309,12 @@ describe("flow harness prompt gating", () => {
       "If the caller asks to speak Spanish, continue the conversation in Spanish",
     );
     expect(prompt).toContain(
+      "When asking for a patient's first or last name, ask them to spell it",
+    );
+    expect(prompt).toContain(
+      'When giving an address, put `<break time="300ms"/>` between the street',
+    );
+    expect(prompt).toContain(
       "capture exactly two booking-note facts: appointment reason and referring doctor",
     );
     expect(prompt).toContain(
@@ -690,7 +696,9 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "Phone lookup found exactly one existing patient for this caller.",
     );
-    expect(prompt).toContain("- Ask for first name only.");
+    expect(prompt).toContain(
+      "- Ask the caller to spell the patient's first name only.",
+    );
     expect(prompt).toContain("- Do not call verify_patient for this caller.");
     expect(prompt).toContain(
       "- Use the preloaded appointment list for appointment changes and cancellations.",

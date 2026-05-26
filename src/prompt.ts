@@ -156,7 +156,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
     );
     lines.push(`Identity state:`);
     lines.push(`- The caller is not confirmed yet.`);
-    lines.push(`- Ask for first name only.`);
+    lines.push(`- Ask the caller to spell the patient's first name only.`);
     lines.push(
       `- Do not say the preloaded name, date of birth, patient ID, insurance, or appointment details until turn_state says preCall: single_match_confirmed.`,
     );

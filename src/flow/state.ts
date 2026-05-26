@@ -25,6 +25,8 @@ import type {
   TrackedSlotSource,
 } from "./types.js";
 
+type CallerNameSource = "caller_spoken" | "caller_spelled";
+
 type AppointmentLookupPlan =
   | AppointmentConfirmPlan
   | AppointmentCancelPlan
@@ -231,9 +233,9 @@ export function confirmPreloadedPatientIdentityFromTranscript(
     return undefined;
   }
 
-  const transcriptWords = wordsForMatch(transcript);
-  const firstName = normalizeIdentityValue(patient.firstName.value);
-  if (!firstName || !transcriptWords.has(firstName)) return undefined;
+  if (!transcriptConfirmsFirstName(transcript, patient.firstName.value)) {
+    return undefined;
+  }
 
   patient.status = "verified";
   patient.firstName = { ...patient.firstName, confirmed: true };
@@ -272,7 +274,7 @@ function applySingleMatchPreCallIdentity(
     return undefined;
   }
 
-  if (wordsForMatch(transcript).has(expected)) {
+  if (transcriptConfirmsFirstName(transcript, expectedFirstName)) {
     const confirmed = confirmPreloadedPatientIdentityFromTranscript(
       flow,
       transcript,
@@ -292,16 +294,19 @@ function applySingleMatchPreCallIdentity(
   const spoken = normalizeIdentityValue(spokenFirstName);
   if (!spoken || spoken === expected) return undefined;
 
+  const firstNameSource = firstNameSourceForTranscript(transcript);
   const ref = candidateRefForSpokenName(spokenFirstName, preCall.callerPhone);
   const candidate = ensureActivePatientContext(flow, ref);
   candidate.status = "candidate";
   candidate.relationshipToCaller = "unknown";
   candidate.firstName = trackedSlot(
     spokenFirstName,
-    "caller_spoken",
-    "medium",
+    firstNameSource,
+    firstNameSource === "caller_spelled" ? "high" : "medium",
     false,
   );
+  candidate.canonicalNameSource = firstNameSource;
+  candidate.spellingConfirmed = firstNameSource === "caller_spelled";
   candidate.phone = trackedSlot(
     preCall.callerPhone,
     "phone_lookup",
@@ -342,6 +347,7 @@ function applyMultipleMatchPreCallIdentity(
       preCall,
       matches[0],
       spokenFirstName,
+      firstNameSourceForTranscript(transcript),
     );
     preCall.status = "multiple_match_selected_pending_verification";
     preCall.identityPromotion = "candidate_selected";
@@ -371,6 +377,7 @@ function applyMultipleMatchPreCallIdentity(
       appointments: [],
     },
     spokenFirstName,
+    firstNameSourceForTranscript(transcript),
   );
   preCall.identityPromotion = "verify_patient_required";
   return {
@@ -386,16 +393,19 @@ function activatePreCallCandidate(
   preCall: PreCallContextState,
   candidate: PreCallPatientCandidate,
   spokenFirstName: string,
+  firstNameSource: CallerNameSource = "caller_spoken",
 ): PatientContext {
   const patient = ensureActivePatientContext(flow, candidate.ref);
   patient.status = candidate.patientId ? "matched" : "candidate";
   patient.relationshipToCaller = candidate.relationshipToCaller ?? "unknown";
   patient.firstName = trackedSlot(
     candidate.firstName ?? spokenFirstName,
-    "caller_spoken",
-    "medium",
+    firstNameSource,
+    firstNameSource === "caller_spelled" ? "high" : "medium",
     false,
   );
+  patient.canonicalNameSource = firstNameSource;
+  patient.spellingConfirmed = firstNameSource === "caller_spelled";
   if (candidate.lastName) {
     patient.lastName = trackedSlot(
       candidate.lastName,
@@ -433,11 +443,13 @@ function firstCandidateFirstName(
 }
 
 function directFirstNameAnswer(transcript: string): string | undefined {
-  const prefixedNameAnswer =
-    /^(?:it'?s|this is|my name is|i am|i'm|the name is)\s+/i.test(transcript);
+  const spelled = spelledNameAnswer(transcript);
+  if (spelled) return spelled;
+
+  const prefixedNameAnswer = nameAnswerPrefixPattern.test(transcript.trim());
   const stripped = transcript
     .trim()
-    .replace(/^(?:it'?s|this is|my name is|i am|i'm|the name is)\s+/i, "")
+    .replace(nameAnswerPrefixPattern, "")
     .trim();
   const words = [...wordsForMatch(stripped)];
   if (words.length === 0) return undefined;
@@ -448,6 +460,50 @@ function directFirstNameAnswer(transcript: string): string | undefined {
     .filter(Boolean)[0]
     ?.replace(/[^a-zA-Z'-]/g, "");
   return first || undefined;
+}
+
+const nameAnswerPrefixPattern =
+  /^(?:it'?s|this is|my(?: first)? name is|i am|i'm|the(?: first)? name is|first name is|patient'?s first name is|the patient'?s first name is|it'?s spelled|it is spelled|spelled)\s+/i;
+
+function transcriptConfirmsFirstName(
+  transcript: string,
+  expectedFirstName?: string,
+): boolean {
+  const expected = normalizeIdentityValue(expectedFirstName);
+  if (!expected) return false;
+  if (wordsForMatch(transcript).has(expected)) return true;
+  return normalizeIdentityValue(directFirstNameAnswer(transcript)) === expected;
+}
+
+function firstNameSourceForTranscript(transcript: string): CallerNameSource {
+  return spelledNameAnswer(transcript) ? "caller_spelled" : "caller_spoken";
+}
+
+function spelledNameAnswer(transcript: string): string | undefined {
+  const stripped = transcript
+    .trim()
+    .replace(nameAnswerPrefixPattern, "")
+    .trim();
+  const tokens = stripped.toLowerCase().match(/[a-z]+/g) ?? [];
+  let bestRun: string[] = [];
+  let currentRun: string[] = [];
+
+  for (const token of tokens) {
+    if (token.length === 1) {
+      currentRun.push(token);
+      continue;
+    }
+    if (currentRun.length > bestRun.length) bestRun = currentRun;
+    currentRun = [];
+  }
+  if (currentRun.length > bestRun.length) bestRun = currentRun;
+  if (bestRun.length < 2) return undefined;
+
+  return titleCaseName(bestRun.join(""));
+}
+
+function titleCaseName(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
 
 function candidateRefForSpokenName(
