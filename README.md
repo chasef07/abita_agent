@@ -1,4 +1,4 @@
-# LiveKit Voice Agent
+# LiveKit Voice Agent 
 
 A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over Twilio/Telnyx SIP trunks, the agent identifies them, handles scheduling/insurance/FAQ, and transfers to a human when needed.
 
