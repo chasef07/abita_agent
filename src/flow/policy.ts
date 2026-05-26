@@ -268,6 +268,15 @@ function outcomeForGuardReason(
   reason: GuardObservationReason,
 ): ToolOutcome | undefined {
   switch (reason) {
+    case "verify_patient_pre_call_already_confirmed":
+      return {
+        outcome: "success",
+        nextStep: "answer",
+        speak:
+          "The caller is already verified from the pre-call phone lookup first-name challenge. Continue using the loaded caller and appointment state; do not call verify_patient again for this caller.",
+        facts: { reason },
+        retryable: false,
+      };
     case "routine_vision_crystal_river_requires_route_to_spring_hill":
       return {
         outcome: "route_required",

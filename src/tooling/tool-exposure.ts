@@ -1,7 +1,11 @@
 import type { llm } from "@livekit/agents";
 import type { OfficeConfig } from "../customer/profile.js";
-import type { CallFlowState, WorkflowToolName } from "../flow/index.js";
-import { activeWorkflowCommandForState } from "../flow/index.js";
+import {
+  activeWorkflowCommandForState,
+  DEFAULT_PATIENT_REF,
+  type CallFlowState,
+  type WorkflowToolName,
+} from "../flow/index.js";
 import type { CallState } from "./call-state.js";
 
 export type ModelFacingWorkflowToolName = WorkflowToolName;
@@ -84,17 +88,32 @@ function visibleToolNamesForState(
   }
 
   const broadTools = legacyToolNamesForOffice(office, false);
+  if (preCallCallerAlreadyConfirmed(state.flow)) {
+    return broadTools.filter((name) => name !== "verify_patient");
+  }
   return broadTools;
 }
 
 function exposureReasonForState(state: CallState): string {
   if (!state.flowHarnessEnabled) return "legacy_harness_disabled";
   if (pendingTurnUnderstanding(state)) return "turn_update_pending_broad";
+  const reasonPrefix = preCallCallerAlreadyConfirmed(state.flow)
+    ? "precall_confirmed_no_verify:"
+    : "";
   const command = activeWorkflowCommandForState(state.flow);
   if (command) {
-    return `planner_guidance_broad:${command.taskKind}:${command.phase}`;
+    return `${reasonPrefix}planner_guidance_broad:${command.taskKind}:${command.phase}`;
   }
-  return `flow_step_broad:${state.flow.step}`;
+  return `${reasonPrefix}flow_step_broad:${state.flow.step}`;
+}
+
+function preCallCallerAlreadyConfirmed(flow: CallFlowState): boolean {
+  const preCall = flow.preCall;
+  if (preCall?.status !== "single_match_confirmed") return false;
+  const selectedRef = preCall.selectedCandidateRef ?? DEFAULT_PATIENT_REF;
+  if (selectedRef !== DEFAULT_PATIENT_REF) return false;
+  const caller = flow.patients[DEFAULT_PATIENT_REF];
+  return caller?.status === "verified" && Boolean(caller.patientId);
 }
 
 function legacyToolNamesForOffice(

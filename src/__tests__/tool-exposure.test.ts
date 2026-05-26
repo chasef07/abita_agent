@@ -162,6 +162,34 @@ describe("dynamic tool exposure", () => {
     );
   });
 
+  it("hides patient verification after pre-call single match is confirmed", () => {
+    const state = createCallState();
+    state.flow.preCall = {
+      status: "single_match_confirmed",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: "caller",
+          firstName: "Jane",
+          patientId: "patient-1",
+          relationshipToCaller: "self",
+          appointments: [],
+        },
+      ],
+      selectedCandidateRef: "caller",
+      identityPromotion: "first_name_confirmed",
+    };
+    state.flow.patientStatus = "verified";
+    state.flow.patients.caller.status = "verified";
+
+    const decision = buildToolsForState(state);
+
+    expect(decision.visibleToolNames).not.toContain("verify_patient");
+    expect(decision.visibleToolNames).toContain("cancel_appt");
+    expect(decision.reason).toContain("precall_confirmed_no_verify");
+  });
+
   it("keeps cancellation tools visible before a preloaded patient is verified", () => {
     const state = createCallState();
     state.flow.step = "confirm_cancel";

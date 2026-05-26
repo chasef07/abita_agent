@@ -325,6 +325,57 @@ describe("tool interruption handling", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("does not re-verify or mutate identity after pre-call confirmation", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { ctx, state } = createToolContext();
+    state.flow.preCall = {
+      status: "single_match_confirmed",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: "caller",
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          patientId: "patient-1",
+          relationshipToCaller: "self",
+          appointments: [],
+          appointmentsStatus: "found",
+        },
+      ],
+      selectedCandidateRef: "caller",
+      identityPromotion: "first_name_confirmed",
+    };
+    state.flow.patients["candidate:bad"] = createPatientContext({
+      ref: "candidate:bad",
+      status: "candidate",
+    });
+    state.flow.activePatientRef = "candidate:bad";
+
+    const result = await verify_patient.execute(
+      { firstName: "Jane", lastName: "Gomez", dob: "01/15/1965" },
+      { ctx, toolCallId: "test-precall-already-confirmed" },
+    );
+
+    expect(result).toMatchObject({
+      outcome: "success",
+      facts: { reason: "verify_patient_pre_call_already_confirmed" },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(state.flow.activePatientRef).toBe("caller");
+    expect(state.flow.patients.caller).toMatchObject({
+      status: "verified",
+      patientId: "patient-1",
+    });
+    expect(state.flowGuardObservations.at(-1)).toMatchObject({
+      toolName: "verify_patient",
+      allowed: false,
+      reason: "verify_patient_pre_call_already_confirmed",
+    });
+  });
+
   it("returns raw appointment lookup payload while storing sanitized appointment state", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,

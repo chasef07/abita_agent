@@ -24,6 +24,7 @@ import {
   createPendingSideEffectAction,
   completeCurrentTaskAndResume,
   consumePendingSideEffectAction,
+  DEFAULT_PATIENT_REF,
   hashToolArgs,
   invalidateAvailabilitySearches,
   invalidatePendingActionsForStateChange,
@@ -216,6 +217,28 @@ function evaluatePolicyForState(
 
 function isFlowHarnessEnabled(state: Pick<CallState, "flowHarnessEnabled">) {
   return state.flowHarnessEnabled === true;
+}
+
+function restoreConfirmedPreCallCaller(state: CallState): void {
+  if (!isFlowHarnessEnabled(state)) return;
+  const flow = state.flow;
+  const preCall = flow.preCall;
+  if (preCall?.status !== "single_match_confirmed") return;
+  const selectedRef = preCall.selectedCandidateRef ?? DEFAULT_PATIENT_REF;
+  if (selectedRef !== DEFAULT_PATIENT_REF) return;
+  const caller = flow.patients[DEFAULT_PATIENT_REF];
+  if (!caller?.patientId) return;
+
+  ensureActivePatientContext(flow, DEFAULT_PATIENT_REF);
+  caller.status = "verified";
+  flow.patientStatus = "verified";
+  if (flow.currentTask?.patientRef?.startsWith("candidate:")) {
+    flow.currentTask.patientRef = DEFAULT_PATIENT_REF;
+  }
+  if (flow.schedulingGoal?.patientRef?.startsWith("candidate:")) {
+    flow.schedulingGoal.patientRef = DEFAULT_PATIENT_REF;
+  }
+  syncSessionPatientFromActiveFlow(state);
 }
 
 function shouldAutoConfirmSideEffect(
@@ -1711,6 +1734,22 @@ After response:
   ) => {
     const state = getState(ctx);
     makeCurrentSpeechUninterruptible(ctx);
+    restoreConfirmedPreCallCaller(state);
+    if (state.flow.preCall?.status === "single_match_confirmed") {
+      const preCallPolicyResponse = evaluatePolicyForState(
+        state,
+        "verify_patient",
+        {
+          firstName,
+          lastName,
+          dob,
+          usePhone,
+          nameSource,
+          relationshipToCaller,
+        },
+      );
+      if (preCallPolicyResponse) return preCallPolicyResponse;
+    }
     if (usePhone && !firstName) {
       return toolOutcome(
         "needs_clarification",
