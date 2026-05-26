@@ -24,7 +24,6 @@ import {
   buildCallCenterHandoffHeaders,
   cancel_appt,
   check_insurance,
-  confirm_appt,
   get_availability,
   lookup_knowledge,
   makeCurrentSpeechUninterruptible,
@@ -142,11 +141,12 @@ describe("tool interruption handling", () => {
 
     expect(recorded).toMatchObject({
       status: "recorded",
-      nextAction: "confirm_appt",
+      nextAction: "verify_patient",
       action: "call_tool",
-      tool: "confirm_appt",
-      args: {},
-      instruction: "Call confirm_appt now.",
+      tool: "verify_patient",
+      args: { firstName: "Jane", lastName: "Doe", dob: "01/01/1980" },
+      instruction:
+        "Call verify_patient with the patient's name and date of birth to load appointments.",
     });
     expect(recorded).not.toHaveProperty("turnState");
     expect(recorded).not.toHaveProperty("controllerDecision");
@@ -307,22 +307,20 @@ describe("tool interruption handling", () => {
     });
   });
 
-  it("blocks appointment lookup for a preloaded patient until identity is confirmed", async () => {
+  it("requires identity fields before resolving a patient", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const { ctx, state } = createToolContext();
-    state.flow.patientStatus = "matched";
-    state.flow.patients[state.flow.activePatientRef!].status = "matched";
+    const { ctx } = createToolContext();
 
-    const result = await confirm_appt.execute(
-      {},
-      { ctx, toolCallId: "test-confirm-appt-unverified" },
+    const result = await verify_patient.execute(
+      { firstName: "Jane" },
+      { ctx, toolCallId: "test-verify-missing-identity" },
     );
 
     expect(result).toMatchObject({
-      outcome: "not_allowed",
+      outcome: "needs_clarification",
       nextStep: "verify_patient",
-      facts: { reason: "appointment_lookup_requires_verified_patient" },
+      facts: { reason: "patient_lookup_requires_last_name_and_dob" },
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -331,7 +329,9 @@ describe("tool interruption handling", () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
       json: async () => ({
-        status: "found",
+        status: "verified",
+        patientId: "patient-1",
+        appointmentsStatus: "found",
         appointments: [
           {
             id: 12345,
@@ -351,9 +351,9 @@ describe("tool interruption handling", () => {
 
     const { ctx, state } = createToolContext();
 
-    const result = await confirm_appt.execute(
-      {},
-      { ctx, toolCallId: "test-confirm-appt-tokens" },
+    const result = await verify_patient.execute(
+      { firstName: "Jane", lastName: "Doe", dob: "01/01/1980" },
+      { ctx, toolCallId: "test-verify-with-appointments-tokens" },
     );
 
     expect(state.appointmentCancelTokens).toEqual({
@@ -361,46 +361,39 @@ describe("tool interruption handling", () => {
     });
     expect(state.appointments[0]).not.toHaveProperty("cancelToken");
     expect(result).toMatchObject({
-      status: "found",
+      status: "verified",
+      appointmentsStatus: "found",
       appointments: [expect.objectContaining({ id: 12345 })],
     });
     expect(JSON.stringify(result)).toContain("cancel-token-12345");
     expect(JSON.stringify(result)).toContain("cancelToken");
   });
 
-  it("auto-loads appointments after verification when appointment planner asks for lookup", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockImplementationOnce(async () => ({
-        ok: true,
-        json: async () => ({
-          status: "verified",
-          patientId: "patient-2",
-          name: "TEST,CHASE",
-          dob: "04/07/2000",
-          phone: "(954) 609-7250",
-        }),
-        text: async () => "",
-      }))
-      .mockImplementationOnce(async () => ({
-        ok: true,
-        json: async () => ({
-          status: "found",
-          appointments: [
-            {
-              id: 12345,
-              date: "Tuesday, June 2, 2026",
-              time: "1:30 PM",
-              provider: "Dr. Licht",
-              type: "Crystal River Established Patient",
-              facility: "Crystal River",
-              confirmed: true,
-              cancelToken: "cancel-token-12345",
-            },
-          ],
-        }),
-        text: async () => "",
-      }));
+  it("stores appointments from patient resolve when appointment planner asks for lookup", async () => {
+    const fetchMock = vi.fn().mockImplementationOnce(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "verified",
+        patientId: "patient-2",
+        name: "TEST,CHASE",
+        dob: "04/07/2000",
+        phone: "(954) 609-7250",
+        appointmentsStatus: "found",
+        appointments: [
+          {
+            id: 12345,
+            date: "Tuesday, June 2, 2026",
+            time: "1:30 PM",
+            provider: "Dr. Licht",
+            type: "Crystal River Established Patient",
+            facility: "Crystal River",
+            confirmed: true,
+            cancelToken: "cancel-token-12345",
+          },
+        ],
+      }),
+      text: async () => "",
+    }));
     vi.stubGlobal("fetch", fetchMock);
 
     const { ctx, state } = createToolContext();
@@ -426,22 +419,29 @@ describe("tool interruption handling", () => {
       { ctx, toolCallId: "test-verify-auto-lookup" },
     )) as Record<string, unknown>;
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[1][0])).toContain(
-      "/api/patient/appointments",
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      "/api/patient/resolve",
     );
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
-      patientId: "patient-2",
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      firstName: "Chase",
+      lastName: "Test",
+      dob: "04/07/2000",
+      includeAppointments: true,
     });
-    expect(result.appointmentLookup).toMatchObject({
-      status: "found",
+    expect(result).toMatchObject({
+      status: "verified",
+      appointmentsStatus: "found",
       appointments: [expect.objectContaining({ id: 12345 })],
     });
     expect(result.planner).toMatchObject({
       task: "appointment_cancel",
       nextAction: "confirm",
     });
-    expect(result.planner).not.toMatchObject({ tool: "confirm_appt" });
+    expect(result.planner).not.toMatchObject({
+      tool: "verify_patient",
+      args: {},
+    });
     expect(state.appointments).toContainEqual(
       expect.objectContaining({ id: 12345 }),
     );
@@ -450,29 +450,21 @@ describe("tool interruption handling", () => {
     });
   });
 
-  it("records no-appointment lookup results so the planner does not ask for confirm_appt again", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockImplementationOnce(async () => ({
-        ok: true,
-        json: async () => ({
-          status: "verified",
-          patientId: "patient-2",
-          name: "TEST,CHASE",
-          dob: "04/07/2000",
-          phone: "(954) 609-7250",
-        }),
-        text: async () => "",
-      }))
-      .mockImplementationOnce(async () => ({
-        ok: true,
-        json: async () => ({
-          status: "no_appointments",
-          patientId: "patient-2",
-          message: "No appointments found for this patient",
-        }),
-        text: async () => "",
-      }));
+  it("records no-appointment lookup results so the planner does not ask for appointment refresh again", async () => {
+    const fetchMock = vi.fn().mockImplementationOnce(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "verified",
+        patientId: "patient-2",
+        name: "TEST,CHASE",
+        dob: "04/07/2000",
+        phone: "(954) 609-7250",
+        appointmentsStatus: "none",
+        appointments: [],
+        message: "No appointments found for this patient",
+      }),
+      text: async () => "",
+    }));
     vi.stubGlobal("fetch", fetchMock);
 
     const { ctx, state } = createToolContext();
@@ -498,9 +490,10 @@ describe("tool interruption handling", () => {
       { ctx, toolCallId: "test-verify-auto-empty-lookup" },
     )) as Record<string, unknown>;
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(result.appointmentLookup).toMatchObject({
-      status: "no_appointments",
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      status: "verified",
+      appointmentsStatus: "none",
     });
     expect(result.planner).toMatchObject({
       task: "appointment_cancel",
@@ -508,7 +501,10 @@ describe("tool interruption handling", () => {
       nextAction: "respond",
       missingFacts: [],
     });
-    expect(result.planner).not.toMatchObject({ tool: "confirm_appt" });
+    expect(result.planner).not.toMatchObject({
+      tool: "verify_patient",
+      args: {},
+    });
     expect(activeWorkflowCommandForState(state.flow)).toMatchObject({
       taskKind: "appointment_cancel",
       phase: "complete",
@@ -2638,7 +2634,9 @@ describe("tool interruption handling", () => {
       .mockImplementationOnce(async () => ({
         ok: true,
         json: async () => ({
-          status: "found",
+          status: "verified",
+          patientId: "patient-1",
+          appointmentsStatus: "found",
           appointments: [
             {
               id: 12345,
@@ -3318,6 +3316,7 @@ function createToolContext() {
       dob: "01/01/1980",
       routing: "all_three",
       coverageType: "medical",
+      appointmentsStatus: null,
     }),
     flowHarnessEnabled: true,
     flowGuardObservations: [],
@@ -3346,6 +3345,7 @@ function createToolContext() {
     allowedProviders: [],
     routingAmbiguous: false,
     preauthRequired: false,
+    appointmentsStatus: null,
     appointments: [],
     appointmentCancelTokens: {},
     transferred: false,
@@ -3504,11 +3504,13 @@ function seedLoadedAppointment(
     ...state.appointments.filter((item) => item.id !== appointmentId),
     appointment,
   ];
+  state.appointmentsStatus = "found";
   const activePatient = state.flow.patients[state.flow.activePatientRef!];
   activePatient.appointments = [
     ...activePatient.appointments.filter((item) => item.id !== appointmentId),
     appointment,
   ];
+  activePatient.appointmentsStatus = "found";
   state.appointmentCancelTokens ??= {};
   if (cancelToken) {
     state.appointmentCancelTokens[String(appointmentId)] = cancelToken;
@@ -3528,6 +3530,7 @@ function resetToUnverifiedAppointmentTask(
   state.patientName = null;
   state.dob = null;
   state.appointments = [];
+  state.appointmentsStatus = null;
   state.appointmentCancelTokens = {};
   state.latestUserTranscript = transcript;
   state.turnUnderstandingAppliedForTranscript = null;

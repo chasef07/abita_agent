@@ -14,6 +14,7 @@ import {
 import {
   appointmentLookupKnownFact,
   resolveAppointmentLookup,
+  verifiedPatientResolveArgs,
 } from "./shared.js";
 
 export function planConfirm(flow: CallFlowState): WorkflowCommand {
@@ -31,6 +32,7 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
     verified,
     appointments,
     existingPlan?.lookup,
+    patient?.appointmentsStatus,
   );
   const phase: AppointmentConfirmPlan["phase"] = !verified
     ? "needs_lookup"
@@ -61,7 +63,7 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
       allowedTools: ["verify_patient"],
       blockedActions: [
         {
-          action: "confirm_appt",
+          action: "appointment_lookup",
           reason: "patient must be verified before appointment lookup",
         },
       ],
@@ -86,7 +88,39 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
     });
   }
 
+  if (lookup.lookupFailed) {
+    return command(flow, plan, {
+      phase: "complete",
+      knownFacts: [
+        ...knownPatientFacts(patient, flow),
+        appointmentLookupKnownFact(lookup),
+      ],
+      missingFacts: [],
+      nextAction: "respond",
+      allowedTools: [],
+      blockedActions: [],
+      instruction:
+        "Tell the caller the appointment lookup is unavailable right now, then offer to help schedule or transfer if they need appointment details.",
+    });
+  }
+
   if (lookup.needsLookup) {
+    const resolveArgs = verifiedPatientResolveArgs(patient);
+    if (!resolveArgs) {
+      return command(flow, plan, {
+        phase: "needs_verified_patient",
+        knownFacts: knownPatientFacts(patient, flow),
+        missingFacts: [
+          { key: "patientIdentity", label: "verified patient identity" },
+        ],
+        nextAction: "ask",
+        slot: "patientIdentity",
+        allowedTools: ["verify_patient"],
+        blockedActions: [],
+        instruction:
+          "Ask for the patient's name and date of birth before looking up appointments.",
+      });
+    }
     return command(flow, plan, {
       phase: "loading_appointments",
       knownFacts: knownPatientFacts(patient, flow),
@@ -94,11 +128,12 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
         { key: "loadedAppointments", label: "current appointment list" },
       ],
       nextAction: "call_tool",
-      tool: "confirm_appt",
-      args: {},
-      allowedTools: ["confirm_appt"],
+      tool: "verify_patient",
+      args: resolveArgs,
+      allowedTools: ["verify_patient"],
       blockedActions: [],
-      instruction: "Call confirm_appt now.",
+      instruction:
+        "Call verify_patient with the patient's name and date of birth to load appointments.",
     });
   }
 

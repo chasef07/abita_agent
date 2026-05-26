@@ -4,6 +4,7 @@ import type {
   PhoneLookupResult,
   StoredCallerAppointment,
 } from "./call-state.js";
+import type { AppointmentLoadStatus } from "../flow/index.js";
 
 const DEFAULT_BASE_URL =
   "https://advancedmd-token-management-production.up.railway.app";
@@ -63,8 +64,8 @@ export async function lookupByPhone(
   try {
     const office = getOfficeConfigByPhone(trunkPhone);
     const data = (await callApi(
-      "/api/patient-lookup",
-      { phone },
+      "/api/patient/resolve",
+      { phone, includeAppointments: true },
       office.amdOfficePhone,
     )) as {
       status?: string;
@@ -78,6 +79,8 @@ export async function lookupByPhone(
       routing?: string;
       allowedProviders?: string[];
       routingAmbiguous?: boolean;
+      appointmentsStatus?: string | null;
+      appointmentsMessage?: string | null;
       appointments?: StoredCallerAppointment[] | null;
       message?: string;
       matches?: Array<{ firstName: string }>;
@@ -88,8 +91,7 @@ export async function lookupByPhone(
         !isNonEmptyString(data.patientId) ||
         !isNonEmptyString(data.name) ||
         !isNonEmptyString(data.dob) ||
-        !isNonEmptyString(data.phone) ||
-        !isNonEmptyString(data.routing)
+        !isNonEmptyString(data.phone)
       ) {
         return {
           status: "lookup_failed",
@@ -99,6 +101,9 @@ export async function lookupByPhone(
           lookupDurationMs,
         };
       }
+      const appointmentsStatus =
+        normalizeAppointmentsStatus(data.appointmentsStatus) ??
+        statusFromAppointments(data.appointments);
       return {
         status: "verified",
         patientId: data.patientId,
@@ -110,10 +115,16 @@ export async function lookupByPhone(
           : null,
         insPlanId: data.insPlanId ?? null,
         respPartyId: data.respPartyId ?? null,
-        routing: data.routing,
+        routing: isNonEmptyString(data.routing) ? data.routing : null,
         allowedProviders: data.allowedProviders ?? [],
         routingAmbiguous: data.routingAmbiguous ?? false,
-        appointments: data.appointments ?? null,
+        appointmentsStatus,
+        appointmentsMessage: data.appointmentsMessage ?? null,
+        appointments: Array.isArray(data.appointments)
+          ? data.appointments
+          : appointmentsStatus === "none"
+            ? []
+            : null,
         lookupDurationMs,
       };
     }
@@ -184,6 +195,24 @@ function phoneLookupFailureReason(
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function normalizeAppointmentsStatus(
+  value: unknown,
+): AppointmentLoadStatus | null {
+  return value === "found" ||
+    value === "none" ||
+    value === "skipped" ||
+    value === "error"
+    ? value
+    : null;
+}
+
+function statusFromAppointments(
+  appointments: StoredCallerAppointment[] | null | undefined,
+): AppointmentLoadStatus | null {
+  if (!Array.isArray(appointments)) return null;
+  return appointments.length > 0 ? "found" : "none";
 }
 
 export type { OfficeKey };

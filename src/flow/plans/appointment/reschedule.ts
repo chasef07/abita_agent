@@ -21,6 +21,7 @@ import {
   resolveTargetAppointment,
   resolveAppointmentLookup,
   speakableAppointmentSummary,
+  verifiedPatientResolveArgs,
 } from "./shared.js";
 
 const RESCHEDULE_BLOCKED_ACTIONS: BlockedAction[] = [
@@ -101,6 +102,7 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     verified,
     appointments,
     existingPlan?.lookup,
+    patient?.appointmentsStatus,
   );
   const evidence = mergeEvidence(
     existingPlan?.targetSelectionEvidence,
@@ -132,7 +134,7 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     rescheduleConfirmed,
   });
   const effectivePhase: AppointmentReschedulePlan["phase"] =
-    verified && lookup.noneFound ? "complete" : phase;
+    verified && (lookup.noneFound || lookup.lookupFailed) ? "complete" : phase;
   const plan: AppointmentReschedulePlan = {
     id,
     kind: "appointment_reschedule",
@@ -193,7 +195,39 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     });
   }
 
+  if (lookup.lookupFailed) {
+    return command(flow, plan, {
+      phase: "complete",
+      knownFacts: [
+        ...knownRescheduleFacts(patient, flow, plan),
+        appointmentLookupKnownFact(lookup),
+      ],
+      missingFacts: [],
+      nextAction: "respond",
+      allowedTools: [],
+      blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
+      instruction:
+        "Tell the caller the appointment lookup is unavailable right now, and offer to transfer them for rescheduling help.",
+    });
+  }
+
   if (lookup.needsLookup) {
+    const resolveArgs = verifiedPatientResolveArgs(patient);
+    if (!resolveArgs) {
+      return command(flow, plan, {
+        phase,
+        knownFacts: knownRescheduleFacts(patient, flow, plan),
+        missingFacts: [
+          { key: "patientIdentity", label: "verified patient identity" },
+        ],
+        nextAction: "ask",
+        slot: "patientIdentity",
+        allowedTools: ["verify_patient"],
+        blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
+        instruction:
+          "Ask for the patient's name and date of birth before changing an existing appointment.",
+      });
+    }
     return command(flow, plan, {
       phase,
       knownFacts: knownRescheduleFacts(patient, flow, plan),
@@ -201,11 +235,12 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
         { key: "loadedAppointments", label: "current appointment list" },
       ],
       nextAction: "call_tool",
-      tool: "confirm_appt",
-      args: {},
-      allowedTools: ["confirm_appt"],
+      tool: "verify_patient",
+      args: resolveArgs,
+      allowedTools: ["verify_patient"],
       blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
-      instruction: "Call confirm_appt now.",
+      instruction:
+        "Call verify_patient with the patient's name and date of birth to load appointments.",
     });
   }
 

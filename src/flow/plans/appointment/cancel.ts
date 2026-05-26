@@ -20,6 +20,7 @@ import {
   resolveTargetAppointment,
   resolveAppointmentLookup,
   speakableAppointmentSummary,
+  verifiedPatientResolveArgs,
 } from "./shared.js";
 
 export function planCancel(flow: CallFlowState): WorkflowCommand {
@@ -37,6 +38,7 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
     verified,
     appointments,
     existingPlan?.lookup,
+    patient?.appointmentsStatus,
   );
   const evidence = mergeEvidence(
     existingPlan?.targetSelectionEvidence,
@@ -58,7 +60,7 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
     cancelConfirmed,
   });
   const effectivePhase: AppointmentCancelPlan["phase"] =
-    verified && lookup.noneFound ? "complete" : phase;
+    verified && (lookup.noneFound || lookup.lookupFailed) ? "complete" : phase;
   const plan: AppointmentCancelPlan = {
     id,
     kind: "appointment_cancel",
@@ -121,7 +123,51 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
     });
   }
 
+  if (lookup.lookupFailed) {
+    return command(flow, plan, {
+      phase: "complete",
+      knownFacts: [
+        ...knownPatientFacts(patient, flow),
+        appointmentLookupKnownFact(lookup),
+      ],
+      missingFacts: [],
+      nextAction: "respond",
+      allowedTools: [],
+      blockedActions: [
+        {
+          action: "cancel_appt",
+          reason:
+            "appointment list is unavailable, so no exact appointment can be cancelled",
+        },
+      ],
+      instruction:
+        "Tell the caller the appointment lookup is unavailable right now, and offer to transfer them for cancellation help.",
+    });
+  }
+
   if (lookup.needsLookup) {
+    const resolveArgs = verifiedPatientResolveArgs(patient);
+    if (!resolveArgs) {
+      return command(flow, plan, {
+        phase,
+        knownFacts: knownPatientFacts(patient, flow),
+        missingFacts: [
+          { key: "patientIdentity", label: "verified patient identity" },
+        ],
+        nextAction: "ask",
+        slot: "patientIdentity",
+        allowedTools: ["verify_patient"],
+        blockedActions: [
+          {
+            action: "cancel_appt",
+            reason: "appointment list must be loaded before cancellation",
+          },
+        ],
+        instruction:
+          "Ask for the patient's name and date of birth before looking up appointments.",
+        step: "verify_patient",
+      });
+    }
     return command(flow, plan, {
       phase,
       knownFacts: knownPatientFacts(patient, flow),
@@ -129,16 +175,17 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
         { key: "loadedAppointments", label: "current appointment list" },
       ],
       nextAction: "call_tool",
-      tool: "confirm_appt",
-      args: {},
-      allowedTools: ["confirm_appt"],
+      tool: "verify_patient",
+      args: resolveArgs,
+      allowedTools: ["verify_patient"],
       blockedActions: [
         {
           action: "cancel_appt",
           reason: "appointment list must be loaded before cancellation",
         },
       ],
-      instruction: "Call confirm_appt now.",
+      instruction:
+        "Call verify_patient with the patient's name and date of birth to load appointments.",
       step: "confirm_cancel",
     });
   }

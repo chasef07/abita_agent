@@ -149,6 +149,20 @@ describe("call observability", () => {
         false,
       ),
     ).toBe("appointments_not_found");
+    expect(
+      classifyToolOutput(
+        "confirm_appt",
+        JSON.stringify({ status: "verified", appointmentsStatus: "found" }),
+        false,
+      ),
+    ).toBe("appointments_found");
+    expect(
+      classifyToolOutput(
+        "confirm_appt",
+        JSON.stringify({ status: "verified", appointmentsStatus: "none" }),
+        false,
+      ),
+    ).toBe("appointments_not_found");
     expect(classifyToolOutput("book_appt", "timeout", true)).toBe(
       "middleware_error",
     );

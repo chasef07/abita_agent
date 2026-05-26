@@ -3,6 +3,7 @@ import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { OfficeKey } from "../customer/profile.js";
 import type {
   CallFlowState,
+  AppointmentLoadStatus,
   CallerAppointment,
   InsuranceContext,
   AppointmentConfirmPlan,
@@ -33,6 +34,7 @@ export interface CreateInitialFlowStateInput {
   dob?: string | null;
   callerPhone?: string | null;
   appointments?: CallerAppointment[] | null;
+  appointmentsStatus?: AppointmentLoadStatus | null;
   routing?: string | null;
   coverageType?: InsuranceCoverageType | null;
 }
@@ -69,6 +71,7 @@ export function createInitialFlowState({
   dob,
   callerPhone,
   appointments,
+  appointmentsStatus,
   routing,
   coverageType,
 }: CreateInitialFlowStateInput): CallFlowState {
@@ -83,6 +86,7 @@ export function createInitialFlowState({
     dob: dob ?? undefined,
     phone: callerPhone ?? undefined,
     appointments: upcomingAppointments(appointments ?? []),
+    appointmentsStatus: appointmentsStatus ?? undefined,
     source: patientId ? "phone_lookup" : "agent_inferred",
   });
 
@@ -128,6 +132,7 @@ export function createPatientContext({
   dob,
   phone,
   appointments = [],
+  appointmentsStatus,
   source = "agent_inferred",
 }: {
   ref: PatientRef;
@@ -137,6 +142,7 @@ export function createPatientContext({
   dob?: string;
   phone?: string;
   appointments?: CallerAppointment[];
+  appointmentsStatus?: AppointmentLoadStatus;
   source?: TrackedSlotSource;
 }): PatientContext {
   const nameSlots = patientName ? splitPatientName(patientName) : {};
@@ -161,6 +167,7 @@ export function createPatientContext({
       source === "phone_lookup" ? "phone_lookup" : "caller_spoken",
     spellingConfirmed: false,
     appointments: upcomingAppointments(appointments),
+    appointmentsStatus,
     activeAppointmentTaskIds: [],
   };
 }
@@ -512,6 +519,7 @@ export function recordVerifiedPatient(
     dob?: string | null;
     phone?: string | null;
     appointments?: CallerAppointment[] | null;
+    appointmentsStatus?: AppointmentLoadStatus | null;
     source?: TrackedSlotSource;
   },
 ): PatientStateChangeResult {
@@ -550,6 +558,12 @@ export function recordVerifiedPatient(
   }
   if (result.appointments) {
     patient.appointments = upcomingAppointments(result.appointments);
+  }
+  if (
+    result.appointmentsStatus !== undefined &&
+    result.appointmentsStatus !== null
+  ) {
+    patient.appointmentsStatus = result.appointmentsStatus;
   }
   patient.status = result.patientId ? "verified" : patient.status;
   flow.patientStatus = patient.status;

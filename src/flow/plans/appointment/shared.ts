@@ -1,7 +1,9 @@
 import type {
+  AppointmentLoadStatus,
   AppointmentCancelPlan,
   AppointmentLookupSubplan,
   CallerAppointment,
+  PatientContext,
   PlannerFact,
 } from "../../types.js";
 
@@ -12,6 +14,7 @@ export interface ResolvedAppointmentLookup {
   phase: AppointmentLookupSubplan["phase"];
   loaded: boolean;
   noneFound: boolean;
+  lookupFailed: boolean;
   needsLookup: boolean;
   complete: boolean;
   count: number;
@@ -21,25 +24,34 @@ export function resolveAppointmentLookup(
   verified: boolean,
   appointments: CallerAppointment[],
   existingLookup?: AppointmentLookupSubplan,
+  appointmentStatus?: AppointmentLoadStatus,
 ): ResolvedAppointmentLookup {
   const count = appointments.length;
   const phase: AppointmentLookupSubplan["phase"] = !verified
     ? "needs_verified_patient"
     : count > 0
       ? "appointments_loaded"
-      : existingLookup?.phase === "none_found"
+      : appointmentStatus === "none"
         ? "none_found"
-        : existingLookup?.phase === "lookup_failed"
+        : appointmentStatus === "error"
           ? "lookup_failed"
-          : "loading_appointments";
+          : existingLookup?.phase === "none_found"
+            ? "none_found"
+            : existingLookup?.phase === "lookup_failed"
+              ? "lookup_failed"
+              : "loading_appointments";
 
   return {
     phase,
     count,
     loaded: phase === "appointments_loaded",
     noneFound: phase === "none_found",
+    lookupFailed: phase === "lookup_failed",
     needsLookup: phase === "loading_appointments",
-    complete: phase === "appointments_loaded" || phase === "none_found",
+    complete:
+      phase === "appointments_loaded" ||
+      phase === "none_found" ||
+      phase === "lookup_failed",
     subplan: {
       ...(existingLookup ?? {}),
       phase,
@@ -53,10 +65,21 @@ export function appointmentLookupKnownFact(
 ): PlannerFact {
   return {
     key: "appointments",
-    value: lookup.noneFound
-      ? "none found"
-      : `${lookup.count} loaded appointment(s)`,
+    value: lookup.lookupFailed
+      ? "lookup unavailable"
+      : lookup.noneFound
+        ? "none found"
+        : `${lookup.count} loaded appointment(s)`,
   };
+}
+
+export function verifiedPatientResolveArgs(
+  patient: PatientContext | undefined,
+): { firstName: string; lastName: string; dob: string } | null {
+  const firstName = patient?.firstName?.value;
+  const lastName = patient?.lastName?.value;
+  const dob = patient?.dob?.value;
+  return firstName && lastName && dob ? { firstName, lastName, dob } : null;
 }
 
 export function mergeEvidence(

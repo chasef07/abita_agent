@@ -87,6 +87,8 @@ export interface CallerAppointment {
   confirmed: boolean;
 }
 
+export type AppointmentLoadStatus = "found" | "none" | "skipped" | "error";
+
 export interface InsuranceContext {
   plan?: TrackedSlot;
   coverageType?: InsuranceCoverageType;
@@ -110,6 +112,7 @@ export interface PatientContext {
   spellingConfirmed?: boolean;
   insurance?: InsuranceContext;
   appointments: CallerAppointment[];
+  appointmentsStatus?: AppointmentLoadStatus;
   activeSchedulingTaskId?: string;
   activeAppointmentTaskIds: string[];
 }
@@ -168,7 +171,6 @@ export type WorkflowToolName =
   | "add_patient"
   | "update_insurance"
   | "get_availability"
-  | "confirm_appt"
   | "cancel_appt"
   | "add_patient_note"
   | "book_appt"
