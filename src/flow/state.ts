@@ -575,13 +575,26 @@ function firstNamesAreFuzzyMatch(spoken: string, expected: string): boolean {
   if (
     normalizedSpoken.length < 5 ||
     normalizedExpected.length < 5 ||
-    normalizedSpoken[0] !== normalizedExpected[0] ||
     Math.abs(normalizedSpoken.length - normalizedExpected.length) > 1
   ) {
     return false;
   }
 
+  if (normalizedSpoken[0] !== normalizedExpected[0]) {
+    return missingOrExtraLeadingInitialMatch(
+      normalizedSpoken,
+      normalizedExpected,
+    );
+  }
+
   return editDistanceAtMostOne(normalizedSpoken, normalizedExpected);
+}
+
+function missingOrExtraLeadingInitialMatch(spoken: string, expected: string) {
+  if (Math.abs(spoken.length - expected.length) !== 1) return false;
+  const [shorter, longer] =
+    spoken.length < expected.length ? [spoken, expected] : [expected, spoken];
+  return longer.length >= 6 && longer.slice(1) === shorter;
 }
 
 function normalizeFirstNameForFuzzyMatch(value: string): string {

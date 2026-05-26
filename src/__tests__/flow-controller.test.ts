@@ -232,6 +232,77 @@ describe("flow state and context packet", () => {
     expect(Object.keys(flow.patients)).toEqual(["caller"]);
   });
 
+  it("promotes a single pre-call match when spelled STT drops the leading first-name initial", () => {
+    const flow = createInitialFlowState({
+      officeKey: "sweetwater",
+      patientId: "17611424",
+      patientName: "HERNANDEZ, BELTRAN",
+      dob: "11/10/2022",
+      appointments: [
+        {
+          id: 20755875,
+          date: "Tuesday, June 16, 2026",
+          time: "2:00 PM",
+          provider: "Dr. Austin Bach",
+          type: "New Pediatric Medical",
+          facility: "Abita Eye Group Hollywood",
+        },
+      ],
+      appointmentsStatus: "found",
+      callerPhone: "+13058247019",
+      preCall: {
+        status: "single_match_pending_confirmation",
+        source: "phone_lookup",
+        callerPhone: "+13058247019",
+        candidates: [
+          {
+            ref: "caller",
+            firstName: "BELTRAN",
+            lastName: "HERNANDEZ",
+            dob: "11/10/2022",
+            patientId: "17611424",
+            relationshipToCaller: "self",
+            appointments: [
+              {
+                id: 20755875,
+                date: "Tuesday, June 16, 2026",
+                time: "2:00 PM",
+                provider: "Dr. Austin Bach",
+                type: "New Pediatric Medical",
+                facility: "Abita Eye Group Hollywood",
+              },
+            ],
+            appointmentsStatus: "found",
+          },
+        ],
+        selectedCandidateRef: "caller",
+        identityPromotion: "none",
+      },
+    });
+
+    const result = applyPreCallIdentityFromTranscript(flow, "E-L-T-R-A-N.");
+
+    expect(result).toMatchObject({
+      changed: true,
+      promotion: "first_name_confirmed",
+      selectedCandidateRef: "caller",
+    });
+    expect(flow.preCall).toMatchObject({
+      status: "single_match_confirmed",
+      selectedCandidateRef: "caller",
+      identityPromotion: "first_name_confirmed",
+    });
+    expect(flow.patientStatus).toBe("verified");
+    expect(flow.activePatientRef).toBe("caller");
+    expect(Object.keys(flow.patients)).toEqual(["caller"]);
+    expect(compileTurnStatePacket(flow)).toContain(
+      "preCall: single_match_confirmed",
+    );
+    expect(compileTurnStatePacket(flow)).toContain(
+      "do not call verify_patient",
+    );
+  });
+
   it("does not treat a workflow phrase as a different pre-call first name", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",

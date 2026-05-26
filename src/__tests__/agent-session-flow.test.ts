@@ -119,6 +119,66 @@ describe("agent session flow integration", () => {
     await session.close();
   });
 
+  it("auto-confirms a single pre-call match when spelled STT drops the leading first-name initial", async () => {
+    const llmModel = new ScriptedToolAwareLLM(() => ({
+      type: "message",
+      content: "done",
+    }));
+    const { session, state, agent } = await createFixture({ llmModel });
+    state.flow = createInitialFlowState({
+      officeKey: "sweetwater",
+      patientId: "17611424",
+      patientName: "HERNANDEZ, BELTRAN",
+      dob: "11/10/2022",
+      appointments: [
+        {
+          id: 20755875,
+          date: "Tuesday, June 16, 2026",
+          time: "2:00 PM",
+          provider: "Dr. Austin Bach",
+          type: "New Pediatric Medical",
+          facility: "Abita Eye Group Hollywood",
+        },
+      ],
+      appointmentsStatus: "found",
+      callerPhone: "+13058247019",
+      preCall: {
+        status: "single_match_pending_confirmation",
+        source: "phone_lookup",
+        callerPhone: "+13058247019",
+        candidates: [
+          {
+            ref: "caller",
+            firstName: "BELTRAN",
+            lastName: "HERNANDEZ",
+            dob: "11/10/2022",
+            patientId: "17611424",
+            relationshipToCaller: "self",
+            appointments: [],
+            appointmentsStatus: "found",
+          },
+        ],
+        selectedCandidateRef: "caller",
+        identityPromotion: "none",
+      },
+    });
+
+    await agent.onUserTurnCompleted(
+      new llm.ChatContext(),
+      llm.ChatMessage.create({
+        role: "user",
+        content: "E-L-T-R-A-N.",
+      }),
+    );
+
+    expect(state.turnUnderstandingAppliedForTranscript).toBe("E-L-T-R-A-N.");
+    expect(state.flow.preCall?.status).toBe("single_match_confirmed");
+    expect(state.flow.patientStatus).toBe("verified");
+    expect(state.flow.activePatientRef).toBe("caller");
+    expect(Object.keys(state.flow.patients)).toEqual(["caller"]);
+    await session.close();
+  });
+
   it("clears patient-scoped state when pre-call identity switches patients", async () => {
     const llmModel = new ScriptedToolAwareLLM(() => ({
       type: "message",
