@@ -304,6 +304,10 @@ describe("flow harness prompt gating", () => {
     expect(prompt).toContain("<context_capsules>");
     expect(prompt).toContain("suggestedTool");
     expect(prompt).toContain("## Scheduling Essentials");
+    expect(prompt).toContain("You speak English and Spanish");
+    expect(prompt).toContain(
+      "If the caller asks to speak Spanish, continue the conversation in Spanish",
+    );
     expect(prompt).toContain(
       "capture exactly two booking-note facts: appointment reason and referring doctor",
     );
