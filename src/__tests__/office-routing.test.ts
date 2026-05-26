@@ -441,7 +441,7 @@ describe("Crystal River prompt guidance", () => {
       "utf-8",
     );
 
-    expect(prompt).toContain("an eye care practice");
+    expect(prompt).toContain("an ophthalmology clinic");
     expect(prompt).toContain("<flow_harness_runbook>");
     expect(prompt).toContain("## Scheduling Essentials");
     expect(prompt).toContain(
@@ -608,7 +608,9 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain("1 PM");
     expect(prompt).not.toContain("9:30AM");
     expect(prompt).not.toContain("1pm");
-    expect(prompt).toContain('Say "8:15 AM", "8 AM", or "7:00 PM"');
+    expect(prompt).toContain(
+      "Use normal written forms for dates, times, phone numbers, emails, and common acronyms.",
+    );
     expect(prompt).not.toContain("eight fifteen a m");
   });
 
