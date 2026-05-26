@@ -133,6 +133,46 @@ describe("pre-call bootstrap", () => {
     expect(bootstrap.telemetry.durationMs).toEqual(expect.any(Number));
   });
 
+  it("accepts verified phone lookups when middleware omits echoed phone", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          status: "verified",
+          patientId: "patient-1",
+          name: "Doe, Jane",
+          dob: "01/01/1980",
+          appointmentsStatus: "found",
+          appointments: [
+            {
+              id: 12345,
+              date: "2026-06-01",
+              time: "9:00 AM",
+              provider: "Dr. Bach",
+              type: "Follow-up",
+              facility: "Spring Hill",
+              confirmed: true,
+            },
+          ],
+        }),
+        text: async () => "",
+      })),
+    );
+
+    const result = await lookupByPhone(
+      "+17275551212",
+      SPRING_HILL_OFFICE_PHONE,
+    );
+
+    expect(result).toMatchObject({
+      status: "verified",
+      phone: "+17275551212",
+      appointmentsStatus: "found",
+      appointments: [expect.objectContaining({ id: 12345 })],
+    });
+  });
+
   it("maps lookup outcomes into harness-owned pre-call state", () => {
     const single = buildPreCallContextState(
       {
