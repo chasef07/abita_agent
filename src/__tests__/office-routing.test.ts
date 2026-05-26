@@ -89,7 +89,7 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("enables the flow harness for demo, Spring Hill, and Crystal River trunks by default", () => {
+  it("enables the flow harness for all Abita trunks by default", () => {
     delete process.env.FLOW_HARNESS_TRUNK_PHONES;
 
     expect(isFlowHarnessEnabledForTrunk(DEV_OFFICE_PHONE)).toBe(true);
@@ -102,9 +102,9 @@ describe("office routing helpers", () => {
     expect(isFlowHarnessEnabledForTrunk("18135484830")).toBe(true);
     expect(isFlowHarnessEnabledForTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).toBe(true);
     expect(isFlowHarnessEnabledForTrunk("13523202007")).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk(HOLLYWOOD_OFFICE_PHONE)).toBe(false);
+    expect(isFlowHarnessEnabledForTrunk(HOLLYWOOD_OFFICE_PHONE)).toBe(true);
     for (const phone of SWEETWATER_TRUNK_PHONES) {
-      expect(isFlowHarnessEnabledForTrunk(phone)).toBe(false);
+      expect(isFlowHarnessEnabledForTrunk(phone)).toBe(true);
     }
   });
 
@@ -295,7 +295,7 @@ describe("flow harness prompt gating", () => {
     delete process.env.FLOW_HARNESS_TRUNK_PHONES;
   });
 
-  it("injects state harness instructions for demo, Spring Hill, and Crystal River trunks", () => {
+  it("injects state harness instructions for every default harness trunk", () => {
     const prompt = buildPrompt(undefined, DEV_OFFICE_PHONE);
 
     expect(prompt).toContain("<harness_operating_contract>");
@@ -352,26 +352,29 @@ describe("flow harness prompt gating", () => {
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
       SPRING_HILL_813_TRUNK_PHONE,
+      HOLLYWOOD_OFFICE_PHONE,
+      ...SWEETWATER_TRUNK_PHONES,
     ]) {
-      const springHillPrompt = buildPrompt(undefined, phone);
+      const officePrompt = buildPrompt(undefined, phone);
 
-      expect(springHillPrompt).toContain("<harness_operating_contract>");
-      expect(springHillPrompt).toContain("<flow_harness_runbook>");
-      expect(springHillPrompt).toContain("<state_memory_contract>");
-      expect(springHillPrompt).toContain("<context_capsules>");
-      expect(springHillPrompt).toContain("suggestedTool");
-      expect(springHillPrompt).toContain("## Scheduling Essentials");
-      expect(springHillPrompt).not.toContain("record_turn_understanding");
-      expect(springHillPrompt).not.toContain("<runbook>");
-      expect(springHillPrompt).not.toContain(
+      expect(officePrompt).toContain("<harness_operating_contract>");
+      expect(officePrompt).toContain("<flow_harness_runbook>");
+      expect(officePrompt).toContain("<state_memory_contract>");
+      expect(officePrompt).toContain("<context_capsules>");
+      expect(officePrompt).toContain("suggestedTool");
+      expect(officePrompt).toContain("## Scheduling Essentials");
+      expect(officePrompt).not.toContain("record_turn_understanding");
+      expect(officePrompt).not.toContain("<runbook>");
+      expect(officePrompt).not.toContain(
         "RUNBOOK.md - How to Handle Every Call",
       );
-      expect(springHillPrompt).not.toContain("confirm_booking_action");
-      expect(springHillPrompt).not.toContain("confirm_side_effect_action");
+      expect(officePrompt).not.toContain("confirm_booking_action");
+      expect(officePrompt).not.toContain("confirm_side_effect_action");
     }
   });
 
-  it("keeps flow harness instructions out of non-harness live-office prompts", () => {
+  it("keeps flow harness instructions out of prompts excluded by override", () => {
+    process.env.FLOW_HARNESS_TRUNK_PHONES = SPRING_HILL_OFFICE_PHONE;
     const prompt = buildPrompt(undefined, HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).not.toContain("<flow_harness_runbook>");
@@ -526,7 +529,8 @@ describe("Crystal River prompt guidance", () => {
     expect(sweetwaterKnowledge).toContain("Dr. Maria Casas");
   });
 
-  it("keeps legacy registration guidance in non-harness prompts", () => {
+  it("keeps legacy registration guidance in prompts excluded by override", () => {
+    process.env.FLOW_HARNESS_TRUNK_PHONES = SPRING_HILL_OFFICE_PHONE;
     const prompt = buildPrompt(undefined, HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).toContain("Email is optional");
@@ -549,7 +553,8 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).not.toContain("Do not call add_patient_note separately");
   });
 
-  it("keeps legacy date guidance in non-harness prompts", () => {
+  it("keeps legacy date guidance in prompts excluded by override", () => {
+    process.env.FLOW_HARNESS_TRUNK_PHONES = SPRING_HILL_OFFICE_PHONE;
     const prompt = buildPrompt(undefined, HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).toContain("Convert dates silently");

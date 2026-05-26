@@ -11,7 +11,8 @@ The longer architecture notes remain historical design context.
 - The live enforcement harness is enabled when the inbound trunk is in
   `FLOW_HARNESS_TRUNK_PHONES`, or in the default enabled trunk set when that
   env var is unset; otherwise the legacy tool path remains active.
-- The default enabled trunks are dev, Spring Hill, and Crystal River.
+- The default enabled trunks are dev, Spring Hill, Crystal River, Hollywood,
+  and Sweetwater.
 
 ## Turn State
 
