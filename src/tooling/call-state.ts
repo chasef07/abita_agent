@@ -1,9 +1,14 @@
 import type { InsuranceCoverageType } from "../insurance-rules.js";
-import type {
+import {
+  DEFAULT_PATIENT_REF,
+  invalidateAvailabilitySearches,
+  invalidatePendingActionsForStateChange,
+  type AvailabilityInvalidationReason,
   AppointmentLoadStatus,
   CallFlowState,
   CallerAppointment,
   GuardObservation,
+  type PatientContext,
 } from "../flow/index.js";
 import type { OfficeKey } from "../customer/profile.js";
 import type { AgentToolName } from "./tool-exposure.js";
@@ -68,6 +73,8 @@ export type PhoneLookupResult =
 export interface PreCallLookupTelemetry {
   status: NonNullable<PhoneLookupResult>["status"] | "not_attempted";
   durationMs: number | null;
+  candidateCount?: number;
+  appointmentsStatus?: AppointmentLoadStatus | null;
   failureReason?: CallerLookupFailed["reason"];
   retryable?: boolean;
 }
@@ -168,4 +175,59 @@ export function appointmentCancelTokenMap(
         appointment.cancelToken as string,
       ]),
   );
+}
+
+export function reconcileCallStateAfterActivePatientChange(
+  state: CallState,
+  reason: AvailabilityInvalidationReason = "patient_changed",
+): void {
+  state.lastAvailabilitySlots = [];
+  state.lastAvailabilityRouting = null;
+  invalidateAvailabilitySearches(state.flow, reason);
+  invalidatePendingActionsForStateChange(state.flow, reason);
+
+  const patient = activeFlowPatient(state);
+  if (!patient) return;
+
+  state.patientId = patient.patientId ?? null;
+  state.patientName = formatFlowPatientName(
+    patient.firstName?.value,
+    patient.lastName?.value,
+  );
+  state.dob = patient.dob?.value ?? null;
+  state.appointments = [...patient.appointments];
+  state.appointmentsStatus = patient.appointmentsStatus ?? null;
+  state.appointmentCancelTokens = {};
+  state.flow.patientStatus = patient.status;
+
+  const insurancePlan =
+    patient.insurance?.canonicalPlan ?? patient.insurance?.plan?.value ?? null;
+  state.insuranceCarrier = insurancePlan;
+  state.checkedInsurancePlan = insurancePlan;
+  state.checkedInsuranceCoverageType = patient.insurance?.coverageType ?? null;
+  state.insPlanId = null;
+  state.respPartyId = null;
+  state.routing = null;
+  state.allowedProviders = [];
+  state.routingAmbiguous = false;
+  state.preauthRequired = false;
+  state.flow.coverageType = patient.insurance?.coverageType ?? undefined;
+  state.flow.routing = undefined;
+}
+
+function activeFlowPatient(state: CallState): PatientContext | undefined {
+  return state.flow.patients[
+    state.flow.activePatientRef ?? DEFAULT_PATIENT_REF
+  ];
+}
+
+function formatFlowPatientName(
+  firstName: string | undefined,
+  lastName: string | undefined,
+): string | null {
+  const fullName = [firstName, lastName]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
+  return fullName || null;
 }

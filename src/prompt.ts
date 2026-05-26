@@ -136,7 +136,9 @@ function buildHarnessOperatingContract(): string {
   return [
     "<harness_operating_contract>",
     "The TypeScript flow harness owns workflow state, task phase, missing facts, and side-effect safety. Use the latest <turn_state> and <context_capsules> injected after each caller turn as guidance over any general habit or example.",
+    "Use the latest turn_state for pre-call identity status. Do not infer whether a preloaded patient is verified from static caller context alone.",
     "The reducer records obvious caller intent before planning. Use the compact task state as guidance: phase, known facts, missing facts, next, suggestedTool, and blockedSideEffects. Treat suggestedTool as the recommended frontier, not as a hard allow-list.",
+    "Broad workflow tools may stay visible. Use allowedTools as planner guidance and telemetry, while wrapper guards remain the concrete safety boundary.",
     "Use tool descriptions for exact schemas. You may call a workflow tool whenever concrete state has the required patient, availability, appointment, and confirmation facts. Read-only tools can run when their prerequisites are met; side-effect tools require explicit caller confirmation and policy approval.",
     "Keep spoken responses to 1-3 concise sentences and ask one question at a time.",
     "</harness_operating_contract>",
@@ -146,12 +148,11 @@ function buildHarnessOperatingContract(): string {
 /** Build the caller context block injected into the prompt. */
 function buildCallerContext(lookup: PhoneLookupResult): string {
   if (lookup?.status === "verified") {
-    const firstName =
-      lookup.name.split(",")[1]?.trim() ?? lookup.name.split(" ")[0];
     const lines: string[] = [];
     lines.push(`**SINGLE MATCH — Session state is pre-loaded.**`);
-    lines.push(`Name: ${lookup.name} (first name: ${firstName})`);
-    lines.push(`DOB: ${lookup.dob}`);
+    lines.push(
+      `Use the latest turn_state preCall status for whether this caller is confirmed. Do not say the preloaded name or DOB before the first-name challenge succeeds.`,
+    );
     if (lookup.insuranceCarrier) {
       lines.push(`Insurance: ${lookup.insuranceCarrier}`);
     } else {
@@ -194,30 +195,17 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
     } else {
       lines.push(`Appointments were not preloaded.`);
     }
-    lines.push(``);
-    lines.push(
-      `Do NOT use or say the patient's name before they say it. Ask: "can I get your first name?" If they say "${firstName}" (or close), they are verified — skip verify_patient entirely and go straight to what they need. If they give a different name (child, spouse), run verify_patient for that person.`,
-    );
     return lines.join("\n");
   }
 
   if (lookup?.status === "multiple_matches") {
     const names = lookup.matches.map((m) => m.firstName);
-    const uniqueNames = [...new Set(names)];
     const lines: string[] = [];
     lines.push(
       `**MULTIPLE MATCHES (${names.length} patients on this number).**`,
     );
-    lines.push(`Known first names: ${uniqueNames.join(", ")}.`);
-    lines.push(``);
     lines.push(
-      `You MUST say: "I see a few patients associated with this number, can I get the patient's first name?"`,
-    );
-    lines.push(
-      `Do NOT ask for last name or DOB upfront — just the first name is enough. Run verify_patient with firstName and usePhone: true. The phone is injected automatically from the session.`,
-    );
-    lines.push(
-      `Do NOT read back the names on file (HIPAA). If no match, ask for last name and DOB and try again.`,
+      `Use the latest turn_state preCall guidance to narrow identity. Ask for first name first and do not read names on file aloud.`,
     );
     return lines.join("\n");
   }

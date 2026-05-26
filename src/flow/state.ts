@@ -12,6 +12,10 @@ import type {
   PatientContext,
   PatientRef,
   PatientRelationshipToCaller,
+  PreCallContextState,
+  PreCallIdentityPromotion,
+  PreCallIdentityStatus,
+  PreCallPatientCandidate,
   FlowLanguage,
   FlowStep,
   PatientStatus,
@@ -37,6 +41,7 @@ export interface CreateInitialFlowStateInput {
   appointmentsStatus?: AppointmentLoadStatus | null;
   routing?: string | null;
   coverageType?: InsuranceCoverageType | null;
+  preCall?: PreCallContextState | null;
 }
 
 export const DEFAULT_PATIENT_REF = "caller";
@@ -74,6 +79,7 @@ export function createInitialFlowState({
   appointmentsStatus,
   routing,
   coverageType,
+  preCall,
 }: CreateInitialFlowStateInput): CallFlowState {
   const patientStatus: PatientStatus = patientId ? "matched" : "unknown";
   const normalizedCoverageType = coverageType ?? undefined;
@@ -100,6 +106,7 @@ export function createInitialFlowState({
     patients: {
       [activePatientRef]: patient,
     },
+    preCall: preCall ?? undefined,
     taskStack: [],
     pendingActions: [],
     availabilitySearches: [],
@@ -146,20 +153,21 @@ export function createPatientContext({
   source?: TrackedSlotSource;
 }): PatientContext {
   const nameSlots = patientName ? splitPatientName(patientName) : {};
+  const identityConfirmed = status === "verified" || status === "created";
 
   return {
     ref,
     status,
     relationshipToCaller: ref === DEFAULT_PATIENT_REF ? "self" : "unknown",
     firstName: nameSlots.firstName
-      ? trackedSlot(nameSlots.firstName, source, "medium", Boolean(patientId))
+      ? trackedSlot(nameSlots.firstName, source, "medium", identityConfirmed)
       : undefined,
     lastName: nameSlots.lastName
-      ? trackedSlot(nameSlots.lastName, source, "medium", Boolean(patientId))
+      ? trackedSlot(nameSlots.lastName, source, "medium", identityConfirmed)
       : undefined,
-    dob: dob ? trackedSlot(dob, source, "high", Boolean(patientId)) : undefined,
+    dob: dob ? trackedSlot(dob, source, "high", identityConfirmed) : undefined,
     phone: phone
-      ? trackedSlot(phone, source, "medium", Boolean(patientId))
+      ? trackedSlot(phone, source, "medium", identityConfirmed)
       : undefined,
     patientId,
     verificationAttempts: 0,
@@ -170,6 +178,43 @@ export function createPatientContext({
     appointmentsStatus,
     activeAppointmentTaskIds: [],
   };
+}
+
+export interface PreCallIdentityReducerResult {
+  status: PreCallIdentityStatus;
+  changed: boolean;
+  promotion: PreCallIdentityPromotion;
+  selectedCandidateRef?: PatientRef;
+}
+
+export function applyPreCallIdentityFromTranscript(
+  flow: CallFlowState,
+  transcript: string,
+): PreCallIdentityReducerResult | undefined {
+  const preCall = flow.preCall;
+  if (!preCall) {
+    const confirmed = confirmPreloadedPatientIdentityFromTranscript(
+      flow,
+      transcript,
+    );
+    if (!confirmed) return undefined;
+    return {
+      status: "not_attempted",
+      changed: true,
+      promotion: "first_name_confirmed",
+      selectedCandidateRef: flow.activePatientRef,
+    };
+  }
+
+  if (preCall.status === "single_match_pending_confirmation") {
+    return applySingleMatchPreCallIdentity(flow, preCall, transcript);
+  }
+
+  if (preCall.status === "multiple_matches_pending_selection") {
+    return applyMultipleMatchPreCallIdentity(flow, preCall, transcript);
+  }
+
+  return undefined;
 }
 
 export function confirmPreloadedPatientIdentityFromTranscript(
@@ -199,6 +244,12 @@ export function confirmPreloadedPatientIdentityFromTranscript(
     patient.dob = { ...patient.dob, confirmed: true };
   }
   flow.patientStatus = "verified";
+  if (flow.preCall?.status === "single_match_pending_confirmation") {
+    flow.preCall.status = "single_match_confirmed";
+    flow.preCall.selectedCandidateRef =
+      flow.activePatientRef ?? DEFAULT_PATIENT_REF;
+    flow.preCall.identityPromotion = "first_name_confirmed";
+  }
   if (flow.step === "verify_patient") {
     flow.step = stepAfterPreloadedPatientConfirmation(flow);
     if (flow.currentTask) {
@@ -206,6 +257,203 @@ export function confirmPreloadedPatientIdentityFromTranscript(
     }
   }
   return patient;
+}
+
+function applySingleMatchPreCallIdentity(
+  flow: CallFlowState,
+  preCall: PreCallContextState,
+  transcript: string,
+): PreCallIdentityReducerResult | undefined {
+  const patient = flow.patients[flow.activePatientRef ?? DEFAULT_PATIENT_REF];
+  const expectedFirstName =
+    firstCandidateFirstName(preCall) ?? patient?.firstName?.value;
+  const expected = normalizeIdentityValue(expectedFirstName);
+  if (!expected || flow.activePatientRef !== DEFAULT_PATIENT_REF) {
+    return undefined;
+  }
+
+  if (wordsForMatch(transcript).has(expected)) {
+    const confirmed = confirmPreloadedPatientIdentityFromTranscript(
+      flow,
+      transcript,
+    );
+    if (!confirmed) return undefined;
+    return {
+      status: preCall.status,
+      changed: true,
+      promotion: "first_name_confirmed",
+      selectedCandidateRef: preCall.selectedCandidateRef,
+    };
+  }
+
+  const spokenFirstName = directFirstNameAnswer(transcript);
+  if (!spokenFirstName) return undefined;
+
+  const spoken = normalizeIdentityValue(spokenFirstName);
+  if (!spoken || spoken === expected) return undefined;
+
+  const ref = candidateRefForSpokenName(spokenFirstName, preCall.callerPhone);
+  const candidate = ensureActivePatientContext(flow, ref);
+  candidate.status = "candidate";
+  candidate.relationshipToCaller = "unknown";
+  candidate.firstName = trackedSlot(
+    spokenFirstName,
+    "caller_spoken",
+    "medium",
+    false,
+  );
+  candidate.phone = trackedSlot(
+    preCall.callerPhone,
+    "phone_lookup",
+    "medium",
+    false,
+  );
+  flow.patientStatus = "candidate";
+  setFlowStep(flow, "verify_patient");
+  preCall.selectedCandidateRef = ref;
+  preCall.identityPromotion = "verify_patient_required";
+
+  return {
+    status: preCall.status,
+    changed: true,
+    promotion: "verify_patient_required",
+    selectedCandidateRef: ref,
+  };
+}
+
+function applyMultipleMatchPreCallIdentity(
+  flow: CallFlowState,
+  preCall: PreCallContextState,
+  transcript: string,
+): PreCallIdentityReducerResult | undefined {
+  const spokenFirstName = directFirstNameAnswer(transcript);
+  if (!spokenFirstName) return undefined;
+
+  const spoken = normalizeIdentityValue(spokenFirstName);
+  if (!spoken) return undefined;
+
+  const matches = preCall.candidates.filter(
+    (candidate) => normalizeIdentityValue(candidate.firstName) === spoken,
+  );
+
+  if (matches.length === 1) {
+    const candidate = activatePreCallCandidate(
+      flow,
+      preCall,
+      matches[0],
+      spokenFirstName,
+    );
+    preCall.status = "multiple_match_selected_pending_verification";
+    preCall.identityPromotion = "candidate_selected";
+    return {
+      status: preCall.status,
+      changed: true,
+      promotion: "candidate_selected",
+      selectedCandidateRef: candidate.ref,
+    };
+  }
+
+  if (matches.length > 1) {
+    preCall.identityPromotion = "verify_patient_required";
+    return {
+      status: preCall.status,
+      changed: true,
+      promotion: "verify_patient_required",
+    };
+  }
+
+  const candidate = activatePreCallCandidate(
+    flow,
+    preCall,
+    {
+      ref: candidateRefForSpokenName(spokenFirstName, preCall.callerPhone),
+      firstName: spokenFirstName,
+      appointments: [],
+    },
+    spokenFirstName,
+  );
+  preCall.identityPromotion = "verify_patient_required";
+  return {
+    status: preCall.status,
+    changed: true,
+    promotion: "verify_patient_required",
+    selectedCandidateRef: candidate.ref,
+  };
+}
+
+function activatePreCallCandidate(
+  flow: CallFlowState,
+  preCall: PreCallContextState,
+  candidate: PreCallPatientCandidate,
+  spokenFirstName: string,
+): PatientContext {
+  const patient = ensureActivePatientContext(flow, candidate.ref);
+  patient.status = candidate.patientId ? "matched" : "candidate";
+  patient.relationshipToCaller = candidate.relationshipToCaller ?? "unknown";
+  patient.firstName = trackedSlot(
+    candidate.firstName ?? spokenFirstName,
+    "caller_spoken",
+    "medium",
+    false,
+  );
+  if (candidate.lastName) {
+    patient.lastName = trackedSlot(
+      candidate.lastName,
+      "phone_lookup",
+      "medium",
+      false,
+    );
+  }
+  if (candidate.dob) {
+    patient.dob = trackedSlot(candidate.dob, "phone_lookup", "high", false);
+  }
+  patient.phone = trackedSlot(
+    preCall.callerPhone,
+    "phone_lookup",
+    "medium",
+    false,
+  );
+  if (candidate.patientId) patient.patientId = candidate.patientId;
+  patient.appointments = upcomingAppointments(candidate.appointments);
+  if (candidate.appointmentsStatus) {
+    patient.appointmentsStatus = candidate.appointmentsStatus;
+  }
+  flow.patientStatus = patient.status;
+  setFlowStep(flow, "verify_patient");
+  preCall.selectedCandidateRef = candidate.ref;
+  return patient;
+}
+
+function firstCandidateFirstName(
+  preCall: PreCallContextState,
+): string | undefined {
+  return preCall.candidates.find(
+    (candidate) => candidate.ref === DEFAULT_PATIENT_REF,
+  )?.firstName;
+}
+
+function directFirstNameAnswer(transcript: string): string | undefined {
+  const stripped = transcript
+    .trim()
+    .replace(/^(?:it'?s|this is|my name is|i am|i'm|the name is)\s+/i, "")
+    .trim();
+  const words = [...wordsForMatch(stripped)];
+  if (words.length === 0 || words.length > 2) return undefined;
+  const first = stripped
+    .split(/\s+/)
+    .filter(Boolean)[0]
+    ?.replace(/[^a-zA-Z'-]/g, "");
+  return first || undefined;
+}
+
+function candidateRefForSpokenName(
+  firstName: string,
+  callerPhone: string,
+): PatientRef {
+  return `candidate:${hashStateArgs({
+    firstName: normalizeIdentityValue(firstName),
+    phone: normalizeIdentityValue(callerPhone),
+  }).slice(0, 12)}`;
 }
 
 export interface PatientIdentitySnapshot {
@@ -568,6 +816,7 @@ export function recordVerifiedPatient(
   patient.status = result.patientId ? "verified" : patient.status;
   flow.patientStatus = patient.status;
   setFlowStep(flow, stepAfterPatientVerification(flow, patient.status));
+  recordPreCallVerificationResult(flow, targetPatientRef, patient.status);
 
   const after = snapshotPatientIdentity(patient);
   return {
@@ -577,6 +826,32 @@ export function recordVerifiedPatient(
     switchedPatient: previousPatientRef !== targetPatientRef,
     identityChanged: !sameIdentitySnapshot(before, after),
   };
+}
+
+function recordPreCallVerificationResult(
+  flow: CallFlowState,
+  targetPatientRef: PatientRef,
+  patientStatus: PatientStatus,
+): void {
+  if (patientStatus !== "verified" || !flow.preCall) return;
+
+  if (
+    flow.preCall.status === "single_match_pending_confirmation" &&
+    targetPatientRef === DEFAULT_PATIENT_REF
+  ) {
+    flow.preCall.status = "single_match_confirmed";
+    flow.preCall.selectedCandidateRef = targetPatientRef;
+    flow.preCall.identityPromotion = "first_name_confirmed";
+    return;
+  }
+
+  if (
+    flow.preCall.status === "multiple_match_selected_pending_verification" &&
+    flow.preCall.selectedCandidateRef === targetPatientRef
+  ) {
+    flow.preCall.status = "multiple_match_confirmed";
+    flow.preCall.identityPromotion = "candidate_selected";
+  }
 }
 
 export function recordAppointmentLookupResult(

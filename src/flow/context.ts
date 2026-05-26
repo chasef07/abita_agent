@@ -153,6 +153,7 @@ export function compileTurnStatePacket(
     `intent: ${flow.activeIntent ?? "unclear"}`,
     `activePatient: ${flow.activePatientRef ?? "unknown"}`,
     `patientStatus: ${formatPatientStatus(flow)}`,
+    preCallTurnStateLine(flow),
     `task: ${flow.currentTask?.kind ?? flow.activeFlow}`,
     `step: ${flow.step}`,
     `visitType: ${flow.visitType ?? "unknown"}`,
@@ -163,7 +164,9 @@ export function compileTurnStatePacket(
     "</turn_state>",
     "",
     compileContextCapsules(flow, directives),
-  ].join("\n");
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
 }
 
 function compileWorkflowTurnStatePacket(
@@ -181,6 +184,7 @@ function compileWorkflowTurnStatePacket(
     `taskId: ${command.taskId}`,
     `patient: ${flow.activePatientRef ?? command.patientRef ?? "unknown"} ${formatPatientStatus(flow)}`,
     `patientStatus: ${formatPatientStatus(flow)}`,
+    preCallTurnStateLine(flow),
     `phase: ${command.phase}`,
     `known: ${formatPlannerFacts(command.knownFacts)}`,
     `missing: ${formatPlannerMissingFacts(command.missingFacts)}`,
@@ -188,8 +192,10 @@ function compileWorkflowTurnStatePacket(
     `suggestedTool: ${command.suggestedTool ?? command.tool ?? "none"}`,
     `blockedSideEffects: ${formatPlannerBlockedActions(sideEffectBlockedActions(command.blockedActions))}`,
     "</turn_state>",
+    "",
+    compileWorkflowContextCapsules(flow),
   ]
-    .filter((line) => line !== "")
+    .filter((line): line is string => Boolean(line))
     .join("\n");
 }
 
@@ -243,6 +249,7 @@ export function compileContextCapsules(
   const capsules = [
     `objective: ${shortObjectiveForStep(flow.step, directives)}`,
     `patient: ${formatPatientCapsule(flow)}`,
+    preCallCapsule(flow),
     stepSpecificCapsule(flow),
     appointmentCapsule(flow),
     schedulingCapsule(flow),
@@ -250,6 +257,19 @@ export function compileContextCapsules(
   ].filter(Boolean);
 
   return ["<context_capsules>", ...capsules, "</context_capsules>"].join("\n");
+}
+
+function compileWorkflowContextCapsules(flow: CallFlowState): string {
+  const capsules = [
+    flow.preCall ? `patient: ${formatPatientCapsule(flow)}` : "",
+    preCallCapsule(flow),
+    appointmentCapsule(flow),
+    confirmationCapsule(flow),
+  ].filter(Boolean);
+
+  return capsules.length > 0
+    ? ["<context_capsules>", ...capsules, "</context_capsules>"].join("\n")
+    : "";
 }
 
 function formatPatientStatus(flow: CallFlowState): string {
@@ -283,7 +303,11 @@ function formatPatientCapsule(flow: CallFlowState): string {
 
   const facts = [
     formatPatientStatus(flow),
-    patient.firstName?.confirmed ? "firstName=confirmed" : undefined,
+    patient.firstName?.confirmed
+      ? "firstName=confirmed"
+      : patient.firstName
+        ? "firstName=known"
+        : undefined,
     patient.dob?.confirmed
       ? "dob=confirmed"
       : patient.dob
@@ -335,7 +359,11 @@ function stepSpecificCapsule(flow: CallFlowState): string {
 
 function appointmentCapsule(flow: CallFlowState): string {
   const patient = activePatient(flow);
-  if (!patient?.appointments.length && patient?.appointmentsStatus !== "none") {
+  if (
+    !patient?.appointments.length &&
+    patient?.appointmentsStatus !== "none" &&
+    patient?.appointmentsStatus !== "error"
+  ) {
     return "";
   }
   if (
@@ -350,8 +378,77 @@ function appointmentCapsule(flow: CallFlowState): string {
   if (patient.appointmentsStatus === "none") {
     return "appointments: none found; do not refresh appointments again unless the caller changed patients or asks to retry.";
   }
+  if (patient.appointmentsStatus === "error") {
+    return "appointments: lookup unavailable; do not refresh appointments again unless the caller changed patients or asks to retry.";
+  }
 
   return `appointments: loaded=${patient.appointments.length}; use caller context or tool result for exact ID/date.`;
+}
+
+function preCallTurnStateLine(flow: CallFlowState): string | undefined {
+  const preCall = flow.preCall;
+  if (!preCall || preCall.status === "not_attempted") return undefined;
+
+  if (
+    preCall.status === "single_match_pending_confirmation" &&
+    preCall.identityPromotion === "verify_patient_required"
+  ) {
+    return "preCall: single_match_pending_confirmation; different first name given; verify active patient normally.";
+  }
+  if (preCall.status === "single_match_pending_confirmation") {
+    return "preCall: single_match_pending_confirmation; ask caller for first name only.";
+  }
+  if (preCall.status === "single_match_confirmed") {
+    return "preCall: single_match_confirmed";
+  }
+  if (preCall.status === "multiple_matches_pending_selection") {
+    const duplicateHint =
+      preCall.identityPromotion === "verify_patient_required"
+        ? "; if first name is ambiguous or unmatched, ask last name and DOB"
+        : "; ask first name only";
+    return `preCall: multiple_matches_pending_selection${duplicateHint}; do not read candidate names.`;
+  }
+  if (preCall.status === "multiple_match_selected_pending_verification") {
+    return "preCall: multiple_match_selected_pending_verification; verify selected first name with caller phone.";
+  }
+  if (preCall.status === "multiple_match_confirmed") {
+    return "preCall: multiple_match_confirmed";
+  }
+  if (preCall.status === "no_match") {
+    return "preCall: no_match; ask whether caller has been seen here before.";
+  }
+  return "preCall: lookup_failed; identity not preloaded; do not assume new patient.";
+}
+
+function preCallCapsule(flow: CallFlowState): string {
+  const preCall = flow.preCall;
+  if (!preCall || preCall.status === "not_attempted") return "";
+
+  if (preCall.status === "single_match_confirmed") {
+    return "preCall: confirmed from phone lookup first-name challenge.";
+  }
+  if (
+    preCall.status === "single_match_pending_confirmation" &&
+    preCall.identityPromotion === "verify_patient_required"
+  ) {
+    return "preCall: phone match rejected by caller first name; active patient needs normal verification.";
+  }
+  if (preCall.status === "single_match_pending_confirmation") {
+    return "preCall: single phone match; first-name challenge pending; do not say the preloaded name.";
+  }
+  if (preCall.status === "multiple_matches_pending_selection") {
+    return `preCall: multiple phone matches (${preCall.candidates.length}); ask for first name without reading names aloud.`;
+  }
+  if (preCall.status === "multiple_match_selected_pending_verification") {
+    return "preCall: one phone-match candidate selected by first name; verify with caller phone before side effects.";
+  }
+  if (preCall.status === "multiple_match_confirmed") {
+    return "preCall: selected phone-match candidate verified.";
+  }
+  if (preCall.status === "no_match") {
+    return "preCall: no phone match; do not open registration until caller says they are new or verification fails.";
+  }
+  return "preCall: lookup unavailable; do not assume new patient.";
 }
 
 function schedulingCapsule(flow: CallFlowState): string {

@@ -5,10 +5,15 @@ import { llm, stt, voice } from "@livekit/agents";
 import type { AudioFrame } from "@livekit/rtc-node";
 import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
-import type { CallState, PhoneLookupResult } from "./tooling/call-state.js";
+import {
+  reconcileCallStateAfterActivePatientChange,
+  type CallState,
+  type PhoneLookupResult,
+} from "./tooling/call-state.js";
 import type { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
   advanceWorkflow,
+  applyPreCallIdentityFromTranscript,
   compileTurnStatePacket,
   inferObviousTurnUnderstanding,
 } from "./flow/index.js";
@@ -62,6 +67,18 @@ export class Agent extends voice.Agent {
 
     state.latestUserTranscript = transcript;
     state.turnUnderstandingAppliedForTranscript = null;
+    const activePatientRefBefore = state.flow.activePatientRef;
+    const preCallIdentity = applyPreCallIdentityFromTranscript(
+      state.flow,
+      transcript,
+    );
+    if (
+      preCallIdentity?.changed &&
+      state.flow.activePatientRef &&
+      state.flow.activePatientRef !== activePatientRefBefore
+    ) {
+      reconcileCallStateAfterActivePatientChange(state, "patient_changed");
+    }
     const inferred = inferObviousTurnUnderstanding(state.flow, transcript);
     if (inferred) {
       const turn = advanceWorkflow(state.flow, {
@@ -79,10 +96,14 @@ export class Agent extends voice.Agent {
           activePatientRef: state.flow.activePatientRef,
         };
       }
+    } else if (preCallIdentity?.changed) {
+      state.turnUnderstandingAppliedForTranscript = transcript;
     }
     await refreshAgentToolsForSession(
       this.session,
-      inferred ? "turn_update_auto_recorded" : "turn_update_pending",
+      inferred || preCallIdentity?.changed
+        ? "turn_update_auto_recorded"
+        : "turn_update_pending",
     );
     chatCtx.addMessage({
       role: "system",
@@ -90,8 +111,8 @@ export class Agent extends voice.Agent {
         compileTurnStatePacket(state.flow),
         "",
         "<workflow_guidance>",
-        inferred
-          ? "The reducer already recorded the obvious caller intent for this turn. Use the current turn_state as guidance, and call the suggested read-only tool when prerequisites are met. Side effects still require explicit confirmation and policy approval."
+        inferred || preCallIdentity?.changed
+          ? "The reducer already recorded deterministic state for this turn. Use the current turn_state as guidance, and call the suggested read-only tool when prerequisites are met. Side effects still require explicit confirmation and policy approval."
           : "No automatic intent update was applied. Use the current turn_state, caller wording, and concrete tool facts to either ask one clarifying question or call a safe workflow tool. Side effects still require explicit confirmation and policy approval.",
         "</workflow_guidance>",
       ].join("\n"),
