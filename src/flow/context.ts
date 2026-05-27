@@ -1,4 +1,8 @@
-import type { CallFlowState, WorkflowCommand } from "./types.js";
+import type {
+  CallerAppointment,
+  CallFlowState,
+  WorkflowCommand,
+} from "./types.js";
 import { activeWorkflowCommandForState } from "./plans/active-command.js";
 
 export interface FlowContextDirectives {
@@ -417,10 +421,10 @@ function preCallTurnStateLine(flow: CallFlowState): string | undefined {
     return "preCall: multiple_match_selected_pending_verification; call verify_patient with selected first name; caller phone is loaded from state.";
   }
   if (preCall.status === "multiple_match_confirmed") {
-    const appointmentIds = confirmedPreCallAppointmentIds(flow);
+    const appointmentDetails = confirmedPreCallAppointmentDetails(flow);
     const appointmentHint =
-      appointmentIds.length > 0
-        ? `use preloaded appointment IDs ${appointmentIds.join(", ")}`
+      appointmentDetails.length > 0
+        ? `use preloaded selected appointments: ${appointmentDetails.join("; ")}`
         : "use preloaded selected patient facts";
     return `preCall: multiple_match_confirmed; caller selected a verified phone-match patient; do not call verify_patient; ${appointmentHint}.`;
   }
@@ -462,9 +466,21 @@ function preCallCapsule(flow: CallFlowState): string {
 }
 
 function confirmedPreCallAppointmentIds(flow: CallFlowState): string[] {
+  return confirmedPreCallAppointments(flow).map((appointment) =>
+    String(appointment.id),
+  );
+}
+
+function confirmedPreCallAppointmentDetails(flow: CallFlowState): string[] {
+  return confirmedPreCallAppointments(flow).map(formatAppointmentDetail);
+}
+
+function confirmedPreCallAppointments(
+  flow: CallFlowState,
+): CallerAppointment[] {
   const patient = activePatient(flow);
   if (patient?.appointments.length) {
-    return patient.appointments.map((appointment) => String(appointment.id));
+    return patient.appointments;
   }
 
   const preCall = flow.preCall;
@@ -472,9 +488,12 @@ function confirmedPreCallAppointmentIds(flow: CallFlowState): string[] {
   const candidate = preCall?.candidates.find(
     (match) => match.ref === selectedRef,
   );
-  return (
-    candidate?.appointments.map((appointment) => String(appointment.id)) ?? []
-  );
+  return candidate?.appointments ?? [];
+}
+
+function formatAppointmentDetail(appointment: CallerAppointment): string {
+  const facility = appointment.facility ? ` at ${appointment.facility}` : "";
+  return `[ID: ${appointment.id}] ${appointment.date} ${appointment.time} with ${appointment.provider} (${appointment.type})${facility}`;
 }
 
 function schedulingCapsule(flow: CallFlowState): string {
