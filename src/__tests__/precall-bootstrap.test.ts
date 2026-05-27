@@ -128,7 +128,6 @@ describe("pre-call bootstrap", () => {
     );
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       phone: "+17275551212",
-      includeAppointments: true,
     });
     expect(bootstrap.telemetry.durationMs).toEqual(expect.any(Number));
   });

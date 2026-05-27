@@ -15,7 +15,7 @@ session starts:
 SIP participant
   -> loadPreCallBootstrap(callerPhone, trunkPhone)
   -> lookupByPhone()
-  -> POST /api/patient/resolve { phone, includeAppointments: true }
+  -> POST /api/patient/resolve { phone }
   -> buildPrompt(phoneLookup)
   -> createInitialFlowState(...)
 ```
@@ -167,8 +167,8 @@ Selection rule:
 When the caller gives a first name:
 
 - If it uniquely matches one candidate with enough identity data, set that
-  candidate active and either verify locally or call `verify_patient` with
-  `{ firstName, usePhone: true }` depending on candidate completeness.
+  candidate active and either verify locally or call `verify_patient` with the
+  selected first name. The wrapper loads caller phone from session state.
 - If it matches multiple candidates, ask for last name or DOB.
 - If it matches none, ask for last name and DOB, then use `verify_patient`.
 - After `verify_patient` succeeds for the selected candidate, set
@@ -299,8 +299,8 @@ The planner owns the next safe action:
   first-name confirmation.
 - `single_match_confirmed` satisfies patient identity.
 - `multiple_matches_pending_selection` allows only asking for first name or
-  `verify_patient` with first name plus phone when the caller provided a unique
-  candidate first name.
+  `verify_patient` with the selected first name when the caller provided a
+  unique candidate first name. The wrapper loads caller phone from state.
 - `multiple_match_confirmed` satisfies patient identity after the selected
   candidate verifies.
 - `no_match` should not open `add_patient` until the caller says they are new or

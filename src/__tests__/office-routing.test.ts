@@ -24,6 +24,7 @@ import {
   getBaseUrlForOfficePhone,
   getSpringHillOfficePhone,
   resolveKnowledgeFileForOffice,
+  verify_patient,
 } from "../tools.js";
 
 describe("office routing helpers", () => {
@@ -696,13 +697,35 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "Phone lookup found exactly one existing patient for this caller.",
     );
+    expect(prompt).toContain("- Ask what the caller needs first.");
     expect(prompt).toContain(
-      "- Ask the caller to spell the patient's first name only.",
+      "- Only confirm identity before patient-specific help:",
+    );
+    expect(prompt).toContain(
+      "- For quick questions, office information, policy questions, routing questions that do not require private patient data, or transfer requests, help the caller without patient verification.",
+    );
+    expect(prompt).toContain(
+      "- When identity is needed, ask the caller to spell the patient's first name only.",
     );
     expect(prompt).toContain("- Do not call verify_patient for this caller.");
     expect(prompt).toContain(
       "- Use the preloaded appointment list for appointment changes and cancellations.",
     );
     expect(prompt).toContain("Preloaded facts available after confirmation:");
+  });
+});
+
+describe("model-facing tool definitions", () => {
+  it("limits verify_patient to patient-specific workflows", () => {
+    expect(verify_patient.description).toContain(
+      "Use only when the current workflow needs a verified patient",
+    );
+    expect(verify_patient.description).toContain(
+      "appointment lookup or confirmation",
+    );
+    expect(verify_patient.description).toContain(
+      "Do not use for quick questions",
+    );
+    expect(verify_patient.description).toContain("transfer requests");
   });
 });

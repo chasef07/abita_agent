@@ -520,7 +520,6 @@ function applyPatientUnderstanding(
     lastName,
     dob,
     phone,
-    usePhone: Boolean(phone),
     relationshipToCaller: relationship,
     source: sourceForUnderstanding(understanding),
   });

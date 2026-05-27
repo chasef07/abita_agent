@@ -396,7 +396,7 @@ function preCallTurnStateLine(flow: CallFlowState): string | undefined {
     return "preCall: single_match_pending_confirmation; different first name given; verify active patient normally.";
   }
   if (preCall.status === "single_match_pending_confirmation") {
-    return "preCall: single_match_pending_confirmation; ask caller to spell patient's first name only.";
+    return "preCall: single_match_pending_confirmation; ask caller's intent first; confirm first name only before patient-specific help.";
   }
   if (preCall.status === "single_match_confirmed") {
     const appointmentIds = confirmedPreCallAppointmentIds(flow);
@@ -414,7 +414,7 @@ function preCallTurnStateLine(flow: CallFlowState): string | undefined {
     return `preCall: multiple_matches_pending_selection${duplicateHint}; do not read candidate names.`;
   }
   if (preCall.status === "multiple_match_selected_pending_verification") {
-    return "preCall: multiple_match_selected_pending_verification; verify selected first name with caller phone.";
+    return "preCall: multiple_match_selected_pending_verification; call verify_patient with selected first name; caller phone is loaded from state.";
   }
   if (preCall.status === "multiple_match_confirmed") {
     return "preCall: multiple_match_confirmed";
@@ -439,13 +439,13 @@ function preCallCapsule(flow: CallFlowState): string {
     return "preCall: phone match rejected by caller first name; active patient needs normal verification.";
   }
   if (preCall.status === "single_match_pending_confirmation") {
-    return "preCall: single phone match; first-name challenge pending; do not say the preloaded name.";
+    return "preCall: single phone match; confirm first name only when patient-specific help is needed; do not say the preloaded name.";
   }
   if (preCall.status === "multiple_matches_pending_selection") {
     return `preCall: multiple phone matches (${preCall.candidates.length}); ask for spelled first name without reading names aloud.`;
   }
   if (preCall.status === "multiple_match_selected_pending_verification") {
-    return "preCall: one phone-match candidate selected by first name; verify with caller phone before side effects.";
+    return "preCall: one phone-match candidate selected by first name; call verify_patient with selected first name before side effects.";
   }
   if (preCall.status === "multiple_match_confirmed") {
     return "preCall: selected phone-match candidate verified.";

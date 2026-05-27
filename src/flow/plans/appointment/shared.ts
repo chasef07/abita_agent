@@ -75,11 +75,16 @@ export function appointmentLookupKnownFact(
 
 export function verifiedPatientResolveArgs(
   patient: PatientContext | undefined,
-): { firstName: string; lastName: string; dob: string } | null {
+): { firstName: string; lastName?: string; dob?: string } | null {
   const firstName = patient?.firstName?.value;
   const lastName = patient?.lastName?.value;
   const dob = patient?.dob?.value;
-  return firstName && lastName && dob ? { firstName, lastName, dob } : null;
+  if (!firstName) return null;
+  return {
+    firstName,
+    ...(lastName ? { lastName } : {}),
+    ...(dob ? { dob } : {}),
+  };
 }
 
 export function mergeEvidence(

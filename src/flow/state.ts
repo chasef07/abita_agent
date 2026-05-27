@@ -920,7 +920,6 @@ export function recordPatientVerificationAttempt(
     lastName?: string;
     dob?: string;
     phone?: string;
-    usePhone?: boolean;
     relationshipToCaller?: PatientRelationshipToCaller;
     source?: TrackedSlotSource;
   },
@@ -933,26 +932,30 @@ export function recordPatientVerificationAttempt(
   );
 
   if (args.firstName) {
-    patient.firstName = trackedSlot(
+    patient.firstName = mergeVerificationAttemptNameSlot(
+      patient.firstName,
       args.firstName,
       source,
-      isSpelled ? "high" : "medium",
       isSpelled,
     );
     patient.canonicalNameSource = isSpelled
       ? "caller_spelled"
-      : "caller_spoken";
+      : patient.firstName.source === "caller_spelled"
+        ? "caller_spelled"
+        : "caller_spoken";
   }
   if (args.lastName) {
-    patient.lastName = trackedSlot(
+    patient.lastName = mergeVerificationAttemptNameSlot(
+      patient.lastName,
       args.lastName,
       source,
-      isSpelled ? "high" : "medium",
       isSpelled,
     );
     patient.canonicalNameSource = isSpelled
       ? "caller_spelled"
-      : "caller_spoken";
+      : patient.lastName.source === "caller_spelled"
+        ? "caller_spelled"
+        : "caller_spoken";
   }
   if (args.dob) {
     patient.dob = trackedSlot(args.dob, source, "medium", false);
@@ -973,11 +976,27 @@ export function recordPatientVerificationAttempt(
     firstName: args.firstName,
     lastName: args.lastName,
     dob: args.dob,
-    phone: args.usePhone ? args.phone : undefined,
+    phone: args.phone,
   });
   flow.patientStatus = patient.status;
   setFlowStep(flow, nextPatientFlowStep(patient.status));
   return patient;
+}
+
+function mergeVerificationAttemptNameSlot(
+  existing: TrackedSlot | undefined,
+  value: string,
+  source: TrackedSlotSource,
+  isSpelled: boolean,
+): TrackedSlot {
+  if (
+    existing?.source === "caller_spelled" &&
+    normalizeIdentityValue(existing.value) === normalizeIdentityValue(value) &&
+    !isSpelled
+  ) {
+    return existing;
+  }
+  return trackedSlot(value, source, isSpelled ? "high" : "medium", isSpelled);
 }
 
 export function recordVerifiedPatient(
@@ -1212,7 +1231,6 @@ function resolveVerificationAttemptPatientRef(
     lastName?: string;
     dob?: string;
     phone?: string;
-    usePhone?: boolean;
     relationshipToCaller?: PatientRelationshipToCaller;
   },
 ): PatientRef {
@@ -1227,7 +1245,7 @@ function resolveVerificationAttemptPatientRef(
     firstName: normalizeIdentityValue(args.firstName),
     lastName: normalizeIdentityValue(args.lastName),
     dob: normalizeIdentityValue(args.dob),
-    phone: args.usePhone ? normalizeIdentityValue(args.phone) : undefined,
+    phone: normalizeIdentityValue(args.phone),
   }).slice(0, 12)}`;
   flow.patients[ref] ??= createPatientContext({ ref, status: "candidate" });
   return ref;

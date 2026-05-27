@@ -87,7 +87,7 @@ export interface CallerAppointment {
   confirmed: boolean;
 }
 
-export type AppointmentLoadStatus = "found" | "none" | "skipped" | "error";
+export type AppointmentLoadStatus = "found" | "none" | "error";
 
 export type PreCallIdentityStatus =
   | "not_attempted"

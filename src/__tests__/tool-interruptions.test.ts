@@ -146,7 +146,7 @@ describe("tool interruption handling", () => {
       tool: "verify_patient",
       args: { firstName: "Jane", lastName: "Doe", dob: "01/01/1980" },
       instruction:
-        "Call verify_patient with the patient's name and date of birth to load appointments.",
+        "Call verify_patient with the patient's first name to load appointments. Caller phone is loaded from state.",
     });
     expect(recorded).not.toHaveProperty("turnState");
     expect(recorded).not.toHaveProperty("controllerDecision");
@@ -307,22 +307,101 @@ describe("tool interruption handling", () => {
     });
   });
 
-  it("requires identity fields before resolving a patient", async () => {
-    const fetchMock = vi.fn();
+  it("uses caller phone from state when resolving by first name", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "verified",
+        patientId: "patient-1",
+        name: "Jane Doe",
+        dob: "01/01/1980",
+        phone: "+17275551212",
+        appointments: [],
+      }),
+      text: async () => "",
+    }));
     vi.stubGlobal("fetch", fetchMock);
     const { ctx } = createToolContext();
 
     const result = await verify_patient.execute(
       { firstName: "Jane" },
-      { ctx, toolCallId: "test-verify-missing-identity" },
+      { ctx, toolCallId: "test-verify-first-name-phone" },
     );
 
     expect(result).toMatchObject({
-      outcome: "needs_clarification",
-      nextStep: "verify_patient",
-      facts: { reason: "patient_lookup_requires_last_name_and_dob" },
+      status: "verified",
+      patient: {
+        id: "patient-1",
+      },
     });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      firstName: "Jane",
+      phone: "+17275551212",
+    });
+  });
+
+  it("uses last name and DOB without caller phone for caregiver fallback lookup", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "verified",
+        patientId: "patient-child",
+        name: "Child Doe",
+        dob: "01/01/2014",
+        phone: "+17275550000",
+        appointments: [],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { ctx } = createToolContext();
+
+    const result = await verify_patient.execute(
+      { lastName: "Doe", dob: "01/01/2014" },
+      { ctx, toolCallId: "test-verify-caregiver-fallback" },
+    );
+
+    expect(result).toMatchObject({
+      status: "verified",
+      patient: {
+        id: "patient-child",
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody).toMatchObject({
+      lastName: "Doe",
+      dob: "01/01/2014",
+    });
+    expect(requestBody).not.toHaveProperty("phone");
+    expect(requestBody).not.toHaveProperty("firstName");
+  });
+
+  it("does not ask for the same last name and DOB again after full identity misses", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "not_found",
+        message: "No patient found matching the provided information",
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { ctx } = createToolContext();
+
+    const result = await verify_patient.execute(
+      { firstName: "Jane", lastName: "Doe", dob: "01/01/1980" },
+      { ctx, toolCallId: "test-verify-full-identity-not-found" },
+    );
+
+    expect(result).toMatchObject({
+      status: "not_found",
+      next: "ask_spelled_name_or_register",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty(
+      "phone",
+    );
   });
 
   it("does not re-verify or mutate identity after pre-call confirmation", async () => {
@@ -376,7 +455,7 @@ describe("tool interruption handling", () => {
     });
   });
 
-  it("returns raw appointment lookup payload while storing sanitized appointment state", async () => {
+  it("returns sanitized appointment lookup payload while storing cancel tokens internally", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
       json: async () => ({
@@ -413,11 +492,13 @@ describe("tool interruption handling", () => {
     expect(state.appointments[0]).not.toHaveProperty("cancelToken");
     expect(result).toMatchObject({
       status: "verified",
-      appointmentsStatus: "found",
-      appointments: [expect.objectContaining({ id: 12345 })],
+      appointments: {
+        status: "found",
+        items: [expect.objectContaining({ id: 12345 })],
+      },
     });
-    expect(JSON.stringify(result)).toContain("cancel-token-12345");
-    expect(JSON.stringify(result)).toContain("cancelToken");
+    expect(JSON.stringify(result)).not.toContain("cancel-token-12345");
+    expect(JSON.stringify(result)).not.toContain("cancelToken");
   });
 
   it("stores appointments from patient resolve when appointment planner asks for lookup", async () => {
@@ -478,12 +559,13 @@ describe("tool interruption handling", () => {
       firstName: "Chase",
       lastName: "Test",
       dob: "04/07/2000",
-      includeAppointments: true,
     });
     expect(result).toMatchObject({
       status: "verified",
-      appointmentsStatus: "found",
-      appointments: [expect.objectContaining({ id: 12345 })],
+      appointments: {
+        status: "found",
+        items: [expect.objectContaining({ id: 12345 })],
+      },
     });
     expect(result.planner).toMatchObject({
       task: "appointment_cancel",
@@ -544,7 +626,10 @@ describe("tool interruption handling", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
       status: "verified",
-      appointmentsStatus: "none",
+      appointments: {
+        status: "none",
+        items: [],
+      },
     });
     expect(result.planner).toMatchObject({
       task: "appointment_cancel",
@@ -2472,7 +2557,6 @@ describe("tool interruption handling", () => {
         firstName: "Emily",
         lastName: "Danehe",
         dob: "02/03/2012",
-        nameSource: "caller_spelled",
       },
       { ctx, toolCallId: "test-verify" },
     );
@@ -2485,6 +2569,7 @@ describe("tool interruption handling", () => {
       office: "+17275919997",
     });
     expect(verifyBody).not.toHaveProperty("nameSource");
+    expect(verifyBody).not.toHaveProperty("relationshipToCaller");
     expect(state.patientId).toBe("patient-2");
     expect(state.patientName).toBe("Emily Danehe");
     expect(state.flow.activePatientRef).toMatch(/^candidate:/);
@@ -2496,12 +2581,12 @@ describe("tool interruption handling", () => {
       status: "verified",
       firstName: {
         value: "Emily",
-        source: "caller_spelled",
+        source: "tool_result",
         confirmed: true,
       },
       lastName: {
         value: "Danehe",
-        source: "caller_spelled",
+        source: "tool_result",
         confirmed: true,
       },
     });
