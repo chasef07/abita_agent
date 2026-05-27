@@ -124,7 +124,7 @@ For legacy prompt tweaks, edit the workspace files. For harness behavior, prefer
 
 | Tool | Purpose |
 |---|---|
-| `verify_patient` | Look up patient by first name + last name + DOB (or phone) |
+| `verify_patient` | Look up patient by first name using caller phone from session state; retry by last name/DOB when needed |
 | `add_patient` | Register a new patient |
 | `update_insurance` | Update insurance on file |
 | `get_availability` | Find open appointment slots |

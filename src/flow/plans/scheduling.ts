@@ -258,10 +258,41 @@ export function planScheduling(
     });
   }
   if (nextStep === "verify_patient") {
+    const preCallVerifyArgs = selectedPreCallVerifyArgs(flow);
+    if (preCallVerifyArgs) {
+      return command(flow, plan, {
+        phase: "needs_verified_patient",
+        knownFacts: schedulingKnownFacts(flow, outcome.facts),
+        missingFacts: [],
+        nextAction: "call_tool",
+        tool: "verify_patient",
+        args: preCallVerifyArgs,
+        allowedTools: ["verify_patient"],
+        blockedActions: [
+          {
+            action: "get_availability",
+            reason: "patient must be verified before availability",
+          },
+          {
+            action: "book_appt",
+            reason: "patient must be verified before booking",
+          },
+        ],
+        instruction:
+          "Call verify_patient with the selected first name. Caller phone is loaded from state.",
+        step: statePatch?.step,
+        statePatch,
+        resolvedMetaDecision,
+      });
+    }
     return askSchedulingSlot(flow, plan, {
       phase: "needs_verified_patient",
-      slot: "patientIdentity",
-      label: "verified patient identity",
+      slot: isMultiplePreCallSelectionPending(flow)
+        ? "patientFirstName"
+        : "patientIdentity",
+      label: isMultiplePreCallSelectionPending(flow)
+        ? "patient first name"
+        : "verified patient identity",
       allowedTools: ["verify_patient"],
       blockedActions: [
         {
@@ -273,8 +304,10 @@ export function planScheduling(
           reason: "patient must be verified before booking",
         },
       ],
-      instruction:
-        outcome.speak ?? "Ask for the patient's name and date of birth.",
+      instruction: verificationInstructionForState(
+        flow,
+        outcome.speak ?? "Ask for the patient's first name.",
+      ),
       statePatch,
       resolvedMetaDecision,
     });
@@ -752,6 +785,43 @@ function askSchedulingSlot(
     statePatch: input.statePatch,
     resolvedMetaDecision: input.resolvedMetaDecision,
   });
+}
+
+function selectedPreCallVerifyArgs(
+  flow: CallFlowState,
+): { firstName: string } | null {
+  if (flow.preCall?.status !== "multiple_match_selected_pending_verification") {
+    return null;
+  }
+
+  const patient =
+    flow.patients[
+      flow.activePatientRef ?? flow.preCall.selectedCandidateRef ?? ""
+    ];
+  const firstName = patient?.firstName?.value;
+  if (!firstName) return null;
+
+  return { firstName };
+}
+
+function isMultiplePreCallSelectionPending(flow: CallFlowState): boolean {
+  return (
+    flow.preCall?.status === "multiple_matches_pending_selection" &&
+    flow.preCall.identityPromotion !== "verify_patient_required"
+  );
+}
+
+function verificationInstructionForState(
+  flow: CallFlowState,
+  fallback: string,
+): string {
+  if (isMultiplePreCallSelectionPending(flow)) {
+    return "Ask for the patient's first name only.";
+  }
+  if (flow.preCall?.status === "multiple_match_selected_pending_verification") {
+    return "Call verify_patient with the selected first name. Caller phone is loaded from state.";
+  }
+  return fallback;
 }
 
 export function isSchedulingOrInsuranceIntent(

@@ -156,7 +156,16 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
     );
     lines.push(`Identity state:`);
     lines.push(`- The caller is not confirmed yet.`);
-    lines.push(`- Ask the caller to spell the patient's first name only.`);
+    lines.push(`- Ask what the caller needs first.`);
+    lines.push(
+      `- Only confirm identity before patient-specific help: appointment details, booking, cancellation, reschedule, insurance update, registration fallback, chart/account questions, or anything that uses private patient data.`,
+    );
+    lines.push(
+      `- For quick questions, office information, policy questions, routing questions that do not require private patient data, or transfer requests, help the caller without patient verification.`,
+    );
+    lines.push(
+      `- When identity is needed, ask the caller to spell the patient's first name only.`,
+    );
     lines.push(
       `- Do not say the preloaded name, date of birth, patient ID, insurance, or appointment details until turn_state says preCall: single_match_confirmed.`,
     );

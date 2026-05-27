@@ -68,7 +68,7 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
         },
       ],
       instruction:
-        "Ask for the patient's name and date of birth before looking up appointments.",
+        "Ask for the patient's first name before looking up appointments.",
     });
   }
 
@@ -118,7 +118,7 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
         allowedTools: ["verify_patient"],
         blockedActions: [],
         instruction:
-          "Ask for the patient's name and date of birth before looking up appointments.",
+          "Ask for the patient's first name before looking up appointments.",
       });
     }
     return command(flow, plan, {
@@ -133,7 +133,7 @@ export function planConfirm(flow: CallFlowState): WorkflowCommand {
       allowedTools: ["verify_patient"],
       blockedActions: [],
       instruction:
-        "Call verify_patient with the patient's name and date of birth to load appointments.",
+        "Call verify_patient with the patient's first name to load appointments. Caller phone is loaded from state.",
     });
   }
 

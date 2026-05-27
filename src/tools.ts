@@ -51,7 +51,12 @@ import {
   turnUnderstandingSchema,
   nextActionForFlowDecision,
 } from "./flow/index.js";
-import { callApi } from "./tooling/advancedmd-client.js";
+import {
+  callApi,
+  resolvePatientByOffice,
+  type PatientResolveResult,
+  type PatientResolveVerified,
+} from "./tooling/advancedmd-client.js";
 import { lookupOfficeKnowledge } from "./tooling/knowledge.js";
 import { transferCallerToOffice } from "./tooling/handoff.js";
 import {
@@ -634,17 +639,170 @@ function applyPatientResult(state: CallState, result: any): void {
     result,
     extractedAppointments,
   );
-  const rawAppointments = extractedAppointments ?? [];
-  const appointments = publicCallerAppointments(rawAppointments);
-  const patientChange = recordVerifiedPatient(state.flow, {
+  applyPatientPayloadToState(state, {
+    status: result.status ?? null,
     patientId: result.patientId ?? null,
-    patientName: result.name ?? null,
+    name: result.name ?? null,
     dob: result.dob ?? null,
     phone: result.phone ?? null,
-    appointments,
+    insuranceCarrier: result.insuranceCarrier ?? null,
+    insPlanId: result.insPlanId ?? null,
+    respPartyId: result.respPartyId ?? null,
+    routing: result.routing ?? null,
+    allowedProviders: Array.isArray(result.allowedProviders)
+      ? result.allowedProviders
+      : [],
+    routingAmbiguous: result.routingAmbiguous ?? false,
+    preauthRequired: result.preauthRequired ?? false,
     appointmentsStatus,
+    rawAppointments: extractedAppointments ?? [],
   });
-  if (String(result.status ?? "").toLowerCase() === "created") {
+}
+
+type PatientResolveArgs = {
+  firstName?: string;
+  lastName?: string;
+  dob?: string;
+};
+
+type BuiltPatientResolveRequest = {
+  body: Record<string, unknown>;
+  callerPhone: string | null;
+  usesCallerPhone: boolean;
+  usesFullIdentity: boolean;
+};
+
+type PatientStatePayload = {
+  status?: string | null;
+  patientId?: string | null;
+  name?: string | null;
+  dob?: string | null;
+  phone?: string | null;
+  insuranceCarrier?: string | null;
+  insPlanId?: string | null;
+  respPartyId?: string | null;
+  routing?: string | null;
+  allowedProviders?: string[];
+  routingAmbiguous?: boolean;
+  preauthRequired?: boolean;
+  appointmentsStatus?: AppointmentLoadStatus | null;
+  rawAppointments?: StoredCallerAppointment[] | null;
+};
+
+function buildPatientResolveRequest(
+  state: CallState,
+  args: PatientResolveArgs,
+): BuiltPatientResolveRequest {
+  const callerPhone = state.callerPhone?.trim() || null;
+  const usesFullIdentity = Boolean(args.lastName && args.dob);
+  const usesCallerPhone = Boolean(
+    callerPhone && args.firstName && !usesFullIdentity,
+  );
+  const body: Record<string, unknown> = {};
+  if (args.firstName) body.firstName = args.firstName;
+  if (args.lastName) body.lastName = args.lastName;
+  if (args.dob) body.dob = args.dob;
+  if (usesCallerPhone && callerPhone) body.phone = callerPhone;
+  return { body, callerPhone, usesCallerPhone, usesFullIdentity };
+}
+
+async function resolvePatientForCall(
+  state: CallState,
+  request: BuiltPatientResolveRequest,
+): Promise<PatientResolveResult> {
+  ensureRoutineVisionOffice(state);
+  return resolvePatientByOffice(getAmdOfficeForToolCall(state), request.body, {
+    fallbackPhone: request.usesCallerPhone ? request.callerPhone : null,
+  });
+}
+
+function applyResolvedPatientToState(
+  state: CallState,
+  result: PatientResolveVerified,
+): void {
+  applyPatientPayloadToState(state, {
+    status: result.status,
+    patientId: result.patientId,
+    name: result.name,
+    dob: result.dob,
+    phone: result.phone,
+    insuranceCarrier: result.insuranceCarrier,
+    insPlanId: result.insPlanId,
+    respPartyId: result.respPartyId,
+    routing: result.routing,
+    allowedProviders: result.allowedProviders,
+    routingAmbiguous: result.routingAmbiguous,
+    preauthRequired: result.preauthRequired,
+    appointmentsStatus: result.appointmentsStatus,
+    rawAppointments: result.appointments,
+  });
+}
+
+function publicPatientResolveResult(
+  result: PatientResolveResult,
+  request?: Pick<BuiltPatientResolveRequest, "usesFullIdentity">,
+) {
+  if (result.status === "verified") {
+    return {
+      status: "verified",
+      patient: {
+        id: result.patientId,
+        name: result.name,
+        dob: result.dob,
+        insuranceCarrier: result.insuranceCarrier,
+        routing: result.routing,
+        routingAmbiguous: result.routingAmbiguous,
+        preauthRequired: result.preauthRequired,
+      },
+      appointments: {
+        status: result.appointmentsStatus,
+        ...(result.appointmentsMessage
+          ? { message: result.appointmentsMessage }
+          : {}),
+        items: publicCallerAppointments(result.appointments),
+      },
+      next: "continue",
+    };
+  }
+  if (result.status === "multiple_matches") {
+    return {
+      status: "multiple_matches",
+      message: result.message,
+      matches: result.matches,
+      next: "ask_first_name",
+    };
+  }
+  if (result.status === "not_found") {
+    return {
+      status: "not_found",
+      message: result.message,
+      next: request?.usesFullIdentity
+        ? "ask_spelled_name_or_register"
+        : "ask_last_name_and_dob",
+    };
+  }
+  return {
+    status: "error",
+    message: result.message,
+    next: "retry",
+  };
+}
+
+function applyPatientPayloadToState(
+  state: CallState,
+  payload: PatientStatePayload,
+): void {
+  const rawAppointments = payload.rawAppointments ?? [];
+  const appointments = publicCallerAppointments(rawAppointments);
+  const patientChange = recordVerifiedPatient(state.flow, {
+    patientId: payload.patientId ?? null,
+    patientName: payload.name ?? null,
+    dob: payload.dob ?? null,
+    phone: payload.phone ?? null,
+    appointments,
+    appointmentsStatus: payload.appointmentsStatus ?? null,
+  });
+  if (String(payload.status ?? "").toLowerCase() === "created") {
     const patient = ensureActivePatientContext(state.flow);
     patient.status = "created";
     state.flow.patientStatus = "created";
@@ -652,27 +810,27 @@ function applyPatientResult(state: CallState, result: any): void {
   }
   const invalidatePatientState = shouldInvalidatePatientScopedState(
     state,
-    result,
+    payload,
     patientChange.switchedPatient,
   );
 
-  state.patientId = result.patientId ?? null;
-  state.patientName = result.name ?? null;
-  state.dob = result.dob ?? null;
-  state.insuranceCarrier = result.insuranceCarrier ?? null;
-  state.insPlanId = result.insPlanId ?? null;
-  state.respPartyId = result.respPartyId ?? null;
-  state.checkedInsurancePlan = result.insuranceCarrier ?? null;
+  state.patientId = payload.patientId ?? null;
+  state.patientName = payload.name ?? null;
+  state.dob = payload.dob ?? null;
+  state.insuranceCarrier = payload.insuranceCarrier ?? null;
+  state.insPlanId = payload.insPlanId ?? null;
+  state.respPartyId = payload.respPartyId ?? null;
+  state.checkedInsurancePlan = payload.insuranceCarrier ?? null;
   state.checkedInsuranceCoverageType =
-    result.routing === "optical_only" ? "routine_vision" : null;
-  state.routing = result.routing ?? null;
+    payload.routing === "optical_only" ? "routine_vision" : null;
+  state.routing = payload.routing ?? null;
   if (invalidatePatientState) {
     clearAvailabilitySelection(state, "patient_changed");
   }
-  state.allowedProviders = result.allowedProviders ?? [];
-  state.routingAmbiguous = result.routingAmbiguous ?? false;
-  state.preauthRequired = result.preauthRequired ?? false;
-  state.appointmentsStatus = appointmentsStatus;
+  state.allowedProviders = payload.allowedProviders ?? [];
+  state.routingAmbiguous = payload.routingAmbiguous ?? false;
+  state.preauthRequired = payload.preauthRequired ?? false;
+  state.appointmentsStatus = payload.appointmentsStatus ?? null;
   state.appointments = appointments;
   state.appointmentCancelTokens = appointmentCancelTokenMap(rawAppointments);
   state.flow.officeKey = state.officeKey;
@@ -693,7 +851,11 @@ function applyPatientResult(state: CallState, result: any): void {
 
 function shouldInvalidatePatientScopedState(
   state: CallState,
-  result: any,
+  result: {
+    patientId?: string | null;
+    name?: string | null;
+    dob?: string | null;
+  },
   switchedPatient: boolean,
 ): boolean {
   return (
@@ -927,10 +1089,7 @@ function extractAppointmentsStatus(
 ): AppointmentLoadStatus | null {
   if (!isRecord(result)) return null;
   const status = result.appointmentsStatus;
-  return status === "found" ||
-    status === "none" ||
-    status === "skipped" ||
-    status === "error"
+  return status === "found" || status === "none" || status === "error"
     ? status
     : null;
 }
@@ -1030,18 +1189,22 @@ async function refreshCancelTokenForAppointment(
   appointmentId: number,
 ): Promise<string | null> {
   if (!state.patientId) return null;
-  const result = await callApi(
-    "/api/patient/resolve",
-    { patientId: state.patientId, includeAppointments: true },
-    getAmdOfficeForToolCall(state),
-  );
-  const rawAppointments = extractAppointments(result);
-  if (!rawAppointments) return null;
+  const result = await resolvePatientByOffice(getAmdOfficeForToolCall(state), {
+    patientId: state.patientId,
+  });
+  if (result.status !== "verified") return null;
 
-  const appointments = publicCallerAppointments(rawAppointments);
+  const appointments = publicCallerAppointments(result.appointments);
   state.appointments = appointments;
-  state.appointmentCancelTokens = appointmentCancelTokenMap(rawAppointments);
-  ensureActivePatientContext(state.flow).appointments = appointments;
+  state.appointmentsStatus = result.appointmentsStatus;
+  state.appointmentCancelTokens = appointmentCancelTokenMap(
+    result.appointments,
+  );
+  const activePatient = ensureActivePatientContext(state.flow);
+  activePatient.appointments = appointments;
+  if (result.appointmentsStatus) {
+    activePatient.appointmentsStatus = result.appointmentsStatus;
+  }
   return cancelTokenForAppointment(state, appointmentId);
 }
 
@@ -1680,11 +1843,17 @@ If the caller only says a backchannel like "yes", "okay", or "mm-hmm", call this
 
 // --- verify_patient ---
 export const verify_patient = llm.tool({
-  description: `Single existing-patient lookup tool. Verifies a patient and always asks middleware to include upcoming appointments in the same call.
+  description: `Use only when the current workflow needs a verified patient for patient-specific work.
 
-For MULTIPLE MATCHES (caller context says multiple patients on this number): ask for the spelled first name, then pass firstName and phone — the middleware matches by phone + first name. Do NOT ask for last name or DOB upfront.
+This is the existing-patient lookup tool. It verifies a patient and loads upcoming appointments in the same call.
 
-For all other cases: pass firstName, lastName, and dob (MM/DD/YYYY).
+Use for patient-specific work: appointment lookup or confirmation, booking, cancellation, reschedule, insurance update, existing-patient registration fallback, or private chart/account questions.
+
+Do not use for quick questions, office hours or location questions, general practice policy questions, routing questions that do not require private patient data, or transfer requests.
+
+Ask for the patient's first name first. For first-name lookup, the caller phone number is loaded from session state automatically, so do not ask the caller to repeat their phone number.
+
+Do NOT ask for last name or DOB before the first lookup when caller phone is available. If phone + first name is not enough, ask for last name and DOB and retry; full last name + DOB lookup is not restricted to the caller phone, so it can find patients when a parent, spouse, or caregiver is calling.
 
 Do NOT call if phone lookup already verified the patient (single match + confirmed first name). Check CALLER CONTEXT first.
 
@@ -1692,51 +1861,36 @@ After response:
 - If verified: let them know and move on.
 - If routingAmbiguous: ask what type of plan (regular, EPO, HMO, Medicare). If HMO, scheduling starts two weeks out due to preauth.
 - If routing is "not_accepted": tell them straightforwardly.
-- If not found and you only sent firstName + phone: ask for last name and DOB and retry with full details.
+- If not found with firstName + caller phone: ask for last name and DOB and retry with full details.
 - If not found with full details: ask them to spell their name and retry with corrections.
 - If still not found after retry: lead into registration — "ok no worries, let me get you set up."`,
   parameters: z.object({
     firstName: z
       .string()
+      .optional()
       .describe("Patient's first name as spelled by the caller when available"),
     lastName: z
       .string()
       .optional()
       .describe(
-        "Patient's last name as spelled by the caller when available (optional for multiple-match phone lookup)",
+        "Patient's last name as spelled by the caller when available; only needed after first name + caller phone fails or is ambiguous",
       ),
     dob: z
       .string()
       .optional()
       .describe(
-        "Patient's date of birth in MM/DD/YYYY format (optional for multiple-match phone lookup)",
-      ),
-    usePhone: z
-      .boolean()
-      .optional()
-      .describe(
-        "Set true for multiple-match flow to verify by first name + caller phone number",
-      ),
-    nameSource: z
-      .enum(["caller_spoken", "caller_spelled"])
-      .optional()
-      .describe(
-        "Set caller_spelled when the caller spelled or corrected the name; spelled values override earlier transcript guesses",
-      ),
-    relationshipToCaller: z
-      .enum(["self", "child", "parent", "spouse", "other_family", "other"])
-      .optional()
-      .describe(
-        "Who the patient is relative to the caller. Use child when a parent is calling for their child; use self when the caller is the patient.",
+        "Patient's date of birth in MM/DD/YYYY format; only needed after first name + caller phone fails or is ambiguous",
       ),
   }),
-  execute: async (
-    { firstName, lastName, dob, usePhone, nameSource, relationshipToCaller },
-    { ctx },
-  ) => {
+  execute: async ({ firstName, lastName, dob }, { ctx }) => {
     const state = getState(ctx);
     makeCurrentSpeechUninterruptible(ctx);
     restoreConfirmedPreCallCaller(state);
+    const request = buildPatientResolveRequest(state, {
+      firstName,
+      lastName,
+      dob,
+    });
     if (state.flow.preCall?.status === "single_match_confirmed") {
       const preCallPolicyResponse = evaluatePolicyForState(
         state,
@@ -1745,28 +1899,25 @@ After response:
           firstName,
           lastName,
           dob,
-          usePhone,
-          nameSource,
-          relationshipToCaller,
         },
       );
       if (preCallPolicyResponse) return preCallPolicyResponse;
     }
-    if (usePhone && !firstName) {
+    if (!firstName && !request.usesFullIdentity) {
       return toolOutcome(
         "needs_clarification",
         "verify_patient",
-        "Ask for the patient's first name before verifying them.",
-        { reason: "patient_lookup_requires_first_name" },
+        "Ask for the patient's first name before verifying them, or ask for last name and date of birth if the caller is calling for someone else.",
+        { reason: "patient_lookup_requires_identity" },
         true,
       );
     }
-    if (!usePhone && (!lastName || !dob)) {
+    if (!request.usesCallerPhone && !request.usesFullIdentity) {
       return toolOutcome(
         "needs_clarification",
         "verify_patient",
-        "Ask for the patient's last name and date of birth before verifying them.",
-        { reason: "patient_lookup_requires_last_name_and_dob" },
+        "Ask for the patient's first name, or collect both last name and date of birth before verifying someone not tied to the caller phone.",
+        { reason: "patient_lookup_requires_caller_phone_or_full_identity" },
         true,
       );
     }
@@ -1774,9 +1925,6 @@ After response:
       firstName,
       lastName,
       dob,
-      usePhone,
-      nameSource,
-      relationshipToCaller,
     });
     if (policyResponse) return policyResponse;
     const previousIdentity = snapshotActivePatientIdentity(state.flow);
@@ -1784,10 +1932,9 @@ After response:
       firstName,
       lastName,
       dob,
-      phone: usePhone ? state.callerPhone : undefined,
-      usePhone,
-      relationshipToCaller,
-      source: nameSource ?? "caller_spoken",
+      phone: request.usesCallerPhone
+        ? (request.callerPhone ?? undefined)
+        : undefined,
     });
     const identityChanged = hasActivePatientIdentityChanged(
       state.flow,
@@ -1800,30 +1947,21 @@ After response:
         dob: dob ?? null,
       });
     }
-    const body: Record<string, unknown> = { firstName };
-    if (lastName) body.lastName = lastName;
-    if (dob) body.dob = dob;
-    if (usePhone) body.phone = state.callerPhone;
-    body.includeAppointments = true;
-    ensureRoutineVisionOffice(state);
-    const result = (await callApi(
-      "/api/patient/resolve",
-      body,
-      getAmdOfficeForToolCall(state),
-    )) as any;
-    if (result?.patientId) {
-      applyPatientResult(state, result);
+    const result = await resolvePatientForCall(state, request);
+    const publicResult = publicPatientResolveResult(result, request);
+    if (result.status === "verified") {
+      applyResolvedPatientToState(state, result);
       if (isFlowHarnessEnabled(state)) {
         advanceWorkflow(state.flow, { type: "patient_verified" });
       }
-      const planned = withLatestPlannerCommand(state, result);
+      const planned = withLatestPlannerCommand(state, publicResult);
       await refreshDynamicToolsForSession(
         ctx.session as voice.AgentSession<CallState>,
         "tools_executed",
       );
       return planned;
     }
-    return result;
+    return publicResult;
   },
 });
 

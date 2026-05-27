@@ -431,6 +431,46 @@ describe("flow state and context packet", () => {
     expect(packet).not.toContain("Maria");
   });
 
+  it("plans selected multiple-match verification with first name only", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      callerPhone: "+17275551212",
+      preCall: {
+        status: "multiple_matches_pending_selection",
+        source: "phone_lookup",
+        callerPhone: "+17275551212",
+        candidates: [
+          { ref: "precall:1", firstName: "Jane", appointments: [] },
+          { ref: "precall:2", firstName: "Maria", appointments: [] },
+        ],
+        identityPromotion: "none",
+      },
+    });
+    flow.activeFlow = "scheduling";
+    flow.activeIntent = "new_appointment";
+    flow.step = "verify_patient";
+    flow.visitType = "routine_vision";
+    flow.coverageType = "routine_vision";
+    flow.routing = "optical_only";
+    flow.schedulingGoal = {
+      status: "collecting_patient",
+      appointmentAction: "schedule",
+      visitType: "routine_vision",
+      visitReason: "routine eye exam",
+      updatedAt: 1,
+    };
+
+    applyPreCallIdentityFromTranscript(flow, "Maria");
+
+    expect(planNextCommand(flow)).toMatchObject({
+      nextAction: "call_tool",
+      tool: "verify_patient",
+      args: { firstName: "Maria" },
+      instruction:
+        "Call verify_patient with the selected first name. Caller phone is loaded from state.",
+    });
+  });
+
   it("selects a unique multiple-match candidate from a full-name answer", () => {
     const flow = createInitialFlowState({
       officeKey: "hollywood",
@@ -513,7 +553,6 @@ describe("flow state and context packet", () => {
     recordPatientVerificationAttempt(flow, {
       firstName: "Andy",
       phone: "+17864587893",
-      usePhone: true,
     });
     recordVerifiedPatient(flow, {
       patientId: "17611539",
@@ -1171,7 +1210,6 @@ describe("flow state and context packet", () => {
     recordPatientVerificationAttempt(flow, {
       firstName: "Tree",
       phone: "+19546097250",
-      usePhone: true,
       relationshipToCaller: "self",
       source: "caller_spelled",
     });

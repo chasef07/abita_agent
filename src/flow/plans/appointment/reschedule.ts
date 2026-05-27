@@ -175,7 +175,7 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
       allowedTools: ["verify_patient"],
       blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
       instruction:
-        "Ask for the patient's name and date of birth before changing an existing appointment.",
+        "Ask for the patient's first name before changing an existing appointment.",
     });
   }
 
@@ -225,7 +225,7 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
         allowedTools: ["verify_patient"],
         blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
         instruction:
-          "Ask for the patient's name and date of birth before changing an existing appointment.",
+          "Ask for the patient's first name before changing an existing appointment.",
       });
     }
     return command(flow, plan, {
@@ -240,7 +240,7 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
       allowedTools: ["verify_patient"],
       blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
       instruction:
-        "Call verify_patient with the patient's name and date of birth to load appointments.",
+        "Call verify_patient with the patient's first name to load appointments. Caller phone is loaded from state.",
     });
   }
 

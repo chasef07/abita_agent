@@ -97,7 +97,7 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
         },
       ],
       instruction:
-        "Ask for the patient's name and date of birth before cancelling an appointment.",
+        "Ask for the patient's first name before cancelling an appointment.",
       step: "verify_patient",
     });
   }
@@ -164,7 +164,7 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
           },
         ],
         instruction:
-          "Ask for the patient's name and date of birth before looking up appointments.",
+          "Ask for the patient's first name before looking up appointments.",
         step: "verify_patient",
       });
     }
@@ -185,7 +185,7 @@ export function planCancel(flow: CallFlowState): WorkflowCommand {
         },
       ],
       instruction:
-        "Call verify_patient with the patient's name and date of birth to load appointments.",
+        "Call verify_patient with the patient's first name to load appointments. Caller phone is loaded from state.",
       step: "confirm_cancel",
     });
   }
