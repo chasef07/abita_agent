@@ -408,8 +408,8 @@ function applyMultipleMatchPreCallIdentity(
   const spoken = normalizeIdentityValue(spokenFirstName);
   if (!spoken) return undefined;
 
-  const matches = preCall.candidates.filter(
-    (candidate) => normalizeIdentityValue(candidate.firstName) === spoken,
+  const matches = preCall.candidates.filter((candidate) =>
+    preCallCandidateFirstNameMatches(candidate, spoken),
   );
 
   if (matches.length === 1) {
@@ -420,6 +420,15 @@ function applyMultipleMatchPreCallIdentity(
       spokenFirstName,
       firstNameSourceForTranscript(transcript),
     );
+    if (matches[0].patientId) {
+      confirmActivatedPreCallCandidate(flow, preCall, candidate);
+      return {
+        status: preCall.status,
+        changed: true,
+        promotion: "candidate_selected",
+        selectedCandidateRef: candidate.ref,
+      };
+    }
     preCall.status = "multiple_match_selected_pending_verification";
     preCall.identityPromotion = "candidate_selected";
     return {
@@ -499,10 +508,56 @@ function activatePreCallCandidate(
   if (candidate.appointmentsStatus) {
     patient.appointmentsStatus = candidate.appointmentsStatus;
   }
+  if (candidate.insuranceCarrier) {
+    patient.insurance = {
+      plan: trackedSlot(
+        candidate.insuranceCarrier,
+        "phone_lookup",
+        "medium",
+        false,
+      ),
+      canonicalPlan: candidate.insuranceCarrier,
+      coverageType:
+        candidate.routing === "optical_only" ? "routine_vision" : undefined,
+    };
+  }
   flow.patientStatus = patient.status;
   setFlowStep(flow, "verify_patient");
   preCall.selectedCandidateRef = candidate.ref;
   return patient;
+}
+
+function preCallCandidateFirstNameMatches(
+  candidate: PreCallPatientCandidate,
+  spoken: string,
+): boolean {
+  const expected = normalizeIdentityValue(candidate.firstName);
+  return Boolean(
+    expected &&
+    (expected === spoken || firstNamesAreFuzzyMatch(spoken, expected)),
+  );
+}
+
+function confirmActivatedPreCallCandidate(
+  flow: CallFlowState,
+  preCall: PreCallContextState,
+  patient: PatientContext,
+): void {
+  patient.status = "verified";
+  if (patient.firstName) {
+    patient.firstName = { ...patient.firstName, confirmed: true };
+  }
+  if (patient.lastName) {
+    patient.lastName = { ...patient.lastName, confirmed: true };
+  }
+  if (patient.dob) {
+    patient.dob = { ...patient.dob, confirmed: true };
+  }
+  flow.patientStatus = "verified";
+  preCall.status = "multiple_match_confirmed";
+  preCall.selectedCandidateRef = patient.ref;
+  preCall.identityPromotion = "candidate_selected";
+  setFlowStep(flow, stepAfterPreloadedPatientConfirmation(flow));
 }
 
 function multipleMatchFirstNameAnswer(

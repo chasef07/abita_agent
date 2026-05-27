@@ -240,6 +240,111 @@ describe("pre-call bootstrap", () => {
     });
   });
 
+  it("stores full multiple-match patient details in pre-call candidates", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          status: "multiple_matches",
+          message: "Found 2 patients for this phone number.",
+          appointments: [],
+          matches: [
+            {
+              status: "verified",
+              patientId: "patient-1",
+              name: "Doe, Jane",
+              dob: "01/01/1980",
+              phone: "+17275551212",
+              insuranceCarrier: "Aetna",
+              routing: "all_three",
+              allowedProviders: ["Dr. Bach"],
+              routingAmbiguous: false,
+              preauthRequired: false,
+              appointmentsStatus: "found",
+              appointments: [
+                {
+                  id: 12345,
+                  date: "2026-06-01",
+                  time: "9:00 AM",
+                  provider: "Dr. Bach",
+                  type: "Follow-up",
+                  facility: "Spring Hill",
+                  confirmed: true,
+                  cancelToken: "cancel-token-12345",
+                },
+              ],
+            },
+            {
+              status: "verified",
+              patientId: "patient-2",
+              name: "Doe, Maria",
+              dob: "02/02/1985",
+              phone: "+17275551212",
+              insuranceCarrier: "Humana",
+              routing: "bach_only",
+              allowedProviders: ["Dr. Bach"],
+              routingAmbiguous: false,
+              preauthRequired: true,
+              appointmentsStatus: "none",
+              appointments: [],
+            },
+          ],
+        }),
+        text: async () => "",
+      })),
+    );
+
+    const result = await lookupByPhone(
+      "+17275551212",
+      SPRING_HILL_OFFICE_PHONE,
+    );
+    const preCall = buildPreCallContextState(result, "+17275551212");
+
+    expect(result).toMatchObject({
+      status: "multiple_matches",
+      matches: [
+        {
+          status: "verified",
+          patientId: "patient-1",
+          appointments: [expect.objectContaining({ id: 12345 })],
+        },
+        {
+          status: "verified",
+          patientId: "patient-2",
+          appointmentsStatus: "none",
+        },
+      ],
+    });
+    expect(preCall).toMatchObject({
+      status: "multiple_matches_pending_selection",
+      candidates: [
+        {
+          ref: "precall:1",
+          firstName: "Jane",
+          lastName: "Doe",
+          patientId: "patient-1",
+          appointmentsStatus: "found",
+          appointmentCancelTokens: { "12345": "cancel-token-12345" },
+          insuranceCarrier: "Aetna",
+          routing: "all_three",
+          allowedProviders: ["Dr. Bach"],
+          preauthRequired: false,
+        },
+        {
+          ref: "precall:2",
+          firstName: "Maria",
+          lastName: "Doe",
+          patientId: "patient-2",
+          appointmentsStatus: "none",
+          insuranceCarrier: "Humana",
+          routing: "bach_only",
+          preauthRequired: true,
+        },
+      ],
+    });
+  });
+
   it("keeps verified caller context when insurance is missing", async () => {
     vi.stubGlobal(
       "fetch",

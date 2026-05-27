@@ -6,10 +6,14 @@ import {
 import { lookupByPhone } from "./advancedmd-client.js";
 import type {
   CallerMatch,
+  CallerMatchHint,
   PhoneLookupResult,
   PreCallLookupTelemetry,
 } from "./call-state.js";
-import { publicCallerAppointments } from "./call-state.js";
+import {
+  appointmentCancelTokenMap,
+  publicCallerAppointments,
+} from "./call-state.js";
 import type { PreCallContextState } from "../flow/index.js";
 
 export interface PreCallBootstrap {
@@ -117,11 +121,9 @@ export function buildPreCallContextState(
       source: "phone_lookup",
       callerPhone,
       lookupDurationMs: lookup.lookupDurationMs,
-      candidates: lookup.matches.map((match, index) => ({
-        ref: `precall:${index + 1}`,
-        firstName: match.firstName,
-        appointments: [],
-      })),
+      candidates: lookup.matches.map((match, index) =>
+        preCallCandidateFromMatch(match, index),
+      ),
       identityPromotion: "none",
     };
   }
@@ -146,6 +148,47 @@ export function buildPreCallContextState(
     lookupDurationMs: lookup.lookupDurationMs,
     candidates: [],
     identityPromotion: "none",
+  };
+}
+
+function preCallCandidateFromMatch(
+  match: CallerMatch | CallerMatchHint,
+  index: number,
+) {
+  if ("status" in match && match.status === "verified") {
+    const name = splitPatientName(match.name);
+    return {
+      ref: `precall:${index + 1}`,
+      firstName: name.firstName,
+      lastName: name.lastName,
+      dob: match.dob,
+      patientId: match.patientId,
+      relationshipToCaller: "unknown" as const,
+      appointments: publicCallerAppointments(match.appointments),
+      appointmentsStatus: match.appointmentsStatus ?? undefined,
+      appointmentCancelTokens: appointmentCancelTokenMap(match.appointments),
+      insuranceCarrier: match.insuranceCarrier,
+      insPlanId: match.insPlanId,
+      respPartyId: match.respPartyId,
+      routing: match.routing,
+      allowedProviders: match.allowedProviders,
+      routingAmbiguous: match.routingAmbiguous,
+      preauthRequired: match.preauthRequired,
+    };
+  }
+
+  if ("firstName" in match) {
+    return {
+      ref: `precall:${index + 1}`,
+      firstName: match.firstName,
+      appointments: [],
+    };
+  }
+
+  return {
+    ref: `precall:${index + 1}`,
+    firstName: "",
+    appointments: [],
   };
 }
 

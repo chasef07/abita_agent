@@ -1203,15 +1203,17 @@ describe("tool interruption handling", () => {
     );
 
     expect(result).toMatchObject({
+      result: "slots_found",
+      reply: "I found April 28 at 9:00 AM with Dr. Bach. Does that work?",
+      next: "offer_slot",
+      slotId: "A",
       slots: [
         {
           slotId: "A",
+          reply: "April 28 at 9:00 AM with Dr. Bach",
           provider: "Dr. Bach",
-          spoken: "2026-04-28 9:00 AM with Dr. Bach",
           time: "9:00 AM",
-          timeWindow: "morning",
           date: "2026-04-28",
-          dateShifted: true,
         },
       ],
     });
@@ -1223,7 +1225,23 @@ describe("tool interruption handling", () => {
     expect(modelSlot).not.toHaveProperty("duration");
     expect(modelSlot).not.toHaveProperty("requiresForce");
     expect(modelSlot).not.toHaveProperty("datetime");
+    expect(modelSlot).not.toHaveProperty("dateShifted");
+    expect(modelSlot).not.toHaveProperty("timeWindow");
+    expect(modelSlot).not.toHaveProperty("bookable");
+    expect(result).not.toHaveProperty("say");
+    expect(result).not.toHaveProperty("selectedSlotId");
+    expect(result).not.toHaveProperty("dateShifted");
+    expect(result).not.toHaveProperty("actualDate");
+    expect(result).not.toHaveProperty("status");
+    expect(result).not.toHaveProperty("outcome");
+    expect(result).not.toHaveProperty("availabilityFound");
+    expect(result).not.toHaveProperty("search");
+    expect(result).not.toHaveProperty("preference");
+    expect(result).not.toHaveProperty("recommendedSlot");
+    expect(result).not.toHaveProperty("booking");
+    expect(result).not.toHaveProperty("planner");
     expect(result).not.toHaveProperty("middlewareResult");
+    expect(JSON.stringify(result)).not.toContain("signed-token");
     expect(state.lastAvailabilitySlots[0]).toMatchObject({
       slotId: "A",
       bookingToken: "signed-token",
@@ -1293,37 +1311,40 @@ describe("tool interruption handling", () => {
     );
 
     expect(result).toMatchObject({
-      availabilitySummary:
-        "Openings were found from 2026-06-01 through 2026-06-03. The caller asked for afternoon. Slot B matches afternoon; offer it first. If that does not work, offer another listed slot or keep looking.",
-      requestedWindow: "afternoon",
-      requestedTimeWindows: ["afternoon"],
-      requestedWindowMatched: true,
-      recommendedSlotId: "B",
-      searchedRange: {
-        start: "2026-06-01",
-        end: "2026-06-03",
-      },
-      nextRecommendedSearchDate: "2026-06-04",
-      matchingSlots: [
-        {
-          slotId: "B",
-          time: "2:30 PM",
-          timeWindow: "afternoon",
-        },
-      ],
-      otherSlots: [
+      result: "slots_found",
+      reply:
+        "I do not see anything on June 1, but I found June 3 at 2:30 PM with Dr. Licht. Does that work? If not, I can offer another option.",
+      next: "offer_slot",
+      searched: "2026-06-01 through 2026-06-03",
+      nextSearchDate: "2026-06-04",
+      slotId: "B",
+      slots: [
         {
           slotId: "A",
-          time: "9:00 AM",
-          timeWindow: "morning",
+          reply: "June 3 at 9:00 AM with Dr. Licht",
+        },
+        {
+          slotId: "B",
+          reply: "June 3 at 2:30 PM with Dr. Licht",
         },
         {
           slotId: "C",
-          time: "4:00 PM",
-          timeWindow: "late_day",
+          reply: "June 3 at 4:00 PM with Dr. Licht",
         },
       ],
     });
+    expect(result).not.toHaveProperty("say");
+    expect(result).not.toHaveProperty("foundDate");
+    expect(result).not.toHaveProperty("selectedSlotId");
+    expect(result).not.toHaveProperty("availabilitySummary");
+    expect(result).not.toHaveProperty("searchedRange");
+    expect(result).not.toHaveProperty("matchingSlots");
+    expect(result).not.toHaveProperty("otherSlots");
+    expect(result).not.toHaveProperty("recommendedSlotId");
+    expect(result).not.toHaveProperty("recommendedSlot");
+    expect(result).not.toHaveProperty("preference");
+    expect(result).not.toHaveProperty("booking");
+    expect(result).not.toHaveProperty("planner");
     expect(state.lastAvailabilitySlots).toHaveLength(3);
     expect(state.lastAvailabilitySlots[1]).toMatchObject({
       slotId: "B",
@@ -1381,11 +1402,8 @@ describe("tool interruption handling", () => {
     );
 
     expect(result).toMatchObject({
-      requestedTimeWindows: ["morning"],
-      requestedWindowMatched: true,
-      recommendedSlotId: "A",
-      matchingSlots: [{ slotId: "A", timeWindow: "morning" }],
-      otherSlots: [{ slotId: "B", timeWindow: "late_day" }],
+      result: "slots_found",
+      slotId: "A",
     });
   });
 
@@ -1448,14 +1466,10 @@ describe("tool interruption handling", () => {
     );
 
     expect(result).toMatchObject({
-      requestedTimeWindows: ["afternoon", "late_day"],
-      requestedWindowMatched: true,
-      recommendedSlotId: "B",
-      matchingSlots: [
-        { slotId: "B", time: "3:30 PM", timeWindow: "afternoon" },
-        { slotId: "C", time: "4:30 PM", timeWindow: "late_day" },
-      ],
-      otherSlots: [{ slotId: "A", time: "2:30 PM", timeWindow: "afternoon" }],
+      result: "slots_found",
+      slotId: "B",
+      reply:
+        "I do not see anything on June 1, but I found June 3 at 3:30 PM with Dr. Licht. Does that work? If not, I can offer another option.",
     });
   });
 
@@ -1485,16 +1499,60 @@ describe("tool interruption handling", () => {
     );
 
     expect(result).toMatchObject({
-      outcome: "no_availability",
-      availabilitySummary:
-        "No openings were found from 2026-06-01 through 2026-06-15. Do not search those dates again. If the caller wants to keep looking, search 2026-06-16 or later.",
-      searchedRange: {
-        start: "2026-06-01",
-        end: "2026-06-15",
-      },
-      nextRecommendedSearchDate: "2026-06-16",
+      result: "no_slots_found",
+      reply:
+        "I do not see openings from June 1 through June 15. Would you like me to check June 16, or try a different day or time?",
+      next: "ask_new_date_or_time",
+      searched: "2026-06-01 through 2026-06-15",
+      nextSearchDate: "2026-06-16",
       slots: [],
     });
+    expect(result).not.toHaveProperty("say");
+    expect(result).not.toHaveProperty("availabilitySummary");
+    expect(result).not.toHaveProperty("searchedRange");
+    expect(result).not.toHaveProperty("nextRecommendedSearchDate");
+    expect(result).not.toHaveProperty("status");
+    expect(result).not.toHaveProperty("outcome");
+    expect(result).not.toHaveProperty("availabilityFound");
+    expect(result).not.toHaveProperty("search");
+    expect(result).not.toHaveProperty("booking");
+    expect(result).not.toHaveProperty("planner");
+  });
+
+  it("handles no-availability middleware responses without a slots array", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "no_availability",
+        availabilityFound: false,
+        requestedDate: "2026-06-01",
+        searchedFrom: "2026-06-01",
+        searchedThrough: "2026-06-15",
+        shouldRetrySameSearch: false,
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state);
+
+    const result = await get_availability.execute(
+      { date: "2026-06-01" },
+      { ctx, toolCallId: "test-availability-none-without-slots" },
+    );
+
+    expect(result).toMatchObject({
+      result: "no_slots_found",
+      reply:
+        "I do not see openings from June 1 through June 15. Would you like me to check June 16, or try a different day or time?",
+      next: "ask_new_date_or_time",
+      searched: "2026-06-01 through 2026-06-15",
+      nextSearchDate: "2026-06-16",
+      slots: [],
+    });
+    expect(state.lastAvailabilitySlots).toEqual([]);
   });
 
   it("allows availability when visit type context is missing", async () => {
@@ -1530,7 +1588,7 @@ describe("tool interruption handling", () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(result).toMatchObject({
-      status: "success",
+      result: "slots_found",
       slots: [{ slotId: "A", time: "10:00 AM" }],
     });
     expect(state.flow.visitType).toBe("medical");
@@ -1562,7 +1620,7 @@ describe("tool interruption handling", () => {
     recordAvailabilityCachedSlots(state.flow, [{ slotId: "A" }]);
 
     const result = await get_availability.execute(
-      { date: "2026-04-28", routing: "all_three" },
+      { date: "2026-04-28" },
       { ctx, toolCallId: "test-duplicate-availability" },
     );
 
@@ -2373,6 +2431,43 @@ describe("tool interruption handling", () => {
       dob: "01/01/1980",
       insurance: "Aetna",
     });
+  });
+
+  it("uses state-owned routing for availability when stale model args include routing", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "no_availability",
+        availabilityFound: false,
+        slots: [],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.routing = "all_three";
+    state.flow.routing = "all_three";
+
+    const staleArgs = {
+      date: "2026-04-28",
+      routing: "optical_only",
+    } as unknown as Parameters<typeof get_availability.execute>[0];
+    await get_availability.execute(staleArgs, {
+      ctx,
+      toolCallId: "test-availability-state-routing",
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody).toMatchObject({
+      date: "2026-04-28",
+      dob: "01/01/1980",
+      routing: "all_three",
+    });
+    expect(requestBody.routing).not.toBe("optical_only");
+    expect(state.lastAvailabilityRouting).toBe("all_three");
   });
 
   it("sends patient notes with session patient and office state", async () => {

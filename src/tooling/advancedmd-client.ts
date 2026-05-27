@@ -1,5 +1,7 @@
 import { getOfficeConfigByPhone, type OfficeKey } from "../customer/profile.js";
 import type {
+  CallerMatch,
+  CallerMatchHint,
   CallerLookupFailed,
   PhoneLookupResult,
   StoredCallerAppointment,
@@ -28,7 +30,7 @@ export interface PatientResolveVerified {
 export interface PatientResolveMultipleMatches {
   status: "multiple_matches";
   message: string;
-  matches: Array<{ firstName: string }>;
+  matches: Array<PatientResolveVerified | CallerMatchHint>;
 }
 
 export interface PatientResolveNotFound {
@@ -152,7 +154,7 @@ export function normalizePatientResolveResponse(
     return {
       status: "multiple_matches",
       message: stringValue(raw.message) ?? "Multiple patient matches found.",
-      matches: normalizePatientMatches(raw.matches),
+      matches: normalizePatientMatches(raw.matches, options),
     };
   }
 
@@ -239,6 +241,7 @@ export async function lookupByPhone(
         routing: data.routing,
         allowedProviders: data.allowedProviders ?? [],
         routingAmbiguous: data.routingAmbiguous ?? false,
+        preauthRequired: data.preauthRequired ?? false,
         appointmentsStatus: data.appointmentsStatus,
         appointmentsMessage: data.appointmentsMessage ?? null,
         appointments: data.appointments,
@@ -249,7 +252,9 @@ export async function lookupByPhone(
       return {
         status: "multiple_matches",
         message: data.message,
-        matches: data.matches ?? [],
+        matches: data.matches.map((match) =>
+          patientResolveMatchToCallerMatch(match, phone, lookupDurationMs),
+        ),
         lookupDurationMs,
       };
     }
@@ -310,13 +315,47 @@ function stringValue(value: unknown): string | null {
 
 function normalizePatientMatches(
   matches: unknown,
-): Array<{ firstName: string }> {
+  options: { fallbackPhone?: string | null } = {},
+): Array<PatientResolveVerified | CallerMatchHint> {
   if (!Array.isArray(matches)) return [];
-  return matches.flatMap((match) =>
-    isRecord(match) && isNonEmptyString(match.firstName)
-      ? [{ firstName: match.firstName }]
-      : [],
-  );
+  return matches.flatMap<PatientResolveVerified | CallerMatchHint>((match) => {
+    const normalized = normalizePatientResolveResponse(match, options);
+    if (normalized.status === "verified") return [normalized];
+    if (isRecord(match) && isNonEmptyString(match.firstName)) {
+      const hint: CallerMatchHint = { firstName: match.firstName };
+      return [hint];
+    }
+    return [];
+  });
+}
+
+function patientResolveMatchToCallerMatch(
+  match: PatientResolveVerified | CallerMatchHint,
+  fallbackPhone: string,
+  lookupDurationMs: number,
+): CallerMatch | CallerMatchHint {
+  if ("status" in match && match.status === "verified") {
+    return {
+      status: "verified",
+      patientId: match.patientId,
+      name: match.name ?? "",
+      dob: match.dob ?? "",
+      phone: match.phone ?? fallbackPhone,
+      insuranceCarrier: match.insuranceCarrier,
+      insPlanId: match.insPlanId ?? null,
+      respPartyId: match.respPartyId ?? null,
+      routing: match.routing,
+      allowedProviders: match.allowedProviders ?? [],
+      routingAmbiguous: match.routingAmbiguous ?? false,
+      preauthRequired: match.preauthRequired ?? false,
+      appointmentsStatus: match.appointmentsStatus,
+      appointmentsMessage: match.appointmentsMessage ?? null,
+      appointments: match.appointments,
+      lookupDurationMs,
+    };
+  }
+  if ("firstName" in match) return { firstName: match.firstName };
+  return { firstName: "" };
 }
 
 function normalizeAppointmentsStatus(

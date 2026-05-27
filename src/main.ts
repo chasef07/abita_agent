@@ -191,7 +191,7 @@ export default defineAgent({
         lastAvailabilitySlots: [],
         allowedProviders: verified?.allowedProviders ?? [],
         routingAmbiguous: verified?.routingAmbiguous ?? false,
-        preauthRequired: false,
+        preauthRequired: verified?.preauthRequired ?? false,
         appointmentsStatus: verified?.appointmentsStatus ?? null,
         appointments: publicCallerAppointments(verified?.appointments),
         appointmentCancelTokens: appointmentCancelTokenMap(

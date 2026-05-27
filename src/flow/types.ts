@@ -114,6 +114,14 @@ export interface PreCallPatientCandidate {
   relationshipToCaller?: PatientRelationshipToCaller;
   appointments: CallerAppointment[];
   appointmentsStatus?: AppointmentLoadStatus;
+  appointmentCancelTokens?: Record<string, string>;
+  insuranceCarrier?: string | null;
+  insPlanId?: string | null;
+  respPartyId?: string | null;
+  routing?: string | null;
+  allowedProviders?: string[];
+  routingAmbiguous?: boolean;
+  preauthRequired?: boolean;
 }
 
 export interface PreCallContextState {

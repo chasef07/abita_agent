@@ -417,7 +417,12 @@ function preCallTurnStateLine(flow: CallFlowState): string | undefined {
     return "preCall: multiple_match_selected_pending_verification; call verify_patient with selected first name; caller phone is loaded from state.";
   }
   if (preCall.status === "multiple_match_confirmed") {
-    return "preCall: multiple_match_confirmed";
+    const appointmentIds = confirmedPreCallAppointmentIds(flow);
+    const appointmentHint =
+      appointmentIds.length > 0
+        ? `use preloaded appointment IDs ${appointmentIds.join(", ")}`
+        : "use preloaded selected patient facts";
+    return `preCall: multiple_match_confirmed; caller selected a verified phone-match patient; do not call verify_patient; ${appointmentHint}.`;
   }
   if (preCall.status === "no_match") {
     return "preCall: no_match; ask whether caller has been seen here before.";

@@ -119,6 +119,94 @@ describe("agent session flow integration", () => {
     await session.close();
   });
 
+  it("activates a full pre-call multiple-match candidate and stores its details", async () => {
+    const llmModel = new ScriptedToolAwareLLM(() => ({
+      type: "message",
+      content: "done",
+    }));
+    const { session, state, agent } = await createFixture({ llmModel });
+    state.flow.preCall = {
+      status: "multiple_matches_pending_selection",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: "precall:1",
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          patientId: "patient-1",
+          appointments: [],
+          appointmentsStatus: "none",
+          insuranceCarrier: "Aetna",
+          routing: "all_three",
+          allowedProviders: ["Dr. Bach"],
+          appointmentCancelTokens: {},
+          preauthRequired: false,
+        },
+        {
+          ref: "precall:2",
+          firstName: "Maria",
+          lastName: "Doe",
+          dob: "02/02/1985",
+          patientId: "patient-2",
+          appointments: [
+            {
+              id: 456,
+              date: "Tuesday, June 2, 2026",
+              time: "9:00 AM",
+              provider: "Dr. Bach",
+              type: "Follow-up",
+              facility: "Spring Hill",
+              confirmed: true,
+            },
+          ],
+          appointmentsStatus: "found",
+          appointmentCancelTokens: { "456": "cancel-token-456" },
+          insuranceCarrier: "Humana",
+          insPlanId: "plan-2",
+          respPartyId: "resp-2",
+          routing: "bach_only",
+          allowedProviders: ["Dr. Bach"],
+          routingAmbiguous: false,
+          preauthRequired: true,
+        },
+      ],
+      identityPromotion: "none",
+    };
+
+    await agent.onUserTurnCompleted(
+      new llm.ChatContext(),
+      llm.ChatMessage.create({
+        role: "user",
+        content: "Maria",
+      }),
+    );
+
+    expect(state.turnUnderstandingAppliedForTranscript).toBe("Maria");
+    expect(state.flow.preCall).toMatchObject({
+      status: "multiple_match_confirmed",
+      selectedCandidateRef: "precall:2",
+    });
+    expect(state.flow.patientStatus).toBe("verified");
+    expect(state.flow.activePatientRef).toBe("precall:2");
+    expect(state.patientId).toBe("patient-2");
+    expect(state.patientName).toBe("Maria Doe");
+    expect(state.dob).toBe("02/02/1985");
+    expect(state.insuranceCarrier).toBe("Humana");
+    expect(state.insPlanId).toBe("plan-2");
+    expect(state.respPartyId).toBe("resp-2");
+    expect(state.routing).toBe("bach_only");
+    expect(state.preauthRequired).toBe(true);
+    expect(state.allowedProviders).toEqual(["Dr. Bach"]);
+    expect(state.appointments).toEqual([expect.objectContaining({ id: 456 })]);
+    expect(state.appointmentsStatus).toBe("found");
+    expect(state.appointmentCancelTokens).toEqual({
+      "456": "cancel-token-456",
+    });
+    await session.close();
+  });
+
   it("auto-confirms a single pre-call match when spelled STT drops the leading first-name initial", async () => {
     const llmModel = new ScriptedToolAwareLLM(() => ({
       type: "message",
