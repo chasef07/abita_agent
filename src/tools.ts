@@ -3165,7 +3165,7 @@ Answer naturally from the returned info — just the part that answers their que
 // --- transfer_call ---
 export const transfer_call = llm.tool({
   description:
-    "Transfers the caller to the office. Say your transfer message (see RUNBOOK), get explicit agreement, and wait for it to finish BEFORE calling this tool. Call once and do not call in parallel; duplicate in-flight calls are ignored. After it executes the SIP session disconnects and your turn is over.",
+    "Transfers the caller to the office. Say the transfer message, get explicit agreement, and wait for it to finish BEFORE calling this tool. Call once and do not call in parallel; duplicate in-flight calls are ignored. After it executes the SIP session disconnects and your turn is over.",
   parameters: z.object({}),
   execute: async (_, { ctx, toolCallId }) => {
     const state = getState(ctx);

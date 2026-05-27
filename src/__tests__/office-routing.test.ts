@@ -324,6 +324,10 @@ describe("flow harness prompt gating", () => {
     expect(prompt).toContain(
       "Optical shop tasks: glasses orders, repairs, pickup, warranty, frames, or contact lens orders usually transfer",
     );
+    expect(prompt).toContain(
+      "Use self-pay only when the caller says the patient does not have insurance or wants self-pay. Self-pay is not a placeholder.",
+    );
+    expect(prompt).not.toContain("## Transfer");
     expect(prompt).toContain("## Side Effects");
     expect(prompt).not.toContain("## Confirmation State");
     expect(prompt).not.toContain("record_turn_understanding");
@@ -540,8 +544,8 @@ describe("Crystal River prompt guidance", () => {
 
     expect(prompt).toContain("## Emergency");
     expect(prompt).toContain("sudden vision loss");
-    expect(prompt).toContain("retinal tear or detachment concern");
-    expect(prompt).toContain("clinical direction is needed");
+    expect(prompt).toContain("retina tear/detachment concerns");
+    expect(prompt).toContain("transfer to the office for clinical direction");
   });
 
   it("keeps appointment times TTS-safe with spaced AM and PM", () => {

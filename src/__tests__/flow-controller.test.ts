@@ -2000,6 +2000,29 @@ describe("prepareSchedulingPath", () => {
     expect(classifyVisitType("sudden vision loss and severe eye pain")).toBe(
       "urgent",
     );
+    expect(
+      classifyVisitType(
+        "I have blank spots in my eyes. I think I have a torn retina.",
+      ),
+    ).toBe("urgent");
+    expect(classifyVisitType("I may have a detached retina")).toBe("urgent");
+    expect(classifyVisitType("I am concerned about my retina")).toBe("urgent");
+  });
+
+  it("requires transfer for torn retina concerns", () => {
+    const outcome = prepareSchedulingPath({
+      officeKey: "spring-hill",
+      patientStatus: "created",
+      visitReason:
+        "I have blank spots in my eyes. I think I have a torn retina.",
+    });
+
+    expect(outcome.outcome).toBe("transfer_required");
+    expect(outcome.statePatch).toMatchObject({
+      activeFlow: "transfer",
+      step: "handoff",
+      visitType: "urgent",
+    });
   });
 
   it("does not classify a bare insurance question as medical", () => {
