@@ -22,6 +22,7 @@ export type GuardObservationReason =
   | "routine_vision_crystal_river_requires_route_to_spring_hill"
   | "new_patient_requires_insurance_check_before_registration"
   | "availability_duplicate_search_signature"
+  | "availability_search_range_already_checked"
   | "availability_search_budget_exhausted"
   | "booking_requires_verified_or_created_patient"
   | "booking_requires_recent_availability"
@@ -156,6 +157,10 @@ function guardReason(
 
   if (toolName === "get_availability" && availabilityInspection?.duplicate) {
     return "availability_duplicate_search_signature";
+  }
+
+  if (toolName === "get_availability" && availabilityInspection?.rangeRepeat) {
+    return "availability_search_range_already_checked";
   }
 
   if (toolName === "get_availability" && availabilityInspection?.exhausted) {

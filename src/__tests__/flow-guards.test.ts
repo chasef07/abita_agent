@@ -7,6 +7,7 @@ import {
   hashToolArgs,
   recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
+  recordAvailabilitySearchRange,
 } from "../flow/index.js";
 
 describe("flow report-only guards", () => {
@@ -504,6 +505,37 @@ describe("flow report-only guards", () => {
       availabilitySearchStatus: "satisfied",
       availabilityExactSearchCount: 1,
       availabilityDuplicateSearchCount: 1,
+    });
+  });
+
+  it("blocks availability searches inside an already checked date range", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.visitType = "medical";
+    flow.routing = "all_three";
+    const record = recordAvailabilitySearch(flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      routing: "all_three",
+      date: "2026-06-01",
+    });
+    recordAvailabilitySearchRange(record.search, {
+      outcome: "no_availability",
+      searchedFrom: "2026-06-01",
+      searchedThrough: "2026-06-15",
+    });
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "get_availability",
+      args: { date: "2026-06-08", routing: "all_three" },
+      stateFacts: { officeKey: "spring-hill" },
+    });
+
+    expect(observation).toMatchObject({
+      allowed: false,
+      reason: "availability_search_range_already_checked",
+      availabilitySearchId: "availability_1",
+      availabilityExactSearchCount: 2,
     });
   });
 

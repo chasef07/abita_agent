@@ -528,6 +528,8 @@ export interface AvailabilitySearch {
   routing?: SchedulingRouting;
   appointmentTypeId?: number;
   requestedWindow?: string;
+  searchedFrom?: string;
+  searchedThrough?: string;
   searchedKeys: string[];
   cachedSlots: CachedSlot[];
   rejectedSlotHashes: string[];
