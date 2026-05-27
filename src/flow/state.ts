@@ -1558,6 +1558,12 @@ function stepAfterPatientVerification(
   if (flow.activeFlow === "scheduling") {
     return "get_availability";
   }
+  if (flow.activeIntent === "new_appointment") {
+    return "get_availability";
+  }
+  if (!flow.activeIntent || flow.activeIntent === "unclear") {
+    return "understand_intent";
+  }
   return nextPatientFlowStep(patientStatus);
 }
 

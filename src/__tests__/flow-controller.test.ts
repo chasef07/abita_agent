@@ -524,7 +524,7 @@ describe("flow state and context packet", () => {
       selectedCandidateRef: "precall:2",
     });
     expect(flow.patientStatus).toBe("verified");
-    expect(flow.step).toBe("get_availability");
+    expect(flow.step).toBe("understand_intent");
     expect(flow.patients["precall:2"]).toMatchObject({
       status: "verified",
       patientId: "patient-2",
@@ -538,6 +538,44 @@ describe("flow state and context packet", () => {
     expect(packet).toContain("preCall: multiple_match_confirmed");
     expect(packet).toContain("do not call verify_patient");
     expect(packet).toContain("loadedAppointments=1");
+    expect(packet).toContain(
+      "[ID: 456] Tuesday, June 2, 2026 9:00 AM with Dr. Bach",
+    );
+  });
+
+  it("continues scheduling after confirming a full multiple-match candidate during scheduling", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      callerPhone: "+17275551212",
+      preCall: {
+        status: "multiple_matches_pending_selection",
+        source: "phone_lookup",
+        callerPhone: "+17275551212",
+        candidates: [
+          {
+            ref: "precall:1",
+            firstName: "Jane",
+            lastName: "Doe",
+            patientId: "patient-1",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+        ],
+        identityPromotion: "none",
+      },
+    });
+    flow.activeFlow = "scheduling";
+    flow.activeIntent = "new_appointment";
+    flow.step = "verify_patient";
+
+    applyPreCallIdentityFromTranscript(flow, "Jane");
+
+    expect(flow.preCall).toMatchObject({
+      status: "multiple_match_confirmed",
+      selectedCandidateRef: "precall:1",
+    });
+    expect(flow.patientStatus).toBe("verified");
+    expect(flow.step).toBe("get_availability");
   });
 
   it("uses fuzzy first-name matching for full multiple-match candidates", () => {
