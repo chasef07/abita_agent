@@ -650,15 +650,14 @@ describe("tool interruption handling", () => {
     expect(state.appointments).toEqual([]);
   });
 
-  it("does not require turn understanding when the flow harness is disabled", async () => {
+  it("does not require manual turn-understanding for knowledge lookup", async () => {
     const { ctx, state } = createToolContext();
-    state.flowHarnessEnabled = false;
     state.latestUserTranscript = "what are your office hours?";
     state.turnUnderstandingAppliedForTranscript = null;
 
     const result = await lookup_knowledge.execute(
       { question: "office hours" },
-      { ctx, toolCallId: "test-lookup-disabled-harness" },
+      { ctx, toolCallId: "test-lookup-harness" },
     );
 
     expect(result).not.toMatchObject({
@@ -671,8 +670,7 @@ describe("tool interruption handling", () => {
   });
 
   it("returns targeted knowledge sections instead of the full office markdown", async () => {
-    const { ctx, state } = createToolContext();
-    state.flowHarnessEnabled = false;
+    const { ctx } = createToolContext();
 
     const result = await lookup_knowledge.execute(
       { question: "what are your office hours?" },
@@ -687,8 +685,7 @@ describe("tool interruption handling", () => {
   });
 
   it("keeps scope facts for contact lens knowledge questions", async () => {
-    const { ctx, state } = createToolContext();
-    state.flowHarnessEnabled = false;
+    const { ctx } = createToolContext();
 
     const result = await lookup_knowledge.execute(
       { question: "do you do contact lens prescriptions?" },
@@ -1337,73 +1334,6 @@ describe("tool interruption handling", () => {
     });
     expect(state.lastAvailabilitySlots).toEqual([]);
     expect(state.lastAvailabilityRouting).toBeNull();
-  });
-
-  it("uses signed-token booking when the flow harness is disabled", async () => {
-    const fetchMock = vi.fn().mockImplementation(async () => ({
-      ok: true,
-      json: async () => ({ status: "booked", appointmentId: 12345 }),
-      text: async () => "",
-    }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { ctx, state } = createToolContext();
-    state.flowHarnessEnabled = false;
-    seedLastAvailabilitySlot(state, { bookingToken: "signed-token" });
-
-    const result = await book_appt.execute(bookingArgs(), {
-      ctx,
-      toolCallId: "test-book-disabled-harness",
-    });
-
-    expect(fetchMock).toHaveBeenCalledOnce();
-    expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
-    expect(state.flow.pendingActions).toContainEqual(
-      expect.objectContaining({
-        type: "book_appt",
-        consumed: true,
-      }),
-    );
-  });
-
-  it("clears legacy availability for successful non-booked status variants", async () => {
-    const successResults = [
-      { status: "ok" },
-      { status: "success", appointmentId: 12345 },
-    ];
-
-    for (const [index, apiResult] of successResults.entries()) {
-      const fetchMock = vi.fn().mockImplementation(async () => ({
-        ok: true,
-        json: async () => apiResult,
-        text: async () => "",
-      }));
-      vi.stubGlobal("fetch", fetchMock);
-
-      const { ctx, state } = createToolContext();
-      state.flowHarnessEnabled = false;
-      seedLastAvailabilitySlot(state, {
-        bookingToken: `signed-token-${index}`,
-      });
-
-      const result = await book_appt.execute(bookingArgs(), {
-        ctx,
-        toolCallId: `test-book-legacy-success-${index}`,
-      });
-      const duplicate = await book_appt.execute(bookingArgs(), {
-        ctx,
-        toolCallId: `test-book-legacy-duplicate-${index}`,
-      });
-
-      expect(result).toMatchObject(apiResult);
-      expect(duplicate).toMatchObject({
-        outcome: "not_allowed",
-        facts: { reason: "booking_requires_recent_availability" },
-      });
-      expect(state.lastAvailabilitySlots).toEqual([]);
-      expect(fetchMock).toHaveBeenCalledOnce();
-      vi.unstubAllGlobals();
-    }
   });
 
   it("does not let an unconfirmed pending booking action block the booking", async () => {
@@ -2217,7 +2147,7 @@ describe("tool interruption handling", () => {
     });
   });
 
-  it("allows notes after a successful legacy booking when the flow harness is disabled", async () => {
+  it("allows notes after a successful booking", async () => {
     const fetchMock = vi
       .fn()
       .mockImplementationOnce(async () => ({
@@ -2233,21 +2163,21 @@ describe("tool interruption handling", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { ctx, state } = createToolContext();
-    state.flowHarnessEnabled = false;
     state.patientId = "17603880";
     state.flow.patients[state.flow.activePatientRef!].patientId = "17603880";
     seedLastAvailabilitySlot(state);
+    seedPendingBookingAction(state);
 
     await book_appt.execute(bookingArgs(), {
       ctx,
-      toolCallId: "test-legacy-book",
+      toolCallId: "test-book-before-note",
     });
     const noteResult = await add_patient_note.execute(
       {
         appointmentReason: "blurry vision",
         referringDoctor: "none",
       },
-      { ctx, toolCallId: "test-note-after-legacy-booking" },
+      { ctx, toolCallId: "test-note-after-booking" },
     );
 
     expect(noteResult).toMatchObject({

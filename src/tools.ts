@@ -1436,74 +1436,6 @@ function publicAvailabilitySlots(slots: StoredAvailabilitySlot[]) {
   }));
 }
 
-async function submitLegacyBooking(
-  state: CallState,
-  selectedSlot: StoredAvailabilitySlot,
-  appointmentKind?: AppointmentKind,
-  appointmentReason?: string,
-  referringDoctor?: string,
-): Promise<unknown> {
-  const routing =
-    selectedSlot.routing ??
-    state.lastAvailabilityRouting ??
-    routingForAvailability(state);
-  const bookingToken = bookingTokenForSelectedSlot(state, selectedSlot);
-  if (typeof bookingToken !== "string") return bookingToken;
-  const appointmentIntent = appointmentIntentForBooking(
-    state,
-    routing,
-    appointmentKind,
-  );
-  const body = {
-    bookingToken,
-    ...appointmentIntent,
-    patientId: state.patientId,
-    ...(appointmentReason ? { appointmentReason } : {}),
-    ...(referringDoctor ? { referringDoctor } : {}),
-    ...(state.patientName ? { patientName: state.patientName } : {}),
-    ...(state.dob ? { dob: state.dob } : {}),
-    ...(routing ? { routing } : {}),
-  };
-  const result = await callApi(
-    "/api/appointment/book",
-    body,
-    getAmdOfficeForToolCall(state),
-    { includeOffice: false },
-  );
-  const legacyBookingSucceeded = legacyBookingLooksSuccessful(result);
-  if (legacyBookingSucceeded) {
-    recordSuccessfulLegacyBooking(state, selectedSlot, routing);
-    recordBookedAppointmentInState(state, selectedSlot, result);
-    removeAvailabilitySlot(state, selectedSlot.slotId);
-  }
-  if (isRecord(result)) {
-    const message =
-      typeof result.message === "string" ? result.message.toLowerCase() : "";
-    const invalidatesSelection =
-      !legacyBookingSucceeded &&
-      (result.outcome === "slot_unavailable" ||
-        result.outcome === "invalid_booking_token" ||
-        result.status === "error" ||
-        message.includes("slot is no longer available"));
-    if (invalidatesSelection) {
-      clearAvailabilitySelection(state);
-    }
-  }
-  return result;
-}
-
-function legacyBookingLooksSuccessful(result: unknown): boolean {
-  if (!isRecord(result)) return false;
-  const status =
-    typeof result.status === "string" ? result.status.toLowerCase() : "";
-  return (
-    status === "booked" ||
-    status === "ok" ||
-    (status === "partial" && Boolean(result.appointmentId)) ||
-    (status === "success" && Boolean(result.appointmentId))
-  );
-}
-
 function bookingTokenForSelectedSlot(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
@@ -1521,25 +1453,6 @@ function bookingTokenForSelectedSlot(
     },
     true,
   );
-}
-
-function recordSuccessfulLegacyBooking(
-  state: CallState,
-  selectedSlot: StoredAvailabilitySlot,
-  routing: string | null,
-): void {
-  const action = createPendingBookingAction(state.flow, {
-    patientRef: state.flow.activePatientRef,
-    slotHash: selectedSlot.slotId,
-    officeKey: state.officeKey,
-    routing,
-    spokenSummary: selectedSlot.spoken,
-    confirmed: true,
-    createdTurnId: "legacy_book_appt",
-    confirmationTurnId: "legacy_book_appt",
-  });
-  action.confirmed = true;
-  action.consumed = true;
 }
 
 function ensureConfirmedBookingActionFromState(
@@ -2497,15 +2410,6 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
     if (policyResponse) return policyResponse;
     const bookingToken = bookingTokenForSelectedSlot(state, selectedSlot);
     if (typeof bookingToken !== "string") return bookingToken;
-    if (!isFlowHarnessEnabled(state)) {
-      return submitLegacyBooking(
-        state,
-        selectedSlot,
-        params.appointmentKind,
-        appointmentReason,
-        referringDoctor,
-      );
-    }
     let bookingAttempt = recordBookingAttempt(state.flow, {
       ...bookingPolicyFacts,
       spokenSummary: selectedSlot.spoken,

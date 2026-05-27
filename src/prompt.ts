@@ -7,10 +7,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import type { PhoneLookupResult } from "./tooling/call-state.js";
-import {
-  getOfficeConfigByPhone,
-  isFlowHarnessEnabledForTrunk,
-} from "./customer/profile.js";
+import { getOfficeConfigByPhone } from "./customer/profile.js";
 
 const WORKSPACE = join(
   import.meta.dirname,
@@ -62,10 +59,6 @@ const BASE_FILES: { file: string; tag: string }[] = [
   { file: "VOICE.md", tag: "voice" },
 ];
 
-const LEGACY_FILES: { file: string; tag: string }[] = [
-  { file: "RUNBOOK.md", tag: "runbook" },
-];
-
 const FLOW_HARNESS_FILE = {
   file: "FLOW_HARNESS_RUNBOOK.md",
   tag: "flow_harness_runbook",
@@ -80,27 +73,19 @@ export function buildPrompt(
   if (!trunkPhone) {
     throw new Error("buildPrompt requires a trunk phone number");
   }
-  const flowHarnessEnabled = isFlowHarnessEnabledForTrunk(trunkPhone);
 
   for (const { file, tag } of BASE_FILES) {
     const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
     sections.push(`<${tag}>\n${content}\n</${tag}>`);
   }
-  if (flowHarnessEnabled) {
-    sections.push(buildHarnessOperatingContract());
-    const content = readFileSync(
-      join(WORKSPACE, FLOW_HARNESS_FILE.file),
-      "utf-8",
-    ).trim();
-    sections.push(
-      `<${FLOW_HARNESS_FILE.tag}>\n${content}\n</${FLOW_HARNESS_FILE.tag}>`,
-    );
-  } else {
-    for (const { file, tag } of LEGACY_FILES) {
-      const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
-      sections.push(`<${tag}>\n${content}\n</${tag}>`);
-    }
-  }
+  sections.push(buildHarnessOperatingContract());
+  const content = readFileSync(
+    join(WORKSPACE, FLOW_HARNESS_FILE.file),
+    "utf-8",
+  ).trim();
+  sections.push(
+    `<${FLOW_HARNESS_FILE.tag}>\n${content}\n</${FLOW_HARNESS_FILE.tag}>`,
+  );
 
   let prompt = sections.join("\n\n");
 
@@ -125,9 +110,7 @@ export function buildPrompt(
   const officeBlock = officeHints ? `\n\n${officeHints}` : "";
 
   prompt += `\n\n<context>\nToday is ${date}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}${officeBlock}\n</context>`;
-  if (flowHarnessEnabled) {
-    prompt += `\n\n<state_memory_contract>\nThe reducer records obvious caller intent before each model turn and injects a compact turn_state. Treat suggestedTool as guidance, not as the safety boundary. Concrete tool state is authoritative: if the required patient, availability, appointment, and confirmation facts are already present, call the workflow tool directly. Side effects still require explicit caller confirmation and a successful tool result before you say they are done.\n</state_memory_contract>`;
-  }
+  prompt += `\n\n<state_memory_contract>\nThe reducer records obvious caller intent before each model turn and injects a compact turn_state. Treat suggestedTool as guidance, not as the safety boundary. Concrete tool state is authoritative: if the required patient, availability, appointment, and confirmation facts are already present, call the workflow tool directly. Side effects still require explicit caller confirmation and a successful tool result before you say they are done.\n</state_memory_contract>`;
 
   return prompt;
 }

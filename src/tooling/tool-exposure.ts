@@ -83,11 +83,7 @@ function visibleToolNamesForState(
   state: CallState,
   office: OfficeConfig,
 ): AgentToolName[] {
-  if (!state.flowHarnessEnabled) {
-    return legacyToolNamesForOffice(office, false);
-  }
-
-  const broadTools = legacyToolNamesForOffice(office, false);
+  const broadTools = broadToolNamesForOffice(office, false);
   if (preCallCallerAlreadyConfirmed(state.flow)) {
     return broadTools.filter((name) => name !== "verify_patient");
   }
@@ -95,7 +91,6 @@ function visibleToolNamesForState(
 }
 
 function exposureReasonForState(state: CallState): string {
-  if (!state.flowHarnessEnabled) return "legacy_harness_disabled";
   if (pendingTurnUnderstanding(state)) return "turn_update_pending_broad";
   const reasonPrefix = preCallCallerAlreadyConfirmed(state.flow)
     ? "precall_confirmed_no_verify:"
@@ -116,7 +111,7 @@ function preCallCallerAlreadyConfirmed(flow: CallFlowState): boolean {
   return caller?.status === "verified" && Boolean(caller.patientId);
 }
 
-function legacyToolNamesForOffice(
+function broadToolNamesForOffice(
   office: OfficeConfig,
   includeTurnUnderstanding: boolean,
 ): AgentToolName[] {
