@@ -291,7 +291,6 @@ function confirmPreCallCallerIdentity(
     patient.dob = trackedSlot(candidate.dob, "phone_lookup", "high", false);
   }
 
-  ensureActivePatientContext(flow, DEFAULT_PATIENT_REF);
   patient.status = "verified";
   patient.firstName = { ...patient.firstName, confirmed: true };
   if (patient.lastName) {
