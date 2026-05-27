@@ -261,24 +261,88 @@ export function confirmPreloadedPatientIdentityFromTranscript(
   return patient;
 }
 
+function confirmPreCallCallerIdentity(
+  flow: CallFlowState,
+  candidate: PreCallPatientCandidate,
+): PatientContext | undefined {
+  if (candidate.ref !== DEFAULT_PATIENT_REF) return undefined;
+  const patient = flow.patients[DEFAULT_PATIENT_REF];
+  if (!patient) return undefined;
+  if (
+    candidate.patientId &&
+    patient.patientId &&
+    candidate.patientId !== patient.patientId
+  ) {
+    return undefined;
+  }
+
+  patient.patientId ??= candidate.patientId;
+  if (!patient.patientId || !patient.firstName?.value) return undefined;
+
+  if (candidate.lastName && !patient.lastName) {
+    patient.lastName = trackedSlot(
+      candidate.lastName,
+      "phone_lookup",
+      "medium",
+      false,
+    );
+  }
+  if (candidate.dob && !patient.dob) {
+    patient.dob = trackedSlot(candidate.dob, "phone_lookup", "high", false);
+  }
+
+  ensureActivePatientContext(flow, DEFAULT_PATIENT_REF);
+  patient.status = "verified";
+  patient.firstName = { ...patient.firstName, confirmed: true };
+  if (patient.lastName) {
+    patient.lastName = { ...patient.lastName, confirmed: true };
+  }
+  if (patient.dob) {
+    patient.dob = { ...patient.dob, confirmed: true };
+  }
+  flow.patientStatus = "verified";
+  if (flow.preCall?.status === "single_match_pending_confirmation") {
+    flow.preCall.status = "single_match_confirmed";
+    flow.preCall.selectedCandidateRef = DEFAULT_PATIENT_REF;
+    flow.preCall.identityPromotion = "first_name_confirmed";
+  }
+  if (flow.currentTask?.patientRef?.startsWith("candidate:")) {
+    flow.currentTask.patientRef = DEFAULT_PATIENT_REF;
+  }
+  if (flow.schedulingGoal?.patientRef?.startsWith("candidate:")) {
+    flow.schedulingGoal.patientRef = DEFAULT_PATIENT_REF;
+  }
+  if (flow.taskPlans) {
+    for (const plan of Object.values(flow.taskPlans)) {
+      if (plan.patientRef?.startsWith("candidate:")) {
+        plan.patientRef = DEFAULT_PATIENT_REF;
+      }
+    }
+  }
+  if (flow.step === "verify_patient") {
+    setFlowStep(flow, stepAfterPreloadedPatientConfirmation(flow));
+  }
+  return patient;
+}
+
 function applySingleMatchPreCallIdentity(
   flow: CallFlowState,
   preCall: PreCallContextState,
   transcript: string,
 ): PreCallIdentityReducerResult | undefined {
   const patient = flow.patients[flow.activePatientRef ?? DEFAULT_PATIENT_REF];
+  const callerCandidate = singlePreCallCallerCandidate(preCall);
   const expectedFirstName =
-    firstCandidateFirstName(preCall) ?? patient?.firstName?.value;
+    callerCandidate?.firstName ?? patient?.firstName?.value;
   const expected = normalizeIdentityValue(expectedFirstName);
-  if (!expected || flow.activePatientRef !== DEFAULT_PATIENT_REF) {
+  if (!expected) {
     return undefined;
   }
 
   if (transcriptConfirmsFirstName(transcript, expectedFirstName)) {
-    const confirmed = confirmPreloadedPatientIdentityFromTranscript(
-      flow,
-      transcript,
-    );
+    const confirmed = callerCandidate
+      ? confirmPreCallCallerIdentity(flow, callerCandidate)
+      : confirmPreloadedPatientIdentityFromTranscript(flow, transcript);
     if (!confirmed) return undefined;
     return {
       status: preCall.status,
@@ -324,6 +388,14 @@ function applySingleMatchPreCallIdentity(
     promotion: "verify_patient_required",
     selectedCandidateRef: ref,
   };
+}
+
+function singlePreCallCallerCandidate(
+  preCall: PreCallContextState,
+): PreCallPatientCandidate | undefined {
+  if (preCall.candidates.length !== 1) return undefined;
+  const [candidate] = preCall.candidates;
+  return candidate?.ref === DEFAULT_PATIENT_REF ? candidate : undefined;
 }
 
 function applyMultipleMatchPreCallIdentity(
@@ -460,14 +532,6 @@ function uniqueMentionedPreCallCandidate(
     return Boolean(firstName && words.has(firstName));
   });
   return matches.length === 1 ? matches[0] : undefined;
-}
-
-function firstCandidateFirstName(
-  preCall: PreCallContextState,
-): string | undefined {
-  return preCall.candidates.find(
-    (candidate) => candidate.ref === DEFAULT_PATIENT_REF,
-  )?.firstName;
 }
 
 function directFirstNameAnswer(transcript: string): string | undefined {

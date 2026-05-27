@@ -455,6 +455,75 @@ describe("tool interruption handling", () => {
     });
   });
 
+  it("confirms a pending single pre-call caller instead of re-verifying the same patient", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { ctx, state } = createToolContext();
+    seedPendingSinglePreCallCaller(state);
+    state.flow.patients["candidate:bad"] = createPatientContext({
+      ref: "candidate:bad",
+      status: "candidate",
+      patientName: "Linda Dow",
+    });
+    state.flow.activePatientRef = "candidate:bad";
+    state.flow.patientStatus = "candidate";
+    state.flow.step = "verify_patient";
+
+    const result = await verify_patient.execute(
+      { firstName: "Linda", lastName: "Dow" },
+      { ctx, toolCallId: "test-precall-pending-confirmed-by-verify-args" },
+    );
+
+    expect(result).toMatchObject({
+      outcome: "success",
+      facts: { reason: "verify_patient_pre_call_already_confirmed" },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(state.flow.preCall).toMatchObject({
+      status: "single_match_confirmed",
+      selectedCandidateRef: "caller",
+      identityPromotion: "first_name_confirmed",
+    });
+    expect(state.flow.activePatientRef).toBe("caller");
+    expect(state.flow.patients.caller).toMatchObject({
+      status: "verified",
+      patientId: "17603706",
+    });
+  });
+
+  it("allows normal verification when same first-name args conflict with the pre-call caller", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "not_found",
+        message: "No patient found matching the provided information",
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { ctx, state } = createToolContext();
+    seedPendingSinglePreCallCaller(state);
+
+    const result = await verify_patient.execute(
+      { firstName: "Linda", lastName: "Smith" },
+      { ctx, toolCallId: "test-precall-same-first-conflicting-last" },
+    );
+
+    expect(result).toMatchObject({
+      status: "not_found",
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(state.flow.preCall?.status).toBe(
+      "single_match_pending_confirmation",
+    );
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody).toMatchObject({
+      firstName: "Linda",
+      lastName: "Smith",
+      phone: "+12018031225",
+    });
+  });
+
   it("returns sanitized appointment lookup payload while storing cancel tokens internally", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
@@ -3497,6 +3566,52 @@ function createToolContext() {
   state.flow.visitType = "medical";
 
   return { ctx, speechHandle, state };
+}
+
+function seedPendingSinglePreCallCaller(state: CallState) {
+  state.officeKey = "hollywood";
+  state.amdOfficePhone = HOLLYWOOD_OFFICE_PHONE;
+  state.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
+  state.callerPhone = "+12018031225";
+  state.patientId = "17603706";
+  state.patientName = "DOW,LINDA J";
+  state.dob = "05/14/1958";
+  state.insuranceCarrier = "FLORIDA MEDICARE";
+  state.checkedInsurancePlan = "FLORIDA MEDICARE";
+  state.routing = "bach_only";
+  state.appointments = [];
+  state.appointmentsStatus = "none";
+  state.flow = createInitialFlowState({
+    officeKey: "hollywood",
+    patientId: "17603706",
+    patientName: "DOW,LINDA J",
+    dob: "05/14/1958",
+    callerPhone: "+12018031225",
+    appointments: [],
+    appointmentsStatus: "none",
+    routing: "bach_only",
+    preCall: {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+12018031225",
+      candidates: [
+        {
+          ref: "caller",
+          firstName: "LINDA",
+          lastName: "DOW",
+          dob: "05/14/1958",
+          patientId: "17603706",
+          relationshipToCaller: "self",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+      ],
+      selectedCandidateRef: "caller",
+      appointmentLoadStatus: "none",
+      identityPromotion: "none",
+    },
+  });
+  state.flow.step = "verify_patient";
 }
 
 type AvailabilitySlotOverrides = Omit<
