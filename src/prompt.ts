@@ -120,7 +120,7 @@ function buildHarnessOperatingContract(): string {
     "<harness_operating_contract>",
     "The TypeScript flow harness owns workflow state, task phase, missing facts, and side-effect safety. Use the latest <turn_state> and <context_capsules> injected after each caller turn as guidance over any general habit or example.",
     "Use the latest turn_state for pre-call identity status. Do not infer whether a preloaded patient is verified from static caller context alone.",
-    "When turn_state says preCall: single_match_confirmed, the caller is already verified from the phone lookup first-name challenge. Do not call verify_patient for that caller; use the loaded caller and appointment state.",
+    "When turn_state says preCall: single_match_confirmed or preCall: multiple_match_confirmed, the caller is already verified from the phone lookup first-name challenge. Do not call verify_patient for that caller; use the loaded caller and appointment state.",
     "The reducer records obvious caller intent before planning. Use the compact task state as guidance: phase, known facts, missing facts, next, suggestedTool, and blockedSideEffects. Treat suggestedTool as the recommended frontier, not as a hard allow-list.",
     "Broad workflow tools may stay visible. Use allowedTools as planner guidance and telemetry, while wrapper guards remain the concrete safety boundary.",
     "Use tool descriptions for exact schemas. You may call a workflow tool whenever concrete state has the required patient, availability, appointment, and confirmation facts. Read-only tools can run when their prerequisites are met; side-effect tools require explicit caller confirmation and policy approval.",
@@ -214,10 +214,9 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
   }
 
   if (lookup?.status === "multiple_matches") {
-    const names = lookup.matches.map((m) => m.firstName);
     const lines: string[] = [];
     lines.push(
-      `**MULTIPLE MATCHES (${names.length} patients on this number).**`,
+      `**MULTIPLE MATCHES (${lookup.matches.length} patients on this number).**`,
     );
     lines.push(
       `Use the latest turn_state preCall guidance to narrow identity. Ask for first name first and do not read names on file aloud.`,

@@ -230,20 +230,24 @@ function restoreConfirmedPreCallCaller(state: CallState): void {
   if (!isFlowHarnessEnabled(state)) return;
   const flow = state.flow;
   const preCall = flow.preCall;
-  if (preCall?.status !== "single_match_confirmed") return;
+  if (
+    preCall?.status !== "single_match_confirmed" &&
+    preCall?.status !== "multiple_match_confirmed"
+  ) {
+    return;
+  }
   const selectedRef = preCall.selectedCandidateRef ?? DEFAULT_PATIENT_REF;
-  if (selectedRef !== DEFAULT_PATIENT_REF) return;
-  const caller = flow.patients[DEFAULT_PATIENT_REF];
-  if (!caller?.patientId) return;
+  const patient = flow.patients[selectedRef];
+  if (!patient?.patientId) return;
 
-  ensureActivePatientContext(flow, DEFAULT_PATIENT_REF);
-  caller.status = "verified";
+  ensureActivePatientContext(flow, selectedRef);
+  patient.status = "verified";
   flow.patientStatus = "verified";
   if (flow.currentTask?.patientRef?.startsWith("candidate:")) {
-    flow.currentTask.patientRef = DEFAULT_PATIENT_REF;
+    flow.currentTask.patientRef = selectedRef;
   }
   if (flow.schedulingGoal?.patientRef?.startsWith("candidate:")) {
-    flow.schedulingGoal.patientRef = DEFAULT_PATIENT_REF;
+    flow.schedulingGoal.patientRef = selectedRef;
   }
   syncSessionPatientFromActiveFlow(state);
 }
@@ -674,6 +678,16 @@ type BuiltPatientResolveRequest = {
   usesFullIdentity: boolean;
 };
 
+type AvailabilityLookupArgs = {
+  date?: string;
+};
+
+type BuiltAvailabilityLookupRequest = {
+  body: Record<string, unknown>;
+  date: string;
+  routing: string | null;
+};
+
 function confirmPendingPreCallCallerFromVerifyArgs(
   state: CallState,
   args: PatientResolveArgs,
@@ -798,7 +812,7 @@ function publicPatientResolveResult(
     return {
       status: "multiple_matches",
       message: result.message,
-      matches: result.matches,
+      matches: result.matches.flatMap(publicMultiplePatientMatch),
       next: "ask_first_name",
     };
   }
@@ -816,6 +830,30 @@ function publicPatientResolveResult(
     message: result.message,
     next: "retry",
   };
+}
+
+function publicMultiplePatientMatch(
+  match: Extract<
+    PatientResolveResult,
+    { status: "multiple_matches" }
+  >["matches"][number],
+): Array<{ firstName: string }> {
+  if ("firstName" in match && match.firstName) {
+    return [{ firstName: match.firstName }];
+  }
+  if (!("status" in match)) return [];
+  const firstName = firstNameFromPatientName(match.name);
+  return firstName ? [{ firstName }] : [];
+}
+
+function firstNameFromPatientName(name: string | null): string | undefined {
+  if (!name) return undefined;
+  const [, firstAndMiddle] = name
+    .split(",", 2)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (firstAndMiddle) return firstAndMiddle.split(/\s+/).filter(Boolean)[0];
+  return name.trim().split(/\s+/).filter(Boolean)[0];
 }
 
 function applyPatientPayloadToState(
@@ -973,15 +1011,43 @@ function syncSessionPatientFromActiveFlow(state: CallState): void {
   }
 }
 
-function routingForAvailability(
-  state: CallState,
-  routingOverride?: string | null,
-): string | null {
+function routingForAvailability(state: CallState): string | null {
   if (state.checkedInsuranceCoverageType === "routine_vision") {
     return "optical_only";
   }
-  if (routingOverride) return routingOverride;
   return state.routing;
+}
+
+function buildAvailabilityLookupRequestForState(
+  state: CallState,
+  args: AvailabilityLookupArgs,
+): BuiltAvailabilityLookupRequest | ToolOutcome {
+  const date = args.date?.trim();
+  if (!date) {
+    return toolOutcome(
+      "needs_clarification",
+      "get_availability",
+      "Ask what date or starting day the caller wants before checking availability.",
+      { reason: "availability_requires_date" },
+      true,
+    );
+  }
+
+  ensureAvailabilityVisitContext(state);
+  const policyRouting = routingForAvailability(state);
+  const policyResponse = evaluatePolicyForState(state, "get_availability", {
+    date,
+    ...(policyRouting ? { routing: policyRouting } : {}),
+  });
+  if (policyResponse) return policyResponse;
+
+  ensureRoutineVisionOffice(state);
+  const effectiveRouting = routingForAvailability(state);
+  const body: Record<string, unknown> = { date };
+  if (state.dob) body.dob = state.dob;
+  if (effectiveRouting) body.routing = effectiveRouting;
+  if (state.preauthRequired) body.preauthRequired = true;
+  return { body, date, routing: effectiveRouting };
 }
 
 function appointmentIntentForBooking(
@@ -1338,17 +1404,34 @@ function slotNaturallyMatches(
   return hasDate && hasTime && hasProvider;
 }
 
-type ModelAvailabilitySlot = {
+type AvailabilityCandidateSlot = {
   slotId: string;
   spoken: string;
   provider: string;
   date: string;
   time: string;
   timeWindow: SlotTimeWindow;
-  dateShifted?: boolean;
+};
+
+type ModelAvailabilitySlot = {
+  slotId: string;
+  reply: string;
+  provider: string;
+  date: string;
+  time: string;
 };
 
 type SlotTimeWindow = "morning" | "midday" | "afternoon" | "late_day";
+
+type AvailabilitySearchSummary = {
+  requestedDate?: string;
+  searchedFrom?: string;
+  searchedThrough?: string;
+  actualDate?: string;
+  dateShifted: boolean;
+  shouldRetrySameSearch: boolean;
+  nextSearchDate?: string;
+};
 
 function slotTimeWindow(time: string): SlotTimeWindow {
   const minutes = minutesFromDisplayTime(time);
@@ -1414,16 +1497,23 @@ function requestedEarliestMinute(
   return undefined;
 }
 
-function formatWindowList(windows: SlotTimeWindow[]): string {
-  return windows.map((window) => window.replace("_", " ")).join(" or ");
-}
-
 function nextIsoDate(date: string | undefined): string | undefined {
   if (!date) return undefined;
   const parsed = new Date(`${date}T00:00:00.000Z`);
   if (Number.isNaN(parsed.getTime())) return undefined;
   parsed.setUTCDate(parsed.getUTCDate() + 1);
   return parsed.toISOString().slice(0, 10);
+}
+
+function spokenIsoDate(date: string | undefined): string | undefined {
+  if (!date) return undefined;
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(parsed);
 }
 
 function availabilitySearchedRange(rawResponse: Record<string, unknown>) {
@@ -1443,58 +1533,207 @@ function availabilitySearchedRange(rawResponse: Record<string, unknown>) {
   return { start, end };
 }
 
-function buildAvailabilitySummary(input: {
+function stringField(
+  record: Record<string, unknown>,
+  field: string,
+): string | undefined {
+  const value = record[field];
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function booleanField(
+  record: Record<string, unknown>,
+  field: string,
+): boolean | undefined {
+  const value = record[field];
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function buildAvailabilitySearchSummary(input: {
   rawResponse: Record<string, unknown>;
   searchedRange?: { start: string; end: string };
+  nextSearchDate?: string;
+}): AvailabilitySearchSummary {
+  const { rawResponse, searchedRange, nextSearchDate } = input;
+  const requestedDate = stringField(rawResponse, "requestedDate");
+  const actualDate = stringField(rawResponse, "actualDate");
+  const dateShifted =
+    booleanField(rawResponse, "dateShifted") ??
+    Boolean(requestedDate && actualDate && requestedDate !== actualDate);
+
+  return {
+    ...(requestedDate ? { requestedDate } : {}),
+    ...(searchedRange
+      ? {
+          searchedFrom: searchedRange.start,
+          searchedThrough: searchedRange.end,
+        }
+      : {}),
+    ...(actualDate ? { actualDate } : {}),
+    dateShifted,
+    shouldRetrySameSearch:
+      booleanField(rawResponse, "shouldRetrySameSearch") ?? false,
+    ...(nextSearchDate ? { nextSearchDate } : {}),
+  };
+}
+
+function buildAvailabilityReply(input: {
+  rawResponse: Record<string, unknown>;
+  search: AvailabilitySearchSummary;
   preferredWindow?: string;
   requestedWindows: SlotTimeWindow[];
-  matchingSlots: ModelAvailabilitySlot[];
-  otherSlots: ModelAvailabilitySlot[];
-  recommendedSlot?: ModelAvailabilitySlot;
-  nextRecommendedSearchDate?: string;
-}): string | undefined {
+  matchingSlots: AvailabilityCandidateSlot[];
+  otherSlots: AvailabilityCandidateSlot[];
+  recommendedSlot?: AvailabilityCandidateSlot;
+}): string {
   const {
     rawResponse,
-    searchedRange,
+    search,
     preferredWindow,
     requestedWindows,
     matchingSlots,
     otherSlots,
     recommendedSlot,
-    nextRecommendedSearchDate,
   } = input;
-  const outcome =
-    typeof rawResponse.outcome === "string" ? rawResponse.outcome : undefined;
-  const rangeText = searchedRange
-    ? `from ${searchedRange.start} through ${searchedRange.end}`
-    : "for the requested window";
+  const outcome = stringField(rawResponse, "outcome") ?? "unknown";
+  const spokenSearchedRange =
+    search.searchedFrom && search.searchedThrough
+      ? `from ${spokenIsoDate(search.searchedFrom) ?? search.searchedFrom} through ${
+          spokenIsoDate(search.searchedThrough) ?? search.searchedThrough
+        }`
+      : "for those dates";
+  const spokenNextDate = spokenIsoDate(search.nextSearchDate);
+  const nextSearchText = search.nextSearchDate
+    ? ` Would you like me to check ${spokenNextDate ?? search.nextSearchDate}, or try a different day or time?`
+    : " Would you like to try a different day or time?";
 
   if (outcome === "no_availability") {
-    const nextText = nextRecommendedSearchDate
-      ? ` If the caller wants to keep looking, search ${nextRecommendedSearchDate} or later.`
-      : "";
-    return `No openings were found ${rangeText}. Do not search those dates again.${nextText}`;
+    return `I do not see openings ${spokenSearchedRange}.${nextSearchText}`;
   }
 
-  if (outcome !== "availability_found" || !recommendedSlot) {
-    return undefined;
+  if (outcome === "availability_search_incomplete") {
+    return `I could not fully check availability ${spokenSearchedRange}. Let me try once more.`;
   }
 
-  const preferenceText =
-    preferredWindow && requestedWindows.length > 0
-      ? ` The caller asked for ${preferredWindow}.`
-      : "";
-  if (matchingSlots.length > 0 && requestedWindows.length > 0) {
-    return `Openings were found ${rangeText}.${preferenceText} Slot ${recommendedSlot.slotId} matches ${formatWindowList(requestedWindows)}; offer it first. If that does not work, offer another listed slot or keep looking.`;
+  if (!recommendedSlot) {
+    return "I do not see openings for those details. Would you like to try a different day or time?";
   }
-  if (requestedWindows.length > 0) {
-    return `Openings were found ${rangeText}.${preferenceText} The returned slots do not match ${formatWindowList(requestedWindows)}. Offer slot ${recommendedSlot.slotId} as an available option, and if it does not work, keep looking.`;
-  }
-  const fallbackText =
-    otherSlots.length > 1
-      ? " If that does not work, offer another listed slot."
+
+  const requestedDate = spokenIsoDate(search.requestedDate);
+  const foundDate =
+    spokenIsoDate(search.actualDate) ??
+    spokenIsoDate(recommendedSlot.date) ??
+    recommendedSlot.date;
+  const foundText =
+    search.dateShifted && requestedDate && foundDate
+      ? `I do not see anything on ${requestedDate}, but I found ${foundDate} at ${recommendedSlot.time} with ${recommendedSlot.provider}.`
+      : `I found ${foundDate} at ${recommendedSlot.time} with ${recommendedSlot.provider}.`;
+  const matchText =
+    preferredWindow && requestedWindows.length > 0 && matchingSlots.length === 0
+      ? ` It is not exactly ${preferredWindow}, but does that work?`
+      : " Does that work?";
+  const alternateText =
+    otherSlots.length > 0 || matchingSlots.length > 1
+      ? " If not, I can offer another option."
       : "";
-  return `Openings were found ${rangeText}. Offer slot ${recommendedSlot.slotId} first.${fallbackText}`;
+
+  return `${foundText}${matchText}${alternateText}`;
+}
+
+function cleanAvailabilityErrorResponse(rawResponse: unknown): {
+  result: string;
+  reply: string;
+  next: string;
+  slots: ModelAvailabilitySlot[];
+} {
+  if (!isRecord(rawResponse)) {
+    return {
+      result: "retry",
+      reply: "I’m having trouble checking availability. Let me try once more.",
+      next: "retry_search_once",
+      slots: [],
+    };
+  }
+
+  const outcome = stringField(rawResponse, "outcome") ?? "error";
+  const reply =
+    stringField(rawResponse, "message") ??
+    "I’m having trouble checking availability. Let me try once more.";
+  const shouldRetry = booleanField(rawResponse, "shouldRetrySameSearch");
+  return {
+    result: outcome === "availability_search_incomplete" ? "retry" : "error",
+    reply,
+    next: shouldRetry ? "retry_search_once" : "ask_new_date_or_time",
+    slots: [],
+  };
+}
+
+function publicAvailabilitySlot(slot: AvailabilityCandidateSlot) {
+  const spokenDate = spokenIsoDate(slot.date) ?? slot.date;
+  return {
+    slotId: slot.slotId,
+    reply: `${spokenDate} at ${slot.time} with ${slot.provider}`,
+    provider: slot.provider,
+    date: slot.date,
+    time: slot.time,
+  };
+}
+
+function cleanAvailabilityResponse(input: {
+  rawResponse: Record<string, unknown>;
+  search: AvailabilitySearchSummary;
+  preferredWindow?: string;
+  candidateSlots: AvailabilityCandidateSlot[];
+  recommendedSlot?: AvailabilityCandidateSlot;
+  requestedWindows: SlotTimeWindow[];
+  matchingSlots: AvailabilityCandidateSlot[];
+  otherSlots: AvailabilityCandidateSlot[];
+}) {
+  const {
+    rawResponse,
+    search,
+    preferredWindow,
+    candidateSlots,
+    recommendedSlot,
+    requestedWindows,
+    matchingSlots,
+    otherSlots,
+  } = input;
+  const outcome = stringField(rawResponse, "outcome") ?? "unknown";
+  const availabilityFound = candidateSlots.length > 0;
+  const result = availabilityFound
+    ? "slots_found"
+    : outcome === "availability_search_incomplete"
+      ? "retry"
+      : "no_slots_found";
+  const next =
+    result === "slots_found"
+      ? "offer_slot"
+      : search.shouldRetrySameSearch
+        ? "retry_search_once"
+        : "ask_new_date_or_time";
+  const searched =
+    search.searchedFrom && search.searchedThrough
+      ? `${search.searchedFrom} through ${search.searchedThrough}`
+      : undefined;
+
+  return {
+    result,
+    reply: buildAvailabilityReply({
+      rawResponse,
+      search,
+      preferredWindow,
+      requestedWindows,
+      matchingSlots,
+      otherSlots,
+      recommendedSlot,
+    }),
+    next,
+    ...(searched ? { searched } : {}),
+    ...(search.nextSearchDate ? { nextSearchDate: search.nextSearchDate } : {}),
+    ...(recommendedSlot ? { slotId: recommendedSlot.slotId } : {}),
+    slots: candidateSlots.map(publicAvailabilitySlot),
+  };
 }
 
 function storeAvailabilitySlots(
@@ -1502,76 +1741,80 @@ function storeAvailabilitySlots(
   rawResponse: unknown,
   routing: string | null,
 ): unknown {
-  if (!isRecord(rawResponse) || !Array.isArray(rawResponse.slots)) {
+  if (!isRecord(rawResponse)) {
     clearAvailabilitySlots(state);
-    return rawResponse;
+    return cleanAvailabilityErrorResponse(rawResponse);
+  }
+  const rawSlots = Array.isArray(rawResponse.slots) ? rawResponse.slots : [];
+  const outcome = stringField(rawResponse, "outcome");
+  if (
+    !Array.isArray(rawResponse.slots) &&
+    outcome !== "no_availability" &&
+    outcome !== "availability_search_incomplete"
+  ) {
+    clearAvailabilitySlots(state);
+    return cleanAvailabilityErrorResponse(rawResponse);
   }
 
   const storedSlots: StoredAvailabilitySlot[] = [];
-  const modelSlots: ModelAvailabilitySlot[] = rawResponse.slots.map(
-    (slot, index) => {
-      if (!isRecord(slot)) return slot;
-      const rawProvider =
-        typeof slot.provider === "string" ? slot.provider : "";
-      const provider = rawProvider ? publicProviderName(rawProvider) : "";
-      const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
-      const time = typeof slot.time === "string" ? slot.time : "";
-      const date =
-        typeof slot.date === "string"
-          ? slot.date
-          : slotDateFromDatetime(datetime);
-      const slotId = slotIdForIndex(index);
-      const spoken = [date, time, provider ? `with ${provider}` : ""]
-        .filter(Boolean)
-        .join(" ");
+  const candidateSlots: AvailabilityCandidateSlot[] = [];
+  rawSlots.forEach((slot, index) => {
+    if (!isRecord(slot)) return;
+    const rawProvider = typeof slot.provider === "string" ? slot.provider : "";
+    const provider = rawProvider ? publicProviderName(rawProvider) : "";
+    const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
+    const time = typeof slot.time === "string" ? slot.time : "";
+    const date =
+      typeof slot.date === "string"
+        ? slot.date
+        : slotDateFromDatetime(datetime);
+    const slotId = slotIdForIndex(index);
+    const spoken = [date, time, provider ? `with ${provider}` : ""]
+      .filter(Boolean)
+      .join(" ");
 
-      const storedSlot: StoredAvailabilitySlot = {
-        slotId,
-        spoken,
-        provider,
-        date,
-        time,
-        datetime,
-        routing,
-      };
-      if (typeof slot.bookingToken === "string") {
-        storedSlot.bookingToken = slot.bookingToken;
-      }
-      if (typeof slot.columnId === "number")
-        storedSlot.columnId = slot.columnId;
-      if (typeof slot.profileId === "number")
-        storedSlot.profileId = slot.profileId;
-      if (typeof slot.duration === "number")
-        storedSlot.duration = slot.duration;
-      storedSlots.push(storedSlot);
+    const storedSlot: StoredAvailabilitySlot = {
+      slotId,
+      spoken,
+      provider,
+      date,
+      time,
+      datetime,
+      routing,
+    };
+    if (typeof slot.bookingToken === "string") {
+      storedSlot.bookingToken = slot.bookingToken;
+    }
+    if (typeof slot.columnId === "number") storedSlot.columnId = slot.columnId;
+    if (typeof slot.profileId === "number")
+      storedSlot.profileId = slot.profileId;
+    if (typeof slot.duration === "number") storedSlot.duration = slot.duration;
+    storedSlots.push(storedSlot);
 
-      const modelSlot: ModelAvailabilitySlot = {
-        slotId,
-        spoken,
-        provider,
-        date,
-        time,
-        timeWindow: slotTimeWindow(time),
-      };
-      if (typeof rawResponse.dateShifted === "boolean") {
-        modelSlot.dateShifted = rawResponse.dateShifted;
-      }
-      return modelSlot;
-    },
-  );
+    candidateSlots.push({
+      slotId,
+      spoken,
+      provider,
+      date,
+      time,
+      timeWindow: slotTimeWindow(time),
+    });
+  });
 
   state.lastAvailabilitySlots = storedSlots;
   const searchedRange = availabilitySearchedRange(rawResponse);
-  const nextRecommendedSearchDate = nextIsoDate(searchedRange?.end);
+  const nextSearchDate = nextIsoDate(searchedRange?.end);
   const preferredWindow = state.flow.schedulingGoal?.preferredWindow;
   const requestedWindows = requestedTimeWindows(preferredWindow);
   const earliestMinute = requestedEarliestMinute(preferredWindow);
-  const matchesRequestedEarliest = (slot: ModelAvailabilitySlot) =>
+  const matchesRequestedEarliest = (slot: AvailabilityCandidateSlot) =>
     earliestMinute === undefined ||
     (minutesFromDisplayTime(slot.time) ?? 0) >= earliestMinute;
   const matchingSlots =
     requestedWindows.length > 0
-      ? modelSlots.filter((slot) => requestedWindows.includes(slot.timeWindow))
+      ? candidateSlots.filter((slot) =>
+          requestedWindows.includes(slot.timeWindow),
+        )
       : [];
   const matchingWindowSlots = matchingSlots.filter(matchesRequestedEarliest);
   const unmatchedWindowSlots = matchingSlots.filter(
@@ -1583,46 +1826,32 @@ function storeAvailabilitySlots(
     requestedWindows.length > 0
       ? [
           ...unmatchedWindowSlots,
-          ...modelSlots.filter(
+          ...candidateSlots.filter(
             (slot) => !requestedWindows.includes(slot.timeWindow),
           ),
         ]
       : [];
-  const fallbackSlots = requestedWindows.length > 0 ? otherSlots : modelSlots;
-  const recommendedSlot = effectiveMatchingSlots[0] ?? modelSlots[0];
-  const availabilitySummary = buildAvailabilitySummary({
+  const recommendedSlot = effectiveMatchingSlots[0] ?? candidateSlots[0];
+  const search = buildAvailabilitySearchSummary({
     rawResponse,
     searchedRange,
-    preferredWindow,
-    requestedWindows,
-    matchingSlots: effectiveMatchingSlots,
-    otherSlots: fallbackSlots,
-    recommendedSlot,
-    nextRecommendedSearchDate,
+    nextSearchDate:
+      rawResponse.outcome === "no_availability" ||
+      rawResponse.outcome === "availability_found"
+        ? nextSearchDate
+        : undefined,
   });
 
-  return {
-    ...rawResponse,
-    ...(availabilitySummary ? { availabilitySummary } : {}),
-    ...(searchedRange ? { searchedRange } : {}),
-    ...(nextRecommendedSearchDate &&
-    (rawResponse.outcome === "no_availability" ||
-      rawResponse.outcome === "availability_found")
-      ? { nextRecommendedSearchDate }
-      : {}),
-    ...(preferredWindow ? { requestedWindow: preferredWindow } : {}),
-    ...(requestedWindows.length > 0
-      ? { requestedTimeWindows: requestedWindows }
-      : {}),
-    ...(requestedWindows.length > 0
-      ? { requestedWindowMatched: effectiveMatchingSlots.length > 0 }
-      : {}),
-    ...(recommendedSlot ? { recommendedSlotId: recommendedSlot.slotId } : {}),
-    ...(requestedWindows.length > 0
-      ? { matchingSlots: effectiveMatchingSlots, otherSlots }
-      : {}),
-    slots: modelSlots,
-  };
+  return cleanAvailabilityResponse({
+    rawResponse,
+    search,
+    preferredWindow,
+    candidateSlots,
+    recommendedSlot,
+    requestedWindows,
+    matchingSlots: effectiveMatchingSlots,
+    otherSlots,
+  });
 }
 
 function normalizeInsuranceOutcome(
@@ -1928,13 +2157,7 @@ function compactTurnCommandResponse(turn: FlowTurnAdvanceResult) {
 
 function withLatestPlannerCommand(state: CallState, result: unknown): unknown {
   if (!isFlowHarnessEnabled(state)) return result;
-  if (
-    !state.flow.activeIntent &&
-    !state.flow.currentTask &&
-    (state.flow.activeFlow === "intro" || state.flow.activeFlow === "intent")
-  ) {
-    return result;
-  }
+  if (!shouldAdvanceWorkflowAfterTool(state)) return result;
   const turn = advanceWorkflow(state.flow, { type: "facts_changed" });
   if (!turn.workflowCommand) return result;
   const planner = compactWorkflowCommand(turn.workflowCommand);
@@ -1948,6 +2171,23 @@ function withLatestPlannerCommand(state: CallState, result: unknown): unknown {
     result,
     planner,
   };
+}
+
+function shouldAdvanceWorkflowAfterTool(state: CallState): boolean {
+  if (
+    !state.flow.activeIntent &&
+    !state.flow.currentTask &&
+    (state.flow.activeFlow === "intro" || state.flow.activeFlow === "intent")
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function advanceWorkflowAfterToolWithoutPlanner(state: CallState): void {
+  if (!isFlowHarnessEnabled(state)) return;
+  if (!shouldAdvanceWorkflowAfterTool(state)) return;
+  advanceWorkflow(state.flow, { type: "facts_changed" });
 }
 
 // --- record_turn_understanding ---
@@ -2063,7 +2303,10 @@ After response:
       lastName,
       dob,
     });
-    if (state.flow.preCall?.status === "single_match_confirmed") {
+    if (
+      state.flow.preCall?.status === "single_match_confirmed" ||
+      state.flow.preCall?.status === "multiple_match_confirmed"
+    ) {
       const preCallPolicyResponse = evaluatePolicyForState(
         state,
         "verify_patient",
@@ -2318,54 +2561,40 @@ After response: session state updates automatically. If preauthRequired, schedul
 export const get_availability = llm.tool({
   description: `Gets schedule availability. Requires date (YYYY-MM-DD). Routing and preauth auto-applied from session state.
 
-Ask the caller the reason for their visit before calling this tool so the scheduling lane is right. The API returns slot timing and provider details needed for booking. The middleware resolves the AMD appointment type during booking.
+Ask the caller the reason for their visit before calling this tool so the scheduling lane is right. The response is intentionally tiny: result, reply, next, slotId, searched, nextSearchDate, and slots. Use reply for the caller-facing wording. If the caller accepts, call book_appt with slotId. Never ask for or mention the booking token; it is stored internally.
+
+The middleware resolves the AMD appointment type during booking.
 
 Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. Under 18 medical visits = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
 
-After response: check if date shifted vs requested — tell caller if different. Suggest one best-fit slot (date + time). Mention the doctor only if asked or clinically relevant. If rejected, offer one alternative. Scan existing results before calling again. If no slots are returned, tell the caller that date has no openings and offer the nearest available date.`,
+After response: follow the reply and next fields. If result is slots_found, offer slotId first. Mention the doctor only if asked or clinically relevant. If rejected, offer another listed slot. If result is no_slots_found, do not search the same range again; ask for a different preference or use nextSearchDate.`,
   parameters: z.object({
     date: z.string().describe("Start date to search, formatted YYYY-MM-DD"),
-    routing: z
-      .enum(["bach_only", "bach_licht", "all_three", "optical_only"])
-      .optional()
-      .describe(
-        "Use optical_only only for routine eye exam or glasses/contact lens prescription visits using accepted vision coverage or self-pay.",
-      ),
   }),
-  execute: async ({ date, routing }, { ctx }) => {
+  execute: async ({ date }, { ctx }) => {
     const state = getState(ctx);
     makeCurrentSpeechUninterruptible(ctx);
-    ensureAvailabilityVisitContext(state);
-    const policyResponse = evaluatePolicyForState(state, "get_availability", {
-      date,
-      routing,
-    });
-    if (policyResponse) return policyResponse;
-    ensureRoutineVisionOffice(state);
+    const request = buildAvailabilityLookupRequestForState(state, { date });
+    if ("outcome" in request) return request;
     state.flow.step = "get_availability";
-    const body: Record<string, unknown> = { date };
-    const effectiveRouting = routingForAvailability(state, routing);
-    if (state.dob) body.dob = state.dob;
-    if (effectiveRouting) body.routing = effectiveRouting;
-    if (state.preauthRequired) body.preauthRequired = true;
     const result = await callApi(
       "/api/scheduler/availability",
-      body,
+      request.body,
       getAmdOfficeForToolCall(state),
     );
-    state.lastAvailabilityRouting = effectiveRouting;
+    state.lastAvailabilityRouting = request.routing;
     if (!isFlowHarnessEnabled(state)) {
-      return storeAvailabilitySlots(state, result, effectiveRouting);
+      return storeAvailabilitySlots(state, result, request.routing);
     }
     const availabilityRecord = recordAvailabilitySearch(state.flow, {
       patientRef: state.flow.activePatientRef,
       officeKey: state.officeKey,
       visitType: state.flow.visitType,
       coverageType: state.flow.coverageType,
-      routing: effectiveRouting,
-      date,
+      routing: request.routing,
+      date: request.date,
     });
-    const modelResult = storeAvailabilitySlots(state, result, effectiveRouting);
+    const modelResult = storeAvailabilitySlots(state, result, request.routing);
     recordAvailabilitySearchRange(availabilityRecord.search, result);
     recordAvailabilityCachedSlots(
       state.flow,
@@ -2383,7 +2612,8 @@ After response: check if date shifted vs requested — tell caller if different.
         ? "confirm_booking"
         : "get_availability",
     );
-    return withLatestPlannerCommand(state, modelResult);
+    advanceWorkflowAfterToolWithoutPlanner(state);
+    return modelResult;
   },
 });
 

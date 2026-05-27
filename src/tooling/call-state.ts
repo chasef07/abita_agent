@@ -8,7 +8,9 @@ import {
   CallFlowState,
   CallerAppointment,
   GuardObservation,
+  normalizeSchedulingRouting,
   type PatientContext,
+  type PreCallPatientCandidate,
 } from "../flow/index.js";
 import type { OfficeKey } from "../customer/profile.js";
 import type { AgentToolName } from "./tool-exposure.js";
@@ -31,16 +33,21 @@ export interface CallerMatch {
   routing: string | null;
   allowedProviders: string[];
   routingAmbiguous: boolean;
+  preauthRequired: boolean;
   appointmentsStatus?: AppointmentLoadStatus | null;
   appointmentsMessage?: string | null;
   appointments: StoredCallerAppointment[] | null;
   lookupDurationMs?: number;
 }
 
+export interface CallerMatchHint {
+  firstName: string;
+}
+
 export interface CallerMultipleMatches {
   status: "multiple_matches";
   message: string;
-  matches: Array<{ firstName: string }>;
+  matches: Array<CallerMatch | CallerMatchHint>;
   lookupDurationMs?: number;
 }
 
@@ -213,6 +220,51 @@ export function reconcileCallStateAfterActivePatientChange(
   state.preauthRequired = false;
   state.flow.coverageType = patient.insurance?.coverageType ?? undefined;
   state.flow.routing = undefined;
+  applyPreCallCandidateSessionDetails(state, patient);
+}
+
+function applyPreCallCandidateSessionDetails(
+  state: CallState,
+  patient: PatientContext,
+): void {
+  const candidate = selectedPreCallCandidateForPatient(state, patient);
+  if (!candidate?.patientId) return;
+
+  state.patientId = candidate.patientId;
+  state.patientName = formatFlowPatientName(
+    candidate.firstName ?? patient.firstName?.value,
+    candidate.lastName ?? patient.lastName?.value,
+  );
+  state.dob = candidate.dob ?? patient.dob?.value ?? null;
+  state.appointments = [...candidate.appointments];
+  state.appointmentsStatus = candidate.appointmentsStatus ?? null;
+  state.appointmentCancelTokens = candidate.appointmentCancelTokens ?? {};
+  state.insuranceCarrier = candidate.insuranceCarrier ?? null;
+  state.insPlanId = candidate.insPlanId ?? null;
+  state.respPartyId = candidate.respPartyId ?? null;
+  state.checkedInsurancePlan = candidate.insuranceCarrier ?? null;
+  state.checkedInsuranceCoverageType =
+    candidate.routing === "optical_only" ? "routine_vision" : null;
+  state.routing = candidate.routing ?? null;
+  state.allowedProviders = candidate.allowedProviders ?? [];
+  state.routingAmbiguous = candidate.routingAmbiguous ?? false;
+  state.preauthRequired = candidate.preauthRequired ?? false;
+  state.flow.coverageType = state.checkedInsuranceCoverageType ?? undefined;
+  state.flow.routing = normalizeSchedulingRouting(state.routing);
+  state.flow.visitType =
+    state.checkedInsuranceCoverageType === "routine_vision"
+      ? "routine_vision"
+      : state.flow.visitType;
+}
+
+function selectedPreCallCandidateForPatient(
+  state: CallState,
+  patient: PatientContext,
+): PreCallPatientCandidate | undefined {
+  const preCall = state.flow.preCall;
+  const selectedRef = preCall?.selectedCandidateRef;
+  if (!preCall || !selectedRef || selectedRef !== patient.ref) return undefined;
+  return preCall.candidates.find((candidate) => candidate.ref === selectedRef);
 }
 
 function activeFlowPatient(state: CallState): PatientContext | undefined {

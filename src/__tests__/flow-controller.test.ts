@@ -471,6 +471,119 @@ describe("flow state and context packet", () => {
     });
   });
 
+  it("confirms a unique full multiple-match candidate without verify_patient", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      callerPhone: "+17275551212",
+      preCall: {
+        status: "multiple_matches_pending_selection",
+        source: "phone_lookup",
+        callerPhone: "+17275551212",
+        candidates: [
+          {
+            ref: "precall:1",
+            firstName: "Jane",
+            lastName: "Doe",
+            patientId: "patient-1",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+          {
+            ref: "precall:2",
+            firstName: "Maria",
+            lastName: "Doe",
+            dob: "02/02/1985",
+            patientId: "patient-2",
+            appointments: [
+              {
+                id: 456,
+                date: "Tuesday, June 2, 2026",
+                time: "9:00 AM",
+                provider: "Dr. Bach",
+                type: "Follow-up",
+                facility: "Spring Hill",
+                confirmed: true,
+              },
+            ],
+            appointmentsStatus: "found",
+          },
+        ],
+        identityPromotion: "none",
+      },
+    });
+
+    const result = applyPreCallIdentityFromTranscript(flow, "Maria");
+
+    expect(result).toMatchObject({
+      changed: true,
+      promotion: "candidate_selected",
+      selectedCandidateRef: "precall:2",
+    });
+    expect(flow.preCall).toMatchObject({
+      status: "multiple_match_confirmed",
+      selectedCandidateRef: "precall:2",
+    });
+    expect(flow.patientStatus).toBe("verified");
+    expect(flow.step).toBe("get_availability");
+    expect(flow.patients["precall:2"]).toMatchObject({
+      status: "verified",
+      patientId: "patient-2",
+      firstName: { confirmed: true },
+      dob: { confirmed: true },
+      appointmentsStatus: "found",
+      appointments: [expect.objectContaining({ id: 456 })],
+    });
+
+    const packet = compileTurnStatePacket(flow);
+    expect(packet).toContain("preCall: multiple_match_confirmed");
+    expect(packet).toContain("do not call verify_patient");
+    expect(packet).toContain("loadedAppointments=1");
+  });
+
+  it("uses fuzzy first-name matching for full multiple-match candidates", () => {
+    const flow = createInitialFlowState({
+      officeKey: "sweetwater",
+      callerPhone: "+13058247019",
+      preCall: {
+        status: "multiple_matches_pending_selection",
+        source: "phone_lookup",
+        callerPhone: "+13058247019",
+        candidates: [
+          {
+            ref: "precall:1",
+            firstName: "BELTRAN",
+            lastName: "HERNANDEZ",
+            patientId: "17611424",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+          {
+            ref: "precall:2",
+            firstName: "Maria",
+            lastName: "Hernandez",
+            patientId: "17611425",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+        ],
+        identityPromotion: "none",
+      },
+    });
+
+    const result = applyPreCallIdentityFromTranscript(flow, "E-L-T-R-A-N.");
+
+    expect(result).toMatchObject({
+      changed: true,
+      promotion: "candidate_selected",
+      selectedCandidateRef: "precall:1",
+    });
+    expect(flow.preCall).toMatchObject({
+      status: "multiple_match_confirmed",
+      selectedCandidateRef: "precall:1",
+    });
+    expect(flow.patientStatus).toBe("verified");
+  });
+
   it("selects a unique multiple-match candidate from a full-name answer", () => {
     const flow = createInitialFlowState({
       officeKey: "hollywood",

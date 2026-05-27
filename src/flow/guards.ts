@@ -219,11 +219,15 @@ function guardReason(
 
 function confirmedSingleMatchPreCallCaller(flow: CallFlowState): boolean {
   const preCall = flow.preCall;
-  if (preCall?.status !== "single_match_confirmed") return false;
+  if (
+    preCall?.status !== "single_match_confirmed" &&
+    preCall?.status !== "multiple_match_confirmed"
+  ) {
+    return false;
+  }
   const selectedRef = preCall.selectedCandidateRef ?? DEFAULT_PATIENT_REF;
-  if (selectedRef !== DEFAULT_PATIENT_REF) return false;
-  const caller = flow.patients[DEFAULT_PATIENT_REF];
-  return Boolean(caller?.patientId);
+  const patient = flow.patients[selectedRef];
+  return Boolean(patient?.patientId);
 }
 
 function hasPendingCancelAction(
