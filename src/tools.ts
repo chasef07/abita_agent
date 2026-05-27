@@ -32,6 +32,7 @@ import {
   normalizeSchedulingRouting,
   recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
+  recordAvailabilitySearchRange,
   recordBookingAttempt,
   recordBookingResult,
   ensureActivePatientContext,
@@ -1308,6 +1309,165 @@ function slotNaturallyMatches(
   return hasDate && hasTime && hasProvider;
 }
 
+type ModelAvailabilitySlot = {
+  slotId: string;
+  spoken: string;
+  provider: string;
+  date: string;
+  time: string;
+  timeWindow: SlotTimeWindow;
+  dateShifted?: boolean;
+};
+
+type SlotTimeWindow = "morning" | "midday" | "afternoon" | "late_day";
+
+function slotTimeWindow(time: string): SlotTimeWindow {
+  const minutes = minutesFromDisplayTime(time);
+  if (minutes === null) return "midday";
+  if (minutes < 11 * 60) return "morning";
+  if (minutes < 13 * 60) return "midday";
+  if (minutes < 16 * 60) return "afternoon";
+  return "late_day";
+}
+
+function minutesFromDisplayTime(time: string): number | null {
+  const match = time.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] ?? "0");
+  const meridiem = match[3]?.toUpperCase();
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  if (meridiem === "PM" && hour !== 12) hour += 12;
+  if (meridiem === "AM" && hour === 12) hour = 0;
+  return hour * 60 + minute;
+}
+
+function requestedTimeWindows(
+  preferredWindow: string | undefined,
+): SlotTimeWindow[] {
+  const normalized = preferredWindow?.toLowerCase() ?? "";
+  const windows: SlotTimeWindow[] = [];
+  const asksLateMorning = /\blate morning\b/.test(normalized);
+  const asksAfterThree = /\b(after 3|after three)\b/.test(normalized);
+  if (
+    asksLateMorning ||
+    /\b(morning|am|8\s*am|9\s*am|10\s*am)\b/.test(normalized)
+  ) {
+    windows.push("morning");
+  }
+  if (/\b(midday|noon|lunch|11\s*am|12\s*pm)\b/.test(normalized)) {
+    windows.push("midday");
+  }
+  if (
+    asksAfterThree ||
+    /\b(afternoon|after lunch|early afternoon|1\s*pm|2\s*pm|3\s*pm|around 1|around 2|around 3)\b/.test(
+      normalized,
+    )
+  ) {
+    windows.push("afternoon");
+  }
+  if (
+    !asksLateMorning &&
+    /\b(late|later|end of day|after 3|after three|4\s*pm|5\s*pm|around 4|around 5)\b/.test(
+      normalized,
+    )
+  ) {
+    windows.push("late_day");
+  }
+  return Array.from(new Set(windows));
+}
+
+function requestedEarliestMinute(
+  preferredWindow: string | undefined,
+): number | undefined {
+  const normalized = preferredWindow?.toLowerCase() ?? "";
+  if (/\b(after 3|after three)\b/.test(normalized)) return 15 * 60;
+  return undefined;
+}
+
+function formatWindowList(windows: SlotTimeWindow[]): string {
+  return windows.map((window) => window.replace("_", " ")).join(" or ");
+}
+
+function nextIsoDate(date: string | undefined): string | undefined {
+  if (!date) return undefined;
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  parsed.setUTCDate(parsed.getUTCDate() + 1);
+  return parsed.toISOString().slice(0, 10);
+}
+
+function availabilitySearchedRange(rawResponse: Record<string, unknown>) {
+  const start =
+    typeof rawResponse.searchedFrom === "string"
+      ? rawResponse.searchedFrom
+      : typeof rawResponse.requestedDate === "string"
+        ? rawResponse.requestedDate
+        : undefined;
+  const end =
+    typeof rawResponse.searchedThrough === "string"
+      ? rawResponse.searchedThrough
+      : typeof rawResponse.actualDate === "string"
+        ? rawResponse.actualDate
+        : start;
+  if (!start || !end) return undefined;
+  return { start, end };
+}
+
+function buildAvailabilitySummary(input: {
+  rawResponse: Record<string, unknown>;
+  searchedRange?: { start: string; end: string };
+  preferredWindow?: string;
+  requestedWindows: SlotTimeWindow[];
+  matchingSlots: ModelAvailabilitySlot[];
+  otherSlots: ModelAvailabilitySlot[];
+  recommendedSlot?: ModelAvailabilitySlot;
+  nextRecommendedSearchDate?: string;
+}): string | undefined {
+  const {
+    rawResponse,
+    searchedRange,
+    preferredWindow,
+    requestedWindows,
+    matchingSlots,
+    otherSlots,
+    recommendedSlot,
+    nextRecommendedSearchDate,
+  } = input;
+  const outcome =
+    typeof rawResponse.outcome === "string" ? rawResponse.outcome : undefined;
+  const rangeText = searchedRange
+    ? `from ${searchedRange.start} through ${searchedRange.end}`
+    : "for the requested window";
+
+  if (outcome === "no_availability") {
+    const nextText = nextRecommendedSearchDate
+      ? ` If the caller wants to keep looking, search ${nextRecommendedSearchDate} or later.`
+      : "";
+    return `No openings were found ${rangeText}. Do not search those dates again.${nextText}`;
+  }
+
+  if (outcome !== "availability_found" || !recommendedSlot) {
+    return undefined;
+  }
+
+  const preferenceText =
+    preferredWindow && requestedWindows.length > 0
+      ? ` The caller asked for ${preferredWindow}.`
+      : "";
+  if (matchingSlots.length > 0 && requestedWindows.length > 0) {
+    return `Openings were found ${rangeText}.${preferenceText} Slot ${recommendedSlot.slotId} matches ${formatWindowList(requestedWindows)}; offer it first. If that does not work, offer another listed slot or keep looking.`;
+  }
+  if (requestedWindows.length > 0) {
+    return `Openings were found ${rangeText}.${preferenceText} The returned slots do not match ${formatWindowList(requestedWindows)}. Offer slot ${recommendedSlot.slotId} as an available option, and if it does not work, keep looking.`;
+  }
+  const fallbackText =
+    otherSlots.length > 1
+      ? " If that does not work, offer another listed slot."
+      : "";
+  return `Openings were found ${rangeText}. Offer slot ${recommendedSlot.slotId} first.${fallbackText}`;
+}
+
 function storeAvailabilitySlots(
   state: CallState,
   rawResponse: unknown,
@@ -1319,55 +1479,119 @@ function storeAvailabilitySlots(
   }
 
   const storedSlots: StoredAvailabilitySlot[] = [];
-  const modelSlots = rawResponse.slots.map((slot, index) => {
-    if (!isRecord(slot)) return slot;
-    const rawProvider = typeof slot.provider === "string" ? slot.provider : "";
-    const provider = rawProvider ? publicProviderName(rawProvider) : "";
-    const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
-    const time = typeof slot.time === "string" ? slot.time : "";
-    const date =
-      typeof slot.date === "string"
-        ? slot.date
-        : slotDateFromDatetime(datetime);
-    const slotId = slotIdForIndex(index);
-    const spoken = [date, time, provider ? `with ${provider}` : ""]
-      .filter(Boolean)
-      .join(" ");
+  const modelSlots: ModelAvailabilitySlot[] = rawResponse.slots.map(
+    (slot, index) => {
+      if (!isRecord(slot)) return slot;
+      const rawProvider =
+        typeof slot.provider === "string" ? slot.provider : "";
+      const provider = rawProvider ? publicProviderName(rawProvider) : "";
+      const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
+      const time = typeof slot.time === "string" ? slot.time : "";
+      const date =
+        typeof slot.date === "string"
+          ? slot.date
+          : slotDateFromDatetime(datetime);
+      const slotId = slotIdForIndex(index);
+      const spoken = [date, time, provider ? `with ${provider}` : ""]
+        .filter(Boolean)
+        .join(" ");
 
-    const storedSlot: StoredAvailabilitySlot = {
-      slotId,
-      spoken,
-      provider,
-      date,
-      time,
-      datetime,
-      routing,
-    };
-    if (typeof slot.bookingToken === "string") {
-      storedSlot.bookingToken = slot.bookingToken;
-    }
-    if (typeof slot.columnId === "number") storedSlot.columnId = slot.columnId;
-    if (typeof slot.profileId === "number")
-      storedSlot.profileId = slot.profileId;
-    if (typeof slot.duration === "number") storedSlot.duration = slot.duration;
-    storedSlots.push(storedSlot);
+      const storedSlot: StoredAvailabilitySlot = {
+        slotId,
+        spoken,
+        provider,
+        date,
+        time,
+        datetime,
+        routing,
+      };
+      if (typeof slot.bookingToken === "string") {
+        storedSlot.bookingToken = slot.bookingToken;
+      }
+      if (typeof slot.columnId === "number")
+        storedSlot.columnId = slot.columnId;
+      if (typeof slot.profileId === "number")
+        storedSlot.profileId = slot.profileId;
+      if (typeof slot.duration === "number")
+        storedSlot.duration = slot.duration;
+      storedSlots.push(storedSlot);
 
-    const modelSlot: Record<string, unknown> = {
-      slotId,
-      spoken,
-      provider,
-      date,
-      time,
-    };
-    if (typeof rawResponse.dateShifted === "boolean") {
-      modelSlot.dateShifted = rawResponse.dateShifted;
-    }
-    return modelSlot;
-  });
+      const modelSlot: ModelAvailabilitySlot = {
+        slotId,
+        spoken,
+        provider,
+        date,
+        time,
+        timeWindow: slotTimeWindow(time),
+      };
+      if (typeof rawResponse.dateShifted === "boolean") {
+        modelSlot.dateShifted = rawResponse.dateShifted;
+      }
+      return modelSlot;
+    },
+  );
 
   state.lastAvailabilitySlots = storedSlots;
+  const searchedRange = availabilitySearchedRange(rawResponse);
+  const nextRecommendedSearchDate = nextIsoDate(searchedRange?.end);
+  const preferredWindow = state.flow.schedulingGoal?.preferredWindow;
+  const requestedWindows = requestedTimeWindows(preferredWindow);
+  const earliestMinute = requestedEarliestMinute(preferredWindow);
+  const matchesRequestedEarliest = (slot: ModelAvailabilitySlot) =>
+    earliestMinute === undefined ||
+    (minutesFromDisplayTime(slot.time) ?? 0) >= earliestMinute;
+  const matchingSlots =
+    requestedWindows.length > 0
+      ? modelSlots.filter((slot) => requestedWindows.includes(slot.timeWindow))
+      : [];
+  const matchingWindowSlots = matchingSlots.filter(matchesRequestedEarliest);
+  const unmatchedWindowSlots = matchingSlots.filter(
+    (slot) => !matchesRequestedEarliest(slot),
+  );
+  const effectiveMatchingSlots =
+    requestedWindows.length > 0 ? matchingWindowSlots : [];
+  const otherSlots =
+    requestedWindows.length > 0
+      ? [
+          ...unmatchedWindowSlots,
+          ...modelSlots.filter(
+            (slot) => !requestedWindows.includes(slot.timeWindow),
+          ),
+        ]
+      : [];
+  const fallbackSlots = requestedWindows.length > 0 ? otherSlots : modelSlots;
+  const recommendedSlot = effectiveMatchingSlots[0] ?? modelSlots[0];
+  const availabilitySummary = buildAvailabilitySummary({
+    rawResponse,
+    searchedRange,
+    preferredWindow,
+    requestedWindows,
+    matchingSlots: effectiveMatchingSlots,
+    otherSlots: fallbackSlots,
+    recommendedSlot,
+    nextRecommendedSearchDate,
+  });
+
   return {
     ...rawResponse,
+    ...(availabilitySummary ? { availabilitySummary } : {}),
+    ...(searchedRange ? { searchedRange } : {}),
+    ...(nextRecommendedSearchDate &&
+    (rawResponse.outcome === "no_availability" ||
+      rawResponse.outcome === "availability_found")
+      ? { nextRecommendedSearchDate }
+      : {}),
+    ...(preferredWindow ? { requestedWindow: preferredWindow } : {}),
+    ...(requestedWindows.length > 0
+      ? { requestedTimeWindows: requestedWindows }
+      : {}),
+    ...(requestedWindows.length > 0
+      ? { requestedWindowMatched: effectiveMatchingSlots.length > 0 }
+      : {}),
+    ...(recommendedSlot ? { recommendedSlotId: recommendedSlot.slotId } : {}),
+    ...(requestedWindows.length > 0
+      ? { matchingSlots: effectiveMatchingSlots, otherSlots }
+      : {}),
     slots: modelSlots,
   };
 }
@@ -2098,7 +2322,7 @@ After response: check if date shifted vs requested — tell caller if different.
     if (!isFlowHarnessEnabled(state)) {
       return storeAvailabilitySlots(state, result, effectiveRouting);
     }
-    recordAvailabilitySearch(state.flow, {
+    const availabilityRecord = recordAvailabilitySearch(state.flow, {
       patientRef: state.flow.activePatientRef,
       officeKey: state.officeKey,
       visitType: state.flow.visitType,
@@ -2107,6 +2331,7 @@ After response: check if date shifted vs requested — tell caller if different.
       date,
     });
     const modelResult = storeAvailabilitySlots(state, result, effectiveRouting);
+    recordAvailabilitySearchRange(availabilityRecord.search, result);
     recordAvailabilityCachedSlots(
       state.flow,
       state.lastAvailabilitySlots.map((slot) => ({

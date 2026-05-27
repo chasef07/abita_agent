@@ -48,6 +48,7 @@ export interface AvailabilitySearchInspection {
   search?: AvailabilitySearch;
   searchKey: string;
   duplicate: boolean;
+  rangeRepeat: boolean;
   exhausted: boolean;
   projectedStatus?: AvailabilitySearch["status"];
   projectedExactSearchCount?: number;
@@ -105,6 +106,12 @@ export function inspectAvailabilitySearch(
     search = undefined;
   }
   const duplicate = Boolean(search?.searchedKeys.includes(searchKey));
+  const rangeRepeat = Boolean(
+    search &&
+    !duplicate &&
+    typeof request.date === "string" &&
+    dateWithinSearchedRange(request.date, search),
+  );
   const maxSearches =
     search?.maxSearches ??
     request.maxSearches ??
@@ -124,6 +131,7 @@ export function inspectAvailabilitySearch(
     search,
     searchKey,
     duplicate,
+    rangeRepeat,
     exhausted: search?.status === "exhausted",
     projectedStatus,
     projectedExactSearchCount,
@@ -189,6 +197,33 @@ export function recordAvailabilitySearch(
     duplicate,
     exhausted: search.status === "exhausted",
   };
+}
+
+export function recordAvailabilitySearchRange(
+  search: AvailabilitySearch | undefined,
+  result: unknown,
+): void {
+  if (
+    !search ||
+    !result ||
+    typeof result !== "object" ||
+    Array.isArray(result)
+  ) {
+    return;
+  }
+  const response = result as {
+    searchedFrom?: unknown;
+    searchedThrough?: unknown;
+    actualDate?: unknown;
+  };
+  if (typeof response.searchedFrom === "string") {
+    search.searchedFrom = response.searchedFrom;
+  }
+  if (typeof response.searchedThrough === "string") {
+    search.searchedThrough = response.searchedThrough;
+  } else if (typeof response.actualDate === "string") {
+    search.searchedThrough = response.actualDate;
+  }
 }
 
 export function rejectAvailabilitySlot(
@@ -471,6 +506,14 @@ function findActiveAvailabilitySearch(
       search.appointmentTypeId === request.appointmentTypeId
     );
   });
+}
+
+function dateWithinSearchedRange(
+  date: string,
+  search: AvailabilitySearch,
+): boolean {
+  if (!search.searchedFrom || !search.searchedThrough) return false;
+  return date >= search.searchedFrom && date <= search.searchedThrough;
 }
 
 function findAvailabilitySearchBySlotHash(

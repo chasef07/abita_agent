@@ -1140,6 +1140,7 @@ describe("tool interruption handling", () => {
           provider: "Dr. Bach",
           spoken: "2026-04-28 9:00 AM with Dr. Bach",
           time: "9:00 AM",
+          timeWindow: "morning",
           date: "2026-04-28",
           dateShifted: true,
         },
@@ -1162,6 +1163,269 @@ describe("tool interruption handling", () => {
       duration: 15,
     });
     expect(state.flow.step).toBe("confirm_booking");
+  });
+
+  it("summarizes and groups availability around the caller's preferred time window", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        availabilityFound: true,
+        requestedDate: "2026-06-01",
+        actualDate: "2026-06-03",
+        searchedFrom: "2026-06-01",
+        searchedThrough: "2026-06-03",
+        slots: [
+          {
+            provider: "Dr. J. Licht",
+            time: "9:00 AM",
+            datetime: "2026-06-03T09:00",
+            columnId: 1593,
+            profileId: 2064,
+            duration: 30,
+            bookingToken: "morning-token",
+          },
+          {
+            provider: "Dr. J. Licht",
+            time: "2:30 PM",
+            datetime: "2026-06-03T14:30",
+            columnId: 1593,
+            profileId: 2064,
+            duration: 30,
+            bookingToken: "afternoon-token",
+          },
+          {
+            provider: "Dr. J. Licht",
+            time: "4:00 PM",
+            datetime: "2026-06-03T16:00",
+            columnId: 1593,
+            profileId: 2064,
+            duration: 30,
+            bookingToken: "late-token",
+          },
+        ],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "ready_for_availability",
+      appointmentAction: "schedule",
+      preferredWindow: "afternoon",
+    };
+
+    const result = await get_availability.execute(
+      { date: "2026-06-01" },
+      { ctx, toolCallId: "test-availability-afternoon" },
+    );
+
+    expect(result).toMatchObject({
+      availabilitySummary:
+        "Openings were found from 2026-06-01 through 2026-06-03. The caller asked for afternoon. Slot B matches afternoon; offer it first. If that does not work, offer another listed slot or keep looking.",
+      requestedWindow: "afternoon",
+      requestedTimeWindows: ["afternoon"],
+      requestedWindowMatched: true,
+      recommendedSlotId: "B",
+      searchedRange: {
+        start: "2026-06-01",
+        end: "2026-06-03",
+      },
+      nextRecommendedSearchDate: "2026-06-04",
+      matchingSlots: [
+        {
+          slotId: "B",
+          time: "2:30 PM",
+          timeWindow: "afternoon",
+        },
+      ],
+      otherSlots: [
+        {
+          slotId: "A",
+          time: "9:00 AM",
+          timeWindow: "morning",
+        },
+        {
+          slotId: "C",
+          time: "4:00 PM",
+          timeWindow: "late_day",
+        },
+      ],
+    });
+    expect(state.lastAvailabilitySlots).toHaveLength(3);
+    expect(state.lastAvailabilitySlots[1]).toMatchObject({
+      slotId: "B",
+      bookingToken: "afternoon-token",
+    });
+  });
+
+  it("does not treat late morning as late-day availability", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        availabilityFound: true,
+        requestedDate: "2026-06-01",
+        actualDate: "2026-06-03",
+        searchedFrom: "2026-06-01",
+        searchedThrough: "2026-06-03",
+        slots: [
+          {
+            provider: "Dr. J. Licht",
+            time: "10:30 AM",
+            datetime: "2026-06-03T10:30",
+            columnId: 1593,
+            profileId: 2064,
+            duration: 30,
+            bookingToken: "late-morning-token",
+          },
+          {
+            provider: "Dr. J. Licht",
+            time: "4:30 PM",
+            datetime: "2026-06-03T16:30",
+            columnId: 1593,
+            profileId: 2064,
+            duration: 30,
+            bookingToken: "late-day-token",
+          },
+        ],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "ready_for_availability",
+      appointmentAction: "schedule",
+      preferredWindow: "late morning",
+    };
+
+    const result = await get_availability.execute(
+      { date: "2026-06-01" },
+      { ctx, toolCallId: "test-availability-late-morning" },
+    );
+
+    expect(result).toMatchObject({
+      requestedTimeWindows: ["morning"],
+      requestedWindowMatched: true,
+      recommendedSlotId: "A",
+      matchingSlots: [{ slotId: "A", timeWindow: "morning" }],
+      otherSlots: [{ slotId: "B", timeWindow: "late_day" }],
+    });
+  });
+
+  it("treats after 3 as afternoon or late-day availability", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        availabilityFound: true,
+        requestedDate: "2026-06-01",
+        actualDate: "2026-06-03",
+        searchedFrom: "2026-06-01",
+        searchedThrough: "2026-06-03",
+        slots: [
+          {
+            provider: "Dr. J. Licht",
+            time: "2:30 PM",
+            datetime: "2026-06-03T14:30",
+            columnId: 1593,
+            profileId: 2064,
+            duration: 30,
+            bookingToken: "too-early-token",
+          },
+          {
+            provider: "Dr. J. Licht",
+            time: "3:30 PM",
+            datetime: "2026-06-03T15:30",
+            columnId: 1593,
+            profileId: 2064,
+            duration: 30,
+            bookingToken: "after-three-token",
+          },
+          {
+            provider: "Dr. J. Licht",
+            time: "4:30 PM",
+            datetime: "2026-06-03T16:30",
+            columnId: 1593,
+            profileId: 2064,
+            duration: 30,
+            bookingToken: "late-token",
+          },
+        ],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "ready_for_availability",
+      appointmentAction: "schedule",
+      preferredWindow: "after 3",
+    };
+
+    const result = await get_availability.execute(
+      { date: "2026-06-01" },
+      { ctx, toolCallId: "test-availability-after-three" },
+    );
+
+    expect(result).toMatchObject({
+      requestedTimeWindows: ["afternoon", "late_day"],
+      requestedWindowMatched: true,
+      recommendedSlotId: "B",
+      matchingSlots: [
+        { slotId: "B", time: "3:30 PM", timeWindow: "afternoon" },
+        { slotId: "C", time: "4:30 PM", timeWindow: "late_day" },
+      ],
+      otherSlots: [{ slotId: "A", time: "2:30 PM", timeWindow: "afternoon" }],
+    });
+  });
+
+  it("summarizes exhausted no-availability windows for the model", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "no_availability",
+        availabilityFound: false,
+        requestedDate: "2026-06-01",
+        shouldRetrySameSearch: false,
+        nextAction: "ask_for_different_preferences",
+        searchedFrom: "2026-06-01",
+        searchedThrough: "2026-06-15",
+        slots: [],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx } = createToolContext();
+
+    const result = await get_availability.execute(
+      { date: "2026-06-01" },
+      { ctx, toolCallId: "test-availability-none" },
+    );
+
+    expect(result).toMatchObject({
+      outcome: "no_availability",
+      availabilitySummary:
+        "No openings were found from 2026-06-01 through 2026-06-15. Do not search those dates again. If the caller wants to keep looking, search 2026-06-16 or later.",
+      searchedRange: {
+        start: "2026-06-01",
+        end: "2026-06-15",
+      },
+      nextRecommendedSearchDate: "2026-06-16",
+      slots: [],
+    });
   });
 
   it("allows availability when visit type context is missing", async () => {

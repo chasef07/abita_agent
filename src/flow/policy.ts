@@ -295,6 +295,15 @@ function outcomeForGuardReason(
         facts: { reason },
         retryable: false,
       };
+    case "availability_search_range_already_checked":
+      return {
+        outcome: "not_allowed",
+        nextStep: "get_availability",
+        speak:
+          "That date is inside a range that was already checked. Use the prior availability result or search after the checked range.",
+        facts: { reason },
+        retryable: false,
+      };
     case "availability_search_budget_exhausted":
       return {
         outcome: "not_allowed",
