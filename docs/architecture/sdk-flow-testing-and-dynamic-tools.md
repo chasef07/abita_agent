@@ -1,7 +1,8 @@
 # SDK Flow Testing and Dynamic Tool Exposure
 
-Status: implemented by default for current flow-harness trunks. Superseded for
-future tool-exposure design by `task-plan-flow-harness.md`.
+Status: historical implementation note. The SDK-level tests still matter, but
+the non-harness prompt/tool path and `RUNBOOK.md` cleanup are now recorded in
+`legacy-cleanup-and-next-steps.md`.
 
 This document describes the current SDK-level dynamic-tool behavior and the
 tests that protect it. The planner command from `task-plan-flow-harness.md`
@@ -26,13 +27,12 @@ keeping the existing TypeScript guards as the final authority.
 
 - `AgentSession<CallState>` is created in `src/main.ts`.
 - `session.userData.flow` is initialized before `session.start`.
-- `Agent.onUserTurnCompleted` injects a turn-state packet and requires
-  `record_turn_understanding` before any other guarded tool for the latest user
-  transcript.
+- `Agent.onUserTurnCompleted` injects a turn-state packet and auto-records
+  obvious deterministic turn understanding before the model responds.
 - `buildToolsForTrunk` exposes the safe fallback tool set for a
-  harness-enabled trunk.
-- On startup and after each state update, harness-enabled calls refresh to the
-  current flow-state-specific tool set.
+  supported trunk.
+- On startup and after each state update, calls refresh to the current
+  flow-state-specific tool set when dynamic tools are enabled.
 - `evaluateTurnUnderstandingGate` and `evaluateFlowToolPolicy` block unsafe tool
   calls after the model attempts them.
 - `parallelToolCalls` is currently enabled in the Baseten generation options.
@@ -55,7 +55,6 @@ the model sees tools it should not be considering for the current state.
 
 - Do not migrate providers.
 - Do not depend on unreleased `livekit/agents-js` `main`.
-- Do not remove `RUNBOOK.md` in this change.
 - Do not introduce multi-agent handoffs or `AgentTask` yet. Those can follow
   once the dynamic tool contract is verified.
 - Do not globally disable `parallelToolCalls` as the first fix. We should keep
@@ -201,7 +200,8 @@ export function buildToolsForState(
 ): ToolExposureDecision;
 ```
 
-Keep the current `buildToolsForTrunk` behavior for non-harness calls.
+Keep the current `buildToolsForTrunk` behavior as the safe startup tool set for
+supported trunks.
 
 ### Runtime Refresh Points
 
@@ -312,8 +312,7 @@ The wrappers still enforce policy, so fallback is safer than ending a live call.
 4. Wire startup and post-`record_turn_understanding` refresh for every
    flow-harness call.
 5. Run synthetic tests and one manual SIP call on the dev trunk.
-6. If stable, broaden `FLOW_HARNESS_TRUNK_PHONES` to the next controlled trunk.
-7. Keep wrapper policy guards as the fallback authority if SDK tool refresh
+6. Keep wrapper policy guards as the fallback authority if SDK tool refresh
    fails.
 
 ## Open Questions

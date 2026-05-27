@@ -8,11 +8,10 @@ The longer architecture notes remain historical design context.
 - Every call gets `session.userData.flow`.
 - Every call records `session.userData.preCallLookup` with explicit
   `verified`, `multiple_matches`, `no_match`, or `lookup_failed` status.
-- The live enforcement harness is enabled when the inbound trunk is in
-  `FLOW_HARNESS_TRUNK_PHONES`, or in the default enabled trunk set when that
-  env var is unset; otherwise the legacy tool path remains active.
-- The default enabled trunks are dev, Spring Hill, Crystal River, Hollywood,
-  and Sweetwater.
+- The live enforcement harness is enabled for every supported Abita trunk: dev,
+  Spring Hill, Crystal River, Hollywood, and Sweetwater.
+- `FLOW_HARNESS_TRUNK_PHONES` is no longer an activation switch. The supported
+  trunk registry is the activation boundary.
 
 ## Turn State
 
@@ -20,8 +19,9 @@ The longer architecture notes remain historical design context.
 - The packet also includes `<context_capsules>` for the current objective,
   active patient facts, loaded appointments, scheduling facts, pending
   confirmations, cached availability, and blocked actions.
-- Harness-enabled trunks must call `record_turn_understanding` once before any
-  other guarded tool for that turn.
+- The deterministic reducer records obvious caller intent before the model
+  responds. The `record_turn_understanding` tool remains only as fallback
+  plumbing and is not exposed by the startup tool set.
 - The model proposes structured semantic state; TypeScript owns whether that
   update changes patient, task, scheduling, insurance, routing, or pending
   action state.
@@ -34,17 +34,17 @@ The longer architecture notes remain historical design context.
   cancellation prerequisites, insurance updates, and side-effect confirmation.
 - Side-effect tools create confirmed pending actions only after the current
   speech is successfully made uninterruptible.
-- Booking success is recorded in flow state for both harness and legacy booking
-  paths so post-booking notes can be grounded to an actual booking.
+- Booking success is recorded in flow state so post-booking note operations can
+  be grounded to an actual booking.
 - Transfer has an in-flight guard so parallel tool calls cannot launch multiple
   SIP transfers.
 
 ## Documentation Boundary
 
-- `workspace/RUNBOOK.md` stays the legacy full model runbook for non-harness
-  trunks.
-- Harness-enabled trunks do not load `RUNBOOK.md`; they load `SOUL.md`,
-  `VOICE.md`, a compact harness operating contract, and
+- `workspace/RUNBOOK.md` has been removed. The prompt no longer has a
+  non-harness runbook path.
+- Supported trunks load `SOUL.md`, `VOICE.md`, a compact harness operating
+  contract, and
   `workspace/FLOW_HARNESS_RUNBOOK.md`.
 - This file is the operator/developer summary of what the current code enforces.
 

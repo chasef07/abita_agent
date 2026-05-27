@@ -241,19 +241,6 @@ describe("dynamic tool exposure", () => {
       "add_patient_note",
     );
   });
-
-  it("uses the legacy broad tool set when the flow harness is disabled", () => {
-    const state = createCallState({ flowHarnessEnabled: false });
-
-    const decision = buildToolsForState(state);
-
-    expect(decision.reason).toBe("legacy_harness_disabled");
-    expect(decision.visibleToolNames).toContain("verify_patient");
-    expect(decision.visibleToolNames).toContain("book_appt");
-    expect(decision.visibleToolNames).not.toContain(
-      "record_turn_understanding",
-    );
-  });
 });
 
 const DEV_BROAD_TOOL_NAMES = [

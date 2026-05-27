@@ -10,7 +10,6 @@ describe("pre-call bootstrap", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
-    delete process.env.FLOW_HARNESS_TRUNK_PHONES;
   });
 
   it("returns an explicit no_match outcome instead of null", async () => {
@@ -84,7 +83,6 @@ describe("pre-call bootstrap", () => {
   });
 
   it("builds bootstrap state with lookup telemetry", async () => {
-    process.env.FLOW_HARNESS_TRUNK_PHONES = SPRING_HILL_OFFICE_PHONE;
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({

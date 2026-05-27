@@ -284,32 +284,6 @@ describe("agent session flow integration", () => {
     await session.close();
   });
 
-  it("keeps legacy tool behavior when the flow harness is disabled", async () => {
-    const llmModel = new ScriptedToolAwareLLM(({ callIndex }) =>
-      callIndex === 0
-        ? {
-            type: "tool",
-            name: "lookup_knowledge",
-            args: { question: "office hours" },
-          }
-        : { type: "message", content: "done" },
-    );
-    const { session } = await createFixture({
-      llmModel,
-      flowHarnessEnabled: false,
-    });
-
-    const result = session.run({ userInput: "what are your hours?" });
-    await result.wait();
-
-    expect(functionCallNames(result.events)).toContain("lookup_knowledge");
-    expect(functionOutputText(result.events)).not.toContain(
-      "turn_understanding_required",
-    );
-    expect(functionOutputText(result.events)).toContain("Hours");
-    await session.close();
-  });
-
   it("keeps downstream tools visible while automatic turn understanding is pending", async () => {
     const llmModel = new ScriptedToolAwareLLM(() => ({
       type: "message",
@@ -428,14 +402,12 @@ class ScriptedToolAwareLLMStream extends llm.LLMStream {
 
 async function createFixture({
   llmModel,
-  flowHarnessEnabled = true,
   dynamicToolsEnabled = false,
 }: {
   llmModel: llm.LLM;
-  flowHarnessEnabled?: boolean;
   dynamicToolsEnabled?: boolean;
 }) {
-  const state = createCallState({ flowHarnessEnabled, dynamicToolsEnabled });
+  const state = createCallState({ dynamicToolsEnabled });
   const session = new voice.AgentSession<CallState>({
     llm: llmModel,
     userData: state,
