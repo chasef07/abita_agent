@@ -37,6 +37,7 @@ import {
   recordBookingResult,
   ensureActivePatientContext,
   hasActivePatientIdentityChanged,
+  applyPreCallIdentityFromTranscript,
   recordPatientVerificationAttempt,
   recordVerifiedPatient,
   snapshotActivePatientIdentity,
@@ -672,6 +673,34 @@ type BuiltPatientResolveRequest = {
   usesCallerPhone: boolean;
   usesFullIdentity: boolean;
 };
+
+function confirmPendingPreCallCallerFromVerifyArgs(
+  state: CallState,
+  args: PatientResolveArgs,
+): void {
+  if (!isFlowHarnessEnabled(state) || !args.firstName) return;
+  const preCall = state.flow.preCall;
+  if (preCall?.status !== "single_match_pending_confirmation") return;
+  if (preCall.candidates.length !== 1) return;
+  const [candidate] = preCall.candidates;
+  if (candidate?.ref !== DEFAULT_PATIENT_REF) return;
+  if (
+    identityArgConflicts(candidate.lastName, args.lastName) ||
+    identityArgConflicts(candidate.dob, args.dob)
+  ) {
+    return;
+  }
+
+  applyPreCallIdentityFromTranscript(state.flow, args.firstName);
+}
+
+function identityArgConflicts(
+  existing: string | undefined,
+  next: string | undefined,
+): boolean {
+  if (!existing || !next) return false;
+  return normalizeIdentityValue(existing) !== normalizeIdentityValue(next);
+}
 
 type PatientStatePayload = {
   status?: string | null;
@@ -2022,6 +2051,12 @@ After response:
   execute: async ({ firstName, lastName, dob }, { ctx }) => {
     const state = getState(ctx);
     makeCurrentSpeechUninterruptible(ctx);
+    restoreConfirmedPreCallCaller(state);
+    confirmPendingPreCallCallerFromVerifyArgs(state, {
+      firstName,
+      lastName,
+      dob,
+    });
     restoreConfirmedPreCallCaller(state);
     const request = buildPatientResolveRequest(state, {
       firstName,
