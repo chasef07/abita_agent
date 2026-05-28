@@ -5,7 +5,7 @@ import {
   createInitialFlowState,
   parseTurnUnderstanding,
   type CallFlowState,
-  type FlowDecision,
+  type FlowTurnAdvanceResult,
   type TurnUnderstanding,
   type VisitType,
 } from "../src/flow/index.js";
@@ -423,7 +423,7 @@ function replayCall(call: HistoricalCall, stats: ReplayStats): CallReplay {
     }
 
     const before = snapshotFlow(flow);
-    let decision: FlowDecision;
+    let decision: FlowTurnAdvanceResult;
     let turnState: string;
     try {
       const result = advanceFlowForTurn({
@@ -431,7 +431,7 @@ function replayCall(call: HistoricalCall, stats: ReplayStats): CallReplay {
         transcript: turn.callerText,
         understanding,
       });
-      decision = result.decision;
+      decision = result;
       turnState = result.turnState;
       bump(stats.decisionCounts, decisionLabel(decision));
     } catch (error) {
@@ -896,7 +896,7 @@ function smoothnessWarnings({
   understanding: TurnUnderstanding;
   before: StateSnapshot;
   after: StateSnapshot;
-  decision: FlowDecision;
+  decision: FlowTurnAdvanceResult;
   changedPaths: string[];
 }): ReplayIssue[] {
   const warnings: ReplayIssue[] = [];
@@ -920,7 +920,7 @@ function smoothnessWarnings({
     });
   }
   if (
-    decision.type === "call_tool" &&
+    decision.action === "call_tool" &&
     decision.tool === "book_appt" &&
     !after.pendingActions.some((action) => action.startsWith("book_appt:"))
   ) {
@@ -932,7 +932,7 @@ function smoothnessWarnings({
     });
   }
   if (
-    decision.type === "call_tool" &&
+    decision.action === "call_tool" &&
     decision.tool === "cancel_appt" &&
     !after.pendingActions.some((action) => action.startsWith("cancel_appt:"))
   ) {
@@ -1015,22 +1015,18 @@ function countHistoricalTools(
   }
 }
 
-function decisionLabel(decision: FlowDecision): string {
-  switch (decision.type) {
+function decisionLabel(decision: FlowTurnAdvanceResult): string {
+  switch (decision.action) {
     case "ask":
-      return `ask:${decision.slot}`;
+      return `ask:${decision.slot ?? decision.nextAction}`;
     case "call_tool":
-      return `tool:${decision.tool}`;
-    case "call_meta_tool":
-      return `meta:${decision.tool}`;
+      return `tool:${decision.tool ?? decision.nextAction}`;
     case "confirm":
-      return `confirm:${decision.confirmation.type}`;
-    case "say":
-      return "say";
-    case "transfer":
-      return "transfer";
-    case "end_call":
-      return "end_call";
+      return `confirm:${decision.confirmationType ?? decision.nextAction}`;
+    case "respond":
+      return "respond";
+    case "complete":
+      return "complete";
   }
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyTurnUnderstandingFromTranscript,
+  reduceTurnUnderstandingFromTranscript,
   advanceFlowForTurn,
   compileTurnStatePacket,
   completeCurrentTaskAndResume,
@@ -10,7 +10,7 @@ import {
   createPendingSideEffectAction,
   evaluateFlowToolPolicy,
   hashToolArgs,
-  flowDecisionForWorkflowCommand,
+  inferObviousTurnUnderstanding,
   planNextCommand,
   recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
@@ -22,13 +22,17 @@ import {
   type BookingAttemptRecordInput,
   type CallFlowState,
   type CallerAppointment,
-  type FlowDecision,
+  type FlowTurnAdvanceResult,
   type FlowPolicyDecision,
   type GuardedToolName,
   type SideEffectActionType,
   type TurnUnderstanding,
   type VisitType,
 } from "../flow/index.js";
+import {
+  flowDecisionForWorkflowCommand,
+  type FlowDecision,
+} from "./flow-decision-test-helper.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { OfficeKey } from "../offices.js";
 
@@ -37,6 +41,17 @@ type ToolArgs = Record<string, unknown>;
 interface CallerTurnResult {
   decision: FlowDecision;
   transcript: string;
+}
+
+function decisionForTurn(turn: FlowTurnAdvanceResult): FlowDecision {
+  if (turn.workflowCommand) {
+    return flowDecisionForWorkflowCommand(turn.workflowCommand);
+  }
+  return {
+    type: "ask",
+    slot: turn.slot ?? "clarification",
+    promptHint: turn.instruction,
+  };
 }
 
 interface TranscriptHarnessInput {
@@ -83,7 +98,7 @@ class TranscriptEvalHarness {
     });
     return {
       transcript,
-      decision: turn.decision,
+      decision: decisionForTurn(turn),
     };
   }
 
@@ -91,7 +106,7 @@ class TranscriptEvalHarness {
     transcript: string,
     understanding: TurnUnderstanding,
   ): CallerTurnResult {
-    applyTurnUnderstandingFromTranscript(this.flow, transcript, understanding);
+    reduceTurnUnderstandingFromTranscript(this.flow, transcript, understanding);
     return {
       transcript,
       decision: flowDecisionForWorkflowCommand(planNextCommand(this.flow)),
@@ -290,6 +305,64 @@ class TranscriptEvalHarness {
 }
 
 describe("transcript replay eval harness", () => {
+  it("replays the source call as reschedule before the transfer escalation", () => {
+    const harness = new TranscriptEvalHarness({
+      officeKey: "hollywood",
+      patientId: null,
+      patientName: null,
+      dob: null,
+      callerPhone: "+19548223950",
+    });
+
+    const openingUnderstanding = inferObviousTurnUnderstanding(
+      harness.flow,
+      "Appointment changes.",
+    );
+    expect(openingUnderstanding).toMatchObject({
+      goal: "manage_existing_appointment",
+      appointmentAction: "reschedule",
+    });
+
+    const openingTurn = harness.hear(
+      "Appointment changes.",
+      openingUnderstanding!,
+    );
+
+    expect(openingTurn.decision).toMatchObject({
+      type: "ask",
+      slot: "patientIdentity",
+    });
+    expect(harness.flow).toMatchObject({
+      activeFlow: "appointment_management",
+      activeIntent: "existing_appointment_reschedule",
+      step: "verify_patient",
+    });
+
+    recordVerifiedPatient(harness.flow, {
+      patientId: "17553422",
+      patientName: "QUEVEDO MAZA,CARLOS",
+      dob: "10/13/1949",
+      appointments: [appointment(20756135)],
+      appointmentsStatus: "found",
+      source: "tool_result",
+    });
+
+    const nextWeekTurn = harness.hear(
+      "Uh, for next week.",
+      scheduleTurn({ preferredWindow: "next week" }),
+    );
+
+    expect(harness.flow.activeIntent).toBe("existing_appointment_reschedule");
+    expect(harness.flow.schedulingGoal).toMatchObject({
+      appointmentAction: "reschedule",
+      preferredWindow: "next week",
+    });
+    expect(nextWeekTurn.decision).not.toMatchObject({
+      type: "call_tool",
+      tool: "verify_patient",
+    });
+  });
+
   it("treats pre-call appointments as loaded but still requires explicit cancel confirmation", () => {
     const harness = new TranscriptEvalHarness({
       appointments: [appointment(12345)],
@@ -493,12 +566,41 @@ describe("transcript replay eval harness", () => {
       type: "confirm",
       confirmation: { type: "transfer" },
     });
+
+    const confirmedTransfer = harness.hear("yes", {
+      goal: "transfer_request",
+      appointmentAction: null,
+      confirmation: { transferConfirmed: true },
+      interruption: "none",
+      confidence: 0.95,
+      evidence: ["yes"],
+    });
+
+    expect(confirmedTransfer.decision).toMatchObject({
+      type: "call_tool",
+      tool: "transfer_call",
+      args: {},
+    });
+    expect(harness.flow.pendingActions).toContainEqual(
+      expect.objectContaining({
+        type: "transfer_call",
+        confirmed: true,
+        consumed: false,
+      }),
+    );
   });
 
-  it("allows booking from cached availability without a separate confirmation state", () => {
+  it("requires reducer-confirmed booking before cached availability can book", () => {
     const harness = new TranscriptEvalHarness();
     harness.verifyPrecallPatient();
     harness.startAvailability();
+
+    expect(harness.bookingPolicy()).toMatchObject({
+      allowed: false,
+      observation: { reason: "booking_confirmation_required" },
+    });
+
+    harness.confirmBooking();
 
     expect(harness.bookingPolicy()).toMatchObject({
       allowed: true,
@@ -531,6 +633,7 @@ describe("transcript replay eval harness", () => {
 
     harness.verifyPrecallPatient();
     harness.startAvailability();
+    harness.confirmBooking();
     expect(harness.bookingPolicy()).toMatchObject({
       allowed: true,
       observation: { reason: "allowed" },

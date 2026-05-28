@@ -171,6 +171,48 @@ describe("flow report-only guards", () => {
     });
   });
 
+  it("allows booking for a confirmed pre-call patient without verify_patient", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+      preCall: {
+        status: "single_match_confirmed",
+        source: "phone_lookup",
+        callerPhone: "+17275551212",
+        candidates: [
+          {
+            ref: "caller",
+            firstName: "Jane",
+            lastName: "Doe",
+            dob: "01/01/1980",
+            patientId: "patient-1",
+            relationshipToCaller: "self",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+        ],
+        selectedCandidateRef: "caller",
+        identityPromotion: "first_name_confirmed",
+      },
+    });
+    flow.visitType = "medical";
+    flow.step = "book";
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "book_appt",
+      stateFacts: {
+        lastAvailabilityRouting: "all_three",
+      },
+    });
+
+    expect(observation).toMatchObject({
+      allowed: true,
+      reason: "allowed",
+    });
+  });
+
   it("allows booking from cached availability when routing is default", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
@@ -296,13 +338,29 @@ describe("flow report-only guards", () => {
   });
 
   it("reports cancellation before explicit cancellation confirmation", () => {
-    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      appointments: [
+        {
+          id: 12345,
+          date: "2026-06-01",
+          time: "9:00 AM",
+          provider: "Dr. Bach",
+          type: "Follow-up",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+      ],
+    });
     flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
     flow.step = "cancel";
 
     const observation = guardToolCall({
       flow,
       toolName: "cancel_appt",
+      args: { appointmentId: 12345 },
     });
 
     expect(observation).toMatchObject({
@@ -411,8 +469,12 @@ describe("flow report-only guards", () => {
   });
 
   it("reports cancellation before the appointment is loaded", () => {
-    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+    });
     flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
     flow.step = "cancel";
     flow.pendingConfirmation = {
       type: "cancel",

@@ -283,25 +283,41 @@ export function recordAvailabilityCachedSlots(
     .find((candidate) => candidate.status !== "invalidated");
   if (!search) return undefined;
 
-  search.cachedSlots = slots.map((slot) => ({
+  const nextSlots = slots.map((slot) => ({
     slotHash: slot.slotId,
     startDatetime: slot.datetime,
     columnId: slot.columnId,
     profileId: slot.profileId,
     duration: slot.duration,
   }));
-  if (search.cachedSlots.length > 0) {
-    if (search.status !== "exhausted") {
-      search.status = "satisfied";
-    }
+  if (nextSlots.length > 0) {
+    search.cachedSlots = mergeCachedSlots(search.cachedSlots, nextSlots);
+    if (search.status !== "exhausted") search.status = "satisfied";
   } else {
-    if (search.status === "satisfied") {
-      search.status =
-        search.exactSearchCount >= search.maxSearches ? "exhausted" : "active";
-    }
     pushFailureReason(search, "no_slots");
   }
   return search;
+}
+
+function mergeCachedSlots(
+  existing: AvailabilitySearch["cachedSlots"],
+  next: AvailabilitySearch["cachedSlots"],
+): AvailabilitySearch["cachedSlots"] {
+  const slotsByHash = new Map<
+    string,
+    AvailabilitySearch["cachedSlots"][number]
+  >();
+  for (const slot of existing) {
+    slotsByHash.set(normalizeSlotHash(slot.slotHash), slot);
+  }
+  for (const slot of next) {
+    slotsByHash.set(normalizeSlotHash(slot.slotHash), slot);
+  }
+  return [...slotsByHash.values()];
+}
+
+function normalizeSlotHash(slotHash: string): string {
+  return slotHash.trim().toUpperCase();
 }
 
 export function recordBookingAttempt(

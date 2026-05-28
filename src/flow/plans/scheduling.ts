@@ -4,7 +4,6 @@ import type {
   GenericTaskPlan,
   IntentKind,
   PlannerFact,
-  PlannerStatePatch,
   SchedulingGoalState,
   WorkflowCommand,
   WorkflowToolName,
@@ -15,7 +14,6 @@ import {
   genericPlan,
   isPlannerFact,
   knownPatientFacts,
-  mergeCompletedSteps,
   operationalBlockedActions,
 } from "./common.js";
 
@@ -68,11 +66,6 @@ export function planScheduling(
     insurancePlan,
     coverageType,
   });
-  const statePatch = schedulingOutcomePatch(
-    flow,
-    outcome.statePatch,
-    staleGoalPatch,
-  );
   const resolvedMetaDecision = {
     tool: "prepareSchedulingPath" as const,
     outcome,
@@ -96,7 +89,7 @@ export function planScheduling(
         ],
         instruction: "Call route_to_spring_hill now.",
         step: "route_office",
-        statePatch,
+        schedulingGoal: staleGoalPatch,
         resolvedMetaDecision,
       });
     }
@@ -132,7 +125,7 @@ export function planScheduling(
         type: "route_office",
         payload: outcome.facts ?? {},
       },
-      statePatch,
+      schedulingGoal: staleGoalPatch,
       resolvedMetaDecision,
     });
   }
@@ -178,7 +171,7 @@ export function planScheduling(
         type: "transfer",
         payload: outcome.facts ?? {},
       },
-      statePatch,
+      schedulingGoal: staleGoalPatch,
       resolvedMetaDecision,
     });
   }
@@ -196,7 +189,7 @@ export function planScheduling(
       instruction:
         outcome.speak ?? "Explain why this scheduling path cannot continue.",
       step: "answer",
-      statePatch,
+      schedulingGoal: staleGoalPatch,
       resolvedMetaDecision,
     });
   }
@@ -210,7 +203,8 @@ export function planScheduling(
       instruction:
         outcome.speak ??
         "Ask whether this is for routine vision, glasses or contacts, or medical or surgical eye care.",
-      statePatch,
+      step: nextStep,
+      schedulingGoal: staleGoalPatch,
       resolvedMetaDecision,
     });
   }
@@ -242,7 +236,7 @@ export function planScheduling(
         ],
         instruction: "Call check_insurance now.",
         step: "check_insurance",
-        statePatch,
+        schedulingGoal: staleGoalPatch,
         resolvedMetaDecision,
       });
     }
@@ -253,7 +247,8 @@ export function planScheduling(
       instruction:
         outcome.speak ??
         "Ask which insurance plan they will be using before scheduling.",
-      statePatch,
+      step: nextStep,
+      schedulingGoal: staleGoalPatch,
       resolvedMetaDecision,
     });
   }
@@ -280,8 +275,8 @@ export function planScheduling(
         ],
         instruction:
           "Call verify_patient with the selected first name. Caller phone is loaded from state.",
-        step: statePatch?.step,
-        statePatch,
+        step: nextStep,
+        schedulingGoal: staleGoalPatch,
         resolvedMetaDecision,
       });
     }
@@ -308,7 +303,8 @@ export function planScheduling(
         flow,
         outcome.speak ?? "Ask for the patient's first name.",
       ),
-      statePatch,
+      step: nextStep,
+      schedulingGoal: staleGoalPatch,
       resolvedMetaDecision,
     });
   }
@@ -338,13 +334,13 @@ export function planScheduling(
       instruction:
         "Collect the missing registration fields and insurance details, then read them back before creating the patient.",
       step: "collect_registration",
-      statePatch,
+      schedulingGoal: staleGoalPatch,
       resolvedMetaDecision,
     });
   }
 
   return planAvailabilityFrontier(flow, plan, {
-    statePatch,
+    schedulingGoal: staleGoalPatch,
     resolvedMetaDecision,
   });
 }
@@ -390,7 +386,7 @@ function planActiveSchedulingStep(
         ],
         instruction: instructionForMissingBookingNoteFact(missingNoteFact.key),
         step: "collect_visit_reason",
-        statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+        schedulingGoal: goalPatch,
       });
     }
     return command(flow, plan, {
@@ -409,7 +405,7 @@ function planActiveSchedulingStep(
       ],
       instruction: "Call book_appt now.",
       step: "confirm_booking",
-      statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+      schedulingGoal: goalPatch,
     });
   }
 
@@ -420,17 +416,17 @@ function planActiveSchedulingStep(
   ) {
     if (latestCachedSearch) {
       return askFromCachedAvailability(flow, plan, {
-        statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+        schedulingGoal: goalPatch,
       });
     }
     if (latestSearch?.status === "exhausted") {
       return askAfterAvailabilityBudget(flow, plan, {
-        statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+        schedulingGoal: goalPatch,
       });
     }
     if (latestSearch && availabilitySearchHasAttempts(latestSearch)) {
       return askAfterAvailabilityAttempt(flow, plan, {
-        statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+        schedulingGoal: goalPatch,
       });
     }
     return command(flow, plan, {
@@ -454,7 +450,7 @@ function planActiveSchedulingStep(
       ],
       instruction: "Call get_availability now.",
       step: "get_availability",
-      statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+      schedulingGoal: goalPatch,
     });
   }
 
@@ -465,7 +461,7 @@ function planActiveSchedulingStep(
         preservePreferredWindow: true,
       });
       return planAvailabilityFrontier(flow, plan, {
-        statePatch: retryGoal ? { schedulingGoal: retryGoal } : undefined,
+        schedulingGoal: retryGoal,
         rejectedSlotId,
       });
     }
@@ -492,7 +488,7 @@ function planActiveSchedulingStep(
       instruction:
         "Ask whether they want the exact appointment slot that was just offered.",
       step: "confirm_booking",
-      statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+      schedulingGoal: goalPatch,
     });
   }
 
@@ -519,7 +515,7 @@ function planActiveSchedulingStep(
         instruction:
           "Ask whether they want the exact appointment slot that was just offered.",
         step: "confirm_booking",
-        statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+        schedulingGoal: goalPatch,
       });
     }
     const missingNoteFact = nextMissingBookingNoteFact(effectiveGoal);
@@ -540,7 +536,7 @@ function planActiveSchedulingStep(
         ],
         instruction: instructionForMissingBookingNoteFact(missingNoteFact.key),
         step: "collect_visit_reason",
-        statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+        schedulingGoal: goalPatch,
       });
     }
     return command(flow, plan, {
@@ -554,7 +550,7 @@ function planActiveSchedulingStep(
       blockedActions: [],
       instruction: "Call book_appt now.",
       step: "confirm_booking",
-      statePatch: goalPatch ? { schedulingGoal: goalPatch } : undefined,
+      schedulingGoal: goalPatch,
     });
   }
 
@@ -564,14 +560,15 @@ function planActiveSchedulingStep(
 function planAvailabilityFrontier(
   flow: CallFlowState,
   plan: GenericTaskPlan,
-  input: Pick<
-    Parameters<typeof command>[2],
-    "statePatch" | "resolvedMetaDecision"
-  > & { rejectedSlotId?: string },
+  input: {
+    schedulingGoal?: SchedulingGoalState;
+    resolvedMetaDecision?: WorkflowCommand["resolvedMetaDecision"];
+    rejectedSlotId?: string;
+  },
 ): WorkflowCommand {
   const preferredWindow =
-    input.statePatch?.schedulingGoal !== undefined
-      ? input.statePatch.schedulingGoal?.preferredWindow
+    input.schedulingGoal !== undefined
+      ? input.schedulingGoal?.preferredWindow
       : flow.schedulingGoal?.preferredWindow;
   if (!preferredWindow) {
     return askSchedulingSlot(flow, plan, {
@@ -580,7 +577,7 @@ function planAvailabilityFrontier(
       label: "day or time window for the appointment",
       instruction:
         "Ask what day or general time window works for the appointment.",
-      statePatch: input.statePatch,
+      schedulingGoal: input.schedulingGoal,
       resolvedMetaDecision: input.resolvedMetaDecision,
     });
   }
@@ -588,20 +585,20 @@ function planAvailabilityFrontier(
   if (latestCachedSearch) {
     return askFromCachedAvailability(flow, plan, {
       rejectedSlotId: input.rejectedSlotId,
-      statePatch: input.statePatch,
+      schedulingGoal: input.schedulingGoal,
       resolvedMetaDecision: input.resolvedMetaDecision,
     });
   }
   const latestSearch = latestUsableAvailabilitySearch(flow);
   if (latestSearch?.status === "exhausted") {
     return askAfterAvailabilityBudget(flow, plan, {
-      statePatch: input.statePatch,
+      schedulingGoal: input.schedulingGoal,
       resolvedMetaDecision: input.resolvedMetaDecision,
     });
   }
   if (latestSearch && availabilitySearchHasAttempts(latestSearch)) {
     return askAfterAvailabilityAttempt(flow, plan, {
-      statePatch: input.statePatch,
+      schedulingGoal: input.schedulingGoal,
       resolvedMetaDecision: input.resolvedMetaDecision,
     });
   }
@@ -627,7 +624,7 @@ function planAvailabilityFrontier(
     ],
     instruction: "Call get_availability now.",
     step: "get_availability",
-    statePatch: input.statePatch,
+    schedulingGoal: input.schedulingGoal,
     resolvedMetaDecision: input.resolvedMetaDecision,
   });
 }
@@ -637,7 +634,7 @@ function askFromCachedAvailability(
   plan: GenericTaskPlan,
   input: {
     rejectedSlotId?: string;
-    statePatch?: PlannerStatePatch;
+    schedulingGoal?: SchedulingGoalState;
     resolvedMetaDecision?: WorkflowCommand["resolvedMetaDecision"];
   } = {},
 ): WorkflowCommand {
@@ -672,7 +669,7 @@ function askFromCachedAvailability(
       "Offer one cached availability option or say the cached options do not match the requested window, then ask whether they want that option, a different window, or a transfer." +
       rejectedText,
     step: "confirm_booking",
-    statePatch: input.statePatch,
+    schedulingGoal: input.schedulingGoal,
     resolvedMetaDecision: input.resolvedMetaDecision,
   });
 }
@@ -681,7 +678,7 @@ function askAfterAvailabilityBudget(
   flow: CallFlowState,
   plan: GenericTaskPlan,
   input: {
-    statePatch?: PlannerStatePatch;
+    schedulingGoal?: SchedulingGoalState;
     resolvedMetaDecision?: WorkflowCommand["resolvedMetaDecision"];
   } = {},
 ): WorkflowCommand {
@@ -712,7 +709,7 @@ function askAfterAvailabilityBudget(
     instruction:
       "Do not search again for the same window. Offer any cached options if present; otherwise ask for a different date or time window, or offer to transfer.",
     step: "confirm_booking",
-    statePatch: input.statePatch,
+    schedulingGoal: input.schedulingGoal,
     resolvedMetaDecision: input.resolvedMetaDecision,
   });
 }
@@ -721,7 +718,7 @@ function askAfterAvailabilityAttempt(
   flow: CallFlowState,
   plan: GenericTaskPlan,
   input: {
-    statePatch?: PlannerStatePatch;
+    schedulingGoal?: SchedulingGoalState;
     resolvedMetaDecision?: WorkflowCommand["resolvedMetaDecision"];
   } = {},
 ): WorkflowCommand {
@@ -751,7 +748,7 @@ function askAfterAvailabilityAttempt(
     instruction:
       "Do not search again for the same window. Say what was found or not found, then ask for a different date or time window, or offer to transfer.",
     step: "confirm_booking",
-    statePatch: input.statePatch,
+    schedulingGoal: input.schedulingGoal,
     resolvedMetaDecision: input.resolvedMetaDecision,
   });
 }
@@ -766,7 +763,8 @@ function askSchedulingSlot(
     allowedTools?: WorkflowToolName[];
     blockedActions?: BlockedAction[];
     instruction: string;
-    statePatch?: PlannerStatePatch;
+    step?: CallFlowState["step"];
+    schedulingGoal?: SchedulingGoalState;
     resolvedMetaDecision?: WorkflowCommand["resolvedMetaDecision"];
   },
 ): WorkflowCommand {
@@ -781,8 +779,8 @@ function askSchedulingSlot(
       input.blockedActions ??
       operationalBlockedActions("required scheduling fact is still missing"),
     instruction: input.instruction,
-    step: input.statePatch?.step,
-    statePatch: input.statePatch,
+    step: input.step,
+    schedulingGoal: input.schedulingGoal,
     resolvedMetaDecision: input.resolvedMetaDecision,
   });
 }
@@ -856,28 +854,6 @@ function objectiveForSchedulingTask(kind: GenericTaskPlan["kind"]): string {
     default:
       return "continue the active workflow";
   }
-}
-
-function schedulingOutcomePatch(
-  flow: CallFlowState,
-  patch: Partial<CallFlowState> | undefined,
-  schedulingGoal?: SchedulingGoalState,
-): PlannerStatePatch | undefined {
-  if (!patch && !schedulingGoal) return undefined;
-  return {
-    activeFlow: patch?.activeFlow,
-    step: patch?.step,
-    patientStatus: patch?.patientStatus,
-    officeKey: patch?.officeKey,
-    visitType: patch?.visitType,
-    coverageType: patch?.coverageType,
-    routing: patch?.routing,
-    requiredSlots: patch?.requiredSlots,
-    completedSteps: patch?.completedSteps
-      ? mergeCompletedSteps(flow.completedSteps, patch.completedSteps)
-      : undefined,
-    schedulingGoal,
-  };
 }
 
 function schedulingGoalWithoutStaleSelection(

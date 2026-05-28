@@ -1,7 +1,10 @@
 import { createHash } from "crypto";
 import { inspectAvailabilitySearch } from "./availability.js";
 import type { AvailabilitySearchInspection } from "./availability.js";
-import { DEFAULT_PATIENT_REF } from "./state.js";
+import {
+  hasConfirmedPatientInFlow,
+  hasConfirmedPreCallPatient,
+} from "./state.js";
 import type { CallFlowState } from "./types.js";
 
 export type GuardedToolName =
@@ -132,10 +135,7 @@ function guardReason(
   stateFacts: NonNullable<GuardToolCallInput["stateFacts"]>,
   availabilityInspection?: AvailabilitySearchInspection,
 ): GuardObservationReason {
-  if (
-    toolName === "verify_patient" &&
-    confirmedSingleMatchPreCallCaller(flow)
-  ) {
+  if (toolName === "verify_patient" && hasConfirmedPreCallPatient(flow)) {
     return "verify_patient_pre_call_already_confirmed";
   }
 
@@ -168,7 +168,11 @@ function guardReason(
   }
 
   const hasVerifiedOrCreatedPatient =
-    flow.patientStatus === "verified" || flow.patientStatus === "created";
+    hasConfirmedPatientInFlow(flow) ||
+    Boolean(
+      stateFacts.patientId &&
+      (flow.patientStatus === "verified" || flow.patientStatus === "created"),
+    );
   if (toolName === "book_appt" && !hasVerifiedOrCreatedPatient) {
     return "booking_requires_verified_or_created_patient";
   }
@@ -189,6 +193,14 @@ function guardReason(
     return "cancel_requires_verified_or_created_patient";
   }
 
+  if (
+    toolName === "cancel_appt" &&
+    !hasConsumedCancelAction(flow, argsHash) &&
+    !hasLoadedAppointment(flow, args)
+  ) {
+    return "cancel_requires_loaded_appointment";
+  }
+
   const hasConsumedCancel = hasConsumedCancelAction(flow, argsHash);
   if (
     toolName === "cancel_appt" &&
@@ -200,14 +212,6 @@ function guardReason(
   }
 
   if (
-    toolName === "cancel_appt" &&
-    !hasConsumedCancel &&
-    !hasLoadedAppointment(flow, args)
-  ) {
-    return "cancel_requires_loaded_appointment";
-  }
-
-  if (
     flow.lastGuardedToolCall?.name === toolName &&
     flow.lastGuardedToolCall.argsHash === argsHash
   ) {
@@ -215,19 +219,6 @@ function guardReason(
   }
 
   return "allowed";
-}
-
-function confirmedSingleMatchPreCallCaller(flow: CallFlowState): boolean {
-  const preCall = flow.preCall;
-  if (
-    preCall?.status !== "single_match_confirmed" &&
-    preCall?.status !== "multiple_match_confirmed"
-  ) {
-    return false;
-  }
-  const selectedRef = preCall.selectedCandidateRef ?? DEFAULT_PATIENT_REF;
-  const patient = flow.patients[selectedRef];
-  return Boolean(patient?.patientId);
 }
 
 function hasPendingCancelAction(

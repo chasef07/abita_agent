@@ -3,6 +3,11 @@
 Status: historical planning spec. The current implementation and tests are the
 source of truth where they differ from this document.
 
+Superseded state model: durable flow writes now go through the single-writer
+event reducer described in `single-writer-flow-state-spec.md`. Older
+`statePatch`, `applyPlannerPatch`, and direct turn-understanding mutation
+examples in this document are historical only.
+
 Source traces: `SCL_ctXMgWUCKsZg` and `SCL_kPv8L7nVVxtm`, reviewed on
 May 24, 2026.
 

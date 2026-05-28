@@ -182,6 +182,35 @@ export function createPatientContext({
   };
 }
 
+export function hasConfirmedPreCallPatient(flow: CallFlowState): boolean {
+  const preCall = flow.preCall;
+  if (
+    preCall?.status !== "single_match_confirmed" &&
+    preCall?.status !== "multiple_match_confirmed"
+  ) {
+    return false;
+  }
+  const selectedRef = preCall.selectedCandidateRef ?? DEFAULT_PATIENT_REF;
+  return Boolean(flow.patients[selectedRef]?.patientId);
+}
+
+export function hasConfirmedPatientInFlow(flow: CallFlowState): boolean {
+  const activeRef = flow.activePatientRef ?? DEFAULT_PATIENT_REF;
+  const activePatient = flow.patients[activeRef];
+  if (
+    activePatient?.patientId &&
+    (isConfirmedPatientStatus(activePatient.status) ||
+      isConfirmedPatientStatus(flow.patientStatus))
+  ) {
+    return true;
+  }
+  return hasConfirmedPreCallPatient(flow);
+}
+
+function isConfirmedPatientStatus(status?: PatientStatus): boolean {
+  return status === "verified" || status === "created";
+}
+
 export interface PreCallIdentityReducerResult {
   status: PreCallIdentityStatus;
   changed: boolean;
@@ -233,7 +262,12 @@ export function confirmPreloadedPatientIdentityFromTranscript(
     return undefined;
   }
 
-  if (!transcriptConfirmsFirstName(transcript, patient.firstName.value)) {
+  if (
+    !transcriptConfirmsKnownName(transcript, {
+      firstName: patient.firstName.value,
+      lastName: patient.lastName?.value,
+    })
+  ) {
     return undefined;
   }
 
@@ -333,12 +367,20 @@ function applySingleMatchPreCallIdentity(
   const callerCandidate = singlePreCallCallerCandidate(preCall);
   const expectedFirstName =
     callerCandidate?.firstName ?? patient?.firstName?.value;
-  const expected = normalizeIdentityValue(expectedFirstName);
-  if (!expected) {
+  const expectedLastName =
+    callerCandidate?.lastName ?? patient?.lastName?.value;
+  const expectedFirst = normalizeIdentityValue(expectedFirstName);
+  const expectedLast = normalizeIdentityValue(expectedLastName);
+  if (!expectedFirst && !expectedLast) {
     return undefined;
   }
 
-  if (transcriptConfirmsFirstName(transcript, expectedFirstName)) {
+  if (
+    transcriptConfirmsKnownName(transcript, {
+      firstName: expectedFirstName,
+      lastName: expectedLastName,
+    })
+  ) {
     const confirmed = callerCandidate
       ? confirmPreCallCallerIdentity(flow, callerCandidate)
       : confirmPreloadedPatientIdentityFromTranscript(flow, transcript);
@@ -355,7 +397,7 @@ function applySingleMatchPreCallIdentity(
   if (!spokenFirstName) return undefined;
 
   const spoken = normalizeIdentityValue(spokenFirstName);
-  if (!spoken || spoken === expected) return undefined;
+  if (!spoken || spoken === expectedFirst) return undefined;
 
   const firstNameSource = firstNameSourceForTranscript(transcript);
   const ref = candidateRefForSpokenName(spokenFirstName, preCall.callerPhone);
@@ -685,6 +727,39 @@ function transcriptConfirmsFirstName(
     (normalizedSpoken === expected ||
       firstNamesAreFuzzyMatch(normalizedSpoken, expected)),
   );
+}
+
+function transcriptConfirmsKnownName(
+  transcript: string,
+  expected: { firstName?: string; lastName?: string },
+): boolean {
+  if (transcriptConfirmsFirstName(transcript, expected.firstName)) {
+    return true;
+  }
+
+  const expectedParts = namePartsForMatching(
+    [expected.firstName, expected.lastName].filter(Boolean).join(" "),
+  );
+  if (expectedParts.length === 0) return false;
+
+  const spokenParts = namePartsForMatching(transcript);
+  return expectedParts.some((expectedPart) =>
+    spokenParts.some((spokenPart) => namePartsMatch(spokenPart, expectedPart)),
+  );
+}
+
+function namePartsForMatching(value?: string): string[] {
+  if (!value) return [];
+  return value
+    .split(/\s+/)
+    .map((part) => part.replace(/[^a-zA-Z'-]/g, ""))
+    .filter(isUsableSpokenFirstName)
+    .map((part) => normalizeIdentityValue(part))
+    .filter((part): part is string => Boolean(part));
+}
+
+function namePartsMatch(spoken: string, expected: string): boolean {
+  return spoken === expected || firstNamesAreFuzzyMatch(spoken, expected);
 }
 
 function firstNamesAreFuzzyMatch(spoken: string, expected: string): boolean {

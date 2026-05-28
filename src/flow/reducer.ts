@@ -1,20 +1,23 @@
 import { compileTurnStatePacket } from "./context.js";
 import {
-  applyPlannerPatch,
-  flowDecisionForWorkflowCommand,
+  callerTurnMeaningEvent,
+  nextFlowEventId,
+  type CallerTurnMeaningEvent,
+} from "./events.js";
+import { reduceFlowEvent } from "./event-reducer.js";
+import {
   planNextCommand,
   type PlanNextCommandOptions,
 } from "./plans/task-planner.js";
-import {
-  applyTurnUnderstandingFromTranscript,
-  type TurnUnderstanding,
-  type TurnUnderstandingStateUpdate,
-} from "./understanding.js";
+import { type TurnUnderstanding } from "./understanding.js";
+import { type TurnUnderstandingStateUpdate } from "./turn-state-reducer.js";
 import type {
   CallFlowState,
-  FlowDecision,
+  ConfirmationType,
   ToolOutcome,
   WorkflowCommand,
+  WorkflowCommandAction,
+  WorkflowToolName,
 } from "./types.js";
 
 export type WorkflowEvent =
@@ -22,6 +25,7 @@ export type WorkflowEvent =
       type: "caller_intent_recorded";
       transcript: string;
       understanding: TurnUnderstanding;
+      source?: CallerTurnMeaningEvent["source"];
       options?: PlanNextCommandOptions;
     }
   | {
@@ -44,7 +48,12 @@ export interface ResolvedMetaDecision {
 export interface WorkflowAdvanceResult {
   event: WorkflowEvent["type"];
   update?: TurnUnderstandingStateUpdate;
-  decision: FlowDecision;
+  action: WorkflowCommandAction;
+  nextAction: string;
+  slot?: string;
+  tool?: WorkflowToolName;
+  args?: unknown;
+  confirmationType?: ConfirmationType;
   turnState: string;
   instruction: string;
   workflowCommand?: WorkflowCommand;
@@ -56,53 +65,51 @@ export function advanceWorkflow(
   event: WorkflowEvent,
 ): WorkflowAdvanceResult {
   if (event.type === "caller_intent_recorded") {
-    const update = applyTurnUnderstandingFromTranscript(
+    const reduced = reduceFlowEvent(
       flow,
-      event.transcript,
-      event.understanding,
+      callerTurnMeaningEvent({
+        transcript: event.transcript,
+        understanding: event.understanding,
+        flow,
+        source: event.source ?? "deterministic_understanding",
+      }),
     );
+    const update = reduced.update;
+    if (!update) {
+      throw new Error("caller turn event did not produce a state update");
+    }
     if (isLowConfidenceNoop(update)) {
-      const decision: FlowDecision = {
-        type: "ask",
-        slot: "clarification",
-        promptHint:
-          "Ask one short clarifying question before changing workflow state.",
-      };
+      const nextAction = askActionForSlot("clarification");
+      const instruction =
+        "Ask one short clarifying question before changing workflow state.";
       return {
         event: event.type,
         update,
-        decision,
-        turnState: compileTurnStatePacket(flow, {
-          nextAction: nextActionForFlowDecision(decision),
-        }),
-        instruction: instructionForFlowDecision(decision),
+        action: "ask",
+        nextAction,
+        slot: "clarification",
+        turnState: compileTurnStatePacket(
+          flow,
+          {
+            nextAction,
+          },
+          null,
+        ),
+        instruction,
       };
     }
 
     return planAndApplyWorkflow(flow, event.type, update, event.options);
   }
 
-  applyEventFacts(flow, event);
+  reduceFlowEvent(flow, {
+    id: nextFlowEventId("workflow_fact"),
+    type: "workflow_fact_event",
+    source: "system",
+    createdAt: Date.now(),
+    workflowEventType: event.type,
+  });
   return planAndApplyWorkflow(flow, event.type, undefined, event.options);
-}
-
-function applyEventFacts(flow: CallFlowState, event: WorkflowEvent): void {
-  switch (event.type) {
-    case "booking_succeeded":
-      if (flow.schedulingGoal) {
-        flow.schedulingGoal = {
-          ...flow.schedulingGoal,
-          status: "booked",
-          updatedAt: Date.now(),
-        };
-      }
-      return;
-    case "cancel_succeeded":
-      flow.pendingConfirmation = undefined;
-      return;
-    default:
-      return;
-  }
 }
 
 function planAndApplyWorkflow(
@@ -118,17 +125,34 @@ function planAndApplyWorkflow(
       options.preservePreferredWindowOnPathChange ??
       Boolean(update?.understanding.scheduling?.preferredWindow),
   });
-  applyPlannerPatch(flow, workflowCommand);
-  const decision = flowDecisionForWorkflowCommand(workflowCommand);
+  reduceFlowEvent(flow, {
+    id: nextFlowEventId("planner_command"),
+    type: "planner_command_applied",
+    source: "planner",
+    createdAt: Date.now(),
+    command: workflowCommand,
+  });
+  const nextAction = nextActionForWorkflowCommand(workflowCommand);
 
   return {
     event,
     update,
-    decision,
-    turnState: compileTurnStatePacket(flow, {
-      nextAction: nextActionForFlowDecision(decision),
-    }),
-    instruction: instructionForFlowDecision(decision),
+    action: workflowCommand.nextAction,
+    nextAction,
+    ...(workflowCommand.slot ? { slot: workflowCommand.slot } : {}),
+    ...(workflowCommand.tool ? { tool: workflowCommand.tool } : {}),
+    ...(workflowCommand.args ? { args: workflowCommand.args } : {}),
+    ...(workflowCommand.confirmationType
+      ? { confirmationType: workflowCommand.confirmationType }
+      : {}),
+    turnState: compileTurnStatePacket(
+      flow,
+      {
+        nextAction,
+      },
+      workflowCommand,
+    ),
+    instruction: instructionForWorkflowCommand(workflowCommand),
     workflowCommand,
     ...(workflowCommand.resolvedMetaDecision
       ? { resolvedMetaDecision: workflowCommand.resolvedMetaDecision }
@@ -140,40 +164,32 @@ function isLowConfidenceNoop(update: TurnUnderstandingStateUpdate): boolean {
   return update.inferred.activeIntent === "unclear" && !update.changed;
 }
 
-export function instructionForFlowDecision(decision: FlowDecision): string {
-  switch (decision.type) {
+export function nextActionForWorkflowCommand(command: WorkflowCommand): string {
+  switch (command.nextAction) {
     case "ask":
-      return decision.promptHint;
+      return askActionForSlot(
+        command.slot ?? command.missingFacts[0]?.key ?? "clarification",
+      );
     case "call_tool":
-      return `Call ${decision.tool} next using the current turn_state and caller-provided details.`;
-    case "call_meta_tool":
-      return `Resolve internal controller step ${decision.tool} before choosing a user-facing action.`;
+      return command.tool ?? command.suggestedTool ?? "lookup_knowledge";
     case "confirm":
-      return `Read back the ${decision.confirmation.type} details and get explicit confirmation before submitting the side effect.`;
-    case "say":
-      return decision.instruction;
-    case "transfer":
-      return `Follow the transfer confirmation path before transfer_call. Reason: ${decision.reason}.`;
-    case "end_call":
-      return `End the call only after a natural closeout. Reason: ${decision.reason}.`;
+      return `confirm_${command.confirmationType ?? "reschedule"}`;
+    case "respond":
+    case "complete":
+      return "respond";
   }
 }
 
-export function nextActionForFlowDecision(decision: FlowDecision): string {
-  switch (decision.type) {
+function instructionForWorkflowCommand(command: WorkflowCommand): string {
+  switch (command.nextAction) {
     case "ask":
-      return askActionForSlot(decision.slot);
+    case "respond":
+    case "complete":
+      return command.instruction;
     case "call_tool":
-    case "call_meta_tool":
-      return decision.tool;
+      return `Call ${command.tool ?? command.suggestedTool ?? "the selected tool"} next using the current turn_state and caller-provided details.`;
     case "confirm":
-      return `confirm_${decision.confirmation.type}`;
-    case "say":
-      return "respond";
-    case "transfer":
-      return "transfer_call";
-    case "end_call":
-      return "end_call";
+      return `Read back the ${command.confirmationType ?? "reschedule"} details and get explicit confirmation before submitting the side effect.`;
   }
 }
 

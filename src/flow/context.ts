@@ -101,48 +101,14 @@ export function directivesForFlowState(
   }
 }
 
-export function compileFlowContextPacket(
-  flow: CallFlowState,
-  overrides: Partial<FlowContextDirectives> = {},
-): string {
-  const directives = {
-    ...directivesForFlowState(flow),
-    ...overrides,
-  };
-
-  return [
-    "<flow_state>",
-    `activeFlow: ${flow.activeFlow}`,
-    `activeIntent: ${flow.activeIntent ?? "unknown"}`,
-    `step: ${flow.step}`,
-    `language: ${flow.language}`,
-    `activePatient: ${flow.activePatientRef ?? "unknown"}`,
-    `patientStatus: ${flow.patientStatus}`,
-    `office: ${flow.officeKey}`,
-    `visitType: ${flow.visitType ?? "unknown"}`,
-    `coverageType: ${flow.coverageType ?? "unknown"}`,
-    `routing: ${flow.routing ?? "unknown"}`,
-    `schedulingGoal: ${formatSchedulingGoal(flow)}`,
-    `task: ${flow.currentTask?.kind ?? flow.activeFlow}`,
-    `pendingActions: ${flow.pendingActions.length}`,
-    `availabilitySearches: ${flow.availabilitySearches.length}`,
-    `missingSlots: ${formatList(flow.requiredSlots)}`,
-    `completedSteps: ${formatList(flow.completedSteps)}`,
-    `allowedActions: ${formatList(directives.allowedActions)}`,
-    `blockedActions: ${formatList(directives.blockedActions)}`,
-    "</flow_state>",
-    "",
-    "<current_objective>",
-    directives.currentObjective,
-    "</current_objective>",
-  ].join("\n");
-}
-
 export function compileTurnStatePacket(
   flow: CallFlowState,
   overrides: Partial<FlowContextDirectives> = {},
+  workflowCommand:
+    | WorkflowCommand
+    | null
+    | undefined = activeWorkflowCommandForState(flow),
 ): string {
-  const workflowCommand = activeWorkflowCommandForState(flow);
   if (workflowCommand) {
     return compileWorkflowTurnStatePacket(flow, workflowCommand);
   }
