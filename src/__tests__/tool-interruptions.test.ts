@@ -951,10 +951,10 @@ describe("tool interruption handling", () => {
     );
   });
 
-  it("allows a transfer retry after the SIP transfer call fails", async () => {
-    transferSipParticipantMock
-      .mockRejectedValueOnce(new Error("sip transfer failed"))
-      .mockResolvedValueOnce(undefined);
+  it("does not retry transfer_call after the SIP transfer call fails", async () => {
+    transferSipParticipantMock.mockRejectedValueOnce(
+      new Error("sip transfer failed"),
+    );
     const error = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
@@ -966,7 +966,6 @@ describe("tool interruption handling", () => {
       { ctx, toolCallId: "test-transfer-first" },
     );
     expect(state.transferred).toBe(false);
-    seedPendingSideEffectAction(state, "transfer_call");
     const second = await transfer_call.execute(
       {},
       { ctx, toolCallId: "test-transfer-second" },
@@ -975,16 +974,18 @@ describe("tool interruption handling", () => {
     expect(first).toMatchObject({
       outcome: "error",
       nextStep: "handoff",
-      speak: "Could not transfer the call. Please try again.",
+      speak: "Could not transfer the call. Do not call transfer_call again.",
       facts: { reason: "transfer_failed" },
+      retryable: false,
     });
     expect(second).toMatchObject({
-      outcome: "success",
-      nextStep: "handoff",
-      speak: "Transfer initiated successfully.",
+      outcome: "not_allowed",
+      nextStep: "answer",
+      facts: { reason: "transfer_already_attempted" },
+      retryable: false,
     });
-    expect(state.transferred).toBe(true);
-    expect(transferSipParticipantMock).toHaveBeenCalledTimes(2);
+    expect(state.transferred).toBe(false);
+    expect(transferSipParticipantMock).toHaveBeenCalledOnce();
     expect(error).toHaveBeenCalledOnce();
   });
 
@@ -3699,7 +3700,7 @@ describe("tool interruption handling", () => {
     ]);
   });
 
-  it("blocks transfer when the reducer has not confirmed a pending transfer action", async () => {
+  it("starts transfer without a separate confirmation step", async () => {
     transferSipParticipantMock.mockResolvedValue(undefined);
     const { ctx, state, speechHandle } = createToolContext();
 
@@ -3709,44 +3710,32 @@ describe("tool interruption handling", () => {
     );
 
     expect(speechHandle.allowInterruptions).toBe(false);
+    expect(transferSipParticipantMock).toHaveBeenCalledOnce();
     expect(result).toMatchObject({
-      outcome: "not_allowed",
+      outcome: "success",
       nextStep: "handoff",
-      facts: { reason: "side_effect_confirmation_required" },
+      speak: "Transfer initiated successfully.",
     });
-    expect(transferSipParticipantMock).not.toHaveBeenCalled();
-    expect(state.flow.pendingActions).toContainEqual(
-      expect.objectContaining({
-        type: "transfer_call",
-        confirmed: false,
-        consumed: false,
-      }),
-    );
-    expect(state.flow.pendingConfirmation).toMatchObject({
-      type: "transfer",
-    });
+    expect(state.flow.pendingConfirmation).toBeUndefined();
   });
 
-  it("confirms a pending transfer after the caller says okay", async () => {
+  it("consumes reducer-recorded transfer intent when the tool succeeds", async () => {
     transferSipParticipantMock.mockResolvedValue(undefined);
     const { ctx, state } = createToolContext();
 
-    await transfer_call.execute(
-      {},
-      { ctx, toolCallId: "test-transfer-confirmation-required" },
+    const understanding = inferObviousTurnUnderstanding(
+      state.flow,
+      "Representative.",
     );
-
-    const understanding = inferObviousTurnUnderstanding(state.flow, "Okay.");
     expect(understanding).toMatchObject({
       goal: "transfer_request",
-      confirmation: { transferConfirmed: true },
     });
-    if (!understanding) throw new Error("expected transfer confirmation");
+    if (!understanding) throw new Error("expected transfer intent");
 
     reduceFlowEvent(
       state.flow,
       callerTurnMeaningEvent({
-        transcript: "Okay.",
+        transcript: "Representative.",
         understanding,
         flow: state.flow,
       }),
@@ -3754,13 +3743,18 @@ describe("tool interruption handling", () => {
 
     const result = await transfer_call.execute(
       {},
-      { ctx, toolCallId: "test-transfer-confirmed" },
+      { ctx, toolCallId: "test-transfer-intent" },
     );
 
     expect(transferSipParticipantMock).toHaveBeenCalledOnce();
     expect(result).toMatchObject({
       outcome: "success",
       nextStep: "handoff",
+    });
+    expect(state.flow.pendingActions[0]).toMatchObject({
+      type: "transfer_call",
+      confirmed: true,
+      consumed: true,
     });
   });
 

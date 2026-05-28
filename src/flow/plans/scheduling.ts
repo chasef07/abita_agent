@@ -134,43 +134,19 @@ export function planScheduling(
     return command(flow, plan, {
       phase: "transfer_required",
       knownFacts: schedulingKnownFacts(flow, outcome.facts),
-      missingFacts:
-        flow.schedulingGoal?.transferConfirmed === true
-          ? []
-          : [
-              {
-                key: "transferConfirmation",
-                label: "explicit agreement to transfer",
-              },
-            ],
-      nextAction:
-        flow.schedulingGoal?.transferConfirmed === true
-          ? "call_tool"
-          : "confirm",
-      confirmationType: "transfer",
-      tool:
-        flow.schedulingGoal?.transferConfirmed === true
-          ? "transfer_call"
-          : undefined,
-      args: flow.schedulingGoal?.transferConfirmed === true ? {} : undefined,
-      allowedTools:
-        flow.schedulingGoal?.transferConfirmed === true
-          ? ["transfer_call"]
-          : [],
+      missingFacts: [],
+      nextAction: "call_tool",
+      tool: "transfer_call",
+      args: {},
+      allowedTools: ["transfer_call"],
       blockedActions: [
         {
           action: "get_availability",
           reason: "this request requires office handling",
         },
       ],
-      instruction:
-        outcome.speak ??
-        "Explain this needs office handling and ask for agreement to transfer.",
+      instruction: `${outcome.speak ? `${outcome.speak} ` : ""}Say "I'm going to transfer you to the office now. They may be with a patient, so please leave a message and we will get back to you as soon as possible." Then call transfer_call once.`,
       step: "handoff",
-      pendingConfirmation: {
-        type: "transfer",
-        payload: outcome.facts ?? {},
-      },
       schedulingGoal: staleGoalPatch,
       resolvedMetaDecision,
     });

@@ -63,6 +63,19 @@ describe("call observability", () => {
     expect(
       classifyToolOutput(
         "transfer_call",
+        JSON.stringify({
+          outcome: "error",
+          facts: { reason: "transfer_failed" },
+          retryable: false,
+          speak:
+            "Could not transfer the call. Do not call transfer_call again.",
+        }),
+        false,
+      ),
+    ).toBe("transfer_failed");
+    expect(
+      classifyToolOutput(
+        "transfer_call",
         "Already transferred. No action needed.",
         false,
       ),
@@ -78,6 +91,17 @@ describe("call observability", () => {
         false,
       ),
     ).toBe("duplicate_tool_call");
+    expect(
+      classifyToolOutput(
+        "transfer_call",
+        JSON.stringify({
+          outcome: "not_allowed",
+          facts: { reason: "side_effect_confirmation_required" },
+          retryable: true,
+        }),
+        false,
+      ),
+    ).toBe("transfer_not_started");
     expect(
       classifyToolOutput(
         "verify_patient",

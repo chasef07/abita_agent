@@ -136,6 +136,8 @@ function evaluateSideEffectPolicy(
   argsHash: string,
   args: unknown,
 ): { reason: GuardObservationReason; outcome: ToolOutcome } | undefined {
+  if (toolName === "transfer_call") return undefined;
+
   const actionType = sideEffectActionTypeForTool(toolName);
   const lookup = {
     type: actionType,
@@ -258,7 +260,7 @@ function pendingActionInstruction(toolName: SideEffectToolName): string {
     case "route_to_spring_hill":
       return "Explain the Spring Hill routing and record the caller's agreement before switching the scheduling office.";
     case "transfer_call":
-      return "Tell the caller you are transferring them and record their explicit agreement before starting the transfer.";
+      return "Tell the caller you are transferring them and that they may need to leave a message before starting the transfer.";
     case "update_insurance":
       return "Read back the insurance update and record explicit confirmation before submitting it.";
   }

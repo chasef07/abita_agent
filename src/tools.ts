@@ -387,11 +387,7 @@ function recordSideEffectConfirmationRequestFromToolCall(
   toolCallId: string,
 ): ToolOutcome {
   if (!isSideEffectToolName(toolName)) return policyResponse;
-  if (
-    toolName !== "add_patient" &&
-    toolName !== "update_insurance" &&
-    toolName !== "transfer_call"
-  ) {
+  if (toolName !== "add_patient" && toolName !== "update_insurance") {
     return policyResponse;
   }
   const reason = policyResponse.facts?.reason;
@@ -2359,7 +2355,7 @@ Answer naturally from the returned info — just the part that answers their que
 // --- transfer_call ---
 export const transfer_call = llm.tool({
   description:
-    "Transfers the caller to the office. Say the transfer message, get explicit agreement, and wait for it to finish BEFORE calling this tool. Call once and do not call in parallel; duplicate in-flight calls are ignored. After it executes the SIP session disconnects and your turn is over.",
+    'Transfers the caller to the office. Before calling, say: "I\'m going to transfer you to the office now. They may be with a patient, so please leave a message and we will get back to you as soon as possible." Then call this tool once. Do not ask for transfer confirmation. Do not call in parallel; duplicate in-flight calls are ignored. After it executes the SIP session disconnects and your turn is over.',
   parameters: z.object({}),
   execute: async (_, { ctx, toolCallId }) => {
     const state = getState(ctx);
@@ -2374,13 +2370,22 @@ export const transfer_call = llm.tool({
         false,
       );
     }
+    if (state.transferAttempted) {
+      return toolOutcome(
+        "not_allowed",
+        "answer",
+        "Transfer was already attempted. Do not call transfer_call again.",
+        { reason: "transfer_already_attempted" },
+        false,
+      );
+    }
     if (!speechReady) {
       return toolOutcome(
         "not_allowed",
         "handoff",
-        "Transfer was interrupted before it could start. Please confirm the transfer again.",
+        "Transfer was interrupted before it could start. Do not call transfer_call again until the caller asks for transfer again.",
         { reason: "speech_interrupted" },
-        true,
+        false,
       );
     }
     const policyResponse = evaluatePolicyForState(state, "transfer_call", {});
@@ -2393,6 +2398,7 @@ export const transfer_call = llm.tool({
         toolCallId,
       );
     }
+    state.transferAttempted = true;
     state.transferInFlight = true;
     try {
       // Wait for the transfer announcement to finish playing before initiating
@@ -2404,7 +2410,7 @@ export const transfer_call = llm.tool({
           "handoff",
           "Could not transfer - no active SIP session.",
           { reason: "missing_sip_session" },
-          true,
+          false,
         );
       }
       const { handoffOfficeKey, handoffTarget } =
@@ -2440,9 +2446,9 @@ export const transfer_call = llm.tool({
       return toolOutcome(
         "error",
         "handoff",
-        "Could not transfer the call. Please try again.",
+        "Could not transfer the call. Do not call transfer_call again.",
         { reason: "transfer_failed" },
-        true,
+        false,
       );
     }
   },

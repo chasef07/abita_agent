@@ -75,7 +75,7 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
         },
       ],
       instruction:
-        "Route to the office for recovery because the replacement was booked but the old appointment was not safely cancelled.",
+        'Route to the office for recovery because the replacement was booked but the old appointment was not safely cancelled. Say "I\'m going to transfer you to the office now. They may be with a patient, so please leave a message and we will get back to you as soon as possible." Then call transfer_call once.',
       step: "handoff",
     });
   }

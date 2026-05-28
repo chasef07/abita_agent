@@ -200,6 +200,7 @@ export default defineAgent({
           verified?.appointments,
         ),
         transferred: false,
+        transferAttempted: false,
         transferInFlight: false,
       };
       if (flowDynamicToolsEnabled) {

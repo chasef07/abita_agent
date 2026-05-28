@@ -992,11 +992,10 @@ function applyReducerOwnedTransferState(
     !previous.hadRecoverableScheduling ||
     previous.transferPushbackAlreadyOffered
   ) {
-    ensureTransferPendingAction(flow, event, false);
-    flow.pendingConfirmation ??= {
-      type: "transfer",
-      payload: { reason: "caller requested a human or named staff member" },
-    };
+    ensureTransferPendingAction(flow, event, true);
+    if (flow.pendingConfirmation?.type === "transfer") {
+      flow.pendingConfirmation = undefined;
+    }
   }
 }
 
