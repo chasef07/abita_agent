@@ -3424,7 +3424,7 @@ describe("tool interruption handling", () => {
     expect(result).not.toHaveProperty("middlewareResult");
   });
 
-  it("accepts a direct registration readback confirmation before add_patient", async () => {
+  it("confirms exact add_patient details from a new tool intent turn", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({
@@ -3441,7 +3441,7 @@ describe("tool interruption handling", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { ctx, state } = createToolContext();
-    resetToNewPatientRegistration(state, "Yes, it is.");
+    resetToNewPatientRegistration(state, "Jane Doe readback");
     const params = {
       firstName: "Jane",
       lastName: "Doe",
@@ -3457,9 +3457,30 @@ describe("tool interruption handling", () => {
       subscriberNum: "ABC123",
     };
 
+    const requestResult = await add_patient.execute(params, {
+      ctx,
+      toolCallId: "test-add-confirmation-request",
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(requestResult).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "collect_registration",
+      facts: {
+        reason: "side_effect_confirmation_required",
+        confirmationRecorded: "pending",
+      },
+    });
+    expect(state.flow.pendingConfirmation).toMatchObject({
+      type: "registration",
+    });
+
+    state.latestUserTranscript = "Adelante.";
+    state.turnUnderstandingAppliedForTranscript = null;
+
     const result = await add_patient.execute(params, {
       ctx,
-      toolCallId: "test-add-readback-confirmed",
+      toolCallId: "test-add-after-adelante",
     });
 
     expect(result).toMatchObject({
@@ -3472,15 +3493,6 @@ describe("tool interruption handling", () => {
       phone: "+17275551212",
       subscriberNum: "ABC123",
     });
-    expect(state.flowGuardObservations).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          toolName: "add_patient",
-          allowed: true,
-          reason: "allowed",
-        }),
-      ]),
-    );
     expect(state.flow.pendingActions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -3492,7 +3504,7 @@ describe("tool interruption handling", () => {
     );
   });
 
-  it("still blocks add_patient when yes did not confirm a registration readback", async () => {
+  it("does not treat a same-turn add_patient retry as confirmation", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -3536,6 +3548,17 @@ describe("tool interruption handling", () => {
         }),
       ]),
     );
+
+    const retryResult = await add_patient.execute(params, {
+      ctx,
+      toolCallId: "test-add-same-turn-retry",
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(retryResult).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "collect_registration",
+    });
   });
 
   it("blocks cancellation before the appointment is loaded into state", async () => {
@@ -3564,6 +3587,7 @@ describe("tool interruption handling", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { ctx, state } = createToolContext();
+    state.latestUserTranscript = "El Doctor Rodriguez";
     seedLoadedAppointment(state, 12345);
 
     const result = await cancel_appt.execute(
@@ -3582,7 +3606,10 @@ describe("tool interruption handling", () => {
     });
     expect(state.flow.pendingConfirmation).toMatchObject({
       type: "cancel",
-      payload: { appointmentId: 12345 },
+      payload: {
+        appointmentId: 12345,
+        requestedAfterTranscript: "El Doctor Rodriguez",
+      },
     });
     expect(state.flow.pendingActions).toContainEqual(
       expect.objectContaining({
@@ -3590,6 +3617,193 @@ describe("tool interruption handling", () => {
         appointmentId: 12345,
         confirmed: false,
         consumed: false,
+      }),
+    );
+  });
+
+  it("does not treat a same-turn retry as cancellation confirmation", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.latestUserTranscript = "El Doctor Rodriguez";
+    seedLoadedAppointment(state, 12345);
+
+    await cancel_appt.execute(
+      { appointmentId: 12345 },
+      { ctx, toolCallId: "test-cancel-confirmation-request" },
+    );
+
+    const retryResult = await cancel_appt.execute(
+      { appointmentId: 12345 },
+      { ctx, toolCallId: "test-cancel-same-turn-retry" },
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(retryResult).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "confirm_cancel",
+    });
+    expect(state.flow.pendingActions).toContainEqual(
+      expect.objectContaining({
+        type: "cancel_appt",
+        appointmentId: 12345,
+        confirmed: false,
+        consumed: false,
+      }),
+    );
+  });
+
+  it("confirms an exact pending cancellation from a new tool intent turn", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "cancelled" }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.latestUserTranscript = "El Doctor Rodriguez";
+    seedLoadedAppointment(state, 12345);
+
+    await cancel_appt.execute(
+      { appointmentId: 12345 },
+      { ctx, toolCallId: "test-cancel-confirmation-request" },
+    );
+
+    state.latestUserTranscript = "Si.";
+    state.turnUnderstandingAppliedForTranscript = null;
+
+    const cancelResult = await cancel_appt.execute(
+      { appointmentId: 12345 },
+      { ctx, toolCallId: "test-cancel-after-si" },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      appointmentId: 12345,
+      patientId: "patient-1",
+      cancelToken: "cancel-token-12345",
+    });
+    expect(cancelResult).toMatchObject({
+      status: "cancelled",
+    });
+    expect(state.flow.pendingActions).toContainEqual(
+      expect.objectContaining({
+        type: "cancel_appt",
+        appointmentId: 12345,
+        confirmed: true,
+        consumed: true,
+      }),
+    );
+  });
+
+  it("confirms an exact pending insurance update from a new tool intent turn", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "updated",
+        newInsurance: "Aetna",
+        routing: "all_three",
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    const updateParams = {
+      insurance: "Aetna",
+      subscriberName: "Jane Doe",
+      subscriberNum: "ABC123",
+    };
+    state.latestUserTranscript = "Aetna ABC123";
+
+    const requestResult = await update_insurance.execute(updateParams, {
+      ctx,
+      toolCallId: "test-update-confirmation-request",
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(requestResult).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "check_insurance",
+      facts: {
+        reason: "side_effect_confirmation_required",
+        confirmationRecorded: "pending",
+      },
+    });
+    expect(state.flow.pendingConfirmation).toMatchObject({
+      type: "insurance_update",
+    });
+
+    state.latestUserTranscript = "Adelante.";
+    state.turnUnderstandingAppliedForTranscript = null;
+
+    const updateResult = await update_insurance.execute(updateParams, {
+      ctx,
+      toolCallId: "test-update-after-adelante",
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      patientId: "patient-1",
+      insurance: "Aetna",
+      subscriberName: "Jane Doe",
+      subscriberNum: "ABC123",
+    });
+    expect(updateResult).toMatchObject({
+      status: "updated",
+    });
+    expect(state.flow.pendingActions).toContainEqual(
+      expect.objectContaining({
+        type: "update_insurance",
+        confirmed: true,
+        consumed: true,
+      }),
+    );
+  });
+
+  it("confirms exact Spring Hill routing from a new tool intent turn", async () => {
+    const { ctx, state } = createToolContext();
+    state.officeKey = "crystal-river";
+    state.amdOfficePhone = "+13523202007";
+    state.latestUserTranscript = "Humana PPO";
+
+    const requestResult = await route_to_spring_hill.execute(
+      {},
+      { ctx, toolCallId: "test-route-confirmation-request" },
+    );
+
+    expect(requestResult).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "route_office",
+      facts: {
+        reason: "side_effect_confirmation_required",
+        confirmationRecorded: "pending",
+      },
+    });
+    expect(state.officeKey).toBe("crystal-river");
+    expect(state.flow.pendingConfirmation).toMatchObject({
+      type: "route_office",
+    });
+
+    state.latestUserTranscript = "Adelante.";
+    state.turnUnderstandingAppliedForTranscript = null;
+
+    const routeResult = await route_to_spring_hill.execute(
+      {},
+      { ctx, toolCallId: "test-route-after-adelante" },
+    );
+
+    expect(routeResult).toMatchObject({
+      outcome: "success",
+    });
+    expect(state.officeKey).toBe("spring-hill");
+    expect(state.flow.pendingActions).toContainEqual(
+      expect.objectContaining({
+        type: "route_office",
+        confirmed: true,
+        consumed: true,
       }),
     );
   });
