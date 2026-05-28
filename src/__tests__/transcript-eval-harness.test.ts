@@ -563,20 +563,6 @@ describe("transcript replay eval harness", () => {
     );
 
     expect(secondHumanRequest.decision).toMatchObject({
-      type: "confirm",
-      confirmation: { type: "transfer" },
-    });
-
-    const confirmedTransfer = harness.hear("yes", {
-      goal: "transfer_request",
-      appointmentAction: null,
-      confirmation: { transferConfirmed: true },
-      interruption: "none",
-      confidence: 0.95,
-      evidence: ["yes"],
-    });
-
-    expect(confirmedTransfer.decision).toMatchObject({
       type: "call_tool",
       tool: "transfer_call",
       args: {},
@@ -785,23 +771,9 @@ describe("transcript replay eval harness", () => {
     });
   });
 
-  it("gates transfer side effects during scheduling behind explicit confirmation", () => {
+  it("allows transfer side effects without a separate confirmation gate", () => {
     const harness = new TranscriptEvalHarness();
     harness.hear("I need to schedule an appointment", scheduleTurn());
-
-    expect(harness.policy("transfer_call")).toMatchObject({
-      allowed: false,
-      outcome: {
-        nextStep: "handoff",
-        facts: { reason: "side_effect_confirmation_required" },
-      },
-    });
-
-    harness.confirmSideEffect(
-      "transfer_call",
-      {},
-      "Transfer the caller to the office.",
-    );
 
     expect(harness.policy("transfer_call")).toMatchObject({
       allowed: true,

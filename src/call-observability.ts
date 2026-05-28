@@ -230,6 +230,16 @@ export function classifyToolOutput(
       ) {
         return "transfer_failed";
       }
+      if (
+        outcome === "not_allowed" ||
+        outcome === "needs_clarification" ||
+        reason === "side_effect_confirmation_required" ||
+        reason === "duplicate_tool_call_same_args" ||
+        reason.startsWith("side_effect_") ||
+        parsed?.retryable === true
+      ) {
+        return "transfer_not_started";
+      }
       return "transfer_started";
     case "get_availability":
       return "availability_returned";
@@ -262,7 +272,8 @@ function toolExecutionStatus(
     outputClass === "middleware_error" ||
     outputClass === "tool_error" ||
     outputClass === "appointment_not_cancelled" ||
-    outputClass === "transfer_failed"
+    outputClass === "transfer_failed" ||
+    outputClass === "transfer_not_started"
   ) {
     return "error";
   }

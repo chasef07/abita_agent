@@ -38,8 +38,8 @@ export function planTransfer(flow: CallFlowState): WorkflowCommand {
   const plan = genericPlan(
     flow,
     "transfer",
-    "route the caller to the office only after explicit transfer agreement",
-    "confirming_transfer",
+    "route the caller to the office",
+    "transferring",
   );
   if (shouldPushBackTransferDuringScheduling(flow)) {
     const resumed = schedulingTaskToResume(flow);
@@ -64,52 +64,23 @@ export function planTransfer(flow: CallFlowState): WorkflowCommand {
     });
   }
 
-  if (flow.schedulingGoal?.transferConfirmed === true) {
-    return command(flow, plan, {
-      phase: "transferring",
-      knownFacts: [{ key: "transferConfirmed", value: "true" }],
-      missingFacts: [],
-      nextAction: "call_tool",
-      tool: "transfer_call",
-      args: {},
-      allowedTools: ["transfer_call"],
-      blockedActions: [
-        {
-          action: "book_appt",
-          reason: "caller is being transferred",
-        },
-      ],
-      instruction: "Call transfer_call now.",
-      step: "handoff",
-    });
-  }
-
   return command(flow, plan, {
-    phase: "confirming_transfer",
-    knownFacts: [],
-    missingFacts: [
-      {
-        key: "transferConfirmation",
-        label: "explicit agreement to be transferred",
-      },
-    ],
-    nextAction: "confirm",
-    confirmationType: "transfer",
-    allowedTools: [],
+    phase: "transferring",
+    knownFacts: [{ key: "transferRequested", value: "true" }],
+    missingFacts: [],
+    nextAction: "call_tool",
+    tool: "transfer_call",
+    args: {},
+    allowedTools: ["transfer_call"],
     blockedActions: [
       {
-        action: "transfer_call",
-        reason: "caller must explicitly agree to transfer",
-        until: "transfer is confirmed",
+        action: "book_appt",
+        reason: "caller is being transferred",
       },
     ],
     instruction:
-      "Tell the caller you can transfer them and ask for explicit agreement before starting the handoff.",
+      'Say "I\'m going to transfer you to the office now. They may be with a patient, so please leave a message and we will get back to you as soon as possible." Then call transfer_call once.',
     step: "handoff",
-    pendingConfirmation: {
-      type: "transfer",
-      payload: { reason: "caller requested a human or named staff member" },
-    },
   });
 }
 

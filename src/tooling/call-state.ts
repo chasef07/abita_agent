@@ -149,6 +149,7 @@ export interface CallState {
   appointments: CallerAppointment[];
   appointmentCancelTokens?: Record<string, string>;
   transferred: boolean;
+  transferAttempted?: boolean;
   transferInFlight?: boolean;
 }
 
