@@ -136,8 +136,6 @@ const addPatientParameters = z.object({
     ),
 });
 
-type AddPatientParams = z.infer<typeof addPatientParameters>;
-
 const updateInsuranceParameters = z.object({
   insurance: z.string().describe("New insurance plan name"),
   subscriberName: z
