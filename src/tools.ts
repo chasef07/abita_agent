@@ -390,13 +390,7 @@ function recordSideEffectConfirmationRequestFromToolCall(
   toolCallId: string,
 ): ToolOutcome {
   if (!isSideEffectToolName(toolName)) return policyResponse;
-  if (
-    toolName !== "add_patient" &&
-    toolName !== "cancel_appt" &&
-    toolName !== "update_insurance"
-  ) {
-    return policyResponse;
-  }
+  if (toolName === "transfer_call") return policyResponse;
   const reason = policyResponse.facts?.reason;
   if (
     reason !== "side_effect_confirmation_required" &&
@@ -425,6 +419,9 @@ function recordSideEffectConfirmationRequestFromToolCall(
       ? { appointmentId: lookup.appointmentId }
       : {}),
     ...(requiredFieldsComplete !== undefined ? { requiredFieldsComplete } : {}),
+    ...(state.latestUserTranscript?.trim()
+      ? { requestedAfterTranscript: state.latestUserTranscript.trim() }
+      : {}),
     toolCallId,
   });
 
@@ -437,99 +434,128 @@ function recordSideEffectConfirmationRequestFromToolCall(
   };
 }
 
-function maybeRecordAddPatientReadbackConfirmation(
+function recordPendingSideEffectConfirmationFromToolIntent(
   state: CallState,
-  params: AddPatientParams,
+  toolName: SideEffectToolName,
+  args: unknown,
   toolCallId: string,
 ): void {
   if (!isFlowHarnessEnabled(state)) return;
-  if (!canUseLatestTurnAsAddPatientConfirmation(state)) return;
-  if (!latestTurnConfirmsRegistrationReadback(state.latestUserTranscript)) {
+  if (toolName === "transfer_call") return;
+
+  const sideEffectArgs = args ?? {};
+  const lookup = pendingSideEffectLookup(state, toolName, sideEffectArgs);
+  if (toolName === "cancel_appt" && typeof lookup.appointmentId !== "number") {
     return;
   }
+  if (!pendingConfirmationMatchesToolIntent(state, toolName, lookup)) {
+    return;
+  }
+  if (!isFreshCallerTurnForPendingConfirmation(state)) return;
 
   reduceFlowEvent(state.flow, {
-    id: nextFlowEventId("side_effect_confirmed"),
+    id: nextFlowEventId("side_effect_confirmation"),
     type: "side_effect_confirmed",
-    source: "deterministic_understanding",
+    source: "tool_result",
     createdAt: Date.now(),
-    toolName: "add_patient",
-    argsHash: hashToolArgs(params),
-    spokenSummary: defaultSideEffectSummary("add_patient"),
-    patientRef: state.flow.activePatientRef,
-    requiredFieldsComplete: true,
+    toolName,
+    argsHash: lookup.argsHash,
+    spokenSummary: defaultSideEffectSummary(toolName),
+    patientRef: lookup.patientRef,
+    ...(typeof lookup.appointmentId === "number"
+      ? { appointmentId: lookup.appointmentId }
+      : {}),
+    ...(toolName === "add_patient" ? { requiredFieldsComplete: true } : {}),
     toolCallId,
   });
 }
 
-function canUseLatestTurnAsAddPatientConfirmation(state: CallState): boolean {
-  if (!state.checkedInsurancePlan && !state.checkedInsuranceCoverageType) {
+function pendingConfirmationMatchesToolIntent(
+  state: CallState,
+  toolName: SideEffectToolName,
+  lookup: ReturnType<typeof pendingSideEffectLookup>,
+): boolean {
+  const pendingConfirmation = state.flow.pendingConfirmation;
+  if (!pendingConfirmation) return false;
+  if (pendingConfirmation.type !== confirmationTypeForToolName(toolName)) {
     return false;
   }
-  if (state.patientId) return false;
+
+  const payload = pendingConfirmationPayload(state);
+  if (typeof payload?.toolName === "string" && payload.toolName !== toolName) {
+    return false;
+  }
   if (
-    state.flow.patientStatus === "verified" ||
-    state.flow.patientStatus === "created"
+    typeof payload?.argsHash === "string" &&
+    payload.argsHash !== lookup.argsHash
+  ) {
+    return false;
+  }
+  if (
+    toolName === "cancel_appt" &&
+    typeof payload?.appointmentId === "number" &&
+    payload.appointmentId !== lookup.appointmentId
   ) {
     return false;
   }
 
-  const activePatient =
-    state.flow.patients[state.flow.activePatientRef ?? DEFAULT_PATIENT_REF];
-  if (!activePatient) return true;
-  if (activePatient.patientId) return false;
-  return (
-    activePatient.status !== "verified" && activePatient.status !== "created"
-  );
+  if (
+    (toolName === "add_patient" || toolName === "update_insurance") &&
+    typeof payload?.argsHash !== "string"
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
-function latestTurnConfirmsRegistrationReadback(
-  transcript: string | null | undefined,
-): boolean {
-  const normalized = normalizeConfirmationTranscript(transcript);
-  if (!normalized) return false;
+function isFreshCallerTurnForPendingConfirmation(state: CallState): boolean {
+  const payload = pendingConfirmationPayload(state);
+  const latestTranscript = state.latestUserTranscript?.trim();
+  if (!latestTranscript) return false;
+  if (state.turnUnderstandingAppliedForTranscript === latestTranscript) {
+    return false;
+  }
 
-  return (
-    REGISTRATION_READBACK_CONFIRMATIONS.has(normalized) ||
-    /^(yes|yeah|yep)\s+(that|it|everything|all|they)\s+(is|are)?\s*(correct|right|good)$/.test(
-      normalized,
-    ) ||
-    /^(yes|yeah|yep)\s+(correct|right|all good|looks good)$/.test(normalized)
-  );
+  const requestedAfterTranscript =
+    typeof payload?.requestedAfterTranscript === "string"
+      ? payload.requestedAfterTranscript.trim()
+      : undefined;
+  if (
+    requestedAfterTranscript &&
+    requestedAfterTranscript === latestTranscript
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
-const REGISTRATION_READBACK_CONFIRMATIONS = new Set([
-  "yes",
-  "yeah",
-  "yep",
-  "correct",
-  "right",
-  "yes it is",
-  "yes its correct",
-  "yes that is correct",
-  "yes thats correct",
-  "yes thats right",
-  "that is correct",
-  "thats correct",
-  "that is right",
-  "thats right",
-  "all correct",
-  "that is all correct",
-  "everything is correct",
-  "looks correct",
-  "looks good",
-  "all good",
-]);
+function confirmationTypeForToolName(
+  toolName: SideEffectToolName,
+): NonNullable<CallState["flow"]["pendingConfirmation"]>["type"] {
+  switch (toolName) {
+    case "add_patient":
+      return "registration";
+    case "cancel_appt":
+      return "cancel";
+    case "route_to_spring_hill":
+      return "route_office";
+    case "transfer_call":
+      return "transfer";
+    case "update_insurance":
+      return "insurance_update";
+  }
+}
 
-function normalizeConfirmationTranscript(
-  transcript: string | null | undefined,
-): string {
-  return (transcript ?? "")
-    .toLowerCase()
-    .replace(/['’]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+function pendingConfirmationPayload(
+  state: CallState,
+): Record<string, unknown> | undefined {
+  const payload = state.flow.pendingConfirmation?.payload;
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return undefined;
+  }
+  return payload as Record<string, unknown>;
 }
 
 function defaultSideEffectSummary(toolName: SideEffectToolName): string {
@@ -1685,7 +1711,12 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
         true,
       );
     }
-    maybeRecordAddPatientReadbackConfirmation(state, params, toolCallId);
+    recordPendingSideEffectConfirmationFromToolIntent(
+      state,
+      "add_patient",
+      params,
+      toolCallId,
+    );
     const policyResponse = evaluatePolicyForState(state, "add_patient", params);
     if (policyResponse) {
       return recordSideEffectConfirmationRequestFromToolCall(
@@ -1768,11 +1799,22 @@ After response: session state updates automatically. If preauthRequired, schedul
         true,
       );
     }
-    const policyResponse = evaluatePolicyForState(state, "update_insurance", {
+    const updateInsuranceArgs = {
       insurance,
       subscriberName,
       subscriberNum,
-    });
+    };
+    recordPendingSideEffectConfirmationFromToolIntent(
+      state,
+      "update_insurance",
+      updateInsuranceArgs,
+      toolCallId,
+    );
+    const policyResponse = evaluatePolicyForState(
+      state,
+      "update_insurance",
+      updateInsuranceArgs,
+    );
     if (policyResponse) {
       return recordSideEffectConfirmationRequestFromToolCall(
         state,
@@ -1948,6 +1990,12 @@ Requires appointmentId — use the ID from the caller context or from a verify_p
     }
     restoreConfirmedPreCallCaller(state);
     syncSessionPatientFromActiveFlow(state);
+    recordPendingSideEffectConfirmationFromToolIntent(
+      state,
+      "cancel_appt",
+      { appointmentId },
+      toolCallId,
+    );
     const policyResponse = evaluatePolicyForState(state, "cancel_appt", {
       appointmentId,
     });
@@ -2329,6 +2377,12 @@ Use this when the caller reached Crystal River but the visit must be handled thr
         true,
       );
     }
+    recordPendingSideEffectConfirmationFromToolIntent(
+      state,
+      "route_to_spring_hill",
+      {},
+      toolCallId,
+    );
     const policyResponse = evaluatePolicyForState(
       state,
       "route_to_spring_hill",

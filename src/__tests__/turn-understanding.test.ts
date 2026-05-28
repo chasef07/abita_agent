@@ -835,11 +835,6 @@ describe("turn understanding reducer", () => {
     expect(inferObviousTurnUnderstanding(flow, "Yes, correct.")).toMatchObject({
       confirmation: { cancelConfirmed: true },
     });
-    expect(
-      inferObviousTurnUnderstanding(flow, "Cancel that appointment."),
-    ).toMatchObject({
-      confirmation: { cancelConfirmed: true },
-    });
 
     const understanding = inferObviousTurnUnderstanding(
       flow,

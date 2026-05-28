@@ -128,16 +128,9 @@ export function inferObviousTurnUnderstanding(
   const cancelConfirmationPending =
     activeCommand?.confirmationType === "cancel" ||
     flow.pendingConfirmation?.type === "cancel";
-  const explicitCancel = cancelConfirmationPending
-    ? isExplicitCancelConfirmation(normalized)
-    : false;
-  const explicitCancelRejection = cancelConfirmationPending
-    ? isExplicitCancelRejection(normalized)
-    : false;
 
-  if (affirmative || negative || explicitCancel || explicitCancelRejection) {
-    const confirmed =
-      (affirmative || explicitCancel) && !explicitCancelRejection;
+  if (affirmative || negative) {
+    const confirmed = affirmative;
     if (cancelConfirmationPending) {
       return {
         goal: "manage_existing_appointment",
@@ -505,18 +498,6 @@ function isAffirmative(normalized: string): boolean {
 
 function isNegative(normalized: string): boolean {
   return /^(no|nope|not that|that does not work|doesn t work|different|another|not correct)\b/.test(
-    normalized,
-  );
-}
-
-function isExplicitCancelConfirmation(normalized: string): boolean {
-  return (
-    /\bcancel\b/.test(normalized) && !isExplicitCancelRejection(normalized)
-  );
-}
-
-function isExplicitCancelRejection(normalized: string): boolean {
-  return /\b(no|not|don t|dont|do not|stop)\b.{0,24}\bcancel\b/.test(
     normalized,
   );
 }

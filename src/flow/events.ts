@@ -242,6 +242,7 @@ export interface SideEffectConfirmationRequestedEvent extends FlowEventBase {
   patientRef?: PatientRef;
   appointmentId?: number;
   requiredFieldsComplete?: boolean;
+  requestedAfterTranscript?: string;
   toolCallId: string;
 }
 

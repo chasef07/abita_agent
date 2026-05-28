@@ -625,6 +625,9 @@ function applySideEffectConfirmationRequestedEvent(
       ...(typeof event.appointmentId === "number"
         ? { appointmentId: event.appointmentId }
         : {}),
+      ...(event.requestedAfterTranscript
+        ? { requestedAfterTranscript: event.requestedAfterTranscript }
+        : {}),
     },
   };
 }
