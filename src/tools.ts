@@ -387,7 +387,11 @@ function recordSideEffectConfirmationRequestFromToolCall(
   toolCallId: string,
 ): ToolOutcome {
   if (!isSideEffectToolName(toolName)) return policyResponse;
-  if (toolName !== "add_patient" && toolName !== "update_insurance") {
+  if (
+    toolName !== "add_patient" &&
+    toolName !== "update_insurance" &&
+    toolName !== "transfer_call"
+  ) {
     return policyResponse;
   }
   const reason = policyResponse.facts?.reason;

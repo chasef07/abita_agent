@@ -167,7 +167,10 @@ export function inferObviousTurnUnderstanding(
         evidence,
       };
     }
-    if (activeCommand?.confirmationType === "transfer") {
+    if (
+      activeCommand?.confirmationType === "transfer" ||
+      flow.pendingConfirmation?.type === "transfer"
+    ) {
       return {
         goal: "transfer_request",
         confirmation: { transferConfirmed: confirmed },
@@ -550,6 +553,15 @@ function transferRequestFromTranscript(normalized: string): boolean {
   return (
     /\b(transfer|front desk|representative|office staff)\b/.test(normalized) ||
     /\b(talk|speak)\b(?:\s+\w+){0,3}\s+(?:to|with)\s+(?:someone|somebody|a person|person|a human|human|representative|staff|front desk|office)\b/.test(
+      normalized,
+    ) ||
+    /\b(persona real|alguien real|oficinista|recepcionista)\b/.test(
+      normalized,
+    ) ||
+    /\b(?:necesito|quiero|ocupo|busco)\b(?:\s+\w+){0,4}\s+(?:oficina|oficinista|recepcionista|persona real|alguien real)\b/.test(
+      normalized,
+    ) ||
+    /\b(?:hablar|comunicarme)\b(?:\s+\w+){0,4}\s+(?:con|a)\s+(?:alguien|una persona|persona real|recepcionista|oficina)\b/.test(
       normalized,
     )
   );

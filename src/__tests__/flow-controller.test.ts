@@ -804,6 +804,12 @@ describe("flow state and context packet", () => {
     expect(
       applyPreCallIdentityFromTranscript(flow, "Thank you."),
     ).toBeUndefined();
+    expect(
+      applyPreCallIdentityFromTranscript(flow, "Oficina."),
+    ).toBeUndefined();
+    expect(
+      applyPreCallIdentityFromTranscript(flow, "Recepcionista."),
+    ).toBeUndefined();
 
     expect(flow.preCall).toMatchObject({
       status: "multiple_matches_pending_selection",
