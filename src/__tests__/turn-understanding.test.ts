@@ -445,6 +445,39 @@ describe("turn understanding reducer", () => {
     });
   });
 
+  it("recognizes Spanish real-person office requests as transfer intent", () => {
+    const flow = createInitialFlowState({
+      officeKey: "sweetwater",
+      callerPhone: "+17862314846",
+    });
+
+    expect(
+      inferObviousTurnUnderstanding(
+        flow,
+        "No te entiendo. Necesito una oficina, un oficinista, alguien real.",
+      ),
+    ).toMatchObject({
+      goal: "transfer_request",
+      interruption: "transfer_request",
+    });
+  });
+
+  it("treats an affirmative answer as transfer confirmation when a transfer is pending", () => {
+    const flow = createInitialFlowState({
+      officeKey: "sweetwater",
+      callerPhone: "+17862314846",
+    });
+    flow.pendingConfirmation = {
+      type: "transfer",
+      payload: { reason: "caller requested a human at the office" },
+    };
+
+    expect(inferObviousTurnUnderstanding(flow, "Okay.")).toMatchObject({
+      goal: "transfer_request",
+      confirmation: { transferConfirmed: true },
+    });
+  });
+
   it("does not treat someone-else or in-person scheduling as transfer", () => {
     const flow = createInitialFlowState({
       officeKey: "hollywood",

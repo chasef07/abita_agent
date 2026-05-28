@@ -42,6 +42,7 @@ import {
   callerTurnMeaningEvent,
   hashToolArgs,
   activeWorkflowCommandForState,
+  inferObviousTurnUnderstanding,
   nextFlowEventId,
   planNextCommand,
   recordAvailabilityCachedSlots,
@@ -3714,7 +3715,53 @@ describe("tool interruption handling", () => {
       facts: { reason: "side_effect_confirmation_required" },
     });
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
-    expect(state.flow.pendingActions).toHaveLength(0);
+    expect(state.flow.pendingActions).toContainEqual(
+      expect.objectContaining({
+        type: "transfer_call",
+        confirmed: false,
+        consumed: false,
+      }),
+    );
+    expect(state.flow.pendingConfirmation).toMatchObject({
+      type: "transfer",
+    });
+  });
+
+  it("confirms a pending transfer after the caller says okay", async () => {
+    transferSipParticipantMock.mockResolvedValue(undefined);
+    const { ctx, state } = createToolContext();
+
+    await transfer_call.execute(
+      {},
+      { ctx, toolCallId: "test-transfer-confirmation-required" },
+    );
+
+    const understanding = inferObviousTurnUnderstanding(state.flow, "Okay.");
+    expect(understanding).toMatchObject({
+      goal: "transfer_request",
+      confirmation: { transferConfirmed: true },
+    });
+    if (!understanding) throw new Error("expected transfer confirmation");
+
+    reduceFlowEvent(
+      state.flow,
+      callerTurnMeaningEvent({
+        transcript: "Okay.",
+        understanding,
+        flow: state.flow,
+      }),
+    );
+
+    const result = await transfer_call.execute(
+      {},
+      { ctx, toolCallId: "test-transfer-confirmed" },
+    );
+
+    expect(transferSipParticipantMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({
+      outcome: "success",
+      nextStep: "handoff",
+    });
   });
 
   it("consumes reducer-confirmed pending transfer actions", async () => {

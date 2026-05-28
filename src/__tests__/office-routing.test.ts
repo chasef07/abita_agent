@@ -679,6 +679,27 @@ describe("Crystal River prompt guidance", () => {
     );
     expect(prompt).toContain("Preloaded facts available after confirmation:");
   });
+
+  it("makes the multiple-match pre-call wording explicit", () => {
+    const prompt = buildPrompt(
+      {
+        status: "multiple_matches",
+        message: "Multiple patients found",
+        matches: [
+          { firstName: "IVETTE" },
+          { firstName: "KAELI" },
+        ],
+      },
+      HOLLYWOOD_OFFICE_PHONE,
+    );
+
+    expect(prompt).toContain("MULTIPLE MATCHES (2 patients on this number)");
+    expect(prompt).toContain(
+      "Say there are multiple patients on this number, ask the caller to confirm the patient's first name first, and do not read names on file aloud.",
+    );
+    expect(prompt).not.toContain("IVETTE");
+    expect(prompt).not.toContain("KAELI");
+  });
 });
 
 describe("model-facing tool definitions", () => {
