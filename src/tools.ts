@@ -388,7 +388,11 @@ function recordSideEffectConfirmationRequestFromToolCall(
   toolCallId: string,
 ): ToolOutcome {
   if (!isSideEffectToolName(toolName)) return policyResponse;
-  if (toolName !== "add_patient" && toolName !== "update_insurance") {
+  if (
+    toolName !== "add_patient" &&
+    toolName !== "cancel_appt" &&
+    toolName !== "update_insurance"
+  ) {
     return policyResponse;
   }
   const reason = policyResponse.facts?.reason;
@@ -400,6 +404,10 @@ function recordSideEffectConfirmationRequestFromToolCall(
   }
 
   const sideEffectArgs = args ?? {};
+  const lookup = pendingSideEffectLookup(state, toolName, sideEffectArgs);
+  if (toolName === "cancel_appt" && typeof lookup.appointmentId !== "number") {
+    return policyResponse;
+  }
   const requiredFieldsComplete = toolName === "add_patient" ? true : undefined;
 
   reduceFlowEvent(state.flow, {
@@ -408,9 +416,12 @@ function recordSideEffectConfirmationRequestFromToolCall(
     source: "tool_result",
     createdAt: Date.now(),
     toolName,
-    argsHash: hashToolArgs(sideEffectArgs),
+    argsHash: lookup.argsHash,
     spokenSummary: defaultSideEffectSummary(toolName),
-    patientRef: state.flow.activePatientRef,
+    patientRef: lookup.patientRef,
+    ...(typeof lookup.appointmentId === "number"
+      ? { appointmentId: lookup.appointmentId }
+      : {}),
     ...(requiredFieldsComplete !== undefined ? { requiredFieldsComplete } : {}),
     toolCallId,
   });
@@ -1837,6 +1848,8 @@ Requires appointmentId — use the ID from the caller context or from a verify_p
         true,
       );
     }
+    restoreConfirmedPreCallCaller(state);
+    syncSessionPatientFromActiveFlow(state);
     const policyResponse = evaluatePolicyForState(state, "cancel_appt", {
       appointmentId,
     });

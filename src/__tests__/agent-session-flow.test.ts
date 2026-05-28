@@ -511,7 +511,7 @@ async function createFixture({
   const session = new voice.AgentSession<CallState>({
     llm: llmModel,
     userData: state,
-    maxToolSteps: 5,
+    maxToolSteps: 10,
   });
   const agent = new Agent(null, DEV_OFFICE_PHONE, {
     suppressGreeting: true,

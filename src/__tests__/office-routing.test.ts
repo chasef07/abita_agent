@@ -700,10 +700,7 @@ describe("Crystal River prompt guidance", () => {
       {
         status: "multiple_matches",
         message: "Multiple patients found",
-        matches: [
-          { firstName: "IVETTE" },
-          { firstName: "KAELI" },
-        ],
+        matches: [{ firstName: "IVETTE" }, { firstName: "KAELI" }],
       },
       HOLLYWOOD_OFFICE_PHONE,
     );

@@ -807,6 +807,64 @@ describe("turn understanding reducer", () => {
     );
   });
 
+  it("confirms a tool-requested cancellation with natural caller wording", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+      appointments: [appointment(12345)],
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "existing_appointment_cancel";
+    flow.activeFlow = "appointment_management";
+    const argsHash = hashToolArgs({ appointmentId: 12345 });
+    reduceFlowEvent(flow, {
+      id: nextFlowEventId("test_cancel_confirmation_request"),
+      type: "side_effect_confirmation_requested",
+      source: "tool_result",
+      createdAt: Date.now(),
+      toolName: "cancel_appt",
+      argsHash,
+      patientRef: "caller",
+      appointmentId: 12345,
+      spokenSummary: "Cancel June first at 9 AM with Doctor Bach.",
+      toolCallId: "tool-cancel-1",
+    });
+
+    expect(inferObviousTurnUnderstanding(flow, "Yes, correct.")).toMatchObject({
+      confirmation: { cancelConfirmed: true },
+    });
+    expect(
+      inferObviousTurnUnderstanding(flow, "Cancel that appointment."),
+    ).toMatchObject({
+      confirmation: { cancelConfirmed: true },
+    });
+
+    const understanding = inferObviousTurnUnderstanding(
+      flow,
+      "Yes, I want to cancel.",
+    );
+    reduceFlowEvent(
+      flow,
+      callerTurnMeaningEvent({
+        transcript: "Yes, I want to cancel.",
+        understanding: understanding!,
+        flow,
+      }),
+    );
+
+    expect(flow.pendingActions).toContainEqual(
+      expect.objectContaining({
+        type: "cancel_appt",
+        appointmentId: 12345,
+        argsHash,
+        confirmed: true,
+        consumed: false,
+      }),
+    );
+  });
+
   it("confirms a pending registration action from reducer state", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
