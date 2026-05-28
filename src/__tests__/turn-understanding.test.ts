@@ -864,6 +864,39 @@ describe("turn understanding reducer", () => {
       }),
     );
   });
+
+  it("treats 'I confirm' as booking confirmation in a scheduling flow", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+    });
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.patientStatus = "verified";
+    flow.step = "confirm_booking";
+    flow.visitType = "medical";
+    flow.coverageType = "medical";
+    flow.routing = "all_three";
+    flow.schedulingGoal = {
+      status: "confirming_booking",
+      patientRef: "caller",
+      appointmentAction: "schedule",
+      visitReason: "retina check",
+      selectedSlotId: "G",
+      updatedAt: Date.now(),
+    };
+
+    const understanding = inferObviousTurnUnderstanding(flow, "I confirm—");
+
+    expect(understanding).toMatchObject({
+      goal: "schedule",
+      scheduling: {
+        selectedSlotId: "G",
+        bookingConfirmed: true,
+      },
+    });
+  });
 });
 
 function appointment(id: number): CallerAppointment {

@@ -1271,6 +1271,61 @@ describe("tool interruption handling", () => {
     expect(state.flow.step).toBe("confirm_booking");
   });
 
+  it("labels availability slots chronologically even when middleware returns them out of order", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        availabilityFound: true,
+        requestedDate: "2026-06-01",
+        actualDate: "2026-06-01",
+        slots: [
+          {
+            provider: "Dr. Austin Bach",
+            time: "9:45 AM",
+            datetime: "2026-06-01T09:45",
+            columnId: 1307,
+            profileId: 620,
+            duration: 15,
+            bookingToken: "later-token",
+          },
+          {
+            provider: "Dr. Austin Bach",
+            time: "8:45 AM",
+            datetime: "2026-06-01T08:45",
+            columnId: 682,
+            profileId: 620,
+            duration: 15,
+            bookingToken: "earlier-token",
+          },
+        ],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+
+    const result = await get_availability.execute(
+      { date: "2026-06-01" },
+      { ctx, toolCallId: "test-availability-sorted" },
+    );
+
+    expect(result).toMatchObject({
+      slotId: "A",
+      reply: "I found June 1 at 8:45 AM with Dr. Bach. Does that work?",
+      slots: [
+        { slotId: "A", time: "8:45 AM" },
+        { slotId: "B", time: "9:45 AM" },
+      ],
+    });
+    expect(state.lastAvailabilitySlots).toEqual([
+      expect.objectContaining({ slotId: "A", time: "8:45 AM" }),
+      expect.objectContaining({ slotId: "B", time: "9:45 AM" }),
+    ]);
+  });
+
   it("summarizes and groups availability around the caller's preferred time window", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
@@ -1881,7 +1936,7 @@ describe("tool interruption handling", () => {
     ]);
   });
 
-  it("blocks cached slot booking until reducer records confirmation", async () => {
+  it("books cached slots without requiring reducer-created confirmation state", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
       json: async () => ({ status: "booked", appointmentId: 12345 }),
@@ -1898,13 +1953,14 @@ describe("tool interruption handling", () => {
     });
 
     expect(speechHandle.allowInterruptions).toBe(false);
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      outcome: "not_allowed",
-      nextStep: "confirm_booking",
-      facts: { reason: "booking_confirmation_required" },
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
+    expect(state.flow.pendingActions[0]).toMatchObject({
+      type: "book_appt",
+      slotHash: "A",
+      confirmed: true,
+      consumed: true,
     });
-    expect(state.flow.pendingActions).toEqual([]);
   });
 
   it("blocks booking cached slots that are missing a signed booking token", async () => {
@@ -1933,7 +1989,7 @@ describe("tool interruption handling", () => {
     expect(state.lastAvailabilityRouting).toBeNull();
   });
 
-  it("blocks unconfirmed pending booking actions", async () => {
+  it("promotes unconfirmed pending booking actions when book_appt is called", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
       json: async () => ({ status: "booked", appointmentId: 12345 }),
@@ -1950,17 +2006,70 @@ describe("tool interruption handling", () => {
       toolCallId: "test-book-unconfirmed",
     });
 
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      outcome: "not_allowed",
-      nextStep: "confirm_booking",
-      facts: { reason: "booking_confirmation_required" },
-    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
     expect(state.flow.pendingActions[0]).toMatchObject({
       type: "book_appt",
-      confirmed: false,
-      consumed: false,
+      confirmed: true,
+      consumed: true,
     });
+  });
+
+  it("books the requested cached slot even when older pending state points at another slot", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "booked", appointmentId: 12345 }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLastAvailabilitySlot(state, {
+      slotId: "A",
+      spoken: "2026-06-01 9:45 AM with Dr. Bach",
+      provider: "Dr. Bach",
+      date: "2026-06-01",
+      time: "9:45 AM",
+      datetime: "2026-06-01T09:45",
+      bookingToken: "a-token",
+    });
+    state.lastAvailabilitySlots.push({
+      ...state.lastAvailabilitySlots[0],
+      slotId: "G",
+      spoken: "2026-06-01 11:15 AM with Dr. Bach",
+      time: "11:15 AM",
+      datetime: "2026-06-01T11:15",
+      bookingToken: "g-token",
+    });
+    state.bookableAvailabilitySlots = [...state.lastAvailabilitySlots];
+    seedPendingBookingAction(state);
+
+    const result = await book_appt.execute(bookingArgs("G"), {
+      ctx,
+      toolCallId: "test-book-selected-cached-slot",
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "booked", appointmentId: 12345 });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      bookingToken: "g-token",
+    });
+    expect(state.flow.pendingActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "book_appt",
+          slotHash: "A",
+          confirmed: true,
+          consumed: false,
+        }),
+        expect.objectContaining({
+          type: "book_appt",
+          slotHash: "G",
+          confirmed: true,
+          consumed: true,
+        }),
+      ]),
+    );
   });
 
   it("uses reducer-created pending booking actions after state confirmation", async () => {

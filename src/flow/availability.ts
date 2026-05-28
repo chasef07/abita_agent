@@ -358,7 +358,14 @@ export function createPendingBookingAction(
     },
     { includeConsumed: true },
   );
-  if (existing) return existing;
+  if (existing) {
+    if (input.confirmed && !existing.consumed && !existing.slotInvalidated) {
+      existing.confirmed = true;
+      existing.confirmationTurnId =
+        input.confirmationTurnId ?? existing.confirmationTurnId;
+    }
+    return existing;
+  }
 
   return createBookingAction(flow, {
     patientRef,

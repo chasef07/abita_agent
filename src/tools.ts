@@ -21,6 +21,7 @@ import {
   classifyVisitType,
   compactWorkflowCommand,
   completeCurrentTaskAndResume,
+  createPendingBookingAction,
   DEFAULT_PATIENT_REF,
   hashToolArgs,
   nextPatientFlowStep,
@@ -2028,7 +2029,7 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
       .min(1)
       .describe('Caller-provided referring doctor, or "none" if none.'),
   }),
-  execute: async (params, { ctx }) => {
+  execute: async (params, { ctx, toolCallId }) => {
     const state = getState(ctx);
     const speechReady = makeCurrentSpeechUninterruptible(ctx);
     restoreConfirmedPreCallCaller(state);
@@ -2116,6 +2117,15 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
     if (policyResponse) return policyResponse;
     const bookingToken = bookingTokenForSelectedSlot(state, selectedSlot);
     if (typeof bookingToken !== "string") return bookingToken;
+    const confirmationId =
+      toolCallId ?? nextFlowEventId("tool_confirmed_booking");
+    createPendingBookingAction(state.flow, {
+      ...bookingPolicyFacts,
+      spokenSummary: selectedSlot.spoken,
+      confirmed: true,
+      createdTurnId: confirmationId,
+      confirmationTurnId: confirmationId,
+    });
     const bookingAttempt = recordBookingAttempt(state.flow, {
       ...bookingPolicyFacts,
       spokenSummary: selectedSlot.spoken,

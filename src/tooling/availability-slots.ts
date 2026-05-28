@@ -114,8 +114,15 @@ export function storeAvailabilitySlots(
   const firstSlotIndex = nextAvailabilitySlotIndex(state, activeSlots);
   const storedSlots: StoredAvailabilitySlot[] = [];
   const candidateSlots: AvailabilityCandidateSlot[] = [];
-  rawSlots.forEach((slot) => {
-    if (!isRecord(slot)) return;
+  const sortableSlots = rawSlots
+    .map((slot, index) => ({ slot, index }))
+    .filter(
+      (entry): entry is { slot: Record<string, unknown>; index: number } =>
+        isRecord(entry.slot),
+    )
+    .sort(compareRawAvailabilitySlot);
+
+  sortableSlots.forEach(({ slot }) => {
     const rawProvider = typeof slot.provider === "string" ? slot.provider : "";
     const provider = rawProvider ? publicProviderName(rawProvider) : "";
     const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
@@ -213,6 +220,27 @@ export function storeAvailabilitySlots(
     matchingSlots: effectiveMatchingSlots,
     otherSlots,
   });
+}
+
+function compareRawAvailabilitySlot(
+  left: { slot: Record<string, unknown>; index: number },
+  right: { slot: Record<string, unknown>; index: number },
+): number {
+  const leftTime = sortableSlotTimestamp(left.slot);
+  const rightTime = sortableSlotTimestamp(right.slot);
+  if (leftTime !== rightTime) return leftTime - rightTime;
+  return left.index - right.index;
+}
+
+function sortableSlotTimestamp(slot: Record<string, unknown>): number {
+  const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
+  const date = typeof slot.date === "string" ? slot.date : "";
+  const time = typeof slot.time === "string" ? slot.time : "";
+  const isoLike = datetime || (date && time ? `${date}T${time}` : "");
+  const parsed = Date.parse(isoLike);
+  if (Number.isFinite(parsed)) return parsed;
+  const minutes = minutesFromDisplayTime(time);
+  return minutes ?? Number.MAX_SAFE_INTEGER;
 }
 
 export function normalizeSlotId(slotId: string): string {

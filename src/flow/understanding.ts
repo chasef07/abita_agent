@@ -252,7 +252,9 @@ export function inferObviousTurnUnderstanding(
     };
   }
 
-  if (shouldTreatTranscriptAsReferringDoctor(activeCommand, cleaned)) {
+  if (
+    shouldTreatTranscriptAsReferringDoctor(activeCommand, cleaned, normalized)
+  ) {
     return {
       goal: "schedule",
       scheduling: {
@@ -486,7 +488,7 @@ function coverageTypeForVisitType(
 }
 
 function isAffirmative(normalized: string): boolean {
-  return /^(yes|yeah|yep|correct|right|sure|ok|okay|perfect|that works|sounds good|that sounds good|go ahead|please do|yup)\b/.test(
+  return /^(yes|yeah|yep|correct|right|sure|ok|okay|perfect|that works|sounds good|that sounds good|go ahead|please do|yup|i confirm)\b/.test(
     normalized,
   );
 }
@@ -653,8 +655,10 @@ function shouldTreatTranscriptAsPreferredWindow(
 function shouldTreatTranscriptAsReferringDoctor(
   command: WorkflowCommand | undefined,
   transcript: string,
+  normalized: string,
 ): boolean {
   if (!commandHasMissingFact(command, "referringDoctor")) return false;
+  if (looksLikeProviderConfirmation(normalized)) return false;
   const trimmed = transcript.trim();
   return trimmed.length > 0 && trimmed.length <= 120;
 }
@@ -670,6 +674,15 @@ function referringDoctorValueFromTranscript(
 function isNoReferringDoctorResponse(normalized: string): boolean {
   return /\b(no referring doctor|no referral|none|nobody referred|no one referred|don t have one|do not have one|i don t have one|i do not have one|not referred|self referred)\b/.test(
     normalized,
+  );
+}
+
+function looksLikeProviderConfirmation(normalized: string): boolean {
+  if (/\b(refer|referred|referral|sent)\b/.test(normalized)) return false;
+  return (
+    /\b(?:with\s+)?(?:doctor|dr)\s+(?:bach|licht|noel|austin\s+bach|j\s+licht|d\s+noel)\b/.test(
+      normalized,
+    ) && /\b(?:yes|yeah|yep|correct|right|ok|okay)\b/.test(normalized)
   );
 }
 

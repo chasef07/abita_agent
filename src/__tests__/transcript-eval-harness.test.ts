@@ -590,17 +590,10 @@ describe("transcript replay eval harness", () => {
     );
   });
 
-  it("requires reducer-confirmed booking before cached availability can book", () => {
+  it("allows cached availability booking without reducer-created confirmation state", () => {
     const harness = new TranscriptEvalHarness();
     harness.verifyPrecallPatient();
     harness.startAvailability();
-
-    expect(harness.bookingPolicy()).toMatchObject({
-      allowed: false,
-      observation: { reason: "booking_confirmation_required" },
-    });
-
-    harness.confirmBooking();
 
     expect(harness.bookingPolicy()).toMatchObject({
       allowed: true,

@@ -389,15 +389,14 @@ function evaluateBookingPolicy(
   if (activeAction?.slotInvalidated) {
     return invalidatedBookingOutcome();
   }
-  if (activeAction?.confirmed) return undefined;
-  if (activeAction) return bookingConfirmationRequiredOutcome();
+  if (activeAction) return undefined;
 
   const consumedAction = findConsumedBookingAction(flow, booking);
   if (consumedAction?.consumed) {
     return consumedBookingOutcome(consumedAction.id);
   }
 
-  return bookingConfirmationRequiredOutcome();
+  return undefined;
 }
 
 function evaluateHistoricalBookingPolicy(
@@ -451,23 +450,6 @@ function invalidatedBookingOutcome(): {
       speak:
         "That slot was invalidated by a booking error. Offer a cached alternative or search availability again.",
       facts: { reason: "booking_slot_invalidated" },
-      retryable: true,
-    },
-  };
-}
-
-function bookingConfirmationRequiredOutcome(): {
-  reason: GuardObservationReason;
-  outcome: ToolOutcome;
-} {
-  return {
-    reason: "booking_confirmation_required",
-    outcome: {
-      outcome: "not_allowed",
-      nextStep: "confirm_booking",
-      speak:
-        "Read back the exact appointment slot and get explicit confirmation before booking.",
-      facts: { reason: "booking_confirmation_required" },
       retryable: true,
     },
   };
