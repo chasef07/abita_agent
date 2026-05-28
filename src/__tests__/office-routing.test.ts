@@ -396,6 +396,21 @@ describe("flow harness prompt gating", () => {
     expect(prompt).toContain("use verify_patient");
     expect(prompt).not.toContain("NO MATCH");
   });
+
+  it("asks no-match callers whether they are registered before making a chart", () => {
+    const prompt = buildPrompt(
+      {
+        status: "no_match",
+        phone: "+17275551212",
+      },
+      SPRING_HILL_OFFICE_PHONE,
+    );
+
+    expect(prompt).toContain(
+      'Ask "Are you already registered with us, or should I make a new chart?" early in the call.',
+    );
+    expect(prompt).not.toContain("have you been seen here before");
+  });
 });
 
 describe("Crystal River prompt guidance", () => {
