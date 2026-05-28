@@ -136,6 +136,8 @@ const addPatientParameters = z.object({
     ),
 });
 
+type AddPatientParams = z.infer<typeof addPatientParameters>;
+
 const updateInsuranceParameters = z.object({
   insurance: z.string().describe("New insurance plan name"),
   subscriberName: z
@@ -433,6 +435,101 @@ function recordSideEffectConfirmationRequestFromToolCall(
       confirmationRecorded: "pending",
     },
   };
+}
+
+function maybeRecordAddPatientReadbackConfirmation(
+  state: CallState,
+  params: AddPatientParams,
+  toolCallId: string,
+): void {
+  if (!isFlowHarnessEnabled(state)) return;
+  if (!canUseLatestTurnAsAddPatientConfirmation(state)) return;
+  if (!latestTurnConfirmsRegistrationReadback(state.latestUserTranscript)) {
+    return;
+  }
+
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("side_effect_confirmed"),
+    type: "side_effect_confirmed",
+    source: "deterministic_understanding",
+    createdAt: Date.now(),
+    toolName: "add_patient",
+    argsHash: hashToolArgs(params),
+    spokenSummary: defaultSideEffectSummary("add_patient"),
+    patientRef: state.flow.activePatientRef,
+    requiredFieldsComplete: true,
+    toolCallId,
+  });
+}
+
+function canUseLatestTurnAsAddPatientConfirmation(state: CallState): boolean {
+  if (!state.checkedInsurancePlan && !state.checkedInsuranceCoverageType) {
+    return false;
+  }
+  if (state.patientId) return false;
+  if (
+    state.flow.patientStatus === "verified" ||
+    state.flow.patientStatus === "created"
+  ) {
+    return false;
+  }
+
+  const activePatient =
+    state.flow.patients[state.flow.activePatientRef ?? DEFAULT_PATIENT_REF];
+  if (!activePatient) return true;
+  if (activePatient.patientId) return false;
+  return (
+    activePatient.status !== "verified" && activePatient.status !== "created"
+  );
+}
+
+function latestTurnConfirmsRegistrationReadback(
+  transcript: string | null | undefined,
+): boolean {
+  const normalized = normalizeConfirmationTranscript(transcript);
+  if (!normalized) return false;
+
+  return (
+    REGISTRATION_READBACK_CONFIRMATIONS.has(normalized) ||
+    /^(yes|yeah|yep)\s+(that|it|everything|all|they)\s+(is|are)?\s*(correct|right|good)$/.test(
+      normalized,
+    ) ||
+    /^(yes|yeah|yep)\s+(correct|right|all good|looks good)$/.test(normalized)
+  );
+}
+
+const REGISTRATION_READBACK_CONFIRMATIONS = new Set([
+  "yes",
+  "yeah",
+  "yep",
+  "correct",
+  "right",
+  "yes it is",
+  "yes its correct",
+  "yes that is correct",
+  "yes thats correct",
+  "yes thats right",
+  "that is correct",
+  "thats correct",
+  "that is right",
+  "thats right",
+  "all correct",
+  "that is all correct",
+  "everything is correct",
+  "looks correct",
+  "looks good",
+  "all good",
+]);
+
+function normalizeConfirmationTranscript(
+  transcript: string | null | undefined,
+): string {
+  return (transcript ?? "")
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function defaultSideEffectSummary(toolName: SideEffectToolName): string {
@@ -1561,18 +1658,18 @@ After response:
 
 // --- add_patient ---
 export const add_patient = llm.tool({
-  description: `Creates a new patient record. Use only when verify_patient returns no match. Every submitted field must come from what the caller explicitly said — never fabricate or guess values.
+  description: `Creates a new patient record after a no-match verification or caller-confirmed new-patient registration.
 
-Follow the registration order in the runbook. Key rules for this tool:
-- Run check_insurance first. Use the canonicalPlan from the latest check_insurance result for the insurance value sent to middleware. If the tool accepted a family alias like "Blue Cross" or "Oscar", do not rewrite it yourself.
-- For a new routine-vision patient, check_insurance must use coverageType "routine_vision" first. This tool will attach that coverage type and canonical vision plan to the new patient payload.
-- Ask "is the number you're calling from a good one on file?" If yes, omit phone and this tool will use the inbound caller number already stored in session state. If no, collect the best 10-digit phone number and pass it explicitly.
-- Email is optional. Ask once; if the caller says they do not have one, omit email and continue registration. Do not transfer just because email is missing.
-- If subscriber is "me" or "mine" = use patient name.
-- Member ID is required unless the caller is self-pay. For self-pay, use subscriberName as the patient name and subscriberNum "self pay". If an insured caller does not have their card, offer to hold.
-- Before submitting: read back name (spell last name letter by letter), DOB, insurance plan, and member ID when applicable. Wait for confirmation, then call this tool directly. If the tool says the confirmation was interrupted, read back and confirm again before retrying.
+Rules:
+- Use only caller-provided facts. Never guess or use placeholders.
+- Run check_insurance first and use its canonicalPlan.
+- If routine vision, check insurance with coverageType "routine_vision" before registration.
+- Phone: if caller says the inbound number is good, omit phone; otherwise collect and pass the best callback number.
+- Email is optional; ask once, then continue if missing.
+- Member ID is required unless self-pay. For self-pay, use subscriberNum "self pay".
+- Before calling, read back key registration details and get caller confirmation. A direct "yes" or "that's correct" after readback is enough.
 
-After response: if routing "not_accepted", tell them. If preauthRequired, scheduling starts two weeks out. Go straight to scheduling — don't check appointments for a new patient.
+After response: if routing is "not_accepted", tell them. If preauthRequired, scheduling starts two weeks out. If confirmed age is under 18, use Doctor Bach. Do not infer age from Bach-only routing. Do not explain "bach_only" unless the tool returns an explicit reason. Continue scheduling.
 
 Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO, Cigna HMO, Tricare Prime, Tricare Forever.`,
   parameters: addPatientParameters,
@@ -1588,6 +1685,7 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
         true,
       );
     }
+    maybeRecordAddPatientReadbackConfirmation(state, params, toolCallId);
     const policyResponse = evaluatePolicyForState(state, "add_patient", params);
     if (policyResponse) {
       return recordSideEffectConfirmationRequestFromToolCall(
@@ -1772,7 +1870,7 @@ Ask the caller the reason for their visit before calling this tool so the schedu
 
 The middleware resolves the AMD appointment type during booking.
 
-Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. Under 18 medical visits = Dr. Bach only. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
+Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. If confirmed age is under 18, use Doctor Bach. Do not infer age from bach_only routing. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
 
 After response: follow the reply and next fields. If result is slots_found, offer slotId first. Mention the doctor only if asked or clinically relevant. If rejected, offer another listed slot. If result is no_slots_found, do not search the same range again; ask for a different preference or use nextSearchDate.`,
   parameters: z.object({

@@ -20,8 +20,10 @@ import {
   SWEETWATER_TRUNK_PHONES,
 } from "../offices.js";
 import {
+  add_patient,
   getAmdOfficeForToolCall,
   getBaseUrlForOfficePhone,
+  get_availability,
   getSpringHillOfficePhone,
   resolveKnowledgeFileForOffice,
   verify_patient,
@@ -715,6 +717,18 @@ describe("Crystal River prompt guidance", () => {
 });
 
 describe("model-facing tool definitions", () => {
+  it("keeps Bach-only routing from implying a minor patient", () => {
+    expect(add_patient.description).toContain(
+      "Do not infer age from Bach-only routing",
+    );
+    expect(get_availability.description).toContain(
+      "Do not infer age from bach_only routing",
+    );
+    expect(get_availability.description).not.toContain(
+      "Under 18 medical visits = Dr. Bach only",
+    );
+  });
+
   it("limits verify_patient to patient-specific workflows", () => {
     expect(verify_patient.description).toContain(
       "Use only when the current workflow needs a verified patient",
