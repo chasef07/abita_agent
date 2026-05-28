@@ -25,16 +25,16 @@ function applyPlannerCommand(
 }
 
 describe("dynamic tool exposure", () => {
-  it("keeps record_turn_understanding hidden while a user turn is pending", () => {
+  it("keeps the broad workflow set visible while a user turn is pending", () => {
     const state = createCallState();
     state.latestUserTranscript = "I need to schedule an appointment";
     state.turnUnderstandingAppliedForTranscript = null;
 
     const decision = buildToolsForState(state);
 
-    expect(decision.reason).toBe("turn_update_pending_broad");
+    expect(decision.reason).toBe("turn_update_pending");
     expect(decision.visibleToolNames).toEqual(DEV_BROAD_TOOL_NAMES);
-    expect(decision.visibleToolNames).not.toContain(
+    expect(Object.keys(decision.tools)).not.toContain(
       "record_turn_understanding",
     );
   });
@@ -226,35 +226,6 @@ describe("dynamic tool exposure", () => {
 
     expect(buildToolsForState(state).visibleToolNames).toEqual(
       DEV_BROAD_TOOL_NAMES,
-    );
-  });
-
-  it("keeps add_patient_note hidden after booking succeeds", () => {
-    const state = createCallState();
-    state.flow.step = "answer";
-    state.flow.pendingActions.push({
-      id: "pending_book_1",
-      type: "book_appt",
-      patientRef: "caller",
-      slotHash: "A",
-      appointmentTypeId: 1007,
-      officeKey: "dev",
-      routing: "all_three",
-      availabilitySearchId: "availability_1",
-      spokenSummary: "Monday at 9 AM with Dr. Licht",
-      confirmed: true,
-      consumed: true,
-      createdTurnId: "turn-1",
-      invalidated: false,
-      bookingAttemptCount: 1,
-      slotInvalidated: false,
-    });
-
-    expect(buildToolsForState(state).visibleToolNames).toEqual(
-      DEV_BROAD_TOOL_NAMES,
-    );
-    expect(buildToolsForState(state).visibleToolNames).not.toContain(
-      "add_patient_note",
     );
   });
 });

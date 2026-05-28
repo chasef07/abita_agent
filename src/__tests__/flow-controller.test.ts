@@ -672,6 +672,78 @@ describe("flow state and context packet", () => {
     );
   });
 
+  it("confirms a preloaded multiple-match patient when STT doubles a short first-name letter", () => {
+    const flow = createInitialFlowState({
+      officeKey: "hollywood",
+      callerPhone: "+13057637551",
+      preCall: {
+        status: "multiple_matches_pending_selection",
+        source: "phone_lookup",
+        callerPhone: "+13057637551",
+        candidates: [
+          {
+            ref: "precall:1",
+            firstName: "ANA",
+            lastName: "CASANOVA",
+            dob: "03/09/2000",
+            patientId: "17561760",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+          {
+            ref: "precall:2",
+            firstName: "LUIS",
+            lastName: "CASANOVA",
+            dob: "04/26/2016",
+            patientId: "17609791",
+            appointments: [
+              {
+                id: 20746753,
+                date: "Tuesday, June 16, 2026",
+                time: "9:15 AM",
+                type: "New Pediatric Medical",
+                facility: "Abita Eye Group Hollywood",
+                provider: "Dr. Bach",
+              },
+            ],
+            appointmentsStatus: "found",
+          },
+        ],
+        identityPromotion: "none",
+      },
+    });
+
+    const result = applyPreCallIdentityFromTranscript(
+      flow,
+      "Anna Casanova.",
+    );
+
+    expect(result).toMatchObject({
+      changed: true,
+      promotion: "candidate_selected",
+      selectedCandidateRef: "precall:1",
+    });
+    expect(flow.preCall).toMatchObject({
+      status: "multiple_match_confirmed",
+      selectedCandidateRef: "precall:1",
+    });
+    expect(flow.patientStatus).toBe("verified");
+    expect(flow.step).toBe("understand_intent");
+    expect(flow.patients["precall:1"]).toMatchObject({
+      status: "verified",
+      patientId: "17561760",
+      firstName: { value: "ANA", confirmed: true },
+      lastName: { value: "CASANOVA", confirmed: true },
+      dob: { value: "03/09/2000", confirmed: true },
+    });
+    expect(Object.keys(flow.patients).some((ref) => ref.startsWith("candidate:")))
+      .toBe(false);
+
+    const packet = compileTurnStatePacket(flow);
+    expect(packet).toContain("preCall: multiple_match_confirmed");
+    expect(packet).toContain("do not call verify_patient");
+  });
+
   it("continues scheduling after confirming a full multiple-match candidate during scheduling", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
@@ -2891,7 +2963,6 @@ describe("deterministic turn router", () => {
         referringDoctor: "none",
       },
     });
-    expect(command.allowedTools).not.toContain("add_patient_note");
     expect(command.allowedTools).not.toContain("cancel_appt");
 
     const activePlan = flow.taskPlans?.[flow.activeTaskPlanId!];

@@ -207,8 +207,7 @@ function isSideEffectAction(action: string): boolean {
     action === "add_patient" ||
     action === "update_insurance" ||
     action === "transfer_call" ||
-    action === "route_to_spring_hill" ||
-    action === "add_patient_note"
+    action === "route_to_spring_hill"
   );
 }
 

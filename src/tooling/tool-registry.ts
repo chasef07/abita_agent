@@ -5,13 +5,11 @@ import {
 } from "../customer/profile.js";
 import {
   add_patient,
-  add_patient_note,
   book_appt,
   cancel_appt,
   check_insurance,
   get_availability,
   lookup_knowledge,
-  record_turn_understanding,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
@@ -26,13 +24,11 @@ import {
 } from "./tool-exposure.js";
 
 const ALL_TOOLS: AgentToolMap = {
-  record_turn_understanding,
   verify_patient,
   add_patient,
   update_insurance,
   get_availability,
   cancel_appt,
-  add_patient_note,
   book_appt,
   check_insurance,
   lookup_knowledge,

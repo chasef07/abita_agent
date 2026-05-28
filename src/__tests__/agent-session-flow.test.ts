@@ -35,7 +35,7 @@ describe("agent session flow integration", () => {
     initializeLogger({ pretty: false, level: "silent" });
   });
 
-  it("allows safe tools even before record_turn_understanding runs", async () => {
+  it("allows safe tools when no automatic turn update has run", async () => {
     const llmModel = new ScriptedToolAwareLLM(({ callIndex }) =>
       callIndex === 0
         ? {
@@ -405,9 +405,9 @@ describe("agent session flow integration", () => {
       }),
     );
 
-    expect(state.latestToolExposure?.visibleToolNames).not.toContain(
-      "record_turn_understanding",
-    );
+    expect(
+      (state.latestToolExposure?.visibleToolNames ?? []) as string[],
+    ).not.toContain("record_turn_understanding");
     expect(state.latestToolExposure?.visibleToolNames).toContain(
       "get_availability",
     );

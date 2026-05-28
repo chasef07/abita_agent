@@ -19,7 +19,6 @@ vi.mock("livekit-server-sdk", () => ({
 
 import {
   add_patient,
-  add_patient_note,
   book_appt,
   buildCallCenterHandoffHeaders,
   cancel_appt,
@@ -27,7 +26,6 @@ import {
   get_availability,
   lookup_knowledge,
   makeCurrentSpeechUninterruptible,
-  record_turn_understanding,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
@@ -42,6 +40,7 @@ import {
   callerTurnMeaningEvent,
   hashToolArgs,
   activeWorkflowCommandForState,
+  advanceWorkflow,
   inferObviousTurnUnderstanding,
   nextFlowEventId,
   planNextCommand,
@@ -51,6 +50,7 @@ import {
   resumePatientTask,
   startPatientTask,
   type CallFlowState,
+  type TurnUnderstanding,
   type WorkflowCommand,
 } from "../flow/index.js";
 import { HOLLYWOOD_OFFICE_PHONE, SWEETWATER_OFFICE_PHONE } from "../offices.js";
@@ -71,6 +71,30 @@ function applyPlannerCommand(
     createdAt: Date.now(),
     command,
   });
+}
+
+function recordTurnUnderstandingForTest(
+  state: CallState,
+  understanding: TurnUnderstanding,
+) {
+  const transcript = state.latestUserTranscript?.trim() ?? "";
+  const turn = advanceWorkflow(state.flow, {
+    type: "caller_intent_recorded",
+    transcript,
+    understanding,
+    source: "model_understanding",
+  });
+  state.turnUnderstandingAppliedForTranscript = transcript || null;
+  if (turn.update) {
+    state.lastTurnUnderstanding = {
+      goal: turn.update.understanding.goal,
+      appointmentAction: turn.update.understanding.appointmentAction,
+      confidence: turn.update.understanding.confidence,
+      activeIntent: state.flow.activeIntent,
+      activePatientRef: state.flow.activePatientRef,
+    };
+  }
+  return turn;
 }
 
 function bookingArgs(
@@ -139,36 +163,32 @@ describe("tool interruption handling", () => {
     );
     expect(faqResult).toContain("Knowledge source:");
 
-    const recorded = await record_turn_understanding.execute(
-      {
-        goal: "manage_existing_appointment",
-        appointmentAction: "reschedule",
-        patient: {
-          patientMentioned: "caller",
-          relationshipToCaller: "self",
-        },
-        scheduling: {
-          preferredWindow: "next week",
-        },
-        interruption: "none",
-        confidence: 0.9,
-        evidence: ["move my appointment", "next week"],
+    const recorded = recordTurnUnderstandingForTest(state, {
+      goal: "manage_existing_appointment",
+      appointmentAction: "reschedule",
+      patient: {
+        patientMentioned: "caller",
+        relationshipToCaller: "self",
       },
-      { ctx, toolCallId: "test-understanding" },
-    );
+      scheduling: {
+        preferredWindow: "next week",
+      },
+      interruption: "none",
+      confidence: 0.9,
+      evidence: ["move my appointment", "next week"],
+    });
 
     expect(recorded).toMatchObject({
-      status: "recorded",
       nextAction: "verify_patient",
       action: "call_tool",
       tool: "verify_patient",
       args: { firstName: "Jane", lastName: "Doe", dob: "01/01/1980" },
-      instruction:
-        "Call verify_patient with the patient's first name to load appointments. Caller phone is loaded from state.",
+      workflowCommand: {
+        instruction:
+          "Call verify_patient with the patient's first name to load appointments. Caller phone is loaded from state.",
+      },
     });
-    expect(recorded).not.toHaveProperty("turnState");
     expect(recorded).not.toHaveProperty("controllerDecision");
-    expect(recorded).not.toHaveProperty("resolvedMetaDecision");
     expect(recorded).not.toHaveProperty("activeFlow");
     expect(state.turnUnderstandingAppliedForTranscript).toBe(
       "I need to move my appointment next week",
@@ -186,25 +206,22 @@ describe("tool interruption handling", () => {
       "Move my Dr. Bach appointment to Monday at 1 PM";
     state.turnUnderstandingAppliedForTranscript = null;
 
-    const recorded = await record_turn_understanding.execute(
-      {
-        goal: "manage_existing_appointment",
-        appointmentAction: "reschedule",
-        patient: {
-          patientMentioned: "caller",
-          relationshipToCaller: "self",
-        },
-        scheduling: {
-          preferredWindow: "Monday at 1 PM",
-        },
-        interruption: "none",
-        confidence: 0.94,
-        evidence: ["Dr. Bach", "Monday at 1 PM"],
+    const recorded = recordTurnUnderstandingForTest(state, {
+      goal: "manage_existing_appointment",
+      appointmentAction: "reschedule",
+      patient: {
+        patientMentioned: "caller",
+        relationshipToCaller: "self",
       },
-      { ctx, toolCallId: "test-understanding-reschedule-availability" },
-    );
+      scheduling: {
+        preferredWindow: "Monday at 1 PM",
+      },
+      interruption: "none",
+      confidence: 0.94,
+      evidence: ["Dr. Bach", "Monday at 1 PM"],
+    });
 
-    expect(recorded).toMatchObject({
+    expect(recorded.workflowCommand).toMatchObject({
       phase: "searching_replacement",
       tool: "get_availability",
       suggestedTool: "get_availability",
@@ -242,36 +259,34 @@ describe("tool interruption handling", () => {
       updatedAt: Date.now(),
     };
 
-    const recorded = await record_turn_understanding.execute(
-      {
-        goal: "schedule",
-        appointmentAction: null,
-        scheduling: {
-          selectedSlotId: "C",
-          bookingConfirmed: true,
-        },
-        interruption: "none",
-        confidence: 0.95,
-        evidence: ["Yes, book it"],
+    const recorded = recordTurnUnderstandingForTest(state, {
+      goal: "schedule",
+      appointmentAction: null,
+      scheduling: {
+        selectedSlotId: "C",
+        bookingConfirmed: true,
       },
-      { ctx, toolCallId: "test-understanding-book" },
-    );
+      interruption: "none",
+      confidence: 0.95,
+      evidence: ["Yes, book it"],
+    });
 
     expect(recorded).toMatchObject({
-      status: "recorded",
-      task: "scheduling",
-      phase: "booking",
       nextAction: "book_appt",
       action: "call_tool",
       tool: "book_appt",
-      suggestedTool: "book_appt",
       args: {
         slotId: "C",
         appointmentKind: "medical",
         appointmentReason: "double vision",
         referringDoctor: "none",
       },
-      instruction: "Call book_appt now.",
+      workflowCommand: {
+        taskKind: "scheduling",
+        phase: "booking",
+        suggestedTool: "book_appt",
+        instruction: "Call book_appt now.",
+      },
     });
   });
 
@@ -295,30 +310,28 @@ describe("tool interruption handling", () => {
       updatedAt: Date.now(),
     };
 
-    const recorded = await record_turn_understanding.execute(
-      {
-        goal: "schedule",
-        appointmentAction: null,
-        scheduling: {
-          selectedSlotId: "B",
-          bookingConfirmed: true,
-        },
-        interruption: "none",
-        confidence: 0.95,
-        evidence: ["Yes, book it"],
+    const recorded = recordTurnUnderstandingForTest(state, {
+      goal: "schedule",
+      appointmentAction: null,
+      scheduling: {
+        selectedSlotId: "B",
+        bookingConfirmed: true,
       },
-      { ctx, toolCallId: "test-understanding-missing-referrer" },
-    );
+      interruption: "none",
+      confidence: 0.95,
+      evidence: ["Yes, book it"],
+    });
 
     expect(recorded).toMatchObject({
-      status: "recorded",
-      task: "scheduling",
-      phase: "collecting_booking_note",
-      nextAction: "ask",
+      nextAction: "ask_referringDoctor",
       action: "ask",
-      missingFacts: ["referringDoctor"],
-      instruction:
-        "Ask who referred them, or whether there is no referring doctor. Do not ask for surgery details; the appointment reason is already known.",
+      workflowCommand: {
+        taskKind: "scheduling",
+        phase: "collecting_booking_note",
+        missingFacts: [{ key: "referringDoctor" }],
+        instruction:
+          "Ask who referred them, or whether there is no referring doctor. Do not ask for surgery details; the appointment reason is already known.",
+      },
     });
     expect(recorded).not.toMatchObject({
       tool: "book_appt",
@@ -618,20 +631,17 @@ describe("tool interruption handling", () => {
     const { ctx, state } = createToolContext();
     resetToUnverifiedAppointmentTask(state, "cancel my appointment");
 
-    await record_turn_understanding.execute(
-      {
-        goal: "manage_existing_appointment",
-        appointmentAction: "cancel",
-        patient: {
-          patientMentioned: "caller",
-          relationshipToCaller: "self",
-        },
-        interruption: "none",
-        confidence: 0.9,
-        evidence: ["cancel my appointment"],
+    recordTurnUnderstandingForTest(state, {
+      goal: "manage_existing_appointment",
+      appointmentAction: "cancel",
+      patient: {
+        patientMentioned: "caller",
+        relationshipToCaller: "self",
       },
-      { ctx, toolCallId: "test-understanding-cancel" },
-    );
+      interruption: "none",
+      confidence: 0.9,
+      evidence: ["cancel my appointment"],
+    });
 
     const result = (await verify_patient.execute(
       { firstName: "Chase", lastName: "Test", dob: "04/07/2000" },
@@ -690,20 +700,17 @@ describe("tool interruption handling", () => {
     const { ctx, state } = createToolContext();
     resetToUnverifiedAppointmentTask(state, "cancel my appointment");
 
-    await record_turn_understanding.execute(
-      {
-        goal: "manage_existing_appointment",
-        appointmentAction: "cancel",
-        patient: {
-          patientMentioned: "caller",
-          relationshipToCaller: "self",
-        },
-        interruption: "none",
-        confidence: 0.9,
-        evidence: ["cancel my appointment"],
+    recordTurnUnderstandingForTest(state, {
+      goal: "manage_existing_appointment",
+      appointmentAction: "cancel",
+      patient: {
+        patientMentioned: "caller",
+        relationshipToCaller: "self",
       },
-      { ctx, toolCallId: "test-understanding-cancel-empty" },
-    );
+      interruption: "none",
+      confidence: 0.9,
+      evidence: ["cancel my appointment"],
+    });
 
     const result = (await verify_patient.execute(
       { firstName: "Chase", lastName: "Test", dob: "04/07/2000" },
@@ -849,19 +856,6 @@ describe("tool interruption handling", () => {
           return cancel_appt.execute(
             { appointmentId: 12345 },
             { ctx, toolCallId: "test-cancel" },
-          );
-        },
-      },
-      {
-        name: "add_patient_note",
-        run: (ctx: ToolContext) => {
-          seedSuccessfulBooking(ctx.session.userData as CallState);
-          return add_patient_note.execute(
-            {
-              appointmentReason: "blurry vision",
-              referringDoctor: "none",
-            },
-            { ctx, toolCallId: "test-note" },
           );
         },
       },
@@ -2792,157 +2786,6 @@ describe("tool interruption handling", () => {
     expect(state.lastAvailabilityRouting).toBe("all_three");
   });
 
-  it("sends patient notes with session patient and office state", async () => {
-    const fetchMock = vi.fn().mockImplementation(async () => ({
-      ok: true,
-      json: async () => ({ status: "saved", noteId: "3135521" }),
-      text: async () => "",
-    }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { ctx, state } = createToolContext();
-    state.patientId = "17603880";
-    state.officeKey = "crystal-river";
-    state.amdOfficePhone = "+13523202007";
-    state.flow.patients[state.flow.activePatientRef!].patientId = "17603880";
-    seedSuccessfulBooking(state);
-    state.flow.schedulingGoal = {
-      status: "booked",
-      patientRef: state.flow.activePatientRef,
-      appointmentAction: "schedule",
-      visitReason: "blurry vision",
-      noteDraft: {
-        appointmentReason: "blurry vision",
-        referringDoctor: "Dr. Smith",
-      },
-      updatedAt: Date.now(),
-    };
-
-    await add_patient_note.execute(
-      {
-        appointmentReason: "blurry vision",
-        referringDoctor: "Dr. Smith",
-      },
-      { ctx, toolCallId: "test-note" },
-    );
-
-    expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://advancedmd-token-management-production.up.railway.app/api/patient/notes",
-    );
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
-      patientId: "17603880",
-      note: "Appointment reason: blurry vision\nReferring doctor: Dr. Smith",
-      office: "+13523202007",
-    });
-  });
-
-  it("blocks ungrounded patient note details when the flow harness is enabled", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { ctx, state } = createToolContext();
-    state.patientId = "17603880";
-    state.flow.patients[state.flow.activePatientRef!].patientId = "17603880";
-    seedSuccessfulBooking(state);
-    state.flow.schedulingGoal = {
-      status: "booked",
-      patientRef: state.flow.activePatientRef,
-      appointmentAction: "schedule",
-      visitReason: "itchy eye",
-      noteDraft: {
-        appointmentReason: "itchy eye",
-      },
-      updatedAt: Date.now(),
-    };
-
-    const result = await add_patient_note.execute(
-      {
-        appointmentReason: "itchy eye",
-        referringDoctor: "Dr. Smith",
-      },
-      { ctx, toolCallId: "test-ungrounded-note" },
-    );
-
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      outcome: "not_allowed",
-      nextStep: "collect_visit_reason",
-      facts: { reason: "note_requires_grounded_details" },
-    });
-  });
-
-  it("blocks patient notes until a booking succeeded for the active patient", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { ctx, state, speechHandle } = createToolContext();
-    state.patientId = "17603880";
-    state.flow.patients[state.flow.activePatientRef!].patientId = "17603880";
-
-    const result = await add_patient_note.execute(
-      {
-        appointmentReason: "blurry vision",
-        referringDoctor: "Dr. Smith",
-      },
-      { ctx, toolCallId: "test-note-before-booking" },
-    );
-
-    expect(speechHandle.allowInterruptions).toBe(false);
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      outcome: "not_allowed",
-      nextStep: "book",
-      facts: { reason: "note_requires_successful_booking" },
-    });
-  });
-
-  it("allows notes after a successful booking", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockImplementationOnce(async () => ({
-        ok: true,
-        json: async () => ({ status: "booked", appointmentId: 12345 }),
-        text: async () => "",
-      }))
-      .mockImplementationOnce(async () => ({
-        ok: true,
-        json: async () => ({ status: "saved", noteId: "note-1" }),
-        text: async () => "",
-      }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { ctx, state } = createToolContext();
-    state.patientId = "17603880";
-    state.flow.patients[state.flow.activePatientRef!].patientId = "17603880";
-    seedLastAvailabilitySlot(state);
-    seedPendingBookingAction(state);
-
-    await book_appt.execute(bookingArgs(), {
-      ctx,
-      toolCallId: "test-book-before-note",
-    });
-    const noteResult = await add_patient_note.execute(
-      {
-        appointmentReason: "blurry vision",
-        referringDoctor: "none",
-      },
-      { ctx, toolCallId: "test-note-after-booking" },
-    );
-
-    expect(noteResult).toMatchObject({
-      status: "saved",
-      noteId: "note-1",
-    });
-    expect(state.flow.pendingActions).toContainEqual(
-      expect.objectContaining({
-        type: "book_appt",
-        consumed: true,
-      }),
-    );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
   it("sends appointment kind intent instead of raw appointment type IDs", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
@@ -4380,19 +4223,6 @@ describe("tool interruption handling", () => {
           return cancel_appt.execute(
             { appointmentId: 12345 },
             { ctx, toolCallId: "test-cancel" },
-          );
-        },
-      },
-      {
-        name: "add_patient_note",
-        run: (ctx: ToolContext) => {
-          seedSuccessfulBooking(ctx.session.userData as CallState);
-          return add_patient_note.execute(
-            {
-              appointmentReason: "blurry vision",
-              referringDoctor: "none",
-            },
-            { ctx, toolCallId: "test-note" },
           );
         },
       },

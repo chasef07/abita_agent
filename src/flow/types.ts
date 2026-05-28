@@ -223,7 +223,6 @@ export type WorkflowToolName =
   | "update_insurance"
   | "get_availability"
   | "cancel_appt"
-  | "add_patient_note"
   | "book_appt"
   | "check_insurance"
   | "lookup_knowledge"
