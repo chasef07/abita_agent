@@ -189,6 +189,8 @@ export default defineAgent({
         routing: verified?.routing ?? null,
         lastAvailabilityRouting: null,
         lastAvailabilitySlots: [],
+        bookableAvailabilitySlots: [],
+        availabilitySlotSequence: 0,
         allowedProviders: verified?.allowedProviders ?? [],
         routingAmbiguous: verified?.routingAmbiguous ?? false,
         preauthRequired: verified?.preauthRequired ?? false,
@@ -361,9 +363,7 @@ export default defineAgent({
             turnMetrics,
             flow: {
               currentState: session.userData.flow,
-              shadowEvents: [],
               guardObservations: session.userData.flowGuardObservations,
-              mismatchCount: 0,
             },
             preCallLookup: session.userData.preCallLookup,
             language: languageRuntime.telemetry,

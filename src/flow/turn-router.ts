@@ -20,8 +20,7 @@ export function advanceFlowForTurn({
 }
 
 export {
-  instructionForFlowDecision,
-  nextActionForFlowDecision,
+  nextActionForWorkflowCommand,
   type WorkflowAdvanceResult as FlowTurnAdvanceResult,
   type ResolvedMetaDecision,
 } from "./reducer.js";

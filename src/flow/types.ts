@@ -212,6 +212,8 @@ export type ConfirmationType =
   | "cancel"
   | "reschedule"
   | "route_office"
+  | "registration"
+  | "insurance_update"
   | "transfer"
   | "end_call";
 
@@ -280,7 +282,12 @@ export interface WorkflowCommand {
   suggestedTool?: WorkflowToolName;
   allowedTools: WorkflowToolName[];
   blockedActions: BlockedAction[];
-  statePatch?: PlannerStatePatch;
+  taskPlan: ParentTaskPlan;
+  step?: FlowStep;
+  visitType?: VisitType;
+  coverageType?: InsuranceCoverageType;
+  pendingConfirmation?: CallFlowState["pendingConfirmation"];
+  schedulingGoal?: SchedulingGoalState;
   confirmationType?: ConfirmationType;
   resolvedMetaDecision?: {
     tool: "prepareSchedulingPath";
@@ -288,25 +295,6 @@ export interface WorkflowCommand {
   };
   instruction: string;
   commandSource: WorkflowCommandSource;
-}
-
-export interface PlannerStatePatch {
-  taskPlans?: Record<string, ParentTaskPlan>;
-  activeTaskPlanId?: string;
-  activeIntent?: IntentKind | null;
-  activeFlow?: ActiveFlow;
-  step?: FlowStep;
-  patientStatus?: PatientStatus;
-  visitType?: VisitType;
-  officeKey?: OfficeKey;
-  coverageType?: InsuranceCoverageType;
-  routing?: SchedulingRouting;
-  requiredSlots?: string[];
-  completedSteps?: string[];
-  pendingConfirmation?: CallFlowState["pendingConfirmation"];
-  currentTask?: TaskFrame;
-  taskStack?: TaskFrame[];
-  schedulingGoal?: SchedulingGoalState;
 }
 
 export interface AppointmentLookupSubplan {
@@ -563,6 +551,7 @@ export interface CallFlowState {
   currentTask?: TaskFrame;
   taskPlans?: Record<string, ParentTaskPlan>;
   activeTaskPlanId?: string;
+  lastWorkflowCommand?: WorkflowCommand;
   pendingActions: PendingAction[];
   availabilitySearches: AvailabilitySearch[];
   schedulingGoal?: SchedulingGoalState;
@@ -581,6 +570,34 @@ export interface CallFlowState {
     argsHash: string;
     guardAllowed: boolean;
   };
+  transitionLog?: FlowTransition[];
+}
+
+export interface FlowTransitionSnapshot {
+  activeIntent: IntentKind | null;
+  activeFlow: ActiveFlow;
+  step: FlowStep;
+  activeTaskPlanId?: string;
+  currentTaskId?: string;
+  lastCommandTaskId?: string;
+  lastCommandTaskKind?: WorkflowCommand["taskKind"];
+  lastCommandPhase?: string;
+  lastCommandAction?: WorkflowCommandAction;
+  lastCommandTool?: WorkflowToolName;
+  lastCommandSuggestedTool?: WorkflowToolName;
+  patientStatus: PatientStatus;
+  pendingActions: number;
+  pendingActionState: string;
+}
+
+export interface FlowTransition {
+  eventId: string;
+  eventType: string;
+  source: string;
+  before: FlowTransitionSnapshot;
+  after: FlowTransitionSnapshot;
+  changed: string[];
+  createdAt: number;
 }
 
 export type ToolOutcomeStatus =
@@ -593,23 +610,23 @@ export type ToolOutcomeStatus =
   | "partial_failure"
   | "error";
 
+export interface ToolOutcomeTransition {
+  activeFlow: ActiveFlow;
+  step: FlowStep;
+  officeKey: OfficeKey;
+  patientStatus?: PatientStatus;
+  visitType?: VisitType;
+  coverageType?: InsuranceCoverageType;
+  routing?: SchedulingRouting;
+  requiredSlots?: string[];
+  completedSteps?: string[];
+}
+
 export interface ToolOutcome {
   outcome: ToolOutcomeStatus;
   nextStep: FlowStep;
-  statePatch?: Partial<CallFlowState>;
+  transition?: ToolOutcomeTransition;
   speak?: string;
   facts?: Record<string, unknown>;
   retryable?: boolean;
 }
-
-export type FlowDecision =
-  | { type: "ask"; slot: string; promptHint: string }
-  | { type: "call_tool"; tool: string; args: unknown }
-  | { type: "call_meta_tool"; tool: string; args: unknown }
-  | {
-      type: "confirm";
-      confirmation: NonNullable<CallFlowState["pendingConfirmation"]>;
-    }
-  | { type: "say"; instruction: string }
-  | { type: "transfer"; reason: string }
-  | { type: "end_call"; reason: string };

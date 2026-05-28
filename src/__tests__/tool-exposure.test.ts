@@ -1,12 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { DEV_OFFICE_PHONE } from "../customer/profile.js";
 import {
-  applyPlannerPatch,
   createInitialFlowState,
+  nextFlowEventId,
   planNextCommand,
+  reduceFlowEvent,
+  type CallFlowState,
+  type WorkflowCommand,
 } from "../flow/index.js";
 import type { CallState } from "../tooling/call-state.js";
 import { buildToolsForState } from "../tooling/tool-registry.js";
+
+function applyPlannerCommand(
+  flow: CallFlowState,
+  command: WorkflowCommand,
+): void {
+  reduceFlowEvent(flow, {
+    id: nextFlowEventId("test_planner_command"),
+    type: "planner_command_applied",
+    source: "planner",
+    createdAt: Date.now(),
+    command,
+  });
+}
 
 describe("dynamic tool exposure", () => {
   it("keeps record_turn_understanding hidden while a user turn is pending", () => {
@@ -142,7 +158,7 @@ describe("dynamic tool exposure", () => {
     };
 
     const command = planNextCommand(state.flow);
-    applyPlannerPatch(state.flow, command);
+    applyPlannerCommand(state.flow, command);
 
     const decision = buildToolsForState(state);
     expect(decision.reason).toBe(

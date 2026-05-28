@@ -60,16 +60,7 @@ export function planTransfer(flow: CallFlowState): WorkflowCommand {
       ],
       instruction:
         "Acknowledge the request, explain you can help finish scheduling, and continue the scheduling path. Transfer only if they ask again.",
-      statePatch: {
-        activeIntent: "new_appointment",
-        activeFlow: "scheduling",
-        step: resumed?.step ?? "get_availability",
-        completedSteps: ["transfer_pushback_offered"],
-        currentTask: resumed,
-        taskStack: resumed
-          ? flow.taskStack.filter((task) => task.id !== resumed.id)
-          : flow.taskStack,
-      },
+      step: resumed?.step ?? "get_availability",
     });
   }
 

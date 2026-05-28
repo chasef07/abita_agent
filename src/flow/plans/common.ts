@@ -2,92 +2,15 @@ import type {
   BlockedAction,
   CallFlowState,
   ConfirmationType,
-  FlowDecision,
   FlowStep,
   GenericTaskPlan,
   MissingFact,
   ParentTaskPlan,
   PatientContext,
   PlannerFact,
-  PlannerStatePatch,
   WorkflowCommand,
   WorkflowToolName,
 } from "../types.js";
-
-export function applyPlannerPatch(
-  flow: CallFlowState,
-  command: WorkflowCommand,
-): void {
-  const patch = command.statePatch;
-  if (patch?.taskPlans) flow.taskPlans = patch.taskPlans;
-  if (patch?.activeTaskPlanId) flow.activeTaskPlanId = patch.activeTaskPlanId;
-  if (patch && "activeIntent" in patch) {
-    flow.activeIntent = patch.activeIntent ?? null;
-  }
-  if (patch?.activeFlow) flow.activeFlow = patch.activeFlow;
-  if (patch?.step) {
-    flow.step = patch.step;
-    if (flow.currentTask) flow.currentTask.step = patch.step;
-  }
-  if (patch?.patientStatus) flow.patientStatus = patch.patientStatus;
-  if (patch?.visitType) flow.visitType = patch.visitType;
-  if (patch?.officeKey) flow.officeKey = patch.officeKey;
-  if (patch?.coverageType) flow.coverageType = patch.coverageType;
-  if (patch?.routing) flow.routing = patch.routing;
-  if (patch?.requiredSlots) flow.requiredSlots = patch.requiredSlots;
-  if (patch?.completedSteps) {
-    flow.completedSteps = mergeCompletedSteps(
-      flow.completedSteps,
-      patch.completedSteps,
-    );
-  }
-  if (patch && "pendingConfirmation" in patch) {
-    flow.pendingConfirmation = patch.pendingConfirmation;
-  }
-  if (patch?.currentTask) flow.currentTask = patch.currentTask;
-  if (patch?.taskStack) flow.taskStack = patch.taskStack;
-  if (patch?.schedulingGoal) flow.schedulingGoal = patch.schedulingGoal;
-}
-
-export function flowDecisionForWorkflowCommand(
-  command: WorkflowCommand,
-): FlowDecision {
-  switch (command.nextAction) {
-    case "ask":
-      return {
-        type: "ask",
-        slot: command.slot ?? command.missingFacts[0]?.key ?? "clarification",
-        promptHint: command.instruction,
-      };
-    case "call_tool":
-      return {
-        type: "call_tool",
-        tool: command.tool ?? "lookup_knowledge",
-        args: command.args ?? {},
-      };
-    case "confirm":
-      return {
-        type: "confirm",
-        confirmation: {
-          type: command.confirmationType ?? "reschedule",
-          payload: {
-            taskId: command.taskId,
-            patientRef: command.patientRef,
-          },
-        },
-      };
-    case "complete":
-      return {
-        type: "say",
-        instruction: command.instruction,
-      };
-    case "respond":
-      return {
-        type: "say",
-        instruction: command.instruction,
-      };
-  }
-}
 
 export function compactWorkflowCommand(command: WorkflowCommand) {
   const blockedSideEffects = sideEffectBlockedActions(command.blockedActions);
@@ -125,17 +48,13 @@ export function command(
     visitType?: CallFlowState["visitType"];
     coverageType?: CallFlowState["coverageType"];
     pendingConfirmation?: CallFlowState["pendingConfirmation"];
+    schedulingGoal?: CallFlowState["schedulingGoal"];
     schedulingGoalStatus?: NonNullable<
       CallFlowState["schedulingGoal"]
     >["status"];
-    statePatch?: PlannerStatePatch;
     resolvedMetaDecision?: WorkflowCommand["resolvedMetaDecision"];
   },
 ): WorkflowCommand {
-  const nextPlans = {
-    ...(flow.taskPlans ?? {}),
-    [plan.id]: plan,
-  };
   const schedulingGoal =
     input.schedulingGoalStatus && flow.schedulingGoal
       ? {
@@ -143,25 +62,11 @@ export function command(
           status: input.schedulingGoalStatus,
           updatedAt: Date.now(),
         }
-      : undefined;
-  const statePatch: PlannerStatePatch = {
-    ...(input.statePatch ?? {}),
-    taskPlans: nextPlans,
-    activeTaskPlanId: plan.id,
-    step: input.step ?? input.statePatch?.step,
-    visitType: input.visitType ?? input.statePatch?.visitType,
-    coverageType: input.coverageType ?? input.statePatch?.coverageType,
-    pendingConfirmation:
-      input.pendingConfirmation ?? input.statePatch?.pendingConfirmation,
-  };
-  if (schedulingGoal) {
-    statePatch.schedulingGoal = schedulingGoal;
-  } else if (input.statePatch?.schedulingGoal) {
-    statePatch.schedulingGoal = input.statePatch.schedulingGoal;
-  }
+      : input.schedulingGoal;
   return {
     taskId: plan.id,
     taskKind: plan.kind,
+    taskPlan: plan,
     patientRef: plan.patientRef,
     phase: input.phase,
     objective: plan.objective,
@@ -175,10 +80,14 @@ export function command(
     allowedTools: input.allowedTools,
     blockedActions: input.blockedActions,
     confirmationType: input.confirmationType,
+    step: input.step,
+    visitType: input.visitType,
+    coverageType: input.coverageType,
+    pendingConfirmation: input.pendingConfirmation,
+    schedulingGoal,
     instruction: input.instruction,
     commandSource: "task_plan",
     resolvedMetaDecision: input.resolvedMetaDecision,
-    statePatch,
   };
 }
 

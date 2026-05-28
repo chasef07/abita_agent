@@ -20,16 +20,12 @@ import {
   advanceWorkflow,
   classifyVisitType,
   compactWorkflowCommand,
-  createPendingBookingAction,
-  createPendingSideEffectAction,
   completeCurrentTaskAndResume,
-  consumePendingSideEffectAction,
   DEFAULT_PATIENT_REF,
   hashToolArgs,
-  invalidateAvailabilitySearches,
-  invalidatePendingActionsForStateChange,
   nextPatientFlowStep,
   normalizeSchedulingRouting,
+  nextFlowEventId,
   recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
   recordAvailabilitySearchRange,
@@ -37,21 +33,16 @@ import {
   recordBookingResult,
   ensureActivePatientContext,
   hasActivePatientIdentityChanged,
-  applyPreCallIdentityFromTranscript,
-  recordPatientVerificationAttempt,
-  recordVerifiedPatient,
   snapshotActivePatientIdentity,
   sideEffectActionTypeForTool,
-  updateActivePatientInsurance,
+  reduceFlowEvent,
   type AppointmentLoadStatus,
   type AvailabilityInvalidationReason,
-  type CallerAppointment,
   type FlowTurnAdvanceResult,
   type GuardedToolName,
   type SideEffectToolName,
   type ToolOutcome,
   turnUnderstandingSchema,
-  nextActionForFlowDecision,
 } from "./flow/index.js";
 import {
   callApi,
@@ -68,6 +59,24 @@ import {
   type StoredAvailabilitySlot,
   type StoredCallerAppointment,
 } from "./tooling/call-state.js";
+import {
+  clearAvailabilitySlots,
+  normalizeSlotId,
+  publicAvailabilitySlots,
+  removeAvailabilitySlot,
+  selectedAvailabilitySlot,
+  storeAvailabilitySlots,
+} from "./tooling/availability-slots.js";
+import {
+  activeAppointmentById,
+  appointmentIdFromBookingResult,
+  appointmentStatusFromResult,
+  cancelTokenForAppointment,
+  extractAppointments,
+  recordBookedAppointmentInState,
+  refreshCancelTokenForAppointment,
+  removeAppointmentById,
+} from "./tooling/appointment-state.js";
 import { refreshDynamicToolsForSession } from "./tooling/dynamic-tool-refresh.js";
 
 export { buildCallCenterHandoffHeaders } from "./tooling/handoff.js";
@@ -147,15 +156,11 @@ function evaluatePolicyForState(
   args?: unknown,
   options: {
     booking?: Parameters<typeof evaluateFlowToolPolicy>[0]["booking"];
-    sideEffectConfirmation?: {
-      toolCallId: string;
-      spokenSummary?: string;
-    };
   } = {},
 ): ToolOutcome | null {
   if (!isFlowHarnessEnabled(state)) return null;
   syncSessionPatientFromActiveFlow(state);
-  let decision = evaluateFlowToolPolicy({
+  const decision = evaluateFlowToolPolicy({
     flow: state.flow,
     toolName,
     args,
@@ -168,39 +173,17 @@ function evaluatePolicyForState(
     },
     booking: options.booking,
   });
-  if (
-    options.sideEffectConfirmation &&
-    shouldAutoConfirmSideEffect(decision, toolName)
-  ) {
-    const sideEffectConfirmationOutcome =
-      ensureConfirmedSideEffectActionFromToolCall(
-        state,
-        toolName,
-        args,
-        options.sideEffectConfirmation,
-      );
-    if (sideEffectConfirmationOutcome) return sideEffectConfirmationOutcome;
-    decision = evaluateFlowToolPolicy({
-      flow: state.flow,
-      toolName,
-      args,
-      stateFacts: {
-        checkedInsurancePlan: state.checkedInsurancePlan,
-        checkedInsuranceCoverageType: state.checkedInsuranceCoverageType,
-        patientId: state.patientId,
-        lastAvailabilityRouting: state.lastAvailabilityRouting,
-        officeKey: state.officeKey,
-      },
-      booking: options.booking,
-    });
-  }
   const { observation } = decision;
   state.flowGuardObservations.push(observation);
-  state.flow.lastGuardedToolCall = {
-    name: toolName,
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("tool_guard"),
+    type: "tool_guard_observed",
+    source: "policy",
+    createdAt: Date.now(),
+    toolName,
     argsHash: observation.argsHash,
     guardAllowed: decision.allowed,
-  };
+  });
   if (!observation.allowed || !decision.allowed) {
     console.log(
       `[flow-policy] ${decision.allowed ? "report_only" : "blocked"} ${JSON.stringify(
@@ -228,8 +211,7 @@ function isFlowHarnessEnabled(state: Pick<CallState, "flowHarnessEnabled">) {
 
 function restoreConfirmedPreCallCaller(state: CallState): void {
   if (!isFlowHarnessEnabled(state)) return;
-  const flow = state.flow;
-  const preCall = flow.preCall;
+  const preCall = state.flow.preCall;
   if (
     preCall?.status !== "single_match_confirmed" &&
     preCall?.status !== "multiple_match_confirmed"
@@ -237,31 +219,15 @@ function restoreConfirmedPreCallCaller(state: CallState): void {
     return;
   }
   const selectedRef = preCall.selectedCandidateRef ?? DEFAULT_PATIENT_REF;
-  const patient = flow.patients[selectedRef];
-  if (!patient?.patientId) return;
+  if (!state.flow.patients[selectedRef]?.patientId) return;
 
-  ensureActivePatientContext(flow, selectedRef);
-  patient.status = "verified";
-  flow.patientStatus = "verified";
-  if (flow.currentTask?.patientRef?.startsWith("candidate:")) {
-    flow.currentTask.patientRef = selectedRef;
-  }
-  if (flow.schedulingGoal?.patientRef?.startsWith("candidate:")) {
-    flow.schedulingGoal.patientRef = selectedRef;
-  }
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("confirmed_pre_call"),
+    type: "confirmed_pre_call_caller_restored",
+    source: "system",
+    createdAt: Date.now(),
+  });
   syncSessionPatientFromActiveFlow(state);
-}
-
-function shouldAutoConfirmSideEffect(
-  decision: ReturnType<typeof evaluateFlowToolPolicy>,
-  toolName: GuardedToolName,
-): boolean {
-  if (!isSideEffectToolName(toolName)) return false;
-  const reason = decision.outcome?.facts?.reason;
-  return (
-    reason === "side_effect_confirmation_required" ||
-    reason === "cancel_confirmation_not_tracked"
-  );
 }
 
 function isSideEffectToolName(
@@ -413,112 +379,48 @@ function pendingSideEffectLookup(
   };
 }
 
-function hasMatchingSideEffectAction(
-  state: CallState,
-  toolName: SideEffectToolName,
-  args: unknown,
-): boolean {
-  const lookup = pendingSideEffectLookup(state, toolName, args);
-  return state.flow.pendingActions.some((action) => {
-    if (action.type !== lookup.type) return false;
-    if (action.argsHash !== lookup.argsHash) return false;
-    if (
-      lookup.patientRef !== undefined &&
-      "patientRef" in action &&
-      action.patientRef !== lookup.patientRef
-    ) {
-      return false;
-    }
-    if (
-      lookup.appointmentId !== undefined &&
-      action.type === "cancel_appt" &&
-      action.appointmentId !== lookup.appointmentId
-    ) {
-      return false;
-    }
-    return true;
-  });
-}
-
-function ensureConfirmedSideEffectActionFromToolCall(
+function recordSideEffectConfirmationRequestFromToolCall(
   state: CallState,
   toolName: GuardedToolName,
   args: unknown,
-  confirmation:
-    | {
-        toolCallId: string;
-        spokenSummary?: string;
-      }
-    | undefined,
-): ToolOutcome | null {
-  if (!confirmation || !isSideEffectToolName(toolName)) return null;
+  policyResponse: ToolOutcome,
+  toolCallId: string,
+): ToolOutcome {
+  if (!isSideEffectToolName(toolName)) return policyResponse;
+  if (toolName !== "add_patient" && toolName !== "update_insurance") {
+    return policyResponse;
+  }
+  const reason = policyResponse.facts?.reason;
+  if (
+    reason !== "side_effect_confirmation_required" &&
+    reason !== "cancel_confirmation_not_tracked"
+  ) {
+    return policyResponse;
+  }
 
   const sideEffectArgs = args ?? {};
-  const existingAction = hasMatchingSideEffectAction(
-    state,
+  const requiredFieldsComplete = toolName === "add_patient" ? true : undefined;
+
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("side_effect_confirmation"),
+    type: "side_effect_confirmation_requested",
+    source: "tool_result",
+    createdAt: Date.now(),
     toolName,
-    sideEffectArgs,
-  );
-  let appointmentId: number | undefined;
-  let requiredFieldsComplete: boolean | undefined;
-
-  if (toolName === "cancel_appt") {
-    if (!isRecord(sideEffectArgs)) {
-      return toolOutcome(
-        "not_allowed",
-        "confirm_cancel",
-        "Choose the exact appointment, read it back, and confirm before cancelling.",
-        { reason: "cancel_requires_loaded_appointment" },
-        true,
-      );
-    }
-    const rawAppointmentId = sideEffectArgs.appointmentId;
-    if (typeof rawAppointmentId !== "number") {
-      return toolOutcome(
-        "not_allowed",
-        "confirm_cancel",
-        "Choose the exact appointment, read it back, and confirm before cancelling.",
-        { reason: "cancel_requires_loaded_appointment" },
-        true,
-      );
-    }
-    appointmentId = rawAppointmentId;
-    if (!existingAction && !activeAppointmentById(state, appointmentId)) {
-      return toolOutcome(
-        "not_allowed",
-        "confirm_cancel",
-        "Load the patient's appointments and choose the exact appointment before cancelling.",
-        { reason: "cancel_requires_loaded_appointment" },
-        true,
-      );
-    }
-    state.flow.pendingConfirmation = {
-      type: "cancel",
-      payload: { appointmentId },
-    };
-  }
-
-  if (toolName === "add_patient") {
-    requiredFieldsComplete = true;
-  }
-
-  const actionType = sideEffectActionTypeForTool(toolName);
-  const action = createPendingSideEffectAction(state.flow, {
-    type: actionType,
     argsHash: hashToolArgs(sideEffectArgs),
-    spokenSummary:
-      confirmation.spokenSummary ?? defaultSideEffectSummary(toolName),
+    spokenSummary: defaultSideEffectSummary(toolName),
     patientRef: state.flow.activePatientRef,
-    appointmentId,
-    requiredFieldsComplete,
-    confirmed: true,
-    createdTurnId: confirmation.toolCallId,
-    confirmationTurnId: confirmation.toolCallId,
+    ...(requiredFieldsComplete !== undefined ? { requiredFieldsComplete } : {}),
+    toolCallId,
   });
-  action.confirmed = true;
-  action.confirmationTurnId ??= confirmation.toolCallId;
 
-  return null;
+  return {
+    ...policyResponse,
+    facts: {
+      ...policyResponse.facts,
+      confirmationRecorded: "pending",
+    },
+  };
 }
 
 function defaultSideEffectSummary(toolName: SideEffectToolName): string {
@@ -536,15 +438,28 @@ function defaultSideEffectSummary(toolName: SideEffectToolName): string {
   }
 }
 
-function consumeSideEffectActionForState(
+function recordSideEffectToolSucceeded(
   state: CallState,
   toolName: SideEffectToolName,
   args: unknown,
+  outputClass = `${toolName}_succeeded`,
+  facts: Record<string, unknown> = {},
 ): void {
-  consumePendingSideEffectAction(
-    state.flow,
-    pendingSideEffectLookup(state, toolName, args),
-  );
+  const lookup = pendingSideEffectLookup(state, toolName, args);
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("tool_succeeded"),
+    type: "tool_succeeded",
+    source: "tool_result",
+    createdAt: Date.now(),
+    toolName,
+    outputClass,
+    argsHash: lookup.argsHash,
+    patientRef: lookup.patientRef,
+    ...(typeof lookup.appointmentId === "number"
+      ? { appointmentId: lookup.appointmentId }
+      : {}),
+    facts,
+  });
 }
 
 function apiResultLooksSuccessful(result: unknown): boolean {
@@ -705,7 +620,13 @@ function confirmPendingPreCallCallerFromVerifyArgs(
     return;
   }
 
-  applyPreCallIdentityFromTranscript(state.flow, args.firstName);
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("pre_call_identity"),
+    type: "pre_call_identity_observed",
+    source: "tool_result",
+    createdAt: Date.now(),
+    transcript: args.firstName,
+  });
 }
 
 function identityArgConflicts(
@@ -862,7 +783,11 @@ function applyPatientPayloadToState(
 ): void {
   const rawAppointments = payload.rawAppointments ?? [];
   const appointments = publicCallerAppointments(rawAppointments);
-  const patientChange = recordVerifiedPatient(state.flow, {
+  const patientRecord = reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("patient_recorded"),
+    type: "patient_recorded",
+    source: "tool_result",
+    createdAt: Date.now(),
     patientId: payload.patientId ?? null,
     patientName: payload.name ?? null,
     dob: payload.dob ?? null,
@@ -870,11 +795,9 @@ function applyPatientPayloadToState(
     appointments,
     appointmentsStatus: payload.appointmentsStatus ?? null,
   });
-  if (String(payload.status ?? "").toLowerCase() === "created") {
-    const patient = ensureActivePatientContext(state.flow);
-    patient.status = "created";
-    state.flow.patientStatus = "created";
-    state.flow.step = nextPatientFlowStep("created");
+  const patientChange = patientRecord.patientChange;
+  if (!patientChange) {
+    throw new Error("patient_recorded event did not produce a patient change");
   }
   const invalidatePatientState = shouldInvalidatePatientScopedState(
     state,
@@ -901,20 +824,31 @@ function applyPatientPayloadToState(
   state.appointmentsStatus = payload.appointmentsStatus ?? null;
   state.appointments = appointments;
   state.appointmentCancelTokens = appointmentCancelTokenMap(rawAppointments);
-  state.flow.officeKey = state.officeKey;
-  state.flow.routing = normalizeSchedulingRouting(state.routing);
-  state.flow.coverageType = state.checkedInsuranceCoverageType ?? undefined;
-  state.flow.visitType =
-    state.checkedInsuranceCoverageType === "routine_vision"
-      ? "routine_vision"
-      : state.flow.visitType;
-  if (state.insuranceCarrier || state.checkedInsurancePlan) {
-    updateActivePatientInsurance(state.flow, {
-      plan: state.insuranceCarrier ?? state.checkedInsurancePlan,
-      coverageType: state.checkedInsuranceCoverageType,
-      canonicalPlan: state.checkedInsurancePlan ?? state.insuranceCarrier,
-    });
-  }
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("patient_payload"),
+    type: "patient_payload_applied",
+    source: "tool_result",
+    createdAt: Date.now(),
+    patientStatus:
+      String(payload.status ?? "").toLowerCase() === "created"
+        ? "created"
+        : undefined,
+    officeKey: state.officeKey,
+    routing: normalizeSchedulingRouting(state.routing),
+    coverageType: state.checkedInsuranceCoverageType ?? undefined,
+    visitType:
+      state.checkedInsuranceCoverageType === "routine_vision"
+        ? "routine_vision"
+        : undefined,
+    insurance:
+      state.insuranceCarrier || state.checkedInsurancePlan
+        ? {
+            plan: state.insuranceCarrier ?? state.checkedInsurancePlan,
+            coverageType: state.checkedInsuranceCoverageType,
+            canonicalPlan: state.checkedInsurancePlan ?? state.insuranceCarrier,
+          }
+        : undefined,
+  });
 }
 
 function shouldInvalidatePatientScopedState(
@@ -981,8 +915,12 @@ function clearSessionPatientRecord(
   state.appointmentsStatus = null;
   state.appointments = [];
   state.appointmentCancelTokens = {};
-  state.flow.coverageType = undefined;
-  state.flow.routing = undefined;
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("patient_session_cleared"),
+    type: "patient_session_cleared",
+    source: "system",
+    createdAt: Date.now(),
+  });
 }
 
 function syncSessionPatientFromActiveFlow(state: CallState): void {
@@ -995,7 +933,15 @@ function syncSessionPatientFromActiveFlow(state: CallState): void {
   state.dob = patient.dob?.value ?? null;
   state.appointments = [...patient.appointments];
   state.appointmentsStatus = patient.appointmentsStatus ?? null;
-  state.flow.patientStatus = patient.status;
+  if (state.flow.patientStatus !== patient.status) {
+    reduceFlowEvent(state.flow, {
+      id: nextFlowEventId("active_patient_status"),
+      type: "active_patient_status_synced",
+      source: "system",
+      createdAt: Date.now(),
+      patientStatus: patient.status,
+    });
+  }
 
   if (patient.insurance) {
     state.insuranceCarrier =
@@ -1129,10 +1075,6 @@ function nextStepForAppointmentTypeUnresolved(
   return "collect_visit_reason";
 }
 
-function clearAvailabilitySlots(state: CallState): void {
-  state.lastAvailabilitySlots = [];
-}
-
 function clearAvailabilitySelection(
   state: CallState,
   invalidationReason?: AvailabilityInvalidationReason,
@@ -1140,717 +1082,32 @@ function clearAvailabilitySelection(
   clearAvailabilitySlots(state);
   state.lastAvailabilityRouting = null;
   if (invalidationReason) {
-    invalidateAvailabilitySearches(state.flow, invalidationReason);
-    invalidatePendingActionsForStateChange(state.flow, invalidationReason);
+    reduceFlowEvent(state.flow, {
+      id: nextFlowEventId("availability_invalidated"),
+      type: "availability_invalidated",
+      source: "system",
+      createdAt: Date.now(),
+      reason: invalidationReason,
+    });
   }
-}
-
-function removeAvailabilitySlot(
-  state: CallState,
-  slotId: string,
-): StoredAvailabilitySlot[] {
-  const normalized = normalizeSlotId(slotId);
-  state.lastAvailabilitySlots = state.lastAvailabilitySlots.filter(
-    (slot) => normalizeSlotId(slot.slotId) !== normalized,
-  );
-  if (state.lastAvailabilitySlots.length === 0) {
-    state.lastAvailabilityRouting = null;
-  }
-  return state.lastAvailabilitySlots;
-}
-
-function slotIdForIndex(index: number): string {
-  if (index >= 0 && index < 26) {
-    return String.fromCharCode("A".charCodeAt(0) + index);
-  }
-  return `slot_${index + 1}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function extractAppointments(
-  result: unknown,
-): StoredCallerAppointment[] | null {
-  if (Array.isArray(result)) return result as StoredCallerAppointment[];
-  if (isRecord(result) && Array.isArray(result.appointments)) {
-    return result.appointments as StoredCallerAppointment[];
-  }
-  return null;
-}
-
-function extractAppointmentsStatus(
-  result: unknown,
-): AppointmentLoadStatus | null {
-  if (!isRecord(result)) return null;
-  const status = result.appointmentsStatus;
-  return status === "found" || status === "none" || status === "error"
-    ? status
-    : null;
-}
-
-function appointmentStatusFromResult(
-  result: unknown,
-  appointments: StoredCallerAppointment[] | null,
-): AppointmentLoadStatus | null {
-  const explicitStatus = extractAppointmentsStatus(result);
-  if (explicitStatus) return explicitStatus;
-  if (isNoAppointmentsResult(result)) return "none";
-  if (appointments) return appointments.length > 0 ? "found" : "none";
-  return null;
-}
-
-function isNoAppointmentsResult(result: unknown): boolean {
-  return (
-    isRecord(result) &&
-    (result.status === "no_appointments" ||
-      result.appointmentsStatus === "none")
-  );
-}
-
-function activeAppointmentById(
-  state: CallState,
-  appointmentId: number,
-): CallerAppointment | undefined {
-  const activePatient = ensureActivePatientContext(state.flow);
-  return (
-    activePatient.appointments.find(
-      (appointment) => appointment.id === appointmentId,
-    ) ??
-    state.appointments.find((appointment) => appointment.id === appointmentId)
-  );
-}
-
-function appointmentIdFromBookingResult(result: unknown): number | null {
-  if (!isRecord(result)) return null;
-  const appointmentId = result.appointmentId;
-  if (typeof appointmentId === "number") return appointmentId;
-  if (typeof appointmentId === "string" && /^\d+$/.test(appointmentId)) {
-    return Number(appointmentId);
-  }
-  return null;
-}
-
-function recordBookedAppointmentInState(
-  state: CallState,
-  selectedSlot: StoredAvailabilitySlot,
-  result: unknown,
-): void {
-  const appointmentId = appointmentIdFromBookingResult(result);
-  if (appointmentId === null) return;
-
-  const provider =
-    isRecord(result) && typeof result.providerName === "string"
-      ? publicProviderName(result.providerName)
-      : selectedSlot.provider;
-  const facility =
-    isRecord(result) && typeof result.locationName === "string"
-      ? result.locationName
-      : getOfficeConfig(state.officeKey).displayName;
-  const type =
-    isRecord(result) && typeof result.appointmentTypeName === "string"
-      ? result.appointmentTypeName
-      : "Appointment";
-  const appointment: CallerAppointment = {
-    id: appointmentId,
-    date: selectedSlot.date,
-    time: selectedSlot.time,
-    provider,
-    type,
-    facility,
-    confirmed: true,
-  };
-  state.appointments = [
-    ...state.appointments.filter((item) => item.id !== appointmentId),
-    appointment,
-  ];
-  const activePatient = ensureActivePatientContext(state.flow);
-  activePatient.appointments = [
-    ...activePatient.appointments.filter((item) => item.id !== appointmentId),
-    appointment,
-  ];
-}
-
-function cancelTokenForAppointment(
-  state: CallState,
-  appointmentId: number,
-): string | null {
-  const token = state.appointmentCancelTokens?.[String(appointmentId)];
-  return token?.trim() ? token : null;
-}
-
-async function refreshCancelTokenForAppointment(
-  state: CallState,
-  appointmentId: number,
-): Promise<string | null> {
-  if (!state.patientId) return null;
-  const result = await resolvePatientByOffice(getAmdOfficeForToolCall(state), {
-    patientId: state.patientId,
-  });
-  if (result.status !== "verified") return null;
-
-  const appointments = publicCallerAppointments(result.appointments);
-  state.appointments = appointments;
-  state.appointmentsStatus = result.appointmentsStatus;
-  state.appointmentCancelTokens = appointmentCancelTokenMap(
-    result.appointments,
-  );
-  const activePatient = ensureActivePatientContext(state.flow);
-  activePatient.appointments = appointments;
-  if (result.appointmentsStatus) {
-    activePatient.appointmentsStatus = result.appointmentsStatus;
-  }
-  return cancelTokenForAppointment(state, appointmentId);
-}
-
-function removeAppointmentById(state: CallState, appointmentId: number): void {
-  state.appointments = state.appointments.filter(
-    (appointment) => appointment.id !== appointmentId,
-  );
-  if (state.appointmentCancelTokens) {
-    delete state.appointmentCancelTokens[String(appointmentId)];
-  }
-  ensureActivePatientContext(state.flow).appointments =
-    ensureActivePatientContext(state.flow).appointments.filter(
-      (appointment) => appointment.id !== appointmentId,
-    );
-}
-
 function updateCurrentTaskStep(
   state: CallState,
   nextStep: ToolOutcome["nextStep"],
+  activeFlow?: CallState["flow"]["activeFlow"],
 ): void {
-  state.flow.step = nextStep;
-  if (state.flow.currentTask) {
-    state.flow.currentTask.step = nextStep;
-  }
-}
-
-function publicProviderName(provider: string): string {
-  return provider
-    .replace("Dr. Austin Bach (Overflow)", "Dr. Bach")
-    .replace("Dr. Austin Bach", "Dr. Bach")
-    .replace("Dr. J. Licht", "Dr. Licht")
-    .replace("Dr. D. Noel", "Dr. Noel");
-}
-
-function slotDateFromDatetime(datetime: string): string {
-  return datetime.split("T")[0] ?? datetime;
-}
-
-function normalizeSlotId(slotId: string): string {
-  return slotId.trim().toUpperCase();
-}
-
-function compactSlotReference(value: string | undefined): string {
-  return (value ?? "")
-    .toLowerCase()
-    .replace(/\bdoctor\b/g, "dr")
-    .replace(/\bdr\.\s*/g, "")
-    .replace(/[^a-z0-9]/g, "");
-}
-
-function slotTimeReferences(slot: StoredAvailabilitySlot): string[] {
-  const references = new Set<string>();
-  const timeSources = [slot.time, slot.datetime?.split("T")[1]?.slice(0, 5)];
-  for (const time of timeSources) {
-    const match = time?.match(/(\d{1,2}):?(\d{2})?\s*(am|pm)?/i);
-    if (!match) continue;
-    const hour = match[1] ?? "";
-    const minute = match[2] ?? "00";
-    const meridiem = match[3]?.toLowerCase() ?? "";
-    const unpadded = `${Number(hour)}${minute}`;
-    const padded = `${hour.padStart(2, "0")}${minute}`;
-    references.add(unpadded);
-    references.add(padded);
-    if (meridiem) {
-      references.add(`${unpadded}${meridiem}`);
-      references.add(`${padded}${meridiem}`);
-    }
-  }
-  return [...references].filter(Boolean);
-}
-
-function slotNaturallyMatches(
-  slot: StoredAvailabilitySlot,
-  requestedSlotId: string,
-): boolean {
-  const requested = compactSlotReference(requestedSlotId);
-  if (!requested) return false;
-  const aliases = [
-    slot.spoken,
-    slot.datetime,
-    [slot.date, slot.time, slot.provider].filter(Boolean).join(" "),
-  ]
-    .map(compactSlotReference)
-    .filter(Boolean);
-  if (
-    aliases.some((alias) => alias === requested || alias.includes(requested))
-  ) {
-    return true;
-  }
-
-  const dateReferences = [slot.date, slot.datetime?.split("T")[0]]
-    .map(compactSlotReference)
-    .filter(Boolean);
-  const providerReference = compactSlotReference(slot.provider);
-  const hasDate = dateReferences.some((date) => requested.includes(date));
-  const hasTime = slotTimeReferences(slot).some((time) =>
-    requested.includes(time),
-  );
-  const hasProvider =
-    !providerReference || requested.includes(providerReference);
-  return hasDate && hasTime && hasProvider;
-}
-
-type AvailabilityCandidateSlot = {
-  slotId: string;
-  spoken: string;
-  provider: string;
-  date: string;
-  time: string;
-  timeWindow: SlotTimeWindow;
-};
-
-type ModelAvailabilitySlot = {
-  slotId: string;
-  reply: string;
-  provider: string;
-  date: string;
-  time: string;
-};
-
-type SlotTimeWindow = "morning" | "midday" | "afternoon" | "late_day";
-
-type AvailabilitySearchSummary = {
-  requestedDate?: string;
-  searchedFrom?: string;
-  searchedThrough?: string;
-  actualDate?: string;
-  dateShifted: boolean;
-  shouldRetrySameSearch: boolean;
-  nextSearchDate?: string;
-};
-
-function slotTimeWindow(time: string): SlotTimeWindow {
-  const minutes = minutesFromDisplayTime(time);
-  if (minutes === null) return "midday";
-  if (minutes < 11 * 60) return "morning";
-  if (minutes < 13 * 60) return "midday";
-  if (minutes < 16 * 60) return "afternoon";
-  return "late_day";
-}
-
-function minutesFromDisplayTime(time: string): number | null {
-  const match = time.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
-  if (!match) return null;
-  let hour = Number(match[1]);
-  const minute = Number(match[2] ?? "0");
-  const meridiem = match[3]?.toUpperCase();
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-  if (meridiem === "PM" && hour !== 12) hour += 12;
-  if (meridiem === "AM" && hour === 12) hour = 0;
-  return hour * 60 + minute;
-}
-
-function requestedTimeWindows(
-  preferredWindow: string | undefined,
-): SlotTimeWindow[] {
-  const normalized = preferredWindow?.toLowerCase() ?? "";
-  const windows: SlotTimeWindow[] = [];
-  const asksLateMorning = /\blate morning\b/.test(normalized);
-  const asksAfterThree = /\b(after 3|after three)\b/.test(normalized);
-  if (
-    asksLateMorning ||
-    /\b(morning|am|8\s*am|9\s*am|10\s*am)\b/.test(normalized)
-  ) {
-    windows.push("morning");
-  }
-  if (/\b(midday|noon|lunch|11\s*am|12\s*pm)\b/.test(normalized)) {
-    windows.push("midday");
-  }
-  if (
-    asksAfterThree ||
-    /\b(afternoon|after lunch|early afternoon|1\s*pm|2\s*pm|3\s*pm|around 1|around 2|around 3)\b/.test(
-      normalized,
-    )
-  ) {
-    windows.push("afternoon");
-  }
-  if (
-    !asksLateMorning &&
-    /\b(late|later|end of day|after 3|after three|4\s*pm|5\s*pm|around 4|around 5)\b/.test(
-      normalized,
-    )
-  ) {
-    windows.push("late_day");
-  }
-  return Array.from(new Set(windows));
-}
-
-function requestedEarliestMinute(
-  preferredWindow: string | undefined,
-): number | undefined {
-  const normalized = preferredWindow?.toLowerCase() ?? "";
-  if (/\b(after 3|after three)\b/.test(normalized)) return 15 * 60;
-  return undefined;
-}
-
-function nextIsoDate(date: string | undefined): string | undefined {
-  if (!date) return undefined;
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) return undefined;
-  parsed.setUTCDate(parsed.getUTCDate() + 1);
-  return parsed.toISOString().slice(0, 10);
-}
-
-function spokenIsoDate(date: string | undefined): string | undefined {
-  if (!date) return undefined;
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) return date;
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(parsed);
-}
-
-function availabilitySearchedRange(rawResponse: Record<string, unknown>) {
-  const start =
-    typeof rawResponse.searchedFrom === "string"
-      ? rawResponse.searchedFrom
-      : typeof rawResponse.requestedDate === "string"
-        ? rawResponse.requestedDate
-        : undefined;
-  const end =
-    typeof rawResponse.searchedThrough === "string"
-      ? rawResponse.searchedThrough
-      : typeof rawResponse.actualDate === "string"
-        ? rawResponse.actualDate
-        : start;
-  if (!start || !end) return undefined;
-  return { start, end };
-}
-
-function stringField(
-  record: Record<string, unknown>,
-  field: string,
-): string | undefined {
-  const value = record[field];
-  return typeof value === "string" && value.trim() ? value : undefined;
-}
-
-function booleanField(
-  record: Record<string, unknown>,
-  field: string,
-): boolean | undefined {
-  const value = record[field];
-  return typeof value === "boolean" ? value : undefined;
-}
-
-function buildAvailabilitySearchSummary(input: {
-  rawResponse: Record<string, unknown>;
-  searchedRange?: { start: string; end: string };
-  nextSearchDate?: string;
-}): AvailabilitySearchSummary {
-  const { rawResponse, searchedRange, nextSearchDate } = input;
-  const requestedDate = stringField(rawResponse, "requestedDate");
-  const actualDate = stringField(rawResponse, "actualDate");
-  const dateShifted =
-    booleanField(rawResponse, "dateShifted") ??
-    Boolean(requestedDate && actualDate && requestedDate !== actualDate);
-
-  return {
-    ...(requestedDate ? { requestedDate } : {}),
-    ...(searchedRange
-      ? {
-          searchedFrom: searchedRange.start,
-          searchedThrough: searchedRange.end,
-        }
-      : {}),
-    ...(actualDate ? { actualDate } : {}),
-    dateShifted,
-    shouldRetrySameSearch:
-      booleanField(rawResponse, "shouldRetrySameSearch") ?? false,
-    ...(nextSearchDate ? { nextSearchDate } : {}),
-  };
-}
-
-function buildAvailabilityReply(input: {
-  rawResponse: Record<string, unknown>;
-  search: AvailabilitySearchSummary;
-  preferredWindow?: string;
-  requestedWindows: SlotTimeWindow[];
-  matchingSlots: AvailabilityCandidateSlot[];
-  otherSlots: AvailabilityCandidateSlot[];
-  recommendedSlot?: AvailabilityCandidateSlot;
-}): string {
-  const {
-    rawResponse,
-    search,
-    preferredWindow,
-    requestedWindows,
-    matchingSlots,
-    otherSlots,
-    recommendedSlot,
-  } = input;
-  const outcome = stringField(rawResponse, "outcome") ?? "unknown";
-  const spokenSearchedRange =
-    search.searchedFrom && search.searchedThrough
-      ? `from ${spokenIsoDate(search.searchedFrom) ?? search.searchedFrom} through ${
-          spokenIsoDate(search.searchedThrough) ?? search.searchedThrough
-        }`
-      : "for those dates";
-  const spokenNextDate = spokenIsoDate(search.nextSearchDate);
-  const nextSearchText = search.nextSearchDate
-    ? ` Would you like me to check ${spokenNextDate ?? search.nextSearchDate}, or try a different day or time?`
-    : " Would you like to try a different day or time?";
-
-  if (outcome === "no_availability") {
-    return `I do not see openings ${spokenSearchedRange}.${nextSearchText}`;
-  }
-
-  if (outcome === "availability_search_incomplete") {
-    return `I could not fully check availability ${spokenSearchedRange}. Let me try once more.`;
-  }
-
-  if (!recommendedSlot) {
-    return "I do not see openings for those details. Would you like to try a different day or time?";
-  }
-
-  const requestedDate = spokenIsoDate(search.requestedDate);
-  const foundDate =
-    spokenIsoDate(search.actualDate) ??
-    spokenIsoDate(recommendedSlot.date) ??
-    recommendedSlot.date;
-  const foundText =
-    search.dateShifted && requestedDate && foundDate
-      ? `I do not see anything on ${requestedDate}, but I found ${foundDate} at ${recommendedSlot.time} with ${recommendedSlot.provider}.`
-      : `I found ${foundDate} at ${recommendedSlot.time} with ${recommendedSlot.provider}.`;
-  const matchText =
-    preferredWindow && requestedWindows.length > 0 && matchingSlots.length === 0
-      ? ` It is not exactly ${preferredWindow}, but does that work?`
-      : " Does that work?";
-  const alternateText =
-    otherSlots.length > 0 || matchingSlots.length > 1
-      ? " If not, I can offer another option."
-      : "";
-
-  return `${foundText}${matchText}${alternateText}`;
-}
-
-function cleanAvailabilityErrorResponse(rawResponse: unknown): {
-  result: string;
-  reply: string;
-  next: string;
-  slots: ModelAvailabilitySlot[];
-} {
-  if (!isRecord(rawResponse)) {
-    return {
-      result: "retry",
-      reply: "I’m having trouble checking availability. Let me try once more.",
-      next: "retry_search_once",
-      slots: [],
-    };
-  }
-
-  const outcome = stringField(rawResponse, "outcome") ?? "error";
-  const reply =
-    stringField(rawResponse, "message") ??
-    "I’m having trouble checking availability. Let me try once more.";
-  const shouldRetry = booleanField(rawResponse, "shouldRetrySameSearch");
-  return {
-    result: outcome === "availability_search_incomplete" ? "retry" : "error",
-    reply,
-    next: shouldRetry ? "retry_search_once" : "ask_new_date_or_time",
-    slots: [],
-  };
-}
-
-function publicAvailabilitySlot(slot: AvailabilityCandidateSlot) {
-  const spokenDate = spokenIsoDate(slot.date) ?? slot.date;
-  return {
-    slotId: slot.slotId,
-    reply: `${spokenDate} at ${slot.time} with ${slot.provider}`,
-    provider: slot.provider,
-    date: slot.date,
-    time: slot.time,
-  };
-}
-
-function cleanAvailabilityResponse(input: {
-  rawResponse: Record<string, unknown>;
-  search: AvailabilitySearchSummary;
-  preferredWindow?: string;
-  candidateSlots: AvailabilityCandidateSlot[];
-  recommendedSlot?: AvailabilityCandidateSlot;
-  requestedWindows: SlotTimeWindow[];
-  matchingSlots: AvailabilityCandidateSlot[];
-  otherSlots: AvailabilityCandidateSlot[];
-}) {
-  const {
-    rawResponse,
-    search,
-    preferredWindow,
-    candidateSlots,
-    recommendedSlot,
-    requestedWindows,
-    matchingSlots,
-    otherSlots,
-  } = input;
-  const outcome = stringField(rawResponse, "outcome") ?? "unknown";
-  const availabilityFound = candidateSlots.length > 0;
-  const result = availabilityFound
-    ? "slots_found"
-    : outcome === "availability_search_incomplete"
-      ? "retry"
-      : "no_slots_found";
-  const next =
-    result === "slots_found"
-      ? "offer_slot"
-      : search.shouldRetrySameSearch
-        ? "retry_search_once"
-        : "ask_new_date_or_time";
-  const searched =
-    search.searchedFrom && search.searchedThrough
-      ? `${search.searchedFrom} through ${search.searchedThrough}`
-      : undefined;
-
-  return {
-    result,
-    reply: buildAvailabilityReply({
-      rawResponse,
-      search,
-      preferredWindow,
-      requestedWindows,
-      matchingSlots,
-      otherSlots,
-      recommendedSlot,
-    }),
-    next,
-    ...(searched ? { searched } : {}),
-    ...(search.nextSearchDate ? { nextSearchDate: search.nextSearchDate } : {}),
-    ...(recommendedSlot ? { slotId: recommendedSlot.slotId } : {}),
-    slots: candidateSlots.map(publicAvailabilitySlot),
-  };
-}
-
-function storeAvailabilitySlots(
-  state: CallState,
-  rawResponse: unknown,
-  routing: string | null,
-): unknown {
-  if (!isRecord(rawResponse)) {
-    clearAvailabilitySlots(state);
-    return cleanAvailabilityErrorResponse(rawResponse);
-  }
-  const rawSlots = Array.isArray(rawResponse.slots) ? rawResponse.slots : [];
-  const outcome = stringField(rawResponse, "outcome");
-  if (
-    !Array.isArray(rawResponse.slots) &&
-    outcome !== "no_availability" &&
-    outcome !== "availability_search_incomplete"
-  ) {
-    clearAvailabilitySlots(state);
-    return cleanAvailabilityErrorResponse(rawResponse);
-  }
-
-  const storedSlots: StoredAvailabilitySlot[] = [];
-  const candidateSlots: AvailabilityCandidateSlot[] = [];
-  rawSlots.forEach((slot, index) => {
-    if (!isRecord(slot)) return;
-    const rawProvider = typeof slot.provider === "string" ? slot.provider : "";
-    const provider = rawProvider ? publicProviderName(rawProvider) : "";
-    const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
-    const time = typeof slot.time === "string" ? slot.time : "";
-    const date =
-      typeof slot.date === "string"
-        ? slot.date
-        : slotDateFromDatetime(datetime);
-    const slotId = slotIdForIndex(index);
-    const spoken = [date, time, provider ? `with ${provider}` : ""]
-      .filter(Boolean)
-      .join(" ");
-
-    const storedSlot: StoredAvailabilitySlot = {
-      slotId,
-      spoken,
-      provider,
-      date,
-      time,
-      datetime,
-      routing,
-    };
-    if (typeof slot.bookingToken === "string") {
-      storedSlot.bookingToken = slot.bookingToken;
-    }
-    if (typeof slot.columnId === "number") storedSlot.columnId = slot.columnId;
-    if (typeof slot.profileId === "number")
-      storedSlot.profileId = slot.profileId;
-    if (typeof slot.duration === "number") storedSlot.duration = slot.duration;
-    storedSlots.push(storedSlot);
-
-    candidateSlots.push({
-      slotId,
-      spoken,
-      provider,
-      date,
-      time,
-      timeWindow: slotTimeWindow(time),
-    });
-  });
-
-  state.lastAvailabilitySlots = storedSlots;
-  const searchedRange = availabilitySearchedRange(rawResponse);
-  const nextSearchDate = nextIsoDate(searchedRange?.end);
-  const preferredWindow = state.flow.schedulingGoal?.preferredWindow;
-  const requestedWindows = requestedTimeWindows(preferredWindow);
-  const earliestMinute = requestedEarliestMinute(preferredWindow);
-  const matchesRequestedEarliest = (slot: AvailabilityCandidateSlot) =>
-    earliestMinute === undefined ||
-    (minutesFromDisplayTime(slot.time) ?? 0) >= earliestMinute;
-  const matchingSlots =
-    requestedWindows.length > 0
-      ? candidateSlots.filter((slot) =>
-          requestedWindows.includes(slot.timeWindow),
-        )
-      : [];
-  const matchingWindowSlots = matchingSlots.filter(matchesRequestedEarliest);
-  const unmatchedWindowSlots = matchingSlots.filter(
-    (slot) => !matchesRequestedEarliest(slot),
-  );
-  const effectiveMatchingSlots =
-    requestedWindows.length > 0 ? matchingWindowSlots : [];
-  const otherSlots =
-    requestedWindows.length > 0
-      ? [
-          ...unmatchedWindowSlots,
-          ...candidateSlots.filter(
-            (slot) => !requestedWindows.includes(slot.timeWindow),
-          ),
-        ]
-      : [];
-  const recommendedSlot = effectiveMatchingSlots[0] ?? candidateSlots[0];
-  const search = buildAvailabilitySearchSummary({
-    rawResponse,
-    searchedRange,
-    nextSearchDate:
-      rawResponse.outcome === "no_availability" ||
-      rawResponse.outcome === "availability_found"
-        ? nextSearchDate
-        : undefined,
-  });
-
-  return cleanAvailabilityResponse({
-    rawResponse,
-    search,
-    preferredWindow,
-    candidateSlots,
-    recommendedSlot,
-    requestedWindows,
-    matchingSlots: effectiveMatchingSlots,
-    otherSlots,
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("workflow_step"),
+    type: "workflow_step_updated",
+    source: "system",
+    createdAt: Date.now(),
+    step: nextStep,
+    ...(activeFlow ? { activeFlow } : {}),
   });
 }
 
@@ -1870,8 +1127,7 @@ function normalizeInsuranceOutcome(
         ? "needs_clarification"
         : "not_allowed";
   if (routeRequired) {
-    state.flow.activeFlow = "routing";
-    updateCurrentTaskStep(state, "route_office");
+    updateCurrentTaskStep(state, "route_office", "routing");
   }
 
   return {
@@ -1893,31 +1149,6 @@ function normalizeInsuranceOutcome(
   };
 }
 
-function selectedAvailabilitySlot(
-  state: CallState,
-  slotId: string,
-): StoredAvailabilitySlot | null {
-  const normalized = normalizeSlotId(slotId);
-  const exact = state.lastAvailabilitySlots.find(
-    (slot) => normalizeSlotId(slot.slotId) === normalized,
-  );
-  if (exact) return exact;
-  const naturalMatches = state.lastAvailabilitySlots.filter((slot) =>
-    slotNaturallyMatches(slot, slotId),
-  );
-  return naturalMatches.length === 1 ? naturalMatches[0] : null;
-}
-
-function publicAvailabilitySlots(slots: StoredAvailabilitySlot[]) {
-  return slots.map(({ slotId, spoken, provider, date, time }) => ({
-    slotId,
-    spoken,
-    provider,
-    date,
-    time,
-  }));
-}
-
 function bookingTokenForSelectedSlot(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
@@ -1937,48 +1168,6 @@ function bookingTokenForSelectedSlot(
   );
 }
 
-function ensureConfirmedBookingActionFromState(
-  state: CallState,
-  selectedSlot: StoredAvailabilitySlot,
-  toolCallId: string,
-) {
-  const selectedSlotId = state.flow.schedulingGoal?.selectedSlotId;
-  const bookingConfirmed = state.flow.schedulingGoal?.bookingConfirmed === true;
-  const confirmedSlot = selectedSlotId
-    ? selectedAvailabilitySlot(state, selectedSlotId)
-    : null;
-  if (
-    !bookingConfirmed ||
-    !confirmedSlot ||
-    normalizeSlotId(confirmedSlot.slotId) !==
-      normalizeSlotId(selectedSlot.slotId)
-  ) {
-    return undefined;
-  }
-  if (state.flow.schedulingGoal) {
-    state.flow.schedulingGoal.selectedSlotId = selectedSlot.slotId;
-  }
-
-  const routing =
-    selectedSlot.routing ??
-    state.lastAvailabilityRouting ??
-    routingForAvailability(state);
-  const action = createPendingBookingAction(state.flow, {
-    patientRef: state.flow.activePatientRef,
-    slotHash: selectedSlot.slotId,
-    officeKey: state.officeKey,
-    routing,
-    spokenSummary: selectedSlot.spoken,
-    confirmed: true,
-    createdTurnId: toolCallId,
-    confirmationTurnId: toolCallId,
-  });
-  action.confirmed = true;
-  action.confirmationTurnId ??= toolCallId;
-  state.flow.step = "book";
-  return action;
-}
-
 function activeReschedulePlan(state: CallState) {
   const planId = state.flow.activeTaskPlanId;
   const plan = planId ? state.flow.taskPlans?.[planId] : undefined;
@@ -1993,20 +1182,15 @@ function markRescheduleReplacementBooked(
   if (!plan || typeof plan.targetAppointmentId !== "number") return false;
   const replacementBookedAppointmentId = appointmentIdFromBookingResult(result);
   if (replacementBookedAppointmentId === null) return false;
-  state.flow.taskPlans = {
-    ...(state.flow.taskPlans ?? {}),
-    [plan.id]: {
-      ...plan,
-      phase: "cancelling_old_appointment",
+  return (
+    reduceFlowEvent(state.flow, {
+      id: nextFlowEventId("reschedule_replacement_booked"),
+      type: "reschedule_replacement_booked",
+      source: "tool_result",
+      createdAt: Date.now(),
       replacementBookedAppointmentId,
-      oldCancelled: false,
-      updatedAt: Date.now(),
-    },
-  };
-  state.flow.activeIntent = "existing_appointment_reschedule";
-  state.flow.activeFlow = "appointment_management";
-  updateCurrentTaskStep(state, "cancel");
-  return true;
+    }).rescheduleProgressed === true
+  );
 }
 
 function markRescheduleOldAppointmentCancelled(
@@ -2015,16 +1199,15 @@ function markRescheduleOldAppointmentCancelled(
 ): boolean {
   const plan = activeReschedulePlan(state);
   if (!plan || plan.targetAppointmentId !== appointmentId) return false;
-  state.flow.taskPlans = {
-    ...(state.flow.taskPlans ?? {}),
-    [plan.id]: {
-      ...plan,
-      phase: "complete",
-      oldCancelled: true,
-      updatedAt: Date.now(),
-    },
-  };
-  return true;
+  return (
+    reduceFlowEvent(state.flow, {
+      id: nextFlowEventId("reschedule_old_cancelled"),
+      type: "reschedule_old_appointment_cancelled",
+      source: "tool_result",
+      createdAt: Date.now(),
+      appointmentId,
+    }).rescheduleProgressed === true
+  );
 }
 
 function ensureRoutineVisionOffice(state: CallState): void {
@@ -2034,11 +1217,13 @@ function ensureRoutineVisionOffice(state: CallState): void {
   clearAvailabilitySelection(state, "office_changed");
   state.officeKey = "spring-hill";
   state.amdOfficePhone = getSpringHillOfficePhone();
-  state.flow.officeKey = "spring-hill";
-  state.flow.activeFlow = "scheduling";
-  state.flow.visitType = "routine_vision";
-  state.flow.coverageType = "routine_vision";
-  state.flow.routing = "optical_only";
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("routine_vision_office"),
+    type: "routine_vision_office_ensured",
+    source: "system",
+    createdAt: Date.now(),
+    officeKey: "spring-hill",
+  });
 }
 
 function ensureAvailabilityVisitContext(state: CallState): void {
@@ -2056,15 +1241,13 @@ function ensureAvailabilityVisitContext(state: CallState): void {
       ? "routine_vision"
       : "medical");
 
-  state.flow.visitType = visitType;
-  if (visitType === "routine_vision") {
-    state.flow.coverageType = "routine_vision";
-    state.flow.routing = "optical_only";
-    return;
-  }
-  if (visitType === "medical" || visitType === "urgent") {
-    state.flow.coverageType ??= "medical";
-  }
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("availability_visit_context"),
+    type: "availability_visit_context_ensured",
+    source: "system",
+    createdAt: Date.now(),
+    visitType,
+  });
 }
 
 function compactTurnCommandResponse(turn: FlowTurnAdvanceResult) {
@@ -2095,62 +1278,41 @@ function compactTurnCommandResponse(turn: FlowTurnAdvanceResult) {
     };
   }
 
-  const decision = turn.decision;
-  const nextAction = nextActionForFlowDecision(decision);
   const base = {
     status: "recorded",
-    nextAction,
+    nextAction: turn.nextAction,
     ...(turn.update?.pathFactsChanged ? { factsChanged: true } : {}),
   };
 
-  switch (decision.type) {
+  switch (turn.action) {
     case "ask":
       return {
         ...base,
         action: "ask",
-        slot: decision.slot,
-        instruction: decision.promptHint,
+        slot: turn.slot,
+        instruction: turn.instruction,
       };
     case "call_tool":
       return {
         ...base,
         action: "call_tool",
-        tool: decision.tool,
-        args: decision.args,
-        instruction: `Call ${decision.tool} now.`,
-      };
-    case "call_meta_tool":
-      return {
-        ...base,
-        action: "internal",
-        tool: decision.tool,
-        args: decision.args,
-        instruction: `Resolve ${decision.tool} internally before continuing.`,
+        tool: turn.tool,
+        args: turn.args,
+        instruction: turn.instruction,
       };
     case "confirm":
       return {
         ...base,
         action: "confirm",
-        confirmation: decision.confirmation.type,
-        instruction: `Read back the ${decision.confirmation.type} details and get explicit confirmation.`,
+        confirmation: turn.confirmationType,
+        instruction: turn.instruction,
       };
-    case "say":
+    case "complete":
+    case "respond":
       return {
         ...base,
         action: "respond",
-        instruction: decision.instruction,
-      };
-    case "transfer":
-      return {
-        ...base,
-        action: "transfer",
-        instruction: `Follow the transfer confirmation path before transfer_call. Reason: ${decision.reason}.`,
-      };
-    case "end_call":
-      return {
-        ...base,
-        action: "end_call",
-        instruction: `End the call only after a natural closeout. Reason: ${decision.reason}.`,
+        instruction: turn.instruction,
       };
   }
 }
@@ -2227,6 +1389,7 @@ If the caller only says a backchannel like "yes", "okay", or "mm-hmm", call this
       type: "caller_intent_recorded",
       transcript,
       understanding,
+      source: "model_understanding",
     });
     state.turnUnderstandingAppliedForTranscript = transcript || null;
     if (turn.update) {
@@ -2343,7 +1506,11 @@ After response:
     });
     if (policyResponse) return policyResponse;
     const previousIdentity = snapshotActivePatientIdentity(state.flow);
-    recordPatientVerificationAttempt(state.flow, {
+    reduceFlowEvent(state.flow, {
+      id: nextFlowEventId("patient_verification_attempt"),
+      type: "patient_verification_attempted",
+      source: "tool_result",
+      createdAt: Date.now(),
       firstName,
       lastName,
       dob,
@@ -2409,15 +1576,16 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
         true,
       );
     }
-    const policyResponse = evaluatePolicyForState(
-      state,
-      "add_patient",
-      params,
-      {
-        sideEffectConfirmation: { toolCallId },
-      },
-    );
-    if (policyResponse) return policyResponse;
+    const policyResponse = evaluatePolicyForState(state, "add_patient", params);
+    if (policyResponse) {
+      return recordSideEffectConfirmationRequestFromToolCall(
+        state,
+        "add_patient",
+        params,
+        policyResponse,
+        toolCallId,
+      );
+    }
     const insurance = state.checkedInsurancePlan ?? params.insurance;
     const selfPay = normalizeInsuranceText(insurance) === "self pay";
     const phone = params.phone ?? state.callerPhone;
@@ -2451,7 +1619,15 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
       getAmdOfficeForToolCall(state),
     )) as any;
     if (result?.patientId) {
-      consumeSideEffectActionForState(state, "add_patient", params);
+      recordSideEffectToolSucceeded(
+        state,
+        "add_patient",
+        params,
+        "patient_added",
+        {
+          patientId: result.patientId,
+        },
+      );
       applyPatientResult(state, result);
       return result;
     }
@@ -2482,19 +1658,24 @@ After response: session state updates automatically. If preauthRequired, schedul
         true,
       );
     }
-    const policyResponse = evaluatePolicyForState(
-      state,
-      "update_insurance",
-      {
-        insurance,
-        subscriberName,
-        subscriberNum,
-      },
-      {
-        sideEffectConfirmation: { toolCallId },
-      },
-    );
-    if (policyResponse) return policyResponse;
+    const policyResponse = evaluatePolicyForState(state, "update_insurance", {
+      insurance,
+      subscriberName,
+      subscriberNum,
+    });
+    if (policyResponse) {
+      return recordSideEffectConfirmationRequestFromToolCall(
+        state,
+        "update_insurance",
+        {
+          insurance,
+          subscriberName,
+          subscriberNum,
+        },
+        policyResponse,
+        toolCallId,
+      );
+    }
     if (!state.patientId) {
       return toolOutcome(
         "not_allowed",
@@ -2528,11 +1709,21 @@ After response: session state updates automatically. If preauthRequired, schedul
       getAmdOfficeForToolCall(state),
     )) as any;
     if (result?.status === "updated") {
-      consumeSideEffectActionForState(state, "update_insurance", {
-        insurance,
-        subscriberName,
-        subscriberNum,
-      });
+      recordSideEffectToolSucceeded(
+        state,
+        "update_insurance",
+        {
+          insurance,
+          subscriberName,
+          subscriberNum,
+        },
+        "insurance_updated",
+        {
+          newInsurance: result.newInsurance,
+          routing: result.routing,
+          preauthRequired: result.preauthRequired,
+        },
+      );
       state.insuranceCarrier = result.newInsurance ?? state.insuranceCarrier;
       state.insPlanId = result.insPlanId ?? null;
       state.respPartyId = result.respPartyId ?? null;
@@ -2541,7 +1732,11 @@ After response: session state updates automatically. If preauthRequired, schedul
         result.allowedProviders ?? state.allowedProviders;
       state.routingAmbiguous = result.routingAmbiguous ?? false;
       state.preauthRequired = result.preauthRequired ?? false;
-      updateActivePatientInsurance(state.flow, {
+      reduceFlowEvent(state.flow, {
+        id: nextFlowEventId("active_patient_insurance"),
+        type: "active_patient_insurance_updated",
+        source: "tool_result",
+        createdAt: Date.now(),
         plan: state.insuranceCarrier,
         coverageType: state.checkedInsuranceCoverageType,
         canonicalPlan: state.checkedInsurancePlan ?? state.insuranceCarrier,
@@ -2576,7 +1771,7 @@ After response: follow the reply and next fields. If result is slots_found, offe
     makeCurrentSpeechUninterruptible(ctx);
     const request = buildAvailabilityLookupRequestForState(state, { date });
     if ("outcome" in request) return request;
-    state.flow.step = "get_availability";
+    updateCurrentTaskStep(state, "get_availability");
     const result = await callApi(
       "/api/scheduler/availability",
       request.body,
@@ -2641,17 +1836,20 @@ Requires appointmentId — use the ID from the caller context or from a verify_p
         true,
       );
     }
-    const policyResponse = evaluatePolicyForState(
-      state,
-      "cancel_appt",
-      {
-        appointmentId,
-      },
-      {
-        sideEffectConfirmation: { toolCallId },
-      },
-    );
-    if (policyResponse) return policyResponse;
+    const policyResponse = evaluatePolicyForState(state, "cancel_appt", {
+      appointmentId,
+    });
+    if (policyResponse) {
+      return recordSideEffectConfirmationRequestFromToolCall(
+        state,
+        "cancel_appt",
+        {
+          appointmentId,
+        },
+        policyResponse,
+        toolCallId,
+      );
+    }
     if (!state.patientId) {
       return toolOutcome(
         "not_allowed",
@@ -2692,20 +1890,24 @@ Requires appointmentId — use the ID from the caller context or from a verify_p
       (cancelResultReason === "cancel_failed" &&
         apiResultLooksSuccessful(result))
     ) {
-      consumeSideEffectActionForState(state, "cancel_appt", { appointmentId });
+      recordSideEffectToolSucceeded(
+        state,
+        "cancel_appt",
+        { appointmentId },
+        "appointment_cancelled",
+        { appointmentId },
+      );
       removeAppointmentById(state, appointmentId);
       const completedReschedule = markRescheduleOldAppointmentCancelled(
         state,
         appointmentId,
       );
-      state.flow.pendingConfirmation = undefined;
       const resumedTask =
         state.flow.currentTask?.kind === "appointment_management"
           ? completeCurrentTaskAndResume(state.flow)
           : undefined;
       if (!resumedTask) {
         updateCurrentTaskStep(state, "answer");
-        state.flow.step = "answer";
       }
       if (completedReschedule) {
         return withLatestPlannerCommand(state, result);
@@ -2797,7 +1999,7 @@ Only save these two fields: appointment reason and referring doctor. If there is
 
 // --- book_appt ---
 export const book_appt = llm.tool({
-  description: `Books an appointment using slotId from the latest get_availability response. Patient ID is read from session state automatically.
+  description: `Books an appointment using slotId from an active get_availability response. Patient ID is read from session state automatically.
 
 The middleware resolves the AMD appointment type from the selected slot, patient status, DOB, routing lane, and appointment kind. Do not choose or mention numeric AMD appointment type IDs.
 
@@ -2822,9 +2024,20 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
       .min(1)
       .describe('Caller-provided referring doctor, or "none" if none.'),
   }),
-  execute: async (params, { ctx, toolCallId }) => {
+  execute: async (params, { ctx }) => {
     const state = getState(ctx);
     const speechReady = makeCurrentSpeechUninterruptible(ctx);
+    restoreConfirmedPreCallCaller(state);
+    syncSessionPatientFromActiveFlow(state);
+    if (!isFlowHarnessEnabled(state)) {
+      return toolOutcome(
+        "not_allowed",
+        "handoff",
+        "Booking requires the flow harness so the confirmed slot, patient, and booking note are tracked safely. Transfer the caller or enable the harness for this trunk.",
+        { reason: "booking_requires_flow_harness" },
+        false,
+      );
+    }
     if (!state.patientId) {
       const policyResponse = evaluatePolicyForState(state, "book_appt", params);
       return (
@@ -2859,7 +2072,7 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
       return toolOutcome(
         "not_allowed",
         "get_availability",
-        "That slot is not available from the latest availability search. Search availability again before booking.",
+        "That slot is not available from the active availability options. Search availability again before booking.",
         {
           reason: "booking_requires_recent_availability",
           slotId: params.slotId,
@@ -2893,30 +2106,16 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
         true,
       );
     }
-    ensureConfirmedBookingActionFromState(state, selectedSlot, toolCallId);
     const policyResponse = evaluatePolicyForState(state, "book_appt", params, {
       booking: bookingPolicyFacts,
     });
     if (policyResponse) return policyResponse;
     const bookingToken = bookingTokenForSelectedSlot(state, selectedSlot);
     if (typeof bookingToken !== "string") return bookingToken;
-    let bookingAttempt = recordBookingAttempt(state.flow, {
+    const bookingAttempt = recordBookingAttempt(state.flow, {
       ...bookingPolicyFacts,
       spokenSummary: selectedSlot.spoken,
     });
-    if (!bookingAttempt.action) {
-      createPendingBookingAction(state.flow, {
-        ...bookingPolicyFacts,
-        spokenSummary: selectedSlot.spoken,
-        confirmed: true,
-        createdTurnId: toolCallId,
-        confirmationTurnId: toolCallId,
-      });
-      bookingAttempt = recordBookingAttempt(state.flow, {
-        ...bookingPolicyFacts,
-        spokenSummary: selectedSlot.spoken,
-      });
-    }
     if (!bookingAttempt.action) {
       return toolOutcome(
         "error",
@@ -2926,8 +2125,6 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
         true,
       );
     }
-    bookingAttempt.action.confirmed = true;
-    bookingAttempt.action.confirmationTurnId ??= toolCallId;
     const appointmentIntent = appointmentIntentForBooking(
       state,
       routing,
@@ -3015,25 +2212,30 @@ Use this when the caller reached Crystal River but the visit must be handled thr
       state,
       "route_to_spring_hill",
       {},
+    );
+    if (policyResponse) {
+      return recordSideEffectConfirmationRequestFromToolCall(
+        state,
+        "route_to_spring_hill",
+        {},
+        policyResponse,
+        toolCallId,
+      );
+    }
+    const springHillOffice = getSpringHillOfficePhone();
+    recordSideEffectToolSucceeded(
+      state,
+      "route_to_spring_hill",
+      {},
+      "office_routed",
       {
-        sideEffectConfirmation: { toolCallId },
+        officeKey: "spring-hill",
+        amdOfficePhone: springHillOffice,
       },
     );
-    if (policyResponse) return policyResponse;
-    const springHillOffice = getSpringHillOfficePhone();
-    consumeSideEffectActionForState(state, "route_to_spring_hill", {});
     clearAvailabilitySelection(state, "office_changed");
     state.officeKey = "spring-hill";
     state.amdOfficePhone = springHillOffice;
-    state.flow.officeKey = "spring-hill";
-    state.flow.activeFlow = "scheduling";
-    state.flow.step = nextPatientFlowStep(state.flow.patientStatus);
-    if (state.checkedInsuranceCoverageType === "routine_vision") {
-      state.flow.visitType = "routine_vision";
-      state.flow.coverageType = "routine_vision";
-      state.flow.routing = "optical_only";
-    }
-    updateCurrentTaskStep(state, state.flow.step);
     return toolOutcome(
       "success",
       state.flow.step,
@@ -3093,29 +2295,17 @@ Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
     state.checkedInsuranceCoverageType = state.checkedInsurancePlan
       ? normalizedCoverageType
       : null;
-    state.flow.officeKey = state.officeKey;
-    state.flow.activeFlow = "insurance";
-    state.flow.step =
-      result.status === "accepted"
-        ? nextPatientFlowStep(state.flow.patientStatus)
-        : "check_insurance";
-    state.flow.coverageType = state.checkedInsuranceCoverageType ?? undefined;
-    if (state.checkedInsurancePlan) {
-      updateActivePatientInsurance(state.flow, {
-        plan,
-        coverageType: state.checkedInsuranceCoverageType,
-        canonicalPlan: state.checkedInsurancePlan,
-        source: "caller_spoken",
-      });
-    }
-    if (normalizedCoverageType === "routine_vision") {
-      state.flow.visitType = "routine_vision";
-      state.flow.routing = "optical_only";
-      if (state.officeKey === "crystal-river" && result.status === "accepted") {
-        state.flow.activeFlow = "routing";
-        state.flow.step = "route_office";
-      }
-    }
+    reduceFlowEvent(state.flow, {
+      id: nextFlowEventId("insurance_checked"),
+      type: "insurance_checked",
+      source: "tool_result",
+      createdAt: Date.now(),
+      plan,
+      canonicalPlan: state.checkedInsurancePlan,
+      coverageType: state.checkedInsuranceCoverageType,
+      status: result.status,
+      officeKey: state.officeKey,
+    });
     const response = buildInsuranceToolResponse(result);
     if (
       state.officeKey === "crystal-river" &&
@@ -3189,15 +2379,16 @@ export const transfer_call = llm.tool({
         true,
       );
     }
-    const policyResponse = evaluatePolicyForState(
-      state,
-      "transfer_call",
-      {},
-      {
-        sideEffectConfirmation: { toolCallId },
-      },
-    );
-    if (policyResponse) return policyResponse;
+    const policyResponse = evaluatePolicyForState(state, "transfer_call", {});
+    if (policyResponse) {
+      return recordSideEffectConfirmationRequestFromToolCall(
+        state,
+        "transfer_call",
+        {},
+        policyResponse,
+        toolCallId,
+      );
+    }
     state.transferInFlight = true;
     try {
       // Wait for the transfer announcement to finish playing before initiating
@@ -3214,7 +2405,15 @@ export const transfer_call = llm.tool({
       }
       const { handoffOfficeKey, handoffTarget } =
         await transferCallerToOffice(state);
-      consumeSideEffectActionForState(state, "transfer_call", {});
+      recordSideEffectToolSucceeded(
+        state,
+        "transfer_call",
+        {},
+        "transfer_started",
+        {
+          handoffOfficeKey,
+        },
+      );
       state.transferred = true;
       state.transferInFlight = false;
       console.log(

@@ -6,10 +6,10 @@ import {
 } from "../insurance-rules.js";
 import type { OfficeKey } from "../customer/profile.js";
 import type {
-  CallFlowState,
   PatientStatus,
   SchedulingRouting,
   ToolOutcome,
+  ToolOutcomeTransition,
   VisitType,
 } from "./types.js";
 import { nextPatientFlowStep } from "./state.js";
@@ -23,7 +23,7 @@ export interface PrepareSchedulingPathInput {
   coverageType?: InsuranceCoverageType;
 }
 
-export interface PrepareSchedulingPathFacts {
+export interface PrepareSchedulingPathFacts extends Record<string, unknown> {
   visitType: VisitType;
   coverageType: InsuranceCoverageType;
   allowedOffice: OfficeKey;
@@ -32,8 +32,9 @@ export interface PrepareSchedulingPathFacts {
   acceptedAtAlternateOffice?: OfficeKey;
 }
 
-export type PrepareSchedulingPathOutcome = ToolOutcome & {
+export type PrepareSchedulingPathOutcome = Omit<ToolOutcome, "facts"> & {
   facts?: PrepareSchedulingPathFacts;
+  transition: ToolOutcomeTransition;
 };
 
 const ROUTINE_VISION_PATTERNS = [
@@ -148,13 +149,13 @@ export function classifyVisitType(
   return null;
 }
 
-function baseStatePatch(
+function baseTransition(
   input: PrepareSchedulingPathInput,
   visitType: VisitType,
   coverageType: InsuranceCoverageType,
   officeKey: OfficeKey,
   routing?: SchedulingRouting,
-): Partial<CallFlowState> {
+): ToolOutcomeTransition {
   return {
     activeFlow: "scheduling",
     step: nextPatientFlowStep(input.patientStatus),
@@ -174,7 +175,7 @@ export function prepareSchedulingPath(
     return {
       outcome: "needs_clarification",
       nextStep: "triage_visit_type",
-      statePatch: {
+      transition: {
         activeFlow: "intent",
         step: "triage_visit_type",
         officeKey: input.officeKey,
@@ -198,7 +199,7 @@ export function prepareSchedulingPath(
     return {
       outcome: "transfer_required",
       nextStep: "handoff",
-      statePatch: {
+      transition: {
         activeFlow: "transfer",
         step: "handoff",
         officeKey: input.officeKey,
@@ -219,7 +220,7 @@ export function prepareSchedulingPath(
     return {
       outcome: "transfer_required",
       nextStep: "handoff",
-      statePatch: {
+      transition: {
         activeFlow: "transfer",
         step: "handoff",
         officeKey: input.officeKey,
@@ -247,7 +248,7 @@ export function prepareSchedulingPath(
     return {
       outcome: "route_required",
       nextStep: "route_office",
-      statePatch: {
+      transition: {
         activeFlow: "routing",
         step: "route_office",
         officeKey: input.officeKey,
@@ -280,8 +281,8 @@ export function prepareSchedulingPath(
     return {
       outcome: needsClarification ? "needs_clarification" : "success",
       nextStep,
-      statePatch: {
-        ...baseStatePatch(
+      transition: {
+        ...baseTransition(
           input,
           visitType,
           coverageType,
@@ -323,7 +324,7 @@ export function prepareSchedulingPath(
     return {
       outcome: "needs_clarification",
       nextStep: "check_insurance",
-      statePatch: {
+      transition: {
         activeFlow: "insurance",
         step: "check_insurance",
         officeKey: input.officeKey,
@@ -361,7 +362,7 @@ export function prepareSchedulingPath(
       return {
         outcome: "route_required",
         nextStep: "route_office",
-        statePatch: {
+        transition: {
           activeFlow: "routing",
           step: "route_office",
           officeKey: input.officeKey,
@@ -385,7 +386,7 @@ export function prepareSchedulingPath(
     return {
       outcome: "not_allowed",
       nextStep: "answer",
-      statePatch: {
+      transition: {
         activeFlow: "insurance",
         step: "answer",
         officeKey: input.officeKey,
@@ -409,8 +410,8 @@ export function prepareSchedulingPath(
   return {
     outcome: "success",
     nextStep,
-    statePatch: {
-      ...baseStatePatch(
+    transition: {
+      ...baseTransition(
         input,
         visitType,
         coverageType,

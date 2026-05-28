@@ -8,7 +8,10 @@ import {
 import { beforeAll, describe, expect, it } from "vitest";
 import { Agent } from "../agent.js";
 import { DEV_OFFICE_PHONE } from "../customer/profile.js";
-import { createInitialFlowState } from "../flow/index.js";
+import {
+  activeWorkflowCommandForState,
+  createInitialFlowState,
+} from "../flow/index.js";
 import type { CallState } from "../tooling/call-state.js";
 import { bindDynamicToolRefresher } from "../tooling/dynamic-tool-refresh.js";
 import {
@@ -116,6 +119,15 @@ describe("agent session flow integration", () => {
     expect(state.turnUnderstandingAppliedForTranscript).toBe("Jane");
     expect(state.flow.preCall.status).toBe("single_match_confirmed");
     expect(state.flow.patientStatus).toBe("verified");
+    expect(activeWorkflowCommandForState(state.flow)).toMatchObject({
+      taskKind: "intent_triage",
+      phase: "clarifying_intent",
+    });
+    expect(
+      state.flow.transitionLog?.some(
+        (transition) => transition.eventType === "planner_command_applied",
+      ),
+    ).toBe(true);
     await session.close();
   });
 

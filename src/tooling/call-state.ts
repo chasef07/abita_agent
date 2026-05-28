@@ -1,16 +1,16 @@
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import {
   DEFAULT_PATIENT_REF,
-  invalidateAvailabilitySearches,
-  invalidatePendingActionsForStateChange,
   type AvailabilityInvalidationReason,
   AppointmentLoadStatus,
   CallFlowState,
   CallerAppointment,
   GuardObservation,
+  nextFlowEventId,
   normalizeSchedulingRouting,
   type PatientContext,
   type PreCallPatientCandidate,
+  reduceFlowEvent,
 } from "../flow/index.js";
 import type { OfficeKey } from "../customer/profile.js";
 import type { AgentToolName } from "./tool-exposure.js";
@@ -140,6 +140,8 @@ export interface CallState {
   routing: string | null;
   lastAvailabilityRouting: string | null;
   lastAvailabilitySlots: StoredAvailabilitySlot[];
+  bookableAvailabilitySlots?: StoredAvailabilitySlot[];
+  availabilitySlotSequence?: number;
   allowedProviders: string[];
   routingAmbiguous: boolean;
   preauthRequired: boolean;
@@ -189,9 +191,16 @@ export function reconcileCallStateAfterActivePatientChange(
   reason: AvailabilityInvalidationReason = "patient_changed",
 ): void {
   state.lastAvailabilitySlots = [];
+  state.bookableAvailabilitySlots = [];
+  state.availabilitySlotSequence = 0;
   state.lastAvailabilityRouting = null;
-  invalidateAvailabilitySearches(state.flow, reason);
-  invalidatePendingActionsForStateChange(state.flow, reason);
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("availability_invalidated"),
+    type: "availability_invalidated",
+    source: "system",
+    createdAt: Date.now(),
+    reason,
+  });
 
   const patient = activeFlowPatient(state);
   if (!patient) return;
@@ -205,7 +214,13 @@ export function reconcileCallStateAfterActivePatientChange(
   state.appointments = [...patient.appointments];
   state.appointmentsStatus = patient.appointmentsStatus ?? null;
   state.appointmentCancelTokens = {};
-  state.flow.patientStatus = patient.status;
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("active_patient_status"),
+    type: "active_patient_status_synced",
+    source: "system",
+    createdAt: Date.now(),
+    patientStatus: patient.status,
+  });
 
   const insurancePlan =
     patient.insurance?.canonicalPlan ?? patient.insurance?.plan?.value ?? null;
@@ -218,8 +233,21 @@ export function reconcileCallStateAfterActivePatientChange(
   state.allowedProviders = [];
   state.routingAmbiguous = false;
   state.preauthRequired = false;
-  state.flow.coverageType = patient.insurance?.coverageType ?? undefined;
-  state.flow.routing = undefined;
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("patient_payload"),
+    type: "patient_payload_applied",
+    source: "system",
+    createdAt: Date.now(),
+    officeKey: state.officeKey,
+    coverageType: patient.insurance?.coverageType,
+    insurance: insurancePlan
+      ? {
+          plan: insurancePlan,
+          coverageType: patient.insurance?.coverageType,
+          canonicalPlan: insurancePlan,
+        }
+      : undefined,
+  });
   applyPreCallCandidateSessionDetails(state, patient);
 }
 
@@ -249,12 +277,26 @@ function applyPreCallCandidateSessionDetails(
   state.allowedProviders = candidate.allowedProviders ?? [];
   state.routingAmbiguous = candidate.routingAmbiguous ?? false;
   state.preauthRequired = candidate.preauthRequired ?? false;
-  state.flow.coverageType = state.checkedInsuranceCoverageType ?? undefined;
-  state.flow.routing = normalizeSchedulingRouting(state.routing);
-  state.flow.visitType =
-    state.checkedInsuranceCoverageType === "routine_vision"
-      ? "routine_vision"
-      : state.flow.visitType;
+  reduceFlowEvent(state.flow, {
+    id: nextFlowEventId("patient_payload"),
+    type: "patient_payload_applied",
+    source: "system",
+    createdAt: Date.now(),
+    officeKey: state.officeKey,
+    routing: normalizeSchedulingRouting(state.routing),
+    coverageType: state.checkedInsuranceCoverageType ?? undefined,
+    visitType:
+      state.checkedInsuranceCoverageType === "routine_vision"
+        ? "routine_vision"
+        : undefined,
+    insurance: state.insuranceCarrier
+      ? {
+          plan: state.insuranceCarrier,
+          coverageType: state.checkedInsuranceCoverageType,
+          canonicalPlan: state.checkedInsurancePlan ?? state.insuranceCarrier,
+        }
+      : undefined,
+  });
 }
 
 function selectedPreCallCandidateForPatient(

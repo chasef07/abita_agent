@@ -2,6 +2,10 @@
 
 Current implementation contract: `flow-controller-current-contract.md`.
 
+Superseded state model: durable flow writes now go through the single-writer
+event reducer described in `single-writer-flow-state-spec.md`. Older
+`statePatch` examples in this document are historical only.
+
 ## Why this exists
 
 Abita's current agent works, but too much business control lives in prompt prose,
@@ -670,9 +674,8 @@ Implemented:
 - Compact `<turn_state>` packet injection in `Agent.onUserTurnCompleted`, using
   the current hidden state without injecting raw transcripts or tool output.
 - The old flow-shadow prediction loop is no longer on the live runtime path.
-  Analytics keeps `flow.shadowEvents` and `mismatchCount` shape-compatible for
-  now, but the values are empty/zero until replaced by real semantic eval
-  telemetry.
+  Analytics no longer emits empty shadow fields; semantic eval telemetry should
+  use a new explicit shape when it is added.
 - Flow state hydration from patient lookup/tool results in `src/tools.ts`.
 - Active patient context is synced back into the legacy top-level tool fields
   before patient-bound middleware calls, so resumed patient tasks use the right

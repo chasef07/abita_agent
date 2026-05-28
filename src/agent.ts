@@ -13,9 +13,10 @@ import {
 import type { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
   advanceWorkflow,
-  applyPreCallIdentityFromTranscript,
   compileTurnStatePacket,
   inferObviousTurnUnderstanding,
+  nextFlowEventId,
+  reduceFlowEvent,
 } from "./flow/index.js";
 import { getOfficeConfigByPhone } from "./customer/profile.js";
 import {
@@ -68,10 +69,13 @@ export class Agent extends voice.Agent {
     state.latestUserTranscript = transcript;
     state.turnUnderstandingAppliedForTranscript = null;
     const activePatientRefBefore = state.flow.activePatientRef;
-    const preCallIdentity = applyPreCallIdentityFromTranscript(
-      state.flow,
+    const preCallIdentity = reduceFlowEvent(state.flow, {
+      id: nextFlowEventId("pre_call_identity"),
+      type: "pre_call_identity_observed",
+      source: "deterministic_understanding",
+      createdAt: Date.now(),
       transcript,
-    );
+    }).preCallIdentity;
     if (
       preCallIdentity?.changed &&
       state.flow.activePatientRef &&
@@ -80,11 +84,15 @@ export class Agent extends voice.Agent {
       reconcileCallStateAfterActivePatientChange(state, "patient_changed");
     }
     const inferred = inferObviousTurnUnderstanding(state.flow, transcript);
+    const automaticTurnUpdateApplied = Boolean(
+      inferred || preCallIdentity?.changed,
+    );
     if (inferred) {
       const turn = advanceWorkflow(state.flow, {
         type: "caller_intent_recorded",
         transcript,
         understanding: inferred,
+        source: "deterministic_understanding",
       });
       state.turnUnderstandingAppliedForTranscript = transcript;
       if (turn.update) {
@@ -97,11 +105,12 @@ export class Agent extends voice.Agent {
         };
       }
     } else if (preCallIdentity?.changed) {
+      advanceWorkflow(state.flow, { type: "facts_changed" });
       state.turnUnderstandingAppliedForTranscript = transcript;
     }
     await refreshAgentToolsForSession(
       this.session,
-      inferred || preCallIdentity?.changed
+      automaticTurnUpdateApplied
         ? "turn_update_auto_recorded"
         : "turn_update_pending",
     );
@@ -111,7 +120,7 @@ export class Agent extends voice.Agent {
         compileTurnStatePacket(state.flow),
         "",
         "<workflow_guidance>",
-        inferred || preCallIdentity?.changed
+        automaticTurnUpdateApplied
           ? "The reducer already recorded deterministic state for this turn. Use the current turn_state as guidance, and call the suggested read-only tool when prerequisites are met. Side effects still require explicit confirmation and policy approval."
           : "No automatic intent update was applied. Use the current turn_state, caller wording, and concrete tool facts to either ask one clarifying question or call a safe workflow tool. Side effects still require explicit confirmation and policy approval.",
         "</workflow_guidance>",

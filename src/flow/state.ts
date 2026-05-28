@@ -182,6 +182,35 @@ export function createPatientContext({
   };
 }
 
+export function hasConfirmedPreCallPatient(flow: CallFlowState): boolean {
+  const preCall = flow.preCall;
+  if (
+    preCall?.status !== "single_match_confirmed" &&
+    preCall?.status !== "multiple_match_confirmed"
+  ) {
+    return false;
+  }
+  const selectedRef = preCall.selectedCandidateRef ?? DEFAULT_PATIENT_REF;
+  return Boolean(flow.patients[selectedRef]?.patientId);
+}
+
+export function hasConfirmedPatientInFlow(flow: CallFlowState): boolean {
+  const activeRef = flow.activePatientRef ?? DEFAULT_PATIENT_REF;
+  const activePatient = flow.patients[activeRef];
+  if (
+    activePatient?.patientId &&
+    (isConfirmedPatientStatus(activePatient.status) ||
+      isConfirmedPatientStatus(flow.patientStatus))
+  ) {
+    return true;
+  }
+  return hasConfirmedPreCallPatient(flow);
+}
+
+function isConfirmedPatientStatus(status?: PatientStatus): boolean {
+  return status === "verified" || status === "created";
+}
+
 export interface PreCallIdentityReducerResult {
   status: PreCallIdentityStatus;
   changed: boolean;

@@ -1,26 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
   applyPreCallIdentityFromTranscript,
-  applyTurnUnderstandingFromTranscript,
+  reduceTurnUnderstandingFromTranscript,
   advanceFlowForTurn,
   activeWorkflowCommandForState,
   classifyVisitType,
-  compileFlowContextPacket,
   compileTurnStatePacket,
   completeCurrentTaskAndResume,
   createInitialFlowState,
   createPendingBookingAction,
   createPendingSideEffectAction,
   evaluateFlowToolPolicy,
-  createFlowShadowPrediction,
   hasActivePatientIdentityChanged,
   hashToolArgs,
   inferObviousTurnUnderstanding,
   invalidateAvailabilitySearches,
   invalidatePendingActionsForStateChange,
-  observeFlowToolExecution,
-  applyPlannerPatch,
-  flowDecisionForWorkflowCommand,
+  nextFlowEventId,
   planNextCommand,
   prepareSchedulingPath,
   recordAvailabilityCachedSlots,
@@ -29,12 +25,44 @@ import {
   recordBookingResult,
   recordPatientVerificationAttempt,
   recordVerifiedPatient,
+  reduceFlowEvent,
   resumePatientTask,
   startPatientTask,
   snapshotActivePatientIdentity,
   turnUnderstandingToInferredIntent,
+  type CallFlowState,
+  type FlowTurnAdvanceResult,
+  type WorkflowCommand,
   type TurnUnderstanding,
 } from "../flow/index.js";
+import {
+  flowDecisionForWorkflowCommand,
+  type FlowDecision,
+} from "./flow-decision-test-helper.js";
+
+function applyPlannerCommand(
+  flow: CallFlowState,
+  command: WorkflowCommand,
+): void {
+  reduceFlowEvent(flow, {
+    id: nextFlowEventId("test_planner_command"),
+    type: "planner_command_applied",
+    source: "planner",
+    createdAt: Date.now(),
+    command,
+  });
+}
+
+function decisionForTurn(turn: FlowTurnAdvanceResult): FlowDecision {
+  if (turn.workflowCommand) {
+    return flowDecisionForWorkflowCommand(turn.workflowCommand);
+  }
+  return {
+    type: "ask",
+    slot: turn.slot ?? "clarification",
+    promptHint: turn.instruction,
+  };
+}
 
 describe("flow state and context packet", () => {
   it("initializes matched patient state from phone lookup without treating it as verified", () => {
@@ -798,29 +826,6 @@ describe("flow state and context packet", () => {
     expect(packet).not.toContain("Maria");
   });
 
-  it("compiles a small state packet with allowed and blocked actions", () => {
-    const flow = createInitialFlowState({ officeKey: "spring-hill" });
-    flow.activeFlow = "insurance";
-    flow.step = "check_insurance";
-    flow.visitType = "routine_vision";
-    flow.coverageType = "routine_vision";
-    flow.requiredSlots = ["insurancePlan"];
-
-    const packet = compileFlowContextPacket(flow);
-
-    expect(packet).toContain("<flow_state>");
-    expect(packet).toContain("activeFlow: insurance");
-    expect(packet).toContain("activeIntent: unknown");
-    expect(packet).toContain("step: check_insurance");
-    expect(packet).toContain("activePatient: caller");
-    expect(packet).toContain("availabilitySearches: 0");
-    expect(packet).toContain("missingSlots: insurancePlan");
-    expect(packet).toContain("allowedActions: ask_insurance_plan");
-    expect(packet).toContain("prepareSchedulingPath");
-    expect(packet).toContain("blockedActions: add_patient");
-    expect(packet).toContain("<current_objective>");
-  });
-
   it("compiles compact turn state for model-visible dynamic context", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
@@ -829,6 +834,7 @@ describe("flow state and context packet", () => {
     flow.activeIntent = "existing_appointment_confirm";
     flow.activeFlow = "appointment_management";
     flow.step = "verify_patient";
+    applyPlannerCommand(flow, planNextCommand(flow));
 
     const packet = compileTurnStatePacket(flow);
 
@@ -916,7 +922,7 @@ describe("flow state and context packet", () => {
   it("writes active intent without clearing it on ambiguous backchannels", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
 
-    const first = applyTurnUnderstandingFromTranscript(
+    const first = reduceTurnUnderstandingFromTranscript(
       flow,
       "do you take VSP for routine vision",
       insuranceTurn({
@@ -924,7 +930,7 @@ describe("flow state and context packet", () => {
         coverageType: "routine_vision",
       }),
     );
-    const backchannel = applyTurnUnderstandingFromTranscript(
+    const backchannel = reduceTurnUnderstandingFromTranscript(
       flow,
       "yes",
       backchannelTurn(),
@@ -979,7 +985,7 @@ describe("flow state and context packet", () => {
       },
     });
 
-    expect(result.decision).toMatchObject({
+    expect(decisionForTurn(result)).toMatchObject({
       type: "ask",
       slot: "clarification",
     });
@@ -1200,13 +1206,13 @@ describe("flow state and context packet", () => {
       patientName: "Jane Doe",
     });
 
-    applyTurnUnderstandingFromTranscript(
+    reduceTurnUnderstandingFromTranscript(
       flow,
       "I need to schedule a glaucoma visit",
       scheduleTurn({ visitReason: "glaucoma visit", visitType: "medical" }),
     );
     const scheduleTask = flow.currentTask!;
-    applyTurnUnderstandingFromTranscript(
+    reduceTurnUnderstandingFromTranscript(
       flow,
       "what are your hours",
       faqTurn("hours"),
@@ -1574,7 +1580,7 @@ describe("flow state and context packet", () => {
     expect(flow.availabilitySearches).toHaveLength(1);
   });
 
-  it("clears satisfied availability status when a follow-up search returns no slots", () => {
+  it("keeps prior cached slots when a follow-up search returns no slots", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
     flow.visitType = "medical";
     flow.routing = "all_three";
@@ -1596,8 +1602,8 @@ describe("flow state and context packet", () => {
     const search = recordAvailabilityCachedSlots(flow, []);
 
     expect(search).toMatchObject({
-      status: "active",
-      cachedSlots: [],
+      status: "satisfied",
+      cachedSlots: [{ slotHash: "A" }],
       failureReasons: ["no_slots"],
       exactSearchCount: 2,
     });
@@ -1750,6 +1756,16 @@ describe("flow state and context packet", () => {
       date: "2026-06-02",
     });
     recordAvailabilityCachedSlots(flow, [{ slotId: "A" }]);
+    createPendingBookingAction(flow, {
+      slotHash: "A",
+      appointmentTypeId: 1007,
+      officeKey: "spring-hill",
+      routing: "all_three",
+      spokenSummary: "2026-06-02 9:00 with Dr. Bach",
+      confirmed: true,
+      createdTurnId: "test-create-second-booking-action",
+      confirmationTurnId: "test-confirm-second-booking",
+    });
 
     expect(nextSearch.search.id).toBe("availability_2");
     expect(
@@ -1918,7 +1934,7 @@ describe("prepareSchedulingPath", () => {
     expect(outcome).toMatchObject({
       outcome: "needs_clarification",
       nextStep: "triage_visit_type",
-      statePatch: {
+      transition: {
         activeFlow: "intent",
         step: "triage_visit_type",
         requiredSlots: ["visitReason"],
@@ -2159,7 +2175,7 @@ describe("task-plan command planner", () => {
     recordAvailabilityCachedSlots(flow, [{ slotId: "A" }, { slotId: "B" }]);
 
     const command = planNextCommand(flow);
-    applyPlannerPatch(flow, command);
+    applyPlannerCommand(flow, command);
 
     expect(command).toMatchObject({
       phase: "offering_cached_availability",
@@ -2199,7 +2215,7 @@ describe("deterministic turn router", () => {
       tool: "prepareSchedulingPath",
       outcome: { outcome: "needs_clarification" },
     });
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "ask",
       slot: "patientIdentity",
     });
@@ -2229,7 +2245,7 @@ describe("deterministic turn router", () => {
       }),
     });
 
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "ask",
       slot: "preferredDate",
     });
@@ -2263,7 +2279,7 @@ describe("deterministic turn router", () => {
       }),
     });
 
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "ask",
       slot: "preferredDate",
     });
@@ -2312,7 +2328,7 @@ describe("deterministic turn router", () => {
     });
 
     expect(turn.resolvedMetaDecision).toBeUndefined();
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "call_tool",
       tool: "book_appt",
       args: { slotId: "slot-1", appointmentKind: "medical" },
@@ -2356,11 +2372,11 @@ describe("deterministic turn router", () => {
       understanding: scheduleTurn({ bookingConfirmed: true }),
     });
 
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "ask",
       slot: "referringDoctor",
     });
-    expect(turn.decision).not.toMatchObject({
+    expect(decisionForTurn(turn)).not.toMatchObject({
       type: "call_tool",
       tool: "book_appt",
     });
@@ -2391,6 +2407,7 @@ describe("deterministic turn router", () => {
       bookingConfirmed: true,
       updatedAt: Date.now(),
     };
+    applyPlannerCommand(flow, planNextCommand(flow));
 
     const understanding = inferObviousTurnUnderstanding(
       flow,
@@ -2405,7 +2422,7 @@ describe("deterministic turn router", () => {
     });
 
     expect(turn.update.pathFactsChanged).toBe(false);
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "call_tool",
       tool: "book_appt",
       args: {
@@ -2459,12 +2476,12 @@ describe("deterministic turn router", () => {
       understanding: scheduleTurn({ bookingConfirmed: true }),
     });
 
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "call_tool",
       tool: "book_appt",
       args: { slotId: "slot-1", appointmentKind: "medical" },
     });
-    expect(turn.decision).not.toMatchObject({
+    expect(decisionForTurn(turn)).not.toMatchObject({
       type: "call_tool",
       tool: "get_availability",
     });
@@ -2520,7 +2537,7 @@ describe("deterministic turn router", () => {
         expect.objectContaining({ key: "replacementAvailability" }),
       ],
     });
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "call_tool",
       tool: "get_availability",
     });
@@ -2563,7 +2580,7 @@ describe("deterministic turn router", () => {
     });
 
     const command = planNextCommand(flow);
-    applyPlannerPatch(flow, command);
+    applyPlannerCommand(flow, command);
 
     expect(command).toMatchObject({
       taskKind: "appointment_confirm",
@@ -2683,7 +2700,7 @@ describe("deterministic turn router", () => {
     recordAvailabilityCachedSlots(flow, [{ slotId: "A" }]);
 
     const command = planNextCommand(flow);
-    applyPlannerPatch(flow, command);
+    applyPlannerCommand(flow, command);
 
     expect(command).toMatchObject({
       phase: "booking_replacement",
@@ -2766,7 +2783,7 @@ describe("deterministic turn router", () => {
     });
 
     expect(turn.update.pathFactsChanged).toBe(false);
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "call_tool",
       tool: "book_appt",
       args: { slotId: "C", appointmentKind: "medical" },
@@ -2827,11 +2844,11 @@ describe("deterministic turn router", () => {
         },
       },
     });
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "ask",
       slot: "preferredDate",
     });
-    expect(turn.decision).not.toMatchObject({
+    expect(decisionForTurn(turn)).not.toMatchObject({
       type: "call_tool",
       tool: "book_appt",
     });
@@ -2872,7 +2889,7 @@ describe("deterministic turn router", () => {
       }),
     });
 
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "call_tool",
       tool: "get_availability",
     });
@@ -2909,11 +2926,11 @@ describe("deterministic turn router", () => {
       }),
     });
 
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "confirm",
       confirmation: { type: "route_office" },
     });
-    expect(turn.decision).not.toMatchObject({
+    expect(decisionForTurn(turn)).not.toMatchObject({
       type: "call_tool",
       tool: "get_availability",
     });
@@ -2953,7 +2970,7 @@ describe("deterministic turn router", () => {
         nextStep: "check_insurance",
       },
     });
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "ask",
       slot: "insurancePlan",
     });
@@ -3005,7 +3022,7 @@ describe("deterministic turn router", () => {
     expect(turn.resolvedMetaDecision?.outcome.facts).not.toHaveProperty(
       "canonicalPlan",
     );
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "ask",
       slot: "preferredDate",
     });
@@ -3070,7 +3087,7 @@ describe("deterministic turn router", () => {
       }),
     });
 
-    expect(turn.decision).toMatchObject({
+    expect(decisionForTurn(turn)).toMatchObject({
       type: "confirm",
       confirmation: { type: "route_office" },
     });
@@ -3080,50 +3097,6 @@ describe("deterministic turn router", () => {
       visitType: "routine_vision",
       coverageType: "routine_vision",
       routing: "optical_only",
-    });
-  });
-});
-
-describe("flow shadow observer", () => {
-  it("predicts no tool call for a bare insurance question before visit type is known", () => {
-    const flow = createInitialFlowState({ officeKey: "spring-hill" });
-
-    const prediction = createFlowShadowPrediction(
-      flow,
-      insuranceTurn({ plan: "Care Plus" }),
-      123,
-    );
-    const observation = observeFlowToolExecution(prediction, "check_insurance");
-
-    expect(prediction.expectedDecision).toMatchObject({
-      type: "ask",
-      slot: "visitReason",
-    });
-    expect(prediction.contextPacket).toContain("<flow_state>");
-    expect(JSON.stringify(prediction)).not.toContain("Care Plus");
-    expect(observation).toMatchObject({
-      match: "mismatch",
-      toolName: "check_insurance",
-      mismatchReason: "expected ask, got tool check_insurance",
-    });
-  });
-
-  it("compares planner predictions against live tool attempts", () => {
-    const flow = createInitialFlowState({ officeKey: "spring-hill" });
-
-    const prediction = createFlowShadowPrediction(
-      flow,
-      scheduleTurn({ visitReason: "glaucoma follow up", visitType: "medical" }),
-    );
-    const observation = observeFlowToolExecution(prediction, "verify_patient");
-
-    expect(prediction.expectedDecision).toMatchObject({
-      type: "ask",
-      slot: "patientIdentity",
-    });
-    expect(observation).toMatchObject({
-      match: "mismatch",
-      mismatchReason: "expected ask, got tool verify_patient",
     });
   });
 });
