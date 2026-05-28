@@ -254,8 +254,6 @@ export function classifyToolOutput(
       return "insurance_updated";
     case "check_insurance":
       return "insurance_checked";
-    case "add_patient_note":
-      return "patient_note_saved";
     case "lookup_knowledge":
       return "knowledge_returned";
     default:

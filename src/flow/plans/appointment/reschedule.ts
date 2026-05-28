@@ -35,10 +35,6 @@ const RESCHEDULE_BLOCKED_ACTIONS: BlockedAction[] = [
     action: "cancel_appt",
     reason: "book the replacement appointment before cancelling the old one",
   },
-  {
-    action: "add_patient_note",
-    reason: "replacement note payload belongs inside book_appt",
-  },
 ];
 
 export function planReschedule(flow: CallFlowState): WorkflowCommand {
@@ -323,10 +319,6 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
           action: "book_appt",
           reason: "replacement appointment is already booked",
         },
-        {
-          action: "add_patient_note",
-          reason: "replacement note payload was already saved by book_appt",
-        },
       ],
       instruction:
         "Call cancel_appt now for the old appointment so the reschedule is completed.",
@@ -373,10 +365,6 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
         action: "cancel_appt",
         reason:
           "book the replacement appointment before cancelling the old one",
-      },
-      {
-        action: "add_patient_note",
-        reason: "book_appt carries the replacement note payload",
       },
     ],
     instruction: "Call book_appt now for the replacement appointment.",

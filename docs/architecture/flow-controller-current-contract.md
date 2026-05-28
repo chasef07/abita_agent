@@ -20,8 +20,8 @@ The longer architecture notes remain historical design context.
   active patient facts, loaded appointments, scheduling facts, pending
   confirmations, cached availability, and blocked actions.
 - The deterministic reducer records obvious caller intent before the model
-  responds. The `record_turn_understanding` tool remains only as fallback
-  plumbing and is not exposed by the startup tool set.
+  responds. There is no model-facing turn-understanding tool in the active
+  tool registry.
 - The model proposes structured semantic state; TypeScript owns whether that
   update changes patient, task, scheduling, insurance, routing, or pending
   action state.

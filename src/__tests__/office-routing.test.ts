@@ -553,7 +553,6 @@ describe("Crystal River prompt guidance", () => {
       "For reschedules, book the replacement first, then cancel the old appointment after booking succeeds.",
     );
     expect(prompt).not.toContain("## Confirmation State");
-    expect(prompt).not.toContain("Do not call add_patient_note separately");
   });
 
   it("prioritizes emergency and urgent eye symptoms before routine scheduling", () => {
@@ -731,14 +730,14 @@ describe("model-facing tool definitions", () => {
 
   it("limits verify_patient to patient-specific workflows", () => {
     expect(verify_patient.description).toContain(
-      "Use only when the current workflow needs a verified patient",
+      "patient-specific workflows such as scheduling",
+    );
+    expect(verify_patient.description).toContain("appointment management");
+    expect(verify_patient.description).toContain(
+      "For caller-phone lookup, provide firstName only",
     );
     expect(verify_patient.description).toContain(
-      "appointment lookup or confirmation",
+      "Follow the returned status, next, patient, and appointments fields",
     );
-    expect(verify_patient.description).toContain(
-      "Do not use for quick questions",
-    );
-    expect(verify_patient.description).toContain("transfer requests");
   });
 });

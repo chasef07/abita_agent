@@ -39,11 +39,9 @@ import {
   reduceFlowEvent,
   type AppointmentLoadStatus,
   type AvailabilityInvalidationReason,
-  type FlowTurnAdvanceResult,
   type GuardedToolName,
   type SideEffectToolName,
   type ToolOutcome,
-  turnUnderstandingSchema,
 } from "./flow/index.js";
 import {
   callApi,
@@ -243,42 +241,6 @@ function isSideEffectToolName(
   );
 }
 
-function evaluatePatientNoteGrounding(
-  state: CallState,
-  appointmentReason: string,
-  referringDoctor: string,
-): ToolOutcome | null {
-  if (!isFlowHarnessEnabled(state)) return null;
-  const goal = state.flow.schedulingGoal;
-  if (!goal) return null;
-
-  const expectedReason = goal.noteDraft?.appointmentReason ?? goal.visitReason;
-  const expectedReferrer = goal.noteDraft?.referringDoctor;
-  const referrerIsNone = normalizeNoteValue(referringDoctor) === "none";
-  const reasonMatches = expectedReason
-    ? noteValuesMatch(appointmentReason, expectedReason)
-    : false;
-  const referrerMatches = expectedReferrer
-    ? noteValuesMatch(referringDoctor, expectedReferrer)
-    : referrerIsNone;
-
-  if (reasonMatches && referrerMatches) {
-    return null;
-  }
-
-  return toolOutcome(
-    "not_allowed",
-    "collect_visit_reason",
-    'Save the patient note only after the caller explicitly states the appointment reason and referring doctor. If there is no referring doctor, use "none".',
-    {
-      reason: "note_requires_grounded_details",
-      hasExpectedReason: Boolean(expectedReason),
-      hasExpectedReferrer: Boolean(expectedReferrer),
-    },
-    true,
-  );
-}
-
 function resolveBookingNoteMetadata(
   state: CallState,
   appointmentReason: string,
@@ -331,18 +293,6 @@ function resolveBookingNoteMetadata(
 
 function isGenericBookingReason(value: string): boolean {
   return /^(appointment|appt|visit|office visit|booking)$/i.test(value.trim());
-}
-
-function noteValuesMatch(actual: string, expected: string): boolean {
-  return normalizeNoteValue(actual) === normalizeNoteValue(expected);
-}
-
-function normalizeNoteValue(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function withToolFacts(outcome: ToolOutcome, state: CallState): ToolOutcome {
@@ -607,16 +557,6 @@ function apiResultLooksSuccessful(result: unknown): boolean {
     !text.includes("fail") &&
     !text.includes("not_found") &&
     !text.includes("not found")
-  );
-}
-
-function hasSuccessfulBookingForActivePatient(state: CallState): boolean {
-  const activePatientRef = state.flow.activePatientRef ?? "caller";
-  return state.flow.pendingActions.some(
-    (action) =>
-      action.type === "book_appt" &&
-      action.patientRef === activePatientRef &&
-      action.consumed,
   );
 }
 
@@ -1383,73 +1323,6 @@ function ensureAvailabilityVisitContext(state: CallState): void {
   });
 }
 
-function compactTurnCommandResponse(turn: FlowTurnAdvanceResult) {
-  if (turn.workflowCommand?.commandSource === "task_plan") {
-    const command = turn.workflowCommand;
-    const compact = compactWorkflowCommand(command);
-    return {
-      status: "recorded",
-      task: compact.task,
-      taskId: compact.taskId,
-      phase: compact.phase,
-      missingFacts: compact.missingFacts,
-      nextAction: compact.nextAction,
-      ...(turn.update?.pathFactsChanged ? { factsChanged: true } : {}),
-      action:
-        command.nextAction === "call_tool"
-          ? "call_tool"
-          : command.nextAction === "respond"
-            ? "respond"
-            : command.nextAction,
-      ...(command.tool ? { tool: command.tool } : {}),
-      ...(command.args ? { args: command.args } : {}),
-      ...(compact.suggestedTool
-        ? { suggestedTool: compact.suggestedTool }
-        : {}),
-      blockedSideEffects: compact.blockedSideEffects,
-      instruction: command.instruction,
-    };
-  }
-
-  const base = {
-    status: "recorded",
-    nextAction: turn.nextAction,
-    ...(turn.update?.pathFactsChanged ? { factsChanged: true } : {}),
-  };
-
-  switch (turn.action) {
-    case "ask":
-      return {
-        ...base,
-        action: "ask",
-        slot: turn.slot,
-        instruction: turn.instruction,
-      };
-    case "call_tool":
-      return {
-        ...base,
-        action: "call_tool",
-        tool: turn.tool,
-        args: turn.args,
-        instruction: turn.instruction,
-      };
-    case "confirm":
-      return {
-        ...base,
-        action: "confirm",
-        confirmation: turn.confirmationType,
-        instruction: turn.instruction,
-      };
-    case "complete":
-    case "respond":
-      return {
-        ...base,
-        action: "respond",
-        instruction: turn.instruction,
-      };
-  }
-}
-
 function withLatestPlannerCommand(state: CallState, result: unknown): unknown {
   if (!isFlowHarnessEnabled(state)) return result;
   if (!shouldAdvanceWorkflowAfterTool(state)) return result;
@@ -1485,87 +1358,11 @@ function advanceWorkflowAfterToolWithoutPlanner(state: CallState): void {
   advanceWorkflow(state.flow, { type: "facts_changed" });
 }
 
-// --- record_turn_understanding ---
-export const record_turn_understanding = llm.tool({
-  description: `Internal fallback memory update. The reducer normally records obvious caller intent before the model responds, so this tool should only be used if it is explicitly exposed and the current turn_state is missing a material caller fact.
-
-Use it to provide the structured semantic state update for the caller's latest turn. This is not a side-effect tool and should never be mentioned to the caller.
-
-If the caller only says a backchannel like "yes", "okay", or "mm-hmm", call this tool with goal "unclear", interruption "backchannel", and the right confidence/evidence. If a concrete workflow tool is already safe from state, the harness will allow that tool without requiring this memory update first.`,
-  parameters: turnUnderstandingSchema,
-  execute: async (understanding, { ctx }) => {
-    const state = getState(ctx);
-    makeCurrentSpeechUninterruptible(ctx);
-    if (!isFlowHarnessEnabled(state)) {
-      return {
-        status: "disabled",
-        instruction:
-          "Flow harness is disabled for this trunk. Continue with the normal tool flow.",
-      };
-    }
-    const transcript = state.latestUserTranscript?.trim() ?? "";
-
-    if (
-      transcript &&
-      state.turnUnderstandingAppliedForTranscript === transcript
-    ) {
-      return {
-        status: "already_recorded",
-        nextAction: "continue",
-        action: "continue",
-        instruction:
-          "Continue from the previous command. Do not call record_turn_understanding again for this same user turn.",
-      };
-    }
-
-    const turn = advanceWorkflow(state.flow, {
-      type: "caller_intent_recorded",
-      transcript,
-      understanding,
-      source: "model_understanding",
-    });
-    state.turnUnderstandingAppliedForTranscript = transcript || null;
-    if (turn.update) {
-      state.lastTurnUnderstanding = {
-        goal: turn.update.understanding.goal,
-        appointmentAction: turn.update.understanding.appointmentAction,
-        confidence: turn.update.understanding.confidence,
-        activeIntent: state.flow.activeIntent,
-        activePatientRef: state.flow.activePatientRef,
-      };
-    }
-    await refreshDynamicToolsForSession(
-      ctx.session as voice.AgentSession<CallState>,
-      "turn_understanding_recorded",
-    );
-
-    return compactTurnCommandResponse(turn);
-  },
-});
-
 // --- verify_patient ---
 export const verify_patient = llm.tool({
-  description: `Use only when the current workflow needs a verified patient for patient-specific work.
+  description: `Verifies an existing patient and loads upcoming appointments for patient-specific workflows such as scheduling, appointment management, insurance updates, registration fallback, or private account questions.
 
-This is the existing-patient lookup tool. It verifies a patient and loads upcoming appointments in the same call.
-
-Use for patient-specific work: appointment lookup or confirmation, booking, cancellation, reschedule, insurance update, existing-patient registration fallback, or private chart/account questions.
-
-Do not use for quick questions, office hours or location questions, general practice policy questions, routing questions that do not require private patient data, or transfer requests.
-
-Ask for the patient's first name first. For first-name lookup, the caller phone number is loaded from session state automatically, so do not ask the caller to repeat their phone number.
-
-Do NOT ask for last name or DOB before the first lookup when caller phone is available. If phone + first name is not enough, ask for last name and DOB and retry; full last name + DOB lookup is not restricted to the caller phone, so it can find patients when a parent, spouse, or caregiver is calling.
-
-Do NOT call if phone lookup already verified the patient (single match + confirmed first name). Check CALLER CONTEXT first.
-
-After response:
-- If verified: let them know and move on.
-- If routingAmbiguous: ask what type of plan (regular, EPO, HMO, Medicare). If HMO, scheduling starts two weeks out due to preauth.
-- If routing is "not_accepted": tell them straightforwardly.
-- If not found with firstName + caller phone: ask for last name and DOB and retry with full details.
-- If not found with full details: ask them to spell their name and retry with corrections.
-- If still not found after retry: lead into registration — "ok no worries, let me get you set up."`,
+For caller-phone lookup, provide firstName only; the phone comes from session state. Provide lastName and dob when first-name lookup is ambiguous, fails, or the caller is calling for someone else. Follow the returned status, next, patient, and appointments fields.`,
   parameters: z.object({
     firstName: z
       .string()
@@ -2076,85 +1873,6 @@ Requires appointmentId — use the ID from the caller context or from a verify_p
   },
 });
 
-// --- add_patient_note ---
-export const add_patient_note = llm.tool({
-  description: `Adds a short operational note to the verified patient's AdvancedMD chart. Requires a verified patient from phone lookup, verify_patient, or add_patient.
-
-For scheduling workflows, collect the appointment reason and referring doctor during the call, but call this tool only after book_appt succeeds.
-
-Only save these two fields: appointment reason and referring doctor. If there is no referring doctor, set referringDoctor to "none". Do not include diagnoses, clinical judgments, raw transcripts, appointment times, insurance, patient demographics, or anything else.`,
-  parameters: z.object({
-    appointmentReason: z
-      .string()
-      .min(1)
-      .max(500)
-      .describe("The caller's stated appointment reason"),
-    referringDoctor: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe(
-        'The referring doctor name, or "none" if the caller was not referred',
-      ),
-  }),
-  execute: async ({ appointmentReason, referringDoctor }, { ctx }) => {
-    const state = getState(ctx);
-    const speechReady = makeCurrentSpeechUninterruptible(ctx);
-    syncSessionPatientFromActiveFlow(state);
-    if (!state.patientId) {
-      return toolOutcome(
-        "not_allowed",
-        "verify_patient",
-        "Verify the patient before adding a note.",
-        { reason: "note_requires_verified_patient" },
-        true,
-      );
-    }
-    if (!hasSuccessfulBookingForActivePatient(state)) {
-      return toolOutcome(
-        "not_allowed",
-        "book",
-        "Save the appointment note only after a successful booking.",
-        { reason: "note_requires_successful_booking" },
-        true,
-      );
-    }
-    const reason = appointmentReason.trim();
-    const referrer = referringDoctor.trim();
-    if (!reason || !referrer) {
-      return toolOutcome(
-        "needs_clarification",
-        "collect_visit_reason",
-        "Collect both the appointment reason and referring doctor before saving the note.",
-        { reason: "note_requires_reason_and_referrer" },
-        true,
-      );
-    }
-    const noteGrounding = evaluatePatientNoteGrounding(state, reason, referrer);
-    if (noteGrounding) return noteGrounding;
-    if (!speechReady) {
-      return toolOutcome(
-        "not_allowed",
-        "collect_visit_reason",
-        "The note was interrupted before it could be saved. Please confirm the note again.",
-        { reason: "speech_interrupted" },
-        true,
-      );
-    }
-    const note = `Appointment reason: ${reason}\nReferring doctor: ${referrer}`;
-    const result = await callApi(
-      "/api/patient/notes",
-      { patientId: state.patientId, note },
-      getAmdOfficeForToolCall(state),
-    );
-    if (apiResultLooksSuccessful(result)) {
-      updateCurrentTaskStep(state, "answer");
-      return result;
-    }
-    return result;
-  },
-});
-
 // --- book_appt ---
 export const book_appt = llm.tool({
   description: `Books an appointment using slotId from an active get_availability response. Patient ID is read from session state automatically.
@@ -2424,23 +2142,9 @@ Use this when the caller reached Crystal River but the visit must be handled thr
 
 // --- check_insurance ---
 export const check_insurance = llm.tool({
-  description: `Looks up whether the office accepts a specific insurance plan or family alias.
+  description: `Checks whether the office accepts the caller's insurance plan. Provide the plan name exactly as the caller gave it.
 
-Prefer using this after the visit type is known when a caller asks if a plan is accepted or during new-patient registration.
-The medical and routine_vision lookups can return different answers for the same plan name. If coverageType is not known, omit it and the lookup defaults to medical; if the answer may differ for routine vision, ask a follow-up after the lookup. Use coverageType "routine_vision" only for routine eye exam, glasses prescription, or contact lens prescription using accepted vision coverage or self-pay. Use "medical" for medical/surgical eye visits.
-If the caller gives a plan or family name that matches the insurance map, run this tool with that exact phrase.
-Do NOT force HMO, PPO, or Medicare as a default follow-up. Only ask for that kind of clarification if this tool returns clarificationNeeded.
-
-The tool returns a small summary for the model:
-- status
-- canProceed
-- canonicalPlan
-- clarificationNeeded
-- callerMessage
-
-If Crystal River does not accept a plan but Spring Hill does, tell the caller Spring Hill accepts it and ask if they want to schedule there. If yes, call route_to_spring_hill before verify_patient, add_patient, update_insurance, get_availability, cancel_appt, or book_appt.
-
-Use canonicalPlan for add_patient or update_insurance when canProceed=true.`,
+Include coverageType only when the visit is clearly medical or routine vision. Follow callerMessage, clarificationNeeded, routeTool, and canProceed; use canonicalPlan for registration or insurance updates when canProceed is true.`,
   parameters: z.object({
     plan: z.string().describe("The insurance plan name the caller mentioned"),
     coverageType: z

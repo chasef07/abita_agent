@@ -775,6 +775,11 @@ function namePartsMatch(spoken: string, expected: string): boolean {
 function firstNamesAreFuzzyMatch(spoken: string, expected: string): boolean {
   const normalizedSpoken = normalizeFirstNameForFuzzyMatch(spoken);
   const normalizedExpected = normalizeFirstNameForFuzzyMatch(expected);
+
+  if (repeatedLetterVariantMatch(normalizedSpoken, normalizedExpected)) {
+    return true;
+  }
+
   if (
     normalizedSpoken.length < 5 ||
     normalizedExpected.length < 5 ||
@@ -795,6 +800,18 @@ function firstNamesAreFuzzyMatch(spoken: string, expected: string): boolean {
   }
 
   return editDistanceAtMostOne(normalizedSpoken, normalizedExpected);
+}
+
+function repeatedLetterVariantMatch(spoken: string, expected: string): boolean {
+  if (spoken.length < 3 || expected.length < 3) return false;
+  if (Math.abs(spoken.length - expected.length) !== 1) return false;
+  return (
+    collapseConsecutiveLetters(spoken) === collapseConsecutiveLetters(expected)
+  );
+}
+
+function collapseConsecutiveLetters(value: string): string {
+  return value.replace(/([a-z])\1+/g, "$1");
 }
 
 function leadingIYVariantMatch(spoken: string, expected: string): boolean {

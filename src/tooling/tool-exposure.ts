@@ -10,9 +10,7 @@ import type { CallState } from "./call-state.js";
 
 export type ModelFacingWorkflowToolName = WorkflowToolName;
 
-export type AgentToolName =
-  | "record_turn_understanding"
-  | ModelFacingWorkflowToolName;
+export type AgentToolName = ModelFacingWorkflowToolName;
 
 export type AgentToolMap = Record<
   AgentToolName,
@@ -37,13 +35,11 @@ export interface ToolExposureDecision {
 }
 
 const ALL_TOOL_NAMES: AgentToolName[] = [
-  "record_turn_understanding",
   "verify_patient",
   "add_patient",
   "update_insurance",
   "get_availability",
   "cancel_appt",
-  "add_patient_note",
   "book_appt",
   "check_insurance",
   "lookup_knowledge",
@@ -83,7 +79,7 @@ function visibleToolNamesForState(
   state: CallState,
   office: OfficeConfig,
 ): AgentToolName[] {
-  const broadTools = broadToolNamesForOffice(office, false);
+  const broadTools = broadToolNamesForOffice(office);
   if (preCallCallerAlreadyConfirmed(state.flow)) {
     return broadTools.filter((name) => name !== "verify_patient");
   }
@@ -91,7 +87,7 @@ function visibleToolNamesForState(
 }
 
 function exposureReasonForState(state: CallState): string {
-  if (pendingTurnUnderstanding(state)) return "turn_update_pending_broad";
+  if (pendingTurnUnderstanding(state)) return "turn_update_pending";
   const reasonPrefix = preCallCallerAlreadyConfirmed(state.flow)
     ? "precall_confirmed_no_verify:"
     : "";
@@ -115,14 +111,8 @@ function preCallCallerAlreadyConfirmed(flow: CallFlowState): boolean {
   return patient?.status === "verified" && Boolean(patient.patientId);
 }
 
-function broadToolNamesForOffice(
-  office: OfficeConfig,
-  includeTurnUnderstanding: boolean,
-): AgentToolName[] {
+function broadToolNamesForOffice(office: OfficeConfig): AgentToolName[] {
   return dedupe([
-    ...(includeTurnUnderstanding
-      ? (["record_turn_understanding"] as const)
-      : []),
     "verify_patient",
     "add_patient",
     "update_insurance",
