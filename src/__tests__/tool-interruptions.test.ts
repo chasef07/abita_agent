@@ -3445,6 +3445,41 @@ describe("tool interruption handling", () => {
     });
   });
 
+  it("records pending cancellation confirmation when a loaded appointment needs readback", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    seedLoadedAppointment(state, 12345);
+
+    const result = await cancel_appt.execute(
+      { appointmentId: 12345 },
+      { ctx, toolCallId: "test-cancel-confirmation-request" },
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "confirm_cancel",
+      facts: {
+        reason: "cancel_confirmation_not_tracked",
+        confirmationRecorded: "pending",
+      },
+    });
+    expect(state.flow.pendingConfirmation).toMatchObject({
+      type: "cancel",
+      payload: { appointmentId: 12345 },
+    });
+    expect(state.flow.pendingActions).toContainEqual(
+      expect.objectContaining({
+        type: "cancel_appt",
+        appointmentId: 12345,
+        confirmed: false,
+        consumed: false,
+      }),
+    );
+  });
+
   it("refreshes a missing cancel token for a loaded appointment before cancelling", async () => {
     const fetchMock = vi
       .fn()
@@ -3499,6 +3534,71 @@ describe("tool interruption handling", () => {
     });
     expect(state.appointments).toEqual([]);
     expect(state.appointmentCancelTokens).not.toHaveProperty("12345");
+  });
+
+  it("cancels confirmed pre-call patients without re-verifying", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ status: "cancelled" }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.patientId = null;
+    state.patientName = null;
+    state.dob = null;
+    state.flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "precall-patient",
+      patientName: "Linda Dow",
+      dob: "05/14/1958",
+      routing: "all_three",
+      coverageType: "medical",
+      appointments: [],
+      appointmentsStatus: "none",
+      preCall: {
+        status: "single_match_confirmed",
+        source: "phone_lookup",
+        callerPhone: "+17275551212",
+        candidates: [
+          {
+            ref: "caller",
+            firstName: "Linda",
+            lastName: "Dow",
+            dob: "05/14/1958",
+            patientId: "precall-patient",
+            relationshipToCaller: "self",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+        ],
+        selectedCandidateRef: "caller",
+        identityPromotion: "first_name_confirmed",
+      },
+    });
+    state.flow.visitType = "medical";
+    state.flow.step = "confirm_cancel";
+    seedLoadedAppointment(state, 12345);
+    seedConfirmedCancelAction(state, 12345);
+
+    const result = await cancel_appt.execute(
+      { appointmentId: 12345 },
+      { ctx, toolCallId: "test-cancel-precall" },
+    );
+
+    expect(result).toMatchObject({ status: "cancelled" });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody).toMatchObject({
+      appointmentId: 12345,
+      patientId: "precall-patient",
+      cancelToken: "cancel-token-12345",
+    });
+    expect(state.flow.patients.caller).toMatchObject({
+      status: "verified",
+      patientId: "precall-patient",
+    });
   });
 
   it("creates and consumes a pending cancellation action from the final tool call", async () => {
