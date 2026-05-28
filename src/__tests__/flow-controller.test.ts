@@ -64,6 +64,57 @@ function decisionForTurn(turn: FlowTurnAdvanceResult): FlowDecision {
   };
 }
 
+type InitialFlowInput = Parameters<typeof createInitialFlowState>[0];
+type InitialAppointment = NonNullable<InitialFlowInput["appointments"]>[number];
+
+function createSinglePreCallMatchFlow({
+  officeKey = "sweetwater",
+  patientId = "17602588",
+  firstName = "LISSETTE",
+  lastName = "MARTINEZ",
+  dob = "06/17/1971",
+  callerPhone = "+13057947175",
+  appointments = [],
+}: {
+  officeKey?: InitialFlowInput["officeKey"];
+  patientId?: string;
+  firstName?: string;
+  lastName?: string;
+  dob?: string;
+  callerPhone?: string;
+  appointments?: InitialAppointment[];
+} = {}): CallFlowState {
+  const appointmentsStatus = appointments.length > 0 ? "found" : "none";
+  return createInitialFlowState({
+    officeKey,
+    patientId,
+    patientName: `${lastName}, ${firstName}`,
+    dob,
+    appointments,
+    appointmentsStatus,
+    callerPhone,
+    preCall: {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone,
+      candidates: [
+        {
+          ref: "caller",
+          firstName,
+          lastName,
+          dob,
+          patientId,
+          relationshipToCaller: "self",
+          appointments,
+          appointmentsStatus,
+        },
+      ],
+      selectedCandidateRef: "caller",
+      identityPromotion: "none",
+    },
+  });
+}
+
 describe("flow state and context packet", () => {
   it("initializes matched patient state from phone lookup without treating it as verified", () => {
     const flow = createInitialFlowState({
@@ -248,6 +299,56 @@ describe("flow state and context packet", () => {
     });
 
     const result = applyPreCallIdentityFromTranscript(flow, "Gabriella.");
+
+    expect(result).toMatchObject({
+      changed: true,
+      promotion: "first_name_confirmed",
+      selectedCandidateRef: "caller",
+    });
+    expect(flow.preCall?.status).toBe("single_match_confirmed");
+    expect(flow.patientStatus).toBe("verified");
+    expect(flow.activePatientRef).toBe("caller");
+    expect(Object.keys(flow.patients)).toEqual(["caller"]);
+  });
+
+  it("promotes a single pre-call match from a near full-name answer", () => {
+    const flow = createSinglePreCallMatchFlow({
+      appointments: [
+        {
+          id: 20748481,
+          date: "Thursday, May 28, 2026",
+          time: "2:30 PM",
+          provider: "Dr. Gisselle Calero",
+          type: "New Adult Vision",
+          facility: "Abita Eye Group Sweetwater",
+        },
+      ],
+    });
+
+    const result = applyPreCallIdentityFromTranscript(
+      flow,
+      "Lisette Martinez.",
+    );
+
+    expect(result).toMatchObject({
+      changed: true,
+      promotion: "first_name_confirmed",
+      selectedCandidateRef: "caller",
+    });
+    expect(flow.preCall?.status).toBe("single_match_confirmed");
+    expect(flow.patientStatus).toBe("verified");
+    expect(flow.activePatientRef).toBe("caller");
+
+    const packet = compileTurnStatePacket(flow);
+    expect(packet).toContain("preCall: single_match_confirmed");
+    expect(packet).toContain("do not call verify_patient");
+    expect(packet).toContain("use preloaded appointment IDs 20748481");
+  });
+
+  it("promotes a single pre-call match from a matching last-name answer", () => {
+    const flow = createSinglePreCallMatchFlow();
+
+    const result = applyPreCallIdentityFromTranscript(flow, "Martinez.");
 
     expect(result).toMatchObject({
       changed: true,
@@ -2034,7 +2135,7 @@ describe("prepareSchedulingPath", () => {
     });
 
     expect(outcome.outcome).toBe("transfer_required");
-    expect(outcome.statePatch).toMatchObject({
+    expect(outcome.transition).toMatchObject({
       activeFlow: "transfer",
       step: "handoff",
       visitType: "urgent",
