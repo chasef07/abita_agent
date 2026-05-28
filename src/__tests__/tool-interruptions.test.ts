@@ -3424,6 +3424,120 @@ describe("tool interruption handling", () => {
     expect(result).not.toHaveProperty("middlewareResult");
   });
 
+  it("accepts a direct registration readback confirmation before add_patient", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "created",
+        patientId: "patient-2",
+        name: "Doe, Jane",
+        dob: "01/01/1980",
+        routing: "bach_only",
+        allowedProviders: ["Dr. Bach"],
+        appointments: [],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    resetToNewPatientRegistration(state, "Yes, it is.");
+    const params = {
+      firstName: "Jane",
+      lastName: "Doe",
+      dob: "01/01/1980",
+      street: "123 Main St",
+      aptSuite: "",
+      city: "Spring Hill",
+      state: "FL",
+      zip: "34609",
+      sex: "female" as const,
+      insurance: "Humana Healthy Horizons",
+      subscriberName: "Jane Doe",
+      subscriberNum: "ABC123",
+    };
+
+    const result = await add_patient.execute(params, {
+      ctx,
+      toolCallId: "test-add-readback-confirmed",
+    });
+
+    expect(result).toMatchObject({
+      status: "created",
+      patientId: "patient-2",
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      insurance: "Humana Healthy Horizons",
+      phone: "+17275551212",
+      subscriberNum: "ABC123",
+    });
+    expect(state.flowGuardObservations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          toolName: "add_patient",
+          allowed: true,
+          reason: "allowed",
+        }),
+      ]),
+    );
+    expect(state.flow.pendingActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "add_patient",
+          confirmed: true,
+          consumed: true,
+        }),
+      ]),
+    );
+  });
+
+  it("still blocks add_patient when yes did not confirm a registration readback", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    resetToNewPatientRegistration(state, "Yes, I have one.");
+    const params = {
+      firstName: "Jane",
+      lastName: "Doe",
+      dob: "01/01/1980",
+      street: "123 Main St",
+      aptSuite: "",
+      city: "Spring Hill",
+      state: "FL",
+      zip: "34609",
+      sex: "female" as const,
+      insurance: "Humana Healthy Horizons",
+      subscriberName: "Jane Doe",
+      subscriberNum: "ABC123",
+    };
+
+    const result = await add_patient.execute(params, {
+      ctx,
+      toolCallId: "test-add-unconfirmed",
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "collect_registration",
+      facts: {
+        reason: "side_effect_confirmation_required",
+        confirmationRecorded: "pending",
+      },
+    });
+    expect(state.flow.pendingActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "add_patient",
+          confirmed: false,
+          consumed: false,
+        }),
+      ]),
+    );
+  });
+
   it("blocks cancellation before the appointment is loaded into state", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -4522,6 +4636,35 @@ function resetToUnverifiedAppointmentTask(
   state.patientId = null;
   state.patientName = null;
   state.dob = null;
+  state.appointments = [];
+  state.appointmentsStatus = null;
+  state.appointmentCancelTokens = {};
+  state.latestUserTranscript = transcript;
+  state.turnUnderstandingAppliedForTranscript = null;
+}
+
+function resetToNewPatientRegistration(state: CallState, transcript: string) {
+  state.flow = createInitialFlowState({
+    officeKey: "spring-hill",
+  });
+  state.flow.activeFlow = "scheduling";
+  state.flow.activeIntent = "new_patient_registration";
+  state.flow.step = "collect_registration";
+  state.flow.patientStatus = "new";
+  state.flow.visitType = "medical";
+  state.flow.coverageType = "medical";
+  state.flow.patients.caller.status = "new";
+  state.flow.patients.caller.patientId = undefined;
+  state.patientId = null;
+  state.patientName = null;
+  state.dob = null;
+  state.insuranceCarrier = null;
+  state.insPlanId = null;
+  state.respPartyId = null;
+  state.checkedInsurancePlan = "Humana Healthy Horizons";
+  state.checkedInsuranceCoverageType = "medical";
+  state.routing = null;
+  state.allowedProviders = [];
   state.appointments = [];
   state.appointmentsStatus = null;
   state.appointmentCancelTokens = {};
