@@ -70,8 +70,15 @@ const OPTICAL_SHOP_PATTERNS = [
 
 const URGENT_PATTERNS = [
   /\bsudden vision loss\b/,
+  /\bblank spots?\b.*\b(vision|eyes?)\b/,
+  /\b(vision|eyes?)\b.*\bblank spots?\b/,
   /\bretinal tear\b/,
   /\bretinal detachment\b/,
+  /\bdetached retina\b/,
+  /\bretina\b.*\b(detached|detaching|tear|torn)\b/,
+  /\b(tear|torn|detachment)\b.*\bretina\b/,
+  /\btorn retina\b/,
+  /\b(possible|might|may|think|concerned).*\b(retina|retinal)\b/,
   /\bflashes\b/,
   /\bfloaters\b/,
   /\blightning bolts?\b/,
