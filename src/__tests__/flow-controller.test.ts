@@ -751,6 +751,53 @@ describe("flow state and context packet", () => {
     expect(flow.patientStatus).toBe("verified");
   });
 
+  it("matches leading I/Y first-name variants for full multiple-match candidates", () => {
+    const flow = createInitialFlowState({
+      officeKey: "hollywood",
+      callerPhone: "+17865254744",
+      preCall: {
+        status: "multiple_matches_pending_selection",
+        source: "phone_lookup",
+        callerPhone: "+17865254744",
+        candidates: [
+          {
+            ref: "precall:1",
+            firstName: "IVETTE",
+            lastName: "CARMONA",
+            dob: "12/28/1983",
+            patientId: "17566918",
+            appointments: [],
+            appointmentsStatus: "found",
+          },
+          {
+            ref: "precall:2",
+            firstName: "KAELI",
+            lastName: "FERNANDEZ",
+            dob: "10/21/2024",
+            patientId: "17607632",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+        ],
+        identityPromotion: "none",
+      },
+    });
+
+    const result = applyPreCallIdentityFromTranscript(flow, "Yvette. Yvette.");
+
+    expect(result).toMatchObject({
+      changed: true,
+      promotion: "candidate_selected",
+      selectedCandidateRef: "precall:1",
+    });
+    expect(flow.preCall).toMatchObject({
+      status: "multiple_match_confirmed",
+      selectedCandidateRef: "precall:1",
+    });
+    expect(flow.patientStatus).toBe("verified");
+    expect(Object.keys(flow.patients)).toEqual(["caller", "precall:1"]);
+  });
+
   it("selects a unique multiple-match candidate from a full-name answer", () => {
     const flow = createInitialFlowState({
       officeKey: "hollywood",

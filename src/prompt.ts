@@ -219,7 +219,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
       `**MULTIPLE MATCHES (${lookup.matches.length} patients on this number).**`,
     );
     lines.push(
-      `Use the latest turn_state preCall guidance to narrow identity. Ask for first name first and do not read names on file aloud.`,
+      `Use the latest turn_state preCall guidance to narrow identity. Say there are multiple patients on this number, ask the caller to confirm the patient's first name first, and do not read names on file aloud.`,
     );
     return lines.join("\n");
   }

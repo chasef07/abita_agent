@@ -783,6 +783,10 @@ function firstNamesAreFuzzyMatch(spoken: string, expected: string): boolean {
     return false;
   }
 
+  if (leadingIYVariantMatch(normalizedSpoken, normalizedExpected)) {
+    return true;
+  }
+
   if (normalizedSpoken[0] !== normalizedExpected[0]) {
     return missingOrExtraLeadingInitialMatch(
       normalizedSpoken,
@@ -791,6 +795,13 @@ function firstNamesAreFuzzyMatch(spoken: string, expected: string): boolean {
   }
 
   return editDistanceAtMostOne(normalizedSpoken, normalizedExpected);
+}
+
+function leadingIYVariantMatch(spoken: string, expected: string): boolean {
+  if (spoken.length !== expected.length || spoken.length < 5) return false;
+  const leadingLetters = new Set([spoken[0], expected[0]]);
+  if (!leadingLetters.has("i") || !leadingLetters.has("y")) return false;
+  return spoken.slice(1) === expected.slice(1);
 }
 
 function missingOrExtraLeadingInitialMatch(spoken: string, expected: string) {
