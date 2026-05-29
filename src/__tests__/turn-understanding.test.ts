@@ -269,6 +269,8 @@ describe("turn understanding reducer", () => {
       createdAt: Date.now(),
       patientStatus: "created",
       officeKey: "spring-hill",
+      visitType: "medical",
+      coverageType: "medical",
     });
 
     expect(activeWorkflowCommandForState(flow)).toBeUndefined();
@@ -389,8 +391,8 @@ describe("turn understanding reducer", () => {
     });
     expect(flowDecisionForWorkflowCommand(planNextCommand(flow))).toMatchObject(
       {
-        type: "call_tool",
-        tool: "get_availability",
+        type: "ask",
+        slot: "visitReason",
       },
     );
   });

@@ -115,6 +115,9 @@ const MEDICAL_PATTERNS = [
   /\beyelid\b/,
   /\buveitis\b/,
   /\bsymptoms?\b/,
+  /\beye pain\b/,
+  /\b(eyes?|ocular)\b.*\bpain\b/,
+  /\bpain\b.*\b(eyes?|ocular)\b/,
   /\bmedical\b/,
   /\bblurry vision\b/,
   /\bcatarata\b/,
@@ -144,16 +147,26 @@ export function classifyVisitType(
   if (OPTICAL_SHOP_PATTERNS.some((pattern) => pattern.test(normalized))) {
     return "optical_shop";
   }
-  if (ROUTINE_VISION_PATTERNS.some((pattern) => pattern.test(normalized))) {
-    return "routine_vision";
-  }
   if (MEDICAL_PATTERNS.some((pattern) => pattern.test(normalized))) {
     return "medical";
+  }
+  if (ROUTINE_VISION_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return "routine_vision";
   }
   if (INSURANCE_ONLY_PATTERNS.some((pattern) => pattern.test(normalized))) {
     return null;
   }
   return null;
+}
+
+export function resolveSchedulingVisitType(
+  visitReason?: string | null,
+  visitType?: VisitType | null,
+): VisitType | null {
+  const classified = classifyVisitType(visitReason);
+  if (classified) return classified;
+  if (visitReason?.trim()) return null;
+  return visitType ?? null;
 }
 
 function baseTransition(
@@ -176,7 +189,10 @@ function baseTransition(
 export function prepareSchedulingPath(
   input: PrepareSchedulingPathInput,
 ): PrepareSchedulingPathOutcome {
-  const visitType = input.visitType ?? classifyVisitType(input.visitReason);
+  const visitType = resolveSchedulingVisitType(
+    input.visitReason,
+    input.visitType,
+  );
 
   if (!visitType) {
     return {
@@ -280,7 +296,7 @@ export function prepareSchedulingPath(
     const nextStep =
       patientStep === "verify_patient"
         ? "verify_patient"
-        : coverageType === "routine_vision" || input.patientStatus === "new"
+        : input.patientStatus === "new"
           ? "check_insurance"
           : patientStep;
     const needsClarification = nextStep !== "get_availability";

@@ -162,7 +162,7 @@ describe("dynamic tool exposure", () => {
 
     const decision = buildToolsForState(state);
     expect(decision.reason).toBe(
-      "planner_guidance_broad:appointment_reschedule:searching_replacement",
+      "planner_guidance_broad:appointment_reschedule:collecting_replacement_visit_type",
     );
     expect(decision.visibleToolNames).toEqual(DEV_BROAD_TOOL_NAMES);
   });

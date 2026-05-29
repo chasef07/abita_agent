@@ -885,8 +885,14 @@ function applyPatientPayloadToState(
   state.insPlanId = payload.insPlanId ?? null;
   state.respPartyId = payload.respPartyId ?? null;
   state.checkedInsurancePlan = payload.insuranceCarrier ?? null;
-  state.checkedInsuranceCoverageType =
-    payload.routing === "optical_only" ? "routine_vision" : null;
+  const payloadCoverageType =
+    payload.routing === "optical_only"
+      ? "routine_vision"
+      : state.flow.coverageType === "medical" ||
+          state.checkedInsuranceCoverageType === "medical"
+        ? "medical"
+        : null;
+  state.checkedInsuranceCoverageType = payloadCoverageType;
   state.routing = payload.routing ?? null;
   if (invalidatePatientState) {
     clearAvailabilitySelection(state, "patient_changed");
@@ -908,10 +914,12 @@ function applyPatientPayloadToState(
         : undefined,
     officeKey: state.officeKey,
     routing: normalizeSchedulingRouting(state.routing),
-    coverageType: state.checkedInsuranceCoverageType ?? undefined,
+    coverageType: payloadCoverageType ?? undefined,
     visitType:
-      state.checkedInsuranceCoverageType === "routine_vision"
+      payloadCoverageType === "routine_vision"
         ? "routine_vision"
+        : payloadCoverageType === "medical"
+          ? state.flow.visitType
         : undefined,
     insurance:
       state.insuranceCarrier || state.checkedInsurancePlan
@@ -1031,7 +1039,12 @@ function syncSessionPatientFromActiveFlow(state: CallState): void {
 }
 
 function routingForAvailability(state: CallState): string | null {
-  if (state.checkedInsuranceCoverageType === "routine_vision") {
+  if (
+    state.checkedInsuranceCoverageType === "routine_vision" ||
+    state.flow.coverageType === "routine_vision" ||
+    state.flow.visitType === "routine_vision" ||
+    state.flow.schedulingGoal?.visitType === "routine_vision"
+  ) {
     return "optical_only";
   }
   return state.routing;
@@ -1284,7 +1297,14 @@ function markRescheduleOldAppointmentCancelled(
 }
 
 function ensureRoutineVisionOffice(state: CallState): void {
-  if (state.checkedInsuranceCoverageType !== "routine_vision") return;
+  if (
+    state.checkedInsuranceCoverageType !== "routine_vision" &&
+    state.flow.coverageType !== "routine_vision" &&
+    state.flow.visitType !== "routine_vision" &&
+    state.flow.schedulingGoal?.visitType !== "routine_vision"
+  ) {
+    return;
+  }
   if (!getOfficeConfig(state.officeKey).features.routeRoutineVisionToSpringHill)
     return;
   clearAvailabilitySelection(state, "office_changed");
@@ -1312,7 +1332,11 @@ function ensureAvailabilityVisitContext(state: CallState): void {
     inferredVisitType ??
     (knownCoverageType === "routine_vision" || state.routing === "optical_only"
       ? "routine_vision"
-      : "medical");
+      : knownCoverageType === "medical" || state.routing
+        ? "medical"
+        : undefined);
+
+  if (!visitType) return;
 
   reduceFlowEvent(state.flow, {
     id: nextFlowEventId("availability_visit_context"),
@@ -2188,7 +2212,11 @@ Include coverageType only when the visit is clearly medical or routine vision. F
       state.officeKey === "crystal-river" &&
       result.status === "not_accepted"
     ) {
-      const springHillResult = matchInsurancePlanForOffice("spring-hill", plan);
+      const springHillResult = matchInsurancePlanForOffice(
+        "spring-hill",
+        plan,
+        normalizedCoverageType,
+      );
       const springHillPlan = canonicalInsurancePlan(springHillResult);
       if (springHillResult.status === "accepted" && springHillPlan) {
         return normalizeInsuranceOutcome(state, {

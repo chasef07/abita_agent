@@ -324,6 +324,42 @@ function outcomeForGuardReason(
         facts: { reason },
         retryable: true,
       };
+    case "scheduling_lane_required_before_insurance_check":
+      return {
+        outcome: "not_allowed",
+        nextStep: "triage_visit_type",
+        speak:
+          "Ask whether this is for routine vision, glasses or contacts, or medical eye care before checking insurance.",
+        facts: { reason },
+        retryable: true,
+      };
+    case "scheduling_lane_required_before_registration":
+      return {
+        outcome: "not_allowed",
+        nextStep: "triage_visit_type",
+        speak:
+          "Resolve whether this is routine vision or medical before creating the patient record.",
+        facts: { reason },
+        retryable: true,
+      };
+    case "scheduling_lane_required_before_availability":
+      return {
+        outcome: "not_allowed",
+        nextStep: "triage_visit_type",
+        speak:
+          "Ask what kind of appointment this is before checking availability.",
+        facts: { reason },
+        retryable: true,
+      };
+    case "routine_vision_scheduling_blocks_insurance_update":
+      return {
+        outcome: "not_allowed",
+        nextStep: "get_availability",
+        speak:
+          "Do not update medical insurance just to schedule routine vision. Continue with the routine vision scheduling path.",
+        facts: { reason },
+        retryable: true,
+      };
     case "booking_requires_verified_or_created_patient":
       return {
         outcome: "not_allowed",

@@ -23,6 +23,10 @@ export type GuardObservationReason =
   | "duplicate_tool_call_same_args"
   | "verify_patient_pre_call_already_confirmed"
   | "routine_vision_crystal_river_requires_route_to_spring_hill"
+  | "scheduling_lane_required_before_insurance_check"
+  | "scheduling_lane_required_before_registration"
+  | "scheduling_lane_required_before_availability"
+  | "routine_vision_scheduling_blocks_insurance_update"
   | "new_patient_requires_insurance_check_before_registration"
   | "availability_duplicate_search_signature"
   | "availability_search_range_already_checked"
@@ -148,6 +152,38 @@ function guardReason(
   }
 
   if (
+    toolName === "check_insurance" &&
+    isSchedulingSideEffectFlow(flow) &&
+    !hasSchedulingLane(flow, args, stateFacts)
+  ) {
+    return "scheduling_lane_required_before_insurance_check";
+  }
+
+  if (
+    toolName === "add_patient" &&
+    isSchedulingSideEffectFlow(flow) &&
+    !hasSchedulingLane(flow, args, stateFacts)
+  ) {
+    return "scheduling_lane_required_before_registration";
+  }
+
+  if (
+    toolName === "get_availability" &&
+    isSchedulingSideEffectFlow(flow) &&
+    !hasSchedulingLane(flow, args, stateFacts)
+  ) {
+    return "scheduling_lane_required_before_availability";
+  }
+
+  if (
+    toolName === "update_insurance" &&
+    isSchedulingSideEffectFlow(flow) &&
+    isRoutineVisionLane(flow, args, stateFacts)
+  ) {
+    return "routine_vision_scheduling_blocks_insurance_update";
+  }
+
+  if (
     toolName === "add_patient" &&
     !stateFacts.checkedInsurancePlan &&
     !stateFacts.checkedInsuranceCoverageType
@@ -219,6 +255,55 @@ function guardReason(
   }
 
   return "allowed";
+}
+
+function isSchedulingSideEffectFlow(flow: CallFlowState): boolean {
+  return (
+    flow.activeIntent === "new_appointment" ||
+    flow.activeIntent === "new_patient_registration" ||
+    flow.activeIntent === "existing_appointment_reschedule" ||
+    flow.activeFlow === "scheduling" ||
+    flow.currentTask?.kind === "schedule" ||
+    flow.schedulingGoal?.appointmentAction === "schedule" ||
+    flow.schedulingGoal?.appointmentAction === "reschedule"
+  );
+}
+
+function hasSchedulingLane(
+  flow: CallFlowState,
+  args: unknown,
+  stateFacts: NonNullable<GuardToolCallInput["stateFacts"]>,
+): boolean {
+  return Boolean(
+    schedulingCoverageTypeFromArgs(args) ||
+    flow.visitType === "routine_vision" ||
+    flow.visitType === "medical" ||
+    flow.coverageType === "routine_vision" ||
+    flow.coverageType === "medical" ||
+    stateFacts.checkedInsuranceCoverageType === "routine_vision" ||
+    stateFacts.checkedInsuranceCoverageType === "medical",
+  );
+}
+
+function isRoutineVisionLane(
+  flow: CallFlowState,
+  args: unknown,
+  stateFacts: NonNullable<GuardToolCallInput["stateFacts"]>,
+): boolean {
+  return (
+    schedulingCoverageTypeFromArgs(args) === "routine_vision" ||
+    flow.visitType === "routine_vision" ||
+    flow.coverageType === "routine_vision" ||
+    stateFacts.checkedInsuranceCoverageType === "routine_vision"
+  );
+}
+
+function schedulingCoverageTypeFromArgs(args: unknown): string | undefined {
+  if (!args || typeof args !== "object" || Array.isArray(args)) {
+    return undefined;
+  }
+  const coverageType = (args as { coverageType?: unknown }).coverageType;
+  return typeof coverageType === "string" ? coverageType : undefined;
 }
 
 function hasPendingCancelAction(

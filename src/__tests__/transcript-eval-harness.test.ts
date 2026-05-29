@@ -599,7 +599,7 @@ describe("transcript replay eval harness", () => {
 
     expect(turn.decision).toMatchObject({
       type: "ask",
-      slot: "preferredDate",
+      slot: "visitReason",
     });
     expect(
       harness.policy("cancel_appt", { appointmentId: 12345 }),

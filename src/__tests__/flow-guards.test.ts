@@ -319,6 +319,86 @@ describe("flow report-only guards", () => {
     });
   });
 
+  it("blocks scheduling insurance checks before the lane is known", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+
+    const decision = evaluateFlowToolPolicy({
+      flow,
+      toolName: "check_insurance",
+      args: { plan: "Care Plus" },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      observation: {
+        reason: "scheduling_lane_required_before_insurance_check",
+      },
+      outcome: {
+        nextStep: "triage_visit_type",
+      },
+    });
+  });
+
+  it("blocks availability before the scheduling lane is known", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+
+    const decision = evaluateFlowToolPolicy({
+      flow,
+      toolName: "get_availability",
+      args: { date: "2026-06-01" },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      observation: {
+        reason: "scheduling_lane_required_before_availability",
+      },
+      outcome: {
+        nextStep: "triage_visit_type",
+      },
+    });
+  });
+
+  it("blocks routine vision scheduling from updating medical insurance", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.visitType = "routine_vision";
+    flow.coverageType = "routine_vision";
+
+    const decision = evaluateFlowToolPolicy({
+      flow,
+      toolName: "update_insurance",
+      stateFacts: { patientId: "patient-1" },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      observation: {
+        reason: "routine_vision_scheduling_blocks_insurance_update",
+      },
+    });
+  });
+
+  it("still allows standalone verified insurance updates without a scheduling lane", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+
+    const observation = guardToolCall({
+      flow,
+      toolName: "update_insurance",
+      stateFacts: { patientId: "patient-1" },
+    });
+
+    expect(observation).toMatchObject({
+      allowed: true,
+      reason: "allowed",
+    });
+  });
+
   it("reports booking before availability", () => {
     const flow = createInitialFlowState({ officeKey: "spring-hill" });
     flow.patientStatus = "verified";

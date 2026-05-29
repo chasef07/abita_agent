@@ -7,6 +7,7 @@ import type {
   PlannerFact,
   WorkflowCommand,
 } from "../../types.js";
+import { resolveSchedulingVisitType } from "../../scheduling.js";
 import {
   command,
   existingPlanOfKind,
@@ -111,11 +112,25 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
   );
   const oldAppointment = selection.appointment;
   const preferredWindow = flow.schedulingGoal?.preferredWindow;
-  const latestAvailability = latestUsableAvailability(flow);
+  const replacementVisitType = resolveSchedulingVisitType(
+    flow.schedulingGoal?.visitReason,
+    flow.schedulingGoal?.visitType,
+  );
+  const replacementCoverageType =
+    coverageTypeForVisitType(replacementVisitType);
+  const replacementRouting = routingForVisitType(flow, replacementVisitType);
+  const latestAvailability = latestUsableAvailability(flow, {
+    visitType: replacementVisitType,
+    coverageType: replacementCoverageType,
+    routing: replacementRouting,
+  });
+  const selectedReplacementSlotId =
+    flow.schedulingGoal?.selectedSlotId ?? existingPlan?.replacementSlotId;
   const replacementSlotId =
-    flow.schedulingGoal?.selectedSlotId ??
-    existingPlan?.replacementSlotId ??
-    firstCachedSlot(latestAvailability);
+    selectedReplacementSlotId &&
+    availabilityHasSlot(latestAvailability, selectedReplacementSlotId)
+      ? selectedReplacementSlotId
+      : firstCachedSlot(latestAvailability);
   const rescheduleConfirmed =
     flow.schedulingGoal?.bookingConfirmed === true ||
     existingPlan?.rescheduleConfirmed === true;
@@ -124,6 +139,7 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     verified,
     appointments,
     selectionStatus: selection.status,
+    replacementVisitType,
     preferredWindow,
     latestAvailability,
     replacementSlotId,
@@ -259,6 +275,52 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     });
   }
 
+  if (
+    typeof plan.replacementBookedAppointmentId === "number" &&
+    oldAppointment &&
+    !plan.oldCancelled
+  ) {
+    return command(flow, plan, {
+      phase: "cancelling_old_appointment",
+      knownFacts: knownRescheduleFacts(patient, flow, plan),
+      missingFacts: [],
+      nextAction: "call_tool",
+      tool: "cancel_appt",
+      args: { appointmentId: oldAppointment.id },
+      allowedTools: ["cancel_appt"],
+      blockedActions: [
+        {
+          action: "book_appt",
+          reason: "replacement appointment is already booked",
+        },
+      ],
+      instruction:
+        "Call cancel_appt now for the old appointment so the reschedule is completed.",
+      step: "cancel",
+    });
+  }
+
+  if (!replacementVisitType || !replacementCoverageType) {
+    return command(flow, plan, {
+      phase,
+      knownFacts: knownRescheduleFacts(patient, flow, plan),
+      missingFacts: [
+        {
+          key: "replacementVisitType",
+          label:
+            "whether the replacement appointment is routine vision or medical",
+        },
+      ],
+      nextAction: "ask",
+      slot: "visitReason",
+      allowedTools: [],
+      blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
+      instruction:
+        "Ask whether the replacement appointment is for routine vision, glasses or contacts, or for medical eye care.",
+      step: "triage_visit_type",
+    });
+  }
+
   if (!preferredWindow) {
     return command(flow, plan, {
       phase,
@@ -295,34 +357,9 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
       blockedActions: RESCHEDULE_BLOCKED_ACTIONS,
       instruction: "Call get_availability now.",
       step: "get_availability",
-      visitType: visitTypeForAppointment(oldAppointment),
-      coverageType: coverageTypeForAppointment(oldAppointment),
+      visitType: replacementVisitType,
+      coverageType: replacementCoverageType,
       schedulingGoalStatus: "ready_for_availability",
-    });
-  }
-
-  if (
-    typeof plan.replacementBookedAppointmentId === "number" &&
-    oldAppointment &&
-    !plan.oldCancelled
-  ) {
-    return command(flow, plan, {
-      phase: "cancelling_old_appointment",
-      knownFacts: knownRescheduleFacts(patient, flow, plan),
-      missingFacts: [],
-      nextAction: "call_tool",
-      tool: "cancel_appt",
-      args: { appointmentId: oldAppointment.id },
-      allowedTools: ["cancel_appt"],
-      blockedActions: [
-        {
-          action: "book_appt",
-          reason: "replacement appointment is already booked",
-        },
-      ],
-      instruction:
-        "Call cancel_appt now for the old appointment so the reschedule is completed.",
-      step: "cancel",
     });
   }
 
@@ -355,7 +392,7 @@ export function planReschedule(flow: CallFlowState): WorkflowCommand {
     tool: "book_appt",
     args: {
       slotId: flow.schedulingGoal.selectedSlotId,
-      appointmentKind: appointmentKindForReschedule(flow, oldAppointment),
+      appointmentKind: appointmentKindForReschedule(flow, replacementVisitType),
       appointmentReason: note.appointmentReason,
       referringDoctor: note.referringDoctor,
     },
@@ -412,10 +449,27 @@ function knownRescheduleFacts(
   ].filter(isPlannerFact);
 }
 
-function latestUsableAvailability(flow: CallFlowState) {
-  return [...flow.availabilitySearches]
-    .reverse()
-    .find((search) => search.status !== "invalidated");
+function latestUsableAvailability(
+  flow: CallFlowState,
+  input: {
+    visitType?: CallFlowState["visitType"] | null;
+    coverageType?: CallFlowState["coverageType"] | null;
+    routing?: CallFlowState["routing"] | null;
+  } = {},
+) {
+  return [...flow.availabilitySearches].reverse().find((search) => {
+    if (search.status === "invalidated") return false;
+    if (input.visitType && search.visitType !== input.visitType) {
+      return false;
+    }
+    if (input.coverageType && search.coverageType !== input.coverageType) {
+      return false;
+    }
+    if (input.routing && search.routing !== input.routing) {
+      return false;
+    }
+    return true;
+  });
 }
 
 function firstCachedSlot(
@@ -424,10 +478,23 @@ function firstCachedSlot(
   return search?.cachedSlots[0]?.slotHash;
 }
 
+function availabilityHasSlot(
+  search: ReturnType<typeof latestUsableAvailability>,
+  slotId: string,
+): boolean {
+  const normalized = slotId.trim().toUpperCase();
+  return Boolean(
+    search?.cachedSlots.some(
+      (slot) => slot.slotHash.trim().toUpperCase() === normalized,
+    ),
+  );
+}
+
 function reschedulePhase({
   verified,
   appointments,
   selectionStatus,
+  replacementVisitType,
   preferredWindow,
   latestAvailability,
   replacementSlotId,
@@ -436,6 +503,7 @@ function reschedulePhase({
   verified: boolean;
   appointments: CallerAppointment[];
   selectionStatus: AppointmentReschedulePlan["targetSelectionStatus"];
+  replacementVisitType?: CallFlowState["visitType"] | null;
   preferredWindow?: string;
   latestAvailability: ReturnType<typeof latestUsableAvailability>;
   replacementSlotId?: string;
@@ -444,6 +512,7 @@ function reschedulePhase({
   if (!verified) return "needs_verified_patient";
   if (appointments.length === 0) return "loading_existing_appointments";
   if (selectionStatus !== "selected") return "selecting_old_appointment";
+  if (!replacementVisitType) return "collecting_replacement_visit_type";
   if (!preferredWindow) return "collecting_replacement_window";
   if (!latestAvailability?.cachedSlots.length && !replacementSlotId) {
     return "searching_replacement";
@@ -471,31 +540,14 @@ function notePayloadForReschedule(
   };
 }
 
-function visitTypeForAppointment(
-  appointment: CallerAppointment | undefined,
-): CallFlowState["visitType"] {
-  const text =
-    `${appointment?.type ?? ""} ${appointment?.facility ?? ""}`.toLowerCase();
-  if (
-    text.includes("routine") ||
-    text.includes("vision") ||
-    text.includes("glasses") ||
-    text.includes("contact")
-  ) {
-    return "routine_vision";
-  }
-  return "medical";
-}
-
 function appointmentKindForReschedule(
   flow: CallFlowState,
-  oldAppointment: CallerAppointment | undefined,
+  replacementVisitType: CallFlowState["visitType"],
 ): "medical" | "routine_vision" | "post_op" {
-  if (visitTypeForAppointment(oldAppointment) === "routine_vision") {
+  if (replacementVisitType === "routine_vision") {
     return "routine_vision";
   }
-  const reason =
-    `${flow.schedulingGoal?.visitReason ?? ""} ${oldAppointment?.type ?? ""}`.toLowerCase();
+  const reason = `${flow.schedulingGoal?.visitReason ?? ""}`.toLowerCase();
   if (
     /\bpost\s*-?\s*op\b|\bpost\s+operative\b|\bpostoperative\b|\bsurgery\s+follow\s*-?\s*up\b|\brecent\s+surgery\b/.test(
       reason,
@@ -506,10 +558,19 @@ function appointmentKindForReschedule(
   return "medical";
 }
 
-function coverageTypeForAppointment(
-  appointment: CallerAppointment | undefined,
-): CallFlowState["coverageType"] {
-  return visitTypeForAppointment(appointment) === "routine_vision"
-    ? "routine_vision"
-    : "medical";
+function coverageTypeForVisitType(
+  visitType: CallFlowState["visitType"] | null,
+): CallFlowState["coverageType"] | undefined {
+  if (visitType === "routine_vision") return "routine_vision";
+  if (visitType === "medical" || visitType === "urgent") return "medical";
+  return undefined;
+}
+
+function routingForVisitType(
+  flow: CallFlowState,
+  visitType: CallFlowState["visitType"] | null,
+): CallFlowState["routing"] | undefined {
+  if (visitType === "routine_vision") return "optical_only";
+  if (visitType === "medical") return flow.routing;
+  return undefined;
 }

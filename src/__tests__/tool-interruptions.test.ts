@@ -203,7 +203,7 @@ describe("tool interruption handling", () => {
     const { ctx, state } = createToolContext();
     seedLoadedAppointment(state, 12345);
     state.latestUserTranscript =
-      "Move my Dr. Bach appointment to Monday at 1 PM";
+      "Move my Dr. Bach appointment to Monday at 1 PM for glaucoma follow-up";
     state.turnUnderstandingAppliedForTranscript = null;
 
     const recorded = recordTurnUnderstandingForTest(state, {
@@ -214,6 +214,8 @@ describe("tool interruption handling", () => {
         relationshipToCaller: "self",
       },
       scheduling: {
+        visitReason: "glaucoma follow-up",
+        visitType: "medical",
         preferredWindow: "Monday at 1 PM",
       },
       interruption: "none",
@@ -3987,6 +3989,8 @@ describe("tool interruption handling", () => {
       patientRef: "caller",
       status: "confirming_booking",
       appointmentAction: "reschedule",
+      visitReason: "pressure follow-up",
+      visitType: "medical",
       preferredWindow: "Monday at 1 PM",
       selectedSlotId: "A",
       bookingConfirmed: true,

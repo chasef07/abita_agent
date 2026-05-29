@@ -2185,6 +2185,76 @@ describe("prepareSchedulingPath", () => {
     });
   });
 
+  it("keeps ambiguous visit reasons in triage even when a model visit type is supplied", () => {
+    const outcome = prepareSchedulingPath({
+      officeKey: "spring-hill",
+      patientStatus: "verified",
+      visitReason: "general checkup",
+      visitType: "medical",
+    });
+
+    expect(outcome).toMatchObject({
+      outcome: "needs_clarification",
+      nextStep: "triage_visit_type",
+      transition: {
+        step: "triage_visit_type",
+        requiredSlots: ["visitReason"],
+      },
+    });
+  });
+
+  it("lets existing routine-vision patients proceed without a medical insurance check", () => {
+    const outcome = prepareSchedulingPath({
+      officeKey: "spring-hill",
+      patientStatus: "verified",
+      visitReason: "annual eye exam",
+    });
+
+    expect(outcome).toMatchObject({
+      outcome: "success",
+      nextStep: "get_availability",
+      facts: {
+        visitType: "routine_vision",
+        coverageType: "routine_vision",
+        routing: "optical_only",
+      },
+    });
+  });
+
+  it("classifies eye pain as medical instead of optical", () => {
+    const outcome = prepareSchedulingPath({
+      officeKey: "spring-hill",
+      patientStatus: "verified",
+      visitReason: "eye pain",
+    });
+
+    expect(outcome).toMatchObject({
+      outcome: "success",
+      nextStep: "get_availability",
+      facts: {
+        visitType: "medical",
+        coverageType: "medical",
+      },
+    });
+  });
+
+  it("keeps symptom visits medical even when routine words are present", () => {
+    const outcome = prepareSchedulingPath({
+      officeKey: "spring-hill",
+      patientStatus: "verified",
+      visitReason: "routine exam for eye pain",
+    });
+
+    expect(outcome).toMatchObject({
+      outcome: "success",
+      nextStep: "get_availability",
+      facts: {
+        visitType: "medical",
+        coverageType: "medical",
+      },
+    });
+  });
+
   it("transfers optical shop tasks instead of scheduling them", () => {
     const outcome = prepareSchedulingPath({
       officeKey: "spring-hill",
@@ -2329,7 +2399,7 @@ describe("task-plan command planner", () => {
     expect(flowDecisionForWorkflowCommand(planNextCommand(flow))).toMatchObject(
       {
         type: "ask",
-        slot: "preferredDate",
+        slot: "visitReason",
       },
     );
   });
@@ -2380,6 +2450,72 @@ describe("task-plan command planner", () => {
       type: "confirm",
       confirmation: { type: "route_office" },
     });
+  });
+
+  it("does not suggest active availability before the scheduling lane is known", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.step = "get_availability";
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "collecting",
+      appointmentAction: "schedule",
+      preferredWindow: "Monday afternoon",
+      updatedAt: Date.now(),
+    };
+
+    const command = planNextCommand(flow);
+
+    expect(command).toMatchObject({
+      phase: "collecting_visit_type",
+      nextAction: "ask",
+      slot: "visitReason",
+      allowedTools: [],
+    });
+    expect(command).not.toMatchObject({ tool: "get_availability" });
+  });
+
+  it("does not suggest active booking before the scheduling lane is known", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Jane Doe",
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "new_appointment";
+    flow.activeFlow = "scheduling";
+    flow.step = "confirm_booking";
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "confirming_booking",
+      appointmentAction: "schedule",
+      preferredWindow: "Monday afternoon",
+      selectedSlotId: "A",
+      bookingConfirmed: true,
+      noteDraft: {
+        appointmentReason: "appointment",
+        referringDoctor: "none",
+      },
+      updatedAt: Date.now(),
+    };
+
+    const command = planNextCommand(flow);
+
+    expect(command).toMatchObject({
+      phase: "collecting_visit_type",
+      nextAction: "ask",
+      slot: "visitReason",
+      allowedTools: [],
+    });
+    expect(command).not.toMatchObject({ tool: "book_appt" });
   });
 
   it("offers cached availability instead of chaining another search after a rejected slot", () => {
@@ -2734,7 +2870,76 @@ describe("deterministic turn router", () => {
     });
   });
 
-  it("uses the task-plan frontier to search replacement availability for reschedule", () => {
+  it("re-triages reschedule replacement availability from the caller's current reason", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Tree",
+      dob: "1987-01-01",
+      appointments: [
+        {
+          id: 12345,
+          date: "2026-06-01",
+          time: "8:00 AM",
+          provider: "Dr. Bach",
+          type: "Follow-up",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+      ],
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+
+    const turn = advanceFlowForTurn({
+      flow,
+      transcript:
+        "Move my Dr. Bach appointment to Monday at 1 PM for a routine eye exam",
+      understanding: {
+        goal: "manage_existing_appointment",
+        appointmentAction: "reschedule",
+        patient: {
+          patientMentioned: "caller",
+          relationshipToCaller: "self",
+        },
+        scheduling: {
+          visitReason: "routine eye exam",
+          visitType: "routine_vision",
+          preferredWindow: "Monday at 1 PM",
+        },
+        interruption: "none",
+        confidence: 0.94,
+        evidence: ["Dr. Bach", "Monday at 1 PM"],
+      },
+    });
+
+    expect(turn.workflowCommand).toMatchObject({
+      taskKind: "appointment_reschedule",
+      phase: "searching_replacement",
+      nextAction: "call_tool",
+      tool: "get_availability",
+      allowedTools: ["get_availability"],
+      missingFacts: [
+        expect.objectContaining({ key: "replacementAvailability" }),
+      ],
+    });
+    expect(decisionForTurn(turn)).toMatchObject({
+      type: "call_tool",
+      tool: "get_availability",
+    });
+    expect(turn.turnState).toContain("phase: searching_replacement");
+    expect(turn.turnState).toContain("suggestedTool: get_availability");
+    expect(flow).toMatchObject({
+      step: "get_availability",
+      visitType: "routine_vision",
+      coverageType: "routine_vision",
+    });
+    expect(activeWorkflowCommandForState(flow)).toMatchObject({
+      tool: "get_availability",
+    });
+  });
+
+  it("asks for replacement lane before reschedule availability when the current reason is unclear", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
       patientId: "patient-1",
@@ -2776,26 +2981,11 @@ describe("deterministic turn router", () => {
 
     expect(turn.workflowCommand).toMatchObject({
       taskKind: "appointment_reschedule",
-      phase: "searching_replacement",
-      nextAction: "call_tool",
-      tool: "get_availability",
-      allowedTools: ["get_availability"],
-      missingFacts: [
-        expect.objectContaining({ key: "replacementAvailability" }),
-      ],
-    });
-    expect(decisionForTurn(turn)).toMatchObject({
-      type: "call_tool",
-      tool: "get_availability",
-    });
-    expect(turn.turnState).toContain("phase: searching_replacement");
-    expect(turn.turnState).toContain("suggestedTool: get_availability");
-    expect(flow).toMatchObject({
-      step: "get_availability",
-      visitType: "medical",
-    });
-    expect(activeWorkflowCommandForState(flow)).toMatchObject({
-      tool: "get_availability",
+      phase: "collecting_replacement_visit_type",
+      nextAction: "ask",
+      slot: "visitReason",
+      allowedTools: [],
+      missingFacts: [expect.objectContaining({ key: "replacementVisitType" })],
     });
   });
 
@@ -2926,6 +3116,8 @@ describe("deterministic turn router", () => {
       patientRef: "caller",
       status: "confirming_booking",
       appointmentAction: "reschedule",
+      visitReason: "pressure follow-up",
+      visitType: "medical",
       preferredWindow: "Monday at 1 PM",
       selectedSlotId: "A",
       bookingConfirmed: true,
@@ -2985,6 +3177,73 @@ describe("deterministic turn router", () => {
       args: { appointmentId: 12345 },
     });
     expect(cancelCommand.allowedTools).not.toContain("book_appt");
+  });
+
+  it("uses the replacement medical lane even when the old rescheduled appointment was routine vision", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      patientName: "Doe, Tree",
+      dob: "1987-01-01",
+      appointments: [
+        {
+          id: 12345,
+          date: "2026-06-01",
+          time: "8:00 AM",
+          provider: "Dr. Kyler Farnan",
+          type: "Routine Vision",
+          facility: "Optical",
+          confirmed: true,
+        },
+      ],
+    });
+    flow.patientStatus = "verified";
+    flow.patients.caller.status = "verified";
+    flow.activeIntent = "existing_appointment_reschedule";
+    flow.activeFlow = "appointment_management";
+    flow.routing = "all_three";
+    startPatientTask(flow, {
+      kind: "appointment_management",
+      step: "confirm_booking",
+    });
+    flow.schedulingGoal = {
+      patientRef: "caller",
+      status: "confirming_booking",
+      appointmentAction: "reschedule",
+      visitReason: "glaucoma follow-up",
+      visitType: "medical",
+      preferredWindow: "Monday at 1 PM",
+      selectedSlotId: "A",
+      bookingConfirmed: true,
+      noteDraft: {
+        appointmentReason: "glaucoma follow-up",
+        referringDoctor: "none",
+      },
+      evidence: ["Routine Vision", "glaucoma follow-up", "Monday at 1 PM"],
+      updatedAt: Date.now(),
+    };
+    recordAvailabilitySearch(flow, {
+      patientRef: "caller",
+      officeKey: "spring-hill",
+      visitType: "medical",
+      coverageType: "medical",
+      routing: "all_three",
+      date: "2026-06-01",
+    });
+    recordAvailabilityCachedSlots(flow, [{ slotId: "A" }]);
+
+    const command = planNextCommand(flow);
+
+    expect(command).toMatchObject({
+      phase: "booking_replacement",
+      nextAction: "call_tool",
+      tool: "book_appt",
+      args: {
+        slotId: "A",
+        appointmentKind: "medical",
+        appointmentReason: "glaucoma follow-up",
+      },
+    });
   });
 
   it("does not clear the selected slot when confirmation repeats known visit facts", () => {
@@ -3187,7 +3446,7 @@ describe("deterministic turn router", () => {
     });
   });
 
-  it("does not reuse medical insurance for routine-vision scheduling", () => {
+  it("does not require medical insurance for existing-patient routine-vision scheduling", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
       patientId: "patient-1",
@@ -3212,17 +3471,17 @@ describe("deterministic turn router", () => {
 
     expect(turn.resolvedMetaDecision).toMatchObject({
       outcome: {
-        outcome: "needs_clarification",
-        nextStep: "check_insurance",
+        outcome: "success",
+        nextStep: "get_availability",
       },
     });
     expect(decisionForTurn(turn)).toMatchObject({
       type: "ask",
-      slot: "insurancePlan",
+      slot: "preferredDate",
     });
     expect(flow).toMatchObject({
       activeFlow: "scheduling",
-      step: "check_insurance",
+      step: "get_availability",
       coverageType: "routine_vision",
       visitType: "routine_vision",
     });

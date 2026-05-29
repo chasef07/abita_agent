@@ -356,6 +356,7 @@ export interface AppointmentReschedulePlan {
     | "needs_verified_patient"
     | "loading_existing_appointments"
     | "selecting_old_appointment"
+    | "collecting_replacement_visit_type"
     | "collecting_replacement_window"
     | "searching_replacement"
     | "offering_replacement"

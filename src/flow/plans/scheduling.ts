@@ -8,7 +8,10 @@ import type {
   WorkflowCommand,
   WorkflowToolName,
 } from "../types.js";
-import { classifyVisitType, prepareSchedulingPath } from "../scheduling.js";
+import {
+  prepareSchedulingPath,
+  resolveSchedulingVisitType,
+} from "../scheduling.js";
 import {
   command,
   genericPlan,
@@ -44,10 +47,12 @@ export function planScheduling(
     : undefined;
 
   const visitReason = flow.schedulingGoal?.visitReason;
-  const visitType =
-    flow.schedulingGoal?.visitType ??
-    classifyVisitType(visitReason) ??
-    (visitReason ? undefined : flow.visitType);
+  const visitType = resolveSchedulingVisitType(
+    visitReason,
+    visitReason
+      ? flow.schedulingGoal?.visitType
+      : (flow.schedulingGoal?.visitType ?? flow.visitType),
+  );
   const coverageType =
     flow.schedulingGoal?.visitType === "routine_vision" ||
     visitType === "routine_vision"
@@ -296,7 +301,7 @@ export function planScheduling(
       ],
       nextAction: "ask",
       slot: "registrationFields",
-      allowedTools: ["add_patient", "check_insurance"],
+      allowedTools: ["add_patient"],
       blockedActions: [
         {
           action: "get_availability",
@@ -308,7 +313,7 @@ export function planScheduling(
         },
       ],
       instruction:
-        "Collect the missing registration fields and insurance details, then read them back before creating the patient.",
+        "Collect the missing registration fields, then read them back before creating the patient. The scheduling lane and required coverage path are already resolved.",
       step: "collect_registration",
       schedulingGoal: staleGoalPatch,
       resolvedMetaDecision,
@@ -337,6 +342,10 @@ function planActiveSchedulingStep(
     ? schedulingGoalWithoutStaleSelection(goal)
     : undefined;
   const effectiveGoal = goalPatch ?? goal;
+  const activeVisitType = activeSchedulingVisitType(flow, effectiveGoal);
+  if (activeVisitType !== "medical" && activeVisitType !== "routine_vision") {
+    return undefined;
+  }
   const latestCachedSearch = latestAvailabilitySearchWithCachedSlots(flow);
   const latestSearch = latestUsableAvailabilitySearch(flow);
 
@@ -531,6 +540,17 @@ function planActiveSchedulingStep(
   }
 
   return undefined;
+}
+
+function activeSchedulingVisitType(
+  flow: CallFlowState,
+  goal: SchedulingGoalState | undefined,
+): CallFlowState["visitType"] | null {
+  const visitReason = goal?.visitReason;
+  return resolveSchedulingVisitType(
+    visitReason,
+    visitReason ? goal?.visitType : (goal?.visitType ?? flow.visitType),
+  );
 }
 
 function planAvailabilityFrontier(
