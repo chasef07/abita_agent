@@ -1484,6 +1484,7 @@ export const add_patient = llm.tool({
 
 Rules:
 - Use only caller-provided facts. Never guess or use placeholders.
+- Before registration, triage the visit as medical or routine vision.
 - Run check_insurance first and use its canonicalPlan.
 - If routine vision, check insurance with coverageType "routine_vision" before registration.
 - Phone: if caller says the inbound number is good, omit phone; otherwise collect and pass the best callback number.
@@ -1710,15 +1711,9 @@ After response: session state updates automatically. If preauthRequired, schedul
 
 // --- get_availability ---
 export const get_availability = llm.tool({
-  description: `Gets schedule availability. Requires date (YYYY-MM-DD). Routing and preauth auto-applied from session state.
+  description: `Searches appointment availability for a start date. Use after the visit reason and scheduling lane are known; patient, routing, insurance, and preauth context come from session state.
 
-Ask the caller the reason for their visit before calling this tool so the scheduling lane is right. The response is intentionally tiny: result, reply, next, slotId, searched, nextSearchDate, and slots. Use reply for the caller-facing wording. If the caller accepts, call book_appt with slotId. Never ask for or mention the booking token; it is stored internally.
-
-The middleware resolves the AMD appointment type during booking.
-
-Rules: no same-day appointments — earliest is tomorrow. If the caller asks for today, just let them know the earliest you can schedule is tomorrow and offer that. Don't make up a policy — just move to the next available day. If confirmed age is under 18, use Doctor Bach. Do not infer age from bach_only routing. Bach has limited schedule — set expectations. If routing is "not_accepted", do not call. "ASAP" or "whenever" = search tomorrow.
-
-After response: follow the reply and next fields. If result is slots_found, offer slotId first. Mention the doctor only if asked or clinically relevant. If rejected, offer another listed slot. If result is no_slots_found, do not search the same range again; ask for a different preference or use nextSearchDate.`,
+Input date must be YYYY-MM-DD. Use the returned reply/next/slots for caller-facing wording. If the caller accepts a returned slot, call book_appt with that slotId. Do not mention booking tokens or AMD appointment type IDs.`,
   parameters: z.object({
     date: z.string().describe("Start date to search, formatted YYYY-MM-DD"),
   }),

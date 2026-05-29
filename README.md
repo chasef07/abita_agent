@@ -1,21 +1,29 @@
-# LiveKit Voice Agent 
+# LiveKit Voice Agent
 
-A voice AI phone agent for Abita Eye Group / Eye Radiance. Patients call in over Twilio/Telnyx SIP trunks, the agent identifies them, handles scheduling/insurance/FAQ, and transfers to a human when needed.
+A production phone agent for Abita Eye Group and Eye Radiance. Patients call
+supported Twilio/Telnyx SIP trunks, LiveKit Cloud dispatches the `abita-agent`
+worker, and the worker handles identity, scheduling, appointment changes,
+insurance, practice FAQ, and human transfers against the AdvancedMD middleware.
 
-## The stack
+The current architecture is harness-first: TypeScript owns workflow state,
+tool safety, pre-call identity, dynamic tool exposure, and post-call analytics.
+Prompt files still shape the agent's voice, but code decides what state is
+trusted and which side effects are allowed.
 
-| Layer | Provider | Notes |
-|---|---|---|
-| Telephony | Twilio + Telnyx | Inbound SIP trunks → LiveKit Cloud SIP |
-| Orchestration | `@livekit/agents` (Node) | Job dispatch, session mgmt, audio pipeline |
-| STT | AssemblyAI direct plugin `u3-rt-pro` | Adaptive keyterm/timing profiles via `stt.updateOptions`; uses `ASSEMBLYAI_API_KEY` |
-| LLM | Baseten (GLM-5 primary, MiniMax-M2.5 fallback) | Via `FallbackAdapter` |
-| TTS | Cartesia direct plugin `sonic-3-latest` | Voice defaults to `CARTESIA_TTS_VOICE` or the repo default voice ID; Spanish turns use the configured Spanish Cartesia voice; 16 kHz PCM |
-| VAD | Silero (local ONNX) | Prewarmed per job process |
-| Turn handling | LiveKit Agents | STT turn detection, adaptive interruptions, Silero VAD |
-| Medical backend | AdvancedMD via Railway middleware | Patient lookup, booking, insurance |
+## Stack
 
-## Call flow
+| Layer         | Provider                      | Current repo behavior                                                                                                                                                       |
+| ------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Telephony     | Twilio + Telnyx               | Inbound SIP trunks terminate into LiveKit Cloud SIP.                                                                                                                        |
+| Runtime       | `@livekit/agents` on Node 22  | `src/main.ts` defines the worker, session, prewarm, shutdown hooks, and LiveKit CLI entrypoint.                                                                             |
+| STT           | AssemblyAI direct plugin      | `u3-rt-pro`, language detection enabled, adaptive profiles from `src/stt-config.ts`, uses `ASSEMBLYAI_API_KEY`.                                                             |
+| LLM           | Baseten                       | `llm.FallbackAdapter` with primary `zai-org/GLM-4.7` and fallback `MiniMaxAI/MiniMax-M2.5`.                                                                                 |
+| TTS           | Cartesia direct plugin        | `sonic-3.5`, 16 kHz PCM, English voice override via `CARTESIA_TTS_VOICE`, Spanish voice from `src/tts-config.ts`.                                                           |
+| VAD and turns | Silero + LiveKit Agents       | Silero VAD is prewarmed; turn handling uses STT turn detection, adaptive interruptions, and preemptive generation disabled.                                                 |
+| Backend       | AdvancedMD Railway middleware | Phone lookup, patient verification/registration, insurance updates, availability, booking, and cancellation.                                                                |
+| Observability | Analytics webhook             | Usage, LLM metrics, STT profile changes, tool executions, session events, turn metrics, flow state, pre-call lookup, language telemetry, and optional small audio payloads. |
+
+## Call Flow
 
 ```mermaid
 sequenceDiagram
@@ -25,186 +33,270 @@ sequenceDiagram
     participant W as Agent Worker
     participant AMD as AdvancedMD Middleware
     participant Models as STT/LLM/TTS
+    participant Analytics as Analytics Webhook
 
     Caller->>SIP: Dial office number
     SIP->>LK: Inbound SIP INVITE
     LK->>LK: Create room, attach caller
     LK->>W: Dispatch job (agentName: abita-agent)
-    W->>W: Fork job process (prewarmed VAD)
+    W->>W: Fork job process with prewarmed Silero VAD
     W->>LK: Agent joins room
     W->>AMD: lookupByPhone(callerPhone, trunkPhone)
-    AMD-->>W: Verified / multiple / no match
-    W->>W: buildPrompt() + inject caller context
-    W->>Caller: Greeting (via TTS)
+    AMD-->>W: verified / multiple_matches / no_match / lookup_failed
+    W->>W: Build prompt and initialize CallState
+    W->>Caller: Office-specific greeting
 
     loop Conversation turns
         Caller->>Models: Speech
         Models->>W: Transcript
-        W->>Models: LLM completion (+ tool calls)
-        Models->>W: Reply + tool invocations
-        W->>AMD: verify_patient / book_appt / etc.
+        W->>W: Reducer updates obvious intent and pre-call identity
+        W->>Models: LLM completion with current tools and turn_state
+        Models->>W: Reply and tool calls
+        W->>AMD: verify_patient / get_availability / book_appt / etc.
         AMD-->>W: Results
-        W->>Caller: Response (via TTS)
+        W->>Caller: Response via Cartesia TTS
     end
 
     alt Caller hangs up
         Caller->>LK: BYE
         LK->>W: participantDisconnected
         W->>W: ctx.shutdown()
-    else Transfer
-        W->>AMD: transfer_call → SIP REFER
+    else Human transfer
+        W->>LK: transferSipParticipant()
+        LK->>SIP: SIP REFER
         SIP->>Caller: Bridge to human
     end
 
     W->>W: Shutdown hook
-    W->>AMD: POST analytics (usage + LLM plugin metrics + turn metrics + audio + session report)
+    W->>Analytics: POST analytics payload
     W->>LK: deleteRoom
 ```
 
-## Repo layout
+## Repo Layout
 
-```
+```text
 src/
-├── main.ts          # Entry point: defineAgent, session setup, shutdown hooks, analytics POST
-├── agent.ts         # Agent class: wires tools, loads instructions, speaks greeting on onEnter
-├── prompt.ts        # Assembles system prompt from workspace/*.md + dynamic caller context
-├── tools.ts         # LLM tool definitions and flow-policy integration
-├── flow/            # Reusable state harness and guarded workflow policy
-├── tooling/         # Middleware client, call state, handoff, and knowledge helpers
-├── customer/        # Active customer profile re-export
-├── customers/abita/ # Abita office registry, trunk routing, greetings, and feature flags
-├── model-config.ts  # Primary/fallback Baseten model configuration
-├── stt-config.ts    # AssemblyAI keyterm and timing profiles
-└── __tests__/       # Vitest unit tests
+├── main.ts             # LiveKit worker, session setup, pre-call bootstrap, analytics shutdown
+├── agent.ts            # Agent class, greeting, turn-state injection, dynamic tool refresh
+├── prompt.ts           # Prompt assembly from workspace files plus dynamic caller context
+├── tools.ts            # Model-facing tools and flow-policy integration
+├── flow/               # Reusable reducer, planner, guards, events, state, and workflow plans
+├── tooling/            # AdvancedMD client, pre-call bootstrap, handoff, knowledge, call state
+├── customer/           # Active customer profile re-export
+├── customers/abita/    # Abita office registry, greetings, trunk routing, features, handoff targets
+├── model-config.ts     # Baseten primary/fallback model options
+├── stt-config.ts       # AssemblyAI startup options and dynamic STT profiles
+├── tts-config.ts       # Cartesia model, voices, language options
+├── language-runtime.ts # English/Spanish voice-language switching and telemetry
+└── __tests__/          # Vitest coverage for flow, tools, routing, session behavior, observability
 
-workspace/            # Prompt source files (edit these to change agent behavior)
-├── SOUL.md          # Identity / persona (top of prompt)
-├── VOICE.md         # Speech style guidelines
-├── FLOW_HARNESS_RUNBOOK.md # Compact harness contract for all supported trunks
-├── KNOWLEDGE_*.md   # Location-specific FAQ (hours, directions, insurance)
-└── INSURANCE_*.json # Office-specific deterministic insurance routing
+workspace/
+├── SOUL.md             # Identity/persona prompt section
+├── VOICE.md            # Spoken style prompt section
+├── FLOW_HARNESS_RUNBOOK.md
+├── KNOWLEDGE_*.md      # Office FAQ content used by lookup_knowledge
+└── INSURANCE_*.json    # Deterministic office insurance routing tables
 
-livekit.toml         # LiveKit Cloud agent config (project + agent ID)
-Dockerfile           # Multi-stage: pnpm install → build → download-files → prune → run
+docs/                   # Architecture, operations, and historical notes
+scripts/                # Historical flow replay harness
+livekit.toml            # LiveKit Cloud project and agent config
+Dockerfile              # Node 22 build, livekit-agents download-files, production runner
 ```
 
-## How a call is handled
+## Runtime Behavior
 
-1. **SIP inbound** — caller dials a trunk number, LiveKit Cloud creates a room and fires a job request.
-2. **Job dispatch** — the agent worker (`abita-agent`) accepts the job. A forked child process (prewarmed with Silero VAD) runs `entry()` in `main.ts`.
-3. **Phone lookup** — before the session starts, `loadPreCallBootstrap(callerPhone, trunkPhone)` resolves the office, confirms the harness path, and runs the AdvancedMD phone lookup. Four lookup outcomes:
-   - **Verified** — single patient match. Name, DOB, insurance, appointments injected into the prompt. Agent skips verification.
-   - **Multiple matches** — multiple patients on this number. Agent asks for first name only (HIPAA-safe).
-   - **No match** — caller is not found from the inbound number.
-   - **Lookup failed** — middleware/auth/network failure. The agent must not treat this as a new patient; it verifies normally if the caller says they are existing.
-4. **Session start** — `buildPrompt()` assembles the harness prompt (`SOUL.md` + `VOICE.md` + compact harness contract + `FLOW_HARNESS_RUNBOOK.md`), then appends dynamic `<context>` (date/time + caller info). Tools are wired from `tools.ts`.
-5. **Conversation loop** — AssemblyAI STT → Baseten LLM (with tool calling) → Cartesia TTS. The LLM calls tools like `verify_patient`, `get_availability`, `book_appt`, `check_insurance`, `lookup_knowledge`, etc. AdvancedMD-facing tools call the Railway middleware through `src/tooling/advancedmd-client.ts`.
-6. **Disconnect or transfer**:
-   - Caller hangs up → `participantDisconnected` listener → `ctx.shutdown()`
-   - Agent calls `transfer_call` → SIP REFER to human staff
-7. **Shutdown hook** — captures LiveKit session usage, LLM plugin metrics, per-turn latency metrics, session report, and audio recording; POSTs everything to `ANALYTICS_URL` with exponential backoff retry; then deletes the room.
+1. **Inbound dispatch**: LiveKit Cloud creates a room and dispatches
+   `abita-agent`. The worker prewarms Silero VAD and starts `entry()` from
+   `src/main.ts`.
+2. **Pre-call bootstrap**: `loadPreCallBootstrap(callerPhone, trunkPhone)`
+   resolves the office from `src/customers/abita/profile.ts`, runs the
+   AdvancedMD phone lookup, and records telemetry.
+3. **Lookup outcomes**:
+   - `verified`: one patient is found. The agent still asks a first-name
+     challenge before using private facts, then uses loaded patient and
+     appointment state without calling `verify_patient`.
+   - `multiple_matches`: several patients share the caller phone. The reducer
+     narrows by first name without reading names aloud.
+   - `no_match`: the number is not on file. The agent asks whether the caller
+     is existing or needs a new chart.
+   - `lookup_failed`: middleware/auth/network lookup failed. The agent must not
+     treat the caller as new just because pre-call lookup failed.
+4. **Session state**: `session.userData` is a typed `CallState` containing the
+   flow reducer state, office routing, patient facts, loaded appointments,
+   availability cache, cancel tokens, transfer flags, telemetry, and language
+   state.
+5. **Prompt assembly**: `buildPrompt()` loads `SOUL.md`, `VOICE.md`, a compact
+   generated harness contract, `FLOW_HARNESS_RUNBOOK.md`, dynamic caller
+   context, and the state-memory contract.
+6. **Turn loop**: after each completed user turn, `Agent.onUserTurnCompleted`
+   records deterministic pre-call identity and obvious intent, injects compact
+   `<turn_state>` and `<context_capsules>` guidance, and refreshes the current
+   agent's tool context.
+7. **Shutdown**: disconnect or transfer triggers `ctx.shutdown()`. The shutdown
+   hook captures session report/audio when available, posts analytics with
+   retry, and deletes the LiveKit room.
 
-## Prompt assembly
+## Flow Harness
 
-The system prompt is stitched from markdown files in `workspace/` in a specific order. This matters for LLM attention (U-shaped curve — ends get more attention than middle):
+The flow harness is active for every supported Abita trunk. Supported trunks are
+defined by the active customer profile, not by an environment flag.
 
-```
-<role>                 ← SOUL.md
-<voice>                ← VOICE.md
-<harness_contract>     ← generated by prompt.ts
-<flow_harness_runbook> ← FLOW_HARNESS_RUNBOOK.md
-<context>              ← appended dynamically: date/time + caller data
-<state_memory_contract>
-```
+The harness owns:
 
-Every supported Abita trunk uses the harness prompt. The agent receives a compact harness contract at session start and a fresh `<turn_state>` plus `<context_capsules>` packet after each caller turn. That keeps the model focused on the current objective, loaded patient facts, appointments, pending confirmations, cached slots, and blocked actions.
+- current task, active intent, patient status, selected patient, visit type,
+  routing, insurance coverage type, appointment facts, and pending actions
+- pre-call single-match and multiple-match identity promotion
+- duplicate availability-search blocking and cached-slot handling
+- side-effect confirmation for registration, insurance updates, cancellation,
+  booking, office routing, and transfer
+- dynamic tool refresh after startup, user-turn state updates, and tool
+  execution
 
-For behavior changes, prefer code changes in `src/flow/*`, `src/tools.ts`, or `src/tooling/*` plus tests. Keep `FLOW_HARNESS_RUNBOOK.md` compact.
+There is no model-facing turn-understanding tool in the active tool registry.
+Broad workflow tools may stay visible, but wrapper guards in `src/flow/*` and
+`src/tools.ts` are the concrete safety boundary.
 
-## Tools
+## Model-Facing Tools
 
-| Tool | Purpose |
-|---|---|
-| `verify_patient` | Look up patient by first name using caller phone from session state; retry by last name/DOB when needed |
-| `add_patient` | Register a new patient |
-| `update_insurance` | Update insurance on file |
-| `get_availability` | Find open appointment slots |
-| `cancel_appt` / `book_appt` | Appointment management; existing appointment context is loaded from pre-call lookup or `verify_patient` |
-| `check_insurance` | Eligibility check |
-| `lookup_knowledge` | Return targeted sections from location-specific FAQ (`KNOWLEDGE_*.md`) |
-| `route_to_spring_hill` | Switch Crystal River scheduling calls to Spring Hill AMD routing |
-| `transfer_call` | SIP REFER to human |
+The active model-callable tool surface is intentionally small:
 
-All tools read/write `session.userData` (typed `CallState` in `src/tooling/call-state.ts`), which holds the call's pre-loaded context and any data collected during the conversation.
+| Tool                   | Purpose                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| `verify_patient`       | Resolve an existing patient from caller phone plus first name, or full identity when needed. |
+| `add_patient`          | Create a new patient after no-match or caller-confirmed registration.                        |
+| `update_insurance`     | Update insurance for a verified patient after `check_insurance`.                             |
+| `get_availability`     | Search appointment slots from current patient/routing/visit state.                           |
+| `book_appt`            | Book a caller-confirmed slot using stored booking token and booking-note metadata.           |
+| `cancel_appt`          | Cancel a loaded appointment using stored cancellation token.                                 |
+| `check_insurance`      | Match medical or routine-vision insurance against office routing tables.                     |
+| `lookup_knowledge`     | Retrieve office facts from the active location knowledge file before answering FAQ.          |
+| `route_to_spring_hill` | Crystal River-only workflow switch to schedule through Spring Hill without transferring.     |
+| `transfer_call`        | Transfer the SIP participant to the human office target.                                     |
 
-Side-effecting tools disable caller interruptions at the mutation boundary with `makeCurrentSpeechUninterruptible()` before they call the middleware:
+Tool exposure starts with the broad office-appropriate set. After a confirmed
+pre-call single match or multiple-match selection, dynamic exposure hides
+`verify_patient` for that caller. `route_to_spring_hill` is exposed only for
+offices whose profile enables that feature.
 
-| Non-interruptible tool | Why |
-|---|---|
-| `add_patient` | Creates a patient record |
-| `update_insurance` | Changes insurance on file |
-| `cancel_appt` | Cancels an appointment |
-| `book_appt` | Books an appointment and carries appointment-note metadata |
-| `transfer_call` | Initiates SIP transfer |
+Every current tool calls `makeCurrentSpeechUninterruptible()` before it starts
+work. Mutation tools treat an interrupted boundary as a stop condition and ask
+for reconfirmation instead of submitting the side effect. Protected mutation
+paths are `add_patient`, `update_insurance`, `cancel_appt`, `book_appt`,
+`route_to_spring_hill`, and `transfer_call`; transfer also has duplicate
+in-flight and already-attempted guards.
 
-Read-only/context tools remain interruptible so callers can naturally barge in during lookup or FAQ flow.
+## Offices And Customer Profile
 
-## Porting the architecture
+The active customer profile is `src/customer/profile.ts`, which currently
+re-exports `src/customers/abita/profile.ts`.
 
-The flow controller in `src/flow/` is the reusable harness. Customer-specific routing, greetings, trunk numbers, transfer targets, knowledge files, and insurance files live behind the active customer profile at `src/customer/profile.ts`, which currently re-exports `src/customers/abita/profile.ts`. To port the architecture, add a new `src/customers/<customer>/profile.ts`, point `src/customer/profile.ts` at it, and provide that customer's `workspace/` knowledge and prompt files.
+That profile is the source of truth for:
 
-## Local development
+- office keys: Spring Hill, Crystal River, Hollywood, Sweetwater, and dev
+- trunk phone mapping
+- greetings
+- office knowledge and insurance files
+- AdvancedMD office phone routing
+- human handoff targets and optional handoff target environment overrides
+- Crystal River to Spring Hill scheduling behavior
+
+To port the architecture, add a new `src/customers/<customer>/profile.ts`,
+point `src/customer/profile.ts` at it, and provide matching workspace knowledge,
+insurance, greeting, routing, and handoff configuration.
+
+## Local Development
+
+Use Node 22 and pnpm 10.
 
 ```bash
 pnpm install
-cp .env.example .env.local   # fill in LIVEKIT_*, BASETEN_*, AMD_*
-pnpm dev                     # runs src/main.ts via tsx with live reload
+cp .env.example .env.local
+pnpm dev
 ```
 
-Test against a SIP trunk requires a real Twilio/Telnyx setup — see [`docs/ops/telnyx-setup.md`](./docs/ops/telnyx-setup.md).
+`pnpm dev` runs `tsx src/main.ts dev`. Real inbound-call testing requires a
+LiveKit Cloud project and a configured SIP trunk; see
+[`docs/ops/telnyx-setup.md`](./docs/ops/telnyx-setup.md).
 
-## Deploy
-
-Push to `main` to deploy with GitHub Actions:
+Useful checks:
 
 ```bash
-git push origin main
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
 ```
 
-Check status:
+Historical flow replay:
+
+```bash
+DATABASE_URL=postgres://... pnpm test:historical-flow -- --limit 100 --exclude-harness --report /private/tmp/abita-flow-replay.json
+```
+
+Or replay from an existing JSONL export:
+
+```bash
+pnpm test:historical-flow -- --input /path/to/calls.jsonl --report /private/tmp/abita-flow-replay.json
+```
+
+## Deployment
+
+Pushes to `main` run CI and deploy through GitHub Actions. The deploy workflow
+typechecks the repo, installs the LiveKit CLI, and runs:
+
+```bash
+lk agent deploy --yes
+```
+
+Useful status commands:
 
 ```bash
 lk agent status
 gh run list --workflow="Deploy to LiveKit Cloud" --limit 5
 ```
 
-## Key environment variables
+The Docker image builds TypeScript, runs `npx livekit-agents download-files`,
+copies the model cache into the runtime image, prunes dev dependencies, and
+starts with `pnpm start`.
 
-| Var | Purpose |
-|---|---|
-| `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud credentials |
-| `ASSEMBLYAI_API_KEY` | Direct AssemblyAI STT plugin |
-| `CARTESIA_API_KEY` | Direct Cartesia TTS plugin |
-| `CARTESIA_TTS_VOICE` | Optional English Cartesia voice override |
-| `BASETEN_API_KEY` | LLM (GLM-5 + MiniMax fallback) |
-| `AMD_API_URL` / `AMD_API_TOKEN` | AdvancedMD middleware |
-| `SPRING_HILL_HANDOFF_TARGET` | Optional Spring Hill call-center handoff target; accepts `tel:+E164` or `sip:user@domain` |
-| `TELNYX_VOICE_API_HANDOFF_TARGET` | Optional Spring Hill Telnyx Voice API handoff target, for example `sip:+16182265883@livekitappacuity.sip.telnyx.com` |
-| `ANALYTICS_URL` / `WEBHOOK_SECRET` | Post-call analytics endpoint |
-| `PROMPT_WORKSPACE` | Optional alternate prompt workspace path |
+## Environment Variables
 
-## Secrets management
+| Variable                                                 | Purpose                                                                                 |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud credentials for the worker, room deletion, and SIP transfer.              |
+| `BASETEN_API_KEY`                                        | Baseten LLM access for primary and fallback models.                                     |
+| `ASSEMBLYAI_API_KEY`                                     | AssemblyAI direct STT plugin.                                                           |
+| `CARTESIA_API_KEY`                                       | Cartesia direct TTS plugin.                                                             |
+| `CARTESIA_TTS_VOICE`                                     | Optional English Cartesia voice override.                                               |
+| `AMD_API_URL`                                            | Optional AdvancedMD middleware base URL; defaults to the production Railway middleware. |
+| `AMD_API_TOKEN`                                          | Authorization header sent to the AdvancedMD middleware.                                 |
+| `SPRING_HILL_HANDOFF_TARGET`                             | Optional Spring Hill human-transfer target, `tel:+E164` or `sip:user@domain`.           |
+| `TELNYX_VOICE_API_HANDOFF_TARGET`                        | Legacy/alternate Spring Hill handoff target override.                                   |
+| `HOLLYWOOD_HANDOFF_TARGET`                               | Optional Hollywood human-transfer target override.                                      |
+| `SWEETWATER_HANDOFF_TARGET`                              | Optional Sweetwater human-transfer target override.                                     |
+| `ANALYTICS_URL`                                          | Optional post-call analytics webhook URL.                                               |
+| `WEBHOOK_SECRET`                                         | Optional bearer token for analytics POSTs.                                              |
+| `PROMPT_WORKSPACE`                                       | Optional prompt workspace path, default `workspace`.                                    |
+| `DATABASE_URL`                                           | Optional Postgres URL for `pnpm test:historical-flow` when not using `--input`.         |
 
-**Never run `lk agent update-secrets` without `--overwrite` considered carefully.** That command *replaces* the entire secret set. To update a single secret, fetch the current list with `lk agent secrets`, edit locally, then push the full set back.
+## Secrets Management
 
-## Known issues & history
+Be careful with LiveKit Cloud agent secrets. `lk agent update-secrets` replaces
+the agent secret set unless you include the full desired set. Before changing a
+single secret, fetch the current values with `lk agent secrets`, edit locally,
+and push the complete set back intentionally.
 
-- **2026-04-09** — `@livekit/agents@1.2.3` ProcPool concurrency bug caused missed inbound calls when two rang simultaneously. Fixed by bump to 1.2.4. See [`docs/history/incident-2026-04-09-concurrent-dispatch.md`](./docs/history/incident-2026-04-09-concurrent-dispatch.md).
+## Known History
 
-## Further reading
+- **2026-04-09**: `@livekit/agents@1.2.3` had a ProcPool concurrency bug that
+  delayed or missed overlapping inbound calls. The repo was bumped after the
+  upstream fix. See
+  [`docs/history/incident-2026-04-09-concurrent-dispatch.md`](./docs/history/incident-2026-04-09-concurrent-dispatch.md).
 
-- [`docs/README.md`](./docs/README.md) — short context map for architecture and historical docs
-- [`docs/architecture/flow-controller-current-contract.md`](./docs/architecture/flow-controller-current-contract.md) — current flow harness contract
-- [`docs/architecture/legacy-cleanup-and-next-steps.md`](./docs/architecture/legacy-cleanup-and-next-steps.md) — cleanup record and remaining migration work
-- [`docs/ops/assemblyai.md`](./docs/ops/assemblyai.md) — AssemblyAI STT design notes
-- [`docs/ops/telnyx-setup.md`](./docs/ops/telnyx-setup.md) — SIP trunk provisioning
+## Further Reading
+
+- [`docs/README.md`](./docs/README.md) - architecture and operations document map
+- [`docs/architecture/flow-controller-current-contract.md`](./docs/architecture/flow-controller-current-contract.md) - current flow harness contract
+- [`docs/architecture/legacy-cleanup-and-next-steps.md`](./docs/architecture/legacy-cleanup-and-next-steps.md) - cleanup record and remaining migration notes
+- [`docs/ops/assemblyai.md`](./docs/ops/assemblyai.md) - AssemblyAI STT design notes
+- [`docs/ops/telnyx-setup.md`](./docs/ops/telnyx-setup.md) - SIP trunk provisioning and call testing

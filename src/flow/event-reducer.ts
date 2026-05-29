@@ -123,6 +123,9 @@ function applyFlowEvent(
     case "patient_session_cleared":
       flow.coverageType = undefined;
       flow.routing = undefined;
+      flow.allowedProviders = undefined;
+      flow.routingAmbiguous = undefined;
+      flow.preauthRequired = undefined;
       return {};
     case "active_patient_status_synced":
       flow.patientStatus = event.patientStatus;

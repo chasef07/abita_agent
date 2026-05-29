@@ -558,6 +558,19 @@ export function reconcileCallStateAfterActivePatientChange(
 
   const insurancePlan =
     patient.insurance?.canonicalPlan ?? patient.insurance?.plan?.value ?? null;
+  const preservedInsurance = registrationInsuranceToPreserve(
+    state,
+    patient.ref,
+    insurancePlan,
+  );
+  const effectiveInsurancePlan = insurancePlan ?? preservedInsurance?.plan;
+  const effectiveCoverageType =
+    patient.insurance?.coverageType ?? preservedInsurance?.coverageType ?? null;
+  const effectiveCurrentCarrier =
+    patient.insurance?.currentCarrier ??
+    preservedInsurance?.currentCarrier ??
+    effectiveInsurancePlan ??
+    null;
   clearPatientBackendRefs(state, patient.ref);
   reduceFlowEvent(state.flow, {
     id: nextFlowEventId("patient_payload"),
@@ -565,17 +578,88 @@ export function reconcileCallStateAfterActivePatientChange(
     source: "system",
     createdAt: Date.now(),
     officeKey: activeOfficeKey(state),
-    coverageType: patient.insurance?.coverageType,
-    insurance: insurancePlan
+    coverageType: effectiveCoverageType ?? undefined,
+    insurance: effectiveInsurancePlan
       ? {
-          plan: insurancePlan,
-          coverageType: patient.insurance?.coverageType,
-          canonicalPlan: insurancePlan,
-          currentCarrier: patient.insurance?.currentCarrier ?? insurancePlan,
+          plan: effectiveInsurancePlan,
+          coverageType: effectiveCoverageType,
+          canonicalPlan: effectiveInsurancePlan,
+          currentCarrier: effectiveCurrentCarrier,
         }
       : undefined,
   });
   applyPreCallCandidateSessionDetails(state, patient);
+}
+
+function registrationInsuranceToPreserve(
+  state: CallState,
+  activeRef: PatientRef,
+  activeInsurancePlan: string | null,
+): {
+  plan: string;
+  coverageType: InsuranceCoverageType | null;
+  currentCarrier: string | null;
+} | null {
+  if (activeInsurancePlan || !registrationInProgress(state)) return null;
+
+  for (const patientRef of pendingRegistrationPatientRefs(state)) {
+    if (patientRef === activeRef) continue;
+    const insurance = state.flow.patients[patientRef]?.insurance;
+    const plan = insurance?.canonicalPlan ?? insurance?.plan?.value ?? null;
+    if (!plan) continue;
+    return {
+      plan,
+      coverageType: insurance?.coverageType ?? state.flow.coverageType ?? null,
+      currentCarrier: insurance?.currentCarrier ?? plan,
+    };
+  }
+
+  return null;
+}
+
+function registrationInProgress(state: CallState): boolean {
+  return (
+    state.flow.pendingConfirmation?.type === "registration" ||
+    state.flow.pendingActions.some(
+      (action) =>
+        action.type === "add_patient" &&
+        !action.consumed &&
+        !action.invalidated,
+    )
+  );
+}
+
+function pendingRegistrationPatientRefs(state: CallState): PatientRef[] {
+  const refs: PatientRef[] = [];
+  const addRef = (patientRef: PatientRef | undefined): void => {
+    if (patientRef && !refs.includes(patientRef)) refs.push(patientRef);
+  };
+
+  const pendingPayload = state.flow.pendingConfirmation?.payload;
+  if (
+    state.flow.pendingConfirmation?.type === "registration" &&
+    isRecord(pendingPayload) &&
+    typeof pendingPayload.pendingActionId === "string"
+  ) {
+    const action = state.flow.pendingActions.find(
+      (candidate) =>
+        candidate.type === "add_patient" &&
+        candidate.id === pendingPayload.pendingActionId,
+    );
+    addRef(action?.patientRef);
+  }
+
+  for (const action of state.flow.pendingActions) {
+    if (action.type === "add_patient" && !action.consumed) {
+      addRef(action.patientRef);
+    }
+  }
+
+  return refs;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function applyPreCallCandidateSessionDetails(

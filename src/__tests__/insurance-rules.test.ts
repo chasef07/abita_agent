@@ -140,6 +140,33 @@ describe("insurance matcher", () => {
     expect(result.clarificationNeeded).toContain("which Humana plan");
   });
 
+  it("maps Spring Hill medical Sunshine plans to Envolve", () => {
+    const cases = ["Sunshine", "Sunshine Health", "Sunshine Medicaid"];
+
+    for (const query of cases) {
+      const result = matchInsurancePlanForOffice("spring-hill", query);
+      expect(result.status, query).toBe("accepted");
+      expect(result.canProceed, query).toBe(true);
+      expect(canonicalInsurancePlan(result), query).toBe("Envolve Vision");
+    }
+  });
+
+  it("maps Hollywood and Sweetwater medical Sunshine plans to Envolve", () => {
+    const offices = ["hollywood", "sweetwater"] as const;
+    const cases = ["Sunshine", "Sunshine Health", "Sunshine Medicaid"];
+
+    for (const office of offices) {
+      for (const query of cases) {
+        const result = matchInsurancePlanForOffice(office, query);
+        expect(result.status, `${office} ${query}`).toBe("accepted");
+        expect(result.canProceed, `${office} ${query}`).toBe(true);
+        expect(canonicalInsurancePlan(result), `${office} ${query}`).toBe(
+          "Envolve Vision",
+        );
+      }
+    }
+  });
+
   it("works through office lookup helper", () => {
     const result = matchInsurancePlanForOffice("spring-hill", "BCBS");
     expect(result.status).toBe("accepted");
@@ -235,6 +262,13 @@ describe("insurance matcher", () => {
     expect(sunshine.status).toBe("not_accepted");
     expect(sunshine.canProceed).toBe(false);
 
+    const sunshineHealth = matchInsurancePlanForOffice(
+      "crystal-river",
+      "Sunshine Health",
+    );
+    expect(sunshineHealth.status).toBe("not_accepted");
+    expect(sunshineHealth.canProceed).toBe(false);
+
     const simply = matchInsurancePlanForOffice(
       "crystal-river",
       "Simply Medicaid",
@@ -269,6 +303,40 @@ describe("insurance matcher", () => {
       "I have Florida Blue HMO",
     );
     expect(blueSelect.status).toBe("not_accepted");
+  });
+
+  it("keeps Crystal River Cigna medical rules aligned with Spring Hill", () => {
+    const cases = [
+      "Cigna",
+      "Cigna HMO",
+      "Cigna Medicare Advantage",
+      "Cigna Open Access",
+      "Cigna PPO",
+      "Cigna Local Plus",
+      "Cigna Miami-Dade Public Schools",
+    ];
+
+    for (const query of cases) {
+      const springHillResult = matchInsurancePlanForOffice(
+        "spring-hill",
+        query,
+      );
+      const crystalRiverResult = matchInsurancePlanForOffice(
+        "crystal-river",
+        query,
+      );
+
+      expect(crystalRiverResult.status, query).toBe(springHillResult.status);
+      expect(crystalRiverResult.canProceed, query).toBe(
+        springHillResult.canProceed,
+      );
+      expect(canonicalInsurancePlan(crystalRiverResult), query).toBe(
+        canonicalInsurancePlan(springHillResult),
+      );
+      expect(crystalRiverResult.clarificationNeeded, query).toBe(
+        springHillResult.clarificationNeeded,
+      );
+    }
   });
 
   it("keeps Spring Hill Humana acceptance separate from Crystal River", () => {
