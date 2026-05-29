@@ -192,11 +192,13 @@
     },
     {
       "aliases": [
-        "Sunshine"
+        "Sunshine",
+        "Sunshine Health",
+        "Sunshine Medicaid"
       ],
       "status": "accepted",
-      "family": "Sunshine Medicaid",
-      "callerPlan": "Sunshine",
+      "family": "Envolve Vision",
+      "callerPlan": "Envolve Vision",
       "canProceed": true,
       "needsExactPlanName": true
     },
@@ -462,8 +464,6 @@
     "Simply Health",
     "Staywell Medicare",
     "SunHealth",
-    "Sunshine Health",
-    "Sunshine Medicaid",
     "Tricare for Life",
     "Tricare Forever",
     "Tricare Prime",
