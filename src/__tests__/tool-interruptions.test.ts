@@ -236,7 +236,7 @@ describe("tool interruption handling", () => {
   });
 
   it("returns a compact command packet with exact booking args", async () => {
-    const { ctx, state } = createToolContext();
+    const { state } = createToolContext();
     state.latestUserTranscript = "Yes, book it.";
     state.turnUnderstandingAppliedForTranscript = null;
     state.flow.activeIntent = "new_appointment";
@@ -291,7 +291,7 @@ describe("tool interruption handling", () => {
   });
 
   it("asks only for the referring doctor when booking is confirmed and the reason is known", async () => {
-    const { ctx, state } = createToolContext();
+    const { state } = createToolContext();
     state.latestUserTranscript = "Yes, book it.";
     state.turnUnderstandingAppliedForTranscript = null;
     state.flow.activeIntent = "new_appointment";
@@ -4679,13 +4679,6 @@ function seedPendingBookingAction(
     confirmationTurnId:
       overrides.confirmed === false ? undefined : "test-confirm-booking",
   });
-}
-
-function seedSuccessfulBooking(state: CallState) {
-  seedLastAvailabilitySlot(state);
-  const action = seedPendingBookingAction(state);
-  action.consumed = true;
-  return action;
 }
 
 function seedPendingSideEffectAction(

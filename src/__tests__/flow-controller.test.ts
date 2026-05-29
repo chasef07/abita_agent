@@ -713,10 +713,7 @@ describe("flow state and context packet", () => {
       },
     });
 
-    const result = applyPreCallIdentityFromTranscript(
-      flow,
-      "Anna Casanova.",
-    );
+    const result = applyPreCallIdentityFromTranscript(flow, "Anna Casanova.");
 
     expect(result).toMatchObject({
       changed: true,
@@ -736,8 +733,9 @@ describe("flow state and context packet", () => {
       lastName: { value: "CASANOVA", confirmed: true },
       dob: { value: "03/09/2000", confirmed: true },
     });
-    expect(Object.keys(flow.patients).some((ref) => ref.startsWith("candidate:")))
-      .toBe(false);
+    expect(
+      Object.keys(flow.patients).some((ref) => ref.startsWith("candidate:")),
+    ).toBe(false);
 
     const packet = compileTurnStatePacket(flow);
     expect(packet).toContain("preCall: multiple_match_confirmed");
