@@ -69,10 +69,10 @@ export function buildToolExposureDecision({
 }
 
 export function pendingTurnUnderstanding(state: CallState): boolean {
-  if (!state.flowHarnessEnabled) return false;
-  const transcript = state.latestUserTranscript?.trim();
+  if (!state.runtime.flowHarnessEnabled) return false;
+  const transcript = state.runtime.latestUserTranscript?.trim();
   if (!transcript) return false;
-  return state.turnUnderstandingAppliedForTranscript !== transcript;
+  return state.runtime.turnUnderstandingAppliedForTranscript !== transcript;
 }
 
 function visibleToolNamesForState(

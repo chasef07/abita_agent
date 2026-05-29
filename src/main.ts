@@ -32,6 +32,7 @@ import { RoomServiceClient } from "livekit-server-sdk";
 import { createInitialFlowState } from "./flow/index.js";
 import {
   appointmentCancelTokenMap,
+  createCanonicalCallState,
   publicCallerAppointments,
   type CallState,
 } from "./tooling/call-state.js";
@@ -153,7 +154,7 @@ export default defineAgent({
 
       const agent = new Agent(phoneLookup, trunkPhone, { languageRuntime });
 
-      session.userData = {
+      session.userData = createCanonicalCallState({
         flow: createInitialFlowState({
           officeKey: office.key,
           patientId: verified?.patientId ?? null,
@@ -202,7 +203,7 @@ export default defineAgent({
         transferred: false,
         transferAttempted: false,
         transferInFlight: false,
-      };
+      });
       if (flowDynamicToolsEnabled) {
         await applyDynamicToolsToAgent(agent, session.userData, "startup");
         bindDynamicToolRefresher(session, (reason) =>
@@ -304,7 +305,7 @@ export default defineAgent({
       ctx.room.on("participantDisconnected", (p) => {
         if (p.identity === participant.identity) {
           console.log(
-            `[call] SIP participant ${p.identity} disconnected (transferred=${session.userData.transferred}), shutting down job`,
+            `[call] SIP participant ${p.identity} disconnected (transferred=${session.userData.runtime.transferred}), shutting down job`,
           );
           ctx.shutdown(`sip participant disconnected: ${p.identity}`);
         }
@@ -364,9 +365,9 @@ export default defineAgent({
             turnMetrics,
             flow: {
               currentState: session.userData.flow,
-              guardObservations: session.userData.flowGuardObservations,
+              guardObservations: session.userData.runtime.flowGuardObservations,
             },
-            preCallLookup: session.userData.preCallLookup,
+            preCallLookup: session.userData.runtime.preCallLookup,
             language: languageRuntime.telemetry,
             sessionReport,
           };

@@ -150,6 +150,9 @@ function applyFlowEvent(
     case "routine_vision_office_ensured":
       applyRoutineVisionOfficeEnsuredEvent(flow, event);
       return {};
+    case "office_routed":
+      applyOfficeRoutedEvent(flow, event);
+      return {};
     case "availability_visit_context_ensured":
       applyAvailabilityVisitContextEnsuredEvent(flow, event);
       return {};
@@ -430,6 +433,9 @@ function applyPatientPayloadAppliedEvent(
 
   flow.officeKey = event.officeKey;
   flow.routing = event.routing;
+  flow.allowedProviders = event.allowedProviders;
+  flow.routingAmbiguous = event.routingAmbiguous;
+  flow.preauthRequired = event.preauthRequired;
   flow.coverageType = event.coverageType;
   if (event.visitType) {
     flow.visitType = event.visitType;
@@ -439,6 +445,7 @@ function applyPatientPayloadAppliedEvent(
       plan: event.insurance.plan ?? event.insurance.canonicalPlan,
       coverageType: event.insurance.coverageType,
       canonicalPlan: event.insurance.canonicalPlan ?? event.insurance.plan,
+      currentCarrier: event.insurance.currentCarrier,
       source: event.insurance.source,
     });
   }
@@ -452,8 +459,13 @@ function applyActivePatientInsuranceUpdatedEvent(
     plan: event.plan,
     coverageType: event.coverageType,
     canonicalPlan: event.canonicalPlan,
+    currentCarrier: event.currentCarrier,
     source: event.slotSource,
   });
+  flow.routing = event.routing ?? undefined;
+  flow.allowedProviders = event.allowedProviders;
+  flow.routingAmbiguous = event.routingAmbiguous;
+  flow.preauthRequired = event.preauthRequired;
 }
 
 function applyActivePatientAppointmentsRecordedEvent(
@@ -490,14 +502,12 @@ function applyInsuranceCheckedEvent(
       : "check_insurance",
   );
   flow.coverageType = event.coverageType ?? undefined;
-  if (event.canonicalPlan) {
-    updateActivePatientInsurance(flow, {
-      plan: event.plan,
-      coverageType: event.coverageType,
-      canonicalPlan: event.canonicalPlan,
-      source: "caller_spoken",
-    });
-  }
+  updateActivePatientInsurance(flow, {
+    plan: event.canonicalPlan ? event.plan : null,
+    coverageType: event.canonicalPlan ? event.coverageType : null,
+    canonicalPlan: event.canonicalPlan ?? null,
+    source: "caller_spoken",
+  });
   if (event.coverageType === "routine_vision") {
     flow.visitType = "routine_vision";
     flow.routing = "optical_only";
@@ -517,6 +527,15 @@ function applyRoutineVisionOfficeEnsuredEvent(
   flow.visitType = "routine_vision";
   flow.coverageType = "routine_vision";
   flow.routing = "optical_only";
+}
+
+function applyOfficeRoutedEvent(
+  flow: CallFlowState,
+  event: Extract<FlowEvent, { type: "office_routed" }>,
+): void {
+  flow.officeKey = event.officeKey;
+  flow.activeFlow = "scheduling";
+  setFlowStep(flow, nextPatientFlowStep(flow.patientStatus));
 }
 
 function applyAvailabilityVisitContextEnsuredEvent(

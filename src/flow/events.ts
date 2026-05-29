@@ -154,12 +154,16 @@ export interface PatientPayloadAppliedEvent extends FlowEventBase {
   patientStatus?: PatientStatus;
   officeKey: CallFlowState["officeKey"];
   routing?: SchedulingRouting;
+  allowedProviders?: string[];
+  routingAmbiguous?: boolean;
+  preauthRequired?: boolean;
   coverageType?: InsuranceCoverageType;
   visitType?: VisitType;
   insurance?: {
     plan?: string | null;
     coverageType?: InsuranceCoverageType | null;
     canonicalPlan?: string | null;
+    currentCarrier?: string | null;
     source?: TrackedSlotSource;
   };
 }
@@ -197,6 +201,11 @@ export interface ActivePatientInsuranceUpdatedEvent extends FlowEventBase {
   plan?: string | null;
   coverageType?: InsuranceCoverageType | null;
   canonicalPlan?: string | null;
+  currentCarrier?: string | null;
+  routing?: SchedulingRouting | null;
+  allowedProviders?: string[];
+  routingAmbiguous?: boolean;
+  preauthRequired?: boolean;
   slotSource?: TrackedSlotSource;
 }
 
@@ -212,6 +221,11 @@ export interface InsuranceCheckedEvent extends FlowEventBase {
 export interface RoutineVisionOfficeEnsuredEvent extends FlowEventBase {
   type: "routine_vision_office_ensured";
   officeKey: "spring-hill";
+}
+
+export interface OfficeRoutedEvent extends FlowEventBase {
+  type: "office_routed";
+  officeKey: CallFlowState["officeKey"];
 }
 
 export interface AvailabilityVisitContextEnsuredEvent extends FlowEventBase {
@@ -292,6 +306,7 @@ export type FlowEvent =
   | ActivePatientInsuranceUpdatedEvent
   | InsuranceCheckedEvent
   | RoutineVisionOfficeEnsuredEvent
+  | OfficeRoutedEvent
   | AvailabilityVisitContextEnsuredEvent
   | RescheduleReplacementBookedEvent
   | RescheduleOldAppointmentCancelledEvent

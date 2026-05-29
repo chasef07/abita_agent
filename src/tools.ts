@@ -27,7 +27,6 @@ import {
   nextPatientFlowStep,
   normalizeSchedulingRouting,
   nextFlowEventId,
-  recordAvailabilityCachedSlots,
   recordAvailabilitySearch,
   recordAvailabilitySearchRange,
   recordBookingAttempt,
@@ -40,6 +39,7 @@ import {
   type AppointmentLoadStatus,
   type AvailabilityInvalidationReason,
   type GuardedToolName,
+  type PatientIdentitySnapshot,
   type SideEffectToolName,
   type ToolOutcome,
 } from "./flow/index.js";
@@ -52,8 +52,23 @@ import {
 import { lookupOfficeKnowledge } from "./tooling/knowledge.js";
 import { transferCallerToOffice } from "./tooling/handoff.js";
 import {
+  activeInsuranceContext,
+  activeOfficeKey,
+  activePatientDob,
+  activePatientId,
+  activePatientName,
+  activePatientRef,
+  activeRoutingContext,
+  availabilityBookingToken,
+  clearAvailabilityPrivateData,
+  lastAvailabilitySlotsForState,
+  latestAvailabilityRouting,
   appointmentCancelTokenMap,
+  patientBackendRefs,
   publicCallerAppointments,
+  runtimeCallerPhone,
+  setAppointmentCancelTokens,
+  setPatientBackendRefs,
   type CallState,
   type StoredAvailabilitySlot,
   type StoredCallerAppointment,
@@ -159,21 +174,22 @@ function evaluatePolicyForState(
 ): ToolOutcome | null {
   if (!isFlowHarnessEnabled(state)) return null;
   syncSessionPatientFromActiveFlow(state);
+  const insurance = activeInsuranceContext(state);
   const decision = evaluateFlowToolPolicy({
     flow: state.flow,
     toolName,
     args,
     stateFacts: {
-      checkedInsurancePlan: state.checkedInsurancePlan,
-      checkedInsuranceCoverageType: state.checkedInsuranceCoverageType,
-      patientId: state.patientId,
-      lastAvailabilityRouting: state.lastAvailabilityRouting,
-      officeKey: state.officeKey,
+      checkedInsurancePlan: insurance.canonicalPlan,
+      checkedInsuranceCoverageType: insurance.coverageType,
+      patientId: activePatientId(state),
+      lastAvailabilityRouting: latestAvailabilityRouting(state),
+      officeKey: activeOfficeKey(state),
     },
     booking: options.booking,
   });
   const { observation } = decision;
-  state.flowGuardObservations.push(observation);
+  state.runtime.flowGuardObservations.push(observation);
   reduceFlowEvent(state.flow, {
     id: nextFlowEventId("tool_guard"),
     type: "tool_guard_observed",
@@ -204,8 +220,8 @@ function evaluatePolicyForState(
   return withToolFacts(decision.outcome, state);
 }
 
-function isFlowHarnessEnabled(state: Pick<CallState, "flowHarnessEnabled">) {
-  return state.flowHarnessEnabled === true;
+function isFlowHarnessEnabled(state: CallState) {
+  return state.runtime.flowHarnessEnabled === true;
 }
 
 function restoreConfirmedPreCallCaller(state: CallState): void {
@@ -305,7 +321,9 @@ function withToolFacts(outcome: ToolOutcome, state: CallState): ToolOutcome {
       ...outcome,
       facts: {
         ...outcome.facts,
-        cachedSlots: publicAvailabilitySlots(state.lastAvailabilitySlots),
+        cachedSlots: publicAvailabilitySlots(
+          lastAvailabilitySlotsForState(state),
+        ),
       },
     };
   }
@@ -367,8 +385,8 @@ function recordSideEffectConfirmationRequestFromToolCall(
       ? { appointmentId: lookup.appointmentId }
       : {}),
     ...(requiredFieldsComplete !== undefined ? { requiredFieldsComplete } : {}),
-    ...(state.latestUserTranscript?.trim()
-      ? { requestedAfterTranscript: state.latestUserTranscript.trim() }
+    ...(state.runtime.latestUserTranscript?.trim()
+      ? { requestedAfterTranscript: state.runtime.latestUserTranscript.trim() }
       : {}),
     toolCallId,
   });
@@ -459,9 +477,11 @@ function pendingConfirmationMatchesToolIntent(
 
 function isFreshCallerTurnForPendingConfirmation(state: CallState): boolean {
   const payload = pendingConfirmationPayload(state);
-  const latestTranscript = state.latestUserTranscript?.trim();
+  const latestTranscript = state.runtime.latestUserTranscript?.trim();
   if (!latestTranscript) return false;
-  if (state.turnUnderstandingAppliedForTranscript === latestTranscript) {
+  if (
+    state.runtime.turnUnderstandingAppliedForTranscript === latestTranscript
+  ) {
     return false;
   }
 
@@ -618,11 +638,10 @@ export function getSpringHillOfficePhone(): string {
   return SPRING_HILL_OFFICE_PHONE;
 }
 
-export function getAmdOfficeForToolCall(
-  state: Pick<CallState, "officeKey" | "amdOfficePhone">,
-): string {
+export function getAmdOfficeForToolCall(state: CallState): string {
   return (
-    state.amdOfficePhone || getOfficeConfig(state.officeKey).amdOfficePhone
+    state.runtime.officePhoneOverrides?.[activeOfficeKey(state)] ||
+    getOfficeConfig(activeOfficeKey(state)).amdOfficePhone
   );
 }
 
@@ -731,7 +750,7 @@ function buildPatientResolveRequest(
   state: CallState,
   args: PatientResolveArgs,
 ): BuiltPatientResolveRequest {
-  const callerPhone = state.callerPhone?.trim() || null;
+  const callerPhone = runtimeCallerPhone(state).trim() || null;
   const usesFullIdentity = Boolean(args.lastName && args.dob);
   const usesCallerPhone = Boolean(
     callerPhone && args.firstName && !usesFullIdentity,
@@ -856,6 +875,7 @@ function applyPatientPayloadToState(
 ): void {
   const rawAppointments = payload.rawAppointments ?? [];
   const appointments = publicCallerAppointments(rawAppointments);
+  const patientIdentityBefore = snapshotActivePatientIdentity(state.flow);
   const patientRecord = reduceFlowEvent(state.flow, {
     id: nextFlowEventId("patient_recorded"),
     type: "patient_recorded",
@@ -873,30 +893,27 @@ function applyPatientPayloadToState(
     throw new Error("patient_recorded event did not produce a patient change");
   }
   const invalidatePatientState = shouldInvalidatePatientScopedState(
-    state,
+    patientIdentityBefore,
     payload,
     patientChange.switchedPatient,
   );
 
-  state.patientId = payload.patientId ?? null;
-  state.patientName = payload.name ?? null;
-  state.dob = payload.dob ?? null;
-  state.insuranceCarrier = payload.insuranceCarrier ?? null;
-  state.insPlanId = payload.insPlanId ?? null;
-  state.respPartyId = payload.respPartyId ?? null;
-  state.checkedInsurancePlan = payload.insuranceCarrier ?? null;
-  state.checkedInsuranceCoverageType =
-    payload.routing === "optical_only" ? "routine_vision" : null;
-  state.routing = payload.routing ?? null;
   if (invalidatePatientState) {
     clearAvailabilitySelection(state, "patient_changed");
   }
-  state.allowedProviders = payload.allowedProviders ?? [];
-  state.routingAmbiguous = payload.routingAmbiguous ?? false;
-  state.preauthRequired = payload.preauthRequired ?? false;
-  state.appointmentsStatus = payload.appointmentsStatus ?? null;
-  state.appointments = appointments;
-  state.appointmentCancelTokens = appointmentCancelTokenMap(rawAppointments);
+  const patientRef = activePatientRef(state);
+  setPatientBackendRefs(state, patientRef, {
+    insPlanId: payload.insPlanId ?? null,
+    respPartyId: payload.respPartyId ?? null,
+  });
+  setAppointmentCancelTokens(
+    state,
+    patientRef,
+    appointmentCancelTokenMap(rawAppointments),
+  );
+  const coverageType =
+    payload.routing === "optical_only" ? "routine_vision" : undefined;
+  const routing = normalizeSchedulingRouting(payload.routing);
   reduceFlowEvent(state.flow, {
     id: nextFlowEventId("patient_payload"),
     type: "patient_payload_applied",
@@ -906,26 +923,26 @@ function applyPatientPayloadToState(
       String(payload.status ?? "").toLowerCase() === "created"
         ? "created"
         : undefined,
-    officeKey: state.officeKey,
-    routing: normalizeSchedulingRouting(state.routing),
-    coverageType: state.checkedInsuranceCoverageType ?? undefined,
-    visitType:
-      state.checkedInsuranceCoverageType === "routine_vision"
-        ? "routine_vision"
-        : undefined,
-    insurance:
-      state.insuranceCarrier || state.checkedInsurancePlan
-        ? {
-            plan: state.insuranceCarrier ?? state.checkedInsurancePlan,
-            coverageType: state.checkedInsuranceCoverageType,
-            canonicalPlan: state.checkedInsurancePlan ?? state.insuranceCarrier,
-          }
-        : undefined,
+    officeKey: activeOfficeKey(state),
+    routing,
+    allowedProviders: payload.allowedProviders ?? [],
+    routingAmbiguous: payload.routingAmbiguous ?? false,
+    preauthRequired: payload.preauthRequired ?? false,
+    coverageType,
+    visitType: coverageType === "routine_vision" ? "routine_vision" : undefined,
+    insurance: payload.insuranceCarrier
+      ? {
+          plan: payload.insuranceCarrier,
+          coverageType,
+          canonicalPlan: payload.insuranceCarrier,
+          currentCarrier: payload.insuranceCarrier,
+        }
+      : undefined,
   });
 }
 
 function shouldInvalidatePatientScopedState(
-  state: CallState,
+  previousIdentity: PatientIdentitySnapshot,
   result: {
     patientId?: string | null;
     name?: string | null;
@@ -933,11 +950,38 @@ function shouldInvalidatePatientScopedState(
   },
   switchedPatient: boolean,
 ): boolean {
+  if (switchedPatient) return true;
+  if (sameKnownIdentityValue(previousIdentity.patientId, result.patientId)) {
+    return false;
+  }
   return (
-    switchedPatient ||
-    changedKnownIdentityValue(state.patientId, result.patientId ?? null) ||
-    changedKnownIdentityValue(state.patientName, result.name ?? null) ||
-    changedKnownIdentityValue(state.dob, result.dob ?? null)
+    changedKnownIdentityValue(previousIdentity.patientId, result.patientId) ||
+    changedKnownIdentityValue(
+      patientNameFromIdentitySnapshot(previousIdentity),
+      result.name,
+    ) ||
+    changedKnownIdentityValue(previousIdentity.dob, result.dob)
+  );
+}
+
+function sameKnownIdentityValue(
+  previous: string | null | undefined,
+  next: string | null | undefined,
+): boolean {
+  const normalizedPrevious = normalizeIdentityValue(previous);
+  const normalizedNext = normalizeIdentityValue(next);
+  return Boolean(
+    normalizedPrevious &&
+    normalizedNext &&
+    normalizedPrevious === normalizedNext,
+  );
+}
+
+function patientNameFromIdentitySnapshot(
+  identity: PatientIdentitySnapshot,
+): string | null {
+  return (
+    [identity.firstName, identity.lastName].filter(Boolean).join(" ") || null
   );
 }
 
@@ -958,36 +1002,9 @@ function normalizeIdentityValue(value: string | null | undefined): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
 }
 
-function formatPatientName(
-  firstName: string | undefined,
-  lastName: string | undefined,
-): string | null {
-  const fullName = [firstName, lastName]
-    .map((part) => part?.trim())
-    .filter(Boolean)
-    .join(" ");
-  return fullName || null;
-}
-
-function clearSessionPatientRecord(
-  state: CallState,
-  next: { patientName?: string | null; dob?: string | null } = {},
-): void {
-  state.patientId = null;
-  state.patientName = next.patientName ?? null;
-  state.dob = next.dob ?? null;
-  state.insuranceCarrier = null;
-  state.insPlanId = null;
-  state.respPartyId = null;
-  state.checkedInsurancePlan = null;
-  state.checkedInsuranceCoverageType = null;
-  state.routing = null;
-  state.allowedProviders = [];
-  state.routingAmbiguous = false;
-  state.preauthRequired = false;
-  state.appointmentsStatus = null;
-  state.appointments = [];
-  state.appointmentCancelTokens = {};
+function clearSessionPatientRecord(state: CallState): void {
+  state.private.patients = {};
+  state.private.appointments = {};
   reduceFlowEvent(state.flow, {
     id: nextFlowEventId("patient_session_cleared"),
     type: "patient_session_cleared",
@@ -998,14 +1015,6 @@ function clearSessionPatientRecord(
 
 function syncSessionPatientFromActiveFlow(state: CallState): void {
   const patient = ensureActivePatientContext(state.flow);
-  state.patientId = patient.patientId ?? null;
-  state.patientName = formatPatientName(
-    patient.firstName?.value,
-    patient.lastName?.value,
-  );
-  state.dob = patient.dob?.value ?? null;
-  state.appointments = [...patient.appointments];
-  state.appointmentsStatus = patient.appointmentsStatus ?? null;
   if (state.flow.patientStatus !== patient.status) {
     reduceFlowEvent(state.flow, {
       id: nextFlowEventId("active_patient_status"),
@@ -1015,26 +1024,13 @@ function syncSessionPatientFromActiveFlow(state: CallState): void {
       patientStatus: patient.status,
     });
   }
-
-  if (patient.insurance) {
-    state.insuranceCarrier =
-      patient.insurance.canonicalPlan ??
-      patient.insurance.plan?.value ??
-      state.insuranceCarrier;
-    state.checkedInsurancePlan =
-      patient.insurance.canonicalPlan ??
-      patient.insurance.plan?.value ??
-      state.checkedInsurancePlan;
-    state.checkedInsuranceCoverageType =
-      patient.insurance.coverageType ?? state.checkedInsuranceCoverageType;
-  }
 }
 
 function routingForAvailability(state: CallState): string | null {
-  if (state.checkedInsuranceCoverageType === "routine_vision") {
+  if (activeInsuranceContext(state).coverageType === "routine_vision") {
     return "optical_only";
   }
-  return state.routing;
+  return activeRoutingContext(state).routing;
 }
 
 function buildAvailabilityLookupRequestForState(
@@ -1063,9 +1059,10 @@ function buildAvailabilityLookupRequestForState(
   ensureRoutineVisionOffice(state);
   const effectiveRouting = routingForAvailability(state);
   const body: Record<string, unknown> = { date };
-  if (state.dob) body.dob = state.dob;
+  const dob = activePatientDob(state);
+  if (dob) body.dob = dob;
   if (effectiveRouting) body.routing = effectiveRouting;
-  if (state.preauthRequired) body.preauthRequired = true;
+  if (activeRoutingContext(state).preauthRequired) body.preauthRequired = true;
   return { body, date, routing: effectiveRouting };
 }
 
@@ -1100,7 +1097,7 @@ function inferAppointmentKindForBooking(
   if (appointmentKind) return appointmentKind;
   if (
     routing === "optical_only" ||
-    state.checkedInsuranceCoverageType === "routine_vision" ||
+    activeInsuranceContext(state).coverageType === "routine_vision" ||
     state.flow.visitType === "routine_vision" ||
     state.flow.schedulingGoal?.visitType === "routine_vision"
   ) {
@@ -1152,9 +1149,8 @@ function clearAvailabilitySelection(
   state: CallState,
   invalidationReason?: AvailabilityInvalidationReason,
 ): void {
-  clearAvailabilitySlots(state);
-  state.lastAvailabilityRouting = null;
   if (invalidationReason) {
+    clearAvailabilityPrivateData(state);
     reduceFlowEvent(state.flow, {
       id: nextFlowEventId("availability_invalidated"),
       type: "availability_invalidated",
@@ -1162,7 +1158,9 @@ function clearAvailabilitySelection(
       createdAt: Date.now(),
       reason: invalidationReason,
     });
+    return;
   }
+  clearAvailabilitySlots(state);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1226,7 +1224,7 @@ function bookingTokenForSelectedSlot(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
 ): string | ToolOutcome {
-  const bookingToken = selectedSlot.bookingToken?.trim();
+  const bookingToken = availabilityBookingToken(state, selectedSlot.slotId);
   if (bookingToken) return bookingToken;
   clearAvailabilitySelection(state);
   return toolOutcome(
@@ -1284,12 +1282,17 @@ function markRescheduleOldAppointmentCancelled(
 }
 
 function ensureRoutineVisionOffice(state: CallState): void {
-  if (state.checkedInsuranceCoverageType !== "routine_vision") return;
-  if (!getOfficeConfig(state.officeKey).features.routeRoutineVisionToSpringHill)
+  if (activeInsuranceContext(state).coverageType !== "routine_vision") return;
+  if (
+    !getOfficeConfig(activeOfficeKey(state)).features
+      .routeRoutineVisionToSpringHill
+  )
     return;
   clearAvailabilitySelection(state, "office_changed");
-  state.officeKey = "spring-hill";
-  state.amdOfficePhone = getSpringHillOfficePhone();
+  state.runtime.officePhoneOverrides = {
+    ...(state.runtime.officePhoneOverrides ?? {}),
+    "spring-hill": getSpringHillOfficePhone(),
+  };
   reduceFlowEvent(state.flow, {
     id: nextFlowEventId("routine_vision_office"),
     type: "routine_vision_office_ensured",
@@ -1303,14 +1306,15 @@ function ensureAvailabilityVisitContext(state: CallState): void {
   if (state.flow.visitType) return;
 
   const knownCoverageType =
-    state.flow.coverageType ?? state.checkedInsuranceCoverageType;
+    state.flow.coverageType ?? activeInsuranceContext(state).coverageType;
   const inferredVisitType =
     state.flow.schedulingGoal?.visitType ??
     classifyVisitType(state.flow.schedulingGoal?.visitReason);
 
   const visitType =
     inferredVisitType ??
-    (knownCoverageType === "routine_vision" || state.routing === "optical_only"
+    (knownCoverageType === "routine_vision" ||
+    activeRoutingContext(state).routing === "optical_only"
       ? "routine_vision"
       : "medical");
 
@@ -1454,10 +1458,7 @@ For caller-phone lookup, provide firstName only; the phone comes from session st
     );
     if (identityChanged) {
       clearAvailabilitySelection(state, "patient_changed");
-      clearSessionPatientRecord(state, {
-        patientName: formatPatientName(firstName, lastName),
-        dob: dob ?? null,
-      });
+      clearSessionPatientRecord(state);
     }
     const result = await resolvePatientForCall(state, request);
     const publicResult = publicPatientResolveResult(result, request);
@@ -1522,9 +1523,10 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
         toolCallId,
       );
     }
-    const insurance = state.checkedInsurancePlan ?? params.insurance;
+    const checkedInsurance = activeInsuranceContext(state);
+    const insurance = checkedInsurance.canonicalPlan ?? params.insurance;
     const selfPay = normalizeInsuranceText(insurance) === "self pay";
-    const phone = params.phone ?? state.callerPhone;
+    const phone = params.phone ?? runtimeCallerPhone(state);
     if (!phone) {
       return toolOutcome(
         "needs_clarification",
@@ -1541,7 +1543,7 @@ Preauth insurances: United Healthcare HMO, Aetna HMO, Florida Blue Medicare HMO,
       payload.subscriberName =
         params.subscriberName || `${params.firstName} ${params.lastName}`;
     }
-    if (state.checkedInsuranceCoverageType === "routine_vision") {
+    if (checkedInsurance.coverageType === "routine_vision") {
       payload.coverageType = "routine_vision";
     }
     if (typeof params.email === "string" && params.email.trim()) {
@@ -1623,7 +1625,8 @@ After response: session state updates automatically. If preauthRequired, schedul
         toolCallId,
       );
     }
-    if (!state.patientId) {
+    const patientId = activePatientId(state);
+    if (!patientId) {
       return toolOutcome(
         "not_allowed",
         "verify_patient",
@@ -1632,20 +1635,23 @@ After response: session state updates automatically. If preauthRequired, schedul
         true,
       );
     }
+    const currentInsurance = activeInsuranceContext(state);
+    const backendRefs = patientBackendRefs(state);
     const insuranceForMiddleware =
-      state.checkedInsuranceCoverageType === "medical"
-        ? (state.checkedInsurancePlan ?? insurance)
+      currentInsurance.coverageType === "medical"
+        ? (currentInsurance.canonicalPlan ?? insurance)
         : insurance;
     const subscriberNumForMiddleware =
       normalizeInsuranceText(insuranceForMiddleware) === "self pay"
         ? "self pay"
         : subscriberNum;
     const payload: Record<string, unknown> = {
-      patientId: state.patientId,
-      ...(state.dob ? { dob: state.dob } : {}),
-      insPlanId: state.insPlanId ?? "",
-      respPartyId: state.respPartyId ?? "",
-      oldInsurance: state.insuranceCarrier ?? "",
+      patientId,
+      ...(activePatientDob(state) ? { dob: activePatientDob(state) } : {}),
+      insPlanId: backendRefs.insPlanId ?? "",
+      respPartyId: backendRefs.respPartyId ?? "",
+      oldInsurance:
+        currentInsurance.currentCarrier ?? currentInsurance.plan ?? "",
       insurance: insuranceForMiddleware,
       subscriberName,
       subscriberNum: subscriberNumForMiddleware,
@@ -1671,22 +1677,25 @@ After response: session state updates automatically. If preauthRequired, schedul
           preauthRequired: result.preauthRequired,
         },
       );
-      state.insuranceCarrier = result.newInsurance ?? state.insuranceCarrier;
-      state.insPlanId = result.insPlanId ?? null;
-      state.respPartyId = result.respPartyId ?? null;
-      state.routing = result.routing ?? state.routing;
-      state.allowedProviders =
-        result.allowedProviders ?? state.allowedProviders;
-      state.routingAmbiguous = result.routingAmbiguous ?? false;
-      state.preauthRequired = result.preauthRequired ?? false;
+      setPatientBackendRefs(state, activePatientRef(state), {
+        insPlanId: result.insPlanId ?? null,
+        respPartyId: result.respPartyId ?? null,
+      });
+      const newInsurance =
+        result.newInsurance ?? currentInsurance.canonicalPlan ?? insurance;
       reduceFlowEvent(state.flow, {
         id: nextFlowEventId("active_patient_insurance"),
         type: "active_patient_insurance_updated",
         source: "tool_result",
         createdAt: Date.now(),
-        plan: state.insuranceCarrier,
-        coverageType: state.checkedInsuranceCoverageType,
-        canonicalPlan: state.checkedInsurancePlan ?? state.insuranceCarrier,
+        plan: newInsurance,
+        coverageType: currentInsurance.coverageType,
+        canonicalPlan: newInsurance,
+        currentCarrier: newInsurance,
+        routing: normalizeSchedulingRouting(result.routing),
+        allowedProviders: result.allowedProviders ?? [],
+        routingAmbiguous: result.routingAmbiguous ?? false,
+        preauthRequired: result.preauthRequired ?? false,
       });
       clearAvailabilitySelection(state, "insurance_changed");
       updateCurrentTaskStep(
@@ -1724,33 +1733,24 @@ After response: follow the reply and next fields. If result is slots_found, offe
       request.body,
       getAmdOfficeForToolCall(state),
     );
-    state.lastAvailabilityRouting = request.routing;
     if (!isFlowHarnessEnabled(state)) {
       return storeAvailabilitySlots(state, result, request.routing);
     }
     const availabilityRecord = recordAvailabilitySearch(state.flow, {
       patientRef: state.flow.activePatientRef,
-      officeKey: state.officeKey,
+      officeKey: activeOfficeKey(state),
       visitType: state.flow.visitType,
       coverageType: state.flow.coverageType,
       routing: request.routing,
       date: request.date,
     });
-    const modelResult = storeAvailabilitySlots(state, result, request.routing);
+    const modelResult = storeAvailabilitySlots(state, result, request.routing, {
+      searchId: availabilityRecord.search.id,
+    });
     recordAvailabilitySearchRange(availabilityRecord.search, result);
-    recordAvailabilityCachedSlots(
-      state.flow,
-      state.lastAvailabilitySlots.map((slot) => ({
-        slotId: slot.slotId,
-        datetime: slot.datetime,
-        columnId: slot.columnId,
-        profileId: slot.profileId,
-        duration: slot.duration,
-      })),
-    );
     updateCurrentTaskStep(
       state,
-      state.lastAvailabilitySlots.length > 0
+      lastAvailabilitySlotsForState(state).length > 0
         ? "confirm_booking"
         : "get_availability",
     );
@@ -1805,7 +1805,8 @@ Requires appointmentId — use the ID from the caller context or from a verify_p
         toolCallId,
       );
     }
-    if (!state.patientId) {
+    const patientId = activePatientId(state);
+    if (!patientId) {
       return toolOutcome(
         "not_allowed",
         "verify_patient",
@@ -1814,8 +1815,21 @@ Requires appointmentId — use the ID from the caller context or from a verify_p
         true,
       );
     }
+    const loadedAppointment = activeAppointmentById(state, appointmentId);
+    if (!loadedAppointment) {
+      return toolOutcome(
+        "not_allowed",
+        "confirm_cancel",
+        "Load the patient's appointments again, read back the exact appointment, and confirm before cancelling.",
+        {
+          reason: "cancel_requires_loaded_appointment",
+          appointmentId,
+        },
+        true,
+      );
+    }
     let cancelToken = cancelTokenForAppointment(state, appointmentId);
-    if (!cancelToken && activeAppointmentById(state, appointmentId)) {
+    if (!cancelToken) {
       cancelToken = await refreshCancelTokenForAppointment(
         state,
         appointmentId,
@@ -1835,7 +1849,7 @@ Requires appointmentId — use the ID from the caller context or from a verify_p
     }
     const result = await callApi(
       "/api/appointment/cancel",
-      { appointmentId, patientId: state.patientId, cancelToken },
+      { appointmentId, patientId, cancelToken },
       getAmdOfficeForToolCall(state),
       { includeOffice: false },
     );
@@ -1914,7 +1928,8 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
         false,
       );
     }
-    if (!state.patientId) {
+    const patientId = activePatientId(state);
+    if (!patientId) {
       const policyResponse = evaluatePolicyForState(state, "book_appt", params);
       return (
         policyResponse ??
@@ -1938,9 +1953,9 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
           booking: {
             patientRef: state.flow.activePatientRef,
             slotHash: normalizeSlotId(params.slotId),
-            officeKey: state.officeKey,
+            officeKey: activeOfficeKey(state),
             routing:
-              state.lastAvailabilityRouting ?? routingForAvailability(state),
+              latestAvailabilityRouting(state) ?? routingForAvailability(state),
           },
         },
       );
@@ -1958,7 +1973,7 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
     }
     const routing =
       selectedSlot.routing ??
-      state.lastAvailabilityRouting ??
+      latestAvailabilityRouting(state) ??
       routingForAvailability(state);
     const bookingMetadata = resolveBookingNoteMetadata(
       state,
@@ -1970,7 +1985,7 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
     const bookingPolicyFacts = {
       patientRef: state.flow.activePatientRef,
       slotHash: selectedSlot.slotId,
-      officeKey: state.officeKey,
+      officeKey: activeOfficeKey(state),
       routing,
     };
     if (!speechReady) {
@@ -2018,11 +2033,13 @@ Only book after the caller says yes to the exact offered slot. If the tool says 
     const body = {
       bookingToken,
       ...appointmentIntent,
-      patientId: state.patientId,
+      patientId,
       appointmentReason,
       referringDoctor,
-      ...(state.patientName ? { patientName: state.patientName } : {}),
-      ...(state.dob ? { dob: state.dob } : {}),
+      ...(activePatientName(state)
+        ? { patientName: activePatientName(state) }
+        : {}),
+      ...(activePatientDob(state) ? { dob: activePatientDob(state) } : {}),
       ...(routing ? { routing } : {}),
     };
     const result = await callApi(
@@ -2114,6 +2131,10 @@ Use this when the caller reached Crystal River but the visit must be handled thr
       );
     }
     const springHillOffice = getSpringHillOfficePhone();
+    state.runtime.officePhoneOverrides = {
+      ...(state.runtime.officePhoneOverrides ?? {}),
+      "spring-hill": springHillOffice,
+    };
     recordSideEffectToolSucceeded(
       state,
       "route_to_spring_hill",
@@ -2125,8 +2146,13 @@ Use this when the caller reached Crystal River but the visit must be handled thr
       },
     );
     clearAvailabilitySelection(state, "office_changed");
-    state.officeKey = "spring-hill";
-    state.amdOfficePhone = springHillOffice;
+    reduceFlowEvent(state.flow, {
+      id: nextFlowEventId("office_routed"),
+      type: "office_routed",
+      source: "tool_result",
+      createdAt: Date.now(),
+      officeKey: "spring-hill",
+    });
     return toolOutcome(
       "success",
       state.flow.step,
@@ -2164,12 +2190,12 @@ Include coverageType only when the visit is clearly medical or routine vision. F
     if (policyResponse) return policyResponse;
     const normalizedCoverageType = normalizeCoverageType(coverageType);
     const result = matchInsurancePlanForOffice(
-      state.officeKey,
+      activeOfficeKey(state),
       plan,
       normalizedCoverageType,
     );
-    state.checkedInsurancePlan = canonicalInsurancePlan(result);
-    state.checkedInsuranceCoverageType = state.checkedInsurancePlan
+    const checkedInsurancePlan = canonicalInsurancePlan(result);
+    const checkedInsuranceCoverageType = checkedInsurancePlan
       ? normalizedCoverageType
       : null;
     reduceFlowEvent(state.flow, {
@@ -2178,14 +2204,14 @@ Include coverageType only when the visit is clearly medical or routine vision. F
       source: "tool_result",
       createdAt: Date.now(),
       plan,
-      canonicalPlan: state.checkedInsurancePlan,
-      coverageType: state.checkedInsuranceCoverageType,
+      canonicalPlan: checkedInsurancePlan,
+      coverageType: checkedInsuranceCoverageType,
       status: result.status,
-      officeKey: state.officeKey,
+      officeKey: activeOfficeKey(state),
     });
     const response = buildInsuranceToolResponse(result);
     if (
-      state.officeKey === "crystal-river" &&
+      activeOfficeKey(state) === "crystal-river" &&
       result.status === "not_accepted"
     ) {
       const springHillResult = matchInsurancePlanForOffice("spring-hill", plan);
@@ -2221,7 +2247,7 @@ Answer naturally from the returned info — just the part that answers their que
   execute: async ({ question }, { ctx }) => {
     const state = getState(ctx);
     makeCurrentSpeechUninterruptible(ctx);
-    const result = lookupOfficeKnowledge(state.officeKey, question);
+    const result = lookupOfficeKnowledge(activeOfficeKey(state), question);
     if (state.flow.currentTask?.kind === "faq") {
       completeCurrentTaskAndResume(state.flow);
     }
@@ -2238,7 +2264,7 @@ export const transfer_call = llm.tool({
     const state = getState(ctx);
     const speechReady = makeCurrentSpeechUninterruptible(ctx);
     // Guard: prevent duplicate transfers (LLM sometimes calls this twice)
-    if (state.transferred || state.transferInFlight) {
+    if (state.runtime.transferred || state.runtime.transferInFlight) {
       return toolOutcome(
         "success",
         "answer",
@@ -2247,7 +2273,7 @@ export const transfer_call = llm.tool({
         false,
       );
     }
-    if (state.transferAttempted) {
+    if (state.runtime.transferAttempted) {
       return toolOutcome(
         "not_allowed",
         "answer",
@@ -2275,13 +2301,13 @@ export const transfer_call = llm.tool({
         toolCallId,
       );
     }
-    state.transferAttempted = true;
-    state.transferInFlight = true;
+    state.runtime.transferAttempted = true;
+    state.runtime.transferInFlight = true;
     try {
       // Wait for the transfer announcement to finish playing before initiating
       await ctx.waitForPlayout();
-      if (!state.sipRoomName || !state.sipParticipantIdentity) {
-        state.transferInFlight = false;
+      if (!state.runtime.sipRoomName || !state.runtime.sipParticipantIdentity) {
+        state.runtime.transferInFlight = false;
         return toolOutcome(
           "error",
           "handoff",
@@ -2301,10 +2327,10 @@ export const transfer_call = llm.tool({
           handoffOfficeKey,
         },
       );
-      state.transferred = true;
-      state.transferInFlight = false;
+      state.runtime.transferred = true;
+      state.runtime.transferInFlight = false;
       console.log(
-        `[tools] Transferred ${state.sipParticipantIdentity} to ${handoffTarget}`,
+        `[tools] Transferred ${state.runtime.sipParticipantIdentity} to ${handoffTarget}`,
       );
       // Framework handles shutdown via close_on_disconnect when the
       // SIP participant leaves after the transfer completes.
@@ -2318,7 +2344,7 @@ export const transfer_call = llm.tool({
         false,
       );
     } catch (err) {
-      state.transferInFlight = false;
+      state.runtime.transferInFlight = false;
       console.error("[tools] Transfer failed:", err);
       return toolOutcome(
         "error",

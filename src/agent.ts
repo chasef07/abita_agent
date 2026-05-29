@@ -64,10 +64,11 @@ export class Agent extends voice.Agent {
   ): Promise<void> {
     const state = this.session.userData as CallState | undefined;
     const transcript = newMessage.textContent ?? "";
-    if (!state?.flowHarnessEnabled || !state.flow || !transcript) return;
+    if (!state?.runtime.flowHarnessEnabled || !state.flow || !transcript)
+      return;
 
-    state.latestUserTranscript = transcript;
-    state.turnUnderstandingAppliedForTranscript = null;
+    state.runtime.latestUserTranscript = transcript;
+    state.runtime.turnUnderstandingAppliedForTranscript = null;
     const activePatientRefBefore = state.flow.activePatientRef;
     const preCallIdentity = reduceFlowEvent(state.flow, {
       id: nextFlowEventId("pre_call_identity"),
@@ -94,9 +95,9 @@ export class Agent extends voice.Agent {
         understanding: inferred,
         source: "deterministic_understanding",
       });
-      state.turnUnderstandingAppliedForTranscript = transcript;
+      state.runtime.turnUnderstandingAppliedForTranscript = transcript;
       if (turn.update) {
-        state.lastTurnUnderstanding = {
+        state.runtime.lastTurnUnderstanding = {
           goal: turn.update.understanding.goal,
           appointmentAction: turn.update.understanding.appointmentAction,
           confidence: turn.update.understanding.confidence,
@@ -106,7 +107,7 @@ export class Agent extends voice.Agent {
       }
     } else if (preCallIdentity?.changed) {
       advanceWorkflow(state.flow, { type: "facts_changed" });
-      state.turnUnderstandingAppliedForTranscript = transcript;
+      state.runtime.turnUnderstandingAppliedForTranscript = transcript;
     }
     await refreshAgentToolsForSession(
       this.session,

@@ -1389,21 +1389,43 @@ export function updateActivePatientInsurance(
     plan?: string | null;
     coverageType?: InsuranceContext["coverageType"] | null;
     canonicalPlan?: string | null;
+    currentCarrier?: string | null;
     source?: TrackedSlotSource;
   },
 ): PatientContext {
   const patient = ensureActivePatientContext(flow);
   const source = insurance.source ?? "tool_result";
-  patient.insurance = {
-    ...(patient.insurance ?? {}),
-    ...(insurance.plan
-      ? { plan: trackedSlot(insurance.plan, source, "medium", true) }
-      : {}),
-    ...(insurance.coverageType ? { coverageType: insurance.coverageType } : {}),
-    ...(insurance.canonicalPlan
-      ? { canonicalPlan: insurance.canonicalPlan }
-      : {}),
-  };
+  const nextInsurance = { ...(patient.insurance ?? {}) };
+  if (insurance.plan !== undefined) {
+    if (insurance.plan) {
+      nextInsurance.plan = trackedSlot(insurance.plan, source, "medium", true);
+    } else {
+      delete nextInsurance.plan;
+    }
+  }
+  if (insurance.coverageType !== undefined) {
+    if (insurance.coverageType) {
+      nextInsurance.coverageType = insurance.coverageType;
+    } else {
+      delete nextInsurance.coverageType;
+    }
+  }
+  if (insurance.canonicalPlan !== undefined) {
+    if (insurance.canonicalPlan) {
+      nextInsurance.canonicalPlan = insurance.canonicalPlan;
+    } else {
+      delete nextInsurance.canonicalPlan;
+    }
+  }
+  if (insurance.currentCarrier !== undefined) {
+    if (insurance.currentCarrier) {
+      nextInsurance.currentCarrier = insurance.currentCarrier;
+    } else {
+      delete nextInsurance.currentCarrier;
+    }
+  }
+  patient.insurance =
+    Object.keys(nextInsurance).length > 0 ? nextInsurance : undefined;
   return patient;
 }
 

@@ -16,6 +16,7 @@ import {
   verify_patient,
 } from "../tools.js";
 import type { CallState } from "./call-state.js";
+import { activeOfficeKey, runtimeTrunkPhone } from "./call-state.js";
 import {
   buildToolExposureDecision,
   type AgentToolMap,
@@ -59,7 +60,7 @@ export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
 export function buildToolsForState(state: CallState): ToolExposureDecision {
   return buildToolExposureDecision({
     state,
-    office: getOfficeConfig(state.officeKey),
+    office: getOfficeConfig(activeOfficeKey(state)),
     allTools: ALL_TOOLS,
   });
 }
@@ -69,7 +70,7 @@ export async function applyDynamicToolsToAgent(
   state: CallState,
   reason: string,
 ): Promise<void> {
-  if (!state.dynamicToolsEnabled) return;
+  if (!state.runtime.dynamicToolsEnabled) return;
   const decision = buildToolsForState(state);
   await agent.updateTools(decision.tools);
   recordToolExposure(state, decision, reason);
@@ -80,7 +81,7 @@ export async function refreshAgentToolsForSession(
   reason: string,
 ): Promise<void> {
   const state = session.userData;
-  if (!state.dynamicToolsEnabled) return;
+  if (!state.runtime.dynamicToolsEnabled) return;
 
   try {
     const decision = buildToolsForState(state);
@@ -93,7 +94,7 @@ export async function refreshAgentToolsForSession(
       )}`,
     );
     await session.currentAgent.updateTools(
-      buildToolsForTrunk(state.trunkPhone),
+      buildToolsForTrunk(runtimeTrunkPhone(state)),
     );
   }
 }
@@ -103,7 +104,7 @@ function recordToolExposure(
   decision: ToolExposureDecision,
   reason: string,
 ): void {
-  state.latestToolExposure = {
+  state.runtime.latestToolExposure = {
     visibleToolNames: decision.visibleToolNames,
     reason: decision.reason,
     refreshReason: reason,
