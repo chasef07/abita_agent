@@ -720,9 +720,7 @@ describe("model-facing tool definitions", () => {
     expect(add_patient.description).toContain(
       "Do not infer age from Bach-only routing",
     );
-    expect(get_availability.description).toContain(
-      "Do not infer age from bach_only routing",
-    );
+    expect(get_availability.description).not.toContain("bach_only routing");
     expect(get_availability.description).not.toContain(
       "Under 18 medical visits = Dr. Bach only",
     );
