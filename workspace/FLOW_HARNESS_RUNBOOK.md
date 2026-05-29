@@ -21,6 +21,8 @@ Before availability, triage the scheduling lane:
 - Routine vision: routine eye exam, glasses prescription, or contact lens prescription using accepted vision coverage or self-pay.
 - Optical shop tasks: glasses orders, repairs, pickup, warranty, frames, or contact lens orders usually transfer unless lookup_knowledge can answer a simple fact.
 
+Before new-patient registration, triage the visit lane and check the matching insurance coverage or self-pay status. Do not start collecting registration demographics until those two facts are resolved.
+
 ## Insurance And Self-Pay
 
 Use self-pay only when the caller says the patient does not have insurance or wants self-pay. Self-pay is not a placeholder.

@@ -23,6 +23,7 @@ export type GuardObservationReason =
   | "duplicate_tool_call_same_args"
   | "verify_patient_pre_call_already_confirmed"
   | "routine_vision_crystal_river_requires_route_to_spring_hill"
+  | "new_patient_requires_visit_type_before_registration"
   | "new_patient_requires_insurance_check_before_registration"
   | "availability_duplicate_search_signature"
   | "availability_search_range_already_checked"
@@ -145,6 +146,10 @@ function guardReason(
     (stateFacts.officeKey ?? flow.officeKey) === "crystal-river"
   ) {
     return "routine_vision_crystal_river_requires_route_to_spring_hill";
+  }
+
+  if (toolName === "add_patient" && !flow.visitType) {
+    return "new_patient_requires_visit_type_before_registration";
   }
 
   if (

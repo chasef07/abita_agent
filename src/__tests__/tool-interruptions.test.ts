@@ -32,6 +32,7 @@ import {
   verify_patient,
   type CallState,
 } from "../tools.js";
+import { reconcileCallStateAfterActivePatientChange } from "../tooling/call-state.js";
 import {
   createPatientContext,
   createPendingBookingAction,
@@ -3342,6 +3343,89 @@ describe("tool interruption handling", () => {
           type: "add_patient",
           confirmed: true,
           consumed: true,
+        }),
+      ]),
+    );
+  });
+
+  it("keeps checked insurance when a scratch registration candidate changes before add_patient", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "created",
+        patientId: "patient-2",
+        name: "Doe, Jane",
+        dob: "01/01/1980",
+        routing: "bach_only",
+        allowedProviders: ["Dr. Bach"],
+        appointments: [],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    resetToNewPatientRegistration(state, "Jane Doe readback");
+    const params = {
+      firstName: "Jane",
+      lastName: "Doe",
+      dob: "01/01/1980",
+      street: "123 Main St",
+      aptSuite: "",
+      city: "Spring Hill",
+      state: "FL",
+      zip: "34609",
+      sex: "female" as const,
+      insurance: "Humana Healthy Horizons",
+      subscriberName: "Jane Doe",
+      subscriberNum: "ABC123",
+    };
+
+    const requestResult = await add_patient.execute(params, {
+      ctx,
+      toolCallId: "test-add-confirmation-request",
+    });
+    expect(requestResult).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "collect_registration",
+      facts: {
+        reason: "side_effect_confirmation_required",
+        confirmationRecorded: "pending",
+      },
+    });
+
+    state.flow.patients["candidate:voice-artifact"] = createPatientContext({
+      ref: "candidate:voice-artifact",
+      status: "candidate",
+    });
+    state.flow.activePatientRef = "candidate:voice-artifact";
+    state.flow.patientStatus = "candidate";
+    reconcileCallStateAfterActivePatientChange(state, "patient_changed");
+    expect(state.checkedInsurancePlan).toBe("Humana Healthy Horizons");
+
+    state.latestUserTranscript = "correct";
+    state.turnUnderstandingAppliedForTranscript = null;
+
+    const result = await add_patient.execute(params, {
+      ctx,
+      toolCallId: "test-add-after-candidate-shift",
+    });
+
+    expect(result).toMatchObject({
+      status: "created",
+      patientId: "patient-2",
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      insurance: "Humana Healthy Horizons",
+      phone: "+17275551212",
+      subscriberNum: "ABC123",
+    });
+    expect(state.flowGuardObservations).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          toolName: "add_patient",
+          reason: "new_patient_requires_insurance_check_before_registration",
         }),
       ]),
     );
