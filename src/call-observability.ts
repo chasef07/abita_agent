@@ -29,6 +29,15 @@ export type ToolExecutionAnalytics = {
   toolName: string;
 };
 
+export type SttProfileTransitionAnalytics = {
+  assistantText?: string;
+  callerText?: string;
+  createdAt: string;
+  from: string | null;
+  reason: string;
+  to: string;
+};
+
 export type SessionEventAnalytics = {
   close?: {
     createdAt: string;
@@ -95,6 +104,34 @@ function asString(value: unknown): string | null {
   if (typeof value === "string" && value.trim()) return value.trim();
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   return null;
+}
+
+function textSample(value: unknown, maxLength = 240): string | undefined {
+  const text = asString(value)?.replace(/\s+/g, " ");
+  if (!text) return undefined;
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 3)}...`;
+}
+
+export function snapshotSttProfileTransition(input: {
+  assistantText?: unknown;
+  callerText?: unknown;
+  createdAt?: TimestampInput;
+  from: string | null;
+  reason: string;
+  to: string;
+}): SttProfileTransitionAnalytics {
+  const assistantText = textSample(input.assistantText);
+  const callerText = textSample(input.callerText);
+
+  return {
+    ...(assistantText ? { assistantText } : {}),
+    ...(callerText ? { callerText } : {}),
+    createdAt: timestampToIso(input.createdAt),
+    from: input.from,
+    reason: input.reason,
+    to: input.to,
+  };
 }
 
 function asNumber(value: unknown): number {

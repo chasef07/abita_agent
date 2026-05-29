@@ -181,6 +181,19 @@ const QUESTION_CUES = [
 
 const EMAIL_CUES = ["email", "e-mail"] as const;
 
+const FOLLOWUP_CUES = [
+  "what is it",
+  "what's that",
+  "what is that",
+  "go ahead",
+  "can you spell",
+  "could you spell",
+  "spell that",
+  "say that again",
+  "repeat that",
+  "one more time",
+] as const;
+
 const MEMBER_ID_CUES = [
   "member id",
   "member i d",
@@ -201,6 +214,11 @@ const INTAKE_CUES = [
   "d o b",
   "birthday",
   "birth date",
+  "son's name",
+  "child's name",
+  "patient's name",
+  "first name",
+  "last name",
   "phone number",
   "best number",
   "address",
@@ -232,6 +250,9 @@ function isQuestionLike(text: string): boolean {
 
 export function selectAssemblyAISttProfileForAssistantText(
   text: string,
+  options: {
+    fallbackProfile?: AssemblyAISttProfile | null;
+  } = {},
 ): AssemblyAISttProfile {
   const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
   if (!normalized || !isQuestionLike(normalized)) {
@@ -256,6 +277,15 @@ export function selectAssemblyAISttProfileForAssistantText(
 
   if (includesAny(normalized, INSURANCE_CUES)) {
     return "insurance";
+  }
+
+  const fallbackProfile = options.fallbackProfile ?? null;
+  if (
+    fallbackProfile &&
+    fallbackProfile !== "default" &&
+    includesAny(normalized, FOLLOWUP_CUES)
+  ) {
+    return fallbackProfile;
   }
 
   return "default";

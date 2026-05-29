@@ -131,9 +131,28 @@ describe("official AssemblyAI plugin", () => {
       ),
     ).toBe("email");
     expect(
+      selectAssemblyAISttProfileForAssistantText("What's your son's name?"),
+    ).toBe("intake");
+    expect(
       selectAssemblyAISttProfileForAssistantText(
         "Let me confirm: I have Maria Santos, date of birth March fifth, Florida Blue, member ID A B C one two three. Is that right?",
       ),
     ).toBe("default");
+  });
+
+  it("keeps entity profiles active across short follow-up prompts", () => {
+    expect(selectAssemblyAISttProfileForAssistantText("What is it?")).toBe(
+      "default",
+    );
+    expect(
+      selectAssemblyAISttProfileForAssistantText("What is it?", {
+        fallbackProfile: "email",
+      }),
+    ).toBe("email");
+    expect(
+      selectAssemblyAISttProfileForAssistantText("Go ahead, spell that.", {
+        fallbackProfile: "memberId",
+      }),
+    ).toBe("memberId");
   });
 });

@@ -7,6 +7,7 @@ import {
   snapshotErrorEvent,
   snapshotFalseInterruptionEvent,
   snapshotOverlappingSpeechEvent,
+  snapshotSttProfileTransition,
   snapshotToolExecutions,
 } from "../call-observability.js";
 
@@ -286,6 +287,37 @@ describe("call observability", () => {
     expect(events.close.reason).toBe("participant_disconnected");
     expect(events.falseInterruptions[0].resumed).toBe(true);
     expect(events.overlappingSpeech[0].durationMs).toBe(1250);
+  });
+
+  it("captures bounded STT profile transitions for call reports", () => {
+    const transition = snapshotSttProfileTransition({
+      assistantText: "Do you have an email address?",
+      callerText: "yes",
+      createdAt: Date.parse("2026-05-20T10:05:00.000Z"),
+      from: "default",
+      reason: "assistant_prompt",
+      to: "email",
+    });
+
+    expect(transition).toEqual({
+      assistantText: "Do you have an email address?",
+      callerText: "yes",
+      createdAt: "2026-05-20T10:05:00.000Z",
+      from: "default",
+      reason: "assistant_prompt",
+      to: "email",
+    });
+
+    const longText = "x".repeat(300);
+    expect(
+      snapshotSttProfileTransition({
+        assistantText: longText,
+        createdAt: Date.parse("2026-05-20T10:05:01.000Z"),
+        from: "email",
+        reason: "assistant_prompt",
+        to: "default",
+      }).assistantText,
+    ).toHaveLength(240);
   });
 
   it("summarizes LLM fallback and cache metrics", () => {

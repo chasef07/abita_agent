@@ -25,7 +25,9 @@ import {
   snapshotErrorEvent,
   snapshotFalseInterruptionEvent,
   snapshotOverlappingSpeechEvent,
+  snapshotSttProfileTransition,
   snapshotToolExecutions,
+  type SttProfileTransitionAnalytics,
   type ToolExecutionAnalytics,
 } from "./call-observability.js";
 import { RoomServiceClient } from "livekit-server-sdk";
@@ -57,6 +59,7 @@ import {
   getAssemblyAISttProfileOptions,
   selectAssemblyAISttProfileForAssistantText,
 } from "./stt-config.js";
+import { voiceTurnHandlingOptions } from "./session-options.js";
 
 dotenv.config({ path: ".env.local" });
 
@@ -115,21 +118,7 @@ export default defineAgent({
         tts,
         vad,
         maxToolSteps: 10,
-        // preemptiveGeneration: false,
-        turnHandling: {
-          turnDetection: "stt",
-          interruption: {
-            mode: "adaptive",
-            minDuration: 1000,
-            minWords: 3,
-            discardAudioIfUninterruptible: true,
-            falseInterruptionTimeout: 2500,
-            resumeFalseInterruption: true,
-          },
-          endpointing: {
-            minDelay: 0,
-          },
-        },
+        turnHandling: voiceTurnHandlingOptions,
       });
 
       // Connect and wait for the SIP participant
@@ -210,21 +199,45 @@ export default defineAgent({
         );
       }
 
+      let activeSttProfile: AssemblyAISttProfile = "default";
+      let promptedSttProfile: AssemblyAISttProfile | null = null;
       const startedAt = new Date();
+      const sttProfiles: SttProfileTransitionAnalytics[] = [
+        snapshotSttProfileTransition({
+          createdAt: startedAt,
+          from: null,
+          reason: "startup",
+          to: activeSttProfile,
+        }),
+      ];
       const turnMetrics: TurnMetricSnapshot[] = [];
       const toolExecutions: ToolExecutionAnalytics[] = [];
       const sessionEvents = createEmptySessionEventAnalytics();
       let latestUsage: Record<string, unknown> | undefined;
 
-      let activeSttProfile: AssemblyAISttProfile = "default";
       const applySttProfile = (
         profile: AssemblyAISttProfile,
         reason: string,
+        details: {
+          assistantText?: string;
+          callerText?: string;
+          createdAt?: number;
+        } = {},
       ) => {
         if (profile === activeSttProfile) return;
 
+        const previousProfile = activeSttProfile;
         stt.updateOptions(getAssemblyAISttProfileOptions(profile));
         activeSttProfile = profile;
+        sttProfiles.push(
+          snapshotSttProfileTransition({
+            ...details,
+            createdAt: details.createdAt ?? Date.now(),
+            from: previousProfile,
+            reason,
+            to: profile,
+          }),
+        );
         console.log(`[stt] AssemblyAI profile=${profile} reason=${reason}`);
       };
 
@@ -249,10 +262,18 @@ export default defineAgent({
 
         if (ev.item.role !== "assistant") return;
 
+        const assistantText = ev.item.textContent ?? "";
         const profile = selectAssemblyAISttProfileForAssistantText(
-          ev.item.textContent ?? "",
+          assistantText,
+          {
+            fallbackProfile: promptedSttProfile,
+          },
         );
-        applySttProfile(profile, "assistant_prompt");
+        promptedSttProfile = profile === "default" ? null : profile;
+        applySttProfile(profile, "assistant_prompt", {
+          assistantText,
+          createdAt: ev.createdAt,
+        });
       });
 
       session.on(voice.AgentSessionEventTypes.SessionUsageUpdated, (ev) => {
@@ -286,7 +307,10 @@ export default defineAgent({
 
       session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (ev) => {
         if (ev.isFinal) {
-          applySttProfile("default", "user_final");
+          applySttProfile("default", "user_final", {
+            callerText: ev.transcript,
+            createdAt: ev.createdAt,
+          });
         }
       });
 
@@ -359,6 +383,7 @@ export default defineAgent({
               usage: latestUsage ?? session.usage,
             }),
             llmMetrics,
+            sttProfiles,
             sessionEvents,
             toolExecutions,
             turnMetrics,
