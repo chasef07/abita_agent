@@ -76,6 +76,18 @@
     },
     {
       "aliases": [
+        "Sunshine",
+        "Sunshine Health",
+        "Sunshine Medicaid"
+      ],
+      "status": "accepted",
+      "family": "Envolve Vision",
+      "callerPlan": "Envolve Vision",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "aliases": [
         "Av Med"
       ],
       "status": "accepted",
@@ -504,6 +516,7 @@
     "Devoted Medicare HMO",
     "Devoted Medicare PPO",
     "Doctors Health Medicare",
+    "Envolve Vision",
     "Eye America AAO",
     "Eye Care Health Solutions",
     "Florida Blue",
@@ -544,7 +557,6 @@
     "Solis Medicare",
     "Staywell Medicare",
     "SunHealth",
-    "Sunshine Medicaid",
     "Tricare For Life",
     "Tricare Forever",
     "Tricare Prime",
