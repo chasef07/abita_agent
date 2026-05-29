@@ -191,6 +191,8 @@ export function reconcileCallStateAfterActivePatientChange(
   state: CallState,
   reason: AvailabilityInvalidationReason = "patient_changed",
 ): void {
+  const previousCheckedInsurancePlan = state.checkedInsurancePlan;
+  const previousCheckedInsuranceCoverageType = state.checkedInsuranceCoverageType;
   state.lastAvailabilitySlots = [];
   state.bookableAvailabilitySlots = [];
   state.availabilitySlotSequence = 0;
@@ -225,9 +227,26 @@ export function reconcileCallStateAfterActivePatientChange(
 
   const insurancePlan =
     patient.insurance?.canonicalPlan ?? patient.insurance?.plan?.value ?? null;
+  const registrationInProgress =
+    state.flow.pendingConfirmation?.type === "registration" ||
+    state.flow.pendingActions.some(
+      (action) =>
+        action.type === "add_patient" &&
+        !action.consumed &&
+        !action.invalidated,
+    );
+  const preserveCheckedInsurance =
+    patient.status === "candidate" &&
+    !insurancePlan &&
+    registrationInProgress &&
+    Boolean(previousCheckedInsurancePlan);
   state.insuranceCarrier = insurancePlan;
-  state.checkedInsurancePlan = insurancePlan;
-  state.checkedInsuranceCoverageType = patient.insurance?.coverageType ?? null;
+  state.checkedInsurancePlan = preserveCheckedInsurance
+    ? previousCheckedInsurancePlan
+    : insurancePlan;
+  state.checkedInsuranceCoverageType = preserveCheckedInsurance
+    ? previousCheckedInsuranceCoverageType
+    : (patient.insurance?.coverageType ?? null);
   state.insPlanId = null;
   state.respPartyId = null;
   state.routing = null;

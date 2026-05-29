@@ -308,7 +308,7 @@ export function planScheduling(
         },
       ],
       instruction:
-        "Collect the missing registration fields and insurance details, then read them back before creating the patient.",
+        "Only after visit type and accepted insurance or self-pay are resolved, collect the missing registration fields, then read them back before creating the patient.",
       step: "collect_registration",
       schedulingGoal: staleGoalPatch,
       resolvedMetaDecision,

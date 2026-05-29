@@ -1483,6 +1483,7 @@ export const add_patient = llm.tool({
 
 Rules:
 - Use only caller-provided facts. Never guess or use placeholders.
+- Before registration, triage the visit as medical or routine vision.
 - Run check_insurance first and use its canonicalPlan.
 - If routine vision, check insurance with coverageType "routine_vision" before registration.
 - Phone: if caller says the inbound number is good, omit phone; otherwise collect and pass the best callback number.

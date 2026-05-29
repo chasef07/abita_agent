@@ -701,6 +701,7 @@ const nonIdentityFirstNameAnswers = new Set([
   "right",
   "schedule",
   "scheduling",
+  "si",
   "thank",
   "sure",
   "thanks",
@@ -717,6 +718,7 @@ function isUsableSpokenFirstName(value?: string): value is string {
   const normalized = normalizeIdentityValue(value);
   return Boolean(
     normalized &&
+    normalized.length > 1 &&
     /^[a-z][a-z'-]*$/i.test(value ?? "") &&
     !nonIdentityFirstNameAnswers.has(normalized),
   );
@@ -729,6 +731,11 @@ function transcriptConfirmsFirstName(
   const expected = normalizeIdentityValue(expectedFirstName);
   if (!expected) return false;
   if (wordsForMatch(transcript).has(expected)) return true;
+
+  const spelled = spelledNameAnswer(transcript);
+  if (spelledFirstNameStartsWithExpected(spelled, expectedFirstName)) {
+    return true;
+  }
 
   const spoken = directFirstNameAnswer(transcript);
   const normalizedSpoken = normalizeIdentityValue(spoken);
@@ -808,6 +815,22 @@ function repeatedLetterVariantMatch(spoken: string, expected: string): boolean {
   return (
     collapseConsecutiveLetters(spoken) === collapseConsecutiveLetters(expected)
   );
+}
+
+function spelledFirstNameStartsWithExpected(
+  spoken: string | undefined,
+  expected: string | undefined,
+): boolean {
+  const normalizedSpoken = spoken
+    ? normalizeFirstNameForFuzzyMatch(spoken)
+    : "";
+  const normalizedExpected = expected
+    ? normalizeFirstNameForFuzzyMatch(expected)
+    : "";
+  if (normalizedExpected.length < 4) return false;
+  if (!normalizedSpoken.startsWith(normalizedExpected)) return false;
+  const extraLength = normalizedSpoken.length - normalizedExpected.length;
+  return extraLength > 0 && extraLength <= 4;
 }
 
 function collapseConsecutiveLetters(value: string): string {

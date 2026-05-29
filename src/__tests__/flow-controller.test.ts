@@ -432,6 +432,57 @@ describe("flow state and context packet", () => {
     );
   });
 
+  it("keeps a single pre-call match pending on Spanish acknowledgement noise", () => {
+    const flow = createSinglePreCallMatchFlow({
+      firstName: "MARTHA",
+      lastName: "CARMANO PATINO",
+      dob: "11/05/1962",
+      callerPhone: "+19543107603",
+      patientId: "17607168",
+    });
+
+    const result = applyPreCallIdentityFromTranscript(flow, "Sí.");
+
+    expect(result).toBeUndefined();
+    expect(flow.activePatientRef).toBe("caller");
+    expect(flow.patientStatus).toBe("matched");
+    expect(Object.keys(flow.patients)).toEqual(["caller"]);
+    expect(flow.preCall).toMatchObject({
+      status: "single_match_pending_confirmation",
+      selectedCandidateRef: "caller",
+      identityPromotion: "none",
+    });
+  });
+
+  it("promotes a single pre-call match when spelled STT appends noisy letters", () => {
+    const flow = createSinglePreCallMatchFlow({
+      firstName: "MARTHA",
+      lastName: "CARMANO PATINO",
+      dob: "11/05/1962",
+      callerPhone: "+19543107603",
+      patientId: "17607168",
+    });
+
+    const result = applyPreCallIdentityFromTranscript(
+      flow,
+      "M-A-R-T-H-A-N-L-L-Y.",
+    );
+
+    expect(result).toMatchObject({
+      changed: true,
+      promotion: "first_name_confirmed",
+      selectedCandidateRef: "caller",
+    });
+    expect(flow.preCall).toMatchObject({
+      status: "single_match_confirmed",
+      selectedCandidateRef: "caller",
+      identityPromotion: "first_name_confirmed",
+    });
+    expect(flow.patientStatus).toBe("verified");
+    expect(flow.activePatientRef).toBe("caller");
+    expect(Object.keys(flow.patients)).toEqual(["caller"]);
+  });
+
   it("does not treat a workflow phrase as a different pre-call first name", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",

@@ -324,6 +324,15 @@ function outcomeForGuardReason(
         facts: { reason },
         retryable: true,
       };
+    case "new_patient_requires_visit_type_before_registration":
+      return {
+        outcome: "not_allowed",
+        nextStep: "triage_visit_type",
+        speak:
+          "Ask whether the visit is routine vision, glasses or contacts, or medical eye care before creating a new patient record.",
+        facts: { reason },
+        retryable: true,
+      };
     case "booking_requires_verified_or_created_patient":
       return {
         outcome: "not_allowed",
