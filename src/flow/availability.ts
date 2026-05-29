@@ -272,28 +272,47 @@ export function recordAvailabilityCachedSlots(
   flow: CallFlowState,
   slots: Array<{
     slotId: string;
+    spoken?: string;
+    provider?: string;
+    date?: string;
+    time?: string;
     datetime?: string;
     columnId?: number;
     profileId?: number;
     duration?: number;
+    routing?: SchedulingRouting | string | null;
   }>,
+  options: { searchId?: string } = {},
 ): AvailabilitySearch | undefined {
-  const search = [...flow.availabilitySearches]
-    .reverse()
-    .find((candidate) => candidate.status !== "invalidated");
+  const search = options.searchId
+    ? flow.availabilitySearches.find(
+        (candidate) =>
+          candidate.id === options.searchId &&
+          candidate.status !== "invalidated",
+      )
+    : [...flow.availabilitySearches]
+        .reverse()
+        .find((candidate) => candidate.status !== "invalidated");
   if (!search) return undefined;
 
   const nextSlots = slots.map((slot) => ({
     slotHash: slot.slotId,
+    spoken: slot.spoken,
+    provider: slot.provider,
+    date: slot.date,
+    time: slot.time,
     startDatetime: slot.datetime,
     columnId: slot.columnId,
     profileId: slot.profileId,
     duration: slot.duration,
+    routing: slot.routing,
   }));
   if (nextSlots.length > 0) {
+    search.latestCachedSlotHashes = nextSlots.map((slot) => slot.slotHash);
     search.cachedSlots = mergeCachedSlots(search.cachedSlots, nextSlots);
     if (search.status !== "exhausted") search.status = "satisfied";
   } else {
+    search.latestCachedSlotHashes = [];
     pushFailureReason(search, "no_slots");
   }
   return search;

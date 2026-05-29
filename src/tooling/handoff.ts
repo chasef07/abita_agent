@@ -5,6 +5,7 @@ import {
   type OfficeKey,
 } from "../customer/profile.js";
 import type { CallState } from "./call-state.js";
+import { activeOfficeKey } from "./call-state.js";
 
 let _sipClient: SipClient | undefined;
 
@@ -18,32 +19,30 @@ function getSipClient(): SipClient {
 }
 
 export function buildCallCenterHandoffHeaders(
-  state: Pick<CallState, "callId" | "callerPhone" | "officeKey" | "trunkPhone">,
+  state: CallState,
   handoffTarget: string,
-  handoffOfficeKey: OfficeKey = state.officeKey,
+  handoffOfficeKey: OfficeKey = activeOfficeKey(state),
 ): Record<string, string> {
   return {
-    "X-Acuity-Caller-Phone": state.callerPhone,
+    "X-Acuity-Caller-Phone": state.runtime.callerPhone,
     "X-Acuity-Handoff": "call-center",
     "X-Acuity-Handoff-Target": handoffTarget,
-    "X-Acuity-LiveKit-Call-Id": state.callId,
+    "X-Acuity-LiveKit-Call-Id": state.runtime.callId,
     "X-Acuity-Office-Key": handoffOfficeKey,
-    "X-Acuity-Trunk-Phone": state.trunkPhone,
+    "X-Acuity-Trunk-Phone": state.runtime.trunkPhone,
   };
 }
 
-function getHandoffOfficeKey(
-  state: Pick<CallState, "officeKey" | "trunkPhone">,
-): OfficeKey {
-  if (!state.trunkPhone) return state.officeKey;
+function getHandoffOfficeKey(state: CallState): OfficeKey {
+  if (!state.runtime.trunkPhone) return activeOfficeKey(state);
   try {
-    return getOfficeConfigByPhone(state.trunkPhone).key;
+    return getOfficeConfigByPhone(state.runtime.trunkPhone).key;
   } catch (err) {
     console.warn(
-      `[tools] Could not resolve handoff office from original trunk ${state.trunkPhone}; falling back to active office ${state.officeKey}`,
+      `[tools] Could not resolve handoff office from original trunk ${state.runtime.trunkPhone}; falling back to active office ${activeOfficeKey(state)}`,
       err,
     );
-    return state.officeKey;
+    return activeOfficeKey(state);
   }
 }
 
@@ -53,8 +52,8 @@ export async function transferCallerToOffice(
   const handoffOfficeKey = getHandoffOfficeKey(state);
   const handoffTarget = getOfficeHandoffTarget(handoffOfficeKey);
   await getSipClient().transferSipParticipant(
-    state.sipRoomName,
-    state.sipParticipantIdentity,
+    state.runtime.sipRoomName,
+    state.runtime.sipParticipantIdentity,
     handoffTarget,
     {
       headers: buildCallCenterHandoffHeaders(

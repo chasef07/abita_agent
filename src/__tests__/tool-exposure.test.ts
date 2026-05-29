@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEV_OFFICE_PHONE } from "../customer/profile.js";
 import {
-  createInitialFlowState,
   nextFlowEventId,
   planNextCommand,
   reduceFlowEvent,
@@ -10,6 +8,7 @@ import {
 } from "../flow/index.js";
 import type { CallState } from "../tooling/call-state.js";
 import { buildToolsForState } from "../tooling/tool-registry.js";
+import { createTestCallState } from "./helpers/canonical-call-state.js";
 
 function applyPlannerCommand(
   flow: CallFlowState,
@@ -242,50 +241,6 @@ const DEV_BROAD_TOOL_NAMES = [
   "transfer_call",
 ] as const;
 
-function createCallState(overrides: Partial<CallState> = {}): CallState {
-  return {
-    flow: createInitialFlowState({
-      officeKey: "dev",
-      patientId: "patient-1",
-      patientName: "Jane Doe",
-      dob: "01/01/1980",
-      callerPhone: "+17275551212",
-      routing: "all_three",
-      coverageType: "medical",
-    }),
-    flowHarnessEnabled: true,
-    flowGuardObservations: [],
-    preCallLookup: {
-      status: "verified",
-      durationMs: 12,
-    },
-    latestUserTranscript: null,
-    turnUnderstandingAppliedForTranscript: null,
-    dynamicToolsEnabled: true,
-    officeKey: "dev",
-    amdOfficePhone: DEV_OFFICE_PHONE,
-    sipRoomName: "room",
-    sipParticipantIdentity: "caller",
-    callId: "call-123",
-    callerPhone: "+17275551212",
-    trunkPhone: DEV_OFFICE_PHONE,
-    patientId: "patient-1",
-    patientName: "Jane Doe",
-    dob: "01/01/1980",
-    insuranceCarrier: "Aetna",
-    insPlanId: "plan-1",
-    respPartyId: "resp-1",
-    checkedInsurancePlan: "Aetna",
-    checkedInsuranceCoverageType: "medical",
-    routing: "all_three",
-    lastAvailabilityRouting: null,
-    lastAvailabilitySlots: [],
-    allowedProviders: [],
-    routingAmbiguous: false,
-    preauthRequired: false,
-    appointments: [],
-    transferred: false,
-    transferInFlight: false,
-    ...overrides,
-  };
+function createCallState(overrides = {}): CallState {
+  return createTestCallState(overrides);
 }

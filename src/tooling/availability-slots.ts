@@ -1,4 +1,12 @@
-import type { CallState, StoredAvailabilitySlot } from "./call-state.js";
+import { recordAvailabilityCachedSlots } from "../flow/index.js";
+import {
+  availabilitySlotsForState,
+  clearAvailabilityPrivateData,
+  nextAvailabilitySlotIndex as nextCanonicalAvailabilitySlotIndex,
+  storeAvailabilitySlotPrivateData,
+  type CallState,
+  type StoredAvailabilitySlot,
+} from "./call-state.js";
 
 type SlotTimeWindow = "morning" | "midday" | "afternoon" | "late_day";
 
@@ -30,9 +38,8 @@ type AvailabilitySearchSummary = {
 };
 
 export function clearAvailabilitySlots(state: CallState): void {
-  state.lastAvailabilitySlots = [];
-  state.bookableAvailabilitySlots = [];
-  state.availabilitySlotSequence = 0;
+  state.flow.availabilitySearches = [];
+  clearAvailabilityPrivateData(state);
 }
 
 export function removeAvailabilitySlot(
@@ -40,20 +47,17 @@ export function removeAvailabilitySlot(
   slotId: string,
 ): StoredAvailabilitySlot[] {
   const normalized = normalizeSlotId(slotId);
-  state.lastAvailabilitySlots = state.lastAvailabilitySlots.filter(
-    (slot) => normalizeSlotId(slot.slotId) !== normalized,
-  );
-  const remainingBookableSlots = availabilitySlotsForBooking(state).filter(
-    (slot) => normalizeSlotId(slot.slotId) !== normalized,
-  );
-  state.bookableAvailabilitySlots = remainingBookableSlots;
-  if (
-    state.lastAvailabilitySlots.length === 0 &&
-    remainingBookableSlots.length === 0
-  ) {
-    state.lastAvailabilityRouting = null;
+  for (const search of state.flow.availabilitySearches) {
+    search.cachedSlots = search.cachedSlots.filter(
+      (slot) => normalizeSlotId(slot.slotHash) !== normalized,
+    );
+    if (!search.rejectedSlotHashes.includes(slotId)) {
+      search.rejectedSlotHashes.push(slotId);
+    }
   }
-  return remainingBookableSlots;
+  delete state.private.availability.bookingTokens[slotId];
+  delete state.private.availability.rawSlots[slotId];
+  return availabilitySlotsForBooking(state);
 }
 
 export function publicAvailabilitySlots(slots: StoredAvailabilitySlot[]) {
@@ -85,19 +89,17 @@ export function selectedAvailabilitySlot(
 export function availabilitySlotsForBooking(
   state: CallState,
 ): StoredAvailabilitySlot[] {
-  return state.bookableAvailabilitySlots?.length
-    ? state.bookableAvailabilitySlots
-    : state.lastAvailabilitySlots;
+  return availabilitySlotsForState(state);
 }
 
 export function storeAvailabilitySlots(
   state: CallState,
   rawResponse: unknown,
   routing: string | null,
+  options: { searchId?: string } = {},
 ): unknown {
   const activeSlots = availabilitySlotsForBooking(state);
   if (!isRecord(rawResponse)) {
-    state.lastAvailabilitySlots = [];
     return cleanAvailabilityErrorResponse(rawResponse);
   }
   const rawSlots = Array.isArray(rawResponse.slots) ? rawResponse.slots : [];
@@ -107,7 +109,6 @@ export function storeAvailabilitySlots(
     outcome !== "no_availability" &&
     outcome !== "availability_search_incomplete"
   ) {
-    state.lastAvailabilitySlots = [];
     return cleanAvailabilityErrorResponse(rawResponse);
   }
 
@@ -145,14 +146,17 @@ export function storeAvailabilitySlots(
       datetime,
       routing,
     };
-    if (typeof slot.bookingToken === "string") {
-      storedSlot.bookingToken = slot.bookingToken;
-    }
     if (typeof slot.columnId === "number") storedSlot.columnId = slot.columnId;
     if (typeof slot.profileId === "number")
       storedSlot.profileId = slot.profileId;
     if (typeof slot.duration === "number") storedSlot.duration = slot.duration;
     storedSlots.push(storedSlot);
+    storeAvailabilitySlotPrivateData(
+      state,
+      slotId,
+      slot,
+      typeof slot.bookingToken === "string" ? slot.bookingToken : undefined,
+    );
 
     candidateSlots.push({
       slotId,
@@ -164,12 +168,23 @@ export function storeAvailabilitySlots(
     });
   });
 
-  state.lastAvailabilitySlots = storedSlots;
-  state.bookableAvailabilitySlots = mergeAvailabilitySlots(
-    activeSlots,
-    storedSlots,
+  state.private.availability.slotSequence = firstSlotIndex + storedSlots.length;
+  recordAvailabilityCachedSlots(
+    state.flow,
+    storedSlots.map((slot) => ({
+      slotId: slot.slotId,
+      spoken: slot.spoken,
+      provider: slot.provider,
+      date: slot.date,
+      time: slot.time,
+      datetime: slot.datetime,
+      columnId: slot.columnId,
+      profileId: slot.profileId,
+      duration: slot.duration,
+      routing: slot.routing,
+    })),
+    options,
   );
-  state.availabilitySlotSequence = firstSlotIndex + storedSlots.length;
   const searchedRange = availabilitySearchedRange(rawResponse);
   const nextSearchDate = nextIsoDate(searchedRange?.end);
   const preferredWindow = state.flow.schedulingGoal?.preferredWindow;
@@ -259,42 +274,11 @@ function slotDateFromDatetime(datetime: string): string {
   return datetime.split("T")[0] ?? datetime;
 }
 
-function mergeAvailabilitySlots(
-  existing: StoredAvailabilitySlot[],
-  next: StoredAvailabilitySlot[],
-): StoredAvailabilitySlot[] {
-  if (next.length === 0) return existing;
-  const slotsById = new Map<string, StoredAvailabilitySlot>();
-  for (const slot of existing) {
-    slotsById.set(normalizeSlotId(slot.slotId), slot);
-  }
-  for (const slot of next) {
-    slotsById.set(normalizeSlotId(slot.slotId), slot);
-  }
-  return [...slotsById.values()];
-}
-
 function nextAvailabilitySlotIndex(
   state: CallState,
   slots: StoredAvailabilitySlot[],
 ): number {
-  const nextIndexFromSlots =
-    Math.max(-1, ...slots.map((slot) => slotIndexFromId(slot.slotId))) + 1;
-  const nextIndex = Math.max(
-    state.availabilitySlotSequence ?? 0,
-    nextIndexFromSlots,
-  );
-  state.availabilitySlotSequence = nextIndex;
-  return nextIndex;
-}
-
-function slotIndexFromId(slotId: string): number {
-  const normalized = normalizeSlotId(slotId);
-  if (/^[A-Z]$/.test(normalized)) {
-    return normalized.charCodeAt(0) - "A".charCodeAt(0);
-  }
-  const match = normalized.match(/^SLOT_(\d+)$/);
-  return match ? Number(match[1]) - 1 : -1;
+  return nextCanonicalAvailabilitySlotIndex(state, slots);
 }
 
 function compactSlotReference(value: string | undefined): string {

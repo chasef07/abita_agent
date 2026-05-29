@@ -28,6 +28,7 @@ import {
   resolveKnowledgeFileForOffice,
   verify_patient,
 } from "../tools.js";
+import { createTestCallState } from "./helpers/canonical-call-state.js";
 
 describe("office routing helpers", () => {
   afterEach(() => {
@@ -131,26 +132,22 @@ describe("office routing helpers", () => {
   });
 
   it("uses the AMD office override when present", () => {
-    expect(
-      getAmdOfficeForToolCall({
-        officeKey: "crystal-river",
-        amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
-      }),
-    ).toBe(SPRING_HILL_OFFICE_PHONE);
+    const crystalRiverOverride = createTestCallState();
+    crystalRiverOverride.officeKey = "crystal-river";
+    crystalRiverOverride.amdOfficePhone = SPRING_HILL_OFFICE_PHONE;
+    expect(getAmdOfficeForToolCall(crystalRiverOverride)).toBe(
+      SPRING_HILL_OFFICE_PHONE,
+    );
 
-    expect(
-      getAmdOfficeForToolCall({
-        officeKey: "crystal-river",
-        amdOfficePhone: "",
-      }),
-    ).toBe("+13523202007");
+    const crystalRiverDefault = createTestCallState();
+    crystalRiverDefault.officeKey = "crystal-river";
+    crystalRiverDefault.amdOfficePhone = "";
+    expect(getAmdOfficeForToolCall(crystalRiverDefault)).toBe("+13523202007");
 
-    expect(
-      getAmdOfficeForToolCall({
-        officeKey: "dev",
-        amdOfficePhone: "",
-      }),
-    ).toBe(DEV_OFFICE_PHONE);
+    const dev = createTestCallState();
+    dev.officeKey = "dev";
+    dev.amdOfficePhone = "";
+    expect(getAmdOfficeForToolCall(dev)).toBe(DEV_OFFICE_PHONE);
   });
 
   it("uses the dev middleware for the dev trunk", () => {

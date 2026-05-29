@@ -142,6 +142,31 @@ describe("flow state and context packet", () => {
     });
   });
 
+  it("clears patient-scoped routing state when the patient session resets", () => {
+    const flow = createInitialFlowState({
+      officeKey: "spring-hill",
+      patientId: "patient-1",
+      routing: "all_three",
+      coverageType: "medical",
+    });
+    flow.allowedProviders = ["Dr. Bach"];
+    flow.routingAmbiguous = true;
+    flow.preauthRequired = true;
+
+    reduceFlowEvent(flow, {
+      id: nextFlowEventId("test_patient_session_cleared"),
+      type: "patient_session_cleared",
+      source: "system",
+      createdAt: Date.now(),
+    });
+
+    expect(flow.coverageType).toBeUndefined();
+    expect(flow.routing).toBeUndefined();
+    expect(flow.allowedProviders).toBeUndefined();
+    expect(flow.routingAmbiguous).toBeUndefined();
+    expect(flow.preauthRequired).toBeUndefined();
+  });
+
   it("promotes a single pre-call match after first-name confirmation", () => {
     const flow = createInitialFlowState({
       officeKey: "spring-hill",
@@ -1820,6 +1845,49 @@ describe("flow state and context packet", () => {
         },
       ],
     });
+  });
+
+  it("caches slots on the search returned by the current availability lookup", () => {
+    const flow = createInitialFlowState({ officeKey: "spring-hill" });
+    flow.visitType = "medical";
+    flow.routing = "all_three";
+    const first = recordAvailabilitySearch(flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      routing: "all_three",
+      date: "2026-06-01",
+    });
+    recordAvailabilityCachedSlots(flow, [{ slotId: "A" }], {
+      searchId: first.search.id,
+    });
+    const second = recordAvailabilitySearch(flow, {
+      officeKey: "spring-hill",
+      visitType: "routine_vision",
+      routing: "optical_only",
+      date: "2026-06-02",
+    });
+    recordAvailabilityCachedSlots(flow, [{ slotId: "B" }], {
+      searchId: second.search.id,
+    });
+
+    const firstAgain = recordAvailabilitySearch(flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      routing: "all_three",
+      date: "2026-06-03",
+    });
+    const search = recordAvailabilityCachedSlots(flow, [{ slotId: "C" }], {
+      searchId: firstAgain.search.id,
+    });
+
+    expect(search?.id).toBe(first.search.id);
+    expect(flow.availabilitySearches[0].cachedSlots).toEqual([
+      expect.objectContaining({ slotHash: "A" }),
+      expect.objectContaining({ slotHash: "C" }),
+    ]);
+    expect(flow.availabilitySearches[1].cachedSlots).toEqual([
+      expect.objectContaining({ slotHash: "B" }),
+    ]);
   });
 
   it("dedupes repeated availability searches after slots have been cached", () => {

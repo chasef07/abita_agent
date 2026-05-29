@@ -8,8 +8,15 @@ import {
 } from "../flow/index.js";
 import { resolvePatientByOffice } from "./advancedmd-client.js";
 import {
+  activeAppointments,
+  activeAppointmentsStatus,
+  activeOfficeKey,
   appointmentCancelTokenMap,
+  activePatientId,
+  appointmentCancelToken,
+  removePrivateAppointment,
   publicCallerAppointments,
+  setAppointmentCancelTokens,
   type CallState,
   type StoredAvailabilitySlot,
   type StoredCallerAppointment,
@@ -42,11 +49,8 @@ export function activeAppointmentById(
   appointmentId: number,
 ): CallerAppointment | undefined {
   const activePatient = ensureActivePatientContext(state.flow);
-  return (
-    activePatient.appointments.find(
-      (appointment) => appointment.id === appointmentId,
-    ) ??
-    state.appointments.find((appointment) => appointment.id === appointmentId)
+  return activePatient.appointments.find(
+    (appointment) => appointment.id === appointmentId,
   );
 }
 
@@ -75,7 +79,7 @@ export function recordBookedAppointmentInState(
   const facility =
     isRecord(result) && typeof result.locationName === "string"
       ? result.locationName
-      : getOfficeConfig(state.officeKey).displayName;
+      : getOfficeConfig(activeOfficeKey(state)).displayName;
   const type =
     isRecord(result) && typeof result.appointmentTypeName === "string"
       ? result.appointmentTypeName
@@ -89,8 +93,8 @@ export function recordBookedAppointmentInState(
     facility,
     confirmed: true,
   };
-  state.appointments = [
-    ...state.appointments.filter((item) => item.id !== appointmentId),
+  const nextAppointments = [
+    ...activeAppointments(state).filter((item) => item.id !== appointmentId),
     appointment,
   ];
   reduceFlowEvent(state.flow, {
@@ -98,11 +102,8 @@ export function recordBookedAppointmentInState(
     type: "active_patient_appointments_recorded",
     source: "tool_result",
     createdAt: Date.now(),
-    appointments: [
-      ...state.appointments.filter((item) => item.id !== appointmentId),
-      appointment,
-    ],
-    appointmentsStatus: state.appointmentsStatus,
+    appointments: nextAppointments,
+    appointmentsStatus: activeAppointmentsStatus(state),
   });
 }
 
@@ -110,25 +111,25 @@ export function cancelTokenForAppointment(
   state: CallState,
   appointmentId: number,
 ): string | null {
-  const token = state.appointmentCancelTokens?.[String(appointmentId)];
-  return token?.trim() ? token : null;
+  return appointmentCancelToken(state, appointmentId);
 }
 
 export async function refreshCancelTokenForAppointment(
   state: CallState,
   appointmentId: number,
 ): Promise<string | null> {
-  if (!state.patientId) return null;
+  const patientId = activePatientId(state);
+  if (!patientId) return null;
   const result = await resolvePatientByOffice(amdOfficePhoneForState(state), {
-    patientId: state.patientId,
+    patientId,
   });
   if (result.status !== "verified") return null;
 
   const appointments = publicCallerAppointments(result.appointments);
-  state.appointments = appointments;
-  state.appointmentsStatus = result.appointmentsStatus;
-  state.appointmentCancelTokens = appointmentCancelTokenMap(
-    result.appointments,
+  setAppointmentCancelTokens(
+    state,
+    state.flow.activePatientRef ?? "caller",
+    appointmentCancelTokenMap(result.appointments),
   );
   reduceFlowEvent(state.flow, {
     id: nextFlowEventId("active_patient_appointments"),
@@ -145,12 +146,7 @@ export function removeAppointmentById(
   state: CallState,
   appointmentId: number,
 ): void {
-  state.appointments = state.appointments.filter(
-    (appointment) => appointment.id !== appointmentId,
-  );
-  if (state.appointmentCancelTokens) {
-    delete state.appointmentCancelTokens[String(appointmentId)];
-  }
+  removePrivateAppointment(state, appointmentId);
   reduceFlowEvent(state.flow, {
     id: nextFlowEventId("active_patient_appointment_removed"),
     type: "active_patient_appointment_removed",
@@ -178,12 +174,8 @@ function isNoAppointmentsResult(result: unknown): boolean {
   );
 }
 
-function amdOfficePhoneForState(
-  state: Pick<CallState, "officeKey" | "amdOfficePhone">,
-): string {
-  return (
-    state.amdOfficePhone || getOfficeConfig(state.officeKey).amdOfficePhone
-  );
+function amdOfficePhoneForState(state: CallState): string {
+  return getOfficeConfig(activeOfficeKey(state)).amdOfficePhone;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

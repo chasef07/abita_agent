@@ -25,7 +25,7 @@ export async function refreshDynamicToolsForSession(
   session: voice.AgentSession<CallState>,
   reason: ToolRefreshReason,
 ): Promise<void> {
-  if (!session.userData.dynamicToolsEnabled) return;
+  if (!session.userData.runtime.dynamicToolsEnabled) return;
   const refresher = dynamicToolRefreshers.get(session);
   if (!refresher) return;
   await refresher(reason);

@@ -142,6 +142,7 @@ export interface InsuranceContext {
   plan?: TrackedSlot;
   coverageType?: InsuranceCoverageType;
   canonicalPlan?: string;
+  currentCarrier?: string;
   checkedAtTurnId?: string;
 }
 
@@ -507,11 +508,16 @@ export type AvailabilityInvalidationReason =
 
 export interface CachedSlot {
   slotHash: string;
+  spoken?: string;
+  provider?: string;
+  date?: string;
+  time?: string;
   startDatetime?: string;
   columnId?: number;
   profileId?: number;
   duration?: number;
   appointmentTypeId?: number;
+  routing?: SchedulingRouting | string | null;
 }
 
 export interface AvailabilitySearch {
@@ -527,6 +533,7 @@ export interface AvailabilitySearch {
   searchedThrough?: string;
   searchedKeys: string[];
   cachedSlots: CachedSlot[];
+  latestCachedSlotHashes?: string[];
   rejectedSlotHashes: string[];
   exactSearchCount: number;
   broadenCount: number;
@@ -558,6 +565,9 @@ export interface CallFlowState {
   officeKey: OfficeKey;
   coverageType?: InsuranceCoverageType;
   routing?: SchedulingRouting;
+  allowedProviders?: string[];
+  routingAmbiguous?: boolean;
+  preauthRequired?: boolean;
   requiredSlots: string[];
   completedSteps: string[];
   pendingConfirmation?: {

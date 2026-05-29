@@ -55,7 +55,9 @@ import {
   type WorkflowCommand,
 } from "../flow/index.js";
 import { HOLLYWOOD_OFFICE_PHONE, SWEETWATER_OFFICE_PHONE } from "../offices.js";
+import { setAppointmentCancelTokens } from "../tooling/call-state.js";
 import { buildToolsForState } from "../tooling/tool-registry.js";
+import { createTestCallState } from "./helpers/canonical-call-state.js";
 
 type SpeechContext = Parameters<typeof makeCurrentSpeechUninterruptible>[0];
 type ToolContext = Parameters<typeof book_appt.execute>[1]["ctx"];
@@ -2029,15 +2031,19 @@ describe("tool interruption handling", () => {
       datetime: "2026-06-01T09:45",
       bookingToken: "a-token",
     });
-    state.lastAvailabilitySlots.push({
-      ...state.lastAvailabilitySlots[0],
-      slotId: "G",
-      spoken: "2026-06-01 11:15 AM with Dr. Bach",
-      time: "11:15 AM",
-      datetime: "2026-06-01T11:15",
-      bookingToken: "g-token",
-    });
-    state.bookableAvailabilitySlots = [...state.lastAvailabilitySlots];
+    const cachedSlots = [
+      ...state.lastAvailabilitySlots,
+      {
+        ...state.lastAvailabilitySlots[0],
+        slotId: "G",
+        spoken: "2026-06-01 11:15 AM with Dr. Bach",
+        time: "11:15 AM",
+        datetime: "2026-06-01T11:15",
+        bookingToken: "g-token",
+      },
+    ];
+    state.lastAvailabilitySlots = cachedSlots;
+    state.bookableAvailabilitySlots = cachedSlots;
     seedPendingBookingAction(state);
 
     const result = await book_appt.execute(bookingArgs("G"), {
@@ -2703,6 +2709,23 @@ describe("tool interruption handling", () => {
     expect(state.lastAvailabilityRouting).toBeNull();
   });
 
+  it("routes Crystal River medical workflows to Spring Hill without changing the visit lane", async () => {
+    const { ctx, state } = createToolContext();
+    state.officeKey = "crystal-river";
+    state.amdOfficePhone = "+13523202007";
+    state.checkedInsuranceCoverageType = "medical";
+    state.routing = "all_three";
+    state.flow.visitType = "medical";
+    seedPendingSideEffectAction(state, "route_to_spring_hill");
+
+    await route_to_spring_hill.execute({}, { ctx, toolCallId: "test-route" });
+
+    expect(state.officeKey).toBe("spring-hill");
+    expect(state.checkedInsuranceCoverageType).toBe("medical");
+    expect(state.routing).toBe("all_three");
+    expect(state.flow.visitType).toBe("medical");
+  });
+
   it("forwards stored DOB to age-sensitive middleware requests", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ({
       ok: true,
@@ -3008,7 +3031,7 @@ describe("tool interruption handling", () => {
       ok: true,
       json: async () => ({
         patientId: "patient-1",
-        name: "Jane Doe",
+        name: "DOE,JANE",
         dob: "01/01/1980",
         insuranceCarrier: "Aetna",
         routing: "all_three",
@@ -3044,6 +3067,57 @@ describe("tool interruption handling", () => {
       slotInvalidated: false,
     });
     expect(state.flow.pendingActions[0].invalidated).not.toBe(true);
+  });
+
+  it("invalidates provisional availability when verification resolves a different backend identity", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        patientId: "patient-2",
+        name: "Emily Danehe",
+        dob: "02/03/2012",
+        insuranceCarrier: "Aetna",
+        routing: "all_three",
+        allowedProviders: [],
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    resetToUnverifiedAppointmentTask(state, "Jane");
+    state.patientName = "Jane Doe";
+    state.flow.patientStatus = "candidate";
+    state.flow.patients[state.flow.activePatientRef!].status = "candidate";
+    state.flow.visitType = "medical";
+    seedLastAvailabilitySlot(state);
+    recordAvailabilitySearch(state.flow, {
+      officeKey: "spring-hill",
+      visitType: "medical",
+      routing: "all_three",
+      date: "2026-04-28",
+    });
+    recordAvailabilityCachedSlots(state.flow, [{ slotId: "A" }]);
+    seedPendingBookingAction(state);
+
+    await verify_patient.execute(
+      { firstName: "Jane" },
+      { ctx, toolCallId: "test-verify-different-backend-identity" },
+    );
+
+    expect(state.flow.activePatientRef).toBe("caller");
+    expect(state.patientId).toBe("patient-2");
+    expect(state.patientName).toBe("Emily Danehe");
+    expect(state.lastAvailabilitySlots).toEqual([]);
+    expect(state.flow.availabilitySearches[0]).toMatchObject({
+      status: "invalidated",
+      lastInvalidationReason: "patient_changed",
+    });
+    expect(state.flow.pendingActions[0]).toMatchObject({
+      type: "book_appt",
+      invalidated: true,
+      invalidationReason: "patient_changed",
+    });
   });
 
   it("switches patients on spelled correction and invalidates stale downstream actions", async () => {
@@ -3509,6 +3583,49 @@ describe("tool interruption handling", () => {
     });
   });
 
+  it("replaces stale cancel tokens when appointment payloads refresh", () => {
+    const { state } = createToolContext();
+    const patientRef = state.flow.activePatientRef!;
+
+    setAppointmentCancelTokens(state, patientRef, {
+      "12345": "old-token",
+      "23456": "old-token-2",
+    });
+    setAppointmentCancelTokens(state, patientRef, {
+      "23456": "fresh-token",
+    });
+
+    expect(state.appointmentCancelTokens).toEqual({
+      "23456": "fresh-token",
+    });
+  });
+
+  it("blocks cancellation when only a stale private cancel token remains", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.runtime.flowHarnessEnabled = false;
+    setAppointmentCancelTokens(state, state.flow.activePatientRef!, {
+      "12345": "stale-token",
+    });
+
+    const result = await cancel_appt.execute(
+      { appointmentId: 12345 },
+      { ctx, toolCallId: "test-cancel-stale-private-token" },
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      outcome: "not_allowed",
+      nextStep: "confirm_cancel",
+      facts: {
+        reason: "cancel_requires_loaded_appointment",
+        appointmentId: 12345,
+      },
+    });
+  });
+
   it("records pending cancellation confirmation when a loaded appointment needs readback", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -3688,6 +3805,97 @@ describe("tool interruption handling", () => {
         consumed: true,
       }),
     );
+  });
+
+  it("preserves the existing carrier when updating to a newly checked plan", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "updated",
+        newInsurance: "Aetna",
+        routing: "all_three",
+        insPlanId: "plan-2",
+        respPartyId: "resp-2",
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    state.insuranceCarrier = "Old Plan";
+    state.checkedInsurancePlan = "Old Plan";
+    state.checkedInsuranceCoverageType = "medical";
+
+    const insuranceResult = await check_insurance.execute(
+      { plan: "Aetna", coverageType: "medical" },
+      { ctx, toolCallId: "test-check-new-update-plan" },
+    );
+    expect(insuranceResult).toMatchObject({
+      status: "accepted",
+      canonicalPlan: "Aetna",
+    });
+    expect(state.insuranceCarrier).toBe("Old Plan");
+    expect(state.checkedInsurancePlan).toBe("Aetna");
+
+    const updateParams = {
+      insurance: "Aetna",
+      subscriberName: "Jane Doe",
+      subscriberNum: "ABC123",
+    };
+    seedPendingSideEffectAction(state, "update_insurance", updateParams);
+
+    const updateResult = await update_insurance.execute(updateParams, {
+      ctx,
+      toolCallId: "test-update-with-preserved-old-insurance",
+    });
+
+    expect(updateResult).toMatchObject({ status: "updated" });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      patientId: "patient-1",
+      oldInsurance: "Old Plan",
+      insurance: "Aetna",
+      subscriberName: "Jane Doe",
+      subscriberNum: "ABC123",
+      insPlanId: "plan-1",
+      respPartyId: "resp-1",
+    });
+    expect(state.insuranceCarrier).toBe("Aetna");
+    expect(state.checkedInsurancePlan).toBe("Aetna");
+  });
+
+  it("clears stale scheduling routing when an insurance update returns no routing lane", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "updated",
+        newInsurance: "Aetna",
+        insPlanId: "plan-2",
+        respPartyId: "resp-2",
+      }),
+      text: async () => "",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { ctx, state } = createToolContext();
+    const updateParams = {
+      insurance: "Aetna",
+      subscriberName: "Jane Doe",
+      subscriberNum: "ABC123",
+    };
+    state.routing = "all_three";
+    state.preauthRequired = true;
+    seedPendingSideEffectAction(state, "update_insurance", updateParams);
+
+    const updateResult = await update_insurance.execute(updateParams, {
+      ctx,
+      toolCallId: "test-update-without-routing",
+    });
+
+    expect(updateResult).toMatchObject({ status: "updated" });
+    expect(state.flow.routing).toBeUndefined();
+    expect(state.routing).toBeNull();
+    expect(state.preauthRequired).toBe(false);
   });
 
   it("confirms exact Spring Hill routing from a new tool intent turn", async () => {
@@ -4478,6 +4686,24 @@ describe("tool interruption handling", () => {
     ]);
   });
 
+  it("clears previously accepted insurance after a rejected insurance check", async () => {
+    const { ctx, state } = createToolContext();
+    state.checkedInsurancePlan = "Aetna";
+    state.checkedInsuranceCoverageType = "medical";
+
+    const result = await check_insurance.execute(
+      { plan: "Optimum", coverageType: "medical" },
+      { ctx, toolCallId: "test-check-rejected-insurance" },
+    );
+
+    expect(result).toMatchObject({
+      status: "not_accepted",
+      canProceed: false,
+    });
+    expect(state.checkedInsurancePlan).toBeNull();
+    expect(state.checkedInsuranceCoverageType).toBeNull();
+  });
+
   it("tells Crystal River callers when Spring Hill accepts an added office-specific rejection", async () => {
     const { ctx, state } = createToolContext();
     state.officeKey = "crystal-river";
@@ -4543,7 +4769,7 @@ describe("tool interruption handling", () => {
 
 function createToolContext() {
   const speechHandle = { allowInterruptions: true };
-  const state: CallState = {
+  const state = createTestCallState({
     flow: createInitialFlowState({
       officeKey: "spring-hill",
       patientId: "patient-1",
@@ -4554,7 +4780,6 @@ function createToolContext() {
       appointmentsStatus: null,
     }),
     flowHarnessEnabled: true,
-    flowGuardObservations: [],
     preCallLookup: {
       status: "verified",
       durationMs: 12,
@@ -4584,10 +4809,9 @@ function createToolContext() {
     preauthRequired: false,
     appointmentsStatus: null,
     appointments: [],
-    appointmentCancelTokens: {},
     transferred: false,
     transferInFlight: false,
-  };
+  });
   const ctx = {
     session: { userData: state },
     speechHandle,
@@ -4839,12 +5063,13 @@ function seedLoadedAppointment(
     appointment,
   ];
   activePatient.appointmentsStatus = "found";
-  state.appointmentCancelTokens ??= {};
+  const cancelTokens = { ...state.appointmentCancelTokens };
   if (cancelToken) {
-    state.appointmentCancelTokens[String(appointmentId)] = cancelToken;
+    cancelTokens[String(appointmentId)] = cancelToken;
   } else {
-    delete state.appointmentCancelTokens[String(appointmentId)];
+    delete cancelTokens[String(appointmentId)];
   }
+  state.appointmentCancelTokens = cancelTokens;
 }
 
 function resetToUnverifiedAppointmentTask(
