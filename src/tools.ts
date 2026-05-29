@@ -920,7 +920,7 @@ function applyPatientPayloadToState(
         ? "routine_vision"
         : payloadCoverageType === "medical"
           ? state.flow.visitType
-        : undefined,
+          : undefined,
     insurance:
       state.insuranceCarrier || state.checkedInsurancePlan
         ? {
