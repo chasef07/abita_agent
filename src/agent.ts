@@ -5,25 +5,13 @@ import { llm, stt, voice } from "@livekit/agents";
 import type { AudioFrame } from "@livekit/rtc-node";
 import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
-import {
-  reconcileCallStateAfterActivePatientChange,
-  type CallState,
-  type PhoneLookupResult,
-} from "./tooling/call-state.js";
+import { type CallState, type PhoneLookupResult } from "./state/call-state.js";
 import type { VoiceLanguageRuntime } from "./language-runtime.js";
-import {
-  advanceWorkflow,
-  compileTurnStatePacket,
-  inferObviousTurnUnderstanding,
-  nextFlowEventId,
-  reduceFlowEvent,
-} from "./flow/index.js";
 import { getOfficeConfigByPhone } from "./customer/profile.js";
 import {
   buildToolsForTrunk as buildToolsForTrunkFromRegistry,
-  refreshAgentToolsForSession,
   type AgentTools,
-} from "./tooling/tool-registry.js";
+} from "./runtime/tool-registry.js";
 
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
   return buildToolsForTrunkFromRegistry(trunkPhone);
@@ -64,69 +52,13 @@ export class Agent extends voice.Agent {
   ): Promise<void> {
     const state = this.session.userData as CallState | undefined;
     const transcript = newMessage.textContent ?? "";
-    if (!state?.runtime.flowHarnessEnabled || !state.flow || !transcript)
-      return;
+    if (!state || !transcript) return;
 
     state.runtime.latestUserTranscript = transcript;
-    state.runtime.turnUnderstandingAppliedForTranscript = null;
-    const activePatientRefBefore = state.flow.activePatientRef;
-    const preCallIdentity = reduceFlowEvent(state.flow, {
-      id: nextFlowEventId("pre_call_identity"),
-      type: "pre_call_identity_observed",
-      source: "deterministic_understanding",
-      createdAt: Date.now(),
-      transcript,
-    }).preCallIdentity;
-    if (
-      preCallIdentity?.changed &&
-      state.flow.activePatientRef &&
-      state.flow.activePatientRef !== activePatientRefBefore
-    ) {
-      reconcileCallStateAfterActivePatientChange(state, "patient_changed");
-    }
-    const inferred = inferObviousTurnUnderstanding(state.flow, transcript);
-    const automaticTurnUpdateApplied = Boolean(
-      inferred || preCallIdentity?.changed,
-    );
-    if (inferred) {
-      const turn = advanceWorkflow(state.flow, {
-        type: "caller_intent_recorded",
-        transcript,
-        understanding: inferred,
-        source: "deterministic_understanding",
-      });
-      state.runtime.turnUnderstandingAppliedForTranscript = transcript;
-      if (turn.update) {
-        state.runtime.lastTurnUnderstanding = {
-          goal: turn.update.understanding.goal,
-          appointmentAction: turn.update.understanding.appointmentAction,
-          confidence: turn.update.understanding.confidence,
-          activeIntent: state.flow.activeIntent,
-          activePatientRef: state.flow.activePatientRef,
-        };
-      }
-    } else if (preCallIdentity?.changed) {
-      advanceWorkflow(state.flow, { type: "facts_changed" });
-      state.runtime.turnUnderstandingAppliedForTranscript = transcript;
-    }
-    await refreshAgentToolsForSession(
-      this.session,
-      automaticTurnUpdateApplied
-        ? "turn_update_auto_recorded"
-        : "turn_update_pending",
-    );
     chatCtx.addMessage({
       role: "system",
-      content: [
-        compileTurnStatePacket(state.flow),
-        "",
-        "<workflow_guidance>",
-        automaticTurnUpdateApplied
-          ? "The reducer already recorded deterministic state for this turn. Use the current turn_state as guidance, and call the suggested read-only tool when prerequisites are met. Side effects still require explicit confirmation and policy approval."
-          : "No automatic intent update was applied. Use the current turn_state, caller wording, and concrete tool facts to either ask one clarifying question or call a safe workflow tool. Side effects still require explicit confirmation and policy approval.",
-        "</workflow_guidance>",
-      ].join("\n"),
-      id: `flow_turn_state_${newMessage.id}`,
+      content: renderCallMode(state),
+      id: `call_state_${newMessage.id}`,
       createdAt: newMessage.createdAt + 1,
     });
   }
@@ -144,4 +76,35 @@ export class Agent extends voice.Agent {
 
     return this.languageRuntime.observeSpeechEvents(events);
   }
+}
+
+function renderCallMode(state: CallState): string {
+  const patientStatus = state.patient.identityConfirmed
+    ? "verified"
+    : state.patient.patientId
+      ? "preloaded_not_confirmed"
+      : state.patient.status;
+  const appointments =
+    state.patient.appointments.length > 0
+      ? `${state.patient.appointments.length} loaded`
+      : (state.patient.appointmentsStatus ?? "none");
+  const insurance =
+    state.checkedInsurance.canonicalPlan ??
+    state.patient.insurance?.canonicalPlan ??
+    "unknown";
+  const route = state.scheduling.routing ?? "unknown";
+
+  return [
+    "<call_state>",
+    `patient: ${patientStatus}`,
+    `appointments: ${appointments}`,
+    `insurance: ${insurance}`,
+    `routing: ${route}`,
+    `office: ${state.officeKey}`,
+    `availabilitySlots: ${state.scheduling.availabilitySlots.length}`,
+    "rules:",
+    "- Use tool descriptions for schemas and prerequisites.",
+    "- Ask one concise clarifying question when required state is missing.",
+    "</call_state>",
+  ].join("\n");
 }

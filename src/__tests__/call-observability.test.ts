@@ -97,7 +97,7 @@ describe("call observability", () => {
         "transfer_call",
         JSON.stringify({
           outcome: "not_allowed",
-          facts: { reason: "side_effect_confirmation_required" },
+          facts: { reason: "transfer_already_attempted" },
           retryable: true,
         }),
         false,

@@ -190,12 +190,6 @@ export function classifyToolOutput(
   switch (toolName) {
     case "book_appt":
       if (
-        isRecord(parsed?.facts) &&
-        parsed.facts.reason === "booking_action_already_consumed"
-      ) {
-        return "duplicate_tool_call";
-      }
-      if (
         status === "booked" ||
         status === "ok" ||
         asString(parsed?.appointmentId) ||
@@ -206,10 +200,6 @@ export function classifyToolOutput(
         return "appointment_booked";
       }
       return "appointment_not_booked";
-    case "confirm_booking_action":
-      return "booking_action_confirmed";
-    case "confirm_side_effect_action":
-      return "side_effect_action_confirmed";
     case "cancel_appt":
       if (
         outcome === "not_allowed" ||
@@ -221,7 +211,6 @@ export function classifyToolOutput(
         reason === "cancel_failed" ||
         reason === "middleware_error" ||
         reason.startsWith("cancel_requires_") ||
-        reason.startsWith("side_effect_") ||
         reason === "speech_interrupted"
       ) {
         return "appointment_not_cancelled";
@@ -270,9 +259,6 @@ export function classifyToolOutput(
       if (
         outcome === "not_allowed" ||
         outcome === "needs_clarification" ||
-        reason === "side_effect_confirmation_required" ||
-        reason === "duplicate_tool_call_same_args" ||
-        reason.startsWith("side_effect_") ||
         parsed?.retryable === true
       ) {
         return "transfer_not_started";

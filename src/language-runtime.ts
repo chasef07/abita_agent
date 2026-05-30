@@ -228,7 +228,6 @@ function inferVoiceLanguageFromText(text: string): VoiceLanguage | null {
 export class VoiceLanguageRuntime {
   private readonly initialLanguage: VoiceLanguage;
   private currentLanguage: VoiceLanguage;
-  private preferredLanguage: VoiceLanguage | null = null;
   private pendingLanguage: VoiceLanguage | null = null;
   private pendingLanguageTurns = 0;
   private languageSwitches = 0;
@@ -285,7 +284,6 @@ export class VoiceLanguageRuntime {
 
     const requestedLanguage = requestedVoiceLanguage(text);
     if (requestedLanguage) {
-      this.preferredLanguage = requestedLanguage;
       this.resetPendingLanguage();
       return nextLanguage === requestedLanguage;
     }
@@ -308,7 +306,6 @@ export class VoiceLanguageRuntime {
       nextLanguage === "es" &&
       strongSpanishSwitch
     ) {
-      this.preferredLanguage = nextLanguage;
       this.resetPendingLanguage();
       return true;
     }
@@ -323,7 +320,6 @@ export class VoiceLanguageRuntime {
     if (this.pendingLanguageTurns < CONSECUTIVE_TURNS_TO_SWITCH_LANGUAGE)
       return false;
 
-    this.preferredLanguage = nextLanguage;
     this.resetPendingLanguage();
     return true;
   }
@@ -336,7 +332,6 @@ export class VoiceLanguageRuntime {
   ): void {
     const requestedLanguage = requestedVoiceLanguage(text);
     if (requestedLanguage) {
-      this.preferredLanguage = requestedLanguage;
       this.resetPendingLanguage();
       return;
     }

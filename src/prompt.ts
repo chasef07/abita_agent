@@ -2,11 +2,11 @@
 // Order matters for LLM attention (U-shaped curve):
 //   Top = identity (sets the frame)
 //   Middle = reference data + speech style (retrieved on demand)
-//   Bottom = tool logic + flows (highest attention, most critical per-turn)
+//   Bottom = tool contracts and safety rules (highest attention, most critical per-turn)
 
 import { readFileSync } from "fs";
 import { join } from "path";
-import type { PhoneLookupResult } from "./tooling/call-state.js";
+import type { PhoneLookupResult } from "./state/call-state.js";
 import { getOfficeConfigByPhone } from "./customer/profile.js";
 
 const WORKSPACE = join(
@@ -16,7 +16,7 @@ const WORKSPACE = join(
 );
 
 /** Office-specific routing hints injected into the per-call context block.
- *  Lives here (not RUNBOOK) so each office only sees rules that apply to it.
+ *  Each office only sees rules that apply to it.
  */
 function buildOfficeRoutingHints(trunkPhone: string): string {
   const office = getOfficeConfigByPhone(trunkPhone);
@@ -59,11 +59,6 @@ const BASE_FILES: { file: string; tag: string }[] = [
   { file: "VOICE.md", tag: "voice" },
 ];
 
-const FLOW_HARNESS_FILE = {
-  file: "FLOW_HARNESS_RUNBOOK.md",
-  tag: "flow_harness_runbook",
-};
-
 /** Build the full system prompt with caller-specific data baked in. */
 export function buildPrompt(
   phoneLookup?: PhoneLookupResult,
@@ -78,14 +73,7 @@ export function buildPrompt(
     const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
     sections.push(`<${tag}>\n${content}\n</${tag}>`);
   }
-  sections.push(buildHarnessOperatingContract());
-  const content = readFileSync(
-    join(WORKSPACE, FLOW_HARNESS_FILE.file),
-    "utf-8",
-  ).trim();
-  sections.push(
-    `<${FLOW_HARNESS_FILE.tag}>\n${content}\n</${FLOW_HARNESS_FILE.tag}>`,
-  );
+  sections.push(buildToolOperatingContract());
 
   let prompt = sections.join("\n\n");
 
@@ -110,22 +98,21 @@ export function buildPrompt(
   const officeBlock = officeHints ? `\n\n${officeHints}` : "";
 
   prompt += `\n\n<context>\nToday is ${date}. The current time is ${time}.\n\n${buildCallerContext(phoneLookup ?? null)}${officeBlock}\n</context>`;
-  prompt += `\n\n<state_memory_contract>\nThe reducer records obvious caller intent before each model turn and injects a compact turn_state. Treat suggestedTool as guidance, not as the safety boundary. Concrete tool state is authoritative: if the required patient, availability, appointment, and confirmation facts are already present, call the workflow tool directly. Side effects still require explicit caller confirmation and a successful tool result before you say they are done.\n</state_memory_contract>`;
+  prompt += `\n\n<state_memory_contract>\nSession state and tool results are authoritative. If the required patient, availability, appointment, insurance, and routing facts are present, call the right tool directly. A state-changing action is only complete after its tool succeeds.\n</state_memory_contract>`;
 
   return prompt;
 }
 
-function buildHarnessOperatingContract(): string {
+function buildToolOperatingContract(): string {
   return [
-    "<harness_operating_contract>",
-    "The TypeScript flow harness owns workflow state, task phase, missing facts, and side-effect safety. Use the latest <turn_state> and <context_capsules> injected after each caller turn as guidance over any general habit or example.",
-    "Use the latest turn_state for pre-call identity status. Do not infer whether a preloaded patient is verified from static caller context alone.",
-    "When turn_state says preCall: single_match_confirmed or preCall: multiple_match_confirmed, the caller is already verified from the phone lookup first-name challenge. Do not call verify_patient for that caller; use the loaded caller and appointment state.",
-    "The reducer records obvious caller intent before planning. Use the compact task state as guidance: phase, known facts, missing facts, next, suggestedTool, and blockedSideEffects. Treat suggestedTool as the recommended frontier, not as a hard allow-list.",
-    "Broad workflow tools may stay visible. Use allowedTools as planner guidance and telemetry, while wrapper guards remain the concrete safety boundary.",
-    "Use tool descriptions for exact schemas. You may call a workflow tool whenever concrete state has the required patient, availability, appointment, and confirmation facts. Read-only tools can run when their prerequisites are met; side-effect tools require explicit caller confirmation and policy approval.",
+    "<tool_operating_contract>",
+    "The LiveKit session state owns patient, appointment, insurance, routing, availability, and transfer facts.",
+    "Use tool descriptions for exact schemas and prerequisites.",
+    "Read-only tools can run when their inputs are known.",
+    "State-changing tools can run when their required inputs and session state are present.",
+    "Do not say a state-changing action is done until the tool succeeds.",
     "Keep spoken responses to 1-3 concise sentences and ask one question at a time.",
-    "</harness_operating_contract>",
+    "</tool_operating_contract>",
   ].join("\n");
 }
 
@@ -150,17 +137,17 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
       `- When identity is needed, ask the caller to spell the patient's first name only.`,
     );
     lines.push(
-      `- Do not say the preloaded name, date of birth, patient ID, insurance, or appointment details until turn_state says preCall: single_match_confirmed.`,
+      `- Do not say the preloaded name, date of birth, patient ID, insurance, or appointment details until the caller confirms the patient's first name or verify_patient succeeds.`,
     );
     lines.push(`After confirmation:`);
     lines.push(
-      `- If turn_state says preCall: single_match_confirmed, treat patientRef caller as verified.`,
+      `- Treat the caller as verified only after first-name confirmation or verify_patient succeeds.`,
     );
     lines.push(`- Do not call verify_patient for this caller.`);
     lines.push(
       `- Use the preloaded appointment list for appointment changes and cancellations.`,
     );
-    lines.push(`- Continue the caller's requested workflow.`);
+    lines.push(`- Continue helping with the caller's request.`);
     lines.push(
       `If caller gives a different first name or says they are calling for someone else:`,
     );
@@ -219,7 +206,7 @@ function buildCallerContext(lookup: PhoneLookupResult): string {
       `**MULTIPLE MATCHES (${lookup.matches.length} patients on this number).**`,
     );
     lines.push(
-      `Use the latest turn_state preCall guidance to narrow identity. Say there are multiple patients on this number, ask the caller to confirm the patient's first name first, and do not read names on file aloud.`,
+      `Say there are multiple patients on this number, ask the caller to confirm the patient's first name first, and do not read names on file aloud.`,
     );
     return lines.join("\n");
   }

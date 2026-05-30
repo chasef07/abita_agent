@@ -150,11 +150,6 @@ export function normalizePhoneNumber(phone: string): string {
   return phone.trim();
 }
 
-export function isFlowHarnessEnabledForTrunk(phone?: string | null): boolean {
-  if (!phone) return false;
-  return Boolean(OFFICE_BY_PHONE[normalizePhoneNumber(phone)]);
-}
-
 export function getOfficeKeyByPhone(phone: string): OfficeKey {
   const officeKey = OFFICE_BY_PHONE[normalizePhoneNumber(phone)];
   if (!officeKey) {

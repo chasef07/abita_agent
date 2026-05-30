@@ -6,7 +6,7 @@ import {
   matchInsurancePlan,
   matchInsurancePlanForOffice,
 } from "../insurance-rules.js";
-import { getOfficeConfig } from "../offices.js";
+import { getOfficeConfig } from "../customer/profile.js";
 
 describe("insurance matcher", () => {
   const reference = loadInsuranceReference(

@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SPRING_HILL_OFFICE_PHONE } from "../offices.js";
-import { lookupByPhone } from "../tooling/advancedmd-client.js";
+import { SPRING_HILL_OFFICE_PHONE } from "../customer/profile.js";
+import { lookupByPhone } from "../clients/advancedmd-client.js";
 import {
   buildPreCallContextState,
   loadPreCallBootstrap,
-} from "../tooling/precall-bootstrap.js";
+} from "../runtime/precall-bootstrap.js";
 
 describe("pre-call bootstrap", () => {
   afterEach(() => {
@@ -116,7 +116,6 @@ describe("pre-call bootstrap", () => {
         name: "Doe, Jane",
         appointmentsStatus: "none",
       },
-      flowHarnessEnabled: true,
       telemetry: {
         status: "verified",
       },
@@ -170,7 +169,7 @@ describe("pre-call bootstrap", () => {
     });
   });
 
-  it("maps lookup outcomes into harness-owned pre-call state", () => {
+  it("maps lookup outcomes into session pre-call state", () => {
     const single = buildPreCallContextState(
       {
         status: "verified",
