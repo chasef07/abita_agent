@@ -580,26 +580,53 @@ describe("Crystal River prompt guidance", () => {
 });
 
 describe("model-facing tool definitions", () => {
-  it("keeps Bach-only routing from implying a minor patient", () => {
+  it("keeps add_patient focused on new-patient chart creation", () => {
     expect(add_patient.description).toContain(
+      "Creates a chart for a new patient",
+    );
+    expect(add_patient.description).toContain(
+      "checking insurance eligibility with check_insurance",
+    );
+    expect(add_patient.description).not.toContain(
       "Do not infer age from Bach-only routing",
     );
+  });
+
+  it("keeps availability from exposing Bach-only routing internals", () => {
     expect(get_availability.description).not.toContain("bach_only routing");
     expect(get_availability.description).not.toContain(
       "Under 18 medical visits = Dr. Bach only",
     );
   });
 
-  it("limits verify_patient to patient-specific help", () => {
+  it("limits verify_patient to unloaded existing-patient appointment work", () => {
     expect(verify_patient.description).toContain(
-      "patient-specific help such as scheduling",
-    );
-    expect(verify_patient.description).toContain("appointment management");
-    expect(verify_patient.description).toContain(
-      "For caller-phone lookup, provide firstName only",
+      "Finds an existing patient and loads appointments",
     );
     expect(verify_patient.description).toContain(
-      "Follow the returned status, next, patient, and appointments fields",
+      "existing patients are not preloaded and want to schedule, confirm, or cancel appointments",
     );
+    expect(verify_patient.description).toContain(
+      "Do not call for general questions",
+    );
+    expect(verify_patient.description).not.toContain("insurance updates");
+    expect(verify_patient.description).not.toContain("private account");
+
+    const parameters = verify_patient.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+    };
+    expect(
+      parameters.safeParse({
+        firstName: "Jane",
+        lastName: "Doe",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+      }).success,
+    ).toBe(true);
   });
 });

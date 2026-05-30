@@ -11,16 +11,14 @@ import {
   ensureRoutineVisionOffice,
   getAmdOfficeForToolCall,
 } from "./scheduling.js";
-import { disableInterruptionsForWrite, getState } from "./session.js";
+import { getState } from "./session.js";
 
 export const add_patient = llm.tool({
   description:
-    "Create a new patient after no-match verification or caller-confirmed registration. " +
-    "Call only after collecting real caller-provided registration facts and checking insurance. " +
-    'Use the latest check_insurance canonicalPlan; for self-pay use subscriberNum "self pay". ' +
-    "Omit phone only when the caller confirms the inbound number is best. " +
-    "Returns the created patient, routing, preauth, and scheduling context. " +
-    "Do not infer age from Bach-only routing.",
+    "Creates a chart for a new patient. " +
+    "Call this when the user has not registered in the system before. " +
+    "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. " +
+    "Returns a speech-ready chart creation result.",
   parameters: z.object({
     firstName: z.string().describe("Patient's first name"),
     lastName: z.string().describe("Patient's last name"),
@@ -56,53 +54,65 @@ export const add_patient = llm.tool({
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
-    const speechReady = disableInterruptionsForWrite(ctx);
-    if (!speechReady) {
-      return {
-        outcome: "not_allowed",
-        speak:
-          "Registration was interrupted before it could be submitted. Please confirm the patient details again.",
-        facts: { reason: "speech_interrupted" },
-        retryable: true,
-      };
-    }
+    ctx.speechHandle.allowInterruptions = false;
+
     const checkedInsurance = activeInsuranceContext(state);
     const insurance = checkedInsurance.canonicalPlan ?? params.insurance;
     const selfPay = normalizeInsuranceText(insurance) === "self pay";
     const phone = params.phone ?? runtimeCallerPhone(state);
+
     if (!phone) {
-      return {
-        outcome: "needs_clarification",
-        speak:
-          "Ask whether the number they're calling from is good; if not, collect the best phone number.",
-        facts: { reason: "registration_requires_phone" },
-        retryable: true,
-      };
+      throw new llm.ToolError(
+        "A callback phone number is required before creating a chart. Ask whether the inbound number is best, or collect a callback number.",
+      );
     }
+
     ensureRoutineVisionOffice(state);
-    const payload: Record<string, unknown> = { ...params, insurance, phone };
-    if (selfPay) {
-      payload.subscriberNum = "self pay";
-      payload.subscriberName =
-        params.subscriberName || `${params.firstName} ${params.lastName}`;
-    }
-    if (checkedInsurance.coverageType === "routine_vision") {
-      payload.coverageType = "routine_vision";
-    }
-    if (typeof params.email === "string" && params.email.trim()) {
-      payload.email = params.email.trim();
-    } else {
-      delete payload.email;
-    }
+    const { email, ...patient } = params;
+    const payload = {
+      ...patient,
+      insurance,
+      phone,
+      subscriberName: selfPay
+        ? params.subscriberName || `${params.firstName} ${params.lastName}`
+        : params.subscriberName,
+      subscriberNum: selfPay ? "self pay" : params.subscriberNum,
+      ...(checkedInsurance.coverageType === "routine_vision"
+        ? { coverageType: "routine_vision" }
+        : {}),
+      ...(email?.trim() ? { email: email.trim() } : {}),
+    };
+
     const result = (await callApi(
       "/api/add-patient",
       payload,
       getAmdOfficeForToolCall(state),
-    )) as any;
-    if (result?.patientId) {
-      applyPatientResult(state, result);
-      return result;
+    )) as AddPatientResult;
+    if (!result.patientId) {
+      return (
+        result.message ??
+        "The patient chart was not created. Confirm the registration details and try again."
+      );
     }
-    return result;
+
+    applyPatientResult(state, result);
+    const patientName =
+      result.name?.trim() || `${params.firstName} ${params.lastName}`;
+    return `Created a patient chart for ${patientName}. Continue with scheduling.`;
   },
 });
+
+type AddPatientResult = {
+  patientId?: string | null;
+  name?: string | null;
+  message?: string | null;
+  status?: string | null;
+  phone?: string | null;
+  insuranceCarrier?: string | null;
+  insPlanId?: string | null;
+  respPartyId?: string | null;
+  routing?: string | null;
+  allowedProviders?: string[];
+  routingAmbiguous?: boolean;
+  preauthRequired?: boolean;
+};

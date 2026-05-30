@@ -9,7 +9,6 @@ import {
   clearAvailabilitySelection,
   normalizeSchedulingRouting,
   publicCallerAppointments,
-  runtimeCallerPhone,
   setAppointmentCancelTokens,
   setPatientBackendRefs,
   snapshotActivePatientIdentity,
@@ -27,17 +26,8 @@ import {
   getAmdOfficeForToolCall,
 } from "./scheduling.js";
 
-export type PatientResolveArgs = {
-  firstName?: string;
-  lastName?: string;
-  dob?: string;
-};
-
-export type BuiltPatientResolveRequest = {
+type PatientResolveRequest = {
   body: Record<string, unknown>;
-  callerPhone: string | null;
-  usesCallerPhone: boolean;
-  usesFullIdentity: boolean;
 };
 
 type PatientStatePayload = {
@@ -73,52 +63,12 @@ export function restoreConfirmedPreCallCaller(state: CallState): void {
   applyPreCallCandidateToState(state, candidate);
 }
 
-export function confirmPendingPreCallCallerFromVerifyArgs(
-  state: CallState,
-  args: PatientResolveArgs,
-): void {
-  if (!args.firstName) return;
-  const preCall = state.preCall;
-  if (preCall?.status !== "single_match_pending_confirmation") return;
-  if (preCall.candidates.length !== 1) return;
-  const [candidate] = preCall.candidates;
-  if (candidate?.ref !== CALLER_CANDIDATE_REF) return;
-  if (
-    identityArgConflicts(candidate.lastName, args.lastName) ||
-    identityArgConflicts(candidate.dob, args.dob)
-  ) {
-    return;
-  }
-
-  preCall.status = "single_match_confirmed";
-  applyPreCallCandidateToState(state, candidate);
-}
-
-export function buildPatientResolveRequest(
-  state: CallState,
-  args: PatientResolveArgs,
-): BuiltPatientResolveRequest {
-  const callerPhone = runtimeCallerPhone(state).trim() || null;
-  const usesFullIdentity = Boolean(args.lastName && args.dob);
-  const usesCallerPhone = Boolean(
-    callerPhone && args.firstName && !usesFullIdentity,
-  );
-  const body: Record<string, unknown> = {};
-  if (args.firstName) body.firstName = args.firstName;
-  if (args.lastName) body.lastName = args.lastName;
-  if (args.dob) body.dob = args.dob;
-  if (usesCallerPhone && callerPhone) body.phone = callerPhone;
-  return { body, callerPhone, usesCallerPhone, usesFullIdentity };
-}
-
 export async function resolvePatientForCall(
   state: CallState,
-  request: BuiltPatientResolveRequest,
+  request: PatientResolveRequest,
 ): Promise<PatientResolveResult> {
   ensureRoutineVisionOffice(state);
-  return resolvePatientByOffice(getAmdOfficeForToolCall(state), request.body, {
-    fallbackPhone: request.usesCallerPhone ? request.callerPhone : null,
-  });
+  return resolvePatientByOffice(getAmdOfficeForToolCall(state), request.body);
 }
 
 export function applyResolvedPatientToState(
@@ -167,72 +117,6 @@ export function applyPatientResult(state: CallState, result: any): void {
     appointmentsStatus,
     rawAppointments: extractedAppointments ?? [],
   });
-}
-
-export function publicPatientResolveResult(
-  result: PatientResolveResult,
-  request?: Pick<BuiltPatientResolveRequest, "usesFullIdentity">,
-) {
-  if (result.status === "verified") {
-    return {
-      status: "verified",
-      patient: {
-        id: result.patientId,
-        name: result.name,
-        dob: result.dob,
-        insuranceCarrier: result.insuranceCarrier,
-        routing: result.routing,
-        routingAmbiguous: result.routingAmbiguous,
-        preauthRequired: result.preauthRequired,
-      },
-      appointments: {
-        status: result.appointmentsStatus,
-        ...(result.appointmentsMessage
-          ? { message: result.appointmentsMessage }
-          : {}),
-        items: publicCallerAppointments(result.appointments),
-      },
-      next: "continue",
-    };
-  }
-  if (result.status === "multiple_matches") {
-    return {
-      status: "multiple_matches",
-      message: result.message,
-      matches: result.matches.flatMap(publicMultiplePatientMatch),
-      next: "ask_first_name",
-    };
-  }
-  if (result.status === "not_found") {
-    return {
-      status: "not_found",
-      message: result.message,
-      next: request?.usesFullIdentity
-        ? "ask_spelled_name_or_register"
-        : "ask_last_name_and_dob",
-    };
-  }
-  return {
-    status: "error",
-    message: result.message,
-    next: "retry",
-  };
-}
-
-export function clearSessionPatientRecord(state: CallState): void {
-  state.private.patientBackend = {};
-  state.private.appointments = {};
-  state.patient = {
-    ...state.patient,
-    status: "unknown",
-    identityConfirmed: false,
-    patientId: null,
-    name: null,
-    dob: null,
-    phone: null,
-    appointments: [],
-    appointmentsStatus: null,
-  };
 }
 
 export function changedKnownIdentityValue(
@@ -364,38 +248,6 @@ function shouldInvalidatePatientScopedState(
     changedKnownIdentityValue(previousIdentity.name, result.name) ||
     changedKnownIdentityValue(previousIdentity.dob, result.dob)
   );
-}
-
-function publicMultiplePatientMatch(
-  match: Extract<
-    PatientResolveResult,
-    { status: "multiple_matches" }
-  >["matches"][number],
-): Array<{ firstName: string }> {
-  if ("firstName" in match && match.firstName) {
-    return [{ firstName: match.firstName }];
-  }
-  if (!("status" in match)) return [];
-  const firstName = firstNameFromPatientName(match.name);
-  return firstName ? [{ firstName }] : [];
-}
-
-function firstNameFromPatientName(name: string | null): string | undefined {
-  if (!name) return undefined;
-  const [, firstAndMiddle] = name
-    .split(",", 2)
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (firstAndMiddle) return firstAndMiddle.split(/\s+/).filter(Boolean)[0];
-  return name.trim().split(/\s+/).filter(Boolean)[0];
-}
-
-function identityArgConflicts(
-  existing: string | undefined,
-  next: string | undefined,
-): boolean {
-  if (!existing || !next) return false;
-  return normalizeIdentityValue(existing) !== normalizeIdentityValue(next);
 }
 
 function sameKnownIdentityValue(
