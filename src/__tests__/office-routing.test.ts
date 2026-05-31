@@ -652,7 +652,10 @@ describe("model-facing tool definitions", () => {
       "read back the important registration details and get caller confirmation",
     );
     expect(add_patient.description).toContain(
-      "omit phone and move on; do not ask them to repeat that number",
+      "ask whether the number they are calling from is a good callback number",
+    );
+    expect(add_patient.description).toContain(
+      "set inboundPhoneConfirmed to true; do not ask them to repeat that number",
     );
     expect(add_patient.description).not.toContain(
       "Do not infer age from Bach-only routing",
@@ -733,6 +736,12 @@ describe("model-facing tool definitions", () => {
 
   it("keeps update_insurance scoped to verified-patient medical updates", () => {
     expect(update_insurance.description).toContain("verified existing patient");
+    expect(update_insurance.description).toContain(
+      "explicitly says they want to update the insurance on file",
+    );
+    expect(update_insurance.description).toContain(
+      "Do not call for new patients or registration flows",
+    );
     expect(update_insurance.description).toContain(
       "check_insurance accepts medical coverage",
     );

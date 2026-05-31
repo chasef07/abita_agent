@@ -19,7 +19,8 @@ export const add_patient = llm.tool({
     "Call this when the user has not registered in the system before. " +
     "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. " +
     "Before calling, read back the important registration details and get caller confirmation. " +
-    "If the caller confirms the inbound caller number is the best callback number, omit phone and move on; do not ask them to repeat that number. ",
+    "Before using the inbound caller number for the chart, ask whether the number they are calling from is a good callback number to put on file. " +
+    "If they say yes, omit phone and set inboundPhoneConfirmed to true; do not ask them to repeat that number. ",
   parameters: z.object({
     firstName: z.string().describe("Patient's first name"),
     lastName: z.string().describe("Patient's last name"),
@@ -29,6 +30,12 @@ export const add_patient = llm.tool({
       .optional()
       .describe(
         "Best callback number, 10 digits only. Omit when the inbound caller number is confirmed as best; the tool will use the caller phone from state.",
+      ),
+    inboundPhoneConfirmed: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set to true only after asking whether the number they are calling from is a good callback number to put on file and the caller says yes.",
       ),
     email: z
       .string()
@@ -65,7 +72,18 @@ export const add_patient = llm.tool({
     const checkedInsurance = activeInsuranceContext(state);
     const insurance = checkedInsurance.canonicalPlan ?? params.insurance;
     const selfPay = normalizeInsuranceText(insurance) === "self pay";
-    const phone = params.phone?.trim() || runtimeCallerPhone(state).trim();
+    const explicitPhone = params.phone?.trim() ?? "";
+    const phone =
+      explicitPhone ||
+      (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
+
+    if (!explicitPhone && !params.inboundPhoneConfirmed) {
+      return (
+        "Ask the caller: Is the number you are calling from a good callback number to put on file? " +
+        "If yes, call add_patient again with inboundPhoneConfirmed set to true. " +
+        "If not, collect the callback phone number and pass it as phone."
+      );
+    }
 
     if (!params.readBack) {
       return (

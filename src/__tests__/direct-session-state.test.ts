@@ -383,6 +383,7 @@ describe("direct session state cleanup", () => {
         insurance: "self pay",
         subscriberName: "Jane Doe",
         subscriberNum: "self pay",
+        inboundPhoneConfirmed: true,
         readBack: true,
       },
       { ctx: ctx as never, toolCallId: "tool-1" } as never,
@@ -431,6 +432,7 @@ describe("direct session state cleanup", () => {
         insurance: "self pay",
         subscriberName: "Jane Doe",
         subscriberNum: "self pay",
+        phone: "7275551212",
       },
       { ctx: ctx as never, toolCallId: "tool-1" } as never,
     );
@@ -442,7 +444,49 @@ describe("direct session state cleanup", () => {
     expect(ctx.speechHandle.allowInterruptions).toBe(true);
   });
 
-  it("uses the inbound caller phone when add_patient receives a blank phone", async () => {
+  it("asks before using the inbound caller phone for a new patient chart", async () => {
+    const state = createState();
+    state.patient.patientId = null;
+    state.patient.name = null;
+    state.patient.identityConfirmed = false;
+    state.checkedInsurance = {
+      plan: "self pay",
+      canonicalPlan: "self pay",
+      coverageType: "medical",
+      currentCarrier: "self pay",
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        insurance: "self pay",
+        subscriberName: "Jane Doe",
+        subscriberNum: "self pay",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Ask the caller: Is the number you are calling from a good callback number to put on file? If yes, call add_patient again with inboundPhoneConfirmed set to true. If not, collect the callback phone number and pass it as phone.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("uses the inbound caller phone after explicit confirmation", async () => {
     const state = createState();
     state.patient.patientId = null;
     state.patient.name = null;
@@ -481,6 +525,7 @@ describe("direct session state cleanup", () => {
         subscriberName: "Jane Doe",
         subscriberNum: "self pay",
         phone: "   ",
+        inboundPhoneConfirmed: true,
         readBack: true,
       },
       {
