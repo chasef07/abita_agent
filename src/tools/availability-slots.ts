@@ -1,22 +1,14 @@
 import {
   availabilitySlotsForState,
-  nextAvailabilitySlotIndex as nextCanonicalAvailabilitySlotIndex,
+  clearAvailabilitySelection,
   storeAvailabilitySlotPrivateData,
   type CallState,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
 
-type AvailabilityCandidateSlot = {
+type PublicAvailabilitySlot = {
   slotId: string;
   spoken: string;
-  provider: string;
-  date: string;
-  time: string;
-};
-
-type ModelAvailabilitySlot = {
-  slotId: string;
-  reply: string;
   provider: string;
   date: string;
   time: string;
@@ -41,12 +33,14 @@ export function removeAvailabilitySlot(
     state.scheduling.availabilitySlots.filter(
       (slot) => normalizeSlotId(slot.slotId) !== normalized,
     );
-  if (!state.scheduling.rejectedAvailabilitySlotIds.includes(slotId)) {
-    state.scheduling.rejectedAvailabilitySlotIds.push(slotId);
+  for (const storedSlotId of Object.keys(
+    state.private.availability.bookingTokens,
+  )) {
+    if (normalizeSlotId(storedSlotId) === normalized) {
+      delete state.private.availability.bookingTokens[storedSlotId];
+    }
   }
-  delete state.private.availability.bookingTokens[slotId];
-  delete state.private.availability.rawSlots[slotId];
-  return availabilitySlotsForBooking(state);
+  return availabilitySlotsForState(state);
 }
 
 export function selectedAvailabilitySlot(
@@ -54,21 +48,11 @@ export function selectedAvailabilitySlot(
   slotId: string,
 ): StoredAvailabilitySlot | null {
   const normalized = normalizeSlotId(slotId);
-  const slots = availabilitySlotsForBooking(state);
-  const exact = slots.find(
-    (slot) => normalizeSlotId(slot.slotId) === normalized,
+  return (
+    availabilitySlotsForState(state).find(
+      (slot) => normalizeSlotId(slot.slotId) === normalized,
+    ) ?? null
   );
-  if (exact) return exact;
-  const naturalMatches = slots.filter((slot) =>
-    slotNaturallyMatches(slot, slotId),
-  );
-  return naturalMatches.length === 1 ? naturalMatches[0] : null;
-}
-
-function availabilitySlotsForBooking(
-  state: CallState,
-): StoredAvailabilitySlot[] {
-  return availabilitySlotsForState(state);
 }
 
 export function storeAvailabilitySlots(
@@ -76,94 +60,43 @@ export function storeAvailabilitySlots(
   rawResponse: unknown,
   routing: string | null,
 ): unknown {
-  const activeSlots = availabilitySlotsForBooking(state);
   if (!isRecord(rawResponse)) {
+    clearAvailabilitySelection(state);
     return cleanAvailabilityErrorResponse(rawResponse);
   }
-  const rawSlots = Array.isArray(rawResponse.slots) ? rawResponse.slots : [];
+
+  const apiSlots = Array.isArray(rawResponse.slots) ? rawResponse.slots : [];
   const outcome = stringField(rawResponse, "outcome");
   if (
     !Array.isArray(rawResponse.slots) &&
     outcome !== "no_availability" &&
     outcome !== "availability_search_incomplete"
   ) {
+    clearAvailabilitySelection(state);
     return cleanAvailabilityErrorResponse(rawResponse);
   }
 
-  const firstSlotIndex = nextAvailabilitySlotIndex(state, activeSlots);
-  const storedSlots: StoredAvailabilitySlot[] = [];
-  const candidateSlots: AvailabilityCandidateSlot[] = [];
-  const sortableSlots = rawSlots
-    .map((slot, index) => ({ slot, index }))
-    .filter(
-      (entry): entry is { slot: Record<string, unknown>; index: number } =>
-        isRecord(entry.slot),
-    )
+  const sortedSlots = apiSlots
+    .filter(isRecord)
     .sort(compareRawAvailabilitySlot);
+  const storedSlots = sortedSlots.map((slot, index) =>
+    storedAvailabilitySlot(slot, index, routing),
+  );
 
-  sortableSlots.forEach(({ slot }) => {
-    const rawProvider = typeof slot.provider === "string" ? slot.provider : "";
-    const provider = rawProvider ? publicProviderName(rawProvider) : "";
-    const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
-    const time = typeof slot.time === "string" ? slot.time : "";
-    const date =
-      typeof slot.date === "string"
-        ? slot.date
-        : slotDateFromDatetime(datetime);
-    const slotId = slotIdForIndex(firstSlotIndex + storedSlots.length);
-    const spoken = [date, time, provider ? `with ${provider}` : ""]
-      .filter(Boolean)
-      .join(" ");
-
-    const storedSlot: StoredAvailabilitySlot = {
-      slotId,
-      spoken,
-      provider,
-      date,
-      time,
-      datetime,
-      routing,
-    };
-    if (typeof slot.columnId === "number") storedSlot.columnId = slot.columnId;
-    if (typeof slot.profileId === "number")
-      storedSlot.profileId = slot.profileId;
-    if (typeof slot.duration === "number") storedSlot.duration = slot.duration;
-    storedSlots.push(storedSlot);
+  clearAvailabilitySelection(state);
+  state.scheduling.availabilitySlots = storedSlots;
+  state.scheduling.latestAvailabilityRouting = routing;
+  sortedSlots.forEach((slot, index) => {
     storeAvailabilitySlotPrivateData(
       state,
-      slotId,
-      slot,
+      slotIdForIndex(index),
       typeof slot.bookingToken === "string" ? slot.bookingToken : undefined,
     );
-
-    candidateSlots.push({
-      slotId,
-      spoken,
-      provider,
-      date,
-      time,
-    });
   });
 
-  state.private.availability.slotSequence = firstSlotIndex + storedSlots.length;
-  const existingIds = new Set(
-    state.scheduling.availabilitySlots.map((slot) =>
-      normalizeSlotId(slot.slotId),
-    ),
-  );
-  state.scheduling.availabilitySlots = [
-    ...state.scheduling.availabilitySlots.filter(
-      (slot) => !existingIds.has(normalizeSlotId(slot.slotId)),
-    ),
-    ...storedSlots,
-  ];
-  state.scheduling.latestAvailabilitySlotIds = storedSlots.map(
-    (slot) => slot.slotId,
-  );
-  state.scheduling.latestAvailabilityRouting = routing;
   const searchedRange = availabilitySearchedRange(rawResponse);
   const nextSearchDate = nextIsoDate(searchedRange?.end);
-  const recommendedSlot = candidateSlots[0];
+  const recommendedSlot = storedSlots[0];
   const search = buildAvailabilitySearchSummary({
     rawResponse,
     searchedRange,
@@ -177,30 +110,67 @@ export function storeAvailabilitySlots(
   return cleanAvailabilityResponse({
     rawResponse,
     search,
-    candidateSlots,
+    slots: storedSlots,
     recommendedSlot,
   });
 }
 
+function storedAvailabilitySlot(
+  slot: Record<string, unknown>,
+  index: number,
+  routing: string | null,
+): StoredAvailabilitySlot {
+  const provider = slotProvider(slot);
+  const date = slotDate(slot);
+  const time = slotTime(slot);
+  const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
+  const spoken = [date, time, provider ? `with ${provider}` : ""]
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    slotId: slotIdForIndex(index),
+    spoken,
+    provider,
+    date,
+    time,
+    datetime,
+    routing,
+  };
+}
+
 function compareRawAvailabilitySlot(
-  left: { slot: Record<string, unknown>; index: number },
-  right: { slot: Record<string, unknown>; index: number },
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
 ): number {
-  const leftTime = sortableSlotTimestamp(left.slot);
-  const rightTime = sortableSlotTimestamp(right.slot);
-  if (leftTime !== rightTime) return leftTime - rightTime;
-  return left.index - right.index;
+  return sortableSlotTimestamp(left) - sortableSlotTimestamp(right);
 }
 
 function sortableSlotTimestamp(slot: Record<string, unknown>): number {
   const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
-  const date = typeof slot.date === "string" ? slot.date : "";
-  const time = typeof slot.time === "string" ? slot.time : "";
+  const date = slotDate(slot);
+  const time = slotTime(slot);
   const isoLike = datetime || (date && time ? `${date}T${time}` : "");
   const parsed = Date.parse(isoLike);
   if (Number.isFinite(parsed)) return parsed;
-  const minutes = minutesFromDisplayTime(time);
-  return minutes ?? Number.MAX_SAFE_INTEGER;
+  return minutesFromDisplayTime(time) ?? Number.MAX_SAFE_INTEGER;
+}
+
+function slotProvider(slot: Record<string, unknown>): string {
+  return typeof slot.provider === "string"
+    ? publicProviderName(slot.provider)
+    : "";
+}
+
+function slotDate(slot: Record<string, unknown>): string {
+  if (typeof slot.date === "string") return slot.date;
+  return typeof slot.datetime === "string"
+    ? (slot.datetime.split("T")[0] ?? "")
+    : "";
+}
+
+function slotTime(slot: Record<string, unknown>): string {
+  return typeof slot.time === "string" ? slot.time : "";
 }
 
 function normalizeSlotId(slotId: string): string {
@@ -213,78 +183,6 @@ export function publicProviderName(provider: string): string {
     .replace("Dr. Austin Bach", "Dr. Bach")
     .replace("Dr. J. Licht", "Dr. Licht")
     .replace("Dr. D. Noel", "Dr. Noel");
-}
-
-function slotDateFromDatetime(datetime: string): string {
-  return datetime.split("T")[0] ?? datetime;
-}
-
-function nextAvailabilitySlotIndex(
-  state: CallState,
-  slots: StoredAvailabilitySlot[],
-): number {
-  return nextCanonicalAvailabilitySlotIndex(state, slots);
-}
-
-function compactSlotReference(value: string | undefined): string {
-  return (value ?? "")
-    .toLowerCase()
-    .replace(/\bdoctor\b/g, "dr")
-    .replace(/\bdr\.\s*/g, "")
-    .replace(/[^a-z0-9]/g, "");
-}
-
-function slotTimeReferences(slot: StoredAvailabilitySlot): string[] {
-  const references = new Set<string>();
-  const timeSources = [slot.time, slot.datetime?.split("T")[1]?.slice(0, 5)];
-  for (const time of timeSources) {
-    const match = time?.match(/(\d{1,2}):?(\d{2})?\s*(am|pm)?/i);
-    if (!match) continue;
-    const hour = match[1] ?? "";
-    const minute = match[2] ?? "00";
-    const meridiem = match[3]?.toLowerCase() ?? "";
-    const unpadded = `${Number(hour)}${minute}`;
-    const padded = `${hour.padStart(2, "0")}${minute}`;
-    references.add(unpadded);
-    references.add(padded);
-    if (meridiem) {
-      references.add(`${unpadded}${meridiem}`);
-      references.add(`${padded}${meridiem}`);
-    }
-  }
-  return [...references].filter(Boolean);
-}
-
-function slotNaturallyMatches(
-  slot: StoredAvailabilitySlot,
-  requestedSlotId: string,
-): boolean {
-  const requested = compactSlotReference(requestedSlotId);
-  if (!requested) return false;
-  const aliases = [
-    slot.spoken,
-    slot.datetime,
-    [slot.date, slot.time, slot.provider].filter(Boolean).join(" "),
-  ]
-    .map(compactSlotReference)
-    .filter(Boolean);
-  if (
-    aliases.some((alias) => alias === requested || alias.includes(requested))
-  ) {
-    return true;
-  }
-
-  const dateReferences = [slot.date, slot.datetime?.split("T")[0]]
-    .map(compactSlotReference)
-    .filter(Boolean);
-  const providerReference = compactSlotReference(slot.provider);
-  const hasDate = dateReferences.some((date) => requested.includes(date));
-  const hasTime = slotTimeReferences(slot).some((time) =>
-    requested.includes(time),
-  );
-  const hasProvider =
-    !providerReference || requested.includes(providerReference);
-  return hasDate && hasTime && hasProvider;
 }
 
 function minutesFromDisplayTime(time: string): number | null {
@@ -382,7 +280,7 @@ function buildAvailabilitySearchSummary(input: {
 function buildAvailabilityReply(input: {
   rawResponse: Record<string, unknown>;
   search: AvailabilitySearchSummary;
-  recommendedSlot?: AvailabilityCandidateSlot;
+  recommendedSlot?: StoredAvailabilitySlot;
   hasAlternates: boolean;
 }): string {
   const { rawResponse, search, recommendedSlot, hasAlternates } = input;
@@ -430,12 +328,12 @@ function cleanAvailabilityErrorResponse(rawResponse: unknown): {
   result: string;
   reply: string;
   next: string;
-  slots: ModelAvailabilitySlot[];
+  slots: PublicAvailabilitySlot[];
 } {
   if (!isRecord(rawResponse)) {
     return {
       result: "retry",
-      reply: "I’m having trouble checking availability. Let me try once more.",
+      reply: "I'm having trouble checking availability. Let me try once more.",
       next: "retry_search_once",
       slots: [],
     };
@@ -444,7 +342,7 @@ function cleanAvailabilityErrorResponse(rawResponse: unknown): {
   const outcome = stringField(rawResponse, "outcome") ?? "error";
   const reply =
     stringField(rawResponse, "message") ??
-    "I’m having trouble checking availability. Let me try once more.";
+    "I'm having trouble checking availability. Let me try once more.";
   const shouldRetry = booleanField(rawResponse, "shouldRetrySameSearch");
   return {
     result: outcome === "availability_search_incomplete" ? "retry" : "error",
@@ -454,11 +352,15 @@ function cleanAvailabilityErrorResponse(rawResponse: unknown): {
   };
 }
 
-function publicAvailabilitySlot(slot: AvailabilityCandidateSlot) {
+function publicAvailabilitySlot(slot: StoredAvailabilitySlot) {
   const spokenDate = spokenIsoDate(slot.date) ?? slot.date;
+  const dateTime = [spokenDate, slot.time].filter(Boolean).join(" at ");
+  const spoken = [dateTime, slot.provider ? `with ${slot.provider}` : ""]
+    .filter(Boolean)
+    .join(" ");
   return {
     slotId: slot.slotId,
-    reply: `${spokenDate} at ${slot.time} with ${slot.provider}`,
+    spoken,
     provider: slot.provider,
     date: slot.date,
     time: slot.time,
@@ -468,13 +370,13 @@ function publicAvailabilitySlot(slot: AvailabilityCandidateSlot) {
 function cleanAvailabilityResponse(input: {
   rawResponse: Record<string, unknown>;
   search: AvailabilitySearchSummary;
-  candidateSlots: AvailabilityCandidateSlot[];
-  recommendedSlot?: AvailabilityCandidateSlot;
+  slots: StoredAvailabilitySlot[];
+  recommendedSlot?: StoredAvailabilitySlot;
 }) {
-  const { rawResponse, search, candidateSlots, recommendedSlot } = input;
+  const { rawResponse, search, slots, recommendedSlot } = input;
   const outcome = stringField(rawResponse, "outcome") ?? "unknown";
-  const availabilityFound = candidateSlots.length > 0;
-  const result = availabilityFound
+  const foundSlots = slots.length > 0;
+  const result = foundSlots
     ? "slots_found"
     : outcome === "availability_search_incomplete"
       ? "retry"
@@ -496,13 +398,13 @@ function cleanAvailabilityResponse(input: {
       rawResponse,
       search,
       recommendedSlot,
-      hasAlternates: candidateSlots.length > 1,
+      hasAlternates: slots.length > 1,
     }),
     next,
     ...(searched ? { searched } : {}),
     ...(search.nextSearchDate ? { nextSearchDate: search.nextSearchDate } : {}),
     ...(recommendedSlot ? { slotId: recommendedSlot.slotId } : {}),
-    slots: candidateSlots.map(publicAvailabilitySlot),
+    slots: slots.map(publicAvailabilitySlot),
   };
 }
 

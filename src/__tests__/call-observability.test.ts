@@ -57,52 +57,13 @@ describe("call observability", () => {
     expect(
       classifyToolOutput(
         "transfer_call",
-        "Could not transfer the call. Please try again.",
+        "Could not transfer the call.",
         false,
       ),
     ).toBe("transfer_failed");
     expect(
-      classifyToolOutput(
-        "transfer_call",
-        JSON.stringify({
-          outcome: "error",
-          facts: { reason: "transfer_failed" },
-          retryable: false,
-          speak:
-            "Could not transfer the call. Do not call transfer_call again.",
-        }),
-        false,
-      ),
-    ).toBe("transfer_failed");
-    expect(
-      classifyToolOutput(
-        "transfer_call",
-        "Already transferred. No action needed.",
-        false,
-      ),
+      classifyToolOutput("transfer_call", "Transfer already started.", false),
     ).toBe("duplicate_tool_call");
-    expect(
-      classifyToolOutput(
-        "transfer_call",
-        JSON.stringify({
-          outcome: "success",
-          facts: { reason: "transfer_already_started" },
-          speak: "Transfer already started. No action needed.",
-        }),
-        false,
-      ),
-    ).toBe("duplicate_tool_call");
-    expect(
-      classifyToolOutput(
-        "transfer_call",
-        JSON.stringify({
-          outcome: "not_allowed",
-          facts: { reason: "transfer_already_attempted" },
-          retryable: true,
-        }),
-        false,
-      ),
-    ).toBe("transfer_not_started");
     expect(
       classifyToolOutput(
         "verify_patient",
@@ -132,31 +93,36 @@ describe("call observability", () => {
     ).toBe("appointment_booked");
     expect(
       classifyToolOutput(
+        "book_appt",
+        "Booked June 1 at 9:00 AM with Doctor Smith.",
+        false,
+      ),
+    ).toBe("appointment_booked");
+    expect(
+      classifyToolOutput(
+        "book_appt",
+        "That time is no longer available. Check availability again before booking.",
+        false,
+      ),
+    ).toBe("appointment_not_booked");
+    expect(
+      classifyToolOutput(
         "cancel_appt",
-        JSON.stringify({
-          outcome: "not_found",
-          facts: { reason: "appointment_not_found" },
-        }),
+        "Load appointments and confirm the exact appointment before cancelling.",
         false,
       ),
     ).toBe("appointment_not_cancelled");
     expect(
       classifyToolOutput(
         "cancel_appt",
-        JSON.stringify({
-          outcome: "not_allowed",
-          facts: { reason: "cancel_requires_verified_or_created_patient" },
-        }),
+        "The appointment was not cancelled.",
         false,
       ),
     ).toBe("appointment_not_cancelled");
     expect(
       classifyToolOutput(
         "cancel_appt",
-        JSON.stringify({
-          outcome: "success",
-          facts: { appointmentId: 12345 },
-        }),
+        "Cancelled the appointment on June 5 at 10:00 AM.",
         false,
       ),
     ).toBe("appointment_cancelled");

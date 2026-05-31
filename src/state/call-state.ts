@@ -149,9 +149,6 @@ export interface StoredAvailabilitySlot {
   date: string;
   time: string;
   datetime: string;
-  columnId?: number;
-  profileId?: number;
-  duration?: number;
   routing: string | null;
 }
 
@@ -170,8 +167,6 @@ interface PrivateToolState {
   appointments: Record<string, PrivateAppointmentToolState>;
   availability: {
     bookingTokens: Record<string, string>;
-    rawSlots: Record<string, unknown>;
-    slotSequence: number;
   };
 }
 
@@ -185,8 +180,6 @@ interface RuntimeCallState {
   callerPhone: string;
   trunkPhone: string;
   transferred: boolean;
-  transferAttempted?: boolean;
-  transferInFlight?: boolean;
 }
 
 interface PatientSessionState {
@@ -214,8 +207,6 @@ interface SchedulingSessionState {
   routingAmbiguous: boolean;
   preauthRequired: boolean;
   availabilitySlots: StoredAvailabilitySlot[];
-  latestAvailabilitySlotIds?: string[];
-  rejectedAvailabilitySlotIds: string[];
   latestAvailabilityRouting?: string | null;
 }
 
@@ -257,7 +248,6 @@ export interface InitialCallStateInput {
   lastAvailabilityRouting: string | null;
   lastAvailabilitySlots: StoredAvailabilitySlot[];
   bookableAvailabilitySlots?: StoredAvailabilitySlot[];
-  availabilitySlotSequence?: number;
   allowedProviders: string[];
   routingAmbiguous: boolean;
   preauthRequired: boolean;
@@ -265,8 +255,6 @@ export interface InitialCallStateInput {
   appointments: CallerAppointment[];
   appointmentCancelTokens?: Record<string, string>;
   transferred: boolean;
-  transferAttempted?: boolean;
-  transferInFlight?: boolean;
 }
 
 function createPrivateToolState(): PrivateToolState {
@@ -275,8 +263,6 @@ function createPrivateToolState(): PrivateToolState {
     appointments: {},
     availability: {
       bookingTokens: {},
-      rawSlots: {},
-      slotSequence: 0,
     },
   };
 }
@@ -326,10 +312,6 @@ export function createCanonicalCallState(
       availabilitySlots: input.bookableAvailabilitySlots?.length
         ? input.bookableAvailabilitySlots
         : input.lastAvailabilitySlots,
-      latestAvailabilitySlotIds: input.lastAvailabilitySlots.map(
-        (slot) => slot.slotId,
-      ),
-      rejectedAvailabilitySlotIds: [],
       latestAvailabilityRouting: input.lastAvailabilityRouting,
     },
     private: createPrivateToolState(),
@@ -345,8 +327,6 @@ export function createCanonicalCallState(
       callerPhone: input.callerPhone,
       trunkPhone: input.trunkPhone,
       transferred: input.transferred,
-      transferAttempted: input.transferAttempted,
-      transferInFlight: input.transferInFlight,
     },
   };
 
@@ -355,7 +335,6 @@ export function createCanonicalCallState(
     respPartyId: input.respPartyId,
   });
   setAppointmentCancelTokens(state, input.appointmentCancelTokens);
-  state.private.availability.slotSequence = input.availabilitySlotSequence ?? 0;
   return state;
 }
 
@@ -509,13 +488,11 @@ export function removePrivateAppointment(
 export function storeAvailabilitySlotPrivateData(
   state: CallState,
   slotId: string,
-  rawSlot: unknown,
   bookingToken?: string,
 ): void {
   if (bookingToken?.trim()) {
     state.private.availability.bookingTokens[slotId] = bookingToken.trim();
   }
-  state.private.availability.rawSlots[slotId] = rawSlot;
 }
 
 export function availabilityBookingToken(
@@ -527,12 +504,8 @@ export function availabilityBookingToken(
 
 export function clearAvailabilitySelection(state: CallState): void {
   state.scheduling.availabilitySlots = [];
-  state.scheduling.latestAvailabilitySlotIds = [];
-  state.scheduling.rejectedAvailabilitySlotIds = [];
   state.scheduling.latestAvailabilityRouting = null;
   state.private.availability.bookingTokens = {};
-  state.private.availability.rawSlots = {};
-  state.private.availability.slotSequence = 0;
 }
 
 export function latestAvailabilityRouting(state: CallState): string | null {
@@ -546,26 +519,7 @@ export function latestAvailabilityRouting(state: CallState): string | null {
 export function availabilitySlotsForState(
   state: CallState,
 ): StoredAvailabilitySlot[] {
-  const rejected = new Set(
-    state.scheduling.rejectedAvailabilitySlotIds.map(normalizeSlotIdForState),
-  );
-  return state.scheduling.availabilitySlots.filter(
-    (slot) => !rejected.has(normalizeSlotIdForState(slot.slotId)),
-  );
-}
-
-export function nextAvailabilitySlotIndex(
-  state: CallState,
-  slots: StoredAvailabilitySlot[],
-): number {
-  const nextIndexFromSlots =
-    Math.max(-1, ...slots.map((slot) => slotIndexFromId(slot.slotId))) + 1;
-  const nextIndex = Math.max(
-    state.private.availability.slotSequence,
-    nextIndexFromSlots,
-  );
-  state.private.availability.slotSequence = nextIndex;
-  return nextIndex;
+  return state.scheduling.availabilitySlots;
 }
 
 export function snapshotActivePatientIdentity(
@@ -615,17 +569,4 @@ function changedKnownIdentityValue(
 
 function normalizeIdentityValue(value: string | null | undefined): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
-}
-
-function normalizeSlotIdForState(slotId: string): string {
-  return slotId.trim().toUpperCase();
-}
-
-function slotIndexFromId(slotId: string): number {
-  const normalized = normalizeSlotIdForState(slotId);
-  if (/^[A-Z]$/.test(normalized)) {
-    return normalized.charCodeAt(0) - "A".charCodeAt(0);
-  }
-  const match = normalized.match(/^SLOT_(\d+)$/);
-  return match ? Number(match[1]) - 1 : -1;
 }

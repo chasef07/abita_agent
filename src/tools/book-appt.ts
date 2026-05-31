@@ -14,6 +14,7 @@ import {
 } from "../state/call-state.js";
 import {
   removeAvailabilitySlot,
+  publicProviderName,
   selectedAvailabilitySlot,
 } from "./availability-slots.js";
 import { recordBookedAppointmentInState } from "./appointment-state.js";
@@ -23,27 +24,20 @@ import {
   getAmdOfficeForToolCall,
   routingForAvailability,
 } from "./scheduling.js";
-import { disableInterruptionsForWrite, getState } from "./session.js";
+import { getState } from "./session.js";
 
 type AppointmentKind = "medical" | "routine_vision" | "post_op";
 
 export const book_appt = llm.tool({
   description:
-    "Book an appointment from an active get_availability slotId. " +
-    "Call only after the caller confirms the exact offered slot. " +
-    "Patient ID, DOB, routing, and booking token come from session state. " +
-    'Include caller-provided appointmentReason and referringDoctor; use referringDoctor "none" when there is no referrer or the caller is unsure. ' +
-    "Do not ask extra clinical details once the reason is usable. " +
-    "Returns booking status and removes unavailable or booked slots from state.",
+    "Book a caller-confirmed appointment slot. " +
+    "Call only after get_availability returns slots and the caller confirms the exact offered slot. ",
   parameters: z.object({
     slotId: z
       .string()
-      .describe("slotId of the caller-confirmed slot from get_availability"),
-    appointmentKind: z
-      .enum(["medical", "routine_vision", "post_op"])
-      .describe(
-        "Human-level appointment kind for the selected slot; use post_op only for recent surgery follow-up.",
-      ),
+      .trim()
+      .min(1)
+      .describe("slotId from get_availability for the caller-confirmed slot."),
     appointmentReason: z
       .string()
       .trim()
@@ -52,69 +46,53 @@ export const book_appt = llm.tool({
     referringDoctor: z
       .string()
       .trim()
-      .min(1)
-      .describe('Caller-provided referring doctor, or "none" if none.'),
+      .optional()
+      .describe("Referring doctor if the caller gives one. Omit if none."),
   }),
-  execute: async (params, { ctx }) => {
+  execute: async ({ slotId, appointmentReason, referringDoctor }, { ctx }) => {
     const state = getState(ctx);
-    const speechReady = disableInterruptionsForWrite(ctx);
+    ctx.speechHandle.allowInterruptions = false;
+
     restoreConfirmedPreCallCaller(state);
     const patientId = activePatientId(state);
     if (!patientId) {
-      return {
-        outcome: "not_allowed",
-        speak: "Verify or create the patient before booking.",
-        facts: { reason: "booking_requires_verified_or_created_patient" },
-        retryable: true,
-      };
+      throw new llm.ToolError("Verify or create the patient before booking.");
     }
+
     ensureRoutineVisionOffice(state);
-    const selectedSlot = selectedAvailabilitySlot(state, params.slotId);
+    const selectedSlot = selectedAvailabilitySlot(state, slotId);
     if (!selectedSlot) {
-      return {
-        outcome: "not_allowed",
-        speak:
-          "That slot is not available from the active availability options. Search availability again before booking.",
-        facts: {
-          reason: "booking_requires_recent_availability",
-          slotId: params.slotId,
-        },
-        retryable: true,
-      };
+      throw new llm.ToolError(
+        "Search availability again and choose one of the returned slots before booking.",
+      );
     }
+
+    const normalizedReason = normalizeAppointmentReason(appointmentReason);
+    const normalizedReferrer = normalizeReferringDoctor(referringDoctor);
     const routing =
       selectedSlot.routing ??
       latestAvailabilityRouting(state) ??
       routingForAvailability(state);
-    const bookingMetadata = resolveBookingNoteMetadata(
-      params.appointmentReason,
-      params.referringDoctor,
-    );
-    if ("outcome" in bookingMetadata) return bookingMetadata;
-    const { appointmentReason, referringDoctor } = bookingMetadata;
-    if (!speechReady) {
-      return {
-        outcome: "not_allowed",
-        speak:
-          "Booking was interrupted before it could be submitted. Please confirm the appointment slot again.",
-        facts: { reason: "speech_interrupted" },
-        retryable: true,
-      };
+
+    const bookingToken = availabilityBookingToken(state, selectedSlot.slotId);
+    if (!bookingToken) {
+      clearAvailabilitySelection(state);
+      throw new llm.ToolError(
+        "Search availability again before booking because the selected slot expired.",
+      );
     }
-    const bookingToken = bookingTokenForSelectedSlot(state, selectedSlot);
-    if (typeof bookingToken !== "string") return bookingToken;
+
     const appointmentIntent = appointmentIntentForBooking(
       state,
       routing,
-      params.appointmentKind,
-      appointmentReason,
+      normalizedReason,
     );
     const body = {
       bookingToken,
       ...appointmentIntent,
       patientId,
-      appointmentReason,
-      referringDoctor,
+      appointmentReason: normalizedReason,
+      referringDoctor: normalizedReferrer,
       ...(activePatientName(state)
         ? { patientName: activePatientName(state) }
         : {}),
@@ -127,92 +105,53 @@ export const book_appt = llm.tool({
       getAmdOfficeForToolCall(state),
       { includeOffice: false },
     );
-    if (apiResultLooksSuccessful(result)) {
+
+    if (bookingSucceeded(result)) {
       recordBookedAppointmentInState(state, selectedSlot, result);
       removeAvailabilitySlot(state, selectedSlot.slotId);
-      return result;
+      return bookedAppointmentMessage(selectedSlot, result);
     }
-    if (isRecord(result) && result.errorClass === "slot_unavailable") {
-      removeAvailabilitySlot(state, selectedSlot.slotId);
-      return result;
-    }
-    if (isRecord(result) && result.errorClass === "invalid_appointment_type") {
+    if (bookingHadPositiveStatusWithoutAppointmentId(result)) {
       clearAvailabilitySelection(state);
-      return result;
+      return bookingFailureMessage(result);
     }
-    return result;
+
+    const outcome = bookingOutcome(result);
+    if (outcome === "slot_unavailable") {
+      const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
+      return slotUnavailableMessage(remainingSlots);
+    }
+    if (
+      outcome === "invalid_booking_token" ||
+      outcome === "booking_token_required"
+    ) {
+      clearAvailabilitySelection(state);
+    }
+
+    return bookingFailureMessage(result);
   },
 });
 
-function resolveBookingNoteMetadata(
-  appointmentReason: string,
-  referringDoctor: string,
-) {
+function normalizeAppointmentReason(appointmentReason: string): string {
   const trimmedReason = appointmentReason.trim();
-  const trimmedReferrer = referringDoctor.trim();
-  const hasMeaningfulReason =
-    trimmedReason.length > 0 && !isGenericBookingReason(trimmedReason);
-
-  if (!hasMeaningfulReason) {
-    return {
-      outcome: "needs_clarification",
-      speak: "Ask for the appointment reason before booking.",
-      facts: {
-        reason: "booking_note_metadata_missing",
-        missingFacts: ["appointmentReason"],
-      },
-      retryable: true,
-    };
+  if (!trimmedReason || isGenericBookingReason(trimmedReason)) {
+    throw new llm.ToolError("Ask for the appointment reason before booking.");
   }
-
-  if (!trimmedReferrer) {
-    return {
-      outcome: "needs_clarification",
-      speak:
-        "Ask who referred them, or whether there is no referring doctor. Do not ask for surgery details; the appointment reason is already known.",
-      facts: {
-        reason: "booking_note_metadata_missing",
-        missingFacts: ["referringDoctor"],
-      },
-      retryable: true,
-    };
-  }
-
-  return {
-    appointmentReason: trimmedReason,
-    referringDoctor: trimmedReferrer,
-  };
+  return trimmedReason;
 }
 
-function bookingTokenForSelectedSlot(
-  state: CallState,
-  selectedSlot: StoredAvailabilitySlot,
-) {
-  const bookingToken = availabilityBookingToken(state, selectedSlot.slotId);
-  if (bookingToken) return bookingToken;
-  clearAvailabilitySelection(state);
-  return {
-    outcome: "not_allowed",
-    speak:
-      "That cached slot is missing a signed booking token. Search availability again and choose one of the returned slots.",
-    facts: {
-      reason: "booking_requires_booking_token",
-      slotId: selectedSlot.slotId,
-    },
-    retryable: true,
-  };
+function normalizeReferringDoctor(referringDoctor: string | undefined): string {
+  return referringDoctor?.trim() || "none";
 }
 
 function appointmentIntentForBooking(
   state: CallState,
   routing: string | null,
-  appointmentKind?: AppointmentKind,
   appointmentReason?: string,
 ): Record<string, unknown> {
   const visitKind = inferAppointmentKindForBooking(
     state,
     routing,
-    appointmentKind,
     appointmentReason,
   );
   const visitCategory =
@@ -231,10 +170,8 @@ function appointmentIntentForBooking(
 function inferAppointmentKindForBooking(
   state: CallState,
   routing: string | null,
-  appointmentKind?: AppointmentKind,
   appointmentReason?: string,
 ): AppointmentKind {
-  if (appointmentKind) return appointmentKind;
   if (
     routing === "optical_only" ||
     activeInsuranceContext(state).coverageType === "routine_vision" ||
@@ -267,19 +204,100 @@ function isGenericBookingReason(value: string): boolean {
   return /^(appointment|appt|visit|office visit|booking)$/i.test(value.trim());
 }
 
-function apiResultLooksSuccessful(result: unknown): boolean {
-  if (!isRecord(result)) return true;
-  const status =
-    typeof result.status === "string" ? result.status.toLowerCase() : "";
-  const outcome =
-    typeof result.outcome === "string" ? result.outcome.toLowerCase() : "";
-  const text = `${status} ${outcome}`;
+function bookingSucceeded(result: unknown): boolean {
+  if (!isRecord(result)) return false;
+  const status = bookingStatus(result);
+  const appointmentId = appointmentIdFromResult(result);
+  if (status === "booked" || status === "partial" || status === "success") {
+    return appointmentId !== null;
+  }
+  if (status === "error") return false;
+  return appointmentId !== null;
+}
+
+function bookingHadPositiveStatusWithoutAppointmentId(
+  result: unknown,
+): boolean {
+  if (!isRecord(result)) return false;
+  const status = bookingStatus(result);
   return (
-    !text.includes("error") &&
-    !text.includes("fail") &&
-    !text.includes("not_found") &&
-    !text.includes("not found")
+    (status === "booked" || status === "partial" || status === "success") &&
+    appointmentIdFromResult(result) === null
   );
+}
+
+function bookingStatus(result: unknown): string {
+  return isRecord(result) && typeof result.status === "string"
+    ? result.status.toLowerCase()
+    : "";
+}
+
+function bookingOutcome(result: unknown): string {
+  return isRecord(result) && typeof result.outcome === "string"
+    ? result.outcome.toLowerCase()
+    : "";
+}
+
+function appointmentIdFromResult(
+  result: Record<string, unknown>,
+): number | null {
+  const appointmentId = result.appointmentId;
+  if (typeof appointmentId === "number") return appointmentId;
+  if (typeof appointmentId === "string" && /^\d+$/.test(appointmentId)) {
+    return Number(appointmentId);
+  }
+  return null;
+}
+
+function bookedAppointmentMessage(
+  selectedSlot: StoredAvailabilitySlot,
+  result: unknown,
+): string {
+  const noteWarning =
+    isRecord(result) && result.status === "partial"
+      ? " The appointment was booked, but the patient note did not save."
+      : "";
+  return `Booked ${spokenSlot(selectedSlot)}.${noteWarning}`;
+}
+
+function slotUnavailableMessage(
+  remainingSlots: StoredAvailabilitySlot[],
+): string {
+  const nextSlot = remainingSlots[0];
+  if (nextSlot) {
+    return `That time is no longer available. I can offer ${spokenSlot(nextSlot)} instead.`;
+  }
+  return "That time is no longer available. Check availability again before booking.";
+}
+
+function bookingFailureMessage(result: unknown): string {
+  const status = bookingStatus(result);
+  if (status === "booked" || status === "partial" || status === "success") {
+    return "I could not confirm the booking because the appointment ID was missing. Check availability again before booking.";
+  }
+  if (isRecord(result) && typeof result.message === "string") {
+    return result.message;
+  }
+  return "The appointment was not booked.";
+}
+
+function spokenSlot(slot: StoredAvailabilitySlot): string {
+  const date = spokenIsoDate(slot.date) ?? slot.date;
+  const provider = slot.provider
+    ? ` with ${publicProviderName(slot.provider)}`
+    : "";
+  return `${date} at ${slot.time}${provider}`;
+}
+
+function spokenIsoDate(date: string | undefined): string | undefined {
+  if (!date) return undefined;
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(parsed);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -20,7 +20,12 @@ import {
 } from "../customer/profile.js";
 import {
   add_patient,
+  cancel_appt,
+  check_insurance,
   get_availability,
+  lookup_knowledge,
+  transfer_call,
+  update_insurance,
   verify_patient,
 } from "../tools/index.js";
 import { getBaseUrlForOfficePhone } from "../clients/advancedmd-client.js";
@@ -597,6 +602,105 @@ describe("model-facing tool definitions", () => {
     expect(get_availability.description).not.toContain(
       "Under 18 medical visits = Dr. Bach only",
     );
+  });
+
+  it("keeps check_insurance scoped to insurance eligibility", () => {
+    expect(check_insurance.description).toContain(
+      "active office accepts the caller's insurance",
+    );
+    expect(check_insurance.description).toContain(
+      "before adding a new patient",
+    );
+    expect(check_insurance.description).toContain(
+      "whether the visit is medical or routine vision",
+    );
+    expect(check_insurance.description).toContain(
+      "quick insurance acceptance questions",
+    );
+    expect(check_insurance.description).not.toContain("speech-ready");
+    expect(check_insurance.description).not.toContain("routeTool");
+
+    const parameters = check_insurance.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+    };
+    expect(
+      parameters.safeParse({
+        plan: "Blue Cross",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        plan: "   ",
+        coverageType: "medical",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        plan: "Blue Cross",
+        coverageType: "medical",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("keeps lookup_knowledge scoped to general office facts", () => {
+    expect(lookup_knowledge.description).toContain(
+      "general practice questions",
+    );
+    expect(lookup_knowledge.description).toContain("address, hours, providers");
+    expect(lookup_knowledge.description).not.toContain("patient-specific");
+    expect(lookup_knowledge.description).not.toContain("availability, booking");
+
+    const parameter = lookup_knowledge.parameters.shape.question;
+    expect(parameter.description).toBe("The caller's office-fact question");
+  });
+
+  it("keeps transfer_call scoped to human-only work", () => {
+    expect(transfer_call.description).toContain(
+      "outside the agent's front-desk scope",
+    );
+    expect(transfer_call.description).toContain("prescription questions");
+    expect(transfer_call.description).toContain(
+      "status of glasses or contacts already ordered",
+    );
+    expect(transfer_call.description).not.toContain("tool speaks");
+    expect(transfer_call.description).toContain("Do not call for scheduling");
+    expect(transfer_call.description).toContain(
+      "Crystal River-to-Spring Hill routing",
+    );
+  });
+
+  it("keeps update_insurance scoped to verified-patient medical updates", () => {
+    expect(update_insurance.description).toContain("verified existing patient");
+    expect(update_insurance.description).toContain(
+      "check_insurance accepts medical coverage",
+    );
+
+    const parameters = update_insurance.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+      shape: Record<string, unknown>;
+    };
+    expect(Object.keys(parameters.shape)).toEqual(["subscriberNum"]);
+    expect(parameters.safeParse({}).success).toBe(true);
+    expect(parameters.safeParse({ subscriberNum: "ABC123" }).success).toBe(
+      true,
+    );
+  });
+
+  it("keeps cancel_appt scoped to loaded appointment cancellation", () => {
+    expect(cancel_appt.description).toContain("Cancel a loaded appointment");
+    expect(cancel_appt.description).toContain(
+      "caller confirms the exact appointment",
+    );
+    expect(cancel_appt.description).toContain(
+      "For reschedules, book the new appointment before cancelling the old one",
+    );
+
+    const parameters = cancel_appt.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+    };
+    expect(parameters.safeParse({ appointmentId: 123 }).success).toBe(true);
+    expect(parameters.safeParse({ appointmentId: 0 }).success).toBe(false);
+    expect(parameters.safeParse({ appointmentId: 1.5 }).success).toBe(false);
   });
 
   it("limits verify_patient to unloaded existing-patient appointment work", () => {

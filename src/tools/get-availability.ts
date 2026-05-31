@@ -22,16 +22,14 @@ type AvailabilityLookupArgs = {
 export const get_availability = llm.tool({
   description:
     "Search appointment availability from a start date. " +
-    "Call after visit reason and scheduling lane are known; patient, routing, insurance, and preauth context come from session state. " +
-    "Date must be YYYY-MM-DD. Returns speech-ready reply, next, and slots with slotId. " +
-    "Use slotId for book_appt; never mention booking tokens or AMD appointment type IDs.",
+    "Call after visit reason and scheduling lane are known.",
   parameters: z.object({
-    date: z.string().describe("Start date to search, formatted YYYY-MM-DD"),
+    date: z.string().trim().min(1).describe("Start date in YYYY-MM-DD format."),
   }),
   execute: async ({ date }, { ctx }) => {
     const state = getState(ctx);
     const request = buildAvailabilityLookupRequestForState(state, { date });
-    if ("outcome" in request) return request;
+    void ctx.session.say(availabilityLookupNotice());
     const result = await callApi(
       "/api/scheduler/availability",
       request.body,
@@ -41,19 +39,25 @@ export const get_availability = llm.tool({
   },
 });
 
+function availabilityLookupNotice(): string {
+  const notices = [
+    "One moment while I check availability.",
+    "Let me check what times are open.",
+    "I'll look up available appointments now.",
+    "Give me a second to check the schedule.",
+  ];
+  return notices[Math.floor(Math.random() * notices.length)] ?? notices[0];
+}
+
 function buildAvailabilityLookupRequestForState(
   state: CallState,
   args: AvailabilityLookupArgs,
 ) {
   const date = args.date?.trim();
   if (!date) {
-    return {
-      outcome: "needs_clarification",
-      speak:
-        "Ask what date or starting day the caller wants before checking availability.",
-      facts: { reason: "availability_requires_date" },
-      retryable: true,
-    };
+    throw new llm.ToolError(
+      "Ask what date or starting day the caller wants before checking availability.",
+    );
   }
 
   ensureAvailabilityVisitContext(state);

@@ -183,15 +183,23 @@ export function classifyToolOutput(
   const parsed = parseJsonObject(output);
   const status = normalizedStatus(parsed);
   const outcome = normalizedOutcome(parsed);
-  const reason = normalizedReason(parsed);
   if (status === "error") return "tool_error";
   const outputText = normalizedOutputText(output);
 
   switch (toolName) {
     case "book_appt":
       if (
+        /\bnot booked\b/.test(outputText) ||
+        /\bno longer available\b/.test(outputText) ||
+        /\bcheck availability again\b/.test(outputText) ||
+        /\bverify or create the patient\b/.test(outputText)
+      ) {
+        return "appointment_not_booked";
+      }
+      if (
         status === "booked" ||
         status === "ok" ||
+        /\bbooked\b/.test(outputText) ||
         asString(parsed?.appointmentId) ||
         (isRecord(parsed?.facts) && asString(parsed.facts.appointmentId)) ||
         asString(parsed?.id) ||
@@ -202,21 +210,23 @@ export function classifyToolOutput(
       return "appointment_not_booked";
     case "cancel_appt":
       if (
-        outcome === "not_allowed" ||
-        outcome === "needs_clarification" ||
+        /\bnot cancelled\b/.test(outputText) ||
+        /\bnot canceled\b/.test(outputText) ||
+        /\bfailed to cancel\b/.test(outputText) ||
+        /\bload appointments\b/.test(outputText) ||
+        /\bverify the patient\b/.test(outputText) ||
+        /\bcancel token\b/.test(outputText) ||
         status === "not_found" ||
         outcome === "not_found" ||
-        outcome === "error" ||
-        reason === "appointment_not_found" ||
-        reason === "cancel_failed" ||
-        reason === "middleware_error" ||
-        reason.startsWith("cancel_requires_") ||
-        reason === "speech_interrupted"
+        outcome === "error"
       ) {
         return "appointment_not_cancelled";
       }
       if (
-        outcome === "success" ||
+        /\bcancelled the appointment\b/.test(outputText) ||
+        /\bcanceled the appointment\b/.test(outputText) ||
+        /\bappointment cancelled\b/.test(outputText) ||
+        /\bappointment canceled\b/.test(outputText) ||
         status === "cancelled" ||
         status === "ok" ||
         status === "success" ||
@@ -241,11 +251,7 @@ export function classifyToolOutput(
       }
       return "appointment_lookup_returned";
     case "transfer_call":
-      if (
-        reason === "transfer_already_started" ||
-        /\balready transferred\b/.test(outputText) ||
-        /\btransfer already started\b/.test(outputText)
-      ) {
+      if (/\btransfer already started\b/.test(outputText)) {
         return "duplicate_tool_call";
       }
       if (

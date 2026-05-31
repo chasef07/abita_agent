@@ -158,7 +158,6 @@ export default defineAgent({
         lastAvailabilityRouting: null,
         lastAvailabilitySlots: [],
         bookableAvailabilitySlots: [],
-        availabilitySlotSequence: 0,
         allowedProviders: verified?.allowedProviders ?? [],
         routingAmbiguous: verified?.routingAmbiguous ?? false,
         preauthRequired: verified?.preauthRequired ?? false,
@@ -168,8 +167,6 @@ export default defineAgent({
           verified?.appointments,
         ),
         transferred: false,
-        transferAttempted: false,
-        transferInFlight: false,
       });
 
       let activeSttProfile: AssemblyAISttProfile = "default";

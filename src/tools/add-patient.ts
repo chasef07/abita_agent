@@ -17,8 +17,7 @@ export const add_patient = llm.tool({
   description:
     "Creates a chart for a new patient. " +
     "Call this when the user has not registered in the system before. " +
-    "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. " +
-    "Returns a speech-ready chart creation result.",
+    "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. ",
   parameters: z.object({
     firstName: z.string().describe("Patient's first name"),
     lastName: z.string().describe("Patient's last name"),
