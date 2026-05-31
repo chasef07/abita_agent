@@ -20,7 +20,7 @@ const BASE_FILES: { file: string; tag: string }[] = [
 
 /** Build the static system prompt. Pre-call facts stay in backend state. */
 export function buildPrompt(
-  _phoneLookup?: PhoneLookupResult,
+  phoneLookup?: PhoneLookupResult,
   trunkPhone?: string,
 ): string {
   const sections: string[] = [];
@@ -33,5 +33,27 @@ export function buildPrompt(
     sections.push(`<${tag}>\n${content}\n</${tag}>`);
   }
 
+  const identityHint = callerIdentityHint(phoneLookup);
+  if (identityHint) {
+    sections.push(
+      `<caller_identity_hint>\n${identityHint}\n</caller_identity_hint>`,
+    );
+  }
+
   return sections.join("\n\n");
+}
+
+function callerIdentityHint(phoneLookup?: PhoneLookupResult): string | null {
+  if (!phoneLookup) return null;
+
+  switch (phoneLookup.status) {
+    case "verified":
+      return "Caller identity hint: one likely patient record was found from this phone number.";
+    case "multiple_matches":
+      return "Caller identity hint: multiple possible patient records were found from this phone number.";
+    case "no_match":
+      return "Caller identity hint: no matching patient record was found from this phone number.";
+    case "lookup_failed":
+      return "Caller identity hint: phone lookup failed before the call.";
+  }
 }

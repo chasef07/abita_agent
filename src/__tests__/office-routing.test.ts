@@ -239,6 +239,9 @@ describe("tool-first prompt gating", () => {
       "Use confirm_patient_identity for patient-specific work.",
     );
     expect(prompt).toContain(
+      "Use the caller identity hint only to choose the first identity question",
+    );
+    expect(prompt).toContain(
       "Use tools for insurance, availability, booking, cancellation, routing, and transfer.",
     );
     expect(prompt).toContain(
@@ -266,7 +269,7 @@ describe("tool-first prompt gating", () => {
     }
   });
 
-  it("keeps pre-call lookup failures out of the prompt", () => {
+  it("keeps pre-call lookup failures to a safe prompt hint", () => {
     const prompt = buildPrompt(
       {
         status: "lookup_failed",
@@ -278,13 +281,17 @@ describe("tool-first prompt gating", () => {
       SPRING_HILL_OFFICE_PHONE,
     );
 
+    expect(prompt).toContain("<caller_identity_hint>");
+    expect(prompt).toContain(
+      "Caller identity hint: phone lookup failed before the call.",
+    );
     expect(prompt).not.toContain("PHONE LOOKUP UNAVAILABLE");
     expect(prompt).not.toContain("do not say they are new");
-    expect(prompt).not.toContain("lookup failed");
+    expect(prompt).not.toContain("middleware_error");
     expect(prompt).not.toContain("NO MATCH");
   });
 
-  it("keeps no-match lookup outcomes out of the prompt", () => {
+  it("keeps no-match lookup outcomes to a safe prompt hint", () => {
     const prompt = buildPrompt(
       {
         status: "no_match",
@@ -293,6 +300,9 @@ describe("tool-first prompt gating", () => {
       SPRING_HILL_OFFICE_PHONE,
     );
 
+    expect(prompt).toContain(
+      "Caller identity hint: no matching patient record was found from this phone number.",
+    );
     expect(prompt).not.toContain("NO MATCH");
     expect(prompt).not.toContain("This number is not in the system");
     expect(prompt).not.toContain(
@@ -600,8 +610,9 @@ describe("Crystal River prompt guidance", () => {
     );
 
     expect(prompt).not.toContain("<pre_call_context>");
-    expect(prompt).not.toContain(
-      "Phone lookup found exactly one existing patient",
+    expect(prompt).toContain("<caller_identity_hint>");
+    expect(prompt).toContain(
+      "Caller identity hint: one likely patient record was found from this phone number.",
     );
     expect(prompt).not.toContain("Santos");
     expect(prompt).not.toContain("01/01/1980");
@@ -619,6 +630,9 @@ describe("Crystal River prompt guidance", () => {
       HOLLYWOOD_OFFICE_PHONE,
     );
 
+    expect(prompt).toContain(
+      "Caller identity hint: multiple possible patient records were found from this phone number.",
+    );
     expect(prompt).not.toContain("MULTIPLE MATCHES");
     expect(prompt).not.toContain("multiple patients on this number");
     expect(prompt).not.toContain("IVETTE");
