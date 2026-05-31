@@ -50,8 +50,10 @@ export const confirm_patient_identity = llm.tool({
   description:
     "Confirm or load a patient identity for patient-specific work. " +
     "Use only identity details the caller has provided. " +
-    "If the phone lookup preloaded a likely patient, the backend can confirm privately from the first name. " +
-    "If pre-call identity cannot be confirmed, collect first name, last name, and DOB before calling. " +
+    "If the phone lookup preloaded a likely patient, call with the caller-provided first name only. " +
+    "If the caller identity hint says multiple possible records and the caller gives a patient first name, call with firstName only; do not ask for last name or DOB first. " +
+    "The tool privately confirms a unique preloaded candidate or asks for more identity details if needed. " +
+    "If no pre-call identity can be confirmed, collect first name, last name, and DOB before middleware lookup. " +
     "This tool does not expose preloaded patient details until identity is confirmed.",
   parameters: identityParameters,
   execute: async (args, { ctx }) => {
@@ -150,6 +152,11 @@ function confirmMultiplePreCallMatch(
       state,
       firstNameMatches[0].ref,
       "multiple_match_confirmed",
+    );
+  }
+  if (firstNameMatches.length > 1) {
+    throw new llm.ToolError(
+      "More than one preloaded patient matches that first name. Ask for the patient's date of birth or full name, then call confirm_patient_identity again.",
     );
   }
 
@@ -269,6 +276,13 @@ function normalizeDob(value: string | null | undefined): string {
 
 function confirmedPatientReply(state: CallState): string {
   const patientName = state.patient.name?.trim() || "the patient";
+  const prefix = verifiedExistingPatientPrefix(
+    patientName,
+    state.patient.insurance?.currentCarrier ??
+      state.patient.insurance?.canonicalPlan ??
+      state.patient.insurance?.plan ??
+      null,
+  );
   if (
     state.patient.appointmentsStatus === "found" &&
     state.patient.appointments.length > 0
@@ -279,19 +293,23 @@ function confirmedPatientReply(state: CallState): string {
       .join("; ");
     const remaining = state.patient.appointments.length - 3;
     const more = remaining > 0 ? `; and ${remaining} more` : "";
-    return `Confirmed ${patientName} and loaded ${state.patient.appointments.length} appointment${state.patient.appointments.length === 1 ? "" : "s"}: ${appointments}${more}.`;
+    return `${prefix} Loaded ${state.patient.appointments.length} appointment${state.patient.appointments.length === 1 ? "" : "s"}: ${appointments}${more}.`;
   }
   if (state.patient.appointmentsStatus === "none") {
-    return `Confirmed ${patientName}. No upcoming appointments are loaded.`;
+    return `${prefix} No upcoming appointments are loaded.`;
   }
   if (state.patient.appointmentsStatus === "error") {
-    return `Confirmed ${patientName}, but appointments could not be loaded. Try confirming identity again before confirming or cancelling.`;
+    return `${prefix} Appointments could not be loaded. Try confirming identity again before confirming or cancelling.`;
   }
-  return `Confirmed ${patientName} and loaded the patient record.`;
+  return `${prefix} Patient record is loaded.`;
 }
 
 function verifiedPatientReply(result: PatientResolveVerified): string {
   const patientName = result.name?.trim() || "the patient";
+  const prefix = verifiedExistingPatientPrefix(
+    patientName,
+    result.insuranceCarrier,
+  );
   if (result.appointmentsStatus === "found" && result.appointments.length > 0) {
     const appointments = result.appointments
       .slice(0, 3)
@@ -299,15 +317,27 @@ function verifiedPatientReply(result: PatientResolveVerified): string {
       .join("; ");
     const remaining = result.appointments.length - 3;
     const more = remaining > 0 ? `; and ${remaining} more` : "";
-    return `Found ${patientName} and loaded ${result.appointments.length} appointment${result.appointments.length === 1 ? "" : "s"}: ${appointments}${more}.`;
+    return `${prefix} Loaded ${result.appointments.length} appointment${result.appointments.length === 1 ? "" : "s"}: ${appointments}${more}.`;
   }
   if (result.appointmentsStatus === "none") {
-    return `Found ${patientName}. No upcoming appointments are loaded.`;
+    return `${prefix} No upcoming appointments are loaded.`;
   }
   if (result.appointmentsStatus === "error") {
-    return `Found ${patientName}, but appointments could not be loaded. Try confirming identity again before confirming or cancelling.`;
+    return `${prefix} Appointments could not be loaded. Try confirming identity again before confirming or cancelling.`;
   }
-  return `Found ${patientName} and loaded the patient record.`;
+  return `${prefix} Patient record is loaded.`;
+}
+
+function verifiedExistingPatientPrefix(
+  patientName: string,
+  insuranceCarrier: string | null | undefined,
+): string {
+  const insurance = insuranceCarrier?.trim();
+  return `Verified existing patient ${patientName}. ${
+    insurance
+      ? `Insurance on file: ${insurance}.`
+      : "No insurance is currently on file."
+  }`;
 }
 
 function patientLookupReply(result: PatientResolveResult): string {

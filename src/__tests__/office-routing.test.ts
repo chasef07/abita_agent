@@ -771,7 +771,13 @@ describe("model-facing tool definitions", () => {
       "If the phone lookup preloaded a likely patient",
     );
     expect(confirm_patient_identity.description).toContain(
-      "collect first name, last name, and DOB before calling",
+      "caller identity hint says multiple possible records",
+    );
+    expect(confirm_patient_identity.description).toContain(
+      "call with firstName only; do not ask for last name or DOB first",
+    );
+    expect(confirm_patient_identity.description).toContain(
+      "collect first name, last name, and DOB before middleware lookup",
     );
     expect(confirm_patient_identity.description).toContain(
       "does not expose preloaded patient details until identity is confirmed",
