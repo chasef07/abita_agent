@@ -234,6 +234,7 @@ interface PrivateAppointmentToolState {
 interface PrivateToolState {
   patientBackend: PatientBackendRefs;
   appointments: Record<string, PrivateAppointmentToolState>;
+  latestBookedAppointmentId?: number;
   availability: {
     bookingTokens: Record<string, string>;
   };
@@ -571,6 +572,19 @@ export function setAppointmentCancelTokens(
   }
 }
 
+export function setAppointmentCancelToken(
+  state: CallState,
+  appointmentId: number,
+  cancelToken: string | null | undefined,
+): void {
+  const token = cancelToken?.trim();
+  if (!token) return;
+  state.private.appointments[String(appointmentId)] = {
+    appointmentId,
+    cancelToken: token,
+  };
+}
+
 export function appointmentCancelToken(
   state: CallState,
   appointmentId: number,
@@ -585,6 +599,20 @@ export function removePrivateAppointment(
   appointmentId: number,
 ): void {
   delete state.private.appointments[String(appointmentId)];
+  if (state.private.latestBookedAppointmentId === appointmentId) {
+    delete state.private.latestBookedAppointmentId;
+  }
+}
+
+export function setLatestBookedAppointment(
+  state: CallState,
+  appointmentId: number,
+): void {
+  state.private.latestBookedAppointmentId = appointmentId;
+}
+
+export function latestBookedAppointmentId(state: CallState): number | null {
+  return state.private.latestBookedAppointmentId ?? null;
 }
 
 export function storeAvailabilitySlotPrivateData(

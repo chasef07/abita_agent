@@ -2,14 +2,16 @@ import { getOfficeConfig } from "../customer/profile.js";
 import { resolvePatientByOffice } from "../clients/advancedmd-client.js";
 import {
   activeAppointments,
-  activeAppointmentsStatus,
   activeOfficeKey,
   appointmentCancelTokenMap,
   activePatientId,
   appointmentCancelToken,
+  latestBookedAppointmentId,
   removePrivateAppointment,
   publicCallerAppointments,
+  setAppointmentCancelToken,
   setAppointmentCancelTokens,
+  setLatestBookedAppointment,
   type AppointmentLoadStatus,
   type CallState,
   type CallerAppointment,
@@ -58,6 +60,13 @@ function appointmentIdFromBookingResult(result: unknown): number | null {
   return null;
 }
 
+function cancelTokenFromBookingResult(result: unknown): string | null {
+  if (!isRecord(result)) return null;
+  return typeof result.cancelToken === "string" && result.cancelToken.trim()
+    ? result.cancelToken.trim()
+    : null;
+}
+
 export function recordBookedAppointmentInState(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
@@ -92,7 +101,34 @@ export function recordBookedAppointmentInState(
     appointment,
   ];
   state.patient.appointments = nextAppointments;
-  state.patient.appointmentsStatus = activeAppointmentsStatus(state);
+  state.patient.appointmentsStatus = "found";
+  setLatestBookedAppointment(state, appointmentId);
+  setAppointmentCancelToken(
+    state,
+    appointmentId,
+    cancelTokenFromBookingResult(result),
+  );
+}
+
+export function cancellationAppointmentForState(
+  state: CallState,
+  appointmentId: number | undefined,
+): CallerAppointment | undefined {
+  if (appointmentId !== undefined) {
+    return activeAppointmentById(state, appointmentId);
+  }
+
+  const latestBookedId = latestBookedAppointmentId(state);
+  if (latestBookedId !== null) {
+    const latestBookedAppointment = activeAppointmentById(
+      state,
+      latestBookedId,
+    );
+    if (latestBookedAppointment) return latestBookedAppointment;
+  }
+
+  const appointments = activeAppointments(state);
+  return appointments.length === 1 ? appointments[0] : undefined;
 }
 
 export function cancelTokenForAppointment(
@@ -114,6 +150,13 @@ export async function refreshCancelTokenForAppointment(
   if (result.status !== "verified") return null;
 
   const appointments = publicCallerAppointments(result.appointments);
+  const refreshedAppointment = appointments.find(
+    (appointment) => appointment.id === appointmentId,
+  );
+  if (!refreshedAppointment && activeAppointmentById(state, appointmentId)) {
+    return null;
+  }
+
   setAppointmentCancelTokens(
     state,
     appointmentCancelTokenMap(result.appointments),

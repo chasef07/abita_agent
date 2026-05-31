@@ -3,7 +3,7 @@ import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import { activePatientId } from "../state/call-state.js";
 import {
-  activeAppointmentById,
+  cancellationAppointmentForState,
   cancelTokenForAppointment,
   refreshCancelTokenForAppointment,
   removeAppointmentById,
@@ -16,13 +16,17 @@ export const cancel_appt = llm.tool({
   description:
     "Cancel a loaded appointment. " +
     "Call this after the patient is verified and the caller confirms the exact appointment to cancel. " +
+    "Omit appointmentId only for the latest booked appointment or exactly one loaded appointment. " +
     "For reschedules, book the new appointment before cancelling the old one.",
   parameters: z.object({
     appointmentId: z
       .number()
       .int()
       .positive()
-      .describe("Appointment ID from the loaded appointment list"),
+      .optional()
+      .describe(
+        "Appointment ID from the loaded appointment list. Omit only when the caller confirmed the latest booked appointment or exactly one loaded appointment.",
+      ),
   }),
   execute: async ({ appointmentId }, { ctx }) => {
     const state = getState(ctx);
@@ -34,18 +38,18 @@ export const cancel_appt = llm.tool({
       throw new llm.ToolError("Verify the patient before cancelling.");
     }
 
-    const appointment = activeAppointmentById(state, appointmentId);
+    const appointment = cancellationAppointmentForState(state, appointmentId);
     if (!appointment) {
       throw new llm.ToolError(
         "Load appointments and confirm the exact appointment before cancelling.",
       );
     }
 
-    let cancelToken = cancelTokenForAppointment(state, appointmentId);
+    let cancelToken = cancelTokenForAppointment(state, appointment.id);
     if (!cancelToken) {
       cancelToken = await refreshCancelTokenForAppointment(
         state,
-        appointmentId,
+        appointment.id,
       );
     }
     if (!cancelToken) {
@@ -54,7 +58,7 @@ export const cancel_appt = llm.tool({
 
     const result = (await callApi(
       "/api/appointment/cancel",
-      { appointmentId, patientId, cancelToken },
+      { appointmentId: appointment.id, patientId, cancelToken },
       getAmdOfficeForToolCall(state),
       { includeOffice: false },
     )) as CancelAppointmentResult;
@@ -63,7 +67,7 @@ export const cancel_appt = llm.tool({
       return result?.message ?? "The appointment was not cancelled.";
     }
 
-    removeAppointmentById(state, appointmentId);
+    removeAppointmentById(state, appointment.id);
     return `Cancelled the appointment on ${appointment.date} at ${appointment.time}.`;
   },
 });

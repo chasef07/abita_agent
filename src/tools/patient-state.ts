@@ -60,6 +60,9 @@ export function restoreConfirmedPreCallCaller(state: CallState): void {
     (candidate) => candidate.ref === selectedRef,
   );
   if (!candidate?.patientId) return;
+  if (state.patient.identityConfirmed || state.patient.status === "created") {
+    return;
+  }
   applyPreCallCandidateToState(state, candidate);
 }
 

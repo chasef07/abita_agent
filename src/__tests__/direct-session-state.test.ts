@@ -797,6 +797,93 @@ describe("direct session state cleanup", () => {
     expect(state.private.appointments).toEqual({});
   });
 
+  it("cancels the latest booked appointment without replaying stale pre-call appointments", async () => {
+    const state = createState();
+    state.preCall = {
+      status: "multiple_match_confirmed",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: "precall:1",
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          patientId: "patient-1",
+          relationshipToCaller: "unknown",
+          appointments: [],
+          appointmentsStatus: "none",
+          appointmentCancelTokens: {},
+        },
+      ],
+      selectedCandidateRef: "precall:1",
+      identityPromotion: "confirmed_by_identity_tool",
+    };
+    storeAvailabilitySlotPrivateData(state, "A", "private-token");
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const path = String(url);
+      if (path.includes("/api/appointment/book")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "booked",
+            appointmentId: 456,
+            cancelToken: "cancel-token-456",
+            providerName: "Doctor Smith",
+            locationName: "Spring Hill",
+            appointmentTypeName: "Routine Vision",
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          status: "cancelled",
+          appointmentId: 456,
+          message: "Appointment cancelled successfully",
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await book_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "eye exam",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(state.patient.appointments).toEqual([
+      {
+        id: 456,
+        date: "2026-06-01",
+        time: "9:00 AM",
+        provider: "Doctor Smith",
+        type: "Routine Vision",
+        facility: "Spring Hill",
+        confirmed: true,
+      },
+    ]);
+    expect(state.patient.appointmentsStatus).toBe("found");
+
+    const result = await cancel_appt.execute({}, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-2",
+    } as never);
+
+    expect(result).toBe("Cancelled the appointment on 2026-06-01 at 9:00 AM.");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      appointmentId: 456,
+      patientId: "patient-1",
+      cancelToken: "cancel-token-456",
+    });
+    expect(state.patient.appointments).toEqual([]);
+  });
+
   it("requires a loaded appointment before cancelling", async () => {
     const state = createState();
 
