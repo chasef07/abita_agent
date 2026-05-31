@@ -218,7 +218,7 @@ Other durable facts remain where they already belong:
 - patient identity in patient state
 - insurance and routing in scheduling state
 - availability slots in scheduling state
-- appointments and cancel tokens in appointment state
+- appointments and appointment-selection state
 - transfer state in runtime state
 
 ## Example Tool Result

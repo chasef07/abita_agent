@@ -12,7 +12,6 @@ import type {
 } from "../state/call-state.js";
 import {
   CALLER_CANDIDATE_REF,
-  appointmentCancelTokenMap,
   publicCallerAppointments,
 } from "../state/call-state.js";
 
@@ -104,9 +103,6 @@ export function buildPreCallContextState(
           relationshipToCaller: "self",
           appointments,
           appointmentsStatus: lookup.appointmentsStatus ?? undefined,
-          appointmentCancelTokens: appointmentCancelTokenMap(
-            lookup.appointments,
-          ),
           insuranceCarrier: lookup.insuranceCarrier,
           insPlanId: lookup.insPlanId,
           respPartyId: lookup.respPartyId,
@@ -174,7 +170,6 @@ function preCallCandidateFromMatch(
       relationshipToCaller: "unknown" as const,
       appointments: publicCallerAppointments(match.appointments),
       appointmentsStatus: match.appointmentsStatus ?? undefined,
-      appointmentCancelTokens: appointmentCancelTokenMap(match.appointments),
       insuranceCarrier: match.insuranceCarrier,
       insPlanId: match.insPlanId,
       respPartyId: match.respPartyId,

@@ -209,7 +209,6 @@ export function classifyToolOutput(
         /\bfailed to cancel\b/.test(outputText) ||
         /\bload appointments\b/.test(outputText) ||
         /\bverify the patient\b/.test(outputText) ||
-        /\bcancel token\b/.test(outputText) ||
         status === "not_found" ||
         outcome === "not_found" ||
         outcome === "error"

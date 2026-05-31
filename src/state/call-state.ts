@@ -15,9 +15,7 @@ export interface CallerAppointment {
   confirmed: boolean;
 }
 
-export interface StoredCallerAppointment extends CallerAppointment {
-  cancelToken?: string;
-}
+export type StoredCallerAppointment = CallerAppointment;
 
 export interface CallerMatch {
   status: "verified";
@@ -102,7 +100,6 @@ interface PreCallPatientCandidate {
   relationshipToCaller?: string;
   appointments: CallerAppointment[];
   appointmentsStatus?: AppointmentLoadStatus;
-  appointmentCancelTokens?: Record<string, string>;
   insuranceCarrier?: string | null;
   insPlanId?: string | null;
   respPartyId?: string | null;
@@ -228,7 +225,6 @@ interface PatientBackendRefs {
 
 interface PrivateAppointmentToolState {
   appointmentId: number;
-  cancelToken?: string;
 }
 
 interface PrivateToolState {
@@ -328,7 +324,6 @@ export interface InitialCallStateInput {
   preauthRequired: boolean;
   appointmentsStatus: AppointmentLoadStatus | null;
   appointments: CallerAppointment[];
-  appointmentCancelTokens?: Record<string, string>;
   transferred: boolean;
 }
 
@@ -414,7 +409,6 @@ export function createCanonicalCallState(
     insPlanId: input.insPlanId,
     respPartyId: input.respPartyId,
   });
-  setAppointmentCancelTokens(state, input.appointmentCancelTokens);
   return state;
 }
 
@@ -431,24 +425,6 @@ export function publicCallerAppointments(
       facility,
       confirmed,
     }),
-  );
-}
-
-export function appointmentCancelTokenMap(
-  appointments: readonly StoredCallerAppointment[] | null | undefined,
-): Record<string, string> {
-  return Object.fromEntries(
-    (appointments ?? [])
-      .filter(
-        (appointment) =>
-          typeof appointment.id === "number" &&
-          typeof appointment.cancelToken === "string" &&
-          appointment.cancelToken.trim().length > 0,
-      )
-      .map((appointment) => [
-        String(appointment.id),
-        appointment.cancelToken as string,
-      ]),
   );
 }
 
@@ -551,47 +527,6 @@ export function setPatientBackendRefs(
     ...state.private.patientBackend,
     ...refs,
   };
-}
-
-export function setAppointmentCancelTokens(
-  state: CallState,
-  tokens: Record<string, string> | undefined,
-): void {
-  state.private.appointments = {};
-
-  for (const [appointmentId, cancelToken] of Object.entries(tokens ?? {})) {
-    const numericId = Number(appointmentId);
-    if (!Number.isFinite(numericId)) continue;
-    state.private.appointments[appointmentId] = {
-      ...(state.private.appointments[appointmentId] ?? {
-        appointmentId: numericId,
-      }),
-      appointmentId: numericId,
-      cancelToken,
-    };
-  }
-}
-
-export function setAppointmentCancelToken(
-  state: CallState,
-  appointmentId: number,
-  cancelToken: string | null | undefined,
-): void {
-  const token = cancelToken?.trim();
-  if (!token) return;
-  state.private.appointments[String(appointmentId)] = {
-    appointmentId,
-    cancelToken: token,
-  };
-}
-
-export function appointmentCancelToken(
-  state: CallState,
-  appointmentId: number,
-): string | null {
-  const token =
-    state.private.appointments[String(appointmentId)]?.cancelToken?.trim();
-  return token || null;
 }
 
 export function removePrivateAppointment(

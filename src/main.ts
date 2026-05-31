@@ -32,7 +32,6 @@ import {
 } from "./call-observability.js";
 import { RoomServiceClient } from "livekit-server-sdk";
 import {
-  appointmentCancelTokenMap,
   createCanonicalCallState,
   publicCallerAppointments,
   type CallState,
@@ -163,9 +162,6 @@ export default defineAgent({
         preauthRequired: verified?.preauthRequired ?? false,
         appointmentsStatus: verified?.appointmentsStatus ?? null,
         appointments: publicCallerAppointments(verified?.appointments),
-        appointmentCancelTokens: appointmentCancelTokenMap(
-          verified?.appointments,
-        ),
         transferred: false,
       });
 

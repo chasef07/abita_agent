@@ -4,12 +4,10 @@ import {
   resolvePatientByOffice,
 } from "../clients/advancedmd-client.js";
 import {
-  appointmentCancelTokenMap,
   CALLER_CANDIDATE_REF,
   clearAvailabilitySelection,
   normalizeSchedulingRouting,
   publicCallerAppointments,
-  setAppointmentCancelTokens,
   setPatientBackendRefs,
   snapshotActivePatientIdentity,
   type AppointmentLoadStatus,
@@ -159,7 +157,6 @@ function applyPreCallCandidateToState(
     appointments: candidate.appointments,
     appointmentsStatus: candidate.appointmentsStatus ?? null,
   };
-  setAppointmentCancelTokens(state, candidate.appointmentCancelTokens);
   setPatientBackendRefs(state, {
     insPlanId: candidate.insPlanId ?? null,
     respPartyId: candidate.respPartyId ?? null,
@@ -189,7 +186,6 @@ function applyPatientPayloadToState(
     insPlanId: payload.insPlanId ?? null,
     respPartyId: payload.respPartyId ?? null,
   });
-  setAppointmentCancelTokens(state, appointmentCancelTokenMap(rawAppointments));
   const coverageType =
     payload.routing === "optical_only" ? "routine_vision" : undefined;
   const routing = normalizeSchedulingRouting(payload.routing);

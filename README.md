@@ -74,7 +74,7 @@ src/
     scheduling.ts         Office routing and availability routing helpers
     patient-state.ts      Patient lookup and patient-state mutation helpers
     availability-slots.ts Availability slot cache and model-safe responses
-    appointment-state.ts  Appointment/cancel-token helpers
+    appointment-state.ts  Appointment selection helpers
     handoff.ts            SIP transfer helper
     knowledge.ts          Office knowledge lookup
   customers/abita/        Office registry, trunk routing, greetings, handoffs
