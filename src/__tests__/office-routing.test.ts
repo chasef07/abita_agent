@@ -648,6 +648,12 @@ describe("model-facing tool definitions", () => {
     expect(add_patient.description).toContain(
       "checking insurance eligibility with check_insurance",
     );
+    expect(add_patient.description).toContain(
+      "read back the important registration details and get caller confirmation",
+    );
+    expect(add_patient.description).toContain(
+      "omit phone and move on; do not ask them to repeat that number",
+    );
     expect(add_patient.description).not.toContain(
       "Do not infer age from Bach-only routing",
     );

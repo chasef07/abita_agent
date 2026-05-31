@@ -17,7 +17,9 @@ export const add_patient = llm.tool({
   description:
     "Creates a chart for a new patient. " +
     "Call this when the user has not registered in the system before. " +
-    "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. ",
+    "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. " +
+    "Before calling, read back the important registration details and get caller confirmation. " +
+    "If the caller confirms the inbound caller number is the best callback number, omit phone and move on; do not ask them to repeat that number. ",
   parameters: z.object({
     firstName: z.string().describe("Patient's first name"),
     lastName: z.string().describe("Patient's last name"),
@@ -26,7 +28,7 @@ export const add_patient = llm.tool({
       .string()
       .optional()
       .describe(
-        "Best callback number, 10 digits only. Omit when the inbound caller number is confirmed as best.",
+        "Best callback number, 10 digits only. Omit when the inbound caller number is confirmed as best; the tool will use the caller phone from state.",
       ),
     email: z
       .string()
@@ -50,15 +52,28 @@ export const add_patient = llm.tool({
     subscriberNum: z
       .string()
       .describe('Member ID; for self-pay, use "self pay"'),
+    readBack: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID, and the caller confirms they are correct.",
+      ),
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
-    ctx.speechHandle.allowInterruptions = false;
 
     const checkedInsurance = activeInsuranceContext(state);
     const insurance = checkedInsurance.canonicalPlan ?? params.insurance;
     const selfPay = normalizeInsuranceText(insurance) === "self pay";
-    const phone = params.phone ?? runtimeCallerPhone(state);
+    const phone = params.phone?.trim() || runtimeCallerPhone(state).trim();
+
+    if (!params.readBack) {
+      return (
+        "Read back the new patient details first: patient name, date of birth, sex, address, " +
+        "callback phone, email if provided, insurance plan, policyholder name, and member ID. " +
+        "Call add_patient again only after the caller confirms the details are correct."
+      );
+    }
 
     if (!phone) {
       throw new llm.ToolError(
@@ -66,10 +81,18 @@ export const add_patient = llm.tool({
       );
     }
 
+    ctx.speechHandle.allowInterruptions = false;
     ensureRoutineVisionOffice(state);
-    const { email, ...patient } = params;
     const payload = {
-      ...patient,
+      firstName: params.firstName,
+      lastName: params.lastName,
+      dob: params.dob,
+      street: params.street,
+      aptSuite: params.aptSuite,
+      city: params.city,
+      state: params.state,
+      zip: params.zip,
+      sex: params.sex,
       insurance,
       phone,
       subscriberName: selfPay
@@ -79,7 +102,7 @@ export const add_patient = llm.tool({
       ...(checkedInsurance.coverageType === "routine_vision"
         ? { coverageType: "routine_vision" }
         : {}),
-      ...(email?.trim() ? { email: email.trim() } : {}),
+      ...(params.email?.trim() ? { email: params.email.trim() } : {}),
     };
 
     const result = (await callApi(

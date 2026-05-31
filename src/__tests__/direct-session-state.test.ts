@@ -384,6 +384,7 @@ describe("direct session state cleanup", () => {
         insurance: "self pay",
         subscriberName: "Jane Doe",
         subscriberNum: "self pay",
+        readBack: true,
       },
       { ctx: ctx as never, toolCallId: "tool-1" } as never,
     );
@@ -399,6 +400,98 @@ describe("direct session state cleanup", () => {
       phone: "+17275551212",
       insurance: "self pay",
       subscriberNum: "self pay",
+    });
+  });
+
+  it("requires read-back confirmation before creating a patient", async () => {
+    const state = createState();
+    state.patient.patientId = null;
+    state.patient.name = null;
+    state.patient.identityConfirmed = false;
+    state.checkedInsurance = {
+      plan: "self pay",
+      canonicalPlan: "self pay",
+      coverageType: "medical",
+      currentCarrier: "self pay",
+    };
+    const ctx = createToolContext(state);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        insurance: "self pay",
+        subscriberName: "Jane Doe",
+        subscriberNum: "self pay",
+      },
+      { ctx: ctx as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID. Call add_patient again only after the caller confirms the details are correct.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(ctx.speechHandle.allowInterruptions).toBe(true);
+  });
+
+  it("uses the inbound caller phone when add_patient receives a blank phone", async () => {
+    const state = createState();
+    state.patient.patientId = null;
+    state.patient.name = null;
+    state.patient.identityConfirmed = false;
+    state.checkedInsurance = {
+      plan: "self pay",
+      canonicalPlan: "self pay",
+      coverageType: "medical",
+      currentCarrier: "self pay",
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "created",
+        patientId: "patient-new",
+        name: "Jane Doe",
+        phone: "+17275551212",
+        insuranceCarrier: "self pay",
+        routing: "all_three",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        insurance: "self pay",
+        subscriberName: "Jane Doe",
+        subscriberNum: "self pay",
+        phone: "   ",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      phone: "+17275551212",
     });
   });
 
