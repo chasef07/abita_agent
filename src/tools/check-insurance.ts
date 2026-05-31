@@ -1,0 +1,65 @@
+import { llm } from "@livekit/agents";
+import { z } from "zod";
+import {
+  buildInsuranceToolResponse,
+  canonicalInsurancePlan,
+  matchInsurancePlanForOffice,
+} from "../insurance-rules.js";
+import { activeOfficeKey } from "../state/call-state.js";
+import { getState } from "./session.js";
+
+export const check_insurance = llm.tool({
+  description:
+    "Check whether the active office accepts the caller's insurance. " +
+    "Call this before adding a new patient, after you know the plan name and whether the visit is medical or routine vision. " +
+    "Also call for quick insurance acceptance questions. ",
+  parameters: z.object({
+    plan: z
+      .string()
+      .trim()
+      .min(1)
+      .describe("Plan name exactly as the caller says it or the card shows it"),
+    coverageType: z
+      .enum(["medical", "routine_vision"])
+      .describe(
+        "medical for ophthalmology visits; routine_vision for routine eye exams, glasses prescriptions, or contact lens prescriptions.",
+      ),
+  }),
+  execute: async ({ plan, coverageType }, { ctx }) => {
+    const state = getState(ctx);
+    const office = activeOfficeKey(state);
+    const result = matchInsurancePlanForOffice(office, plan, coverageType);
+    const response = buildInsuranceToolResponse(result);
+    const checkedInsurancePlan = response.canonicalPlan;
+    const checkedInsuranceCoverageType = checkedInsurancePlan
+      ? coverageType
+      : null;
+
+    state.checkedInsurance = {
+      plan,
+      canonicalPlan: checkedInsurancePlan,
+      coverageType: checkedInsuranceCoverageType,
+      currentCarrier: checkedInsurancePlan,
+    };
+    state.scheduling.coverageType = checkedInsuranceCoverageType;
+
+    if (office === "crystal-river" && result.status === "not_accepted") {
+      const springHillResult = matchInsurancePlanForOffice(
+        "spring-hill",
+        plan,
+        coverageType,
+      );
+      const springHillPlan = canonicalInsurancePlan(springHillResult);
+      if (springHillResult.status === "accepted" && springHillPlan) {
+        return {
+          ...response,
+          acceptedAtAlternateOffice: "Spring Hill",
+          alternateCanonicalPlan: springHillPlan,
+          routeTool: "route_to_spring_hill",
+          callerMessage: `${response.callerMessage} Spring Hill accepts ${springHillPlan}. Would you like to schedule there instead?`,
+        };
+      }
+    }
+    return response;
+  },
+});

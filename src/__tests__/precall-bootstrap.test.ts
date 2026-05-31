@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SPRING_HILL_OFFICE_PHONE } from "../offices.js";
-import { lookupByPhone } from "../tooling/advancedmd-client.js";
+import { SPRING_HILL_OFFICE_PHONE } from "../customer/profile.js";
+import { lookupByPhone } from "../clients/advancedmd-client.js";
 import {
   buildPreCallContextState,
   loadPreCallBootstrap,
-} from "../tooling/precall-bootstrap.js";
+} from "../runtime/precall-bootstrap.js";
 
 describe("pre-call bootstrap", () => {
   afterEach(() => {
@@ -116,7 +116,6 @@ describe("pre-call bootstrap", () => {
         name: "Doe, Jane",
         appointmentsStatus: "none",
       },
-      flowHarnessEnabled: true,
       telemetry: {
         status: "verified",
       },
@@ -170,7 +169,7 @@ describe("pre-call bootstrap", () => {
     });
   });
 
-  it("maps lookup outcomes into harness-owned pre-call state", () => {
+  it("maps lookup outcomes into session pre-call state", () => {
     const single = buildPreCallContextState(
       {
         status: "verified",
@@ -178,15 +177,26 @@ describe("pre-call bootstrap", () => {
         name: "Doe, Jane",
         dob: "01/01/1980",
         phone: "+17275551212",
-        insuranceCarrier: null,
-        insPlanId: null,
-        respPartyId: null,
-        routing: null,
-        allowedProviders: [],
+        insuranceCarrier: "Aetna",
+        insPlanId: "plan-1",
+        respPartyId: "resp-1",
+        routing: "all_three",
+        allowedProviders: ["Dr. Bach"],
         routingAmbiguous: false,
-        appointmentsStatus: "none",
+        appointmentsStatus: "found",
         appointmentsMessage: null,
-        appointments: [],
+        appointments: [
+          {
+            id: 12345,
+            date: "2026-06-01",
+            time: "9:00 AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            facility: "Spring Hill",
+            confirmed: true,
+            cancelToken: "cancel-token-12345",
+          },
+        ],
       },
       "+17275551212",
     );
@@ -194,7 +204,7 @@ describe("pre-call bootstrap", () => {
     expect(single).toMatchObject({
       status: "single_match_pending_confirmation",
       selectedCandidateRef: "caller",
-      appointmentLoadStatus: "none",
+      appointmentLoadStatus: "found",
       candidates: [
         {
           ref: "caller",
@@ -202,6 +212,12 @@ describe("pre-call bootstrap", () => {
           lastName: "Doe",
           patientId: "patient-1",
           relationshipToCaller: "self",
+          appointmentCancelTokens: { "12345": "cancel-token-12345" },
+          insuranceCarrier: "Aetna",
+          insPlanId: "plan-1",
+          respPartyId: "resp-1",
+          routing: "all_three",
+          allowedProviders: ["Dr. Bach"],
         },
       ],
     });

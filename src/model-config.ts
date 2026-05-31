@@ -1,8 +1,8 @@
 import type { BasetenLLMOptions } from "@livekit/agents-plugin-baseten";
 
 const voiceAgentGenerationOptions = {
-  parallelToolCalls: true,
-  temperature: 1.0,
+  parallelToolCalls: false,
+  temperature: 0.3,
   topP: 0.9,
 } as const satisfies Pick<
   BasetenLLMOptions,
@@ -15,6 +15,6 @@ export const primaryLLMOptions = {
 } as const satisfies BasetenLLMOptions;
 
 export const fallbackLLMOptions = {
-  model: "MiniMaxAI/MiniMax-M2.5",
+  model: "zai-org/GLM-5",
   ...voiceAgentGenerationOptions,
 } as const satisfies BasetenLLMOptions;

@@ -1,29 +1,17 @@
 // agent.ts — Agent definition
-// Instructions loaded from workspace/ files, tools wired below.
+// Instructions loaded from workspace files, tools wired below.
 
 import { llm, stt, voice } from "@livekit/agents";
 import type { AudioFrame } from "@livekit/rtc-node";
 import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
-import {
-  reconcileCallStateAfterActivePatientChange,
-  type CallState,
-  type PhoneLookupResult,
-} from "./tooling/call-state.js";
+import { type CallState, type PhoneLookupResult } from "./state/call-state.js";
 import type { VoiceLanguageRuntime } from "./language-runtime.js";
-import {
-  advanceWorkflow,
-  compileTurnStatePacket,
-  inferObviousTurnUnderstanding,
-  nextFlowEventId,
-  reduceFlowEvent,
-} from "./flow/index.js";
 import { getOfficeConfigByPhone } from "./customer/profile.js";
 import {
   buildToolsForTrunk as buildToolsForTrunkFromRegistry,
-  refreshAgentToolsForSession,
   type AgentTools,
-} from "./tooling/tool-registry.js";
+} from "./runtime/tool-registry.js";
 
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
   return buildToolsForTrunkFromRegistry(trunkPhone);
@@ -59,76 +47,14 @@ export class Agent extends voice.Agent {
   }
 
   override async onUserTurnCompleted(
-    chatCtx: llm.ChatContext,
+    _chatCtx: llm.ChatContext,
     newMessage: llm.ChatMessage,
   ): Promise<void> {
     const state = this.session.userData as CallState | undefined;
     const transcript = newMessage.textContent ?? "";
-    if (!state?.runtime.flowHarnessEnabled || !state.flow || !transcript)
-      return;
+    if (!state || !transcript) return;
 
     state.runtime.latestUserTranscript = transcript;
-    state.runtime.turnUnderstandingAppliedForTranscript = null;
-    const activePatientRefBefore = state.flow.activePatientRef;
-    const preCallIdentity = reduceFlowEvent(state.flow, {
-      id: nextFlowEventId("pre_call_identity"),
-      type: "pre_call_identity_observed",
-      source: "deterministic_understanding",
-      createdAt: Date.now(),
-      transcript,
-    }).preCallIdentity;
-    if (
-      preCallIdentity?.changed &&
-      state.flow.activePatientRef &&
-      state.flow.activePatientRef !== activePatientRefBefore
-    ) {
-      reconcileCallStateAfterActivePatientChange(state, "patient_changed");
-    }
-    const inferred = inferObviousTurnUnderstanding(state.flow, transcript);
-    const automaticTurnUpdateApplied = Boolean(
-      inferred || preCallIdentity?.changed,
-    );
-    if (inferred) {
-      const turn = advanceWorkflow(state.flow, {
-        type: "caller_intent_recorded",
-        transcript,
-        understanding: inferred,
-        source: "deterministic_understanding",
-      });
-      state.runtime.turnUnderstandingAppliedForTranscript = transcript;
-      if (turn.update) {
-        state.runtime.lastTurnUnderstanding = {
-          goal: turn.update.understanding.goal,
-          appointmentAction: turn.update.understanding.appointmentAction,
-          confidence: turn.update.understanding.confidence,
-          activeIntent: state.flow.activeIntent,
-          activePatientRef: state.flow.activePatientRef,
-        };
-      }
-    } else if (preCallIdentity?.changed) {
-      advanceWorkflow(state.flow, { type: "facts_changed" });
-      state.runtime.turnUnderstandingAppliedForTranscript = transcript;
-    }
-    await refreshAgentToolsForSession(
-      this.session,
-      automaticTurnUpdateApplied
-        ? "turn_update_auto_recorded"
-        : "turn_update_pending",
-    );
-    chatCtx.addMessage({
-      role: "system",
-      content: [
-        compileTurnStatePacket(state.flow),
-        "",
-        "<workflow_guidance>",
-        automaticTurnUpdateApplied
-          ? "The reducer already recorded deterministic state for this turn. Use the current turn_state as guidance, and call the suggested read-only tool when prerequisites are met. Side effects still require explicit confirmation and policy approval."
-          : "No automatic intent update was applied. Use the current turn_state, caller wording, and concrete tool facts to either ask one clarifying question or call a safe workflow tool. Side effects still require explicit confirmation and policy approval.",
-        "</workflow_guidance>",
-      ].join("\n"),
-      id: `flow_turn_state_${newMessage.id}`,
-      createdAt: newMessage.createdAt + 1,
-    });
   }
 
   override async sttNode(

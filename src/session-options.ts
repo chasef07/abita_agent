@@ -1,5 +1,5 @@
 import type { voice } from "@livekit/agents";
-import type { CallState } from "./tooling/call-state.js";
+import type { CallState } from "./state/call-state.js";
 
 export const voiceTurnHandlingOptions = {
   turnDetection: "stt",

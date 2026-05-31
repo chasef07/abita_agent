@@ -31,23 +31,17 @@ import {
   type ToolExecutionAnalytics,
 } from "./call-observability.js";
 import { RoomServiceClient } from "livekit-server-sdk";
-import { createInitialFlowState } from "./flow/index.js";
 import {
   appointmentCancelTokenMap,
   createCanonicalCallState,
   publicCallerAppointments,
   type CallState,
-} from "./tooling/call-state.js";
+} from "./state/call-state.js";
 import {
   buildPreCallContextState,
   formatPhoneLookupLogLine,
   loadPreCallBootstrap,
-} from "./tooling/precall-bootstrap.js";
-import { bindDynamicToolRefresher } from "./tooling/dynamic-tool-refresh.js";
-import {
-  applyDynamicToolsToAgent,
-  refreshAgentToolsForSession,
-} from "./tooling/tool-registry.js";
+} from "./runtime/precall-bootstrap.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
   getCartesiaTtsOptions,
@@ -137,30 +131,14 @@ export default defineAgent({
 
       // Phone lookup before session start so context is ready for the first LLM turn.
       const preCall = await loadPreCallBootstrap({ callerPhone, trunkPhone });
-      const { office, phoneLookup, verified, flowHarnessEnabled } = preCall;
-      const flowDynamicToolsEnabled = flowHarnessEnabled;
+      const { office, phoneLookup, verified } = preCall;
       console.log(formatPhoneLookupLogLine(callerPhone, phoneLookup));
 
       const agent = new Agent(phoneLookup, trunkPhone, { languageRuntime });
 
       session.userData = createCanonicalCallState({
-        flow: createInitialFlowState({
-          officeKey: office.key,
-          patientId: verified?.patientId ?? null,
-          patientName: verified?.name ?? null,
-          dob: verified?.dob ?? null,
-          callerPhone,
-          appointments: publicCallerAppointments(verified?.appointments),
-          appointmentsStatus: verified?.appointmentsStatus ?? null,
-          routing: verified?.routing ?? null,
-          preCall: buildPreCallContextState(phoneLookup, callerPhone),
-        }),
-        flowHarnessEnabled,
-        flowGuardObservations: [],
+        preCall: buildPreCallContextState(phoneLookup, callerPhone),
         preCallLookup: preCall.telemetry,
-        latestUserTranscript: null,
-        turnUnderstandingAppliedForTranscript: null,
-        dynamicToolsEnabled: flowDynamicToolsEnabled,
         officeKey: office.key,
         amdOfficePhone: office.amdOfficePhone,
         sipRoomName: ctx.room.name ?? "",
@@ -180,7 +158,6 @@ export default defineAgent({
         lastAvailabilityRouting: null,
         lastAvailabilitySlots: [],
         bookableAvailabilitySlots: [],
-        availabilitySlotSequence: 0,
         allowedProviders: verified?.allowedProviders ?? [],
         routingAmbiguous: verified?.routingAmbiguous ?? false,
         preauthRequired: verified?.preauthRequired ?? false,
@@ -190,15 +167,7 @@ export default defineAgent({
           verified?.appointments,
         ),
         transferred: false,
-        transferAttempted: false,
-        transferInFlight: false,
       });
-      if (flowDynamicToolsEnabled) {
-        await applyDynamicToolsToAgent(agent, session.userData, "startup");
-        bindDynamicToolRefresher(session, (reason) =>
-          refreshAgentToolsForSession(session, reason),
-        );
-      }
 
       let activeSttProfile: AssemblyAISttProfile = "default";
       let promptedSttProfile: AssemblyAISttProfile | null = null;
@@ -283,7 +252,6 @@ export default defineAgent({
 
       session.on(voice.AgentSessionEventTypes.FunctionToolsExecuted, (ev) => {
         toolExecutions.push(...snapshotToolExecutions(ev));
-        void refreshAgentToolsForSession(session, "tools_executed");
       });
 
       session.on(voice.AgentSessionEventTypes.Error, (ev) => {
@@ -388,10 +356,7 @@ export default defineAgent({
             sessionEvents,
             toolExecutions,
             turnMetrics,
-            flow: {
-              currentState: session.userData.flow,
-              guardObservations: session.userData.runtime.flowGuardObservations,
-            },
+            callState: session.userData,
             preCallLookup: session.userData.runtime.preCallLookup,
             language: languageRuntime.telemetry,
             sessionReport,

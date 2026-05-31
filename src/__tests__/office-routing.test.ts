@@ -11,34 +11,35 @@ import {
   getOfficeHandoffTarget,
   getOfficeKeyByPhone,
   HOLLYWOOD_OFFICE_PHONE,
-  isFlowHarnessEnabledForTrunk,
   normalizeHandoffTarget,
   normalizePhoneNumber,
   SPRING_HILL_813_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
   SWEETWATER_TRUNK_PHONES,
-} from "../offices.js";
+} from "../customer/profile.js";
 import {
   add_patient,
-  getAmdOfficeForToolCall,
-  getBaseUrlForOfficePhone,
+  cancel_appt,
+  check_insurance,
+  confirm_patient_identity,
+  get_current_datetime,
   get_availability,
-  getSpringHillOfficePhone,
-  resolveKnowledgeFileForOffice,
-  verify_patient,
-} from "../tools.js";
-import { createTestCallState } from "./helpers/canonical-call-state.js";
+  lookup_knowledge,
+  record_turn_context,
+  route_to_spring_hill,
+  transfer_call,
+  update_insurance,
+} from "../tools/index.js";
+import { getBaseUrlForOfficePhone } from "../clients/advancedmd-client.js";
+import { resolveKnowledgeFileForOffice } from "../tools/knowledge.js";
 
 describe("office routing helpers", () => {
   afterEach(() => {
     delete process.env.SPRING_HILL_HANDOFF_TARGET;
-    delete process.env.CRYSTAL_RIVER_HANDOFF_TARGET;
     delete process.env.HOLLYWOOD_HANDOFF_TARGET;
     delete process.env.SWEETWATER_HANDOFF_TARGET;
-    delete process.env.DEV_HANDOFF_TARGET;
     delete process.env.TELNYX_VOICE_API_HANDOFF_TARGET;
-    delete process.env.OFFICE_HANDOFF_TARGET;
   });
 
   it("maps trunk numbers to office keys", () => {
@@ -92,32 +93,6 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("enables the flow harness for all Abita trunks by default", () => {
-    expect(isFlowHarnessEnabledForTrunk(DEV_OFFICE_PHONE)).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk("14843989071")).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk(SPRING_HILL_OFFICE_PHONE)).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk("17275919997")).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk(SPRING_HILL_813_TRUNK_PHONE)).toBe(
-      true,
-    );
-    expect(isFlowHarnessEnabledForTrunk("18135484830")).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk("13523202007")).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk(HOLLYWOOD_OFFICE_PHONE)).toBe(true);
-    for (const phone of SWEETWATER_TRUNK_PHONES) {
-      expect(isFlowHarnessEnabledForTrunk(phone)).toBe(true);
-    }
-  });
-
-  it("ignores the old flow harness trunk override and keeps supported trunks harness-only", () => {
-    process.env.FLOW_HARNESS_TRUNK_PHONES = `13523202007, ${SWEETWATER_OFFICE_PHONE}`;
-
-    expect(isFlowHarnessEnabledForTrunk("+13523202007")).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk(SWEETWATER_OFFICE_PHONE)).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk(SPRING_HILL_OFFICE_PHONE)).toBe(true);
-    expect(isFlowHarnessEnabledForTrunk(DEV_OFFICE_PHONE)).toBe(true);
-  });
-
   it("rejects unsupported trunk numbers", () => {
     expect(() => getOfficeKeyByPhone("+19999999999")).toThrow(
       "Unsupported trunk phone number",
@@ -125,29 +100,6 @@ describe("office routing helpers", () => {
     expect(() => buildToolsForTrunk("+19999999999")).toThrow(
       "Unsupported trunk phone number",
     );
-  });
-
-  it("uses the hardcoded Spring Hill AMD office phone", () => {
-    expect(getSpringHillOfficePhone()).toBe(SPRING_HILL_OFFICE_PHONE);
-  });
-
-  it("uses the AMD office override when present", () => {
-    const crystalRiverOverride = createTestCallState();
-    crystalRiverOverride.officeKey = "crystal-river";
-    crystalRiverOverride.amdOfficePhone = SPRING_HILL_OFFICE_PHONE;
-    expect(getAmdOfficeForToolCall(crystalRiverOverride)).toBe(
-      SPRING_HILL_OFFICE_PHONE,
-    );
-
-    const crystalRiverDefault = createTestCallState();
-    crystalRiverDefault.officeKey = "crystal-river";
-    crystalRiverDefault.amdOfficePhone = "";
-    expect(getAmdOfficeForToolCall(crystalRiverDefault)).toBe("+13523202007");
-
-    const dev = createTestCallState();
-    dev.officeKey = "dev";
-    dev.amdOfficePhone = "";
-    expect(getAmdOfficeForToolCall(dev)).toBe(DEV_OFFICE_PHONE);
   });
 
   it("uses the dev middleware for the dev trunk", () => {
@@ -265,36 +217,14 @@ describe("office routing helpers", () => {
       );
     }
   });
-
-  it("keeps flow harness memory updates internal on every live trunk", () => {
-    const liveTrunks = [
-      DEV_OFFICE_PHONE,
-      SPRING_HILL_OFFICE_PHONE,
-      SPRING_HILL_813_TRUNK_PHONE,
-      CRYSTAL_RIVER_OFFICE_PHONE,
-      HOLLYWOOD_OFFICE_PHONE,
-      ...SWEETWATER_TRUNK_PHONES,
-    ];
-
-    for (const phone of liveTrunks) {
-      const tools = buildToolsForTrunk(phone);
-      expect(tools).not.toHaveProperty("record_turn_understanding");
-      expect(tools).not.toHaveProperty("confirm_booking_action");
-      expect(tools).not.toHaveProperty("confirm_side_effect_action");
-    }
-  });
 });
 
-describe("flow harness prompt gating", () => {
-  it("injects state harness instructions for every default harness trunk", () => {
+describe("tool-first prompt gating", () => {
+  it("includes core tool-use rules from the role prompt", () => {
     const prompt = buildPrompt(undefined, DEV_OFFICE_PHONE);
 
-    expect(prompt).toContain("<harness_operating_contract>");
-    expect(prompt).toContain("<flow_harness_runbook>");
-    expect(prompt).toContain("<state_memory_contract>");
-    expect(prompt).toContain("<context_capsules>");
-    expect(prompt).toContain("suggestedTool");
-    expect(prompt).toContain("## Scheduling Essentials");
+    expect(prompt).toContain("<role>");
+    expect(prompt).toContain("# Tool Use");
     expect(prompt).toContain("You speak English and Spanish");
     expect(prompt).toContain(
       "If the caller asks to speak Spanish, continue the conversation in Spanish",
@@ -306,53 +236,23 @@ describe("flow harness prompt gating", () => {
       'When giving an address, put `<break time="300ms"/>` between the street',
     );
     expect(prompt).toContain(
-      "capture exactly two booking-note facts: appointment reason and referring doctor",
+      "Use confirm_patient_identity for patient-specific work.",
     );
     expect(prompt).toContain(
-      "Do not drill into clinical or surgery details once a usable reason is known",
+      "Use tools for insurance, availability, booking, cancellation, routing, and transfer.",
     );
     expect(prompt).toContain(
-      'If there is no referring doctor, the caller is unsure, or nobody referred them, use "none"',
+      "Call get_current_datetime before interpreting relative dates or times for scheduling, availability, booking, or appointment changes.",
     );
-    expect(prompt).toContain(
-      "Routine vision: routine eye exam, glasses prescription, or contact lens prescription using accepted vision coverage or self-pay",
-    );
-    expect(prompt).toContain(
-      "Medical: symptoms, referral, post-op, cataract, glaucoma, retina, urgent issues, or other clinical care.",
-    );
-    expect(prompt).toContain(
-      "Optical shop tasks: glasses orders, repairs, pickup, warranty, frames, or contact lens orders usually transfer",
-    );
-    expect(prompt).toContain(
-      "Use self-pay only when the caller says the patient does not have insurance or wants self-pay. Self-pay is not a placeholder.",
-    );
-    expect(prompt).not.toContain("## Transfer");
-    expect(prompt).toContain("## Side Effects");
-    expect(prompt).not.toContain("## Confirmation State");
-    expect(prompt).not.toContain("record_turn_understanding");
-    expect(prompt).not.toContain("<runbook>");
-    expect(prompt).not.toContain("RUNBOOK.md - How to Handle Every Call");
-    expect(prompt).not.toContain("confirm_booking_action");
-    expect(prompt).not.toContain("confirm_side_effect_action");
+    expect(prompt).not.toContain("Today is");
+    expect(prompt).not.toContain("The current time is");
 
     const crystalRiverPrompt = buildPrompt(
       undefined,
       CRYSTAL_RIVER_OFFICE_PHONE,
     );
 
-    expect(crystalRiverPrompt).toContain("<harness_operating_contract>");
-    expect(crystalRiverPrompt).toContain("<flow_harness_runbook>");
-    expect(crystalRiverPrompt).toContain("<state_memory_contract>");
-    expect(crystalRiverPrompt).toContain("<context_capsules>");
-    expect(crystalRiverPrompt).toContain("suggestedTool");
-    expect(crystalRiverPrompt).toContain("## Scheduling Essentials");
-    expect(crystalRiverPrompt).not.toContain("record_turn_understanding");
-    expect(crystalRiverPrompt).not.toContain("<runbook>");
-    expect(crystalRiverPrompt).not.toContain(
-      "RUNBOOK.md - How to Handle Every Call",
-    );
-    expect(crystalRiverPrompt).not.toContain("confirm_booking_action");
-    expect(crystalRiverPrompt).not.toContain("confirm_side_effect_action");
+    expect(crystalRiverPrompt).toContain("# Tool Use");
 
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
@@ -362,23 +262,11 @@ describe("flow harness prompt gating", () => {
     ]) {
       const officePrompt = buildPrompt(undefined, phone);
 
-      expect(officePrompt).toContain("<harness_operating_contract>");
-      expect(officePrompt).toContain("<flow_harness_runbook>");
-      expect(officePrompt).toContain("<state_memory_contract>");
-      expect(officePrompt).toContain("<context_capsules>");
-      expect(officePrompt).toContain("suggestedTool");
-      expect(officePrompt).toContain("## Scheduling Essentials");
-      expect(officePrompt).not.toContain("record_turn_understanding");
-      expect(officePrompt).not.toContain("<runbook>");
-      expect(officePrompt).not.toContain(
-        "RUNBOOK.md - How to Handle Every Call",
-      );
-      expect(officePrompt).not.toContain("confirm_booking_action");
-      expect(officePrompt).not.toContain("confirm_side_effect_action");
+      expect(officePrompt).toContain("# Tool Use");
     }
   });
 
-  it("does not treat pre-call lookup failures as no-match callers", () => {
+  it("keeps pre-call lookup failures out of the prompt", () => {
     const prompt = buildPrompt(
       {
         status: "lookup_failed",
@@ -390,13 +278,13 @@ describe("flow harness prompt gating", () => {
       SPRING_HILL_OFFICE_PHONE,
     );
 
-    expect(prompt).toContain("PHONE LOOKUP UNAVAILABLE");
-    expect(prompt).toContain("do not say they are new");
-    expect(prompt).toContain("use verify_patient");
+    expect(prompt).not.toContain("PHONE LOOKUP UNAVAILABLE");
+    expect(prompt).not.toContain("do not say they are new");
+    expect(prompt).not.toContain("lookup failed");
     expect(prompt).not.toContain("NO MATCH");
   });
 
-  it("asks no-match callers whether they are registered before making a chart", () => {
+  it("keeps no-match lookup outcomes out of the prompt", () => {
     const prompt = buildPrompt(
       {
         status: "no_match",
@@ -405,15 +293,17 @@ describe("flow harness prompt gating", () => {
       SPRING_HILL_OFFICE_PHONE,
     );
 
-    expect(prompt).toContain(
-      'Ask "Are you already registered with us, or should I make a new chart?" early in the call.',
+    expect(prompt).not.toContain("NO MATCH");
+    expect(prompt).not.toContain("This number is not in the system");
+    expect(prompt).not.toContain(
+      "Are you already registered with us, or should I make a new chart?",
     );
     expect(prompt).not.toContain("have you been seen here before");
   });
 });
 
 describe("Crystal River prompt guidance", () => {
-  it("includes harness routing guidance while keeping office facts in the Crystal River knowledge file", () => {
+  it("keeps Crystal River routing guidance out of the prompt and in tool/knowledge surfaces", () => {
     const prompt = buildPrompt(undefined, "+13523202007");
     const crystalRiverKnowledge = readFileSync(
       join(
@@ -426,7 +316,18 @@ describe("Crystal River prompt guidance", () => {
       "utf-8",
     );
 
-    expect(prompt).toContain("Use the routing tool, not the transfer tool");
+    expect(prompt).not.toContain("Use the routing tool, not the transfer tool");
+    expect(route_to_spring_hill.description).toContain(
+      "Switch scheduling to Spring Hill without transferring",
+    );
+    expect(route_to_spring_hill.description).toContain(
+      "pediatric ophthalmology",
+    );
+    expect(route_to_spring_hill.description).toContain("cataract evaluations");
+    expect(route_to_spring_hill.description).toContain("routine eye exams");
+    expect(route_to_spring_hill.description).toContain(
+      "caller is actively scheduling and agrees",
+    );
     expect(prompt).not.toContain("do not transfer just for that");
     expect(crystalRiverKnowledge).toContain(
       "does **not** see pediatric ophthalmology",
@@ -453,11 +354,7 @@ describe("Crystal River prompt guidance", () => {
     );
 
     expect(prompt).toContain("an ophthalmology clinic");
-    expect(prompt).toContain("<flow_harness_runbook>");
-    expect(prompt).toContain("## Scheduling Essentials");
-    expect(prompt).toContain(
-      "capture exactly two booking-note facts: appointment reason and referring doctor",
-    );
+    expect(prompt).toContain("# Tool Use");
     expect(prompt).not.toContain("Visit Type Triage");
     expect(prompt).not.toContain(
       "Before choosing a path, checking insurance, or searching availability",
@@ -482,7 +379,7 @@ describe("Crystal River prompt guidance", () => {
     );
   });
 
-  it("keeps full registration prose out of the Spring Hill harness prompt", () => {
+  it("keeps full registration prose out of the Spring Hill prompt", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
     expect(prompt).not.toContain(
@@ -517,6 +414,8 @@ describe("Crystal River prompt guidance", () => {
 
     expect(hollywoodPrompt).not.toContain("route_to_spring_hill");
     expect(sweetwaterPrompt).not.toContain("route_to_spring_hill");
+    expect(hollywoodPrompt).not.toContain("Crystal River routing rules");
+    expect(sweetwaterPrompt).not.toContain("Crystal River routing rules");
     expect(hollywoodKnowledge).toContain("Abita Eye Group Hollywood");
     expect(hollywoodKnowledge).toContain("4330 Sheridan St, Suite 102B");
     expect(hollywoodKnowledge).toContain("Route to ophthalmology");
@@ -537,31 +436,58 @@ describe("Crystal River prompt guidance", () => {
     expect(sweetwaterKnowledge).toContain("Dr. Maria Casas");
   });
 
-  it("keeps compact side-effect guidance in the Spring Hill harness prompt", () => {
+  it("keeps compact state-recording guidance in the role prompt", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
     expect(prompt).toContain(
-      "capture exactly two booking-note facts: appointment reason and referring doctor",
+      "Call record_turn_context only when the caller's intent is clear. For scheduling, call it only after the medical-versus-routine lane is clear.",
     );
     expect(prompt).toContain(
-      "Side effects require explicit caller confirmation and a successful tool result before you say they are done.",
+      "If intent or scheduling lane is unclear, ask concise clarifying questions.",
     );
     expect(prompt).toContain(
-      "For reschedules, book the replacement first, then cancel the old appointment after booking succeeds.",
+      "Do not say a state-changing action is done until the tool succeeds.",
     );
-    expect(prompt).not.toContain("## Confirmation State");
   });
 
-  it("prioritizes emergency and urgent eye symptoms before routine scheduling", () => {
+  it("exposes the turn context recorder as a harmless state tool", () => {
+    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).toHaveProperty(
+      "record_turn_context",
+    );
+    expect(record_turn_context.description).toContain(
+      "Call this only when you are confident about what the caller is trying to do",
+    );
+    expect(record_turn_context.description).toContain(
+      "If the intent or scheduling lane is unclear, ask concise clarifying questions instead",
+    );
+    expect(record_turn_context.description).toContain(
+      "does not speak, verify, schedule, cancel, transfer, or call external systems",
+    );
+  });
+
+  it("exposes current date/time as an on-demand read-only tool", () => {
+    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).toHaveProperty(
+      "get_current_datetime",
+    );
+    expect(get_current_datetime.description).toContain(
+      "current clinic-local date and time",
+    );
+    expect(get_current_datetime.description).toContain(
+      "today, tomorrow, next week, Friday",
+    );
+    expect(get_current_datetime.description).toContain("read-only");
+  });
+
+  it("keeps emergency transfer policy in the base role prompt", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
-    expect(prompt).toContain("## Emergency");
-    expect(prompt).toContain("sudden vision loss");
-    expect(prompt).toContain("retina tear/detachment concerns");
-    expect(prompt).toContain("transfer to the office for clinical direction");
+    expect(prompt).toContain("emergencies");
+    expect(prompt).toContain(
+      "Transfer only when the request truly needs a human",
+    );
   });
 
-  it("keeps appointment times TTS-safe with spaced AM and PM", () => {
+  it("keeps TTS formatting guidance in the base voice prompt", () => {
     const prompt = buildPrompt(
       {
         status: "verified",
@@ -599,8 +525,8 @@ describe("Crystal River prompt guidance", () => {
       SPRING_HILL_OFFICE_PHONE,
     );
 
-    expect(prompt).toContain("9:30 AM");
-    expect(prompt).toContain("1 PM");
+    expect(prompt).not.toContain("2099-01-01");
+    expect(prompt).not.toContain("2099-01-02");
     expect(prompt).not.toContain("9:30AM");
     expect(prompt).not.toContain("1pm");
     expect(prompt).toContain(
@@ -609,7 +535,7 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).not.toContain("eight fifteen a m");
   });
 
-  it("includes preloaded appointment facility so confirmations use the actual office", () => {
+  it("does not inject preloaded appointment facilities into the prompt", () => {
     const prompt = buildPrompt(
       {
         status: "verified",
@@ -638,12 +564,13 @@ describe("Crystal River prompt guidance", () => {
       HOLLYWOOD_OFFICE_PHONE,
     );
 
-    expect(prompt).toContain(
-      "[ID: 123] 2099-01-01 at 9:30 AM with Dr. Bach (Follow-up) at Hollywood",
-    );
+    expect(prompt).not.toContain("Santos");
+    expect(prompt).not.toContain("patient-1");
+    expect(prompt).not.toContain("2099-01-01");
+    expect(prompt).not.toContain("Hollywood");
   });
 
-  it("makes the single-match pre-call contract explicit", () => {
+  it("keeps single-match pre-call facts out of the prompt", () => {
     const prompt = buildPrompt(
       {
         status: "verified",
@@ -672,28 +599,17 @@ describe("Crystal River prompt guidance", () => {
       HOLLYWOOD_OFFICE_PHONE,
     );
 
-    expect(prompt).toContain("<pre_call_context>");
-    expect(prompt).toContain(
-      "Phone lookup found exactly one existing patient for this caller.",
+    expect(prompt).not.toContain("<pre_call_context>");
+    expect(prompt).not.toContain(
+      "Phone lookup found exactly one existing patient",
     );
-    expect(prompt).toContain("- Ask what the caller needs first.");
-    expect(prompt).toContain(
-      "- Only confirm identity before patient-specific help:",
-    );
-    expect(prompt).toContain(
-      "- For quick questions, office information, policy questions, routing questions that do not require private patient data, or transfer requests, help the caller without patient verification.",
-    );
-    expect(prompt).toContain(
-      "- When identity is needed, ask the caller to spell the patient's first name only.",
-    );
-    expect(prompt).toContain("- Do not call verify_patient for this caller.");
-    expect(prompt).toContain(
-      "- Use the preloaded appointment list for appointment changes and cancellations.",
-    );
-    expect(prompt).toContain("Preloaded facts available after confirmation:");
+    expect(prompt).not.toContain("Santos");
+    expect(prompt).not.toContain("01/01/1980");
+    expect(prompt).not.toContain("Aetna");
+    expect(prompt).not.toContain("2099-01-01");
   });
 
-  it("makes the multiple-match pre-call wording explicit", () => {
+  it("keeps multiple-match pre-call facts out of the prompt", () => {
     const prompt = buildPrompt(
       {
         status: "multiple_matches",
@@ -703,36 +619,167 @@ describe("Crystal River prompt guidance", () => {
       HOLLYWOOD_OFFICE_PHONE,
     );
 
-    expect(prompt).toContain("MULTIPLE MATCHES (2 patients on this number)");
-    expect(prompt).toContain(
-      "Say there are multiple patients on this number, ask the caller to confirm the patient's first name first, and do not read names on file aloud.",
-    );
+    expect(prompt).not.toContain("MULTIPLE MATCHES");
+    expect(prompt).not.toContain("multiple patients on this number");
     expect(prompt).not.toContain("IVETTE");
     expect(prompt).not.toContain("KAELI");
   });
 });
 
 describe("model-facing tool definitions", () => {
-  it("keeps Bach-only routing from implying a minor patient", () => {
+  it("keeps add_patient focused on new-patient chart creation", () => {
     expect(add_patient.description).toContain(
+      "Creates a chart for a new patient",
+    );
+    expect(add_patient.description).toContain(
+      "checking insurance eligibility with check_insurance",
+    );
+    expect(add_patient.description).not.toContain(
       "Do not infer age from Bach-only routing",
     );
+  });
+
+  it("keeps availability from exposing Bach-only routing internals", () => {
     expect(get_availability.description).not.toContain("bach_only routing");
     expect(get_availability.description).not.toContain(
       "Under 18 medical visits = Dr. Bach only",
     );
   });
 
-  it("limits verify_patient to patient-specific workflows", () => {
-    expect(verify_patient.description).toContain(
-      "patient-specific workflows such as scheduling",
+  it("keeps check_insurance scoped to insurance eligibility", () => {
+    expect(check_insurance.description).toContain(
+      "active office accepts the caller's insurance",
     );
-    expect(verify_patient.description).toContain("appointment management");
-    expect(verify_patient.description).toContain(
-      "For caller-phone lookup, provide firstName only",
+    expect(check_insurance.description).toContain(
+      "before adding a new patient",
     );
-    expect(verify_patient.description).toContain(
-      "Follow the returned status, next, patient, and appointments fields",
+    expect(check_insurance.description).toContain(
+      "whether the visit is medical or routine vision",
     );
+    expect(check_insurance.description).toContain(
+      "quick insurance acceptance questions",
+    );
+    expect(check_insurance.description).not.toContain("speech-ready");
+    expect(check_insurance.description).not.toContain("routeTool");
+
+    const parameters = check_insurance.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+    };
+    expect(
+      parameters.safeParse({
+        plan: "Blue Cross",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        plan: "   ",
+        coverageType: "medical",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        plan: "Blue Cross",
+        coverageType: "medical",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("keeps lookup_knowledge scoped to general office facts", () => {
+    expect(lookup_knowledge.description).toContain(
+      "general practice questions",
+    );
+    expect(lookup_knowledge.description).toContain("address, hours, providers");
+    expect(lookup_knowledge.description).not.toContain("patient-specific");
+    expect(lookup_knowledge.description).not.toContain("availability, booking");
+
+    const parameter = lookup_knowledge.parameters.shape.question;
+    expect(parameter.description).toBe("The caller's office-fact question");
+  });
+
+  it("keeps transfer_call scoped to human-only work", () => {
+    expect(transfer_call.description).toContain(
+      "outside the agent's front-desk scope",
+    );
+    expect(transfer_call.description).toContain("prescription questions");
+    expect(transfer_call.description).toContain(
+      "status of glasses or contacts already ordered",
+    );
+    expect(transfer_call.description).not.toContain("tool speaks");
+    expect(transfer_call.description).toContain("Do not call for scheduling");
+    expect(transfer_call.description).toContain(
+      "Crystal River-to-Spring Hill routing",
+    );
+  });
+
+  it("keeps update_insurance scoped to verified-patient medical updates", () => {
+    expect(update_insurance.description).toContain("verified existing patient");
+    expect(update_insurance.description).toContain(
+      "check_insurance accepts medical coverage",
+    );
+
+    const parameters = update_insurance.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+      shape: Record<string, unknown>;
+    };
+    expect(Object.keys(parameters.shape)).toEqual(["subscriberNum"]);
+    expect(parameters.safeParse({}).success).toBe(true);
+    expect(parameters.safeParse({ subscriberNum: "ABC123" }).success).toBe(
+      true,
+    );
+  });
+
+  it("keeps cancel_appt scoped to loaded appointment cancellation", () => {
+    expect(cancel_appt.description).toContain("Cancel a loaded appointment");
+    expect(cancel_appt.description).toContain(
+      "caller confirms the exact appointment",
+    );
+    expect(cancel_appt.description).toContain(
+      "For reschedules, book the new appointment before cancelling the old one",
+    );
+
+    const parameters = cancel_appt.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+    };
+    expect(parameters.safeParse({ appointmentId: 123 }).success).toBe(true);
+    expect(parameters.safeParse({ appointmentId: 0 }).success).toBe(false);
+    expect(parameters.safeParse({ appointmentId: 1.5 }).success).toBe(false);
+  });
+
+  it("keeps confirm_patient_identity scoped to patient identity loading", () => {
+    expect(confirm_patient_identity.description).toContain(
+      "Confirm or load a patient identity",
+    );
+    expect(confirm_patient_identity.description).toContain(
+      "If the phone lookup preloaded a likely patient",
+    );
+    expect(confirm_patient_identity.description).toContain(
+      "collect first name, last name, and DOB before calling",
+    );
+    expect(confirm_patient_identity.description).toContain(
+      "does not expose preloaded patient details until identity is confirmed",
+    );
+    expect(confirm_patient_identity.description).not.toContain(
+      "insurance updates",
+    );
+    expect(confirm_patient_identity.description).not.toContain(
+      "private account",
+    );
+
+    const parameters = confirm_patient_identity.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+    };
+    expect(
+      parameters.safeParse({
+        firstName: "Jane",
+        lastName: "Doe",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+      }).success,
+    ).toBe(true);
   });
 });
