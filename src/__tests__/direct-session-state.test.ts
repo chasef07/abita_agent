@@ -13,7 +13,6 @@ vi.mock("../tools/handoff.js", () => ({
 
 import {
   CALLER_CANDIDATE_REF,
-  appointmentCancelToken,
   clearAvailabilitySelection,
   createCanonicalCallState,
   storeAvailabilitySlotPrivateData,
@@ -621,7 +620,6 @@ describe("direct session state cleanup", () => {
               },
             ],
             appointmentsStatus: "found",
-            appointmentCancelTokens: { "123": "cancel-token-123" },
             insuranceCarrier: "Aetna",
             insPlanId: "plan-1",
             respPartyId: "resp-1",
@@ -685,7 +683,6 @@ describe("direct session state cleanup", () => {
     expect(state.patient.patientId).toBe("patient-1");
     expect(state.patient.insurance?.currentCarrier).toBe("Aetna");
     expect(state.scheduling.routing).toBe("all_three");
-    expect(appointmentCancelToken(state, 123)).toBe("cancel-token-123");
   });
 
   it("confirms a unique multiple-match pre-call candidate from first name only", async () => {
@@ -716,7 +713,6 @@ describe("direct session state cleanup", () => {
           relationshipToCaller: "unknown",
           appointments: [],
           appointmentsStatus: "none",
-          appointmentCancelTokens: {},
           insuranceCarrier: null,
           insPlanId: null,
           respPartyId: "resp-chase",
@@ -734,7 +730,6 @@ describe("direct session state cleanup", () => {
           relationshipToCaller: "unknown",
           appointments: [],
           appointmentsStatus: "none",
-          appointmentCancelTokens: {},
           insuranceCarrier: "Oscar",
           insPlanId: "plan-kyle",
           respPartyId: "resp-kyle",
@@ -1033,12 +1028,6 @@ describe("direct session state cleanup", () => {
         confirmed: false,
       },
     ];
-    state.private.appointments = {
-      "123": {
-        appointmentId: 123,
-        cancelToken: "cancel-token-123",
-      },
-    };
     const ctx = createToolContext(state);
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -1062,10 +1051,106 @@ describe("direct session state cleanup", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       appointmentId: 123,
       patientId: "patient-1",
-      cancelToken: "cancel-token-123",
+      office: "+17275919997",
     });
     expect(state.patient.appointments).toEqual([]);
     expect(state.private.appointments).toEqual({});
+  });
+
+  it("cancels a loaded appointment selected by caller date", async () => {
+    const state = createState();
+    state.patient.appointments = [
+      {
+        id: 111,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Bach",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
+      {
+        id: 222,
+        date: "Tuesday, June 2, 2026",
+        time: "10:00 AM",
+        provider: "Dr. Licht",
+        type: "Routine Vision",
+        facility: "Crystal River",
+        confirmed: false,
+      },
+    ];
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "cancelled",
+        appointmentId: 222,
+        message: "Appointment cancelled successfully",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await cancel_appt.execute(
+      {
+        appointmentDate: "June 2nd",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Cancelled the appointment on Tuesday, June 2, 2026 at 10:00 AM.",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      appointmentId: 222,
+      patientId: "patient-1",
+      office: "+17275919997",
+    });
+    expect(
+      state.patient.appointments.map((appointment) => appointment.id),
+    ).toEqual([111]);
+  });
+
+  it("asks for clarification when a caller date matches multiple appointments", async () => {
+    const state = createState();
+    state.patient.appointments = [
+      {
+        id: 111,
+        date: "Tuesday, June 2, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Bach",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
+      {
+        id: 222,
+        date: "Tuesday, June 2, 2026",
+        time: "2:00 PM",
+        provider: "Dr. Licht",
+        type: "Routine Vision",
+        facility: "Crystal River",
+        confirmed: false,
+      },
+    ];
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await cancel_appt.execute(
+      {
+        appointmentDate: "June 2",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "I found more than one matching appointment. Loaded appointments: Tuesday, June 2, 2026 at 9:00 AM with Dr. Bach; Tuesday, June 2, 2026 at 2:00 PM with Dr. Licht.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("cancels the latest booked appointment without replaying stale pre-call appointments", async () => {
@@ -1084,7 +1169,6 @@ describe("direct session state cleanup", () => {
           relationshipToCaller: "unknown",
           appointments: [],
           appointmentsStatus: "none",
-          appointmentCancelTokens: {},
         },
       ],
       selectedCandidateRef: "precall:1",
@@ -1099,7 +1183,6 @@ describe("direct session state cleanup", () => {
           json: async () => ({
             status: "booked",
             appointmentId: 456,
-            cancelToken: "cancel-token-456",
             providerName: "Doctor Smith",
             locationName: "Spring Hill",
             appointmentTypeName: "Routine Vision",
@@ -1150,7 +1233,7 @@ describe("direct session state cleanup", () => {
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
       appointmentId: 456,
       patientId: "patient-1",
-      cancelToken: "cancel-token-456",
+      office: "+17275919997",
     });
     expect(state.patient.appointments).toEqual([]);
   });
@@ -1169,7 +1252,7 @@ describe("direct session state cleanup", () => {
         } as never,
       ),
     ).rejects.toThrow(
-      "Load appointments and confirm the exact appointment before cancelling.",
+      "No loaded appointment matches that appointment ID. Load appointments again and confirm the exact appointment before cancelling.",
     );
   });
 

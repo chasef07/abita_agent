@@ -757,6 +757,9 @@ describe("model-facing tool definitions", () => {
       "latest booked appointment or exactly one loaded appointment",
     );
     expect(cancel_appt.description).toContain(
+      "Pass appointmentDate and appointmentTime",
+    );
+    expect(cancel_appt.description).toContain(
       "For reschedules, book the new appointment before cancelling the old one",
     );
 
@@ -764,6 +767,12 @@ describe("model-facing tool definitions", () => {
       safeParse: (value: unknown) => { success: boolean };
     };
     expect(parameters.safeParse({ appointmentId: 123 }).success).toBe(true);
+    expect(
+      parameters.safeParse({
+        appointmentDate: "June 2",
+        appointmentTime: "9 AM",
+      }).success,
+    ).toBe(true);
     expect(parameters.safeParse({}).success).toBe(true);
     expect(parameters.safeParse({ appointmentId: 0 }).success).toBe(false);
     expect(parameters.safeParse({ appointmentId: 1.5 }).success).toBe(false);

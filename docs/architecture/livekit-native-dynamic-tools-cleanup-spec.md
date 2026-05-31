@@ -51,7 +51,7 @@ Current live code should not contain:
 
 - `session.userData` as the single runtime state container.
 - Pre-call lookup hydration into the same patient state used by tools.
-- Private backend handles for patient IDs, cancel tokens, and booking tokens.
+- Private backend handles for patient IDs and booking tokens.
 - Compact availability and appointment state for model-safe tool responses.
 - Transfer locks for SIP handoff.
 - Focused tests around state mutation, tool guards, prompts, and routing.

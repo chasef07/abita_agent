@@ -4,8 +4,6 @@ import { callApi } from "../clients/advancedmd-client.js";
 import { activePatientId } from "../state/call-state.js";
 import {
   cancellationAppointmentForState,
-  cancelTokenForAppointment,
-  refreshCancelTokenForAppointment,
   removeAppointmentById,
 } from "./appointment-state.js";
 import { restoreConfirmedPreCallCaller } from "./patient-state.js";
@@ -16,7 +14,8 @@ export const cancel_appt = llm.tool({
   description:
     "Cancel a loaded appointment. " +
     "Call this after the patient is verified and the caller confirms the exact appointment to cancel. " +
-    "Omit appointmentId only for the latest booked appointment or exactly one loaded appointment. " +
+    "Pass appointmentDate and appointmentTime when the caller identifies the appointment by date or time. " +
+    "Omit all appointment selectors only for the latest booked appointment or exactly one loaded appointment. " +
     "For reschedules, book the new appointment before cancelling the old one.",
   parameters: z.object({
     appointmentId: z
@@ -27,8 +26,23 @@ export const cancel_appt = llm.tool({
       .describe(
         "Appointment ID from the loaded appointment list. Omit only when the caller confirmed the latest booked appointment or exactly one loaded appointment.",
       ),
+    appointmentDate: z
+      .string()
+      .optional()
+      .describe(
+        'Date the caller used to identify a loaded appointment, such as "June 2", "June 2nd", or "2026-06-02".',
+      ),
+    appointmentTime: z
+      .string()
+      .optional()
+      .describe(
+        'Time the caller used to identify a loaded appointment, such as "10 AM" or "2:30 PM". Use with appointmentDate when needed.',
+      ),
   }),
-  execute: async ({ appointmentId }, { ctx }) => {
+  execute: async (
+    { appointmentId, appointmentDate, appointmentTime },
+    { ctx },
+  ) => {
     const state = getState(ctx);
     ctx.speechHandle.allowInterruptions = false;
 
@@ -38,29 +52,23 @@ export const cancel_appt = llm.tool({
       throw new llm.ToolError("Verify the patient before cancelling.");
     }
 
-    const appointment = cancellationAppointmentForState(state, appointmentId);
-    if (!appointment) {
-      throw new llm.ToolError(
-        "Load appointments and confirm the exact appointment before cancelling.",
-      );
+    const selection = cancellationAppointmentForState(state, {
+      appointmentId,
+      appointmentDate,
+      appointmentTime,
+    });
+    if (selection.status === "ambiguous") {
+      return selection.message;
     }
-
-    let cancelToken = cancelTokenForAppointment(state, appointment.id);
-    if (!cancelToken) {
-      cancelToken = await refreshCancelTokenForAppointment(
-        state,
-        appointment.id,
-      );
+    if (selection.status === "not_found") {
+      throw new llm.ToolError(selection.message);
     }
-    if (!cancelToken) {
-      throw new llm.ToolError("Load appointments again before cancelling.");
-    }
+    const appointment = selection.appointment;
 
     const result = (await callApi(
       "/api/appointment/cancel",
-      { appointmentId: appointment.id, patientId, cancelToken },
+      { appointmentId: appointment.id, patientId },
       getAmdOfficeForToolCall(state),
-      { includeOffice: false },
     )) as CancelAppointmentResult;
 
     if (result?.status !== "cancelled") {
