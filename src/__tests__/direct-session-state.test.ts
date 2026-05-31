@@ -99,6 +99,21 @@ function markSchedulingTriaged(
     appointmentLane === "routine_od" ? "routine_vision" : "medical";
 }
 
+function clearSchedulingContext(state: TestCallState) {
+  state.turnContext.last = undefined;
+  state.scheduling.visitType = undefined;
+  state.scheduling.coverageType = null;
+  state.scheduling.routing = null;
+  state.scheduling.latestAvailabilityRouting = null;
+  state.patient.insurance = undefined;
+  state.checkedInsurance = {
+    plan: null,
+    canonicalPlan: null,
+    coverageType: null,
+    currentCarrier: null,
+  };
+}
+
 describe("direct session state cleanup", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -174,6 +189,12 @@ describe("direct session state cleanup", () => {
       A: "private-token",
     });
     expect(state.private.availability).not.toHaveProperty("rawSlots");
+    expect(state.turnContext.last).toEqual({
+      intent: "schedule",
+      appointmentLane: "medical_md",
+      isEmergency: false,
+      confidence: 0.99,
+    });
     expect(state.scheduling.availabilitySlots).toEqual([
       {
         slotId: "A",
@@ -311,8 +332,32 @@ describe("direct session state cleanup", () => {
     );
   });
 
-  it("requires recorded scheduling triage before booking", async () => {
+  it("requires an inferable scheduling lane before checking availability", async () => {
     const state = createState();
+    clearSchedulingContext(state);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      get_availability.execute(
+        {
+          date: "2026-06-01",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od before checking availability.",
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("requires an inferable scheduling lane before booking", async () => {
+    const state = createState();
+    clearSchedulingContext(state);
     storeAvailabilitySlotPrivateData(state, "A", "private-token");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -543,6 +588,12 @@ describe("direct session state cleanup", () => {
       "Created a patient chart for Jane Doe. Continue with scheduling.",
     );
     expect(state.patient.patientId).toBe("patient-new");
+    expect(state.turnContext.last).toEqual({
+      intent: "schedule",
+      appointmentLane: "medical_md",
+      isEmergency: false,
+      confidence: 0.99,
+    });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       firstName: "Jane",
       lastName: "Doe",
@@ -550,6 +601,45 @@ describe("direct session state cleanup", () => {
       insurance: "self pay",
       subscriberNum: "self pay",
     });
+  });
+
+  it("requires checked scheduling coverage before creating a patient", async () => {
+    const state = createState();
+    state.patient.patientId = null;
+    state.patient.name = null;
+    state.patient.identityConfirmed = false;
+    clearSchedulingContext(state);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      add_patient.execute(
+        {
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          street: "123 Main St",
+          aptSuite: "",
+          city: "Spring Hill",
+          state: "FL",
+          zip: "34606",
+          sex: "female",
+          insurance: "self pay",
+          subscriberName: "Jane Doe",
+          subscriberNum: "self pay",
+          phone: "7275551212",
+          readBack: true,
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od before creating a patient.",
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("requires read-back confirmation before creating a patient", async () => {
@@ -1072,6 +1162,12 @@ describe("direct session state cleanup", () => {
       currentCarrier: "Florida Blue",
     });
     expect(state.scheduling.coverageType).toBe("medical");
+    expect(state.turnContext.last).toEqual({
+      intent: "schedule",
+      appointmentLane: "medical_md",
+      isEmergency: false,
+      confidence: 0.99,
+    });
   });
 
   it("returns a Spring Hill routing option when Crystal River does not accept the plan", async () => {

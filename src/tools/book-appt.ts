@@ -25,6 +25,7 @@ import {
   routingForAvailability,
 } from "./scheduling.js";
 import { getState } from "./session.js";
+import { ensureSchedulingTurnContext } from "./turn-context-guard.js";
 
 type AppointmentKind = "medical" | "routine_vision" | "post_op";
 
@@ -52,7 +53,7 @@ export const book_appt = llm.tool({
   }),
   execute: async ({ slotId, appointmentReason, referringDoctor }, { ctx }) => {
     const state = getState(ctx);
-    requireSchedulingTriageBeforeBooking(state);
+    ensureSchedulingTurnContext(state, "booking");
     ctx.speechHandle.allowInterruptions = false;
 
     restoreConfirmedPreCallCaller(state);
@@ -133,21 +134,6 @@ export const book_appt = llm.tool({
     return bookingFailureMessage(result);
   },
 });
-
-function requireSchedulingTriageBeforeBooking(state: CallState): void {
-  const turn = state.turnContext.last;
-  if (
-    !turn ||
-    turn.intent !== "schedule" ||
-    turn.isEmergency ||
-    (turn.appointmentLane !== "medical_md" &&
-      turn.appointmentLane !== "routine_od")
-  ) {
-    throw new llm.ToolError(
-      "Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od before booking.",
-    );
-  }
-}
 
 function normalizeAppointmentReason(appointmentReason: string): string {
   const trimmedReason = appointmentReason.trim();

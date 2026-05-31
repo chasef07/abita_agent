@@ -12,6 +12,7 @@ import {
   getAmdOfficeForToolCall,
 } from "./scheduling.js";
 import { getState } from "./session.js";
+import { ensureSchedulingTurnContext } from "./turn-context-guard.js";
 
 export const add_patient = llm.tool({
   description:
@@ -73,6 +74,10 @@ export const add_patient = llm.tool({
     const phone =
       explicitPhone ||
       (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
+
+    ensureSchedulingTurnContext(state, "creating a patient", {
+      coverageType: checkedInsurance.coverageType,
+    });
 
     if (!explicitPhone && !params.inboundPhoneConfirmed) {
       return (

@@ -7,6 +7,7 @@ import {
 } from "../insurance-rules.js";
 import { activeOfficeKey } from "../state/call-state.js";
 import { getState } from "./session.js";
+import { ensureSchedulingTurnContext } from "./turn-context-guard.js";
 
 export const check_insurance = llm.tool({
   description:
@@ -42,6 +43,7 @@ export const check_insurance = llm.tool({
       currentCarrier: checkedInsurancePlan,
     };
     state.scheduling.coverageType = checkedInsuranceCoverageType;
+    ensureSchedulingTurnContext(state, "checking insurance", { coverageType });
 
     if (office === "crystal-river" && result.status === "not_accepted") {
       const springHillResult = matchInsurancePlanForOffice(

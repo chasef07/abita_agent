@@ -14,6 +14,7 @@ import {
   routingForAvailability,
 } from "./scheduling.js";
 import { getState } from "./session.js";
+import { ensureSchedulingTurnContext } from "./turn-context-guard.js";
 
 type AvailabilityLookupArgs = {
   date?: string;
@@ -61,6 +62,7 @@ function buildAvailabilityLookupRequestForState(
     );
   }
 
+  ensureSchedulingTurnContext(state, "checking availability");
   ensureAvailabilityVisitContext(state);
   ensureRoutineVisionOffice(state);
   const effectiveRouting = routingForAvailability(state);
