@@ -239,8 +239,10 @@ describe("tool-first prompt gating", () => {
       "Use confirm_patient_identity for patient-specific work.",
     );
     expect(prompt).toContain(
-      "Use the caller identity hint only to choose the first identity question",
+      "Use the caller identity hint only to choose the first identity question.",
     );
+    expect(prompt).toContain("say you see a patient record on file");
+    expect(prompt).toContain("say you see a few patient records on file");
     expect(prompt).toContain(
       "Use tools for insurance, availability, booking, cancellation, routing, and transfer.",
     );

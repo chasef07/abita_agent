@@ -475,6 +475,11 @@ export function applyTurnContextToState(
   turn: RecordTurnContextArgs,
 ): void {
   state.turnContext.last = turn;
+  const visitType = visitTypeFromAppointmentLane(turn);
+  if (!visitType || state.scheduling.visitType === visitType) return;
+
+  clearAvailabilitySelection(state);
+  state.scheduling.visitType = visitType;
 }
 
 export function workflowContextNameForTurn(
@@ -617,6 +622,15 @@ export function normalizeSchedulingRouting(
     value === "optical_only"
     ? value
     : null;
+}
+
+function visitTypeFromAppointmentLane(
+  turn: RecordTurnContextArgs,
+): VisitType | null {
+  if (turn.intent !== "schedule") return null;
+  if (turn.appointmentLane === "routine_od") return "routine_vision";
+  if (turn.appointmentLane === "medical_md") return "medical";
+  return null;
 }
 
 function changedKnownIdentityValue(

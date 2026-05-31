@@ -24,6 +24,7 @@ import {
   check_insurance,
   confirm_patient_identity,
   get_availability,
+  record_turn_context,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
@@ -82,6 +83,20 @@ function createToolContext(state: TestCallState) {
     },
     speechHandle: { allowInterruptions: true },
   };
+}
+
+function markSchedulingTriaged(
+  state: TestCallState,
+  appointmentLane: "medical_md" | "routine_od" = "medical_md",
+) {
+  state.turnContext.last = {
+    intent: "schedule",
+    appointmentLane,
+    isEmergency: false,
+    confidence: 0.92,
+  };
+  state.scheduling.visitType =
+    appointmentLane === "routine_od" ? "routine_vision" : "medical";
 }
 
 describe("direct session state cleanup", () => {
@@ -172,6 +187,112 @@ describe("direct session state cleanup", () => {
     ]);
   });
 
+  it("uses routine vision lane instead of verified-patient Bach routing for availability", async () => {
+    const state = createState();
+    state.officeKey = "hollywood";
+    state.patient.insurance = {
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
+      currentCarrier: "Aetna",
+    };
+    state.checkedInsurance = {
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
+      currentCarrier: "Aetna",
+    };
+    state.scheduling.routing = "bach_only";
+    state.scheduling.latestAvailabilityRouting = "bach_only";
+    state.scheduling.availabilitySlots = [
+      {
+        slotId: "old",
+        spoken: "June 1 at 9:00 AM with Dr. Bach",
+        provider: "Dr. Bach",
+        date: "2026-06-01",
+        time: "9:00 AM",
+        datetime: "2026-06-01T09:00:00",
+        routing: "bach_only",
+      },
+    ];
+
+    await record_turn_context.execute(
+      {
+        intent: "schedule",
+        appointmentLane: "routine_od",
+        isEmergency: false,
+        confidence: 0.92,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        availabilityFound: true,
+        requestedDate: "2026-06-01",
+        actualDate: "2026-06-01",
+        searchedFrom: "2026-06-01",
+        searchedThrough: "2026-06-01",
+        shouldRetrySameSearch: false,
+        slots: [
+          {
+            provider: "Dr. Kyler Farnan",
+            date: "2026-06-01",
+            time: "10:00 AM",
+            datetime: "2026-06-01T10:00:00",
+            bookingToken: "routine-token",
+            columnId: 1555,
+            profileId: 2075,
+            duration: 30,
+          },
+        ],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = (await get_availability.execute(
+      {
+        date: "2026-06-01",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never,
+    )) as Record<string, unknown>;
+
+    expect(state.scheduling.visitType).toBe("routine_vision");
+    expect(state.scheduling.latestAvailabilityRouting).toBe("optical_only");
+    expect(state.scheduling.availabilitySlots).toEqual([
+      {
+        slotId: "A",
+        spoken: "2026-06-01 10:00 AM with Dr. Kyler Farnan",
+        provider: "Dr. Kyler Farnan",
+        date: "2026-06-01",
+        time: "10:00 AM",
+        datetime: "2026-06-01T10:00:00",
+        routing: "optical_only",
+      },
+    ]);
+    expect(result).toMatchObject({
+      result: "slots_found",
+      slotId: "A",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
+      {
+        date: "2026-06-01",
+        dob: "01/01/1980",
+        office: "+19542872010",
+        routing: "optical_only",
+      },
+    );
+  });
+
   it("asks for a date before checking availability", async () => {
     const state = createState();
 
@@ -190,8 +311,33 @@ describe("direct session state cleanup", () => {
     );
   });
 
+  it("requires recorded scheduling triage before booking", async () => {
+    const state = createState();
+    storeAvailabilitySlotPrivateData(state, "A", "private-token");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      book_appt.execute(
+        {
+          slotId: "A",
+          appointmentReason: "blurry vision",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od before booking.",
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("requires a fresh private booking token before booking", async () => {
     const state = createState();
+    markSchedulingTriaged(state);
     const ctx = createToolContext(state);
 
     await expect(
@@ -215,6 +361,7 @@ describe("direct session state cleanup", () => {
 
   it("books an active slot with private state and returns speech-ready text", async () => {
     const state = createState();
+    markSchedulingTriaged(state);
     storeAvailabilitySlotPrivateData(state, "A", "private-token");
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -275,6 +422,7 @@ describe("direct session state cleanup", () => {
 
   it("does not confirm booking when middleware omits the appointment ID", async () => {
     const state = createState();
+    markSchedulingTriaged(state);
     storeAvailabilitySlotPrivateData(state, "A", "private-token");
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -305,6 +453,7 @@ describe("direct session state cleanup", () => {
 
   it("removes unavailable slots and returns the next bookable option", async () => {
     const state = createState();
+    markSchedulingTriaged(state);
     state.scheduling.availabilitySlots.push({
       slotId: "B",
       spoken: "2026-06-01 2:00 PM with Doctor Smith",
@@ -1200,6 +1349,12 @@ describe("direct session state cleanup", () => {
 
   it("cancels the latest booked appointment without replaying stale pre-call appointments", async () => {
     const state = createState();
+    markSchedulingTriaged(state, "routine_od");
+    state.scheduling.availabilitySlots[0] = {
+      ...state.scheduling.availabilitySlots[0],
+      routing: "optical_only",
+    };
+    state.scheduling.latestAvailabilityRouting = "optical_only";
     state.preCall = {
       status: "multiple_match_confirmed",
       source: "phone_lookup",

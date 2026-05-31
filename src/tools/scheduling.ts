@@ -18,7 +18,7 @@ export function getAmdOfficeForToolCall(state: CallState): string {
 }
 
 export function ensureRoutineVisionOffice(state: CallState): void {
-  if (activeInsuranceContext(state).coverageType !== "routine_vision") return;
+  if (!isRoutineVisionScheduling(state)) return;
   if (
     !getOfficeConfig(activeOfficeKey(state)).features
       .routeRoutineVisionToSpringHill
@@ -34,8 +34,15 @@ export function ensureRoutineVisionOffice(state: CallState): void {
 }
 
 export function routingForAvailability(state: CallState): string | null {
-  if (activeInsuranceContext(state).coverageType === "routine_vision") {
+  if (isRoutineVisionScheduling(state)) {
     return "optical_only";
   }
   return activeRoutingContext(state).routing;
+}
+
+function isRoutineVisionScheduling(state: CallState): boolean {
+  return (
+    state.scheduling.visitType === "routine_vision" ||
+    activeInsuranceContext(state).coverageType === "routine_vision"
+  );
 }
