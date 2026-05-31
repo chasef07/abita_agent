@@ -22,11 +22,14 @@ import {
   add_patient,
   cancel_appt,
   check_insurance,
+  confirm_patient_identity,
+  get_current_datetime,
   get_availability,
   lookup_knowledge,
+  record_turn_context,
+  route_to_spring_hill,
   transfer_call,
   update_insurance,
-  verify_patient,
 } from "../tools/index.js";
 import { getBaseUrlForOfficePhone } from "../clients/advancedmd-client.js";
 import { resolveKnowledgeFileForOffice } from "../tools/knowledge.js";
@@ -217,11 +220,11 @@ describe("office routing helpers", () => {
 });
 
 describe("tool-first prompt gating", () => {
-  it("injects tool and session-state instructions", () => {
+  it("includes core tool-use rules from the role prompt", () => {
     const prompt = buildPrompt(undefined, DEV_OFFICE_PHONE);
 
-    expect(prompt).toContain("<tool_operating_contract>");
-    expect(prompt).toContain("<state_memory_contract>");
+    expect(prompt).toContain("<role>");
+    expect(prompt).toContain("# Tool Use");
     expect(prompt).toContain("You speak English and Spanish");
     expect(prompt).toContain(
       "If the caller asks to speak Spanish, continue the conversation in Spanish",
@@ -233,16 +236,23 @@ describe("tool-first prompt gating", () => {
       'When giving an address, put `<break time="300ms"/>` between the street',
     );
     expect(prompt).toContain(
-      "Session state and tool results are authoritative",
+      "Use confirm_patient_identity for patient-specific work.",
     );
+    expect(prompt).toContain(
+      "Use tools for insurance, availability, booking, cancellation, routing, and transfer.",
+    );
+    expect(prompt).toContain(
+      "Call get_current_datetime before interpreting relative dates or times for scheduling, availability, booking, or appointment changes.",
+    );
+    expect(prompt).not.toContain("Today is");
+    expect(prompt).not.toContain("The current time is");
 
     const crystalRiverPrompt = buildPrompt(
       undefined,
       CRYSTAL_RIVER_OFFICE_PHONE,
     );
 
-    expect(crystalRiverPrompt).toContain("<tool_operating_contract>");
-    expect(crystalRiverPrompt).toContain("<state_memory_contract>");
+    expect(crystalRiverPrompt).toContain("# Tool Use");
 
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
@@ -252,12 +262,11 @@ describe("tool-first prompt gating", () => {
     ]) {
       const officePrompt = buildPrompt(undefined, phone);
 
-      expect(officePrompt).toContain("<tool_operating_contract>");
-      expect(officePrompt).toContain("<state_memory_contract>");
+      expect(officePrompt).toContain("# Tool Use");
     }
   });
 
-  it("does not treat pre-call lookup failures as no-match callers", () => {
+  it("keeps pre-call lookup failures out of the prompt", () => {
     const prompt = buildPrompt(
       {
         status: "lookup_failed",
@@ -269,13 +278,13 @@ describe("tool-first prompt gating", () => {
       SPRING_HILL_OFFICE_PHONE,
     );
 
-    expect(prompt).toContain("PHONE LOOKUP UNAVAILABLE");
-    expect(prompt).toContain("do not say they are new");
-    expect(prompt).toContain("use verify_patient");
+    expect(prompt).not.toContain("PHONE LOOKUP UNAVAILABLE");
+    expect(prompt).not.toContain("do not say they are new");
+    expect(prompt).not.toContain("lookup failed");
     expect(prompt).not.toContain("NO MATCH");
   });
 
-  it("asks no-match callers whether they are registered before making a chart", () => {
+  it("keeps no-match lookup outcomes out of the prompt", () => {
     const prompt = buildPrompt(
       {
         status: "no_match",
@@ -284,15 +293,17 @@ describe("tool-first prompt gating", () => {
       SPRING_HILL_OFFICE_PHONE,
     );
 
-    expect(prompt).toContain(
-      'Ask "Are you already registered with us, or should I make a new chart?" early in the call.',
+    expect(prompt).not.toContain("NO MATCH");
+    expect(prompt).not.toContain("This number is not in the system");
+    expect(prompt).not.toContain(
+      "Are you already registered with us, or should I make a new chart?",
     );
     expect(prompt).not.toContain("have you been seen here before");
   });
 });
 
 describe("Crystal River prompt guidance", () => {
-  it("includes Crystal River routing guidance while keeping office facts in the knowledge file", () => {
+  it("keeps Crystal River routing guidance out of the prompt and in tool/knowledge surfaces", () => {
     const prompt = buildPrompt(undefined, "+13523202007");
     const crystalRiverKnowledge = readFileSync(
       join(
@@ -305,7 +316,18 @@ describe("Crystal River prompt guidance", () => {
       "utf-8",
     );
 
-    expect(prompt).toContain("Use the routing tool, not the transfer tool");
+    expect(prompt).not.toContain("Use the routing tool, not the transfer tool");
+    expect(route_to_spring_hill.description).toContain(
+      "Switch scheduling to Spring Hill without transferring",
+    );
+    expect(route_to_spring_hill.description).toContain(
+      "pediatric ophthalmology",
+    );
+    expect(route_to_spring_hill.description).toContain("cataract evaluations");
+    expect(route_to_spring_hill.description).toContain("routine eye exams");
+    expect(route_to_spring_hill.description).toContain(
+      "caller is actively scheduling and agrees",
+    );
     expect(prompt).not.toContain("do not transfer just for that");
     expect(crystalRiverKnowledge).toContain(
       "does **not** see pediatric ophthalmology",
@@ -332,7 +354,7 @@ describe("Crystal River prompt guidance", () => {
     );
 
     expect(prompt).toContain("an ophthalmology clinic");
-    expect(prompt).toContain("<tool_operating_contract>");
+    expect(prompt).toContain("# Tool Use");
     expect(prompt).not.toContain("Visit Type Triage");
     expect(prompt).not.toContain(
       "Before choosing a path, checking insurance, or searching availability",
@@ -392,6 +414,8 @@ describe("Crystal River prompt guidance", () => {
 
     expect(hollywoodPrompt).not.toContain("route_to_spring_hill");
     expect(sweetwaterPrompt).not.toContain("route_to_spring_hill");
+    expect(hollywoodPrompt).not.toContain("Crystal River routing rules");
+    expect(sweetwaterPrompt).not.toContain("Crystal River routing rules");
     expect(hollywoodKnowledge).toContain("Abita Eye Group Hollywood");
     expect(hollywoodKnowledge).toContain("4330 Sheridan St, Suite 102B");
     expect(hollywoodKnowledge).toContain("Route to ophthalmology");
@@ -412,16 +436,46 @@ describe("Crystal River prompt guidance", () => {
     expect(sweetwaterKnowledge).toContain("Dr. Maria Casas");
   });
 
-  it("keeps compact state-changing tool guidance in the Spring Hill prompt", () => {
+  it("keeps compact state-recording guidance in the role prompt", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
-    expect(prompt).toContain("<tool_operating_contract>");
     expect(prompt).toContain(
-      "State-changing tools can run when their required inputs and session state are present.",
+      "Call record_turn_context only when the caller's intent is clear. For scheduling, call it only after the medical-versus-routine lane is clear.",
+    );
+    expect(prompt).toContain(
+      "If intent or scheduling lane is unclear, ask concise clarifying questions.",
     );
     expect(prompt).toContain(
       "Do not say a state-changing action is done until the tool succeeds.",
     );
+  });
+
+  it("exposes the turn context recorder as a harmless state tool", () => {
+    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).toHaveProperty(
+      "record_turn_context",
+    );
+    expect(record_turn_context.description).toContain(
+      "Call this only when you are confident about what the caller is trying to do",
+    );
+    expect(record_turn_context.description).toContain(
+      "If the intent or scheduling lane is unclear, ask concise clarifying questions instead",
+    );
+    expect(record_turn_context.description).toContain(
+      "does not speak, verify, schedule, cancel, transfer, or call external systems",
+    );
+  });
+
+  it("exposes current date/time as an on-demand read-only tool", () => {
+    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).toHaveProperty(
+      "get_current_datetime",
+    );
+    expect(get_current_datetime.description).toContain(
+      "current clinic-local date and time",
+    );
+    expect(get_current_datetime.description).toContain(
+      "today, tomorrow, next week, Friday",
+    );
+    expect(get_current_datetime.description).toContain("read-only");
   });
 
   it("keeps emergency transfer policy in the base role prompt", () => {
@@ -433,7 +487,7 @@ describe("Crystal River prompt guidance", () => {
     );
   });
 
-  it("keeps appointment times TTS-safe with spaced AM and PM", () => {
+  it("keeps TTS formatting guidance in the base voice prompt", () => {
     const prompt = buildPrompt(
       {
         status: "verified",
@@ -471,8 +525,8 @@ describe("Crystal River prompt guidance", () => {
       SPRING_HILL_OFFICE_PHONE,
     );
 
-    expect(prompt).toContain("9:30 AM");
-    expect(prompt).toContain("1 PM");
+    expect(prompt).not.toContain("2099-01-01");
+    expect(prompt).not.toContain("2099-01-02");
     expect(prompt).not.toContain("9:30AM");
     expect(prompt).not.toContain("1pm");
     expect(prompt).toContain(
@@ -481,7 +535,7 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).not.toContain("eight fifteen a m");
   });
 
-  it("includes preloaded appointment facility from the actual office", () => {
+  it("does not inject preloaded appointment facilities into the prompt", () => {
     const prompt = buildPrompt(
       {
         status: "verified",
@@ -510,12 +564,13 @@ describe("Crystal River prompt guidance", () => {
       HOLLYWOOD_OFFICE_PHONE,
     );
 
-    expect(prompt).toContain(
-      "[ID: 123] 2099-01-01 at 9:30 AM with Dr. Bach (Follow-up) at Hollywood",
-    );
+    expect(prompt).not.toContain("Santos");
+    expect(prompt).not.toContain("patient-1");
+    expect(prompt).not.toContain("2099-01-01");
+    expect(prompt).not.toContain("Hollywood");
   });
 
-  it("makes the single-match pre-call contract explicit", () => {
+  it("keeps single-match pre-call facts out of the prompt", () => {
     const prompt = buildPrompt(
       {
         status: "verified",
@@ -544,28 +599,17 @@ describe("Crystal River prompt guidance", () => {
       HOLLYWOOD_OFFICE_PHONE,
     );
 
-    expect(prompt).toContain("<pre_call_context>");
-    expect(prompt).toContain(
-      "Phone lookup found exactly one existing patient for this caller.",
+    expect(prompt).not.toContain("<pre_call_context>");
+    expect(prompt).not.toContain(
+      "Phone lookup found exactly one existing patient",
     );
-    expect(prompt).toContain("- Ask what the caller needs first.");
-    expect(prompt).toContain(
-      "- Only confirm identity before patient-specific help:",
-    );
-    expect(prompt).toContain(
-      "- For quick questions, office information, policy questions, routing questions that do not require private patient data, or transfer requests, help the caller without patient verification.",
-    );
-    expect(prompt).toContain(
-      "- When identity is needed, ask the caller to spell the patient's first name only.",
-    );
-    expect(prompt).toContain("- Do not call verify_patient for this caller.");
-    expect(prompt).toContain(
-      "- Use the preloaded appointment list for appointment changes and cancellations.",
-    );
-    expect(prompt).toContain("Preloaded facts available after confirmation:");
+    expect(prompt).not.toContain("Santos");
+    expect(prompt).not.toContain("01/01/1980");
+    expect(prompt).not.toContain("Aetna");
+    expect(prompt).not.toContain("2099-01-01");
   });
 
-  it("makes the multiple-match pre-call wording explicit", () => {
+  it("keeps multiple-match pre-call facts out of the prompt", () => {
     const prompt = buildPrompt(
       {
         status: "multiple_matches",
@@ -575,10 +619,8 @@ describe("Crystal River prompt guidance", () => {
       HOLLYWOOD_OFFICE_PHONE,
     );
 
-    expect(prompt).toContain("MULTIPLE MATCHES (2 patients on this number)");
-    expect(prompt).toContain(
-      "Say there are multiple patients on this number, ask the caller to confirm the patient's first name first, and do not read names on file aloud.",
-    );
+    expect(prompt).not.toContain("MULTIPLE MATCHES");
+    expect(prompt).not.toContain("multiple patients on this number");
     expect(prompt).not.toContain("IVETTE");
     expect(prompt).not.toContain("KAELI");
   });
@@ -703,20 +745,27 @@ describe("model-facing tool definitions", () => {
     expect(parameters.safeParse({ appointmentId: 1.5 }).success).toBe(false);
   });
 
-  it("limits verify_patient to unloaded existing-patient appointment work", () => {
-    expect(verify_patient.description).toContain(
-      "Finds an existing patient and loads appointments",
+  it("keeps confirm_patient_identity scoped to patient identity loading", () => {
+    expect(confirm_patient_identity.description).toContain(
+      "Confirm or load a patient identity",
     );
-    expect(verify_patient.description).toContain(
-      "existing patients are not preloaded and want to schedule, confirm, or cancel appointments",
+    expect(confirm_patient_identity.description).toContain(
+      "If the phone lookup preloaded a likely patient",
     );
-    expect(verify_patient.description).toContain(
-      "Do not call for general questions",
+    expect(confirm_patient_identity.description).toContain(
+      "collect first name, last name, and DOB before calling",
     );
-    expect(verify_patient.description).not.toContain("insurance updates");
-    expect(verify_patient.description).not.toContain("private account");
+    expect(confirm_patient_identity.description).toContain(
+      "does not expose preloaded patient details until identity is confirmed",
+    );
+    expect(confirm_patient_identity.description).not.toContain(
+      "insurance updates",
+    );
+    expect(confirm_patient_identity.description).not.toContain(
+      "private account",
+    );
 
-    const parameters = verify_patient.parameters as {
+    const parameters = confirm_patient_identity.parameters as {
       safeParse: (value: unknown) => { success: boolean };
     };
     expect(
@@ -724,7 +773,7 @@ describe("model-facing tool definitions", () => {
         firstName: "Jane",
         lastName: "Doe",
       }).success,
-    ).toBe(false);
+    ).toBe(true);
     expect(
       parameters.safeParse({
         firstName: "Jane",

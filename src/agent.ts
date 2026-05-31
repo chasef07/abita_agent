@@ -1,5 +1,5 @@
 // agent.ts — Agent definition
-// Instructions loaded from workspace/ files, tools wired below.
+// Instructions loaded from workspace files, tools wired below.
 
 import { llm, stt, voice } from "@livekit/agents";
 import type { AudioFrame } from "@livekit/rtc-node";
@@ -47,7 +47,7 @@ export class Agent extends voice.Agent {
   }
 
   override async onUserTurnCompleted(
-    chatCtx: llm.ChatContext,
+    _chatCtx: llm.ChatContext,
     newMessage: llm.ChatMessage,
   ): Promise<void> {
     const state = this.session.userData as CallState | undefined;
@@ -55,12 +55,6 @@ export class Agent extends voice.Agent {
     if (!state || !transcript) return;
 
     state.runtime.latestUserTranscript = transcript;
-    chatCtx.addMessage({
-      role: "system",
-      content: renderCallMode(state),
-      id: `call_state_${newMessage.id}`,
-      createdAt: newMessage.createdAt + 1,
-    });
   }
 
   override async sttNode(
@@ -76,35 +70,4 @@ export class Agent extends voice.Agent {
 
     return this.languageRuntime.observeSpeechEvents(events);
   }
-}
-
-function renderCallMode(state: CallState): string {
-  const patientStatus = state.patient.identityConfirmed
-    ? "verified"
-    : state.patient.patientId
-      ? "preloaded_not_confirmed"
-      : state.patient.status;
-  const appointments =
-    state.patient.appointments.length > 0
-      ? `${state.patient.appointments.length} loaded`
-      : (state.patient.appointmentsStatus ?? "none");
-  const insurance =
-    state.checkedInsurance.canonicalPlan ??
-    state.patient.insurance?.canonicalPlan ??
-    "unknown";
-  const route = state.scheduling.routing ?? "unknown";
-
-  return [
-    "<call_state>",
-    `patient: ${patientStatus}`,
-    `appointments: ${appointments}`,
-    `insurance: ${insurance}`,
-    `routing: ${route}`,
-    `office: ${state.officeKey}`,
-    `availabilitySlots: ${state.scheduling.availabilitySlots.length}`,
-    "rules:",
-    "- Use tool descriptions for schemas and prerequisites.",
-    "- Ask one concise clarifying question when required state is missing.",
-    "</call_state>",
-  ].join("\n");
 }

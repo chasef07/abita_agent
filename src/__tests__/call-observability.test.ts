@@ -66,7 +66,7 @@ describe("call observability", () => {
     ).toBe("duplicate_tool_call");
     expect(
       classifyToolOutput(
-        "verify_patient",
+        "confirm_patient_identity",
         JSON.stringify({ status: "multiple_matches" }),
         false,
       ),

@@ -5,16 +5,20 @@ import {
   book_appt,
   cancel_appt,
   check_insurance,
+  confirm_patient_identity,
+  get_current_datetime,
   get_availability,
   lookup_knowledge,
+  record_turn_context,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
-  verify_patient,
 } from "../tools/index.js";
 
 const COMMON_TOOLS = {
-  verify_patient,
+  record_turn_context,
+  get_current_datetime,
+  confirm_patient_identity,
   add_patient,
   update_insurance,
   get_availability,

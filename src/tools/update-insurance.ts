@@ -16,7 +16,7 @@ import { getState } from "./session.js";
 export const update_insurance = llm.tool({
   description:
     "Update insurance for a verified existing patient. " +
-    "Call this only after verify_patient and after check_insurance accepts medical coverage for the new plan. ",
+    "Call this only after confirm_patient_identity and after check_insurance accepts medical coverage for the new plan. ",
   parameters: z.object({
     subscriberNum: z
       .string()

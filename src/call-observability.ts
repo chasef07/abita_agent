@@ -163,12 +163,6 @@ function normalizedOutcome(
   return asString(output?.outcome)?.toLowerCase() ?? null;
 }
 
-function normalizedReason(output: Record<string, unknown> | null): string {
-  return isRecord(output?.facts)
-    ? (asString(output.facts.reason)?.toLowerCase() ?? "")
-    : "";
-}
-
 function normalizedOutputText(output: string | undefined): string {
   return typeof output === "string" ? output.toLowerCase() : "";
 }
@@ -272,6 +266,7 @@ export function classifyToolOutput(
       return "transfer_started";
     case "get_availability":
       return "availability_returned";
+    case "confirm_patient_identity":
     case "verify_patient":
       if (status === "verified") return "patient_verified";
       if (status === "multiple_matches") return "multiple_patient_matches";

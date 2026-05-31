@@ -13,7 +13,7 @@ AgentSession<CallState>
   -> session.userData as the call state
   -> llm.tool definitions
   -> tool handlers enforce prerequisites and write state
-  -> Agent.onUserTurnCompleted injects compact <call_state>
+  -> Agent.onUserTurnCompleted records latest transcript for observability
 ```
 
 Current live code should not contain:
@@ -42,7 +42,9 @@ Current live code should not contain:
 - Use typed session state through `userData` / `userdata` and access it from
   tools through the run context.
   Source: https://docs.livekit.io/agents/logic/agents-handoffs/#passing-state
-- Use `onUserTurnCompleted` to add relevant context before the model responds.
+- Use `onUserTurnCompleted` only for backend bookkeeping when possible; avoid
+  recurring model-context injection unless a tool result cannot carry the
+  needed information.
   Source: https://docs.livekit.io/agents/logic/nodes/#on-user-turn-completed
 
 ## Keep

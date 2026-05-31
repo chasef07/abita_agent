@@ -14,8 +14,9 @@ LiveKit AgentSession<CallState>
   -> pre-call phone lookup
   -> session.userData as typed call state
   -> llm.tool definitions
-  -> tool handlers read/write state and call middleware
-  -> Agent.onUserTurnCompleted injects a compact <call_state> message
+  -> record_turn_context writes the latest turn context
+  -> get_current_datetime returns clinic-local time on demand
+  -> business tools read/write state and call middleware
 ```
 
 There is no custom flow harness, planner, reducer, `record_turn_understanding`
@@ -42,8 +43,8 @@ tool, or historical replay path in the live code.
 4. `Agent` starts with office-appropriate tools from `buildToolsForTrunk()`.
 5. Tools in `src/tools/*.ts` mutate `CallState`, enforce prerequisites, and
    call AdvancedMD middleware.
-6. `onUserTurnCompleted()` records the latest caller transcript and injects a
-   compact `<call_state>` block before the next LLM response.
+6. `onUserTurnCompleted()` records the latest caller transcript for backend
+   observability without injecting backend state into the model context.
 7. Shutdown posts analytics and deletes the LiveKit room.
 
 ## Repo Layout
@@ -51,8 +52,8 @@ tool, or historical replay path in the live code.
 ```txt
 src/
   main.ts                 LiveKit worker/session setup and analytics shutdown
-  agent.ts                Agent class, greeting, STT hook, call-state injection
-  prompt.ts               Static prompt assembly plus pre-call context
+  agent.ts                Agent class, greeting, STT hook, transcript capture
+  prompt.ts               Static prompt assembly
   state/
     call-state.ts         Typed session state and state selectors
   clients/
@@ -61,12 +62,14 @@ src/
     precall-bootstrap.ts  Pre-call phone lookup hydration
     tool-registry.ts      Office-specific LiveKit tool registry
   tools/
+    record-turn-context.ts record_turn_context definition, schema, execute body
+    get-current-datetime.ts get_current_datetime definition, schema, execute body
     add-patient.ts        add_patient definition, schema, execute body
     book-appt.ts          book_appt definition, schema, execute body
     cancel-appt.ts        cancel_appt definition, schema, execute body
     check-insurance.ts    check_insurance definition, schema, execute body
     get-availability.ts   get_availability definition, schema, execute body
-    verify-patient.ts     verify_patient definition, schema, execute body
+    confirm-patient-identity.ts confirm_patient_identity schema and identity loading
     session.ts            LiveKit RunContext state access and write interruption guard
     scheduling.ts         Office routing and availability routing helpers
     patient-state.ts      Patient lookup and patient-state mutation helpers
@@ -81,11 +84,13 @@ workspace/                Runtime prompt and office data files
 docs/                     Current architecture, ops, and historical notes
 ```
 
-## Model-Facing Tools
+## Backend Tool Handlers
 
 The current broad office tool set is:
 
-- `verify_patient`
+- `record_turn_context`
+- `get_current_datetime`
+- `confirm_patient_identity`
 - `add_patient`
 - `update_insurance`
 - `get_availability`
@@ -96,8 +101,23 @@ The current broad office tool set is:
 - `route_to_spring_hill` for Crystal River trunks only
 - `transfer_call`
 
-State-changing tools read and write `session.userData` directly. The final side
-effect is not considered complete until the tool succeeds.
+`record_turn_context` selects a workflow context only when the caller's intent is
+clear. For scheduling, it should run only after the medical-versus-routine lane
+is clear. It records the selected intent, appointment lane, emergency flag, and
+confidence internally, then returns a small workflow context guide for the
+model. State-changing tools read and write `session.userData` directly. The
+final side effect is not considered complete until the tool succeeds.
+
+`get_current_datetime` is read-only and returns one clinic-local grounding
+sentence, such as `Today is Sunday, May 31st, 2026 at 10:42 AM Eastern time.`,
+when the caller uses relative date or time language for scheduling,
+availability, booking, or appointment changes.
+
+`confirm_patient_identity` is the patient identity boundary. It can confirm a
+pre-call phone lookup match privately from caller-provided first-name evidence,
+then promote the loaded patient and appointment state. If pre-call identity
+cannot be confirmed, it only looks up middleware after the caller provides first
+name, last name, and date of birth.
 
 ## Local Development
 

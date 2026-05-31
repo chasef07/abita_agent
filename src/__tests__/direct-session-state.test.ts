@@ -12,6 +12,8 @@ vi.mock("../tools/handoff.js", () => ({
 }));
 
 import {
+  CALLER_CANDIDATE_REF,
+  appointmentCancelToken,
   clearAvailabilitySelection,
   createCanonicalCallState,
   storeAvailabilitySlotPrivateData,
@@ -21,14 +23,16 @@ import {
   book_appt,
   cancel_appt,
   check_insurance,
+  confirm_patient_identity,
   get_availability,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
-  verify_patient,
 } from "../tools/index.js";
 
-function createState() {
+type TestCallState = ReturnType<typeof createCanonicalCallState>;
+
+function createState(): TestCallState {
   const state = createCanonicalCallState({
     preCallLookup: { status: "not_attempted", durationMs: null },
     officeKey: "spring-hill",
@@ -71,7 +75,7 @@ function createState() {
   return state;
 }
 
-function createToolContext(state: ReturnType<typeof createState>) {
+function createToolContext(state: TestCallState) {
   return {
     session: {
       userData: state,
@@ -398,7 +402,7 @@ describe("direct session state cleanup", () => {
     });
   });
 
-  it("returns a speech-ready result after verifying a patient", async () => {
+  it("returns a speech-ready result after confirming identity by lookup", async () => {
     const state = createState();
     state.patient.patientId = null;
     state.patient.name = null;
@@ -432,7 +436,7 @@ describe("direct session state cleanup", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await verify_patient.execute(
+    const result = await confirm_patient_identity.execute(
       {
         firstName: "Jane",
         lastName: "Doe",
@@ -454,6 +458,130 @@ describe("direct session state cleanup", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty(
       "phone",
     );
+  });
+
+  it("confirms a pre-call single match from first name without middleware lookup", async () => {
+    const state = createCanonicalCallState({
+      preCall: {
+        status: "single_match_pending_confirmation",
+        source: "phone_lookup",
+        callerPhone: "+17275551212",
+        candidates: [
+          {
+            ref: CALLER_CANDIDATE_REF,
+            firstName: "Jane",
+            lastName: "Doe",
+            dob: "01/01/1980",
+            patientId: "patient-1",
+            relationshipToCaller: "self",
+            appointments: [
+              {
+                id: 123,
+                date: "June 1",
+                time: "9:00 AM",
+                provider: "Dr. Bach",
+                type: "Office Visit",
+                facility: "Spring Hill",
+                confirmed: false,
+              },
+            ],
+            appointmentsStatus: "found",
+            appointmentCancelTokens: { "123": "cancel-token-123" },
+            insuranceCarrier: "Aetna",
+            insPlanId: "plan-1",
+            respPartyId: "resp-1",
+            routing: "all_three",
+            allowedProviders: ["Dr. Bach"],
+            routingAmbiguous: false,
+            preauthRequired: false,
+          },
+        ],
+        selectedCandidateRef: CALLER_CANDIDATE_REF,
+        appointmentLoadStatus: "found",
+        identityPromotion: "none",
+      },
+      preCallLookup: {
+        status: "verified",
+        durationMs: 42,
+        candidateCount: 1,
+        appointmentsStatus: "found",
+      },
+      officeKey: "spring-hill",
+      amdOfficePhone: "+17275919997",
+      sipRoomName: "test-room",
+      sipParticipantIdentity: "sip-caller",
+      callId: "call-test",
+      callerPhone: "+17275551212",
+      trunkPhone: "+17275919997",
+      patientId: null,
+      patientName: null,
+      dob: null,
+      insuranceCarrier: null,
+      insPlanId: null,
+      respPartyId: null,
+      checkedInsurancePlan: null,
+      checkedInsuranceCoverageType: null,
+      routing: null,
+      lastAvailabilityRouting: null,
+      lastAvailabilitySlots: [],
+      allowedProviders: [],
+      routingAmbiguous: false,
+      preauthRequired: false,
+      appointmentsStatus: null,
+      appointments: [],
+      transferred: false,
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await confirm_patient_identity.execute(
+      {
+        firstName: "Jaaane",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toBe(
+      "Confirmed Jane Doe and loaded 1 appointment: June 1 at 9:00 AM with Dr. Bach.",
+    );
+    expect(state.preCall?.status).toBe("single_match_confirmed");
+    expect(state.patient.identityConfirmed).toBe(true);
+    expect(state.patient.patientId).toBe("patient-1");
+    expect(state.patient.insurance?.currentCarrier).toBe("Aetna");
+    expect(state.scheduling.routing).toBe("all_three");
+    expect(appointmentCancelToken(state, 123)).toBe("cancel-token-123");
+  });
+
+  it("does not call middleware until full identity is provided", async () => {
+    const state = createState();
+    state.preCall = {
+      status: "no_match",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [],
+      identityPromotion: "none",
+    };
+    state.patient.patientId = null;
+    state.patient.name = null;
+    state.patient.identityConfirmed = false;
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      confirm_patient_identity.execute(
+        {
+          firstName: "Jane",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "Collect the patient's first name, last name, and date of birth before looking up identity.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("stores accepted insurance from check_insurance", async () => {
