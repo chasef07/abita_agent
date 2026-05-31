@@ -154,11 +154,13 @@ function collapseConsecutiveLetters(value: string): string {
 
 function confirmedPatientSystemMessage(state: CallState): string {
   const patientName = state.patient.name?.trim() || "the patient";
+  const patientId = state.patient.patientId?.trim() || "unknown";
   return [
-    "Internal state: patient identity was confirmed from a pre-call phone candidate after the caller provided the patient's first name.",
-    `Confirmed patient: ${patientName}.`,
+    "Internal state: patient identity is confirmed from a pre-call phone candidate after the caller provided the patient's first name.",
+    `Patient: ${patientName}.`,
+    `Patient ID: ${patientId}.`,
     appointmentSummaryForSystemMessage(state),
-    "Answer the caller's current request using this confirmed state. Do not ask for last name or date of birth.",
+    "Do not ask for last name or date of birth again. Continue using the loaded patient state for appointment questions, booking, or cancellation.",
   ]
     .filter(Boolean)
     .join(" ");
@@ -183,13 +185,13 @@ function appointmentSummaryForSystemMessage(state: CallState): string {
       .join("; ");
     const remaining = state.patient.appointments.length - 3;
     const more = remaining > 0 ? `; and ${remaining} more` : "";
-    return `Loaded appointments: ${appointments}${more}.`;
+    return `Upcoming appointments loaded: ${appointments}${more}.`;
   }
   if (state.patient.appointmentsStatus === "none") {
-    return "No upcoming appointments are loaded.";
+    return "Appointments status: none. No upcoming appointments are loaded.";
   }
   if (state.patient.appointmentsStatus === "error") {
-    return "Appointments could not be loaded.";
+    return "Appointments status: error. Appointments could not be loaded.";
   }
   return "Patient record is loaded.";
 }

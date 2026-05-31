@@ -239,6 +239,9 @@ describe("tool-first prompt gating", () => {
       "Use confirm_patient_identity for patient-specific work.",
     );
     expect(prompt).toContain(
+      "If internal state says patient identity is already confirmed, do not ask for last name or date of birth again and do not call confirm_patient_identity again.",
+    );
+    expect(prompt).toContain(
       "Use the caller identity hint only to choose the first identity question.",
     );
     expect(prompt).toContain("say you see a patient record on file");
@@ -795,6 +798,12 @@ describe("model-facing tool definitions", () => {
   it("keeps confirm_patient_identity scoped to patient identity loading", () => {
     expect(confirm_patient_identity.description).toContain(
       "Confirm or load a patient identity",
+    );
+    expect(confirm_patient_identity.description).toContain(
+      "If internal state says patient identity is already confirmed",
+    );
+    expect(confirm_patient_identity.description).toContain(
+      "do not call this tool or ask for last name or DOB again",
     );
     expect(confirm_patient_identity.description).toContain(
       "If the phone lookup preloaded a likely patient",

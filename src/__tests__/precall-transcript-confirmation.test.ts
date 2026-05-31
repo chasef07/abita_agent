@@ -89,8 +89,16 @@ describe("pre-call transcript confirmation", () => {
     });
 
     expect(confirmation?.candidateRef).toBe("precall:2");
+    expect(confirmation?.systemMessage).toContain("Patient: LARRY TEST.");
+    expect(confirmation?.systemMessage).toContain("Patient ID: patient-larry.");
     expect(confirmation?.systemMessage).toContain(
       "No upcoming appointments are loaded.",
+    );
+    expect(confirmation?.systemMessage).toContain(
+      "Do not ask for last name or date of birth again.",
+    );
+    expect(confirmation?.systemMessage).toContain(
+      "appointment questions, booking, or cancellation",
     );
     expect(state.preCall.status).toBe("multiple_match_confirmed");
     expect(state.preCall.selectedCandidateRef).toBe("precall:2");
@@ -98,6 +106,57 @@ describe("pre-call transcript confirmation", () => {
     expect(state.patient.identityConfirmed).toBe(true);
     expect(state.patient.patientId).toBe("patient-larry");
     expect(state.patient.name).toBe("LARRY TEST");
+  });
+
+  it("includes loaded appointments in the durable confirmation message", () => {
+    const state = createState();
+    state.preCall = {
+      status: "multiple_matches_pending_selection",
+      source: "phone_lookup",
+      callerPhone: "+19546097250",
+      candidates: [
+        {
+          ref: "precall:1",
+          firstName: "CHASE",
+          lastName: "TEST",
+          dob: "04/07/2000",
+          patientId: "patient-chase",
+          appointments: [
+            {
+              id: 123,
+              date: "June 1",
+              time: "9:00 AM",
+              provider: "Dr. Bach",
+              type: "Office Visit",
+              facility: "Spring Hill",
+              confirmed: false,
+            },
+          ],
+          appointmentsStatus: "found",
+        },
+        {
+          ref: "precall:2",
+          firstName: "LARRY",
+          lastName: "TEST",
+          dob: "08/18/2020",
+          patientId: "patient-larry",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+      ],
+      identityPromotion: "none",
+    };
+
+    const confirmation = confirmPreCallIdentityFromTranscript({
+      state,
+      transcript: "Chase",
+      lastAssistantText: "Who is the appointment for?",
+    });
+
+    expect(confirmation?.candidateRef).toBe("precall:1");
+    expect(confirmation?.systemMessage).toContain(
+      "Upcoming appointments loaded: June 1 at 9:00 AM with Dr. Bach.",
+    );
   });
 
   it("does not confirm a first-name candidate while collecting last name", () => {

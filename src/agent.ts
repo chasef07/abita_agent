@@ -9,10 +9,13 @@ import { type CallState, type PhoneLookupResult } from "./state/call-state.js";
 import type { VoiceLanguageRuntime } from "./language-runtime.js";
 import { getOfficeConfigByPhone } from "./customer/profile.js";
 import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcript-confirmation.js";
+import { addDurableInternalSystemMessage } from "./runtime/durable-chat-context.js";
 import {
   buildToolsForTrunk as buildToolsForTrunkFromRegistry,
   type AgentTools,
 } from "./runtime/tool-registry.js";
+
+export { addDurableInternalSystemMessage };
 
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
   return buildToolsForTrunkFromRegistry(trunkPhone);
@@ -62,10 +65,11 @@ export class Agent extends voice.Agent {
       lastAssistantText: latestAssistantText(chatCtx),
     });
     if (confirmation) {
-      chatCtx.addMessage({
-        role: "system",
-        content: confirmation.systemMessage,
-      });
+      await addDurableInternalSystemMessage(
+        this,
+        chatCtx,
+        confirmation.systemMessage,
+      );
     }
   }
 

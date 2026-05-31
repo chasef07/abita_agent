@@ -50,6 +50,7 @@ export const confirm_patient_identity = llm.tool({
   description:
     "Confirm or load a patient identity for patient-specific work. " +
     "Use only identity details the caller has provided. " +
+    "If internal state says patient identity is already confirmed, do not call this tool or ask for last name or DOB again; continue with the loaded patient state. " +
     "If the phone lookup preloaded a likely patient, call with the caller-provided first name only. " +
     "If the caller identity hint says multiple possible records and the caller gives a patient first name, call with firstName only; do not ask for last name or DOB first. " +
     "The tool privately confirms a unique preloaded candidate or asks for more identity details if needed. " +
