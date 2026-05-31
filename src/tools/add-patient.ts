@@ -20,6 +20,7 @@ export const add_patient = llm.tool({
     "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. " +
     "Before calling, read back the important registration details and get caller confirmation. " +
     "Before using the inbound caller number for the chart, ask whether the number they are calling from is a good callback number to put on file. " +
+    'Never offer self pay. If the patient asks to self pay, put "self pay" in subscriberNum. ' +
     "If they say yes, omit phone and set inboundPhoneConfirmed to true; do not ask them to repeat that number. ",
   parameters: z.object({
     firstName: z.string().describe("Patient's first name"),
@@ -53,12 +54,8 @@ export const add_patient = llm.tool({
     insurance: z
       .string()
       .describe("Canonical insurance plan from check_insurance"),
-    subscriberName: z
-      .string()
-      .describe("Name on the insurance policy; for self-pay, use patient name"),
-    subscriberNum: z
-      .string()
-      .describe('Member ID; for self-pay, use "self pay"'),
+    subscriberName: z.string().describe("Name on the insurance policy"),
+    subscriberNum: z.string().describe("Member ID"),
     readBack: z
       .boolean()
       .optional()

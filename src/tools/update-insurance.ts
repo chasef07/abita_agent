@@ -24,7 +24,7 @@ export const update_insurance = llm.tool({
       .string()
       .trim()
       .optional()
-      .describe("Member ID from the insurance card. Omit for self-pay."),
+      .describe("Member ID from the insurance card."),
   }),
   execute: async ({ subscriberNum }, { ctx }) => {
     const state = getState(ctx);
