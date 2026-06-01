@@ -113,11 +113,12 @@ sentence, such as `Today is Sunday, May 31st, 2026 at 10:42 AM Eastern time.`,
 when the caller uses relative date or time language for scheduling,
 availability, booking, or appointment changes.
 
-`confirm_patient_identity` is the patient identity boundary. It can confirm a
-pre-call phone lookup match privately from caller-provided first-name evidence,
-then promote the loaded patient and appointment state. If pre-call identity
-cannot be confirmed, it only looks up middleware after the caller provides first
-name, last name, and date of birth.
+Pre-call phone lookup data stays in backend state and can be promoted privately
+from caller-provided first-name evidence before the explicit identity tool runs.
+`confirm_patient_identity` is the fallback patient identity lookup. It only runs
+after the caller provides first name, last name, and date of birth; if those
+details match a preloaded candidate, it promotes that state without another
+middleware call.
 
 ## Local Development
 

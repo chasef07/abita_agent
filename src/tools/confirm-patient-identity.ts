@@ -21,26 +21,26 @@ const identityParameters = z.object({
     .string()
     .trim()
     .min(1)
-    .describe(
-      "Caller-provided patient first name.",
-    ),
+    .describe("Caller-provided patient first name."),
   lastName: z
     .string()
     .trim()
     .min(1)
-    .describe(
-      "Caller-provided patient last name.",
-    ),
+    .describe("Caller-provided patient last name."),
   dob: z
     .string()
     .trim()
     .min(1)
-    .describe(
-      "Caller-provided date of birth in MM/DD/YYYY format",
-    ),
+    .describe("Caller-provided date of birth in MM/DD/YYYY format."),
 });
 
 type IdentityArgs = z.infer<typeof identityParameters>;
+type NormalizedIdentityArgs = Partial<IdentityArgs>;
+type FullIdentityArgs = {
+  firstName: string;
+  lastName: string;
+  dob: string;
+};
 type PreCallCandidate = PreCallContextState["candidates"][number];
 
 export const confirm_patient_identity = llm.tool({
@@ -48,16 +48,16 @@ export const confirm_patient_identity = llm.tool({
     "Confirm or load a patient identity for patient-specific work. " +
     "Use only identity details the caller has provided. " +
     "If internal state says patient identity is already confirmed, do not call this tool or ask for last name or DOB again; continue with the loaded patient state. " +
-    "If no pre-call identity can be confirmed, collect first name, last name, and DOB before middleware lookup. " ,
+    "Call only after collecting the patient's first name, last name, and DOB.",
   parameters: identityParameters,
   execute: async (args, { ctx }) => {
     const state = getState(ctx);
     const identity = normalizeIdentityArgs(args);
 
+    requireFullIdentity(identity);
     const preCallReply = confirmFromPreCallState(state, identity);
     if (preCallReply) return preCallReply;
 
-    requireFullIdentity(identity);
     const result = await resolvePatientForCall(state, {
       body: {
         firstName: identity.firstName,
@@ -75,7 +75,7 @@ export const confirm_patient_identity = llm.tool({
 
 function confirmFromPreCallState(
   state: CallState,
-  identity: IdentityArgs,
+  identity: FullIdentityArgs,
 ): string | null {
   const preCall = state.preCall;
   if (!preCall) return null;
@@ -94,20 +94,14 @@ function confirmFromPreCallState(
 function confirmSinglePreCallMatch(
   state: CallState,
   preCall: PreCallContextState,
-  identity: IdentityArgs,
+  identity: FullIdentityArgs,
 ): string | null {
   const candidate =
     candidateByRef(preCall, preCall.selectedCandidateRef) ??
     candidateByRef(preCall, CALLER_CANDIDATE_REF);
   if (!candidate?.patientId) return null;
 
-  if (!identity.firstName) {
-    throw new llm.ToolError(
-      "Ask the caller to spell the patient's first name before confirming identity.",
-    );
-  }
-
-  if (namesMatch(identity.firstName, candidate.firstName)) {
+  if (fullIdentityMatchesCandidate(candidate, identity)) {
     return promotePreCallCandidate(
       state,
       candidate.ref,
@@ -121,36 +115,14 @@ function confirmSinglePreCallMatch(
 function confirmMultiplePreCallMatch(
   state: CallState,
   preCall: PreCallContextState,
-  identity: IdentityArgs,
+  identity: FullIdentityArgs,
 ): string | null {
-  if (!identity.firstName) {
-    throw new llm.ToolError(
-      "Ask the caller to spell the patient's first name before confirming identity.",
-    );
-  }
-
   const fullMatch = findFullIdentityPreCallMatch(preCall, identity);
   if (fullMatch) {
     return promotePreCallCandidate(
       state,
       fullMatch.ref,
       "multiple_match_confirmed",
-    );
-  }
-
-  const firstNameMatches = preCall.candidates.filter((candidate) =>
-    namesMatch(identity.firstName, candidate.firstName),
-  );
-  if (firstNameMatches.length === 1 && firstNameMatches[0].patientId) {
-    return promotePreCallCandidate(
-      state,
-      firstNameMatches[0].ref,
-      "multiple_match_confirmed",
-    );
-  }
-  if (firstNameMatches.length > 1) {
-    throw new llm.ToolError(
-      "More than one preloaded patient matches that first name. Ask for the patient's date of birth or full name, then call confirm_patient_identity again.",
     );
   }
 
@@ -183,18 +155,24 @@ function promotePreCallCandidate(
 
 function findFullIdentityPreCallMatch(
   preCall: PreCallContextState,
-  identity: IdentityArgs,
+  identity: FullIdentityArgs,
 ): PreCallCandidate | null {
-  if (!identity.firstName || !identity.lastName || !identity.dob) return null;
-
-  const matches = preCall.candidates.filter(
-    (candidate) =>
-      candidate.patientId &&
-      namesMatch(identity.firstName, candidate.firstName) &&
-      namesMatch(identity.lastName, candidate.lastName) &&
-      dobMatches(identity.dob, candidate.dob),
+  const matches = preCall.candidates.filter((candidate) =>
+    fullIdentityMatchesCandidate(candidate, identity),
   );
   return matches.length === 1 ? matches[0] : null;
+}
+
+function fullIdentityMatchesCandidate(
+  candidate: PreCallCandidate,
+  identity: FullIdentityArgs,
+): boolean {
+  return Boolean(
+    candidate.patientId &&
+    namesMatch(identity.firstName, candidate.firstName) &&
+    namesMatch(identity.lastName, candidate.lastName) &&
+    dobMatches(identity.dob, candidate.dob),
+  );
 }
 
 function candidateByRef(
@@ -205,11 +183,9 @@ function candidateByRef(
   return preCall.candidates.find((candidate) => candidate.ref === ref) ?? null;
 }
 
-function requireFullIdentity(identity: IdentityArgs): asserts identity is {
-  firstName: string;
-  lastName: string;
-  dob: string;
-} {
+function requireFullIdentity(
+  identity: NormalizedIdentityArgs,
+): asserts identity is FullIdentityArgs {
   if (!identity.firstName || !identity.lastName || !identity.dob) {
     throw new llm.ToolError(
       "Collect the patient's first name, last name, and date of birth before looking up identity.",
@@ -217,7 +193,7 @@ function requireFullIdentity(identity: IdentityArgs): asserts identity is {
   }
 }
 
-function normalizeIdentityArgs(args: IdentityArgs): IdentityArgs {
+function normalizeIdentityArgs(args: IdentityArgs): NormalizedIdentityArgs {
   return {
     firstName: args.firstName?.trim() || undefined,
     lastName: args.lastName?.trim() || undefined,

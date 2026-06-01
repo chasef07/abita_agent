@@ -367,6 +367,7 @@ describe("direct session state cleanup", () => {
         {
           slotId: "A",
           appointmentReason: "blurry vision",
+          referringDoctor: "none",
         },
         {
           ctx: createToolContext(state) as never,
@@ -390,6 +391,7 @@ describe("direct session state cleanup", () => {
         {
           slotId: "A",
           appointmentReason: "blurry vision",
+          referringDoctor: "none",
         },
         {
           ctx: ctx as never,
@@ -402,6 +404,29 @@ describe("direct session state cleanup", () => {
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(state.scheduling.availabilitySlots).toEqual([]);
+  });
+
+  it("requires referring doctor information before booking", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      book_appt.execute(
+        {
+          slotId: "A",
+          appointmentReason: "blurry vision",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      'Ask whether the caller has a referring doctor before booking. If they have none, pass "none".',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("books an active slot with private state and returns speech-ready text", async () => {
@@ -426,6 +451,7 @@ describe("direct session state cleanup", () => {
       {
         slotId: "A",
         appointmentReason: "blurry vision",
+        referringDoctor: "none",
       },
       {
         ctx: ctx as never,
@@ -482,6 +508,7 @@ describe("direct session state cleanup", () => {
       {
         slotId: "A",
         appointmentReason: "blurry vision",
+        referringDoctor: "none",
       },
       {
         ctx: createToolContext(state) as never,
@@ -523,6 +550,7 @@ describe("direct session state cleanup", () => {
       {
         slotId: "A",
         appointmentReason: "blurry vision",
+        referringDoctor: "none",
       },
       {
         ctx: createToolContext(state) as never,
@@ -878,7 +906,7 @@ describe("direct session state cleanup", () => {
     expect(state.patient.identityConfirmed).toBe(true);
   });
 
-  it("confirms a pre-call single match from first name without middleware lookup", async () => {
+  it("confirms a pre-call single match from full identity without middleware lookup", async () => {
     const state = createCanonicalCallState({
       preCall: {
         status: "single_match_pending_confirmation",
@@ -954,6 +982,8 @@ describe("direct session state cleanup", () => {
     const result = await confirm_patient_identity.execute(
       {
         firstName: "Jaaane",
+        lastName: "Doe",
+        dob: "01/01/1980",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
@@ -969,7 +999,7 @@ describe("direct session state cleanup", () => {
     expect(state.scheduling.routing).toBe("all_three");
   });
 
-  it("confirms a unique multiple-match pre-call candidate from first name only", async () => {
+  it("confirms a unique multiple-match pre-call candidate from full identity", async () => {
     const state = createState();
     state.patient = {
       ...state.patient,
@@ -1031,6 +1061,8 @@ describe("direct session state cleanup", () => {
     const result = await confirm_patient_identity.execute(
       {
         firstName: "Chase",
+        lastName: "Test",
+        dob: "04/07/2000",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
@@ -1045,7 +1077,7 @@ describe("direct session state cleanup", () => {
     expect(state.patient.patientId).toBe("patient-chase");
   });
 
-  it("asks for more identity details when multiple pre-call candidates share a first name", async () => {
+  it("requires full identity before resolving pre-call candidates through the tool", async () => {
     const state = createState();
     state.patient = {
       ...state.patient,
@@ -1097,7 +1129,7 @@ describe("direct session state cleanup", () => {
         } as never,
       ),
     ).rejects.toThrow(
-      "More than one preloaded patient matches that first name. Ask for the patient's date of birth or full name, then call confirm_patient_identity again.",
+      "Collect the patient's first name, last name, and date of birth before looking up identity.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(state.patient.identityConfirmed).toBe(false);
@@ -1500,6 +1532,7 @@ describe("direct session state cleanup", () => {
       {
         slotId: "A",
         appointmentReason: "eye exam",
+        referringDoctor: "none",
       },
       {
         ctx: createToolContext(state) as never,

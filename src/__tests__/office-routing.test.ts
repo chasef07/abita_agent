@@ -20,6 +20,7 @@ import {
 } from "../customer/profile.js";
 import {
   add_patient,
+  book_appt,
   cancel_appt,
   check_insurance,
   confirm_patient_identity,
@@ -236,7 +237,10 @@ describe("tool-first prompt gating", () => {
       'When giving an address, put `<break time="300ms"/>` between the street',
     );
     expect(prompt).toContain(
-      "Use confirm_patient_identity for patient-specific work.",
+      "Use confirm_patient_identity for patient-specific work only when internal state has not already confirmed the patient from the pre-call identity step.",
+    );
+    expect(prompt).toContain(
+      "Before calling it, collect the patient's first name, last name, and date of birth.",
     );
     expect(prompt).toContain(
       "If internal state says patient identity is already confirmed, do not ask for last name or date of birth again and do not call confirm_patient_identity again.",
@@ -795,6 +799,39 @@ describe("model-facing tool definitions", () => {
     expect(parameters.safeParse({ appointmentId: 1.5 }).success).toBe(false);
   });
 
+  it("keeps book_appt scoped to confirmed slots with required referring doctor", () => {
+    expect(book_appt.description).toContain(
+      "Book a caller-confirmed appointment slot",
+    );
+    expect(book_appt.description).toContain(
+      "caller provides a referring doctor or says they have none",
+    );
+
+    const parameters = book_appt.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+    };
+    expect(
+      parameters.safeParse({
+        slotId: "A",
+        appointmentReason: "blurry vision",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        slotId: "A",
+        appointmentReason: "blurry vision",
+        referringDoctor: "none",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        slotId: "A",
+        appointmentReason: "blurry vision",
+        referringDoctor: "Doctor Lee",
+      }).success,
+    ).toBe(true);
+  });
+
   it("keeps confirm_patient_identity scoped to patient identity loading", () => {
     expect(confirm_patient_identity.description).toContain(
       "Confirm or load a patient identity",
@@ -806,25 +843,16 @@ describe("model-facing tool definitions", () => {
       "do not call this tool or ask for last name or DOB again",
     );
     expect(confirm_patient_identity.description).toContain(
-      "If the phone lookup preloaded a likely patient",
-    );
-    expect(confirm_patient_identity.description).toContain(
-      "caller identity hint says multiple possible records",
-    );
-    expect(confirm_patient_identity.description).toContain(
-      "call with firstName only; do not ask for last name or DOB first",
-    );
-    expect(confirm_patient_identity.description).toContain(
-      "collect first name, last name, and DOB before middleware lookup",
-    );
-    expect(confirm_patient_identity.description).toContain(
-      "does not expose preloaded patient details until identity is confirmed",
+      "Call only after collecting the patient's first name, last name, and DOB",
     );
     expect(confirm_patient_identity.description).not.toContain(
       "insurance updates",
     );
     expect(confirm_patient_identity.description).not.toContain(
       "private account",
+    );
+    expect(confirm_patient_identity.description).not.toContain(
+      "firstName only",
     );
 
     const parameters = confirm_patient_identity.parameters as {
@@ -835,7 +863,7 @@ describe("model-facing tool definitions", () => {
         firstName: "Jane",
         lastName: "Doe",
       }).success,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       parameters.safeParse({
         firstName: "Jane",

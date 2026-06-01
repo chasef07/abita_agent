@@ -33,7 +33,7 @@ export const book_appt = llm.tool({
   description:
     "Book a caller-confirmed appointment slot. " +
     "Requires record_turn_context to have recorded a scheduling lane first. " +
-    "Call only after get_availability returns slots and the caller confirms the exact offered slot. ",
+    "Call only after get_availability returns slots, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. ",
   parameters: z.object({
     slotId: z
       .string()
@@ -48,8 +48,10 @@ export const book_appt = llm.tool({
     referringDoctor: z
       .string()
       .trim()
-      .optional()
-      .describe("Referring doctor if the caller gives one. Omit if none."),
+      .min(1)
+      .describe(
+        'Caller-provided referring doctor, or "none" if the caller has no referring doctor.',
+      ),
   }),
   execute: async ({ slotId, appointmentReason, referringDoctor }, { ctx }) => {
     const state = getState(ctx);
@@ -144,7 +146,13 @@ function normalizeAppointmentReason(appointmentReason: string): string {
 }
 
 function normalizeReferringDoctor(referringDoctor: string | undefined): string {
-  return referringDoctor?.trim() || "none";
+  const trimmedReferrer = referringDoctor?.trim();
+  if (!trimmedReferrer) {
+    throw new llm.ToolError(
+      'Ask whether the caller has a referring doctor before booking. If they have none, pass "none".',
+    );
+  }
+  return trimmedReferrer;
 }
 
 function appointmentIntentForBooking(
