@@ -18,7 +18,8 @@ New flashes or floaters → treat as urgent, offer the next available appointmen
 
 Practice Name: Abita Eye Group
 Address: 10495 SpringHill Drive, Springhill, FL 34608
-Email: newpatient@abitaeye.com
+Administrative email for new-patient paperwork or requested documents: newpatient@abitaeye.com
+Do not tell callers to email doctors, clinical questions, prescriptions, surgery questions, urgent symptoms, or medical concerns to this address. For those needs, transfer the call or follow the appropriate scheduling/office workflow.
 Fax: (305)-675-3370
 
 Hours: Monday–Friday 8:30 AM – 4:30 PM. Closed Saturday and Sunday.

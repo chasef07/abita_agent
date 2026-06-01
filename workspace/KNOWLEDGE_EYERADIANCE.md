@@ -18,7 +18,8 @@ New flashes or floaters → treat as urgent, offer the next available appointmen
 
 Practice Name: Eye Radiance
 Address: 1100 N Lyle Avenue Crystal River, FL 34429
-Email: newpatient@abitaeye.com
+Administrative email for new-patient paperwork or requested documents: newpatient@abitaeye.com
+Do not tell callers to email doctors, clinical questions, prescriptions, surgery questions, urgent symptoms, or medical concerns to this address. For those needs, transfer the call or follow the appropriate scheduling/office workflow.
 Fax: (352)-228-4315
 
 Hours:

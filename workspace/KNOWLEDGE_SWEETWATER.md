@@ -32,7 +32,8 @@ Sweetwater does not perform retina surgical care. Retina surgical care needs to 
 
 Practice Name: Abita Eye Group Sweetwater
 Address: 12750 NW 17th St, #201, Miami, FL 33182
-Email: newpatient@abitaeye.com
+Administrative email for new-patient paperwork or requested documents: newpatient@abitaeye.com
+Do not tell callers to email doctors, clinical questions, prescriptions, surgery questions, urgent symptoms, or medical concerns to this address. For those needs, transfer the call or follow the appropriate scheduling/office workflow.
 Phone: (786) 465-4836
 Fax: (305) 723-1910
 
