@@ -31,7 +31,7 @@ export const check_insurance = llm.tool({
     const office = activeOfficeKey(state);
     const result = matchInsurancePlanForOffice(office, plan, coverageType);
     const response = buildInsuranceToolResponse(result);
-    const checkedInsurancePlan = response.canonicalPlan;
+    const checkedInsurancePlan = canonicalInsurancePlan(result);
     const checkedInsuranceCoverageType = checkedInsurancePlan
       ? coverageType
       : null;
@@ -40,7 +40,7 @@ export const check_insurance = llm.tool({
       plan,
       canonicalPlan: checkedInsurancePlan,
       coverageType: checkedInsuranceCoverageType,
-      currentCarrier: checkedInsurancePlan,
+      currentCarrier: response.callerFacingPlan ?? checkedInsurancePlan,
     };
     state.scheduling.coverageType = checkedInsuranceCoverageType;
     ensureSchedulingTurnContext(state, "checking insurance", { coverageType });
@@ -53,12 +53,15 @@ export const check_insurance = llm.tool({
       );
       const springHillPlan = canonicalInsurancePlan(springHillResult);
       if (springHillResult.status === "accepted" && springHillPlan) {
+        const springHillResponse = buildInsuranceToolResponse(springHillResult);
+        const springHillCallerPlan =
+          springHillResponse.callerFacingPlan ?? springHillPlan;
         return {
           ...response,
           acceptedAtAlternateOffice: "Spring Hill",
-          alternateCanonicalPlan: springHillPlan,
+          alternateCallerFacingPlan: springHillCallerPlan,
           routeTool: "route_to_spring_hill",
-          callerMessage: `${response.callerMessage} Spring Hill accepts ${springHillPlan}. Would you like to schedule there instead?`,
+          callerMessage: `${response.callerMessage} Spring Hill accepts ${springHillCallerPlan}. Would you like to schedule there instead?`,
         };
       }
     }

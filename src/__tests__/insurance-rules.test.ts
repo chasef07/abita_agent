@@ -41,7 +41,8 @@ describe("insurance matcher", () => {
     expect(result.needsExactPlanName).toBe(true);
     expect(result.matchedAlias).toBe("Blue Cross Blue Shield");
     expect(result.matchedFamily).toBe("Florida Blue");
-    expect(result.callerMessage).toBe("yeah we take Blue Cross Blue Shield.");
+    expect(result.callerFacingPlan).toBe("Blue Cross Blue Shield");
+    expect(result.callerMessage).toBe("Yes, we take Blue Cross Blue Shield.");
   });
 
   it("matches middleware-backed shorthand aliases that can resolve server side", () => {
@@ -148,6 +149,7 @@ describe("insurance matcher", () => {
       expect(result.status, query).toBe("accepted");
       expect(result.canProceed, query).toBe(true);
       expect(canonicalInsurancePlan(result), query).toBe("Envolve Vision");
+      expect(result.callerFacingPlan, query).toBe(query);
     }
   });
 
@@ -163,6 +165,7 @@ describe("insurance matcher", () => {
         expect(canonicalInsurancePlan(result), `${office} ${query}`).toBe(
           "Envolve Vision",
         );
+        expect(result.callerFacingPlan, `${office} ${query}`).toBe(query);
       }
     }
   });
@@ -210,6 +213,19 @@ describe("insurance matcher", () => {
     expect(canonicalInsurancePlan(result)).toBe("Oscar Health");
   });
 
+  it("keeps caller speech separate from routine vision canonical aliases", () => {
+    const result = matchInsurancePlanForOffice(
+      "spring-hill",
+      "Ambetter",
+      "routine_vision",
+    );
+
+    expect(result.status).toBe("accepted");
+    expect(canonicalInsurancePlan(result)).toBe("Envolve");
+    expect(result.callerFacingPlan).toBe("Ambetter");
+    expect(result.callerMessage).toBe("Yes, we take Ambetter.");
+  });
+
   it("accepts self-pay as a medical option", () => {
     const result = matchInsurancePlanForOffice("spring-hill", "self-pay");
 
@@ -225,9 +241,9 @@ describe("insurance matcher", () => {
     expect(toolResponse).toEqual({
       status: "accepted",
       canProceed: true,
-      canonicalPlan: "Florida Blue",
+      callerFacingPlan: "Blue Cross Blue Shield",
       clarificationNeeded: null,
-      callerMessage: "yeah we take Blue Cross Blue Shield.",
+      callerMessage: "Yes, we take Blue Cross Blue Shield.",
     });
   });
 

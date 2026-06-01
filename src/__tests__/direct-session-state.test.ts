@@ -1180,10 +1180,11 @@ describe("direct session state cleanup", () => {
     expect(result).toEqual({
       status: "accepted",
       canProceed: true,
-      canonicalPlan: "Florida Blue",
+      callerFacingPlan: "Blue Cross Blue Shield",
       clarificationNeeded: null,
-      callerMessage: "yeah we take Blue Cross Blue Shield.",
+      callerMessage: "Yes, we take Blue Cross Blue Shield.",
     });
+    expect(result).not.toHaveProperty("canonicalPlan");
     expect(result).not.toHaveProperty("outcome");
     expect(result).not.toHaveProperty("facts");
     expect(result).not.toHaveProperty("retryable");
@@ -1191,7 +1192,7 @@ describe("direct session state cleanup", () => {
       plan: "Blue Cross",
       canonicalPlan: "Florida Blue",
       coverageType: "medical",
-      currentCarrier: "Florida Blue",
+      currentCarrier: "Blue Cross Blue Shield",
     });
     expect(state.scheduling.coverageType).toBe("medical");
     expect(state.turnContext.last).toEqual({
@@ -1200,6 +1201,34 @@ describe("direct session state cleanup", () => {
       isEmergency: false,
       confidence: 0.99,
     });
+  });
+
+  it("keeps canonical insurance internal for caller-facing alias responses", async () => {
+    const state = createState();
+
+    const result = (await check_insurance.execute(
+      {
+        plan: "Ambetter",
+        coverageType: "routine_vision",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    )) as Record<string, unknown>;
+
+    expect(result).toEqual({
+      status: "accepted",
+      canProceed: true,
+      callerFacingPlan: "Ambetter",
+      clarificationNeeded: null,
+      callerMessage: "Yes, we take Ambetter.",
+    });
+    expect(result).not.toHaveProperty("canonicalPlan");
+    expect(state.checkedInsurance).toEqual({
+      plan: "Ambetter",
+      canonicalPlan: "Envolve",
+      coverageType: "routine_vision",
+      currentCarrier: "Ambetter",
+    });
+    expect(state.scheduling.coverageType).toBe("routine_vision");
   });
 
   it("returns a Spring Hill routing option when Crystal River does not accept the plan", async () => {
@@ -1217,11 +1246,12 @@ describe("direct session state cleanup", () => {
     expect(result).toMatchObject({
       status: "not_accepted",
       canProceed: false,
-      canonicalPlan: null,
+      callerFacingPlan: "Humana PPO",
       acceptedAtAlternateOffice: "Spring Hill",
-      alternateCanonicalPlan: "Humana PPO",
+      alternateCallerFacingPlan: "Humana PPO",
       routeTool: "route_to_spring_hill",
     });
+    expect(result).not.toHaveProperty("canonicalPlan");
     expect(result.callerMessage).toContain("Spring Hill accepts Humana PPO");
     expect(result.callerMessage).toContain(
       "Would you like to schedule there instead?",

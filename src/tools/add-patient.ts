@@ -54,7 +54,9 @@ export const add_patient = llm.tool({
     sex: z.enum(["male", "female"]).describe("Patient's sex"),
     insurance: z
       .string()
-      .describe("Canonical insurance plan from check_insurance"),
+      .describe(
+        "Insurance plan the caller gave after check_insurance accepts it",
+      ),
     subscriberName: z.string().describe("Name on the insurance policy"),
     subscriberNum: z.string().describe("Member ID"),
     readBack: z

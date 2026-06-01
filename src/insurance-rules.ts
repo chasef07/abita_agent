@@ -35,6 +35,7 @@ export interface InsuranceLookupResult {
   matchedPlan: string | null;
   matchedAlias: string | null;
   matchedFamily: string | null;
+  callerFacingPlan: string | null;
   canProceed: boolean;
   needsExactPlanName: boolean;
   clarificationNeeded: string | null;
@@ -44,11 +45,11 @@ export interface InsuranceLookupResult {
 export interface InsuranceToolResponse {
   status: InsuranceMatchStatus;
   canProceed: boolean;
-  canonicalPlan: string | null;
+  callerFacingPlan: string | null;
   clarificationNeeded: string | null;
   callerMessage: string;
   acceptedAtAlternateOffice?: string;
-  alternateCanonicalPlan?: string;
+  alternateCallerFacingPlan?: string;
   routeTool?: string;
 }
 
@@ -104,7 +105,7 @@ function findExactPlan(
 }
 
 function buildAcceptedCallerMessage(plan: string): string {
-  return `yeah we take ${plan}.`;
+  return `Yes, we take ${plan}.`;
 }
 
 export function canonicalInsurancePlan(
@@ -120,7 +121,7 @@ export function buildInsuranceToolResponse(
   return {
     status: result.status,
     canProceed: result.canProceed,
-    canonicalPlan: canonicalInsurancePlan(result),
+    callerFacingPlan: result.callerFacingPlan,
     clarificationNeeded: result.clarificationNeeded,
     callerMessage: result.callerMessage,
   };
@@ -139,6 +140,7 @@ export function matchInsurancePlan(
       matchedPlan: exactAccepted,
       matchedAlias: null,
       matchedFamily: exactAccepted,
+      callerFacingPlan: exactAccepted,
       canProceed: true,
       needsExactPlanName: false,
       clarificationNeeded: null,
@@ -157,10 +159,11 @@ export function matchInsurancePlan(
       matchedPlan: exactRejected,
       matchedAlias: null,
       matchedFamily: exactRejected,
+      callerFacingPlan: exactRejected,
       canProceed: false,
       needsExactPlanName: false,
       clarificationNeeded: null,
-      callerMessage: `we don't accept ${exactRejected}.`,
+      callerMessage: `No, we don't accept ${exactRejected}.`,
     };
   }
 
@@ -208,6 +211,7 @@ export function matchInsurancePlan(
         matchedPlan: null,
         matchedAlias,
         matchedFamily: null,
+        callerFacingPlan: null,
         canProceed: rule.canProceed,
         needsExactPlanName: rule.needsExactPlanName,
         clarificationNeeded,
@@ -226,6 +230,7 @@ export function matchInsurancePlan(
     matchedPlan: null,
     matchedAlias: null,
     matchedFamily: null,
+    callerFacingPlan: null,
     canProceed: false,
     needsExactPlanName: false,
     clarificationNeeded: "the exact plan name from the insurance card",
@@ -268,22 +273,39 @@ function buildAliasMatchResult(
   match: { rule: InsuranceAliasRule; alias: string },
 ): InsuranceLookupResult {
   const { rule, alias: matchedAlias } = match;
-  const callerPlan = rule.callerPlan ?? rule.family ?? matchedAlias;
+  const callerFacingPlan = callerFacingAliasPlan(rule, matchedAlias);
   return {
     status: rule.status,
     query,
     matchedPlan: null,
     matchedAlias,
     matchedFamily: rule.family ?? null,
+    callerFacingPlan,
     canProceed: rule.canProceed,
     needsExactPlanName: rule.needsExactPlanName,
     clarificationNeeded: null,
     callerMessage:
       rule.callerMessage ??
       (rule.status === "accepted"
-        ? buildAcceptedCallerMessage(callerPlan)
-        : `we don't accept ${callerPlan}.`),
+        ? buildAcceptedCallerMessage(callerFacingPlan)
+        : `No, we don't accept ${callerFacingPlan}.`),
   };
+}
+
+function callerFacingAliasPlan(
+  rule: InsuranceAliasRule,
+  matchedAlias: string,
+): string {
+  const configuredPlan = rule.callerPlan?.trim();
+  const family = rule.family?.trim();
+  if (
+    !configuredPlan ||
+    (family &&
+      normalizeInsuranceText(configuredPlan) === normalizeInsuranceText(family))
+  ) {
+    return matchedAlias;
+  }
+  return configuredPlan;
 }
 
 export function matchInsurancePlanForOffice(
