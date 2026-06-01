@@ -21,25 +21,22 @@ const identityParameters = z.object({
     .string()
     .trim()
     .min(1)
-    .optional()
     .describe(
-      "Caller-provided patient first name. For a pre-call phone match, this may be the only needed field.",
+      "Caller-provided patient first name.",
     ),
   lastName: z
     .string()
     .trim()
     .min(1)
-    .optional()
     .describe(
-      "Caller-provided patient last name. Required before middleware lookup when no pre-call match can be confirmed.",
+      "Caller-provided patient last name.",
     ),
   dob: z
     .string()
     .trim()
     .min(1)
-    .optional()
     .describe(
-      "Caller-provided date of birth in MM/DD/YYYY format. Required before middleware lookup when no pre-call match can be confirmed.",
+      "Caller-provided date of birth in MM/DD/YYYY format",
     ),
 });
 
@@ -51,11 +48,7 @@ export const confirm_patient_identity = llm.tool({
     "Confirm or load a patient identity for patient-specific work. " +
     "Use only identity details the caller has provided. " +
     "If internal state says patient identity is already confirmed, do not call this tool or ask for last name or DOB again; continue with the loaded patient state. " +
-    "If the phone lookup preloaded a likely patient, call with the caller-provided first name only. " +
-    "If the caller identity hint says multiple possible records and the caller gives a patient first name, call with firstName only; do not ask for last name or DOB first. " +
-    "The tool privately confirms a unique preloaded candidate or asks for more identity details if needed. " +
-    "If no pre-call identity can be confirmed, collect first name, last name, and DOB before middleware lookup. " +
-    "This tool does not expose preloaded patient details until identity is confirmed.",
+    "If no pre-call identity can be confirmed, collect first name, last name, and DOB before middleware lookup. " ,
   parameters: identityParameters,
   execute: async (args, { ctx }) => {
     const state = getState(ctx);
