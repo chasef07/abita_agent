@@ -1,9 +1,11 @@
 import { llm } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
+import { getOfficeConfig, type OfficeKey } from "../customer/profile.js";
 import {
   activePatientId,
   clearAvailabilitySelection,
+  type CallerAppointment,
   type CallState,
 } from "../state/call-state.js";
 import { removeAvailabilitySlot } from "./availability-slots.js";
@@ -111,6 +113,10 @@ export const reschedule_appt = llm.tool({
       throw new llm.ToolError(selection.message);
     }
     const oldAppointment = selection.appointment;
+    const cancellationOffice = getAmdOfficeForCancellationAppointment(
+      state,
+      oldAppointment,
+    );
 
     ensureRoutineVisionOffice(state);
     const selectedSlot = selectedSlotForBooking(state, slotId);
@@ -146,7 +152,7 @@ export const reschedule_appt = llm.tool({
       cancelResult = (await callApi(
         "/api/appointment/cancel",
         { appointmentId: oldAppointment.id, patientId },
-        getAmdOfficeForToolCall(state),
+        cancellationOffice,
       )) as CancelAppointmentResult;
     } catch {
       return rescheduleCancellationFailureMessage(
@@ -170,6 +176,60 @@ export const reschedule_appt = llm.tool({
     );
   },
 });
+
+function getAmdOfficeForCancellationAppointment(
+  state: CallState,
+  appointment: CallerAppointment,
+): string {
+  const officeKey = officeKeyForAppointmentFacility(appointment.facility);
+  if (!officeKey) return getAmdOfficeForToolCall(state);
+  return (
+    state.runtime.officePhoneOverrides?.[officeKey] ??
+    getOfficeConfig(officeKey).amdOfficePhone
+  );
+}
+
+function officeKeyForAppointmentFacility(
+  facility: string | undefined,
+): OfficeKey | null {
+  const normalized = normalizeFacilityName(facility);
+  if (!normalized) return null;
+
+  if (
+    normalized.includes("crystal river") ||
+    normalized.includes("eye radiance")
+  ) {
+    return "crystal-river";
+  }
+  if (normalized.includes("spring hill")) return "spring-hill";
+  if (normalized.includes("hollywood")) return "hollywood";
+  if (normalized.includes("sweetwater")) return "sweetwater";
+
+  for (const key of OFFICE_KEYS) {
+    const displayName = normalizeFacilityName(getOfficeConfig(key).displayName);
+    if (displayName && normalized.includes(displayName)) return key;
+  }
+
+  return null;
+}
+
+function normalizeFacilityName(value: string | undefined): string {
+  return (
+    value
+      ?.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim() ?? ""
+  );
+}
+
+const OFFICE_KEYS: OfficeKey[] = [
+  "spring-hill",
+  "crystal-river",
+  "hollywood",
+  "sweetwater",
+  "dev",
+];
 
 function handleRescheduleBookingFailure(
   state: CallState,

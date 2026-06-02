@@ -1707,6 +1707,88 @@ describe("direct session state cleanup", () => {
     ]);
   });
 
+  it("cancels the old appointment through its original office after routine reschedule routing", async () => {
+    const state = createState();
+    markSchedulingTriaged(state, "routine_od");
+    state.officeKey = "spring-hill";
+    state.runtime.officePhoneOverrides = {
+      "crystal-river": "+13523202007",
+      "spring-hill": "+17275919997",
+    };
+    state.patient.appointments = [
+      {
+        id: 123,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Licht",
+        type: "Crystal River New Patient",
+        facility: "Crystal River",
+        confirmed: false,
+      },
+    ];
+    state.scheduling.availabilitySlots = [
+      {
+        slotId: "A",
+        spoken: "2026-06-03 10:00 AM with Doctor Smith",
+        provider: "Doctor Smith",
+        date: "2026-06-03",
+        time: "10:00 AM",
+        datetime: "2026-06-03T10:00:00",
+        routing: "optical_only",
+      },
+    ];
+    storeAvailabilitySlotPrivateData(state, "A", "private-token");
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const path = String(url);
+      if (path.includes("/api/appointment/book")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "booked",
+            appointmentId: 456,
+            providerName: "Doctor Smith",
+            locationName: "Spring Hill",
+            appointmentTypeName: "Routine Vision",
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          status: "cancelled",
+          appointmentId: 123,
+          message: "Appointment cancelled successfully",
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reschedule_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentId: 123,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Rescheduled the appointment to June 3 at 10:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+    );
+    expect(
+      JSON.parse(fetchMock.mock.calls[0][1].body as string),
+    ).not.toHaveProperty("office");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+      appointmentId: 123,
+      patientId: "patient-1",
+      office: "+13523202007",
+    });
+  });
+
   it("does not cancel the old appointment when reschedule booking fails", async () => {
     const state = createState();
     markSchedulingTriaged(state);
