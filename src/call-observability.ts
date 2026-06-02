@@ -228,6 +228,27 @@ export function classifyToolOutput(
         return "appointment_cancelled";
       }
       return "appointment_not_cancelled";
+    case "reschedule_appt":
+      if (
+        /\bdid not cancel the existing appointment\b/.test(outputText) ||
+        /\bnot booked\b/.test(outputText) ||
+        /\bno longer available\b/.test(outputText) ||
+        /\bcheck availability again\b/.test(outputText) ||
+        /\bverify the patient\b/.test(outputText) ||
+        /\bload appointments\b/.test(outputText) ||
+        status === "not_found" ||
+        outcome === "not_found" ||
+        outcome === "error"
+      ) {
+        return "appointment_not_rescheduled";
+      }
+      if (/\bcould not cancel the old appointment\b/.test(outputText)) {
+        return "appointment_reschedule_partial";
+      }
+      if (/\brescheduled the appointment\b/.test(outputText)) {
+        return "appointment_rescheduled";
+      }
+      return "appointment_not_rescheduled";
     case "confirm_appt":
       if (
         status === "no_appointments" ||
@@ -293,6 +314,8 @@ function toolExecutionStatus(
     outputClass === "middleware_error" ||
     outputClass === "tool_error" ||
     outputClass === "appointment_not_cancelled" ||
+    outputClass === "appointment_not_rescheduled" ||
+    outputClass === "appointment_reschedule_partial" ||
     outputClass === "transfer_failed" ||
     outputClass === "transfer_not_started"
   ) {

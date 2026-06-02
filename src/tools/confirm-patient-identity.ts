@@ -69,6 +69,10 @@ export const confirm_patient_identity = llm.tool({
       applyResolvedPatientToState(state, result);
       return verifiedPatientReply(result);
     }
+    if (result.status === "not_found") {
+      const preCallClarification = preCallNameMismatchReply(state, identity);
+      if (preCallClarification) return preCallClarification;
+    }
     return patientLookupReply(result);
   },
 });
@@ -109,11 +113,23 @@ function confirmSinglePreCallMatch(
     );
   }
 
-  if (lastNameAndDobMatchCandidate(candidate, identity)) {
-    return "I found a record with that last name and date of birth, but the first name does not match what I heard. Could you spell the patient's first name?";
-  }
-
   return null;
+}
+
+function preCallNameMismatchReply(
+  state: CallState,
+  identity: FullIdentityArgs,
+): string | null {
+  const preCall = state.preCall;
+  if (preCall?.status !== "single_match_pending_confirmation") return null;
+
+  const candidate =
+    candidateByRef(preCall, preCall.selectedCandidateRef) ??
+    candidateByRef(preCall, CALLER_CANDIDATE_REF);
+  if (!candidate?.patientId) return null;
+
+  if (!lastNameAndDobMatchCandidate(candidate, identity)) return null;
+  return "I found a record with that last name and date of birth, but the first name does not match what I heard. Could you spell the patient's first name?";
 }
 
 function confirmMultiplePreCallMatch(

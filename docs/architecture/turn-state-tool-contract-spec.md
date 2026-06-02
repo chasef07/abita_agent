@@ -17,7 +17,7 @@ Business tools stay normal tools.
 `record_turn_context` is a confidence-gated workflow selector, not a planner and
 not a business action. It does not replace `confirm_patient_identity`,
 `check_insurance`, `get_availability`, `book_appt`, `cancel_appt`,
-`lookup_knowledge`, or `transfer_call`.
+`reschedule_appt`, `lookup_knowledge`, or `transfer_call`.
 
 If the intent is unclear, the model should ask clarifying questions instead of
 calling this tool.
@@ -193,9 +193,9 @@ Example `appointment_change` guide:
 current: appointment_change
 - Typical path: verify or confirm the patient, identify the exact existing
   appointment, then handle confirmation, cancellation, or rescheduling.
-- For reschedules, book the new appointment before cancelling the old one. For
-  cancellations, call cancel_appt only after the caller confirms the exact
-  loaded appointment.
+- For reschedules, use reschedule_appt after the caller confirms the old
+  appointment and new slot. For cancellations, call cancel_appt only after the
+  caller confirms the exact loaded appointment.
 ```
 
 ## Backend State

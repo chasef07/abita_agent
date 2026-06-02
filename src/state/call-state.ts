@@ -11,6 +11,7 @@ export interface CallerAppointment {
   time: string;
   provider: string;
   type: string;
+  appointmentTypeId?: number;
   facility: string;
   confirmed: boolean;
 }
@@ -176,7 +177,7 @@ const WORKFLOW_CONTEXT_GUIDES: Record<
     name: "appointment_change",
     guidance: [
       "Typical path: verify or confirm the patient, identify the exact existing appointment, then handle confirmation, cancellation, or rescheduling.",
-      "For reschedules, book the new appointment before cancelling the old one. For cancellations, call cancel_appt only after the caller confirms the exact loaded appointment.",
+      "For reschedules, use reschedule_appt after the caller confirms the old appointment and new slot. For cancellations, call cancel_appt only after the caller confirms the exact loaded appointment.",
     ],
   },
   general_question: {
@@ -416,12 +417,22 @@ export function publicCallerAppointments(
   appointments: readonly StoredCallerAppointment[] | null | undefined,
 ): CallerAppointment[] {
   return (appointments ?? []).map(
-    ({ id, date, time, provider, type, facility, confirmed }) => ({
+    ({
       id,
       date,
       time,
       provider,
       type,
+      appointmentTypeId,
+      facility,
+      confirmed,
+    }) => ({
+      id,
+      date,
+      time,
+      provider,
+      type,
+      ...(appointmentTypeId !== undefined ? { appointmentTypeId } : {}),
       facility,
       confirmed,
     }),

@@ -25,6 +25,7 @@ import {
   confirm_patient_identity,
   get_availability,
   record_turn_context,
+  reschedule_appt,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
@@ -1270,7 +1271,7 @@ describe("direct session state cleanup", () => {
     expect(state.scheduling.routing).toBe("all_three");
   });
 
-  it("asks for first-name spelling when a pre-call single match has matching last name and DOB", async () => {
+  it("asks for first-name spelling after lookup fails for a pre-call single match with matching last name and DOB", async () => {
     const state = createState();
     state.patient = {
       ...state.patient,
@@ -1308,7 +1309,13 @@ describe("direct session state cleanup", () => {
       selectedCandidateRef: CALLER_CANDIDATE_REF,
       identityPromotion: "none",
     };
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "not_found",
+        message: "No patient found matching that first name.",
+      }),
+    }));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await confirm_patient_identity.execute(
@@ -1323,9 +1330,152 @@ describe("direct session state cleanup", () => {
     expect(result).toBe(
       "I found a record with that last name and date of birth, but the first name does not match what I heard. Could you spell the patient's first name?",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      firstName: "Lisa",
+      lastName: "Arshed",
+      dob: "10/03/2020",
+    });
     expect(state.preCall.status).toBe("single_match_pending_confirmation");
     expect(state.patient.identityConfirmed).toBe(false);
+  });
+
+  it("preserves backend lookup errors instead of using the pre-call spelling fallback", async () => {
+    const state = createState();
+    state.patient = {
+      ...state.patient,
+      status: "unknown",
+      identityConfirmed: false,
+      patientId: null,
+      name: null,
+      dob: null,
+      phone: null,
+      insurance: undefined,
+      appointments: [],
+      appointmentsStatus: null,
+    };
+    state.preCall = {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "ESA",
+          lastName: "ARSHED",
+          dob: "10/03/2020",
+          patientId: "patient-esa",
+          relationshipToCaller: "self",
+          appointments: [],
+          appointmentsStatus: "none",
+          insuranceCarrier: "Florida Blue Shield",
+          routing: "bach_only",
+          allowedProviders: ["Dr. Bach"],
+          routingAmbiguous: false,
+          preauthRequired: false,
+        },
+      ],
+      selectedCandidateRef: CALLER_CANDIDATE_REF,
+      identityPromotion: "none",
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "error",
+        message: "Patient lookup failed. Try again.",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await confirm_patient_identity.execute(
+      {
+        firstName: "Lisa",
+        lastName: "Arshed",
+        dob: "10/03/2020",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe("Patient lookup failed. Try again.");
+    expect(state.preCall.status).toBe("single_match_pending_confirmation");
+    expect(state.patient.identityConfirmed).toBe(false);
+  });
+
+  it("verifies a backend patient before spelling fallback when a pre-call single match shares last name and DOB", async () => {
+    const state = createState();
+    state.patient = {
+      ...state.patient,
+      status: "unknown",
+      identityConfirmed: false,
+      patientId: null,
+      name: null,
+      dob: null,
+      phone: null,
+      insurance: undefined,
+      appointments: [],
+      appointmentsStatus: null,
+    };
+    state.preCall = {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "ESA",
+          lastName: "ARSHED",
+          dob: "10/03/2020",
+          patientId: "patient-esa",
+          relationshipToCaller: "self",
+          appointments: [],
+          appointmentsStatus: "none",
+          insuranceCarrier: "Florida Blue Shield",
+          routing: "bach_only",
+          allowedProviders: ["Dr. Bach"],
+          routingAmbiguous: false,
+          preauthRequired: false,
+        },
+      ],
+      selectedCandidateRef: CALLER_CANDIDATE_REF,
+      identityPromotion: "none",
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "verified",
+        patientId: "patient-ella",
+        name: "ELLA ARSHED",
+        dob: "10/03/2020",
+        phone: "+17275551212",
+        insuranceCarrier: "Aetna",
+        routing: "all_three",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        preauthRequired: false,
+        appointmentsStatus: "none",
+        appointments: [],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await confirm_patient_identity.execute(
+      {
+        firstName: "Ella",
+        lastName: "Arshed",
+        dob: "10/03/2020",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "Verified existing patient ELLA ARSHED. Insurance on file: Aetna. No upcoming appointments are loaded.",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      firstName: "Ella",
+      lastName: "Arshed",
+      dob: "10/03/2020",
+    });
+    expect(state.patient.identityConfirmed).toBe(true);
+    expect(state.patient.patientId).toBe("patient-ella");
   });
 
   it("confirms a unique multiple-match pre-call candidate from full identity", async () => {
@@ -1524,6 +1674,60 @@ describe("direct session state cleanup", () => {
       currentCarrier: "Blue Cross Blue Shield",
     });
     expect(state.scheduling.coverageType).toBe("medical");
+    expect(state.turnContext.last).toBeUndefined();
+  });
+
+  it("passes the checked canonical insurance plan to new patient creation", async () => {
+    const state = createState();
+    state.patient.patientId = null;
+    state.patient.name = null;
+    state.patient.identityConfirmed = false;
+    state.patient.insurance = undefined;
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "created",
+        patientId: "patient-new",
+        name: "Jane Doe",
+        phone: "+17275551212",
+        insuranceCarrier: "Florida Blue",
+        routing: "all_three",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await check_insurance.execute(
+      {
+        plan: "I have Blue Cross",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        insurance: "Blue Cross",
+        subscriberName: "Jane Doe",
+        subscriberNum: "ABC123",
+        inboundPhoneConfirmed: true,
+        readBack: true,
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-2" } as never,
+    );
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      insurance: "Florida Blue",
+      subscriberNum: "ABC123",
+    });
     expect(state.turnContext.last).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
@@ -1941,6 +2145,412 @@ describe("direct session state cleanup", () => {
       ),
     ).rejects.toThrow(
       "No loaded appointment matches that appointment ID. Load appointments again and confirm the exact appointment before cancelling.",
+    );
+  });
+
+  it("reschedules by booking the new slot before cancelling the old appointment", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    state.officeKey = "crystal-river";
+    state.runtime.officePhoneOverrides = {
+      "crystal-river": "+13523202007",
+    };
+    state.patient.appointments = [
+      {
+        id: 123,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Licht",
+        type: "Crystal River New Patient",
+        facility: "Crystal River",
+        confirmed: false,
+      },
+    ];
+    storeAvailabilitySlotPrivateData(state, "A", "private-token");
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const path = String(url);
+      if (path.includes("/api/appointment/book")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "booked",
+            appointmentId: 456,
+            providerName: "Doctor Smith",
+            locationName: "Crystal River",
+            appointmentTypeName: "Crystal River New Patient",
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          status: "cancelled",
+          appointmentId: 123,
+          message: "Appointment cancelled successfully",
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reschedule_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentId: 123,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+    );
+    expect(
+      fetchMock.mock.calls.map((call) =>
+        String(call[0]).includes("/api/appointment/book") ? "book" : "cancel",
+      ),
+    ).toEqual(["book", "cancel"]);
+    const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(bookingBody).toMatchObject({
+      bookingToken: "private-token",
+      patientId: "patient-1",
+      appointmentReason: "move my appointment",
+      referringDoctor: "none",
+      patientStatus: "new",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+      appointmentId: 123,
+      patientId: "patient-1",
+      office: "+13523202007",
+    });
+    expect(state.patient.appointments).toEqual([
+      {
+        id: 456,
+        date: "2026-06-01",
+        time: "9:00 AM",
+        provider: "Doctor Smith",
+        type: "Crystal River New Patient",
+        facility: "Crystal River",
+        confirmed: true,
+      },
+    ]);
+  });
+
+  it("cancels the old appointment through its original office after routine reschedule routing", async () => {
+    const state = createState();
+    markSchedulingTriaged(state, "routine_od");
+    state.officeKey = "spring-hill";
+    state.runtime.officePhoneOverrides = {
+      "crystal-river": "+13523202007",
+      "spring-hill": "+17275919997",
+    };
+    state.patient.appointments = [
+      {
+        id: 123,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Licht",
+        type: "Crystal River New Patient",
+        facility: "Crystal River",
+        confirmed: false,
+      },
+    ];
+    state.scheduling.availabilitySlots = [
+      {
+        slotId: "A",
+        spoken: "2026-06-03 10:00 AM with Doctor Smith",
+        provider: "Doctor Smith",
+        date: "2026-06-03",
+        time: "10:00 AM",
+        datetime: "2026-06-03T10:00:00",
+        routing: "optical_only",
+      },
+    ];
+    storeAvailabilitySlotPrivateData(state, "A", "private-token");
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const path = String(url);
+      if (path.includes("/api/appointment/book")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "booked",
+            appointmentId: 456,
+            providerName: "Doctor Smith",
+            locationName: "Spring Hill",
+            appointmentTypeName: "Routine Vision",
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          status: "cancelled",
+          appointmentId: 123,
+          message: "Appointment cancelled successfully",
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reschedule_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentId: 123,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Rescheduled the appointment to June 3 at 10:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+    );
+    expect(
+      JSON.parse(fetchMock.mock.calls[0][1].body as string),
+    ).not.toHaveProperty("office");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+      appointmentId: 123,
+      patientId: "patient-1",
+      office: "+13523202007",
+    });
+  });
+
+  it("does not cancel the old appointment when reschedule booking fails", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    state.patient.appointments = [
+      {
+        id: 123,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Licht",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
+    ];
+    storeAvailabilitySlotPrivateData(state, "A", "private-token");
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "error",
+        outcome: "slot_unavailable",
+        message: "This time slot is no longer available.",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reschedule_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentId: 123,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "That time is no longer available. Check availability again before booking. I did not cancel the existing appointment.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(
+      state.patient.appointments.map((appointment) => appointment.id),
+    ).toEqual([123]);
+  });
+
+  it("does not book when the old appointment selection is ambiguous", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    state.patient.appointments = [
+      {
+        id: 111,
+        date: "Tuesday, June 2, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Bach",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
+      {
+        id: 222,
+        date: "Tuesday, June 2, 2026",
+        time: "2:00 PM",
+        provider: "Dr. Licht",
+        type: "Routine Vision",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
+    ];
+    storeAvailabilitySlotPrivateData(state, "A", "private-token");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reschedule_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentDate: "June 2",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "I found more than one matching appointment. Loaded appointments: Tuesday, June 2, 2026 at 9:00 AM with Dr. Bach; Tuesday, June 2, 2026 at 2:00 PM with Dr. Licht.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps both appointments when reschedule cancellation fails after booking", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    state.patient.appointments = [
+      {
+        id: 123,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Licht",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
+    ];
+    storeAvailabilitySlotPrivateData(state, "A", "private-token");
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const path = String(url);
+      if (path.includes("/api/appointment/book")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "booked",
+            appointmentId: 456,
+            providerName: "Doctor Smith",
+            locationName: "Spring Hill",
+            appointmentTypeName: "Medical",
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          status: "error",
+          message: "Unable to verify appointment before cancellation.",
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reschedule_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentId: 123,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Booked the new appointment for June 1 at 9:00 AM with Doctor Smith, but I could not cancel the old appointment. Unable to verify appointment before cancellation. I need to transfer you so the office can finish the cancellation.",
+    );
+    expect(
+      state.patient.appointments.map((appointment) => appointment.id),
+    ).toEqual([123, 456]);
+  });
+
+  it("keeps both appointments when reschedule cancellation request throws after booking", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    state.patient.appointments = [
+      {
+        id: 123,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Licht",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
+    ];
+    storeAvailabilitySlotPrivateData(state, "A", "private-token");
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const path = String(url);
+      if (path.includes("/api/appointment/book")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "booked",
+            appointmentId: 456,
+            providerName: "Doctor Smith",
+            locationName: "Spring Hill",
+            appointmentTypeName: "Medical",
+          }),
+        };
+      }
+      return {
+        ok: false,
+        text: async () => "cancel failed",
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reschedule_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentId: 123,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Booked the new appointment for June 1 at 9:00 AM with Doctor Smith, but I could not cancel the old appointment. The old appointment was not cancelled. I need to transfer you so the office can finish the cancellation.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(
+      state.patient.appointments.map((appointment) => appointment.id),
+    ).toEqual([123, 456]);
+  });
+
+  it("requires scheduling context before rescheduling", async () => {
+    const state = createState();
+    clearSchedulingContext(state);
+
+    await expect(
+      reschedule_appt.execute(
+        {
+          slotId: "A",
+          appointmentReason: "move my appointment",
+          referringDoctor: "none",
+          appointmentId: 123,
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od before rescheduling.",
     );
   });
 
