@@ -18,7 +18,7 @@ export const update_insurance = llm.tool({
     "Update insurance for a verified existing patient. " +
     "Use when the verified patient explicitly says they want to update the insurance on file. " +
     "Do not call for new patients or registration flows. " +
-    "Call this only after check_insurance accepts medical coverage for the new plan.",
+    "Call this only after check_insurance accepts the new plan for the correct medical or routine-vision coverage type.",
   parameters: z.object({
     subscriberNum: z
       .string()
@@ -36,14 +36,21 @@ export const update_insurance = llm.tool({
     }
 
     const checkedInsurance = state.checkedInsurance;
-    const insurance = checkedInsurance.canonicalPlan ?? checkedInsurance.plan;
-    if (!insurance || checkedInsurance.coverageType !== "medical") {
+    const insurance =
+      checkedInsurance.plan?.trim() ||
+      checkedInsurance.currentCarrier?.trim() ||
+      checkedInsurance.canonicalPlan?.trim();
+    const canonicalInsurance = checkedInsurance.canonicalPlan?.trim() || null;
+    const coverageType = checkedInsurance.coverageType;
+    if (!insurance || !coverageType) {
       throw new llm.ToolError(
-        "Run check_insurance for accepted medical coverage before updating insurance.",
+        "Run check_insurance for accepted coverage before updating insurance.",
       );
     }
 
-    const selfPay = normalizeInsuranceText(insurance) === "self pay";
+    const selfPay =
+      normalizeInsuranceText(insurance) === "self pay" ||
+      normalizeInsuranceText(canonicalInsurance ?? "") === "self pay";
     const memberId = selfPay ? "self pay" : subscriberNum?.trim();
     if (!memberId) {
       throw new llm.ToolError(
@@ -64,7 +71,7 @@ export const update_insurance = llm.tool({
       respPartyId: backendRefs.respPartyId ?? "",
       oldInsurance,
       insurance,
-      coverageType: "medical",
+      coverageType,
       subscriberNum: memberId,
     };
     const result = (await callApi(
@@ -74,7 +81,7 @@ export const update_insurance = llm.tool({
     )) as UpdateInsuranceResult;
 
     if (result?.status !== "updated") {
-      return result?.message ?? "Insurance was not updated.";
+      throw new llm.ToolError(result?.message ?? "Insurance was not updated.");
     }
 
     const newInsurance = result.newInsurance?.trim() || insurance;
@@ -84,12 +91,12 @@ export const update_insurance = llm.tool({
     });
     state.patient.insurance = {
       plan: newInsurance,
-      coverageType: "medical",
-      canonicalPlan: newInsurance,
+      coverageType,
+      canonicalPlan: canonicalInsurance ?? newInsurance,
       currentCarrier: newInsurance,
     };
     state.checkedInsurance = state.patient.insurance;
-    state.scheduling.coverageType = "medical";
+    state.scheduling.coverageType = coverageType;
     state.scheduling.routing = normalizeSchedulingRouting(result.routing);
     state.scheduling.allowedProviders = result.allowedProviders ?? [];
     state.scheduling.routingAmbiguous = result.routingAmbiguous ?? false;

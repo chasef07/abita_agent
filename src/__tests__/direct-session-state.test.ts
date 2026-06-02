@@ -1818,7 +1818,7 @@ describe("direct session state cleanup", () => {
         status: "updated",
         patientId: "patient-1",
         oldInsurance: "Old Plan",
-        newInsurance: "Aetna Commercial",
+        newInsurance: "Aetna",
         routing: "bach_only",
         allowedProviders: ["Dr. Bach"],
         routingAmbiguous: false,
@@ -1835,14 +1835,14 @@ describe("direct session state cleanup", () => {
     );
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(result).toBe("Updated insurance to Aetna Commercial.");
+    expect(result).toBe("Updated insurance to Aetna.");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       patientId: "patient-1",
       dob: "01/01/1980",
       insPlanId: "ins-old",
       respPartyId: "resp-1",
       oldInsurance: "Old Plan",
-      insurance: "Aetna Commercial",
+      insurance: "Aetna",
       coverageType: "medical",
       subscriberNum: "ABC123",
     });
@@ -1850,10 +1850,10 @@ describe("direct session state cleanup", () => {
       "subscriberName",
     );
     expect(state.patient.insurance).toEqual({
-      plan: "Aetna Commercial",
+      plan: "Aetna",
       canonicalPlan: "Aetna Commercial",
       coverageType: "medical",
-      currentCarrier: "Aetna Commercial",
+      currentCarrier: "Aetna",
     });
     expect(state.checkedInsurance).toEqual(state.patient.insurance);
     expect(state.private.patientBackend).toEqual({
@@ -1865,6 +1865,107 @@ describe("direct session state cleanup", () => {
     expect(state.scheduling.allowedProviders).toEqual(["Dr. Bach"]);
     expect(state.scheduling.preauthRequired).toBe(true);
     expect(state.scheduling.availabilitySlots).toEqual([]);
+  });
+
+  it("updates routine vision insurance with the checked caller plan", async () => {
+    const state = createState();
+    state.officeKey = "hollywood";
+    state.patient.insurance = undefined;
+    state.checkedInsurance = {
+      plan: "Sunshine Health",
+      canonicalPlan: "Envolve",
+      coverageType: "routine_vision",
+      currentCarrier: "Sunshine",
+    };
+    state.scheduling.coverageType = "routine_vision";
+    state.private.patientBackend = {
+      insPlanId: null,
+      respPartyId: "resp-1",
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "updated",
+        patientId: "patient-1",
+        oldInsurance: "",
+        newInsurance: "Sunshine Health",
+        routing: "optical_only",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        preauthRequired: false,
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await update_insurance.execute(
+      {
+        subscriberNum: "946-327-2674",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe("Updated insurance to Sunshine Health.");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      patientId: "patient-1",
+      dob: "01/01/1980",
+      insPlanId: "",
+      respPartyId: "resp-1",
+      oldInsurance: "",
+      insurance: "Sunshine Health",
+      coverageType: "routine_vision",
+      subscriberNum: "946-327-2674",
+    });
+    expect(state.patient.insurance).toEqual({
+      plan: "Sunshine Health",
+      canonicalPlan: "Envolve",
+      coverageType: "routine_vision",
+      currentCarrier: "Sunshine Health",
+    });
+    expect(state.checkedInsurance).toEqual(state.patient.insurance);
+    expect(state.private.patientBackend).toEqual({
+      insPlanId: null,
+      respPartyId: "resp-1",
+    });
+    expect(state.scheduling.coverageType).toBe("routine_vision");
+    expect(state.scheduling.routing).toBe("optical_only");
+    expect(state.scheduling.allowedProviders).toEqual([]);
+    expect(state.scheduling.preauthRequired).toBe(false);
+    expect(state.scheduling.availabilitySlots).toEqual([]);
+  });
+
+  it("treats middleware update-insurance failures as tool errors", async () => {
+    const state = createState();
+    state.patient.insurance = undefined;
+    state.checkedInsurance = {
+      plan: "Sunshine Health",
+      canonicalPlan: "Envolve",
+      coverageType: "routine_vision",
+      currentCarrier: "Sunshine",
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "error",
+        message:
+          'Insurance not recognized: "Sunshine Health". Please use an insurance name from the accepted list.',
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      update_insurance.execute(
+        {
+          subscriberNum: "946-327-2674",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      'Insurance not recognized: "Sunshine Health". Please use an insurance name from the accepted list.',
+    );
+    expect(state.patient.insurance).toBeUndefined();
   });
 
   it("uses self pay without collecting a member ID", async () => {

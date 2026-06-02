@@ -747,7 +747,7 @@ describe("model-facing tool definitions", () => {
     );
   });
 
-  it("keeps update_insurance scoped to verified-patient medical updates", () => {
+  it("keeps update_insurance scoped to verified-patient checked coverage updates", () => {
     expect(update_insurance.description).toContain("verified existing patient");
     expect(update_insurance.description).toContain(
       "explicitly says they want to update the insurance on file",
@@ -756,7 +756,7 @@ describe("model-facing tool definitions", () => {
       "Do not call for new patients or registration flows",
     );
     expect(update_insurance.description).toContain(
-      "check_insurance accepts medical coverage",
+      "correct medical or routine-vision coverage type",
     );
 
     const parameters = update_insurance.parameters as {
