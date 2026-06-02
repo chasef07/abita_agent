@@ -30,13 +30,27 @@ describe("official AssemblyAI plugin", () => {
     expect(getAssemblyAISttOptions().maxTurnSilence).toBe(2000);
 
     stt.updateOptions(getAssemblyAISttProfileOptions("insurance"));
+    stt.updateOptions(getAssemblyAISttProfileOptions("memberId"));
+    stt.updateOptions(getAssemblyAISttProfileOptions("intake"));
+    stt.updateOptions(getAssemblyAISttProfileOptions("email"));
     stt.updateOptions(getAssemblyAISttProfileOptions("default"));
   });
 
   it("keeps startup keyterms conservative and AssemblyAI-compatible", () => {
-    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).toContain("Aetna Better Health");
-    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).toContain("Humana Medicaid");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).toContain("Abita Eye Group");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).toContain("Spring Hill");
     expect(ASSEMBLYAI_DEFAULT_KEYTERMS).toContain("Dr. Licht");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).toContain("iCare");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).toContain("Ambetter");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).not.toContain("Aetna Better Health");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).not.toContain("Blue Cross Blue Shield");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).not.toContain("Cigna");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).not.toContain("Florida Blue");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).not.toContain("Humana Medicaid");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).not.toContain("Medicaid");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).not.toContain("Medicare");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).not.toContain("United Healthcare");
+    expect(ASSEMBLYAI_DEFAULT_KEYTERMS).not.toContain("Wellcare");
     expect(ASSEMBLYAI_DEFAULT_KEYTERMS).not.toContain("CHAMPVA");
     expect(ASSEMBLYAI_DEFAULT_KEYTERMS).not.toContain(
       "Children's Medical Services",
@@ -57,24 +71,68 @@ describe("official AssemblyAI plugin", () => {
     ).toContain("Aetna Better Health of Florida");
     expect(
       getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).toContain("AvMed");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).toContain("Sunshine Health");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).toContain("Staywell Medicare");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).toContain("Miami Children's Health Plan");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).toContain("Florida BlueSelect");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).toContain("Cigna Local Plus");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
     ).toContain("iCare");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).not.toContain("Aetna");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).not.toContain("Cigna");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).not.toContain("Florida Blue");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).not.toContain("Humana");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).not.toContain("Medicaid");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).not.toContain("Medicare");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).not.toContain("United Healthcare");
+    expect(
+      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+    ).not.toContain("Wellcare");
     expect(
       getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
     ).not.toContain("CHAMPVA");
     expect(
       getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
     ).not.toContain("Children's Medical Services");
+    expect(getAssemblyAISttProfileOptions("memberId").keytermsPrompt).toEqual(
+      [],
+    );
     expect(getAssemblyAISttProfileOptions("memberId").maxTurnSilence).toBe(
       3000,
     );
+    expect(getAssemblyAISttProfileOptions("intake").keytermsPrompt).toEqual([]);
     expect(
       getAssemblyAISttProfileOptions("intake").maxTurnSilence,
     ).toBeGreaterThan(
       getAssemblyAISttProfileOptions("default").maxTurnSilence ?? 0,
     );
-    expect(getAssemblyAISttProfileOptions("email").keytermsPrompt).toContain(
-      "icloud.com",
-    );
+    expect(getAssemblyAISttProfileOptions("email").keytermsPrompt).toEqual([]);
     expect(getAssemblyAISttProfileOptions("default").languageDetection).toBe(
       undefined,
     );
