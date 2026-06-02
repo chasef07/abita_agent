@@ -15,11 +15,11 @@
     "format:check": "prettier --check . --ignore-unknown"
   },
   "dependencies": {
-    "@livekit/agents": "^1.4.4",
-    "@livekit/agents-plugin-assemblyai": "1.4.4",
-    "@livekit/agents-plugin-baseten": "^1.4.4",
-    "@livekit/agents-plugin-cartesia": "1.4.4",
-    "@livekit/agents-plugin-silero": "^1.4.4",
+    "@livekit/agents": "^1.4.5",
+    "@livekit/agents-plugin-assemblyai": "1.4.5",
+    "@livekit/agents-plugin-baseten": "^1.4.5",
+    "@livekit/agents-plugin-cartesia": "1.4.5",
+    "@livekit/agents-plugin-silero": "^1.4.5",
     "@livekit/rtc-node": "^0.13.29",
     "dotenv": "^17.4.2",
     "livekit-server-sdk": "^2.15.4",
@@ -32,9 +32,9 @@
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.6.0",
     "prettier": "^3.8.3",
-    "tsx": "^4.22.3",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.60.0",
-    "vitest": "^4.1.7"
+    "typescript-eslint": "^8.60.1",
+    "vitest": "^4.1.8"
   }
 }
