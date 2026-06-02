@@ -492,6 +492,151 @@ describe("direct session state cleanup", () => {
     expect(state.scheduling.availabilitySlots).toEqual([]);
   });
 
+  it("does not book another slot after a successful booking", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    storeAvailabilitySlotPrivateData(state, "A", "private-token");
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "booked",
+        appointmentId: 123,
+        providerName: "Doctor Smith",
+        locationName: "Spring Hill",
+        appointmentTypeName: "Medical",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await book_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "blurry vision",
+        referringDoctor: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    state.scheduling.availabilitySlots.push({
+      slotId: "B",
+      spoken: "2026-06-01 2:00 PM with Doctor Smith",
+      provider: "Doctor Smith",
+      date: "2026-06-01",
+      time: "2:00 PM",
+      datetime: "2026-06-01T14:00:00",
+      routing: "all_three",
+    });
+    storeAvailabilitySlotPrivateData(state, "B", "private-token-b");
+
+    const result = await book_appt.execute(
+      {
+        slotId: "B",
+        appointmentReason: "blurry vision",
+        referringDoctor: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "The appointment is already booked. Tell the caller the confirmed appointment details instead of booking again.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(state.scheduling.availabilitySlots).toEqual([]);
+  });
+
+  it("allows another booking after switching to a different active patient", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    storeAvailabilitySlotPrivateData(state, "A", "private-token");
+    let nextAppointmentId = 123;
+    const fetchMock = vi.fn(async () => {
+      const appointmentId = nextAppointmentId;
+      nextAppointmentId = 456;
+      return {
+        ok: true,
+        json: async () => ({
+          status: "booked",
+          appointmentId,
+          providerName: "Doctor Smith",
+          locationName: "Spring Hill",
+          appointmentTypeName: "Medical",
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await book_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "blurry vision",
+        referringDoctor: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    state.patient = {
+      ...state.patient,
+      status: "verified",
+      identityConfirmed: true,
+      patientId: "patient-2",
+      name: "Esa Arshed",
+      dob: "10/03/2020",
+      appointments: [],
+      appointmentsStatus: null,
+    };
+    state.scheduling.availabilitySlots.push({
+      slotId: "B",
+      spoken: "2026-06-01 2:00 PM with Doctor Smith",
+      provider: "Doctor Smith",
+      date: "2026-06-01",
+      time: "2:00 PM",
+      datetime: "2026-06-01T14:00:00",
+      routing: "all_three",
+    });
+    storeAvailabilitySlotPrivateData(state, "B", "private-token-b");
+
+    const result = await book_appt.execute(
+      {
+        slotId: "B",
+        appointmentReason: "glasses",
+        referringDoctor: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+
+    expect(result).toBe("Booked June 1 at 2:00 PM with Doctor Smith.");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      bookingToken: "private-token-b",
+      patientId: "patient-2",
+      patientName: "Esa Arshed",
+      dob: "10/03/2020",
+    });
+    expect(state.patient.appointments).toEqual([
+      {
+        id: 456,
+        date: "2026-06-01",
+        time: "2:00 PM",
+        provider: "Doctor Smith",
+        type: "Medical",
+        facility: "Spring Hill",
+        confirmed: true,
+      },
+    ]);
+  });
+
   it("does not confirm booking when middleware omits the appointment ID", async () => {
     const state = createState();
     markSchedulingTriaged(state);
@@ -617,6 +762,7 @@ describe("direct session state cleanup", () => {
       "Created a patient chart for Jane Doe. Continue with scheduling.",
     );
     expect(state.patient.patientId).toBe("patient-new");
+    expect(state.patient.status).toBe("created");
     expect(state.turnContext.last).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
@@ -630,6 +776,131 @@ describe("direct session state cleanup", () => {
       insurance: "self pay",
       subscriberNum: "self pay",
     });
+  });
+
+  it("marks a created chart as new-patient state when middleware omits status", async () => {
+    const state = createState();
+    state.patient.patientId = null;
+    state.patient.name = null;
+    state.patient.identityConfirmed = false;
+    state.checkedInsurance = {
+      plan: "self pay",
+      canonicalPlan: "self pay",
+      coverageType: "medical",
+      currentCarrier: "self pay",
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        patientId: "patient-new",
+        name: "Jane Doe",
+        phone: "+17275551212",
+        insuranceCarrier: "self pay",
+        routing: "all_three",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        insurance: "self pay",
+        subscriberName: "Jane Doe",
+        subscriberNum: "self pay",
+        inboundPhoneConfirmed: true,
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(state.patient.status).toBe("created");
+  });
+
+  it("blocks new chart creation when a pending pre-call candidate matches last name and DOB", async () => {
+    const state = createState();
+    state.patient = {
+      ...state.patient,
+      status: "unknown",
+      identityConfirmed: false,
+      patientId: null,
+      name: null,
+      dob: null,
+      phone: null,
+      insurance: undefined,
+      appointments: [],
+      appointmentsStatus: null,
+    };
+    state.preCall = {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "ESA",
+          lastName: "ARSHED",
+          dob: "10/03/2020",
+          patientId: "patient-esa",
+          relationshipToCaller: "self",
+          appointments: [],
+          appointmentsStatus: "none",
+          insuranceCarrier: "Florida Blue Shield",
+          routing: "bach_only",
+          allowedProviders: ["Dr. Bach"],
+          routingAmbiguous: false,
+          preauthRequired: false,
+        },
+      ],
+      selectedCandidateRef: CALLER_CANDIDATE_REF,
+      identityPromotion: "none",
+    };
+    state.checkedInsurance = {
+      plan: "Florida Blue Shield",
+      canonicalPlan: "Florida Blue Shield",
+      coverageType: "routine_vision",
+      currentCarrier: "Florida Blue Shield",
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await add_patient.execute(
+      {
+        firstName: "Lisa",
+        lastName: "Arshed",
+        dob: "10/03/2020",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "male",
+        insurance: "Florida Blue Shield",
+        subscriberName: "Adam Arshed",
+        subscriberNum: "FWZ975W06612",
+        inboundPhoneConfirmed: true,
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "A patient record may already exist for that last name and date of birth from the caller phone lookup. Confirm the existing patient record before creating a new chart.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("requires checked scheduling coverage before creating a patient", async () => {
@@ -998,6 +1269,213 @@ describe("direct session state cleanup", () => {
     expect(state.patient.patientId).toBe("patient-1");
     expect(state.patient.insurance?.currentCarrier).toBe("Aetna");
     expect(state.scheduling.routing).toBe("all_three");
+  });
+
+  it("asks for first-name spelling after lookup fails for a pre-call single match with matching last name and DOB", async () => {
+    const state = createState();
+    state.patient = {
+      ...state.patient,
+      status: "unknown",
+      identityConfirmed: false,
+      patientId: null,
+      name: null,
+      dob: null,
+      phone: null,
+      insurance: undefined,
+      appointments: [],
+      appointmentsStatus: null,
+    };
+    state.preCall = {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "ESA",
+          lastName: "ARSHED",
+          dob: "10/03/2020",
+          patientId: "patient-esa",
+          relationshipToCaller: "self",
+          appointments: [],
+          appointmentsStatus: "none",
+          insuranceCarrier: "Florida Blue Shield",
+          routing: "bach_only",
+          allowedProviders: ["Dr. Bach"],
+          routingAmbiguous: false,
+          preauthRequired: false,
+        },
+      ],
+      selectedCandidateRef: CALLER_CANDIDATE_REF,
+      identityPromotion: "none",
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "not_found",
+        message: "No patient found matching that first name.",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await confirm_patient_identity.execute(
+      {
+        firstName: "Lisa",
+        lastName: "Arshed",
+        dob: "10/03/2020",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "I found a record with that last name and date of birth, but the first name does not match what I heard. Could you spell the patient's first name?",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      firstName: "Lisa",
+      lastName: "Arshed",
+      dob: "10/03/2020",
+    });
+    expect(state.preCall.status).toBe("single_match_pending_confirmation");
+    expect(state.patient.identityConfirmed).toBe(false);
+  });
+
+  it("preserves backend lookup errors instead of using the pre-call spelling fallback", async () => {
+    const state = createState();
+    state.patient = {
+      ...state.patient,
+      status: "unknown",
+      identityConfirmed: false,
+      patientId: null,
+      name: null,
+      dob: null,
+      phone: null,
+      insurance: undefined,
+      appointments: [],
+      appointmentsStatus: null,
+    };
+    state.preCall = {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "ESA",
+          lastName: "ARSHED",
+          dob: "10/03/2020",
+          patientId: "patient-esa",
+          relationshipToCaller: "self",
+          appointments: [],
+          appointmentsStatus: "none",
+          insuranceCarrier: "Florida Blue Shield",
+          routing: "bach_only",
+          allowedProviders: ["Dr. Bach"],
+          routingAmbiguous: false,
+          preauthRequired: false,
+        },
+      ],
+      selectedCandidateRef: CALLER_CANDIDATE_REF,
+      identityPromotion: "none",
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "error",
+        message: "Patient lookup failed. Try again.",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await confirm_patient_identity.execute(
+      {
+        firstName: "Lisa",
+        lastName: "Arshed",
+        dob: "10/03/2020",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe("Patient lookup failed. Try again.");
+    expect(state.preCall.status).toBe("single_match_pending_confirmation");
+    expect(state.patient.identityConfirmed).toBe(false);
+  });
+
+  it("verifies a backend patient before spelling fallback when a pre-call single match shares last name and DOB", async () => {
+    const state = createState();
+    state.patient = {
+      ...state.patient,
+      status: "unknown",
+      identityConfirmed: false,
+      patientId: null,
+      name: null,
+      dob: null,
+      phone: null,
+      insurance: undefined,
+      appointments: [],
+      appointmentsStatus: null,
+    };
+    state.preCall = {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "ESA",
+          lastName: "ARSHED",
+          dob: "10/03/2020",
+          patientId: "patient-esa",
+          relationshipToCaller: "self",
+          appointments: [],
+          appointmentsStatus: "none",
+          insuranceCarrier: "Florida Blue Shield",
+          routing: "bach_only",
+          allowedProviders: ["Dr. Bach"],
+          routingAmbiguous: false,
+          preauthRequired: false,
+        },
+      ],
+      selectedCandidateRef: CALLER_CANDIDATE_REF,
+      identityPromotion: "none",
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "verified",
+        patientId: "patient-ella",
+        name: "ELLA ARSHED",
+        dob: "10/03/2020",
+        phone: "+17275551212",
+        insuranceCarrier: "Aetna",
+        routing: "all_three",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        preauthRequired: false,
+        appointmentsStatus: "none",
+        appointments: [],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await confirm_patient_identity.execute(
+      {
+        firstName: "Ella",
+        lastName: "Arshed",
+        dob: "10/03/2020",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "Verified existing patient ELLA ARSHED. Insurance on file: Aetna. No upcoming appointments are loaded.",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      firstName: "Ella",
+      lastName: "Arshed",
+      dob: "10/03/2020",
+    });
+    expect(state.patient.identityConfirmed).toBe(true);
+    expect(state.patient.patientId).toBe("patient-ella");
   });
 
   it("confirms a unique multiple-match pre-call candidate from full identity", async () => {

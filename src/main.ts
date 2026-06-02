@@ -111,7 +111,7 @@ export default defineAgent({
         llm: llmWithFallback,
         tts,
         vad,
-        maxToolSteps: 10,
+        maxToolSteps: 4,
         turnHandling: voiceTurnHandlingOptions,
       });
 

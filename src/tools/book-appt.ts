@@ -4,6 +4,8 @@ import { callApi } from "../clients/advancedmd-client.js";
 import {
   activePatientId,
   clearAvailabilitySelection,
+  latestBookedAppointmentId,
+  type CallState,
 } from "../state/call-state.js";
 import { removeAvailabilitySlot } from "./availability-slots.js";
 import { recordBookedAppointmentInState } from "./appointment-state.js";
@@ -51,11 +53,17 @@ export const book_appt = llm.tool({
   }),
   execute: async ({ slotId, appointmentReason, referringDoctor }, { ctx }) => {
     const state = getState(ctx);
-    ensureSchedulingTurnContext(state, "booking");
-    ctx.speechHandle.allowInterruptions = false;
 
     restoreConfirmedPreCallCaller(state);
     const patientId = activePatientId(state);
+    if (patientId && hasCompletedBookingForActivePatient(state)) {
+      clearAvailabilitySelection(state);
+      return "The appointment is already booked. Tell the caller the confirmed appointment details instead of booking again.";
+    }
+
+    ensureSchedulingTurnContext(state, "booking");
+    ctx.speechHandle.allowInterruptions = false;
+
     if (!patientId) {
       throw new llm.ToolError("Verify or create the patient before booking.");
     }
@@ -100,3 +108,13 @@ export const book_appt = llm.tool({
     return bookingFailureMessage(result);
   },
 });
+
+function hasCompletedBookingForActivePatient(state: CallState): boolean {
+  const appointmentId = latestBookedAppointmentId(state);
+  return Boolean(
+    appointmentId !== null &&
+    state.patient.appointments.some(
+      (appointment) => appointment.id === appointmentId,
+    ),
+  );
+}
