@@ -1195,6 +1195,60 @@ describe("direct session state cleanup", () => {
       currentCarrier: "Blue Cross Blue Shield",
     });
     expect(state.scheduling.coverageType).toBe("medical");
+    expect(state.turnContext.last).toBeUndefined();
+  });
+
+  it("passes the checked canonical insurance plan to new patient creation", async () => {
+    const state = createState();
+    state.patient.patientId = null;
+    state.patient.name = null;
+    state.patient.identityConfirmed = false;
+    state.patient.insurance = undefined;
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "created",
+        patientId: "patient-new",
+        name: "Jane Doe",
+        phone: "+17275551212",
+        insuranceCarrier: "Florida Blue",
+        routing: "all_three",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await check_insurance.execute(
+      {
+        plan: "I have Blue Cross",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        insurance: "Blue Cross",
+        subscriberName: "Jane Doe",
+        subscriberNum: "ABC123",
+        inboundPhoneConfirmed: true,
+        readBack: true,
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-2" } as never,
+    );
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      insurance: "Florida Blue",
+      subscriberNum: "ABC123",
+    });
     expect(state.turnContext.last).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
