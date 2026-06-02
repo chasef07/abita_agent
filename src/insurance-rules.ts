@@ -259,13 +259,9 @@ function selectInsuranceCandidate(
   if (exactCandidates.length > 0)
     return bestInsuranceCandidate(exactCandidates);
 
-  const rejectedCandidates = candidates.filter(
-    (candidate) => candidate.rule.status === "not_accepted",
+  const rejectedCandidate = bestInsuranceCandidate(
+    candidates.filter((candidate) => candidate.rule.status === "not_accepted"),
   );
-  if (rejectedCandidates.length > 0) {
-    return bestInsuranceCandidate(rejectedCandidates);
-  }
-
   const acceptedCandidate = bestInsuranceCandidate(
     candidates.filter((candidate) => candidate.rule.status === "accepted"),
   );
@@ -274,6 +270,18 @@ function selectInsuranceCandidate(
       (candidate) => candidate.rule.status === "needs_clarification",
     ),
   );
+  const acceptedCandidateContainsRejectedAlias =
+    rejectedCandidate &&
+    acceptedCandidate &&
+    compareInsuranceCandidates(acceptedCandidate, rejectedCandidate) > 0 &&
+    containsNormalizedPhrase(
+      acceptedCandidate.normalizedTerm,
+      rejectedCandidate.normalizedTerm,
+    );
+
+  if (rejectedCandidate && !acceptedCandidateContainsRejectedAlias) {
+    return rejectedCandidate;
+  }
 
   if (
     acceptedCandidate &&

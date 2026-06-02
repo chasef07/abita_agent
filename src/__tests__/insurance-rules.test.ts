@@ -465,6 +465,15 @@ describe("insurance matcher", () => {
     const hollywoodHumana = matchInsurancePlanForOffice("hollywood", "Humana");
     expect(hollywoodHumana.status).toBe("accepted");
     expect(canonicalInsurancePlan(hollywoodHumana)).toBe("Humana PPO");
+
+    const hollywoodEyeCare = matchInsurancePlanForOffice(
+      "hollywood",
+      "I have Eye Care Health Solutions",
+    );
+    expect(hollywoodEyeCare.status).toBe("accepted");
+    expect(canonicalInsurancePlan(hollywoodEyeCare)).toBe(
+      "Eye Care Health Solutions",
+    );
   });
 
   it("uses the routine vision insurance map for Hollywood and Sweetwater", () => {
