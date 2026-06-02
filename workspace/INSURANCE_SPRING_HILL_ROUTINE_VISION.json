@@ -1,7 +1,159 @@
 {
+  "version": 2,
   "officeLabel": "Spring Hill Routine Vision",
-  "aliasRules": [
+  "coverageType": "routine_vision",
+  "plans": [
     {
+      "id": "accepted-vsp",
+      "status": "accepted",
+      "canonicalPlan": "VSP",
+      "displayName": "VSP",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-eyemed",
+      "status": "accepted",
+      "canonicalPlan": "EyeMed",
+      "displayName": "EyeMed",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-nva",
+      "status": "accepted",
+      "canonicalPlan": "NVA",
+      "displayName": "NVA",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-davis",
+      "status": "accepted",
+      "canonicalPlan": "Davis",
+      "displayName": "Davis",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-spectera",
+      "status": "accepted",
+      "canonicalPlan": "Spectera",
+      "displayName": "Spectera",
+      "aliases": [
+        "UnitedHealthcare"
+      ],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-solstice",
+      "status": "accepted",
+      "canonicalPlan": "Solstice",
+      "displayName": "Solstice",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-icare",
+      "status": "accepted",
+      "canonicalPlan": "iCare",
+      "displayName": "iCare",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-sunhealth",
+      "status": "accepted",
+      "canonicalPlan": "SunHealth",
+      "displayName": "SunHealth",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-envolve",
+      "status": "accepted",
+      "canonicalPlan": "Envolve",
+      "displayName": "Envolve",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-premier",
+      "status": "accepted",
+      "canonicalPlan": "Premier",
+      "displayName": "Premier",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-alivi",
+      "status": "accepted",
+      "canonicalPlan": "Alivi",
+      "displayName": "Alivi",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-guardian",
+      "status": "accepted",
+      "canonicalPlan": "Guardian",
+      "displayName": "Guardian",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-superior",
+      "status": "accepted",
+      "canonicalPlan": "Superior",
+      "displayName": "Superior",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-versant",
+      "status": "accepted",
+      "canonicalPlan": "Versant",
+      "displayName": "Versant",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-oscar",
+      "status": "accepted",
+      "canonicalPlan": "Oscar",
+      "displayName": "Oscar",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-self-pay",
+      "status": "accepted",
+      "canonicalPlan": "Self Pay",
+      "displayName": "Self Pay",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-eyemed-2",
+      "status": "accepted",
+      "canonicalPlan": "EyeMed",
+      "displayName": "EyeMed",
       "aliases": [
         "Eye Med",
         "Eye Med Vision",
@@ -11,24 +163,26 @@
         "Unum",
         "Cigna"
       ],
-      "status": "accepted",
-      "family": "EyeMed",
-      "callerPlan": "EyeMed",
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
+      "id": "accepted-nva-2",
+      "status": "accepted",
+      "canonicalPlan": "NVA",
+      "displayName": "NVA",
       "aliases": [
         "National Vision",
         "National Vision Administrators"
       ],
-      "status": "accepted",
-      "family": "NVA",
-      "callerPlan": "NVA",
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
+      "id": "accepted-davis-2",
+      "status": "accepted",
+      "canonicalPlan": "Davis",
+      "displayName": "Davis",
       "aliases": [
         "Davis Vision",
         "Superior",
@@ -37,37 +191,40 @@
         "Blue View",
         "Versant"
       ],
-      "status": "accepted",
-      "family": "Davis",
-      "callerPlan": "Davis",
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
+      "id": "accepted-spectera-2",
+      "status": "accepted",
+      "canonicalPlan": "Spectera",
+      "displayName": "Spectera",
       "aliases": [
         "Spectera Vision",
         "United Healthcare",
         "United Health Care",
         "United Vision"
       ],
-      "status": "accepted",
-      "family": "Spectera",
-      "callerPlan": "Spectera",
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
+      "id": "accepted-solstice-2",
+      "status": "accepted",
+      "canonicalPlan": "Solstice",
+      "displayName": "Solstice",
       "aliases": [
         "Soltice",
         "Solstice Vision"
       ],
-      "status": "accepted",
-      "family": "Solstice",
-      "callerPlan": "Solstice",
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
+      "id": "accepted-icare-2",
+      "status": "accepted",
+      "canonicalPlan": "iCare",
+      "displayName": "iCare",
       "aliases": [
         "Humana Gold Plus",
         "Simply Medicare",
@@ -79,124 +236,109 @@
         "Aetna Better Health",
         "AvMed"
       ],
-      "status": "accepted",
-      "family": "iCare",
-      "callerPlan": "iCare",
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
+      "id": "accepted-sunhealth-2",
+      "status": "accepted",
+      "canonicalPlan": "SunHealth",
+      "displayName": "SunHealth",
       "aliases": [
         "Sun Health",
         "SunHealth Vision"
       ],
-      "status": "accepted",
-      "family": "SunHealth",
-      "callerPlan": "SunHealth",
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
+      "id": "accepted-envolve-2",
+      "status": "accepted",
+      "canonicalPlan": "Envolve",
+      "displayName": "Envolve",
       "aliases": [
         "Envolve Vision",
         "Ambetter",
         "Ambetter from Sunshine Health",
         "Sunshine"
       ],
-      "status": "accepted",
-      "family": "Envolve",
-      "callerPlan": "Envolve",
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
+      "id": "accepted-premier-2",
+      "status": "accepted",
+      "canonicalPlan": "Premier",
+      "displayName": "Premier",
       "aliases": [
         "AmeriHealth",
         "Devoted"
       ],
-      "status": "accepted",
-      "family": "Premier",
-      "callerPlan": "Premier",
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
+      "id": "accepted-alivi-2",
+      "status": "accepted",
+      "canonicalPlan": "Alivi",
+      "displayName": "Alivi",
       "aliases": [
         "CarePlus",
         "Care Plus"
       ],
-      "status": "accepted",
-      "family": "Alivi",
-      "callerPlan": "Alivi",
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
+      "id": "accepted-guardian-2",
+      "status": "accepted",
+      "canonicalPlan": "Guardian",
+      "displayName": "Guardian",
       "aliases": [
         "Guardian Vision"
       ],
-      "status": "accepted",
-      "family": "Guardian",
-      "callerPlan": "Guardian",
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
+      "id": "accepted-vsp-2",
+      "status": "accepted",
+      "canonicalPlan": "VSP",
+      "displayName": "VSP",
       "aliases": [
         "MetLife",
         "Liberty Financial",
         "Lincoln Financial",
         "Lincoln Finacial"
       ],
-      "status": "accepted",
-      "family": "VSP",
-      "callerPlan": "VSP",
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
+      "id": "accepted-oscar-2",
+      "status": "accepted",
+      "canonicalPlan": "Oscar",
+      "displayName": "Oscar",
       "aliases": [
         "Oscar",
         "Oscar Health"
       ],
-      "status": "accepted",
-      "family": "Oscar",
-      "callerPlan": "Oscar",
       "canProceed": true,
       "needsExactPlanName": false
     },
     {
+      "id": "accepted-self-pay-2",
+      "status": "accepted",
+      "canonicalPlan": "Self Pay",
+      "displayName": "Self Pay",
       "aliases": [
         "Self Pay",
-        "Self-Pay",
         "Selfpay",
         "Cash Pay",
         "Cash"
       ],
-      "status": "accepted",
-      "family": "Self Pay",
-      "callerPlan": "Self Pay",
       "canProceed": true,
       "needsExactPlanName": false
     }
-  ],
-  "acceptedPlans": [
-    "VSP",
-    "EyeMed",
-    "NVA",
-    "Davis",
-    "Spectera",
-    "Solstice",
-    "iCare",
-    "SunHealth",
-    "Envolve",
-    "Premier",
-    "Alivi",
-    "Guardian",
-    "Superior",
-    "Versant",
-    "Oscar",
-    "Self Pay"
-  ],
-  "notAcceptedPlans": []
+  ]
 }

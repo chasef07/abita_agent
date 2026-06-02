@@ -24,6 +24,29 @@ describe("insurance matcher", () => {
     expect(result.needsExactPlanName).toBe(false);
   });
 
+  it("matches canonical plan names inside caller phrases", () => {
+    const aetna = matchInsurancePlanForOffice("spring-hill", "I have Aetna");
+    expect(aetna.status).toBe("accepted");
+    expect(canonicalInsurancePlan(aetna)).toBe("Aetna");
+    expect(aetna.callerFacingPlan).toBe("Aetna");
+
+    const floridaBlueShield = matchInsurancePlanForOffice(
+      "spring-hill",
+      "Florida Blue Shield",
+    );
+    expect(floridaBlueShield.status).toBe("accepted");
+    expect(canonicalInsurancePlan(floridaBlueShield)).toBe("Florida Blue");
+
+    const cignaOpenAccessPlus = matchInsurancePlanForOffice(
+      "hollywood",
+      "Cigna Open Access Plus",
+    );
+    expect(cignaOpenAccessPlus.status).toBe("accepted");
+    expect(canonicalInsurancePlan(cignaOpenAccessPlus)).toBe(
+      "Cigna Open Access",
+    );
+  });
+
   it("rejects exact not accepted plans", () => {
     const result = matchInsurancePlan(reference, "Care Plus");
     expect(result.status).toBe("not_accepted");
@@ -93,6 +116,15 @@ describe("insurance matcher", () => {
     const uhcMedicare = matchInsurancePlan(reference, "UHC Medicare");
     expect(uhcMedicare.status).toBe("accepted");
     expect(uhcMedicare.matchedFamily).toBe("United Healthcare AARP Medicare");
+
+    const unitedHealthcareMedicare = matchInsurancePlanForOffice(
+      "spring-hill",
+      "United Healthcare Medicare",
+    );
+    expect(unitedHealthcareMedicare.status).toBe("accepted");
+    expect(canonicalInsurancePlan(unitedHealthcareMedicare)).toBe(
+      "United Healthcare AARP Medicare",
+    );
   });
 
   it("rejects Optimum before the generic Medicare alias can match", () => {
@@ -111,6 +143,19 @@ describe("insurance matcher", () => {
       expect(result.canProceed, `${office} ${query}`).toBe(false);
       expect(canonicalInsurancePlan(result), `${office} ${query}`).toBeNull();
     }
+  });
+
+  it("matches compact no-space caller variants from aliases", () => {
+    const carePlus = matchInsurancePlanForOffice("spring-hill", "CarePlus");
+    expect(carePlus.status).toBe("not_accepted");
+    expect(canonicalInsurancePlan(carePlus)).toBeNull();
+
+    const unitedHealthcare = matchInsurancePlanForOffice(
+      "spring-hill",
+      "UnitedHealthcare",
+    );
+    expect(unitedHealthcare.status).toBe("accepted");
+    expect(canonicalInsurancePlan(unitedHealthcare)).toBe("United Healthcare");
   });
 
   it("asks for clarification on aliases middleware does not resolve safely", () => {
@@ -265,6 +310,10 @@ describe("insurance matcher", () => {
     );
     expect(aetnaCommercial.status).toBe("accepted");
     expect(aetnaCommercial.matchedFamily).toBe("Aetna Commercial");
+
+    const genericAetna = matchInsurancePlanForOffice("crystal-river", "Aetna");
+    expect(genericAetna.status).toBe("needs_clarification");
+    expect(genericAetna.clarificationNeeded).toContain("which Aetna plan");
 
     const aetnaEpo = matchInsurancePlanForOffice("crystal-river", "Aetna EPO");
     expect(aetnaEpo.status).toBe("not_accepted");
