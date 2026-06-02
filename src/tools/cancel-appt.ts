@@ -15,8 +15,7 @@ export const cancel_appt = llm.tool({
     "Cancel a loaded appointment. " +
     "Call this after the patient is verified and the caller confirms the exact appointment to cancel. " +
     "Pass appointmentDate and appointmentTime when the caller identifies the appointment by date or time. " +
-    "Omit all appointment selectors only for the latest booked appointment or exactly one loaded appointment. " +
-    "For reschedules, book the new appointment before cancelling the old one.",
+    "Omit all appointment selectors only for the latest booked appointment or exactly one loaded appointment.",
   parameters: z.object({
     appointmentId: z
       .number()

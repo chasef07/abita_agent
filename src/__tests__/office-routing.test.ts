@@ -28,6 +28,7 @@ import {
   get_availability,
   lookup_knowledge,
   record_turn_context,
+  reschedule_appt,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
@@ -780,8 +781,8 @@ describe("model-facing tool definitions", () => {
     expect(cancel_appt.description).toContain(
       "Pass appointmentDate and appointmentTime",
     );
-    expect(cancel_appt.description).toContain(
-      "For reschedules, book the new appointment before cancelling the old one",
+    expect(cancel_appt.description).not.toContain(
+      "For reschedules, book the new appointment",
     );
 
     const parameters = cancel_appt.parameters as {
@@ -797,6 +798,56 @@ describe("model-facing tool definitions", () => {
     expect(parameters.safeParse({}).success).toBe(true);
     expect(parameters.safeParse({ appointmentId: 0 }).success).toBe(false);
     expect(parameters.safeParse({ appointmentId: 1.5 }).success).toBe(false);
+  });
+
+  it("exposes reschedule_appt as the deterministic appointment move tool", () => {
+    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).toHaveProperty(
+      "reschedule_appt",
+    );
+    expect(reschedule_appt.description).toContain(
+      "Reschedule a loaded appointment",
+    );
+    expect(reschedule_appt.description).toContain(
+      "books the new appointment first",
+    );
+    expect(reschedule_appt.description).toContain(
+      "cancels the old appointment only after booking succeeds",
+    );
+
+    const parameters = reschedule_appt.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+    };
+    expect(
+      parameters.safeParse({
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentId: 123,
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentDate: "June 2",
+        appointmentTime: "9 AM",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        slotId: "A",
+        appointmentReason: "move my appointment",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentId: 0,
+      }).success,
+    ).toBe(false);
   });
 
   it("keeps book_appt scoped to confirmed slots with required referring doctor", () => {
