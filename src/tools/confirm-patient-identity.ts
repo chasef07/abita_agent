@@ -109,6 +109,10 @@ function confirmSinglePreCallMatch(
     );
   }
 
+  if (lastNameAndDobMatchCandidate(candidate, identity)) {
+    return "I found a record with that last name and date of birth, but the first name does not match what I heard. Could you spell the patient's first name?";
+  }
+
   return null;
 }
 
@@ -170,6 +174,17 @@ function fullIdentityMatchesCandidate(
   return Boolean(
     candidate.patientId &&
     namesMatch(identity.firstName, candidate.firstName) &&
+    namesMatch(identity.lastName, candidate.lastName) &&
+    dobMatches(identity.dob, candidate.dob),
+  );
+}
+
+function lastNameAndDobMatchCandidate(
+  candidate: PreCallCandidate,
+  identity: FullIdentityArgs,
+): boolean {
+  return Boolean(
+    candidate.patientId &&
     namesMatch(identity.lastName, candidate.lastName) &&
     dobMatches(identity.dob, candidate.dob),
   );

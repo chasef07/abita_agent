@@ -9,6 +9,7 @@ import {
   availabilityBookingToken,
   clearAvailabilitySelection,
   latestAvailabilityRouting,
+  latestBookedAppointmentId,
   type CallState,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
@@ -55,11 +56,17 @@ export const book_appt = llm.tool({
   }),
   execute: async ({ slotId, appointmentReason, referringDoctor }, { ctx }) => {
     const state = getState(ctx);
-    ensureSchedulingTurnContext(state, "booking");
-    ctx.speechHandle.allowInterruptions = false;
 
     restoreConfirmedPreCallCaller(state);
     const patientId = activePatientId(state);
+    if (patientId && hasCompletedBookingForActivePatient(state)) {
+      clearAvailabilitySelection(state);
+      return "The appointment is already booked. Tell the caller the confirmed appointment details instead of booking again.";
+    }
+
+    ensureSchedulingTurnContext(state, "booking");
+    ctx.speechHandle.allowInterruptions = false;
+
     if (!patientId) {
       throw new llm.ToolError("Verify or create the patient before booking.");
     }
@@ -113,7 +120,7 @@ export const book_appt = llm.tool({
 
     if (bookingSucceeded(result)) {
       recordBookedAppointmentInState(state, selectedSlot, result);
-      removeAvailabilitySlot(state, selectedSlot.slotId);
+      clearAvailabilitySelection(state);
       return bookedAppointmentMessage(selectedSlot, result);
     }
     if (bookingHadPositiveStatusWithoutAppointmentId(result)) {
@@ -136,6 +143,16 @@ export const book_appt = llm.tool({
     return bookingFailureMessage(result);
   },
 });
+
+function hasCompletedBookingForActivePatient(state: CallState): boolean {
+  const appointmentId = latestBookedAppointmentId(state);
+  return Boolean(
+    appointmentId !== null &&
+    state.patient.appointments.some(
+      (appointment) => appointment.id === appointmentId,
+    ),
+  );
+}
 
 function normalizeAppointmentReason(appointmentReason: string): string {
   const trimmedReason = appointmentReason.trim();

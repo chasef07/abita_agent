@@ -5,6 +5,7 @@ import { normalizeInsuranceText } from "../insurance-rules.js";
 import {
   activeInsuranceContext,
   runtimeCallerPhone,
+  type CallState,
 } from "../state/call-state.js";
 import { applyPatientResult } from "./patient-state.js";
 import {
@@ -81,6 +82,10 @@ export const add_patient = llm.tool({
       coverageType: checkedInsurance.coverageType,
     });
 
+    if (hasMatchingPendingPreCallPatient(state, params)) {
+      return "A patient record may already exist for that last name and date of birth from the caller phone lookup. Confirm the existing patient record before creating a new chart.";
+    }
+
     if (!explicitPhone && !params.inboundPhoneConfirmed) {
       return (
         "Ask the caller: Is the number you are calling from a good callback number to put on file? " +
@@ -139,12 +144,88 @@ export const add_patient = llm.tool({
       );
     }
 
-    applyPatientResult(state, result);
+    applyPatientResult(state, { ...result, status: "created" });
     const patientName =
       result.name?.trim() || `${params.firstName} ${params.lastName}`;
     return `Created a patient chart for ${patientName}. Continue with scheduling.`;
   },
 });
+
+function hasMatchingPendingPreCallPatient(
+  state: CallState,
+  params: {
+    lastName: string;
+    dob: string;
+  },
+): boolean {
+  const preCall = state.preCall;
+  if (
+    preCall?.status !== "single_match_pending_confirmation" &&
+    preCall?.status !== "multiple_matches_pending_selection"
+  ) {
+    return false;
+  }
+
+  return preCall.candidates.some(
+    (candidate) =>
+      Boolean(candidate.patientId) &&
+      namesMatch(params.lastName, candidate.lastName) &&
+      dobMatches(params.dob, candidate.dob),
+  );
+}
+
+function namesMatch(
+  provided: string | null | undefined,
+  expected: string | null | undefined,
+): boolean {
+  const providedName = normalizeName(provided);
+  const expectedName = normalizeName(expected);
+  if (!providedName || !expectedName) return false;
+  if (providedName === expectedName) return true;
+  return (
+    providedName.length >= 3 &&
+    expectedName.length >= 3 &&
+    (providedName.startsWith(expectedName) ||
+      expectedName.startsWith(providedName))
+  );
+}
+
+function normalizeName(value: string | null | undefined): string {
+  return (
+    value
+      ?.trim()
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z]/g, "") ?? ""
+  );
+}
+
+function dobMatches(
+  provided: string | null | undefined,
+  expected: string | null | undefined,
+): boolean {
+  const providedDob = normalizeDob(provided);
+  const expectedDob = normalizeDob(expected);
+  return Boolean(providedDob && expectedDob && providedDob === expectedDob);
+}
+
+function normalizeDob(value: string | null | undefined): string {
+  const trimmed = value?.trim();
+  if (!trimmed) return "";
+
+  const match = trimmed.match(/^(\d{1,2})\D+(\d{1,2})\D+(\d{2,4})$/);
+  if (!match) return trimmed;
+
+  const [, month, day, rawYear] = match;
+  const year =
+    rawYear.length === 2
+      ? Number(rawYear) > 30
+        ? `19${rawYear}`
+        : `20${rawYear}`
+      : rawYear;
+  return `${month.padStart(2, "0")}/${day.padStart(2, "0")}/${year}`;
+}
 
 type AddPatientResult = {
   patientId?: string | null;
