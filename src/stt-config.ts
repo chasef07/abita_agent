@@ -1,44 +1,4 @@
-export const ASSEMBLYAI_INFERENCE_MODEL = "assemblyai/u3-rt-pro" as const;
-
-type AssemblyAISpeechModel = "u3-rt-pro";
-
-export type AssemblyAISttOptions = {
-  speechModel: AssemblyAISpeechModel;
-  languageDetection?: boolean;
-  endOfTurnConfidenceThreshold?: number;
-  minTurnSilence?: number;
-  maxTurnSilence?: number;
-  formatTurns?: boolean;
-  keytermsPrompt?: string[];
-  prompt?: string;
-  vadThreshold?: number;
-  speakerLabels?: boolean;
-  maxSpeakers?: number;
-  domain?: string;
-};
-
-export type AssemblyAIInferenceModelOptions = {
-  language_detection?: boolean;
-  end_of_turn_confidence_threshold?: number;
-  min_turn_silence?: number;
-  max_turn_silence?: number;
-  format_turns?: boolean;
-  keyterms_prompt?: string[];
-  prompt?: string;
-  vad_threshold?: number;
-  speaker_labels?: boolean;
-  max_speakers?: number;
-  domain?: string;
-} & Record<string, unknown>;
-
-export type AssemblyAIInferenceSttOptions = {
-  model: typeof ASSEMBLYAI_INFERENCE_MODEL;
-  modelOptions: AssemblyAIInferenceModelOptions;
-};
-
-export type AssemblyAIInferenceSttProfileOptions = {
-  modelOptions: AssemblyAIInferenceModelOptions;
-};
+import type { STTOptions } from "@livekit/agents-plugin-assemblyai";
 
 export const ASSEMBLYAI_BASE_TIMING = {
   minTurnSilence: 275,
@@ -105,11 +65,11 @@ export const ASSEMBLYAI_STT_PROFILES = {
     maxTurnSilence: 4000,
     vadThreshold: 0.3,
   },
-} satisfies Record<string, Partial<AssemblyAISttOptions>>;
+} satisfies Record<string, Partial<STTOptions>>;
 
 export type AssemblyAISttProfile = keyof typeof ASSEMBLYAI_STT_PROFILES;
 
-export function getAssemblyAISttOptions(): AssemblyAISttOptions {
+export function getAssemblyAISttOptions(): Partial<STTOptions> {
   return {
     speechModel: "u3-rt-pro",
     languageDetection: true,
@@ -119,74 +79,13 @@ export function getAssemblyAISttOptions(): AssemblyAISttOptions {
 
 export function getAssemblyAISttProfileOptions(
   profile: AssemblyAISttProfile,
-): Partial<AssemblyAISttOptions> {
+): Partial<STTOptions> {
   const options = ASSEMBLYAI_STT_PROFILES[profile];
   return {
     ...options,
     keytermsPrompt: options.keytermsPrompt
       ? [...options.keytermsPrompt]
       : undefined,
-  };
-}
-
-function toAssemblyAIInferenceModelOptions(
-  options: Partial<AssemblyAISttOptions>,
-): AssemblyAIInferenceModelOptions {
-  const modelOptions: AssemblyAIInferenceModelOptions = {};
-
-  if (options.languageDetection !== undefined) {
-    modelOptions.language_detection = options.languageDetection;
-  }
-  if (options.endOfTurnConfidenceThreshold !== undefined) {
-    modelOptions.end_of_turn_confidence_threshold =
-      options.endOfTurnConfidenceThreshold;
-  }
-  if (options.minTurnSilence !== undefined) {
-    modelOptions.min_turn_silence = options.minTurnSilence;
-  }
-  if (options.maxTurnSilence !== undefined) {
-    modelOptions.max_turn_silence = options.maxTurnSilence;
-  }
-  if (options.formatTurns !== undefined) {
-    modelOptions.format_turns = options.formatTurns;
-  }
-  if (options.keytermsPrompt !== undefined) {
-    modelOptions.keyterms_prompt = [...options.keytermsPrompt];
-  }
-  if (options.prompt !== undefined) {
-    modelOptions.prompt = options.prompt;
-  }
-  if (options.vadThreshold !== undefined) {
-    modelOptions.vad_threshold = options.vadThreshold;
-  }
-  if (options.speakerLabels !== undefined) {
-    modelOptions.speaker_labels = options.speakerLabels;
-  }
-  if (options.maxSpeakers !== undefined) {
-    modelOptions.max_speakers = options.maxSpeakers;
-  }
-  if (options.domain !== undefined) {
-    modelOptions.domain = options.domain;
-  }
-
-  return modelOptions;
-}
-
-export function getAssemblyAIInferenceSttOptions(): AssemblyAIInferenceSttOptions {
-  const options = getAssemblyAISttOptions();
-  return {
-    model: ASSEMBLYAI_INFERENCE_MODEL,
-    modelOptions: toAssemblyAIInferenceModelOptions(options),
-  };
-}
-
-export function getAssemblyAIInferenceSttProfileOptions(
-  profile: AssemblyAISttProfile,
-): AssemblyAIInferenceSttProfileOptions {
-  return {
-    modelOptions: toAssemblyAIInferenceModelOptions(
-      getAssemblyAISttProfileOptions(profile),
-    ),
   };
 }
 

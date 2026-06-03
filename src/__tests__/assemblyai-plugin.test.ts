@@ -1,15 +1,9 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { inference, initializeLogger } from "@livekit/agents";
-import type {
-  AssemblyAIInferenceModelOptions,
-  AssemblyAISttOptions,
-} from "../stt-config.js";
+import { initializeLogger } from "@livekit/agents";
+import { STT } from "@livekit/agents-plugin-assemblyai";
 import {
-  ASSEMBLYAI_INFERENCE_MODEL,
   ASSEMBLYAI_DEFAULT_KEYTERMS,
   ASSEMBLYAI_STT_PROFILES,
-  getAssemblyAIInferenceSttOptions,
-  getAssemblyAIInferenceSttProfileOptions,
   getAssemblyAISttOptions,
   getAssemblyAISttProfileOptions,
   selectAssemblyAISttProfileForAssistantText,
@@ -19,96 +13,27 @@ beforeAll(() => {
   initializeLogger({ pretty: false, level: "silent" });
 });
 
-function expectedInferenceModelOptions(
-  options: Partial<AssemblyAISttOptions>,
-): AssemblyAIInferenceModelOptions {
-  const expected: AssemblyAIInferenceModelOptions = {};
-
-  if (options.languageDetection !== undefined) {
-    expected.language_detection = options.languageDetection;
-  }
-  if (options.endOfTurnConfidenceThreshold !== undefined) {
-    expected.end_of_turn_confidence_threshold =
-      options.endOfTurnConfidenceThreshold;
-  }
-  if (options.minTurnSilence !== undefined) {
-    expected.min_turn_silence = options.minTurnSilence;
-  }
-  if (options.maxTurnSilence !== undefined) {
-    expected.max_turn_silence = options.maxTurnSilence;
-  }
-  if (options.formatTurns !== undefined) {
-    expected.format_turns = options.formatTurns;
-  }
-  if (options.keytermsPrompt !== undefined) {
-    expected.keyterms_prompt = options.keytermsPrompt;
-  }
-  if (options.prompt !== undefined) {
-    expected.prompt = options.prompt;
-  }
-  if (options.vadThreshold !== undefined) {
-    expected.vad_threshold = options.vadThreshold;
-  }
-  if (options.speakerLabels !== undefined) {
-    expected.speaker_labels = options.speakerLabels;
-  }
-  if (options.maxSpeakers !== undefined) {
-    expected.max_speakers = options.maxSpeakers;
-  }
-  if (options.domain !== undefined) {
-    expected.domain = options.domain;
-  }
-
-  return expected;
-}
-
-describe("AssemblyAI LiveKit Inference STT", () => {
-  it("maps the current U3 Pro inputs to LiveKit Inference", () => {
-    const sourceOptions = getAssemblyAISttOptions();
-    const inferenceOptions = getAssemblyAIInferenceSttOptions();
-
-    expect(inferenceOptions).not.toHaveProperty("language");
-    expect(inferenceOptions.model).toBe(
-      `assemblyai/${sourceOptions.speechModel}`,
-    );
-    expect(inferenceOptions.model).toBe(ASSEMBLYAI_INFERENCE_MODEL);
-    expect(inferenceOptions.modelOptions).toEqual(
-      expectedInferenceModelOptions(sourceOptions),
-    );
-    expect(inferenceOptions.modelOptions.keyterms_prompt).toContain(
-      "Abita Eye Group",
-    );
-    expect(inferenceOptions.modelOptions.keyterms_prompt).toContain("iCare");
-
-    const stt = new inference.STT({
-      apiKey: "test-livekit-key",
-      apiSecret: "test-livekit-secret",
-      ...inferenceOptions,
+describe("official AssemblyAI plugin", () => {
+  it("supports the current U3 Pro STT configuration", () => {
+    const stt = new STT({
+      apiKey: "test-api-key",
+      ...getAssemblyAISttOptions(),
     });
 
-    expect(stt.provider).toBe("livekit");
-    expect(stt.model).toBe(ASSEMBLYAI_INFERENCE_MODEL);
+    expect(stt.provider).toBe("AssemblyAI");
+    expect(stt.model).toBe("u3-rt-pro");
+    expect(getAssemblyAISttOptions().languageDetection).toBe(true);
+    expect(getAssemblyAISttOptions().keytermsPrompt).toContain(
+      "Abita Eye Group",
+    );
+    expect(getAssemblyAISttOptions().keytermsPrompt).toContain("iCare");
+    expect(getAssemblyAISttOptions().maxTurnSilence).toBe(2000);
 
-    stt.updateOptions(getAssemblyAIInferenceSttProfileOptions("insurance"));
-    stt.updateOptions(getAssemblyAIInferenceSttProfileOptions("memberId"));
-    stt.updateOptions(getAssemblyAIInferenceSttProfileOptions("intake"));
-    stt.updateOptions(getAssemblyAIInferenceSttProfileOptions("email"));
-    stt.updateOptions(getAssemblyAIInferenceSttProfileOptions("default"));
-  });
-
-  it("maps dynamic STT profile updates into inference modelOptions", () => {
-    const profiles = Object.keys(
-      ASSEMBLYAI_STT_PROFILES,
-    ) as (keyof typeof ASSEMBLYAI_STT_PROFILES)[];
-
-    for (const profile of profiles) {
-      const sourceOptions = getAssemblyAISttProfileOptions(profile);
-      const inferenceOptions = getAssemblyAIInferenceSttProfileOptions(profile);
-
-      expect(inferenceOptions.modelOptions).toEqual(
-        expectedInferenceModelOptions(sourceOptions),
-      );
-    }
+    stt.updateOptions(getAssemblyAISttProfileOptions("insurance"));
+    stt.updateOptions(getAssemblyAISttProfileOptions("memberId"));
+    stt.updateOptions(getAssemblyAISttProfileOptions("intake"));
+    stt.updateOptions(getAssemblyAISttProfileOptions("email"));
+    stt.updateOptions(getAssemblyAISttProfileOptions("default"));
   });
 
   it("keeps startup keyterms conservative and AssemblyAI-compatible", () => {
