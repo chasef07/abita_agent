@@ -7,10 +7,10 @@ import {
   ServerOptions,
   cli,
   defineAgent,
+  inference,
   llm,
   voice,
 } from "@livekit/agents";
-import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
 import * as cartesia from "@livekit/agents-plugin-cartesia";
@@ -49,8 +49,8 @@ import {
 import { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
   type AssemblyAISttProfile,
-  getAssemblyAISttOptions,
-  getAssemblyAISttProfileOptions,
+  getAssemblyAIInferenceSttOptions,
+  getAssemblyAIInferenceSttProfileOptions,
   selectAssemblyAISttProfileForAssistantText,
 } from "./stt-config.js";
 import { voiceTurnHandlingOptions } from "./session-options.js";
@@ -99,7 +99,7 @@ export default defineAgent({
         // peak-context analytics that cumulative session usage cannot express.
         llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
       });
-      const stt = new assemblyai.STT(getAssemblyAISttOptions());
+      const stt = new inference.STT(getAssemblyAIInferenceSttOptions());
       const ttsOptions = getCartesiaTtsOptions();
       const tts = new cartesia.TTS(ttsOptions);
       const languageRuntime = new VoiceLanguageRuntime(tts, {
@@ -193,7 +193,7 @@ export default defineAgent({
         if (profile === activeSttProfile) return;
 
         const previousProfile = activeSttProfile;
-        stt.updateOptions(getAssemblyAISttProfileOptions(profile));
+        stt.updateOptions(getAssemblyAIInferenceSttProfileOptions(profile));
         activeSttProfile = profile;
         sttProfiles.push(
           snapshotSttProfileTransition({
@@ -204,7 +204,9 @@ export default defineAgent({
             to: profile,
           }),
         );
-        console.log(`[stt] AssemblyAI profile=${profile} reason=${reason}`);
+        console.log(
+          `[stt] AssemblyAI inference profile=${profile} reason=${reason}`,
+        );
       };
 
       session.on(voice.AgentSessionEventTypes.ConversationItemAdded, (ev) => {
