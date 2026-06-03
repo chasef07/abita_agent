@@ -103,8 +103,7 @@ describe("AssemblyAI LiveKit Inference STT", () => {
 
     for (const profile of profiles) {
       const sourceOptions = getAssemblyAISttProfileOptions(profile);
-      const inferenceOptions =
-        getAssemblyAIInferenceSttProfileOptions(profile);
+      const inferenceOptions = getAssemblyAIInferenceSttProfileOptions(profile);
 
       expect(inferenceOptions.modelOptions).toEqual(
         expectedInferenceModelOptions(sourceOptions),

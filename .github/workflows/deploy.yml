@@ -36,7 +36,10 @@ jobs:
 
       - name: Install LiveKit CLI
         run: |
-          curl -sSL https://get.livekit.io/cli | bash -s -- -v 2.16.0
+          LIVEKIT_CLI_VERSION=2.16.0
+          mkdir -p "$HOME/.livekit/bin"
+          curl -sSL "https://github.com/livekit/livekit-cli/releases/download/v${LIVEKIT_CLI_VERSION}/lk_${LIVEKIT_CLI_VERSION}_linux_amd64.tar.gz" \
+            | tar xzf - -C "$HOME/.livekit/bin" --wildcards --no-anchored lk
           echo "$HOME/.livekit/bin" >> $GITHUB_PATH
 
       - name: Deploy to LiveKit Cloud
