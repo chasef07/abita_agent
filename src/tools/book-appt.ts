@@ -10,7 +10,7 @@ import {
 import { removeAvailabilitySlot } from "./availability-slots.js";
 import { recordBookedAppointmentInState } from "./appointment-state.js";
 import {
-  bookedAppointmentMessage,
+  bookedAppointmentToolResult,
   bookingFailureMessage,
   bookingHadPositiveStatusWithoutAppointmentId,
   bookingOutcome,
@@ -86,7 +86,7 @@ export const book_appt = llm.tool({
     if (bookingSucceeded(result)) {
       recordBookedAppointmentInState(state, selectedSlot, result);
       removeAvailabilitySlot(state, selectedSlot.slotId);
-      return bookedAppointmentMessage(selectedSlot, result);
+      return bookedAppointmentToolResult(selectedSlot, result);
     }
     if (bookingHadPositiveStatusWithoutAppointmentId(result)) {
       clearAvailabilitySelection(state);

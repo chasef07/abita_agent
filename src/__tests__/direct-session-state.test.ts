@@ -430,7 +430,7 @@ describe("direct session state cleanup", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("books an active slot with private state and returns speech-ready text", async () => {
+  it("books an active slot with private state and returns a structured receipt", async () => {
     const state = createState();
     markSchedulingTriaged(state);
     storeAvailabilitySlotPrivateData(state, "A", "private-token");
@@ -461,7 +461,14 @@ describe("direct session state cleanup", () => {
     );
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(result).toBe("Booked June 1 at 9:00 AM with Doctor Smith.");
+    expect(result).toMatchObject({
+      status: "booked",
+      appointmentId: 123,
+      providerName: "Doctor Smith",
+      locationName: "Spring Hill",
+      appointmentTypeName: "Medical",
+      message: "Booked June 1 at 9:00 AM with Doctor Smith.",
+    });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(body).toMatchObject({
       bookingToken: "private-token",
@@ -616,7 +623,14 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toBe("Booked June 1 at 2:00 PM with Doctor Smith.");
+    expect(result).toMatchObject({
+      status: "booked",
+      appointmentId: 456,
+      providerName: "Doctor Smith",
+      locationName: "Spring Hill",
+      appointmentTypeName: "Medical",
+      message: "Booked June 1 at 2:00 PM with Doctor Smith.",
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
       bookingToken: "private-token-b",
