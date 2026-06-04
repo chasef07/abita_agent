@@ -2340,9 +2340,23 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toBe(
-      "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
-    );
+    expect(result).toMatchObject({
+      status: "rescheduled",
+      bookingStatus: "booked",
+      appointmentId: 456,
+      appointmentDate: "2026-06-01",
+      appointmentTime: "9:00 AM",
+      startDatetime: "2026-06-01T09:00:00",
+      providerName: "Doctor Smith",
+      locationName: "Crystal River",
+      appointmentTypeName: "Crystal River New Patient",
+      cancelledAppointmentId: 123,
+      cancelledAppointmentDate: "Monday, June 1, 2026",
+      cancelledAppointmentTime: "9:00 AM",
+      cancellationStatus: "cancelled",
+      message:
+        "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+    });
     expect(
       fetchMock.mock.calls.map((call) =>
         String(call[0]).includes("/api/appointment/book") ? "book" : "cancel",
@@ -2443,9 +2457,21 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toBe(
-      "Rescheduled the appointment to June 3 at 10:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
-    );
+    expect(result).toMatchObject({
+      status: "rescheduled",
+      bookingStatus: "booked",
+      appointmentId: 456,
+      appointmentDate: "2026-06-03",
+      appointmentTime: "10:00 AM",
+      startDatetime: "2026-06-03T10:00:00",
+      providerName: "Doctor Smith",
+      locationName: "Spring Hill",
+      appointmentTypeName: "Routine Vision",
+      cancelledAppointmentId: 123,
+      cancellationStatus: "cancelled",
+      message:
+        "Rescheduled the appointment to June 3 at 10:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+    });
     expect(
       JSON.parse(fetchMock.mock.calls[0][1].body as string),
     ).not.toHaveProperty("office");

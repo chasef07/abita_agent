@@ -245,7 +245,10 @@ export function classifyToolOutput(
       if (/\bcould not cancel the old appointment\b/.test(outputText)) {
         return "appointment_reschedule_partial";
       }
-      if (/\brescheduled the appointment\b/.test(outputText)) {
+      if (
+        status === "rescheduled" ||
+        /\brescheduled the appointment\b/.test(outputText)
+      ) {
         return "appointment_rescheduled";
       }
       return "appointment_not_rescheduled";
