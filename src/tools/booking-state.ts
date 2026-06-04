@@ -24,6 +24,7 @@ type BookingRequestInput = {
   patientId: string;
   appointmentReason: string;
   referringDoctor: string;
+  appointmentTypeIdOverride?: number | null;
   patientStatusOverride?: AppointmentPatientStatus | null;
 };
 
@@ -83,6 +84,9 @@ export function bookingRequestBodyForSlot(
     patientId: input.patientId,
     appointmentReason: normalizedReason,
     referringDoctor: normalizedReferrer,
+    ...(input.appointmentTypeIdOverride != null
+      ? { appointmentTypeId: input.appointmentTypeIdOverride }
+      : {}),
     ...(patientName ? { patientName } : {}),
     ...(dob ? { dob } : {}),
     ...(routing ? { routing } : {}),

@@ -53,6 +53,27 @@ function appointmentIdFromBookingResult(result: unknown): number | null {
   return null;
 }
 
+function appointmentTypeIdFromBookingResult(
+  result: unknown,
+): number | undefined {
+  if (!isRecord(result)) return undefined;
+  const appointmentTypeId = result.appointmentTypeId;
+  if (
+    typeof appointmentTypeId === "number" &&
+    Number.isInteger(appointmentTypeId) &&
+    appointmentTypeId > 0
+  ) {
+    return appointmentTypeId;
+  }
+  if (
+    typeof appointmentTypeId === "string" &&
+    /^[1-9]\d*$/.test(appointmentTypeId)
+  ) {
+    return Number(appointmentTypeId);
+  }
+  return undefined;
+}
+
 export function recordBookedAppointmentInState(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
@@ -73,12 +94,14 @@ export function recordBookedAppointmentInState(
     isRecord(result) && typeof result.appointmentTypeName === "string"
       ? result.appointmentTypeName
       : "Appointment";
+  const appointmentTypeId = appointmentTypeIdFromBookingResult(result);
   const appointment: CallerAppointment = {
     id: appointmentId,
     date: selectedSlot.date,
     time: selectedSlot.time,
     provider,
     type,
+    ...(appointmentTypeId !== undefined ? { appointmentTypeId } : {}),
     facility,
     confirmed: true,
   };
