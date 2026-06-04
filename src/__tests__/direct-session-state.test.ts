@@ -98,6 +98,15 @@ function markSchedulingTriaged(
   };
 }
 
+function markAppointmentChangeContext(state: TestCallState) {
+  state.workflow.current = {
+    intent: "change_appointment",
+    appointmentLane: "not_applicable",
+    isEmergency: false,
+    confidence: 0.92,
+  };
+}
+
 function clearSchedulingContext(state: TestCallState) {
   state.workflow.current = undefined;
   state.workflow.routing.routing = null;
@@ -346,7 +355,201 @@ describe("direct session state cleanup", () => {
     );
   });
 
-  it("requires an inferable scheduling lane before checking availability", async () => {
+  it("checks availability for a loaded appointment change without faking schedule intent", async () => {
+    const state = createState();
+    markAppointmentChangeContext(state);
+    state.identity.patient.appointments = [
+      {
+        id: 123,
+        date: "Tuesday, June 9, 2026",
+        time: "8:30 AM",
+        provider: "Dr. Austin Bach",
+        type: "Established Pediatric Medical (Follow Up)",
+        appointmentTypeId: 1005,
+        facility: "Abita Eye Group Hollywood",
+        confirmed: false,
+      },
+    ];
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        availabilityFound: true,
+        requestedDate: "2026-07-09",
+        actualDate: "2026-07-09",
+        searchedFrom: "2026-07-09",
+        searchedThrough: "2026-07-09",
+        shouldRetrySameSearch: false,
+        slots: [
+          {
+            provider: "Dr. Austin Bach",
+            date: "2026-07-09",
+            time: "9:45 AM",
+            datetime: "2026-07-09T09:45:00",
+            bookingToken: "reschedule-token",
+            columnId: 1478,
+            profileId: 620,
+            duration: 15,
+          },
+        ],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = (await get_availability.execute(
+      {
+        date: "2026-07-09",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    )) as Record<string, unknown>;
+
+    expect(state.workflow.current).toEqual({
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+      isEmergency: false,
+      confidence: 0.92,
+    });
+    expect(result).toMatchObject({
+      result: "slots_found",
+      slotId: "A",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
+      {
+        date: "2026-07-09",
+        dob: "01/01/1980",
+        office: "+17275919997",
+        routing: "all_three",
+      },
+    );
+  });
+
+  it("routes routine-vision reschedule availability through Spring Hill without schedule intent", async () => {
+    const state = createState();
+    markAppointmentChangeContext(state);
+    state.office.activeKey = "crystal-river";
+    state.office.phoneOverrides = {
+      "crystal-river": "+13523202007",
+    };
+    state.identity.patient.appointments = [
+      {
+        id: 123,
+        date: "Tuesday, June 9, 2026",
+        time: "8:30 AM",
+        provider: "Dr. Licht",
+        type: "Routine Vision / Glasses",
+        appointmentTypeId: 6167,
+        facility: "Crystal River",
+        confirmed: false,
+      },
+    ];
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        availabilityFound: true,
+        requestedDate: "2026-07-09",
+        actualDate: "2026-07-09",
+        searchedFrom: "2026-07-09",
+        searchedThrough: "2026-07-09",
+        shouldRetrySameSearch: false,
+        slots: [
+          {
+            provider: "Dr. Kyler Farnan",
+            date: "2026-07-09",
+            time: "10:00 AM",
+            datetime: "2026-07-09T10:00:00",
+            bookingToken: "routine-reschedule-token",
+            columnId: 1555,
+            profileId: 2075,
+            duration: 30,
+          },
+        ],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = (await get_availability.execute(
+      {
+        date: "2026-07-09",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    )) as Record<string, unknown>;
+
+    expect(state.workflow.current).toEqual({
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+      isEmergency: false,
+      confidence: 0.92,
+    });
+    expect(state.office.activeKey).toBe("spring-hill");
+    expect(state.availability.latestRouting).toBe("optical_only");
+    expect(result).toMatchObject({
+      result: "slots_found",
+      slotId: "A",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
+      {
+        date: "2026-07-09",
+        dob: "01/01/1980",
+        office: "+17275919997",
+        routing: "optical_only",
+      },
+    );
+  });
+
+  it("checks availability for a single loaded appointment even before appointment-change context is recorded", async () => {
+    const state = createState();
+    state.identity.patient.appointments = [
+      {
+        id: 123,
+        date: "Tuesday, June 9, 2026",
+        time: "8:30 AM",
+        provider: "Dr. Austin Bach",
+        type: "Established Pediatric Medical (Follow Up)",
+        appointmentTypeId: 1005,
+        facility: "Abita Eye Group Hollywood",
+        confirmed: false,
+      },
+    ];
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        availabilityFound: true,
+        requestedDate: "2026-07-09",
+        actualDate: "2026-07-09",
+        searchedFrom: "2026-07-09",
+        searchedThrough: "2026-07-09",
+        shouldRetrySameSearch: false,
+        slots: [],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await get_availability.execute(
+      {
+        date: "2026-07-09",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(state.workflow.current).toBeUndefined();
+  });
+
+  it("requires scheduling or existing appointment context before checking availability", async () => {
     const state = createState();
     clearSchedulingContext(state);
     const fetchMock = vi.fn();
@@ -363,7 +566,7 @@ describe("direct session state cleanup", () => {
         } as never,
       ),
     ).rejects.toThrow(
-      "Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od before checking availability.",
+      "Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od, or identify the existing appointment to move, before checking availability.",
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -2312,9 +2515,9 @@ describe("direct session state cleanup", () => {
     );
   });
 
-  it("reschedules by booking the new slot before cancelling the old appointment", async () => {
+  it("reschedules from appointment-change context without faking schedule intent", async () => {
     const state = createState();
-    markSchedulingTriaged(state);
+    markAppointmentChangeContext(state);
     state.office.activeKey = "crystal-river";
     state.office.phoneOverrides = {
       "crystal-river": "+13523202007",
@@ -2402,6 +2605,12 @@ describe("direct session state cleanup", () => {
       referringDoctor: "none",
       appointmentTypeId: 6167,
       patientStatus: "new",
+    });
+    expect(state.workflow.current).toEqual({
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+      isEmergency: false,
+      confidence: 0.92,
     });
     expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
       appointmentId: 123,
@@ -2734,7 +2943,7 @@ describe("direct session state cleanup", () => {
     ).toEqual([123, 456]);
   });
 
-  it("requires scheduling context before rescheduling", async () => {
+  it("requires a loaded appointment before rescheduling", async () => {
     const state = createState();
     clearSchedulingContext(state);
 
@@ -2752,7 +2961,7 @@ describe("direct session state cleanup", () => {
         } as never,
       ),
     ).rejects.toThrow(
-      "Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od before rescheduling.",
+      "No loaded appointment matches that appointment ID. Load appointments again and confirm the exact appointment before cancelling.",
     );
   });
 

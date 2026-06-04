@@ -13,7 +13,7 @@ import {
   routingForAvailability,
 } from "./scheduling.js";
 import { getState } from "./session.js";
-import { ensureSchedulingTurnContext } from "./turn-context-guard.js";
+import { ensureAvailabilityContext } from "./turn-context-guard.js";
 
 type AvailabilityLookupArgs = {
   date?: string;
@@ -22,7 +22,7 @@ type AvailabilityLookupArgs = {
 export const get_availability = llm.tool({
   description:
     "Search appointment availability from a start date. " +
-    "Call after visit reason and scheduling lane are known. " +
+    "Call after visit reason and scheduling lane are known, or after the existing appointment to move is identified. " +
     "If the caller uses a relative date like today, tomorrow, next week, or Friday, call get_current_datetime before choosing the YYYY-MM-DD date.",
   parameters: z.object({
     date: z.string().trim().min(1).describe("Start date in YYYY-MM-DD format."),
@@ -61,7 +61,7 @@ function buildAvailabilityLookupRequestForState(
     );
   }
 
-  ensureSchedulingTurnContext(state, "checking availability");
+  ensureAvailabilityContext(state, "checking availability");
   ensureRoutineVisionOffice(state);
   const effectiveRouting = routingForAvailability(state);
   const body: Record<string, unknown> = { date };

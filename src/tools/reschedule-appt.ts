@@ -37,7 +37,6 @@ import {
   getAmdOfficeForToolCall,
 } from "./scheduling.js";
 import { getState } from "./session.js";
-import { ensureSchedulingTurnContext } from "./turn-context-guard.js";
 
 export const reschedule_appt = llm.tool({
   description:
@@ -97,7 +96,6 @@ export const reschedule_appt = llm.tool({
     { ctx },
   ) => {
     const state = getState(ctx);
-    ensureSchedulingTurnContext(state, "rescheduling");
     ctx.speechHandle.allowInterruptions = false;
 
     restoreConfirmedPreCallCaller(state);

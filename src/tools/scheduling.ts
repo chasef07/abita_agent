@@ -3,11 +3,13 @@ import {
   SPRING_HILL_OFFICE_PHONE,
 } from "../customer/profile.js";
 import {
+  activeAppointments,
   activeOfficeKey,
   activeRoutingContext,
   clearAvailabilitySelection,
   currentWorkflowVisitType,
   setActiveOfficeKey,
+  type CallerAppointment,
   type CallState,
 } from "../state/call-state.js";
 
@@ -19,7 +21,7 @@ export function getAmdOfficeForToolCall(state: CallState): string {
 }
 
 export function ensureRoutineVisionOffice(state: CallState): void {
-  if (!isRoutineVisionScheduling(state)) return;
+  if (!isRoutineVisionSchedulingOrChange(state)) return;
   if (
     !getOfficeConfig(activeOfficeKey(state)).features
       .routeRoutineVisionToSpringHill
@@ -35,12 +37,52 @@ export function ensureRoutineVisionOffice(state: CallState): void {
 }
 
 export function routingForAvailability(state: CallState): string | null {
-  if (isRoutineVisionScheduling(state)) {
+  if (isRoutineVisionSchedulingOrChange(state)) {
     return "optical_only";
   }
   return activeRoutingContext(state).routing;
 }
 
-function isRoutineVisionScheduling(state: CallState): boolean {
-  return currentWorkflowVisitType(state) === "routine_vision";
+function isRoutineVisionSchedulingOrChange(state: CallState): boolean {
+  const visitType = currentWorkflowVisitType(state);
+  if (visitType === "routine_vision") return true;
+  if (visitType === "medical") return false;
+
+  const turn = state.workflow.current;
+  if (turn && turn.intent !== "change_appointment") return false;
+
+  return (
+    activeRoutingContext(state).routing === "optical_only" ||
+    isRoutineVisionAppointment(existingAppointmentForChangeContext(state))
+  );
+}
+
+function existingAppointmentForChangeContext(
+  state: CallState,
+): CallerAppointment | null {
+  const appointments = activeAppointments(state);
+  return (
+    appointments.find((appointment) => appointment.confirmed) ??
+    (appointments.length === 1 ? appointments[0] : null)
+  );
+}
+
+function isRoutineVisionAppointment(
+  appointment: CallerAppointment | null,
+): boolean {
+  const normalizedType = normalizeAppointmentType(appointment?.type);
+  if (!normalizedType) return false;
+
+  return /\b(routine vision|routine eye|vision exam|eye exam|glasses|contacts?|contact lens|optical|optometry|optometrist)\b/.test(
+    normalizedType,
+  );
+}
+
+function normalizeAppointmentType(value: string | undefined): string {
+  return (
+    value
+      ?.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ") ?? ""
+  );
 }
