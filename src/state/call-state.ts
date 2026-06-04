@@ -224,23 +224,9 @@ interface PatientBackendRefs {
   respPartyId?: string | null;
 }
 
-interface PrivateAppointmentToolState {
-  appointmentId: number;
-}
-
-interface PrivateToolState {
-  patientBackend: PatientBackendRefs;
-  appointments: Record<string, PrivateAppointmentToolState>;
-  latestBookedAppointmentId?: number;
-  availability: {
-    bookingTokens: Record<string, string>;
-  };
-}
-
 interface RuntimeCallState {
   preCallLookup: PreCallLookupTelemetry;
   latestUserTranscript?: string | null;
-  officePhoneOverrides?: Partial<Record<OfficeKey, string>>;
   sipRoomName: string;
   sipParticipantIdentity: string;
   callId: string;
@@ -249,8 +235,9 @@ interface RuntimeCallState {
   transferred: boolean;
 }
 
-interface TurnContextSessionState {
-  last?: RecordTurnContextArgs;
+interface OfficeSessionState {
+  activeKey: OfficeKey;
+  phoneOverrides: Partial<Record<OfficeKey, string>>;
 }
 
 interface PatientSessionState {
@@ -260,40 +247,57 @@ interface PatientSessionState {
   name?: string | null;
   dob?: string | null;
   phone?: string | null;
-  insurance?: {
-    plan?: string | null;
-    canonicalPlan?: string | null;
-    coverageType?: InsuranceCoverageType | null;
-    currentCarrier?: string | null;
-  };
   appointments: CallerAppointment[];
   appointmentsStatus?: AppointmentLoadStatus | null;
 }
 
-interface SchedulingSessionState {
-  visitType?: VisitType;
-  coverageType?: InsuranceCoverageType | null;
+export interface InsuranceSnapshot {
+  plan: string | null;
+  canonicalPlan: string | null;
+  coverageType: InsuranceCoverageType | null;
+  currentCarrier: string | null;
+}
+
+export interface InsuranceEligibilityCheck extends InsuranceSnapshot {
+  accepted: boolean;
+}
+
+interface InsuranceSessionState {
+  onFile: InsuranceSnapshot | null;
+  lastEligibilityCheck: InsuranceEligibilityCheck | null;
+}
+
+interface IdentitySessionState {
+  preCall?: PreCallContextState;
+  patient: PatientSessionState;
+  patientBackend: PatientBackendRefs;
+  latestBookedAppointmentId?: number;
+}
+
+interface RoutingSessionState {
   routing?: SchedulingRouting | null;
   allowedProviders: string[];
   routingAmbiguous: boolean;
   preauthRequired: boolean;
-  availabilitySlots: StoredAvailabilitySlot[];
-  latestAvailabilityRouting?: string | null;
+}
+
+interface WorkflowSessionState {
+  current?: RecordTurnContextArgs;
+  routing: RoutingSessionState;
+}
+
+interface AvailabilitySessionState {
+  slots: StoredAvailabilitySlot[];
+  latestRouting?: string | null;
+  bookingTokensBySlotId: Record<string, string>;
 }
 
 export interface CallState {
-  officeKey: OfficeKey;
-  patient: PatientSessionState;
-  preCall?: PreCallContextState;
-  checkedInsurance: {
-    plan?: string | null;
-    canonicalPlan?: string | null;
-    coverageType?: InsuranceCoverageType | null;
-    currentCarrier?: string | null;
-  };
-  scheduling: SchedulingSessionState;
-  turnContext: TurnContextSessionState;
-  private: PrivateToolState;
+  office: OfficeSessionState;
+  identity: IdentitySessionState;
+  insurance: InsuranceSessionState;
+  workflow: WorkflowSessionState;
+  availability: AvailabilitySessionState;
   runtime: RuntimeCallState;
 }
 
@@ -328,20 +332,6 @@ export interface InitialCallStateInput {
   transferred: boolean;
 }
 
-function createPrivateToolState(): PrivateToolState {
-  return {
-    patientBackend: {},
-    appointments: {},
-    availability: {
-      bookingTokens: {},
-    },
-  };
-}
-
-function createTurnContextState(): TurnContextSessionState {
-  return {};
-}
-
 export function createCanonicalCallState(
   input: InitialCallStateInput,
 ): CallState {
@@ -350,53 +340,58 @@ export function createCanonicalCallState(
     input.checkedInsuranceCoverageType ??
     (routing === "optical_only" ? "routine_vision" : null);
   const checkedPlan = input.checkedInsurancePlan ?? input.insuranceCarrier;
+  const insuranceOnFile = checkedPlan
+    ? insuranceSnapshot({
+        plan: checkedPlan,
+        canonicalPlan: checkedPlan,
+        coverageType,
+        currentCarrier: input.insuranceCarrier ?? checkedPlan,
+      })
+    : null;
   const patientStatus: PatientStatus = input.patientId ? "matched" : "unknown";
   const state: CallState = {
-    officeKey: input.officeKey,
-    patient: {
-      status: patientStatus,
-      identityConfirmed: false,
-      patientId: input.patientId,
-      name: input.patientName,
-      dob: input.dob,
-      phone: input.phone ?? input.callerPhone,
-      insurance: checkedPlan
-        ? {
-            plan: checkedPlan,
-            canonicalPlan: checkedPlan,
-            coverageType,
-            currentCarrier: input.insuranceCarrier ?? checkedPlan,
-          }
-        : undefined,
-      appointments: input.appointments,
-      appointmentsStatus: input.appointmentsStatus,
+    office: {
+      activeKey: input.officeKey,
+      phoneOverrides: {
+        [input.officeKey]: input.amdOfficePhone,
+      },
     },
-    preCall: input.preCall ?? undefined,
-    checkedInsurance: {
-      plan: checkedPlan,
-      canonicalPlan: checkedPlan,
-      coverageType,
-      currentCarrier: input.insuranceCarrier,
+    identity: {
+      preCall: input.preCall ?? undefined,
+      patient: {
+        status: patientStatus,
+        identityConfirmed: false,
+        patientId: input.patientId,
+        name: input.patientName,
+        dob: input.dob,
+        phone: input.phone ?? input.callerPhone,
+        appointments: input.appointments,
+        appointmentsStatus: input.appointmentsStatus,
+      },
+      patientBackend: {},
     },
-    scheduling: {
-      coverageType,
-      routing,
-      allowedProviders: input.allowedProviders,
-      routingAmbiguous: input.routingAmbiguous,
-      preauthRequired: input.preauthRequired,
-      availabilitySlots: input.bookableAvailabilitySlots?.length
+    insurance: {
+      onFile: insuranceOnFile,
+      lastEligibilityCheck: null,
+    },
+    workflow: {
+      routing: {
+        routing,
+        allowedProviders: input.allowedProviders,
+        routingAmbiguous: input.routingAmbiguous,
+        preauthRequired: input.preauthRequired,
+      },
+    },
+    availability: {
+      slots: input.bookableAvailabilitySlots?.length
         ? input.bookableAvailabilitySlots
         : input.lastAvailabilitySlots,
-      latestAvailabilityRouting: input.lastAvailabilityRouting,
+      latestRouting: input.lastAvailabilityRouting,
+      bookingTokensBySlotId: {},
     },
-    turnContext: createTurnContextState(),
-    private: createPrivateToolState(),
     runtime: {
       preCallLookup: input.preCallLookup,
       latestUserTranscript: null,
-      officePhoneOverrides: {
-        [input.officeKey]: input.amdOfficePhone,
-      },
       sipRoomName: input.sipRoomName,
       sipParticipantIdentity: input.sipParticipantIdentity,
       callId: input.callId,
@@ -440,57 +435,67 @@ export function publicCallerAppointments(
 }
 
 export function activePatientId(state: CallState): string | null {
-  if (!state.patient.identityConfirmed && state.patient.status !== "created") {
+  if (
+    !state.identity.patient.identityConfirmed &&
+    state.identity.patient.status !== "created"
+  ) {
     return null;
   }
-  return state.patient.patientId ?? null;
+  return state.identity.patient.patientId ?? null;
 }
 
 export function activePatientName(state: CallState): string | null {
-  return state.patient.name?.trim() || null;
+  return state.identity.patient.name?.trim() || null;
 }
 
 export function activePatientDob(state: CallState): string | null {
-  return state.patient.dob?.trim() || null;
+  return state.identity.patient.dob?.trim() || null;
 }
 
 export function activeAppointments(state: CallState): CallerAppointment[] {
-  return [...state.patient.appointments];
+  return [...state.identity.patient.appointments];
 }
 
 export function activeAppointmentsStatus(
   state: CallState,
 ): AppointmentLoadStatus | null {
-  return state.patient.appointmentsStatus ?? null;
+  return state.identity.patient.appointmentsStatus ?? null;
 }
 
-export function activeInsuranceContext(state: CallState): {
-  plan: string | null;
-  canonicalPlan: string | null;
-  coverageType: InsuranceCoverageType | null;
-  currentCarrier: string | null;
-} {
-  const insurance = state.patient.insurance ?? state.checkedInsurance;
-  const plan = insurance.plan ?? insurance.canonicalPlan ?? null;
-  return {
-    plan,
-    canonicalPlan: insurance.canonicalPlan ?? plan,
-    coverageType:
-      insurance.coverageType ?? state.scheduling.coverageType ?? null,
-    currentCarrier: insurance.currentCarrier ?? null,
-  };
+export function insuranceOnFile(state: CallState): InsuranceSnapshot | null {
+  return state.insurance.onFile;
+}
+
+export function lastInsuranceEligibilityCheck(
+  state: CallState,
+): InsuranceEligibilityCheck | null {
+  return state.insurance.lastEligibilityCheck;
+}
+
+export function setInsuranceOnFile(
+  state: CallState,
+  insurance: InsuranceSnapshot | null,
+): void {
+  state.insurance.onFile = insurance;
+}
+
+export function setLastInsuranceEligibilityCheck(
+  state: CallState,
+  check: InsuranceEligibilityCheck | null,
+): void {
+  state.insurance.lastEligibilityCheck = check;
 }
 
 export function applyTurnContextToState(
   state: CallState,
   turn: RecordTurnContextArgs,
 ): void {
-  state.turnContext.last = turn;
+  const previousVisitType = currentWorkflowVisitType(state);
+  state.workflow.current = turn;
   const visitType = visitTypeFromAppointmentLane(turn);
-  if (!visitType || state.scheduling.visitType === visitType) return;
+  if (!visitType || previousVisitType === visitType) return;
 
   clearAvailabilitySelection(state);
-  state.scheduling.visitType = visitType;
 }
 
 export function workflowContextNameForTurn(
@@ -516,15 +521,24 @@ export function activeRoutingContext(state: CallState): {
   preauthRequired: boolean;
 } {
   return {
-    routing: state.scheduling.routing ?? null,
-    allowedProviders: state.scheduling.allowedProviders,
-    routingAmbiguous: state.scheduling.routingAmbiguous,
-    preauthRequired: state.scheduling.preauthRequired,
+    routing: state.workflow.routing.routing ?? null,
+    allowedProviders: state.workflow.routing.allowedProviders,
+    routingAmbiguous: state.workflow.routing.routingAmbiguous,
+    preauthRequired: state.workflow.routing.preauthRequired,
   };
 }
 
 export function activeOfficeKey(state: CallState): OfficeKey {
-  return state.officeKey;
+  return state.office.activeKey;
+}
+
+export function setActiveOfficeKey(
+  state: CallState,
+  officeKey: OfficeKey,
+): void {
+  if (state.office.activeKey === officeKey) return;
+  state.office.activeKey = officeKey;
+  state.insurance.lastEligibilityCheck = null;
 }
 
 export function runtimeCallerPhone(state: CallState): string {
@@ -532,26 +546,25 @@ export function runtimeCallerPhone(state: CallState): string {
 }
 
 export function patientBackendRefs(state: CallState): PatientBackendRefs {
-  return state.private.patientBackend;
+  return state.identity.patientBackend;
 }
 
 export function setPatientBackendRefs(
   state: CallState,
   refs: PatientBackendRefs,
 ): void {
-  state.private.patientBackend = {
-    ...state.private.patientBackend,
+  state.identity.patientBackend = {
+    ...state.identity.patientBackend,
     ...refs,
   };
 }
 
-export function removePrivateAppointment(
+export function removeBookedAppointmentReference(
   state: CallState,
   appointmentId: number,
 ): void {
-  delete state.private.appointments[String(appointmentId)];
-  if (state.private.latestBookedAppointmentId === appointmentId) {
-    delete state.private.latestBookedAppointmentId;
+  if (state.identity.latestBookedAppointmentId === appointmentId) {
+    delete state.identity.latestBookedAppointmentId;
   }
 }
 
@@ -559,20 +572,20 @@ export function setLatestBookedAppointment(
   state: CallState,
   appointmentId: number,
 ): void {
-  state.private.latestBookedAppointmentId = appointmentId;
+  state.identity.latestBookedAppointmentId = appointmentId;
 }
 
 export function latestBookedAppointmentId(state: CallState): number | null {
-  return state.private.latestBookedAppointmentId ?? null;
+  return state.identity.latestBookedAppointmentId ?? null;
 }
 
-export function storeAvailabilitySlotPrivateData(
+export function storeAvailabilityBookingToken(
   state: CallState,
   slotId: string,
   bookingToken?: string,
 ): void {
   if (bookingToken?.trim()) {
-    state.private.availability.bookingTokens[slotId] = bookingToken.trim();
+    state.availability.bookingTokensBySlotId[slotId] = bookingToken.trim();
   }
 }
 
@@ -580,36 +593,34 @@ export function availabilityBookingToken(
   state: CallState,
   slotId: string,
 ): string | null {
-  return state.private.availability.bookingTokens[slotId]?.trim() || null;
+  return state.availability.bookingTokensBySlotId[slotId]?.trim() || null;
 }
 
 export function clearAvailabilitySelection(state: CallState): void {
-  state.scheduling.availabilitySlots = [];
-  state.scheduling.latestAvailabilityRouting = null;
-  state.private.availability.bookingTokens = {};
+  state.availability.slots = [];
+  state.availability.latestRouting = null;
+  state.availability.bookingTokensBySlotId = {};
 }
 
 export function latestAvailabilityRouting(state: CallState): string | null {
   return (
-    state.scheduling.latestAvailabilityRouting ??
-    state.scheduling.routing ??
-    null
+    state.availability.latestRouting ?? state.workflow.routing.routing ?? null
   );
 }
 
 export function availabilitySlotsForState(
   state: CallState,
 ): StoredAvailabilitySlot[] {
-  return state.scheduling.availabilitySlots;
+  return state.availability.slots;
 }
 
 export function snapshotActivePatientIdentity(
   state: CallState,
 ): PatientIdentitySnapshot {
   return {
-    patientId: state.patient.patientId,
-    name: state.patient.name,
-    dob: state.patient.dob,
+    patientId: state.identity.patient.patientId,
+    name: state.identity.patient.name,
+    dob: state.identity.patient.dob,
   };
 }
 
@@ -618,9 +629,12 @@ export function hasActivePatientIdentityChanged(
   previous: PatientIdentitySnapshot,
 ): boolean {
   return (
-    changedKnownIdentityValue(previous.patientId, state.patient.patientId) ||
-    changedKnownIdentityValue(previous.name, state.patient.name) ||
-    changedKnownIdentityValue(previous.dob, state.patient.dob)
+    changedKnownIdentityValue(
+      previous.patientId,
+      state.identity.patient.patientId,
+    ) ||
+    changedKnownIdentityValue(previous.name, state.identity.patient.name) ||
+    changedKnownIdentityValue(previous.dob, state.identity.patient.dob)
   );
 }
 
@@ -642,6 +656,44 @@ function visitTypeFromAppointmentLane(
   if (turn.appointmentLane === "routine_od") return "routine_vision";
   if (turn.appointmentLane === "medical_md") return "medical";
   return null;
+}
+
+export function currentWorkflowVisitType(state: CallState): VisitType | null {
+  const turn = state.workflow.current;
+  return turn ? visitTypeFromAppointmentLane(turn) : null;
+}
+
+export function setRoutingContext(
+  state: CallState,
+  routing: {
+    routing?: string | null;
+    allowedProviders?: string[];
+    routingAmbiguous?: boolean;
+    preauthRequired?: boolean;
+  },
+): void {
+  state.workflow.routing = {
+    routing: normalizeSchedulingRouting(routing.routing),
+    allowedProviders: routing.allowedProviders ?? [],
+    routingAmbiguous: routing.routingAmbiguous ?? false,
+    preauthRequired: routing.preauthRequired ?? false,
+  };
+}
+
+export function insuranceSnapshot(input: {
+  plan?: string | null;
+  canonicalPlan?: string | null;
+  coverageType?: InsuranceCoverageType | null;
+  currentCarrier?: string | null;
+}): InsuranceSnapshot {
+  const plan = input.plan?.trim() || input.canonicalPlan?.trim() || null;
+  const canonicalPlan = input.canonicalPlan?.trim() || plan;
+  return {
+    plan,
+    canonicalPlan,
+    coverageType: input.coverageType ?? null,
+    currentCarrier: input.currentCarrier?.trim() || plan,
+  };
 }
 
 function changedKnownIdentityValue(

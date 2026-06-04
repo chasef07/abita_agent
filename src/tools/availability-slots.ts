@@ -1,7 +1,7 @@
 import {
   availabilitySlotsForState,
   clearAvailabilitySelection,
-  storeAvailabilitySlotPrivateData,
+  storeAvailabilityBookingToken,
   type CallState,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
@@ -29,15 +29,14 @@ export function removeAvailabilitySlot(
   slotId: string,
 ): StoredAvailabilitySlot[] {
   const normalized = normalizeSlotId(slotId);
-  state.scheduling.availabilitySlots =
-    state.scheduling.availabilitySlots.filter(
-      (slot) => normalizeSlotId(slot.slotId) !== normalized,
-    );
+  state.availability.slots = state.availability.slots.filter(
+    (slot) => normalizeSlotId(slot.slotId) !== normalized,
+  );
   for (const storedSlotId of Object.keys(
-    state.private.availability.bookingTokens,
+    state.availability.bookingTokensBySlotId,
   )) {
     if (normalizeSlotId(storedSlotId) === normalized) {
-      delete state.private.availability.bookingTokens[storedSlotId];
+      delete state.availability.bookingTokensBySlotId[storedSlotId];
     }
   }
   return availabilitySlotsForState(state);
@@ -84,10 +83,10 @@ export function storeAvailabilitySlots(
   );
 
   clearAvailabilitySelection(state);
-  state.scheduling.availabilitySlots = storedSlots;
-  state.scheduling.latestAvailabilityRouting = routing;
+  state.availability.slots = storedSlots;
+  state.availability.latestRouting = routing;
   sortedSlots.forEach((slot, index) => {
-    storeAvailabilitySlotPrivateData(
+    storeAvailabilityBookingToken(
       state,
       slotIdForIndex(index),
       typeof slot.bookingToken === "string" ? slot.bookingToken : undefined,

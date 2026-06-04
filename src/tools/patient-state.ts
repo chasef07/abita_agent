@@ -6,9 +6,11 @@ import {
 import {
   CALLER_CANDIDATE_REF,
   clearAvailabilitySelection,
-  normalizeSchedulingRouting,
+  insuranceSnapshot,
   publicCallerAppointments,
+  setInsuranceOnFile,
   setPatientBackendRefs,
+  setRoutingContext,
   snapshotActivePatientIdentity,
   type AppointmentLoadStatus,
   type CallState,
@@ -46,7 +48,7 @@ type PatientStatePayload = {
 };
 
 export function restoreConfirmedPreCallCaller(state: CallState): void {
-  const preCall = state.preCall;
+  const preCall = state.identity.preCall;
   if (
     preCall?.status !== "single_match_confirmed" &&
     preCall?.status !== "multiple_match_confirmed"
@@ -58,7 +60,10 @@ export function restoreConfirmedPreCallCaller(state: CallState): void {
     (candidate) => candidate.ref === selectedRef,
   );
   if (!candidate?.patientId) return;
-  if (state.patient.identityConfirmed || state.patient.status === "created") {
+  if (
+    state.identity.patient.identityConfirmed ||
+    state.identity.patient.status === "created"
+  ) {
     return;
   }
   applyPreCallCandidateToState(state, candidate);
@@ -135,36 +140,44 @@ export function changedKnownIdentityValue(
 
 function applyPreCallCandidateToState(
   state: CallState,
-  candidate: NonNullable<CallState["preCall"]>["candidates"][number],
+  candidate: NonNullable<
+    CallState["identity"]["preCall"]
+  >["candidates"][number],
 ): void {
   if (!candidate.patientId) return;
-  state.patient = {
-    ...state.patient,
+  state.identity.patient = {
+    ...state.identity.patient,
     status: "verified",
     identityConfirmed: true,
     patientId: candidate.patientId,
     name: [candidate.firstName, candidate.lastName].filter(Boolean).join(" "),
     dob: candidate.dob ?? null,
-    insurance: candidate.insuranceCarrier
-      ? {
+    appointments: candidate.appointments,
+    appointmentsStatus: candidate.appointmentsStatus ?? null,
+  };
+  setInsuranceOnFile(
+    state,
+    candidate.insuranceCarrier
+      ? insuranceSnapshot({
           plan: candidate.insuranceCarrier,
           canonicalPlan: candidate.insuranceCarrier,
           coverageType:
             candidate.routing === "optical_only" ? "routine_vision" : null,
           currentCarrier: candidate.insuranceCarrier,
-        }
-      : state.patient.insurance,
-    appointments: candidate.appointments,
-    appointmentsStatus: candidate.appointmentsStatus ?? null,
-  };
+        })
+      : null,
+  );
+  state.insurance.lastEligibilityCheck = null;
   setPatientBackendRefs(state, {
     insPlanId: candidate.insPlanId ?? null,
     respPartyId: candidate.respPartyId ?? null,
   });
-  state.scheduling.routing = normalizeSchedulingRouting(candidate.routing);
-  state.scheduling.allowedProviders = candidate.allowedProviders ?? [];
-  state.scheduling.routingAmbiguous = candidate.routingAmbiguous ?? false;
-  state.scheduling.preauthRequired = candidate.preauthRequired ?? false;
+  setRoutingContext(state, {
+    routing: candidate.routing,
+    allowedProviders: candidate.allowedProviders,
+    routingAmbiguous: candidate.routingAmbiguous,
+    preauthRequired: candidate.preauthRequired,
+  });
 }
 
 function applyPatientPayloadToState(
@@ -181,6 +194,7 @@ function applyPatientPayloadToState(
 
   if (invalidatePatientState) {
     clearAvailabilitySelection(state);
+    state.insurance.lastEligibilityCheck = null;
   }
   setPatientBackendRefs(state, {
     insPlanId: payload.insPlanId ?? null,
@@ -188,15 +202,14 @@ function applyPatientPayloadToState(
   });
   const coverageType =
     payload.routing === "optical_only" ? "routine_vision" : undefined;
-  const routing = normalizeSchedulingRouting(payload.routing);
-  state.patient = {
-    ...state.patient,
+  state.identity.patient = {
+    ...state.identity.patient,
     status:
       String(payload.status ?? "").toLowerCase() === "created"
         ? "created"
         : payload.patientId
           ? "verified"
-          : state.patient.status,
+          : state.identity.patient.status,
     identityConfirmed: Boolean(payload.patientId),
     patientId: payload.patientId ?? null,
     name: payload.name ?? null,
@@ -204,31 +217,24 @@ function applyPatientPayloadToState(
     phone: payload.phone ?? null,
     appointments,
     appointmentsStatus: payload.appointmentsStatus ?? null,
-    insurance: payload.insuranceCarrier
-      ? {
+  };
+  setInsuranceOnFile(
+    state,
+    payload.insuranceCarrier
+      ? insuranceSnapshot({
           plan: payload.insuranceCarrier,
-          coverageType,
           canonicalPlan: payload.insuranceCarrier,
+          coverageType: coverageType ?? null,
           currentCarrier: payload.insuranceCarrier,
-        }
-      : state.patient.insurance,
-  };
-  state.checkedInsurance = {
-    plan: payload.insuranceCarrier ?? state.checkedInsurance.plan,
-    canonicalPlan:
-      payload.insuranceCarrier ?? state.checkedInsurance.canonicalPlan,
-    coverageType: coverageType ?? state.checkedInsurance.coverageType,
-    currentCarrier:
-      payload.insuranceCarrier ?? state.checkedInsurance.currentCarrier,
-  };
-  state.scheduling.routing = routing;
-  state.scheduling.allowedProviders = payload.allowedProviders ?? [];
-  state.scheduling.routingAmbiguous = payload.routingAmbiguous ?? false;
-  state.scheduling.preauthRequired = payload.preauthRequired ?? false;
-  state.scheduling.coverageType = coverageType ?? state.scheduling.coverageType;
-  if (coverageType === "routine_vision") {
-    state.scheduling.visitType = "routine_vision";
-  }
+        })
+      : null,
+  );
+  setRoutingContext(state, {
+    routing: payload.routing,
+    allowedProviders: payload.allowedProviders,
+    routingAmbiguous: payload.routingAmbiguous,
+    preauthRequired: payload.preauthRequired,
+  });
 }
 
 function shouldInvalidatePatientScopedState(

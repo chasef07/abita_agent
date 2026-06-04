@@ -1,10 +1,10 @@
 import { llm } from "@livekit/agents";
 import {
-  activeInsuranceContext,
   activePatientDob,
   activePatientName,
   availabilityBookingToken,
   clearAvailabilitySelection,
+  currentWorkflowVisitType,
   latestAvailabilityRouting,
   type CallState,
   type CallerAppointment,
@@ -249,8 +249,7 @@ function inferAppointmentKindForBooking(
 ): AppointmentKind {
   if (
     routing === "optical_only" ||
-    activeInsuranceContext(state).coverageType === "routine_vision" ||
-    state.scheduling.visitType === "routine_vision"
+    currentWorkflowVisitType(state) === "routine_vision"
   ) {
     return "routine_vision";
   }
@@ -263,7 +262,8 @@ function inferAppointmentKindForBooking(
 function patientStatusForAppointmentIntent(
   state: CallState,
 ): AppointmentPatientStatus {
-  return state.patient.status === "created" || state.patient.status === "new"
+  return state.identity.patient.status === "created" ||
+    state.identity.patient.status === "new"
     ? "new"
     : "established";
 }

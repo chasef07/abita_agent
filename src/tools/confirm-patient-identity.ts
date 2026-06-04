@@ -6,6 +6,7 @@ import type {
 } from "../clients/advancedmd-client.js";
 import {
   CALLER_CANDIDATE_REF,
+  insuranceOnFile,
   type CallState,
   type PreCallContextState,
 } from "../state/call-state.js";
@@ -81,7 +82,7 @@ function confirmFromPreCallState(
   state: CallState,
   identity: FullIdentityArgs,
 ): string | null {
-  const preCall = state.preCall;
+  const preCall = state.identity.preCall;
   if (!preCall) return null;
 
   if (preCall.status === "single_match_pending_confirmation") {
@@ -120,7 +121,7 @@ function preCallNameMismatchReply(
   state: CallState,
   identity: FullIdentityArgs,
 ): string | null {
-  const preCall = state.preCall;
+  const preCall = state.identity.preCall;
   if (preCall?.status !== "single_match_pending_confirmation") return null;
 
   const candidate =
@@ -157,16 +158,19 @@ function promotePreCallCandidate(
     "single_match_confirmed" | "multiple_match_confirmed"
   >,
 ): string {
-  if (!state.preCall) {
+  if (!state.identity.preCall) {
     throw new llm.ToolError("Patient identity is not preloaded.");
   }
 
-  state.preCall.status = confirmedStatus;
-  state.preCall.selectedCandidateRef = candidateRef;
-  state.preCall.identityPromotion = "confirmed_by_identity_tool";
+  state.identity.preCall.status = confirmedStatus;
+  state.identity.preCall.selectedCandidateRef = candidateRef;
+  state.identity.preCall.identityPromotion = "confirmed_by_identity_tool";
   restoreConfirmedPreCallCaller(state);
 
-  if (!state.patient.identityConfirmed || !state.patient.patientId) {
+  if (
+    !state.identity.patient.identityConfirmed ||
+    !state.identity.patient.patientId
+  ) {
     throw new llm.ToolError("Patient identity could not be confirmed.");
   }
 
@@ -276,30 +280,28 @@ function normalizeDob(value: string | null | undefined): string {
 }
 
 function confirmedPatientReply(state: CallState): string {
-  const patientName = state.patient.name?.trim() || "the patient";
+  const patientName = state.identity.patient.name?.trim() || "the patient";
+  const insurance = insuranceOnFile(state);
   const prefix = verifiedExistingPatientPrefix(
     patientName,
-    state.patient.insurance?.currentCarrier ??
-      state.patient.insurance?.canonicalPlan ??
-      state.patient.insurance?.plan ??
-      null,
+    insurance?.currentCarrier ?? insurance?.canonicalPlan ?? insurance?.plan,
   );
   if (
-    state.patient.appointmentsStatus === "found" &&
-    state.patient.appointments.length > 0
+    state.identity.patient.appointmentsStatus === "found" &&
+    state.identity.patient.appointments.length > 0
   ) {
-    const appointments = state.patient.appointments
+    const appointments = state.identity.patient.appointments
       .slice(0, 3)
       .map(spokenAppointment)
       .join("; ");
-    const remaining = state.patient.appointments.length - 3;
+    const remaining = state.identity.patient.appointments.length - 3;
     const more = remaining > 0 ? `; and ${remaining} more` : "";
-    return `${prefix} Loaded ${state.patient.appointments.length} appointment${state.patient.appointments.length === 1 ? "" : "s"}: ${appointments}${more}.`;
+    return `${prefix} Loaded ${state.identity.patient.appointments.length} appointment${state.identity.patient.appointments.length === 1 ? "" : "s"}: ${appointments}${more}.`;
   }
-  if (state.patient.appointmentsStatus === "none") {
+  if (state.identity.patient.appointmentsStatus === "none") {
     return `${prefix} No upcoming appointments are loaded.`;
   }
-  if (state.patient.appointmentsStatus === "error") {
+  if (state.identity.patient.appointmentsStatus === "error") {
     return `${prefix} Appointments could not be loaded. Try confirming identity again before confirming or cancelling.`;
   }
   return `${prefix} Patient record is loaded.`;
@@ -357,7 +359,7 @@ function patientLookupReply(result: PatientResolveResult): string {
 function spokenAppointment(
   appointment:
     | PatientResolveVerified["appointments"][number]
-    | CallState["patient"]["appointments"][number],
+    | CallState["identity"]["patient"]["appointments"][number],
 ): string {
   return [
     appointment.date,

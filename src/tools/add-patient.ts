@@ -3,8 +3,11 @@ import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import { normalizeInsuranceText } from "../insurance-rules.js";
 import {
-  activeInsuranceContext,
+  insuranceSnapshot,
+  lastInsuranceEligibilityCheck,
   runtimeCallerPhone,
+  setInsuranceOnFile,
+  setLastInsuranceEligibilityCheck,
   type CallState,
 } from "../state/call-state.js";
 import { applyPatientResult } from "./patient-state.js";
@@ -70,7 +73,16 @@ export const add_patient = llm.tool({
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
 
-    const checkedInsurance = activeInsuranceContext(state);
+    const checkedInsurance = lastInsuranceEligibilityCheck(state);
+    if (
+      !checkedInsurance?.accepted ||
+      !checkedInsurance.canonicalPlan ||
+      !checkedInsurance.coverageType
+    ) {
+      throw new llm.ToolError(
+        "Run check_insurance for accepted coverage before creating a patient.",
+      );
+    }
     const insurance = checkedInsurance.canonicalPlan ?? params.insurance;
     const selfPay = normalizeInsuranceText(insurance) === "self pay";
     const explicitPhone = params.phone?.trim() ?? "";
@@ -78,9 +90,7 @@ export const add_patient = llm.tool({
       explicitPhone ||
       (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
 
-    ensureSchedulingTurnContext(state, "creating a patient", {
-      coverageType: checkedInsurance.coverageType,
-    });
+    ensureSchedulingTurnContext(state, "creating a patient");
 
     if (hasMatchingPendingPreCallPatient(state, params)) {
       return "A patient record may already exist for that last name and date of birth from the caller phone lookup. Confirm the existing patient record before creating a new chart.";
@@ -145,6 +155,17 @@ export const add_patient = llm.tool({
     }
 
     applyPatientResult(state, { ...result, status: "created" });
+    setInsuranceOnFile(
+      state,
+      insuranceSnapshot({
+        plan: result.insuranceCarrier ?? checkedInsurance.currentCarrier,
+        canonicalPlan: checkedInsurance.canonicalPlan,
+        coverageType: checkedInsurance.coverageType,
+        currentCarrier:
+          result.insuranceCarrier ?? checkedInsurance.currentCarrier,
+      }),
+    );
+    setLastInsuranceEligibilityCheck(state, null);
     const patientName =
       result.name?.trim() || `${params.firstName} ${params.lastName}`;
     return `Created a patient chart for ${patientName}. Continue with scheduling.`;
@@ -158,7 +179,7 @@ function hasMatchingPendingPreCallPatient(
     dob: string;
   },
 ): boolean {
-  const preCall = state.preCall;
+  const preCall = state.identity.preCall;
   if (
     preCall?.status !== "single_match_pending_confirmation" &&
     preCall?.status !== "multiple_matches_pending_selection"

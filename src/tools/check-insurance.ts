@@ -5,7 +5,10 @@ import {
   canonicalInsurancePlan,
   matchInsurancePlanForOffice,
 } from "../insurance-rules.js";
-import { activeOfficeKey } from "../state/call-state.js";
+import {
+  activeOfficeKey,
+  setLastInsuranceEligibilityCheck,
+} from "../state/call-state.js";
 import { getState } from "./session.js";
 
 export const check_insurance = llm.tool({
@@ -35,13 +38,13 @@ export const check_insurance = llm.tool({
       ? coverageType
       : null;
 
-    state.checkedInsurance = {
+    setLastInsuranceEligibilityCheck(state, {
       plan,
       canonicalPlan: checkedInsurancePlan,
       coverageType: checkedInsuranceCoverageType,
       currentCarrier: response.callerFacingPlan ?? checkedInsurancePlan,
-    };
-    state.scheduling.coverageType = checkedInsuranceCoverageType;
+      accepted: Boolean(checkedInsurancePlan && result.status === "accepted"),
+    });
 
     if (office === "crystal-river" && result.status === "not_accepted") {
       const springHillResult = matchInsurancePlanForOffice(

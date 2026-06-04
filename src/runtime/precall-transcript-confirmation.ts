@@ -1,7 +1,9 @@
 import { CALLER_CANDIDATE_REF, type CallState } from "../state/call-state.js";
 import { restoreConfirmedPreCallCaller } from "../tools/patient-state.js";
 
-type PreCallCandidate = NonNullable<CallState["preCall"]>["candidates"][number];
+type PreCallCandidate = NonNullable<
+  CallState["identity"]["preCall"]
+>["candidates"][number];
 
 export interface PreCallTranscriptConfirmation {
   candidateRef: string;
@@ -17,8 +19,8 @@ export function confirmPreCallIdentityFromTranscript({
   transcript: string;
   lastAssistantText: string | null | undefined;
 }): PreCallTranscriptConfirmation | null {
-  const preCall = state.preCall;
-  if (!preCall || state.patient.identityConfirmed) return null;
+  const preCall = state.identity.preCall;
+  if (!preCall || state.identity.patient.identityConfirmed) return null;
   if (!isFirstNamePrompt(lastAssistantText)) return null;
 
   const candidate =
@@ -36,7 +38,7 @@ export function confirmPreCallIdentityFromTranscript({
   preCall.identityPromotion = "confirmed_by_transcript";
   restoreConfirmedPreCallCaller(state);
 
-  if (!state.patient.identityConfirmed) return null;
+  if (!state.identity.patient.identityConfirmed) return null;
 
   return {
     candidateRef: candidate.ref,
@@ -45,7 +47,7 @@ export function confirmPreCallIdentityFromTranscript({
 }
 
 function singlePreCallCandidate(
-  preCall: NonNullable<CallState["preCall"]>,
+  preCall: NonNullable<CallState["identity"]["preCall"]>,
 ): PreCallCandidate | null {
   return (
     candidateByRef(preCall, preCall.selectedCandidateRef) ??
@@ -55,7 +57,7 @@ function singlePreCallCandidate(
 }
 
 function uniqueMultiplePreCallCandidate(
-  preCall: NonNullable<CallState["preCall"]>,
+  preCall: NonNullable<CallState["identity"]["preCall"]>,
   transcript: string,
 ): PreCallCandidate | null {
   if (preCall.status !== "multiple_matches_pending_selection") return null;
@@ -66,7 +68,7 @@ function uniqueMultiplePreCallCandidate(
 }
 
 function candidateByRef(
-  preCall: NonNullable<CallState["preCall"]>,
+  preCall: NonNullable<CallState["identity"]["preCall"]>,
   ref: string | undefined,
 ): PreCallCandidate | null {
   if (!ref) return null;
@@ -153,8 +155,8 @@ function collapseConsecutiveLetters(value: string): string {
 }
 
 function confirmedPatientSystemMessage(state: CallState): string {
-  const patientName = state.patient.name?.trim() || "the patient";
-  const patientId = state.patient.patientId?.trim() || "unknown";
+  const patientName = state.identity.patient.name?.trim() || "the patient";
+  const patientId = state.identity.patient.patientId?.trim() || "unknown";
   return [
     "Internal state: patient identity is confirmed from a pre-call phone candidate after the caller provided the patient's first name.",
     `Patient: ${patientName}.`,
@@ -168,10 +170,10 @@ function confirmedPatientSystemMessage(state: CallState): string {
 
 function appointmentSummaryForSystemMessage(state: CallState): string {
   if (
-    state.patient.appointmentsStatus === "found" &&
-    state.patient.appointments.length > 0
+    state.identity.patient.appointmentsStatus === "found" &&
+    state.identity.patient.appointments.length > 0
   ) {
-    const appointments = state.patient.appointments
+    const appointments = state.identity.patient.appointments
       .slice(0, 3)
       .map((appointment) =>
         [
@@ -183,14 +185,14 @@ function appointmentSummaryForSystemMessage(state: CallState): string {
           .join(" "),
       )
       .join("; ");
-    const remaining = state.patient.appointments.length - 3;
+    const remaining = state.identity.patient.appointments.length - 3;
     const more = remaining > 0 ? `; and ${remaining} more` : "";
     return `Upcoming appointments loaded: ${appointments}${more}.`;
   }
-  if (state.patient.appointmentsStatus === "none") {
+  if (state.identity.patient.appointmentsStatus === "none") {
     return "Appointments status: none. No upcoming appointments are loaded.";
   }
-  if (state.patient.appointmentsStatus === "error") {
+  if (state.identity.patient.appointmentsStatus === "error") {
     return "Appointments status: error. Appointments could not be loaded.";
   }
   return "Patient record is loaded.";
