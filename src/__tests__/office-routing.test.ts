@@ -143,21 +143,17 @@ describe("office routing helpers", () => {
     expect(getOfficeHandoffTarget("sweetwater")).toBe("tel:+16184220360");
   });
 
-  it("introduces the Abita receptionist as AI and scheduling-capable", () => {
+  it("introduces Zoe as the virtual assistant", () => {
     const greeting =
-      "Thanks for calling Abita Eye Group. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?";
+      "Hey, this is Zoe, the virtual assistant at Abita Eye Group. How's your day going?";
 
     expect(getOfficeConfig("spring-hill").greeting).toBe(greeting);
     expect(getOfficeConfig("dev").greeting).toBe(greeting);
     expect(getOfficeConfig("crystal-river").greeting).toBe(
-      "Thank you for calling Eye Radiance powered by Abeeta Eye Group. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
+      "Hey, this is Zoe, the virtual assistant at Eye Radiance, powered by Abita Eye Group. How's your day going?",
     );
-    expect(getOfficeConfig("hollywood").greeting).toBe(
-      "Thanks for calling Abita Eye Group Hollywood. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
-    );
-    expect(getOfficeConfig("sweetwater").greeting).toBe(
-      "Thanks for calling Abita Eye Group Sweetwater. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
-    );
+    expect(getOfficeConfig("hollywood").greeting).toBe(greeting);
+    expect(getOfficeConfig("sweetwater").greeting).toBe(greeting);
   });
 
   it("normalizes handoff targets while allowing SIP URIs directly", () => {

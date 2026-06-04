@@ -57,7 +57,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     displayName: "Abita Eye Group",
     trunkPhones: [SPRING_HILL_OFFICE_PHONE, SPRING_HILL_813_TRUNK_PHONE],
     greeting:
-      "Thanks for calling Abita Eye Group. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
+      "Hey, this is Zoe, the virtual assistant at Abita Eye Group. How's your day going?",
     knowledgeFile: "KNOWLEDGE_SPRINGHILL.md",
     insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
@@ -73,7 +73,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     displayName: "Eye Radiance",
     trunkPhones: [CRYSTAL_RIVER_OFFICE_PHONE],
     greeting:
-      "Thank you for calling Eye Radiance powered by Abeeta Eye Group. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
+      "Hey, this is Zoe, the virtual assistant at Eye Radiance, powered by Abita Eye Group. How's your day going?",
     knowledgeFile: "KNOWLEDGE_EYERADIANCE.md",
     insuranceFile: "INSURANCE_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
@@ -89,7 +89,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     displayName: "Abita Eye Group Hollywood",
     trunkPhones: [HOLLYWOOD_OFFICE_PHONE],
     greeting:
-      "Thanks for calling Abita Eye Group Hollywood. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
+      "Hey, this is Zoe, the virtual assistant at Abita Eye Group. How's your day going?",
     knowledgeFile: "KNOWLEDGE_HOLLYWOOD.md",
     insuranceFile: "INSURANCE_HOLLYWOOD_SWEETWATER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
@@ -105,7 +105,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     displayName: "Abita Eye Group Sweetwater",
     trunkPhones: [...SWEETWATER_TRUNK_PHONES],
     greeting:
-      "Thanks for calling Abita Eye Group Sweetwater. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
+      "Hey, this is Zoe, the virtual assistant at Abita Eye Group. How's your day going?",
     knowledgeFile: "KNOWLEDGE_SWEETWATER.md",
     insuranceFile: "INSURANCE_HOLLYWOOD_SWEETWATER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
@@ -121,7 +121,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     displayName: "Abita Dev",
     trunkPhones: [DEV_OFFICE_PHONE],
     greeting:
-      "Thanks for calling Abita Eye Group. This is David, the AI receptionist. I'm here to help with scheduling, appointment changes, and quick questions. How can I help?",
+      "Hey, this is Zoe, the virtual assistant at Abita Eye Group. How's your day going?",
     knowledgeFile: "KNOWLEDGE_SPRINGHILL.md",
     insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",

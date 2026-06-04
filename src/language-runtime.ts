@@ -268,8 +268,10 @@ export class VoiceLanguageRuntime {
     if (ttsLanguageChanged && Object.keys(ttsOptions).length > 0) {
       this.tts.updateOptions(ttsOptions);
       this.appliedTtsLanguage = voiceLanguage;
+      const providerLanguage = ttsOptions.language ?? ttsOptions.lang ?? "";
+      const providerVoice = ttsOptions.voice ?? ttsOptions.speaker ?? "";
       console.log(
-        `[language] applied_tts_options voice_language=${voiceLanguage} tts_language=${String(ttsOptions.language ?? "")} voice=${String(ttsOptions.voice ?? "")}`,
+        `[language] applied_tts_options voice_language=${voiceLanguage} tts_language=${String(providerLanguage)} voice=${String(providerVoice)}`,
       );
     }
   }

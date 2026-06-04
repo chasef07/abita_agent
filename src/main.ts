@@ -14,6 +14,7 @@ import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
 import * as cartesia from "@livekit/agents-plugin-cartesia";
+import * as rime from "@livekit/agents-plugin-rime";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -43,8 +44,11 @@ import {
 } from "./runtime/precall-bootstrap.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
+  getActiveTtsProvider,
   getCartesiaTtsOptions,
   getCartesiaTtsOptionsByLanguage,
+  getRimeTtsOptions,
+  getRimeTtsOptionsByLanguage,
 } from "./tts-config.js";
 import { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
@@ -100,11 +104,17 @@ export default defineAgent({
         llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
       });
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
-      const ttsOptions = getCartesiaTtsOptions();
-      const tts = new cartesia.TTS(ttsOptions);
+      const ttsProvider = getActiveTtsProvider();
+      const tts =
+        ttsProvider === "rime"
+          ? new rime.TTS(getRimeTtsOptions())
+          : new cartesia.TTS(getCartesiaTtsOptions());
       const languageRuntime = new VoiceLanguageRuntime(tts, {
         appliedTtsLanguage: "en",
-        ttsOptionsByLanguage: getCartesiaTtsOptionsByLanguage(ttsOptions.voice),
+        ttsOptionsByLanguage:
+          ttsProvider === "rime"
+            ? getRimeTtsOptionsByLanguage()
+            : getCartesiaTtsOptionsByLanguage(),
       });
       const session = new voice.AgentSession<CallState>({
         stt,
