@@ -2297,6 +2297,7 @@ describe("direct session state cleanup", () => {
         time: "9:00 AM",
         provider: "Dr. Licht",
         type: "Crystal River New Patient",
+        appointmentTypeId: 6167,
         facility: "Crystal River",
         confirmed: false,
       },
@@ -2312,6 +2313,7 @@ describe("direct session state cleanup", () => {
             appointmentId: 456,
             providerName: "Doctor Smith",
             locationName: "Crystal River",
+            appointmentTypeId: 6167,
             appointmentTypeName: "Crystal River New Patient",
           }),
         };
@@ -2349,6 +2351,7 @@ describe("direct session state cleanup", () => {
       startDatetime: "2026-06-01T09:00:00",
       providerName: "Doctor Smith",
       locationName: "Crystal River",
+      appointmentTypeId: 6167,
       appointmentTypeName: "Crystal River New Patient",
       cancelledAppointmentId: 123,
       cancelledAppointmentDate: "Monday, June 1, 2026",
@@ -2368,6 +2371,7 @@ describe("direct session state cleanup", () => {
       patientId: "patient-1",
       appointmentReason: "move my appointment",
       referringDoctor: "none",
+      appointmentTypeId: 6167,
       patientStatus: "new",
     });
     expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
@@ -2382,6 +2386,7 @@ describe("direct session state cleanup", () => {
         time: "9:00 AM",
         provider: "Doctor Smith",
         type: "Crystal River New Patient",
+        appointmentTypeId: 6167,
         facility: "Crystal River",
         confirmed: true,
       },

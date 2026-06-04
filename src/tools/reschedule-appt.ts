@@ -126,6 +126,7 @@ export const reschedule_appt = llm.tool({
       patientId,
       appointmentReason,
       referringDoctor,
+      appointmentTypeIdOverride: oldAppointment.appointmentTypeId ?? null,
       patientStatusOverride:
         appointmentPatientStatusForLoadedAppointment(oldAppointment),
     });
