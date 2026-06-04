@@ -184,7 +184,7 @@ function getAmdOfficeForCancellationAppointment(
   const officeKey = officeKeyForAppointmentFacility(appointment.facility);
   if (!officeKey) return getAmdOfficeForToolCall(state);
   return (
-    state.runtime.officePhoneOverrides?.[officeKey] ??
+    state.office.phoneOverrides?.[officeKey] ??
     getOfficeConfig(officeKey).amdOfficePhone
   );
 }

@@ -3,7 +3,7 @@ import {
   activeAppointments,
   activeOfficeKey,
   latestBookedAppointmentId,
-  removePrivateAppointment,
+  removeBookedAppointmentReference,
   setLatestBookedAppointment,
   type AppointmentLoadStatus,
   type CallState,
@@ -38,7 +38,7 @@ export function activeAppointmentById(
   state: CallState,
   appointmentId: number,
 ): CallerAppointment | undefined {
-  return state.patient.appointments.find(
+  return state.identity.patient.appointments.find(
     (appointment) => appointment.id === appointmentId,
   );
 }
@@ -86,8 +86,8 @@ export function recordBookedAppointmentInState(
     ...activeAppointments(state).filter((item) => item.id !== appointmentId),
     appointment,
   ];
-  state.patient.appointments = nextAppointments;
-  state.patient.appointmentsStatus = "found";
+  state.identity.patient.appointments = nextAppointments;
+  state.identity.patient.appointmentsStatus = "found";
   setLatestBookedAppointment(state, appointmentId);
 }
 
@@ -158,10 +158,11 @@ export function removeAppointmentById(
   state: CallState,
   appointmentId: number,
 ): void {
-  removePrivateAppointment(state, appointmentId);
-  state.patient.appointments = state.patient.appointments.filter(
-    (appointment) => appointment.id !== appointmentId,
-  );
+  removeBookedAppointmentReference(state, appointmentId);
+  state.identity.patient.appointments =
+    state.identity.patient.appointments.filter(
+      (appointment) => appointment.id !== appointmentId,
+    );
 }
 
 function extractAppointmentsStatus(

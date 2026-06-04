@@ -124,7 +124,7 @@ describe("record_turn_context tool", () => {
         ]),
       },
     });
-    expect(state.turnContext.last).toEqual({
+    expect(state.workflow.current).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
       isEmergency: false,

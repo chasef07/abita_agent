@@ -2,7 +2,6 @@ import { llm } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import {
-  activeInsuranceContext,
   activePatientDob,
   activeRoutingContext,
   type CallState,
@@ -63,7 +62,6 @@ function buildAvailabilityLookupRequestForState(
   }
 
   ensureSchedulingTurnContext(state, "checking availability");
-  ensureAvailabilityVisitContext(state);
   ensureRoutineVisionOffice(state);
   const effectiveRouting = routingForAvailability(state);
   const body: Record<string, unknown> = { date };
@@ -72,19 +70,4 @@ function buildAvailabilityLookupRequestForState(
   if (effectiveRouting) body.routing = effectiveRouting;
   if (activeRoutingContext(state).preauthRequired) body.preauthRequired = true;
   return { body, date, routing: effectiveRouting };
-}
-
-function ensureAvailabilityVisitContext(state: CallState): void {
-  if (state.scheduling.visitType) return;
-
-  const knownCoverageType =
-    state.scheduling.coverageType ?? activeInsuranceContext(state).coverageType;
-
-  const visitType =
-    knownCoverageType === "routine_vision" ||
-    activeRoutingContext(state).routing === "optical_only"
-      ? "routine_vision"
-      : "medical";
-
-  state.scheduling.visitType = visitType;
 }

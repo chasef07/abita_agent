@@ -6,9 +6,13 @@ import {
   activePatientDob,
   activePatientId,
   clearAvailabilitySelection,
-  normalizeSchedulingRouting,
+  insuranceOnFile,
+  insuranceSnapshot,
   patientBackendRefs,
+  setInsuranceOnFile,
+  setLastInsuranceEligibilityCheck,
   setPatientBackendRefs,
+  setRoutingContext,
 } from "../state/call-state.js";
 import { getAmdOfficeForToolCall } from "./scheduling.js";
 import { getState } from "./session.js";
@@ -35,7 +39,12 @@ export const update_insurance = llm.tool({
       throw new llm.ToolError("Verify the patient before updating insurance.");
     }
 
-    const checkedInsurance = state.checkedInsurance;
+    const checkedInsurance = state.insurance.lastEligibilityCheck;
+    if (!checkedInsurance?.accepted) {
+      throw new llm.ToolError(
+        "Run check_insurance for accepted coverage before updating insurance.",
+      );
+    }
     const insurance =
       checkedInsurance.plan?.trim() ||
       checkedInsurance.currentCarrier?.trim() ||
@@ -59,10 +68,11 @@ export const update_insurance = llm.tool({
     }
 
     const backendRefs = patientBackendRefs(state);
+    const currentInsurance = insuranceOnFile(state);
     const oldInsurance =
-      state.patient.insurance?.currentCarrier ??
-      state.patient.insurance?.canonicalPlan ??
-      state.patient.insurance?.plan ??
+      currentInsurance?.currentCarrier ??
+      currentInsurance?.canonicalPlan ??
+      currentInsurance?.plan ??
       "";
     const payload: Record<string, unknown> = {
       patientId,
@@ -89,18 +99,22 @@ export const update_insurance = llm.tool({
       insPlanId: null,
       respPartyId: backendRefs.respPartyId ?? null,
     });
-    state.patient.insurance = {
-      plan: newInsurance,
-      coverageType,
-      canonicalPlan: canonicalInsurance ?? newInsurance,
-      currentCarrier: newInsurance,
-    };
-    state.checkedInsurance = state.patient.insurance;
-    state.scheduling.coverageType = coverageType;
-    state.scheduling.routing = normalizeSchedulingRouting(result.routing);
-    state.scheduling.allowedProviders = result.allowedProviders ?? [];
-    state.scheduling.routingAmbiguous = result.routingAmbiguous ?? false;
-    state.scheduling.preauthRequired = result.preauthRequired ?? false;
+    setInsuranceOnFile(
+      state,
+      insuranceSnapshot({
+        plan: newInsurance,
+        coverageType,
+        canonicalPlan: canonicalInsurance ?? newInsurance,
+        currentCarrier: newInsurance,
+      }),
+    );
+    setLastInsuranceEligibilityCheck(state, null);
+    setRoutingContext(state, {
+      routing: result.routing,
+      allowedProviders: result.allowedProviders,
+      routingAmbiguous: result.routingAmbiguous,
+      preauthRequired: result.preauthRequired,
+    });
     clearAvailabilitySelection(state);
 
     return `Updated insurance to ${newInsurance}.`;

@@ -40,7 +40,7 @@ function createState(): TestCallState {
 describe("pre-call transcript confirmation", () => {
   it("confirms a unique multiple-match candidate from a spelled first name", () => {
     const state = createState();
-    state.preCall = {
+    state.identity.preCall = {
       status: "multiple_matches_pending_selection",
       source: "phone_lookup",
       callerPhone: "+19546097250",
@@ -100,17 +100,19 @@ describe("pre-call transcript confirmation", () => {
     expect(confirmation?.systemMessage).toContain(
       "appointment questions, booking, or cancellation",
     );
-    expect(state.preCall.status).toBe("multiple_match_confirmed");
-    expect(state.preCall.selectedCandidateRef).toBe("precall:2");
-    expect(state.preCall.identityPromotion).toBe("confirmed_by_transcript");
-    expect(state.patient.identityConfirmed).toBe(true);
-    expect(state.patient.patientId).toBe("patient-larry");
-    expect(state.patient.name).toBe("LARRY TEST");
+    expect(state.identity.preCall.status).toBe("multiple_match_confirmed");
+    expect(state.identity.preCall.selectedCandidateRef).toBe("precall:2");
+    expect(state.identity.preCall.identityPromotion).toBe(
+      "confirmed_by_transcript",
+    );
+    expect(state.identity.patient.identityConfirmed).toBe(true);
+    expect(state.identity.patient.patientId).toBe("patient-larry");
+    expect(state.identity.patient.name).toBe("LARRY TEST");
   });
 
   it("includes loaded appointments in the durable confirmation message", () => {
     const state = createState();
-    state.preCall = {
+    state.identity.preCall = {
       status: "multiple_matches_pending_selection",
       source: "phone_lookup",
       callerPhone: "+19546097250",
@@ -161,7 +163,7 @@ describe("pre-call transcript confirmation", () => {
 
   it("does not confirm a first-name candidate while collecting last name", () => {
     const state = createState();
-    state.preCall = {
+    state.identity.preCall = {
       status: "multiple_matches_pending_selection",
       source: "phone_lookup",
       callerPhone: "+19546097250",
@@ -191,13 +193,15 @@ describe("pre-call transcript confirmation", () => {
     });
 
     expect(confirmation).toBeNull();
-    expect(state.preCall.status).toBe("multiple_matches_pending_selection");
-    expect(state.patient.identityConfirmed).toBe(false);
+    expect(state.identity.preCall.status).toBe(
+      "multiple_matches_pending_selection",
+    );
+    expect(state.identity.patient.identityConfirmed).toBe(false);
   });
 
   it("does not confirm when multiple candidates share the same first-name signal", () => {
     const state = createState();
-    state.preCall = {
+    state.identity.preCall = {
       status: "multiple_matches_pending_selection",
       source: "phone_lookup",
       callerPhone: "+19546097250",
@@ -227,12 +231,12 @@ describe("pre-call transcript confirmation", () => {
     });
 
     expect(confirmation).toBeNull();
-    expect(state.patient.identityConfirmed).toBe(false);
+    expect(state.identity.patient.identityConfirmed).toBe(false);
   });
 
   it("confirms a single pre-call candidate from first name", () => {
     const state = createState();
-    state.preCall = {
+    state.identity.preCall = {
       status: "single_match_pending_confirmation",
       source: "phone_lookup",
       callerPhone: "+19546097250",
@@ -258,8 +262,8 @@ describe("pre-call transcript confirmation", () => {
     });
 
     expect(confirmation?.candidateRef).toBe(CALLER_CANDIDATE_REF);
-    expect(state.preCall.status).toBe("single_match_confirmed");
-    expect(state.patient.identityConfirmed).toBe(true);
-    expect(state.patient.patientId).toBe("patient-jane");
+    expect(state.identity.preCall.status).toBe("single_match_confirmed");
+    expect(state.identity.patient.identityConfirmed).toBe(true);
+    expect(state.identity.patient.patientId).toBe("patient-jane");
   });
 });

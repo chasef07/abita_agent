@@ -113,7 +113,7 @@ function hasCompletedBookingForActivePatient(state: CallState): boolean {
   const appointmentId = latestBookedAppointmentId(state);
   return Boolean(
     appointmentId !== null &&
-    state.patient.appointments.some(
+    state.identity.patient.appointments.some(
       (appointment) => appointment.id === appointmentId,
     ),
   );

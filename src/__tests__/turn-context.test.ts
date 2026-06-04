@@ -49,7 +49,7 @@ describe("turn context state", () => {
 
     applyTurnContextToState(state, turn);
 
-    expect(state.turnContext.last).toEqual(turn);
+    expect(state.workflow.current).toEqual(turn);
     expect(workflowContextNameForTurn(turn)).toBe("scheduling");
   });
 
@@ -69,13 +69,13 @@ describe("turn context state", () => {
       confidence: 0.86,
     });
 
-    expect(state.turnContext.last).toEqual({
+    expect(state.workflow.current).toEqual({
       intent: "question",
       appointmentLane: "not_applicable",
       isEmergency: false,
       confidence: 0.86,
     });
-    const lastTurn = state.turnContext.last;
+    const lastTurn = state.workflow.current;
     expect(lastTurn).toBeDefined();
     expect(
       workflowContextGuideFor(workflowContextNameForTurn(lastTurn!)),
@@ -97,13 +97,13 @@ describe("turn context state", () => {
       confidence: 0.42,
     });
 
-    expect(state.turnContext.last).toEqual({
+    expect(state.workflow.current).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
       isEmergency: false,
       confidence: 0.42,
     });
-    const lastTurn = state.turnContext.last;
+    const lastTurn = state.workflow.current;
     expect(lastTurn).toBeDefined();
     expect(workflowContextNameForTurn(lastTurn!)).toBe("scheduling");
   });
@@ -118,13 +118,13 @@ describe("turn context state", () => {
       confidence: 0.65,
     });
 
-    expect(state.turnContext.last).toEqual({
+    expect(state.workflow.current).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
       isEmergency: true,
       confidence: 0.65,
     });
-    const lastTurn = state.turnContext.last;
+    const lastTurn = state.workflow.current;
     expect(lastTurn).toBeDefined();
     expect(
       workflowContextGuideFor(workflowContextNameForTurn(lastTurn!)),
