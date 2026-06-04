@@ -551,19 +551,19 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "Use normal written forms for dates, times, phone numbers, emails, and common acronyms.",
     );
-    expect(prompt).toContain("After every standalone \"um\"");
-    expect(prompt).toContain("Yeah, um <break time=\"300ms\"/> so");
+    expect(prompt).toContain('After every standalone "um"');
+    expect(prompt).toContain('Yeah, um <break time="300ms"/> so');
     expect(prompt).toContain(
       "When a better phrasing comes to mind mid-sentence",
     );
     expect(prompt).toContain("I can pull that up");
     expect(prompt).toContain("Don't open consecutive turns");
-    expect(prompt).toContain("Mhm, <break time=\"200ms\"/> let me pull that up");
+    expect(prompt).toContain('Mhm, <break time="200ms"/> let me pull that up');
     expect(prompt).toContain(
       'Feel free to start sentences with "And", "But", or "So".',
     );
     expect(prompt).toContain(
-      "Sorry, <break time=\"300ms\"/> I think I missed that",
+      'Sorry, <break time="300ms"/> I think I missed that',
     );
     expect(prompt).toContain("wish the user a good rest of their day");
     expect(prompt).not.toContain("eight fifteen a m");

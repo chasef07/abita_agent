@@ -29,7 +29,8 @@ function configuredRimeSpeaker() {
 }
 
 function configuredRimeBaseUrl() {
-  const baseUrl = process.env.RIME_TTS_BASE_URL?.trim() || RIME_TTS_EAST_BASE_URL;
+  const baseUrl =
+    process.env.RIME_TTS_BASE_URL?.trim() || RIME_TTS_EAST_BASE_URL;
   return baseUrl.replace(/\/ws3\/?$/, "").replace(/\/+$/, "");
 }
 
@@ -54,9 +55,7 @@ export function getRimeTtsOptions() {
   };
 }
 
-export function getRimeTtsOptionsByLanguage(
-  speaker = configuredRimeSpeaker(),
-) {
+export function getRimeTtsOptionsByLanguage(speaker = configuredRimeSpeaker()) {
   return {
     en: {
       lang: RIME_TTS_LANGUAGE,

@@ -3029,15 +3029,16 @@ describe("direct session state cleanup", () => {
     } as never);
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(ctx.session.say).toHaveBeenCalledWith("One moment while I transfer you.", {
-      allowInterruptions: false,
-    });
+    expect(ctx.session.say).toHaveBeenCalledWith(
+      "One moment while I transfer you.",
+      {
+        allowInterruptions: false,
+      },
+    );
     expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(1);
     expect(
       ctx.spokenHandle.waitForPlayout.mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0,
-    );
+    ).toBeLessThan(transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0);
     expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
     expect(result).toBe("Transfer started to the spring-hill office.");
     expect(state.runtime.transferred).toBe(true);

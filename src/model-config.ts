@@ -10,12 +10,12 @@ const glm47GenerationOptions = {
 } as const satisfies Pick<BasetenLLMOptions, "temperature" | "topP">;
 
 export const primaryLLMOptions = {
-  model: "zai-org/GLM-5.1",
-  ...sharedVoiceAgentOptions,
-} as const satisfies BasetenLLMOptions;
-
-export const fallbackLLMOptions = {
   model: "zai-org/GLM-4.7",
   ...sharedVoiceAgentOptions,
   ...glm47GenerationOptions,
+} as const satisfies BasetenLLMOptions;
+
+export const fallbackLLMOptions = {
+  model: "zai-org/GLM-5",
+  ...sharedVoiceAgentOptions,
 } as const satisfies BasetenLLMOptions;
