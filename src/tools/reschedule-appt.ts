@@ -1,7 +1,11 @@
 import { llm } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
-import { getOfficeConfig, type OfficeKey } from "../customer/profile.js";
+import {
+  getOfficeConfig,
+  normalizePhoneNumber,
+  type OfficeKey,
+} from "../customer/profile.js";
 import {
   activePatientId,
   clearAvailabilitySelection,
@@ -120,13 +124,18 @@ export const reschedule_appt = llm.tool({
     );
 
     ensureRoutineVisionOffice(state);
+    const bookingOffice = getAmdOfficeForToolCall(state);
     const selectedSlot = selectedSlotForBooking(state, slotId);
     const bookingBody = bookingRequestBodyForSlot(state, {
       selectedSlot,
       patientId,
       appointmentReason,
       referringDoctor,
-      appointmentTypeIdOverride: oldAppointment.appointmentTypeId ?? null,
+      appointmentTypeIdOverride: appointmentTypeIdForRescheduleBooking(
+        oldAppointment,
+        cancellationOffice,
+        bookingOffice,
+      ),
       patientStatusOverride:
         appointmentPatientStatusForLoadedAppointment(oldAppointment),
     });
@@ -134,7 +143,7 @@ export const reschedule_appt = llm.tool({
     const bookingResult = await callApi(
       "/api/appointment/book",
       bookingBody,
-      getAmdOfficeForToolCall(state),
+      bookingOffice,
       { includeOffice: false },
     );
 
@@ -179,6 +188,21 @@ export const reschedule_appt = llm.tool({
     );
   },
 });
+
+function appointmentTypeIdForRescheduleBooking(
+  appointment: CallerAppointment,
+  cancellationOffice: string,
+  bookingOffice: string,
+): number | null {
+  if (appointment.appointmentTypeId === undefined) return null;
+  if (
+    normalizePhoneNumber(cancellationOffice) !==
+    normalizePhoneNumber(bookingOffice)
+  ) {
+    return null;
+  }
+  return appointment.appointmentTypeId;
+}
 
 function getAmdOfficeForCancellationAppointment(
   state: CallState,

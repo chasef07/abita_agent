@@ -2408,6 +2408,7 @@ describe("direct session state cleanup", () => {
         time: "9:00 AM",
         provider: "Dr. Licht",
         type: "Crystal River New Patient",
+        appointmentTypeId: 6167,
         facility: "Crystal River",
         confirmed: false,
       },
@@ -2477,9 +2478,15 @@ describe("direct session state cleanup", () => {
       message:
         "Rescheduled the appointment to June 3 at 10:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
     });
-    expect(
-      JSON.parse(fetchMock.mock.calls[0][1].body as string),
-    ).not.toHaveProperty("office");
+    const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(bookingBody).toMatchObject({
+      bookingToken: "private-token",
+      patientId: "patient-1",
+      patientStatus: "new",
+      routing: "optical_only",
+    });
+    expect(bookingBody).not.toHaveProperty("appointmentTypeId");
+    expect(bookingBody).not.toHaveProperty("office");
     expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
       appointmentId: 123,
       patientId: "patient-1",
