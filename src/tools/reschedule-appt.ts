@@ -7,6 +7,7 @@ import {
   clearAvailabilitySelection,
   type CallerAppointment,
   type CallState,
+  type StoredAvailabilitySlot,
 } from "../state/call-state.js";
 import { removeAvailabilitySlot } from "./availability-slots.js";
 import {
@@ -169,10 +170,11 @@ export const reschedule_appt = llm.tool({
     }
 
     removeAppointmentById(state, oldAppointment.id);
-    return (
-      `Rescheduled the appointment to ${spokenSlot(selectedSlot)}. ` +
-      `Cancelled the old appointment on ${oldAppointment.date} at ${oldAppointment.time}.` +
-      bookingNoteWarning(bookingResult)
+    return rescheduledAppointmentToolResult(
+      selectedSlot,
+      bookingResult,
+      oldAppointment,
+      cancelResult,
     );
   },
 });
@@ -265,6 +267,49 @@ function rescheduleCancellationFailureMessage(
     `${failureMessage} ` +
     "I need to transfer you so the office can finish the cancellation."
   );
+}
+
+function rescheduledAppointmentToolResult(
+  selectedSlot: StoredAvailabilitySlot,
+  bookingResult: unknown,
+  oldAppointment: CallerAppointment,
+  cancelResult: CancelAppointmentResult,
+): Record<string, unknown> {
+  const receipt = isRecord(bookingResult) ? bookingResult : {};
+  const message =
+    `Rescheduled the appointment to ${spokenSlot(selectedSlot)}. ` +
+    `Cancelled the old appointment on ${oldAppointment.date} at ${oldAppointment.time}.` +
+    bookingNoteWarning(bookingResult);
+
+  return {
+    ...receipt,
+    status: "rescheduled",
+    bookingStatus:
+      typeof receipt.status === "string" ? receipt.status : "booked",
+    message,
+    startDatetime:
+      stringField(receipt, "startDatetime") ?? selectedSlot.datetime,
+    appointmentDate: selectedSlot.date,
+    appointmentTime: selectedSlot.time,
+    providerName: stringField(receipt, "providerName") ?? selectedSlot.provider,
+    cancelledAppointmentId: oldAppointment.id,
+    cancelledAppointmentDate: oldAppointment.date,
+    cancelledAppointmentTime: oldAppointment.time,
+    cancelledAppointmentProvider: oldAppointment.provider,
+    cancellationStatus: cancelResult.status ?? "cancelled",
+  };
+}
+
+function stringField(
+  record: Record<string, unknown>,
+  field: string,
+): string | undefined {
+  const value = record[field];
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 type CancelAppointmentResult = {
