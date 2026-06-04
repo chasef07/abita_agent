@@ -77,12 +77,16 @@ function createState(): TestCallState {
 }
 
 function createToolContext(state: TestCallState) {
+  const spokenHandle = {
+    waitForPlayout: vi.fn(async () => undefined),
+  };
   return {
     session: {
       userData: state,
-      say: vi.fn(async () => undefined),
+      say: vi.fn(() => spokenHandle),
     },
     speechHandle: { allowInterruptions: true },
+    spokenHandle,
   };
 }
 
@@ -190,6 +194,13 @@ describe("direct session state cleanup", () => {
       "I'll look up available appointments now.",
       "Give me a second to check the schedule.",
     ]).toContain(vi.mocked(ctx.session.say).mock.calls[0]?.[0]);
+    expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(1);
+    expect(ctx.session.say.mock.invocationCallOrder[0]).toBeLessThan(
+      fetchMock.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(fetchMock.mock.invocationCallOrder[0]).toBeLessThan(
+      ctx.spokenHandle.waitForPlayout.mock.invocationCallOrder[0] ?? 0,
+    );
     expect(result).toMatchObject({
       result: "slots_found",
       reply: "I found June 1 at 9:00 AM with Dr. Bach. Does that work?",
@@ -3008,7 +3019,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.slots).toEqual([]);
   });
 
-  it("transfers the caller without a pre-transfer spoken notice", async () => {
+  it("speaks a short transfer notice and waits before transferring the caller", async () => {
     const state = createState();
     const ctx = createToolContext(state);
 
@@ -3018,7 +3029,15 @@ describe("direct session state cleanup", () => {
     } as never);
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(ctx.session.say).not.toHaveBeenCalled();
+    expect(ctx.session.say).toHaveBeenCalledWith("One moment while I transfer you.", {
+      allowInterruptions: false,
+    });
+    expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(1);
+    expect(
+      ctx.spokenHandle.waitForPlayout.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0,
+    );
     expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
     expect(result).toBe("Transfer started to the spring-hill office.");
     expect(state.runtime.transferred).toBe(true);

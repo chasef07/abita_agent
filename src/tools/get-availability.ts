@@ -30,12 +30,13 @@ export const get_availability = llm.tool({
   execute: async ({ date }, { ctx }) => {
     const state = getState(ctx);
     const request = buildAvailabilityLookupRequestForState(state, { date });
-    void ctx.session.say(availabilityLookupNotice());
+    const lookupNotice = ctx.session.say(availabilityLookupNotice());
     const result = await callApi(
       "/api/scheduler/availability",
       request.body,
       getAmdOfficeForToolCall(state),
     );
+    await lookupNotice.waitForPlayout();
     return storeAvailabilitySlots(state, result, request.routing);
   },
 });
