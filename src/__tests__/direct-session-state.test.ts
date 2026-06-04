@@ -1793,6 +1793,35 @@ describe("direct session state cleanup", () => {
     });
   });
 
+  it("accepts Simply Healthcare for routine vision checks", async () => {
+    const state = createState();
+    state.office.activeKey = "hollywood";
+
+    const result = (await check_insurance.execute(
+      {
+        plan: "Simply Healthcare Medicaid",
+        coverageType: "routine_vision",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    )) as Record<string, unknown>;
+
+    expect(result).toEqual({
+      status: "accepted",
+      canProceed: true,
+      callerFacingPlan: "Simply Healthcare Medicaid",
+      clarificationNeeded: null,
+      callerMessage: "Yes, we take Simply Healthcare Medicaid.",
+    });
+    expect(result).not.toHaveProperty("canonicalPlan");
+    expect(state.insurance.lastEligibilityCheck).toEqual({
+      plan: "Simply Healthcare Medicaid",
+      canonicalPlan: "iCare",
+      coverageType: "routine_vision",
+      currentCarrier: "Simply Healthcare Medicaid",
+      accepted: true,
+    });
+  });
+
   it("returns a Spring Hill routing option when Crystal River does not accept the plan", async () => {
     const state = createState();
     state.office.activeKey = "crystal-river";
