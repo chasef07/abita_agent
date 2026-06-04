@@ -47,17 +47,17 @@ afterEach(() => {
 });
 
 describe("TTS config", () => {
-  it("uses Rime by default", () => {
+  it("uses Cartesia by default", () => {
     delete process.env.TTS_PROVIDER;
 
-    expect(DEFAULT_TTS_PROVIDER).toBe("rime");
-    expect(getActiveTtsProvider()).toBe("rime");
+    expect(DEFAULT_TTS_PROVIDER).toBe("cartesia");
+    expect(getActiveTtsProvider()).toBe("cartesia");
   });
 
-  it("allows Cartesia to be selected without code changes", () => {
-    process.env.TTS_PROVIDER = "cartesia";
+  it("allows Rime to be selected without code changes", () => {
+    process.env.TTS_PROVIDER = "rime";
 
-    expect(getActiveTtsProvider()).toBe("cartesia");
+    expect(getActiveTtsProvider()).toBe("rime");
   });
 
   it("uses Rime coda websocket TTS on the east endpoint", () => {

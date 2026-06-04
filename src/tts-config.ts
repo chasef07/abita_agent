@@ -1,6 +1,6 @@
 export type TtsProvider = "rime" | "cartesia";
 
-export const DEFAULT_TTS_PROVIDER: TtsProvider = "rime";
+export const DEFAULT_TTS_PROVIDER: TtsProvider = "cartesia";
 
 export const RIME_TTS_MODEL = "coda";
 export const DEFAULT_RIME_TTS_SPEAKER = "vespera";
@@ -13,7 +13,7 @@ export const RIME_TTS_EAST_BASE_URL = "wss://users-east-ws.rime.ai";
 
 export const CARTESIA_TTS_MODEL = "sonic-3.5";
 export const DEFAULT_CARTESIA_TTS_VOICE =
-  "5ee9feff-1265-424a-9d7f-8e4d431a12c7";
+  "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc";
 export const SPANISH_CARTESIA_TTS_VOICE =
   "079e3a17-5545-4bc5-93e3-e11df6fe37b8";
 export const CARTESIA_TTS_LANGUAGE = "en";
@@ -21,7 +21,7 @@ export const CARTESIA_TTS_SAMPLE_RATE = 16000;
 
 export function getActiveTtsProvider(): TtsProvider {
   const provider = process.env.TTS_PROVIDER?.trim().toLowerCase();
-  return provider === "cartesia" ? "cartesia" : DEFAULT_TTS_PROVIDER;
+  return provider === "rime" ? "rime" : DEFAULT_TTS_PROVIDER;
 }
 
 function configuredRimeSpeaker() {
