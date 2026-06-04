@@ -3,9 +3,6 @@ import { z } from "zod";
 import { transferCallerToOffice } from "./handoff.js";
 import { getState } from "./session.js";
 
-const TRANSFER_NOTICE =
-  "I'm going to transfer you to the office now. They may be with a patient, so please leave a message and we will get back to you as soon as possible.";
-
 export const transfer_call = llm.tool({
   description:
     "Transfer the caller to office staff when they ask for a human, or when their request is outside the agent's front-desk scope. " +
@@ -24,7 +21,6 @@ export const transfer_call = llm.tool({
     }
 
     try {
-      await ctx.session.say(TRANSFER_NOTICE, { allowInterruptions: false });
       const { handoffOfficeKey } = await transferCallerToOffice(state);
       state.runtime.transferred = true;
       return `Transfer started to the ${handoffOfficeKey} office.`;

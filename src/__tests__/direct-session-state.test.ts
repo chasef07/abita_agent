@@ -3008,7 +3008,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.slots).toEqual([]);
   });
 
-  it("speaks the transfer notice before transferring the caller", async () => {
+  it("transfers the caller without a pre-transfer spoken notice", async () => {
     const state = createState();
     const ctx = createToolContext(state);
 
@@ -3018,10 +3018,7 @@ describe("direct session state cleanup", () => {
     } as never);
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(ctx.session.say).toHaveBeenCalledWith(
-      "I'm going to transfer you to the office now. They may be with a patient, so please leave a message and we will get back to you as soon as possible.",
-      { allowInterruptions: false },
-    );
+    expect(ctx.session.say).not.toHaveBeenCalled();
     expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
     expect(result).toBe("Transfer started to the spring-hill office.");
     expect(state.runtime.transferred).toBe(true);
