@@ -10,7 +10,7 @@ const glm47GenerationOptions = {
 } as const satisfies Pick<BasetenLLMOptions, "temperature" | "topP">;
 
 export const primaryLLMOptions = {
-  model: "zai-org/GLM-5",
+  model: "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B",
   ...sharedVoiceAgentOptions,
 } as const satisfies BasetenLLMOptions;
 
