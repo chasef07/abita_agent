@@ -427,6 +427,84 @@ describe("direct session state cleanup", () => {
     );
   });
 
+  it("routes routine-vision reschedule availability through Spring Hill without schedule intent", async () => {
+    const state = createState();
+    markAppointmentChangeContext(state);
+    state.office.activeKey = "crystal-river";
+    state.office.phoneOverrides = {
+      "crystal-river": "+13523202007",
+    };
+    state.identity.patient.appointments = [
+      {
+        id: 123,
+        date: "Tuesday, June 9, 2026",
+        time: "8:30 AM",
+        provider: "Dr. Licht",
+        type: "Routine Vision / Glasses",
+        appointmentTypeId: 6167,
+        facility: "Crystal River",
+        confirmed: false,
+      },
+    ];
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        availabilityFound: true,
+        requestedDate: "2026-07-09",
+        actualDate: "2026-07-09",
+        searchedFrom: "2026-07-09",
+        searchedThrough: "2026-07-09",
+        shouldRetrySameSearch: false,
+        slots: [
+          {
+            provider: "Dr. Kyler Farnan",
+            date: "2026-07-09",
+            time: "10:00 AM",
+            datetime: "2026-07-09T10:00:00",
+            bookingToken: "routine-reschedule-token",
+            columnId: 1555,
+            profileId: 2075,
+            duration: 30,
+          },
+        ],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = (await get_availability.execute(
+      {
+        date: "2026-07-09",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    )) as Record<string, unknown>;
+
+    expect(state.workflow.current).toEqual({
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+      isEmergency: false,
+      confidence: 0.92,
+    });
+    expect(state.office.activeKey).toBe("spring-hill");
+    expect(state.availability.latestRouting).toBe("optical_only");
+    expect(result).toMatchObject({
+      result: "slots_found",
+      slotId: "A",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
+      {
+        date: "2026-07-09",
+        dob: "01/01/1980",
+        office: "+17275919997",
+        routing: "optical_only",
+      },
+    );
+  });
+
   it("checks availability for a single loaded appointment even before appointment-change context is recorded", async () => {
     const state = createState();
     state.identity.patient.appointments = [
