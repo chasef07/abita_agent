@@ -1,0 +1,236 @@
+diff --git a/dist/stt.cjs b/dist/stt.cjs
+index 50e35dd072c4f4090b7203a01819e51283b0e03b..d48ccd1b88f063c5407f19291e6bc778d793120d 100644
+--- a/dist/stt.cjs
++++ b/dist/stt.cjs
+@@ -32,6 +32,14 @@ const defaultSTTOptions = {
+   speechModel: "universal-streaming-english",
+   baseUrl: "wss://streaming.assemblyai.com"
+ };
++function speechDataMetadata(data) {
++  const assemblyai = {};
++  if (typeof data.language_confidence === "number") {
++    assemblyai.languageConfidence = data.language_confidence;
++  }
++  if (Object.keys(assemblyai).length === 0) return void 0;
++  return { assemblyai };
++}
+ class STT extends import_agents.stt.STT {
+   #opts;
+   #streams = /* @__PURE__ */ new Set();
+@@ -187,6 +195,7 @@ class SpeechStream extends import_agents.stt.SpeechStream {
+       encoding: this.#opts.encoding,
+       speech_model: this.#opts.speechModel,
+       format_turns: this.#opts.formatTurns,
++      inactivity_timeout: this.#opts.inactivityTimeout,
+       end_of_turn_confidence_threshold: this.#opts.endOfTurnConfidenceThreshold,
+       min_turn_silence: minSilence,
+       max_turn_silence: maxSilence,
+@@ -353,6 +362,7 @@ class SpeechStream extends import_agents.stt.SpeechStream {
+     const utterance = data.utterance ?? "";
+     const transcript = data.transcript ?? "";
+     const language = (0, import_agents.normalizeLanguage)(data.language_code ?? "en");
++    const metadata = speechDataMetadata(data);
+     const timedWords = words.map(
+       (word) => (0, import_agents.createTimedString)({
+         text: word.text ?? "",
+@@ -379,7 +389,8 @@ class SpeechStream extends import_agents.stt.SpeechStream {
+             startTime,
+             endTime,
+             confidence,
+-            words: timedWords
++            words: timedWords,
++            ...(metadata ? { metadata } : {})
+           }
+         ]
+       });
+@@ -401,7 +412,8 @@ class SpeechStream extends import_agents.stt.SpeechStream {
+             startTime: this.#lastPreflightStartTime,
+             endTime,
+             confidence: utteranceConfidence,
+-            words: utteranceWords
++            words: utteranceWords,
++            ...(metadata ? { metadata } : {})
+           }
+         ]
+       });
+@@ -418,7 +430,8 @@ class SpeechStream extends import_agents.stt.SpeechStream {
+             startTime,
+             endTime,
+             confidence,
+-            words: timedWords
++            words: timedWords,
++            ...(metadata ? { metadata } : {})
+           }
+         ]
+       });
+diff --git a/dist/stt.d.cts b/dist/stt.d.cts
+index a526e824050932da5ab8ba8df8def8717d81e843..7f949baf2490b0b3779bb7d929cf7c2d906772e7 100644
+--- a/dist/stt.d.cts
++++ b/dist/stt.d.cts
+@@ -12,6 +12,8 @@ export interface STTOptions {
+     encoding: STTEncoding;
+     speechModel: STTModels;
+     languageDetection?: boolean;
++    /** Time in seconds of inactivity before AssemblyAI terminates the session. */
++    inactivityTimeout?: number;
+     endOfTurnConfidenceThreshold?: number;
+     /** Minimum silence (ms) before a confident end-of-turn is finalized. */
+     minTurnSilence?: number;
+diff --git a/dist/stt.d.ts b/dist/stt.d.ts
+index a526e824050932da5ab8ba8df8def8717d81e843..7f949baf2490b0b3779bb7d929cf7c2d906772e7 100644
+--- a/dist/stt.d.ts
++++ b/dist/stt.d.ts
+@@ -12,6 +12,8 @@ export interface STTOptions {
+     encoding: STTEncoding;
+     speechModel: STTModels;
+     languageDetection?: boolean;
++    /** Time in seconds of inactivity before AssemblyAI terminates the session. */
++    inactivityTimeout?: number;
+     endOfTurnConfidenceThreshold?: number;
+     /** Minimum silence (ms) before a confident end-of-turn is finalized. */
+     minTurnSilence?: number;
+diff --git a/dist/stt.js b/dist/stt.js
+index a6135a6afa761ece48e1aff4c17384ce92ca167f..b9c465f2e726401e2b3ec8e46046e3aec3e6f961 100644
+--- a/dist/stt.js
++++ b/dist/stt.js
+@@ -18,6 +18,14 @@ const defaultSTTOptions = {
+   speechModel: "universal-streaming-english",
+   baseUrl: "wss://streaming.assemblyai.com"
+ };
++function speechDataMetadata(data) {
++  const assemblyai = {};
++  if (typeof data.language_confidence === "number") {
++    assemblyai.languageConfidence = data.language_confidence;
++  }
++  if (Object.keys(assemblyai).length === 0) return void 0;
++  return { assemblyai };
++}
+ class STT extends stt.STT {
+   #opts;
+   #streams = /* @__PURE__ */ new Set();
+@@ -173,6 +181,7 @@ class SpeechStream extends stt.SpeechStream {
+       encoding: this.#opts.encoding,
+       speech_model: this.#opts.speechModel,
+       format_turns: this.#opts.formatTurns,
++      inactivity_timeout: this.#opts.inactivityTimeout,
+       end_of_turn_confidence_threshold: this.#opts.endOfTurnConfidenceThreshold,
+       min_turn_silence: minSilence,
+       max_turn_silence: maxSilence,
+@@ -339,6 +348,7 @@ class SpeechStream extends stt.SpeechStream {
+     const utterance = data.utterance ?? "";
+     const transcript = data.transcript ?? "";
+     const language = normalizeLanguage(data.language_code ?? "en");
++    const metadata = speechDataMetadata(data);
+     const timedWords = words.map(
+       (word) => createTimedString({
+         text: word.text ?? "",
+@@ -365,7 +375,8 @@ class SpeechStream extends stt.SpeechStream {
+             startTime,
+             endTime,
+             confidence,
+-            words: timedWords
++            words: timedWords,
++            ...(metadata ? { metadata } : {})
+           }
+         ]
+       });
+@@ -387,7 +398,8 @@ class SpeechStream extends stt.SpeechStream {
+             startTime: this.#lastPreflightStartTime,
+             endTime,
+             confidence: utteranceConfidence,
+-            words: utteranceWords
++            words: utteranceWords,
++            ...(metadata ? { metadata } : {})
+           }
+         ]
+       });
+@@ -404,7 +416,8 @@ class SpeechStream extends stt.SpeechStream {
+             startTime,
+             endTime,
+             confidence,
+-            words: timedWords
++            words: timedWords,
++            ...(metadata ? { metadata } : {})
+           }
+         ]
+       });
+diff --git a/src/stt.ts b/src/stt.ts
+index 87150281459977c1b09bb314237bced86e9741d0..73399d7532066eebc73ee5c627592be0331c1fe8 100644
+--- a/src/stt.ts
++++ b/src/stt.ts
+@@ -34,6 +34,7 @@ interface StreamEventMessage {
+   end_of_turn_confidence?: number;
+   turn_is_formatted?: boolean;
+   language_code?: string;
++  language_confidence?: number;
+   speaker_label?: string;
+   words?: Array<{
+     text?: string;
+@@ -47,6 +48,18 @@ interface StreamEventMessage {
+   session_duration_seconds?: number;
+ }
+ 
++function speechDataMetadata(data: StreamEventMessage): stt.SpeechData['metadata'] | undefined {
++  const assemblyai: Record<string, number> = {};
++
++  if (typeof data.language_confidence === 'number') {
++    assemblyai.languageConfidence = data.language_confidence;
++  }
++
++  if (Object.keys(assemblyai).length === 0) return undefined;
++
++  return { assemblyai };
++}
++
+ export interface STTOptions {
+   apiKey?: string;
+   sampleRate: number;
+@@ -59,6 +72,8 @@ export interface STTOptions {
+   encoding: STTEncoding;
+   speechModel: STTModels;
+   languageDetection?: boolean;
++  /** Time in seconds of inactivity before AssemblyAI terminates the session. */
++  inactivityTimeout?: number;
+   endOfTurnConfidenceThreshold?: number;
+   /** Minimum silence (ms) before a confident end-of-turn is finalized. */
+   minTurnSilence?: number;
+@@ -280,6 +295,7 @@ export class SpeechStream extends stt.SpeechStream {
+       encoding: this.#opts.encoding,
+       speech_model: this.#opts.speechModel,
+       format_turns: this.#opts.formatTurns,
++      inactivity_timeout: this.#opts.inactivityTimeout,
+       end_of_turn_confidence_threshold: this.#opts.endOfTurnConfidenceThreshold,
+       min_turn_silence: minSilence,
+       max_turn_silence: maxSilence,
+@@ -483,6 +499,7 @@ export class SpeechStream extends stt.SpeechStream {
+     const utterance = data.utterance ?? '';
+     const transcript = data.transcript ?? '';
+     const language = normalizeLanguage(data.language_code ?? 'en');
++    const metadata = speechDataMetadata(data);
+ 
+     // Word timestamps are in milliseconds:
+     // https://www.assemblyai.com/docs/api-reference/streaming-api/streaming-api#receive.receiveTurn.words
+@@ -517,6 +534,7 @@ export class SpeechStream extends stt.SpeechStream {
+             endTime,
+             confidence,
+             words: timedWords,
++            ...(metadata ? { metadata } : {}),
+           },
+         ],
+       });
+@@ -544,6 +562,7 @@ export class SpeechStream extends stt.SpeechStream {
+             endTime,
+             confidence: utteranceConfidence,
+             words: utteranceWords,
++            ...(metadata ? { metadata } : {}),
+           },
+         ],
+       });
+@@ -564,6 +583,7 @@ export class SpeechStream extends stt.SpeechStream {
+             endTime,
+             confidence,
+             words: timedWords,
++            ...(metadata ? { metadata } : {}),
+           },
+         ],
+       });

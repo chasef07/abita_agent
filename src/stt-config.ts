@@ -6,6 +6,8 @@ export const ASSEMBLYAI_BASE_TIMING = {
   vadThreshold: 0.3,
 } as const;
 
+export const ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS = 30;
+
 export const ASSEMBLYAI_DEFAULT_KEYTERMS = [
   "Abita Eye Group",
   "Eye Radiance",
@@ -74,6 +76,7 @@ export function getAssemblyAISttOptions(): Partial<AssemblyAIPluginSttOptions> {
   return {
     speechModel: "u3-rt-pro",
     languageDetection: true,
+    inactivityTimeout: ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
     ...ASSEMBLYAI_STT_PROFILES.default,
   };
 }

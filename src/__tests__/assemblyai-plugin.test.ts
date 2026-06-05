@@ -1,13 +1,19 @@
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { initializeLogger } from "@livekit/agents";
 import { STT } from "@livekit/agents-plugin-assemblyai";
 import {
   ASSEMBLYAI_DEFAULT_KEYTERMS,
+  ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
   ASSEMBLYAI_STT_PROFILES,
   getAssemblyAISttOptions,
   getAssemblyAISttProfileOptions,
   selectAssemblyAISttProfileForAssistantText,
 } from "../stt-config.js";
+
+const require = createRequire(import.meta.url);
 
 beforeAll(() => {
   initializeLogger({ pretty: false, level: "silent" });
@@ -28,12 +34,41 @@ describe("official AssemblyAI plugin", () => {
     );
     expect(getAssemblyAISttOptions().keytermsPrompt).toContain("iCare");
     expect(getAssemblyAISttOptions().maxTurnSilence).toBe(2000);
+    expect(getAssemblyAISttOptions().inactivityTimeout).toBe(
+      ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
+    );
 
     stt.updateOptions(getAssemblyAISttProfileOptions("insurance"));
     stt.updateOptions(getAssemblyAISttProfileOptions("memberId"));
     stt.updateOptions(getAssemblyAISttProfileOptions("intake"));
     stt.updateOptions(getAssemblyAISttProfileOptions("email"));
     stt.updateOptions(getAssemblyAISttProfileOptions("default"));
+  });
+
+  it("forwards inactivity timeout through the patched AssemblyAI plugin", () => {
+    const assemblyaiEntry =
+      require.resolve("@livekit/agents-plugin-assemblyai");
+    const sttSource = readFileSync(
+      join(dirname(assemblyaiEntry), "stt.js"),
+      "utf8",
+    );
+
+    expect(sttSource).toContain("inactivity_timeout");
+    expect(sttSource).toContain("inactivityTimeout");
+  });
+
+  it("surfaces AssemblyAI language confidence through speech data metadata", () => {
+    const assemblyaiEntry =
+      require.resolve("@livekit/agents-plugin-assemblyai");
+    const sttSource = readFileSync(
+      join(dirname(assemblyaiEntry), "stt.js"),
+      "utf8",
+    );
+
+    expect(sttSource).toContain("language_confidence");
+    expect(sttSource).toContain("languageConfidence");
+    expect(sttSource).toContain("speechDataMetadata");
+    expect(sttSource).toContain("metadata");
   });
 
   it("keeps startup keyterms conservative and AssemblyAI-compatible", () => {

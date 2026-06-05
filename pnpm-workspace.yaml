@@ -1,1 +1,3 @@
 packages: []
+patchedDependencies:
+  "@livekit/agents-plugin-assemblyai@1.4.4": patches/@livekit__agents-plugin-assemblyai@1.4.4.patch

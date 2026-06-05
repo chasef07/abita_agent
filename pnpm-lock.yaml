@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@livekit/agents-plugin-assemblyai@1.4.4':
+    hash: 78eb78459ab76bf14e8b94e386ebadd52ac5e756ec6258a78d3a4a8cfcc553a8
+    path: patches/@livekit__agents-plugin-assemblyai@1.4.4.patch
+
 importers:
 
   .:
@@ -13,7 +18,7 @@ importers:
         version: 1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/agents-plugin-assemblyai':
         specifier: 1.4.4
-        version: 1.4.4(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)
+        version: 1.4.4(patch_hash=78eb78459ab76bf14e8b94e386ebadd52ac5e756ec6258a78d3a4a8cfcc553a8)(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)
       '@livekit/agents-plugin-baseten':
         specifier: 1.4.4
         version: 1.4.4(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)(zod@4.4.3)
@@ -2786,7 +2791,7 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@livekit/agents-plugin-assemblyai@1.4.4(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)':
+  '@livekit/agents-plugin-assemblyai@1.4.4(patch_hash=78eb78459ab76bf14e8b94e386ebadd52ac5e756ec6258a78d3a4a8cfcc553a8)(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)':
     dependencies:
       '@livekit/agents': 1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.29
