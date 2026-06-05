@@ -7,10 +7,10 @@ import {
   ServerOptions,
   cli,
   defineAgent,
+  inference,
   llm,
   voice,
 } from "@livekit/agents";
-import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
 import * as cartesia from "@livekit/agents-plugin-cartesia";
@@ -52,10 +52,10 @@ import {
 } from "./tts-config.js";
 import { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
-  type AssemblyAISttProfile,
-  getAssemblyAISttOptions,
-  getAssemblyAISttProfileOptions,
-  selectAssemblyAISttProfileForAssistantText,
+  type SttProfile,
+  getDeepgramFluxSttOptions,
+  getDeepgramFluxSttProfileOptions,
+  selectSttProfileForAssistantText,
 } from "./stt-config.js";
 import { voiceTurnHandlingOptions } from "./session-options.js";
 
@@ -103,7 +103,7 @@ export default defineAgent({
         // peak-context analytics that cumulative session usage cannot express.
         llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
       });
-      const stt = new assemblyai.STT(getAssemblyAISttOptions());
+      const stt = new inference.STT(getDeepgramFluxSttOptions());
       const ttsProvider = getActiveTtsProvider();
       const tts =
         ttsProvider === "rime"
@@ -175,8 +175,8 @@ export default defineAgent({
         transferred: false,
       });
 
-      let activeSttProfile: AssemblyAISttProfile = "default";
-      let promptedSttProfile: AssemblyAISttProfile | null = null;
+      let activeSttProfile: SttProfile = "default";
+      let promptedSttProfile: SttProfile | null = null;
       const startedAt = new Date();
       const sttProfiles: SttProfileTransitionAnalytics[] = [
         snapshotSttProfileTransition({
@@ -192,7 +192,7 @@ export default defineAgent({
       let latestUsage: Record<string, unknown> | undefined;
 
       const applySttProfile = (
-        profile: AssemblyAISttProfile,
+        profile: SttProfile,
         reason: string,
         details: {
           assistantText?: string;
@@ -203,7 +203,9 @@ export default defineAgent({
         if (profile === activeSttProfile) return;
 
         const previousProfile = activeSttProfile;
-        stt.updateOptions(getAssemblyAISttProfileOptions(profile));
+        stt.updateOptions({
+          modelOptions: getDeepgramFluxSttProfileOptions(profile),
+        });
         activeSttProfile = profile;
         sttProfiles.push(
           snapshotSttProfileTransition({
@@ -214,7 +216,7 @@ export default defineAgent({
             to: profile,
           }),
         );
-        console.log(`[stt] AssemblyAI profile=${profile} reason=${reason}`);
+        console.log(`[stt] Deepgram Flux profile=${profile} reason=${reason}`);
       };
 
       session.on(voice.AgentSessionEventTypes.ConversationItemAdded, (ev) => {
@@ -239,12 +241,9 @@ export default defineAgent({
         if (ev.item.role !== "assistant") return;
 
         const assistantText = ev.item.textContent ?? "";
-        const profile = selectAssemblyAISttProfileForAssistantText(
-          assistantText,
-          {
-            fallbackProfile: promptedSttProfile,
-          },
-        );
+        const profile = selectSttProfileForAssistantText(assistantText, {
+          fallbackProfile: promptedSttProfile,
+        });
         promptedSttProfile = profile === "default" ? null : profile;
         applySttProfile(profile, "assistant_prompt", {
           assistantText,

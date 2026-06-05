@@ -1,4 +1,5 @@
-import type { STTOptions } from "@livekit/agents-plugin-assemblyai";
+import type { inference } from "@livekit/agents";
+import type { STTOptions as AssemblyAIPluginSttOptions } from "@livekit/agents-plugin-assemblyai";
 
 export const ASSEMBLYAI_BASE_TIMING = {
   minTurnSilence: 275,
@@ -65,11 +66,12 @@ export const ASSEMBLYAI_STT_PROFILES = {
     maxTurnSilence: 4000,
     vadThreshold: 0.3,
   },
-} satisfies Record<string, Partial<STTOptions>>;
+} satisfies Record<string, Partial<AssemblyAIPluginSttOptions>>;
 
 export type AssemblyAISttProfile = keyof typeof ASSEMBLYAI_STT_PROFILES;
+export type SttProfile = AssemblyAISttProfile;
 
-export function getAssemblyAISttOptions(): Partial<STTOptions> {
+export function getAssemblyAISttOptions(): Partial<AssemblyAIPluginSttOptions> {
   return {
     speechModel: "u3-rt-pro",
     languageDetection: true,
@@ -79,13 +81,45 @@ export function getAssemblyAISttOptions(): Partial<STTOptions> {
 
 export function getAssemblyAISttProfileOptions(
   profile: AssemblyAISttProfile,
-): Partial<STTOptions> {
+): Partial<AssemblyAIPluginSttOptions> {
   const options = ASSEMBLYAI_STT_PROFILES[profile];
   return {
     ...options,
     keytermsPrompt: options.keytermsPrompt
       ? [...options.keytermsPrompt]
       : undefined,
+  };
+}
+
+export const DEEPGRAM_FLUX_STT_MODEL = "deepgram/flux-general-multi" as const;
+export const DEEPGRAM_FLUX_STT_LANGUAGE = "multi" as const;
+
+export type DeepgramFluxSttModel = typeof DEEPGRAM_FLUX_STT_MODEL;
+export type DeepgramFluxSttModelOptions =
+  inference.STTOptions<DeepgramFluxSttModel>;
+
+export function getDeepgramFluxSttProfileOptions(
+  profile: SttProfile,
+): DeepgramFluxSttModelOptions {
+  const options = ASSEMBLYAI_STT_PROFILES[profile];
+  const keyterm = options.keytermsPrompt ? [...options.keytermsPrompt] : [];
+
+  return {
+    detect_language: true,
+    eot_timeout_ms: options.maxTurnSilence,
+    keyterm,
+  };
+}
+
+export function getDeepgramFluxSttOptions(): {
+  language: typeof DEEPGRAM_FLUX_STT_LANGUAGE;
+  model: DeepgramFluxSttModel;
+  modelOptions: DeepgramFluxSttModelOptions;
+} {
+  return {
+    language: DEEPGRAM_FLUX_STT_LANGUAGE,
+    model: DEEPGRAM_FLUX_STT_MODEL,
+    modelOptions: getDeepgramFluxSttProfileOptions("default"),
   };
 }
 
@@ -227,4 +261,13 @@ export function selectAssemblyAISttProfileForAssistantText(
   }
 
   return "default";
+}
+
+export function selectSttProfileForAssistantText(
+  text: string,
+  options: {
+    fallbackProfile?: SttProfile | null;
+  } = {},
+): SttProfile {
+  return selectAssemblyAISttProfileForAssistantText(text, options);
 }
