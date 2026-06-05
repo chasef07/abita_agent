@@ -1,4 +1,3 @@
-import type { inference } from "@livekit/agents";
 import type { STTOptions as AssemblyAIPluginSttOptions } from "@livekit/agents-plugin-assemblyai";
 
 export const ASSEMBLYAI_BASE_TIMING = {
@@ -88,38 +87,6 @@ export function getAssemblyAISttProfileOptions(
     keytermsPrompt: options.keytermsPrompt
       ? [...options.keytermsPrompt]
       : undefined,
-  };
-}
-
-export const DEEPGRAM_FLUX_STT_MODEL = "deepgram/flux-general-multi" as const;
-export const DEEPGRAM_FLUX_STT_LANGUAGE = "multi" as const;
-
-export type DeepgramFluxSttModel = typeof DEEPGRAM_FLUX_STT_MODEL;
-export type DeepgramFluxSttModelOptions =
-  inference.STTOptions<DeepgramFluxSttModel>;
-
-export function getDeepgramFluxSttProfileOptions(
-  profile: SttProfile,
-): DeepgramFluxSttModelOptions {
-  const options = ASSEMBLYAI_STT_PROFILES[profile];
-  const keyterm = options.keytermsPrompt ? [...options.keytermsPrompt] : [];
-
-  return {
-    detect_language: true,
-    eot_timeout_ms: options.maxTurnSilence,
-    keyterm,
-  };
-}
-
-export function getDeepgramFluxSttOptions(): {
-  language: typeof DEEPGRAM_FLUX_STT_LANGUAGE;
-  model: DeepgramFluxSttModel;
-  modelOptions: DeepgramFluxSttModelOptions;
-} {
-  return {
-    language: DEEPGRAM_FLUX_STT_LANGUAGE,
-    model: DEEPGRAM_FLUX_STT_MODEL,
-    modelOptions: getDeepgramFluxSttProfileOptions("default"),
   };
 }
 
