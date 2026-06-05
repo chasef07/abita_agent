@@ -169,8 +169,10 @@ interface PatientBackendRefs {
 }
 
 interface RuntimeCallState {
+  endedReason?: "duration_limit";
   preCallLookup: PreCallLookupTelemetry;
   latestUserTranscript?: string | null;
+  maxCallDurationMs?: number;
   sipRoomName: string;
   sipParticipantIdentity: string;
   callId: string;

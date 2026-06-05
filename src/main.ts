@@ -45,6 +45,10 @@ import {
   getAnalyticsSecret,
   postAnalyticsPayload,
 } from "./runtime/analytics-post.js";
+import {
+  MAX_CALL_DURATION_MS,
+  attachCallDurationDeadline,
+} from "./runtime/call-duration-deadline.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
   getActiveTtsProvider,
@@ -139,6 +143,22 @@ export default defineAgent({
         sipCallId,
         sipParticipantIdentity: participant.identity ?? "",
       };
+      const callDurationDeadline = attachCallDurationDeadline(ctx, {
+        callId,
+        onExceeded: () => {
+          try {
+            session.userData.runtime.endedReason = "duration_limit";
+            session.userData.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;
+          } catch {
+            // The deadline is far beyond normal bootstrap time, but keep this
+            // guard so shutdown still happens if state has not initialized.
+          }
+        },
+        roomName,
+        shutdownSession: (reason) => {
+          session.shutdown({ drain: false, reason });
+        },
+      });
 
       console.log(
         `[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`,
@@ -199,6 +219,7 @@ export default defineAgent({
         appointments: publicCallerAppointments(verified?.appointments),
         transferred: false,
       });
+      session.userData.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;
 
       let activeSttProfile: SttProfile = "default";
       let promptedSttProfile: SttProfile | null = null;
@@ -312,6 +333,7 @@ export default defineAgent({
 
       // Shutdown hook: capture session report + audio, post analytics, delete room.
       ctx.addShutdownCallback(async () => {
+        callDurationDeadline.clear();
         let sessionReport: Record<string, unknown> | undefined;
         let audioBase64: string | undefined;
 
@@ -345,6 +367,9 @@ export default defineAgent({
           const status = session.userData.runtime.transferred
             ? "ESCALATED"
             : "COMPLETED";
+          const endedReason = callDurationDeadline.exceeded()
+            ? "duration_limit"
+            : undefined;
           const payload: Record<string, unknown> = {
             callId,
             callerPhone,
@@ -355,6 +380,12 @@ export default defineAgent({
               (endedAt.getTime() - startedAt.getTime()) / 1000,
             ),
             status,
+            ...(endedReason
+              ? {
+                  endedReason,
+                  maxCallDurationMs: MAX_CALL_DURATION_MS,
+                }
+              : {}),
             usage: latestUsage ?? session.usage,
             llmSummary: buildLlmSummary({
               fallbackModel: fallbackLLMOptions.model,
@@ -390,7 +421,12 @@ export default defineAgent({
         }
 
         try {
-          if (roomName) await ctx.deleteRoom(roomName);
+          if (callDurationDeadline.roomDeletionStarted()) {
+            await callDurationDeadline.waitForRoomDeletion();
+          }
+          if (roomName && !callDurationDeadline.roomDeletionCompleted()) {
+            await ctx.deleteRoom(roomName);
+          }
         } catch (err) {
           console.error("[shutdown] Failed to delete room:", err);
         }

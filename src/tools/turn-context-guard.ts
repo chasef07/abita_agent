@@ -18,7 +18,9 @@ export function prepareAvailabilityLookupContext(
     return;
   }
 
-  if (hasExistingAppointmentChangeContext(state, { ignoreCurrentIntent: true })) {
+  if (
+    hasExistingAppointmentChangeContext(state, { ignoreCurrentIntent: true })
+  ) {
     applyTurnContextToState(state, {
       intent: "change_appointment",
       appointmentLane: "not_applicable",
@@ -52,7 +54,11 @@ function hasExistingAppointmentChangeContext(
   options: { ignoreCurrentIntent?: boolean } = {},
 ): boolean {
   const turn = state.workflow.current;
-  if (!options.ignoreCurrentIntent && turn && turn.intent !== "change_appointment")
+  if (
+    !options.ignoreCurrentIntent &&
+    turn &&
+    turn.intent !== "change_appointment"
+  )
     return false;
   if (!activePatientId(state)) return false;
 
