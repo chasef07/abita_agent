@@ -31,7 +31,6 @@ import {
   type SttProfileTransitionAnalytics,
   type ToolExecutionAnalytics,
 } from "./call-observability.js";
-import { RoomServiceClient } from "livekit-server-sdk";
 import {
   createCanonicalCallState,
   publicCallerAppointments,
@@ -42,6 +41,10 @@ import {
   formatPhoneLookupLogLine,
   loadPreCallBootstrap,
 } from "./runtime/precall-bootstrap.js";
+import {
+  getAnalyticsSecret,
+  postAnalyticsPayload,
+} from "./runtime/analytics-post.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
   getActiveTtsProvider,
@@ -58,6 +61,7 @@ import {
   selectSttProfileForAssistantText,
 } from "./stt-config.js";
 import { voiceTurnHandlingOptions } from "./session-options.js";
+import { attachSipParticipantShutdown } from "./runtime/sip-room-shutdown.js";
 
 dotenv.config({ path: ".env.local" });
 
@@ -71,16 +75,6 @@ type TurnMetricSnapshot = {
 };
 
 type PluginMetricSnapshot = Record<string, unknown>;
-
-let _roomSvc: RoomServiceClient | undefined;
-function getRoomSvc(): RoomServiceClient {
-  _roomSvc ??= new RoomServiceClient(
-    process.env.LIVEKIT_URL!,
-    process.env.LIVEKIT_API_KEY!,
-    process.env.LIVEKIT_API_SECRET!,
-  );
-  return _roomSvc;
-}
 
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
@@ -128,14 +122,45 @@ export default defineAgent({
       // Connect and wait for the SIP participant
       await ctx.connect();
       const participant = await ctx.waitForParticipant();
+      attachSipParticipantShutdown(ctx, participant, {
+        isTransferred: () => session.userData.runtime.transferred,
+      });
 
       const callerPhone =
         participant.attributes["sip.phoneNumber"] ?? participant.identity;
       const trunkPhone = participant.attributes["sip.trunkPhoneNumber"] ?? "";
-      const callId = participant.attributes["sip.callID"] ?? ctx.room.name;
+      const sipCallId = participant.attributes["sip.callID"] ?? "";
+      const roomName = ctx.room.name ?? "";
+      const callId = sipCallId || roomName || participant.identity || "unknown";
+      const startedAt = new Date();
+      const livekitContext = {
+        agentJobId: ctx.job.id,
+        roomName,
+        sipCallId,
+        sipParticipantIdentity: participant.identity ?? "",
+      };
 
       console.log(
         `[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`,
+      );
+
+      await postAnalyticsPayload(
+        {
+          callId,
+          callerPhone,
+          officePhone: trunkPhone,
+          startedAt: startedAt.toISOString(),
+          status: "IN_PROGRESS",
+          ...livekitContext,
+        },
+        {
+          maxAttempts: 1,
+          phase: "call-start",
+          retryDelayMs: 0,
+          secret: getAnalyticsSecret(),
+          timeoutMs: 2_000,
+          url: process.env.ANALYTICS_URL,
+        },
       );
 
       // Phone lookup before session start so context is ready for the first LLM turn.
@@ -150,7 +175,7 @@ export default defineAgent({
         preCallLookup: preCall.telemetry,
         officeKey: office.key,
         amdOfficePhone: office.amdOfficePhone,
-        sipRoomName: ctx.room.name ?? "",
+        sipRoomName: roomName,
         sipParticipantIdentity: participant.identity ?? "",
         callId,
         callerPhone,
@@ -177,7 +202,6 @@ export default defineAgent({
 
       let activeSttProfile: SttProfile = "default";
       let promptedSttProfile: SttProfile | null = null;
-      const startedAt = new Date();
       const sttProfiles: SttProfileTransitionAnalytics[] = [
         snapshotSttProfileTransition({
           createdAt: startedAt,
@@ -288,26 +312,6 @@ export default defineAgent({
         }
       });
 
-      await session.start({
-        agent,
-        room: ctx.room,
-        inputOptions: {
-          participantIdentity: participant.identity,
-        },
-      });
-
-      // End the job when the SIP caller hangs up (or transfer completes).
-      // LiveKit's documented Node pattern is ctx.shutdown(), which closes the
-      // session, disconnects the agent, and runs shutdown hooks.
-      ctx.room.on("participantDisconnected", (p) => {
-        if (p.identity === participant.identity) {
-          console.log(
-            `[call] SIP participant ${p.identity} disconnected (transferred=${session.userData.runtime.transferred}), shutting down job`,
-          );
-          ctx.shutdown(`sip participant disconnected: ${p.identity}`);
-        }
-      });
-
       // Shutdown hook: capture session report + audio, post analytics, delete room.
       ctx.addShutdownCallback(async () => {
         let sessionReport: Record<string, unknown> | undefined;
@@ -338,9 +342,11 @@ export default defineAgent({
         // Post usage, turn metrics, and session report to analytics dashboard.
         // Session-level MetricsCollected is deprecated in LiveKit Agents; usage
         // and ChatMessage.metrics are the supported observability surfaces.
-        const analyticsUrl = process.env.ANALYTICS_URL;
-        if (analyticsUrl) {
+        if (process.env.ANALYTICS_URL) {
           const endedAt = new Date();
+          const status = session.userData.runtime.transferred
+            ? "ESCALATED"
+            : "COMPLETED";
           const payload: Record<string, unknown> = {
             callId,
             callerPhone,
@@ -350,6 +356,7 @@ export default defineAgent({
             durationSec: Math.round(
               (endedAt.getTime() - startedAt.getTime()) / 1000,
             ),
+            status,
             usage: latestUsage ?? session.usage,
             llmSummary: buildLlmSummary({
               fallbackModel: fallbackLLMOptions.model,
@@ -365,6 +372,7 @@ export default defineAgent({
             preCallLookup: session.userData.runtime.preCallLookup,
             language: languageRuntime.telemetry,
             sessionReport,
+            ...livekitContext,
           };
 
           // Include audio only if under 4MB base64 to avoid payload limits
@@ -376,47 +384,26 @@ export default defineAgent({
             );
           }
 
-          const headers: Record<string, string> = {
-            "Content-Type": "application/json",
-          };
-          const secret = process.env.WEBHOOK_SECRET;
-          if (secret) headers["Authorization"] = `Bearer ${secret}`;
-
-          const maxAttempts = 4;
-          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-            try {
-              const res = await fetch(analyticsUrl, {
-                method: "POST",
-                headers,
-                body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(10_000),
-              });
-              if (res.ok) {
-                console.log(
-                  `[shutdown] Analytics POST succeeded (attempt ${attempt})`,
-                );
-                break;
-              }
-              const body = await res.text().catch(() => "");
-              console.warn(
-                `[shutdown] Analytics POST returned ${res.status} (attempt ${attempt}): ${body.slice(0, 200)}`,
-              );
-            } catch (err) {
-              console.warn(
-                `[shutdown] Analytics POST failed (attempt ${attempt}):`,
-                err,
-              );
-            }
-            if (attempt < maxAttempts)
-              await new Promise((r) => setTimeout(r, 2_000 * attempt));
-          }
+          await postAnalyticsPayload(payload, {
+            phase: "shutdown",
+            secret: getAnalyticsSecret(),
+            url: process.env.ANALYTICS_URL,
+          });
         }
 
         try {
-          if (ctx.room.name) await getRoomSvc().deleteRoom(ctx.room.name);
+          if (roomName) await ctx.deleteRoom(roomName);
         } catch (err) {
           console.error("[shutdown] Failed to delete room:", err);
         }
+      });
+
+      await session.start({
+        agent,
+        room: ctx.room,
+        inputOptions: {
+          participantIdentity: participant.identity,
+        },
       });
     } catch (err) {
       console.error("[entry] FATAL:", err);
