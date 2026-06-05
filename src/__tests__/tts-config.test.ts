@@ -138,6 +138,10 @@ describe("TTS config", () => {
   });
 
   it("uses the dedicated Spanish Cartesia voice for Spanish turns", () => {
+    expect(SPANISH_CARTESIA_TTS_VOICE).toBe(
+      "b4b8e2af-6139-466e-a93a-30c20d2e1fc5",
+    );
+
     expect(getCartesiaTtsOptionsByLanguage("english-voice")).toEqual({
       en: {
         language: "en",
