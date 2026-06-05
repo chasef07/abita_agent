@@ -6,16 +6,6 @@ import {
   type CallState,
 } from "../state/call-state.js";
 
-export function ensureSchedulingTurnContext(
-  state: CallState,
-  action: string,
-): void {
-  if (hasRecordedSchedulingContext(state)) return;
-  throw new llm.ToolError(
-    `Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od before ${action}.`,
-  );
-}
-
 export function ensureAvailabilityContext(
   state: CallState,
   action: string,
@@ -23,7 +13,7 @@ export function ensureAvailabilityContext(
   if (hasRecordedSchedulingContext(state)) return;
   if (hasExistingAppointmentChangeContext(state)) return;
   throw new llm.ToolError(
-    `Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od, or identify the existing appointment to move, before ${action}.`,
+    `Pass appointmentLane medical_md or routine_od, or identify the existing appointment to move, before ${action}.`,
   );
 }
 
@@ -32,7 +22,6 @@ function hasRecordedSchedulingContext(state: CallState): boolean {
   return Boolean(
     turn &&
     turn.intent === "schedule" &&
-    !turn.isEmergency &&
     (turn.appointmentLane === "medical_md" ||
       turn.appointmentLane === "routine_od"),
   );
@@ -40,7 +29,6 @@ function hasRecordedSchedulingContext(state: CallState): boolean {
 
 function hasExistingAppointmentChangeContext(state: CallState): boolean {
   const turn = state.workflow.current;
-  if (turn?.isEmergency) return false;
   if (turn && turn.intent !== "change_appointment") return false;
   if (!activePatientId(state)) return false;
 

@@ -25,13 +25,11 @@ import {
   getAmdOfficeForToolCall,
 } from "./scheduling.js";
 import { getState } from "./session.js";
-import { ensureSchedulingTurnContext } from "./turn-context-guard.js";
 
 export const book_appt = llm.tool({
   description:
     "Book a caller-confirmed appointment slot. " +
-    "Requires record_turn_context to have recorded a scheduling lane first. " +
-    "Call only after get_availability returns slots, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. ",
+    "Call only after get_availability returns slots with the right appointment lane, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. ",
   parameters: z.object({
     slotId: z
       .string()
@@ -61,7 +59,6 @@ export const book_appt = llm.tool({
       return "The appointment is already booked. Tell the caller the confirmed appointment details instead of booking again.";
     }
 
-    ensureSchedulingTurnContext(state, "booking");
     ctx.speechHandle.allowInterruptions = false;
 
     if (!patientId) {

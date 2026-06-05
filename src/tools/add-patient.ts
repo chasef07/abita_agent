@@ -3,6 +3,7 @@ import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import { normalizeInsuranceText } from "../insurance-rules.js";
 import {
+  applySchedulingLaneToState,
   insuranceSnapshot,
   lastInsuranceEligibilityCheck,
   runtimeCallerPhone,
@@ -16,13 +17,12 @@ import {
   getAmdOfficeForToolCall,
 } from "./scheduling.js";
 import { getState } from "./session.js";
-import { ensureSchedulingTurnContext } from "./turn-context-guard.js";
 
 export const add_patient = llm.tool({
   description:
     "Creates a chart for a new patient. " +
     "Call this when the user has not registered in the system before. " +
-    "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. " +
+    "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. Pass appointmentLane as medical_md for medical ophthalmology or routine_od for routine vision, glasses, contacts, or optometry. " +
     "Before calling, read back the important registration details and get caller confirmation. " +
     "Before using the inbound caller number for the chart, ask whether the number they are calling from is a good callback number to put on file. " +
     'Never offer self pay. If the patient asks to self pay, put "self pay" in subscriberNum. ' +
@@ -61,6 +61,11 @@ export const add_patient = llm.tool({
       .describe(
         "Insurance plan the caller gave after check_insurance accepts it",
       ),
+    appointmentLane: z
+      .enum(["medical_md", "routine_od"])
+      .describe(
+        "Required scheduling lane. Use medical_md for medical ophthalmology, or routine_od for routine vision, glasses, contacts, or optometry.",
+      ),
     subscriberName: z.string().describe("Name on the insurance policy"),
     subscriberNum: z.string().describe("Member ID"),
     readBack: z
@@ -84,13 +89,20 @@ export const add_patient = llm.tool({
       );
     }
     const insurance = checkedInsurance.canonicalPlan ?? params.insurance;
+    if (
+      params.appointmentLane !== "medical_md" &&
+      params.appointmentLane !== "routine_od"
+    ) {
+      throw new llm.ToolError(
+        "Pass appointmentLane medical_md or routine_od before creating a patient.",
+      );
+    }
+    applySchedulingLaneToState(state, params.appointmentLane);
     const selfPay = normalizeInsuranceText(insurance) === "self pay";
     const explicitPhone = params.phone?.trim() ?? "";
     const phone =
       explicitPhone ||
       (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
-
-    ensureSchedulingTurnContext(state, "creating a patient");
 
     if (hasMatchingPendingPreCallPatient(state, params)) {
       return "A patient record may already exist for that last name and date of birth from the caller phone lookup. Confirm the existing patient record before creating a new chart.";

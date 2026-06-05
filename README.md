@@ -14,13 +14,14 @@ LiveKit AgentSession<CallState>
   -> pre-call phone lookup
   -> session.userData as typed call state
   -> llm.tool definitions
-  -> record_turn_context writes the latest turn context
+  -> business tools record scheduling lane when needed
   -> get_current_datetime returns clinic-local time on demand
   -> business tools read/write state and call middleware
 ```
 
 There is no custom flow harness, planner, reducer, `record_turn_understanding`
-tool, or historical replay path in the live code.
+tool, standalone context-recording tool, or historical replay path in the live
+code.
 
 ## Stack
 
@@ -62,7 +63,6 @@ src/
     precall-bootstrap.ts  Pre-call phone lookup hydration
     tool-registry.ts      Office-specific LiveKit tool registry
   tools/
-    record-turn-context.ts record_turn_context definition, schema, execute body
     get-current-datetime.ts get_current_datetime definition, schema, execute body
     add-patient.ts        add_patient definition, schema, execute body
     book-appt.ts          book_appt definition, schema, execute body
@@ -88,7 +88,6 @@ docs/                     Current architecture, ops, and historical notes
 
 The current broad office tool set is:
 
-- `record_turn_context`
 - `get_current_datetime`
 - `confirm_patient_identity`
 - `add_patient`
@@ -101,12 +100,13 @@ The current broad office tool set is:
 - `route_to_spring_hill` for Crystal River trunks only
 - `transfer_call`
 
-`record_turn_context` selects a workflow context only when the caller's intent is
-clear. For scheduling, it should run only after the medical-versus-routine lane
-is clear. It records the selected intent, appointment lane, emergency flag, and
-confidence internally, then returns a small workflow context guide for the
-model. State-changing tools read and write `session.userData` directly. The
-final side effect is not considered complete until the tool succeeds.
+For new scheduling, `get_availability` takes `appointmentLane` directly once the
+medical-versus-routine lane is clear. `add_patient` takes the same lane because
+chart creation can change office routing for routine vision. `book_appt` does
+not repeat the lane; it uses the private booking token and routing cached from
+the caller-confirmed availability slot. State-changing tools read and write
+`session.userData` directly. The final side effect is not considered complete
+until the tool succeeds.
 
 `get_current_datetime` is read-only and returns one clinic-local grounding
 sentence, such as `Today is Sunday, May 31st, 2026 at 10:42 AM Eastern time.`,

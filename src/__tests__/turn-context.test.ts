@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  applySchedulingLaneToState,
   applyTurnContextToState,
   createCanonicalCallState,
-  workflowContextGuideFor,
-  workflowContextNameForTurn,
 } from "../state/call-state.js";
 
 function createState() {
@@ -37,100 +36,53 @@ function createState() {
 }
 
 describe("turn context state", () => {
-  it("records the latest scheduling turn", () => {
+  it("records scheduling lane from business tools", () => {
     const state = createState();
 
-    const turn = {
+    applySchedulingLaneToState(state, "medical_md");
+
+    expect(state.workflow.current).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
-      isEmergency: false,
-      confidence: 0.9,
-    } as const;
-
-    applyTurnContextToState(state, turn);
-
-    expect(state.workflow.current).toEqual(turn);
-    expect(workflowContextNameForTurn(turn)).toBe("scheduling");
+    });
   });
 
-  it("replaces the latest turn instead of preserving a backend workflow field", () => {
+  it("clears stale availability when scheduling lane changes", () => {
     const state = createState();
-    applyTurnContextToState(state, {
-      intent: "schedule",
-      appointmentLane: "routine_od",
-      isEmergency: false,
-      confidence: 0.88,
-    });
+    applySchedulingLaneToState(state, "medical_md");
+    state.availability.latestRouting = "all_three";
+    state.availability.bookingTokensBySlotId = { A: "private-token" };
+    state.availability.slots = [
+      {
+        slotId: "A",
+        spoken: "June 1 at 9:00 AM with Dr. Bach",
+        provider: "Dr. Bach",
+        date: "2026-06-01",
+        time: "9:00 AM",
+        datetime: "2026-06-01T09:00:00",
+        routing: "all_three",
+      },
+    ];
+
+    applySchedulingLaneToState(state, "routine_od");
+
+    expect(state.workflow.current?.appointmentLane).toBe("routine_od");
+    expect(state.availability.slots).toEqual([]);
+    expect(state.availability.latestRouting).toBeNull();
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
+  });
+
+  it("keeps appointment-change context distinct from new scheduling lane", () => {
+    const state = createState();
 
     applyTurnContextToState(state, {
-      intent: "question",
+      intent: "change_appointment",
       appointmentLane: "not_applicable",
-      isEmergency: false,
-      confidence: 0.86,
     });
 
     expect(state.workflow.current).toEqual({
-      intent: "question",
+      intent: "change_appointment",
       appointmentLane: "not_applicable",
-      isEmergency: false,
-      confidence: 0.86,
-    });
-    const lastTurn = state.workflow.current;
-    expect(lastTurn).toBeDefined();
-    expect(
-      workflowContextGuideFor(workflowContextNameForTurn(lastTurn!)),
-    ).toMatchObject({
-      name: "general_question",
-      guidance: expect.arrayContaining([
-        expect.stringContaining("Answer the caller's question directly"),
-      ]),
-    });
-  });
-
-  it("keeps low confidence as part of the latest turn context", () => {
-    const state = createState();
-
-    applyTurnContextToState(state, {
-      intent: "schedule",
-      appointmentLane: "medical_md",
-      isEmergency: false,
-      confidence: 0.42,
-    });
-
-    expect(state.workflow.current).toEqual({
-      intent: "schedule",
-      appointmentLane: "medical_md",
-      isEmergency: false,
-      confidence: 0.42,
-    });
-    const lastTurn = state.workflow.current;
-    expect(lastTurn).toBeDefined();
-    expect(workflowContextNameForTurn(lastTurn!)).toBe("scheduling");
-  });
-
-  it("derives emergency context from the latest turn", () => {
-    const state = createState();
-
-    applyTurnContextToState(state, {
-      intent: "schedule",
-      appointmentLane: "medical_md",
-      isEmergency: true,
-      confidence: 0.65,
-    });
-
-    expect(state.workflow.current).toEqual({
-      intent: "schedule",
-      appointmentLane: "medical_md",
-      isEmergency: true,
-      confidence: 0.65,
-    });
-    const lastTurn = state.workflow.current;
-    expect(lastTurn).toBeDefined();
-    expect(
-      workflowContextGuideFor(workflowContextNameForTurn(lastTurn!)),
-    ).toMatchObject({
-      name: "emergency",
-      guidance: expect.arrayContaining([expect.stringContaining("urgent")]),
     });
   });
 });

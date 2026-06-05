@@ -9,7 +9,6 @@ import {
   get_current_datetime,
   get_availability,
   lookup_knowledge,
-  record_turn_context,
   reschedule_appt,
   route_to_spring_hill,
   transfer_call,
@@ -17,7 +16,6 @@ import {
 } from "../tools/index.js";
 
 const COMMON_TOOLS = {
-  record_turn_context,
   get_current_datetime,
   confirm_patient_identity,
   add_patient,

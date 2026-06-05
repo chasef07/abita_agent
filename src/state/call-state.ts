@@ -134,74 +134,18 @@ type SchedulingRouting =
   | "all_three"
   | "optical_only";
 
-type TurnIntent = "schedule" | "change_appointment" | "question" | "transfer";
+type TurnIntent = "schedule" | "change_appointment";
 
 export type AppointmentLane = "medical_md" | "routine_od" | "not_applicable";
+export type SchedulingAppointmentLane = Exclude<
+  AppointmentLane,
+  "not_applicable"
+>;
 
-export interface RecordTurnContextArgs {
+export interface WorkflowTurnContext {
   intent: TurnIntent;
   appointmentLane: AppointmentLane;
-  isEmergency: boolean;
-  confidence: number;
 }
-
-export type WorkflowContextName =
-  | "none"
-  | "scheduling"
-  | "appointment_change"
-  | "general_question"
-  | "human_transfer"
-  | "emergency";
-
-export interface WorkflowContextGuide {
-  name: WorkflowContextName;
-  guidance: string[];
-}
-
-const WORKFLOW_CONTEXT_GUIDES: Record<
-  WorkflowContextName,
-  WorkflowContextGuide
-> = {
-  none: {
-    name: "none",
-    guidance: [],
-  },
-  scheduling: {
-    name: "scheduling",
-    guidance: [
-      "Typical path: understand the visit reason and appointment lane, identify the patient, handle insurance when needed, ask date or time preference, check availability, then book only after the caller chooses a slot.",
-      "Use the appointment lane from record_turn_context to decide medical ophthalmology versus routine vision context. If the lane is unclear, ask concise clarifying questions before calling record_turn_context.",
-    ],
-  },
-  appointment_change: {
-    name: "appointment_change",
-    guidance: [
-      "Typical path: verify or confirm the patient, identify the exact existing appointment, then handle confirmation, cancellation, or rescheduling.",
-      "For reschedules, use reschedule_appt after the caller confirms the old appointment and new slot. For cancellations, call cancel_appt only after the caller confirms the exact loaded appointment.",
-    ],
-  },
-  general_question: {
-    name: "general_question",
-    guidance: [
-      "Answer the caller's question directly, using lookup_knowledge or check_insurance when needed.",
-      "Do not verify the patient unless the answer or action requires private patient data.",
-    ],
-  },
-  human_transfer: {
-    name: "human_transfer",
-    guidance: [
-      "If the caller asks for staff or the request needs a human, use transfer_call.",
-      "For front-desk work the agent can do, offer direct help before transferring unless the caller insists.",
-    ],
-  },
-  emergency: {
-    name: "emergency",
-    guidance: [
-      "Treat the request as urgent and do not continue normal scheduling.",
-      "Follow emergency handling and transfer to staff when appropriate.",
-    ],
-  },
-};
 
 export interface PatientIdentitySnapshot {
   patientId?: string | null;
@@ -282,7 +226,7 @@ interface RoutingSessionState {
 }
 
 interface WorkflowSessionState {
-  current?: RecordTurnContextArgs;
+  current?: WorkflowTurnContext;
   routing: RoutingSessionState;
 }
 
@@ -488,7 +432,7 @@ export function setLastInsuranceEligibilityCheck(
 
 export function applyTurnContextToState(
   state: CallState,
-  turn: RecordTurnContextArgs,
+  turn: WorkflowTurnContext,
 ): void {
   const previousVisitType = currentWorkflowVisitType(state);
   state.workflow.current = turn;
@@ -498,20 +442,14 @@ export function applyTurnContextToState(
   clearAvailabilitySelection(state);
 }
 
-export function workflowContextNameForTurn(
-  turn: RecordTurnContextArgs,
-): Exclude<WorkflowContextName, "none"> {
-  if (turn.isEmergency) return "emergency";
-  if (turn.intent === "schedule") return "scheduling";
-  if (turn.intent === "change_appointment") return "appointment_change";
-  if (turn.intent === "question") return "general_question";
-  return "human_transfer";
-}
-
-export function workflowContextGuideFor(
-  name: WorkflowContextName,
-): WorkflowContextGuide {
-  return WORKFLOW_CONTEXT_GUIDES[name];
+export function applySchedulingLaneToState(
+  state: CallState,
+  appointmentLane: SchedulingAppointmentLane,
+): void {
+  applyTurnContextToState(state, {
+    intent: "schedule",
+    appointmentLane,
+  });
 }
 
 export function activeRoutingContext(state: CallState): {
@@ -650,7 +588,7 @@ export function normalizeSchedulingRouting(
 }
 
 function visitTypeFromAppointmentLane(
-  turn: RecordTurnContextArgs,
+  turn: WorkflowTurnContext,
 ): VisitType | null {
   if (turn.intent !== "schedule") return null;
   if (turn.appointmentLane === "routine_od") return "routine_vision";

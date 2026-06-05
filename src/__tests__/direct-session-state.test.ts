@@ -24,7 +24,6 @@ import {
   check_insurance,
   confirm_patient_identity,
   get_availability,
-  record_turn_context,
   reschedule_appt,
   route_to_spring_hill,
   transfer_call,
@@ -97,8 +96,6 @@ function markSchedulingTriaged(
   state.workflow.current = {
     intent: "schedule",
     appointmentLane,
-    isEmergency: false,
-    confidence: 0.92,
   };
 }
 
@@ -106,8 +103,6 @@ function markAppointmentChangeContext(state: TestCallState) {
   state.workflow.current = {
     intent: "change_appointment",
     appointmentLane: "not_applicable",
-    isEmergency: false,
-    confidence: 0.92,
   };
 }
 
@@ -181,6 +176,7 @@ describe("direct session state cleanup", () => {
     const result = (await get_availability.execute(
       {
         date: "2026-06-01",
+        appointmentLane: "medical_md",
       },
       {
         ctx: ctx as never,
@@ -225,8 +221,6 @@ describe("direct session state cleanup", () => {
     expect(state.workflow.current).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
-      isEmergency: false,
-      confidence: 0.92,
     });
     expect(state.availability.slots).toEqual([
       {
@@ -271,19 +265,6 @@ describe("direct session state cleanup", () => {
       },
     ];
 
-    await record_turn_context.execute(
-      {
-        intent: "schedule",
-        appointmentLane: "routine_od",
-        isEmergency: false,
-        confidence: 0.92,
-      },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "tool-1",
-      } as never,
-    );
-
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({
@@ -314,6 +295,7 @@ describe("direct session state cleanup", () => {
     const result = (await get_availability.execute(
       {
         date: "2026-06-01",
+        appointmentLane: "routine_od",
       },
       {
         ctx: createToolContext(state) as never,
@@ -421,8 +403,6 @@ describe("direct session state cleanup", () => {
     expect(state.workflow.current).toEqual({
       intent: "change_appointment",
       appointmentLane: "not_applicable",
-      isEmergency: false,
-      confidence: 0.92,
     });
     expect(result).toMatchObject({
       result: "slots_found",
@@ -497,8 +477,6 @@ describe("direct session state cleanup", () => {
     expect(state.workflow.current).toEqual({
       intent: "change_appointment",
       appointmentLane: "not_applicable",
-      isEmergency: false,
-      confidence: 0.92,
     });
     expect(state.office.activeKey).toBe("spring-hill");
     expect(state.availability.latestRouting).toBe("optical_only");
@@ -579,8 +557,6 @@ describe("direct session state cleanup", () => {
     expect(state.workflow.current).toEqual({
       intent: "change_appointment",
       appointmentLane: "not_applicable",
-      isEmergency: false,
-      confidence: 0.92,
     });
     expect(state.office.activeKey).toBe("sweetwater");
     expect(state.availability.latestRouting).toBe("optical_only");
@@ -659,36 +635,52 @@ describe("direct session state cleanup", () => {
         } as never,
       ),
     ).rejects.toThrow(
-      "Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od, or identify the existing appointment to move, before checking availability.",
+      "Pass appointmentLane medical_md or routine_od, or identify the existing appointment to move, before checking availability.",
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("requires an inferable scheduling lane before booking", async () => {
+  it("books from cached availability without separate turn context", async () => {
     const state = createState();
     clearSchedulingContext(state);
     storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "booked",
+        appointmentId: 456,
+        providerName: "Doctor Smith",
+        locationName: "Spring Hill",
+        appointmentTypeName: "Medical",
+      }),
+    }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      book_appt.execute(
-        {
-          slotId: "A",
-          appointmentReason: "blurry vision",
-          referringDoctor: "none",
-        },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      ),
-    ).rejects.toThrow(
-      "Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od before booking.",
+    const result = await book_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "blurry vision",
+        referringDoctor: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
     );
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      status: "booked",
+      appointmentId: 456,
+    });
+    expect(state.workflow.current).toBeUndefined();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
+      {
+        bookingToken: "private-token",
+        patientId: "patient-1",
+        routing: "all_three",
+      },
+    );
   });
 
   it("requires a fresh private booking token before booking", async () => {
@@ -1066,6 +1058,7 @@ describe("direct session state cleanup", () => {
         zip: "34606",
         sex: "female",
         insurance: "self pay",
+        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         subscriberNum: "self pay",
         inboundPhoneConfirmed: true,
@@ -1090,8 +1083,6 @@ describe("direct session state cleanup", () => {
     expect(state.workflow.current).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
-      isEmergency: false,
-      confidence: 0.92,
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       firstName: "Jane",
@@ -1132,6 +1123,7 @@ describe("direct session state cleanup", () => {
         zip: "34606",
         sex: "female",
         insurance: "self pay",
+        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         subscriberNum: "self pay",
         inboundPhoneConfirmed: true,
@@ -1213,6 +1205,7 @@ describe("direct session state cleanup", () => {
         zip: "34606",
         sex: "male",
         insurance: "Florida Blue Shield",
+        appointmentLane: "routine_od",
         subscriberName: "Adam Arshed",
         subscriberNum: "FWZ975W06612",
         inboundPhoneConfirmed: true,
@@ -1230,7 +1223,7 @@ describe("direct session state cleanup", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("requires recorded scheduling context before creating a patient", async () => {
+  it("requires appointment lane before creating a patient", async () => {
     const state = createState();
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
@@ -1264,7 +1257,7 @@ describe("direct session state cleanup", () => {
         } as never,
       ),
     ).rejects.toThrow(
-      "Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od before creating a patient.",
+      "Pass appointmentLane medical_md or routine_od before creating a patient.",
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -1293,6 +1286,7 @@ describe("direct session state cleanup", () => {
         zip: "34606",
         sex: "female",
         insurance: "self pay",
+        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         subscriberNum: "self pay",
         phone: "7275551212",
@@ -1329,6 +1323,7 @@ describe("direct session state cleanup", () => {
         zip: "34606",
         sex: "female",
         insurance: "self pay",
+        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         subscriberNum: "self pay",
         readBack: true,
@@ -1377,6 +1372,7 @@ describe("direct session state cleanup", () => {
         zip: "34606",
         sex: "female",
         insurance: "self pay",
+        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         subscriberNum: "self pay",
         phone: "   ",
@@ -2034,6 +2030,7 @@ describe("direct session state cleanup", () => {
         zip: "34606",
         sex: "female",
         insurance: "Blue Cross",
+        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         subscriberNum: "ABC123",
         inboundPhoneConfirmed: true,
@@ -2056,8 +2053,6 @@ describe("direct session state cleanup", () => {
     expect(state.workflow.current).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
-      isEmergency: false,
-      confidence: 0.92,
     });
   });
 
@@ -2702,8 +2697,6 @@ describe("direct session state cleanup", () => {
     expect(state.workflow.current).toEqual({
       intent: "change_appointment",
       appointmentLane: "not_applicable",
-      isEmergency: false,
-      confidence: 0.92,
     });
     expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
       appointmentId: 123,
