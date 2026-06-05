@@ -72,6 +72,37 @@ describe("turn context state", () => {
     expect(state.availability.bookingTokensBySlotId).toEqual({});
   });
 
+  it("clears stale availability when workflow intent changes", () => {
+    const state = createState();
+    applySchedulingLaneToState(state, "medical_md");
+    state.availability.latestRouting = "all_three";
+    state.availability.bookingTokensBySlotId = { A: "private-token" };
+    state.availability.slots = [
+      {
+        slotId: "A",
+        spoken: "June 1 at 9:00 AM with Dr. Bach",
+        provider: "Dr. Bach",
+        date: "2026-06-01",
+        time: "9:00 AM",
+        datetime: "2026-06-01T09:00:00",
+        routing: "all_three",
+      },
+    ];
+
+    applyTurnContextToState(state, {
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+    });
+
+    expect(state.workflow.current).toEqual({
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+    });
+    expect(state.availability.slots).toEqual([]);
+    expect(state.availability.latestRouting).toBeNull();
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
+  });
+
   it("keeps appointment-change context distinct from new scheduling lane", () => {
     const state = createState();
 

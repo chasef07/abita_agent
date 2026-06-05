@@ -434,10 +434,12 @@ export function applyTurnContextToState(
   state: CallState,
   turn: WorkflowTurnContext,
 ): void {
+  const previousTurn = state.workflow.current;
   const previousVisitType = currentWorkflowVisitType(state);
   state.workflow.current = turn;
   const visitType = visitTypeFromAppointmentLane(turn);
-  if (!visitType || previousVisitType === visitType) return;
+  const intentChanged = previousTurn?.intent !== turn.intent;
+  if (!intentChanged && (!visitType || previousVisitType === visitType)) return;
 
   clearAvailabilitySelection(state);
 }

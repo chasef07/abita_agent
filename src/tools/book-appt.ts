@@ -29,6 +29,7 @@ import { getState } from "./session.js";
 export const book_appt = llm.tool({
   description:
     "Book a caller-confirmed appointment slot. " +
+    "Use only for new appointments after get_availability recorded appointmentLane; do not use for reschedules or other appointment changes. " +
     "Call only after get_availability returns slots with the right appointment lane, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. ",
   parameters: z.object({
     slotId: z
@@ -58,6 +59,8 @@ export const book_appt = llm.tool({
       clearAvailabilitySelection(state);
       return "The appointment is already booked. Tell the caller the confirmed appointment details instead of booking again.";
     }
+
+    ensureNewAppointmentBookingContext(state);
 
     ctx.speechHandle.allowInterruptions = false;
 
@@ -105,6 +108,25 @@ export const book_appt = llm.tool({
     return bookingFailureMessage(result);
   },
 });
+
+function ensureNewAppointmentBookingContext(state: CallState): void {
+  const turn = state.workflow.current;
+  if (turn?.intent === "change_appointment") {
+    throw new llm.ToolError(
+      "Use reschedule_appt for appointment changes so the old appointment is cancelled after the new booking succeeds.",
+    );
+  }
+  if (
+    turn?.intent === "schedule" &&
+    (turn.appointmentLane === "medical_md" ||
+      turn.appointmentLane === "routine_od")
+  ) {
+    return;
+  }
+  throw new llm.ToolError(
+    "Search availability again with appointmentLane medical_md or routine_od before booking a new appointment.",
+  );
+}
 
 function hasCompletedBookingForActivePatient(state: CallState): boolean {
   const appointmentId = latestBookedAppointmentId(state);

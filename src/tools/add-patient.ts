@@ -1,7 +1,10 @@
 import { llm } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
-import { normalizeInsuranceText } from "../insurance-rules.js";
+import {
+  normalizeInsuranceText,
+  type InsuranceCoverageType,
+} from "../insurance-rules.js";
 import {
   applySchedulingLaneToState,
   insuranceSnapshot,
@@ -97,6 +100,14 @@ export const add_patient = llm.tool({
         "Pass appointmentLane medical_md or routine_od before creating a patient.",
       );
     }
+    const laneCoverageType = coverageTypeForAppointmentLane(
+      params.appointmentLane,
+    );
+    if (checkedInsurance.coverageType !== laneCoverageType) {
+      throw new llm.ToolError(
+        "Use appointmentLane medical_md with medical coverage, or routine_od with routine_vision coverage. Run check_insurance again for the correct coverage before creating a patient.",
+      );
+    }
     applySchedulingLaneToState(state, params.appointmentLane);
     const selfPay = normalizeInsuranceText(insurance) === "self pay";
     const explicitPhone = params.phone?.trim() ?? "";
@@ -183,6 +194,12 @@ export const add_patient = llm.tool({
     return `Created a patient chart for ${patientName}. Continue with scheduling.`;
   },
 });
+
+function coverageTypeForAppointmentLane(
+  appointmentLane: "medical_md" | "routine_od",
+): InsuranceCoverageType {
+  return appointmentLane === "routine_od" ? "routine_vision" : "medical";
+}
 
 function hasMatchingPendingPreCallPatient(
   state: CallState,

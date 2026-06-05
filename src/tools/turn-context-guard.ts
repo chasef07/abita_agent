@@ -3,8 +3,28 @@ import {
   activeAppointments,
   activePatientId,
   activeRoutingContext,
+  applySchedulingLaneToState,
+  applyTurnContextToState,
   type CallState,
+  type SchedulingAppointmentLane,
 } from "../state/call-state.js";
+
+export function prepareAvailabilityLookupContext(
+  state: CallState,
+  appointmentLane: SchedulingAppointmentLane | undefined,
+): void {
+  if (appointmentLane) {
+    applySchedulingLaneToState(state, appointmentLane);
+    return;
+  }
+
+  if (hasExistingAppointmentChangeContext(state, { ignoreCurrentIntent: true })) {
+    applyTurnContextToState(state, {
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+    });
+  }
+}
 
 export function ensureAvailabilityContext(
   state: CallState,
@@ -27,9 +47,13 @@ function hasRecordedSchedulingContext(state: CallState): boolean {
   );
 }
 
-function hasExistingAppointmentChangeContext(state: CallState): boolean {
+function hasExistingAppointmentChangeContext(
+  state: CallState,
+  options: { ignoreCurrentIntent?: boolean } = {},
+): boolean {
   const turn = state.workflow.current;
-  if (turn && turn.intent !== "change_appointment") return false;
+  if (!options.ignoreCurrentIntent && turn && turn.intent !== "change_appointment")
+    return false;
   if (!activePatientId(state)) return false;
 
   const selectedAppointment = existingAppointmentForChangeContext(state);

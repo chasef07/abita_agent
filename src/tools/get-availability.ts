@@ -4,7 +4,6 @@ import { callApi } from "../clients/advancedmd-client.js";
 import {
   activePatientDob,
   activeRoutingContext,
-  applySchedulingLaneToState,
   type SchedulingAppointmentLane,
   type CallState,
 } from "../state/call-state.js";
@@ -15,7 +14,10 @@ import {
   routingForAvailability,
 } from "./scheduling.js";
 import { getState } from "./session.js";
-import { ensureAvailabilityContext } from "./turn-context-guard.js";
+import {
+  ensureAvailabilityContext,
+  prepareAvailabilityLookupContext,
+} from "./turn-context-guard.js";
 
 type AvailabilityLookupArgs = {
   date?: string;
@@ -75,9 +77,7 @@ function buildAvailabilityLookupRequestForState(
     );
   }
 
-  if (args.appointmentLane) {
-    applySchedulingLaneToState(state, args.appointmentLane);
-  }
+  prepareAvailabilityLookupContext(state, args.appointmentLane);
   ensureAvailabilityContext(state, "checking availability");
   ensureRoutineVisionOffice(state);
   const effectiveRouting = routingForAvailability(state);

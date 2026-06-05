@@ -15,9 +15,11 @@ longer spends a separate tool call just to mutate state.
 - Reschedule availability derives the lane from the loaded appointment whenever
   possible.
 - Booking consumes a private cached slot and booking token returned by
-  `get_availability`; it does not require a second lane-recording step.
+  `get_availability`; it requires that availability came from a new-scheduling
+  lane, but does not require a second lane-recording step.
 - Chart creation requires the same explicit scheduling lane because the office
-  route can change before creating a new patient.
+  route can change before creating a new patient. The lane must match the
+  accepted `check_insurance` coverage type.
 - Routing details like `bach_only` stay backend-owned and out of the prompt.
 
 ## Model-Facing Contract
@@ -52,7 +54,10 @@ slot returned by `get_availability`, using the cached private booking token and
 stored slot routing.
 
 This avoids duplicate lane entry and prevents the model from changing the lane
-between availability and booking.
+between availability and booking. If backend state says the caller is changing
+an existing appointment, `book_appt` must refuse and the model must use
+`reschedule_appt` so the old appointment is cancelled only after the new booking
+succeeds.
 
 ### `reschedule_appt`
 
@@ -75,7 +80,8 @@ the old appointment only after the new booking succeeds.
 
 The tool still requires accepted `check_insurance` state, readback
 confirmation, and explicit inbound-phone confirmation or an explicit callback
-phone.
+phone. `medical_md` requires accepted `medical` coverage; `routine_od` requires
+accepted `routine_vision` coverage.
 
 ## Backend State
 
@@ -88,9 +94,9 @@ The internal workflow state is limited to facts used by scheduler routing:
 }
 ```
 
-When the scheduling lane changes, cached availability slots and private booking
-tokens are cleared so a medical slot cannot be reused for routine vision, or the
-reverse.
+When the scheduling lane or workflow intent changes, cached availability slots
+and private booking tokens are cleared so a slot from one lane or workflow
+cannot be reused by another.
 
 ## Removed Surface
 

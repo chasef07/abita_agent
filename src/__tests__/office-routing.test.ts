@@ -920,6 +920,7 @@ describe("model-facing tool definitions", () => {
     expect(book_appt.description).toContain(
       "Book a caller-confirmed appointment slot",
     );
+    expect(book_appt.description).toContain("do not use for reschedules");
     expect(book_appt.description).toContain(
       "caller provides a referring doctor or says they have none",
     );
