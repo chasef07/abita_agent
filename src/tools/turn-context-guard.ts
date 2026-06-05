@@ -3,17 +3,27 @@ import {
   activeAppointments,
   activePatientId,
   activeRoutingContext,
+  applySchedulingLaneToState,
+  applyTurnContextToState,
   type CallState,
+  type SchedulingAppointmentLane,
 } from "../state/call-state.js";
 
-export function ensureSchedulingTurnContext(
+export function prepareAvailabilityLookupContext(
   state: CallState,
-  action: string,
+  appointmentLane: SchedulingAppointmentLane | undefined,
 ): void {
-  if (hasRecordedSchedulingContext(state)) return;
-  throw new llm.ToolError(
-    `Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od before ${action}.`,
-  );
+  if (appointmentLane) {
+    applySchedulingLaneToState(state, appointmentLane);
+    return;
+  }
+
+  if (hasExistingAppointmentChangeContext(state, { ignoreCurrentIntent: true })) {
+    applyTurnContextToState(state, {
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+    });
+  }
 }
 
 export function ensureAvailabilityContext(
@@ -23,7 +33,7 @@ export function ensureAvailabilityContext(
   if (hasRecordedSchedulingContext(state)) return;
   if (hasExistingAppointmentChangeContext(state)) return;
   throw new llm.ToolError(
-    `Call record_turn_context with intent schedule and appointmentLane medical_md or routine_od, or identify the existing appointment to move, before ${action}.`,
+    `Pass appointmentLane medical_md or routine_od, or identify the existing appointment to move, before ${action}.`,
   );
 }
 
@@ -32,16 +42,18 @@ function hasRecordedSchedulingContext(state: CallState): boolean {
   return Boolean(
     turn &&
     turn.intent === "schedule" &&
-    !turn.isEmergency &&
     (turn.appointmentLane === "medical_md" ||
       turn.appointmentLane === "routine_od"),
   );
 }
 
-function hasExistingAppointmentChangeContext(state: CallState): boolean {
+function hasExistingAppointmentChangeContext(
+  state: CallState,
+  options: { ignoreCurrentIntent?: boolean } = {},
+): boolean {
   const turn = state.workflow.current;
-  if (turn?.isEmergency) return false;
-  if (turn && turn.intent !== "change_appointment") return false;
+  if (!options.ignoreCurrentIntent && turn && turn.intent !== "change_appointment")
+    return false;
   if (!activePatientId(state)) return false;
 
   const selectedAppointment = existingAppointmentForChangeContext(state);

@@ -6,7 +6,6 @@ export { confirm_patient_identity } from "./confirm-patient-identity.js";
 export { get_current_datetime } from "./get-current-datetime.js";
 export { get_availability } from "./get-availability.js";
 export { lookup_knowledge } from "./lookup-knowledge-tool.js";
-export { record_turn_context } from "./record-turn-context.js";
 export { reschedule_appt } from "./reschedule-appt.js";
 export { route_to_spring_hill } from "./route-to-spring-hill.js";
 export { transfer_call } from "./transfer-call.js";

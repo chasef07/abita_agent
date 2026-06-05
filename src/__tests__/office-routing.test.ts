@@ -27,7 +27,6 @@ import {
   get_current_datetime,
   get_availability,
   lookup_knowledge,
-  record_turn_context,
   reschedule_appt,
   route_to_spring_hill,
   transfer_call,
@@ -455,32 +454,23 @@ describe("Crystal River prompt guidance", () => {
     expect(sweetwaterKnowledge).toContain("Dr. Maria Casas");
   });
 
-  it("keeps compact state-recording guidance in the role prompt", () => {
+  it("keeps compact inline scheduling-lane guidance in the role prompt", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
     expect(prompt).toContain(
-      "Call record_turn_context only when the caller's intent is clear. For scheduling, call it only after the medical-versus-routine lane is clear.",
+      "For new scheduling, pass appointmentLane to get_availability once the medical-versus-routine lane is clear.",
     );
     expect(prompt).toContain(
-      "If intent or scheduling lane is unclear, ask concise clarifying questions.",
+      "If the scheduling lane is unclear, ask concise clarifying questions before checking availability.",
     );
     expect(prompt).toContain(
       "Do not say a state-changing action is done until the tool succeeds.",
     );
   });
 
-  it("exposes the turn context recorder as a harmless state tool", () => {
-    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).toHaveProperty(
+  it("does not expose a standalone turn context recorder", () => {
+    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toHaveProperty(
       "record_turn_context",
-    );
-    expect(record_turn_context.description).toContain(
-      "Call this only when you are confident about what the caller is trying to do",
-    );
-    expect(record_turn_context.description).toContain(
-      "If the intent or scheduling lane is unclear, ask concise clarifying questions instead",
-    );
-    expect(record_turn_context.description).toContain(
-      "does not speak, verify, schedule, cancel, transfer, or call external systems",
     );
   });
 
@@ -672,6 +662,7 @@ describe("model-facing tool definitions", () => {
     expect(add_patient.description).toContain(
       "checking insurance eligibility with check_insurance",
     );
+    expect(add_patient.description).toContain("Pass appointmentLane");
     expect(add_patient.description).toContain(
       "read back the important registration details and get caller confirmation",
     );
@@ -684,13 +675,77 @@ describe("model-facing tool definitions", () => {
     expect(add_patient.description).not.toContain(
       "Do not infer age from Bach-only routing",
     );
+
+    const parameters = add_patient.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+    };
+    expect(
+      parameters.safeParse({
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        insurance: "Aetna",
+        subscriberName: "Jane Doe",
+        subscriberNum: "ABC123",
+        readBack: true,
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        insurance: "Aetna",
+        appointmentLane: "medical_md",
+        subscriberName: "Jane Doe",
+        subscriberNum: "ABC123",
+        readBack: true,
+      }).success,
+    ).toBe(true);
   });
 
   it("keeps availability from exposing Bach-only routing internals", () => {
+    expect(get_availability.description).toContain("pass appointmentLane");
+    expect(get_availability.description).toContain("medical_md");
+    expect(get_availability.description).toContain("routine_od");
     expect(get_availability.description).not.toContain("bach_only routing");
     expect(get_availability.description).not.toContain(
       "Under 18 medical visits = Dr. Bach only",
     );
+
+    const parameters = get_availability.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+    };
+    expect(
+      parameters.safeParse({
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        date: "2026-06-01",
+        appointmentLane: "routine_od",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        date: "2026-06-01",
+        appointmentLane: "unknown",
+      }).success,
+    ).toBe(false);
   });
 
   it("keeps check_insurance scoped to insurance eligibility", () => {
@@ -865,6 +920,7 @@ describe("model-facing tool definitions", () => {
     expect(book_appt.description).toContain(
       "Book a caller-confirmed appointment slot",
     );
+    expect(book_appt.description).toContain("do not use for reschedules");
     expect(book_appt.description).toContain(
       "caller provides a referring doctor or says they have none",
     );

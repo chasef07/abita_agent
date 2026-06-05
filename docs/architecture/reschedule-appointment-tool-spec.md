@@ -152,7 +152,8 @@ The tool must run the sequence in code:
 1. Disable interruption for the write action.
 2. Restore the confirmed pre-call caller if needed.
 3. Require active patient ID.
-4. Require scheduling turn context using the same guard as `book_appt`.
+4. Require a selected existing appointment or infer exactly one loaded
+   appointment.
 5. Select the old appointment using the same selector logic as `cancel_appt`.
 6. Select the new slot from current availability state.
 7. Require a fresh private booking token for the new slot.
@@ -335,7 +336,6 @@ Agent tests:
 
 - Registers `reschedule_appt` in the active tool set.
 - Requires patient identity before rescheduling.
-- Requires scheduling turn context before rescheduling.
 - Requires old appointment selection before booking.
 - Requires fresh private booking token before booking.
 - Calls `/api/appointment/book` before `/api/appointment/cancel`.
