@@ -516,6 +516,88 @@ describe("direct session state cleanup", () => {
     );
   });
 
+  it("routes vision appointment type reschedule availability through optical routing", async () => {
+    const state = createState();
+    markAppointmentChangeContext(state);
+    state.office.activeKey = "sweetwater";
+    state.office.phoneOverrides = {
+      sweetwater: "+17864657475",
+    };
+    state.identity.patient.dob = "04/15/2015";
+    state.workflow.routing.routing = "bach_only";
+    state.workflow.routing.allowedProviders = ["Dr. Bach"];
+    state.availability.latestRouting = "bach_only";
+    state.identity.patient.appointments = [
+      {
+        id: 20396260,
+        date: "Friday, June 12, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Maria Casas",
+        type: "Established Pediatric Vision",
+        appointmentTypeId: 4245,
+        facility: "Abita Eye Group Sweetwater",
+        confirmed: false,
+      },
+    ];
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        availabilityFound: true,
+        requestedDate: "2026-07-23",
+        actualDate: "2026-07-23",
+        searchedFrom: "2026-07-23",
+        searchedThrough: "2026-07-23",
+        shouldRetrySameSearch: false,
+        slots: [
+          {
+            provider: "Dr. Maria Casas",
+            date: "2026-07-23",
+            time: "9:00 AM",
+            datetime: "2026-07-23T09:00:00",
+            bookingToken: "sweetwater-optical-token",
+            columnId: 1296,
+            profileId: 1996,
+            duration: 30,
+          },
+        ],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = (await get_availability.execute(
+      {
+        date: "2026-07-23",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    )) as Record<string, unknown>;
+
+    expect(state.workflow.current).toEqual({
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+      isEmergency: false,
+      confidence: 0.92,
+    });
+    expect(state.office.activeKey).toBe("sweetwater");
+    expect(state.availability.latestRouting).toBe("optical_only");
+    expect(result).toMatchObject({
+      result: "slots_found",
+      slotId: "A",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
+      {
+        date: "2026-07-23",
+        dob: "04/15/2015",
+        office: "+17864657475",
+        routing: "optical_only",
+      },
+    );
+  });
+
   it("checks availability for a single loaded appointment even before appointment-change context is recorded", async () => {
     const state = createState();
     state.identity.patient.appointments = [

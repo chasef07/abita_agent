@@ -70,13 +70,22 @@ function existingAppointmentForChangeContext(
 function isRoutineVisionAppointment(
   appointment: CallerAppointment | null,
 ): boolean {
+  if (
+    appointment?.appointmentTypeId !== undefined &&
+    ROUTINE_VISION_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
+  ) {
+    return true;
+  }
+
   const normalizedType = normalizeAppointmentType(appointment?.type);
   if (!normalizedType) return false;
 
-  return /\b(routine vision|routine eye|vision exam|eye exam|glasses|contacts?|contact lens|optical|optometry|optometrist)\b/.test(
+  return /\b(routine vision|routine eye|vision exam|eye exam|glasses|contacts?|contact lens|optical|optometry|optometrist|(?:new|established) (?:adult|pediatric) vision)\b/.test(
     normalizedType,
   );
 }
+
+const ROUTINE_VISION_APPOINTMENT_TYPE_IDS = new Set([1010, 3364, 4244, 4245]);
 
 function normalizeAppointmentType(value: string | undefined): string {
   return (
