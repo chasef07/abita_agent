@@ -14,7 +14,8 @@ import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
 import * as cartesia from "@livekit/agents-plugin-cartesia";
-import * as rime from "@livekit/agents-plugin-rime";
+import * as livekit from "@livekit/agents-plugin-livekit";
+import { TelephonyBackgroundVoiceCancellation } from "@livekit/noise-cancellation-node";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -51,11 +52,8 @@ import {
 } from "./runtime/call-duration-deadline.js";
 import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
 import {
-  getActiveTtsProvider,
   getCartesiaTtsOptions,
   getCartesiaTtsOptionsByLanguage,
-  getRimeTtsOptions,
-  getRimeTtsOptionsByLanguage,
 } from "./tts-config.js";
 import { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
@@ -82,7 +80,7 @@ type PluginMetricSnapshot = Record<string, unknown>;
 
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
-    proc.userData.vad = await silero.VAD.load({ activationThreshold: 0.3 });
+    proc.userData.vad = await silero.VAD.load();
   },
 
   entry: async (ctx: JobContext) => {
@@ -102,17 +100,10 @@ export default defineAgent({
         llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
       });
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
-      const ttsProvider = getActiveTtsProvider();
-      const tts =
-        ttsProvider === "rime"
-          ? new rime.TTS(getRimeTtsOptions())
-          : new cartesia.TTS(getCartesiaTtsOptions());
+      const tts = new cartesia.TTS(getCartesiaTtsOptions());
       const languageRuntime = new VoiceLanguageRuntime(tts, {
         appliedTtsLanguage: "en",
-        ttsOptionsByLanguage:
-          ttsProvider === "rime"
-            ? getRimeTtsOptionsByLanguage()
-            : getCartesiaTtsOptionsByLanguage(),
+        ttsOptionsByLanguage: getCartesiaTtsOptionsByLanguage(),
       });
       const session = new voice.AgentSession<CallState>({
         stt,
@@ -120,7 +111,10 @@ export default defineAgent({
         tts,
         vad,
         maxToolSteps: 4,
-        turnHandling: voiceTurnHandlingOptions,
+        turnHandling: {
+          turnDetection: new livekit.turnDetector.MultilingualModel(),
+          ...voiceTurnHandlingOptions,
+        },
       });
 
       // Connect and wait for the SIP participant
@@ -436,6 +430,7 @@ export default defineAgent({
         agent,
         room: ctx.room,
         inputOptions: {
+          noiseCancellation: TelephonyBackgroundVoiceCancellation(),
           participantIdentity: participant.identity,
         },
       });
