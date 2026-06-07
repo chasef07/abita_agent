@@ -348,6 +348,31 @@ describe("direct session state cleanup", () => {
     );
   });
 
+  it("requires a loaded patient before checking availability", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    state.identity.patient.patientId = null;
+    state.identity.patient.identityConfirmed = false;
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      get_availability.execute(
+        {
+          date: "2026-06-01",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "Verify or create the patient before checking availability.",
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("checks availability for a loaded appointment change without faking schedule intent", async () => {
     const state = createState();
     markAppointmentChangeContext(state);

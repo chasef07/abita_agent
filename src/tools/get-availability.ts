@@ -3,6 +3,7 @@ import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import {
   activePatientDob,
+  activePatientId,
   activeRoutingContext,
   type SchedulingAppointmentLane,
   type CallState,
@@ -74,6 +75,11 @@ function buildAvailabilityLookupRequestForState(
   if (!date) {
     throw new llm.ToolError(
       "Ask what date or starting day the caller wants before checking availability.",
+    );
+  }
+  if (!activePatientId(state)) {
+    throw new llm.ToolError(
+      "Verify or create the patient before checking availability.",
     );
   }
 
