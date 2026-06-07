@@ -2919,6 +2919,89 @@ describe("direct session state cleanup", () => {
     ]);
   });
 
+  it("does not reschedule again after a successful reschedule", async () => {
+    const state = createState();
+    markAppointmentChangeContext(state);
+    state.identity.patient.appointments = [
+      {
+        id: 123,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Licht",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
+    ];
+    storeAvailabilityBookingToken(state, "A", "private-token");
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const path = String(url);
+      if (path.includes("/api/appointment/book")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "booked",
+            appointmentId: 456,
+            providerName: "Doctor Smith",
+            locationName: "Spring Hill",
+            appointmentTypeName: "Medical",
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          status: "cancelled",
+          appointmentId: 123,
+          message: "Appointment cancelled successfully",
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await reschedule_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentId: 123,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    state.availability.slots.push({
+      slotId: "B",
+      spoken: "2026-06-03 2:00 PM with Doctor Smith",
+      provider: "Doctor Smith",
+      date: "2026-06-03",
+      time: "2:00 PM",
+      datetime: "2026-06-03T14:00:00",
+      routing: "all_three",
+    });
+    storeAvailabilityBookingToken(state, "B", "private-token-b");
+
+    const result = await reschedule_appt.execute(
+      {
+        slotId: "B",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "The appointment is already rescheduled to June 1 at 9:00 AM with Doctor Smith. Tell the caller the confirmed appointment details instead of rescheduling again.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(state.availability.slots).toEqual([]);
+  });
+
   it("cancels the old appointment through its original office after routine reschedule routing", async () => {
     const state = createState();
     markSchedulingTriaged(state, "routine_od");
@@ -3168,6 +3251,35 @@ describe("direct session state cleanup", () => {
     expect(result).toBe(
       "Booked the new appointment for June 1 at 9:00 AM with Doctor Smith, but I could not cancel the old appointment. Unable to verify appointment before cancellation. I need to transfer you so the office can finish the cancellation.",
     );
+
+    state.availability.slots.push({
+      slotId: "B",
+      spoken: "2026-06-03 2:00 PM with Doctor Smith",
+      provider: "Doctor Smith",
+      date: "2026-06-03",
+      time: "2:00 PM",
+      datetime: "2026-06-03T14:00:00",
+      routing: "all_three",
+    });
+    storeAvailabilityBookingToken(state, "B", "private-token-b");
+
+    const replayResult = await reschedule_appt.execute(
+      {
+        slotId: "B",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+
+    expect(replayResult).toBe(
+      "The new appointment was already booked, but the old appointment still needs office staff to finish cancellation. Transfer the caller instead of rescheduling again.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(state.availability.slots).toEqual([]);
     expect(
       state.identity.patient.appointments.map((appointment) => appointment.id),
     ).toEqual([123, 456]);

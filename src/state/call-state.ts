@@ -153,6 +153,11 @@ export interface PatientIdentitySnapshot {
   dob?: string | null;
 }
 
+export interface CompletedRescheduleState {
+  status: "rescheduled" | "needs_human_cancellation";
+  appointmentDescription: string;
+}
+
 export interface StoredAvailabilitySlot {
   slotId: string;
   spoken: string;
@@ -218,6 +223,7 @@ interface IdentitySessionState {
   patient: PatientSessionState;
   patientBackend: PatientBackendRefs;
   latestBookedAppointmentId?: number;
+  completedReschedulesByPatientId: Record<string, CompletedRescheduleState>;
 }
 
 interface RoutingSessionState {
@@ -315,6 +321,7 @@ export function createCanonicalCallState(
         appointmentsStatus: input.appointmentsStatus,
       },
       patientBackend: {},
+      completedReschedulesByPatientId: {},
     },
     insurance: {
       onFile: insuranceOnFile,
@@ -519,6 +526,21 @@ export function setLatestBookedAppointment(
 
 export function latestBookedAppointmentId(state: CallState): number | null {
   return state.identity.latestBookedAppointmentId ?? null;
+}
+
+export function completedRescheduleForPatient(
+  state: CallState,
+  patientId: string,
+): CompletedRescheduleState | null {
+  return state.identity.completedReschedulesByPatientId[patientId] ?? null;
+}
+
+export function recordCompletedRescheduleForPatient(
+  state: CallState,
+  patientId: string,
+  reschedule: CompletedRescheduleState,
+): void {
+  state.identity.completedReschedulesByPatientId[patientId] = reschedule;
 }
 
 export function storeAvailabilityBookingToken(

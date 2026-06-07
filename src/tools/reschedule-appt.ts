@@ -9,8 +9,11 @@ import {
 import {
   activePatientId,
   clearAvailabilitySelection,
+  completedRescheduleForPatient,
+  recordCompletedRescheduleForPatient,
   type CallerAppointment,
   type CallState,
+  type CompletedRescheduleState,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
 import { removeAvailabilitySlot } from "./availability-slots.js";
@@ -96,13 +99,19 @@ export const reschedule_appt = llm.tool({
     { ctx },
   ) => {
     const state = getState(ctx);
-    ctx.speechHandle.allowInterruptions = false;
 
     restoreConfirmedPreCallCaller(state);
     const patientId = activePatientId(state);
     if (!patientId) {
       throw new llm.ToolError("Verify the patient before rescheduling.");
     }
+    const completedReschedule = completedRescheduleForPatient(state, patientId);
+    if (completedReschedule) {
+      clearAvailabilitySelection(state);
+      return completedRescheduleReplayMessage(completedReschedule);
+    }
+
+    ctx.speechHandle.allowInterruptions = false;
 
     const selection = cancellationAppointmentForState(state, {
       appointmentId,
@@ -147,7 +156,7 @@ export const reschedule_appt = llm.tool({
 
     if (bookingSucceeded(bookingResult)) {
       recordBookedAppointmentInState(state, selectedSlot, bookingResult);
-      removeAvailabilitySlot(state, selectedSlot.slotId);
+      clearAvailabilitySelection(state);
     } else {
       return handleRescheduleBookingFailure(
         state,
@@ -164,6 +173,12 @@ export const reschedule_appt = llm.tool({
         cancellationOffice,
       )) as CancelAppointmentResult;
     } catch {
+      recordCompletedReschedule(
+        state,
+        patientId,
+        selectedSlot,
+        "needs_human_cancellation",
+      );
       return rescheduleCancellationFailureMessage(
         selectedSlot,
         "The old appointment was not cancelled.",
@@ -171,6 +186,12 @@ export const reschedule_appt = llm.tool({
     }
 
     if (cancelResult?.status !== "cancelled") {
+      recordCompletedReschedule(
+        state,
+        patientId,
+        selectedSlot,
+        "needs_human_cancellation",
+      );
       return rescheduleCancellationFailureMessage(
         selectedSlot,
         cancelResult?.message ?? "The old appointment was not cancelled.",
@@ -178,6 +199,7 @@ export const reschedule_appt = llm.tool({
     }
 
     removeAppointmentById(state, oldAppointment.id);
+    recordCompletedReschedule(state, patientId, selectedSlot, "rescheduled");
     return rescheduledAppointmentToolResult(
       selectedSlot,
       bookingResult,
@@ -186,6 +208,28 @@ export const reschedule_appt = llm.tool({
     );
   },
 });
+
+function completedRescheduleReplayMessage(
+  completedReschedule: CompletedRescheduleState,
+): string {
+  if (completedReschedule.status === "needs_human_cancellation") {
+    return "The new appointment was already booked, but the old appointment still needs office staff to finish cancellation. Transfer the caller instead of rescheduling again.";
+  }
+
+  return `The appointment is already rescheduled to ${completedReschedule.appointmentDescription}. Tell the caller the confirmed appointment details instead of rescheduling again.`;
+}
+
+function recordCompletedReschedule(
+  state: CallState,
+  patientId: string,
+  selectedSlot: StoredAvailabilitySlot,
+  status: CompletedRescheduleState["status"],
+): void {
+  recordCompletedRescheduleForPatient(state, patientId, {
+    status,
+    appointmentDescription: spokenSlot(selectedSlot),
+  });
+}
 
 function appointmentTypeIdForRescheduleBooking(
   appointment: CallerAppointment,
