@@ -73,6 +73,10 @@ No appointment is needed for browsing frames, adjustments, or free minor repairs
 
 Patients should bring their glasses into the Spring Hill location — staff will review and determine options in person.
 
+## Self-Pay Pricing
+
+New patient medical visit with an optometrist: $150. Established patient medical visit with an optometrist: $75. New patient medical visit with an ophthalmologist: $250. Established patient medical visit with an ophthalmologist: $125. Routine vision exam with an optometrist: $100. Routine vision with contact lens fitting: $150*. If the caller says the cost is too much or they cannot afford it, offer to transfer them to the office to discuss different options.
+
 ## Billing
 
 For any billing-related question, do not transfer the caller. Tell them to reach the billing department at (786) 446-8333.

@@ -803,6 +803,10 @@ describe("model-facing tool definitions", () => {
       "outside the agent's front-desk scope",
     );
     expect(transfer_call.description).toContain("prescription questions");
+    expect(transfer_call.description).toContain("asking for a specific person");
+    expect(transfer_call.description).toContain(
+      "returning a missed call or received call from this number",
+    );
     expect(transfer_call.description).toContain(
       "status of glasses or contacts already ordered",
     );
