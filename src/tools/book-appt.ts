@@ -25,6 +25,7 @@ import {
   getAmdOfficeForToolCall,
 } from "./scheduling.js";
 import { getState } from "./session.js";
+import { ensureNoPendingTransferRequiredIntent } from "../runtime/transfer-required-intent.js";
 
 export const book_appt = llm.tool({
   description:
@@ -52,6 +53,7 @@ export const book_appt = llm.tool({
   }),
   execute: async ({ slotId, appointmentReason, referringDoctor }, { ctx }) => {
     const state = getState(ctx);
+    ensureNoPendingTransferRequiredIntent(state, "booking an appointment");
 
     restoreConfirmedPreCallCaller(state);
     const patientId = activePatientId(state);

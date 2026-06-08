@@ -15,6 +15,7 @@ import {
   selectedAvailabilitySlot,
 } from "./availability-slots.js";
 import { routingForAvailability } from "./scheduling.js";
+import { ensureNoPendingTransferRequiredIntent } from "../runtime/transfer-required-intent.js";
 
 type AppointmentKind = "medical" | "routine_vision" | "post_op";
 export type AppointmentPatientStatus = "new" | "established";
@@ -52,6 +53,7 @@ export function bookingRequestBodyForSlot(
   state: CallState,
   input: BookingRequestInput,
 ): Record<string, unknown> {
+  ensureNoPendingTransferRequiredIntent(state, "booking an appointment");
   const normalizedReason = normalizeAppointmentReason(input.appointmentReason);
   const normalizedReferrer = normalizeReferringDoctor(input.referringDoctor);
   const routing =

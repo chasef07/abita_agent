@@ -29,6 +29,10 @@ import {
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
+import {
+  recordTransferRequiredIntent,
+  transferRequiredReasonFromTranscript,
+} from "../runtime/transfer-required-intent.js";
 
 type TestCallState = ReturnType<typeof createCanonicalCallState>;
 
@@ -138,6 +142,79 @@ describe("direct session state cleanup", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     transferCallerToOfficeMock.mockClear();
+  });
+
+  it("records contact lens prescription verification as transfer-required without catching routine scheduling", () => {
+    expect(
+      transferRequiredReasonFromTranscript(
+        "Contact lens prescription verification.",
+      ),
+    ).toBe("contact_lens_prescription_verification");
+    expect(
+      transferRequiredReasonFromTranscript(
+        "I need to schedule a contact lens prescription exam.",
+      ),
+    ).toBeNull();
+  });
+
+  it("blocks patient and scheduling tools while prescription verification transfer is pending", async () => {
+    const state = createState();
+    recordTransferRequiredIntent(
+      state,
+      "contact_lens_prescription_verification",
+    );
+    const ctx = createToolContext(state);
+    const expected =
+      /Contact lens prescription verification requires transfer to office staff/;
+
+    await expect(
+      confirm_patient_identity.execute(
+        {
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+        },
+        { ctx } as never,
+      ),
+    ).rejects.toThrow(expected);
+    await expect(
+      get_availability.execute(
+        { date: "2026-06-01", appointmentLane: "routine_od" },
+        { ctx } as never,
+      ),
+    ).rejects.toThrow(expected);
+    await expect(
+      book_appt.execute(
+        {
+          slotId: "A",
+          appointmentReason: "routine eye exam",
+          referringDoctor: "none",
+        },
+        { ctx } as never,
+      ),
+    ).rejects.toThrow(expected);
+    await expect(
+      add_patient.execute(
+        {
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          sex: "female",
+          street: "1 Main Street",
+          aptSuite: "",
+          city: "Spring Hill",
+          state: "FL",
+          zip: "34606",
+          insurance: "self pay",
+          appointmentLane: "routine_od",
+          subscriberName: "Jane Doe",
+          subscriberNum: "self pay",
+          inboundPhoneConfirmed: true,
+          readBack: true,
+        },
+        { ctx } as never,
+      ),
+    ).rejects.toThrow(expected);
   });
 
   it("returns public slots while storing booking tokens privately", async () => {

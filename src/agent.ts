@@ -11,6 +11,11 @@ import { getOfficeConfigByPhone } from "./customer/profile.js";
 import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcript-confirmation.js";
 import { addDurableInternalSystemMessage } from "./runtime/durable-chat-context.js";
 import {
+  recordTransferRequiredIntent,
+  transferRequiredReasonFromTranscript,
+  transferRequiredSystemMessage,
+} from "./runtime/transfer-required-intent.js";
+import {
   buildToolsForTrunk as buildToolsForTrunkFromRegistry,
   type AgentTools,
 } from "./runtime/tool-registry.js";
@@ -59,6 +64,19 @@ export class Agent extends voice.Agent {
     if (!state || !transcript) return;
 
     state.runtime.latestUserTranscript = transcript;
+    const transferRequiredReason =
+      transferRequiredReasonFromTranscript(transcript);
+    if (
+      transferRequiredReason &&
+      recordTransferRequiredIntent(state, transferRequiredReason)
+    ) {
+      await addDurableInternalSystemMessage(
+        this,
+        chatCtx,
+        transferRequiredSystemMessage(transferRequiredReason),
+      );
+    }
+
     const confirmation = confirmPreCallIdentityFromTranscript({
       state,
       transcript,

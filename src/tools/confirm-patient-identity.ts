@@ -16,6 +16,7 @@ import {
   restoreConfirmedPreCallCaller,
 } from "./patient-state.js";
 import { getState } from "./session.js";
+import { ensureNoPendingTransferRequiredIntent } from "../runtime/transfer-required-intent.js";
 
 const identityParameters = z.object({
   firstName: z
@@ -53,6 +54,7 @@ export const confirm_patient_identity = llm.tool({
   parameters: identityParameters,
   execute: async (args, { ctx }) => {
     const state = getState(ctx);
+    ensureNoPendingTransferRequiredIntent(state, "looking up a patient");
     const identity = normalizeIdentityArgs(args);
 
     requireFullIdentity(identity);

@@ -20,6 +20,7 @@ import {
   getAmdOfficeForToolCall,
 } from "./scheduling.js";
 import { getState } from "./session.js";
+import { ensureNoPendingTransferRequiredIntent } from "../runtime/transfer-required-intent.js";
 
 export const add_patient = llm.tool({
   description:
@@ -80,6 +81,7 @@ export const add_patient = llm.tool({
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
+    ensureNoPendingTransferRequiredIntent(state, "creating a patient chart");
 
     const checkedInsurance = lastInsuranceEligibilityCheck(state);
     if (

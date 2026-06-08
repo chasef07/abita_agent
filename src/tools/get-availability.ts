@@ -19,6 +19,7 @@ import {
   ensureAvailabilityContext,
   prepareAvailabilityLookupContext,
 } from "./turn-context-guard.js";
+import { ensureNoPendingTransferRequiredIntent } from "../runtime/transfer-required-intent.js";
 
 type AvailabilityLookupArgs = {
   date?: string;
@@ -42,6 +43,7 @@ export const get_availability = llm.tool({
   }),
   execute: async ({ date, appointmentLane }, { ctx }) => {
     const state = getState(ctx);
+    ensureNoPendingTransferRequiredIntent(state, "checking availability");
     const request = buildAvailabilityLookupRequestForState(state, {
       date,
       appointmentLane,

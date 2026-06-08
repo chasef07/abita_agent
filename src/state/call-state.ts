@@ -168,6 +168,8 @@ export interface StoredAvailabilitySlot {
   routing: string | null;
 }
 
+export type TransferRequiredReason = "contact_lens_prescription_verification";
+
 interface PatientBackendRefs {
   insPlanId?: string | null;
   respPartyId?: string | null;
@@ -177,6 +179,7 @@ interface RuntimeCallState {
   endedReason?: "duration_limit";
   preCallLookup: PreCallLookupTelemetry;
   latestUserTranscript?: string | null;
+  pendingTransferRequiredReason?: TransferRequiredReason;
   maxCallDurationMs?: number;
   sipRoomName: string;
   sipParticipantIdentity: string;
