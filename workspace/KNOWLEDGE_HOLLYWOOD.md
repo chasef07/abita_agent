@@ -96,6 +96,10 @@ Hollywood has its own medical insurance list in the agent insurance rules. Use `
 
 Hollywood also supports routine vision. For routine eye exams, glasses prescriptions, or contact lens prescriptions using accepted vision coverage or self-pay, use `check_insurance` with coverageType `routine_vision`, then schedule with routing `optical_only`.
 
+## Self-Pay Pricing
+
+New patient medical visit with an optometrist: $150. Established patient medical visit with an optometrist: $75. New patient medical visit with an ophthalmologist: $250. Established patient medical visit with an ophthalmologist: $125. Routine vision exam with an optometrist: $100. Routine vision with contact lens fitting: $150*. If the caller says the cost is too much or they cannot afford it, offer to transfer them to the office to discuss different options.
+
 ## Billing
 
 For any billing-related question, do not transfer the caller. Tell them to reach the billing department at (786) 446-8333.
