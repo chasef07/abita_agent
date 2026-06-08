@@ -14,23 +14,23 @@ importers:
   .:
     dependencies:
       '@livekit/agents':
-        specifier: 1.4.4
-        version: 1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
+        specifier: 1.4.5
+        version: 1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/agents-plugin-assemblyai':
         specifier: 1.4.4
-        version: 1.4.4(patch_hash=78eb78459ab76bf14e8b94e386ebadd52ac5e756ec6258a78d3a4a8cfcc553a8)(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)
+        version: 1.4.4(patch_hash=78eb78459ab76bf14e8b94e386ebadd52ac5e756ec6258a78d3a4a8cfcc553a8)(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)
       '@livekit/agents-plugin-baseten':
-        specifier: 1.4.4
-        version: 1.4.4(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)(zod@4.4.3)
+        specifier: 1.4.5
+        version: 1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)(zod@4.4.3)
       '@livekit/agents-plugin-cartesia':
-        specifier: 1.4.4
-        version: 1.4.4(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)(zod@4.4.3)
+        specifier: 1.4.5
+        version: 1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)(zod@4.4.3)
       '@livekit/agents-plugin-livekit':
-        specifier: 1.4.4
-        version: 1.4.4(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))
+        specifier: 1.4.5
+        version: 1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))
       '@livekit/agents-plugin-silero':
-        specifier: 1.4.4
-        version: 1.4.4(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)
+        specifier: 1.4.5
+        version: 1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)
       '@livekit/noise-cancellation-node':
         specifier: 0.1.9
         version: 0.1.9
@@ -76,7 +76,7 @@ importers:
         version: 8.60.1(eslint@10.4.1)(typescript@6.0.3)
       vitest:
         specifier: ^4.1.8
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.0.2)(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3))
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.0.2)(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3))
 
 packages:
 
@@ -126,8 +126,8 @@ packages:
     peerDependencies:
       '@csstools/css-tokenizer': ^4.0.0
 
-  '@csstools/css-syntax-patches-for-csstree@1.1.4':
-    resolution: {integrity: sha512-wgsqt92b7C7tQhIdPNxj0n9zuUbQlvAuI1exyzeNrOKOi62SD7ren8zqszmpVREjAOqg8cD2FqYhQfAuKjk4sw==}
+  '@csstools/css-syntax-patches-for-csstree@1.1.5':
+    resolution: {integrity: sha512-oNjBvzLq2GPZtJphCjLqXow/cHySHSgtxvKZb7OqSZ/xHgw6NWNhfad+6AB9cLeVm6eA9d/qMll3JdEHjy6M+A==}
     peerDependencies:
       css-tree: ^3.2.1
     peerDependenciesMeta:
@@ -144,8 +144,8 @@ packages:
   '@emnapi/core@1.9.2':
     resolution: {integrity: sha512-UC+ZhH3XtczQYfOlu3lNEkdW/p4dsJ1r/bP7H8+rhao3TTTMO1ATq/4DdIi23XuGoFY+Cz0JmCbdVl0hz9jZcA==}
 
-  '@emnapi/runtime@1.10.0':
-    resolution: {integrity: sha512-ewvYlk86xUoGI0zQRNq/mC+16R1QeDlKQy21Ki3oSYXNgLb45GV1P6A0M+/s6nyCuNDqe5VpaY84BzXGwVbwFA==}
+  '@emnapi/runtime@1.11.0':
+    resolution: {integrity: sha512-55coeOFKHv1ywEcUXJtWU5f+Jr/W5tZDvZig8DLKSwUN1JpROQ4rk/SNOQiFWmaR/VKF4zuFyW1B8JduOSv6Pg==}
 
   '@emnapi/wasi-threads@1.2.1':
     resolution: {integrity: sha512-uTII7OYF+/Mes/MrcIOYp5yOtSMLBWSIoLPpcgwipoiKbli6k322tcoFsxoIIxPDqW01SQGAgko4EzZi2BNv2w==}
@@ -621,105 +621,89 @@ packages:
     resolution: {integrity: sha512-excjX8DfsIcJ10x1Kzr4RcWe1edC9PquDRRPx3YVCvQv+U5p7Yin2s32ftzikXojb1PIFc/9Mt28/y+iRklkrw==}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-arm@1.2.4':
     resolution: {integrity: sha512-bFI7xcKFELdiNCVov8e44Ia4u2byA+l3XtsAj+Q8tfCwO6BQ8iDojYdvoPMqsKDkuoOo+X6HZA0s0q11ANMQ8A==}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-ppc64@1.2.4':
     resolution: {integrity: sha512-FMuvGijLDYG6lW+b/UvyilUWu5Ayu+3r2d1S8notiGCIyYU/76eig1UfMmkZ7vwgOrzKzlQbFSuQfgm7GYUPpA==}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-riscv64@1.2.4':
     resolution: {integrity: sha512-oVDbcR4zUC0ce82teubSm+x6ETixtKZBh/qbREIOcI3cULzDyb18Sr/Wcyx7NRQeQzOiHTNbZFF1UwPS2scyGA==}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-s390x@1.2.4':
     resolution: {integrity: sha512-qmp9VrzgPgMoGZyPvrQHqk02uyjA0/QrTO26Tqk6l4ZV0MPWIW6LTkqOIov+J1yEu7MbFQaDpwdwJKhbJvuRxQ==}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-x64@1.2.4':
     resolution: {integrity: sha512-tJxiiLsmHc9Ax1bz3oaOYBURTXGIRDODBqhveVHonrHJ9/+k89qbLl0bcJns+e4t4rvaNBxaEZsFtSfAdquPrw==}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linuxmusl-arm64@1.2.4':
     resolution: {integrity: sha512-FVQHuwx1IIuNow9QAbYUzJ+En8KcVm9Lk5+uGUQJHaZmMECZmOlix9HnH7n1TRkXMS0pGxIJokIVB9SuqZGGXw==}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-libvips-linuxmusl-x64@1.2.4':
     resolution: {integrity: sha512-+LpyBk7L44ZIXwz/VYfglaX/okxezESc6UxDSoyo2Ks6Jxc4Y7sGjpgU9s4PMgqgjj1gZCylTieNamqA1MF7Dg==}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-linux-arm64@0.34.5':
     resolution: {integrity: sha512-bKQzaJRY/bkPOXyKx5EVup7qkaojECG6NLYswgktOZjaXecSAeCWiZwwiFf3/Y+O1HrauiE3FVsGxFg8c24rZg==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-arm@0.34.5':
     resolution: {integrity: sha512-9dLqsvwtg1uuXBGZKsxem9595+ujv0sJ6Vi8wcTANSFpwV/GONat5eCkzQo/1O6zRIkh0m/8+5BjrRr7jDUSZw==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-ppc64@0.34.5':
     resolution: {integrity: sha512-7zznwNaqW6YtsfrGGDA6BRkISKAAE1Jo0QdpNYXNMHu2+0dTrPflTLNkpc8l7MUP5M16ZJcUvysVWWrMefZquA==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-riscv64@0.34.5':
     resolution: {integrity: sha512-51gJuLPTKa7piYPaVs8GmByo7/U7/7TZOq+cnXJIHZKavIRHAP77e3N2HEl3dgiqdD/w0yUfiJnII77PuDDFdw==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-s390x@0.34.5':
     resolution: {integrity: sha512-nQtCk0PdKfho3eC5MrbQoigJ2gd1CgddUMkabUj+rBevs8tZ2cULOx46E7oyX+04WGfABgIwmMC0VqieTiR4jg==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-x64@0.34.5':
     resolution: {integrity: sha512-MEzd8HPKxVxVenwAa+JRPwEC7QFjoPWuS5NZnBt6B3pu7EG2Ge0id1oLHZpPJdn3OQK+BQDiw9zStiHBTJQQQQ==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linuxmusl-arm64@0.34.5':
     resolution: {integrity: sha512-fprJR6GtRsMt6Kyfq44IsChVZeGN97gTD331weR1ex1c1rypDEABN6Tm2xa1wE6lYb5DdEnk03NZPqA7Id21yg==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-linuxmusl-x64@0.34.5':
     resolution: {integrity: sha512-Jg8wNT1MUzIvhBFxViqrEhWDGzqymo3sV7z7ZsaWbZNDLXRJZoRGrjulp60YYtV4wfY8VIKcWidjojlLcWrd8Q==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-wasm32@0.34.5':
     resolution: {integrity: sha512-OdWTEiVkY2PHwqkbBI8frFxQQFekHaSSkUIJkwzclWZe64O1X4UlUjqqqLaPbUpMOQk6FBu/HtlGXNblIs0huw==}
@@ -753,35 +737,35 @@ packages:
       '@livekit/agents': 1.4.4
       '@livekit/rtc-node': ^0.13.27
 
-  '@livekit/agents-plugin-baseten@1.4.4':
-    resolution: {integrity: sha512-OzRcNXobM+k7pymNpcOoFPVh4S7sWZohXMKOGRFRXxsIyGD4BkiAZpdm4j7GM4Oe0kXbHKZMsIe6lAXlSobEsA==}
+  '@livekit/agents-plugin-baseten@1.4.5':
+    resolution: {integrity: sha512-Lrc4RNAEWO6yR6MeF94pgWqH8xow5urMzRmTrajEU7ltvwteDKm2TJNcJFTe5sh7lsUBpTXvzfsDRvq+Ecxq8g==}
     peerDependencies:
-      '@livekit/agents': 1.4.4
-      '@livekit/rtc-node': ^0.13.27
+      '@livekit/agents': 1.4.5
+      '@livekit/rtc-node': ^0.13.29
 
-  '@livekit/agents-plugin-cartesia@1.4.4':
-    resolution: {integrity: sha512-GLrq24Pb47tyyksbs97uJeDjK/gbXyCROSGJcQGZuXykYgPoujv2E+VH3JZvw1gbojkl/1UVln+7E+5DVbp+kQ==}
+  '@livekit/agents-plugin-cartesia@1.4.5':
+    resolution: {integrity: sha512-+V5s6huw0jHHeCQVAnYPK0QUrHulHeLLp0r3py7ptpJwBVcqLCi+MmzQvl89KoneYNPhrSip2rTUAm7+xoNgLw==}
     peerDependencies:
-      '@livekit/agents': 1.4.4
-      '@livekit/rtc-node': ^0.13.27
+      '@livekit/agents': 1.4.5
+      '@livekit/rtc-node': ^0.13.29
       zod: ^3.25.76 || ^4.1.8
 
-  '@livekit/agents-plugin-livekit@1.4.4':
-    resolution: {integrity: sha512-ZghaKNTLCDfIlRkxgD5MJwNMuAnVPlnnBdD4LMW7h0JMq8HOpSm0flVZqiIPJUIXADOCQqZhTfxnx4Ed/fTt0w==}
+  '@livekit/agents-plugin-livekit@1.4.5':
+    resolution: {integrity: sha512-7lOjt+CXspqNAOyULa4msn22HIJXfW+CjpXuC60c3zdtTzsg2rCswN0O+IIfegmGPliK8S9HErqLMg2Vpsg+Eg==}
     peerDependencies:
-      '@livekit/agents': 1.4.4
+      '@livekit/agents': 1.4.5
 
-  '@livekit/agents-plugin-silero@1.4.4':
-    resolution: {integrity: sha512-/FZydPKOUc3fF0MuEfLT1vJrvitEAS/b2g+s09LMflnQDLbwLOh9Iwg8wqHjwh1IPljr4Hu3BV5iwKbMemaQug==}
+  '@livekit/agents-plugin-silero@1.4.5':
+    resolution: {integrity: sha512-+j0izXX+1gWJUwCDlp+diWPW2IJZkqLLCmj3lEfzIe/jW67G0dMkADzoWfGJlqOHsc5abPOt8UJkl5XQ+XfRCQ==}
     peerDependencies:
-      '@livekit/agents': 1.4.4
-      '@livekit/rtc-node': ^0.13.27
+      '@livekit/agents': 1.4.5
+      '@livekit/rtc-node': ^0.13.29
 
-  '@livekit/agents@1.4.4':
-    resolution: {integrity: sha512-ysvjD5T/Mbyl0qTYIDmE19Nlqv6pHDwA1+A+heF0y0QFkz7sp595k3m/XG0i2LL3hyKJ2pQYy/NhhibwwGQZ5Q==}
+  '@livekit/agents@1.4.5':
+    resolution: {integrity: sha512-E/GgjPhv649ow+Le9xIOHnBrTFzXuDJgjlT2KxryJ80fOArz5cZe7CY5c3OnB11izzbKR9wqOzzjaYoM5nF92w==}
     hasBin: true
     peerDependencies:
-      '@livekit/rtc-node': ^0.13.27
+      '@livekit/rtc-node': ^0.13.29
       zod: ^3.25.76 || ^4.1.8
 
   '@livekit/mutex@1.1.1':
@@ -818,6 +802,9 @@ packages:
   '@livekit/protocol@1.46.4':
     resolution: {integrity: sha512-yJZ8xvyVcs9CczK2V/EQQrSW0MA9VaZ1vL+FI6fd85KhIjfOg26HvrdUl2LZPT78Tu4R4opV4AW58eN5vgmzqg==}
 
+  '@livekit/protocol@1.46.6':
+    resolution: {integrity: sha512-upzlHP1vi/kZ/QqALZTFskQ0ifqc2f15RKucHYOsIHJsaXvEYanG75mAb7o+Yomfs4XhQ4BaRsdY+TFHXpaqrg==}
+
   '@livekit/rtc-ffi-bindings-darwin-arm64@0.12.60':
     resolution: {integrity: sha512-YHXqybkYfaTc3txJXXWoVogiSP3yKJdkaZlIlZ6IDMGnN9elUoHDYU+ZSn/rbdGu0pp4HUOzffXkbkItN735Bw==}
     engines: {node: '>= 18'}
@@ -835,14 +822,12 @@ packages:
     engines: {node: '>= 18'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@livekit/rtc-ffi-bindings-linux-x64-gnu@0.12.60':
     resolution: {integrity: sha512-ttWrR/e8Ghaa9I+LaStxK8lh+aA9QBz6Dge6eXyKwTrAMHwHEtL2Rnf1rHQTiwadeH7AoytpfWf5FZl/OelLaQ==}
     engines: {node: '>= 18'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@livekit/rtc-ffi-bindings-win32-x64-msvc@0.12.60':
     resolution: {integrity: sha512-HfOBEf3rmpsG7hU3/BM9x2jnkVwKFve2v3cyjxlk41d6OkCthYb+g/ULEPFBKPafYyepDwcd2c8MDo5fMM+4Zw==}
@@ -1124,42 +1109,36 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@rolldown/binding-linux-arm64-musl@1.0.0-rc.12':
     resolution: {integrity: sha512-V6/wZztnBqlx5hJQqNWwFdxIKN0m38p8Jas+VoSfgH54HSj9tKTt1dZvG6JRHcjh6D7TvrJPWFGaY9UBVOaWPw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@rolldown/binding-linux-ppc64-gnu@1.0.0-rc.12':
     resolution: {integrity: sha512-AP3E9BpcUYliZCxa3w5Kwj9OtEVDYK6sVoUzy4vTOJsjPOgdaJZKFmN4oOlX0Wp0RPV2ETfmIra9x1xuayFB7g==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@rolldown/binding-linux-s390x-gnu@1.0.0-rc.12':
     resolution: {integrity: sha512-nWwpvUSPkoFmZo0kQazZYOrT7J5DGOJ/+QHHzjvNlooDZED8oH82Yg67HvehPPLAg5fUff7TfWFHQS8IV1n3og==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@rolldown/binding-linux-x64-gnu@1.0.0-rc.12':
     resolution: {integrity: sha512-RNrafz5bcwRy+O9e6P8Z/OCAJW/A+qtBczIqVYwTs14pf4iV1/+eKEjdOUta93q2TsT/FI0XYDP3TCky38LMAg==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@rolldown/binding-linux-x64-musl@1.0.0-rc.12':
     resolution: {integrity: sha512-Jpw/0iwoKWx3LJ2rc1yjFrj+T7iHZn2JDg1Yny1ma0luviFS4mhAIcd1LFNxK3EYu3DHWCps0ydXQ5i/rrJ2ig==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@rolldown/binding-openharmony-arm64@1.0.0-rc.12':
     resolution: {integrity: sha512-vRugONE4yMfVn0+7lUKdKvN4D5YusEiPilaoO2sgUWpCvrncvWgPMzK00ZFFJuiPgLwgFNP5eSiUlv2tfc+lpA==}
@@ -1759,6 +1738,10 @@ packages:
   json-stringify-safe@5.0.1:
     resolution: {integrity: sha512-ZClg6AaYvamvYEE82d3Iyd3vSSIjQ+odgjaTzRuO3s7toCdFKczob2i0zCh7JE8kWn17yvAWhUVxvqGwUalsRA==}
 
+  jsonrepair@3.14.0:
+    resolution: {integrity: sha512-tWPGKMZf/8UPim+fcW2EfcQ/d/7aKUrP6IECz9G3Tu6Q5dX0orSleqJ9z6sSw7qrQkjF8/Edo4DvsWBZ8H+HNg==}
+    hasBin: true
+
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
 
@@ -1801,28 +1784,24 @@ packages:
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   lightningcss-linux-arm64-musl@1.32.0:
     resolution: {integrity: sha512-UpQkoenr4UJEzgVIYpI80lDFvRmPVg6oqboNHfoH4CQIfNA+HOrZ7Mo7KZP02dC6LjghPQJeBsvXhJod/wnIBg==}
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   lightningcss-linux-x64-gnu@1.32.0:
     resolution: {integrity: sha512-V7Qr52IhZmdKPVr+Vtw8o+WLsQJYCTd8loIfpDaMRWGUZfBOYEJeyJIkqGIDMZPwPx24pUMfwSxxI8phr/MbOA==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   lightningcss-linux-x64-musl@1.32.0:
     resolution: {integrity: sha512-bYcLp+Vb0awsiXg/80uCRezCYHNg1/l3mt0gzHnWV9XP1W5sKa5/TCdGWaR/zBM2PeF/HbsQv/j2URNOiVuxWg==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   lightningcss-win32-arm64-msvc@1.32.0:
     resolution: {integrity: sha512-8SbC8BR40pS6baCM8sbtYDSwEVQd4JlFTOlaD3gWGHfThTcABnNDBda6eTZeqbofalIJhFx0qKzgHJmcPTnGdw==}
@@ -1939,8 +1918,8 @@ packages:
   onnxruntime-web@1.26.0-dev.20260416-b7804b056c:
     resolution: {integrity: sha512-MD6Ss4GSpQBo6zqoJzyT9LRbKYs7x/JVN23FT24EcEvlqF4VuzPOeH6X38orZPKHQDbprn7K+SBpu0/mj2CQiw==}
 
-  openai@6.41.0:
-    resolution: {integrity: sha512-IGWPopZq6Rjoynjfb3NSLf/z2MTw7UiOsm9TAjPGAjUESH7Uq41Trg4QWehBEn58p74i+m7uoRPV2vXcpPXhyA==}
+  openai@6.42.0:
+    resolution: {integrity: sha512-1WFEt/uXMXOLhYRNkgJWo08Y2YNvNwpVU72K7ibrWgWpNOXd4VojXLbe6SQ4bLiUQ3Y8jz4IiyVkylJCL1DtZg==}
     peerDependencies:
       ws: ^8.18.0
       zod: ^3.25 || ^4.0
@@ -2124,6 +2103,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  semver@7.8.2:
+    resolution: {integrity: sha512-c8jsqUZm3omBOI66G90z1Dyw5z622G8oLG+omfsHBJf3CWQTlOcwOjvOG6wtiNfW6anKm/eA39LMwMtMez2TiQ==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   serialize-error@7.0.1:
     resolution: {integrity: sha512-8I8TjW5KMOKsZQTvoxjuSIa7foAwPWGOts+6o7sgjz41/qMD9VQHEDxi6PBvK2l0MXUmqZyNpUK+T2tQaaElvw==}
     engines: {node: '>=10'}
@@ -2267,8 +2251,8 @@ packages:
   undici-types@7.24.6:
     resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
 
-  undici@7.27.0:
-    resolution: {integrity: sha512-+t2Z/GwkZQDtu00813aP66ygViGtPHKhhoFZpQKpKrE+9jIgES+Zw+mFNaDWOVRKiuJjuqKHzD3B1sfGg8+ZOQ==}
+  undici@7.27.2:
+    resolution: {integrity: sha512-uZsKNuzQxDMUY6M3pIMvy5tvlGmtq8XJ2oLAkfRKGNu+1VQAIvLy2xIVG5ATZl5wDXl/tddByAWCizRbOme+TA==}
     engines: {node: '>=20.18.1'}
 
   uri-js@4.4.1:
@@ -2486,7 +2470,7 @@ snapshots:
       '@csstools/css-tokenizer': 4.0.0
     optional: true
 
-  '@csstools/css-syntax-patches-for-csstree@1.1.4(css-tree@3.2.1)':
+  '@csstools/css-syntax-patches-for-csstree@1.1.5(css-tree@3.2.1)':
     optionalDependencies:
       css-tree: 3.2.1
     optional: true
@@ -2502,7 +2486,7 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@emnapi/runtime@1.10.0':
+  '@emnapi/runtime@1.11.0':
     dependencies:
       tslib: 2.8.1
     optional: true
@@ -2858,7 +2842,7 @@ snapshots:
 
   '@img/sharp-wasm32@0.34.5':
     dependencies:
-      '@emnapi/runtime': 1.10.0
+      '@emnapi/runtime': 1.11.0
     optional: true
 
   '@img/sharp-win32-arm64@0.34.5':
@@ -2872,30 +2856,30 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@livekit/agents-plugin-assemblyai@1.4.4(patch_hash=78eb78459ab76bf14e8b94e386ebadd52ac5e756ec6258a78d3a4a8cfcc553a8)(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)':
+  '@livekit/agents-plugin-assemblyai@1.4.4(patch_hash=78eb78459ab76bf14e8b94e386ebadd52ac5e756ec6258a78d3a4a8cfcc553a8)(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)':
     dependencies:
-      '@livekit/agents': 1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.29
       ws: 8.21.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@livekit/agents-plugin-baseten@1.4.4(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)(zod@4.4.3)':
+  '@livekit/agents-plugin-baseten@1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)(zod@4.4.3)':
     dependencies:
-      '@livekit/agents': 1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.29
       dotenv: 17.4.2
-      openai: 6.41.0(ws@8.21.0)(zod@4.4.3)
+      openai: 6.42.0(ws@8.21.0)(zod@4.4.3)
       ws: 8.21.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
       - zod
 
-  '@livekit/agents-plugin-cartesia@1.4.4(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)(zod@4.4.3)':
+  '@livekit/agents-plugin-cartesia@1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)(zod@4.4.3)':
     dependencies:
-      '@livekit/agents': 1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.29
       ws: 8.21.0
       zod: 4.4.3
@@ -2903,16 +2887,16 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@livekit/agents-plugin-livekit@1.4.4(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))':
+  '@livekit/agents-plugin-livekit@1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))':
     dependencies:
       '@huggingface/hub': 2.4.1
       '@huggingface/transformers': 4.2.0
-      '@livekit/agents': 1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
       onnxruntime-node: 1.24.3
 
-  '@livekit/agents-plugin-silero@1.4.4(@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)':
+  '@livekit/agents-plugin-silero@1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)':
     dependencies:
-      '@livekit/agents': 1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.29
       onnxruntime-node: 1.24.3
       ws: 8.21.0
@@ -2920,12 +2904,12 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@livekit/agents@1.4.4(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)':
+  '@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)':
     dependencies:
       '@bufbuild/protobuf': 1.10.1
       '@ffmpeg-installer/ffmpeg': 1.1.0
       '@livekit/mutex': 1.1.1
-      '@livekit/protocol': 1.46.4
+      '@livekit/protocol': 1.46.6
       '@livekit/rtc-node': 0.13.29
       '@livekit/throws-transformer': 0.1.8(typescript@6.0.3)
       '@livekit/typed-emitter': 3.0.0
@@ -2947,9 +2931,10 @@ snapshots:
       form-data: 4.0.5
       heap-js: 2.7.1
       json-schema: 0.4.0
+      jsonrepair: 3.14.0
       livekit-server-sdk: 2.15.4
       ofetch: 1.5.1
-      openai: 6.41.0(ws@8.21.0)(zod@4.4.3)
+      openai: 6.42.0(ws@8.21.0)(zod@4.4.3)
       pidusage: 4.0.1
       pino: 8.21.0
       pino-pretty: 11.3.0
@@ -2995,6 +2980,10 @@ snapshots:
     dependencies:
       '@bufbuild/protobuf': 1.10.1
 
+  '@livekit/protocol@1.46.6':
+    dependencies:
+      '@bufbuild/protobuf': 1.10.1
+
   '@livekit/rtc-ffi-bindings-darwin-arm64@0.12.60':
     optional: true
 
@@ -3036,10 +3025,10 @@ snapshots:
 
   '@livekit/typed-emitter@3.0.0': {}
 
-  '@napi-rs/wasm-runtime@1.1.4(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)':
+  '@napi-rs/wasm-runtime@1.1.4(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0)':
     dependencies:
       '@emnapi/core': 1.9.2
-      '@emnapi/runtime': 1.10.0
+      '@emnapi/runtime': 1.11.0
       '@tybys/wasm-util': 0.10.2
     optional: true
 
@@ -3113,7 +3102,7 @@ snapshots:
       '@types/shimmer': 1.2.0
       import-in-the-middle: 1.15.0
       require-in-the-middle: 7.5.2
-      semver: 7.8.1
+      semver: 7.8.2
       shimmer: 1.2.1
     transitivePeerDependencies:
       - supports-color
@@ -3235,7 +3224,7 @@ snapshots:
       '@opentelemetry/propagator-b3': 1.30.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/propagator-jaeger': 1.30.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-base': 1.30.1(@opentelemetry/api@1.9.1)
-      semver: 7.8.1
+      semver: 7.8.2
 
   '@opentelemetry/semantic-conventions@1.27.0': {}
 
@@ -3305,9 +3294,9 @@ snapshots:
   '@rolldown/binding-openharmony-arm64@1.0.0-rc.12':
     optional: true
 
-  '@rolldown/binding-wasm32-wasi@1.0.0-rc.12(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)':
+  '@rolldown/binding-wasm32-wasi@1.0.0-rc.12(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0)':
     dependencies:
-      '@napi-rs/wasm-runtime': 1.1.4(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)
+      '@napi-rs/wasm-runtime': 1.1.4(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0)
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'
@@ -3449,13 +3438,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.8(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3))':
+  '@vitest/mocker@4.1.8(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3))':
     dependencies:
       '@vitest/spy': 4.1.8
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3)
+      vite: 8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3)
 
   '@vitest/pretty-format@4.1.8':
     dependencies:
@@ -3872,7 +3861,7 @@ snapshots:
       es6-error: 4.1.1
       matcher: 3.0.0
       roarr: 2.15.4
-      semver: 7.8.1
+      semver: 7.8.2
       serialize-error: 7.0.1
 
   globals@17.6.0: {}
@@ -3950,7 +3939,7 @@ snapshots:
       '@asamuzakjp/css-color': 5.1.11
       '@asamuzakjp/dom-selector': 7.1.1
       '@bramus/specificity': 2.4.2
-      '@csstools/css-syntax-patches-for-csstree': 1.1.4(css-tree@3.2.1)
+      '@csstools/css-syntax-patches-for-csstree': 1.1.5(css-tree@3.2.1)
       '@exodus/bytes': 1.15.1
       css-tree: 3.2.1
       data-urls: 7.0.0
@@ -3962,7 +3951,7 @@ snapshots:
       saxes: 6.0.0
       symbol-tree: 3.2.4
       tough-cookie: 6.0.1
-      undici: 7.27.0
+      undici: 7.27.2
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
@@ -3981,6 +3970,8 @@ snapshots:
   json-stable-stringify-without-jsonify@1.0.1: {}
 
   json-stringify-safe@5.0.1: {}
+
+  jsonrepair@3.14.0: {}
 
   keyv@4.5.4:
     dependencies:
@@ -4129,7 +4120,7 @@ snapshots:
       platform: 1.3.6
       protobufjs: 7.6.2
 
-  openai@6.41.0(ws@8.21.0)(zod@4.4.3):
+  openai@6.42.0(ws@8.21.0)(zod@4.4.3):
     optionalDependencies:
       ws: 8.21.0
       zod: 4.4.3
@@ -4336,7 +4327,7 @@ snapshots:
       semver-compare: 1.0.0
       sprintf-js: 1.1.3
 
-  rolldown@1.0.0-rc.12(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0):
+  rolldown@1.0.0-rc.12(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0):
     dependencies:
       '@oxc-project/types': 0.122.0
       '@rolldown/pluginutils': 1.0.0-rc.12
@@ -4353,7 +4344,7 @@ snapshots:
       '@rolldown/binding-linux-x64-gnu': 1.0.0-rc.12
       '@rolldown/binding-linux-x64-musl': 1.0.0-rc.12
       '@rolldown/binding-openharmony-arm64': 1.0.0-rc.12
-      '@rolldown/binding-wasm32-wasi': 1.0.0-rc.12(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)
+      '@rolldown/binding-wasm32-wasi': 1.0.0-rc.12(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0)
       '@rolldown/binding-win32-arm64-msvc': 1.0.0-rc.12
       '@rolldown/binding-win32-x64-msvc': 1.0.0-rc.12
     transitivePeerDependencies:
@@ -4377,6 +4368,8 @@ snapshots:
 
   semver@7.8.1: {}
 
+  semver@7.8.2: {}
+
   serialize-error@7.0.1:
     dependencies:
       type-fest: 0.13.1
@@ -4385,7 +4378,7 @@ snapshots:
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
-      semver: 7.8.1
+      semver: 7.8.2
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.34.5
       '@img/sharp-darwin-x64': 0.34.5
@@ -4528,19 +4521,19 @@ snapshots:
 
   undici-types@7.24.6: {}
 
-  undici@7.27.0:
+  undici@7.27.2:
     optional: true
 
   uri-js@4.4.1:
     dependencies:
       punycode: 2.3.1
 
-  vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3):
+  vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
       postcss: 8.5.15
-      rolldown: 1.0.0-rc.12(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)
+      rolldown: 1.0.0-rc.12(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0)
       tinyglobby: 0.2.17
     optionalDependencies:
       '@types/node': 25.9.1
@@ -4552,10 +4545,10 @@ snapshots:
       - '@emnapi/core'
       - '@emnapi/runtime'
 
-  vitest@4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.0.2)(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3)):
+  vitest@4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(jsdom@29.0.2)(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3)):
     dependencies:
       '@vitest/expect': 4.1.8
-      '@vitest/mocker': 4.1.8(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3))
+      '@vitest/mocker': 4.1.8(vite@8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3))
       '@vitest/pretty-format': 4.1.8
       '@vitest/runner': 4.1.8
       '@vitest/snapshot': 4.1.8
@@ -4572,7 +4565,7 @@ snapshots:
       tinyexec: 1.2.4
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vite: 8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.10.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3)
+      vite: 8.0.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.11.0)(@types/node@25.9.1)(esbuild@0.27.7)(tsx@4.22.4)(yaml@2.8.3)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.1

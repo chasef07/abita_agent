@@ -15,12 +15,12 @@
     "format:check": "prettier --check . --ignore-unknown"
   },
   "dependencies": {
-    "@livekit/agents": "1.4.4",
+    "@livekit/agents": "1.4.5",
     "@livekit/agents-plugin-assemblyai": "1.4.4",
-    "@livekit/agents-plugin-baseten": "1.4.4",
-    "@livekit/agents-plugin-cartesia": "1.4.4",
-    "@livekit/agents-plugin-livekit": "1.4.4",
-    "@livekit/agents-plugin-silero": "1.4.4",
+    "@livekit/agents-plugin-baseten": "1.4.5",
+    "@livekit/agents-plugin-cartesia": "1.4.5",
+    "@livekit/agents-plugin-livekit": "1.4.5",
+    "@livekit/agents-plugin-silero": "1.4.5",
     "@livekit/noise-cancellation-node": "0.1.9",
     "@livekit/rtc-node": "^0.13.29",
     "dotenv": "^17.4.2",
