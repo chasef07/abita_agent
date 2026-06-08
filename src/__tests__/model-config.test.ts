@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { fallbackLLMOptions, primaryLLMOptions } from "../model-config.js";
 
 describe("LLM model config", () => {
-  it("uses GLM 5.1 as the primary Baseten model with Nemotron fallback", () => {
-    expect(primaryLLMOptions.model).toBe("zai-org/GLM-5.1");
-    expect(fallbackLLMOptions.model).toBe(
+  it("uses Nemotron as the primary Baseten model with GLM 5.1 fallback", () => {
+    expect(primaryLLMOptions.model).toBe(
       "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B",
     );
+    expect(fallbackLLMOptions.model).toBe("zai-org/GLM-5.1");
   });
 
   it("does not set custom generation or parallel tool-call parameters", () => {
