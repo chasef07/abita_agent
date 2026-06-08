@@ -1,7 +1,7 @@
 import type { BasetenLLMOptions } from "@livekit/agents-plugin-baseten";
 
 export const primaryLLMOptions = {
-  model: "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B",
+  model: "zai-org/GLM-4.7",
 } as const satisfies BasetenLLMOptions;
 
 export const fallbackLLMOptions = {
