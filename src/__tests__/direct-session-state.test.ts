@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const transferCallerToOfficeMock = vi.hoisted(() =>
   vi.fn(async () => ({
@@ -26,6 +26,7 @@ import {
   get_availability,
   reschedule_appt,
   route_to_spring_hill,
+  switch_preloaded_patient,
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
@@ -135,7 +136,13 @@ function markAcceptedInsurance(
 }
 
 describe("direct session state cleanup", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-30T16:00:00.000Z"));
+  });
+
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     transferCallerToOfficeMock.mockClear();
   });
@@ -348,6 +355,166 @@ describe("direct session state cleanup", () => {
     );
   });
 
+  it("blocks same-day and past-date availability locally", async () => {
+    vi.setSystemTime(new Date("2026-06-08T18:00:00.000Z"));
+    const state = createState();
+    markSchedulingTriaged(state);
+    state.availability.latestRouting = "all_three";
+    storeAvailabilityBookingToken(state, "A", "stale-token");
+    const ctx = createToolContext(state);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-08",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toEqual({
+      result: "invalid_date",
+      reply:
+        "Same-day and past-date appointments are not available. Ask for tomorrow or a later date.",
+      next: "ask_future_date",
+      earliestDate: "2026-06-09",
+      slots: [],
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(ctx.session.say).not.toHaveBeenCalled();
+    expect(state.availability.slots).toEqual([]);
+    expect(state.availability.latestRouting).toBeNull();
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
+  });
+
+  it("returns cached no-availability for an identical search instead of fetching again", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    const ctx = createToolContext(state);
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "no_availability",
+        availabilityFound: false,
+        requestedDate: "2026-07-09",
+        searchedFrom: "2026-07-09",
+        searchedThrough: "2026-07-23",
+        shouldRetrySameSearch: false,
+        slots: [],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const firstResult = await get_availability.execute(
+      {
+        date: "2026-07-09",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+    const secondResult = await get_availability.execute(
+      {
+        date: "2026-07-09",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+
+    expect(firstResult).toEqual({
+      result: "no_slots_found",
+      reply:
+        "I checked July 9 through July 23 and did not find openings. Ask if they want me to check starting July 24, or if they prefer a different day or time.",
+      next: "ask_next_search_or_new_preference",
+      searched: "2026-07-09 through 2026-07-23",
+      nextSearchDate: "2026-07-24",
+      slots: [],
+    });
+    expect(secondResult).toEqual(firstResult);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(ctx.session.say).toHaveBeenCalledTimes(1);
+    expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not cache retryable availability responses", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    const ctx = createToolContext(state);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          status: "success",
+          outcome: "availability_search_incomplete",
+          requestedDate: "2026-07-09",
+          searchedFrom: "2026-07-09",
+          searchedThrough: "2026-07-23",
+          shouldRetrySameSearch: true,
+          slots: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          status: "success",
+          outcome: "no_availability",
+          availabilityFound: false,
+          requestedDate: "2026-07-09",
+          searchedFrom: "2026-07-09",
+          searchedThrough: "2026-07-23",
+          shouldRetrySameSearch: false,
+          slots: [],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const firstResult = await get_availability.execute(
+      {
+        date: "2026-07-09",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+    const secondResult = await get_availability.execute(
+      {
+        date: "2026-07-09",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+
+    expect(firstResult).toMatchObject({
+      result: "retry",
+      next: "retry_search_once",
+      slots: [],
+    });
+    expect(secondResult).toMatchObject({
+      result: "no_slots_found",
+      next: "ask_next_search_or_new_preference",
+      slots: [],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(ctx.session.say).toHaveBeenCalledTimes(2);
+    expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(2);
+  });
+
   it("requires a loaded patient before checking availability", async () => {
     const state = createState();
     markSchedulingTriaged(state);
@@ -371,6 +538,147 @@ describe("direct session state cleanup", () => {
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("switches between preloaded phone-match patients and clears patient-scoped booking state", async () => {
+    const state = createState();
+    state.identity.patient = {
+      ...state.identity.patient,
+      status: "verified",
+      identityConfirmed: true,
+      patientId: "child-a",
+      name: "DAVID MEJIA",
+      dob: "01/01/2015",
+      appointments: [],
+      appointmentsStatus: "none",
+    };
+    state.identity.patientBackend = {
+      insPlanId: "old-ins-plan",
+      respPartyId: "old-resp-party",
+    };
+    state.identity.preCall = {
+      status: "multiple_match_confirmed",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: "precall:1",
+          firstName: "DAVID",
+          lastName: "MEJIA",
+          dob: "01/01/2015",
+          patientId: "child-a",
+          appointments: [],
+          appointmentsStatus: "none",
+          insuranceCarrier: "Aetna",
+          insPlanId: "david-ins-plan",
+          respPartyId: "shared-resp-party",
+          routing: "all_three",
+          allowedProviders: ["Dr. Bach"],
+          routingAmbiguous: false,
+          preauthRequired: false,
+        },
+        {
+          ref: "precall:2",
+          firstName: "ELLIE",
+          lastName: "MEJIA",
+          dob: "02/02/2017",
+          patientId: "child-b",
+          appointments: [
+            {
+              id: 456,
+              date: "Tuesday, June 16, 2026",
+              time: "10:00 AM",
+              provider: "Dr. Licht",
+              type: "Follow-up",
+              facility: "Spring Hill",
+              confirmed: false,
+            },
+          ],
+          appointmentsStatus: "found",
+          insuranceCarrier: "Humana PPO",
+          insPlanId: "ellie-ins-plan",
+          respPartyId: "shared-resp-party",
+          routing: "bach_only",
+          allowedProviders: ["Dr. Bach"],
+          routingAmbiguous: false,
+          preauthRequired: true,
+        },
+      ],
+      selectedCandidateRef: "precall:1",
+      identityPromotion: "confirmed_by_transcript",
+    };
+    state.availability.latestRouting = "all_three";
+    storeAvailabilityBookingToken(state, "A", "stale-token");
+    state.identity.latestBookedAppointmentId = 123;
+    state.insurance.lastEligibilityCheck = {
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
+      currentCarrier: "Aetna",
+      accepted: true,
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await switch_preloaded_patient.execute(
+      {
+        firstName: "Ellie",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-switch",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Switched active patient to ELLIE MEJIA. Check availability again before booking.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(state.identity.patient).toMatchObject({
+      status: "verified",
+      identityConfirmed: true,
+      patientId: "child-b",
+      name: "ELLIE MEJIA",
+      dob: "02/02/2017",
+      appointmentsStatus: "found",
+    });
+    expect(state.identity.patient.appointments).toEqual([
+      {
+        id: 456,
+        date: "Tuesday, June 16, 2026",
+        time: "10:00 AM",
+        provider: "Dr. Licht",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
+    ]);
+    expect(state.identity.preCall).toMatchObject({
+      status: "multiple_match_confirmed",
+      selectedCandidateRef: "precall:2",
+      identityPromotion: "switched_by_tool",
+    });
+    expect(state.identity.patientBackend).toEqual({
+      insPlanId: "ellie-ins-plan",
+      respPartyId: "shared-resp-party",
+    });
+    expect(state.insurance.onFile).toEqual({
+      plan: "Humana PPO",
+      canonicalPlan: "Humana PPO",
+      coverageType: null,
+      currentCarrier: "Humana PPO",
+    });
+    expect(state.insurance.lastEligibilityCheck).toBeNull();
+    expect(state.workflow.routing).toEqual({
+      routing: "bach_only",
+      allowedProviders: ["Dr. Bach"],
+      routingAmbiguous: false,
+      preauthRequired: true,
+    });
+    expect(state.availability.slots).toEqual([]);
+    expect(state.availability.latestRouting).toBeNull();
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
+    expect(state.identity.latestBookedAppointmentId).toBeUndefined();
   });
 
   it("checks availability for a loaded appointment change without faking schedule intent", async () => {
@@ -783,6 +1091,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
+        readBack: true,
       },
       {
         ctx: createToolContext(state) as never,
@@ -846,6 +1155,7 @@ describe("direct session state cleanup", () => {
           slotId: "A",
           appointmentReason: "blurry vision",
           referringDoctor: "none",
+          readBack: true,
         },
         {
           ctx: ctx as never,
@@ -856,8 +1166,35 @@ describe("direct session state cleanup", () => {
       "Search availability again before booking because the selected slot expired.",
     );
 
-    expect(ctx.speechHandle.allowInterruptions).toBe(false);
+    expect(ctx.speechHandle.allowInterruptions).toBe(true);
     expect(state.availability.slots).toEqual([]);
+  });
+
+  it("requires read-back confirmation before booking", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    storeAvailabilityBookingToken(state, "A", "private-token");
+    const ctx = createToolContext(state);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await book_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "blurry vision",
+        referringDoctor: "none",
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it. Call book_appt again only after the caller confirms the appointment details are correct.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(ctx.speechHandle.allowInterruptions).toBe(true);
   });
 
   it("requires referring doctor information before booking", async () => {
@@ -906,6 +1243,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
+        readBack: true,
       },
       {
         ctx: ctx as never,
@@ -973,6 +1311,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
+        readBack: true,
       },
       {
         ctx: createToolContext(state) as never,
@@ -996,6 +1335,7 @@ describe("direct session state cleanup", () => {
         slotId: "B",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
+        readBack: true,
       },
       {
         ctx: createToolContext(state) as never,
@@ -1036,6 +1376,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
+        readBack: true,
       },
       {
         ctx: createToolContext(state) as never,
@@ -1069,6 +1410,7 @@ describe("direct session state cleanup", () => {
         slotId: "B",
         appointmentReason: "glasses",
         referringDoctor: "none",
+        readBack: true,
       },
       {
         ctx: createToolContext(state) as never,
@@ -1122,6 +1464,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
+        readBack: true,
       },
       {
         ctx: createToolContext(state) as never,
@@ -1164,6 +1507,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
+        readBack: true,
       },
       {
         ctx: createToolContext(state) as never,
@@ -2778,6 +3122,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "eye exam",
         referringDoctor: "none",
+        readBack: true,
       },
       {
         ctx: createToolContext(state) as never,
@@ -2881,6 +3226,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
+        readBack: true,
         appointmentId: 123,
       },
       {
@@ -2944,6 +3290,45 @@ describe("direct session state cleanup", () => {
     ]);
   });
 
+  it("requires read-back confirmation before rescheduling", async () => {
+    const state = createState();
+    markAppointmentChangeContext(state);
+    state.identity.patient.appointments = [
+      {
+        id: 123,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Licht",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
+    ];
+    storeAvailabilityBookingToken(state, "A", "private-token");
+    const ctx = createToolContext(state);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reschedule_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentId: 123,
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it as the new appointment. Call reschedule_appt again only after the caller confirms the new appointment details are correct.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(ctx.speechHandle.allowInterruptions).toBe(true);
+  });
+
   it("does not reschedule again after a successful reschedule", async () => {
     const state = createState();
     markAppointmentChangeContext(state);
@@ -2989,6 +3374,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
+        readBack: true,
         appointmentId: 123,
       },
       {
@@ -3089,6 +3475,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
+        readBack: true,
         appointmentId: 123,
       },
       {
@@ -3158,6 +3545,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
+        readBack: true,
         appointmentId: 123,
       },
       {
@@ -3265,6 +3653,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
+        readBack: true,
         appointmentId: 123,
       },
       {
@@ -3351,6 +3740,7 @@ describe("direct session state cleanup", () => {
         slotId: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
+        readBack: true,
         appointmentId: 123,
       },
       {

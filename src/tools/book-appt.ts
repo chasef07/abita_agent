@@ -18,6 +18,7 @@ import {
   bookingSucceeded,
   selectedSlotForBooking,
   slotUnavailableMessage,
+  spokenSlot,
 } from "./booking-state.js";
 import { restoreConfirmedPreCallCaller } from "./patient-state.js";
 import {
@@ -30,7 +31,8 @@ export const book_appt = llm.tool({
   description:
     "Book a caller-confirmed appointment slot. " +
     "Use only for new appointments after get_availability recorded appointmentLane; do not use for reschedules or other appointment changes. " +
-    "Call only after get_availability returns slots with the right appointment lane, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. ",
+    "Call only after get_availability returns slots with the right appointment lane, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. " +
+    "Before booking, read back the selected appointment date, time, and provider, then get caller confirmation. ",
   parameters: z.object({
     slotId: z
       .string()
@@ -49,8 +51,17 @@ export const book_appt = llm.tool({
       .describe(
         'Caller-provided referring doctor, or "none" if the caller has no referring doctor.',
       ),
+    readBack: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set to true only after reading back the selected appointment date, time, and provider and the caller confirms the appointment details are correct.",
+      ),
   }),
-  execute: async ({ slotId, appointmentReason, referringDoctor }, { ctx }) => {
+  execute: async (
+    { slotId, appointmentReason, referringDoctor, readBack },
+    { ctx },
+  ) => {
     const state = getState(ctx);
 
     restoreConfirmedPreCallCaller(state);
@@ -61,8 +72,6 @@ export const book_appt = llm.tool({
     }
 
     ensureNewAppointmentBookingContext(state);
-
-    ctx.speechHandle.allowInterruptions = false;
 
     if (!patientId) {
       throw new llm.ToolError("Verify or create the patient before booking.");
@@ -76,6 +85,14 @@ export const book_appt = llm.tool({
       appointmentReason,
       referringDoctor,
     });
+    if (!readBack) {
+      return (
+        `Read back ${spokenSlot(selectedSlot)} and ask the caller to confirm it. ` +
+        "Call book_appt again only after the caller confirms the appointment details are correct."
+      );
+    }
+
+    ctx.speechHandle.allowInterruptions = false;
     const result = await callApi(
       "/api/appointment/book",
       bookingBody,

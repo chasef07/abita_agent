@@ -39,6 +39,7 @@ export function removeAvailabilitySlot(
       delete state.availability.bookingTokensBySlotId[storedSlotId];
     }
   }
+  state.availability.latestSearch = undefined;
   return availabilitySlotsForState(state);
 }
 
@@ -290,13 +291,18 @@ function buildAvailabilityReply(input: {
           spokenIsoDate(search.searchedThrough) ?? search.searchedThrough
         }`
       : "for those dates";
+  const conciseSearchedRange =
+    search.searchedFrom && search.searchedThrough
+      ? `${spokenIsoDate(search.searchedFrom) ?? search.searchedFrom} through ${
+          spokenIsoDate(search.searchedThrough) ?? search.searchedThrough
+        }`
+      : "those dates";
   const spokenNextDate = spokenIsoDate(search.nextSearchDate);
-  const nextSearchText = search.nextSearchDate
-    ? ` Would you like me to check ${spokenNextDate ?? search.nextSearchDate}, or try a different day or time?`
-    : " Would you like to try a different day or time?";
 
   if (outcome === "no_availability") {
-    return `I do not see openings ${spokenSearchedRange}.${nextSearchText}`;
+    return search.nextSearchDate
+      ? `I checked ${conciseSearchedRange} and did not find openings. Ask if they want me to check starting ${spokenNextDate ?? search.nextSearchDate}, or if they prefer a different day or time.`
+      : `I checked ${conciseSearchedRange} and did not find openings. Ask if they prefer a different day or time.`;
   }
 
   if (outcome === "availability_search_incomplete") {
@@ -385,7 +391,7 @@ function cleanAvailabilityResponse(input: {
       ? "offer_slot"
       : search.shouldRetrySameSearch
         ? "retry_search_once"
-        : "ask_new_date_or_time";
+        : "ask_next_search_or_new_preference";
   const searched =
     search.searchedFrom && search.searchedThrough
       ? `${search.searchedFrom} through ${search.searchedThrough}`

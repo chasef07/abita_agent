@@ -242,6 +242,12 @@ interface AvailabilitySessionState {
   slots: StoredAvailabilitySlot[];
   latestRouting?: string | null;
   bookingTokensBySlotId: Record<string, string>;
+  latestSearch?: AvailabilitySearchCache;
+}
+
+interface AvailabilitySearchCache {
+  signature: string;
+  response: unknown;
 }
 
 export interface CallState {
@@ -564,6 +570,27 @@ export function clearAvailabilitySelection(state: CallState): void {
   state.availability.slots = [];
   state.availability.latestRouting = null;
   state.availability.bookingTokensBySlotId = {};
+  state.availability.latestSearch = undefined;
+}
+
+export function cachedAvailabilitySearchResult(
+  state: CallState,
+  signature: string,
+): unknown | null {
+  return state.availability.latestSearch?.signature === signature
+    ? state.availability.latestSearch.response
+    : null;
+}
+
+export function setAvailabilitySearchResult(
+  state: CallState,
+  signature: string,
+  response: unknown,
+): void {
+  state.availability.latestSearch = {
+    signature,
+    response,
+  };
 }
 
 export function latestAvailabilityRouting(state: CallState): string | null {

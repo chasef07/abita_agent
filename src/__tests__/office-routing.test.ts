@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildToolsForTrunk } from "../agent.js";
 import { buildPrompt } from "../prompt.js";
+import type { PhoneLookupResult } from "../state/call-state.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   DEV_OFFICE_PHONE,
@@ -29,6 +30,7 @@ import {
   lookup_knowledge,
   reschedule_appt,
   route_to_spring_hill,
+  switch_preloaded_patient,
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
@@ -214,6 +216,38 @@ describe("office routing helpers", () => {
       );
     }
   });
+
+  it("only exposes preloaded patient switching after multiple-match phone lookup", () => {
+    const multipleMatchLookup: PhoneLookupResult = {
+      status: "multiple_matches",
+      message: "Multiple patients found",
+      matches: [{ firstName: "DAVID" }, { firstName: "ELLIE" }],
+    };
+
+    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toHaveProperty(
+      "switch_preloaded_patient",
+    );
+    expect(
+      buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE, {
+        status: "verified",
+        patientId: "patient-1",
+        name: "DAVID MEJIA",
+        dob: "01/01/2015",
+        phone: "+17275551212",
+        insuranceCarrier: "Aetna",
+        insPlanId: null,
+        respPartyId: null,
+        routing: "all_three",
+        allowedProviders: [],
+        routingAmbiguous: false,
+        preauthRequired: false,
+        appointments: [],
+      }),
+    ).not.toHaveProperty("switch_preloaded_patient");
+    expect(
+      buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE, multipleMatchLookup),
+    ).toHaveProperty("switch_preloaded_patient");
+  });
 });
 
 describe("tool-first prompt gating", () => {
@@ -228,9 +262,6 @@ describe("tool-first prompt gating", () => {
     );
     expect(prompt).toContain(
       "When asking for a patient's first or last name, ask them to spell it",
-    );
-    expect(prompt).toContain(
-      'When giving an address, put `<break time="300ms"/>` between the street',
     );
     expect(prompt).toContain(
       "Use confirm_patient_identity for patient-specific work only when internal state has not already confirmed the patient from the pre-call identity step.",
@@ -248,9 +279,6 @@ describe("tool-first prompt gating", () => {
     expect(prompt).toContain("say you see a few patient records on file");
     expect(prompt).toContain(
       "For insurance acceptance questions, never answer yes or no without check_insurance.",
-    );
-    expect(prompt).toContain(
-      "Use tools for insurance, availability, booking, cancellation, routing, and transfer.",
     );
     expect(prompt).toContain(
       "Call get_current_datetime before interpreting relative dates or times for scheduling, availability, booking, or appointment changes.",
@@ -463,9 +491,6 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "If the scheduling lane is unclear, ask concise clarifying questions before checking availability.",
     );
-    expect(prompt).toContain(
-      "Do not say a state-changing action is done until the tool succeeds.",
-    );
   });
 
   it("does not expose a standalone turn context recorder", () => {
@@ -496,7 +521,7 @@ describe("Crystal River prompt guidance", () => {
     );
   });
 
-  it("keeps TTS formatting guidance in the base voice prompt", () => {
+  it("keeps concise voice guidance in the base voice prompt", () => {
     const prompt = buildPrompt(
       {
         status: "verified",
@@ -541,21 +566,12 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "Use normal written forms for dates, times, phone numbers, emails, and common acronyms.",
     );
-    expect(prompt).toContain('After every standalone "um"');
-    expect(prompt).toContain('Yeah, um <break time="300ms"/> so');
-    expect(prompt).toContain(
-      "When a better phrasing comes to mind mid-sentence",
-    );
-    expect(prompt).toContain("I can pull that up");
     expect(prompt).toContain("Don't open consecutive turns");
-    expect(prompt).toContain('Mhm, <break time="200ms"/> let me pull that up');
     expect(prompt).toContain(
       'Feel free to start sentences with "And", "But", or "So".',
     );
-    expect(prompt).toContain(
-      'Sorry, <break time="300ms"/> I think I missed that',
-    );
-    expect(prompt).toContain("wish the user a good rest of their day");
+    expect(prompt).toContain("Sorry, I think I missed that, what did you say?");
+    expect(prompt).toContain("If the caller asks you to slow down");
     expect(prompt).not.toContain("eight fifteen a m");
   });
 
@@ -720,6 +736,9 @@ describe("model-facing tool definitions", () => {
     expect(get_availability.description).toContain("pass appointmentLane");
     expect(get_availability.description).toContain("medical_md");
     expect(get_availability.description).toContain("routine_od");
+    expect(get_availability.description).toContain(
+      "Do not call for same-day or past dates",
+    );
     expect(get_availability.description).not.toContain("bach_only routing");
     expect(get_availability.description).not.toContain(
       "Under 18 medical visits = Dr. Bach only",
@@ -744,6 +763,18 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({
         date: "2026-06-01",
         appointmentLane: "unknown",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        date: "next Wednesday",
+        appointmentLane: "medical_md",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        date: "2026-6-1",
+        appointmentLane: "medical_md",
       }).success,
     ).toBe(false);
   });
@@ -881,6 +912,9 @@ describe("model-facing tool definitions", () => {
       "books the new appointment first",
     );
     expect(reschedule_appt.description).toContain(
+      "read back the selected new appointment date, time, and provider",
+    );
+    expect(reschedule_appt.description).toContain(
       "cancels the old appointment only after booking succeeds",
     );
 
@@ -892,6 +926,7 @@ describe("model-facing tool definitions", () => {
         slotId: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
+        readBack: true,
         appointmentId: 123,
       }).success,
     ).toBe(true);
@@ -928,6 +963,9 @@ describe("model-facing tool definitions", () => {
     expect(book_appt.description).toContain(
       "caller provides a referring doctor or says they have none",
     );
+    expect(book_appt.description).toContain(
+      "read back the selected appointment date, time, and provider",
+    );
 
     const parameters = book_appt.parameters as {
       safeParse: (value: unknown) => { success: boolean };
@@ -943,6 +981,7 @@ describe("model-facing tool definitions", () => {
         slotId: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
+        readBack: true,
       }).success,
     ).toBe(true);
     expect(
@@ -993,5 +1032,26 @@ describe("model-facing tool definitions", () => {
         dob: "01/01/1980",
       }).success,
     ).toBe(true);
+  });
+
+  it("keeps switch_preloaded_patient scoped to pre-call multiple-match switches", () => {
+    expect(switch_preloaded_patient.description).toContain(
+      "another patient already returned by the pre-call phone lookup",
+    );
+    expect(switch_preloaded_patient.description).toContain(
+      "parent is scheduling multiple children",
+    );
+    expect(switch_preloaded_patient.description).toContain(
+      "call get_availability again before booking or rescheduling",
+    );
+
+    const parameters = switch_preloaded_patient.parameters as {
+      safeParse: (value: unknown) => { success: boolean };
+      shape: Record<string, unknown>;
+    };
+    expect(Object.keys(parameters.shape)).toEqual(["firstName"]);
+    expect(parameters.safeParse({ firstName: "Ellie" }).success).toBe(true);
+    expect(parameters.safeParse({ firstName: " " }).success).toBe(false);
+    expect(parameters.safeParse({}).success).toBe(false);
   });
 });

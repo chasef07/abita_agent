@@ -52,6 +52,10 @@ describe("turn context state", () => {
     applySchedulingLaneToState(state, "medical_md");
     state.availability.latestRouting = "all_three";
     state.availability.bookingTokensBySlotId = { A: "private-token" };
+    state.availability.latestSearch = {
+      signature: "old-search",
+      response: { result: "slots_found" },
+    };
     state.availability.slots = [
       {
         slotId: "A",
@@ -70,6 +74,7 @@ describe("turn context state", () => {
     expect(state.availability.slots).toEqual([]);
     expect(state.availability.latestRouting).toBeNull();
     expect(state.availability.bookingTokensBySlotId).toEqual({});
+    expect(state.availability.latestSearch).toBeUndefined();
   });
 
   it("clears stale availability when workflow intent changes", () => {
@@ -77,6 +82,10 @@ describe("turn context state", () => {
     applySchedulingLaneToState(state, "medical_md");
     state.availability.latestRouting = "all_three";
     state.availability.bookingTokensBySlotId = { A: "private-token" };
+    state.availability.latestSearch = {
+      signature: "old-search",
+      response: { result: "slots_found" },
+    };
     state.availability.slots = [
       {
         slotId: "A",
@@ -101,6 +110,7 @@ describe("turn context state", () => {
     expect(state.availability.slots).toEqual([]);
     expect(state.availability.latestRouting).toBeNull();
     expect(state.availability.bookingTokensBySlotId).toEqual({});
+    expect(state.availability.latestSearch).toBeUndefined();
   });
 
   it("keeps appointment-change context distinct from new scheduling lane", () => {

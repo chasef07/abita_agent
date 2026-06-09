@@ -45,6 +45,7 @@ export const reschedule_appt = llm.tool({
   description:
     "Reschedule a loaded appointment. " +
     "Call only after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns slots, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. " +
+    "Before booking the new appointment, read back the selected new appointment date, time, and provider, then get caller confirmation. " +
     "This tool books the new appointment first and cancels the old appointment only after booking succeeds.",
   parameters: z.object({
     slotId: z
@@ -65,6 +66,12 @@ export const reschedule_appt = llm.tool({
       .min(1)
       .describe(
         'Caller-provided referring doctor, or "none" if the caller has no referring doctor.',
+      ),
+    readBack: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set to true only after reading back the selected new appointment date, time, and provider and the caller confirms the new appointment details are correct.",
       ),
     appointmentId: z
       .number()
@@ -92,6 +99,7 @@ export const reschedule_appt = llm.tool({
       slotId,
       appointmentReason,
       referringDoctor,
+      readBack,
       appointmentId,
       appointmentDate,
       appointmentTime,
@@ -110,8 +118,6 @@ export const reschedule_appt = llm.tool({
       clearAvailabilitySelection(state);
       return completedRescheduleReplayMessage(completedReschedule);
     }
-
-    ctx.speechHandle.allowInterruptions = false;
 
     const selection = cancellationAppointmentForState(state, {
       appointmentId,
@@ -146,7 +152,14 @@ export const reschedule_appt = llm.tool({
       patientStatusOverride:
         appointmentPatientStatusForLoadedAppointment(oldAppointment),
     });
+    if (!readBack) {
+      return (
+        `Read back ${spokenSlot(selectedSlot)} and ask the caller to confirm it as the new appointment. ` +
+        "Call reschedule_appt again only after the caller confirms the new appointment details are correct."
+      );
+    }
 
+    ctx.speechHandle.allowInterruptions = false;
     const bookingResult = await callApi(
       "/api/appointment/book",
       bookingBody,
