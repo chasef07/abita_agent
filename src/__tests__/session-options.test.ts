@@ -11,7 +11,7 @@ describe("voice session options", () => {
     initializeLogger({ pretty: false, level: "silent" });
   });
 
-  it("uses LiveKit's default preemptive generation setting", () => {
+  it("disables preemptive generation", () => {
     const session = new voice.AgentSession({
       turnHandling: {
         turnDetection: fakeTurnDetector(),
@@ -21,7 +21,7 @@ describe("voice session options", () => {
 
     expect(
       session.sessionOptions.turnHandling.preemptiveGeneration.enabled,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       session.sessionOptions.turnHandling.preemptiveGeneration.preemptiveTts,
     ).toBe(false);
