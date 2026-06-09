@@ -11,6 +11,7 @@ import {
   lookup_knowledge,
   reschedule_appt,
   route_to_spring_hill,
+  switch_preloaded_patient,
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
@@ -34,9 +35,37 @@ const ROUTING_TOOLS = {
   route_to_spring_hill,
 } satisfies llm.ToolContext;
 
-export type AgentTools = typeof COMMON_TOOLS | typeof ROUTING_TOOLS;
+const COMMON_TOOLS_WITH_PATIENT_SWITCH = {
+  ...COMMON_TOOLS,
+  switch_preloaded_patient,
+} satisfies llm.ToolContext;
 
-export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
+const ROUTING_TOOLS_WITH_PATIENT_SWITCH = {
+  ...COMMON_TOOLS_WITH_PATIENT_SWITCH,
+  route_to_spring_hill,
+} satisfies llm.ToolContext;
+
+type BuildToolsOptions = {
+  exposePreloadedPatientSwitch?: boolean;
+};
+
+export type AgentTools =
+  | typeof COMMON_TOOLS
+  | typeof ROUTING_TOOLS
+  | typeof COMMON_TOOLS_WITH_PATIENT_SWITCH
+  | typeof ROUTING_TOOLS_WITH_PATIENT_SWITCH;
+
+export function buildToolsForTrunk(
+  trunkPhone?: string,
+  options: BuildToolsOptions = {},
+): AgentTools {
   const office = getOfficeConfigByPhone(trunkPhone ?? "");
-  return office.features.routeToSpringHill ? ROUTING_TOOLS : COMMON_TOOLS;
+  if (office.features.routeToSpringHill) {
+    return options.exposePreloadedPatientSwitch
+      ? ROUTING_TOOLS_WITH_PATIENT_SWITCH
+      : ROUTING_TOOLS;
+  }
+  return options.exposePreloadedPatientSwitch
+    ? COMMON_TOOLS_WITH_PATIENT_SWITCH
+    : COMMON_TOOLS;
 }

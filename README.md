@@ -108,10 +108,12 @@ the caller-confirmed availability slot. State-changing tools read and write
 `session.userData` directly. The final side effect is not considered complete
 until the tool succeeds.
 
-`get_current_datetime` is read-only and returns one clinic-local grounding
-sentence, such as `Today is Sunday, May 31st, 2026 at 10:42 AM Eastern time.`,
-when the caller uses relative date or time language for scheduling,
-availability, booking, or appointment changes.
+`get_current_datetime` is read-only and returns clinic-local grounding, such as
+`Today is Sunday, May 31st, 2026 at 10:42 AM Eastern time.`, when the caller
+uses relative date or time language for scheduling, availability, booking, or
+appointment changes. If the caller gives a supported phrase such as
+`next Wednesday`, the tool also returns a natural-language interpretation with
+the exact `YYYY-MM-DD` date for availability lookup.
 
 Pre-call phone lookup data stays in backend state and can be promoted privately
 from caller-provided first-name evidence before the explicit identity tool runs.

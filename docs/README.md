@@ -7,6 +7,7 @@ Start here when you need context beyond the runtime code.
 - `architecture/livekit-native-dynamic-tools-cleanup-spec.md` — current runtime shape: LiveKit agent, tools, session state, prompts, and optional native dynamic tool updates.
 - `architecture/reschedule-appointment-tool-spec.md` — deterministic reschedule tool design: one model-callable tool that books the new slot, cancels the old appointment, and preserves New Patient status.
 - `architecture/inline-scheduling-lane-spec.md` — current scheduling-lane contract: lane is passed to availability and chart-creation tools instead of using a standalone context-recording tool.
+- `architecture/staff-task-intake-spec.md` — proposed task-intake design for turning non-live office work into structured portal tasks instead of default transfers.
 
 ## Operations
 
