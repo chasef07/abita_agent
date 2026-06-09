@@ -1,5 +1,8 @@
 import { CALLER_CANDIDATE_REF, type CallState } from "../state/call-state.js";
-import { restoreConfirmedPreCallCaller } from "../tools/patient-state.js";
+import {
+  restoreConfirmedPreCallCaller,
+  switchToPreCallCandidate,
+} from "../tools/patient-state.js";
 
 type PreCallCandidate = NonNullable<
   CallState["identity"]["preCall"]
@@ -20,8 +23,12 @@ export function confirmPreCallIdentityFromTranscript({
   lastAssistantText: string | null | undefined;
 }): PreCallTranscriptConfirmation | null {
   const preCall = state.identity.preCall;
-  if (!preCall || state.identity.patient.identityConfirmed) return null;
+  if (!preCall) return null;
   if (!isFirstNamePrompt(lastAssistantText)) return null;
+
+  if (state.identity.patient.identityConfirmed) {
+    return switchConfirmedPreCallPatientFromTranscript(state, transcript);
+  }
 
   const candidate =
     preCall.status === "single_match_pending_confirmation"
@@ -46,6 +53,24 @@ export function confirmPreCallIdentityFromTranscript({
   };
 }
 
+function switchConfirmedPreCallPatientFromTranscript(
+  state: CallState,
+  transcript: string,
+): PreCallTranscriptConfirmation | null {
+  const preCall = state.identity.preCall;
+  if (!preCall) return null;
+
+  const candidate = uniqueMultiplePreCallCandidate(preCall, transcript);
+  if (!candidate?.patientId) return null;
+  if (candidate.patientId === state.identity.patient.patientId) return null;
+  if (!switchToPreCallCandidate(state, candidate.ref)) return null;
+
+  return {
+    candidateRef: candidate.ref,
+    systemMessage: switchedPatientSystemMessage(state),
+  };
+}
+
 function singlePreCallCandidate(
   preCall: NonNullable<CallState["identity"]["preCall"]>,
 ): PreCallCandidate | null {
@@ -60,7 +85,12 @@ function uniqueMultiplePreCallCandidate(
   preCall: NonNullable<CallState["identity"]["preCall"]>,
   transcript: string,
 ): PreCallCandidate | null {
-  if (preCall.status !== "multiple_matches_pending_selection") return null;
+  if (
+    preCall.status !== "multiple_matches_pending_selection" &&
+    preCall.status !== "multiple_match_confirmed"
+  ) {
+    return null;
+  }
   const matches = preCall.candidates.filter((candidate) =>
     candidateFirstNameMatchesTranscript(candidate, transcript),
   );
@@ -163,6 +193,20 @@ function confirmedPatientSystemMessage(state: CallState): string {
     `Patient ID: ${patientId}.`,
     appointmentSummaryForSystemMessage(state),
     "Do not ask for last name or date of birth again. Continue using the loaded patient state for appointment questions, booking, or cancellation.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function switchedPatientSystemMessage(state: CallState): string {
+  const patientName = state.identity.patient.name?.trim() || "the patient";
+  const patientId = state.identity.patient.patientId?.trim() || "unknown";
+  return [
+    "Internal state: active patient switched to another pre-call phone candidate after the caller provided that patient's first name.",
+    `Patient: ${patientName}.`,
+    `Patient ID: ${patientId}.`,
+    appointmentSummaryForSystemMessage(state),
+    "Continue using this active patient for appointment questions, availability, booking, or cancellation. Search availability again before booking because prior slot selections belonged to the previous patient.",
   ]
     .filter(Boolean)
     .join(" ");

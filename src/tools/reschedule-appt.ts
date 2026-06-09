@@ -54,6 +54,20 @@ export const reschedule_appt = llm.tool({
       .describe(
         "slotId from get_availability for the caller-confirmed new slot.",
       ),
+    confirmedSlotDate: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .describe(
+        "Caller-confirmed new appointment date for this slot, in YYYY-MM-DD.",
+      ),
+    confirmedSlotTime: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        'Caller-confirmed new appointment time for this slot, such as "2:00 PM".',
+      ),
     appointmentReason: z
       .string()
       .trim()
@@ -90,6 +104,8 @@ export const reschedule_appt = llm.tool({
   execute: async (
     {
       slotId,
+      confirmedSlotDate,
+      confirmedSlotTime,
       appointmentReason,
       referringDoctor,
       appointmentId,
@@ -132,7 +148,10 @@ export const reschedule_appt = llm.tool({
 
     ensureRoutineVisionOffice(state);
     const bookingOffice = getAmdOfficeForToolCall(state);
-    const selectedSlot = selectedSlotForBooking(state, slotId);
+    const selectedSlot = selectedSlotForBooking(state, slotId, {
+      date: confirmedSlotDate,
+      time: confirmedSlotTime,
+    });
     const bookingBody = bookingRequestBodyForSlot(state, {
       selectedSlot,
       patientId,

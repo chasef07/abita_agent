@@ -69,6 +69,23 @@ export function restoreConfirmedPreCallCaller(state: CallState): void {
   applyPreCallCandidateToState(state, candidate);
 }
 
+export function switchToPreCallCandidate(
+  state: CallState,
+  candidateRef: string,
+): boolean {
+  const preCall = state.identity.preCall;
+  const candidate = preCall?.candidates.find(
+    (candidate) => candidate.ref === candidateRef,
+  );
+  if (!preCall || !candidate?.patientId) return false;
+
+  preCall.selectedCandidateRef = candidate.ref;
+  preCall.status = "multiple_match_confirmed";
+  preCall.identityPromotion = "switched_by_transcript";
+  applyPreCallCandidateToState(state, candidate);
+  return state.identity.patient.patientId === candidate.patientId;
+}
+
 export async function resolvePatientForCall(
   state: CallState,
   request: PatientResolveRequest,
@@ -145,6 +162,16 @@ function applyPreCallCandidateToState(
   >["candidates"][number],
 ): void {
   if (!candidate.patientId) return;
+  const patientIdentityBefore = snapshotActivePatientIdentity(state);
+  const invalidatePatientState = shouldInvalidatePatientScopedState(
+    patientIdentityBefore,
+    {
+      patientId: candidate.patientId,
+      name: [candidate.firstName, candidate.lastName].filter(Boolean).join(" "),
+      dob: candidate.dob ?? null,
+    },
+  );
+
   state.identity.patient = {
     ...state.identity.patient,
     status: "verified",
@@ -178,6 +205,12 @@ function applyPreCallCandidateToState(
     routingAmbiguous: candidate.routingAmbiguous,
     preauthRequired: candidate.preauthRequired,
   });
+
+  if (invalidatePatientState) {
+    clearAvailabilitySelection(state);
+    state.insurance.lastEligibilityCheck = null;
+    state.identity.latestBookedAppointmentId = undefined;
+  }
 }
 
 function applyPatientPayloadToState(

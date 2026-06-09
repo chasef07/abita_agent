@@ -89,6 +89,16 @@ function createToolContext(state: TestCallState) {
   };
 }
 
+const confirmedSlotA = {
+  confirmedSlotDate: "2026-06-01",
+  confirmedSlotTime: "9:00 AM",
+} as const;
+
+const confirmedSlotB = {
+  confirmedSlotDate: "2026-06-01",
+  confirmedSlotTime: "2:00 PM",
+} as const;
+
 function markSchedulingTriaged(
   state: TestCallState,
   appointmentLane: "medical_md" | "routine_od" = "medical_md",
@@ -781,6 +791,7 @@ describe("direct session state cleanup", () => {
     const result = await book_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "blurry vision",
         referringDoctor: "none",
       },
@@ -819,6 +830,7 @@ describe("direct session state cleanup", () => {
       book_appt.execute(
         {
           slotId: "A",
+          ...confirmedSlotA,
           appointmentReason: "move my appointment",
           referringDoctor: "none",
         },
@@ -844,6 +856,7 @@ describe("direct session state cleanup", () => {
       book_appt.execute(
         {
           slotId: "A",
+          ...confirmedSlotA,
           appointmentReason: "blurry vision",
           referringDoctor: "none",
         },
@@ -870,6 +883,7 @@ describe("direct session state cleanup", () => {
       book_appt.execute(
         {
           slotId: "A",
+          ...confirmedSlotA,
           appointmentReason: "blurry vision",
         },
         {
@@ -904,6 +918,7 @@ describe("direct session state cleanup", () => {
     const result = await book_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "blurry vision",
         referringDoctor: "none",
       },
@@ -952,6 +967,33 @@ describe("direct session state cleanup", () => {
     expect(state.availability.slots).toEqual([]);
   });
 
+  it("rejects booking when caller-confirmed slot details do not match the cached slot", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    storeAvailabilityBookingToken(state, "A", "private-token");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      book_appt.execute(
+        {
+          slotId: "A",
+          confirmedSlotDate: "2026-07-02",
+          confirmedSlotTime: "8:45 AM",
+          appointmentReason: "routine vision exam",
+          referringDoctor: "none",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "The caller-confirmed slot 2026-07-02 at 8:45 AM does not match cached slot June 1 at 9:00 AM with Doctor Smith.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("does not book another slot after a successful booking", async () => {
     const state = createState();
     markSchedulingTriaged(state);
@@ -971,6 +1013,7 @@ describe("direct session state cleanup", () => {
     await book_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "blurry vision",
         referringDoctor: "none",
       },
@@ -994,6 +1037,7 @@ describe("direct session state cleanup", () => {
     const result = await book_appt.execute(
       {
         slotId: "B",
+        ...confirmedSlotB,
         appointmentReason: "blurry vision",
         referringDoctor: "none",
       },
@@ -1034,6 +1078,7 @@ describe("direct session state cleanup", () => {
     await book_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "blurry vision",
         referringDoctor: "none",
       },
@@ -1067,6 +1112,7 @@ describe("direct session state cleanup", () => {
     const result = await book_appt.execute(
       {
         slotId: "B",
+        ...confirmedSlotB,
         appointmentReason: "glasses",
         referringDoctor: "none",
       },
@@ -1120,6 +1166,7 @@ describe("direct session state cleanup", () => {
     const result = await book_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "blurry vision",
         referringDoctor: "none",
       },
@@ -1162,6 +1209,7 @@ describe("direct session state cleanup", () => {
     const result = await book_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "blurry vision",
         referringDoctor: "none",
       },
@@ -2776,6 +2824,7 @@ describe("direct session state cleanup", () => {
     await book_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "eye exam",
         referringDoctor: "none",
       },
@@ -2879,6 +2928,7 @@ describe("direct session state cleanup", () => {
     const result = await reschedule_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentId: 123,
@@ -2987,6 +3037,7 @@ describe("direct session state cleanup", () => {
     await reschedule_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentId: 123,
@@ -3011,6 +3062,8 @@ describe("direct session state cleanup", () => {
     const result = await reschedule_appt.execute(
       {
         slotId: "B",
+        confirmedSlotDate: "2026-06-03",
+        confirmedSlotTime: "2:00 PM",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       },
@@ -3087,6 +3140,8 @@ describe("direct session state cleanup", () => {
     const result = await reschedule_appt.execute(
       {
         slotId: "A",
+        confirmedSlotDate: "2026-06-03",
+        confirmedSlotTime: "10:00 AM",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentId: 123,
@@ -3156,6 +3211,7 @@ describe("direct session state cleanup", () => {
     const result = await reschedule_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentId: 123,
@@ -3205,6 +3261,7 @@ describe("direct session state cleanup", () => {
     const result = await reschedule_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentDate: "June 2",
@@ -3263,6 +3320,7 @@ describe("direct session state cleanup", () => {
     const result = await reschedule_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentId: 123,
@@ -3291,6 +3349,8 @@ describe("direct session state cleanup", () => {
     const replayResult = await reschedule_appt.execute(
       {
         slotId: "B",
+        confirmedSlotDate: "2026-06-03",
+        confirmedSlotTime: "2:00 PM",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       },
@@ -3349,6 +3409,7 @@ describe("direct session state cleanup", () => {
     const result = await reschedule_appt.execute(
       {
         slotId: "A",
+        ...confirmedSlotA,
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentId: 123,
@@ -3376,6 +3437,7 @@ describe("direct session state cleanup", () => {
       reschedule_appt.execute(
         {
           slotId: "A",
+          ...confirmedSlotA,
           appointmentReason: "move my appointment",
           referringDoctor: "none",
           appointmentId: 123,

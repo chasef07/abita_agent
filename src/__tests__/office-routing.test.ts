@@ -890,6 +890,8 @@ describe("model-facing tool definitions", () => {
     expect(
       parameters.safeParse({
         slotId: "A",
+        confirmedSlotDate: "2026-06-01",
+        confirmedSlotTime: "9:00 AM",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentId: 123,
@@ -898,6 +900,8 @@ describe("model-facing tool definitions", () => {
     expect(
       parameters.safeParse({
         slotId: "A",
+        confirmedSlotDate: "2026-06-01",
+        confirmedSlotTime: "9:00 AM",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentDate: "June 2",
@@ -907,12 +911,16 @@ describe("model-facing tool definitions", () => {
     expect(
       parameters.safeParse({
         slotId: "A",
+        confirmedSlotDate: "2026-06-01",
+        confirmedSlotTime: "9:00 AM",
         appointmentReason: "move my appointment",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
         slotId: "A",
+        confirmedSlotDate: "2026-06-01",
+        confirmedSlotTime: "9:00 AM",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentId: 0,
@@ -944,10 +952,21 @@ describe("model-facing tool definitions", () => {
         appointmentReason: "blurry vision",
         referringDoctor: "none",
       }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        slotId: "A",
+        confirmedSlotDate: "2026-06-01",
+        confirmedSlotTime: "9:00 AM",
+        appointmentReason: "blurry vision",
+        referringDoctor: "none",
+      }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
         slotId: "A",
+        confirmedSlotDate: "2026-06-01",
+        confirmedSlotTime: "9:00 AM",
         appointmentReason: "blurry vision",
         referringDoctor: "Doctor Lee",
       }).success,

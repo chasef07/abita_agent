@@ -161,6 +161,96 @@ describe("pre-call transcript confirmation", () => {
     );
   });
 
+  it("switches active patient to another pre-call candidate from a first-name prompt", () => {
+    const state = createState();
+    state.identity.preCall = {
+      status: "multiple_match_confirmed",
+      source: "phone_lookup",
+      callerPhone: "+19546097250",
+      selectedCandidateRef: "precall:1",
+      candidates: [
+        {
+          ref: "precall:1",
+          firstName: "DAVID",
+          lastName: "MEJIA",
+          dob: "04/07/2014",
+          patientId: "patient-david",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+        {
+          ref: "precall:2",
+          firstName: "ELLIE",
+          lastName: "MEJIA",
+          dob: "08/18/2020",
+          patientId: "patient-ellie",
+          appointments: [],
+          appointmentsStatus: "none",
+          insuranceCarrier: "self pay",
+          routing: "all_three",
+          allowedProviders: ["Dr. Calero"],
+          routingAmbiguous: false,
+          preauthRequired: false,
+        },
+      ],
+      identityPromotion: "confirmed_by_transcript",
+    };
+    state.identity.patient = {
+      ...state.identity.patient,
+      status: "verified",
+      identityConfirmed: true,
+      patientId: "patient-david",
+      name: "DAVID MEJIA",
+      dob: "04/07/2014",
+      appointments: [
+        {
+          id: 123,
+          date: "2026-07-30",
+          time: "9:15 AM",
+          provider: "Dr. Calero",
+          type: "Established Routine",
+          facility: "Sweetwater",
+          confirmed: true,
+        },
+      ],
+      appointmentsStatus: "found",
+    };
+    state.identity.latestBookedAppointmentId = 123;
+    state.availability.slots = [
+      {
+        slotId: "A",
+        spoken: "2026-07-30 9:15 AM with Dr. Calero",
+        provider: "Dr. Calero",
+        date: "2026-07-30",
+        time: "9:15 AM",
+        datetime: "2026-07-30T09:15:00",
+        routing: "all_three",
+      },
+    ];
+    state.availability.bookingTokensBySlotId = { A: "old-token" };
+
+    const confirmation = confirmPreCallIdentityFromTranscript({
+      state,
+      transcript: "For this, Ellie Mejia.",
+      lastAssistantText:
+        "Yeah, I can help with the second patient too. What's their first name?",
+    });
+
+    expect(confirmation?.candidateRef).toBe("precall:2");
+    expect(confirmation?.systemMessage).toContain(
+      "active patient switched to another pre-call phone candidate",
+    );
+    expect(state.identity.preCall.selectedCandidateRef).toBe("precall:2");
+    expect(state.identity.preCall.identityPromotion).toBe(
+      "switched_by_transcript",
+    );
+    expect(state.identity.patient.patientId).toBe("patient-ellie");
+    expect(state.identity.patient.name).toBe("ELLIE MEJIA");
+    expect(state.availability.slots).toEqual([]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
+    expect(state.identity.latestBookedAppointmentId).toBeUndefined();
+  });
+
   it("does not confirm a first-name candidate while collecting last name", () => {
     const state = createState();
     state.identity.preCall = {

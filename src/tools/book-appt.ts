@@ -37,6 +37,20 @@ export const book_appt = llm.tool({
       .trim()
       .min(1)
       .describe("slotId from get_availability for the caller-confirmed slot."),
+    confirmedSlotDate: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .describe(
+        "Caller-confirmed appointment date for this slot, in YYYY-MM-DD.",
+      ),
+    confirmedSlotTime: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        'Caller-confirmed appointment time for this slot, such as "9:15 AM".',
+      ),
     appointmentReason: z
       .string()
       .trim()
@@ -50,7 +64,16 @@ export const book_appt = llm.tool({
         'Caller-provided referring doctor, or "none" if the caller has no referring doctor.',
       ),
   }),
-  execute: async ({ slotId, appointmentReason, referringDoctor }, { ctx }) => {
+  execute: async (
+    {
+      slotId,
+      confirmedSlotDate,
+      confirmedSlotTime,
+      appointmentReason,
+      referringDoctor,
+    },
+    { ctx },
+  ) => {
     const state = getState(ctx);
 
     restoreConfirmedPreCallCaller(state);
@@ -69,7 +92,10 @@ export const book_appt = llm.tool({
     }
 
     ensureRoutineVisionOffice(state);
-    const selectedSlot = selectedSlotForBooking(state, slotId);
+    const selectedSlot = selectedSlotForBooking(state, slotId, {
+      date: confirmedSlotDate,
+      time: confirmedSlotTime,
+    });
     const bookingBody = bookingRequestBodyForSlot(state, {
       selectedSlot,
       patientId,
