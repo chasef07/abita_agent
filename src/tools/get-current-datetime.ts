@@ -38,6 +38,16 @@ const MONTH_NAMES = [
   "December",
 ] as const;
 
+const MONTH_INDEX_BY_NAME = MONTH_NAMES.reduce<Record<string, number>>(
+  (months, month, index) => {
+    const monthIndex = index + 1;
+    months[month.toLowerCase()] = monthIndex;
+    months[month.slice(0, 3).toLowerCase()] = monthIndex;
+    return months;
+  },
+  {},
+);
+
 type WeekdayName = keyof typeof WEEKDAY_INDEX_BY_NAME;
 
 type ClinicCalendarDate = {
@@ -130,6 +140,11 @@ function resolveDatePhrase(
     };
   }
 
+  const monthDayResult = resolveMonthDayPhrase(normalized, today);
+  if (monthDayResult) {
+    return monthDayResult;
+  }
+
   const weekdayMatch = normalized.match(
     /^(?:(this|next)\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$/,
   );
@@ -165,6 +180,38 @@ function resolveDatePhrase(
   return { status: "resolved", date: addCalendarDays(today, daysAhead) };
 }
 
+function resolveMonthDayPhrase(
+  normalized: string,
+  today: ClinicCalendarDate,
+): ResolvedDatePhrase | null {
+  const monthDayMatch = normalized.match(
+    /^(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|october|oct|november|nov|december|dec)\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s+(\d{4}))?$/,
+  );
+  if (!monthDayMatch) return null;
+
+  const month = MONTH_INDEX_BY_NAME[monthDayMatch[1]];
+  const day = Number(monthDayMatch[2]);
+  const explicitYear = monthDayMatch[3] ? Number(monthDayMatch[3]) : undefined;
+
+  if (explicitYear !== undefined) {
+    const explicitDate = buildCalendarDate(explicitYear, month, day);
+    return explicitDate ? { status: "resolved", date: explicitDate } : null;
+  }
+
+  const thisYearDate = buildCalendarDate(today.year, month, day);
+  if (!thisYearDate) return null;
+  if (compareCalendarDates(thisYearDate, today) >= 0) {
+    return { status: "resolved", date: thisYearDate };
+  }
+
+  const nextYearDate = buildCalendarDate(today.year + 1, month, day);
+  if (!nextYearDate) return null;
+  return {
+    status: "clarify",
+    message: `${formatMonthDay(thisYearDate)} has already passed this year. Ask whether the caller means ${formatSpokenDate(nextYearDate)} or another date before checking availability.`,
+  };
+}
+
 function normalizeDatePhrase(phrase: string): string {
   return phrase
     .toLowerCase()
@@ -195,8 +242,43 @@ function addCalendarDays(
   };
 }
 
+function buildCalendarDate(
+  year: number,
+  month: number,
+  day: number,
+): ClinicCalendarDate | null {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() + 1 !== month ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return {
+    year,
+    month,
+    day,
+    weekdayIndex: date.getUTCDay(),
+  };
+}
+
+function compareCalendarDates(
+  left: ClinicCalendarDate,
+  right: ClinicCalendarDate,
+): number {
+  if (left.year !== right.year) return left.year - right.year;
+  if (left.month !== right.month) return left.month - right.month;
+  return left.day - right.day;
+}
+
 function formatSpokenDate(date: ClinicCalendarDate): string {
   return `${WEEKDAY_NAMES[date.weekdayIndex]}, ${MONTH_NAMES[date.month - 1]} ${ordinalDay(date.day)}, ${date.year}`;
+}
+
+function formatMonthDay(date: ClinicCalendarDate): string {
+  return `${MONTH_NAMES[date.month - 1]} ${ordinalDay(date.day)}`;
 }
 
 function isoDate(date: ClinicCalendarDate): string {
@@ -238,7 +320,7 @@ export const get_current_datetime = llm.tool({
   description:
     "Get the current clinic-local date and time in America/New_York. " +
     "Call this before interpreting relative dates or times for scheduling, availability, booking, or appointment changes, including phrases like today, tomorrow, next week, Friday, this morning, or this afternoon. " +
-    "Pass datePhrase when the caller used relative date language, such as today, tomorrow, Wednesday, this Wednesday, or next Wednesday. " +
+    "Pass datePhrase when the caller used relative or yearless date language, such as today, tomorrow, Wednesday, this Wednesday, next Wednesday, or June 16. " +
     "This tool returns natural English with the exact YYYY-MM-DD date when one can be resolved, or tells you to clarify if the phrase is not one exact date. " +
     "This tool is read-only; it does not schedule, book, cancel, or call external systems.",
   parameters: z.object({
@@ -248,7 +330,7 @@ export const get_current_datetime = llm.tool({
       .min(1)
       .optional()
       .describe(
-        "Caller-provided relative date phrase to resolve, such as today, tomorrow, Wednesday, this Wednesday, or next Wednesday. Omit if only the current clinic-local date and time is needed.",
+        "Caller-provided relative or yearless date phrase to resolve, such as today, tomorrow, Wednesday, this Wednesday, next Wednesday, or June 16. Omit if only the current clinic-local date and time is needed.",
       ),
   }),
   execute: async ({ datePhrase }) =>

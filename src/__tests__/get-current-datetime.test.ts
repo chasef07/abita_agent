@@ -33,6 +33,28 @@ describe("get_current_datetime tool", () => {
     );
   });
 
+  it("resolves a yearless month and day to the next upcoming date", () => {
+    expect(
+      buildCurrentDateTimeMessage(
+        new Date("2026-06-09T14:42:00.000Z"),
+        "June 16",
+      ),
+    ).toContain(
+      'I interpreted "June 16" as Tuesday, June 16th, 2026. Use 2026-06-16 when checking availability',
+    );
+  });
+
+  it("asks for clarification when a yearless month and day already passed this year", () => {
+    expect(
+      buildCurrentDateTimeMessage(
+        new Date("2026-06-09T14:42:00.000Z"),
+        "June 1",
+      ),
+    ).toContain(
+      "June 1st has already passed this year. Ask whether the caller means Tuesday, June 1st, 2027 or another date before checking availability.",
+    );
+  });
+
   it("asks for clarification when this weekday has already passed", () => {
     expect(
       buildCurrentDateTimeMessage(
