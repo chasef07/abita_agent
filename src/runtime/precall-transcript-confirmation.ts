@@ -5,6 +5,16 @@ type PreCallCandidate = NonNullable<
   CallState["identity"]["preCall"]
 >["candidates"][number];
 
+type PreCallCandidateSelection = {
+  candidate: PreCallCandidate;
+  otherMentionedCandidates: PreCallCandidate[];
+};
+
+type NameSignal = {
+  value: string;
+  index: number;
+};
+
 export interface PreCallTranscriptConfirmation {
   candidateRef: string;
   systemMessage: string;
@@ -23,12 +33,18 @@ export function confirmPreCallIdentityFromTranscript({
   if (!preCall || state.identity.patient.identityConfirmed) return null;
   if (!isFirstNamePrompt(lastAssistantText)) return null;
 
-  const candidate =
+  const selection =
     preCall.status === "single_match_pending_confirmation"
-      ? singlePreCallCandidate(preCall)
-      : uniqueMultiplePreCallCandidate(preCall, transcript);
+      ? singlePreCallCandidateSelection(preCall)
+      : multiplePreCallCandidateSelection(preCall, transcript);
+  const candidate = selection?.candidate ?? null;
   if (!candidate?.patientId) return null;
-  if (!candidateFirstNameMatchesTranscript(candidate, transcript)) return null;
+  if (
+    preCall.status === "single_match_pending_confirmation" &&
+    !candidateFirstNameMatchesTranscript(candidate, transcript)
+  ) {
+    return null;
+  }
 
   preCall.status =
     preCall.status === "single_match_pending_confirmation"
@@ -42,29 +58,45 @@ export function confirmPreCallIdentityFromTranscript({
 
   return {
     candidateRef: candidate.ref,
-    systemMessage: confirmedPatientSystemMessage(state),
+    systemMessage: confirmedPatientSystemMessage(
+      state,
+      selection?.otherMentionedCandidates ?? [],
+    ),
   };
 }
 
-function singlePreCallCandidate(
+function singlePreCallCandidateSelection(
   preCall: NonNullable<CallState["identity"]["preCall"]>,
-): PreCallCandidate | null {
-  return (
+): PreCallCandidateSelection | null {
+  const candidate =
     candidateByRef(preCall, preCall.selectedCandidateRef) ??
     candidateByRef(preCall, CALLER_CANDIDATE_REF) ??
-    (preCall.candidates.length === 1 ? preCall.candidates[0] : null)
-  );
+    (preCall.candidates.length === 1 ? preCall.candidates[0] : null);
+  return candidate ? { candidate, otherMentionedCandidates: [] } : null;
 }
 
-function uniqueMultiplePreCallCandidate(
+function multiplePreCallCandidateSelection(
   preCall: NonNullable<CallState["identity"]["preCall"]>,
   transcript: string,
-): PreCallCandidate | null {
+): PreCallCandidateSelection | null {
   if (preCall.status !== "multiple_matches_pending_selection") return null;
-  const matches = preCall.candidates.filter((candidate) =>
-    candidateFirstNameMatchesTranscript(candidate, transcript),
+  const mentions = mentionedPreCallCandidates(preCall, transcript);
+  const firstMention = mentions[0];
+  if (!firstMention) return null;
+
+  const ambiguousFirstMention = mentions.some(
+    (mention) =>
+      mention.index === firstMention.index &&
+      mention.candidate.ref !== firstMention.candidate.ref,
   );
-  return matches.length === 1 ? matches[0] : null;
+  if (ambiguousFirstMention) return null;
+
+  return {
+    candidate: firstMention.candidate,
+    otherMentionedCandidates: mentions
+      .filter((mention) => mention.candidate.ref !== firstMention.candidate.ref)
+      .map((mention) => mention.candidate),
+  };
 }
 
 function candidateByRef(
@@ -79,10 +111,35 @@ function candidateFirstNameMatchesTranscript(
   candidate: PreCallCandidate,
   transcript: string,
 ): boolean {
-  if (!candidate.patientId || !candidate.firstName) return false;
-  return transcriptNameSignals(transcript).some((signal) =>
-    namesMatch(signal, candidate.firstName),
-  );
+  return candidateFirstNameMentionIndex(candidate, transcript) !== null;
+}
+
+function mentionedPreCallCandidates(
+  preCall: NonNullable<CallState["identity"]["preCall"]>,
+  transcript: string,
+): Array<{ candidate: PreCallCandidate; index: number }> {
+  return preCall.candidates
+    .map((candidate) => ({
+      candidate,
+      index: candidateFirstNameMentionIndex(candidate, transcript),
+    }))
+    .filter(
+      (mention): mention is { candidate: PreCallCandidate; index: number } =>
+        mention.index !== null,
+    )
+    .sort((a, b) => a.index - b.index);
+}
+
+function candidateFirstNameMentionIndex(
+  candidate: PreCallCandidate,
+  transcript: string,
+): number | null {
+  if (!candidate.patientId || !candidate.firstName) return null;
+  const matchingSignals = transcriptNameSignalSpans(transcript)
+    .filter((signal) => namesMatch(signal.value, candidate.firstName))
+    .map((signal) => signal.index);
+  if (matchingSignals.length === 0) return null;
+  return Math.min(...matchingSignals);
 }
 
 function isFirstNamePrompt(text: string | null | undefined): boolean {
@@ -101,27 +158,36 @@ function isFirstNamePrompt(text: string | null | undefined): boolean {
   );
 }
 
-function transcriptNameSignals(transcript: string): string[] {
-  const signals = new Set<string>();
+function transcriptNameSignalSpans(transcript: string): NameSignal[] {
+  const signals: NameSignal[] = [];
   const full = normalizeName(transcript);
-  if (full) signals.add(full);
+  if (full) signals.push({ value: full, index: 0 });
 
-  const words = transcript.match(/[A-Za-z]+/g) ?? [];
+  const wordMatches = transcript.matchAll(/[A-Za-z]+/g);
   let spelledRun = "";
-  for (const word of words) {
+  let spelledRunIndex: number | null = null;
+  for (const match of wordMatches) {
+    const word = match[0];
+    const index = match.index ?? 0;
     const normalized = normalizeName(word);
     if (!normalized) continue;
     if (normalized.length === 1) {
+      if (spelledRunIndex === null) spelledRunIndex = index;
       spelledRun += normalized;
       continue;
     }
-    if (spelledRun.length >= 2) signals.add(spelledRun);
+    if (spelledRun.length >= 2) {
+      signals.push({ value: spelledRun, index: spelledRunIndex ?? index });
+    }
     spelledRun = "";
-    signals.add(normalized);
+    spelledRunIndex = null;
+    signals.push({ value: normalized, index });
   }
-  if (spelledRun.length >= 2) signals.add(spelledRun);
+  if (spelledRun.length >= 2) {
+    signals.push({ value: spelledRun, index: spelledRunIndex ?? 0 });
+  }
 
-  return [...signals].filter((signal) => signal.length >= 3);
+  return signals.filter((signal) => signal.value.length >= 3);
 }
 
 function namesMatch(
@@ -154,18 +220,47 @@ function collapseConsecutiveLetters(value: string): string {
   return value.replace(/(.)\1+/g, "$1");
 }
 
-function confirmedPatientSystemMessage(state: CallState): string {
+function confirmedPatientSystemMessage(
+  state: CallState,
+  otherMentionedCandidates: PreCallCandidate[] = [],
+): string {
   const patientName = state.identity.patient.name?.trim() || "the patient";
   const patientId = state.identity.patient.patientId?.trim() || "unknown";
   return [
     "Internal state: patient identity is confirmed from a pre-call phone candidate after the caller provided the patient's first name.",
     `Patient: ${patientName}.`,
     `Patient ID: ${patientId}.`,
+    otherMentionedPatientsSystemMessage(patientName, otherMentionedCandidates),
     appointmentSummaryForSystemMessage(state),
     "Do not ask for last name or date of birth again. Continue using the loaded patient state for appointment questions, booking, or cancellation.",
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function otherMentionedPatientsSystemMessage(
+  activePatientName: string,
+  candidates: PreCallCandidate[],
+): string {
+  const names = uniqueCandidateNames(candidates);
+  if (names.length === 0) return "";
+  return [
+    `Caller also mentioned preloaded patient${names.length === 1 ? "" : "s"}: ${names.join(", ")}.`,
+    `Finish ${activePatientName} first.`,
+    "Before working on another mentioned patient, use switch_preloaded_patient to switch the active patient.",
+  ].join(" ");
+}
+
+function uniqueCandidateNames(candidates: PreCallCandidate[]): string[] {
+  return [
+    ...new Set(
+      candidates
+        .map((candidate) =>
+          [candidate.firstName, candidate.lastName].filter(Boolean).join(" "),
+        )
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function appointmentSummaryForSystemMessage(state: CallState): string {
