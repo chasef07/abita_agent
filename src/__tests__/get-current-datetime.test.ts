@@ -85,6 +85,9 @@ describe("get_current_datetime tool", () => {
       "before interpreting relative dates or times",
     );
     expect(get_current_datetime.description).toContain(
+      "Do not call this tool for explicit calendar dates like June 16",
+    );
+    expect(get_current_datetime.description).toContain(
       "returns natural English",
     );
     expect(get_current_datetime.description).toContain("read-only");

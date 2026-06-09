@@ -320,7 +320,8 @@ export const get_current_datetime = llm.tool({
   description:
     "Get the current clinic-local date and time in America/New_York. " +
     "Call this before interpreting relative dates or times for scheduling, availability, booking, or appointment changes, including phrases like today, tomorrow, next week, Friday, this morning, or this afternoon. " +
-    "Pass datePhrase when the caller used relative or yearless date language, such as today, tomorrow, Wednesday, this Wednesday, next Wednesday, or June 16. " +
+    "Do not call this tool for explicit calendar dates like June 16, June 16 2026, or 2026-06-16; pass the exact YYYY-MM-DD date to the scheduling tool directly. " +
+    "Pass datePhrase only when the caller used relative date language, such as today, tomorrow, Wednesday, this Wednesday, or next Wednesday. " +
     "This tool returns natural English with the exact YYYY-MM-DD date when one can be resolved, or tells you to clarify if the phrase is not one exact date. " +
     "This tool is read-only; it does not schedule, book, cancel, or call external systems.",
   parameters: z.object({
@@ -330,7 +331,7 @@ export const get_current_datetime = llm.tool({
       .min(1)
       .optional()
       .describe(
-        "Caller-provided relative or yearless date phrase to resolve, such as today, tomorrow, Wednesday, this Wednesday, next Wednesday, or June 16. Omit if only the current clinic-local date and time is needed.",
+        "Caller-provided relative date phrase to resolve, such as today, tomorrow, Wednesday, this Wednesday, or next Wednesday. Do not use this for explicit calendar dates like June 16, June 16 2026, or 2026-06-16.",
       ),
   }),
   execute: async ({ datePhrase }) =>

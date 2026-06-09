@@ -739,6 +739,9 @@ describe("model-facing tool definitions", () => {
     expect(get_availability.description).toContain(
       "Do not call for same-day or past dates",
     );
+    expect(get_availability.description).toContain(
+      "For explicit calendar dates like June 16",
+    );
     expect(get_availability.description).not.toContain("bach_only routing");
     expect(get_availability.description).not.toContain(
       "Under 18 medical visits = Dr. Bach only",

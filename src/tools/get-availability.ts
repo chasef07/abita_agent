@@ -42,6 +42,7 @@ export const get_availability = llm.tool({
     "For new appointments, pass appointmentLane after the visit reason is clear. Use medical_md for medical ophthalmology, or routine_od for routine vision, glasses, contacts, or optometry. " +
     "For reschedules, omit appointmentLane only when the existing appointment to move is already identified. " +
     "Do not call for same-day or past dates; ask for tomorrow or a later date. " +
+    "For explicit calendar dates like June 16, June 16 2026, or 2026-06-16, choose the exact YYYY-MM-DD date and call this tool directly. " +
     "If the caller uses a relative date like today, tomorrow, next week, or Friday, call get_current_datetime before choosing the YYYY-MM-DD date. Do not pass relative phrases like next Wednesday here.",
   parameters: z.object({
     date: isoDateSchema.describe("Start date in YYYY-MM-DD format."),
