@@ -49,6 +49,7 @@ export const confirm_patient_identity = llm.tool({
     "Confirm or load a patient identity for patient-specific work. " +
     "Use only identity details the caller has provided. " +
     "If internal state says patient identity is already confirmed, do not call this tool or ask for last name or DOB again; continue with the loaded patient state. " +
+    "If the caller needs another preloaded patient, use switch_preloaded_patient instead of replacing the active patient with this tool. " +
     "Call only after collecting the patient's first name, last name, and DOB.",
   parameters: identityParameters,
   execute: async (args, { ctx }) => {
@@ -56,6 +57,9 @@ export const confirm_patient_identity = llm.tool({
     const identity = normalizeIdentityArgs(args);
 
     requireFullIdentity(identity);
+    const activePreCallReply = activePreCallPatientReply(state, identity);
+    if (activePreCallReply) return activePreCallReply;
+
     const preCallReply = confirmFromPreCallState(state, identity);
     if (preCallReply) return preCallReply;
 
@@ -185,6 +189,53 @@ function findFullIdentityPreCallMatch(
     fullIdentityMatchesCandidate(candidate, identity),
   );
   return matches.length === 1 ? matches[0] : null;
+}
+
+function activePreCallPatientReply(
+  state: CallState,
+  identity: FullIdentityArgs,
+): string | null {
+  const preCall = state.identity.preCall;
+  const activePatientId = state.identity.patient.patientId?.trim();
+  if (
+    !preCall ||
+    !state.identity.patient.identityConfirmed ||
+    !activePatientId ||
+    (preCall.status !== "single_match_confirmed" &&
+      preCall.status !== "multiple_match_confirmed")
+  ) {
+    return null;
+  }
+
+  const requestedCandidate = findFullIdentityPreCallMatch(preCall, identity);
+  if (!requestedCandidate?.patientId) return null;
+
+  const activeName = activePreCallPatientName(state, preCall, activePatientId);
+  const requestedName = candidateDisplayName(requestedCandidate);
+  if (requestedCandidate.patientId.trim() === activePatientId) {
+    return `${activeName} is already the active patient. Continue with loaded patient state.`;
+  }
+
+  return `${activeName} is currently active. Finish ${activeName} first, then use switch_preloaded_patient for ${requestedName} before working on ${requestedName}.`;
+}
+
+function activePreCallPatientName(
+  state: CallState,
+  preCall: PreCallContextState,
+  activePatientId: string,
+): string {
+  const activeCandidate = preCall.candidates.find(
+    (candidate) => candidate.patientId?.trim() === activePatientId,
+  );
+  return (
+    state.identity.patient.name?.trim() ||
+    (activeCandidate ? candidateDisplayName(activeCandidate) : "") ||
+    "the active patient"
+  );
+}
+
+function candidateDisplayName(candidate: PreCallCandidate): string {
+  return [candidate.firstName, candidate.lastName].filter(Boolean).join(" ");
 }
 
 function fullIdentityMatchesCandidate(

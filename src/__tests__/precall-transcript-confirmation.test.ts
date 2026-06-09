@@ -110,6 +110,70 @@ describe("pre-call transcript confirmation", () => {
     expect(state.identity.patient.name).toBe("LARRY TEST");
   });
 
+  it("selects the first mentioned pre-call patient when the caller names multiple patients", () => {
+    const state = createState();
+    state.identity.preCall = {
+      status: "multiple_matches_pending_selection",
+      source: "phone_lookup",
+      callerPhone: "+17863488102",
+      candidates: [
+        {
+          ref: "precall:1",
+          firstName: "BRANDEN",
+          lastName: "ANDERSON",
+          dob: "04/05/2012",
+          patientId: "patient-branden",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+        {
+          ref: "precall:2",
+          firstName: "BRANDON",
+          lastName: "ANDERSON",
+          dob: "04/05/2012",
+          patientId: "patient-brandon",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+        {
+          ref: "precall:3",
+          firstName: "MONIQUE",
+          lastName: "HAMILTON",
+          dob: "12/21/2016",
+          patientId: "patient-monique",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+      ],
+      identityPromotion: "none",
+    };
+
+    const confirmation = confirmPreCallIdentityFromTranscript({
+      state,
+      transcript: "Brandon and Monique, Brandon Anderson and Monique Hamilton.",
+      lastAssistantText:
+        "I see a few patient records on file for this number, who's the appointment for?",
+    });
+
+    expect(confirmation?.candidateRef).toBe("precall:2");
+    expect(confirmation?.systemMessage).toContain("Patient: BRANDON ANDERSON.");
+    expect(confirmation?.systemMessage).toContain(
+      "Caller also mentioned preloaded patient: MONIQUE HAMILTON.",
+    );
+    expect(confirmation?.systemMessage).toContain(
+      "Finish BRANDON ANDERSON first.",
+    );
+    expect(confirmation?.systemMessage).toContain("switch_preloaded_patient");
+    expect(state.identity.preCall.status).toBe("multiple_match_confirmed");
+    expect(state.identity.preCall.selectedCandidateRef).toBe("precall:2");
+    expect(state.identity.preCall.identityPromotion).toBe(
+      "confirmed_by_transcript",
+    );
+    expect(state.identity.patient.identityConfirmed).toBe(true);
+    expect(state.identity.patient.patientId).toBe("patient-brandon");
+    expect(state.identity.patient.name).toBe("BRANDON ANDERSON");
+  });
+
   it("includes loaded appointments in the durable confirmation message", () => {
     const state = createState();
     state.identity.preCall = {

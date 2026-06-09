@@ -2507,6 +2507,68 @@ describe("direct session state cleanup", () => {
     expect(state.identity.patient.patientId).toBe("patient-chase");
   });
 
+  it("does not replace an active pre-call patient when another preloaded patient is confirmed", async () => {
+    const state = createState();
+    state.identity.patient = {
+      ...state.identity.patient,
+      status: "verified",
+      identityConfirmed: true,
+      patientId: "patient-brandon",
+      name: "BRANDON ANDERSON",
+      dob: "04/05/2012",
+      phone: null,
+      appointments: [],
+      appointmentsStatus: "none",
+    };
+    state.identity.preCall = {
+      status: "multiple_match_confirmed",
+      source: "phone_lookup",
+      callerPhone: "+17863488102",
+      candidates: [
+        {
+          ref: "precall:1",
+          firstName: "BRANDON",
+          lastName: "ANDERSON",
+          dob: "04/05/2012",
+          patientId: "patient-brandon",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+        {
+          ref: "precall:2",
+          firstName: "MONIQUE",
+          lastName: "HAMILTON",
+          dob: "12/21/2016",
+          patientId: "patient-monique",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+      ],
+      selectedCandidateRef: "precall:1",
+      identityPromotion: "confirmed_by_transcript",
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await confirm_patient_identity.execute(
+      {
+        firstName: "Monique",
+        lastName: "Hamilton",
+        dob: "12/21/2016",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toBe(
+      "BRANDON ANDERSON is currently active. Finish BRANDON ANDERSON first, then use switch_preloaded_patient for MONIQUE HAMILTON before working on MONIQUE HAMILTON.",
+    );
+    expect(state.identity.preCall.selectedCandidateRef).toBe("precall:1");
+    expect(state.identity.patient.identityConfirmed).toBe(true);
+    expect(state.identity.patient.patientId).toBe("patient-brandon");
+    expect(state.identity.patient.name).toBe("BRANDON ANDERSON");
+  });
+
   it("requires full identity before resolving pre-call candidates through the tool", async () => {
     const state = createState();
     state.identity.patient = {
