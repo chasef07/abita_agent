@@ -515,6 +515,72 @@ describe("direct session state cleanup", () => {
     expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(2);
   });
 
+  it("does not cache availability error responses that ask for a new date or time", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    const ctx = createToolContext(state);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          outcome: "scheduler_error",
+          message: "The scheduler could not complete that search.",
+          shouldRetrySameSearch: false,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          status: "success",
+          outcome: "no_availability",
+          availabilityFound: false,
+          requestedDate: "2026-07-09",
+          searchedFrom: "2026-07-09",
+          searchedThrough: "2026-07-23",
+          shouldRetrySameSearch: false,
+          slots: [],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const firstResult = await get_availability.execute(
+      {
+        date: "2026-07-09",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+    const secondResult = await get_availability.execute(
+      {
+        date: "2026-07-09",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+
+    expect(firstResult).toEqual({
+      result: "error",
+      reply: "The scheduler could not complete that search.",
+      next: "ask_new_date_or_time",
+      slots: [],
+    });
+    expect(secondResult).toMatchObject({
+      result: "no_slots_found",
+      next: "ask_next_search_or_new_preference",
+      slots: [],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(ctx.session.say).toHaveBeenCalledTimes(2);
+    expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(2);
+  });
+
   it("requires a loaded patient before checking availability", async () => {
     const state = createState();
     markSchedulingTriaged(state);

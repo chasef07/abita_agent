@@ -90,8 +90,12 @@ function isCacheableAvailabilityResponse(response: unknown): boolean {
   if (!response || typeof response !== "object" || Array.isArray(response)) {
     return false;
   }
-  const next = (response as Record<string, unknown>).next;
-  return next !== "retry_search_once";
+  const record = response as Record<string, unknown>;
+  return (
+    (record.result === "slots_found" && record.next === "offer_slot") ||
+    (record.result === "no_slots_found" &&
+      record.next === "ask_next_search_or_new_preference")
+  );
 }
 
 function availabilityLookupNotice(): string {
