@@ -5,6 +5,7 @@ import {
   normalizeInsuranceText,
   type InsuranceCoverageType,
 } from "../insurance-rules.js";
+import { dobMatches, namesMatch } from "../identity/name-matcher.js";
 import {
   applySchedulingLaneToState,
   insuranceSnapshot,
@@ -24,7 +25,7 @@ import { getState } from "./session.js";
 export const add_patient = llm.tool({
   description:
     "Creates a chart for a new patient. " +
-    "Call this when the user has not registered in the system before. " +
+    "Call this only after resolve_patient has confirmed the caller says the patient is not registered with us. " +
     "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. Pass appointmentLane as medical_md for medical ophthalmology or routine_od for routine vision, glasses, contacts, or optometry. " +
     "Before calling, read back the important registration details and get caller confirmation. " +
     "Before using the inbound caller number for the chart, ask whether the number they are calling from is a good callback number to put on file. " +
@@ -80,6 +81,10 @@ export const add_patient = llm.tool({
   }),
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
+
+    if (state.identity.patient.status !== "new") {
+      return "Before creating a new chart, ask whether the patient is already registered with us and call resolve_patient with registrationStatus not_registered after the caller confirms they are not registered.";
+    }
 
     const checkedInsurance = lastInsuranceEligibilityCheck(state);
     if (
@@ -222,59 +227,6 @@ function hasMatchingPendingPreCallPatient(
       namesMatch(params.lastName, candidate.lastName) &&
       dobMatches(params.dob, candidate.dob),
   );
-}
-
-function namesMatch(
-  provided: string | null | undefined,
-  expected: string | null | undefined,
-): boolean {
-  const providedName = normalizeName(provided);
-  const expectedName = normalizeName(expected);
-  if (!providedName || !expectedName) return false;
-  if (providedName === expectedName) return true;
-  return (
-    providedName.length >= 3 &&
-    expectedName.length >= 3 &&
-    (providedName.startsWith(expectedName) ||
-      expectedName.startsWith(providedName))
-  );
-}
-
-function normalizeName(value: string | null | undefined): string {
-  return (
-    value
-      ?.trim()
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z]/g, "") ?? ""
-  );
-}
-
-function dobMatches(
-  provided: string | null | undefined,
-  expected: string | null | undefined,
-): boolean {
-  const providedDob = normalizeDob(provided);
-  const expectedDob = normalizeDob(expected);
-  return Boolean(providedDob && expectedDob && providedDob === expectedDob);
-}
-
-function normalizeDob(value: string | null | undefined): string {
-  const trimmed = value?.trim();
-  if (!trimmed) return "";
-
-  const match = trimmed.match(/^(\d{1,2})\D+(\d{1,2})\D+(\d{2,4})$/);
-  if (!match) return trimmed;
-
-  const [, month, day, rawYear] = match;
-  const year =
-    rawYear.length === 2
-      ? Number(rawYear) > 30
-        ? `19${rawYear}`
-        : `20${rawYear}`
-      : rawYear;
-  return `${month.padStart(2, "0")}/${day.padStart(2, "0")}/${year}`;
 }
 
 type AddPatientResult = {

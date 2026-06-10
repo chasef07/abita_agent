@@ -1,18 +1,16 @@
 import { CALLER_CANDIDATE_REF, type CallState } from "../state/call-state.js";
-import { restoreConfirmedPreCallCaller } from "../tools/patient-state.js";
-
-type PreCallCandidate = NonNullable<
-  CallState["identity"]["preCall"]
->["candidates"][number];
+import { matchCandidatesByFirstName } from "../identity/name-matcher.js";
+import {
+  activatePreloadedCandidate,
+  candidateByRef,
+  candidateDisplayName,
+  selectedPreCallCandidate,
+  type PreCallCandidate,
+} from "../identity/preloaded-patient.js";
 
 type PreCallCandidateSelection = {
   candidate: PreCallCandidate;
   otherMentionedCandidates: PreCallCandidate[];
-};
-
-type NameSignal = {
-  value: string;
-  index: number;
 };
 
 export interface PreCallTranscriptConfirmation {
@@ -31,28 +29,17 @@ export function confirmPreCallIdentityFromTranscript({
 }): PreCallTranscriptConfirmation | null {
   const preCall = state.identity.preCall;
   if (!preCall || state.identity.patient.identityConfirmed) return null;
+  if (state.identity.patient.status === "new") return null;
   if (!isFirstNamePrompt(lastAssistantText)) return null;
 
   const selection =
     preCall.status === "single_match_pending_confirmation"
-      ? singlePreCallCandidateSelection(preCall)
+      ? singlePreCallCandidateSelection(preCall, transcript)
       : multiplePreCallCandidateSelection(preCall, transcript);
   const candidate = selection?.candidate ?? null;
   if (!candidate?.patientId) return null;
-  if (
-    preCall.status === "single_match_pending_confirmation" &&
-    !candidateFirstNameMatchesTranscript(candidate, transcript)
-  ) {
-    return null;
-  }
 
-  preCall.status =
-    preCall.status === "single_match_pending_confirmation"
-      ? "single_match_confirmed"
-      : "multiple_match_confirmed";
-  preCall.selectedCandidateRef = candidate.ref;
-  preCall.identityPromotion = "confirmed_by_transcript";
-  restoreConfirmedPreCallCaller(state);
+  activatePreloadedCandidate(state, candidate, "confirmed_by_transcript");
 
   if (!state.identity.patient.identityConfirmed) return null;
 
@@ -67,12 +54,22 @@ export function confirmPreCallIdentityFromTranscript({
 
 function singlePreCallCandidateSelection(
   preCall: NonNullable<CallState["identity"]["preCall"]>,
+  transcript: string,
 ): PreCallCandidateSelection | null {
   const candidate =
-    candidateByRef(preCall, preCall.selectedCandidateRef) ??
-    candidateByRef(preCall, CALLER_CANDIDATE_REF) ??
-    (preCall.candidates.length === 1 ? preCall.candidates[0] : null);
-  return candidate ? { candidate, otherMentionedCandidates: [] } : null;
+    selectedPreCallCandidate(preCall) ??
+    candidateByRef(preCall, CALLER_CANDIDATE_REF);
+  if (!candidate) return null;
+
+  const match = matchCandidatesByFirstName(
+    transcript,
+    [candidate],
+    (item) => item.firstName,
+    transcriptMatchOptions,
+  );
+  return match.status === "unique"
+    ? { candidate: match.candidate, otherMentionedCandidates: [] }
+    : null;
 }
 
 function multiplePreCallCandidateSelection(
@@ -80,67 +77,24 @@ function multiplePreCallCandidateSelection(
   transcript: string,
 ): PreCallCandidateSelection | null {
   if (preCall.status !== "multiple_matches_pending_selection") return null;
-  const mentions = mentionedPreCallCandidates(preCall, transcript);
-  const firstMention = mentions[0];
-  if (!firstMention) return null;
-
-  const ambiguousFirstMention = mentions.some(
-    (mention) =>
-      mention.index === firstMention.index &&
-      mention.candidate.ref !== firstMention.candidate.ref,
+  const match = matchCandidatesByFirstName(
+    transcript,
+    preCall.candidates.filter((candidate) => candidate.patientId),
+    (candidate) => candidate.firstName,
+    transcriptMatchOptions,
   );
-  if (ambiguousFirstMention) return null;
+  if (match.status !== "unique") return null;
 
   return {
-    candidate: firstMention.candidate,
-    otherMentionedCandidates: mentions
-      .filter((mention) => mention.candidate.ref !== firstMention.candidate.ref)
-      .map((mention) => mention.candidate),
+    candidate: match.candidate,
+    otherMentionedCandidates: match.otherCandidates,
   };
 }
 
-function candidateByRef(
-  preCall: NonNullable<CallState["identity"]["preCall"]>,
-  ref: string | undefined,
-): PreCallCandidate | null {
-  if (!ref) return null;
-  return preCall.candidates.find((candidate) => candidate.ref === ref) ?? null;
-}
-
-function candidateFirstNameMatchesTranscript(
-  candidate: PreCallCandidate,
-  transcript: string,
-): boolean {
-  return candidateFirstNameMentionIndex(candidate, transcript) !== null;
-}
-
-function mentionedPreCallCandidates(
-  preCall: NonNullable<CallState["identity"]["preCall"]>,
-  transcript: string,
-): Array<{ candidate: PreCallCandidate; index: number }> {
-  return preCall.candidates
-    .map((candidate) => ({
-      candidate,
-      index: candidateFirstNameMentionIndex(candidate, transcript),
-    }))
-    .filter(
-      (mention): mention is { candidate: PreCallCandidate; index: number } =>
-        mention.index !== null,
-    )
-    .sort((a, b) => a.index - b.index);
-}
-
-function candidateFirstNameMentionIndex(
-  candidate: PreCallCandidate,
-  transcript: string,
-): number | null {
-  if (!candidate.patientId || !candidate.firstName) return null;
-  const matchingSignals = transcriptNameSignalSpans(transcript)
-    .filter((signal) => namesMatch(signal.value, candidate.firstName))
-    .map((signal) => signal.index);
-  if (matchingSignals.length === 0) return null;
-  return Math.min(...matchingSignals);
-}
+const transcriptMatchOptions = {
+  allowEditDistance: true,
+  includeFullInput: false,
+};
 
 function isFirstNamePrompt(text: string | null | undefined): boolean {
   const normalized = text?.toLowerCase() ?? "";
@@ -156,68 +110,6 @@ function isFirstNamePrompt(text: string | null | undefined): boolean {
     normalized.includes("first name") ||
     (normalized.includes("who") && normalized.includes("for"))
   );
-}
-
-function transcriptNameSignalSpans(transcript: string): NameSignal[] {
-  const signals: NameSignal[] = [];
-  const full = normalizeName(transcript);
-  if (full) signals.push({ value: full, index: 0 });
-
-  const wordMatches = transcript.matchAll(/[A-Za-z]+/g);
-  let spelledRun = "";
-  let spelledRunIndex: number | null = null;
-  for (const match of wordMatches) {
-    const word = match[0];
-    const index = match.index ?? 0;
-    const normalized = normalizeName(word);
-    if (!normalized) continue;
-    if (normalized.length === 1) {
-      if (spelledRunIndex === null) spelledRunIndex = index;
-      spelledRun += normalized;
-      continue;
-    }
-    if (spelledRun.length >= 2) {
-      signals.push({ value: spelledRun, index: spelledRunIndex ?? index });
-    }
-    spelledRun = "";
-    spelledRunIndex = null;
-    signals.push({ value: normalized, index });
-  }
-  if (spelledRun.length >= 2) {
-    signals.push({ value: spelledRun, index: spelledRunIndex ?? 0 });
-  }
-
-  return signals.filter((signal) => signal.value.length >= 3);
-}
-
-function namesMatch(
-  provided: string | null | undefined,
-  expected: string | null | undefined,
-): boolean {
-  const providedName = normalizeName(provided);
-  const expectedName = normalizeName(expected);
-  if (!providedName || !expectedName) return false;
-  if (providedName === expectedName) return true;
-  return (
-    providedName.length >= 3 &&
-    expectedName.length >= 3 &&
-    (providedName.startsWith(expectedName) ||
-      expectedName.startsWith(providedName))
-  );
-}
-
-function normalizeName(value: string | null | undefined): string {
-  return collapseConsecutiveLetters(
-    value
-      ?.normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z]/g, "") ?? "",
-  );
-}
-
-function collapseConsecutiveLetters(value: string): string {
-  return value.replace(/(.)\1+/g, "$1");
 }
 
 function confirmedPatientSystemMessage(
@@ -247,7 +139,7 @@ function otherMentionedPatientsSystemMessage(
   return [
     `Caller also mentioned preloaded patient${names.length === 1 ? "" : "s"}: ${names.join(", ")}.`,
     `Finish ${activePatientName} first.`,
-    "Before working on another mentioned patient, use switch_preloaded_patient to switch the active patient.",
+    "Before working on another mentioned patient, call resolve_patient with that patient's first name to switch the active patient.",
   ].join(" ");
 }
 
@@ -255,9 +147,7 @@ function uniqueCandidateNames(candidates: PreCallCandidate[]): string[] {
   return [
     ...new Set(
       candidates
-        .map((candidate) =>
-          [candidate.firstName, candidate.lastName].filter(Boolean).join(" "),
-        )
+        .map(candidateDisplayName)
         .filter(Boolean),
     ),
   ];

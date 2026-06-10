@@ -22,11 +22,10 @@ import {
   book_appt,
   cancel_appt,
   check_insurance,
-  confirm_patient_identity,
   get_availability,
+  resolve_patient,
   reschedule_appt,
   route_to_spring_hill,
-  switch_preloaded_patient,
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
@@ -97,6 +96,19 @@ function markSchedulingTriaged(
   state.workflow.current = {
     intent: "schedule",
     appointmentLane,
+  };
+}
+
+function markNewPatientPathConfirmed(state: TestCallState) {
+  state.identity.patient = {
+    ...state.identity.patient,
+    status: "new",
+    identityConfirmed: false,
+    patientId: null,
+    name: null,
+    dob: null,
+    appointments: [],
+    appointmentsStatus: null,
   };
 }
 
@@ -686,13 +698,13 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await switch_preloaded_patient.execute(
+    const result = await resolve_patient.execute(
       {
         firstName: "Ellie",
       },
       {
         ctx: createToolContext(state) as never,
-        toolCallId: "tool-switch",
+        toolCallId: "tool-resolve",
       } as never,
     );
 
@@ -722,7 +734,7 @@ describe("direct session state cleanup", () => {
     expect(state.identity.preCall).toMatchObject({
       status: "multiple_match_confirmed",
       selectedCandidateRef: "precall:2",
-      identityPromotion: "switched_by_tool",
+      identityPromotion: "switched_by_identity_tool",
     });
     expect(state.identity.patientBackend).toEqual({
       insPlanId: "ellie-ins-plan",
@@ -1592,6 +1604,7 @@ describe("direct session state cleanup", () => {
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
     state.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
     const ctx = createToolContext(state);
@@ -1655,11 +1668,52 @@ describe("direct session state cleanup", () => {
     });
   });
 
+  it("requires not-registered confirmation before creating a patient chart", async () => {
+    const state = createState();
+    state.identity.patient.patientId = null;
+    state.identity.patient.name = null;
+    state.identity.patient.identityConfirmed = false;
+    markSchedulingTriaged(state);
+    markAcceptedInsurance(state);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        insurance: "self pay",
+        appointmentLane: "medical_md",
+        subscriberName: "Jane Doe",
+        subscriberNum: "self pay",
+        inboundPhoneConfirmed: true,
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Before creating a new chart, ask whether the patient is already registered with us and call resolve_patient with registrationStatus not_registered after the caller confirms they are not registered.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("marks a created chart as new-patient state when middleware omits status", async () => {
     const state = createState();
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
     state.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
     const fetchMock = vi.fn(async () => ({
@@ -1711,7 +1765,7 @@ describe("direct session state cleanup", () => {
     const state = createState();
     state.identity.patient = {
       ...state.identity.patient,
-      status: "unknown",
+      status: "new",
       identityConfirmed: false,
       patientId: null,
       name: null,
@@ -1790,6 +1844,7 @@ describe("direct session state cleanup", () => {
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
     state.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(state);
     clearSchedulingContext(state);
     markAcceptedInsurance(state);
     const fetchMock = vi.fn();
@@ -1849,6 +1904,7 @@ describe("direct session state cleanup", () => {
     medicalState.identity.patient.patientId = null;
     medicalState.identity.patient.name = null;
     medicalState.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(medicalState);
     clearSchedulingContext(medicalState);
     markAcceptedInsurance(medicalState, {
       plan: "self pay",
@@ -1875,6 +1931,7 @@ describe("direct session state cleanup", () => {
     routineState.identity.patient.patientId = null;
     routineState.identity.patient.name = null;
     routineState.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(routineState);
     clearSchedulingContext(routineState);
     markAcceptedInsurance(routineState, {
       plan: "self pay",
@@ -1905,6 +1962,7 @@ describe("direct session state cleanup", () => {
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
     state.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
     const ctx = createToolContext(state);
@@ -1943,6 +2001,7 @@ describe("direct session state cleanup", () => {
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
     state.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
     const fetchMock = vi.fn();
@@ -1982,6 +2041,7 @@ describe("direct session state cleanup", () => {
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
     state.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
     const fetchMock = vi.fn(async () => ({
@@ -2061,7 +2121,7 @@ describe("direct session state cleanup", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await confirm_patient_identity.execute(
+    const result = await resolve_patient.execute(
       {
         firstName: "Jane",
         lastName: "Doe",
@@ -2111,7 +2171,7 @@ describe("direct session state cleanup", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await confirm_patient_identity.execute(
+    const result = await resolve_patient.execute(
       {
         firstName: "Chase",
         lastName: "Test",
@@ -2202,7 +2262,7 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await confirm_patient_identity.execute(
+    const result = await resolve_patient.execute(
       {
         firstName: "Jaaane",
         lastName: "Doe",
@@ -2268,7 +2328,7 @@ describe("direct session state cleanup", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await confirm_patient_identity.execute(
+    const result = await resolve_patient.execute(
       {
         firstName: "Lisa",
         lastName: "Arshed",
@@ -2337,7 +2397,7 @@ describe("direct session state cleanup", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await confirm_patient_identity.execute(
+    const result = await resolve_patient.execute(
       {
         firstName: "Lisa",
         lastName: "Arshed",
@@ -2409,7 +2469,7 @@ describe("direct session state cleanup", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await confirm_patient_identity.execute(
+    const result = await resolve_patient.execute(
       {
         firstName: "Ella",
         lastName: "Arshed",
@@ -2488,7 +2548,7 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await confirm_patient_identity.execute(
+    const result = await resolve_patient.execute(
       {
         firstName: "Chase",
         lastName: "Test",
@@ -2507,7 +2567,7 @@ describe("direct session state cleanup", () => {
     expect(state.identity.patient.patientId).toBe("patient-chase");
   });
 
-  it("does not replace an active pre-call patient when another preloaded patient is confirmed", async () => {
+  it("switches an active pre-call patient when another preloaded patient is resolved", async () => {
     const state = createState();
     state.identity.patient = {
       ...state.identity.patient,
@@ -2550,7 +2610,7 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await confirm_patient_identity.execute(
+    const result = await resolve_patient.execute(
       {
         firstName: "Monique",
         lastName: "Hamilton",
@@ -2561,15 +2621,139 @@ describe("direct session state cleanup", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toBe(
-      "BRANDON ANDERSON is currently active. Finish BRANDON ANDERSON first, then use switch_preloaded_patient for MONIQUE HAMILTON before working on MONIQUE HAMILTON.",
+      "Switched active patient to MONIQUE HAMILTON. Check availability again before booking.",
     );
-    expect(state.identity.preCall.selectedCandidateRef).toBe("precall:1");
+    expect(state.identity.preCall.selectedCandidateRef).toBe("precall:2");
+    expect(state.identity.preCall.identityPromotion).toBe(
+      "switched_by_identity_tool",
+    );
     expect(state.identity.patient.identityConfirmed).toBe(true);
-    expect(state.identity.patient.patientId).toBe("patient-brandon");
-    expect(state.identity.patient.name).toBe("BRANDON ANDERSON");
+    expect(state.identity.patient.patientId).toBe("patient-monique");
+    expect(state.identity.patient.name).toBe("MONIQUE HAMILTON");
   });
 
-  it("requires full identity before resolving pre-call candidates through the tool", async () => {
+  it("does not clear booking state when resolving the already active pre-call patient", async () => {
+    const state = createState();
+    state.identity.patient = {
+      ...state.identity.patient,
+      status: "verified",
+      identityConfirmed: true,
+      patientId: "patient-brandon",
+      name: "BRANDON ANDERSON",
+      dob: "04/05/2012",
+      phone: null,
+      appointments: [],
+      appointmentsStatus: "none",
+    };
+    state.identity.preCall = {
+      status: "multiple_match_confirmed",
+      source: "phone_lookup",
+      callerPhone: "+17863488102",
+      candidates: [
+        {
+          ref: "precall:1",
+          firstName: "BRANDON",
+          lastName: "ANDERSON",
+          dob: "04/05/2012",
+          patientId: "patient-brandon",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+      ],
+      selectedCandidateRef: "precall:1",
+      identityPromotion: "confirmed_by_identity_tool",
+    };
+    storeAvailabilityBookingToken(state, "A", "token-a");
+    state.identity.latestBookedAppointmentId = 123;
+    state.insurance.lastEligibilityCheck = {
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
+      currentCarrier: "Aetna",
+      accepted: true,
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resolve_patient.execute({ firstName: "Brandon" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-1",
+    } as never);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toBe(
+      "BRANDON ANDERSON is already the active patient. Continue with loaded patient state.",
+    );
+    expect(state.availability.slots.map((slot) => slot.slotId)).toEqual(["A"]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      A: "token-a",
+    });
+    expect(state.identity.latestBookedAppointmentId).toBe(123);
+    expect(state.insurance.lastEligibilityCheck).toEqual({
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
+      currentCarrier: "Aetna",
+      accepted: true,
+    });
+  });
+
+  it("resolves an exact short first name from pre-call candidates", async () => {
+    const state = createState();
+    state.identity.patient = {
+      ...state.identity.patient,
+      status: "unknown",
+      identityConfirmed: false,
+      patientId: null,
+      name: null,
+      dob: null,
+      phone: null,
+      appointments: [],
+      appointmentsStatus: null,
+    };
+    state.identity.preCall = {
+      status: "multiple_matches_pending_selection",
+      source: "phone_lookup",
+      callerPhone: "+19546097250",
+      candidates: [
+        {
+          ref: "precall:1",
+          firstName: "AL",
+          lastName: "DOE",
+          dob: "01/01/1980",
+          patientId: "patient-al",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+        {
+          ref: "precall:2",
+          firstName: "BOB",
+          lastName: "DOE",
+          dob: "02/02/1980",
+          patientId: "patient-bob",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+      ],
+      identityPromotion: "none",
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resolve_patient.execute({ firstName: "Al" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-1",
+    } as never);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toBe(
+      "Patient record loaded from the phone lookup. Continue with scheduling.",
+    );
+    expect(state.identity.patient.identityConfirmed).toBe(true);
+    expect(state.identity.patient.patientId).toBe("patient-al");
+  });
+
+  it("asks for clarification when a first-name pre-call match is ambiguous", async () => {
     const state = createState();
     state.identity.patient = {
       ...state.identity.patient,
@@ -2609,18 +2793,17 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      confirm_patient_identity.execute(
-        {
-          firstName: "Kyle",
-        },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      ),
-    ).rejects.toThrow(
-      "Collect the patient's first name, last name, and date of birth before looking up identity.",
+    const result = await resolve_patient.execute(
+      {
+        firstName: "Kyle",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+    expect(result).toBe(
+      "More than one preloaded patient matched that first name. Ask for the patient's date of birth, then call resolve_patient with first name, last name, and DOB.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(state.identity.patient.identityConfirmed).toBe(false);
@@ -2641,20 +2824,93 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      confirm_patient_identity.execute(
-        {
-          firstName: "Jane",
-        },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      ),
-    ).rejects.toThrow(
-      "Collect the patient's first name, last name, and date of birth before looking up identity.",
+    const result = await resolve_patient.execute(
+      {
+        firstName: "Jane",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+    expect(result).toBe(
+      "Collect the patient's last name and date of birth, then call resolve_patient again.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("marks the new-chart path before chart creation", async () => {
+    const state = createState();
+    state.identity.patient.patientId = null;
+    state.identity.patient.name = null;
+    state.identity.patient.identityConfirmed = false;
+    storeAvailabilityBookingToken(state, "A", "stale-token");
+    state.identity.latestBookedAppointmentId = 123;
+    state.insurance.lastEligibilityCheck = {
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
+      currentCarrier: "Aetna",
+      accepted: true,
+    };
+
+    const result = await resolve_patient.execute(
+      { registrationStatus: "not_registered" },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.",
+    );
+    expect(state.identity.patient.status).toBe("new");
+    expect(state.identity.patient.identityConfirmed).toBe(false);
+    expect(state.identity.patient.patientId).toBeNull();
+    expect(state.availability.slots).toEqual([]);
+    expect(state.identity.latestBookedAppointmentId).toBeUndefined();
+    expect(state.insurance.lastEligibilityCheck).toBeNull();
+  });
+
+  it("does not let a not-registered answer activate a preloaded first-name match", async () => {
+    const state = createState();
+    state.identity.patient.patientId = null;
+    state.identity.patient.name = null;
+    state.identity.patient.identityConfirmed = false;
+    state.identity.preCall = {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      selectedCandidateRef: CALLER_CANDIDATE_REF,
+      candidates: [
+        {
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "JANE",
+          lastName: "DOE",
+          dob: "01/01/1980",
+          patientId: "patient-jane",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+      ],
+      identityPromotion: "none",
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resolve_patient.execute(
+      { firstName: "Jane", registrationStatus: "not_registered" },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(state.identity.preCall.status).toBe(
+      "single_match_pending_confirmation",
+    );
+    expect(state.identity.patient.status).toBe("new");
+    expect(state.identity.patient.identityConfirmed).toBe(false);
+    expect(state.identity.patient.patientId).toBeNull();
   });
 
   it("stores accepted insurance from check_insurance", async () => {
@@ -2694,6 +2950,7 @@ describe("direct session state cleanup", () => {
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
     state.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(state);
     state.insurance.onFile = null;
     markSchedulingTriaged(state);
     const fetchMock = vi.fn(async () => ({

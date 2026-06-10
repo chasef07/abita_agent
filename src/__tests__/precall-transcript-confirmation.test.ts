@@ -163,7 +163,7 @@ describe("pre-call transcript confirmation", () => {
     expect(confirmation?.systemMessage).toContain(
       "Finish BRANDON ANDERSON first.",
     );
-    expect(confirmation?.systemMessage).toContain("switch_preloaded_patient");
+    expect(confirmation?.systemMessage).toContain("resolve_patient");
     expect(state.identity.preCall.status).toBe("multiple_match_confirmed");
     expect(state.identity.preCall.selectedCandidateRef).toBe("precall:2");
     expect(state.identity.preCall.identityPromotion).toBe(
@@ -296,6 +296,143 @@ describe("pre-call transcript confirmation", () => {
 
     expect(confirmation).toBeNull();
     expect(state.identity.patient.identityConfirmed).toBe(false);
+  });
+
+  it("prefers the spoken name over earlier filler words", () => {
+    const state = createState();
+    state.identity.preCall = {
+      status: "multiple_matches_pending_selection",
+      source: "phone_lookup",
+      callerPhone: "+19546097250",
+      candidates: [
+        {
+          ref: "precall:1",
+          firstName: "IAN",
+          lastName: "DOE",
+          patientId: "patient-ian",
+          appointments: [],
+        },
+        {
+          ref: "precall:2",
+          firstName: "JANE",
+          lastName: "DOE",
+          patientId: "patient-jane",
+          appointments: [],
+        },
+      ],
+      identityPromotion: "none",
+    };
+
+    const confirmation = confirmPreCallIdentityFromTranscript({
+      state,
+      transcript: "Can I schedule Jane?",
+      lastAssistantText: "Who is the appointment for?",
+    });
+
+    expect(confirmation?.candidateRef).toBe("precall:2");
+    expect(state.identity.patient.patientId).toBe("patient-jane");
+  });
+
+  it("fuzzily confirms a pre-call candidate from a near-name transcript", () => {
+    const state = createState();
+    state.identity.preCall = {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+19546097250",
+      selectedCandidateRef: CALLER_CANDIDATE_REF,
+      candidates: [
+        {
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "JANE",
+          lastName: "DOE",
+          patientId: "patient-jane",
+          appointments: [],
+        },
+      ],
+      identityPromotion: "none",
+    };
+
+    const confirmation = confirmPreCallIdentityFromTranscript({
+      state,
+      transcript: "Jayne",
+      lastAssistantText:
+        "I see a patient record associated with this phone number. Could you please spell the first name for me?",
+    });
+
+    expect(confirmation?.candidateRef).toBe(CALLER_CANDIDATE_REF);
+    expect(state.identity.patient.identityConfirmed).toBe(true);
+    expect(state.identity.patient.patientId).toBe("patient-jane");
+  });
+
+  it("does not auto-confirm a short-name candidate from unrelated speech", () => {
+    const state = createState();
+    state.identity.preCall = {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+19546097250",
+      selectedCandidateRef: CALLER_CANDIDATE_REF,
+      candidates: [
+        {
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "IAN",
+          lastName: "DOE",
+          patientId: "patient-ian",
+          appointments: [],
+        },
+      ],
+      identityPromotion: "none",
+    };
+
+    const confirmation = confirmPreCallIdentityFromTranscript({
+      state,
+      transcript: "I am calling for my son.",
+      lastAssistantText:
+        "I see a patient record associated with this phone number. Could you please spell the first name for me?",
+    });
+
+    expect(confirmation).toBeNull();
+    expect(state.identity.patient.identityConfirmed).toBe(false);
+  });
+
+  it("does not promote a pre-call candidate after the caller confirms a new-chart path", () => {
+    const state = createState();
+    state.identity.patient = {
+      ...state.identity.patient,
+      status: "new",
+      identityConfirmed: false,
+      patientId: null,
+      name: null,
+      appointments: [],
+      appointmentsStatus: null,
+    };
+    state.identity.preCall = {
+      status: "single_match_pending_confirmation",
+      source: "phone_lookup",
+      callerPhone: "+19546097250",
+      selectedCandidateRef: CALLER_CANDIDATE_REF,
+      candidates: [
+        {
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "JANE",
+          lastName: "DOE",
+          patientId: "patient-jane",
+          appointments: [],
+        },
+      ],
+      identityPromotion: "none",
+    };
+
+    const confirmation = confirmPreCallIdentityFromTranscript({
+      state,
+      transcript: "Jane",
+      lastAssistantText:
+        "What is the patient's first name for the new chart?",
+    });
+
+    expect(confirmation).toBeNull();
+    expect(state.identity.patient.status).toBe("new");
+    expect(state.identity.patient.identityConfirmed).toBe(false);
+    expect(state.identity.patient.patientId).toBeNull();
   });
 
   it("confirms a single pre-call candidate from first name", () => {
