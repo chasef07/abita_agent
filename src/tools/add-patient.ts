@@ -120,7 +120,7 @@ export const add_patient = llm.tool({
       explicitPhone ||
       (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
 
-    if (hasMatchingPendingPreCallPatient(state, params)) {
+    if (hasMatchingPreCallPatient(state, params)) {
       return "A patient record may already exist for that last name and date of birth from the caller phone lookup. Confirm the existing patient record before creating a new chart.";
     }
 
@@ -206,7 +206,7 @@ function coverageTypeForAppointmentLane(
   return appointmentLane === "routine_od" ? "routine_vision" : "medical";
 }
 
-function hasMatchingPendingPreCallPatient(
+function hasMatchingPreCallPatient(
   state: CallState,
   params: {
     lastName: string;
@@ -214,12 +214,7 @@ function hasMatchingPendingPreCallPatient(
   },
 ): boolean {
   const preCall = state.identity.preCall;
-  if (
-    preCall?.status !== "single_match_pending_confirmation" &&
-    preCall?.status !== "multiple_matches_pending_selection"
-  ) {
-    return false;
-  }
+  if (!preCall) return false;
 
   return preCall.candidates.some(
     (candidate) =>

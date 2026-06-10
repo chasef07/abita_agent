@@ -117,9 +117,9 @@ export function fullIdentityMatchesCandidate(
 ): boolean {
   return Boolean(
     candidate.patientId &&
-      namesMatch(identity.firstName, candidate.firstName) &&
-      namesMatch(identity.lastName, candidate.lastName) &&
-      dobMatches(identity.dob, candidate.dob),
+    namesMatch(identity.firstName, candidate.firstName) &&
+    namesMatch(identity.lastName, candidate.lastName) &&
+    dobMatches(identity.dob, candidate.dob),
   );
 }
 
@@ -129,8 +129,8 @@ export function lastNameAndDobMatchCandidate(
 ): boolean {
   return Boolean(
     candidate.patientId &&
-      namesMatch(identity.lastName, candidate.lastName) &&
-      dobMatches(identity.dob, candidate.dob),
+    namesMatch(identity.lastName, candidate.lastName) &&
+    dobMatches(identity.dob, candidate.dob),
   );
 }
 

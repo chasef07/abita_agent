@@ -144,13 +144,7 @@ function otherMentionedPatientsSystemMessage(
 }
 
 function uniqueCandidateNames(candidates: PreCallCandidate[]): string[] {
-  return [
-    ...new Set(
-      candidates
-        .map(candidateDisplayName)
-        .filter(Boolean),
-    ),
-  ];
+  return [...new Set(candidates.map(candidateDisplayName).filter(Boolean))];
 }
 
 function appointmentSummaryForSystemMessage(state: CallState): string {

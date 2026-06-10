@@ -2870,6 +2870,119 @@ describe("direct session state cleanup", () => {
     expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 
+  it("does not demote an already confirmed patient to the new-chart path", async () => {
+    const state = createState();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resolve_patient.execute(
+      { registrationStatus: "not_registered" },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "Jane Doe is already loaded as an existing patient. Continue with the loaded patient state instead of creating a new chart.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(state.identity.patient).toMatchObject({
+      status: "matched",
+      identityConfirmed: true,
+      patientId: "patient-1",
+      name: "Jane Doe",
+      dob: "01/01/1980",
+    });
+    expect(state.insurance.onFile).toEqual({
+      plan: "self pay",
+      canonicalPlan: "self pay",
+      coverageType: "medical",
+      currentCarrier: "self pay",
+    });
+  });
+
+  it("does not demote a comma-formatted active patient name to the new-chart path", async () => {
+    const state = createState();
+    state.identity.patient.name = "TEST,CHASE";
+    state.identity.patient.dob = "01/01/1980";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resolve_patient.execute(
+      {
+        firstName: "Chase",
+        lastName: "Test",
+        dob: "01/01/1980",
+        registrationStatus: "not_registered",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "TEST,CHASE is already loaded as an existing patient. Continue with the loaded patient state instead of creating a new chart.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(state.identity.patient).toMatchObject({
+      status: "matched",
+      identityConfirmed: true,
+      patientId: "patient-1",
+      name: "TEST,CHASE",
+      dob: "01/01/1980",
+    });
+  });
+
+  it("allows the new-chart path for a different patient after another patient is active", async () => {
+    const state = createState();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resolve_patient.execute(
+      {
+        firstName: "John",
+        registrationStatus: "not_registered",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(state.identity.patient).toMatchObject({
+      status: "new",
+      identityConfirmed: false,
+      patientId: null,
+      name: null,
+      dob: null,
+    });
+    expect(state.insurance.onFile).toBeNull();
+  });
+
+  it("allows the new-chart path when the new first name is a substring of the active patient name", async () => {
+    const state = createState();
+    state.identity.patient.name = "Sally Doe";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resolve_patient.execute(
+      {
+        firstName: "Al",
+        registrationStatus: "not_registered",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(state.identity.patient).toMatchObject({
+      status: "new",
+      identityConfirmed: false,
+      patientId: null,
+      name: null,
+      dob: null,
+    });
+  });
+
   it("does not let a not-registered answer activate a preloaded first-name match", async () => {
     const state = createState();
     state.identity.patient.patientId = null;
@@ -2911,6 +3024,63 @@ describe("direct session state cleanup", () => {
     expect(state.identity.patient.status).toBe("new");
     expect(state.identity.patient.identityConfirmed).toBe(false);
     expect(state.identity.patient.patientId).toBeNull();
+  });
+
+  it("blocks new chart creation when a confirmed pre-call candidate has the same last name and DOB", async () => {
+    const state = createState();
+    markNewPatientPathConfirmed(state);
+    markSchedulingTriaged(state);
+    markAcceptedInsurance(state, {
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
+    });
+    state.identity.preCall = {
+      status: "single_match_confirmed",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      selectedCandidateRef: CALLER_CANDIDATE_REF,
+      candidates: [
+        {
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "JANE",
+          lastName: "DOE",
+          dob: "01/01/1980",
+          patientId: "patient-jane",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+      ],
+      identityPromotion: "confirmed_by_identity_tool",
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        insurance: "Aetna",
+        appointmentLane: "medical_md",
+        subscriberName: "Jane Doe",
+        subscriberNum: "ABC123",
+        inboundPhoneConfirmed: true,
+        readBack: true,
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-2" } as never,
+    );
+
+    expect(result).toBe(
+      "A patient record may already exist for that last name and date of birth from the caller phone lookup. Confirm the existing patient record before creating a new chart.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("stores accepted insurance from check_insurance", async () => {

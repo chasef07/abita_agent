@@ -425,8 +425,7 @@ describe("pre-call transcript confirmation", () => {
     const confirmation = confirmPreCallIdentityFromTranscript({
       state,
       transcript: "Jane",
-      lastAssistantText:
-        "What is the patient's first name for the new chart?",
+      lastAssistantText: "What is the patient's first name for the new chart?",
     });
 
     expect(confirmation).toBeNull();

@@ -34,9 +34,7 @@ const ROUTING_TOOLS = {
   route_to_spring_hill,
 } satisfies llm.ToolContext;
 
-export type AgentTools =
-  | typeof COMMON_TOOLS
-  | typeof ROUTING_TOOLS;
+export type AgentTools = typeof COMMON_TOOLS | typeof ROUTING_TOOLS;
 
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
   const office = getOfficeConfigByPhone(trunkPhone ?? "");

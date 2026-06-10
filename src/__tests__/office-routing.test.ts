@@ -973,24 +973,16 @@ describe("model-facing tool definitions", () => {
   });
 
   it("keeps resolve_patient scoped to patient identity loading", () => {
-    expect(resolve_patient.description).toContain(
-      "Resolve who the patient is",
-    );
-    expect(resolve_patient.description).toContain(
-      "preloaded patient",
-    );
+    expect(resolve_patient.description).toContain("Resolve who the patient is");
+    expect(resolve_patient.description).toContain("preloaded patient");
     expect(resolve_patient.description).toContain(
       "firstName, lastName, and DOB",
     );
     expect(resolve_patient.description).toContain(
       "registrationStatus not_registered before add_patient",
     );
-    expect(resolve_patient.description).not.toContain(
-      "insurance updates",
-    );
-    expect(resolve_patient.description).not.toContain(
-      "private account",
-    );
+    expect(resolve_patient.description).not.toContain("insurance updates");
+    expect(resolve_patient.description).not.toContain("private account");
 
     const parameters = resolve_patient.parameters as {
       safeParse: (value: unknown) => { success: boolean };

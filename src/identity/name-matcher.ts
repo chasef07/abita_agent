@@ -40,9 +40,7 @@ export function matchCandidatesByFirstName<T>(
       const matches = signals
         .map((signal) => {
           const strength = nameMatchStrength(signal.value, firstName, options);
-          return strength
-            ? { candidate, index: signal.index, strength }
-            : null;
+          return strength ? { candidate, index: signal.index, strength } : null;
         })
         .filter((match): match is CandidateMention<T> => match !== null)
         .sort(compareMentions);
@@ -253,7 +251,10 @@ function collapseConsecutiveLetters(value: string): string {
 }
 
 function editDistance(left: string, right: string): number {
-  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const previous = Array.from(
+    { length: right.length + 1 },
+    (_, index) => index,
+  );
   const current = Array.from({ length: right.length + 1 }, () => 0);
 
   for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {

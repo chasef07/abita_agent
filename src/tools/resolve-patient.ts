@@ -4,7 +4,11 @@ import type {
   PatientResolveResult,
   PatientResolveVerified,
 } from "../clients/advancedmd-client.js";
-import { matchCandidatesByFirstName } from "../identity/name-matcher.js";
+import {
+  dobMatches,
+  matchCandidatesByFirstName,
+  namesMatch,
+} from "../identity/name-matcher.js";
 import {
   activatePreloadedCandidate,
   candidateDisplayName,
@@ -75,6 +79,11 @@ export const resolve_patient = llm.tool({
     const identity = normalizeResolvePatientArgs(args);
 
     if (identity.registrationStatus === "not_registered") {
+      const activePatientReply = activePatientBlocksNewChartReply(
+        state,
+        identity,
+      );
+      if (activePatientReply) return activePatientReply;
       return markNewChartPath(state);
     }
 
@@ -191,10 +200,99 @@ function preCallNameMismatchReply(
   return "I found a record with that last name and date of birth, but the first name does not match what I heard. Could you spell the patient's first name?";
 }
 
+function activePatientBlocksNewChartReply(
+  state: CallState,
+  identity: NormalizedResolvePatientArgs,
+): string | null {
+  if (!state.identity.patient.identityConfirmed) return null;
+  if (identityTargetsDifferentPatient(state, identity)) return null;
+  const patientName =
+    state.identity.patient.name?.trim() || "the active patient";
+  return `${patientName} is already loaded as an existing patient. Continue with the loaded patient state instead of creating a new chart.`;
+}
+
+function identityTargetsDifferentPatient(
+  state: CallState,
+  identity: NormalizedResolvePatientArgs,
+): boolean {
+  const activeDob = state.identity.patient.dob;
+  if (identity.dob && activeDob && !dobMatches(identity.dob, activeDob)) {
+    return true;
+  }
+
+  const activeName = activePatientNameParts(state.identity.patient.name);
+  if (!activeName) return false;
+  if (
+    identity.firstName &&
+    !matchesAnyNamePart(identity.firstName, activeName.firstNames)
+  ) {
+    return true;
+  }
+  if (
+    identity.lastName &&
+    !matchesAnyNamePart(identity.lastName, activeName.lastNames)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function activePatientNameParts(
+  name: string | null | undefined,
+): { firstNames: string[]; lastNames: string[] } | null {
+  const trimmed = name?.trim();
+  if (!trimmed) return null;
+
+  const [commaLastName, commaFirstAndMiddle] = trimmed
+    .split(",", 2)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (commaLastName && commaFirstAndMiddle) {
+    const firstParts = commaFirstAndMiddle.match(/[A-Za-z]+/g) ?? [];
+    const lastParts = commaLastName.match(/[A-Za-z]+/g) ?? [];
+    return {
+      firstNames: uniqueNameParts([firstParts[0], firstParts.join(" ")]),
+      lastNames: uniqueNameParts([
+        commaLastName,
+        lastParts[lastParts.length - 1],
+      ]),
+    };
+  }
+
+  const parts = trimmed.match(/[A-Za-z]+/g) ?? [];
+  if (parts.length === 0) return null;
+
+  return {
+    firstNames: uniqueNameParts([
+      parts[0],
+      parts.length > 1 ? parts.slice(0, -1).join(" ") : parts[0],
+    ]),
+    lastNames: uniqueNameParts([
+      parts[parts.length - 1],
+      parts.length > 1 ? parts.slice(1).join(" ") : parts[0],
+    ]),
+  };
+}
+
+function matchesAnyNamePart(
+  provided: string,
+  candidates: readonly string[],
+): boolean {
+  return candidates.some((candidate) => namesMatch(provided, candidate));
+}
+
+function uniqueNameParts(parts: Array<string | undefined>): string[] {
+  return parts.filter(
+    (part, index): part is string =>
+      Boolean(part?.trim()) && parts.indexOf(part) === index,
+  );
+}
+
 function markNewChartPath(state: CallState): string {
   clearAvailabilitySelection(state);
   delete state.identity.latestBookedAppointmentId;
   state.insurance.lastEligibilityCheck = null;
+  state.insurance.onFile = null;
   setPatientBackendRefs(state, {
     insPlanId: null,
     respPartyId: null,
@@ -322,13 +420,11 @@ function patientLookupReply(result: PatientResolveResult): string {
   return result.message ?? "Patient lookup failed. Try again.";
 }
 
-function spokenAppointment(
-  appointment: {
-    date: string;
-    time?: string | null;
-    provider?: string | null;
-  },
-): string {
+function spokenAppointment(appointment: {
+  date: string;
+  time?: string | null;
+  provider?: string | null;
+}): string {
   return [
     appointment.date,
     appointment.time ? `at ${appointment.time}` : "",
