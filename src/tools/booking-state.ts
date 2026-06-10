@@ -28,6 +28,11 @@ type BookingRequestInput = {
   patientStatusOverride?: AppointmentPatientStatus | null;
 };
 
+export type ConfirmedSlotInput = {
+  date: string;
+  time: string;
+};
+
 const NEW_PATIENT_APPOINTMENT_TYPE_IDS = new Set([
   1004, 1006, 1010, 4244, 6167,
 ]);
@@ -38,6 +43,7 @@ const ESTABLISHED_PATIENT_APPOINTMENT_TYPE_IDS = new Set([
 export function selectedSlotForBooking(
   state: CallState,
   slotId: string,
+  confirmedSlot?: ConfirmedSlotInput,
 ): StoredAvailabilitySlot {
   const selectedSlot = selectedAvailabilitySlot(state, slotId);
   if (!selectedSlot) {
@@ -45,7 +51,26 @@ export function selectedSlotForBooking(
       "Search availability again and choose one of the returned slots before booking.",
     );
   }
+  if (confirmedSlot) {
+    ensureConfirmedSlotMatches(selectedSlot, confirmedSlot);
+  }
   return selectedSlot;
+}
+
+function ensureConfirmedSlotMatches(
+  selectedSlot: StoredAvailabilitySlot,
+  confirmedSlot: ConfirmedSlotInput,
+): void {
+  const confirmedDate = confirmedSlot.date.trim();
+  const confirmedTime = normalizeSlotTime(confirmedSlot.time);
+  const selectedTime = normalizeSlotTime(selectedSlot.time);
+  if (selectedSlot.date === confirmedDate && selectedTime === confirmedTime) {
+    return;
+  }
+
+  throw new llm.ToolError(
+    `The caller-confirmed slot ${confirmedDate} at ${confirmedSlot.time.trim()} does not match cached slot ${spokenSlot(selectedSlot)}. Search availability again for the caller-confirmed date before booking.`,
+  );
 }
 
 export function bookingRequestBodyForSlot(
@@ -309,6 +334,18 @@ function spokenIsoDate(date: string | undefined): string | undefined {
     day: "numeric",
     timeZone: "UTC",
   }).format(parsed);
+}
+
+function normalizeSlotTime(value: string | undefined): string {
+  const normalized = value?.trim().toLowerCase().replace(/\s+/g, "") ?? "";
+  const match = normalized.match(/^(\d{1,2})(?::(\d{2}))?(am|pm)$/);
+  if (!match) return normalized;
+
+  const hour = Number(match[1]);
+  const minute = match[2] ?? "00";
+  const period = match[3];
+  if (!Number.isInteger(hour) || hour < 1 || hour > 12) return normalized;
+  return `${hour}:${minute}${period}`;
 }
 
 function normalizeAppointmentTypeName(value: string | undefined): string {
