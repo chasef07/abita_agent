@@ -1,6 +1,9 @@
 import { initializeLogger, voice } from "@livekit/agents";
 import { beforeAll, describe, expect, it } from "vitest";
-import { voiceTurnHandlingOptions } from "../session-options.js";
+import {
+  voiceMaxToolSteps,
+  voiceTurnHandlingOptions,
+} from "../session-options.js";
 
 type TurnDetection = NonNullable<
   NonNullable<voice.AgentSessionOptions["turnHandling"]>["turnDetection"]
@@ -45,6 +48,18 @@ describe("voice session options", () => {
     expect(session.sessionOptions.turnHandling.interruption.mode).toBe(
       "adaptive",
     );
+  });
+
+  it("allows two tool calls before the post-tool reply", () => {
+    const session = new voice.AgentSession({
+      maxToolSteps: voiceMaxToolSteps,
+      turnHandling: {
+        turnDetection: fakeTurnDetector(),
+        ...voiceTurnHandlingOptions,
+      },
+    });
+
+    expect(session.sessionOptions.maxToolSteps).toBe(3);
   });
 });
 

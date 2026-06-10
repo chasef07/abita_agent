@@ -62,7 +62,10 @@ import {
   getAssemblyAISttProfileOptions,
   selectSttProfileForAssistantText,
 } from "./stt-config.js";
-import { voiceTurnHandlingOptions } from "./session-options.js";
+import {
+  voiceMaxToolSteps,
+  voiceTurnHandlingOptions,
+} from "./session-options.js";
 import { attachSipParticipantShutdown } from "./runtime/sip-room-shutdown.js";
 
 dotenv.config({ path: ".env.local" });
@@ -110,7 +113,7 @@ export default defineAgent({
         llm: llmWithFallback,
         tts,
         vad,
-        maxToolSteps: 2,
+        maxToolSteps: voiceMaxToolSteps,
         turnHandling: {
           turnDetection: new livekit.turnDetector.MultilingualModel(),
           ...voiceTurnHandlingOptions,
