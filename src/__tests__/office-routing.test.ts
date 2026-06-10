@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildToolsForTrunk } from "../agent.js";
 import { buildPrompt } from "../prompt.js";
-import type { PhoneLookupResult } from "../state/call-state.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   DEV_OFFICE_PHONE,
@@ -24,13 +23,12 @@ import {
   book_appt,
   cancel_appt,
   check_insurance,
-  confirm_patient_identity,
+  resolve_patient,
   get_current_datetime,
   get_availability,
   lookup_knowledge,
   reschedule_appt,
   route_to_spring_hill,
-  switch_preloaded_patient,
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
@@ -217,36 +215,13 @@ describe("office routing helpers", () => {
     }
   });
 
-  it("only exposes preloaded patient switching after multiple-match phone lookup", () => {
-    const multipleMatchLookup: PhoneLookupResult = {
-      status: "multiple_matches",
-      message: "Multiple patients found",
-      matches: [{ firstName: "DAVID" }, { firstName: "ELLIE" }],
-    };
-
+  it("always exposes one patient resolution tool without a separate switch tool", () => {
+    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).toHaveProperty(
+      "resolve_patient",
+    );
     expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toHaveProperty(
       "switch_preloaded_patient",
     );
-    expect(
-      buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE, {
-        status: "verified",
-        patientId: "patient-1",
-        name: "DAVID MEJIA",
-        dob: "01/01/2015",
-        phone: "+17275551212",
-        insuranceCarrier: "Aetna",
-        insPlanId: null,
-        respPartyId: null,
-        routing: "all_three",
-        allowedProviders: [],
-        routingAmbiguous: false,
-        preauthRequired: false,
-        appointments: [],
-      }),
-    ).not.toHaveProperty("switch_preloaded_patient");
-    expect(
-      buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE, multipleMatchLookup),
-    ).toHaveProperty("switch_preloaded_patient");
   });
 });
 
@@ -264,14 +239,15 @@ describe("tool-first prompt gating", () => {
       "When asking for a patient's first or last name, ask them to spell it",
     );
     expect(prompt).toContain(
-      "Use confirm_patient_identity for patient-specific work only when internal state has not already confirmed the patient from the pre-call identity step.",
+      "Use resolve_patient for patient-specific work when internal state has not already confirmed the patient.",
     );
     expect(prompt).toContain(
-      "Before calling it, collect the patient's first name, last name, and date of birth.",
+      "For a pre-call phone lookup match, ask for the patient's first name and call resolve_patient with that first name.",
     );
     expect(prompt).toContain(
-      "If internal state says patient identity is already confirmed, do not ask for last name or date of birth again and do not call confirm_patient_identity again.",
+      "If internal state says patient identity is already confirmed, do not ask for last name or date of birth again and do not call resolve_patient again unless the caller clearly asks about a different patient.",
     );
+    expect(prompt).toContain("already registered with us");
     expect(prompt).toContain(
       "Use the caller identity hint only to choose the first identity question.",
     );
@@ -996,38 +972,34 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
   });
 
-  it("keeps confirm_patient_identity scoped to patient identity loading", () => {
-    expect(confirm_patient_identity.description).toContain(
-      "Confirm or load a patient identity",
+  it("keeps resolve_patient scoped to patient identity loading", () => {
+    expect(resolve_patient.description).toContain("Resolve who the patient is");
+    expect(resolve_patient.description).toContain("preloaded patient");
+    expect(resolve_patient.description).toContain(
+      "firstName, lastName, and DOB",
     );
-    expect(confirm_patient_identity.description).toContain(
-      "If internal state says patient identity is already confirmed",
+    expect(resolve_patient.description).toContain(
+      "registrationStatus not_registered before add_patient",
     );
-    expect(confirm_patient_identity.description).toContain(
-      "do not call this tool or ask for last name or DOB again",
-    );
-    expect(confirm_patient_identity.description).toContain(
-      "Call only after collecting the patient's first name, last name, and DOB",
-    );
-    expect(confirm_patient_identity.description).not.toContain(
-      "insurance updates",
-    );
-    expect(confirm_patient_identity.description).not.toContain(
-      "private account",
-    );
-    expect(confirm_patient_identity.description).not.toContain(
-      "firstName only",
-    );
+    expect(resolve_patient.description).not.toContain("insurance updates");
+    expect(resolve_patient.description).not.toContain("private account");
 
-    const parameters = confirm_patient_identity.parameters as {
+    const parameters = resolve_patient.parameters as {
       safeParse: (value: unknown) => { success: boolean };
+      shape: Record<string, unknown>;
     };
+    expect(Object.keys(parameters.shape)).toEqual([
+      "firstName",
+      "lastName",
+      "dob",
+      "registrationStatus",
+    ]);
     expect(
       parameters.safeParse({
         firstName: "Jane",
         lastName: "Doe",
       }).success,
-    ).toBe(false);
+    ).toBe(true);
     expect(
       parameters.safeParse({
         firstName: "Jane",
@@ -1035,26 +1007,9 @@ describe("model-facing tool definitions", () => {
         dob: "01/01/1980",
       }).success,
     ).toBe(true);
-  });
-
-  it("keeps switch_preloaded_patient scoped to pre-call multiple-match switches", () => {
-    expect(switch_preloaded_patient.description).toContain(
-      "another patient already returned by the pre-call phone lookup",
-    );
-    expect(switch_preloaded_patient.description).toContain(
-      "parent is scheduling multiple children",
-    );
-    expect(switch_preloaded_patient.description).toContain(
-      "call get_availability again before booking or rescheduling",
-    );
-
-    const parameters = switch_preloaded_patient.parameters as {
-      safeParse: (value: unknown) => { success: boolean };
-      shape: Record<string, unknown>;
-    };
-    expect(Object.keys(parameters.shape)).toEqual(["firstName"]);
-    expect(parameters.safeParse({ firstName: "Ellie" }).success).toBe(true);
+    expect(
+      parameters.safeParse({ registrationStatus: "not_registered" }).success,
+    ).toBe(true);
     expect(parameters.safeParse({ firstName: " " }).success).toBe(false);
-    expect(parameters.safeParse({}).success).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import {
   type PatientResolveVerified,
   resolvePatientByOffice,
 } from "../clients/advancedmd-client.js";
+import { activatePreloadedCandidate } from "../identity/preloaded-patient.js";
 import {
   CALLER_CANDIDATE_REF,
   clearAvailabilitySelection,
@@ -66,7 +67,7 @@ export function restoreConfirmedPreCallCaller(state: CallState): void {
   ) {
     return;
   }
-  applyPreCallCandidateToState(state, candidate);
+  activatePreloadedCandidate(state, candidate, "confirmed_by_identity_tool");
 }
 
 export async function resolvePatientForCall(
@@ -136,48 +137,6 @@ export function changedKnownIdentityValue(
     normalizedNext &&
     normalizedPrevious !== normalizedNext,
   );
-}
-
-function applyPreCallCandidateToState(
-  state: CallState,
-  candidate: NonNullable<
-    CallState["identity"]["preCall"]
-  >["candidates"][number],
-): void {
-  if (!candidate.patientId) return;
-  state.identity.patient = {
-    ...state.identity.patient,
-    status: "verified",
-    identityConfirmed: true,
-    patientId: candidate.patientId,
-    name: [candidate.firstName, candidate.lastName].filter(Boolean).join(" "),
-    dob: candidate.dob ?? null,
-    appointments: candidate.appointments,
-    appointmentsStatus: candidate.appointmentsStatus ?? null,
-  };
-  setInsuranceOnFile(
-    state,
-    candidate.insuranceCarrier
-      ? insuranceSnapshot({
-          plan: candidate.insuranceCarrier,
-          canonicalPlan: candidate.insuranceCarrier,
-          coverageType:
-            candidate.routing === "optical_only" ? "routine_vision" : null,
-          currentCarrier: candidate.insuranceCarrier,
-        })
-      : null,
-  );
-  state.insurance.lastEligibilityCheck = null;
-  setPatientBackendRefs(state, {
-    insPlanId: candidate.insPlanId ?? null,
-    respPartyId: candidate.respPartyId ?? null,
-  });
-  setRoutingContext(state, {
-    routing: candidate.routing,
-    allowedProviders: candidate.allowedProviders,
-    routingAmbiguous: candidate.routingAmbiguous,
-    preauthRequired: candidate.preauthRequired,
-  });
 }
 
 function applyPatientPayloadToState(

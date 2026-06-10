@@ -289,7 +289,7 @@ export function classifyToolOutput(
       return "transfer_started";
     case "get_availability":
       return "availability_returned";
-    case "confirm_patient_identity":
+    case "resolve_patient":
     case "verify_patient":
       if (status === "verified") return "patient_verified";
       if (status === "multiple_matches") return "multiple_patient_matches";

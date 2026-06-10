@@ -69,7 +69,7 @@ src/
     cancel-appt.ts        cancel_appt definition, schema, execute body
     check-insurance.ts    check_insurance definition, schema, execute body
     get-availability.ts   get_availability definition, schema, execute body
-    confirm-patient-identity.ts confirm_patient_identity schema and identity loading
+    resolve-patient.ts      resolve_patient schema and identity loading
     session.ts            LiveKit RunContext state access and write interruption guard
     scheduling.ts         Office routing and availability routing helpers
     patient-state.ts      Patient lookup and patient-state mutation helpers
@@ -89,7 +89,7 @@ docs/                     Current architecture, ops, and historical notes
 The current broad office tool set is:
 
 - `get_current_datetime`
-- `confirm_patient_identity`
+- `resolve_patient`
 - `add_patient`
 - `update_insurance`
 - `get_availability`
@@ -115,12 +115,10 @@ appointment changes. If the caller gives a supported phrase such as
 `next Wednesday`, the tool also returns a natural-language interpretation with
 the exact `YYYY-MM-DD` date for availability lookup.
 
-Pre-call phone lookup data stays in backend state and can be promoted privately
-from caller-provided first-name evidence before the explicit identity tool runs.
-`confirm_patient_identity` is the fallback patient identity lookup. It only runs
-after the caller provides first name, last name, and date of birth; if those
-details match a preloaded candidate, it promotes that state without another
-middleware call.
+Pre-call phone lookup data stays in backend state and can be promoted from
+caller-provided first-name evidence. `resolve_patient` handles preloaded
+first-name matches, patient switching, backend lookup by first name, last name,
+and date of birth, and explicit new-chart state marking before `add_patient`.
 
 ## Local Development
 

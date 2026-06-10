@@ -17,13 +17,8 @@ import {
 
 export { addDurableInternalSystemMessage };
 
-export function buildToolsForTrunk(
-  trunkPhone?: string,
-  phoneLookup?: PhoneLookupResult,
-): AgentTools {
-  return buildToolsForTrunkFromRegistry(trunkPhone, {
-    exposePreloadedPatientSwitch: phoneLookup?.status === "multiple_matches",
-  });
+export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
+  return buildToolsForTrunkFromRegistry(trunkPhone);
 }
 
 export class Agent extends voice.Agent {
@@ -41,7 +36,7 @@ export class Agent extends voice.Agent {
     const office = getOfficeConfigByPhone(trunkPhone ?? "");
     super({
       instructions: buildPrompt(phoneLookup, trunkPhone),
-      tools: buildToolsForTrunk(trunkPhone, phoneLookup),
+      tools: buildToolsForTrunk(trunkPhone),
     });
     this.greeting = office.greeting;
     this.languageRuntime = options.languageRuntime;
