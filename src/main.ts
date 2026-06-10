@@ -110,7 +110,7 @@ export default defineAgent({
         llm: llmWithFallback,
         tts,
         vad,
-        maxToolSteps: 4,
+        maxToolSteps: 2,
         turnHandling: {
           turnDetection: new livekit.turnDetector.MultilingualModel(),
           ...voiceTurnHandlingOptions,
