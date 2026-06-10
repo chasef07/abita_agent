@@ -78,13 +78,18 @@ function createState(): TestCallState {
 function createToolContext(state: TestCallState) {
   const spokenHandle = {
     waitForPlayout: vi.fn(async () => undefined),
+    interrupt: vi.fn(),
+    done: vi.fn(() => false),
+    interrupted: false,
   };
   return {
     session: {
       userData: state,
       say: vi.fn(() => spokenHandle),
+      generateReply: vi.fn(() => spokenHandle),
     },
     speechHandle: { allowInterruptions: true },
+    waitForPlayout: vi.fn(async () => undefined),
     spokenHandle,
   };
 }
@@ -203,19 +208,8 @@ describe("direct session state cleanup", () => {
       } as never,
     )) as Record<string, unknown>;
 
-    expect([
-      "One moment while I check availability.",
-      "Let me check what times are open.",
-      "I'll look up available appointments now.",
-      "Give me a second to check the schedule.",
-    ]).toContain(vi.mocked(ctx.session.say).mock.calls[0]?.[0]);
-    expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(1);
-    expect(ctx.session.say.mock.invocationCallOrder[0]).toBeLessThan(
-      fetchMock.mock.invocationCallOrder[0] ?? 0,
-    );
-    expect(fetchMock.mock.invocationCallOrder[0]).toBeLessThan(
-      ctx.spokenHandle.waitForPlayout.mock.invocationCallOrder[0] ?? 0,
-    );
+    expect(ctx.session.say).not.toHaveBeenCalled();
+    expect(ctx.session.generateReply).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       result: "slots_found",
       reply: "I found June 1 at 9:00 AM with Dr. Bach. Does that work?",
@@ -349,6 +343,83 @@ describe("direct session state cleanup", () => {
     );
   });
 
+  it("generates an availability status update only while a lookup is still running", async () => {
+    const state = createState();
+    clearAvailabilitySelection(state);
+    markSchedulingTriaged(state);
+    let resolveFetch: (response: {
+      ok: true;
+      json: () => Promise<Record<string, unknown>>;
+    }) => void = () => undefined;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<{
+          ok: true;
+          json: () => Promise<Record<string, unknown>>;
+        }>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ctx = createToolContext(state);
+    const execution = get_availability.execute(
+      {
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-1",
+      } as never,
+    ) as Promise<Record<string, unknown>>;
+
+    await vi.advanceTimersByTimeAsync(499);
+    expect(ctx.session.generateReply).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(ctx.waitForPlayout).toHaveBeenCalledTimes(1);
+    expect(ctx.session.generateReply).toHaveBeenCalledWith({
+      instructions: expect.stringContaining(
+        "checking appointment availability",
+      ),
+      allowInterruptions: true,
+      toolChoice: "none",
+    });
+
+    resolveFetch({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        outcome: "availability_found",
+        availabilityFound: true,
+        requestedDate: "2026-06-01",
+        actualDate: "2026-06-01",
+        searchedFrom: "2026-06-01",
+        searchedThrough: "2026-06-01",
+        shouldRetrySameSearch: false,
+        slots: [
+          {
+            provider: "Dr. Austin Bach",
+            date: "2026-06-01",
+            time: "9:00 AM",
+            datetime: "2026-06-01T09:00:00",
+            bookingToken: "private-token",
+          },
+        ],
+      }),
+    });
+
+    const result = await execution;
+
+    expect(ctx.spokenHandle.interrupt).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      result: "slots_found",
+      next: "offer_slot",
+      slotId: "A",
+    });
+  });
+
   it("asks for a date before checking availability", async () => {
     const state = createState();
 
@@ -398,6 +469,7 @@ describe("direct session state cleanup", () => {
     });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(ctx.session.say).not.toHaveBeenCalled();
+    expect(ctx.session.generateReply).not.toHaveBeenCalled();
     expect(state.availability.slots).toEqual([]);
     expect(state.availability.latestRouting).toBeNull();
     expect(state.availability.bookingTokensBySlotId).toEqual({});
@@ -454,8 +526,7 @@ describe("direct session state cleanup", () => {
     });
     expect(secondResult).toEqual(firstResult);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(ctx.session.say).toHaveBeenCalledTimes(1);
-    expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(1);
+    expect(ctx.session.generateReply).not.toHaveBeenCalled();
   });
 
   it("does not cache retryable availability responses", async () => {
@@ -523,8 +594,7 @@ describe("direct session state cleanup", () => {
       slots: [],
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(ctx.session.say).toHaveBeenCalledTimes(2);
-    expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(2);
+    expect(ctx.session.generateReply).not.toHaveBeenCalled();
   });
 
   it("does not cache availability error responses that ask for a new date or time", async () => {
@@ -589,8 +659,7 @@ describe("direct session state cleanup", () => {
       slots: [],
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(ctx.session.say).toHaveBeenCalledTimes(2);
-    expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(2);
+    expect(ctx.session.generateReply).not.toHaveBeenCalled();
   });
 
   it("requires a loaded patient before checking availability", async () => {
@@ -4378,7 +4447,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.slots).toEqual([]);
   });
 
-  it("speaks a short transfer notice and waits before transferring the caller", async () => {
+  it("generates a short transfer notice and waits before transferring the caller", async () => {
     const state = createState();
     const ctx = createToolContext(state);
 
@@ -4388,13 +4457,18 @@ describe("direct session state cleanup", () => {
     } as never);
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(ctx.session.say).toHaveBeenCalledWith(
-      "One moment while I transfer you.",
-      {
-        allowInterruptions: false,
-      },
-    );
+    expect(ctx.waitForPlayout).toHaveBeenCalledTimes(1);
+    expect(ctx.session.generateReply).toHaveBeenCalledWith({
+      instructions: expect.stringContaining(
+        "transferring them to office staff",
+      ),
+      allowInterruptions: false,
+      toolChoice: "none",
+    });
     expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(1);
+    expect(ctx.waitForPlayout.mock.invocationCallOrder[0]).toBeLessThan(
+      ctx.session.generateReply.mock.invocationCallOrder[0] ?? 0,
+    );
     expect(
       ctx.spokenHandle.waitForPlayout.mock.invocationCallOrder[0],
     ).toBeLessThan(transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0);

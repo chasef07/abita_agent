@@ -1,4 +1,4 @@
-import { llm } from "@livekit/agents";
+import { llm, voice } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import {
@@ -27,6 +27,15 @@ type AvailabilityLookupArgs = {
   date?: string;
   appointmentLane?: SchedulingAppointmentLane;
 };
+
+type GeneratedSpeechHandle = ReturnType<
+  voice.RunContext["session"]["generateReply"]
+>;
+
+const AVAILABILITY_STATUS_DELAY_MS = 500;
+const AVAILABILITY_STATUS_INSTRUCTIONS =
+  "Briefly tell the caller that you're checking appointment availability now. " +
+  "Use the same language the caller is using. Do not mention tools or systems.";
 
 const isoDateSchema = z
   .string()
@@ -72,13 +81,17 @@ export const get_availability = llm.tool({
     );
     if (cachedResponse) return cachedResponse;
 
-    const lookupNotice = ctx.session.say(availabilityLookupNotice());
-    const result = await callApi(
-      "/api/scheduler/availability",
-      request.body,
-      officePhone,
-    );
-    await lookupNotice.waitForPlayout();
+    const statusUpdate = startAvailabilityStatusUpdate(ctx);
+    let result: unknown;
+    try {
+      result = await callApi(
+        "/api/scheduler/availability",
+        request.body,
+        officePhone,
+      );
+    } finally {
+      statusUpdate.cancel();
+    }
     const response = storeAvailabilitySlots(state, result, request.routing);
     if (isCacheableAvailabilityResponse(response)) {
       setAvailabilitySearchResult(state, request.signature, response);
@@ -86,6 +99,47 @@ export const get_availability = llm.tool({
     return response;
   },
 });
+
+function startAvailabilityStatusUpdate(ctx: voice.RunContext): {
+  cancel: () => void;
+} {
+  let cancelled = false;
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  let statusHandle: GeneratedSpeechHandle | null = null;
+
+  timeout = setTimeout(() => {
+    timeout = null;
+    void (async () => {
+      try {
+        await ctx.waitForPlayout();
+        if (cancelled) return;
+        statusHandle = ctx.session.generateReply({
+          instructions: AVAILABILITY_STATUS_INSTRUCTIONS,
+          allowInterruptions: true,
+          toolChoice: "none",
+        });
+        await statusHandle.waitForPlayout();
+      } catch (err) {
+        if (!cancelled) {
+          console.warn("[tools] Availability status update failed:", err);
+        }
+      }
+    })();
+  }, AVAILABILITY_STATUS_DELAY_MS);
+
+  return {
+    cancel: () => {
+      cancelled = true;
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+      if (statusHandle && !statusHandle.interrupted && !statusHandle.done()) {
+        statusHandle.interrupt();
+      }
+    },
+  };
+}
 
 function isCacheableAvailabilityResponse(response: unknown): boolean {
   if (!response || typeof response !== "object" || Array.isArray(response)) {
@@ -97,16 +151,6 @@ function isCacheableAvailabilityResponse(response: unknown): boolean {
     (record.result === "no_slots_found" &&
       record.next === "ask_next_search_or_new_preference")
   );
-}
-
-function availabilityLookupNotice(): string {
-  const notices = [
-    "One moment while I check availability.",
-    "Let me check what times are open.",
-    "I'll look up available appointments now.",
-    "Give me a second to check the schedule.",
-  ];
-  return notices[Math.floor(Math.random() * notices.length)] ?? notices[0];
 }
 
 function buildAvailabilityLookupRequestForState(

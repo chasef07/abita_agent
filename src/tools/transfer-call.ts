@@ -3,7 +3,9 @@ import { z } from "zod";
 import { transferCallerToOffice } from "./handoff.js";
 import { getState } from "./session.js";
 
-const TRANSFER_NOTICE = "One moment while I transfer you.";
+const TRANSFER_NOTICE_INSTRUCTIONS =
+  "Briefly tell the caller that you're transferring them to office staff now. " +
+  "Use the same language the caller is using. Do not mention tools or systems.";
 
 export const transfer_call = llm.tool({
   description:
@@ -23,8 +25,11 @@ export const transfer_call = llm.tool({
     }
 
     try {
-      const transferNotice = ctx.session.say(TRANSFER_NOTICE, {
+      await ctx.waitForPlayout();
+      const transferNotice = ctx.session.generateReply({
+        instructions: TRANSFER_NOTICE_INSTRUCTIONS,
         allowInterruptions: false,
+        toolChoice: "none",
       });
       await transferNotice.waitForPlayout();
       const { handoffOfficeKey } = await transferCallerToOffice(state);
