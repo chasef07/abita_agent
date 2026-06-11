@@ -465,7 +465,10 @@ describe("Crystal River prompt guidance", () => {
       "For new scheduling, pass appointmentLane to get_availability once the medical-versus-routine lane is clear.",
     );
     expect(prompt).toContain(
-      "If the scheduling lane is unclear, ask concise clarifying questions before checking availability.",
+      "Use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem.",
+    );
+    expect(prompt).toContain(
+      'ask: "Is this mainly for glasses or contacts, or for the eye problem?"',
     );
   });
 
@@ -655,6 +658,10 @@ describe("model-facing tool definitions", () => {
       "checking insurance eligibility with check_insurance",
     );
     expect(add_patient.description).toContain("Pass appointmentLane");
+    expect(add_patient.description).toContain("symptom-driven eye care");
+    expect(add_patient.description).toContain(
+      "routine eye exams with no active eye problem",
+    );
     expect(add_patient.description).toContain(
       "read back the important registration details and get caller confirmation",
     );
@@ -712,6 +719,10 @@ describe("model-facing tool definitions", () => {
     expect(get_availability.description).toContain("pass appointmentLane");
     expect(get_availability.description).toContain("medical_md");
     expect(get_availability.description).toContain("routine_od");
+    expect(get_availability.description).toContain("symptom-driven eye care");
+    expect(get_availability.description).toContain(
+      "routine eye exams with no active eye problem",
+    );
     expect(get_availability.description).toContain(
       "Do not call for same-day or past dates",
     );
@@ -766,7 +777,7 @@ describe("model-facing tool definitions", () => {
       "before adding a new patient",
     );
     expect(check_insurance.description).toContain(
-      "whether the visit is medical or routine vision",
+      "whether the visit is medical or glasses/contacts routine vision",
     );
     expect(check_insurance.description).toContain(
       "quick insurance acceptance questions",
