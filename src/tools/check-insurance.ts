@@ -14,7 +14,7 @@ import { getState } from "./session.js";
 export const check_insurance = llm.tool({
   description:
     "Check whether the active office accepts the caller's insurance. " +
-    "Call this before adding a new patient, after you know the plan name and whether the visit is medical or routine vision. " +
+    "Call this before adding a new patient, after you know the plan name and whether the visit is medical or glasses/contacts routine vision. " +
     "Also call for quick insurance acceptance questions. ",
   parameters: z.object({
     plan: z
@@ -25,7 +25,7 @@ export const check_insurance = llm.tool({
     coverageType: z
       .enum(["medical", "routine_vision"])
       .describe(
-        "medical for ophthalmology visits; routine_vision for routine eye exams, glasses prescriptions, or contact lens prescriptions.",
+        "medical for symptom-driven eye care, ophthalmology visits, or any eye problem; routine_vision only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem.",
       ),
   }),
   execute: async ({ plan, coverageType }, { ctx }) => {

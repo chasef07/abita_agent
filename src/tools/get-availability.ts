@@ -48,7 +48,7 @@ const isoDateSchema = z
 export const get_availability = llm.tool({
   description:
     "Search appointment availability from a start date. " +
-    "For new appointments, pass appointmentLane after the visit reason is clear. Use medical_md for medical ophthalmology, or routine_od for routine vision, glasses, contacts, or optometry. " +
+    "For new appointments, pass appointmentLane after the visit reason is clear. Use medical_md for symptom-driven eye care, medical ophthalmology, or any eye problem or concern. Use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. " +
     "For reschedules, omit appointmentLane only when the existing appointment to move is already identified. " +
     "Do not call for same-day or past dates; ask for tomorrow or a later date. " +
     "For explicit calendar dates like June 16, June 16 2026, or 2026-06-16, choose the exact YYYY-MM-DD date and call this tool directly. " +
@@ -59,7 +59,7 @@ export const get_availability = llm.tool({
       .enum(["medical_md", "routine_od"])
       .optional()
       .describe(
-        "Required for new appointment searches. Use medical_md for medical ophthalmology, or routine_od for routine vision, glasses, contacts, or optometry. Omit only for reschedules when the loaded appointment supplies the lane.",
+        "Required for new appointment searches. Use medical_md for symptom-driven eye care or any eye problem; use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. Omit only for reschedules when the loaded appointment supplies the lane.",
       ),
   }),
   execute: async ({ date, appointmentLane }, { ctx }) => {

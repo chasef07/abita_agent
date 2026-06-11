@@ -26,7 +26,7 @@ export const add_patient = llm.tool({
   description:
     "Creates a chart for a new patient. " +
     "Call this only after resolve_patient has confirmed the caller says the patient is not registered with us. " +
-    "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. Pass appointmentLane as medical_md for medical ophthalmology or routine_od for routine vision, glasses, contacts, or optometry. " +
+    "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. Pass appointmentLane as medical_md for symptom-driven eye care or any eye problem, or routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. " +
     "Before calling, read back the important registration details and get caller confirmation. " +
     "Before using the inbound caller number for the chart, ask whether the number they are calling from is a good callback number to put on file. " +
     'Never offer self pay. If the patient asks to self pay, put "self pay" in subscriberNum. ' +
@@ -68,7 +68,7 @@ export const add_patient = llm.tool({
     appointmentLane: z
       .enum(["medical_md", "routine_od"])
       .describe(
-        "Required scheduling lane. Use medical_md for medical ophthalmology, or routine_od for routine vision, glasses, contacts, or optometry.",
+        "Required scheduling lane. Use medical_md for symptom-driven eye care or any eye problem; use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem.",
       ),
     subscriberName: z.string().describe("Name on the insurance policy"),
     subscriberNum: z.string().describe("Member ID"),
