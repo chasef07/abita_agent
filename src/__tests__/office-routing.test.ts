@@ -142,12 +142,14 @@ describe("office routing helpers", () => {
     expect(getOfficeHandoffTarget("sweetwater")).toBe("tel:+16184220360");
   });
 
-  it("introduces Zoe as the virtual assistant", () => {
+  it("introduces the configured virtual assistant for each office", () => {
     const greeting =
       "Hey, this is Zoe, the virtual assistant at Abita Eye Group. How's your day going?";
 
     expect(getOfficeConfig("spring-hill").greeting).toBe(greeting);
-    expect(getOfficeConfig("dev").greeting).toBe(greeting);
+    expect(getOfficeConfig("dev").greeting).toBe(
+      "Hey, this is Julia, the virtual assistant at Acuity Health. How's your day going?",
+    );
     expect(getOfficeConfig("crystal-river").greeting).toBe(
       "Hey, this is Zoe, the virtual assistant at Eye Radiance, powered by Abita Eye Group. How's your day going?",
     );
