@@ -16,7 +16,10 @@ import {
   type CompletedRescheduleState,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
-import { removeAvailabilitySlot } from "./availability-slots.js";
+import {
+  removeAvailabilitySlot,
+  selectedAvailabilitySlot,
+} from "./availability-slots.js";
 import {
   cancellationAppointmentForState,
   removeAppointmentById,
@@ -115,8 +118,14 @@ export const reschedule_appt = llm.tool({
     }
     const completedReschedule = completedRescheduleForPatient(state, patientId);
     if (completedReschedule) {
-      clearAvailabilitySelection(state);
-      return completedRescheduleReplayMessage(completedReschedule);
+      const cachedSlot = selectedAvailabilitySlot(state, slotId);
+      if (
+        completedReschedule.status === "needs_human_cancellation" ||
+        !cachedSlot ||
+        completedRescheduleMatchesSlot(completedReschedule, cachedSlot)
+      ) {
+        return completedRescheduleReplayMessage(completedReschedule);
+      }
     }
 
     const selection = cancellationAppointmentForState(state, {
@@ -230,6 +239,15 @@ function completedRescheduleReplayMessage(
   }
 
   return `The appointment is already rescheduled to ${completedReschedule.appointmentDescription}. Tell the caller the confirmed appointment details instead of rescheduling again.`;
+}
+
+function completedRescheduleMatchesSlot(
+  completedReschedule: CompletedRescheduleState,
+  selectedSlot: StoredAvailabilitySlot,
+): boolean {
+  return (
+    completedReschedule.appointmentDescription === spokenSlot(selectedSlot)
+  );
 }
 
 function recordCompletedReschedule(
