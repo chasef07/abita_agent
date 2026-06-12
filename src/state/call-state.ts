@@ -158,6 +158,11 @@ export interface CompletedRescheduleState {
   appointmentDescription: string;
 }
 
+export interface CompletedCancellationState {
+  patientId: string;
+  appointment: CallerAppointment;
+}
+
 export interface StoredAvailabilitySlot {
   slotId: string;
   spoken: string;
@@ -223,6 +228,7 @@ interface IdentitySessionState {
   patient: PatientSessionState;
   patientBackend: PatientBackendRefs;
   latestBookedAppointmentId?: number;
+  completedCancellations: CompletedCancellationState[];
   completedReschedulesByPatientId: Record<string, CompletedRescheduleState>;
 }
 
@@ -327,6 +333,7 @@ export function createCanonicalCallState(
         appointmentsStatus: input.appointmentsStatus,
       },
       patientBackend: {},
+      completedCancellations: [],
       completedReschedulesByPatientId: {},
     },
     insurance: {
@@ -532,6 +539,26 @@ export function setLatestBookedAppointment(
 
 export function latestBookedAppointmentId(state: CallState): number | null {
   return state.identity.latestBookedAppointmentId ?? null;
+}
+
+export function recordCompletedCancellation(
+  state: CallState,
+  patientId: string,
+  appointment: CallerAppointment,
+): void {
+  state.identity.completedCancellations = [
+    ...state.identity.completedCancellations.filter(
+      (item) =>
+        item.patientId !== patientId || item.appointment.id !== appointment.id,
+    ),
+    { patientId, appointment },
+  ];
+}
+
+export function completedCancellations(
+  state: CallState,
+): CompletedCancellationState[] {
+  return [...state.identity.completedCancellations];
 }
 
 export function completedRescheduleForPatient(

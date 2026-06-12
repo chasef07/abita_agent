@@ -82,6 +82,13 @@ export const add_patient = llm.tool({
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
 
+    if (state.identity.patient.status === "created") {
+      const patientName =
+        state.identity.patient.name?.trim() ||
+        `${params.firstName} ${params.lastName}`;
+      return `Patient chart is already created for ${patientName}. Continue with scheduling.`;
+    }
+
     if (state.identity.patient.status !== "new") {
       return "Before creating a new chart, ask whether the patient is already registered with us and call resolve_patient with registrationStatus not_registered after the caller confirms they are not registered.";
     }
