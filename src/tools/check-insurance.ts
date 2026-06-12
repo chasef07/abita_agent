@@ -41,7 +41,7 @@ export const check_insurance = llm.tool({
     setLastInsuranceEligibilityCheck(state, {
       plan,
       canonicalPlan: checkedInsurancePlan,
-      coverageType: checkedInsuranceCoverageType,
+      coverageType: checkedInsuranceCoverageType ?? coverageType,
       currentCarrier: response.callerFacingPlan ?? checkedInsurancePlan,
       accepted: Boolean(checkedInsurancePlan && result.status === "accepted"),
     });

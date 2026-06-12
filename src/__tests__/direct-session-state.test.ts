@@ -3251,6 +3251,59 @@ describe("direct session state cleanup", () => {
     });
   });
 
+  it("treats duplicate add_patient after successful chart creation as already done", async () => {
+    const state = createState();
+    state.identity.patient.patientId = null;
+    state.identity.patient.name = null;
+    state.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(state);
+    markSchedulingTriaged(state);
+    markAcceptedInsurance(state);
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "created",
+        patientId: "patient-new",
+        name: "Jane Doe",
+        phone: "+17275551212",
+        insuranceCarrier: "self pay",
+        routing: "all_three",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const params = {
+      firstName: "Jane",
+      lastName: "Doe",
+      dob: "01/01/1980",
+      street: "123 Main St",
+      aptSuite: "",
+      city: "Spring Hill",
+      state: "FL",
+      zip: "34606",
+      sex: "female" as const,
+      insurance: "self pay",
+      appointmentLane: "medical_md" as const,
+      subscriberName: "Jane Doe",
+      subscriberNum: "self pay",
+      inboundPhoneConfirmed: true,
+      readBack: true,
+    };
+
+    await add_patient.execute(params, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-1",
+    } as never);
+    const result = await add_patient.execute(params, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-2",
+    } as never);
+
+    expect(result).toBe(
+      "Patient chart is already created for Jane Doe. Continue with scheduling.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps canonical insurance internal for caller-facing alias responses", async () => {
     const state = createState();
 
@@ -3336,7 +3389,7 @@ describe("direct session state cleanup", () => {
     expect(state.insurance.lastEligibilityCheck).toMatchObject({
       plan: "Humana PPO",
       canonicalPlan: null,
-      coverageType: null,
+      coverageType: "medical",
       currentCarrier: "Humana PPO",
       accepted: false,
     });
@@ -3645,6 +3698,114 @@ describe("direct session state cleanup", () => {
     expect(
       state.identity.patient.appointments.map((appointment) => appointment.id),
     ).toEqual([111]);
+  });
+
+  it("treats duplicate cancel_appt for a cancelled appointment as already done", async () => {
+    const state = createState();
+    state.identity.patient.appointments = [
+      {
+        id: 123,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Bach",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
+    ];
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "cancelled",
+        appointmentId: 123,
+        message: "Appointment cancelled successfully",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await cancel_appt.execute(
+      {
+        appointmentDate: "June 1",
+        appointmentTime: "9 AM",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+    const result = await cancel_appt.execute(
+      {
+        appointmentDate: "June 1",
+        appointmentTime: "9 AM",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "That appointment was already cancelled on this call: Monday, June 1, 2026 at 9:00 AM. Continue without calling cancel_appt again.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not replay a cancellation after switching active patients", async () => {
+    const state = createState();
+    state.identity.patient.appointments = [
+      {
+        id: 123,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Bach",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
+    ];
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "cancelled",
+        appointmentId: 123,
+        message: "Appointment cancelled successfully",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await cancel_appt.execute(
+      {
+        appointmentDate: "June 1",
+        appointmentTime: "9 AM",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+    state.identity.patient = {
+      ...state.identity.patient,
+      patientId: "patient-2",
+      name: "John Doe",
+      appointments: [],
+      appointmentsStatus: "none",
+    };
+
+    await expect(
+      cancel_appt.execute(
+        {
+          appointmentDate: "June 1",
+          appointmentTime: "9 AM",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-2",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "No loaded appointment matches those details. Load appointments again or ask which loaded appointment to cancel.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("asks for clarification when a caller date matches multiple appointments", async () => {
@@ -4569,7 +4730,13 @@ describe("direct session state cleanup", () => {
     );
     expect(state.office.activeKey).toBe("spring-hill");
     expect(state.office.phoneOverrides?.["spring-hill"]).toBe("+17275919997");
-    expect(state.insurance.lastEligibilityCheck).toBeNull();
+    expect(state.insurance.lastEligibilityCheck).toEqual({
+      plan: "Humana PPO",
+      canonicalPlan: "Humana PPO",
+      coverageType: "medical",
+      currentCarrier: "Humana PPO",
+      accepted: true,
+    });
     expect(state.workflow.routing.routing).toBe("all_three");
     expect(state.availability.slots).toEqual([]);
   });

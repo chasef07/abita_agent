@@ -4,6 +4,7 @@ import { callApi } from "../clients/advancedmd-client.js";
 import { activePatientId } from "../state/call-state.js";
 import {
   cancellationAppointmentForState,
+  completedCancellationForState,
   removeAppointmentById,
 } from "./appointment-state.js";
 import { restoreConfirmedPreCallCaller } from "./patient-state.js";
@@ -60,6 +61,14 @@ export const cancel_appt = llm.tool({
       return selection.message;
     }
     if (selection.status === "not_found") {
+      const cancelledAppointment = completedCancellationForState(state, {
+        appointmentId,
+        appointmentDate,
+        appointmentTime,
+      });
+      if (cancelledAppointment) {
+        return `That appointment was already cancelled on this call: ${cancelledAppointment.date} at ${cancelledAppointment.time}. Continue without calling cancel_appt again.`;
+      }
       throw new llm.ToolError(selection.message);
     }
     const appointment = selection.appointment;

@@ -2,7 +2,10 @@ import { getOfficeConfig } from "../customer/profile.js";
 import {
   activeAppointments,
   activeOfficeKey,
+  activePatientId,
+  completedCancellations,
   latestBookedAppointmentId,
+  recordCompletedCancellation,
   removeBookedAppointmentReference,
   setLatestBookedAppointment,
   type AppointmentLoadStatus,
@@ -181,11 +184,53 @@ export function removeAppointmentById(
   state: CallState,
   appointmentId: number,
 ): void {
+  const appointment = activeAppointmentById(state, appointmentId);
+  const patientId = activePatientId(state);
+  if (appointment && patientId) {
+    recordCompletedCancellation(state, patientId, appointment);
+  }
   removeBookedAppointmentReference(state, appointmentId);
   state.identity.patient.appointments =
     state.identity.patient.appointments.filter(
       (appointment) => appointment.id !== appointmentId,
     );
+}
+
+export function completedCancellationForState(
+  state: CallState,
+  selector: CancellationAppointmentSelector,
+): CallerAppointment | null {
+  const patientId = activePatientId(state);
+  if (!patientId) return null;
+  const cancelledAppointments = completedCancellations(state)
+    .filter((item) => item.patientId === patientId)
+    .map((item) => item.appointment);
+  if (cancelledAppointments.length === 0) return null;
+
+  if (selector.appointmentId !== undefined) {
+    return (
+      cancelledAppointments.find(
+        (appointment) => appointment.id === selector.appointmentId,
+      ) ?? null
+    );
+  }
+
+  const dateText = selector.appointmentDate?.trim();
+  const timeText = selector.appointmentTime?.trim();
+  if (dateText || timeText) {
+    const date = dateText ? parseDateParts(dateText) : null;
+    const time = timeText ? parseTimeParts(timeText) : null;
+    if ((dateText && !date) || (timeText && !time)) return null;
+
+    const matches = cancelledAppointments.filter((appointment) => {
+      if (date && !appointmentDateMatches(appointment.date, date)) return false;
+      if (time && !appointmentTimeMatches(appointment.time, time)) return false;
+      return true;
+    });
+    return matches.length === 1 ? matches[0] : null;
+  }
+
+  return cancelledAppointments.length === 1 ? cancelledAppointments[0] : null;
 }
 
 function extractAppointmentsStatus(
