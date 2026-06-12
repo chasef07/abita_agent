@@ -2908,7 +2908,7 @@ describe("direct session state cleanup", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("marks the new-chart path before chart creation", async () => {
+  it("marks the new-chart path before chart creation while preserving accepted insurance eligibility", async () => {
     const state = createState();
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
@@ -2936,7 +2936,14 @@ describe("direct session state cleanup", () => {
     expect(state.identity.patient.patientId).toBeNull();
     expect(state.availability.slots).toEqual([]);
     expect(state.identity.latestBookedAppointmentId).toBeUndefined();
-    expect(state.insurance.lastEligibilityCheck).toBeNull();
+    expect(state.insurance.lastEligibilityCheck).toEqual({
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
+      currentCarrier: "Aetna",
+      accepted: true,
+    });
+    expect(state.insurance.onFile).toBeNull();
   });
 
   it("does not demote an already confirmed patient to the new-chart path", async () => {
@@ -3249,6 +3256,86 @@ describe("direct session state cleanup", () => {
       intent: "schedule",
       appointmentLane: "medical_md",
     });
+  });
+
+  it("creates a chart when new-chart confirmation follows an accepted insurance check", async () => {
+    const state = createState();
+    state.office.activeKey = "hollywood";
+    state.identity.patient.patientId = null;
+    state.identity.patient.name = null;
+    state.identity.patient.identityConfirmed = false;
+    state.insurance.onFile = null;
+    markSchedulingTriaged(state);
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "created",
+        patientId: "patient-new",
+        name: "Maria Santos",
+        phone: "+17275551212",
+        insuranceCarrier: "Care Plus",
+        routing: "all_three",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const params = {
+      firstName: "Maria",
+      lastName: "Santos",
+      dob: "01/01/1980",
+      street: "123 Main St",
+      aptSuite: "",
+      city: "Spring Hill",
+      state: "FL",
+      zip: "34606",
+      sex: "female" as const,
+      insurance: "Care Plus Medicare",
+      appointmentLane: "medical_md" as const,
+      subscriberName: "Maria Santos",
+      subscriberNum: "ABC123",
+      inboundPhoneConfirmed: true,
+      readBack: true,
+    };
+
+    await check_insurance.execute(
+      {
+        plan: "Care Plus Medicare",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    const prematureResult = await add_patient.execute(params, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-2",
+    } as never);
+    expect(prematureResult).toBe(
+      "Before creating a new chart, ask whether the patient is already registered with us and call resolve_patient with registrationStatus not_registered after the caller confirms they are not registered.",
+    );
+
+    await resolve_patient.execute(
+      { registrationStatus: "not_registered" },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-3" } as never,
+    );
+    const result = await add_patient.execute(params, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-4",
+    } as never);
+
+    expect(result).toBe(
+      "Created a patient chart for Maria Santos. Continue with scheduling.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      insurance: "CarePlus Medicare Medical",
+      subscriberNum: "ABC123",
+    });
+    expect(state.insurance.onFile).toEqual({
+      plan: "Care Plus",
+      canonicalPlan: "CarePlus Medicare Medical",
+      coverageType: "medical",
+      currentCarrier: "Care Plus",
+    });
+    expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 
   it("treats duplicate add_patient after successful chart creation as already done", async () => {

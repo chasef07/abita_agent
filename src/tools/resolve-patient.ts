@@ -291,7 +291,6 @@ function uniqueNameParts(parts: Array<string | undefined>): string[] {
 function markNewChartPath(state: CallState): string {
   clearAvailabilitySelection(state);
   delete state.identity.latestBookedAppointmentId;
-  state.insurance.lastEligibilityCheck = null;
   state.insurance.onFile = null;
   setPatientBackendRefs(state, {
     insPlanId: null,

@@ -2,6 +2,8 @@ import { llm } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import {
+  canonicalInsurancePlan,
+  matchInsurancePlanForOffice,
   normalizeInsuranceText,
   type InsuranceCoverageType,
 } from "../insurance-rules.js";
@@ -14,6 +16,7 @@ import {
   setInsuranceOnFile,
   setLastInsuranceEligibilityCheck,
   type CallState,
+  type InsuranceEligibilityCheck,
 } from "../state/call-state.js";
 import { applyPatientResult } from "./patient-state.js";
 import {
@@ -93,17 +96,6 @@ export const add_patient = llm.tool({
       return "Before creating a new chart, ask whether the patient is already registered with us and call resolve_patient with registrationStatus not_registered after the caller confirms they are not registered.";
     }
 
-    const checkedInsurance = lastInsuranceEligibilityCheck(state);
-    if (
-      !checkedInsurance?.accepted ||
-      !checkedInsurance.canonicalPlan ||
-      !checkedInsurance.coverageType
-    ) {
-      throw new llm.ToolError(
-        "Run check_insurance for accepted coverage before creating a patient.",
-      );
-    }
-    const insurance = checkedInsurance.canonicalPlan ?? params.insurance;
     if (
       params.appointmentLane !== "medical_md" &&
       params.appointmentLane !== "routine_od"
@@ -115,6 +107,15 @@ export const add_patient = llm.tool({
     const laneCoverageType = coverageTypeForAppointmentLane(
       params.appointmentLane,
     );
+    const checkedInsurance = acceptedInsuranceForAddPatient(
+      state,
+      params.insurance,
+      laneCoverageType,
+    );
+    if (!checkedInsurance) {
+      return "Check whether we accept the patient's insurance for this visit type before creating a patient chart.";
+    }
+    const insurance = checkedInsurance.canonicalPlan ?? params.insurance;
     if (checkedInsurance.coverageType !== laneCoverageType) {
       throw new llm.ToolError(
         "Use appointmentLane medical_md with medical coverage, or routine_od with routine_vision coverage. Run check_insurance again for the correct coverage before creating a patient.",
@@ -211,6 +212,52 @@ function coverageTypeForAppointmentLane(
   appointmentLane: "medical_md" | "routine_od",
 ): InsuranceCoverageType {
   return appointmentLane === "routine_od" ? "routine_vision" : "medical";
+}
+
+function acceptedInsuranceForAddPatient(
+  state: CallState,
+  insurance: string,
+  coverageType: InsuranceCoverageType,
+): InsuranceEligibilityCheck | null {
+  const checkedInsurance = lastInsuranceEligibilityCheck(state);
+  if (
+    checkedInsurance?.accepted &&
+    checkedInsurance.canonicalPlan &&
+    insuranceMatchesCheck(insurance, checkedInsurance)
+  ) {
+    return checkedInsurance;
+  }
+
+  const result = matchInsurancePlanForOffice(
+    state.office.activeKey,
+    insurance,
+    coverageType,
+  );
+  const canonicalPlan = canonicalInsurancePlan(result);
+  if (!canonicalPlan || result.status !== "accepted") return null;
+
+  const resolved: InsuranceEligibilityCheck = {
+    plan: insurance,
+    canonicalPlan,
+    coverageType,
+    currentCarrier: result.callerFacingPlan ?? canonicalPlan,
+    accepted: true,
+  };
+  setLastInsuranceEligibilityCheck(state, resolved);
+  return resolved;
+}
+
+function insuranceMatchesCheck(
+  insurance: string,
+  checkedInsurance: InsuranceEligibilityCheck,
+): boolean {
+  const requested = normalizeInsuranceText(insurance);
+  if (!requested) return false;
+  return [
+    checkedInsurance.plan,
+    checkedInsurance.canonicalPlan,
+    checkedInsurance.currentCarrier,
+  ].some((value) => normalizeInsuranceText(value ?? "") === requested);
 }
 
 function hasMatchingPreCallPatient(
