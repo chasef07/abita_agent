@@ -3312,10 +3312,10 @@ describe("direct session state cleanup", () => {
       "Before creating a new chart, ask whether the patient is already registered with us and call resolve_patient with registrationStatus not_registered after the caller confirms they are not registered.",
     );
 
-    await resolve_patient.execute(
-      { registrationStatus: "not_registered" },
-      { ctx: createToolContext(state) as never, toolCallId: "tool-3" } as never,
-    );
+    await resolve_patient.execute({ registrationStatus: "not_registered" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-3",
+    } as never);
     const result = await add_patient.execute(params, {
       ctx: createToolContext(state) as never,
       toolCallId: "tool-4",

@@ -1,3 +1,9 @@
 packages: []
+allowBuilds:
+  "@ffmpeg-installer/darwin-arm64": true
+  esbuild: true
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true
 patchedDependencies:
-  "@livekit/agents-plugin-assemblyai@1.4.4": patches/@livekit__agents-plugin-assemblyai@1.4.4.patch
+  "@livekit/agents-plugin-assemblyai@1.4.6": patches/@livekit__agents-plugin-assemblyai@1.4.6.patch
