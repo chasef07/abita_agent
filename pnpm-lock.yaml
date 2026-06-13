@@ -5,7 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  '@livekit/agents-plugin-assemblyai@1.4.6': 78eb78459ab76bf14e8b94e386ebadd52ac5e756ec6258a78d3a4a8cfcc553a8
+  '@livekit/agents-plugin-assemblyai@1.4.6':
+    hash: 78eb78459ab76bf14e8b94e386ebadd52ac5e756ec6258a78d3a4a8cfcc553a8
+    path: patches/@livekit__agents-plugin-assemblyai@1.4.6.patch
 
 importers:
 
