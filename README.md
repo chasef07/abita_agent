@@ -69,7 +69,10 @@ src/
     cancel-appt.ts        cancel_appt definition, schema, execute body
     check-insurance.ts    check_insurance definition, schema, execute body
     get-availability.ts   get_availability definition, schema, execute body
+    reschedule-appt.ts    reschedule_appt definition, schema, execute body
+    update-insurance.ts   update_insurance definition, schema, execute body
     resolve-patient.ts      resolve_patient schema and identity loading
+    route-to-spring-hill.ts route_to_spring_hill definition
     session.ts            LiveKit RunContext state access and write interruption guard
     scheduling.ts         Office routing and availability routing helpers
     patient-state.ts      Patient lookup and patient-state mutation helpers
@@ -94,6 +97,7 @@ The current broad office tool set is:
 - `update_insurance`
 - `get_availability`
 - `cancel_appt`
+- `reschedule_appt`
 - `book_appt`
 - `check_insurance`
 - `lookup_knowledge`
@@ -122,12 +126,12 @@ and date of birth, and explicit new-chart state marking before `add_patient`.
 
 ## Local Development
 
-Use Node 22.
+Use Node 22 and pnpm 10.
 
 ```bash
-pnpm install
-cp .env.example .env.local
-pnpm dev
+corepack enable
+corepack prepare pnpm@10.34.3 --activate
+pnpm install --frozen-lockfile
 ```
 
 Useful checks:
@@ -138,6 +142,10 @@ pnpm lint
 pnpm typecheck
 pnpm test
 ```
+
+The runtime does not auto-load `.env`, `.env.local`, or other env files. LiveKit
+Cloud supplies production worker environment variables. If you run the worker
+manually, provide the required variables through the process environment.
 
 Real call testing requires LiveKit Cloud credentials and a configured SIP trunk.
 See `docs/ops/telnyx-setup.md`.

@@ -37,9 +37,6 @@ importers:
       '@livekit/rtc-node':
         specifier: ^0.13.29
         version: 0.13.29
-      dotenv:
-        specifier: ^17.4.2
-        version: 17.4.2
       livekit-server-sdk:
         specifier: ^2.15.4
         version: 2.15.4

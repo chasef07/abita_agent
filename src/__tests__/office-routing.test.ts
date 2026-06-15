@@ -33,7 +33,44 @@ import {
   update_insurance,
 } from "../tools/index.js";
 import { getBaseUrlForOfficePhone } from "../clients/advancedmd-client.js";
+import type { PhoneLookupResult } from "../state/call-state.js";
 import { resolveKnowledgeFileForOffice } from "../tools/knowledge.js";
+
+type VerifiedPhoneLookup = Extract<
+  NonNullable<PhoneLookupResult>,
+  { status: "verified" }
+>;
+
+function verifiedPhoneLookup(
+  overrides: Partial<VerifiedPhoneLookup> = {},
+): VerifiedPhoneLookup {
+  return {
+    status: "verified",
+    patientId: "patient-1",
+    name: "Santos, Maria",
+    dob: "01/01/1980",
+    phone: "+17275551212",
+    insuranceCarrier: "Aetna",
+    insPlanId: "plan-1",
+    respPartyId: "resp-1",
+    routing: "bach_only",
+    allowedProviders: [],
+    routingAmbiguous: false,
+    preauthRequired: false,
+    appointments: [
+      {
+        id: 123,
+        date: "2099-01-01",
+        time: "9:30AM",
+        provider: "Dr. Bach",
+        type: "Follow-up",
+        facility: "Hollywood",
+        confirmed: true,
+      },
+    ],
+    ...overrides,
+  };
+}
 
 describe("office routing helpers", () => {
   afterEach(() => {
@@ -557,33 +594,7 @@ describe("Crystal River prompt guidance", () => {
   });
 
   it("does not inject preloaded appointment facilities into the prompt", () => {
-    const prompt = buildPrompt(
-      {
-        status: "verified",
-        patientId: "patient-1",
-        name: "Santos, Maria",
-        dob: "01/01/1980",
-        phone: "+17275551212",
-        insuranceCarrier: "Aetna",
-        insPlanId: "plan-1",
-        respPartyId: "resp-1",
-        routing: "bach_only",
-        allowedProviders: [],
-        routingAmbiguous: false,
-        appointments: [
-          {
-            id: 123,
-            date: "2099-01-01",
-            time: "9:30AM",
-            provider: "Dr. Bach",
-            type: "Follow-up",
-            facility: "Hollywood",
-            confirmed: true,
-          },
-        ],
-      },
-      HOLLYWOOD_OFFICE_PHONE,
-    );
+    const prompt = buildPrompt(verifiedPhoneLookup(), HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).not.toContain("Santos");
     expect(prompt).not.toContain("patient-1");
@@ -592,33 +603,7 @@ describe("Crystal River prompt guidance", () => {
   });
 
   it("keeps single-match pre-call facts out of the prompt", () => {
-    const prompt = buildPrompt(
-      {
-        status: "verified",
-        patientId: "patient-1",
-        name: "Santos, Maria",
-        dob: "01/01/1980",
-        phone: "+17275551212",
-        insuranceCarrier: "Aetna",
-        insPlanId: "plan-1",
-        respPartyId: "resp-1",
-        routing: "bach_only",
-        allowedProviders: [],
-        routingAmbiguous: false,
-        appointments: [
-          {
-            id: 123,
-            date: "2099-01-01",
-            time: "9:30AM",
-            provider: "Dr. Bach",
-            type: "Follow-up",
-            facility: "Hollywood",
-            confirmed: true,
-          },
-        ],
-      },
-      HOLLYWOOD_OFFICE_PHONE,
-    );
+    const prompt = buildPrompt(verifiedPhoneLookup(), HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).not.toContain("<pre_call_context>");
     expect(prompt).toContain("<caller_identity_hint>");

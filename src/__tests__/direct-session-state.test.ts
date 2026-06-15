@@ -16,6 +16,9 @@ import {
   clearAvailabilitySelection,
   createCanonicalCallState,
   storeAvailabilityBookingToken,
+  type CallerAppointment,
+  type PreCallContextState,
+  type StoredAvailabilitySlot,
 } from "../state/call-state.js";
 import {
   add_patient,
@@ -31,6 +34,7 @@ import {
 } from "../tools/index.js";
 
 type TestCallState = ReturnType<typeof createCanonicalCallState>;
+type PreCallCandidate = PreCallContextState["candidates"][number];
 
 function createState(): TestCallState {
   const state = createCanonicalCallState({
@@ -150,6 +154,221 @@ function markAcceptedInsurance(
     currentCarrier: input.currentCarrier ?? input.canonicalPlan,
     accepted: true,
   };
+}
+
+function setPatientUnknown(state: TestCallState) {
+  state.identity.patient = {
+    ...state.identity.patient,
+    status: "unknown",
+    identityConfirmed: false,
+    patientId: null,
+    name: null,
+    dob: null,
+    phone: null,
+    appointments: [],
+    appointmentsStatus: null,
+  };
+}
+
+function appointment(
+  overrides: Partial<CallerAppointment> = {},
+): CallerAppointment {
+  return {
+    id: 123,
+    date: "Monday, June 1, 2026",
+    time: "9:00 AM",
+    provider: "Dr. Licht",
+    type: "Follow-up",
+    facility: "Spring Hill",
+    confirmed: false,
+    ...overrides,
+  };
+}
+
+function availabilitySlot(
+  overrides: Partial<StoredAvailabilitySlot> = {},
+): StoredAvailabilitySlot {
+  return {
+    slotId: "A",
+    spoken: "2026-06-01 9:00 AM with Doctor Smith",
+    provider: "Doctor Smith",
+    date: "2026-06-01",
+    time: "9:00 AM",
+    datetime: "2026-06-01T09:00:00",
+    routing: "all_three",
+    ...overrides,
+  };
+}
+
+function setLoadedAppointments(
+  state: TestCallState,
+  ...appointments: CallerAppointment[]
+) {
+  state.identity.patient.appointments = appointments;
+}
+
+function preCallCandidate(
+  overrides: Partial<PreCallCandidate> = {},
+): PreCallCandidate {
+  return {
+    ref: CALLER_CANDIDATE_REF,
+    firstName: "ESA",
+    lastName: "ARSHED",
+    dob: "10/03/2020",
+    patientId: "patient-esa",
+    relationshipToCaller: "self",
+    appointments: [],
+    appointmentsStatus: "none",
+    insuranceCarrier: "Florida Blue Shield",
+    routing: "bach_only",
+    allowedProviders: ["Dr. Bach"],
+    routingAmbiguous: false,
+    preauthRequired: false,
+    ...overrides,
+  };
+}
+
+function setSingleArshedPreCallCandidate(state: TestCallState) {
+  setPatientUnknown(state);
+  state.identity.preCall = {
+    status: "single_match_pending_confirmation",
+    source: "phone_lookup",
+    callerPhone: "+17275551212",
+    candidates: [preCallCandidate()],
+    selectedCandidateRef: CALLER_CANDIDATE_REF,
+    identityPromotion: "none",
+  };
+}
+
+function setMultiplePreCallCandidates(
+  state: TestCallState,
+  candidates: PreCallCandidate[],
+  options: {
+    status?: PreCallContextState["status"];
+    callerPhone?: string;
+    selectedCandidateRef?: string;
+    identityPromotion?: string;
+  } = {},
+) {
+  state.identity.preCall = {
+    status: options.status ?? "multiple_matches_pending_selection",
+    source: "phone_lookup",
+    callerPhone: options.callerPhone ?? "+19546097250",
+    candidates,
+    ...(options.selectedCandidateRef
+      ? { selectedCandidateRef: options.selectedCandidateRef }
+      : {}),
+    identityPromotion: options.identityPromotion ?? "none",
+  };
+}
+
+function stubFetchJson(...responses: Record<string, unknown>[]) {
+  const fetchMock = vi.fn();
+  for (const response of responses) {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => response,
+    });
+  }
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+function noAvailabilityResponse(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    status: "success",
+    outcome: "no_availability",
+    availabilityFound: false,
+    requestedDate: "2026-07-09",
+    searchedFrom: "2026-07-09",
+    searchedThrough: "2026-07-23",
+    shouldRetrySameSearch: false,
+    slots: [],
+    ...overrides,
+  };
+}
+
+function availabilityFoundResponse(
+  slot: Record<string, unknown>,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    status: "success",
+    outcome: "availability_found",
+    availabilityFound: true,
+    requestedDate: "2026-07-09",
+    actualDate: "2026-07-09",
+    searchedFrom: "2026-07-09",
+    searchedThrough: "2026-07-09",
+    shouldRetrySameSearch: false,
+    slots: [slot],
+    ...overrides,
+  };
+}
+
+async function getMedicalAvailability(
+  ctx: ReturnType<typeof createToolContext>,
+  toolCallId: string,
+) {
+  return get_availability.execute(
+    {
+      date: "2026-07-09",
+      appointmentLane: "medical_md",
+    },
+    {
+      ctx: ctx as never,
+      toolCallId,
+    } as never,
+  );
+}
+
+function stubRescheduleFetch(
+  bookResponse: Record<string, unknown>,
+  cancelResponse: Record<string, unknown> = {
+    status: "cancelled",
+    appointmentId: 123,
+    message: "Appointment cancelled successfully",
+  },
+) {
+  const fetchMock = vi.fn(async (url: string | URL) => {
+    const path = String(url);
+    return {
+      ok: true,
+      json: async () =>
+        path.includes("/api/appointment/book") ? bookResponse : cancelResponse,
+    };
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+function prepareRescheduleState(
+  state: TestCallState,
+  {
+    context = "schedule",
+    appointmentOverrides,
+    token = "private-token",
+  }: {
+    context?: "schedule" | "change_appointment";
+    appointmentOverrides?: Partial<CallerAppointment>;
+    token?: string;
+  } = {},
+) {
+  if (context === "change_appointment") {
+    markAppointmentChangeContext(state);
+  } else {
+    markSchedulingTriaged(state);
+  }
+  setLoadedAppointments(state, appointment(appointmentOverrides));
+  storeAvailabilityBookingToken(state, "A", token);
+}
+
+function fetchCallKinds(fetchMock: ReturnType<typeof vi.fn>) {
+  return fetchMock.mock.calls.map((call) =>
+    String(call[0]).includes("/api/appointment/book") ? "book" : "cancel",
+  );
 }
 
 describe("direct session state cleanup", () => {
@@ -479,41 +698,10 @@ describe("direct session state cleanup", () => {
     const state = createState();
     markSchedulingTriaged(state);
     const ctx = createToolContext(state);
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "success",
-        outcome: "no_availability",
-        availabilityFound: false,
-        requestedDate: "2026-07-09",
-        searchedFrom: "2026-07-09",
-        searchedThrough: "2026-07-23",
-        shouldRetrySameSearch: false,
-        slots: [],
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = stubFetchJson(noAvailabilityResponse());
 
-    const firstResult = await get_availability.execute(
-      {
-        date: "2026-07-09",
-        appointmentLane: "medical_md",
-      },
-      {
-        ctx: ctx as never,
-        toolCallId: "tool-1",
-      } as never,
-    );
-    const secondResult = await get_availability.execute(
-      {
-        date: "2026-07-09",
-        appointmentLane: "medical_md",
-      },
-      {
-        ctx: ctx as never,
-        toolCallId: "tool-2",
-      } as never,
-    );
+    const firstResult = await getMedicalAvailability(ctx, "tool-1");
+    const secondResult = await getMedicalAvailability(ctx, "tool-2");
 
     expect(firstResult).toEqual({
       result: "no_slots_found",
@@ -533,55 +721,21 @@ describe("direct session state cleanup", () => {
     const state = createState();
     markSchedulingTriaged(state);
     const ctx = createToolContext(state);
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          status: "success",
-          outcome: "availability_search_incomplete",
-          requestedDate: "2026-07-09",
-          searchedFrom: "2026-07-09",
-          searchedThrough: "2026-07-23",
-          shouldRetrySameSearch: true,
-          slots: [],
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          status: "success",
-          outcome: "no_availability",
-          availabilityFound: false,
-          requestedDate: "2026-07-09",
-          searchedFrom: "2026-07-09",
-          searchedThrough: "2026-07-23",
-          shouldRetrySameSearch: false,
-          slots: [],
-        }),
-      });
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = stubFetchJson(
+      {
+        status: "success",
+        outcome: "availability_search_incomplete",
+        requestedDate: "2026-07-09",
+        searchedFrom: "2026-07-09",
+        searchedThrough: "2026-07-23",
+        shouldRetrySameSearch: true,
+        slots: [],
+      },
+      noAvailabilityResponse(),
+    );
 
-    const firstResult = await get_availability.execute(
-      {
-        date: "2026-07-09",
-        appointmentLane: "medical_md",
-      },
-      {
-        ctx: ctx as never,
-        toolCallId: "tool-1",
-      } as never,
-    );
-    const secondResult = await get_availability.execute(
-      {
-        date: "2026-07-09",
-        appointmentLane: "medical_md",
-      },
-      {
-        ctx: ctx as never,
-        toolCallId: "tool-2",
-      } as never,
-    );
+    const firstResult = await getMedicalAvailability(ctx, "tool-1");
+    const secondResult = await getMedicalAvailability(ctx, "tool-2");
 
     expect(firstResult).toMatchObject({
       result: "retry",
@@ -601,51 +755,17 @@ describe("direct session state cleanup", () => {
     const state = createState();
     markSchedulingTriaged(state);
     const ctx = createToolContext(state);
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          outcome: "scheduler_error",
-          message: "The scheduler could not complete that search.",
-          shouldRetrySameSearch: false,
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          status: "success",
-          outcome: "no_availability",
-          availabilityFound: false,
-          requestedDate: "2026-07-09",
-          searchedFrom: "2026-07-09",
-          searchedThrough: "2026-07-23",
-          shouldRetrySameSearch: false,
-          slots: [],
-        }),
-      });
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = stubFetchJson(
+      {
+        outcome: "scheduler_error",
+        message: "The scheduler could not complete that search.",
+        shouldRetrySameSearch: false,
+      },
+      noAvailabilityResponse(),
+    );
 
-    const firstResult = await get_availability.execute(
-      {
-        date: "2026-07-09",
-        appointmentLane: "medical_md",
-      },
-      {
-        ctx: ctx as never,
-        toolCallId: "tool-1",
-      } as never,
-    );
-    const secondResult = await get_availability.execute(
-      {
-        date: "2026-07-09",
-        appointmentLane: "medical_md",
-      },
-      {
-        ctx: ctx as never,
-        toolCallId: "tool-2",
-      } as never,
-    );
+    const firstResult = await getMedicalAvailability(ctx, "tool-1");
+    const secondResult = await getMedicalAvailability(ctx, "tool-2");
 
     expect(firstResult).toEqual({
       result: "error",
@@ -831,8 +951,9 @@ describe("direct session state cleanup", () => {
   it("checks availability for a loaded appointment change without faking schedule intent", async () => {
     const state = createState();
     markAppointmentChangeContext(state);
-    state.identity.patient.appointments = [
-      {
+    setLoadedAppointments(
+      state,
+      appointment({
         id: 123,
         date: "Tuesday, June 9, 2026",
         time: "8:30 AM",
@@ -840,35 +961,20 @@ describe("direct session state cleanup", () => {
         type: "Established Pediatric Medical (Follow Up)",
         appointmentTypeId: 1005,
         facility: "Abita Eye Group Hollywood",
-        confirmed: false,
-      },
-    ];
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "success",
-        outcome: "availability_found",
-        availabilityFound: true,
-        requestedDate: "2026-07-09",
-        actualDate: "2026-07-09",
-        searchedFrom: "2026-07-09",
-        searchedThrough: "2026-07-09",
-        shouldRetrySameSearch: false,
-        slots: [
-          {
-            provider: "Dr. Austin Bach",
-            date: "2026-07-09",
-            time: "9:45 AM",
-            datetime: "2026-07-09T09:45:00",
-            bookingToken: "reschedule-token",
-            columnId: 1478,
-            profileId: 620,
-            duration: 15,
-          },
-        ],
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
+    const fetchMock = stubFetchJson(
+      availabilityFoundResponse({
+        provider: "Dr. Austin Bach",
+        date: "2026-07-09",
+        time: "9:45 AM",
+        datetime: "2026-07-09T09:45:00",
+        bookingToken: "reschedule-token",
+        columnId: 1478,
+        profileId: 620,
+        duration: 15,
+      }),
+    );
 
     const result = (await get_availability.execute(
       {
@@ -905,44 +1011,29 @@ describe("direct session state cleanup", () => {
     state.office.phoneOverrides = {
       "crystal-river": "+13523202007",
     };
-    state.identity.patient.appointments = [
-      {
+    setLoadedAppointments(
+      state,
+      appointment({
         id: 123,
         date: "Tuesday, June 9, 2026",
         time: "8:30 AM",
-        provider: "Dr. Licht",
         type: "Routine Vision / Glasses",
         appointmentTypeId: 6167,
         facility: "Crystal River",
-        confirmed: false,
-      },
-    ];
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "success",
-        outcome: "availability_found",
-        availabilityFound: true,
-        requestedDate: "2026-07-09",
-        actualDate: "2026-07-09",
-        searchedFrom: "2026-07-09",
-        searchedThrough: "2026-07-09",
-        shouldRetrySameSearch: false,
-        slots: [
-          {
-            provider: "Dr. Kyler Farnan",
-            date: "2026-07-09",
-            time: "10:00 AM",
-            datetime: "2026-07-09T10:00:00",
-            bookingToken: "routine-reschedule-token",
-            columnId: 1555,
-            profileId: 2075,
-            duration: 30,
-          },
-        ],
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
+    const fetchMock = stubFetchJson(
+      availabilityFoundResponse({
+        provider: "Dr. Kyler Farnan",
+        date: "2026-07-09",
+        time: "10:00 AM",
+        datetime: "2026-07-09T10:00:00",
+        bookingToken: "routine-reschedule-token",
+        columnId: 1555,
+        profileId: 2075,
+        duration: 30,
+      }),
+    );
 
     const result = (await get_availability.execute(
       {
@@ -985,8 +1076,9 @@ describe("direct session state cleanup", () => {
     state.workflow.routing.routing = "bach_only";
     state.workflow.routing.allowedProviders = ["Dr. Bach"];
     state.availability.latestRouting = "bach_only";
-    state.identity.patient.appointments = [
-      {
+    setLoadedAppointments(
+      state,
+      appointment({
         id: 20396260,
         date: "Friday, June 12, 2026",
         time: "9:00 AM",
@@ -994,35 +1086,28 @@ describe("direct session state cleanup", () => {
         type: "Established Pediatric Vision",
         appointmentTypeId: 4245,
         facility: "Abita Eye Group Sweetwater",
-        confirmed: false,
-      },
-    ];
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "success",
-        outcome: "availability_found",
-        availabilityFound: true,
-        requestedDate: "2026-07-23",
-        actualDate: "2026-07-23",
-        searchedFrom: "2026-07-23",
-        searchedThrough: "2026-07-23",
-        shouldRetrySameSearch: false,
-        slots: [
-          {
-            provider: "Dr. Maria Casas",
-            date: "2026-07-23",
-            time: "9:00 AM",
-            datetime: "2026-07-23T09:00:00",
-            bookingToken: "sweetwater-optical-token",
-            columnId: 1296,
-            profileId: 1996,
-            duration: 30,
-          },
-        ],
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
+    const fetchMock = stubFetchJson(
+      availabilityFoundResponse(
+        {
+          provider: "Dr. Maria Casas",
+          date: "2026-07-23",
+          time: "9:00 AM",
+          datetime: "2026-07-23T09:00:00",
+          bookingToken: "sweetwater-optical-token",
+          columnId: 1296,
+          profileId: 1996,
+          duration: 30,
+        },
+        {
+          requestedDate: "2026-07-23",
+          actualDate: "2026-07-23",
+          searchedFrom: "2026-07-23",
+          searchedThrough: "2026-07-23",
+        },
+      ),
+    );
 
     const result = (await get_availability.execute(
       {
@@ -1066,21 +1151,20 @@ describe("direct session state cleanup", () => {
     state.workflow.routing.allowedProviders = ["Dr. Bach"];
     state.availability.latestRouting = "all_three";
     state.availability.slots = [
-      {
-        slotId: "A",
+      availabilitySlot({
         spoken: "2026-07-10 9:00 AM with Dr. Bach",
         provider: "Dr. Bach",
         date: "2026-07-10",
         time: "9:00 AM",
         datetime: "2026-07-10T09:00:00",
-        routing: "all_three",
-      },
+      }),
     ];
     state.availability.bookingTokensBySlotId = {
       A: "stale-new-schedule-token",
     };
-    state.identity.patient.appointments = [
-      {
+    setLoadedAppointments(
+      state,
+      appointment({
         id: 20396260,
         date: "Friday, June 12, 2026",
         time: "9:00 AM",
@@ -1088,35 +1172,28 @@ describe("direct session state cleanup", () => {
         type: "Established Pediatric Vision",
         appointmentTypeId: 4245,
         facility: "Abita Eye Group Sweetwater",
-        confirmed: false,
-      },
-    ];
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "success",
-        outcome: "availability_found",
-        availabilityFound: true,
-        requestedDate: "2026-07-23",
-        actualDate: "2026-07-23",
-        searchedFrom: "2026-07-23",
-        searchedThrough: "2026-07-23",
-        shouldRetrySameSearch: false,
-        slots: [
-          {
-            provider: "Dr. Maria Casas",
-            date: "2026-07-23",
-            time: "9:00 AM",
-            datetime: "2026-07-23T09:00:00",
-            bookingToken: "sweetwater-optical-token",
-            columnId: 1296,
-            profileId: 1996,
-            duration: 30,
-          },
-        ],
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
+    const fetchMock = stubFetchJson(
+      availabilityFoundResponse(
+        {
+          provider: "Dr. Maria Casas",
+          date: "2026-07-23",
+          time: "9:00 AM",
+          datetime: "2026-07-23T09:00:00",
+          bookingToken: "sweetwater-optical-token",
+          columnId: 1296,
+          profileId: 1996,
+          duration: 30,
+        },
+        {
+          requestedDate: "2026-07-23",
+          actualDate: "2026-07-23",
+          searchedFrom: "2026-07-23",
+          searchedThrough: "2026-07-23",
+        },
+      ),
+    );
 
     await get_availability.execute(
       {
@@ -1148,8 +1225,9 @@ describe("direct session state cleanup", () => {
 
   it("records appointment-change context from a single loaded appointment", async () => {
     const state = createState();
-    state.identity.patient.appointments = [
-      {
+    setLoadedAppointments(
+      state,
+      appointment({
         id: 123,
         date: "Tuesday, June 9, 2026",
         time: "8:30 AM",
@@ -1157,24 +1235,11 @@ describe("direct session state cleanup", () => {
         type: "Established Pediatric Medical (Follow Up)",
         appointmentTypeId: 1005,
         facility: "Abita Eye Group Hollywood",
-        confirmed: false,
-      },
-    ];
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "success",
-        outcome: "availability_found",
-        availabilityFound: true,
-        requestedDate: "2026-07-09",
-        actualDate: "2026-07-09",
-        searchedFrom: "2026-07-09",
-        searchedThrough: "2026-07-09",
-        shouldRetrySameSearch: false,
-        slots: [],
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
+    const fetchMock = stubFetchJson(
+      availabilityFoundResponse({}, { slots: [] }),
+    );
 
     await get_availability.execute(
       {
@@ -1832,41 +1897,8 @@ describe("direct session state cleanup", () => {
 
   it("blocks new chart creation when a pending pre-call candidate matches last name and DOB", async () => {
     const state = createState();
-    state.identity.patient = {
-      ...state.identity.patient,
-      status: "new",
-      identityConfirmed: false,
-      patientId: null,
-      name: null,
-      dob: null,
-      phone: null,
-      appointments: [],
-      appointmentsStatus: null,
-    };
-    state.identity.preCall = {
-      status: "single_match_pending_confirmation",
-      source: "phone_lookup",
-      callerPhone: "+17275551212",
-      candidates: [
-        {
-          ref: CALLER_CANDIDATE_REF,
-          firstName: "ESA",
-          lastName: "ARSHED",
-          dob: "10/03/2020",
-          patientId: "patient-esa",
-          relationshipToCaller: "self",
-          appointments: [],
-          appointmentsStatus: "none",
-          insuranceCarrier: "Florida Blue Shield",
-          routing: "bach_only",
-          allowedProviders: ["Dr. Bach"],
-          routingAmbiguous: false,
-          preauthRequired: false,
-        },
-      ],
-      selectedCandidateRef: CALLER_CANDIDATE_REF,
-      identityPromotion: "none",
-    };
+    setSingleArshedPreCallCandidate(state);
+    state.identity.patient.status = "new";
     markSchedulingTriaged(state);
     state.insurance.lastEligibilityCheck = {
       plan: "Florida Blue Shield",
@@ -2353,49 +2385,11 @@ describe("direct session state cleanup", () => {
 
   it("asks for first-name spelling after lookup fails for a pre-call single match with matching last name and DOB", async () => {
     const state = createState();
-    state.identity.patient = {
-      ...state.identity.patient,
-      status: "unknown",
-      identityConfirmed: false,
-      patientId: null,
-      name: null,
-      dob: null,
-      phone: null,
-      appointments: [],
-      appointmentsStatus: null,
-    };
-    state.identity.preCall = {
-      status: "single_match_pending_confirmation",
-      source: "phone_lookup",
-      callerPhone: "+17275551212",
-      candidates: [
-        {
-          ref: CALLER_CANDIDATE_REF,
-          firstName: "ESA",
-          lastName: "ARSHED",
-          dob: "10/03/2020",
-          patientId: "patient-esa",
-          relationshipToCaller: "self",
-          appointments: [],
-          appointmentsStatus: "none",
-          insuranceCarrier: "Florida Blue Shield",
-          routing: "bach_only",
-          allowedProviders: ["Dr. Bach"],
-          routingAmbiguous: false,
-          preauthRequired: false,
-        },
-      ],
-      selectedCandidateRef: CALLER_CANDIDATE_REF,
-      identityPromotion: "none",
-    };
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "not_found",
-        message: "No patient found matching that first name.",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    setSingleArshedPreCallCandidate(state);
+    const fetchMock = stubFetchJson({
+      status: "not_found",
+      message: "No patient found matching that first name.",
+    });
 
     const result = await resolve_patient.execute(
       {
@@ -2422,49 +2416,11 @@ describe("direct session state cleanup", () => {
 
   it("preserves backend lookup errors instead of using the pre-call spelling fallback", async () => {
     const state = createState();
-    state.identity.patient = {
-      ...state.identity.patient,
-      status: "unknown",
-      identityConfirmed: false,
-      patientId: null,
-      name: null,
-      dob: null,
-      phone: null,
-      appointments: [],
-      appointmentsStatus: null,
-    };
-    state.identity.preCall = {
-      status: "single_match_pending_confirmation",
-      source: "phone_lookup",
-      callerPhone: "+17275551212",
-      candidates: [
-        {
-          ref: CALLER_CANDIDATE_REF,
-          firstName: "ESA",
-          lastName: "ARSHED",
-          dob: "10/03/2020",
-          patientId: "patient-esa",
-          relationshipToCaller: "self",
-          appointments: [],
-          appointmentsStatus: "none",
-          insuranceCarrier: "Florida Blue Shield",
-          routing: "bach_only",
-          allowedProviders: ["Dr. Bach"],
-          routingAmbiguous: false,
-          preauthRequired: false,
-        },
-      ],
-      selectedCandidateRef: CALLER_CANDIDATE_REF,
-      identityPromotion: "none",
-    };
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "error",
-        message: "Patient lookup failed. Try again.",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    setSingleArshedPreCallCandidate(state);
+    stubFetchJson({
+      status: "error",
+      message: "Patient lookup failed. Try again.",
+    });
 
     const result = await resolve_patient.execute(
       {
@@ -2484,59 +2440,21 @@ describe("direct session state cleanup", () => {
 
   it("verifies a backend patient before spelling fallback when a pre-call single match shares last name and DOB", async () => {
     const state = createState();
-    state.identity.patient = {
-      ...state.identity.patient,
-      status: "unknown",
-      identityConfirmed: false,
-      patientId: null,
-      name: null,
-      dob: null,
-      phone: null,
+    setSingleArshedPreCallCandidate(state);
+    const fetchMock = stubFetchJson({
+      status: "verified",
+      patientId: "patient-ella",
+      name: "ELLA ARSHED",
+      dob: "10/03/2020",
+      phone: "+17275551212",
+      insuranceCarrier: "Aetna",
+      routing: "all_three",
+      allowedProviders: [],
+      routingAmbiguous: false,
+      preauthRequired: false,
+      appointmentsStatus: "none",
       appointments: [],
-      appointmentsStatus: null,
-    };
-    state.identity.preCall = {
-      status: "single_match_pending_confirmation",
-      source: "phone_lookup",
-      callerPhone: "+17275551212",
-      candidates: [
-        {
-          ref: CALLER_CANDIDATE_REF,
-          firstName: "ESA",
-          lastName: "ARSHED",
-          dob: "10/03/2020",
-          patientId: "patient-esa",
-          relationshipToCaller: "self",
-          appointments: [],
-          appointmentsStatus: "none",
-          insuranceCarrier: "Florida Blue Shield",
-          routing: "bach_only",
-          allowedProviders: ["Dr. Bach"],
-          routingAmbiguous: false,
-          preauthRequired: false,
-        },
-      ],
-      selectedCandidateRef: CALLER_CANDIDATE_REF,
-      identityPromotion: "none",
-    };
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "verified",
-        patientId: "patient-ella",
-        name: "ELLA ARSHED",
-        dob: "10/03/2020",
-        phone: "+17275551212",
-        insuranceCarrier: "Aetna",
-        routing: "all_three",
-        allowedProviders: [],
-        routingAmbiguous: false,
-        preauthRequired: false,
-        appointmentsStatus: "none",
-        appointments: [],
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    });
 
     const result = await resolve_patient.execute(
       {
@@ -2561,59 +2479,35 @@ describe("direct session state cleanup", () => {
 
   it("confirms a unique multiple-match pre-call candidate from full identity", async () => {
     const state = createState();
-    state.identity.patient = {
-      ...state.identity.patient,
-      status: "unknown",
-      identityConfirmed: false,
-      patientId: null,
-      name: null,
-      dob: null,
-      phone: null,
-      appointments: [],
-      appointmentsStatus: null,
-    };
-    state.identity.preCall = {
-      status: "multiple_matches_pending_selection",
-      source: "phone_lookup",
-      callerPhone: "+19546097250",
-      candidates: [
-        {
-          ref: "precall:1",
-          firstName: "CHASE",
-          lastName: "TEST",
-          dob: "04/07/2000",
-          patientId: "patient-chase",
-          relationshipToCaller: "unknown",
-          appointments: [],
-          appointmentsStatus: "none",
-          insuranceCarrier: null,
-          insPlanId: null,
-          respPartyId: "resp-chase",
-          routing: null,
-          allowedProviders: [],
-          routingAmbiguous: false,
-          preauthRequired: false,
-        },
-        {
-          ref: "precall:2",
-          firstName: "KYLE",
-          lastName: "TEST",
-          dob: "08/18/2000",
-          patientId: "patient-kyle",
-          relationshipToCaller: "unknown",
-          appointments: [],
-          appointmentsStatus: "none",
-          insuranceCarrier: "Oscar",
-          insPlanId: "plan-kyle",
-          respPartyId: "resp-kyle",
-          routing: "bach_licht",
-          allowedProviders: ["Dr. Licht"],
-          routingAmbiguous: false,
-          preauthRequired: false,
-        },
-      ],
-      identityPromotion: "none",
-    };
+    setPatientUnknown(state);
+    setMultiplePreCallCandidates(state, [
+      preCallCandidate({
+        ref: "precall:1",
+        firstName: "CHASE",
+        lastName: "TEST",
+        dob: "04/07/2000",
+        patientId: "patient-chase",
+        relationshipToCaller: "unknown",
+        insuranceCarrier: null,
+        insPlanId: null,
+        respPartyId: "resp-chase",
+        routing: null,
+        allowedProviders: [],
+      }),
+      preCallCandidate({
+        ref: "precall:2",
+        firstName: "KYLE",
+        lastName: "TEST",
+        dob: "08/18/2000",
+        patientId: "patient-kyle",
+        relationshipToCaller: "unknown",
+        insuranceCarrier: "Oscar",
+        insPlanId: "plan-kyle",
+        respPartyId: "resp-kyle",
+        routing: "bach_licht",
+        allowedProviders: ["Dr. Licht"],
+      }),
+    ]);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -2649,33 +2543,37 @@ describe("direct session state cleanup", () => {
       appointments: [],
       appointmentsStatus: "none",
     };
-    state.identity.preCall = {
-      status: "multiple_match_confirmed",
-      source: "phone_lookup",
-      callerPhone: "+17863488102",
-      candidates: [
-        {
+    setMultiplePreCallCandidates(
+      state,
+      [
+        preCallCandidate({
           ref: "precall:1",
           firstName: "BRANDON",
           lastName: "ANDERSON",
           dob: "04/05/2012",
           patientId: "patient-brandon",
-          appointments: [],
-          appointmentsStatus: "none",
-        },
-        {
+          insuranceCarrier: undefined,
+          routing: undefined,
+          allowedProviders: undefined,
+        }),
+        preCallCandidate({
           ref: "precall:2",
           firstName: "MONIQUE",
           lastName: "HAMILTON",
           dob: "12/21/2016",
           patientId: "patient-monique",
-          appointments: [],
-          appointmentsStatus: "none",
-        },
+          insuranceCarrier: undefined,
+          routing: undefined,
+          allowedProviders: undefined,
+        }),
       ],
-      selectedCandidateRef: "precall:1",
-      identityPromotion: "confirmed_by_transcript",
-    };
+      {
+        status: "multiple_match_confirmed",
+        callerPhone: "+17863488102",
+        selectedCandidateRef: "precall:1",
+        identityPromotion: "confirmed_by_transcript",
+      },
+    );
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -2714,24 +2612,27 @@ describe("direct session state cleanup", () => {
       appointments: [],
       appointmentsStatus: "none",
     };
-    state.identity.preCall = {
-      status: "multiple_match_confirmed",
-      source: "phone_lookup",
-      callerPhone: "+17863488102",
-      candidates: [
-        {
+    setMultiplePreCallCandidates(
+      state,
+      [
+        preCallCandidate({
           ref: "precall:1",
           firstName: "BRANDON",
           lastName: "ANDERSON",
           dob: "04/05/2012",
           patientId: "patient-brandon",
-          appointments: [],
-          appointmentsStatus: "none",
-        },
+          insuranceCarrier: undefined,
+          routing: undefined,
+          allowedProviders: undefined,
+        }),
       ],
-      selectedCandidateRef: "precall:1",
-      identityPromotion: "confirmed_by_identity_tool",
-    };
+      {
+        status: "multiple_match_confirmed",
+        callerPhone: "+17863488102",
+        selectedCandidateRef: "precall:1",
+        identityPromotion: "confirmed_by_identity_tool",
+      },
+    );
     storeAvailabilityBookingToken(state, "A", "token-a");
     state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
@@ -2769,43 +2670,29 @@ describe("direct session state cleanup", () => {
 
   it("resolves an exact short first name from pre-call candidates", async () => {
     const state = createState();
-    state.identity.patient = {
-      ...state.identity.patient,
-      status: "unknown",
-      identityConfirmed: false,
-      patientId: null,
-      name: null,
-      dob: null,
-      phone: null,
-      appointments: [],
-      appointmentsStatus: null,
-    };
-    state.identity.preCall = {
-      status: "multiple_matches_pending_selection",
-      source: "phone_lookup",
-      callerPhone: "+19546097250",
-      candidates: [
-        {
-          ref: "precall:1",
-          firstName: "AL",
-          lastName: "DOE",
-          dob: "01/01/1980",
-          patientId: "patient-al",
-          appointments: [],
-          appointmentsStatus: "none",
-        },
-        {
-          ref: "precall:2",
-          firstName: "BOB",
-          lastName: "DOE",
-          dob: "02/02/1980",
-          patientId: "patient-bob",
-          appointments: [],
-          appointmentsStatus: "none",
-        },
-      ],
-      identityPromotion: "none",
-    };
+    setPatientUnknown(state);
+    setMultiplePreCallCandidates(state, [
+      preCallCandidate({
+        ref: "precall:1",
+        firstName: "AL",
+        lastName: "DOE",
+        dob: "01/01/1980",
+        patientId: "patient-al",
+        insuranceCarrier: undefined,
+        routing: undefined,
+        allowedProviders: undefined,
+      }),
+      preCallCandidate({
+        ref: "precall:2",
+        firstName: "BOB",
+        lastName: "DOE",
+        dob: "02/02/1980",
+        patientId: "patient-bob",
+        insuranceCarrier: undefined,
+        routing: undefined,
+        allowedProviders: undefined,
+      }),
+    ]);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -2824,41 +2711,31 @@ describe("direct session state cleanup", () => {
 
   it("asks for clarification when a first-name pre-call match is ambiguous", async () => {
     const state = createState();
-    state.identity.patient = {
-      ...state.identity.patient,
-      status: "unknown",
-      identityConfirmed: false,
-      patientId: null,
-      name: null,
-      dob: null,
-      phone: null,
-      appointments: [],
-      appointmentsStatus: null,
-    };
-    state.identity.preCall = {
-      status: "multiple_matches_pending_selection",
-      source: "phone_lookup",
-      callerPhone: "+19546097250",
-      candidates: [
-        {
-          ref: "precall:1",
-          firstName: "KYLE",
-          lastName: "TEST",
-          dob: "08/18/2000",
-          patientId: "patient-kyle",
-          appointments: [],
-        },
-        {
-          ref: "precall:2",
-          firstName: "KYLEE",
-          lastName: "TEST",
-          dob: "10/10/2015",
-          patientId: "patient-kylee",
-          appointments: [],
-        },
-      ],
-      identityPromotion: "none",
-    };
+    setPatientUnknown(state);
+    setMultiplePreCallCandidates(state, [
+      preCallCandidate({
+        ref: "precall:1",
+        firstName: "KYLE",
+        lastName: "TEST",
+        dob: "08/18/2000",
+        patientId: "patient-kyle",
+        appointmentsStatus: undefined,
+        insuranceCarrier: undefined,
+        routing: undefined,
+        allowedProviders: undefined,
+      }),
+      preCallCandidate({
+        ref: "precall:2",
+        firstName: "KYLEE",
+        lastName: "TEST",
+        dob: "10/10/2015",
+        patientId: "patient-kylee",
+        appointmentsStatus: undefined,
+        insuranceCarrier: undefined,
+        routing: undefined,
+        allowedProviders: undefined,
+      }),
+    ]);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -3693,27 +3570,21 @@ describe("direct session state cleanup", () => {
 
   it("cancels a loaded appointment and removes it from session state", async () => {
     const state = createState();
-    state.identity.patient.appointments = [
-      {
+    setLoadedAppointments(
+      state,
+      appointment({
         id: 123,
         date: "June 5",
         time: "10:00 AM",
         provider: "Dr. Bach",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: false,
-      },
-    ];
-    const ctx = createToolContext(state);
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "cancelled",
-        appointmentId: 123,
-        message: "Appointment cancelled successfully",
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
+    const ctx = createToolContext(state);
+    const fetchMock = stubFetchJson({
+      status: "cancelled",
+      appointmentId: 123,
+      message: "Appointment cancelled successfully",
+    });
 
     const result = await cancel_appt.execute(
       {
@@ -3734,35 +3605,28 @@ describe("direct session state cleanup", () => {
 
   it("cancels a loaded appointment selected by caller date", async () => {
     const state = createState();
-    state.identity.patient.appointments = [
-      {
+    setLoadedAppointments(
+      state,
+      appointment({
         id: 111,
         date: "Monday, June 1, 2026",
         time: "9:00 AM",
         provider: "Dr. Bach",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: false,
-      },
-      {
+      }),
+      appointment({
         id: 222,
         date: "Tuesday, June 2, 2026",
         time: "10:00 AM",
         provider: "Dr. Licht",
         type: "Routine Vision",
         facility: "Crystal River",
-        confirmed: false,
-      },
-    ];
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "cancelled",
-        appointmentId: 222,
-        message: "Appointment cancelled successfully",
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
+    const fetchMock = stubFetchJson({
+      status: "cancelled",
+      appointmentId: 222,
+      message: "Appointment cancelled successfully",
+    });
 
     const result = await cancel_appt.execute(
       {
@@ -3789,26 +3653,12 @@ describe("direct session state cleanup", () => {
 
   it("treats duplicate cancel_appt for a cancelled appointment as already done", async () => {
     const state = createState();
-    state.identity.patient.appointments = [
-      {
-        id: 123,
-        date: "Monday, June 1, 2026",
-        time: "9:00 AM",
-        provider: "Dr. Bach",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: false,
-      },
-    ];
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "cancelled",
-        appointmentId: 123,
-        message: "Appointment cancelled successfully",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    setLoadedAppointments(state, appointment({ provider: "Dr. Bach" }));
+    const fetchMock = stubFetchJson({
+      status: "cancelled",
+      appointmentId: 123,
+      message: "Appointment cancelled successfully",
+    });
 
     await cancel_appt.execute(
       {
@@ -3839,26 +3689,12 @@ describe("direct session state cleanup", () => {
 
   it("does not replay a cancellation after switching active patients", async () => {
     const state = createState();
-    state.identity.patient.appointments = [
-      {
-        id: 123,
-        date: "Monday, June 1, 2026",
-        time: "9:00 AM",
-        provider: "Dr. Bach",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: false,
-      },
-    ];
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "cancelled",
-        appointmentId: 123,
-        message: "Appointment cancelled successfully",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    setLoadedAppointments(state, appointment({ provider: "Dr. Bach" }));
+    const fetchMock = stubFetchJson({
+      status: "cancelled",
+      appointmentId: 123,
+      message: "Appointment cancelled successfully",
+    });
 
     await cancel_appt.execute(
       {
@@ -3897,26 +3733,23 @@ describe("direct session state cleanup", () => {
 
   it("asks for clarification when a caller date matches multiple appointments", async () => {
     const state = createState();
-    state.identity.patient.appointments = [
-      {
+    setLoadedAppointments(
+      state,
+      appointment({
         id: 111,
         date: "Tuesday, June 2, 2026",
         time: "9:00 AM",
         provider: "Dr. Bach",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: false,
-      },
-      {
+      }),
+      appointment({
         id: 222,
         date: "Tuesday, June 2, 2026",
         time: "2:00 PM",
         provider: "Dr. Licht",
         type: "Routine Vision",
         facility: "Crystal River",
-        confirmed: false,
-      },
-    ];
+      }),
+    );
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -4049,49 +3882,26 @@ describe("direct session state cleanup", () => {
 
   it("reschedules from appointment-change context without faking schedule intent", async () => {
     const state = createState();
-    markAppointmentChangeContext(state);
     state.office.activeKey = "crystal-river";
     state.office.phoneOverrides = {
       "crystal-river": "+13523202007",
     };
-    state.identity.patient.appointments = [
-      {
-        id: 123,
-        date: "Monday, June 1, 2026",
-        time: "9:00 AM",
-        provider: "Dr. Licht",
+    prepareRescheduleState(state, {
+      context: "change_appointment",
+      appointmentOverrides: {
         type: "Crystal River New Patient",
         appointmentTypeId: 6167,
         facility: "Crystal River",
-        confirmed: false,
       },
-    ];
-    storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn(async (url: string | URL) => {
-      const path = String(url);
-      if (path.includes("/api/appointment/book")) {
-        return {
-          ok: true,
-          json: async () => ({
-            status: "booked",
-            appointmentId: 456,
-            providerName: "Doctor Smith",
-            locationName: "Crystal River",
-            appointmentTypeId: 6167,
-            appointmentTypeName: "Crystal River New Patient",
-          }),
-        };
-      }
-      return {
-        ok: true,
-        json: async () => ({
-          status: "cancelled",
-          appointmentId: 123,
-          message: "Appointment cancelled successfully",
-        }),
-      };
     });
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = stubRescheduleFetch({
+      status: "booked",
+      appointmentId: 456,
+      providerName: "Doctor Smith",
+      locationName: "Crystal River",
+      appointmentTypeId: 6167,
+      appointmentTypeName: "Crystal River New Patient",
+    });
 
     const result = await reschedule_appt.execute(
       {
@@ -4125,11 +3935,7 @@ describe("direct session state cleanup", () => {
       message:
         "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
     });
-    expect(
-      fetchMock.mock.calls.map((call) =>
-        String(call[0]).includes("/api/appointment/book") ? "book" : "cancel",
-      ),
-    ).toEqual(["book", "cancel"]);
+    expect(fetchCallKinds(fetchMock)).toEqual(["book", "cancel"]);
     const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(bookingBody).toMatchObject({
       bookingToken: "private-token",
@@ -4164,19 +3970,7 @@ describe("direct session state cleanup", () => {
 
   it("requires read-back confirmation before rescheduling", async () => {
     const state = createState();
-    markAppointmentChangeContext(state);
-    state.identity.patient.appointments = [
-      {
-        id: 123,
-        date: "Monday, June 1, 2026",
-        time: "9:00 AM",
-        provider: "Dr. Licht",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: false,
-      },
-    ];
-    storeAvailabilityBookingToken(state, "A", "private-token");
+    prepareRescheduleState(state, { context: "change_appointment" });
     const ctx = createToolContext(state);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -4203,43 +3997,14 @@ describe("direct session state cleanup", () => {
 
   it("does not reschedule again when the selected slot matches the completed reschedule", async () => {
     const state = createState();
-    markAppointmentChangeContext(state);
-    state.identity.patient.appointments = [
-      {
-        id: 123,
-        date: "Monday, June 1, 2026",
-        time: "9:00 AM",
-        provider: "Dr. Licht",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: false,
-      },
-    ];
-    storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn(async (url: string | URL) => {
-      const path = String(url);
-      if (path.includes("/api/appointment/book")) {
-        return {
-          ok: true,
-          json: async () => ({
-            status: "booked",
-            appointmentId: 456,
-            providerName: "Doctor Smith",
-            locationName: "Spring Hill",
-            appointmentTypeName: "Medical",
-          }),
-        };
-      }
-      return {
-        ok: true,
-        json: async () => ({
-          status: "cancelled",
-          appointmentId: 123,
-          message: "Appointment cancelled successfully",
-        }),
-      };
+    prepareRescheduleState(state, { context: "change_appointment" });
+    const fetchMock = stubRescheduleFetch({
+      status: "booked",
+      appointmentId: 456,
+      providerName: "Doctor Smith",
+      locationName: "Spring Hill",
+      appointmentTypeName: "Medical",
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     await reschedule_appt.execute(
       {
@@ -4255,15 +4020,10 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    const duplicateSlot: TestCallState["availability"]["slots"][number] = {
-      slotId: "B",
-      spoken: "2026-06-01 9:00 AM with Doctor Smith",
-      provider: "Doctor Smith",
-      date: "2026-06-01",
-      time: "9:00 AM",
-      datetime: "2026-06-01T09:00:00",
-      routing: "all_three",
-    };
+    const duplicateSlot: TestCallState["availability"]["slots"][number] =
+      availabilitySlot({
+        slotId: "B",
+      });
     state.availability.slots.push(duplicateSlot);
     storeAvailabilityBookingToken(state, "B", "private-token-b");
 
@@ -4291,19 +4051,7 @@ describe("direct session state cleanup", () => {
 
   it("allows a caller correction to a different slot after a successful reschedule", async () => {
     const state = createState();
-    markAppointmentChangeContext(state);
-    state.identity.patient.appointments = [
-      {
-        id: 123,
-        date: "Monday, June 1, 2026",
-        time: "9:00 AM",
-        provider: "Dr. Licht",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: false,
-      },
-    ];
-    storeAvailabilityBookingToken(state, "A", "private-token");
+    prepareRescheduleState(state, { context: "change_appointment" });
     let bookingCallCount = 0;
     const fetchMock = vi.fn(async (url: string | URL) => {
       const path = String(url);
@@ -4344,15 +4092,14 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    state.availability.slots.push({
-      slotId: "B",
-      spoken: "2026-06-01 2:00 PM with Doctor Smith",
-      provider: "Doctor Smith",
-      date: "2026-06-01",
-      time: "2:00 PM",
-      datetime: "2026-06-01T14:00:00",
-      routing: "all_three",
-    });
+    state.availability.slots.push(
+      availabilitySlot({
+        slotId: "B",
+        spoken: "2026-06-01 2:00 PM with Doctor Smith",
+        time: "2:00 PM",
+        datetime: "2026-06-01T14:00:00",
+      }),
+    );
     storeAvailabilityBookingToken(state, "B", "private-token-b");
 
     const result = await reschedule_appt.execute(
@@ -4379,11 +4126,12 @@ describe("direct session state cleanup", () => {
       message:
         "Rescheduled the appointment to June 1 at 2:00 PM with Doctor Smith. Cancelled the old appointment on 2026-06-01 at 9:00 AM.",
     });
-    expect(
-      fetchMock.mock.calls.map((call) =>
-        String(call[0]).includes("/api/appointment/book") ? "book" : "cancel",
-      ),
-    ).toEqual(["book", "cancel", "book", "cancel"]);
+    expect(fetchCallKinds(fetchMock)).toEqual([
+      "book",
+      "cancel",
+      "book",
+      "cancel",
+    ]);
     expect(JSON.parse(fetchMock.mock.calls[3][1].body as string)).toEqual({
       appointmentId: 456,
       patientId: "patient-1",
@@ -4410,60 +4158,37 @@ describe("direct session state cleanup", () => {
 
   it("cancels the old appointment through its original office after routine reschedule routing", async () => {
     const state = createState();
-    markSchedulingTriaged(state, "routine_od");
     state.office.activeKey = "spring-hill";
     state.office.phoneOverrides = {
       "crystal-river": "+13523202007",
       "spring-hill": "+17275919997",
     };
-    state.identity.patient.appointments = [
-      {
-        id: 123,
-        date: "Monday, June 1, 2026",
-        time: "9:00 AM",
-        provider: "Dr. Licht",
+    markSchedulingTriaged(state, "routine_od");
+    setLoadedAppointments(
+      state,
+      appointment({
         type: "Crystal River New Patient",
         appointmentTypeId: 6167,
         facility: "Crystal River",
-        confirmed: false,
-      },
-    ];
+      }),
+    );
     state.availability.slots = [
-      {
-        slotId: "A",
+      availabilitySlot({
         spoken: "2026-06-03 10:00 AM with Doctor Smith",
-        provider: "Doctor Smith",
         date: "2026-06-03",
         time: "10:00 AM",
         datetime: "2026-06-03T10:00:00",
         routing: "optical_only",
-      },
+      }),
     ];
     storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn(async (url: string | URL) => {
-      const path = String(url);
-      if (path.includes("/api/appointment/book")) {
-        return {
-          ok: true,
-          json: async () => ({
-            status: "booked",
-            appointmentId: 456,
-            providerName: "Doctor Smith",
-            locationName: "Spring Hill",
-            appointmentTypeName: "Routine Vision",
-          }),
-        };
-      }
-      return {
-        ok: true,
-        json: async () => ({
-          status: "cancelled",
-          appointmentId: 123,
-          message: "Appointment cancelled successfully",
-        }),
-      };
+    const fetchMock = stubRescheduleFetch({
+      status: "booked",
+      appointmentId: 456,
+      providerName: "Doctor Smith",
+      locationName: "Spring Hill",
+      appointmentTypeName: "Routine Vision",
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await reschedule_appt.execute(
       {
@@ -4512,28 +4237,12 @@ describe("direct session state cleanup", () => {
 
   it("does not cancel the old appointment when reschedule booking fails", async () => {
     const state = createState();
-    markSchedulingTriaged(state);
-    state.identity.patient.appointments = [
-      {
-        id: 123,
-        date: "Monday, June 1, 2026",
-        time: "9:00 AM",
-        provider: "Dr. Licht",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: false,
-      },
-    ];
-    storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "error",
-        outcome: "slot_unavailable",
-        message: "This time slot is no longer available.",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    prepareRescheduleState(state);
+    const fetchMock = stubFetchJson({
+      status: "error",
+      outcome: "slot_unavailable",
+      message: "This time slot is no longer available.",
+    });
 
     const result = await reschedule_appt.execute(
       {
@@ -4561,26 +4270,21 @@ describe("direct session state cleanup", () => {
   it("does not book when the old appointment selection is ambiguous", async () => {
     const state = createState();
     markSchedulingTriaged(state);
-    state.identity.patient.appointments = [
-      {
+    setLoadedAppointments(
+      state,
+      appointment({
         id: 111,
         date: "Tuesday, June 2, 2026",
         time: "9:00 AM",
         provider: "Dr. Bach",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: false,
-      },
-      {
+      }),
+      appointment({
         id: 222,
         date: "Tuesday, June 2, 2026",
         time: "2:00 PM",
-        provider: "Dr. Licht",
         type: "Routine Vision",
-        facility: "Spring Hill",
-        confirmed: false,
-      },
-    ];
+      }),
+    );
     storeAvailabilityBookingToken(state, "A", "private-token");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -4606,42 +4310,20 @@ describe("direct session state cleanup", () => {
 
   it("keeps both appointments when reschedule cancellation fails after booking", async () => {
     const state = createState();
-    markSchedulingTriaged(state);
-    state.identity.patient.appointments = [
+    prepareRescheduleState(state);
+    const fetchMock = stubRescheduleFetch(
       {
-        id: 123,
-        date: "Monday, June 1, 2026",
-        time: "9:00 AM",
-        provider: "Dr. Licht",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: false,
+        status: "booked",
+        appointmentId: 456,
+        providerName: "Doctor Smith",
+        locationName: "Spring Hill",
+        appointmentTypeName: "Medical",
       },
-    ];
-    storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn(async (url: string | URL) => {
-      const path = String(url);
-      if (path.includes("/api/appointment/book")) {
-        return {
-          ok: true,
-          json: async () => ({
-            status: "booked",
-            appointmentId: 456,
-            providerName: "Doctor Smith",
-            locationName: "Spring Hill",
-            appointmentTypeName: "Medical",
-          }),
-        };
-      }
-      return {
-        ok: true,
-        json: async () => ({
-          status: "error",
-          message: "Unable to verify appointment before cancellation.",
-        }),
-      };
-    });
-    vi.stubGlobal("fetch", fetchMock);
+      {
+        status: "error",
+        message: "Unable to verify appointment before cancellation.",
+      },
+    );
 
     const result = await reschedule_appt.execute(
       {
@@ -4661,15 +4343,14 @@ describe("direct session state cleanup", () => {
       "Booked the new appointment for June 1 at 9:00 AM with Doctor Smith, but I could not cancel the old appointment. Unable to verify appointment before cancellation. I need to transfer you so the office can finish the cancellation.",
     );
 
-    const heldSlot: TestCallState["availability"]["slots"][number] = {
-      slotId: "B",
-      spoken: "2026-06-03 2:00 PM with Doctor Smith",
-      provider: "Doctor Smith",
-      date: "2026-06-03",
-      time: "2:00 PM",
-      datetime: "2026-06-03T14:00:00",
-      routing: "all_three",
-    };
+    const heldSlot: TestCallState["availability"]["slots"][number] =
+      availabilitySlot({
+        slotId: "B",
+        spoken: "2026-06-03 2:00 PM with Doctor Smith",
+        date: "2026-06-03",
+        time: "2:00 PM",
+        datetime: "2026-06-03T14:00:00",
+      });
     state.availability.slots.push(heldSlot);
     storeAvailabilityBookingToken(state, "B", "private-token-b");
 
@@ -4700,19 +4381,7 @@ describe("direct session state cleanup", () => {
 
   it("keeps both appointments when reschedule cancellation request throws after booking", async () => {
     const state = createState();
-    markSchedulingTriaged(state);
-    state.identity.patient.appointments = [
-      {
-        id: 123,
-        date: "Monday, June 1, 2026",
-        time: "9:00 AM",
-        provider: "Dr. Licht",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: false,
-      },
-    ];
-    storeAvailabilityBookingToken(state, "A", "private-token");
+    prepareRescheduleState(state);
     const fetchMock = vi.fn(async (url: string | URL) => {
       const path = String(url);
       if (path.includes("/api/appointment/book")) {
