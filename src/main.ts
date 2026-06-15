@@ -16,7 +16,6 @@ import * as baseten from "@livekit/agents-plugin-baseten";
 import * as cartesia from "@livekit/agents-plugin-cartesia";
 import * as livekit from "@livekit/agents-plugin-livekit";
 import { TelephonyBackgroundVoiceCancellation } from "@livekit/noise-cancellation-node";
-import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
@@ -67,8 +66,6 @@ import {
   voiceTurnHandlingOptions,
 } from "./session-options.js";
 import { attachSipParticipantShutdown } from "./runtime/sip-room-shutdown.js";
-
-dotenv.config({ path: ".env.local" });
 
 type TurnMetricSnapshot = {
   itemId: string;

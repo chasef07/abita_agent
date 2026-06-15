@@ -35,6 +35,26 @@ function createState() {
   });
 }
 
+function seedAvailability(state: ReturnType<typeof createState>) {
+  state.availability.latestRouting = "all_three";
+  state.availability.bookingTokensBySlotId = { A: "private-token" };
+  state.availability.latestSearch = {
+    signature: "old-search",
+    response: { result: "slots_found" },
+  };
+  state.availability.slots = [
+    {
+      slotId: "A",
+      spoken: "June 1 at 9:00 AM with Dr. Bach",
+      provider: "Dr. Bach",
+      date: "2026-06-01",
+      time: "9:00 AM",
+      datetime: "2026-06-01T09:00:00",
+      routing: "all_three",
+    },
+  ];
+}
+
 describe("turn context state", () => {
   it("records scheduling lane from business tools", () => {
     const state = createState();
@@ -50,23 +70,7 @@ describe("turn context state", () => {
   it("clears stale availability when scheduling lane changes", () => {
     const state = createState();
     applySchedulingLaneToState(state, "medical_md");
-    state.availability.latestRouting = "all_three";
-    state.availability.bookingTokensBySlotId = { A: "private-token" };
-    state.availability.latestSearch = {
-      signature: "old-search",
-      response: { result: "slots_found" },
-    };
-    state.availability.slots = [
-      {
-        slotId: "A",
-        spoken: "June 1 at 9:00 AM with Dr. Bach",
-        provider: "Dr. Bach",
-        date: "2026-06-01",
-        time: "9:00 AM",
-        datetime: "2026-06-01T09:00:00",
-        routing: "all_three",
-      },
-    ];
+    seedAvailability(state);
 
     applySchedulingLaneToState(state, "routine_od");
 
@@ -80,23 +84,7 @@ describe("turn context state", () => {
   it("clears stale availability when workflow intent changes", () => {
     const state = createState();
     applySchedulingLaneToState(state, "medical_md");
-    state.availability.latestRouting = "all_three";
-    state.availability.bookingTokensBySlotId = { A: "private-token" };
-    state.availability.latestSearch = {
-      signature: "old-search",
-      response: { result: "slots_found" },
-    };
-    state.availability.slots = [
-      {
-        slotId: "A",
-        spoken: "June 1 at 9:00 AM with Dr. Bach",
-        provider: "Dr. Bach",
-        date: "2026-06-01",
-        time: "9:00 AM",
-        datetime: "2026-06-01T09:00:00",
-        routing: "all_three",
-      },
-    ];
+    seedAvailability(state);
 
     applyTurnContextToState(state, {
       intent: "change_appointment",

@@ -1,6 +1,7 @@
 {
   "name": "abita_agent",
   "version": "2.0.0",
+  "packageManager": "pnpm@10.34.3",
   "type": "module",
   "scripts": {
     "dev": "tsx src/main.ts dev",
@@ -23,7 +24,6 @@
     "@livekit/agents-plugin-silero": "1.4.6",
     "@livekit/noise-cancellation-node": "0.1.9",
     "@livekit/rtc-node": "^0.13.29",
-    "dotenv": "^17.4.2",
     "livekit-server-sdk": "^2.15.4",
     "zod": "^4.4.3"
   },
