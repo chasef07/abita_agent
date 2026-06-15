@@ -3,14 +3,24 @@ import {
   CARTESIA_TTS_LANGUAGE,
   CARTESIA_TTS_MODEL,
   CARTESIA_TTS_SAMPLE_RATE,
+  DEFAULT_RIME_TTS_SPEAKER,
   DEFAULT_CARTESIA_TTS_VOICE,
   SPANISH_CARTESIA_TTS_VOICE,
+  RIME_TTS_BASE_URL,
+  RIME_TTS_DEMO_TRUNK_PHONE,
+  RIME_TTS_LANGUAGE,
+  RIME_TTS_MODEL,
+  RIME_TTS_SAMPLE_RATE,
+  RIME_TTS_SEGMENT,
   getCartesiaTtsOptions,
   getCartesiaTtsOptionsByLanguage,
+  getRimeTtsOptions,
+  ttsProviderForTrunk,
 } from "../tts-config.js";
 
 const originalEnv = {
   CARTESIA_TTS_VOICE: process.env.CARTESIA_TTS_VOICE,
+  RIME_TTS_SPEAKER: process.env.RIME_TTS_SPEAKER,
   TTS_PROVIDER: process.env.TTS_PROVIDER,
 };
 
@@ -25,6 +35,7 @@ function restoreEnv(name: keyof typeof originalEnv) {
 
 afterEach(() => {
   restoreEnv("CARTESIA_TTS_VOICE");
+  restoreEnv("RIME_TTS_SPEAKER");
   restoreEnv("TTS_PROVIDER");
 });
 
@@ -85,5 +96,31 @@ describe("TTS config", () => {
         voice: SPANISH_CARTESIA_TTS_VOICE,
       },
     });
+  });
+
+  it("uses Rime only for the demo trunk", () => {
+    expect(ttsProviderForTrunk(RIME_TTS_DEMO_TRUNK_PHONE)).toBe("rime");
+    expect(ttsProviderForTrunk("4843989071")).toBe("rime");
+    expect(ttsProviderForTrunk("+17275919997")).toBe("cartesia");
+  });
+
+  it("builds the Rime websocket config with JS plugin option names", () => {
+    delete process.env.RIME_TTS_SPEAKER;
+
+    expect(getRimeTtsOptions()).toEqual({
+      modelId: RIME_TTS_MODEL,
+      speaker: DEFAULT_RIME_TTS_SPEAKER,
+      lang: RIME_TTS_LANGUAGE,
+      useWebsocket: true,
+      segment: RIME_TTS_SEGMENT,
+      baseURL: RIME_TTS_BASE_URL,
+      samplingRate: RIME_TTS_SAMPLE_RATE,
+    });
+  });
+
+  it("allows the Rime speaker to be changed without code changes", () => {
+    process.env.RIME_TTS_SPEAKER = "marin";
+
+    expect(getRimeTtsOptions().speaker).toBe("marin");
   });
 });

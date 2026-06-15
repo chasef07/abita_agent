@@ -20,6 +20,7 @@
     "@livekit/agents-plugin-baseten": "1.4.6",
     "@livekit/agents-plugin-cartesia": "1.4.6",
     "@livekit/agents-plugin-livekit": "1.4.6",
+    "@livekit/agents-plugin-rime": "1.4.6",
     "@livekit/agents-plugin-silero": "1.4.6",
     "@livekit/noise-cancellation-node": "0.1.9",
     "@livekit/rtc-node": "^0.13.29",

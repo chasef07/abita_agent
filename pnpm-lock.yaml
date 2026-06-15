@@ -28,6 +28,9 @@ importers:
       '@livekit/agents-plugin-livekit':
         specifier: 1.4.6
         version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))
+      '@livekit/agents-plugin-rime':
+        specifier: 1.4.6
+        version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)
       '@livekit/agents-plugin-silero':
         specifier: 1.4.6
         version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)
@@ -767,6 +770,12 @@ packages:
     resolution: {integrity: sha512-0t1vkLC+Uy1r1ZRJonzckwgXSY0LBl3kIXBpH9WGvIiTU4ar9qepaXfhpO6Ma1oJMj73Vu9NU/QLI98fZ6LnJA==}
     peerDependencies:
       '@livekit/agents': 1.4.6
+
+  '@livekit/agents-plugin-rime@1.4.6':
+    resolution: {integrity: sha512-X8ucl7E5G2nRCxp6hPtRBMTYMy1qY47em2xz7FN6cPp0sbQWeeM0baI5rdIyOxEzGB18R98RneyMOLWKm0k4ug==}
+    peerDependencies:
+      '@livekit/agents': 1.4.6
+      '@livekit/rtc-node': ^0.13.29
 
   '@livekit/agents-plugin-silero@1.4.6':
     resolution: {integrity: sha512-2iIp94FMc+m8oJYq/+9QPHEjfqtZkcLlPEdYgtvRsy8EHpR7FJwPv7EoXNq2r+O+7tlK3+dwHVBpiY/uhQrb/Q==}
@@ -2918,6 +2927,15 @@ snapshots:
       '@huggingface/transformers': 4.2.0
       '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
       onnxruntime-node: 1.24.3
+
+  '@livekit/agents-plugin-rime@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)':
+    dependencies:
+      '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/rtc-node': 0.13.29
+      ws: 8.21.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   '@livekit/agents-plugin-silero@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)':
     dependencies:
