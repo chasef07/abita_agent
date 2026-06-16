@@ -59,6 +59,10 @@ import {
   ttsProviderForTrunk,
   type TtsProvider,
 } from "./tts-config.js";
+import {
+  assignSweetwaterVoiceExperiment,
+  type VoiceExperimentMetadata,
+} from "./voice-experiment.js";
 import { VoiceLanguageRuntime } from "./language-runtime.js";
 import {
   type SttProfile,
@@ -87,29 +91,56 @@ type TtsRuntime = {
   provider: TtsProvider;
   tts: ttsCore.TTS;
   languageRuntime: VoiceLanguageRuntime;
+  voiceExperiment?: VoiceExperimentMetadata;
 };
 
-function createTtsRuntime(trunkPhone: string): TtsRuntime {
-  const provider = ttsProviderForTrunk(trunkPhone);
+function createTtsRuntime(input: {
+  callId: string;
+  callerPhone: string;
+  trunkPhone: string;
+}): TtsRuntime {
+  const assignment = assignSweetwaterVoiceExperiment(input);
+  const provider =
+    assignment?.provider ?? ttsProviderForTrunk(input.trunkPhone);
   if (provider === "rime") {
-    const tts = new rime.TTS(getRimeTtsOptions());
+    const ttsOptions = getRimeTtsOptions();
+    const tts = new rime.TTS(ttsOptions);
     return {
       provider,
       tts,
       languageRuntime: new VoiceLanguageRuntime(tts, {
         appliedTtsLanguage: "en",
       }),
+      ...(assignment
+        ? {
+            voiceExperiment: {
+              ...assignment,
+              model: ttsOptions.modelId,
+              speaker: ttsOptions.speaker,
+            },
+          }
+        : {}),
     };
   }
 
-  const tts = new cartesia.TTS(getCartesiaTtsOptions());
+  const ttsOptions = getCartesiaTtsOptions();
+  const tts = new cartesia.TTS(ttsOptions);
   return {
     provider,
     tts,
     languageRuntime: new VoiceLanguageRuntime(tts, {
       appliedTtsLanguage: "en",
-      ttsOptionsByLanguage: getCartesiaTtsOptionsByLanguage(),
+      ttsOptionsByLanguage: getCartesiaTtsOptionsByLanguage(ttsOptions.voice),
     }),
+    ...(assignment
+      ? {
+          voiceExperiment: {
+            ...assignment,
+            model: ttsOptions.model,
+            voiceId: ttsOptions.voice,
+          },
+        }
+      : {}),
   };
 }
 
@@ -157,8 +188,15 @@ export default defineAgent({
         provider: ttsProvider,
         tts,
         languageRuntime,
-      } = createTtsRuntime(trunkPhone);
-      console.log(`[tts] provider=${ttsProvider} trunk=${trunkPhone}`);
+        voiceExperiment,
+      } = createTtsRuntime({ callId, callerPhone, trunkPhone });
+      console.log(
+        `[tts] provider=${ttsProvider} trunk=${trunkPhone}${
+          voiceExperiment
+            ? ` experiment=${voiceExperiment.experimentId} variant=${voiceExperiment.variant}`
+            : ""
+        }`,
+      );
 
       const session = new voice.AgentSession<CallState>({
         stt,
@@ -250,6 +288,7 @@ export default defineAgent({
         appointmentsStatus: verified?.appointmentsStatus ?? null,
         appointments: publicCallerAppointments(verified?.appointments),
         transferred: false,
+        voiceExperiment: voiceExperiment ?? null,
       });
       session.userData.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;
 
@@ -431,6 +470,7 @@ export default defineAgent({
             turnMetrics,
             callState: session.userData,
             preCallLookup: session.userData.runtime.preCallLookup,
+            ...(voiceExperiment ? { voiceExperiment } : {}),
             language: languageRuntime.telemetry,
             sessionReport,
             ...livekitContext,
