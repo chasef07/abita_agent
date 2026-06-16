@@ -191,7 +191,9 @@ describe("office routing helpers", () => {
       "Hey, this is Zoe, the virtual assistant at Eye Radiance, powered by Abita Eye Group. How's your day going?",
     );
     expect(getOfficeConfig("hollywood").greeting).toBe(greeting);
-    expect(getOfficeConfig("sweetwater").greeting).toBe(greeting);
+    expect(getOfficeConfig("sweetwater").greeting).toBe(
+      "Hey, this is Maya, the virtual assistant at Abita Eye Group. How's your day going?",
+    );
   });
 
   it("normalizes handoff targets while allowing SIP URIs directly", () => {

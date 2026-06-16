@@ -1,5 +1,6 @@
 import type { OfficeKey } from "../customer/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
+import type { VoiceExperimentMetadata } from "../voice-experiment.js";
 
 export const CALLER_CANDIDATE_REF = "caller";
 
@@ -189,6 +190,7 @@ interface RuntimeCallState {
   callerPhone: string;
   trunkPhone: string;
   transferred: boolean;
+  voiceExperiment?: VoiceExperimentMetadata | null;
 }
 
 interface OfficeSessionState {
@@ -294,6 +296,7 @@ export interface InitialCallStateInput {
   appointmentsStatus: AppointmentLoadStatus | null;
   appointments: CallerAppointment[];
   transferred: boolean;
+  voiceExperiment?: VoiceExperimentMetadata | null;
 }
 
 export function createCanonicalCallState(
@@ -364,6 +367,7 @@ export function createCanonicalCallState(
       callerPhone: input.callerPhone,
       trunkPhone: input.trunkPhone,
       transferred: input.transferred,
+      voiceExperiment: input.voiceExperiment ?? null,
     },
   };
 

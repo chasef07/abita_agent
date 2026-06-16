@@ -105,7 +105,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     displayName: "Abita Eye Group Sweetwater",
     trunkPhones: [...SWEETWATER_TRUNK_PHONES],
     greeting:
-      "Hey, this is Zoe, the virtual assistant at Abita Eye Group. How's your day going?",
+      "Hey, this is Maya, the virtual assistant at Abita Eye Group. How's your day going?",
     knowledgeFile: "KNOWLEDGE_SWEETWATER.md",
     insuranceFile: "INSURANCE_HOLLYWOOD_SWEETWATER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",

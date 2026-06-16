@@ -25,10 +25,10 @@ function configuredRimeSpeaker() {
   return process.env.RIME_TTS_SPEAKER?.trim() || DEFAULT_RIME_TTS_SPEAKER;
 }
 
-export function getCartesiaTtsOptions() {
+export function getCartesiaTtsOptions(voice = configuredEnglishVoice()) {
   return {
     model: CARTESIA_TTS_MODEL,
-    voice: configuredEnglishVoice(),
+    voice,
     language: CARTESIA_TTS_LANGUAGE,
     sampleRate: CARTESIA_TTS_SAMPLE_RATE,
   };
@@ -56,10 +56,10 @@ export function ttsProviderForTrunk(trunkPhone: string): TtsProvider {
     : "cartesia";
 }
 
-export function getRimeTtsOptions() {
+export function getRimeTtsOptions(speaker = configuredRimeSpeaker()) {
   return {
     modelId: RIME_TTS_MODEL,
-    speaker: configuredRimeSpeaker(),
+    speaker,
     lang: RIME_TTS_LANGUAGE,
     useWebsocket: true,
     segment: RIME_TTS_SEGMENT,
