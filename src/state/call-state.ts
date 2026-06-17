@@ -251,6 +251,7 @@ interface AvailabilitySessionState {
   latestRouting?: string | null;
   bookingTokensBySlotId: Record<string, string>;
   latestSearch?: AvailabilitySearchCache;
+  nextSlotIndex: number;
 }
 
 interface AvailabilitySearchCache {
@@ -316,6 +317,9 @@ export function createCanonicalCallState(
       })
     : null;
   const patientStatus: PatientStatus = input.patientId ? "matched" : "unknown";
+  const initialAvailabilitySlots = input.bookableAvailabilitySlots?.length
+    ? input.bookableAvailabilitySlots
+    : input.lastAvailabilitySlots;
   const state: CallState = {
     office: {
       activeKey: input.officeKey,
@@ -352,11 +356,10 @@ export function createCanonicalCallState(
       },
     },
     availability: {
-      slots: input.bookableAvailabilitySlots?.length
-        ? input.bookableAvailabilitySlots
-        : input.lastAvailabilitySlots,
+      slots: initialAvailabilitySlots,
       latestRouting: input.lastAvailabilityRouting,
       bookingTokensBySlotId: {},
+      nextSlotIndex: nextAvailabilitySlotIndexAfter(initialAvailabilitySlots),
     },
     runtime: {
       preCallLookup: input.preCallLookup,
@@ -604,6 +607,26 @@ export function clearAvailabilitySelection(state: CallState): void {
   state.availability.latestSearch = undefined;
 }
 
+export function reserveAvailabilitySlotIds(
+  state: CallState,
+  count: number,
+): string[] {
+  if (count <= 0) return [];
+  const nextSlotIndex = Math.max(
+    state.availability.nextSlotIndex,
+    nextAvailabilitySlotIndexAfter(state.availability.slots),
+    nextAvailabilitySlotIndexAfter(
+      Object.keys(state.availability.bookingTokensBySlotId).map((slotId) => ({
+        slotId,
+      })),
+    ),
+  );
+  state.availability.nextSlotIndex = nextSlotIndex + count;
+  return Array.from({ length: count }, (_, index) =>
+    slotIdForIndex(nextSlotIndex + index),
+  );
+}
+
 export function cachedAvailabilitySearchResult(
   state: CallState,
   signature: string,
@@ -634,6 +657,35 @@ export function availabilitySlotsForState(
   state: CallState,
 ): StoredAvailabilitySlot[] {
   return state.availability.slots;
+}
+
+function nextAvailabilitySlotIndexAfter(
+  slots: readonly { slotId: string }[],
+): number {
+  return slots.reduce((nextIndex, slot) => {
+    const index = availabilitySlotIndex(slot.slotId);
+    return index === null ? nextIndex : Math.max(nextIndex, index + 1);
+  }, 0);
+}
+
+function availabilitySlotIndex(slotId: string): number | null {
+  const normalized = slotId.trim().toUpperCase();
+  const stableMatch = normalized.match(/^S(\d+)$/);
+  if (stableMatch) {
+    const index = Number(stableMatch[1]) - 1;
+    return Number.isSafeInteger(index) && index >= 0 ? index : null;
+  }
+  if (/^[A-Z]$/.test(normalized)) {
+    return normalized.charCodeAt(0) - "A".charCodeAt(0);
+  }
+  const slotMatch = normalized.match(/^SLOT_(\d+)$/);
+  if (!slotMatch) return null;
+  const index = Number(slotMatch[1]) - 1;
+  return Number.isSafeInteger(index) && index >= 0 ? index : null;
+}
+
+function slotIdForIndex(index: number): string {
+  return `S${index + 1}`;
 }
 
 export function snapshotActivePatientIdentity(

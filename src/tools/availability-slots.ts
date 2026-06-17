@@ -1,6 +1,7 @@
 import {
   availabilitySlotsForState,
   clearAvailabilitySelection,
+  reserveAvailabilitySlotIds,
   storeAvailabilityBookingToken,
   type CallState,
   type StoredAvailabilitySlot,
@@ -79,17 +80,27 @@ export function storeAvailabilitySlots(
   const sortedSlots = apiSlots
     .filter(isRecord)
     .sort(compareRawAvailabilitySlot);
-  const storedSlots = sortedSlots.map((slot, index) =>
-    storedAvailabilitySlot(slot, index, routing),
-  );
+  const storedSlots: StoredAvailabilitySlot[] = [];
+  for (const slot of sortedSlots) {
+    const candidate = storedAvailabilitySlot(slot, "", routing);
+    const existingSlot = [
+      ...availabilitySlotsForState(state),
+      ...storedSlots,
+    ].find((storedSlot) => sameAvailabilitySlot(storedSlot, candidate));
+    const slotId =
+      existingSlot?.slotId ?? reserveAvailabilitySlotIds(state, 1)[0] ?? "";
+    storedSlots.push({ ...candidate, slotId });
+  }
 
-  clearAvailabilitySelection(state);
-  state.availability.slots = storedSlots;
+  state.availability.slots = mergeAvailabilitySlots(
+    availabilitySlotsForState(state),
+    storedSlots,
+  );
   state.availability.latestRouting = routing;
   sortedSlots.forEach((slot, index) => {
     storeAvailabilityBookingToken(
       state,
-      slotIdForIndex(index),
+      storedSlots[index]?.slotId ?? "",
       typeof slot.bookingToken === "string" ? slot.bookingToken : undefined,
     );
   });
@@ -117,7 +128,7 @@ export function storeAvailabilitySlots(
 
 function storedAvailabilitySlot(
   slot: Record<string, unknown>,
-  index: number,
+  slotId: string,
   routing: string | null,
 ): StoredAvailabilitySlot {
   const provider = slotProvider(slot);
@@ -129,7 +140,7 @@ function storedAvailabilitySlot(
     .join(" ");
 
   return {
-    slotId: slotIdForIndex(index),
+    slotId,
     spoken,
     provider,
     date,
@@ -413,11 +424,35 @@ function cleanAvailabilityResponse(input: {
   };
 }
 
-function slotIdForIndex(index: number): string {
-  if (index >= 0 && index < 26) {
-    return String.fromCharCode("A".charCodeAt(0) + index);
+function mergeAvailabilitySlots(
+  existingSlots: StoredAvailabilitySlot[],
+  newSlots: StoredAvailabilitySlot[],
+): StoredAvailabilitySlot[] {
+  const mergedSlots = [...existingSlots];
+  for (const slot of newSlots) {
+    const existingIndex = mergedSlots.findIndex((existingSlot) =>
+      sameAvailabilitySlot(existingSlot, slot),
+    );
+    if (existingIndex >= 0) {
+      mergedSlots[existingIndex] = slot;
+    } else {
+      mergedSlots.push(slot);
+    }
   }
-  return `slot_${index + 1}`;
+  return mergedSlots;
+}
+
+function sameAvailabilitySlot(
+  left: StoredAvailabilitySlot,
+  right: StoredAvailabilitySlot,
+): boolean {
+  return (
+    left.date === right.date &&
+    left.time === right.time &&
+    left.provider === right.provider &&
+    left.datetime === right.datetime &&
+    left.routing === right.routing
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
