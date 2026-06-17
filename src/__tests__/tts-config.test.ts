@@ -107,6 +107,7 @@ describe("TTS config", () => {
   it("builds the Rime websocket config with JS plugin option names", () => {
     delete process.env.RIME_TTS_SPEAKER;
 
+    expect(DEFAULT_RIME_TTS_SPEAKER).toBe("wawona");
     expect(getRimeTtsOptions()).toEqual({
       modelId: RIME_TTS_MODEL,
       speaker: DEFAULT_RIME_TTS_SPEAKER,
