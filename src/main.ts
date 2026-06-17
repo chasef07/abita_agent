@@ -49,7 +49,7 @@ import {
   MAX_CALL_DURATION_MS,
   attachCallDurationDeadline,
 } from "./runtime/call-duration-deadline.js";
-import { llmOptionsForTrunk } from "./model-config.js";
+import { getLlmOptions } from "./model-config.js";
 import {
   getCartesiaTtsOptions,
   getCartesiaTtsOptionsByLanguage,
@@ -164,7 +164,7 @@ export default defineAgent({
         sipCallId,
         sipParticipantIdentity: participant.identity ?? "",
       };
-      const llmOptions = llmOptionsForTrunk(trunkPhone);
+      const llmOptions = getLlmOptions();
       const primaryLLM = new baseten.LLM(llmOptions.primary);
       const fallbackLLM = new baseten.LLM(llmOptions.fallback);
 
