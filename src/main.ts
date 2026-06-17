@@ -51,7 +51,7 @@ import {
   MAX_CALL_DURATION_MS,
   attachCallDurationDeadline,
 } from "./runtime/call-duration-deadline.js";
-import { fallbackLLMOptions, primaryLLMOptions } from "./model-config.js";
+import { llmOptionsForTrunk } from "./model-config.js";
 import {
   getCartesiaTtsOptions,
   getCartesiaTtsOptionsByLanguage,
@@ -153,18 +153,6 @@ export default defineAgent({
     try {
       const vad = ctx.proc.userData.vad as silero.VAD;
 
-      const primaryLLM = new baseten.LLM(primaryLLMOptions);
-      const fallbackLLM = new baseten.LLM(fallbackLLMOptions);
-
-      const llmWithFallback = new llm.FallbackAdapter({
-        llms: [primaryLLM, fallbackLLM],
-      });
-      const llmMetrics: PluginMetricSnapshot[] = [];
-      llmWithFallback.on("metrics_collected", (metrics) => {
-        // Per-plugin metrics are not deprecated and preserve token-speed and
-        // peak-context analytics that cumulative session usage cannot express.
-        llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
-      });
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
 
       // Connect and wait for the SIP participant
@@ -184,6 +172,19 @@ export default defineAgent({
         sipCallId,
         sipParticipantIdentity: participant.identity ?? "",
       };
+      const llmOptions = llmOptionsForTrunk(trunkPhone);
+      const primaryLLM = new baseten.LLM(llmOptions.primary);
+      const fallbackLLM = new baseten.LLM(llmOptions.fallback);
+
+      const llmWithFallback = new llm.FallbackAdapter({
+        llms: [primaryLLM, fallbackLLM],
+      });
+      const llmMetrics: PluginMetricSnapshot[] = [];
+      llmWithFallback.on("metrics_collected", (metrics) => {
+        // Per-plugin metrics are not deprecated and preserve token-speed and
+        // peak-context analytics that cumulative session usage cannot express.
+        llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
+      });
       const {
         provider: ttsProvider,
         tts,
@@ -459,7 +460,7 @@ export default defineAgent({
               : {}),
             usage: latestUsage ?? session.usage,
             llmSummary: buildLlmSummary({
-              fallbackModel: fallbackLLMOptions.model,
+              fallbackModel: llmOptions.fallback.model,
               llmMetrics,
               usage: latestUsage ?? session.usage,
             }),
