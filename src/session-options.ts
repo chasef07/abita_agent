@@ -10,7 +10,4 @@ export const voiceTurnHandlingOptions = {
   interruption: {
     mode: "adaptive",
   },
-  endpointing: {
-    mode: "dynamic",
-  },
 } satisfies NonNullable<voice.AgentSessionOptions<CallState>["turnHandling"]>;

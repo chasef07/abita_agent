@@ -1,4 +1,4 @@
-import { initializeLogger, voice } from "@livekit/agents";
+import { inference, initializeLogger, voice } from "@livekit/agents";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   voiceMaxToolSteps,
@@ -30,7 +30,7 @@ describe("voice session options", () => {
     ).toBe(false);
   });
 
-  it("uses the LiveKit turn detector with dynamic endpointing", () => {
+  it("uses the provided turn detector without overriding endpointing", () => {
     const turnDetection = fakeTurnDetector();
     const session = new voice.AgentSession({
       turnHandling: {
@@ -42,12 +42,41 @@ describe("voice session options", () => {
     expect(session.sessionOptions.turnHandling.turnDetection).toBe(
       turnDetection,
     );
-    expect(session.sessionOptions.turnHandling.endpointing.mode).toBe(
-      "dynamic",
-    );
+    expect(session.sessionOptions.turnHandling.endpointing.mode).toBe("fixed");
+    expect(session.sessionOptions.turnHandling.endpointing.minDelay).toBe(500);
+    expect(session.sessionOptions.turnHandling.endpointing.maxDelay).toBe(3000);
     expect(session.sessionOptions.turnHandling.interruption.mode).toBe(
       "adaptive",
     );
+  });
+
+  it("uses the bundled default VAD and streaming endpointing defaults", async () => {
+    const turnDetection = new inference.TurnDetector({ version: "v1-mini" });
+    const session = new voice.AgentSession({
+      turnHandling: {
+        turnDetection,
+        ...voiceTurnHandlingOptions,
+      },
+    });
+
+    try {
+      expect(session.sessionOptions.turnHandling.turnDetection).toBe(
+        turnDetection,
+      );
+      expect(session.sessionOptions.turnHandling.endpointing.mode).toBe(
+        "fixed",
+      );
+      expect(session.sessionOptions.turnHandling.endpointing.minDelay).toBe(
+        300,
+      );
+      expect(session.sessionOptions.turnHandling.endpointing.maxDelay).toBe(
+        2500,
+      );
+      expect(session.vad?.provider).toBe("livekit-local-inference");
+      expect(session._usingDefaultVad).toBe(true);
+    } finally {
+      await session.close().catch(() => undefined);
+    }
   });
 
   it("allows two tool calls before the post-tool reply", () => {

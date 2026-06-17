@@ -2,8 +2,8 @@
 // Bootstraps the voice pipeline and connects to LiveKit Cloud.
 
 import {
+  inference,
   type JobContext,
-  type JobProcess,
   ServerOptions,
   cli,
   defineAgent,
@@ -12,10 +12,8 @@ import {
   voice,
 } from "@livekit/agents";
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
-import * as silero from "@livekit/agents-plugin-silero";
 import * as baseten from "@livekit/agents-plugin-baseten";
 import * as cartesia from "@livekit/agents-plugin-cartesia";
-import * as livekit from "@livekit/agents-plugin-livekit";
 import * as rime from "@livekit/agents-plugin-rime";
 import { TelephonyBackgroundVoiceCancellation } from "@livekit/noise-cancellation-node";
 import { readFile } from "node:fs/promises";
@@ -145,14 +143,8 @@ function createTtsRuntime(input: {
 }
 
 export default defineAgent({
-  prewarm: async (proc: JobProcess) => {
-    proc.userData.vad = await silero.VAD.load();
-  },
-
   entry: async (ctx: JobContext) => {
     try {
-      const vad = ctx.proc.userData.vad as silero.VAD;
-
       const stt = new assemblyai.STT(getAssemblyAISttOptions());
 
       // Connect and wait for the SIP participant
@@ -203,10 +195,9 @@ export default defineAgent({
         stt,
         llm: llmWithFallback,
         tts,
-        vad,
         maxToolSteps: voiceMaxToolSteps,
         turnHandling: {
-          turnDetection: new livekit.turnDetector.MultilingualModel(),
+          turnDetection: new inference.TurnDetector(),
           ...voiceTurnHandlingOptions,
         },
       });
