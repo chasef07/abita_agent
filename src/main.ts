@@ -403,7 +403,7 @@ export default defineAgent({
         }
       });
 
-      // Shutdown hook: capture session report + audio, post analytics, delete room.
+      // Shutdown hook: capture session report + audio, post analytics.
       ctx.addShutdownCallback(async () => {
         callDurationDeadline.clear();
         let sessionReport: Record<string, unknown> | undefined;
@@ -492,17 +492,6 @@ export default defineAgent({
             url: process.env.ANALYTICS_URL,
           });
         }
-
-        try {
-          if (callDurationDeadline.roomDeletionStarted()) {
-            await callDurationDeadline.waitForRoomDeletion();
-          }
-          if (roomName && !callDurationDeadline.roomDeletionCompleted()) {
-            await ctx.deleteRoom(roomName);
-          }
-        } catch (err) {
-          console.error("[shutdown] Failed to delete room:", err);
-        }
       });
 
       await session.start({
@@ -510,6 +499,7 @@ export default defineAgent({
         room: ctx.room,
         inputOptions: {
           noiseCancellation: TelephonyBackgroundVoiceCancellation(),
+          deleteRoomOnClose: true,
           participantIdentity: participant.identity,
         },
       });

@@ -2,7 +2,6 @@ export const MAX_CALL_DURATION_MS = 30 * 60 * 1000;
 export const CALL_DURATION_LIMIT_REASON = "max call duration exceeded";
 
 type DeadlineContext = {
-  deleteRoom(roomName?: string): Promise<void>;
   shutdown(reason?: string): void;
 };
 
@@ -11,9 +10,6 @@ type LoggerLike = Pick<Console, "error" | "warn">;
 export type CallDurationDeadline = {
   clear(): void;
   exceeded(): boolean;
-  roomDeletionCompleted(): boolean;
-  roomDeletionStarted(): boolean;
-  waitForRoomDeletion(): Promise<void>;
 };
 
 export function attachCallDurationDeadline(
@@ -31,25 +27,6 @@ export function attachCallDurationDeadline(
   const logger = options.logger ?? console;
   let cleared = false;
   let exceeded = false;
-  let roomDeletionCompleted = false;
-  let roomDeletionStarted = false;
-  let roomDeletionPromise: Promise<void> | null = null;
-
-  const requestRoomDeletion = () => {
-    if (!options.roomName || roomDeletionStarted) return;
-    roomDeletionStarted = true;
-    roomDeletionPromise = ctx
-      .deleteRoom(options.roomName)
-      .then(() => {
-        roomDeletionCompleted = true;
-      })
-      .catch((err: unknown) => {
-        logger.error(
-          `[call] Failed to delete room after duration limit for ${options.callId}:`,
-          err,
-        );
-      });
-  };
 
   const timer = setTimeout(() => {
     if (cleared) return;
@@ -66,7 +43,6 @@ export function attachCallDurationDeadline(
         err,
       );
     }
-    requestRoomDeletion();
     ctx.shutdown(CALL_DURATION_LIMIT_REASON);
   }, timeoutMs);
 
@@ -77,8 +53,5 @@ export function attachCallDurationDeadline(
       clearTimeout(timer);
     },
     exceeded: () => exceeded,
-    roomDeletionCompleted: () => roomDeletionCompleted,
-    roomDeletionStarted: () => roomDeletionStarted,
-    waitForRoomDeletion: () => roomDeletionPromise ?? Promise.resolve(),
   };
 }
