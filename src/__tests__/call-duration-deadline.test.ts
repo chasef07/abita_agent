@@ -13,9 +13,8 @@ describe("call duration deadline", () => {
     vi.useRealTimers();
   });
 
-  it("deletes the room and shuts down when the deadline expires", async () => {
+  it("shuts down the session and job when the deadline expires", () => {
     const ctx = {
-      deleteRoom: vi.fn(async () => undefined),
       shutdown: vi.fn(),
     };
     const logger = { error: vi.fn(), warn: vi.fn() };
@@ -34,23 +33,15 @@ describe("call duration deadline", () => {
     vi.advanceTimersByTime(999);
 
     expect(deadline.exceeded()).toBe(false);
-    expect(ctx.deleteRoom).not.toHaveBeenCalled();
     expect(ctx.shutdown).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(1);
-    await deadline.waitForRoomDeletion();
 
     expect(deadline.exceeded()).toBe(true);
-    expect(deadline.roomDeletionStarted()).toBe(true);
-    expect(deadline.roomDeletionCompleted()).toBe(true);
     expect(onExceeded).toHaveBeenCalledTimes(1);
     expect(shutdownSession).toHaveBeenCalledWith(CALL_DURATION_LIMIT_REASON);
-    expect(ctx.deleteRoom).toHaveBeenCalledWith("room-1");
     expect(ctx.shutdown).toHaveBeenCalledWith(CALL_DURATION_LIMIT_REASON);
     expect(shutdownSession.mock.invocationCallOrder[0]).toBeLessThan(
-      ctx.deleteRoom.mock.invocationCallOrder[0] ?? 0,
-    );
-    expect(ctx.deleteRoom.mock.invocationCallOrder[0]).toBeLessThan(
       ctx.shutdown.mock.invocationCallOrder[0] ?? 0,
     );
     expect(logger.warn).toHaveBeenCalledWith(
@@ -58,15 +49,14 @@ describe("call duration deadline", () => {
     );
   });
 
-  it("still deletes the room and shuts down the job if session shutdown fails", async () => {
+  it("still shuts down the job if session shutdown fails", () => {
     const ctx = {
-      deleteRoom: vi.fn(async () => undefined),
       shutdown: vi.fn(),
     };
     const error = new Error("session already closing");
     const logger = { error: vi.fn(), warn: vi.fn() };
 
-    const deadline = attachCallDurationDeadline(ctx, {
+    attachCallDurationDeadline(ctx, {
       callId: "call-1",
       logger,
       roomName: "room-1",
@@ -77,9 +67,7 @@ describe("call duration deadline", () => {
     });
 
     vi.advanceTimersByTime(1_000);
-    await deadline.waitForRoomDeletion();
 
-    expect(ctx.deleteRoom).toHaveBeenCalledWith("room-1");
     expect(ctx.shutdown).toHaveBeenCalledWith(CALL_DURATION_LIMIT_REASON);
     expect(logger.error).toHaveBeenCalledWith(
       "[call] Failed to shut down agent session after duration limit for call-1:",
@@ -89,7 +77,6 @@ describe("call duration deadline", () => {
 
   it("does nothing after the deadline is cleared", () => {
     const ctx = {
-      deleteRoom: vi.fn(async () => undefined),
       shutdown: vi.fn(),
     };
     const deadline = attachCallDurationDeadline(ctx, {
@@ -103,13 +90,11 @@ describe("call duration deadline", () => {
     vi.advanceTimersByTime(1_000);
 
     expect(deadline.exceeded()).toBe(false);
-    expect(ctx.deleteRoom).not.toHaveBeenCalled();
     expect(ctx.shutdown).not.toHaveBeenCalled();
   });
 
   it("shuts down even when the room name is missing", () => {
     const ctx = {
-      deleteRoom: vi.fn(async () => undefined),
       shutdown: vi.fn(),
     };
     const deadline = attachCallDurationDeadline(ctx, {
@@ -123,8 +108,6 @@ describe("call duration deadline", () => {
     vi.advanceTimersByTime(1_000);
 
     expect(deadline.exceeded()).toBe(true);
-    expect(deadline.roomDeletionStarted()).toBe(false);
-    expect(ctx.deleteRoom).not.toHaveBeenCalled();
     expect(ctx.shutdown).toHaveBeenCalledWith(CALL_DURATION_LIMIT_REASON);
   });
 });
