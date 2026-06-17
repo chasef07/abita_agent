@@ -433,10 +433,10 @@ describe("direct session state cleanup", () => {
       result: "slots_found",
       reply: "I found June 1 at 9:00 AM with Dr. Bach. Does that work?",
       next: "offer_slot",
-      slotId: "A",
+      slotId: "S1",
       slots: [
         {
-          slotId: "A",
+          slotId: "S1",
           spoken: "June 1 at 9:00 AM with Dr. Bach",
           provider: "Dr. Bach",
           date: "2026-06-01",
@@ -447,7 +447,7 @@ describe("direct session state cleanup", () => {
     expect(result).not.toHaveProperty("bookingToken");
     expect(JSON.stringify(result)).not.toContain("private-token");
     expect(state.availability.bookingTokensBySlotId).toEqual({
-      A: "private-token",
+      S1: "private-token",
     });
     expect(state.availability).not.toHaveProperty("rawSlots");
     expect(state.workflow.current).toEqual({
@@ -456,7 +456,7 @@ describe("direct session state cleanup", () => {
     });
     expect(state.availability.slots).toEqual([
       {
-        slotId: "A",
+        slotId: "S1",
         spoken: "2026-06-01 9:00 AM with Dr. Bach",
         provider: "Dr. Bach",
         date: "2026-06-01",
@@ -465,6 +465,111 @@ describe("direct session state cleanup", () => {
         routing: "all_three",
       },
     ]);
+  });
+
+  it("keeps earlier offered slots bookable after a later availability search", async () => {
+    const state = createState();
+    clearAvailabilitySelection(state);
+    markSchedulingTriaged(state);
+    const fetchMock = stubFetchJson(
+      availabilityFoundResponse(
+        {
+          provider: "Dr. Austin Bach",
+          date: "2026-07-09",
+          time: "9:00 AM",
+          datetime: "2026-07-09T09:00:00",
+          bookingToken: "first-private-token",
+        },
+        {
+          requestedDate: "2026-07-09",
+          actualDate: "2026-07-09",
+          searchedFrom: "2026-07-09",
+          searchedThrough: "2026-07-09",
+        },
+      ),
+      availabilityFoundResponse(
+        {
+          provider: "Dr. Austin Bach",
+          date: "2026-07-10",
+          time: "10:00 AM",
+          datetime: "2026-07-10T10:00:00",
+          bookingToken: "second-private-token",
+        },
+        {
+          requestedDate: "2026-07-10",
+          actualDate: "2026-07-10",
+          searchedFrom: "2026-07-10",
+          searchedThrough: "2026-07-10",
+        },
+      ),
+      {
+        status: "booked",
+        appointmentId: 789,
+      },
+    );
+    const ctx = createToolContext(state);
+
+    const firstResult = (await get_availability.execute(
+      {
+        date: "2026-07-09",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-1",
+      } as never,
+    )) as Record<string, unknown>;
+    const secondResult = (await get_availability.execute(
+      {
+        date: "2026-07-10",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-2",
+      } as never,
+    )) as Record<string, unknown>;
+
+    expect(firstResult).toMatchObject({
+      slotId: "S1",
+      slots: [expect.objectContaining({ slotId: "S1", date: "2026-07-09" })],
+    });
+    expect(secondResult).toMatchObject({
+      slotId: "S2",
+      slots: [expect.objectContaining({ slotId: "S2", date: "2026-07-10" })],
+    });
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      S1: "first-private-token",
+      S2: "second-private-token",
+    });
+
+    const result = await book_appt.execute(
+      {
+        slotId: "S1",
+        appointmentReason: "eye exam",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-3",
+      } as never,
+    );
+
+    expect(result).toMatchObject({
+      status: "booked",
+      appointmentId: 789,
+    });
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body as string)).toMatchObject(
+      {
+        bookingToken: "first-private-token",
+      },
+    );
+    expect(state.availability.slots.map((slot) => slot.slotId)).toEqual(["S2"]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      S2: "second-private-token",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("uses routine vision lane instead of verified-patient Bach routing for availability", async () => {
@@ -539,7 +644,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(state.availability.slots).toEqual([
       {
-        slotId: "A",
+        slotId: "S1",
         spoken: "2026-06-01 10:00 AM with Dr. Kyler Farnan",
         provider: "Dr. Kyler Farnan",
         date: "2026-06-01",
@@ -550,7 +655,7 @@ describe("direct session state cleanup", () => {
     ]);
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "A",
+      slotId: "S1",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -635,7 +740,7 @@ describe("direct session state cleanup", () => {
     expect(result).toMatchObject({
       result: "slots_found",
       next: "offer_slot",
-      slotId: "A",
+      slotId: "S1",
     });
   });
 
@@ -992,7 +1097,7 @@ describe("direct session state cleanup", () => {
     });
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "A",
+      slotId: "S2",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1053,7 +1158,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "A",
+      slotId: "S1",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1127,7 +1232,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "A",
+      slotId: "S2",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1211,7 +1316,7 @@ describe("direct session state cleanup", () => {
     });
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(state.availability.bookingTokensBySlotId).toEqual({
-      A: "sweetwater-optical-token",
+      S1: "sweetwater-optical-token",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
