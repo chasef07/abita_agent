@@ -19,6 +19,7 @@ import {
 } from "./scheduling.js";
 import { getState } from "./session.js";
 import {
+  availabilityContextRecovery,
   ensureAvailabilityContext,
   prepareAvailabilityLookupContext,
 } from "./turn-context-guard.js";
@@ -26,6 +27,17 @@ import {
 type AvailabilityLookupArgs = {
   date?: string;
   appointmentLane?: SchedulingAppointmentLane;
+};
+
+type AvailabilityLookupBlockedResponse = {
+  result: "missing_patient" | "missing_availability_context";
+  reply: string;
+  next:
+    | "resolve_or_create_patient"
+    | "pass_appointment_lane"
+    | "confirm_loaded_appointment_or_pass_lane"
+    | "resolve_patient_or_pass_lane";
+  slots: [];
 };
 
 type GeneratedSpeechHandle = ReturnType<
@@ -68,6 +80,8 @@ export const get_availability = llm.tool({
       date,
       appointmentLane,
     });
+    if ("blocked" in request) return request.blocked;
+
     const invalidDateResponse = invalidAvailabilityDateResponse(request.date);
     if (invalidDateResponse) {
       clearAvailabilitySelection(state);
@@ -156,7 +170,14 @@ function isCacheableAvailabilityResponse(response: unknown): boolean {
 function buildAvailabilityLookupRequestForState(
   state: CallState,
   args: AvailabilityLookupArgs,
-) {
+):
+  | {
+      body: Record<string, unknown>;
+      date: string;
+      routing: string | null;
+      signature: string;
+    }
+  | { blocked: AvailabilityLookupBlockedResponse } {
   const date = args.date?.trim();
   if (!date) {
     throw new llm.ToolError(
@@ -164,12 +185,21 @@ function buildAvailabilityLookupRequestForState(
     );
   }
   if (!activePatientId(state)) {
-    throw new llm.ToolError(
-      "Verify or create the patient before checking availability.",
-    );
+    return {
+      blocked: {
+        result: "missing_patient",
+        reply: "Verify or create the patient before checking availability.",
+        next: "resolve_or_create_patient",
+        slots: [],
+      },
+    };
   }
 
   prepareAvailabilityLookupContext(state, args.appointmentLane);
+  const contextRecovery = availabilityContextRecovery(state);
+  if (contextRecovery) {
+    return { blocked: contextRecovery };
+  }
   ensureAvailabilityContext(state, "checking availability");
   ensureRoutineVisionOffice(state);
   const effectiveRouting = routingForAvailability(state);

@@ -288,6 +288,12 @@ export function classifyToolOutput(
       }
       return "transfer_started";
     case "get_availability":
+      if (
+        parsed?.result === "missing_patient" ||
+        parsed?.result === "missing_availability_context"
+      ) {
+        return "availability_blocked";
+      }
       return "availability_returned";
     case "resolve_patient":
     case "verify_patient":
@@ -318,6 +324,7 @@ function toolExecutionStatus(
     outputClass === "tool_error" ||
     outputClass === "appointment_not_cancelled" ||
     outputClass === "appointment_not_rescheduled" ||
+    outputClass === "availability_blocked" ||
     outputClass === "appointment_reschedule_partial" ||
     outputClass === "transfer_failed" ||
     outputClass === "transfer_not_started"

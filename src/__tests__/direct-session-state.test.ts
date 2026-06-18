@@ -895,20 +895,22 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      get_availability.execute(
-        {
-          date: "2026-06-01",
-        },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      ),
-    ).rejects.toThrow(
-      "Verify or create the patient before checking availability.",
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-01",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
     );
 
+    expect(result).toEqual({
+      result: "missing_patient",
+      reply: "Verify or create the patient before checking availability.",
+      next: "resolve_or_create_patient",
+      slots: [],
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -1369,20 +1371,108 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      get_availability.execute(
-        {
-          date: "2026-06-01",
-        },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      ),
-    ).rejects.toThrow(
-      "Pass appointmentLane medical_md or routine_od, or identify the existing appointment to move, before checking availability.",
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-01",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
     );
 
+    expect(result).toEqual({
+      result: "missing_availability_context",
+      reply:
+        "Before checking availability for a reschedule, load appointments by resolving the patient. If this is a new appointment instead, pass appointmentLane medical_md or routine_od.",
+      next: "resolve_patient_or_pass_lane",
+      slots: [],
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("treats failed appointment loading as unresolved reschedule context", async () => {
+    const state = createState();
+    clearSchedulingContext(state);
+    state.identity.patient.appointmentsStatus = "error";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-01",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toEqual({
+      result: "missing_availability_context",
+      reply:
+        "Before checking availability for a reschedule, load appointments by resolving the patient. If this is a new appointment instead, pass appointmentLane medical_md or routine_od.",
+      next: "resolve_patient_or_pass_lane",
+      slots: [],
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("points no-lane availability toward loaded-appointment confirmation", async () => {
+    const state = createState();
+    clearSchedulingContext(state);
+    setLoadedAppointments(
+      state,
+      appointment({ id: 123 }),
+      appointment({ id: 456 }),
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-01",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toEqual({
+      result: "missing_availability_context",
+      reply:
+        "Before checking availability, ask which loaded appointment the caller wants to move. If this is a new appointment instead, pass appointmentLane medical_md or routine_od.",
+      next: "confirm_loaded_appointment_or_pass_lane",
+      slots: [],
+    });
+    expect(state.workflow.current).toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns patient recovery before checking availability", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toEqual({
+      result: "missing_patient",
+      reply: "Verify or create the patient before checking availability.",
+      next: "resolve_or_create_patient",
+      slots: [],
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
