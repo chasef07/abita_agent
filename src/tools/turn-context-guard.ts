@@ -1,6 +1,7 @@
 import { llm } from "@livekit/agents";
 import {
   activeAppointments,
+  activeAppointmentsStatus,
   activePatientId,
   activeRoutingContext,
   applySchedulingLaneToState,
@@ -32,10 +33,60 @@ export function ensureAvailabilityContext(
   state: CallState,
   action: string,
 ): void {
-  if (hasRecordedSchedulingContext(state)) return;
-  if (hasExistingAppointmentChangeContext(state)) return;
+  if (availabilityContextReady(state)) return;
   throw new llm.ToolError(
     `Pass appointmentLane medical_md or routine_od, or identify the existing appointment to move, before ${action}.`,
+  );
+}
+
+export function availabilityContextRecovery(state: CallState): {
+  result: "missing_availability_context";
+  reply: string;
+  next:
+    | "pass_appointment_lane"
+    | "confirm_loaded_appointment_or_pass_lane"
+    | "resolve_patient_or_pass_lane";
+  slots: [];
+} | null {
+  if (availabilityContextReady(state)) return null;
+
+  const appointments = activeAppointments(state);
+  if (appointments.length > 0) {
+    return {
+      result: "missing_availability_context",
+      reply:
+        "Before checking availability, ask which loaded appointment the caller wants to move. If this is a new appointment instead, pass appointmentLane medical_md or routine_od.",
+      next: "confirm_loaded_appointment_or_pass_lane",
+      slots: [],
+    };
+  }
+
+  if (
+    activeAppointmentsStatus(state) === null ||
+    activeAppointmentsStatus(state) === "error"
+  ) {
+    return {
+      result: "missing_availability_context",
+      reply:
+        "Before checking availability for a reschedule, load appointments by resolving the patient. If this is a new appointment instead, pass appointmentLane medical_md or routine_od.",
+      next: "resolve_patient_or_pass_lane",
+      slots: [],
+    };
+  }
+
+  return {
+    result: "missing_availability_context",
+    reply:
+      "Before checking availability for a new appointment, pass appointmentLane medical_md or routine_od.",
+    next: "pass_appointment_lane",
+    slots: [],
+  };
+}
+
+function availabilityContextReady(state: CallState): boolean {
+  return (
+    hasRecordedSchedulingContext(state) ||
+    hasExistingAppointmentChangeContext(state)
   );
 }
 

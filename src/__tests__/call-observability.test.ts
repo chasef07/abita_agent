@@ -187,6 +187,13 @@ describe("call observability", () => {
         false,
       ),
     ).toBe("appointments_not_found");
+    expect(
+      classifyToolOutput(
+        "get_availability",
+        JSON.stringify({ result: "missing_availability_context" }),
+        false,
+      ),
+    ).toBe("availability_blocked");
     expect(classifyToolOutput("book_appt", "timeout", true)).toBe(
       "middleware_error",
     );
@@ -230,10 +237,28 @@ describe("call observability", () => {
 
     expect(
       snapshotToolExecutions({
-        functionCalls: [{ callId: "call_3", name: "cancel_appt" }],
+        functionCalls: [{ callId: "call_3", name: "get_availability" }],
         functionCallOutputs: [
           {
             callId: "call_3",
+            isError: false,
+            output: JSON.stringify({
+              result: "missing_patient",
+            }),
+          },
+        ],
+      })[0],
+    ).toMatchObject({
+      outputClass: "availability_blocked",
+      status: "error",
+    });
+
+    expect(
+      snapshotToolExecutions({
+        functionCalls: [{ callId: "call_4", name: "cancel_appt" }],
+        functionCallOutputs: [
+          {
+            callId: "call_4",
             isError: false,
             output: JSON.stringify({
               outcome: "not_found",
