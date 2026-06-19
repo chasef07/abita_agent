@@ -17,6 +17,10 @@ import {
   getRimeTtsOptions,
   ttsProviderForTrunk,
 } from "../tts-config.js";
+import {
+  SPRING_HILL_813_TRUNK_PHONE,
+  SPRING_HILL_OFFICE_PHONE,
+} from "../customer/profile.js";
 
 const originalEnv = {
   CARTESIA_TTS_VOICE: process.env.CARTESIA_TTS_VOICE,
@@ -98,10 +102,12 @@ describe("TTS config", () => {
     });
   });
 
-  it("uses Rime only for the demo trunk", () => {
+  it("uses Rime for demo and Spring Hill trunks", () => {
     expect(ttsProviderForTrunk(RIME_TTS_DEMO_TRUNK_PHONE)).toBe("rime");
     expect(ttsProviderForTrunk("4843989071")).toBe("rime");
-    expect(ttsProviderForTrunk("+17275919997")).toBe("cartesia");
+    expect(ttsProviderForTrunk(SPRING_HILL_OFFICE_PHONE)).toBe("rime");
+    expect(ttsProviderForTrunk(SPRING_HILL_813_TRUNK_PHONE)).toBe("rime");
+    expect(ttsProviderForTrunk("+13523202007")).toBe("cartesia");
   });
 
   it("builds the Rime websocket config with JS plugin option names", () => {

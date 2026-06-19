@@ -1,4 +1,9 @@
-import { DEV_OFFICE_PHONE, normalizePhoneNumber } from "./customer/profile.js";
+import {
+  DEV_OFFICE_PHONE,
+  SPRING_HILL_813_TRUNK_PHONE,
+  SPRING_HILL_OFFICE_PHONE,
+  normalizePhoneNumber,
+} from "./customer/profile.js";
 
 export const CARTESIA_TTS_MODEL = "sonic-3.5";
 export const DEFAULT_CARTESIA_TTS_VOICE =
@@ -8,6 +13,11 @@ export const SPANISH_CARTESIA_TTS_VOICE =
 export const CARTESIA_TTS_LANGUAGE = "en";
 export const CARTESIA_TTS_SAMPLE_RATE = 16000;
 export const RIME_TTS_DEMO_TRUNK_PHONE = DEV_OFFICE_PHONE;
+export const RIME_TTS_TRUNK_PHONES = [
+  RIME_TTS_DEMO_TRUNK_PHONE,
+  SPRING_HILL_OFFICE_PHONE,
+  SPRING_HILL_813_TRUNK_PHONE,
+] as const;
 export const RIME_TTS_MODEL = "coda";
 export const DEFAULT_RIME_TTS_SPEAKER = "wawona";
 export const RIME_TTS_LANGUAGE = "eng";
@@ -50,8 +60,11 @@ export function getCartesiaTtsOptionsByLanguage(
 }
 
 export function ttsProviderForTrunk(trunkPhone: string): TtsProvider {
-  return normalizePhoneNumber(trunkPhone) ===
-    normalizePhoneNumber(RIME_TTS_DEMO_TRUNK_PHONE)
+  const normalizedTrunkPhone = normalizePhoneNumber(trunkPhone);
+  return RIME_TTS_TRUNK_PHONES.some(
+    (rimeTrunkPhone) =>
+      normalizePhoneNumber(rimeTrunkPhone) === normalizedTrunkPhone,
+  )
     ? "rime"
     : "cartesia";
 }
