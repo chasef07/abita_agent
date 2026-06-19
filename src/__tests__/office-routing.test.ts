@@ -181,18 +181,18 @@ describe("office routing helpers", () => {
 
   it("introduces the configured virtual assistant for each office", () => {
     const greeting =
-      "Hey, this is Zoe, the virtual assistant at Abita Eye Group. How's your day going?";
+      "Hey this is Zoe, the virtual assistant at Abeeta Eye Group. How's your day going";
 
     expect(getOfficeConfig("spring-hill").greeting).toBe(greeting);
     expect(getOfficeConfig("dev").greeting).toBe(
-      "Hey, this is Julia, the virtual assistant at Acuity Health. How's your day going?",
+      "Hey this is Julia, the virtual assistant at Acuity Health. How's your day going",
     );
     expect(getOfficeConfig("crystal-river").greeting).toBe(
-      "Hey, this is Zoe, the virtual assistant at Eye Radiance, powered by Abita Eye Group. How's your day going?",
+      "Hey this is Zoe, the virtual assistant at Eye Radiance, powered by Abeeta Eye Group. How's your day going",
     );
     expect(getOfficeConfig("hollywood").greeting).toBe(greeting);
     expect(getOfficeConfig("sweetwater").greeting).toBe(
-      "Hey, this is Maya, the virtual assistant at Abita Eye Group. How's your day going?",
+      "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
     );
   });
 
@@ -586,10 +586,11 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "Use normal written forms for dates, times, phone numbers, emails, and common acronyms.",
     );
-    expect(prompt).toContain("Don't open consecutive turns");
+    expect(prompt).toContain("Include light disfluencies");
     expect(prompt).toContain(
-      'Feel free to start sentences with "And", "But", or "So".',
+      'Start sentences with "And", "But", or "So" when it sounds natural.',
     );
+    expect(prompt).toContain("Use audible personality patterns when they fit");
     expect(prompt).toContain("Sorry, I think I missed that, what did you say?");
     expect(prompt).toContain("If the caller asks you to slow down");
     expect(prompt).not.toContain("eight fifteen a m");
