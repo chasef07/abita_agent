@@ -1,79 +1,75 @@
+import type { VoiceLanguage } from "./stt-language-detector.js";
 import {
-  DEV_OFFICE_PHONE,
-  SPRING_HILL_813_TRUNK_PHONE,
-  SPRING_HILL_OFFICE_PHONE,
+  SWEETWATER_TRUNK_PHONES,
   normalizePhoneNumber,
 } from "./customer/profile.js";
 
-export const CARTESIA_TTS_MODEL = "sonic-3.5";
-export const DEFAULT_CARTESIA_TTS_VOICE =
-  "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc";
-export const SPANISH_CARTESIA_TTS_VOICE =
-  "b4b8e2af-6139-466e-a93a-30c20d2e1fc5";
-export const CARTESIA_TTS_LANGUAGE = "en";
-export const CARTESIA_TTS_SAMPLE_RATE = 16000;
-export const RIME_TTS_DEMO_TRUNK_PHONE = DEV_OFFICE_PHONE;
-export const RIME_TTS_TRUNK_PHONES = [
-  RIME_TTS_DEMO_TRUNK_PHONE,
-  SPRING_HILL_OFFICE_PHONE,
-  SPRING_HILL_813_TRUNK_PHONE,
-] as const;
 export const RIME_TTS_MODEL = "coda";
 export const DEFAULT_RIME_TTS_SPEAKER = "wawona";
+export const SWEETWATER_RIME_TTS_SPEAKER = "luz";
+export const SPANISH_RIME_TTS_SPEAKER = "luz";
 export const RIME_TTS_LANGUAGE = "eng";
+export const SPANISH_RIME_TTS_LANGUAGE = "spa";
 export const RIME_TTS_SAMPLE_RATE = 16000;
 export const RIME_TTS_BASE_URL = "wss://users-east-ws.rime.ai";
 export const RIME_TTS_SEGMENT = "bySentence";
 
-export type TtsProvider = "cartesia" | "rime";
+export type RimeTtsLanguageCode =
+  | typeof RIME_TTS_LANGUAGE
+  | typeof SPANISH_RIME_TTS_LANGUAGE;
 
-function configuredEnglishVoice() {
-  return process.env.CARTESIA_TTS_VOICE?.trim() || DEFAULT_CARTESIA_TTS_VOICE;
+export type RimeTtsLanguageOptions = {
+  lang: RimeTtsLanguageCode;
+  speaker: string;
+};
+
+export function isSweetwaterTtsTrunk(trunkPhone: string): boolean {
+  const normalizedTrunkPhone = normalizePhoneNumber(trunkPhone);
+  return SWEETWATER_TRUNK_PHONES.some(
+    (sweetwaterTrunkPhone) =>
+      normalizePhoneNumber(sweetwaterTrunkPhone) === normalizedTrunkPhone,
+  );
 }
 
-function configuredRimeSpeaker() {
-  return process.env.RIME_TTS_SPEAKER?.trim() || DEFAULT_RIME_TTS_SPEAKER;
-}
+export function getRimeTtsLanguageOptions(input: {
+  language: VoiceLanguage;
+  trunkPhone: string;
+}): RimeTtsLanguageOptions {
+  if (input.language === "es") {
+    return {
+      lang: SPANISH_RIME_TTS_LANGUAGE,
+      speaker: SPANISH_RIME_TTS_SPEAKER,
+    };
+  }
 
-export function getCartesiaTtsOptions(voice = configuredEnglishVoice()) {
   return {
-    model: CARTESIA_TTS_MODEL,
-    voice,
-    language: CARTESIA_TTS_LANGUAGE,
-    sampleRate: CARTESIA_TTS_SAMPLE_RATE,
+    lang: RIME_TTS_LANGUAGE,
+    speaker: isSweetwaterTtsTrunk(input.trunkPhone)
+      ? SWEETWATER_RIME_TTS_SPEAKER
+      : DEFAULT_RIME_TTS_SPEAKER,
   };
 }
 
-export function getCartesiaTtsOptionsByLanguage(
-  englishVoice = configuredEnglishVoice(),
-) {
+export function getRimeTtsOptionsByLanguage(trunkPhone: string) {
   return {
-    en: {
-      language: "en",
-      voice: englishVoice,
-    },
-    es: {
-      language: "es",
-      voice: SPANISH_CARTESIA_TTS_VOICE,
-    },
-  } as const;
+    en: getRimeTtsLanguageOptions({ language: "en", trunkPhone }),
+    es: getRimeTtsLanguageOptions({ language: "es", trunkPhone }),
+  } as const satisfies Record<VoiceLanguage, RimeTtsLanguageOptions>;
 }
 
-export function ttsProviderForTrunk(trunkPhone: string): TtsProvider {
-  const normalizedTrunkPhone = normalizePhoneNumber(trunkPhone);
-  return RIME_TTS_TRUNK_PHONES.some(
-    (rimeTrunkPhone) =>
-      normalizePhoneNumber(rimeTrunkPhone) === normalizedTrunkPhone,
-  )
-    ? "rime"
-    : "cartesia";
-}
+export function getRimeTtsOptions(input: {
+  language?: VoiceLanguage;
+  trunkPhone: string;
+}) {
+  const languageOptions = getRimeTtsLanguageOptions({
+    language: input.language ?? "en",
+    trunkPhone: input.trunkPhone,
+  });
 
-export function getRimeTtsOptions(speaker = configuredRimeSpeaker()) {
   return {
     modelId: RIME_TTS_MODEL,
-    speaker,
-    lang: RIME_TTS_LANGUAGE,
+    speaker: languageOptions.speaker,
+    lang: languageOptions.lang,
     useWebsocket: true,
     segment: RIME_TTS_SEGMENT,
     baseURL: RIME_TTS_BASE_URL,

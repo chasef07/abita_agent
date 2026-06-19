@@ -1,6 +1,6 @@
 import type { OfficeKey } from "../customer/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
-import type { VoiceExperimentMetadata } from "../voice-experiment.js";
+import type { RimeTtsLanguageCode } from "../tts-config.js";
 
 export const CALLER_CANDIDATE_REF = "caller";
 
@@ -179,6 +179,16 @@ interface PatientBackendRefs {
   respPartyId?: string | null;
 }
 
+export interface RuntimeVoiceLanguageState {
+  current: "en" | "es";
+  ttsProvider: "rime";
+  ttsLanguage: RimeTtsLanguageCode;
+  speaker: string;
+  confidence?: number;
+  providerCode?: string;
+  updatedAt?: string;
+}
+
 interface RuntimeCallState {
   endedReason?: "duration_limit";
   preCallLookup: PreCallLookupTelemetry;
@@ -190,7 +200,7 @@ interface RuntimeCallState {
   callerPhone: string;
   trunkPhone: string;
   transferred: boolean;
-  voiceExperiment?: VoiceExperimentMetadata | null;
+  voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
 
 interface OfficeSessionState {
@@ -297,7 +307,7 @@ export interface InitialCallStateInput {
   appointmentsStatus: AppointmentLoadStatus | null;
   appointments: CallerAppointment[];
   transferred: boolean;
-  voiceExperiment?: VoiceExperimentMetadata | null;
+  voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
 
 export function createCanonicalCallState(
@@ -370,7 +380,7 @@ export function createCanonicalCallState(
       callerPhone: input.callerPhone,
       trunkPhone: input.trunkPhone,
       transferred: input.transferred,
-      voiceExperiment: input.voiceExperiment ?? null,
+      voiceLanguage: input.voiceLanguage ?? null,
     },
   };
 

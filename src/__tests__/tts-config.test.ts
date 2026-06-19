@@ -1,120 +1,93 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  CARTESIA_TTS_LANGUAGE,
-  CARTESIA_TTS_MODEL,
-  CARTESIA_TTS_SAMPLE_RATE,
   DEFAULT_RIME_TTS_SPEAKER,
-  DEFAULT_CARTESIA_TTS_VOICE,
-  SPANISH_CARTESIA_TTS_VOICE,
   RIME_TTS_BASE_URL,
-  RIME_TTS_DEMO_TRUNK_PHONE,
   RIME_TTS_LANGUAGE,
   RIME_TTS_MODEL,
   RIME_TTS_SAMPLE_RATE,
   RIME_TTS_SEGMENT,
-  getCartesiaTtsOptions,
-  getCartesiaTtsOptionsByLanguage,
+  SPANISH_RIME_TTS_LANGUAGE,
+  SPANISH_RIME_TTS_SPEAKER,
+  SWEETWATER_RIME_TTS_SPEAKER,
+  getRimeTtsLanguageOptions,
   getRimeTtsOptions,
-  ttsProviderForTrunk,
+  getRimeTtsOptionsByLanguage,
+  isSweetwaterTtsTrunk,
 } from "../tts-config.js";
 import {
-  SPRING_HILL_813_TRUNK_PHONE,
-  SPRING_HILL_OFFICE_PHONE,
+  CRYSTAL_RIVER_OFFICE_PHONE,
+  SWEETWATER_OFFICE_PHONE,
+  SWEETWATER_TRUNK_PHONES,
 } from "../customer/profile.js";
 
-const originalEnv = {
-  CARTESIA_TTS_VOICE: process.env.CARTESIA_TTS_VOICE,
-  RIME_TTS_SPEAKER: process.env.RIME_TTS_SPEAKER,
-  TTS_PROVIDER: process.env.TTS_PROVIDER,
-};
-
-function restoreEnv(name: keyof typeof originalEnv) {
-  const value = originalEnv[name];
-  if (value === undefined) {
-    delete process.env[name];
-  } else {
-    process.env[name] = value;
-  }
-}
-
-afterEach(() => {
-  restoreEnv("CARTESIA_TTS_VOICE");
-  restoreEnv("RIME_TTS_SPEAKER");
-  restoreEnv("TTS_PROVIDER");
-});
-
 describe("TTS config", () => {
-  it("keeps Cartesia Sonic 3.5 config available", () => {
-    expect(CARTESIA_TTS_MODEL).toBe("sonic-3.5");
+  it("uses Rime for the full TTS stack", () => {
+    expect(RIME_TTS_MODEL).toBe("coda");
+    expect(DEFAULT_RIME_TTS_SPEAKER).toBe("wawona");
+    expect(SWEETWATER_RIME_TTS_SPEAKER).toBe("luz");
+    expect(SPANISH_RIME_TTS_SPEAKER).toBe("luz");
   });
 
-  it("keeps direct Cartesia plugin TTS available", () => {
-    delete process.env.CARTESIA_TTS_VOICE;
+  it("detects Sweetwater trunks for the English speaker override", () => {
+    for (const trunkPhone of SWEETWATER_TRUNK_PHONES) {
+      expect(isSweetwaterTtsTrunk(trunkPhone)).toBe(true);
+    }
 
-    expect(getCartesiaTtsOptions()).toEqual({
-      model: CARTESIA_TTS_MODEL,
-      voice: DEFAULT_CARTESIA_TTS_VOICE,
-      language: CARTESIA_TTS_LANGUAGE,
-      sampleRate: CARTESIA_TTS_SAMPLE_RATE,
-    });
+    expect(isSweetwaterTtsTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).toBe(false);
   });
 
-  it("ignores stale provider overrides and keeps Cartesia active", () => {
-    process.env.TTS_PROVIDER = "legacy-provider";
-
-    expect(getCartesiaTtsOptions()).toEqual({
-      model: CARTESIA_TTS_MODEL,
-      voice: DEFAULT_CARTESIA_TTS_VOICE,
-      language: CARTESIA_TTS_LANGUAGE,
-      sampleRate: CARTESIA_TTS_SAMPLE_RATE,
-    });
-  });
-
-  it("allows the Cartesia voice to be changed without code changes", () => {
-    process.env.CARTESIA_TTS_VOICE = "blake";
-
-    expect(getCartesiaTtsOptions().voice).toBe("blake");
-  });
-
-  it("ignores a blank Cartesia voice override", () => {
-    process.env.CARTESIA_TTS_VOICE = "";
-
-    expect(getCartesiaTtsOptions().voice).toBe(DEFAULT_CARTESIA_TTS_VOICE);
-    expect(getCartesiaTtsOptionsByLanguage().en.voice).toBe(
-      DEFAULT_CARTESIA_TTS_VOICE,
-    );
-  });
-
-  it("uses the dedicated Spanish Cartesia voice for Spanish turns", () => {
-    expect(SPANISH_CARTESIA_TTS_VOICE).toBe(
-      "b4b8e2af-6139-466e-a93a-30c20d2e1fc5",
-    );
-
-    expect(getCartesiaTtsOptionsByLanguage("english-voice")).toEqual({
-      en: {
+  it("uses luz for Sweetwater English", () => {
+    expect(
+      getRimeTtsLanguageOptions({
         language: "en",
-        voice: "english-voice",
-      },
-      es: {
-        language: "es",
-        voice: SPANISH_CARTESIA_TTS_VOICE,
-      },
+        trunkPhone: SWEETWATER_OFFICE_PHONE,
+      }),
+    ).toEqual({
+      lang: RIME_TTS_LANGUAGE,
+      speaker: SWEETWATER_RIME_TTS_SPEAKER,
     });
   });
 
-  it("uses Rime for demo and Spring Hill trunks", () => {
-    expect(ttsProviderForTrunk(RIME_TTS_DEMO_TRUNK_PHONE)).toBe("rime");
-    expect(ttsProviderForTrunk("4843989071")).toBe("rime");
-    expect(ttsProviderForTrunk(SPRING_HILL_OFFICE_PHONE)).toBe("rime");
-    expect(ttsProviderForTrunk(SPRING_HILL_813_TRUNK_PHONE)).toBe("rime");
-    expect(ttsProviderForTrunk("+13523202007")).toBe("cartesia");
+  it("uses wawona for non-Sweetwater English", () => {
+    expect(
+      getRimeTtsLanguageOptions({
+        language: "en",
+        trunkPhone: CRYSTAL_RIVER_OFFICE_PHONE,
+      }),
+    ).toEqual({
+      lang: RIME_TTS_LANGUAGE,
+      speaker: DEFAULT_RIME_TTS_SPEAKER,
+    });
+  });
+
+  it("uses luz for Spanish on every trunk", () => {
+    expect(
+      getRimeTtsLanguageOptions({
+        language: "es",
+        trunkPhone: SWEETWATER_OFFICE_PHONE,
+      }),
+    ).toEqual({
+      lang: SPANISH_RIME_TTS_LANGUAGE,
+      speaker: SPANISH_RIME_TTS_SPEAKER,
+    });
+    expect(
+      getRimeTtsLanguageOptions({
+        language: "es",
+        trunkPhone: CRYSTAL_RIVER_OFFICE_PHONE,
+      }),
+    ).toEqual({
+      lang: SPANISH_RIME_TTS_LANGUAGE,
+      speaker: SPANISH_RIME_TTS_SPEAKER,
+    });
   });
 
   it("builds the Rime websocket config with JS plugin option names", () => {
-    delete process.env.RIME_TTS_SPEAKER;
-
-    expect(DEFAULT_RIME_TTS_SPEAKER).toBe("wawona");
-    expect(getRimeTtsOptions()).toEqual({
+    expect(
+      getRimeTtsOptions({
+        language: "en",
+        trunkPhone: CRYSTAL_RIVER_OFFICE_PHONE,
+      }),
+    ).toEqual({
       modelId: RIME_TTS_MODEL,
       speaker: DEFAULT_RIME_TTS_SPEAKER,
       lang: RIME_TTS_LANGUAGE,
@@ -125,9 +98,16 @@ describe("TTS config", () => {
     });
   });
 
-  it("allows the Rime speaker to be changed without code changes", () => {
-    process.env.RIME_TTS_SPEAKER = "marin";
-
-    expect(getRimeTtsOptions().speaker).toBe("marin");
+  it("returns only mutable Rime language options for switch edges", () => {
+    expect(getRimeTtsOptionsByLanguage(SWEETWATER_OFFICE_PHONE)).toEqual({
+      en: {
+        lang: RIME_TTS_LANGUAGE,
+        speaker: SWEETWATER_RIME_TTS_SPEAKER,
+      },
+      es: {
+        lang: SPANISH_RIME_TTS_LANGUAGE,
+        speaker: SPANISH_RIME_TTS_SPEAKER,
+      },
+    });
   });
 });
