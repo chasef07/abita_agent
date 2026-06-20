@@ -74,7 +74,7 @@ export type SttProfile = AssemblyAISttProfile;
 
 export function getAssemblyAISttOptions(): Partial<AssemblyAIPluginSttOptions> {
   return {
-    speechModel: "u3-rt-pro",
+    speechModel: "universal-3-5-pro",
     languageDetection: true,
     inactivityTimeout: ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
     ...ASSEMBLYAI_STT_PROFILES.default,

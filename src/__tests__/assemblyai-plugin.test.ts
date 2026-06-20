@@ -20,14 +20,14 @@ beforeAll(() => {
 });
 
 describe("official AssemblyAI plugin", () => {
-  it("supports the current U3 Pro STT configuration", () => {
+  it("supports the current Universal-3.5 Pro STT configuration", () => {
     const stt = new STT({
       apiKey: "test-api-key",
       ...getAssemblyAISttOptions(),
     });
 
     expect(stt.provider).toBe("AssemblyAI");
-    expect(stt.model).toBe("u3-rt-pro");
+    expect(stt.model).toBe("universal-3-5-pro");
     expect(getAssemblyAISttOptions().languageDetection).toBe(true);
     expect(getAssemblyAISttOptions().keytermsPrompt).toContain(
       "Abita Eye Group",
