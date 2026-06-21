@@ -10,9 +10,9 @@ import {
 } from "../model-config.js";
 
 describe("LLM model config", () => {
-  it("uses GLM 5.2 on Wafer as the primary model with GLM 4.7 fallback", () => {
+  it("uses GLM 5.2 on Wafer as the primary model with GLM 5.1 fallback", () => {
     expect(primaryLLMOptions.model).toBe("GLM-5.2");
-    expect(fallbackLLMOptions.model).toBe("GLM-4.7");
+    expect(fallbackLLMOptions.model).toBe("GLM-5.1");
   });
 
   it("uses the same primary and fallback models for every trunk", () => {
@@ -20,9 +20,17 @@ describe("LLM model config", () => {
     expect(getLlmOptions().fallback).toBe(fallbackLLMOptions);
   });
 
-  it("does not set custom generation or parallel tool-call parameters", () => {
-    expect(Object.keys(primaryLLMOptions)).toEqual(["model"]);
-    expect(Object.keys(fallbackLLMOptions)).toEqual(["model"]);
+  it("disables parallel tool calls for stateful scheduling workflows", () => {
+    expect(primaryLLMOptions.parallelToolCalls).toBe(false);
+    expect(fallbackLLMOptions.parallelToolCalls).toBe(false);
+    expect(Object.keys(primaryLLMOptions)).toEqual([
+      "model",
+      "parallelToolCalls",
+    ]);
+    expect(Object.keys(fallbackLLMOptions)).toEqual([
+      "model",
+      "parallelToolCalls",
+    ]);
   });
 
   it("configures Wafer's OpenAI-compatible endpoint and ZDR header", () => {

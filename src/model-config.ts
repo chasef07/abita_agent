@@ -7,10 +7,12 @@ export const WAFER_ZDR_VALUE = "required";
 
 export const primaryLLMOptions = {
   model: "GLM-5.2",
+  parallelToolCalls: false,
 } as const satisfies LLMOptions;
 
 export const fallbackLLMOptions = {
-  model: "GLM-4.7",
+  model: "GLM-5.1",
+  parallelToolCalls: false,
 } as const satisfies LLMOptions;
 
 export function getLlmOptions() {
