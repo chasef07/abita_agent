@@ -981,6 +981,13 @@ describe("direct session state cleanup", () => {
       selectedCandidateRef: "precall:1",
       identityPromotion: "confirmed_by_transcript",
     };
+    state.runtime.trunkPhone = "+13523202007";
+    state.office.activeKey = "spring-hill";
+    state.office.phoneOverrides = {
+      "crystal-river": "+13523202007",
+      "spring-hill": "+17275919997",
+    };
+    markSchedulingTriaged(state, "routine_od");
     state.availability.latestRouting = "all_three";
     storeAvailabilityBookingToken(state, "A", "stale-token");
     state.identity.latestBookedAppointmentId = 123;
@@ -1049,6 +1056,9 @@ describe("direct session state cleanup", () => {
       routingAmbiguous: false,
       preauthRequired: true,
     });
+    expect(state.workflow.current).toBeUndefined();
+    expect(state.office.activeKey).toBe("crystal-river");
+    expect(state.office.phoneOverrides["crystal-river"]).toBe("+13523202007");
     expect(state.availability.slots).toEqual([]);
     expect(state.availability.latestRouting).toBeNull();
     expect(state.availability.bookingTokensBySlotId).toEqual({});
@@ -2439,6 +2449,71 @@ describe("direct session state cleanup", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty(
       "phone",
     );
+  });
+
+  it("clears stale booking context before resolving a different full-identity patient", async () => {
+    const state = createState();
+    state.runtime.trunkPhone = "+13523202007";
+    state.office.activeKey = "spring-hill";
+    state.office.phoneOverrides = {
+      "crystal-river": "+13523202007",
+      "spring-hill": "+17275919997",
+    };
+    markSchedulingTriaged(state, "routine_od");
+    state.availability.latestRouting = "optical_only";
+    storeAvailabilityBookingToken(state, "A", "stale-token");
+    state.identity.latestBookedAppointmentId = 123;
+    state.insurance.lastEligibilityCheck = {
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "routine_vision",
+      currentCarrier: "Aetna",
+      accepted: true,
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "verified",
+        patientId: "patient-2",
+        name: "John Doe",
+        dob: "02/02/1982",
+        phone: "+17275551212",
+        insuranceCarrier: "Aetna",
+        routing: "bach_only",
+        allowedProviders: ["Dr. Bach"],
+        routingAmbiguous: false,
+        preauthRequired: false,
+        appointmentsStatus: "none",
+        appointments: [],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resolve_patient.execute(
+      {
+        firstName: "John",
+        lastName: "Doe",
+        dob: "02/02/1982",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "Verified existing patient John Doe. Insurance on file: Aetna. No upcoming appointments are loaded.",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      firstName: "John",
+      lastName: "Doe",
+      dob: "02/02/1982",
+      office: "+13523202007",
+    });
+    expect(state.identity.patient.patientId).toBe("patient-2");
+    expect(state.workflow.current).toBeUndefined();
+    expect(state.office.activeKey).toBe("crystal-river");
+    expect(state.availability.slots).toEqual([]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
+    expect(state.identity.latestBookedAppointmentId).toBeUndefined();
+    expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 
   it("clearly reports verified existing patients without insurance on file", async () => {

@@ -1,7 +1,7 @@
 import {
   CALLER_CANDIDATE_REF,
-  clearAvailabilitySelection,
   insuranceSnapshot,
+  resetPatientScopedBookingState,
   setInsuranceOnFile,
   setPatientBackendRefs,
   setRoutingContext,
@@ -44,9 +44,7 @@ export function activatePreloadedCandidate(
   state.identity.preCall.selectedCandidateRef = selectedRef;
   state.identity.preCall.identityPromotion = reason;
 
-  clearAvailabilitySelection(state);
-  delete state.identity.latestBookedAppointmentId;
-  state.insurance.lastEligibilityCheck = null;
+  resetPatientScopedBookingState(state);
 
   state.identity.patient = {
     ...state.identity.patient,
