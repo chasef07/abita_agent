@@ -290,7 +290,11 @@ describe("tool-first prompt gating", () => {
     );
     expect(prompt).toContain("already registered with us");
     expect(prompt).toContain(
-      "Use the caller identity hint only to choose the first identity question.",
+      "Do not start identity confirmation just because a caller identity hint exists.",
+    );
+    expect(prompt).toContain("First learn why the caller is calling.");
+    expect(prompt).toContain(
+      "Use the caller identity hint only after the caller asks for patient-specific work",
     );
     expect(prompt).toContain("say you see a patient record on file");
     expect(prompt).toContain("say you see a few patient records on file");
