@@ -6,7 +6,7 @@ import {
 
 export const DEFAULT_VOICE_LANGUAGE = "en";
 export const SUPPORTED_VOICE_LANGUAGES = ["en", "es"] as const;
-export const LANGUAGE_SWITCH_CONFIDENCE_THRESHOLD = 0.7;
+export const LANGUAGE_SWITCH_CONFIDENCE_THRESHOLD = 0.6;
 export const CONSECUTIVE_ENGLISH_TURNS_TO_SWITCH_BACK = 2;
 const MAX_LANGUAGE_KEEP_EVENTS = 50;
 

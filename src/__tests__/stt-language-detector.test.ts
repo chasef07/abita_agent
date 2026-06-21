@@ -131,7 +131,7 @@ describe("SttLanguageDetector", () => {
     });
     expect(detector.telemetry.keepEvents[0]).not.toHaveProperty("action");
     expect(detector.telemetry.keepEvents[1]).toMatchObject({
-      confidence: 0.69,
+      confidence: 0.59,
       currentLanguage: "en",
       observedLanguage: "es",
       providerCode: "es",
@@ -155,7 +155,7 @@ describe("SttLanguageDetector", () => {
 
     expect(decision).toMatchObject({
       action: "keep",
-      confidence: 0.69,
+      confidence: 0.59,
       observedLanguage: "es",
       reason: "low_confidence",
     });
