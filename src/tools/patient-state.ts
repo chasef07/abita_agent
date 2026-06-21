@@ -6,9 +6,9 @@ import {
 import { activatePreloadedCandidate } from "../identity/preloaded-patient.js";
 import {
   CALLER_CANDIDATE_REF,
-  clearAvailabilitySelection,
   insuranceSnapshot,
   publicCallerAppointments,
+  resetPatientScopedBookingState,
   setInsuranceOnFile,
   setPatientBackendRefs,
   setRoutingContext,
@@ -152,8 +152,7 @@ function applyPatientPayloadToState(
   );
 
   if (invalidatePatientState) {
-    clearAvailabilitySelection(state);
-    state.insurance.lastEligibilityCheck = null;
+    resetPatientScopedBookingState(state);
   }
   setPatientBackendRefs(state, {
     insPlanId: payload.insPlanId ?? null,

@@ -17,8 +17,8 @@ import {
   type FullIdentity,
 } from "../identity/preloaded-patient.js";
 import {
-  clearAvailabilitySelection,
   insuranceOnFile,
+  resetPatientScopedBookingState,
   setPatientBackendRefs,
   type CallState,
   type PreCallContextState,
@@ -99,6 +99,10 @@ export const resolve_patient = llm.tool({
 
     if (!hasFullIdentity(identity)) {
       return missingIdentityReply(state, identity);
+    }
+
+    if (identityTargetsDifferentPatient(state, identity)) {
+      resetPatientScopedBookingState(state);
     }
 
     const result = await resolvePatientForCall(state, {
@@ -289,8 +293,7 @@ function uniqueNameParts(parts: Array<string | undefined>): string[] {
 }
 
 function markNewChartPath(state: CallState): string {
-  clearAvailabilitySelection(state);
-  delete state.identity.latestBookedAppointmentId;
+  resetPatientScopedBookingState(state, { preserveEligibilityCheck: true });
   state.insurance.onFile = null;
   setPatientBackendRefs(state, {
     insPlanId: null,

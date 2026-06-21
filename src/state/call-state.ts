@@ -1,4 +1,4 @@
-import type { OfficeKey } from "../customer/profile.js";
+import { getOfficeConfigByPhone, type OfficeKey } from "../customer/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { RimeTtsLanguageCode } from "../tts-config.js";
 
@@ -617,6 +617,21 @@ export function clearAvailabilitySelection(state: CallState): void {
   state.availability.latestSearch = undefined;
 }
 
+export function resetPatientScopedBookingState(
+  state: CallState,
+  options: { preserveEligibilityCheck?: boolean } = {},
+): void {
+  const eligibilityCheck = options.preserveEligibilityCheck
+    ? state.insurance.lastEligibilityCheck
+    : null;
+  clearAvailabilitySelection(state);
+  delete state.identity.latestBookedAppointmentId;
+  state.workflow.current = undefined;
+  state.insurance.lastEligibilityCheck = eligibilityCheck;
+  resetActiveOfficeToTrunk(state);
+  setRoutingContext(state, {});
+}
+
 export function reserveAvailabilitySlotIds(
   state: CallState,
   count: number,
@@ -696,6 +711,16 @@ function availabilitySlotIndex(slotId: string): number | null {
 
 function slotIdForIndex(index: number): string {
   return `S${index + 1}`;
+}
+
+function resetActiveOfficeToTrunk(state: CallState): void {
+  const office = getOfficeConfigByPhone(state.runtime.trunkPhone);
+  state.office.activeKey = office.key;
+  state.office.phoneOverrides = {
+    ...state.office.phoneOverrides,
+    [office.key]:
+      state.office.phoneOverrides[office.key] ?? office.amdOfficePhone,
+  };
 }
 
 export function snapshotActivePatientIdentity(
