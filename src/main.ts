@@ -11,7 +11,7 @@ import {
   voice,
 } from "@livekit/agents";
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
-import * as baseten from "@livekit/agents-plugin-baseten";
+import * as openai from "@livekit/agents-plugin-openai";
 import * as rime from "@livekit/agents-plugin-rime";
 import { TelephonyBackgroundVoiceCancellation } from "@livekit/noise-cancellation-node";
 import { readFile } from "node:fs/promises";
@@ -48,7 +48,11 @@ import {
   MAX_CALL_DURATION_MS,
   attachCallDurationDeadline,
 } from "./runtime/call-duration-deadline.js";
-import { getLlmOptions } from "./model-config.js";
+import {
+  createWaferClient,
+  getLlmOptions,
+  requireWaferApiKey,
+} from "./model-config.js";
 import {
   getRimeTtsLanguageOptions,
   getRimeTtsOptions,
@@ -187,8 +191,15 @@ export default defineAgent({
         sipParticipantIdentity: participant.identity ?? "",
       };
       const llmOptions = getLlmOptions();
-      const primaryLLM = new baseten.LLM(llmOptions.primary);
-      const fallbackLLM = new baseten.LLM(llmOptions.fallback);
+      const waferClient = createWaferClient(requireWaferApiKey());
+      const primaryLLM = new openai.LLM({
+        ...llmOptions.primary,
+        client: waferClient,
+      });
+      const fallbackLLM = new openai.LLM({
+        ...llmOptions.fallback,
+        client: waferClient,
+      });
 
       const llmWithFallback = new llm.FallbackAdapter({
         llms: [primaryLLM, fallbackLLM],

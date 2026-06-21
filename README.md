@@ -30,7 +30,7 @@ code.
 | Telephony | Twilio + Telnyx SIP into LiveKit Cloud | inbound SIP room dispatch |
 | Agent runtime | `@livekit/agents` on Node 22 | `src/main.ts` |
 | STT | AssemblyAI plugin | `src/stt-config.ts` |
-| LLM | Baseten with fallback adapter | `src/model-config.ts` |
+| LLM | Wafer OpenAI-compatible endpoint with fallback adapter | `src/model-config.ts` |
 | TTS | Rime plugin | `src/tts-config.ts` |
 | VAD/turns | Silero + LiveKit turn handling | `src/session-options.ts` |
 | Backend | AdvancedMD middleware | `src/clients/advancedmd-client.ts` |
@@ -155,7 +155,7 @@ See `docs/ops/telnyx-setup.md`.
 Important variables:
 
 - `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
-- `BASETEN_API_KEY`
+- `WAFER_API_KEY`
 - `ASSEMBLYAI_API_KEY`
 - `RIME_API_KEY`
 - `AMD_API_URL`
