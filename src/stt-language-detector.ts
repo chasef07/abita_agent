@@ -8,6 +8,7 @@ export const DEFAULT_VOICE_LANGUAGE = "en";
 export const SUPPORTED_VOICE_LANGUAGES = ["en", "es"] as const;
 export const LANGUAGE_SWITCH_CONFIDENCE_THRESHOLD = 0.7;
 export const CONSECUTIVE_ENGLISH_TURNS_TO_SWITCH_BACK = 2;
+const MAX_LANGUAGE_KEEP_EVENTS = 50;
 
 export type VoiceLanguage = (typeof SUPPORTED_VOICE_LANGUAGES)[number];
 export type SttLanguageSwitchReason = "explicit_request" | "stt_detection";
@@ -27,6 +28,17 @@ export type SttLanguageSwitchEvent = {
   providerCode: string;
   reason: SttLanguageSwitchReason;
   to: VoiceLanguage;
+};
+
+export type SttLanguageKeepEvent = {
+  candidateLanguage?: VoiceLanguage;
+  candidateTurns?: number;
+  confidence?: number;
+  createdAt: string;
+  currentLanguage: VoiceLanguage;
+  observedLanguage?: VoiceLanguage;
+  providerCode?: string;
+  reason: SttLanguageKeepReason;
 };
 
 export type SttLanguageDecision =
@@ -55,6 +67,7 @@ export type SttLanguageTelemetry = {
   candidateTurns: number;
   currentLanguage: VoiceLanguage;
   initialLanguage: VoiceLanguage;
+  keepEvents: SttLanguageKeepEvent[];
   languageChanged: boolean;
   languageSwitches: number;
   observedLanguages: VoiceLanguage[];
@@ -174,6 +187,7 @@ export class SttLanguageDetector {
   private readonly observedLanguages = new Set<VoiceLanguage>();
   private readonly acceptedLanguages: VoiceLanguage[];
   private readonly switchEvents: SttLanguageSwitchEvent[] = [];
+  private readonly keepEvents: SttLanguageKeepEvent[] = [];
 
   constructor(
     options: {
@@ -194,6 +208,7 @@ export class SttLanguageDetector {
       candidateTurns: this.candidateTurns,
       currentLanguage: this.currentLanguage,
       initialLanguage: this.initialLanguage,
+      keepEvents: [...this.keepEvents],
       languageChanged: this.languageSwitches > 0,
       languageSwitches: this.languageSwitches,
       observedLanguages: [...this.observedLanguages],
@@ -206,13 +221,63 @@ export class SttLanguageDetector {
     this.candidateTurns = 0;
   }
 
+  private keepLanguage(
+    input: Omit<SttLanguageKeepEvent, "createdAt" | "currentLanguage">,
+  ): Extract<SttLanguageDecision, { action: "keep" }> {
+    const decision: Extract<SttLanguageDecision, { action: "keep" }> = {
+      action: "keep",
+      currentLanguage: this.currentLanguage,
+      reason: input.reason,
+      ...(input.candidateLanguage !== undefined
+        ? { candidateLanguage: input.candidateLanguage }
+        : {}),
+      ...(input.candidateTurns !== undefined
+        ? { candidateTurns: input.candidateTurns }
+        : {}),
+      ...(input.confidence !== undefined
+        ? { confidence: input.confidence }
+        : {}),
+      ...(input.observedLanguage !== undefined
+        ? { observedLanguage: input.observedLanguage }
+        : {}),
+      ...(input.providerCode ? { providerCode: input.providerCode } : {}),
+    };
+
+    if (input.reason !== "non_final") {
+      const keepEvent: SttLanguageKeepEvent = {
+        reason: input.reason,
+        createdAt: new Date().toISOString(),
+        currentLanguage: this.currentLanguage,
+        ...(input.candidateLanguage !== undefined
+          ? { candidateLanguage: input.candidateLanguage }
+          : {}),
+        ...(input.candidateTurns !== undefined
+          ? { candidateTurns: input.candidateTurns }
+          : {}),
+        ...(input.confidence !== undefined
+          ? { confidence: input.confidence }
+          : {}),
+        ...(input.observedLanguage !== undefined
+          ? { observedLanguage: input.observedLanguage }
+          : {}),
+        ...(input.providerCode ? { providerCode: input.providerCode } : {}),
+      };
+
+      this.keepEvents.push(keepEvent);
+      if (this.keepEvents.length > MAX_LANGUAGE_KEEP_EVENTS) {
+        this.keepEvents.splice(
+          0,
+          this.keepEvents.length - MAX_LANGUAGE_KEEP_EVENTS,
+        );
+      }
+    }
+
+    return decision;
+  }
+
   updateFromSpeechEvent(event: stt.SpeechEvent): SttLanguageDecision {
     if (event.type !== stt.SpeechEventType.FINAL_TRANSCRIPT) {
-      return {
-        action: "keep",
-        currentLanguage: this.currentLanguage,
-        reason: "non_final",
-      };
+      return this.keepLanguage({ reason: "non_final" });
     }
 
     const alternative = event.alternatives?.[0];
@@ -223,13 +288,11 @@ export class SttLanguageDetector {
       this.observedLanguages.add(requestedLanguage);
       if (requestedLanguage === this.currentLanguage) {
         this.resetCandidate();
-        return {
-          action: "keep",
-          currentLanguage: this.currentLanguage,
+        return this.keepLanguage({
           observedLanguage: requestedLanguage,
           ...(providerCode ? { providerCode } : {}),
           reason: "same_language",
-        };
+        });
       }
 
       return this.switchLanguage({
@@ -243,48 +306,40 @@ export class SttLanguageDetector {
     const observedLanguage = normalizeVoiceLanguage(providerCode);
     if (!observedLanguage) {
       this.resetCandidate();
-      return {
-        action: "keep",
-        currentLanguage: this.currentLanguage,
+      return this.keepLanguage({
         reason: "unsupported",
         ...(providerCode ? { providerCode } : {}),
-      };
+      });
     }
     this.observedLanguages.add(observedLanguage);
 
     if (confidence === null) {
       this.resetCandidate();
-      return {
-        action: "keep",
-        currentLanguage: this.currentLanguage,
+      return this.keepLanguage({
         observedLanguage,
         providerCode,
         reason: "missing_confidence",
-      };
+      });
     }
 
     if (confidence < LANGUAGE_SWITCH_CONFIDENCE_THRESHOLD) {
       this.resetCandidate();
-      return {
-        action: "keep",
+      return this.keepLanguage({
         confidence,
-        currentLanguage: this.currentLanguage,
         observedLanguage,
         providerCode,
         reason: "low_confidence",
-      };
+      });
     }
 
     if (observedLanguage === this.currentLanguage) {
       this.resetCandidate();
-      return {
-        action: "keep",
+      return this.keepLanguage({
         confidence,
-        currentLanguage: this.currentLanguage,
         observedLanguage,
         providerCode,
         reason: "same_language",
-      };
+      });
     }
 
     if (this.candidateLanguage === observedLanguage) {
@@ -299,16 +354,14 @@ export class SttLanguageDetector {
       observedLanguage,
     );
     if (this.candidateTurns < requiredTurns) {
-      return {
-        action: "keep",
+      return this.keepLanguage({
         candidateLanguage: this.candidateLanguage,
         candidateTurns: this.candidateTurns,
         confidence,
-        currentLanguage: this.currentLanguage,
         observedLanguage,
         providerCode,
         reason: "sticky_window",
-      };
+      });
     }
 
     return this.switchLanguage({

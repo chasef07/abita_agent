@@ -94,6 +94,54 @@ describe("SttLanguageDetector", () => {
     expect(detector.telemetry.currentLanguage).toBe("en");
   });
 
+  it("records sanitized keep events for final language decisions", () => {
+    const detector = new SttLanguageDetector();
+
+    detector.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.INTERIM_TRANSCRIPT,
+        "es",
+        0.99,
+        "interim caller transcript",
+      ),
+    );
+    detector.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "es-MX",
+        null,
+        "final caller transcript",
+      ),
+    );
+    detector.updateFromSpeechEvent(
+      speechEvent(
+        stt.SpeechEventType.FINAL_TRANSCRIPT,
+        "es",
+        LANGUAGE_SWITCH_CONFIDENCE_THRESHOLD - 0.01,
+        "another caller transcript",
+      ),
+    );
+
+    expect(detector.telemetry.keepEvents).toHaveLength(2);
+    expect(detector.telemetry.keepEvents[0]).toMatchObject({
+      currentLanguage: "en",
+      observedLanguage: "es",
+      providerCode: "es-MX",
+      reason: "missing_confidence",
+    });
+    expect(detector.telemetry.keepEvents[0]).not.toHaveProperty("action");
+    expect(detector.telemetry.keepEvents[1]).toMatchObject({
+      confidence: 0.69,
+      currentLanguage: "en",
+      observedLanguage: "es",
+      providerCode: "es",
+      reason: "low_confidence",
+    });
+    expect(JSON.stringify(detector.telemetry.keepEvents)).not.toContain(
+      "caller transcript",
+    );
+  });
+
   it("keeps the current language below the confidence threshold", () => {
     const detector = new SttLanguageDetector();
 
