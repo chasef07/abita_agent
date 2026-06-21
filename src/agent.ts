@@ -6,7 +6,11 @@ import type { AudioFrame } from "@livekit/rtc-node";
 import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
 import { type CallState, type PhoneLookupResult } from "./state/call-state.js";
-import type { VoiceLanguageRuntime } from "./language-runtime.js";
+import {
+  observeSttLanguage,
+  type SttLanguageDecision,
+  type SttLanguageDetector,
+} from "./stt-language-detector.js";
 import { getOfficeConfigByPhone } from "./customer/profile.js";
 import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcript-confirmation.js";
 import { addDurableInternalSystemMessage } from "./runtime/durable-chat-context.js";
@@ -23,14 +27,16 @@ export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
 
 export class Agent extends voice.Agent {
   private greeting: string;
-  private languageRuntime?: VoiceLanguageRuntime;
+  private sttLanguageDetector?: SttLanguageDetector;
+  private onLanguageDecision?: (decision: SttLanguageDecision) => void;
 
   constructor(
     phoneLookup?: PhoneLookupResult,
     trunkPhone?: string,
     options: {
-      languageRuntime?: VoiceLanguageRuntime;
+      onLanguageDecision?: (decision: SttLanguageDecision) => void;
       suppressGreeting?: boolean;
+      sttLanguageDetector?: SttLanguageDetector;
     } = {},
   ) {
     const office = getOfficeConfigByPhone(trunkPhone ?? "");
@@ -39,7 +45,8 @@ export class Agent extends voice.Agent {
       tools: buildToolsForTrunk(trunkPhone),
     });
     this.greeting = office.greeting;
-    this.languageRuntime = options.languageRuntime;
+    this.sttLanguageDetector = options.sttLanguageDetector;
+    this.onLanguageDecision = options.onLanguageDecision;
     if (options.suppressGreeting) this.greeting = "";
   }
 
@@ -82,9 +89,13 @@ export class Agent extends voice.Agent {
       audio,
       modelSettings,
     );
-    if (!events || !this.languageRuntime) return events;
+    if (!events || !this.sttLanguageDetector) return events;
 
-    return this.languageRuntime.observeSpeechEvents(events);
+    return observeSttLanguage(
+      events,
+      this.sttLanguageDetector,
+      this.onLanguageDecision,
+    );
   }
 }
 
