@@ -100,7 +100,7 @@ function createRuntimeVoiceLanguageState(input: {
   return {
     current: input.language,
     speaker: input.options.speaker,
-    ttsLanguage: input.options.lang,
+    ttsLanguage: input.options.language,
     ttsProvider: "rime",
     ...(input.decision
       ? {
@@ -133,7 +133,7 @@ function createRimeLanguageDecisionApplicator(input: {
       options: ttsOptions,
     });
     console.log(
-      `[language] applied_tts_options provider=rime voice_language=${decision.to} tts_language=${ttsOptions.lang} speaker=${ttsOptions.speaker}`,
+      `[language] applied_tts_options provider=rime voice_language=${decision.to} tts_language=${ttsOptions.language} speaker=${ttsOptions.speaker}`,
     );
     return voiceLanguage;
   };

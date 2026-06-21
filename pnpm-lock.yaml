@@ -8,6 +8,9 @@ patchedDependencies:
   '@livekit/agents-plugin-assemblyai@1.4.8':
     hash: 066837cfe04bf8a5e59a439fdfbe25bb153bcdbe8b11bd14210c30d15724a8ce
     path: patches/@livekit__agents-plugin-assemblyai@1.4.8.patch
+  '@livekit/agents-plugin-rime@1.4.8':
+    hash: 946f41947a9cb316d818dbd6882821e4369e1331c6f7f568b0c418fe61d92882
+    path: patches/@livekit__agents-plugin-rime@1.4.8.patch
 
 importers:
 
@@ -24,7 +27,7 @@ importers:
         version: 1.4.8(@livekit/agents@1.4.8(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)(zod@4.4.3)
       '@livekit/agents-plugin-rime':
         specifier: 1.4.8
-        version: 1.4.8(@livekit/agents@1.4.8(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)
+        version: 1.4.8(patch_hash=946f41947a9cb316d818dbd6882821e4369e1331c6f7f568b0c418fe61d92882)(@livekit/agents@1.4.8(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)
       '@livekit/noise-cancellation-node':
         specifier: 0.1.9
         version: 0.1.9
@@ -2789,7 +2792,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@livekit/agents-plugin-rime@1.4.8(@livekit/agents@1.4.8(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)':
+  '@livekit/agents-plugin-rime@1.4.8(patch_hash=946f41947a9cb316d818dbd6882821e4369e1331c6f7f568b0c418fe61d92882)(@livekit/agents@1.4.8(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.29)':
     dependencies:
       '@livekit/agents': 1.4.8(@livekit/rtc-node@0.13.29)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.29

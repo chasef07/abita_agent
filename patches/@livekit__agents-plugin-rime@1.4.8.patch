@@ -1,0 +1,74 @@
+diff --git a/dist/tts.cjs b/dist/tts.cjs
+index 6c8758268a8d96e403706a5201957ab30a8ce81c..2a54b021149326f98c4cd4f3546e5b820774be87 100644
+--- a/dist/tts.cjs
++++ b/dist/tts.cjs
+@@ -53,7 +53,8 @@ const defaultTTSOptions = {
+ };
+ function modelParams(opts) {
+   const params = {};
+-  if (opts.lang !== void 0) params.lang = opts.lang;
++  const language = opts.language ?? opts.lang;
++  if (language !== void 0) params.language = language;
+   if (opts.modelId === "arcana") {
+     if (opts.repetition_penalty !== void 0) params.repetition_penalty = opts.repetition_penalty;
+     if (opts.temperature !== void 0) params.temperature = opts.temperature;
+diff --git a/dist/tts.d.cts b/dist/tts.d.cts
+index b1eb1ae25e2c232d3f29d9a77e4bf9587d58e40a..7e37bbac1dfcd6d35d69a12616d4b658341f900f 100644
+--- a/dist/tts.d.cts
++++ b/dist/tts.d.cts
+@@ -10,6 +10,7 @@ export interface TTSOptions {
+     segment?: string;
+     tokenizer?: tokenize.SentenceTokenizer;
+     lang?: DefaultLanguages | string;
++    language?: DefaultLanguages | string;
+     repetition_penalty?: number;
+     temperature?: number;
+     top_p?: number;
+diff --git a/dist/tts.d.ts b/dist/tts.d.ts
+index b1eb1ae25e2c232d3f29d9a77e4bf9587d58e40a..7e37bbac1dfcd6d35d69a12616d4b658341f900f 100644
+--- a/dist/tts.d.ts
++++ b/dist/tts.d.ts
+@@ -10,6 +10,7 @@ export interface TTSOptions {
+     segment?: string;
+     tokenizer?: tokenize.SentenceTokenizer;
+     lang?: DefaultLanguages | string;
++    language?: DefaultLanguages | string;
+     repetition_penalty?: number;
+     temperature?: number;
+     top_p?: number;
+diff --git a/dist/tts.js b/dist/tts.js
+index 9510242e0d23009edf68dc63968265dd8c91ce5c..71d6c637f8c8e1f3c9709aaa4d718fd64d0292d9 100644
+--- a/dist/tts.js
++++ b/dist/tts.js
+@@ -42,7 +42,8 @@ const defaultTTSOptions = {
+ };
+ function modelParams(opts) {
+   const params = {};
+-  if (opts.lang !== void 0) params.lang = opts.lang;
++  const language = opts.language ?? opts.lang;
++  if (language !== void 0) params.language = language;
+   if (opts.modelId === "arcana") {
+     if (opts.repetition_penalty !== void 0) params.repetition_penalty = opts.repetition_penalty;
+     if (opts.temperature !== void 0) params.temperature = opts.temperature;
+diff --git a/src/tts.ts b/src/tts.ts
+index 7d6e199c0287b7fd73d02f6e291e2c83bc424dd6..78c4c8ddc7ee32d27bc22ad16a322b5429628789 100644
+--- a/src/tts.ts
++++ b/src/tts.ts
+@@ -60,6 +60,7 @@ export interface TTSOptions {
+   segment?: string;
+   tokenizer?: tokenize.SentenceTokenizer;
+   lang?: DefaultLanguages | string;
++  language?: DefaultLanguages | string;
+   repetition_penalty?: number;
+   temperature?: number;
+   top_p?: number;
+@@ -88,7 +89,8 @@ const defaultTTSOptions: TTSOptions = {
+ 
+ function modelParams(opts: TTSOptions): Record<string, string | number | boolean> {
+   const params: Record<string, string | number | boolean> = {};
+-  if (opts.lang !== undefined) params.lang = opts.lang;
++  const language = opts.language ?? opts.lang;
++  if (language !== undefined) params.language = language;
+ 
+   if (opts.modelId === 'arcana') {
+     if (opts.repetition_penalty !== undefined) params.repetition_penalty = opts.repetition_penalty;

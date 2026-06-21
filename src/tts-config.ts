@@ -19,7 +19,7 @@ export type RimeTtsLanguageCode =
   | typeof SPANISH_RIME_TTS_LANGUAGE;
 
 export type RimeTtsLanguageOptions = {
-  lang: RimeTtsLanguageCode;
+  language: RimeTtsLanguageCode;
   speaker: string;
 };
 
@@ -37,13 +37,13 @@ export function getRimeTtsLanguageOptions(input: {
 }): RimeTtsLanguageOptions {
   if (input.language === "es") {
     return {
-      lang: SPANISH_RIME_TTS_LANGUAGE,
+      language: SPANISH_RIME_TTS_LANGUAGE,
       speaker: SPANISH_RIME_TTS_SPEAKER,
     };
   }
 
   return {
-    lang: RIME_TTS_LANGUAGE,
+    language: RIME_TTS_LANGUAGE,
     speaker: isSweetwaterTtsTrunk(input.trunkPhone)
       ? SWEETWATER_RIME_TTS_SPEAKER
       : DEFAULT_RIME_TTS_SPEAKER,
@@ -69,7 +69,7 @@ export function getRimeTtsOptions(input: {
   return {
     modelId: RIME_TTS_MODEL,
     speaker: languageOptions.speaker,
-    lang: languageOptions.lang,
+    language: languageOptions.language,
     useWebsocket: true,
     segment: RIME_TTS_SEGMENT,
     baseURL: RIME_TTS_BASE_URL,
