@@ -535,7 +535,7 @@ describe("Crystal River prompt guidance", () => {
   it("keeps emergency transfer policy in the base role prompt", () => {
     const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
-    expect(prompt).toContain("emergencies");
+    expect(prompt).toContain("urgent symptoms");
     expect(prompt).toContain(
       "Transfer only when the request truly needs a human",
     );
@@ -812,6 +812,9 @@ describe("model-facing tool definitions", () => {
   it("keeps transfer_call scoped to human-only work", () => {
     expect(transfer_call.description).toContain(
       "outside the agent's front-desk scope",
+    );
+    expect(transfer_call.description).toContain(
+      "ask what they are calling about before calling this tool",
     );
     expect(transfer_call.description).toContain("prescription questions");
     expect(transfer_call.description).toContain("asking for a specific person");

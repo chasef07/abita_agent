@@ -3,14 +3,12 @@ import { z } from "zod";
 import { transferCallerToOffice } from "./handoff.js";
 import { getState } from "./session.js";
 
-const TRANSFER_NOTICE_INSTRUCTIONS =
-  "Briefly tell the caller that you're transferring them to office staff now. " +
-  "Use the same language the caller is using. Do not mention tools or systems.";
-
 export const transfer_call = llm.tool({
   description:
-    "Transfer the caller to office staff when they ask for a human, or when their request is outside the agent's front-desk scope. " +
-    "Call this for prescription questions, medical records, surgery coordination, clinical or emergency symptoms, asking for a specific person, returning a missed call or received call from this number, status of glasses or contacts already ordered, or when the caller still insists after you try to help. " +
+    "Transfer the caller to office staff only when their request truly needs a live human or is outside the agent's front-desk scope. " +
+    "If they ask for a human, representative, staff, or the office without saying why, ask what they are calling about before calling this tool. " +
+    "Before calling this tool, briefly tell the caller you're transferring them now. " +
+    "Call this for prescription questions, medical records, surgery coordination, clinical advice, urgent symptoms, medical decisions, asking for a specific person, returning a missed call or received call from this number, status of glasses or contacts already ordered, or when the caller still insists after you try to help. " +
     "Do not call for scheduling, insurance checks, availability, patient verification, cancellations, office facts, or Crystal River-to-Spring Hill routing. ",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
@@ -26,12 +24,6 @@ export const transfer_call = llm.tool({
 
     try {
       await ctx.waitForPlayout();
-      const transferNotice = ctx.session.generateReply({
-        instructions: TRANSFER_NOTICE_INSTRUCTIONS,
-        allowInterruptions: false,
-        toolChoice: "none",
-      });
-      await transferNotice.waitForPlayout();
       const { handoffOfficeKey } = await transferCallerToOffice(state);
       state.runtime.transferred = true;
       return `Transfer started to the ${handoffOfficeKey} office.`;

@@ -4692,7 +4692,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.slots).toEqual([]);
   });
 
-  it("generates a short transfer notice and waits before transferring the caller", async () => {
+  it("waits for existing speech before transferring the caller", async () => {
     const state = createState();
     const ctx = createToolContext(state);
 
@@ -4703,20 +4703,11 @@ describe("direct session state cleanup", () => {
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(ctx.waitForPlayout).toHaveBeenCalledTimes(1);
-    expect(ctx.session.generateReply).toHaveBeenCalledWith({
-      instructions: expect.stringContaining(
-        "transferring them to office staff",
-      ),
-      allowInterruptions: false,
-      toolChoice: "none",
-    });
-    expect(ctx.spokenHandle.waitForPlayout).toHaveBeenCalledTimes(1);
+    expect(ctx.session.generateReply).not.toHaveBeenCalled();
+    expect(ctx.spokenHandle.waitForPlayout).not.toHaveBeenCalled();
     expect(ctx.waitForPlayout.mock.invocationCallOrder[0]).toBeLessThan(
-      ctx.session.generateReply.mock.invocationCallOrder[0] ?? 0,
+      transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0,
     );
-    expect(
-      ctx.spokenHandle.waitForPlayout.mock.invocationCallOrder[0],
-    ).toBeLessThan(transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0);
     expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
     expect(result).toBe("Transfer started to the spring-hill office.");
     expect(state.runtime.transferred).toBe(true);
