@@ -869,13 +869,21 @@ describe("model-facing tool definitions", () => {
     expect(cancel_appt.description).toContain(
       "Pass appointmentDate and appointmentTime",
     );
+    expect(cancel_appt.description).toContain(
+      "Do not pass backend patient IDs or appointment IDs",
+    );
     expect(cancel_appt.description).not.toContain(
       "For reschedules, book the new appointment",
     );
 
     const parameters = cancel_appt.parameters as {
       safeParse: (value: unknown) => { success: boolean };
+      shape: Record<string, unknown>;
     };
+    expect(Object.keys(parameters.shape)).toEqual([
+      "appointmentDate",
+      "appointmentTime",
+    ]);
     expect(parameters.safeParse({ appointmentId: 123 }).success).toBe(true);
     expect(
       parameters.safeParse({
@@ -884,8 +892,6 @@ describe("model-facing tool definitions", () => {
       }).success,
     ).toBe(true);
     expect(parameters.safeParse({}).success).toBe(true);
-    expect(parameters.safeParse({ appointmentId: 0 }).success).toBe(false);
-    expect(parameters.safeParse({ appointmentId: 1.5 }).success).toBe(false);
   });
 
   it("exposes reschedule_appt as the deterministic appointment move tool", () => {
@@ -902,19 +908,39 @@ describe("model-facing tool definitions", () => {
       "read back the selected new appointment date, time, and provider",
     );
     expect(reschedule_appt.description).toContain(
+      "Do not pass backend patient IDs or appointment IDs",
+    );
+    expect(reschedule_appt.description).toContain(
       "cancels the old appointment only after booking succeeds",
     );
 
     const parameters = reschedule_appt.parameters as {
       safeParse: (value: unknown) => { success: boolean };
+      shape: Record<string, unknown>;
     };
+    expect(Object.keys(parameters.shape)).toEqual([
+      "newAppointmentSlotRef",
+      "appointmentReason",
+      "referringDoctor",
+      "readBack",
+      "oldAppointmentDate",
+      "oldAppointmentTime",
+    ]);
     expect(
       parameters.safeParse({
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        newAppointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        oldAppointmentDate: "June 2",
+        oldAppointmentTime: "9 AM",
       }).success,
     ).toBe(true);
     expect(
@@ -924,20 +950,29 @@ describe("model-facing tool definitions", () => {
         referringDoctor: "none",
         appointmentDate: "June 2",
         appointmentTime: "9 AM",
+        appointmentId: 123,
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        slotId: "A",
+        newSlotId: "A",
         appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentDate: "June 2",
+        appointmentTime: "9 AM",
+        appointmentId: 123,
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
-        referringDoctor: "none",
-        appointmentId: 0,
       }).success,
     ).toBe(false);
   });

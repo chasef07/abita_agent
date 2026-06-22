@@ -3856,12 +3856,10 @@ describe("direct session state cleanup", () => {
       message: "Appointment cancelled successfully",
     });
 
-    const result = await cancel_appt.execute(
-      {
-        appointmentId: 123,
-      },
-      { ctx: ctx as never, toolCallId: "tool-1" } as never,
-    );
+    const result = await cancel_appt.execute({}, {
+      ctx: ctx as never,
+      toolCallId: "tool-1",
+    } as never);
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(result).toBe("Cancelled the appointment on June 5 at 10:00 AM.");
@@ -3910,6 +3908,54 @@ describe("direct session state cleanup", () => {
 
     expect(result).toBe(
       "Cancelled the appointment on Tuesday, June 2, 2026 at 10:00 AM.",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      appointmentId: 222,
+      patientId: "patient-1",
+      office: "+17275919997",
+    });
+    expect(
+      state.identity.patient.appointments.map((appointment) => appointment.id),
+    ).toEqual([111]);
+  });
+
+  it("cancels by caller date and time when a legacy appointment ID is wrong", async () => {
+    const state = createState();
+    setLoadedAppointments(
+      state,
+      appointment({
+        id: 111,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Bach",
+      }),
+      appointment({
+        id: 222,
+        date: "Thursday, June 25, 2026",
+        time: "3:15 PM",
+        provider: "Dr. Calero",
+      }),
+    );
+    const fetchMock = stubFetchJson({
+      status: "cancelled",
+      appointmentId: 222,
+      message: "Appointment cancelled successfully",
+    });
+
+    const result = await cancel_appt.execute(
+      {
+        appointmentId: 1,
+        appointmentDate: "June 25",
+        appointmentTime: "3:15 PM",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Cancelled the appointment on Thursday, June 25, 2026 at 3:15 PM.",
     );
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       appointmentId: 222,
@@ -4175,11 +4221,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4238,6 +4283,54 @@ describe("direct session state cleanup", () => {
     ]);
   });
 
+  it("lets unsupported old appointment types resolve from reschedule routing", async () => {
+    const state = createState();
+    prepareRescheduleState(state, {
+      context: "change_appointment",
+      appointmentOverrides: {
+        type: "Established Adult Medical (Follow Up)",
+        appointmentTypeId: 3315,
+        facility: "Spring Hill",
+      },
+    });
+    const fetchMock = stubRescheduleFetch({
+      status: "booked",
+      appointmentId: 456,
+      providerName: "Doctor Smith",
+      locationName: "Spring Hill",
+      appointmentTypeName: "Medical",
+    });
+
+    await reschedule_appt.execute(
+      {
+        newAppointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(bookingBody).toMatchObject({
+      bookingToken: "private-token",
+      patientId: "patient-1",
+      patientStatus: "established",
+      visitCategory: "medical",
+      visitKind: "medical",
+      routing: "all_three",
+    });
+    expect(bookingBody).not.toHaveProperty("appointmentTypeId");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+      appointmentId: 123,
+      patientId: "patient-1",
+      office: "+17275919997",
+    });
+  });
+
   it("requires read-back confirmation before rescheduling", async () => {
     const state = createState();
     prepareRescheduleState(state, { context: "change_appointment" });
@@ -4247,10 +4340,9 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
-        appointmentId: 123,
       },
       {
         ctx: ctx as never,
@@ -4263,6 +4355,109 @@ describe("direct session state cleanup", () => {
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(ctx.speechHandle.allowInterruptions).toBe(true);
+  });
+
+  it("does not require a live booking token before reschedule read-back confirmation", async () => {
+    const state = createState();
+    prepareRescheduleState(state, {
+      context: "change_appointment",
+      token: "",
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reschedule_appt.execute(
+      {
+        newAppointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it as the new appointment. Call reschedule_appt again only after the caller confirms the new appointment details are correct.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("reschedules by caller date and time when the supplied appointment ID is wrong", async () => {
+    const state = createState();
+    prepareRescheduleState(state, { context: "change_appointment" });
+    const fetchMock = stubRescheduleFetch({
+      status: "booked",
+      appointmentId: 456,
+      providerName: "Doctor Smith",
+      locationName: "Spring Hill",
+      appointmentTypeName: "Medical",
+    });
+
+    const result = await reschedule_appt.execute(
+      {
+        newAppointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+        appointmentId: 1,
+        oldAppointmentDate: "June 1",
+        oldAppointmentTime: "9:00 AM",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toMatchObject({
+      status: "rescheduled",
+      appointmentId: 456,
+      cancelledAppointmentId: 123,
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+      appointmentId: 123,
+      patientId: "patient-1",
+      office: "+17275919997",
+    });
+  });
+
+  it("reschedules the single loaded appointment when the supplied appointment ID is wrong", async () => {
+    const state = createState();
+    prepareRescheduleState(state, { context: "change_appointment" });
+    const fetchMock = stubRescheduleFetch({
+      status: "booked",
+      appointmentId: 456,
+      providerName: "Doctor Smith",
+      locationName: "Spring Hill",
+      appointmentTypeName: "Medical",
+    });
+
+    const result = await reschedule_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+        appointmentId: 999,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toMatchObject({
+      status: "rescheduled",
+      appointmentId: 456,
+      cancelledAppointmentId: 123,
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+      appointmentId: 123,
+      patientId: "patient-1",
+      office: "+17275919997",
+    });
   });
 
   it("does not reschedule again when the selected slot matches the completed reschedule", async () => {
@@ -4502,6 +4697,76 @@ describe("direct session state cleanup", () => {
       appointmentId: 123,
       patientId: "patient-1",
       office: "+13523202007",
+    });
+  });
+
+  it("lets Sweetwater optical reschedules resolve appointment type from routing", async () => {
+    const state = createState();
+    state.office.activeKey = "sweetwater";
+    state.office.phoneOverrides = {
+      sweetwater: "+17864657475",
+    };
+    markAppointmentChangeContext(state);
+    state.workflow.routing.routing = "optical_only";
+    setLoadedAppointments(
+      state,
+      appointment({
+        id: 20396260,
+        date: "Friday, June 12, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Maria Casas",
+        type: "Established Pediatric Medical (Follow Up)",
+        appointmentTypeId: 1005,
+        facility: "Abita Eye Group Sweetwater",
+      }),
+    );
+    state.availability.slots = [
+      availabilitySlot({
+        spoken: "2026-07-23 9:00 AM with Dr. Maria Casas",
+        provider: "Dr. Maria Casas",
+        date: "2026-07-23",
+        time: "9:00 AM",
+        datetime: "2026-07-23T09:00:00",
+        routing: "optical_only",
+      }),
+    ];
+    storeAvailabilityBookingToken(state, "A", "sweetwater-optical-token");
+    const fetchMock = stubRescheduleFetch({
+      status: "booked",
+      appointmentId: 20396300,
+      providerName: "Dr. Maria Casas",
+      locationName: "Abita Eye Group Sweetwater",
+      appointmentTypeName: "Routine Vision",
+    });
+
+    await reschedule_appt.execute(
+      {
+        slotId: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+        appointmentId: 20396260,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(bookingBody).toMatchObject({
+      bookingToken: "sweetwater-optical-token",
+      patientId: "patient-1",
+      patientStatus: "established",
+      routing: "optical_only",
+      visitCategory: "routine_vision",
+      visitKind: "routine_vision",
+    });
+    expect(bookingBody).not.toHaveProperty("appointmentTypeId");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+      appointmentId: 20396260,
+      patientId: "patient-1",
+      office: "+17864657475",
     });
   });
 

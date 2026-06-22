@@ -10,6 +10,7 @@ import {
   activePatientId,
   clearAvailabilitySelection,
   completedRescheduleForPatient,
+  latestAvailabilityRouting,
   recordCompletedRescheduleForPatient,
   type CallerAppointment,
   type CallState,
@@ -21,6 +22,8 @@ import {
   selectedAvailabilitySlot,
 } from "./availability-slots.js";
 import {
+  type CancellationAppointmentSelection,
+  type CancellationAppointmentSelector,
   cancellationAppointmentForState,
   removeAppointmentById,
   recordBookedAppointmentInState,
@@ -41,22 +44,19 @@ import { restoreConfirmedPreCallCaller } from "./patient-state.js";
 import {
   ensureRoutineVisionOffice,
   getAmdOfficeForToolCall,
+  routingForAvailability,
 } from "./scheduling.js";
 import { getState } from "./session.js";
 
-export const reschedule_appt = llm.tool({
-  description:
-    "Reschedule a loaded appointment. " +
-    "Call only after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns slots, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. " +
-    "Before booking the new appointment, read back the selected new appointment date, time, and provider, then get caller confirmation. " +
-    "This tool books the new appointment first and cancels the old appointment only after booking succeeds.",
-  parameters: z.object({
-    slotId: z
+const rescheduleAppointmentParameters = z
+  .object({
+    newAppointmentSlotRef: z
       .string()
       .trim()
       .min(1)
+      .optional()
       .describe(
-        "slotId from get_availability for the caller-confirmed new slot.",
+        "Slot reference from get_availability for the caller-confirmed new appointment slot.",
       ),
     appointmentReason: z
       .string()
@@ -76,39 +76,63 @@ export const reschedule_appt = llm.tool({
       .describe(
         "Set to true only after reading back the selected new appointment date, time, and provider and the caller confirms the new appointment details are correct.",
       ),
-    appointmentId: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe(
-        "Old appointment ID from the loaded appointment list. Omit only when the caller confirmed exactly one loaded appointment.",
-      ),
-    appointmentDate: z
+    oldAppointmentDate: z
       .string()
       .optional()
       .describe(
-        'Date the caller used to identify the old loaded appointment, such as "June 2", "June 2nd", or "2026-06-02".',
+        'Date the caller used to identify the old loaded appointment being moved, such as "June 2", "June 2nd", or "2026-06-02". Omit when exactly one old appointment is loaded and confirmed.',
       ),
-    appointmentTime: z
+    oldAppointmentTime: z
       .string()
       .optional()
       .describe(
-        'Time the caller used to identify the old loaded appointment, such as "10 AM" or "2:30 PM". Use with appointmentDate when needed.',
+        'Time the caller used to identify the old loaded appointment being moved, such as "10 AM" or "2:30 PM". Use with oldAppointmentDate when needed.',
       ),
-  }),
-  execute: async (
-    {
-      slotId,
+  })
+  .passthrough()
+  .superRefine((value, ctx) => {
+    if (
+      value.newAppointmentSlotRef ??
+      stringField(value, "newSlotId") ??
+      stringField(value, "slotId")
+    ) {
+      return;
+    }
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["newAppointmentSlotRef"],
+      message: "Pass newAppointmentSlotRef from get_availability.",
+    });
+  });
+
+export const reschedule_appt = llm.tool({
+  description:
+    "Reschedule a loaded appointment. " +
+    "Call only after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns slots, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. " +
+    "Pass newAppointmentSlotRef for the caller-confirmed new slot. Do not pass backend patient IDs or appointment IDs; the tool selects the old appointment from loaded appointment state. " +
+    "If more than one old appointment is loaded, pass oldAppointmentDate and oldAppointmentTime for the caller-confirmed old appointment. " +
+    "Before booking the new appointment, read back the selected new appointment date, time, and provider, then get caller confirmation. " +
+    "This tool books the new appointment first and cancels the old appointment only after booking succeeds.",
+  parameters: rescheduleAppointmentParameters,
+  execute: async (args, { ctx }) => {
+    const {
       appointmentReason,
       referringDoctor,
       readBack,
-      appointmentId,
-      appointmentDate,
-      appointmentTime,
-    },
-    { ctx },
-  ) => {
+      newAppointmentSlotRef,
+      oldAppointmentDate,
+      oldAppointmentTime,
+    } = args;
+    const slotId =
+      newAppointmentSlotRef ??
+      stringField(args, "newSlotId") ??
+      stringField(args, "slotId");
+    if (!slotId) {
+      throw new llm.ToolError(
+        "Choose a new slot from get_availability before rescheduling.",
+      );
+    }
+
     const state = getState(ctx);
 
     restoreConfirmedPreCallCaller(state);
@@ -128,10 +152,13 @@ export const reschedule_appt = llm.tool({
       }
     }
 
-    const selection = cancellationAppointmentForState(state, {
-      appointmentId,
-      appointmentDate,
-      appointmentTime,
+    const selectedSlot = selectedSlotForBooking(state, slotId);
+    const selection = rescheduleAppointmentForState(state, {
+      appointmentId: legacyPositiveIntegerField(args, "appointmentId"),
+      appointmentDate:
+        oldAppointmentDate ?? stringField(args, "appointmentDate"),
+      appointmentTime:
+        oldAppointmentTime ?? stringField(args, "appointmentTime"),
     });
     if (selection.status === "ambiguous") {
       return selection.message;
@@ -145,9 +172,19 @@ export const reschedule_appt = llm.tool({
       oldAppointment,
     );
 
+    if (!readBack) {
+      return (
+        `Read back ${spokenSlot(selectedSlot)} and ask the caller to confirm it as the new appointment. ` +
+        "Call reschedule_appt again only after the caller confirms the new appointment details are correct."
+      );
+    }
+
     ensureRoutineVisionOffice(state);
     const bookingOffice = getAmdOfficeForToolCall(state);
-    const selectedSlot = selectedSlotForBooking(state, slotId);
+    const bookingRouting =
+      selectedSlot.routing ??
+      latestAvailabilityRouting(state) ??
+      routingForAvailability(state);
     const bookingBody = bookingRequestBodyForSlot(state, {
       selectedSlot,
       patientId,
@@ -157,16 +194,11 @@ export const reschedule_appt = llm.tool({
         oldAppointment,
         cancellationOffice,
         bookingOffice,
+        bookingRouting,
       ),
       patientStatusOverride:
         appointmentPatientStatusForLoadedAppointment(oldAppointment),
     });
-    if (!readBack) {
-      return (
-        `Read back ${spokenSlot(selectedSlot)} and ask the caller to confirm it as the new appointment. ` +
-        "Call reschedule_appt again only after the caller confirms the new appointment details are correct."
-      );
-    }
 
     ctx.speechHandle.allowInterruptions = false;
     const bookingResult = await callApi(
@@ -231,6 +263,33 @@ export const reschedule_appt = llm.tool({
   },
 });
 
+function rescheduleAppointmentForState(
+  state: CallState,
+  selector: CancellationAppointmentSelector,
+): CancellationAppointmentSelection {
+  const selection = cancellationAppointmentForState(state, selector);
+  if (selection.status !== "not_found") return selection;
+  if (selector.appointmentId === undefined) return selection;
+
+  const fallbackSelection = cancellationAppointmentForState(state, {
+    appointmentDate: selector.appointmentDate,
+    appointmentTime: selector.appointmentTime,
+  });
+  return fallbackSelection.status === "not_found"
+    ? selection
+    : fallbackSelection;
+}
+
+function legacyPositiveIntegerField(
+  record: Record<string, unknown>,
+  field: string,
+): number | undefined {
+  const value = record[field];
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
+}
+
 function completedRescheduleReplayMessage(
   completedReschedule: CompletedRescheduleState,
 ): string {
@@ -266,8 +325,15 @@ function appointmentTypeIdForRescheduleBooking(
   appointment: CallerAppointment,
   cancellationOffice: string,
   bookingOffice: string,
+  bookingRouting: string | null,
 ): number | null {
   if (appointment.appointmentTypeId === undefined) return null;
+  if (bookingRouting === "optical_only") return null;
+  if (
+    !RESCHEDULE_BOOKING_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
+  ) {
+    return null;
+  }
   if (
     normalizePhoneNumber(cancellationOffice) !==
     normalizePhoneNumber(bookingOffice)
@@ -276,6 +342,10 @@ function appointmentTypeIdForRescheduleBooking(
   }
   return appointment.appointmentTypeId;
 }
+
+const RESCHEDULE_BOOKING_APPOINTMENT_TYPE_IDS = new Set([
+  1004, 1005, 1006, 1007, 1008, 1010, 3364, 4244, 4245, 6167, 6168, 6169,
+]);
 
 function getAmdOfficeForCancellationAppointment(
   state: CallState,
