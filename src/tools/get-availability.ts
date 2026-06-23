@@ -184,7 +184,8 @@ function buildAvailabilityLookupRequestForState(
       "Ask what date or starting day the caller wants before checking availability.",
     );
   }
-  if (!activePatientId(state)) {
+  const patientId = activePatientId(state);
+  if (!patientId) {
     return {
       blocked: {
         result: "missing_patient",
@@ -215,7 +216,7 @@ function buildAvailabilityLookupRequestForState(
     signature: availabilitySearchSignature(state, {
       body,
       date,
-      patientId: activePatientId(state),
+      patientId,
       routing: effectiveRouting,
     }),
   };

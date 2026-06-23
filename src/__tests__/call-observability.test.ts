@@ -148,6 +148,13 @@ describe("call observability", () => {
     expect(
       classifyToolOutput(
         "reschedule_appt",
+        "The appointment is already rescheduled to June 1 at 9:00 AM with Doctor Smith. Tell the caller the confirmed appointment details instead of rescheduling again.",
+        false,
+      ),
+    ).toBe("appointment_rescheduled");
+    expect(
+      classifyToolOutput(
+        "reschedule_appt",
         "That time is no longer available. Check availability again before booking. I did not cancel the existing appointment.",
         false,
       ),

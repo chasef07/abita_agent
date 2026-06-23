@@ -247,6 +247,7 @@ export function classifyToolOutput(
       }
       if (
         status === "rescheduled" ||
+        /\bappointment is already rescheduled\b/.test(outputText) ||
         /\brescheduled the appointment\b/.test(outputText)
       ) {
         return "appointment_rescheduled";
