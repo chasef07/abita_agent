@@ -18,7 +18,6 @@ export interface InsurancePlanRule {
   displayName?: string | null;
   aliases?: string[];
   clarificationNeeded?: string;
-  callerMessage?: string;
   canProceed: boolean;
   needsExactPlanName: boolean;
 }
@@ -40,19 +39,24 @@ export interface InsuranceLookupResult {
   canProceed: boolean;
   needsExactPlanName: boolean;
   clarificationNeeded: string | null;
-  callerMessage: string;
 }
 
-export interface InsuranceToolResponse {
-  status: InsuranceMatchStatus;
-  canProceed: boolean;
-  callerFacingPlan: string | null;
-  clarificationNeeded: string | null;
-  callerMessage: string;
-  acceptedAtAlternateOffice?: string;
-  alternateCallerFacingPlan?: string;
-  routeTool?: string;
-}
+export type InsuranceToolResponse =
+  | {
+      status: "accepted";
+      plan: string;
+    }
+  | {
+      status: "not_accepted";
+      plan: string;
+      acceptedAtAlternateOffice?: string;
+      alternatePlan?: string;
+      routeTool?: string;
+    }
+  | {
+      status: "needs_clarification";
+      clarificationNeeded: string;
+    };
 
 const referenceCache = new Map<string, InsuranceReference>();
 
@@ -91,10 +95,6 @@ export function insuranceFileForCoverage(
   return office.insuranceFile;
 }
 
-function buildAcceptedCallerMessage(plan: string): string {
-  return `Yes, we take ${plan}.`;
-}
-
 export function canonicalInsurancePlan(
   result: InsuranceLookupResult,
 ): string | null {
@@ -105,12 +105,25 @@ export function canonicalInsurancePlan(
 export function buildInsuranceToolResponse(
   result: InsuranceLookupResult,
 ): InsuranceToolResponse {
+  if (result.status === "accepted") {
+    return {
+      status: "accepted",
+      plan: result.callerFacingPlan ?? result.matchedFamily ?? result.query,
+    };
+  }
+
+  if (result.status === "not_accepted") {
+    return {
+      status: "not_accepted",
+      plan: result.callerFacingPlan ?? result.query,
+    };
+  }
+
   return {
-    status: result.status,
-    canProceed: result.canProceed,
-    callerFacingPlan: result.callerFacingPlan,
-    clarificationNeeded: result.clarificationNeeded,
-    callerMessage: result.callerMessage,
+    status: "needs_clarification",
+    clarificationNeeded:
+      result.clarificationNeeded ??
+      "the exact plan name from the insurance card",
   };
 }
 
@@ -336,9 +349,6 @@ function buildPlanMatchResult(
       canProceed: rule.canProceed,
       needsExactPlanName: rule.needsExactPlanName,
       clarificationNeeded,
-      callerMessage:
-        rule.callerMessage ??
-        `I can check that, but I need to know ${clarificationNeeded.toLowerCase()}.`,
     };
   }
 
@@ -359,11 +369,6 @@ function buildPlanMatchResult(
     canProceed: rule.canProceed,
     needsExactPlanName: rule.needsExactPlanName,
     clarificationNeeded: null,
-    callerMessage:
-      rule.callerMessage ??
-      (rule.status === "accepted"
-        ? buildAcceptedCallerMessage(callerFacingPlan)
-        : `No, we don't accept ${callerFacingPlan}.`),
   };
 }
 
@@ -405,7 +410,5 @@ function buildUnknownInsuranceResult(query: string): InsuranceLookupResult {
     canProceed: false,
     needsExactPlanName: false,
     clarificationNeeded: "the exact plan name from the insurance card",
-    callerMessage:
-      "I can't confirm that plan from the shorthand alone. If you have the insurance card, I can check the exact plan name.",
   };
 }

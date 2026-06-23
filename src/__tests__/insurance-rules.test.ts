@@ -51,7 +51,7 @@ describe("insurance matcher", () => {
     const result = matchInsurancePlan(reference, "Care Plus");
     expect(result.status).toBe("not_accepted");
     expect(result.canProceed).toBe(false);
-    expect(result.callerMessage).toContain("don't accept");
+    expect(result.callerFacingPlan).toBe("Care Plus");
   });
 
   it("treats Blue Cross family names as accepted enough to proceed", () => {
@@ -65,7 +65,6 @@ describe("insurance matcher", () => {
     expect(result.matchedAlias).toBe("Blue Cross Blue Shield");
     expect(result.matchedFamily).toBe("Florida Blue");
     expect(result.callerFacingPlan).toBe("Blue Cross Blue Shield");
-    expect(result.callerMessage).toBe("Yes, we take Blue Cross Blue Shield.");
   });
 
   it("matches middleware-backed shorthand aliases that can resolve server side", () => {
@@ -271,7 +270,6 @@ describe("insurance matcher", () => {
     expect(result.status).toBe("accepted");
     expect(canonicalInsurancePlan(result)).toBe("Envolve");
     expect(result.callerFacingPlan).toBe("Ambetter");
-    expect(result.callerMessage).toBe("Yes, we take Ambetter.");
   });
 
   it("accepts self-pay as a medical option", () => {
@@ -288,11 +286,11 @@ describe("insurance matcher", () => {
 
     expect(toolResponse).toEqual({
       status: "accepted",
-      canProceed: true,
-      callerFacingPlan: "Blue Cross Blue Shield",
-      clarificationNeeded: null,
-      callerMessage: "Yes, we take Blue Cross Blue Shield.",
+      plan: "Blue Cross Blue Shield",
     });
+    expect(toolResponse).not.toHaveProperty("callerMessage");
+    expect(toolResponse).not.toHaveProperty("canProceed");
+    expect(toolResponse).not.toHaveProperty("callerFacingPlan");
   });
 
   it("uses Crystal River's office-specific insurance map", () => {
@@ -354,9 +352,6 @@ describe("insurance matcher", () => {
     );
     expect(genericHumana.status).toBe("needs_clarification");
     expect(genericHumana.clarificationNeeded).toContain("which Humana plan");
-    expect(genericHumana.callerMessage).toContain(
-      "Crystal River does not accept Humana",
-    );
 
     const genericCigna = matchInsurancePlanForOffice("crystal-river", "Cigna");
     expect(genericCigna.status).toBe("needs_clarification");

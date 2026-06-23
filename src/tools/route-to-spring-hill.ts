@@ -2,7 +2,6 @@ import { llm } from "@livekit/agents";
 import { z } from "zod";
 import { SPRING_HILL_OFFICE_PHONE } from "../customer/profile.js";
 import {
-  buildInsuranceToolResponse,
   canonicalInsurancePlan,
   matchInsurancePlanForOffice,
 } from "../insurance-rules.js";
@@ -59,12 +58,11 @@ function preserveSpringHillInsuranceCheck(
   const canonicalPlan = canonicalInsurancePlan(result);
   if (!canonicalPlan || result.status !== "accepted") return;
 
-  const response = buildInsuranceToolResponse(result);
   setLastInsuranceEligibilityCheck(state, {
     plan: previousCheck.plan,
     canonicalPlan,
     coverageType: previousCheck.coverageType,
-    currentCarrier: response.callerFacingPlan ?? canonicalPlan,
+    currentCarrier: result.callerFacingPlan ?? canonicalPlan,
     accepted: true,
   });
 }
