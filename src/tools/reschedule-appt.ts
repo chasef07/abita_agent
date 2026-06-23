@@ -48,7 +48,7 @@ import { getState } from "./session.js";
 
 const rescheduleAppointmentParameters = z
   .object({
-    newAppointmentSlotRef: z
+    appointmentSlotRef: z
       .string()
       .trim()
       .min(1)
@@ -92,7 +92,7 @@ export const reschedule_appt = llm.tool({
   description:
     "Reschedule a loaded appointment. " +
     "Call only after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns slots, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. " +
-    "Pass newAppointmentSlotRef for the caller-confirmed new slot. Do not pass backend patient IDs or appointment IDs; the tool selects the old appointment from loaded appointment state. " +
+    "Pass appointmentSlotRef for the caller-confirmed new slot. Do not pass backend patient IDs or appointment IDs; the tool selects the old appointment from loaded appointment state. " +
     "If more than one old appointment is loaded, pass oldAppointmentDate and oldAppointmentTime for the caller-confirmed old appointment. " +
     "Before booking the new appointment, read back the selected new appointment date, time, and provider, then get caller confirmation. " +
     "This tool books the new appointment first and cancels the old appointment only after booking succeeds.",
@@ -102,7 +102,7 @@ export const reschedule_appt = llm.tool({
       appointmentReason,
       referringDoctor,
       readBack,
-      newAppointmentSlotRef,
+      appointmentSlotRef,
       oldAppointmentDate,
       oldAppointmentTime,
     } = args;
@@ -116,7 +116,7 @@ export const reschedule_appt = llm.tool({
     }
     const completedReschedule = completedRescheduleForPatient(state, patientId);
     if (completedReschedule) {
-      const cachedSlot = selectedAvailabilitySlot(state, newAppointmentSlotRef);
+      const cachedSlot = selectedAvailabilitySlot(state, appointmentSlotRef);
       if (
         completedReschedule.status === "needs_human_cancellation" ||
         !cachedSlot ||
@@ -126,7 +126,7 @@ export const reschedule_appt = llm.tool({
       }
     }
 
-    const selectedSlot = selectedSlotForBooking(state, newAppointmentSlotRef);
+    const selectedSlot = selectedSlotForBooking(state, appointmentSlotRef);
     const selection = cancellationAppointmentForState(state, {
       appointmentDate: oldAppointmentDate,
       appointmentTime: oldAppointmentTime,

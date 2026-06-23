@@ -8,7 +8,7 @@ import {
 } from "../state/call-state.js";
 
 type PublicAvailabilitySlot = {
-  slotRef: string;
+  appointmentSlotRef: string;
   spoken: string;
   provider: string;
   date: string;
@@ -375,7 +375,7 @@ function publicAvailabilitySlot(slot: StoredAvailabilitySlot) {
     .filter(Boolean)
     .join(" ");
   return {
-    slotRef: slot.slotId,
+    appointmentSlotRef: slot.slotId,
     spoken,
     provider: slot.provider,
     date: slot.date,
@@ -419,7 +419,7 @@ function cleanAvailabilityResponse(input: {
     next,
     ...(searched ? { searched } : {}),
     ...(search.nextSearchDate ? { nextSearchDate: search.nextSearchDate } : {}),
-    ...(recommendedSlot ? { slotRef: recommendedSlot.slotId } : {}),
+    ...(recommendedSlot ? { appointmentSlotRef: recommendedSlot.slotId } : {}),
     slots: slots.map(publicAvailabilitySlot),
   };
 }

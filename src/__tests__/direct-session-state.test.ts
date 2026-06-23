@@ -433,10 +433,10 @@ describe("direct session state cleanup", () => {
       result: "slots_found",
       reply: "I found June 1 at 9:00 AM with Dr. Bach. Does that work?",
       next: "offer_slot",
-      slotRef: "S1",
+      appointmentSlotRef: "S1",
       slots: [
         {
-          slotRef: "S1",
+          appointmentSlotRef: "S1",
           spoken: "June 1 at 9:00 AM with Dr. Bach",
           provider: "Dr. Bach",
           date: "2026-06-01",
@@ -535,12 +535,22 @@ describe("direct session state cleanup", () => {
     )) as Record<string, unknown>;
 
     expect(firstResult).toMatchObject({
-      slotRef: "S1",
-      slots: [expect.objectContaining({ slotRef: "S1", date: "2026-07-09" })],
+      appointmentSlotRef: "S1",
+      slots: [
+        expect.objectContaining({
+          appointmentSlotRef: "S1",
+          date: "2026-07-09",
+        }),
+      ],
     });
     expect(secondResult).toMatchObject({
-      slotRef: "S2",
-      slots: [expect.objectContaining({ slotRef: "S2", date: "2026-07-10" })],
+      appointmentSlotRef: "S2",
+      slots: [
+        expect.objectContaining({
+          appointmentSlotRef: "S2",
+          date: "2026-07-10",
+        }),
+      ],
     });
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "first-private-token",
@@ -659,7 +669,7 @@ describe("direct session state cleanup", () => {
     ]);
     expect(result).toMatchObject({
       result: "slots_found",
-      slotRef: "S1",
+      appointmentSlotRef: "S1",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -744,7 +754,7 @@ describe("direct session state cleanup", () => {
     expect(result).toMatchObject({
       result: "slots_found",
       next: "offer_slot",
-      slotRef: "S1",
+      appointmentSlotRef: "S1",
     });
   });
 
@@ -1113,7 +1123,7 @@ describe("direct session state cleanup", () => {
     });
     expect(result).toMatchObject({
       result: "slots_found",
-      slotRef: "S2",
+      appointmentSlotRef: "S2",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1174,7 +1184,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(result).toMatchObject({
       result: "slots_found",
-      slotRef: "S1",
+      appointmentSlotRef: "S1",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1248,7 +1258,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(result).toMatchObject({
       result: "slots_found",
-      slotRef: "S2",
+      appointmentSlotRef: "S2",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -4219,7 +4229,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4301,7 +4311,7 @@ describe("direct session state cleanup", () => {
 
     await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4338,7 +4348,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       },
@@ -4366,7 +4376,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       },
@@ -4395,7 +4405,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4433,7 +4443,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4469,7 +4479,7 @@ describe("direct session state cleanup", () => {
 
     await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4489,7 +4499,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "B",
+        appointmentSlotRef: "B",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       },
@@ -4540,7 +4550,7 @@ describe("direct session state cleanup", () => {
 
     await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4563,7 +4573,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "B",
+        appointmentSlotRef: "B",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4651,7 +4661,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4734,7 +4744,7 @@ describe("direct session state cleanup", () => {
 
     await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4773,7 +4783,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4817,7 +4827,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         oldAppointmentDate: "June 2",
@@ -4853,7 +4863,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4881,7 +4891,7 @@ describe("direct session state cleanup", () => {
 
     const replayResult = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "B",
+        appointmentSlotRef: "B",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       },
@@ -4930,7 +4940,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4957,7 +4967,7 @@ describe("direct session state cleanup", () => {
     await expect(
       reschedule_appt.execute(
         {
-          newAppointmentSlotRef: "A",
+          appointmentSlotRef: "A",
           appointmentReason: "move my appointment",
           referringDoctor: "none",
         },

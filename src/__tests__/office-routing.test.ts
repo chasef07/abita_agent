@@ -906,7 +906,7 @@ describe("model-facing tool definitions", () => {
       shape: Record<string, unknown>;
     };
     expect(Object.keys(parameters.shape)).toEqual([
-      "newAppointmentSlotRef",
+      "appointmentSlotRef",
       "appointmentReason",
       "referringDoctor",
       "readBack",
@@ -915,7 +915,7 @@ describe("model-facing tool definitions", () => {
     ]);
     expect(
       parameters.safeParse({
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -923,7 +923,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
     expect(
       parameters.safeParse({
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         oldAppointmentDate: "June 2",
@@ -955,6 +955,13 @@ describe("model-facing tool definitions", () => {
         newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        appointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
         appointmentId: 123,
       }).success,
     ).toBe(false);
@@ -966,7 +973,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
       }).success,
     ).toBe(false);
