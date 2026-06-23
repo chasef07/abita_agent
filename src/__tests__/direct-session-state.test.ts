@@ -433,10 +433,10 @@ describe("direct session state cleanup", () => {
       result: "slots_found",
       reply: "I found June 1 at 9:00 AM with Dr. Bach. Does that work?",
       next: "offer_slot",
-      slotId: "S1",
+      slotRef: "S1",
       slots: [
         {
-          slotId: "S1",
+          slotRef: "S1",
           spoken: "June 1 at 9:00 AM with Dr. Bach",
           provider: "Dr. Bach",
           date: "2026-06-01",
@@ -444,6 +444,10 @@ describe("direct session state cleanup", () => {
         },
       ],
     });
+    expect(result).not.toHaveProperty("slotId");
+    expect((result.slots as Record<string, unknown>[])[0]).not.toHaveProperty(
+      "slotId",
+    );
     expect(result).not.toHaveProperty("bookingToken");
     expect(JSON.stringify(result)).not.toContain("private-token");
     expect(state.availability.bookingTokensBySlotId).toEqual({
@@ -531,12 +535,12 @@ describe("direct session state cleanup", () => {
     )) as Record<string, unknown>;
 
     expect(firstResult).toMatchObject({
-      slotId: "S1",
-      slots: [expect.objectContaining({ slotId: "S1", date: "2026-07-09" })],
+      slotRef: "S1",
+      slots: [expect.objectContaining({ slotRef: "S1", date: "2026-07-09" })],
     });
     expect(secondResult).toMatchObject({
-      slotId: "S2",
-      slots: [expect.objectContaining({ slotId: "S2", date: "2026-07-10" })],
+      slotRef: "S2",
+      slots: [expect.objectContaining({ slotRef: "S2", date: "2026-07-10" })],
     });
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "first-private-token",
@@ -655,7 +659,7 @@ describe("direct session state cleanup", () => {
     ]);
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "S1",
+      slotRef: "S1",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -740,7 +744,7 @@ describe("direct session state cleanup", () => {
     expect(result).toMatchObject({
       result: "slots_found",
       next: "offer_slot",
-      slotId: "S1",
+      slotRef: "S1",
     });
   });
 
@@ -1109,7 +1113,7 @@ describe("direct session state cleanup", () => {
     });
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "S2",
+      slotRef: "S2",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1170,7 +1174,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "S1",
+      slotRef: "S1",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1244,7 +1248,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "S2",
+      slotRef: "S2",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
