@@ -273,9 +273,7 @@ describe("tool-first prompt gating", () => {
     expect(prompt).toContain("<role>");
     expect(prompt).toContain("# Tool Use");
     expect(prompt).toContain("You speak English and Spanish");
-    expect(prompt).toContain(
-      "If the caller asks to speak Spanish, continue the conversation in Spanish",
-    );
+    expect(prompt).toContain("Reply in the caller's current language");
     expect(prompt).toContain(
       "When asking for a patient's first or last name, ask them to spell it",
     );

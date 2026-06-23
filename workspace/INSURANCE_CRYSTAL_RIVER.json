@@ -683,8 +683,7 @@
       ],
       "canProceed": false,
       "needsExactPlanName": false,
-      "clarificationNeeded": "which Humana plan is on the card",
-      "callerMessage": "Crystal River does not accept Humana, but I can check whether Spring Hill accepts it. Which Humana plan is on the card?"
+      "clarificationNeeded": "which Humana plan is on the card"
     },
     {
       "id": "needs-clarification-cigna",

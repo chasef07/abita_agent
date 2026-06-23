@@ -3319,11 +3319,11 @@ describe("direct session state cleanup", () => {
 
     expect(result).toEqual({
       status: "accepted",
-      canProceed: true,
-      callerFacingPlan: "Blue Cross Blue Shield",
-      clarificationNeeded: null,
-      callerMessage: "Yes, we take Blue Cross Blue Shield.",
+      plan: "Blue Cross Blue Shield",
     });
+    expect(result).not.toHaveProperty("callerMessage");
+    expect(result).not.toHaveProperty("canProceed");
+    expect(result).not.toHaveProperty("callerFacingPlan");
     expect(result).not.toHaveProperty("canonicalPlan");
     expect(result).not.toHaveProperty("outcome");
     expect(result).not.toHaveProperty("facts");
@@ -3551,11 +3551,9 @@ describe("direct session state cleanup", () => {
 
     expect(result).toEqual({
       status: "accepted",
-      canProceed: true,
-      callerFacingPlan: "Ambetter",
-      clarificationNeeded: null,
-      callerMessage: "Yes, we take Ambetter.",
+      plan: "Ambetter",
     });
+    expect(result).not.toHaveProperty("callerMessage");
     expect(result).not.toHaveProperty("canonicalPlan");
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Ambetter",
@@ -3580,11 +3578,9 @@ describe("direct session state cleanup", () => {
 
     expect(result).toEqual({
       status: "accepted",
-      canProceed: true,
-      callerFacingPlan: "Simply Healthcare Medicaid",
-      clarificationNeeded: null,
-      callerMessage: "Yes, we take Simply Healthcare Medicaid.",
+      plan: "Simply Healthcare Medicaid",
     });
+    expect(result).not.toHaveProperty("callerMessage");
     expect(result).not.toHaveProperty("canonicalPlan");
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Simply Healthcare Medicaid",
@@ -3609,17 +3605,15 @@ describe("direct session state cleanup", () => {
 
     expect(result).toMatchObject({
       status: "not_accepted",
-      canProceed: false,
-      callerFacingPlan: "Humana PPO",
+      plan: "Humana PPO",
       acceptedAtAlternateOffice: "Spring Hill",
-      alternateCallerFacingPlan: "Humana PPO",
+      alternatePlan: "Humana PPO",
       routeTool: "route_to_spring_hill",
     });
     expect(result).not.toHaveProperty("canonicalPlan");
-    expect(result.callerMessage).toContain("Spring Hill accepts Humana PPO");
-    expect(result.callerMessage).toContain(
-      "Would you like to schedule there instead?",
-    );
+    expect(result).not.toHaveProperty("callerMessage");
+    expect(result).not.toHaveProperty("canProceed");
+    expect(result).not.toHaveProperty("callerFacingPlan");
     expect(state.insurance.lastEligibilityCheck).toMatchObject({
       plan: "Humana PPO",
       canonicalPlan: null,

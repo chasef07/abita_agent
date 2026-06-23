@@ -42,7 +42,7 @@ export const check_insurance = llm.tool({
       plan,
       canonicalPlan: checkedInsurancePlan,
       coverageType: checkedInsuranceCoverageType ?? coverageType,
-      currentCarrier: response.callerFacingPlan ?? checkedInsurancePlan,
+      currentCarrier: result.callerFacingPlan ?? checkedInsurancePlan,
       accepted: Boolean(checkedInsurancePlan && result.status === "accepted"),
     });
 
@@ -54,15 +54,13 @@ export const check_insurance = llm.tool({
       );
       const springHillPlan = canonicalInsurancePlan(springHillResult);
       if (springHillResult.status === "accepted" && springHillPlan) {
-        const springHillResponse = buildInsuranceToolResponse(springHillResult);
         const springHillCallerPlan =
-          springHillResponse.callerFacingPlan ?? springHillPlan;
+          springHillResult.callerFacingPlan ?? springHillPlan;
         return {
           ...response,
           acceptedAtAlternateOffice: "Spring Hill",
-          alternateCallerFacingPlan: springHillCallerPlan,
+          alternatePlan: springHillCallerPlan,
           routeTool: "route_to_spring_hill",
-          callerMessage: `${response.callerMessage} Spring Hill accepts ${springHillCallerPlan}. Would you like to schedule there instead?`,
         };
       }
     }
