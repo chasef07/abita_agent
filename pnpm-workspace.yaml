@@ -7,5 +7,5 @@ allowBuilds:
   protobufjs: true
   sharp: true
 patchedDependencies:
-  "@livekit/agents-plugin-assemblyai@1.4.8": patches/@livekit__agents-plugin-assemblyai@1.4.8.patch
-  "@livekit/agents-plugin-rime@1.4.8": patches/@livekit__agents-plugin-rime@1.4.8.patch
+  "@livekit/agents-plugin-assemblyai@1.4.9": patches/@livekit__agents-plugin-assemblyai@1.4.9.patch
+  "@livekit/agents-plugin-rime@1.4.9": patches/@livekit__agents-plugin-rime@1.4.9.patch
