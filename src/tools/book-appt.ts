@@ -27,18 +27,15 @@ import {
 } from "./scheduling.js";
 import { getState } from "./session.js";
 
-export const book_appt = llm.tool({
-  description:
-    "Book a caller-confirmed appointment slot. " +
-    "Use only for new appointments after get_availability recorded appointmentLane; do not use for reschedules or other appointment changes. " +
-    "Call only after get_availability returns slots with the right appointment lane, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. " +
-    "Before booking, read back the selected appointment date, time, and provider, then get caller confirmation. ",
-  parameters: z.object({
-    slotId: z
+const bookAppointmentParameters = z
+  .object({
+    appointmentSlotRef: z
       .string()
       .trim()
       .min(1)
-      .describe("slotId from get_availability for the caller-confirmed slot."),
+      .describe(
+        "Slot reference from get_availability for the caller-confirmed slot; this is not a backend ID.",
+      ),
     appointmentReason: z
       .string()
       .trim()
@@ -57,9 +54,18 @@ export const book_appt = llm.tool({
       .describe(
         "Set to true only after reading back the selected appointment date, time, and provider and the caller confirms the appointment details are correct.",
       ),
-  }),
+  })
+  .strict();
+
+export const book_appt = llm.tool({
+  description:
+    "Book a caller-confirmed appointment slot. " +
+    "Use only for new appointments after get_availability recorded appointmentLane; do not use for reschedules or other appointment changes. " +
+    "Call only after get_availability returns slots with the right appointment lane, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. " +
+    "Before booking, read back the selected appointment date, time, and provider, then get caller confirmation. ",
+  parameters: bookAppointmentParameters,
   execute: async (
-    { slotId, appointmentReason, referringDoctor, readBack },
+    { appointmentSlotRef, appointmentReason, referringDoctor, readBack },
     { ctx },
   ) => {
     const state = getState(ctx);
@@ -78,7 +84,7 @@ export const book_appt = llm.tool({
     }
 
     ensureRoutineVisionOffice(state);
-    const selectedSlot = selectedSlotForBooking(state, slotId);
+    const selectedSlot = selectedSlotForBooking(state, appointmentSlotRef);
     const bookingBody = bookingRequestBodyForSlot(state, {
       selectedSlot,
       patientId,

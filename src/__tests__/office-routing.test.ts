@@ -884,7 +884,7 @@ describe("model-facing tool definitions", () => {
       "appointmentDate",
       "appointmentTime",
     ]);
-    expect(parameters.safeParse({ appointmentId: 123 }).success).toBe(true);
+    expect(parameters.safeParse({ appointmentId: 123 }).success).toBe(false);
     expect(
       parameters.safeParse({
         appointmentDate: "June 2",
@@ -952,7 +952,7 @@ describe("model-facing tool definitions", () => {
         appointmentTime: "9 AM",
         appointmentId: 123,
       }).success,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       parameters.safeParse({
         newSlotId: "A",
@@ -962,7 +962,15 @@ describe("model-facing tool definitions", () => {
         appointmentTime: "9 AM",
         appointmentId: 123,
       }).success,
-    ).toBe(true);
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        newAppointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentId: 123,
+      }).success,
+    ).toBe(false);
     expect(
       parameters.safeParse({
         appointmentReason: "move my appointment",
@@ -991,7 +999,14 @@ describe("model-facing tool definitions", () => {
 
     const parameters = book_appt.parameters as {
       safeParse: (value: unknown) => { success: boolean };
+      shape: Record<string, unknown>;
     };
+    expect(Object.keys(parameters.shape)).toEqual([
+      "appointmentSlotRef",
+      "appointmentReason",
+      "referringDoctor",
+      "readBack",
+    ]);
     expect(
       parameters.safeParse({
         slotId: "A",
@@ -1000,7 +1015,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1008,7 +1023,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
     expect(
       parameters.safeParse({
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "Doctor Lee",
       }).success,

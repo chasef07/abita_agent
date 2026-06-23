@@ -161,10 +161,17 @@ export function bookedAppointmentToolResult(
   result: unknown,
 ): Record<string, unknown> {
   const receipt = isRecord(result) ? result : {};
+  const providerName =
+    stringField(receipt, "providerName") ?? selectedSlot.provider;
+  const startDatetime =
+    stringField(receipt, "startDatetime") ?? selectedSlot.datetime;
   return {
-    ...receipt,
-    status: typeof receipt.status === "string" ? receipt.status : "booked",
+    status: stringField(receipt, "status") ?? "booked",
     message: bookedAppointmentMessage(selectedSlot, result),
+    appointmentDate: selectedSlot.date,
+    appointmentTime: selectedSlot.time,
+    ...(providerName ? { providerName } : {}),
+    ...(startDatetime ? { startDatetime } : {}),
   };
 }
 
@@ -287,6 +294,14 @@ function bookingStatus(result: unknown): string {
   return isRecord(result) && typeof result.status === "string"
     ? result.status.toLowerCase()
     : "";
+}
+
+function stringField(
+  record: Record<string, unknown>,
+  field: string,
+): string | undefined {
+  const value = record[field];
+  return typeof value === "string" && value.trim() ? value : undefined;
 }
 
 function appointmentIdFromResult(

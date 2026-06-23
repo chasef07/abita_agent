@@ -433,10 +433,10 @@ describe("direct session state cleanup", () => {
       result: "slots_found",
       reply: "I found June 1 at 9:00 AM with Dr. Bach. Does that work?",
       next: "offer_slot",
-      slotId: "S1",
+      slotRef: "S1",
       slots: [
         {
-          slotId: "S1",
+          slotRef: "S1",
           spoken: "June 1 at 9:00 AM with Dr. Bach",
           provider: "Dr. Bach",
           date: "2026-06-01",
@@ -444,6 +444,10 @@ describe("direct session state cleanup", () => {
         },
       ],
     });
+    expect(result).not.toHaveProperty("slotId");
+    expect((result.slots as Record<string, unknown>[])[0]).not.toHaveProperty(
+      "slotId",
+    );
     expect(result).not.toHaveProperty("bookingToken");
     expect(JSON.stringify(result)).not.toContain("private-token");
     expect(state.availability.bookingTokensBySlotId).toEqual({
@@ -531,12 +535,22 @@ describe("direct session state cleanup", () => {
     )) as Record<string, unknown>;
 
     expect(firstResult).toMatchObject({
-      slotId: "S1",
-      slots: [expect.objectContaining({ slotId: "S1", date: "2026-07-09" })],
+      slotRef: "S1",
+      slots: [
+        expect.objectContaining({
+          slotRef: "S1",
+          date: "2026-07-09",
+        }),
+      ],
     });
     expect(secondResult).toMatchObject({
-      slotId: "S2",
-      slots: [expect.objectContaining({ slotId: "S2", date: "2026-07-10" })],
+      slotRef: "S2",
+      slots: [
+        expect.objectContaining({
+          slotRef: "S2",
+          date: "2026-07-10",
+        }),
+      ],
     });
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "first-private-token",
@@ -545,7 +559,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "S1",
+        appointmentSlotRef: "S1",
         appointmentReason: "eye exam",
         referringDoctor: "none",
         readBack: true,
@@ -558,8 +572,14 @@ describe("direct session state cleanup", () => {
 
     expect(result).toMatchObject({
       status: "booked",
-      appointmentId: 789,
+      appointmentDate: "2026-07-09",
+      appointmentTime: "9:00 AM",
+      providerName: "Dr. Bach",
+      startDatetime: "2026-07-09T09:00:00",
     });
+    expect(result).not.toHaveProperty("appointmentId");
+    expect(result).not.toHaveProperty("appointmentTypeId");
+    expect(result).not.toHaveProperty("patientId");
     expect(JSON.parse(fetchMock.mock.calls[2][1].body as string)).toMatchObject(
       {
         bookingToken: "first-private-token",
@@ -655,7 +675,7 @@ describe("direct session state cleanup", () => {
     ]);
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "S1",
+      slotRef: "S1",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -740,7 +760,7 @@ describe("direct session state cleanup", () => {
     expect(result).toMatchObject({
       result: "slots_found",
       next: "offer_slot",
-      slotId: "S1",
+      slotRef: "S1",
     });
   });
 
@@ -1109,7 +1129,7 @@ describe("direct session state cleanup", () => {
     });
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "S2",
+      slotRef: "S2",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1170,7 +1190,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "S1",
+      slotRef: "S1",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1244,7 +1264,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "S2",
+      slotRef: "S2",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1505,7 +1525,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1518,8 +1538,14 @@ describe("direct session state cleanup", () => {
 
     expect(result).toMatchObject({
       status: "booked",
-      appointmentId: 456,
+      appointmentDate: "2026-06-01",
+      appointmentTime: "9:00 AM",
+      providerName: "Doctor Smith",
+      startDatetime: "2026-06-01T09:00:00",
     });
+    expect(result).not.toHaveProperty("appointmentId");
+    expect(result).not.toHaveProperty("appointmentTypeId");
+    expect(result).not.toHaveProperty("patientId");
     expect(state.workflow.current).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
@@ -1544,7 +1570,7 @@ describe("direct session state cleanup", () => {
     await expect(
       book_appt.execute(
         {
-          slotId: "A",
+          appointmentSlotRef: "A",
           appointmentReason: "move my appointment",
           referringDoctor: "none",
         },
@@ -1569,7 +1595,7 @@ describe("direct session state cleanup", () => {
     await expect(
       book_appt.execute(
         {
-          slotId: "A",
+          appointmentSlotRef: "A",
           appointmentReason: "blurry vision",
           referringDoctor: "none",
           readBack: true,
@@ -1597,7 +1623,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
       },
@@ -1623,7 +1649,7 @@ describe("direct session state cleanup", () => {
     await expect(
       book_appt.execute(
         {
-          slotId: "A",
+          appointmentSlotRef: "A",
           appointmentReason: "blurry vision",
         },
         {
@@ -1657,7 +1683,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1671,12 +1697,17 @@ describe("direct session state cleanup", () => {
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(result).toMatchObject({
       status: "booked",
-      appointmentId: 123,
+      appointmentDate: "2026-06-01",
+      appointmentTime: "9:00 AM",
       providerName: "Doctor Smith",
-      locationName: "Spring Hill",
-      appointmentTypeName: "Medical",
+      startDatetime: "2026-06-01T09:00:00",
       message: "Booked June 1 at 9:00 AM with Doctor Smith.",
     });
+    expect(result).not.toHaveProperty("appointmentId");
+    expect(result).not.toHaveProperty("appointmentTypeId");
+    expect(result).not.toHaveProperty("patientId");
+    expect(result).not.toHaveProperty("locationName");
+    expect(result).not.toHaveProperty("appointmentTypeName");
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(body).toMatchObject({
       bookingToken: "private-token",
@@ -1725,7 +1756,7 @@ describe("direct session state cleanup", () => {
 
     await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1749,7 +1780,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "B",
+        appointmentSlotRef: "B",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1790,7 +1821,7 @@ describe("direct session state cleanup", () => {
 
     await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1824,7 +1855,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "B",
+        appointmentSlotRef: "B",
         appointmentReason: "glasses",
         referringDoctor: "none",
         readBack: true,
@@ -1837,12 +1868,15 @@ describe("direct session state cleanup", () => {
 
     expect(result).toMatchObject({
       status: "booked",
-      appointmentId: 456,
+      appointmentDate: "2026-06-01",
+      appointmentTime: "2:00 PM",
       providerName: "Doctor Smith",
-      locationName: "Spring Hill",
-      appointmentTypeName: "Medical",
+      startDatetime: "2026-06-01T14:00:00",
       message: "Booked June 1 at 2:00 PM with Doctor Smith.",
     });
+    expect(result).not.toHaveProperty("appointmentId");
+    expect(result).not.toHaveProperty("appointmentTypeId");
+    expect(result).not.toHaveProperty("patientId");
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
       bookingToken: "private-token-b",
@@ -1878,7 +1912,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1921,7 +1955,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -3919,7 +3953,7 @@ describe("direct session state cleanup", () => {
     ).toEqual([111]);
   });
 
-  it("cancels by caller date and time when a legacy appointment ID is wrong", async () => {
+  it("cancels by caller date and time without model-facing appointment IDs", async () => {
     const state = createState();
     setLoadedAppointments(
       state,
@@ -3944,7 +3978,6 @@ describe("direct session state cleanup", () => {
 
     const result = await cancel_appt.execute(
       {
-        appointmentId: 1,
         appointmentDate: "June 25",
         appointmentTime: "3:15 PM",
       },
@@ -4140,7 +4173,7 @@ describe("direct session state cleanup", () => {
 
     await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "eye exam",
         referringDoctor: "none",
         readBack: true,
@@ -4182,17 +4215,12 @@ describe("direct session state cleanup", () => {
     const state = createState();
 
     await expect(
-      cancel_appt.execute(
-        {
-          appointmentId: 999,
-        },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      ),
+      cancel_appt.execute({}, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never),
     ).rejects.toThrow(
-      "No loaded appointment matches that appointment ID. Load appointments again and confirm the exact appointment before cancelling.",
+      "Load appointments and confirm the exact appointment before cancelling.",
     );
   });
 
@@ -4235,21 +4263,22 @@ describe("direct session state cleanup", () => {
     expect(result).toMatchObject({
       status: "rescheduled",
       bookingStatus: "booked",
-      appointmentId: 456,
       appointmentDate: "2026-06-01",
       appointmentTime: "9:00 AM",
       startDatetime: "2026-06-01T09:00:00",
       providerName: "Doctor Smith",
-      locationName: "Crystal River",
-      appointmentTypeId: 6167,
-      appointmentTypeName: "Crystal River New Patient",
-      cancelledAppointmentId: 123,
       cancelledAppointmentDate: "Monday, June 1, 2026",
       cancelledAppointmentTime: "9:00 AM",
       cancellationStatus: "cancelled",
       message:
         "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
     });
+    expect(result).not.toHaveProperty("appointmentId");
+    expect(result).not.toHaveProperty("appointmentTypeId");
+    expect(result).not.toHaveProperty("patientId");
+    expect(result).not.toHaveProperty("cancelledAppointmentId");
+    expect(result).not.toHaveProperty("locationName");
+    expect(result).not.toHaveProperty("appointmentTypeName");
     expect(fetchCallKinds(fetchMock)).toEqual(["book", "cancel"]);
     const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(bookingBody).toMatchObject({
@@ -4384,7 +4413,7 @@ describe("direct session state cleanup", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("reschedules by caller date and time when the supplied appointment ID is wrong", async () => {
+  it("reschedules by caller date and time without model-facing appointment IDs", async () => {
     const state = createState();
     prepareRescheduleState(state, { context: "change_appointment" });
     const fetchMock = stubRescheduleFetch({
@@ -4401,7 +4430,6 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 1,
         oldAppointmentDate: "June 1",
         oldAppointmentTime: "9:00 AM",
       },
@@ -4413,9 +4441,12 @@ describe("direct session state cleanup", () => {
 
     expect(result).toMatchObject({
       status: "rescheduled",
-      appointmentId: 456,
-      cancelledAppointmentId: 123,
+      appointmentDate: "2026-06-01",
+      appointmentTime: "9:00 AM",
+      cancellationStatus: "cancelled",
     });
+    expect(result).not.toHaveProperty("appointmentId");
+    expect(result).not.toHaveProperty("cancelledAppointmentId");
     expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
       appointmentId: 123,
       patientId: "patient-1",
@@ -4423,7 +4454,7 @@ describe("direct session state cleanup", () => {
     });
   });
 
-  it("reschedules the single loaded appointment when the supplied appointment ID is wrong", async () => {
+  it("reschedules the single loaded appointment without model-facing appointment IDs", async () => {
     const state = createState();
     prepareRescheduleState(state, { context: "change_appointment" });
     const fetchMock = stubRescheduleFetch({
@@ -4436,11 +4467,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 999,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4450,9 +4480,12 @@ describe("direct session state cleanup", () => {
 
     expect(result).toMatchObject({
       status: "rescheduled",
-      appointmentId: 456,
-      cancelledAppointmentId: 123,
+      appointmentDate: "2026-06-01",
+      appointmentTime: "9:00 AM",
+      cancellationStatus: "cancelled",
     });
+    expect(result).not.toHaveProperty("appointmentId");
+    expect(result).not.toHaveProperty("cancelledAppointmentId");
     expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
       appointmentId: 123,
       patientId: "patient-1",
@@ -4473,11 +4506,10 @@ describe("direct session state cleanup", () => {
 
     await reschedule_appt.execute(
       {
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4494,7 +4526,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "B",
+        newAppointmentSlotRef: "B",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       },
@@ -4545,11 +4577,10 @@ describe("direct session state cleanup", () => {
 
     await reschedule_appt.execute(
       {
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4569,7 +4600,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "B",
+        newAppointmentSlotRef: "B",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4583,14 +4614,14 @@ describe("direct session state cleanup", () => {
     expect(result).toMatchObject({
       status: "rescheduled",
       bookingStatus: "booked",
-      appointmentId: 789,
       appointmentDate: "2026-06-01",
       appointmentTime: "2:00 PM",
-      cancelledAppointmentId: 456,
       cancellationStatus: "cancelled",
       message:
         "Rescheduled the appointment to June 1 at 2:00 PM with Doctor Smith. Cancelled the old appointment on 2026-06-01 at 9:00 AM.",
     });
+    expect(result).not.toHaveProperty("appointmentId");
+    expect(result).not.toHaveProperty("cancelledAppointmentId");
     expect(fetchCallKinds(fetchMock)).toEqual([
       "book",
       "cancel",
@@ -4657,11 +4688,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4672,18 +4702,19 @@ describe("direct session state cleanup", () => {
     expect(result).toMatchObject({
       status: "rescheduled",
       bookingStatus: "booked",
-      appointmentId: 456,
       appointmentDate: "2026-06-03",
       appointmentTime: "10:00 AM",
       startDatetime: "2026-06-03T10:00:00",
       providerName: "Doctor Smith",
-      locationName: "Spring Hill",
-      appointmentTypeName: "Routine Vision",
-      cancelledAppointmentId: 123,
       cancellationStatus: "cancelled",
       message:
         "Rescheduled the appointment to June 3 at 10:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
     });
+    expect(result).not.toHaveProperty("appointmentId");
+    expect(result).not.toHaveProperty("appointmentTypeId");
+    expect(result).not.toHaveProperty("cancelledAppointmentId");
+    expect(result).not.toHaveProperty("locationName");
+    expect(result).not.toHaveProperty("appointmentTypeName");
     const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(bookingBody).toMatchObject({
       bookingToken: "private-token",
@@ -4741,11 +4772,10 @@ describe("direct session state cleanup", () => {
 
     await reschedule_appt.execute(
       {
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 20396260,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4781,11 +4811,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4826,10 +4855,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
-        appointmentDate: "June 2",
+        oldAppointmentDate: "June 2",
       },
       {
         ctx: createToolContext(state) as never,
@@ -4862,11 +4891,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4891,7 +4919,7 @@ describe("direct session state cleanup", () => {
 
     const replayResult = await reschedule_appt.execute(
       {
-        slotId: "B",
+        newAppointmentSlotRef: "B",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       },
@@ -4940,11 +4968,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4968,10 +4995,9 @@ describe("direct session state cleanup", () => {
     await expect(
       reschedule_appt.execute(
         {
-          slotId: "A",
+          newAppointmentSlotRef: "A",
           appointmentReason: "move my appointment",
           referringDoctor: "none",
-          appointmentId: 123,
         },
         {
           ctx: createToolContext(state) as never,
@@ -4979,7 +5005,7 @@ describe("direct session state cleanup", () => {
         } as never,
       ),
     ).rejects.toThrow(
-      "No loaded appointment matches that appointment ID. Load appointments again and confirm the exact appointment before cancelling.",
+      "Load appointments and confirm the exact appointment before cancelling.",
     );
   });
 
