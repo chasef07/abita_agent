@@ -22,12 +22,12 @@ import {
 } from "../state/call-state.js";
 import {
   add_patient,
-  book_appt,
-  cancel_appt,
+  book_appointment,
+  cancel_appointment,
   check_insurance,
   get_availability,
   resolve_patient,
-  reschedule_appt,
+  reschedule_appointment,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
@@ -543,7 +543,7 @@ describe("direct session state cleanup", () => {
       S2: "second-private-token",
     });
 
-    const result = await book_appt.execute(
+    const result = await book_appointment.execute(
       {
         slotId: "S1",
         appointmentReason: "eye exam",
@@ -1503,7 +1503,7 @@ describe("direct session state cleanup", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await book_appt.execute(
+    const result = await book_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "blurry vision",
@@ -1533,7 +1533,7 @@ describe("direct session state cleanup", () => {
     );
   });
 
-  it("blocks book_appt from consuming appointment-change availability", async () => {
+  it("blocks book_appointment from consuming appointment-change availability", async () => {
     const state = createState();
     markAppointmentChangeContext(state);
     storeAvailabilityBookingToken(state, "A", "private-token");
@@ -1542,7 +1542,7 @@ describe("direct session state cleanup", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      book_appt.execute(
+      book_appointment.execute(
         {
           slotId: "A",
           appointmentReason: "move my appointment",
@@ -1554,7 +1554,7 @@ describe("direct session state cleanup", () => {
         } as never,
       ),
     ).rejects.toThrow(
-      "Use reschedule_appt for appointment changes so the old appointment is cancelled after the new booking succeeds.",
+      "Use reschedule_appointment for appointment changes so the old appointment is cancelled after the new booking succeeds.",
     );
 
     expect(ctx.speechHandle.allowInterruptions).toBe(true);
@@ -1567,7 +1567,7 @@ describe("direct session state cleanup", () => {
     const ctx = createToolContext(state);
 
     await expect(
-      book_appt.execute(
+      book_appointment.execute(
         {
           slotId: "A",
           appointmentReason: "blurry vision",
@@ -1595,7 +1595,7 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await book_appt.execute(
+    const result = await book_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "blurry vision",
@@ -1608,7 +1608,7 @@ describe("direct session state cleanup", () => {
     );
 
     expect(result).toBe(
-      "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it. Call book_appt again only after the caller confirms the appointment details are correct.",
+      "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it. Call book_appointment again only after the caller confirms the appointment details are correct.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(ctx.speechHandle.allowInterruptions).toBe(true);
@@ -1621,7 +1621,7 @@ describe("direct session state cleanup", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      book_appt.execute(
+      book_appointment.execute(
         {
           slotId: "A",
           appointmentReason: "blurry vision",
@@ -1655,7 +1655,7 @@ describe("direct session state cleanup", () => {
     vi.stubGlobal("fetch", fetchMock);
     const ctx = createToolContext(state);
 
-    const result = await book_appt.execute(
+    const result = await book_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "blurry vision",
@@ -1723,7 +1723,7 @@ describe("direct session state cleanup", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await book_appt.execute(
+    await book_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "blurry vision",
@@ -1747,7 +1747,7 @@ describe("direct session state cleanup", () => {
     });
     storeAvailabilityBookingToken(state, "B", "private-token-b");
 
-    const result = await book_appt.execute(
+    const result = await book_appointment.execute(
       {
         slotId: "B",
         appointmentReason: "blurry vision",
@@ -1788,7 +1788,7 @@ describe("direct session state cleanup", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await book_appt.execute(
+    await book_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "blurry vision",
@@ -1822,7 +1822,7 @@ describe("direct session state cleanup", () => {
     });
     storeAvailabilityBookingToken(state, "B", "private-token-b");
 
-    const result = await book_appt.execute(
+    const result = await book_appointment.execute(
       {
         slotId: "B",
         appointmentReason: "glasses",
@@ -1876,7 +1876,7 @@ describe("direct session state cleanup", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await book_appt.execute(
+    const result = await book_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "blurry vision",
@@ -1919,7 +1919,7 @@ describe("direct session state cleanup", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await book_appt.execute(
+    const result = await book_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "blurry vision",
@@ -3856,7 +3856,7 @@ describe("direct session state cleanup", () => {
       message: "Appointment cancelled successfully",
     });
 
-    const result = await cancel_appt.execute({}, {
+    const result = await cancel_appointment.execute({}, {
       ctx: ctx as never,
       toolCallId: "tool-1",
     } as never);
@@ -3896,7 +3896,7 @@ describe("direct session state cleanup", () => {
       message: "Appointment cancelled successfully",
     });
 
-    const result = await cancel_appt.execute(
+    const result = await cancel_appointment.execute(
       {
         appointmentDate: "June 2nd",
       },
@@ -3942,7 +3942,7 @@ describe("direct session state cleanup", () => {
       message: "Appointment cancelled successfully",
     });
 
-    const result = await cancel_appt.execute(
+    const result = await cancel_appointment.execute(
       {
         appointmentId: 1,
         appointmentDate: "June 25",
@@ -3967,7 +3967,7 @@ describe("direct session state cleanup", () => {
     ).toEqual([111]);
   });
 
-  it("treats duplicate cancel_appt for a cancelled appointment as already done", async () => {
+  it("treats duplicate cancel_appointment for a cancelled appointment as already done", async () => {
     const state = createState();
     setLoadedAppointments(state, appointment({ provider: "Dr. Bach" }));
     const fetchMock = stubFetchJson({
@@ -3976,7 +3976,7 @@ describe("direct session state cleanup", () => {
       message: "Appointment cancelled successfully",
     });
 
-    await cancel_appt.execute(
+    await cancel_appointment.execute(
       {
         appointmentDate: "June 1",
         appointmentTime: "9 AM",
@@ -3986,7 +3986,7 @@ describe("direct session state cleanup", () => {
         toolCallId: "tool-1",
       } as never,
     );
-    const result = await cancel_appt.execute(
+    const result = await cancel_appointment.execute(
       {
         appointmentDate: "June 1",
         appointmentTime: "9 AM",
@@ -3998,7 +3998,7 @@ describe("direct session state cleanup", () => {
     );
 
     expect(result).toBe(
-      "That appointment was already cancelled on this call: Monday, June 1, 2026 at 9:00 AM. Continue without calling cancel_appt again.",
+      "That appointment was already cancelled on this call: Monday, June 1, 2026 at 9:00 AM. Continue without calling cancel_appointment again.",
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -4012,7 +4012,7 @@ describe("direct session state cleanup", () => {
       message: "Appointment cancelled successfully",
     });
 
-    await cancel_appt.execute(
+    await cancel_appointment.execute(
       {
         appointmentDate: "June 1",
         appointmentTime: "9 AM",
@@ -4031,7 +4031,7 @@ describe("direct session state cleanup", () => {
     };
 
     await expect(
-      cancel_appt.execute(
+      cancel_appointment.execute(
         {
           appointmentDate: "June 1",
           appointmentTime: "9 AM",
@@ -4069,7 +4069,7 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await cancel_appt.execute(
+    const result = await cancel_appointment.execute(
       {
         appointmentDate: "June 2",
       },
@@ -4138,7 +4138,7 @@ describe("direct session state cleanup", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await book_appt.execute(
+    await book_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "eye exam",
@@ -4164,7 +4164,7 @@ describe("direct session state cleanup", () => {
     ]);
     expect(state.identity.patient.appointmentsStatus).toBe("found");
 
-    const result = await cancel_appt.execute({}, {
+    const result = await cancel_appointment.execute({}, {
       ctx: createToolContext(state) as never,
       toolCallId: "tool-2",
     } as never);
@@ -4182,7 +4182,7 @@ describe("direct session state cleanup", () => {
     const state = createState();
 
     await expect(
-      cancel_appt.execute(
+      cancel_appointment.execute(
         {
           appointmentId: 999,
         },
@@ -4219,7 +4219,7 @@ describe("direct session state cleanup", () => {
       appointmentTypeName: "Crystal River New Patient",
     });
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
@@ -4301,7 +4301,7 @@ describe("direct session state cleanup", () => {
       appointmentTypeName: "Medical",
     });
 
-    await reschedule_appt.execute(
+    await reschedule_appointment.execute(
       {
         newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
@@ -4338,7 +4338,7 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
@@ -4351,7 +4351,7 @@ describe("direct session state cleanup", () => {
     );
 
     expect(result).toBe(
-      "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it as the new appointment. Call reschedule_appt again only after the caller confirms the new appointment details are correct.",
+      "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it as the new appointment. Call reschedule_appointment again only after the caller confirms the new appointment details are correct.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(ctx.speechHandle.allowInterruptions).toBe(true);
@@ -4366,7 +4366,7 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
@@ -4379,7 +4379,7 @@ describe("direct session state cleanup", () => {
     );
 
     expect(result).toBe(
-      "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it as the new appointment. Call reschedule_appt again only after the caller confirms the new appointment details are correct.",
+      "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it as the new appointment. Call reschedule_appointment again only after the caller confirms the new appointment details are correct.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -4395,7 +4395,7 @@ describe("direct session state cleanup", () => {
       appointmentTypeName: "Medical",
     });
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         newAppointmentSlotRef: "A",
         appointmentReason: "move my appointment",
@@ -4434,7 +4434,7 @@ describe("direct session state cleanup", () => {
       appointmentTypeName: "Medical",
     });
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "move my appointment",
@@ -4471,7 +4471,7 @@ describe("direct session state cleanup", () => {
       appointmentTypeName: "Medical",
     });
 
-    await reschedule_appt.execute(
+    await reschedule_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "move my appointment",
@@ -4492,7 +4492,7 @@ describe("direct session state cleanup", () => {
     state.availability.slots.push(duplicateSlot);
     storeAvailabilityBookingToken(state, "B", "private-token-b");
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         slotId: "B",
         appointmentReason: "move my appointment",
@@ -4543,7 +4543,7 @@ describe("direct session state cleanup", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await reschedule_appt.execute(
+    await reschedule_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "move my appointment",
@@ -4567,7 +4567,7 @@ describe("direct session state cleanup", () => {
     );
     storeAvailabilityBookingToken(state, "B", "private-token-b");
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         slotId: "B",
         appointmentReason: "move my appointment",
@@ -4655,7 +4655,7 @@ describe("direct session state cleanup", () => {
       appointmentTypeName: "Routine Vision",
     });
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "move my appointment",
@@ -4739,7 +4739,7 @@ describe("direct session state cleanup", () => {
       appointmentTypeName: "Routine Vision",
     });
 
-    await reschedule_appt.execute(
+    await reschedule_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "move my appointment",
@@ -4779,7 +4779,7 @@ describe("direct session state cleanup", () => {
       message: "This time slot is no longer available.",
     });
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "move my appointment",
@@ -4824,7 +4824,7 @@ describe("direct session state cleanup", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "move my appointment",
@@ -4860,7 +4860,7 @@ describe("direct session state cleanup", () => {
       },
     );
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "move my appointment",
@@ -4889,7 +4889,7 @@ describe("direct session state cleanup", () => {
     state.availability.slots.push(heldSlot);
     storeAvailabilityBookingToken(state, "B", "private-token-b");
 
-    const replayResult = await reschedule_appt.execute(
+    const replayResult = await reschedule_appointment.execute(
       {
         slotId: "B",
         appointmentReason: "move my appointment",
@@ -4938,7 +4938,7 @@ describe("direct session state cleanup", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         slotId: "A",
         appointmentReason: "move my appointment",
@@ -4966,7 +4966,7 @@ describe("direct session state cleanup", () => {
     clearSchedulingContext(state);
 
     await expect(
-      reschedule_appt.execute(
+      reschedule_appointment.execute(
         {
           slotId: "A",
           appointmentReason: "move my appointment",

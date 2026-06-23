@@ -22,7 +22,7 @@ describe("call observability", () => {
             patientName: "Jane Patient",
           }),
           callId: "call_1",
-          name: "book_appt",
+          name: "book_appointment",
         },
       ],
       functionCallOutputs: [
@@ -43,7 +43,7 @@ describe("call observability", () => {
         createdAt: "2026-05-20T10:00:00.000Z",
         outputClass: "appointment_booked",
         status: "success",
-        toolName: "book_appt",
+        toolName: "book_appointment",
       },
     ]);
     expect(JSON.stringify(executions)).not.toContain("Jane Patient");
@@ -73,14 +73,14 @@ describe("call observability", () => {
     ).toBe("multiple_patient_matches");
     expect(
       classifyToolOutput(
-        "book_appt",
+        "book_appointment",
         JSON.stringify({ status: "error" }),
         false,
       ),
     ).toBe("tool_error");
     expect(
       classifyToolOutput(
-        "book_appt",
+        "book_appointment",
         JSON.stringify({
           outcome: "success",
           facts: { appointmentId: 9960766 },
@@ -89,53 +89,57 @@ describe("call observability", () => {
       ),
     ).toBe("appointment_booked");
     expect(
-      classifyToolOutput("book_appt", JSON.stringify({ status: "ok" }), false),
+      classifyToolOutput(
+        "book_appointment",
+        JSON.stringify({ status: "ok" }),
+        false,
+      ),
     ).toBe("appointment_booked");
     expect(
       classifyToolOutput(
-        "book_appt",
+        "book_appointment",
         "Booked June 1 at 9:00 AM with Doctor Smith.",
         false,
       ),
     ).toBe("appointment_booked");
     expect(
       classifyToolOutput(
-        "book_appt",
+        "book_appointment",
         "That time is no longer available. Check availability again before booking.",
         false,
       ),
     ).toBe("appointment_not_booked");
     expect(
       classifyToolOutput(
-        "cancel_appt",
+        "cancel_appointment",
         "Load appointments and confirm the exact appointment before cancelling.",
         false,
       ),
     ).toBe("appointment_not_cancelled");
     expect(
       classifyToolOutput(
-        "cancel_appt",
+        "cancel_appointment",
         "The appointment was not cancelled.",
         false,
       ),
     ).toBe("appointment_not_cancelled");
     expect(
       classifyToolOutput(
-        "cancel_appt",
+        "cancel_appointment",
         "Cancelled the appointment on June 5 at 10:00 AM.",
         false,
       ),
     ).toBe("appointment_cancelled");
     expect(
       classifyToolOutput(
-        "reschedule_appt",
+        "reschedule_appointment",
         "Rescheduled the appointment to June 1 at 9:00 AM. Cancelled the old appointment on May 1 at 8:00 AM.",
         false,
       ),
     ).toBe("appointment_rescheduled");
     expect(
       classifyToolOutput(
-        "reschedule_appt",
+        "reschedule_appointment",
         JSON.stringify({
           status: "rescheduled",
           appointmentId: 456,
@@ -147,21 +151,21 @@ describe("call observability", () => {
     ).toBe("appointment_rescheduled");
     expect(
       classifyToolOutput(
-        "reschedule_appt",
+        "reschedule_appointment",
         "The appointment is already rescheduled to June 1 at 9:00 AM with Doctor Smith. Tell the caller the confirmed appointment details instead of rescheduling again.",
         false,
       ),
     ).toBe("appointment_rescheduled");
     expect(
       classifyToolOutput(
-        "reschedule_appt",
+        "reschedule_appointment",
         "That time is no longer available. Check availability again before booking. I did not cancel the existing appointment.",
         false,
       ),
     ).toBe("appointment_not_rescheduled");
     expect(
       classifyToolOutput(
-        "reschedule_appt",
+        "reschedule_appointment",
         "Booked the new appointment for June 1 at 9:00 AM, but I could not cancel the old appointment. I need to transfer you so the office can finish the cancellation.",
         false,
       ),
@@ -201,15 +205,39 @@ describe("call observability", () => {
         false,
       ),
     ).toBe("availability_blocked");
-    expect(classifyToolOutput("book_appt", "timeout", true)).toBe(
+    expect(classifyToolOutput("book_appointment", "timeout", true)).toBe(
       "middleware_error",
     );
+  });
+
+  it("classifies historical appointment tool names for analytics compatibility", () => {
+    expect(
+      classifyToolOutput(
+        "book_appt",
+        JSON.stringify({ status: "booked", appointmentId: 123 }),
+        false,
+      ),
+    ).toBe("appointment_booked");
+    expect(
+      classifyToolOutput(
+        "cancel_appt",
+        "Cancelled the appointment on June 5 at 10:00 AM.",
+        false,
+      ),
+    ).toBe("appointment_cancelled");
+    expect(
+      classifyToolOutput(
+        "reschedule_appt",
+        JSON.stringify({ status: "rescheduled" }),
+        false,
+      ),
+    ).toBe("appointment_rescheduled");
   });
 
   it("marks returned tool failures as failed executions", () => {
     expect(
       snapshotToolExecutions({
-        functionCalls: [{ callId: "call_1", name: "book_appt" }],
+        functionCalls: [{ callId: "call_1", name: "book_appointment" }],
         functionCallOutputs: [
           {
             callId: "call_1",
@@ -262,7 +290,7 @@ describe("call observability", () => {
 
     expect(
       snapshotToolExecutions({
-        functionCalls: [{ callId: "call_4", name: "cancel_appt" }],
+        functionCalls: [{ callId: "call_4", name: "cancel_appointment" }],
         functionCallOutputs: [
           {
             callId: "call_4",
