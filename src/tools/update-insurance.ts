@@ -23,14 +23,16 @@ export const update_insurance = llm.tool({
     "Use when the verified patient explicitly says they want to update the insurance on file. " +
     "Do not call for new patients or registration flows. " +
     "Call this only after check_insurance accepts the new plan for the correct medical or routine-vision coverage type.",
-  parameters: z.object({
-    subscriberNum: z
-      .string()
-      .trim()
-      .optional()
-      .describe("Member ID from the insurance card."),
-  }),
-  execute: async ({ subscriberNum }, { ctx }) => {
+  parameters: z
+    .object({
+      insuranceMemberId: z
+        .string()
+        .trim()
+        .optional()
+        .describe("Member ID from the insurance card."),
+    })
+    .strict(),
+  execute: async ({ insuranceMemberId }, { ctx }) => {
     const state = getState(ctx);
     ctx.speechHandle.allowInterruptions = false;
 
@@ -60,7 +62,7 @@ export const update_insurance = llm.tool({
     const selfPay =
       normalizeInsuranceText(insurance) === "self pay" ||
       normalizeInsuranceText(canonicalInsurance ?? "") === "self pay";
-    const memberId = selfPay ? "self pay" : subscriberNum?.trim();
+    const memberId = selfPay ? "self pay" : insuranceMemberId?.trim();
     if (!memberId) {
       throw new llm.ToolError(
         "Collect the member ID before updating insurance.",

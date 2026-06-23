@@ -23,7 +23,7 @@ type BookingRequestInput = {
   selectedSlot: StoredAvailabilitySlot;
   patientId: string;
   appointmentReason: string;
-  referringDoctor: string;
+  referringDoctor?: string;
   appointmentTypeIdOverride?: number | null;
   patientStatusOverride?: AppointmentPatientStatus | null;
 };

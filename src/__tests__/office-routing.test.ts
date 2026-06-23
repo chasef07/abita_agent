@@ -671,42 +671,26 @@ describe("model-facing tool definitions", () => {
 
     const parameters = add_patient.parameters as {
       safeParse: (value: unknown) => { success: boolean };
+      shape: Record<string, unknown>;
     };
+    expect(Object.keys(parameters.shape)).toContain("insuranceMemberId");
+    expect(Object.keys(parameters.shape)).not.toContain("subscriberNum");
     expect(
       parameters.safeParse({
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
-        street: "123 Main St",
-        aptSuite: "",
+        inboundPhoneConfirmed: true,
+        street: "1 Main St",
         city: "Spring Hill",
         state: "FL",
-        zip: "34606",
-        sex: "female",
-        insurance: "Aetna",
-        subscriberName: "Jane Doe",
-        subscriberNum: "ABC123",
-        readBack: true,
-      }).success,
-    ).toBe(false);
-    expect(
-      parameters.safeParse({
-        firstName: "Jane",
-        lastName: "Doe",
-        dob: "01/01/1980",
-        street: "123 Main St",
-        aptSuite: "",
-        city: "Spring Hill",
-        state: "FL",
-        zip: "34606",
+        zip: "34609",
         sex: "female",
         insurance: "Aetna",
         appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
-        subscriberNum: "ABC123",
-        readBack: true,
       }).success,
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("keeps availability from exposing Bach-only routing internals", () => {
@@ -851,10 +835,13 @@ describe("model-facing tool definitions", () => {
       safeParse: (value: unknown) => { success: boolean };
       shape: Record<string, unknown>;
     };
-    expect(Object.keys(parameters.shape)).toEqual(["subscriberNum"]);
+    expect(Object.keys(parameters.shape)).toEqual(["insuranceMemberId"]);
     expect(parameters.safeParse({}).success).toBe(true);
-    expect(parameters.safeParse({ subscriberNum: "ABC123" }).success).toBe(
+    expect(parameters.safeParse({ insuranceMemberId: "ABC123" }).success).toBe(
       true,
+    );
+    expect(parameters.safeParse({ subscriberNum: "ABC123" }).success).toBe(
+      false,
     );
   });
 
@@ -884,7 +871,7 @@ describe("model-facing tool definitions", () => {
       "appointmentDate",
       "appointmentTime",
     ]);
-    expect(parameters.safeParse({ appointmentId: 123 }).success).toBe(true);
+    expect(parameters.safeParse({ appointmentId: 123 }).success).toBe(false);
     expect(
       parameters.safeParse({
         appointmentDate: "June 2",
@@ -952,7 +939,7 @@ describe("model-facing tool definitions", () => {
         appointmentTime: "9 AM",
         appointmentId: 123,
       }).success,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       parameters.safeParse({
         newSlotId: "A",
@@ -962,7 +949,15 @@ describe("model-facing tool definitions", () => {
         appointmentTime: "9 AM",
         appointmentId: 123,
       }).success,
-    ).toBe(true);
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        newAppointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        appointmentId: 123,
+      }).success,
+    ).toBe(false);
     expect(
       parameters.safeParse({
         appointmentReason: "move my appointment",
@@ -991,26 +986,20 @@ describe("model-facing tool definitions", () => {
 
     const parameters = book_appt.parameters as {
       safeParse: (value: unknown) => { success: boolean };
+      shape: Record<string, unknown>;
     };
+    expect(Object.keys(parameters.shape)).toEqual([
+      "appointmentSlotRef",
+      "appointmentReason",
+      "referringDoctor",
+      "readBack",
+    ]);
+    expect(parameters.safeParse({}).success).toBe(false);
     expect(
       parameters.safeParse({
-        slotId: "A",
-        appointmentReason: "blurry vision",
-      }).success,
-    ).toBe(false);
-    expect(
-      parameters.safeParse({
-        slotId: "A",
-        appointmentReason: "blurry vision",
+        appointmentSlotRef: "A",
+        appointmentReason: "eye pain",
         referringDoctor: "none",
-        readBack: true,
-      }).success,
-    ).toBe(true);
-    expect(
-      parameters.safeParse({
-        slotId: "A",
-        appointmentReason: "blurry vision",
-        referringDoctor: "Doctor Lee",
       }).success,
     ).toBe(true);
   });

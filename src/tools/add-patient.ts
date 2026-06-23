@@ -25,16 +25,8 @@ import {
 } from "./scheduling.js";
 import { getState } from "./session.js";
 
-export const add_patient = llm.tool({
-  description:
-    "Creates a chart for a new patient. " +
-    "Call this only after resolve_patient has confirmed the caller says the patient is not registered with us. " +
-    "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. Pass appointmentLane as medical_md for symptom-driven eye care or any eye problem, or routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. " +
-    "Before calling, read back the important registration details and get caller confirmation. " +
-    "Before using the inbound caller number for the chart, ask whether the number they are calling from is a good callback number to put on file. " +
-    'Never offer self pay. If the patient asks to self pay, put "self pay" in subscriberNum. ' +
-    "If they say yes, omit phone and set inboundPhoneConfirmed to true; do not ask them to repeat that number. ",
-  parameters: z.object({
+const addPatientParameters = z
+  .object({
     firstName: z.string().describe("Patient's first name"),
     lastName: z.string().describe("Patient's last name"),
     dob: z.string().describe("Date of birth in MM/DD/YYYY format"),
@@ -74,14 +66,30 @@ export const add_patient = llm.tool({
         "Required scheduling lane. Use medical_md for symptom-driven eye care or any eye problem; use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem.",
       ),
     subscriberName: z.string().describe("Name on the insurance policy"),
-    subscriberNum: z.string().describe("Member ID"),
+    insuranceMemberId: z
+      .string()
+      .trim()
+      .min(1)
+      .describe("Member ID from the insurance card."),
     readBack: z
       .boolean()
       .optional()
       .describe(
         "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID, and the caller confirms they are correct.",
       ),
-  }),
+  })
+  .strict();
+
+export const add_patient = llm.tool({
+  description:
+    "Creates a chart for a new patient. " +
+    "Call this only after resolve_patient has confirmed the caller says the patient is not registered with us. " +
+    "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. Pass appointmentLane as medical_md for symptom-driven eye care or any eye problem, or routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. " +
+    "Before calling, read back the important registration details and get caller confirmation. " +
+    "Before using the inbound caller number for the chart, ask whether the number they are calling from is a good callback number to put on file. " +
+    'Never offer self pay. If the patient asks to self pay, put "self pay" in insuranceMemberId. ' +
+    "If they say yes, omit phone and set inboundPhoneConfirmed to true; do not ask them to repeat that number. ",
+  parameters: addPatientParameters,
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
 
@@ -123,6 +131,7 @@ export const add_patient = llm.tool({
     }
     applySchedulingLaneToState(state, params.appointmentLane);
     const selfPay = normalizeInsuranceText(insurance) === "self pay";
+    const memberId = selfPay ? "self pay" : params.insuranceMemberId;
     const explicitPhone = params.phone?.trim() ?? "";
     const phone =
       explicitPhone ||
@@ -171,7 +180,7 @@ export const add_patient = llm.tool({
       subscriberName: selfPay
         ? params.subscriberName || `${params.firstName} ${params.lastName}`
         : params.subscriberName,
-      subscriberNum: selfPay ? "self pay" : params.subscriberNum,
+      subscriberNum: memberId,
       ...(checkedInsurance.coverageType === "routine_vision"
         ? { coverageType: "routine_vision" }
         : {}),
