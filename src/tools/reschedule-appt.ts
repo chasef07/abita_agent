@@ -22,8 +22,6 @@ import {
   selectedAvailabilitySlot,
 } from "./availability-slots.js";
 import {
-  type CancellationAppointmentSelection,
-  type CancellationAppointmentSelector,
   cancellationAppointmentForState,
   removeAppointmentById,
   recordBookedAppointmentInState,
@@ -50,11 +48,10 @@ import { getState } from "./session.js";
 
 const rescheduleAppointmentParameters = z
   .object({
-    newAppointmentSlotRef: z
+    appointmentSlotRef: z
       .string()
       .trim()
       .min(1)
-      .optional()
       .describe(
         "Slot reference from get_availability for the caller-confirmed new appointment slot.",
       ),
@@ -89,27 +86,13 @@ const rescheduleAppointmentParameters = z
         'Time the caller used to identify the old loaded appointment being moved, such as "10 AM" or "2:30 PM". Use with oldAppointmentDate when needed.',
       ),
   })
-  .passthrough()
-  .superRefine((value, ctx) => {
-    if (
-      value.newAppointmentSlotRef ??
-      stringField(value, "newSlotId") ??
-      stringField(value, "slotId")
-    ) {
-      return;
-    }
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["newAppointmentSlotRef"],
-      message: "Pass newAppointmentSlotRef from get_availability.",
-    });
-  });
+  .strict();
 
 export const reschedule_appt = llm.tool({
   description:
     "Reschedule a loaded appointment. " +
     "Call only after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns slots, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. " +
-    "Pass newAppointmentSlotRef for the caller-confirmed new slot. Do not pass backend patient IDs or appointment IDs; the tool selects the old appointment from loaded appointment state. " +
+    "Pass appointmentSlotRef for the caller-confirmed new slot. Do not pass backend patient IDs or appointment IDs; the tool selects the old appointment from loaded appointment state. " +
     "If more than one old appointment is loaded, pass oldAppointmentDate and oldAppointmentTime for the caller-confirmed old appointment. " +
     "Before booking the new appointment, read back the selected new appointment date, time, and provider, then get caller confirmation. " +
     "This tool books the new appointment first and cancels the old appointment only after booking succeeds.",
@@ -119,19 +102,10 @@ export const reschedule_appt = llm.tool({
       appointmentReason,
       referringDoctor,
       readBack,
-      newAppointmentSlotRef,
+      appointmentSlotRef,
       oldAppointmentDate,
       oldAppointmentTime,
     } = args;
-    const slotId =
-      newAppointmentSlotRef ??
-      stringField(args, "newSlotId") ??
-      stringField(args, "slotId");
-    if (!slotId) {
-      throw new llm.ToolError(
-        "Choose a new slot from get_availability before rescheduling.",
-      );
-    }
 
     const state = getState(ctx);
 
@@ -142,7 +116,7 @@ export const reschedule_appt = llm.tool({
     }
     const completedReschedule = completedRescheduleForPatient(state, patientId);
     if (completedReschedule) {
-      const cachedSlot = selectedAvailabilitySlot(state, slotId);
+      const cachedSlot = selectedAvailabilitySlot(state, appointmentSlotRef);
       if (
         completedReschedule.status === "needs_human_cancellation" ||
         !cachedSlot ||
@@ -152,13 +126,10 @@ export const reschedule_appt = llm.tool({
       }
     }
 
-    const selectedSlot = selectedSlotForBooking(state, slotId);
-    const selection = rescheduleAppointmentForState(state, {
-      appointmentId: legacyPositiveIntegerField(args, "appointmentId"),
-      appointmentDate:
-        oldAppointmentDate ?? stringField(args, "appointmentDate"),
-      appointmentTime:
-        oldAppointmentTime ?? stringField(args, "appointmentTime"),
+    const selectedSlot = selectedSlotForBooking(state, appointmentSlotRef);
+    const selection = cancellationAppointmentForState(state, {
+      appointmentDate: oldAppointmentDate,
+      appointmentTime: oldAppointmentTime,
     });
     if (selection.status === "ambiguous") {
       return selection.message;
@@ -262,33 +233,6 @@ export const reschedule_appt = llm.tool({
     );
   },
 });
-
-function rescheduleAppointmentForState(
-  state: CallState,
-  selector: CancellationAppointmentSelector,
-): CancellationAppointmentSelection {
-  const selection = cancellationAppointmentForState(state, selector);
-  if (selection.status !== "not_found") return selection;
-  if (selector.appointmentId === undefined) return selection;
-
-  const fallbackSelection = cancellationAppointmentForState(state, {
-    appointmentDate: selector.appointmentDate,
-    appointmentTime: selector.appointmentTime,
-  });
-  return fallbackSelection.status === "not_found"
-    ? selection
-    : fallbackSelection;
-}
-
-function legacyPositiveIntegerField(
-  record: Record<string, unknown>,
-  field: string,
-): number | undefined {
-  const value = record[field];
-  return typeof value === "number" && Number.isInteger(value) && value > 0
-    ? value
-    : undefined;
-}
 
 function completedRescheduleReplayMessage(
   completedReschedule: CompletedRescheduleState,

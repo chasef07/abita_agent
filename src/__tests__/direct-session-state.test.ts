@@ -433,10 +433,10 @@ describe("direct session state cleanup", () => {
       result: "slots_found",
       reply: "I found June 1 at 9:00 AM with Dr. Bach. Does that work?",
       next: "offer_slot",
-      slotId: "S1",
+      appointmentSlotRef: "S1",
       slots: [
         {
-          slotId: "S1",
+          appointmentSlotRef: "S1",
           spoken: "June 1 at 9:00 AM with Dr. Bach",
           provider: "Dr. Bach",
           date: "2026-06-01",
@@ -444,6 +444,10 @@ describe("direct session state cleanup", () => {
         },
       ],
     });
+    expect(result).not.toHaveProperty("slotId");
+    expect((result.slots as Record<string, unknown>[])[0]).not.toHaveProperty(
+      "slotId",
+    );
     expect(result).not.toHaveProperty("bookingToken");
     expect(JSON.stringify(result)).not.toContain("private-token");
     expect(state.availability.bookingTokensBySlotId).toEqual({
@@ -531,12 +535,22 @@ describe("direct session state cleanup", () => {
     )) as Record<string, unknown>;
 
     expect(firstResult).toMatchObject({
-      slotId: "S1",
-      slots: [expect.objectContaining({ slotId: "S1", date: "2026-07-09" })],
+      appointmentSlotRef: "S1",
+      slots: [
+        expect.objectContaining({
+          appointmentSlotRef: "S1",
+          date: "2026-07-09",
+        }),
+      ],
     });
     expect(secondResult).toMatchObject({
-      slotId: "S2",
-      slots: [expect.objectContaining({ slotId: "S2", date: "2026-07-10" })],
+      appointmentSlotRef: "S2",
+      slots: [
+        expect.objectContaining({
+          appointmentSlotRef: "S2",
+          date: "2026-07-10",
+        }),
+      ],
     });
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "first-private-token",
@@ -545,7 +559,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "S1",
+        appointmentSlotRef: "S1",
         appointmentReason: "eye exam",
         referringDoctor: "none",
         readBack: true,
@@ -655,7 +669,7 @@ describe("direct session state cleanup", () => {
     ]);
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "S1",
+      appointmentSlotRef: "S1",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -740,7 +754,7 @@ describe("direct session state cleanup", () => {
     expect(result).toMatchObject({
       result: "slots_found",
       next: "offer_slot",
-      slotId: "S1",
+      appointmentSlotRef: "S1",
     });
   });
 
@@ -1109,7 +1123,7 @@ describe("direct session state cleanup", () => {
     });
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "S2",
+      appointmentSlotRef: "S2",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1170,7 +1184,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "S1",
+      appointmentSlotRef: "S1",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1244,7 +1258,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(result).toMatchObject({
       result: "slots_found",
-      slotId: "S2",
+      appointmentSlotRef: "S2",
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
@@ -1505,7 +1519,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1544,7 +1558,7 @@ describe("direct session state cleanup", () => {
     await expect(
       book_appt.execute(
         {
-          slotId: "A",
+          appointmentSlotRef: "A",
           appointmentReason: "move my appointment",
           referringDoctor: "none",
         },
@@ -1569,7 +1583,7 @@ describe("direct session state cleanup", () => {
     await expect(
       book_appt.execute(
         {
-          slotId: "A",
+          appointmentSlotRef: "A",
           appointmentReason: "blurry vision",
           referringDoctor: "none",
           readBack: true,
@@ -1597,7 +1611,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
       },
@@ -1623,7 +1637,7 @@ describe("direct session state cleanup", () => {
     await expect(
       book_appt.execute(
         {
-          slotId: "A",
+          appointmentSlotRef: "A",
           appointmentReason: "blurry vision",
         },
         {
@@ -1657,7 +1671,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1725,7 +1739,7 @@ describe("direct session state cleanup", () => {
 
     await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1749,7 +1763,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "B",
+        appointmentSlotRef: "B",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1790,7 +1804,7 @@ describe("direct session state cleanup", () => {
 
     await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1824,7 +1838,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "B",
+        appointmentSlotRef: "B",
         appointmentReason: "glasses",
         referringDoctor: "none",
         readBack: true,
@@ -1878,7 +1892,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1921,7 +1935,7 @@ describe("direct session state cleanup", () => {
 
     const result = await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "blurry vision",
         referringDoctor: "none",
         readBack: true,
@@ -1974,7 +1988,7 @@ describe("direct session state cleanup", () => {
         insurance: "self pay",
         appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
-        subscriberNum: "self pay",
+        insuranceMemberId: "self pay",
         inboundPhoneConfirmed: true,
         readBack: true,
       },
@@ -2031,7 +2045,7 @@ describe("direct session state cleanup", () => {
         insurance: "self pay",
         appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
-        subscriberNum: "self pay",
+        insuranceMemberId: "self pay",
         inboundPhoneConfirmed: true,
         readBack: true,
       },
@@ -2080,7 +2094,7 @@ describe("direct session state cleanup", () => {
         insurance: "self pay",
         appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
-        subscriberNum: "self pay",
+        insuranceMemberId: "self pay",
         inboundPhoneConfirmed: true,
         readBack: true,
       },
@@ -2129,7 +2143,7 @@ describe("direct session state cleanup", () => {
         insurance: "Florida Blue Shield",
         appointmentLane: "routine_od",
         subscriberName: "Adam Arshed",
-        subscriberNum: "FWZ975W06612",
+        insuranceMemberId: "FWZ975W06612",
         inboundPhoneConfirmed: true,
         readBack: true,
       },
@@ -2170,7 +2184,7 @@ describe("direct session state cleanup", () => {
           sex: "female",
           insurance: "self pay",
           subscriberName: "Jane Doe",
-          subscriberNum: "self pay",
+          insuranceMemberId: "self pay",
           phone: "7275551212",
           readBack: true,
         },
@@ -2199,7 +2213,7 @@ describe("direct session state cleanup", () => {
       sex: "female" as const,
       insurance: "self pay",
       subscriberName: "Jane Doe",
-      subscriberNum: "self pay",
+      insuranceMemberId: "self pay",
       phone: "7275551212",
       readBack: true,
     };
@@ -2289,7 +2303,7 @@ describe("direct session state cleanup", () => {
         insurance: "self pay",
         appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
-        subscriberNum: "self pay",
+        insuranceMemberId: "self pay",
         phone: "7275551212",
       },
       { ctx: ctx as never, toolCallId: "tool-1" } as never,
@@ -2327,7 +2341,7 @@ describe("direct session state cleanup", () => {
         insurance: "self pay",
         appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
-        subscriberNum: "self pay",
+        insuranceMemberId: "self pay",
         readBack: true,
       },
       {
@@ -2377,7 +2391,7 @@ describe("direct session state cleanup", () => {
         insurance: "self pay",
         appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
-        subscriberNum: "self pay",
+        insuranceMemberId: "self pay",
         phone: "   ",
         inboundPhoneConfirmed: true,
         readBack: true,
@@ -3293,7 +3307,7 @@ describe("direct session state cleanup", () => {
         insurance: "Aetna",
         appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
-        subscriberNum: "ABC123",
+        insuranceMemberId: "ABC123",
         inboundPhoneConfirmed: true,
         readBack: true,
       },
@@ -3381,7 +3395,7 @@ describe("direct session state cleanup", () => {
         insurance: "Blue Cross",
         appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
-        subscriberNum: "ABC123",
+        insuranceMemberId: "ABC123",
         inboundPhoneConfirmed: true,
         readBack: true,
       },
@@ -3438,7 +3452,7 @@ describe("direct session state cleanup", () => {
       insurance: "Care Plus Medicare",
       appointmentLane: "medical_md" as const,
       subscriberName: "Maria Santos",
-      subscriberNum: "ABC123",
+      insuranceMemberId: "ABC123",
       inboundPhoneConfirmed: true,
       readBack: true,
     };
@@ -3518,7 +3532,7 @@ describe("direct session state cleanup", () => {
       insurance: "self pay",
       appointmentLane: "medical_md" as const,
       subscriberName: "Jane Doe",
-      subscriberNum: "self pay",
+      insuranceMemberId: "self pay",
       inboundPhoneConfirmed: true,
       readBack: true,
     };
@@ -3666,7 +3680,7 @@ describe("direct session state cleanup", () => {
 
     const result = await update_insurance.execute(
       {
-        subscriberNum: "ABC123",
+        insuranceMemberId: "ABC123",
       },
       { ctx: ctx as never, toolCallId: "tool-1" } as never,
     );
@@ -3735,7 +3749,7 @@ describe("direct session state cleanup", () => {
 
     const result = await update_insurance.execute(
       {
-        subscriberNum: "946-327-2674",
+        insuranceMemberId: "946-327-2674",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
@@ -3791,7 +3805,7 @@ describe("direct session state cleanup", () => {
     await expect(
       update_insurance.execute(
         {
-          subscriberNum: "946-327-2674",
+          insuranceMemberId: "946-327-2674",
         },
         {
           ctx: createToolContext(state) as never,
@@ -3944,7 +3958,6 @@ describe("direct session state cleanup", () => {
 
     const result = await cancel_appt.execute(
       {
-        appointmentId: 1,
         appointmentDate: "June 25",
         appointmentTime: "3:15 PM",
       },
@@ -4140,7 +4153,7 @@ describe("direct session state cleanup", () => {
 
     await book_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "eye exam",
         referringDoctor: "none",
         readBack: true,
@@ -4182,17 +4195,12 @@ describe("direct session state cleanup", () => {
     const state = createState();
 
     await expect(
-      cancel_appt.execute(
-        {
-          appointmentId: 999,
-        },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      ),
+      cancel_appt.execute({}, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never),
     ).rejects.toThrow(
-      "No loaded appointment matches that appointment ID. Load appointments again and confirm the exact appointment before cancelling.",
+      "Load appointments and confirm the exact appointment before cancelling.",
     );
   });
 
@@ -4221,7 +4229,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4303,7 +4311,7 @@ describe("direct session state cleanup", () => {
 
     await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4340,7 +4348,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       },
@@ -4368,7 +4376,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       },
@@ -4397,11 +4405,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        newAppointmentSlotRef: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 1,
         oldAppointmentDate: "June 1",
         oldAppointmentTime: "9:00 AM",
       },
@@ -4436,11 +4443,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 999,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4473,11 +4479,10 @@ describe("direct session state cleanup", () => {
 
     await reschedule_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4494,7 +4499,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "B",
+        appointmentSlotRef: "B",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       },
@@ -4545,11 +4550,10 @@ describe("direct session state cleanup", () => {
 
     await reschedule_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4569,7 +4573,7 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "B",
+        appointmentSlotRef: "B",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -4657,11 +4661,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4741,11 +4744,10 @@ describe("direct session state cleanup", () => {
 
     await reschedule_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 20396260,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4781,11 +4783,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4826,10 +4827,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
-        appointmentDate: "June 2",
+        oldAppointmentDate: "June 2",
       },
       {
         ctx: createToolContext(state) as never,
@@ -4862,11 +4863,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4891,7 +4891,7 @@ describe("direct session state cleanup", () => {
 
     const replayResult = await reschedule_appt.execute(
       {
-        slotId: "B",
+        appointmentSlotRef: "B",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       },
@@ -4940,11 +4940,10 @@ describe("direct session state cleanup", () => {
 
     const result = await reschedule_appt.execute(
       {
-        slotId: "A",
+        appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        appointmentId: 123,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4968,10 +4967,9 @@ describe("direct session state cleanup", () => {
     await expect(
       reschedule_appt.execute(
         {
-          slotId: "A",
+          appointmentSlotRef: "A",
           appointmentReason: "move my appointment",
           referringDoctor: "none",
-          appointmentId: 123,
         },
         {
           ctx: createToolContext(state) as never,
@@ -4979,7 +4977,7 @@ describe("direct session state cleanup", () => {
         } as never,
       ),
     ).rejects.toThrow(
-      "No loaded appointment matches that appointment ID. Load appointments again and confirm the exact appointment before cancelling.",
+      "Load appointments and confirm the exact appointment before cancelling.",
     );
   });
 
