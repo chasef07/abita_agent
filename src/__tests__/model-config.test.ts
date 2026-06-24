@@ -16,8 +16,20 @@ describe("LLM model config", () => {
     expect(getLlmOptions().fallback).toBe(fallbackLLMOptions);
   });
 
-  it("does not set custom generation or parallel tool-call parameters", () => {
-    expect(Object.keys(primaryLLMOptions)).toEqual(["model"]);
-    expect(Object.keys(fallbackLLMOptions)).toEqual(["model"]);
+  it("caps spoken response length and disables parallel tool calls", () => {
+    expect(primaryLLMOptions.maxTokens).toBe(512);
+    expect(primaryLLMOptions.parallelToolCalls).toBe(false);
+    expect(fallbackLLMOptions.maxTokens).toBe(512);
+    expect(fallbackLLMOptions.parallelToolCalls).toBe(false);
+    expect(Object.keys(primaryLLMOptions)).toEqual([
+      "maxTokens",
+      "model",
+      "parallelToolCalls",
+    ]);
+    expect(Object.keys(fallbackLLMOptions)).toEqual([
+      "maxTokens",
+      "model",
+      "parallelToolCalls",
+    ]);
   });
 });
