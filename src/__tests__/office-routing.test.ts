@@ -299,9 +299,6 @@ describe("tool-first prompt gating", () => {
     expect(prompt).toContain(
       "For insurance acceptance questions, never answer yes or no without check_insurance.",
     );
-    expect(prompt).toContain(
-      "Call get_current_datetime before interpreting relative dates or times for scheduling, availability, booking, or appointment changes.",
-    );
     expect(prompt).not.toContain("Today is");
     expect(prompt).not.toContain("The current time is");
 

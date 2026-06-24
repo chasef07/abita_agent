@@ -5,12 +5,17 @@ import {
   activePatientId,
   clearAvailabilitySelection,
   latestBookedAppointmentId,
+  recordAppointmentAction,
   type CallState,
 } from "../state/call-state.js";
+import {
+  appointmentActionStatusForBookingResult,
+  bookedSlotAppointmentAnalytics,
+} from "./appointment-analytics.js";
 import { removeAvailabilitySlot } from "./availability-slots.js";
 import { recordBookedAppointmentInState } from "./appointment-state.js";
 import {
-  bookedAppointmentToolResult,
+  bookedAppointmentMessage,
   bookingFailureMessage,
   bookingHadPositiveStatusWithoutAppointmentId,
   bookingOutcome,
@@ -109,17 +114,53 @@ export const book_appt = llm.tool({
     if (bookingSucceeded(result)) {
       recordBookedAppointmentInState(state, selectedSlot, result);
       removeAvailabilitySlot(state, selectedSlot.slotId);
-      return bookedAppointmentToolResult(selectedSlot, result);
+      const message = bookedAppointmentMessage(selectedSlot, result);
+      recordAppointmentAction(state, {
+        action: "booked",
+        status: appointmentActionStatusForBookingResult(result),
+        toolName: "book_appt",
+        message,
+        appointment: bookedSlotAppointmentAnalytics(
+          state,
+          selectedSlot,
+          result,
+        ),
+      });
+      return message;
     }
     if (bookingHadPositiveStatusWithoutAppointmentId(result)) {
       clearAvailabilitySelection(state);
-      return bookingFailureMessage(result);
+      const message = bookingFailureMessage(result);
+      recordAppointmentAction(state, {
+        action: "booked",
+        status: "error",
+        toolName: "book_appt",
+        message,
+        appointment: bookedSlotAppointmentAnalytics(
+          state,
+          selectedSlot,
+          result,
+        ),
+      });
+      return message;
     }
 
     const outcome = bookingOutcome(result);
     if (outcome === "slot_unavailable") {
       const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
-      return slotUnavailableMessage(remainingSlots);
+      const message = slotUnavailableMessage(remainingSlots);
+      recordAppointmentAction(state, {
+        action: "booked",
+        status: "error",
+        toolName: "book_appt",
+        message,
+        appointment: bookedSlotAppointmentAnalytics(
+          state,
+          selectedSlot,
+          result,
+        ),
+      });
+      return message;
     }
     if (
       outcome === "invalid_booking_token" ||
@@ -128,7 +169,15 @@ export const book_appt = llm.tool({
       clearAvailabilitySelection(state);
     }
 
-    return bookingFailureMessage(result);
+    const message = bookingFailureMessage(result);
+    recordAppointmentAction(state, {
+      action: "booked",
+      status: "error",
+      toolName: "book_appt",
+      message,
+      appointment: bookedSlotAppointmentAnalytics(state, selectedSlot, result),
+    });
+    return message;
   },
 });
 

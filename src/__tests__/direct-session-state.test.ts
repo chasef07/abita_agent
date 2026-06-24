@@ -13,6 +13,7 @@ vi.mock("../tools/handoff.js", () => ({
 
 import {
   CALLER_CANDIDATE_REF,
+  appointmentActions,
   clearAvailabilitySelection,
   createCanonicalCallState,
   storeAvailabilityBookingToken,
@@ -570,10 +571,7 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toMatchObject({
-      status: "booked",
-      appointmentId: 789,
-    });
+    expect(result).toBe("Booked July 9 at 9:00 AM with Dr. Bach.");
     expect(JSON.parse(fetchMock.mock.calls[2][1].body as string)).toMatchObject(
       {
         bookingToken: "first-private-token",
@@ -1530,10 +1528,7 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toMatchObject({
-      status: "booked",
-      appointmentId: 456,
-    });
+    expect(result).toBe("Booked June 1 at 9:00 AM with Doctor Smith.");
     expect(state.workflow.current).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
@@ -1651,7 +1646,7 @@ describe("direct session state cleanup", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("books an active slot with private state and returns a structured receipt", async () => {
+  it("books an active slot with private state and records analytics", async () => {
     const state = createState();
     markSchedulingTriaged(state);
     storeAvailabilityBookingToken(state, "A", "private-token");
@@ -1683,14 +1678,27 @@ describe("direct session state cleanup", () => {
     );
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(result).toMatchObject({
-      status: "booked",
-      appointmentId: 123,
-      providerName: "Doctor Smith",
-      locationName: "Spring Hill",
-      appointmentTypeName: "Medical",
-      message: "Booked June 1 at 9:00 AM with Doctor Smith.",
-    });
+    expect(result).toBe("Booked June 1 at 9:00 AM with Doctor Smith.");
+    expect(appointmentActions(state)).toEqual([
+      {
+        action: "booked",
+        status: "success",
+        toolName: "book_appt",
+        createdAt: "2026-05-30T16:00:00.000Z",
+        message: "Booked June 1 at 9:00 AM with Doctor Smith.",
+        appointment: {
+          appointmentId: "123",
+          patientName: "Jane Doe",
+          appointmentDate: "2026-06-01",
+          appointmentTime: "9:00 AM",
+          startDatetime: "2026-06-01T09:00:00",
+          providerName: "Doctor Smith",
+          locationName: "Spring Hill",
+          appointmentTypeName: "Medical",
+          careLane: "medical_md",
+        },
+      },
+    ]);
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(body).toMatchObject({
       bookingToken: "private-token",
@@ -1849,14 +1857,7 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toMatchObject({
-      status: "booked",
-      appointmentId: 456,
-      providerName: "Doctor Smith",
-      locationName: "Spring Hill",
-      appointmentTypeName: "Medical",
-      message: "Booked June 1 at 2:00 PM with Doctor Smith.",
-    });
+    expect(result).toBe("Booked June 1 at 2:00 PM with Doctor Smith.");
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
       bookingToken: "private-token-b",
@@ -3871,6 +3872,25 @@ describe("direct session state cleanup", () => {
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(result).toBe("Cancelled the appointment on June 5 at 10:00 AM.");
+    expect(appointmentActions(state)).toEqual([
+      {
+        action: "cancelled",
+        status: "success",
+        toolName: "cancel_appt",
+        createdAt: "2026-05-30T16:00:00.000Z",
+        message: "Cancelled the appointment on June 5 at 10:00 AM.",
+        cancelledAppointment: {
+          appointmentId: "123",
+          patientName: "Jane Doe",
+          appointmentDate: "June 5",
+          appointmentTime: "10:00 AM",
+          providerName: "Dr. Bach",
+          locationName: "Spring Hill",
+          appointmentTypeName: "Follow-up",
+          careLane: "medical_md",
+        },
+      },
+    ]);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       appointmentId: 123,
       patientId: "patient-1",
@@ -4234,24 +4254,39 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toMatchObject({
-      status: "rescheduled",
-      bookingStatus: "booked",
-      appointmentId: 456,
-      appointmentDate: "2026-06-01",
-      appointmentTime: "9:00 AM",
-      startDatetime: "2026-06-01T09:00:00",
-      providerName: "Doctor Smith",
-      locationName: "Crystal River",
-      appointmentTypeId: 6167,
-      appointmentTypeName: "Crystal River New Patient",
-      cancelledAppointmentId: 123,
-      cancelledAppointmentDate: "Monday, June 1, 2026",
-      cancelledAppointmentTime: "9:00 AM",
-      cancellationStatus: "cancelled",
-      message:
-        "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
-    });
+    expect(result).toBe(
+      "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+    );
+    expect(appointmentActions(state)).toEqual([
+      {
+        action: "rescheduled",
+        status: "success",
+        toolName: "reschedule_appt",
+        createdAt: "2026-05-30T16:00:00.000Z",
+        message:
+          "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+        appointment: {
+          appointmentId: "456",
+          patientName: "Jane Doe",
+          appointmentDate: "2026-06-01",
+          appointmentTime: "9:00 AM",
+          startDatetime: "2026-06-01T09:00:00",
+          providerName: "Doctor Smith",
+          locationName: "Crystal River",
+          appointmentTypeName: "Crystal River New Patient",
+          careLane: "medical_md",
+        },
+        cancelledAppointment: {
+          appointmentId: "123",
+          patientName: "Jane Doe",
+          appointmentDate: "Monday, June 1, 2026",
+          appointmentTime: "9:00 AM",
+          providerName: "Dr. Licht",
+          locationName: "Crystal River",
+          appointmentTypeName: "Crystal River New Patient",
+        },
+      },
+    ]);
     expect(fetchCallKinds(fetchMock)).toEqual(["book", "cancel"]);
     const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(bookingBody).toMatchObject({
@@ -4281,6 +4316,50 @@ describe("direct session state cleanup", () => {
         appointmentTypeId: 6167,
         facility: "Crystal River",
         confirmed: true,
+      },
+    ]);
+  });
+
+  it("keeps completed reschedule analytics successful when only booking note save is partial", async () => {
+    const state = createState();
+    prepareRescheduleState(state, { context: "change_appointment" });
+    stubRescheduleFetch({
+      status: "partial",
+      appointmentId: 456,
+      providerName: "Doctor Smith",
+      locationName: "Spring Hill",
+      appointmentTypeName: "Medical",
+    });
+
+    const result = await reschedule_appt.execute(
+      {
+        appointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM. The appointment was booked, but the patient note did not save.",
+    );
+    expect(appointmentActions(state)).toMatchObject([
+      {
+        action: "rescheduled",
+        status: "success",
+        toolName: "reschedule_appt",
+        appointment: {
+          appointmentId: "456",
+          appointmentDate: "2026-06-01",
+          appointmentTime: "9:00 AM",
+        },
+        cancelledAppointment: {
+          appointmentId: "123",
+        },
       },
     ]);
   });
@@ -4412,11 +4491,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toMatchObject({
-      status: "rescheduled",
-      appointmentId: 456,
-      cancelledAppointmentId: 123,
-    });
+    expect(result).toBe(
+      "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+    );
     expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
       appointmentId: 123,
       patientId: "patient-1",
@@ -4448,11 +4525,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toMatchObject({
-      status: "rescheduled",
-      appointmentId: 456,
-      cancelledAppointmentId: 123,
-    });
+    expect(result).toBe(
+      "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+    );
     expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
       appointmentId: 123,
       patientId: "patient-1",
@@ -4578,17 +4653,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toMatchObject({
-      status: "rescheduled",
-      bookingStatus: "booked",
-      appointmentId: 789,
-      appointmentDate: "2026-06-01",
-      appointmentTime: "2:00 PM",
-      cancelledAppointmentId: 456,
-      cancellationStatus: "cancelled",
-      message:
-        "Rescheduled the appointment to June 1 at 2:00 PM with Doctor Smith. Cancelled the old appointment on 2026-06-01 at 9:00 AM.",
-    });
+    expect(result).toBe(
+      "Rescheduled the appointment to June 1 at 2:00 PM with Doctor Smith. Cancelled the old appointment on 2026-06-01 at 9:00 AM.",
+    );
     expect(fetchCallKinds(fetchMock)).toEqual([
       "book",
       "cancel",
@@ -4666,21 +4733,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toMatchObject({
-      status: "rescheduled",
-      bookingStatus: "booked",
-      appointmentId: 456,
-      appointmentDate: "2026-06-03",
-      appointmentTime: "10:00 AM",
-      startDatetime: "2026-06-03T10:00:00",
-      providerName: "Doctor Smith",
-      locationName: "Spring Hill",
-      appointmentTypeName: "Routine Vision",
-      cancelledAppointmentId: 123,
-      cancellationStatus: "cancelled",
-      message:
-        "Rescheduled the appointment to June 3 at 10:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
-    });
+    expect(result).toBe(
+      "Rescheduled the appointment to June 3 at 10:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+    );
     const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(bookingBody).toMatchObject({
       bookingToken: "private-token",
@@ -4871,6 +4926,23 @@ describe("direct session state cleanup", () => {
     expect(result).toBe(
       "Booked the new appointment for June 1 at 9:00 AM with Doctor Smith, but I could not cancel the old appointment. Unable to verify appointment before cancellation. I need to transfer you so the office can finish the cancellation.",
     );
+    expect(appointmentActions(state)).toMatchObject([
+      {
+        action: "rescheduled",
+        status: "partial",
+        toolName: "reschedule_appt",
+        appointment: {
+          appointmentId: "456",
+          appointmentDate: "2026-06-01",
+          appointmentTime: "9:00 AM",
+        },
+        cancelledAppointment: {
+          appointmentId: "123",
+          appointmentDate: "Monday, June 1, 2026",
+          appointmentTime: "9:00 AM",
+        },
+      },
+    ]);
 
     const heldSlot: TestCallState["availability"]["slots"][number] =
       availabilitySlot({
