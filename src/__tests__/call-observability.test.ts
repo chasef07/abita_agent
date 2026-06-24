@@ -279,6 +279,23 @@ describe("call observability", () => {
       outputClass: "appointment_not_cancelled",
       status: "error",
     });
+
+    expect(
+      snapshotToolExecutions({
+        functionCalls: [{ callId: "call_5", name: "book_appt" }],
+        functionCallOutputs: [
+          {
+            callId: "call_5",
+            isError: false,
+            output:
+              "That time is no longer available. Check availability again before booking.",
+          },
+        ],
+      })[0],
+    ).toMatchObject({
+      outputClass: "appointment_not_booked",
+      status: "error",
+    });
   });
 
   it("adds sanitized appointment action fallbacks for missing tool executions", () => {

@@ -325,6 +325,7 @@ function toolExecutionStatus(
     isError ||
     outputClass === "middleware_error" ||
     outputClass === "tool_error" ||
+    outputClass === "appointment_not_booked" ||
     outputClass === "appointment_not_cancelled" ||
     outputClass === "appointment_not_rescheduled" ||
     outputClass === "availability_blocked" ||
