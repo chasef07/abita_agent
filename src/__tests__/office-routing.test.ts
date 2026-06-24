@@ -20,14 +20,14 @@ import {
 } from "../customer/profile.js";
 import {
   add_patient,
-  book_appt,
-  cancel_appt,
+  book_appointment,
+  cancel_appointment,
   check_insurance,
   resolve_patient,
   get_current_datetime,
   get_availability,
   lookup_knowledge,
-  reschedule_appt,
+  reschedule_appointment,
   route_to_spring_hill,
   transfer_call,
   update_insurance,
@@ -298,9 +298,6 @@ describe("tool-first prompt gating", () => {
     expect(prompt).toContain("say you see a few patient records on file");
     expect(prompt).toContain(
       "For insurance acceptance questions, never answer yes or no without check_insurance.",
-    );
-    expect(prompt).toContain(
-      "Call get_current_datetime before interpreting relative dates or times for scheduling, availability, booking, or appointment changes.",
     );
     expect(prompt).not.toContain("Today is");
     expect(prompt).not.toContain("The current time is");
@@ -843,25 +840,42 @@ describe("model-facing tool definitions", () => {
     );
   });
 
-  it("keeps cancel_appt scoped to loaded appointment cancellation", () => {
-    expect(cancel_appt.description).toContain("Cancel a loaded appointment");
-    expect(cancel_appt.description).toContain(
+  it("exposes clear active appointment tool names without legacy aliases", () => {
+    const toolNames = Object.keys(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE));
+
+    expect(toolNames).toEqual(
+      expect.arrayContaining([
+        "book_appointment",
+        "cancel_appointment",
+        "reschedule_appointment",
+      ]),
+    );
+    expect(toolNames).not.toEqual(
+      expect.arrayContaining(["book_appt", "cancel_appt", "reschedule_appt"]),
+    );
+  });
+
+  it("keeps cancel_appointment scoped to loaded appointment cancellation", () => {
+    expect(cancel_appointment.description).toContain(
+      "Cancel a loaded appointment",
+    );
+    expect(cancel_appointment.description).toContain(
       "caller confirms the exact appointment",
     );
-    expect(cancel_appt.description).toContain(
+    expect(cancel_appointment.description).toContain(
       "latest booked appointment or exactly one loaded appointment",
     );
-    expect(cancel_appt.description).toContain(
+    expect(cancel_appointment.description).toContain(
       "Pass appointmentDate and appointmentTime",
     );
-    expect(cancel_appt.description).toContain(
+    expect(cancel_appointment.description).toContain(
       "Do not pass backend patient IDs or appointment IDs",
     );
-    expect(cancel_appt.description).not.toContain(
+    expect(cancel_appointment.description).not.toContain(
       "For reschedules, book the new appointment",
     );
 
-    const parameters = cancel_appt.parameters as {
+    const parameters = cancel_appointment.parameters as {
       safeParse: (value: unknown) => { success: boolean };
       shape: Record<string, unknown>;
     };
@@ -879,27 +893,27 @@ describe("model-facing tool definitions", () => {
     expect(parameters.safeParse({}).success).toBe(true);
   });
 
-  it("exposes reschedule_appt as the deterministic appointment move tool", () => {
+  it("exposes reschedule_appointment as the deterministic appointment move tool", () => {
     expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).toHaveProperty(
-      "reschedule_appt",
+      "reschedule_appointment",
     );
-    expect(reschedule_appt.description).toContain(
+    expect(reschedule_appointment.description).toContain(
       "Reschedule a loaded appointment",
     );
-    expect(reschedule_appt.description).toContain(
+    expect(reschedule_appointment.description).toContain(
       "books the new appointment first",
     );
-    expect(reschedule_appt.description).toContain(
+    expect(reschedule_appointment.description).toContain(
       "read back the selected new appointment date, time, and provider",
     );
-    expect(reschedule_appt.description).toContain(
+    expect(reschedule_appointment.description).toContain(
       "Do not pass backend patient IDs or appointment IDs",
     );
-    expect(reschedule_appt.description).toContain(
+    expect(reschedule_appointment.description).toContain(
       "cancels the old appointment only after booking succeeds",
     );
 
-    const parameters = reschedule_appt.parameters as {
+    const parameters = reschedule_appointment.parameters as {
       safeParse: (value: unknown) => { success: boolean };
       shape: Record<string, unknown>;
     };
@@ -977,19 +991,21 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
   });
 
-  it("keeps book_appt scoped to confirmed slots with required referring doctor", () => {
-    expect(book_appt.description).toContain(
+  it("keeps book_appointment scoped to confirmed slots with required referring doctor", () => {
+    expect(book_appointment.description).toContain(
       "Book a caller-confirmed appointment slot",
     );
-    expect(book_appt.description).toContain("do not use for reschedules");
-    expect(book_appt.description).toContain(
+    expect(book_appointment.description).toContain(
+      "do not use for reschedules",
+    );
+    expect(book_appointment.description).toContain(
       "caller provides a referring doctor or says they have none",
     );
-    expect(book_appt.description).toContain(
+    expect(book_appointment.description).toContain(
       "read back the selected appointment date, time, and provider",
     );
 
-    const parameters = book_appt.parameters as {
+    const parameters = book_appointment.parameters as {
       safeParse: (value: unknown) => { success: boolean };
       shape: Record<string, unknown>;
     };

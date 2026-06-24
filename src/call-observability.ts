@@ -182,6 +182,7 @@ export function classifyToolOutput(
 
   switch (toolName) {
     case "book_appt":
+    case "book_appointment":
       if (
         /\bnot booked\b/.test(outputText) ||
         /\bno longer available\b/.test(outputText) ||
@@ -203,6 +204,7 @@ export function classifyToolOutput(
       }
       return "appointment_not_booked";
     case "cancel_appt":
+    case "cancel_appointment":
       if (
         /\bnot cancelled\b/.test(outputText) ||
         /\bnot canceled\b/.test(outputText) ||
@@ -229,6 +231,7 @@ export function classifyToolOutput(
       }
       return "appointment_not_cancelled";
     case "reschedule_appt":
+    case "reschedule_appointment":
       if (
         /\bdid not cancel the existing appointment\b/.test(outputText) ||
         /\bnot booked\b/.test(outputText) ||

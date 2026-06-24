@@ -65,11 +65,11 @@ src/
   tools/
     get-current-datetime.ts get_current_datetime definition, schema, execute body
     add-patient.ts        add_patient definition, schema, execute body
-    book-appt.ts          book_appt definition, schema, execute body
-    cancel-appt.ts        cancel_appt definition, schema, execute body
+    book-appt.ts          book_appointment definition, schema, execute body
+    cancel-appt.ts        cancel_appointment definition, schema, execute body
     check-insurance.ts    check_insurance definition, schema, execute body
     get-availability.ts   get_availability definition, schema, execute body
-    reschedule-appt.ts    reschedule_appt definition, schema, execute body
+    reschedule-appt.ts    reschedule_appointment definition, schema, execute body
     update-insurance.ts   update_insurance definition, schema, execute body
     resolve-patient.ts      resolve_patient schema and identity loading
     route-to-spring-hill.ts route_to_spring_hill definition
@@ -96,9 +96,9 @@ The current broad office tool set is:
 - `add_patient`
 - `update_insurance`
 - `get_availability`
-- `cancel_appt`
-- `reschedule_appt`
-- `book_appt`
+- `cancel_appointment`
+- `reschedule_appointment`
+- `book_appointment`
 - `check_insurance`
 - `lookup_knowledge`
 - `route_to_spring_hill` for Crystal River trunks only
@@ -106,7 +106,7 @@ The current broad office tool set is:
 
 For new scheduling, `get_availability` takes `appointmentLane` directly once the
 medical-versus-routine lane is clear. `add_patient` takes the same lane because
-chart creation can change office routing for routine vision. `book_appt` does
+chart creation can change office routing for routine vision. `book_appointment` does
 not repeat the lane; it uses the private booking token and routing cached from
 the caller-confirmed availability slot. State-changing tools read and write
 `session.userData` directly. The final side effect is not considered complete
