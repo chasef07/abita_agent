@@ -81,7 +81,7 @@ export const cancel_appointment = llm.tool({
       recordAppointmentAction(state, {
         action: "cancelled",
         status: "error",
-        toolName: "cancel_appt",
+        toolName: "cancel_appointment",
         message,
         cancelledAppointment: cancelledAppointmentAnalytics(state, appointment),
       });
@@ -93,7 +93,7 @@ export const cancel_appointment = llm.tool({
     recordAppointmentAction(state, {
       action: "cancelled",
       status: "success",
-      toolName: "cancel_appt",
+      toolName: "cancel_appointment",
       message,
       cancelledAppointment: cancelledAppointmentAnalytics(state, appointment),
     });

@@ -1683,7 +1683,7 @@ describe("direct session state cleanup", () => {
       {
         action: "booked",
         status: "success",
-        toolName: "book_appt",
+        toolName: "book_appointment",
         createdAt: "2026-05-30T16:00:00.000Z",
         message: "Booked June 1 at 9:00 AM with Doctor Smith.",
         appointment: {
@@ -3876,7 +3876,7 @@ describe("direct session state cleanup", () => {
       {
         action: "cancelled",
         status: "success",
-        toolName: "cancel_appt",
+        toolName: "cancel_appointment",
         createdAt: "2026-05-30T16:00:00.000Z",
         message: "Cancelled the appointment on June 5 at 10:00 AM.",
         cancelledAppointment: {
@@ -4261,7 +4261,7 @@ describe("direct session state cleanup", () => {
       {
         action: "rescheduled",
         status: "success",
-        toolName: "reschedule_appt",
+        toolName: "reschedule_appointment",
         createdAt: "2026-05-30T16:00:00.000Z",
         message:
           "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
@@ -4331,7 +4331,7 @@ describe("direct session state cleanup", () => {
       appointmentTypeName: "Medical",
     });
 
-    const result = await reschedule_appt.execute(
+    const result = await reschedule_appointment.execute(
       {
         appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
@@ -4351,7 +4351,7 @@ describe("direct session state cleanup", () => {
       {
         action: "rescheduled",
         status: "success",
-        toolName: "reschedule_appt",
+        toolName: "reschedule_appointment",
         appointment: {
           appointmentId: "456",
           appointmentDate: "2026-06-01",
@@ -4930,7 +4930,7 @@ describe("direct session state cleanup", () => {
       {
         action: "rescheduled",
         status: "partial",
-        toolName: "reschedule_appt",
+        toolName: "reschedule_appointment",
         appointment: {
           appointmentId: "456",
           appointmentDate: "2026-06-01",

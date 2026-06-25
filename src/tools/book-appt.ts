@@ -118,7 +118,7 @@ export const book_appointment = llm.tool({
       recordAppointmentAction(state, {
         action: "booked",
         status: appointmentActionStatusForBookingResult(result),
-        toolName: "book_appt",
+        toolName: "book_appointment",
         message,
         appointment: bookedSlotAppointmentAnalytics(
           state,
@@ -134,7 +134,7 @@ export const book_appointment = llm.tool({
       recordAppointmentAction(state, {
         action: "booked",
         status: "error",
-        toolName: "book_appt",
+        toolName: "book_appointment",
         message,
         appointment: bookedSlotAppointmentAnalytics(
           state,
@@ -152,7 +152,7 @@ export const book_appointment = llm.tool({
       recordAppointmentAction(state, {
         action: "booked",
         status: "error",
-        toolName: "book_appt",
+        toolName: "book_appointment",
         message,
         appointment: bookedSlotAppointmentAnalytics(
           state,
@@ -173,7 +173,7 @@ export const book_appointment = llm.tool({
     recordAppointmentAction(state, {
       action: "booked",
       status: "error",
-      toolName: "book_appt",
+      toolName: "book_appointment",
       message,
       appointment: bookedSlotAppointmentAnalytics(state, selectedSlot, result),
     });

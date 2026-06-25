@@ -422,11 +422,11 @@ function toolNameForAppointmentAction(
 ): string {
   switch (action) {
     case "booked":
-      return "book_appt";
+      return "book_appointment";
     case "cancelled":
-      return "cancel_appt";
+      return "cancel_appointment";
     case "rescheduled":
-      return "reschedule_appt";
+      return "reschedule_appointment";
   }
 }
 

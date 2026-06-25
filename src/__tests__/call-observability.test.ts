@@ -310,7 +310,7 @@ describe("call observability", () => {
 
     expect(
       snapshotToolExecutions({
-        functionCalls: [{ callId: "call_5", name: "book_appt" }],
+        functionCalls: [{ callId: "call_5", name: "book_appointment" }],
         functionCallOutputs: [
           {
             callId: "call_5",
@@ -335,7 +335,7 @@ describe("call observability", () => {
             action: "booked",
             createdAt: "2026-05-20T10:00:00.000Z",
             status: "success",
-            toolName: "book_appt",
+            toolName: "book_appointment",
             appointment: {
               appointmentId: "123",
               patientName: "Jane Patient",
@@ -347,7 +347,7 @@ describe("call observability", () => {
             message:
               "Booked the new appointment, but I could not cancel the old appointment.",
             status: "partial",
-            toolName: "reschedule_appt",
+            toolName: "reschedule_appointment",
           },
         ],
       ),
@@ -357,14 +357,14 @@ describe("call observability", () => {
         createdAt: "2026-05-20T10:00:00.000Z",
         outputClass: "appointment_booked",
         status: "success",
-        toolName: "book_appt",
+        toolName: "book_appointment",
       },
       {
         callId: "appointment_action_2",
         createdAt: "2026-05-20T10:01:00.000Z",
         outputClass: "appointment_reschedule_partial",
         status: "error",
-        toolName: "reschedule_appt",
+        toolName: "reschedule_appointment",
       },
     ]);
     expect(
@@ -375,7 +375,7 @@ describe("call observability", () => {
             {
               action: "booked",
               status: "success",
-              toolName: "book_appt",
+              toolName: "book_appointment",
               appointment: {
                 appointmentId: "123",
                 patientName: "Jane Patient",
@@ -396,7 +396,7 @@ describe("call observability", () => {
             createdAt: "2026-05-20T10:00:00.000Z",
             outputClass: "appointment_booked",
             status: "success",
-            toolName: "book_appt",
+            toolName: "book_appointment",
           },
         ],
         [
@@ -404,7 +404,7 @@ describe("call observability", () => {
             action: "booked",
             createdAt: "2026-05-20T10:00:00.000Z",
             status: "success",
-            toolName: "book_appt",
+            toolName: "book_appointment",
           },
         ],
       ),
@@ -420,7 +420,7 @@ describe("call observability", () => {
             createdAt: "2026-05-20T09:59:00.000Z",
             outputClass: "appointment_not_booked",
             status: "error",
-            toolName: "book_appt",
+            toolName: "book_appointment",
           },
         ],
         [
@@ -428,7 +428,7 @@ describe("call observability", () => {
             action: "booked",
             createdAt: "2026-05-20T10:00:00.000Z",
             status: "success",
-            toolName: "book_appt",
+            toolName: "book_appointment",
           },
         ],
       ),
@@ -438,14 +438,14 @@ describe("call observability", () => {
         createdAt: "2026-05-20T09:59:00.000Z",
         outputClass: "appointment_not_booked",
         status: "error",
-        toolName: "book_appt",
+        toolName: "book_appointment",
       },
       {
         callId: "appointment_action_1",
         createdAt: "2026-05-20T10:00:00.000Z",
         outputClass: "appointment_booked",
         status: "success",
-        toolName: "book_appt",
+        toolName: "book_appointment",
       },
     ]);
   });

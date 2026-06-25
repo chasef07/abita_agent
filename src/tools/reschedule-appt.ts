@@ -461,7 +461,7 @@ function recordRescheduleAction(
   recordAppointmentAction(state, {
     action: "rescheduled",
     status: input.status,
-    toolName: "reschedule_appt",
+    toolName: "reschedule_appointment",
     message: input.message,
     appointment: bookedSlotAppointmentAnalytics(
       state,
