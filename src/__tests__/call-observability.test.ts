@@ -9,6 +9,7 @@ import {
   snapshotOverlappingSpeechEvent,
   snapshotSttProfileTransition,
   snapshotToolExecutions,
+  withAppointmentActionToolExecutionFallback,
 } from "../call-observability.js";
 
 describe("call observability", () => {
@@ -278,6 +279,147 @@ describe("call observability", () => {
       outputClass: "appointment_not_cancelled",
       status: "error",
     });
+
+    expect(
+      snapshotToolExecutions({
+        functionCalls: [{ callId: "call_5", name: "book_appt" }],
+        functionCallOutputs: [
+          {
+            callId: "call_5",
+            isError: false,
+            output:
+              "That time is no longer available. Check availability again before booking.",
+          },
+        ],
+      })[0],
+    ).toMatchObject({
+      outputClass: "appointment_not_booked",
+      status: "error",
+    });
+  });
+
+  it("adds sanitized appointment action fallbacks for missing tool executions", () => {
+    expect(
+      withAppointmentActionToolExecutionFallback(
+        [],
+        [
+          {
+            action: "booked",
+            createdAt: "2026-05-20T10:00:00.000Z",
+            status: "success",
+            toolName: "book_appt",
+            appointment: {
+              appointmentId: "123",
+              patientName: "Jane Patient",
+            },
+          },
+          {
+            action: "rescheduled",
+            createdAt: "2026-05-20T10:01:00.000Z",
+            message:
+              "Booked the new appointment, but I could not cancel the old appointment.",
+            status: "partial",
+            toolName: "reschedule_appt",
+          },
+        ],
+      ),
+    ).toEqual([
+      {
+        callId: "appointment_action_1",
+        createdAt: "2026-05-20T10:00:00.000Z",
+        outputClass: "appointment_booked",
+        status: "success",
+        toolName: "book_appt",
+      },
+      {
+        callId: "appointment_action_2",
+        createdAt: "2026-05-20T10:01:00.000Z",
+        outputClass: "appointment_reschedule_partial",
+        status: "error",
+        toolName: "reschedule_appt",
+      },
+    ]);
+    expect(
+      JSON.stringify(
+        withAppointmentActionToolExecutionFallback(
+          [],
+          [
+            {
+              action: "booked",
+              status: "success",
+              toolName: "book_appt",
+              appointment: {
+                appointmentId: "123",
+                patientName: "Jane Patient",
+              },
+            },
+          ],
+        ),
+      ),
+    ).not.toContain("Jane Patient");
+  });
+
+  it("does not duplicate matching appointment action tool executions", () => {
+    expect(
+      withAppointmentActionToolExecutionFallback(
+        [
+          {
+            callId: "call_1",
+            createdAt: "2026-05-20T10:00:00.000Z",
+            outputClass: "appointment_booked",
+            status: "success",
+            toolName: "book_appt",
+          },
+        ],
+        [
+          {
+            action: "booked",
+            createdAt: "2026-05-20T10:00:00.000Z",
+            status: "success",
+            toolName: "book_appt",
+          },
+        ],
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("keeps appointment action fallbacks when only a read-back call was captured", () => {
+    expect(
+      withAppointmentActionToolExecutionFallback(
+        [
+          {
+            callId: "call_1",
+            createdAt: "2026-05-20T09:59:00.000Z",
+            outputClass: "appointment_not_booked",
+            status: "error",
+            toolName: "book_appt",
+          },
+        ],
+        [
+          {
+            action: "booked",
+            createdAt: "2026-05-20T10:00:00.000Z",
+            status: "success",
+            toolName: "book_appt",
+          },
+        ],
+      ),
+    ).toEqual([
+      {
+        callId: "call_1",
+        createdAt: "2026-05-20T09:59:00.000Z",
+        outputClass: "appointment_not_booked",
+        status: "error",
+        toolName: "book_appt",
+      },
+      {
+        callId: "appointment_action_1",
+        createdAt: "2026-05-20T10:00:00.000Z",
+        outputClass: "appointment_booked",
+        status: "success",
+        toolName: "book_appt",
+      },
+    ]);
   });
 
   it("builds session event analytics without raw error messages", () => {

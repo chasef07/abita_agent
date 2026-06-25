@@ -11,12 +11,17 @@ import {
   clearAvailabilitySelection,
   completedRescheduleForPatient,
   latestAvailabilityRouting,
+  recordAppointmentAction,
   recordCompletedRescheduleForPatient,
   type CallerAppointment,
   type CallState,
   type CompletedRescheduleState,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
+import {
+  bookedSlotAppointmentAnalytics,
+  cancelledAppointmentAnalytics,
+} from "./appointment-analytics.js";
 import {
   removeAvailabilitySlot,
   selectedAvailabilitySlot,
@@ -185,7 +190,8 @@ export const reschedule_appt = llm.tool({
     } else {
       return handleRescheduleBookingFailure(
         state,
-        selectedSlot.slotId,
+        selectedSlot,
+        oldAppointment,
         bookingResult,
       );
     }
@@ -204,10 +210,18 @@ export const reschedule_appt = llm.tool({
         selectedSlot,
         "needs_human_cancellation",
       );
-      return rescheduleCancellationFailureMessage(
+      const message = rescheduleCancellationFailureMessage(
         selectedSlot,
         "The old appointment was not cancelled.",
       );
+      recordRescheduleAction(state, {
+        status: "partial",
+        message,
+        selectedSlot,
+        bookingResult,
+        oldAppointment,
+      });
+      return message;
     }
 
     if (cancelResult?.status !== "cancelled") {
@@ -217,20 +231,35 @@ export const reschedule_appt = llm.tool({
         selectedSlot,
         "needs_human_cancellation",
       );
-      return rescheduleCancellationFailureMessage(
+      const message = rescheduleCancellationFailureMessage(
         selectedSlot,
         cancelResult?.message ?? "The old appointment was not cancelled.",
       );
+      recordRescheduleAction(state, {
+        status: "partial",
+        message,
+        selectedSlot,
+        bookingResult,
+        oldAppointment,
+      });
+      return message;
     }
 
     removeAppointmentById(state, oldAppointment.id);
     recordCompletedReschedule(state, patientId, selectedSlot, "rescheduled");
-    return rescheduledAppointmentToolResult(
+    const message = rescheduledAppointmentMessage(
       selectedSlot,
       bookingResult,
       oldAppointment,
-      cancelResult,
     );
+    recordRescheduleAction(state, {
+      status: "success",
+      message,
+      selectedSlot,
+      bookingResult,
+      oldAppointment,
+    });
+    return message;
   },
 });
 
@@ -347,18 +376,36 @@ const OFFICE_KEYS: OfficeKey[] = [
 
 function handleRescheduleBookingFailure(
   state: CallState,
-  slotId: string,
+  selectedSlot: StoredAvailabilitySlot,
+  oldAppointment: CallerAppointment,
   bookingResult: unknown,
 ): string {
   if (bookingHadPositiveStatusWithoutAppointmentId(bookingResult)) {
     clearAvailabilitySelection(state);
-    return "I could not confirm the new booking because the appointment ID was missing, so I did not cancel the existing appointment. Check availability again before booking.";
+    const message =
+      "I could not confirm the new booking because the appointment ID was missing, so I did not cancel the existing appointment. Check availability again before booking.";
+    recordRescheduleAction(state, {
+      status: "error",
+      message,
+      selectedSlot,
+      bookingResult,
+      oldAppointment,
+    });
+    return message;
   }
 
   const outcome = bookingOutcome(bookingResult);
   if (outcome === "slot_unavailable") {
-    const remainingSlots = removeAvailabilitySlot(state, slotId);
-    return `${slotUnavailableMessage(remainingSlots)} I did not cancel the existing appointment.`;
+    const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
+    const message = `${slotUnavailableMessage(remainingSlots)} I did not cancel the existing appointment.`;
+    recordRescheduleAction(state, {
+      status: "error",
+      message,
+      selectedSlot,
+      bookingResult,
+      oldAppointment,
+    });
+    return message;
   }
   if (
     outcome === "invalid_booking_token" ||
@@ -367,7 +414,15 @@ function handleRescheduleBookingFailure(
     clearAvailabilitySelection(state);
   }
 
-  return `${bookingFailureMessage(bookingResult)} I did not cancel the existing appointment.`;
+  const message = `${bookingFailureMessage(bookingResult)} I did not cancel the existing appointment.`;
+  recordRescheduleAction(state, {
+    status: "error",
+    message,
+    selectedSlot,
+    bookingResult,
+    oldAppointment,
+  });
+  return message;
 }
 
 function rescheduleCancellationFailureMessage(
@@ -381,47 +436,43 @@ function rescheduleCancellationFailureMessage(
   );
 }
 
-function rescheduledAppointmentToolResult(
+function rescheduledAppointmentMessage(
   selectedSlot: StoredAvailabilitySlot,
   bookingResult: unknown,
   oldAppointment: CallerAppointment,
-  cancelResult: CancelAppointmentResult,
-): Record<string, unknown> {
-  const receipt = isRecord(bookingResult) ? bookingResult : {};
-  const message =
+): string {
+  return (
     `Rescheduled the appointment to ${spokenSlot(selectedSlot)}. ` +
     `Cancelled the old appointment on ${oldAppointment.date} at ${oldAppointment.time}.` +
-    bookingNoteWarning(bookingResult);
-
-  return {
-    ...receipt,
-    status: "rescheduled",
-    bookingStatus:
-      typeof receipt.status === "string" ? receipt.status : "booked",
-    message,
-    startDatetime:
-      stringField(receipt, "startDatetime") ?? selectedSlot.datetime,
-    appointmentDate: selectedSlot.date,
-    appointmentTime: selectedSlot.time,
-    providerName: stringField(receipt, "providerName") ?? selectedSlot.provider,
-    cancelledAppointmentId: oldAppointment.id,
-    cancelledAppointmentDate: oldAppointment.date,
-    cancelledAppointmentTime: oldAppointment.time,
-    cancelledAppointmentProvider: oldAppointment.provider,
-    cancellationStatus: cancelResult.status ?? "cancelled",
-  };
+    bookingNoteWarning(bookingResult)
+  );
 }
 
-function stringField(
-  record: Record<string, unknown>,
-  field: string,
-): string | undefined {
-  const value = record[field];
-  return typeof value === "string" && value.trim() ? value : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function recordRescheduleAction(
+  state: CallState,
+  input: {
+    status: "success" | "partial" | "error";
+    message: string;
+    selectedSlot: StoredAvailabilitySlot;
+    bookingResult: unknown;
+    oldAppointment: CallerAppointment;
+  },
+): void {
+  recordAppointmentAction(state, {
+    action: "rescheduled",
+    status: input.status,
+    toolName: "reschedule_appt",
+    message: input.message,
+    appointment: bookedSlotAppointmentAnalytics(
+      state,
+      input.selectedSlot,
+      input.bookingResult,
+    ),
+    cancelledAppointment: cancelledAppointmentAnalytics(
+      state,
+      input.oldAppointment,
+    ),
+  });
 }
 
 type CancelAppointmentResult = {

@@ -1,3 +1,5 @@
+import type { AppointmentActionAnalytics } from "./state/call-state.js";
+
 type TimestampInput = number | string | Date | undefined;
 
 type FunctionCallLike = {
@@ -323,6 +325,7 @@ function toolExecutionStatus(
     isError ||
     outputClass === "middleware_error" ||
     outputClass === "tool_error" ||
+    outputClass === "appointment_not_booked" ||
     outputClass === "appointment_not_cancelled" ||
     outputClass === "appointment_not_rescheduled" ||
     outputClass === "availability_blocked" ||
@@ -362,6 +365,96 @@ export function snapshotToolExecutions(
       toolName,
     };
   });
+}
+
+export function withAppointmentActionToolExecutionFallback(
+  executions: ToolExecutionAnalytics[],
+  appointmentActions: AppointmentActionAnalytics[],
+): ToolExecutionAnalytics[] {
+  const remainingExistingByActionKey = new Map<string, number>();
+  for (const execution of executions) {
+    const actionKey = appointmentExecutionKey(
+      execution.toolName,
+      execution.outputClass,
+    );
+    remainingExistingByActionKey.set(
+      actionKey,
+      (remainingExistingByActionKey.get(actionKey) ?? 0) + 1,
+    );
+  }
+
+  const fallbackExecutions: ToolExecutionAnalytics[] = [];
+  appointmentActions.forEach((action, index) => {
+    const toolName =
+      action.toolName ?? toolNameForAppointmentAction(action.action);
+    const outputClass = outputClassForAppointmentAction(action);
+    const actionKey = appointmentExecutionKey(toolName, outputClass);
+    const existing = remainingExistingByActionKey.get(actionKey) ?? 0;
+    if (existing > 0) {
+      remainingExistingByActionKey.set(actionKey, existing - 1);
+      return;
+    }
+
+    fallbackExecutions.push({
+      callId: `appointment_action_${index + 1}`,
+      createdAt: timestampToIso(action.createdAt),
+      outputClass,
+      status: executionStatusForAppointmentAction(action),
+      toolName,
+    });
+  });
+
+  return [...executions, ...fallbackExecutions];
+}
+
+function appointmentExecutionKey(
+  toolName: string,
+  outputClass: string,
+): string {
+  return `${toolName}:${outputClass}`;
+}
+
+function toolNameForAppointmentAction(
+  action: AppointmentActionAnalytics["action"],
+): string {
+  switch (action) {
+    case "booked":
+      return "book_appt";
+    case "cancelled":
+      return "cancel_appt";
+    case "rescheduled":
+      return "reschedule_appt";
+  }
+}
+
+function outputClassForAppointmentAction(
+  action: AppointmentActionAnalytics,
+): string {
+  switch (action.action) {
+    case "booked":
+      return action.status === "error"
+        ? "appointment_not_booked"
+        : "appointment_booked";
+    case "cancelled":
+      return action.status === "error"
+        ? "appointment_not_cancelled"
+        : "appointment_cancelled";
+    case "rescheduled":
+      if (action.status === "partial") return "appointment_reschedule_partial";
+      return action.status === "error"
+        ? "appointment_not_rescheduled"
+        : "appointment_rescheduled";
+  }
+}
+
+function executionStatusForAppointmentAction(
+  action: AppointmentActionAnalytics,
+): ToolExecutionAnalytics["status"] {
+  if (action.status === "error") return "error";
+  if (action.action === "rescheduled" && action.status === "partial") {
+    return "error";
+  }
+  return "success";
 }
 
 function errorCode(error: unknown): string | undefined {

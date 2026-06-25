@@ -1,7 +1,11 @@
 import { llm } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
-import { activePatientId } from "../state/call-state.js";
+import {
+  activePatientId,
+  recordAppointmentAction,
+} from "../state/call-state.js";
+import { cancelledAppointmentAnalytics } from "./appointment-analytics.js";
 import {
   cancellationAppointmentForState,
   completedCancellationForState,
@@ -73,11 +77,27 @@ export const cancel_appt = llm.tool({
     )) as CancelAppointmentResult;
 
     if (result?.status !== "cancelled") {
-      return result?.message ?? "The appointment was not cancelled.";
+      const message = result?.message ?? "The appointment was not cancelled.";
+      recordAppointmentAction(state, {
+        action: "cancelled",
+        status: "error",
+        toolName: "cancel_appt",
+        message,
+        cancelledAppointment: cancelledAppointmentAnalytics(state, appointment),
+      });
+      return message;
     }
 
     removeAppointmentById(state, appointment.id);
-    return `Cancelled the appointment on ${appointment.date} at ${appointment.time}.`;
+    const message = `Cancelled the appointment on ${appointment.date} at ${appointment.time}.`;
+    recordAppointmentAction(state, {
+      action: "cancelled",
+      status: "success",
+      toolName: "cancel_appt",
+      message,
+      cancelledAppointment: cancelledAppointmentAnalytics(state, appointment),
+    });
+    return message;
   },
 });
 
