@@ -47,21 +47,21 @@ For reschedules, omit `appointmentLane` only after the existing appointment to
 move is identified. Backend state derives the lane from the loaded appointment
 provider, type, routing, or AMD appointment type ID.
 
-### `book_appt`
+### `book_appointment`
 
-`book_appt` does not accept `appointmentLane`. It books only a caller-confirmed
+`book_appointment` does not accept `appointmentLane`. It books only a caller-confirmed
 slot returned by `get_availability`, using the cached private booking token and
 stored slot routing.
 
 This avoids duplicate lane entry and prevents the model from changing the lane
 between availability and booking. If backend state says the caller is changing
-an existing appointment, `book_appt` must refuse and the model must use
-`reschedule_appt` so the old appointment is cancelled only after the new booking
+an existing appointment, `book_appointment` must refuse and the model must use
+`reschedule_appointment` so the old appointment is cancelled only after the new booking
 succeeds.
 
-### `reschedule_appt`
+### `reschedule_appointment`
 
-`reschedule_appt` keeps owning the book-then-cancel sequence. For existing
+`reschedule_appointment` keeps owning the book-then-cancel sequence. For existing
 appointments, it preserves appointment type/status when appropriate and cancels
 the old appointment only after the new booking succeeds.
 

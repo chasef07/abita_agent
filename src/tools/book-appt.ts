@@ -62,7 +62,7 @@ const bookAppointmentParameters = z
   })
   .strict();
 
-export const book_appt = llm.tool({
+export const book_appointment = llm.tool({
   description:
     "Book a caller-confirmed appointment slot. " +
     "Use only for new appointments after get_availability recorded appointmentLane; do not use for reschedules or other appointment changes. " +
@@ -99,7 +99,7 @@ export const book_appt = llm.tool({
     if (!readBack) {
       return (
         `Read back ${spokenSlot(selectedSlot)} and ask the caller to confirm it. ` +
-        "Call book_appt again only after the caller confirms the appointment details are correct."
+        "Call book_appointment again only after the caller confirms the appointment details are correct."
       );
     }
 
@@ -118,7 +118,7 @@ export const book_appt = llm.tool({
       recordAppointmentAction(state, {
         action: "booked",
         status: appointmentActionStatusForBookingResult(result),
-        toolName: "book_appt",
+        toolName: "book_appointment",
         message,
         appointment: bookedSlotAppointmentAnalytics(
           state,
@@ -134,7 +134,7 @@ export const book_appt = llm.tool({
       recordAppointmentAction(state, {
         action: "booked",
         status: "error",
-        toolName: "book_appt",
+        toolName: "book_appointment",
         message,
         appointment: bookedSlotAppointmentAnalytics(
           state,
@@ -152,7 +152,7 @@ export const book_appt = llm.tool({
       recordAppointmentAction(state, {
         action: "booked",
         status: "error",
-        toolName: "book_appt",
+        toolName: "book_appointment",
         message,
         appointment: bookedSlotAppointmentAnalytics(
           state,
@@ -173,7 +173,7 @@ export const book_appt = llm.tool({
     recordAppointmentAction(state, {
       action: "booked",
       status: "error",
-      toolName: "book_appt",
+      toolName: "book_appointment",
       message,
       appointment: bookedSlotAppointmentAnalytics(state, selectedSlot, result),
     });
@@ -185,7 +185,7 @@ function ensureNewAppointmentBookingContext(state: CallState): void {
   const turn = state.workflow.current;
   if (turn?.intent === "change_appointment") {
     throw new llm.ToolError(
-      "Use reschedule_appt for appointment changes so the old appointment is cancelled after the new booking succeeds.",
+      "Use reschedule_appointment for appointment changes so the old appointment is cancelled after the new booking succeeds.",
     );
   }
   if (

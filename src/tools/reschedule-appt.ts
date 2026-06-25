@@ -93,7 +93,7 @@ const rescheduleAppointmentParameters = z
   })
   .strict();
 
-export const reschedule_appt = llm.tool({
+export const reschedule_appointment = llm.tool({
   description:
     "Reschedule a loaded appointment. " +
     "Call only after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns slots, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. " +
@@ -151,7 +151,7 @@ export const reschedule_appt = llm.tool({
     if (!readBack) {
       return (
         `Read back ${spokenSlot(selectedSlot)} and ask the caller to confirm it as the new appointment. ` +
-        "Call reschedule_appt again only after the caller confirms the new appointment details are correct."
+        "Call reschedule_appointment again only after the caller confirms the new appointment details are correct."
       );
     }
 
@@ -461,7 +461,7 @@ function recordRescheduleAction(
   recordAppointmentAction(state, {
     action: "rescheduled",
     status: input.status,
-    toolName: "reschedule_appt",
+    toolName: "reschedule_appointment",
     message: input.message,
     appointment: bookedSlotAppointmentAnalytics(
       state,

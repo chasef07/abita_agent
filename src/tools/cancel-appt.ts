@@ -32,7 +32,7 @@ const cancelAppointmentParameters = z
   })
   .strict();
 
-export const cancel_appt = llm.tool({
+export const cancel_appointment = llm.tool({
   description:
     "Cancel a loaded appointment. " +
     "Call this after the patient is verified and the caller confirms the exact appointment to cancel. " +
@@ -64,7 +64,7 @@ export const cancel_appt = llm.tool({
         selector,
       );
       if (cancelledAppointment) {
-        return `That appointment was already cancelled on this call: ${cancelledAppointment.date} at ${cancelledAppointment.time}. Continue without calling cancel_appt again.`;
+        return `That appointment was already cancelled on this call: ${cancelledAppointment.date} at ${cancelledAppointment.time}. Continue without calling cancel_appointment again.`;
       }
       throw new llm.ToolError(selection.message);
     }
@@ -81,7 +81,7 @@ export const cancel_appt = llm.tool({
       recordAppointmentAction(state, {
         action: "cancelled",
         status: "error",
-        toolName: "cancel_appt",
+        toolName: "cancel_appointment",
         message,
         cancelledAppointment: cancelledAppointmentAnalytics(state, appointment),
       });
@@ -93,7 +93,7 @@ export const cancel_appt = llm.tool({
     recordAppointmentAction(state, {
       action: "cancelled",
       status: "success",
-      toolName: "cancel_appt",
+      toolName: "cancel_appointment",
       message,
       cancelledAppointment: cancelledAppointmentAnalytics(state, appointment),
     });

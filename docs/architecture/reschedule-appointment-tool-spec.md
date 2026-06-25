@@ -4,12 +4,12 @@
 
 Make appointment rescheduling deterministic from the model's point of view.
 
-The model should not be responsible for remembering to call `book_appt` and then
-`cancel_appt`. It should collect the facts, confirm the old appointment and new
+The model should not be responsible for remembering to call `book_appointment` and then
+`cancel_appointment`. It should collect the facts, confirm the old appointment and new
 slot with the caller, then call one write tool:
 
 ```txt
-reschedule_appt
+reschedule_appointment
 ```
 
 The tool owns the two side effects in code:
@@ -22,10 +22,10 @@ The tool owns the two side effects in code:
 Today rescheduling is encoded as guidance in tool descriptions and workflow
 context:
 
-- `cancel_appt` says: for reschedules, book the new appointment before cancelling
+- `cancel_appointment` says: for reschedules, book the new appointment before cancelling
   the old one.
-- `book_appt` books only one selected availability slot.
-- `cancel_appt` cancels only one loaded appointment.
+- `book_appointment` books only one selected availability slot.
+- `cancel_appointment` cancels only one loaded appointment.
 
 That is not strong enough. The model can still stop after booking, cancel the
 wrong appointment, call the tools in the wrong order, or lose appointment-type
@@ -55,7 +55,7 @@ the patient has no history.
 
 ## Design Decision
 
-Add one agent-side `llm.tool()` named `reschedule_appt`.
+Add one agent-side `llm.tool()` named `reschedule_appointment`.
 
 This is simpler than a new middleware endpoint because the agent already owns:
 
@@ -81,7 +81,7 @@ first implementation should not start there.
 Tool name:
 
 ```txt
-reschedule_appt
+reschedule_appointment
 ```
 
 Purpose:
@@ -104,45 +104,47 @@ first and cancels the old appointment only after booking succeeds.
 Parameters:
 
 ```ts
-parameters: z.object({
-  slotId: z
-    .string()
-    .trim()
-    .min(1)
-    .describe("slotId from get_availability for the caller-confirmed new slot."),
-  appointmentReason: z
-    .string()
-    .trim()
-    .min(1)
-    .describe("Caller-provided reason for the new appointment."),
-  referringDoctor: z
-    .string()
-    .trim()
-    .min(1)
-    .describe(
-      'Caller-provided referring doctor, or "none" if the caller has no referring doctor.',
-    ),
-  appointmentId: z
-    .number()
-    .int()
-    .positive()
-    .optional()
-    .describe(
-      "Old appointment ID from the loaded appointment list. Omit only when the caller confirmed exactly one loaded appointment.",
-    ),
-  appointmentDate: z
-    .string()
-    .optional()
-    .describe(
-      'Date the caller used to identify the old loaded appointment, such as "June 2", "June 2nd", or "2026-06-02".',
-    ),
-  appointmentTime: z
-    .string()
-    .optional()
-    .describe(
-      'Time the caller used to identify the old loaded appointment, such as "10 AM" or "2:30 PM". Use with appointmentDate when needed.',
-    ),
-})
+parameters: z
+  .object({
+    appointmentSlotRef: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        "Slot reference from get_availability for the caller-confirmed new appointment slot.",
+      ),
+    appointmentReason: z
+      .string()
+      .trim()
+      .min(1)
+      .describe("Caller-provided reason for the new appointment."),
+    referringDoctor: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        'Caller-provided referring doctor, or "none" if the caller has no referring doctor.',
+      ),
+    readBack: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set to true only after reading back the selected new appointment date, time, and provider and the caller confirms the new appointment details are correct.",
+      ),
+    oldAppointmentDate: z
+      .string()
+      .optional()
+      .describe(
+        'Date the caller used to identify the old loaded appointment being moved, such as "June 2", "June 2nd", or "2026-06-02". Omit when exactly one old appointment is loaded and confirmed.',
+      ),
+    oldAppointmentTime: z
+      .string()
+      .optional()
+      .describe(
+        'Time the caller used to identify the old loaded appointment being moved, such as "10 AM" or "2:30 PM". Use with oldAppointmentDate when needed.',
+      ),
+  })
+  .strict()
 ```
 
 ## Execution Contract
@@ -154,11 +156,11 @@ The tool must run the sequence in code:
 3. Require active patient ID.
 4. Require a selected existing appointment or infer exactly one loaded
    appointment.
-5. Select the old appointment using the same selector logic as `cancel_appt`.
+5. Select the old appointment using the same selector logic as `cancel_appointment`.
 6. Select the new slot from current availability state.
 7. Require a fresh private booking token for the new slot.
 8. Normalize appointment reason and referring doctor using the same rules as
-   `book_appt`.
+   `book_appointment`.
 9. Build the booking request.
 10. Book via `/api/appointment/book`.
 11. If booking fails, do not cancel the old appointment.
@@ -236,11 +238,11 @@ Extract shared helpers from `book-appt.ts` into a backend-only module, likely
 - read appointment ID from booking result,
 - build speech-ready booked slot text.
 
-`book_appt` and `reschedule_appt` should call the same helper for booking. The
+`book_appointment` and `reschedule_appointment` should call the same helper for booking. The
 only difference is patient-status override:
 
-- `book_appt`: use normal patient-state fallback.
-- `reschedule_appt`: use old appointment type first, then patient-state
+- `book_appointment`: use normal patient-state fallback.
+- `reschedule_appointment`: use old appointment type first, then patient-state
   fallback.
 
 ## Failure Handling
@@ -249,7 +251,7 @@ only difference is patient-status override:
 
 Do not cancel the old appointment.
 
-Return the same style of message as `book_appt`, for example:
+Return the same style of message as `book_appointment`, for example:
 
 ```txt
 That time is no longer available. I can offer June 4 at 10:00 AM instead.
@@ -279,7 +281,7 @@ succeed.
 
 Do not book anything.
 
-Return the same clarification style as `cancel_appt`:
+Return the same clarification style as `cancel_appointment`:
 
 ```txt
 I found more than one matching appointment. Loaded appointments: ...
@@ -289,7 +291,7 @@ I found more than one matching appointment. Loaded appointments: ...
 
 Do not cancel anything.
 
-Throw or return the same actionable message as `book_appt`:
+Throw or return the same actionable message as `book_appointment`:
 
 ```txt
 Search availability again before booking because the selected slot expired.
@@ -297,18 +299,18 @@ Search availability again before booking because the selected slot expired.
 
 ## Registry And Prompt Changes
 
-Add `reschedule_appt` to the active tool registry.
+Add `reschedule_appointment` to the active tool registry.
 
-Keep `cancel_appt` focused on pure cancellation. Remove or soften the
-reschedule sequencing sentence from `cancel_appt` after `reschedule_appt` is
+Keep `cancel_appointment` focused on pure cancellation. Remove or soften the
+reschedule sequencing sentence from `cancel_appointment` after `reschedule_appointment` is
 available, because rescheduling should no longer be a model-orchestrated
 two-tool sequence.
 
 Update appointment-change guidance:
 
 ```txt
-For reschedules, use reschedule_appt after the caller confirms the old
-appointment and new slot. For cancellations, call cancel_appt only after the
+For reschedules, use reschedule_appointment after the caller confirms the old
+appointment and new slot. For cancellations, call cancel_appointment only after the
 caller confirms the exact loaded appointment.
 ```
 
@@ -318,10 +320,10 @@ the tool implementation.
 ## Acceptance Criteria
 
 - The model has one reschedule write tool.
-- `reschedule_appt` books before cancelling in code.
-- `reschedule_appt` never cancels when the new booking fails.
-- `reschedule_appt` never books when the old appointment is ambiguous.
-- `reschedule_appt` preserves New Patient status from the old loaded
+- `reschedule_appointment` books before cancelling in code.
+- `reschedule_appointment` never cancels when the new booking fails.
+- `reschedule_appointment` never books when the old appointment is ambiguous.
+- `reschedule_appointment` preserves New Patient status from the old loaded
   appointment.
 - Crystal River New Patient reschedule sends booking intent that resolves to
   `Crystal River New Patient`, not `Crystal River Established Patient`.
@@ -334,7 +336,7 @@ the tool implementation.
 
 Agent tests:
 
-- Registers `reschedule_appt` in the active tool set.
+- Registers `reschedule_appointment` in the active tool set.
 - Requires patient identity before rescheduling.
 - Requires old appointment selection before booking.
 - Requires fresh private booking token before booking.
