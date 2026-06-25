@@ -156,18 +156,6 @@ export function bookedAppointmentMessage(
   return `Booked ${spokenSlot(selectedSlot)}.${bookingNoteWarning(result)}`;
 }
 
-export function bookedAppointmentToolResult(
-  selectedSlot: StoredAvailabilitySlot,
-  result: unknown,
-): Record<string, unknown> {
-  const receipt = isRecord(result) ? result : {};
-  return {
-    ...receipt,
-    status: typeof receipt.status === "string" ? receipt.status : "booked",
-    message: bookedAppointmentMessage(selectedSlot, result),
-  };
-}
-
 export function bookingNoteWarning(result: unknown): string {
   return isRecord(result) && result.status === "partial"
     ? " The appointment was booked, but the patient note did not save."

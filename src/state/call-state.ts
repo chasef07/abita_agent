@@ -174,6 +174,32 @@ export interface StoredAvailabilitySlot {
   routing: string | null;
 }
 
+export type AppointmentActionStatus = "success" | "partial" | "error";
+
+export type AppointmentActionName = "booked" | "rescheduled" | "cancelled";
+
+export interface AppointmentAnalytics {
+  appointmentId?: string;
+  patientName?: string;
+  appointmentDate?: string;
+  appointmentTime?: string;
+  startDatetime?: string;
+  providerName?: string;
+  locationName?: string;
+  appointmentTypeName?: string;
+  careLane?: string;
+}
+
+export interface AppointmentActionAnalytics {
+  action: AppointmentActionName;
+  status: AppointmentActionStatus;
+  toolName?: string;
+  createdAt?: string;
+  message?: string;
+  appointment?: AppointmentAnalytics;
+  cancelledAppointment?: AppointmentAnalytics;
+}
+
 interface PatientBackendRefs {
   insPlanId?: string | null;
   respPartyId?: string | null;
@@ -200,6 +226,7 @@ interface RuntimeCallState {
   callerPhone: string;
   trunkPhone: string;
   transferred: boolean;
+  appointmentActions: AppointmentActionAnalytics[];
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
 
@@ -380,6 +407,7 @@ export function createCanonicalCallState(
       callerPhone: input.callerPhone,
       trunkPhone: input.trunkPhone,
       transferred: input.transferred,
+      appointmentActions: [],
       voiceLanguage: input.voiceLanguage ?? null,
     },
   };
@@ -591,6 +619,25 @@ export function recordCompletedRescheduleForPatient(
   reschedule: CompletedRescheduleState,
 ): void {
   state.identity.completedReschedulesByPatientId[patientId] = reschedule;
+}
+
+export function recordAppointmentAction(
+  state: CallState,
+  action: AppointmentActionAnalytics,
+): void {
+  state.runtime.appointmentActions = [
+    ...state.runtime.appointmentActions,
+    {
+      createdAt: new Date().toISOString(),
+      ...action,
+    },
+  ];
+}
+
+export function appointmentActions(
+  state: CallState,
+): AppointmentActionAnalytics[] {
+  return [...state.runtime.appointmentActions];
 }
 
 export function storeAvailabilityBookingToken(

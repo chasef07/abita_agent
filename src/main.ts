@@ -28,8 +28,10 @@ import {
   snapshotToolExecutions,
   type SttProfileTransitionAnalytics,
   type ToolExecutionAnalytics,
+  withAppointmentActionToolExecutionFallback,
 } from "./call-observability.js";
 import {
+  appointmentActions,
   createCanonicalCallState,
   publicCallerAppointments,
   type CallState,
@@ -459,6 +461,14 @@ export default defineAgent({
           const endedReason = callDurationDeadline.exceeded()
             ? "duration_limit"
             : undefined;
+          const recordedAppointmentActions = appointmentActions(
+            session.userData,
+          );
+          const payloadToolExecutions =
+            withAppointmentActionToolExecutionFallback(
+              toolExecutions,
+              recordedAppointmentActions,
+            );
           const payload: Record<string, unknown> = {
             callId,
             callerPhone,
@@ -484,8 +494,9 @@ export default defineAgent({
             llmMetrics,
             sttProfiles,
             sessionEvents,
-            toolExecutions,
+            toolExecutions: payloadToolExecutions,
             turnMetrics,
+            appointmentActions: recordedAppointmentActions,
             callState: session.userData,
             preCallLookup: session.userData.runtime.preCallLookup,
             language: sttLanguageDetector.telemetry,
