@@ -868,6 +868,7 @@ describe("model-facing tool definitions", () => {
     expect(cancel_appointment.description).toContain(
       "Pass appointmentDate and appointmentTime",
     );
+    expect(cancel_appointment.description).toContain("appointmentSelectionRef");
     expect(cancel_appointment.description).toContain(
       "Do not pass backend patient IDs or appointment IDs",
     );
@@ -882,12 +883,14 @@ describe("model-facing tool definitions", () => {
     expect(Object.keys(parameters.shape)).toEqual([
       "appointmentDate",
       "appointmentTime",
+      "appointmentSelectionRef",
     ]);
     expect(parameters.safeParse({ appointmentId: 123 }).success).toBe(false);
     expect(
       parameters.safeParse({
         appointmentDate: "June 2",
         appointmentTime: "9 AM",
+        appointmentSelectionRef: "selected-appointment",
       }).success,
     ).toBe(true);
     expect(parameters.safeParse({}).success).toBe(true);
@@ -907,6 +910,9 @@ describe("model-facing tool definitions", () => {
       "read back the selected new appointment date, time, and provider",
     );
     expect(reschedule_appointment.description).toContain(
+      "appointmentSelectionRef",
+    );
+    expect(reschedule_appointment.description).toContain(
       "Do not pass backend patient IDs or appointment IDs",
     );
     expect(reschedule_appointment.description).toContain(
@@ -924,6 +930,7 @@ describe("model-facing tool definitions", () => {
       "readBack",
       "oldAppointmentDate",
       "oldAppointmentTime",
+      "appointmentSelectionRef",
     ]);
     expect(
       parameters.safeParse({
@@ -931,6 +938,7 @@ describe("model-facing tool definitions", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: "selected-appointment",
       }).success,
     ).toBe(true);
     expect(
@@ -940,6 +948,7 @@ describe("model-facing tool definitions", () => {
         referringDoctor: "none",
         oldAppointmentDate: "June 2",
         oldAppointmentTime: "9 AM",
+        appointmentSelectionRef: "selected-appointment",
       }).success,
     ).toBe(true);
     expect(

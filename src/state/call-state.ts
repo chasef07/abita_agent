@@ -164,6 +164,16 @@ export interface CompletedCancellationState {
   appointment: CallerAppointment;
 }
 
+export type PendingAppointmentSelectionAction = "cancel" | "reschedule";
+
+export interface PendingAppointmentSelectionState {
+  action: PendingAppointmentSelectionAction;
+  ref: string;
+  patientId: string;
+  appointmentId: number;
+  appointment: CallerAppointment;
+}
+
 export interface StoredAvailabilitySlot {
   slotId: string;
   spoken: string;
@@ -267,6 +277,7 @@ interface IdentitySessionState {
   patient: PatientSessionState;
   patientBackend: PatientBackendRefs;
   latestBookedAppointmentId?: number;
+  pendingAppointmentSelection?: PendingAppointmentSelectionState;
   completedCancellations: CompletedCancellationState[];
   completedReschedulesByPatientId: Record<string, CompletedRescheduleState>;
 }
@@ -586,6 +597,23 @@ export function latestBookedAppointmentId(state: CallState): number | null {
   return state.identity.latestBookedAppointmentId ?? null;
 }
 
+export function pendingAppointmentSelection(
+  state: CallState,
+): PendingAppointmentSelectionState | null {
+  return state.identity.pendingAppointmentSelection ?? null;
+}
+
+export function setPendingAppointmentSelection(
+  state: CallState,
+  selection: PendingAppointmentSelectionState,
+): void {
+  state.identity.pendingAppointmentSelection = selection;
+}
+
+export function clearPendingAppointmentSelection(state: CallState): void {
+  delete state.identity.pendingAppointmentSelection;
+}
+
 export function recordCompletedCancellation(
   state: CallState,
   patientId: string,
@@ -673,6 +701,7 @@ export function resetPatientScopedBookingState(
     : null;
   clearAvailabilitySelection(state);
   delete state.identity.latestBookedAppointmentId;
+  clearPendingAppointmentSelection(state);
   state.workflow.current = undefined;
   state.insurance.lastEligibilityCheck = eligibilityCheck;
   resetActiveOfficeToTrunk(state);

@@ -27,9 +27,10 @@ import {
   selectedAvailabilitySlot,
 } from "./availability-slots.js";
 import {
-  cancellationAppointmentForState,
+  lockedCancellationAppointmentForState,
   removeAppointmentById,
   recordBookedAppointmentInState,
+  spokenAppointment,
 } from "./appointment-state.js";
 import {
   appointmentPatientStatusForLoadedAppointment,
@@ -90,6 +91,14 @@ const rescheduleAppointmentParameters = z
       .describe(
         'Time the caller used to identify the old loaded appointment being moved, such as "10 AM" or "2:30 PM". Use with oldAppointmentDate when needed.',
       ),
+    appointmentSelectionRef: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe(
+        "Old appointment selection reference returned by reschedule_appointment after deterministic readback. Pass only after the caller confirms that exact old loaded appointment.",
+      ),
   })
   .strict();
 
@@ -98,7 +107,8 @@ export const reschedule_appointment = llm.tool({
     "Reschedule a loaded appointment. " +
     "Call only after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns slots, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. " +
     "Pass appointmentSlotRef for the caller-confirmed new slot. Do not pass backend patient IDs or appointment IDs; the tool selects the old appointment from loaded appointment state. " +
-    "If more than one old appointment is loaded, pass oldAppointmentDate and oldAppointmentTime for the caller-confirmed old appointment. " +
+    "Pass oldAppointmentDate and oldAppointmentTime when the caller identifies the old appointment by date or time; the tool will return a deterministic appointmentSelectionRef to use after confirmation. " +
+    "Do not reschedule until the caller confirms the tool-returned old loaded appointment and you pass appointmentSelectionRef. " +
     "Before booking the new appointment, read back the selected new appointment date, time, and provider, then get caller confirmation. " +
     "This tool books the new appointment first and cancels the old appointment only after booking succeeds.",
   parameters: rescheduleAppointmentParameters,
@@ -110,6 +120,7 @@ export const reschedule_appointment = llm.tool({
       appointmentSlotRef,
       oldAppointmentDate,
       oldAppointmentTime,
+      appointmentSelectionRef,
     } = args;
 
     const state = getState(ctx);
@@ -132,15 +143,27 @@ export const reschedule_appointment = llm.tool({
     }
 
     const selectedSlot = selectedSlotForBooking(state, appointmentSlotRef);
-    const selection = cancellationAppointmentForState(state, {
-      appointmentDate: oldAppointmentDate,
-      appointmentTime: oldAppointmentTime,
+    const selection = lockedCancellationAppointmentForState(state, {
+      action: "reschedule",
+      patientId,
+      appointmentSelectionRef,
+      selector: {
+        appointmentDate: oldAppointmentDate,
+        appointmentTime: oldAppointmentTime,
+      },
     });
     if (selection.status === "ambiguous") {
       return selection.message;
     }
     if (selection.status === "not_found") {
-      throw new llm.ToolError(selection.message);
+      return selection.message;
+    }
+    if (selection.status === "needs_confirmation") {
+      return rescheduleConfirmationMessage(
+        selection.appointment,
+        selection.appointmentSelectionRef,
+        selectedSlot,
+      );
     }
     const oldAppointment = selection.appointment;
     const cancellationOffice = getAmdOfficeForCancellationAppointment(
@@ -262,6 +285,18 @@ export const reschedule_appointment = llm.tool({
     return message;
   },
 });
+
+function rescheduleConfirmationMessage(
+  oldAppointment: Parameters<typeof spokenAppointment>[0],
+  appointmentSelectionRef: string,
+  selectedSlot: StoredAvailabilitySlot,
+): string {
+  return (
+    `Read back exactly: I have you moving ${spokenAppointment(oldAppointment)} to ${spokenSlot(selectedSlot)}. ` +
+    "Ask the caller to confirm both appointment details. " +
+    `Call reschedule_appointment again with appointmentSelectionRef "${appointmentSelectionRef}" and readBack true only after the caller confirms.`
+  );
+}
 
 function completedRescheduleReplayMessage(
   completedReschedule: CompletedRescheduleState,

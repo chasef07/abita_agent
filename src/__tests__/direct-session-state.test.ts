@@ -33,6 +33,7 @@ import {
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
+import { APPOINTMENT_SELECTION_REF } from "../tools/appointment-state.js";
 
 type TestCallState = ReturnType<typeof createCanonicalCallState>;
 type PreCallCandidate = PreCallContextState["candidates"][number];
@@ -206,6 +207,22 @@ function setLoadedAppointments(
   ...appointments: CallerAppointment[]
 ) {
   state.identity.patient.appointments = appointments;
+}
+
+function stageAppointmentSelectionForTest(
+  state: TestCallState,
+  action: "cancel" | "reschedule",
+  selectedAppointment: CallerAppointment = state.identity.patient
+    .appointments[0],
+): string {
+  state.identity.pendingAppointmentSelection = {
+    action,
+    ref: APPOINTMENT_SELECTION_REF,
+    patientId: state.identity.patient.patientId ?? "patient-1",
+    appointmentId: selectedAppointment.id,
+    appointment: selectedAppointment,
+  };
+  return APPOINTMENT_SELECTION_REF;
 }
 
 function preCallCandidate(
@@ -3865,10 +3882,18 @@ describe("direct session state cleanup", () => {
       message: "Appointment cancelled successfully",
     });
 
-    const result = await cancel_appointment.execute({}, {
-      ctx: ctx as never,
-      toolCallId: "tool-1",
-    } as never);
+    const result = await cancel_appointment.execute(
+      {
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "cancel",
+        ),
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(result).toBe("Cancelled the appointment on June 5 at 10:00 AM.");
@@ -3899,6 +3924,33 @@ describe("direct session state cleanup", () => {
     expect(state.identity.patient.appointments).toEqual([]);
   });
 
+  it("requires deterministic cancel appointment confirmation before side effects", async () => {
+    const state = createState();
+    setLoadedAppointments(
+      state,
+      appointment({
+        id: 123,
+        date: "Monday, June 29, 2026",
+        time: "10:00 AM",
+        provider: "Dr. Bach",
+      }),
+    );
+    const ctx = createToolContext(state);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await cancel_appointment.execute({}, {
+      ctx: ctx as never,
+      toolCallId: "tool-1",
+    } as never);
+
+    expect(result).toBe(
+      'Read back exactly: I found Monday, June 29, 2026 at 10:00 AM with Dr. Bach. Ask the caller to confirm this is the appointment to cancel. Call cancel_appointment again with appointmentSelectionRef "selected-appointment" only after the caller confirms.',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(ctx.speechHandle.allowInterruptions).toBe(true);
+  });
+
   it("cancels a loaded appointment selected by caller date", async () => {
     const state = createState();
     setLoadedAppointments(
@@ -3927,6 +3979,11 @@ describe("direct session state cleanup", () => {
     const result = await cancel_appointment.execute(
       {
         appointmentDate: "June 2nd",
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "cancel",
+          state.identity.patient.appointments[1],
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -3974,6 +4031,11 @@ describe("direct session state cleanup", () => {
       {
         appointmentDate: "June 25",
         appointmentTime: "3:15 PM",
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "cancel",
+          state.identity.patient.appointments[1],
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4007,6 +4069,10 @@ describe("direct session state cleanup", () => {
       {
         appointmentDate: "June 1",
         appointmentTime: "9 AM",
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "cancel",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4043,6 +4109,10 @@ describe("direct session state cleanup", () => {
       {
         appointmentDate: "June 1",
         appointmentTime: "9 AM",
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "cancel",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4069,9 +4139,51 @@ describe("direct session state cleanup", () => {
         } as never,
       ),
     ).rejects.toThrow(
-      "No loaded appointment matches those details. Load appointments again or ask which loaded appointment to cancel.",
+      "No loaded appointment matches those details. Load appointments again or ask which loaded appointment to use.",
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects changed cancel appointment details after staging", async () => {
+    const state = createState();
+    setLoadedAppointments(
+      state,
+      appointment({
+        id: 123,
+        date: "Monday, June 29, 2026",
+        time: "10:00 AM",
+        provider: "Dr. Bach",
+      }),
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await cancel_appointment.execute(
+      {
+        appointmentDate: "June 29",
+        appointmentTime: "10:00 AM",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    await expect(
+      cancel_appointment.execute(
+        {
+          appointmentDate: "June 30",
+          appointmentTime: "10:00 AM",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-2",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "The old appointment selection changed after confirmation. Ask the caller to confirm the loaded appointment again before continuing.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("asks for clarification when a caller date matches multiple appointments", async () => {
@@ -4191,10 +4303,19 @@ describe("direct session state cleanup", () => {
     ]);
     expect(state.identity.patient.appointmentsStatus).toBe("found");
 
-    const result = await cancel_appointment.execute({}, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "tool-2",
-    } as never);
+    const result = await cancel_appointment.execute(
+      {
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "cancel",
+          state.identity.patient.appointments[0],
+        ),
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
 
     expect(result).toBe("Cancelled the appointment on 2026-06-01 at 9:00 AM.");
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
@@ -4214,7 +4335,7 @@ describe("direct session state cleanup", () => {
         toolCallId: "tool-1",
       } as never),
     ).rejects.toThrow(
-      "Load appointments and confirm the exact appointment before cancelling.",
+      "Load appointments and confirm the exact appointment before continuing.",
     );
   });
 
@@ -4247,6 +4368,10 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4337,6 +4462,10 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4388,6 +4517,10 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4432,10 +4565,122 @@ describe("direct session state cleanup", () => {
     );
 
     expect(result).toBe(
-      "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it as the new appointment. Call reschedule_appointment again only after the caller confirms the new appointment details are correct.",
+      'Read back exactly: I have you moving Monday, June 1, 2026 at 9:00 AM with Dr. Licht to June 1 at 9:00 AM with Doctor Smith. Ask the caller to confirm both appointment details. Call reschedule_appointment again with appointmentSelectionRef "selected-appointment" and readBack true only after the caller confirms.',
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(ctx.speechHandle.allowInterruptions).toBe(true);
+  });
+
+  it("does not silently reschedule after a wrong old-date retry", async () => {
+    const state = createState();
+    prepareRescheduleState(state, {
+      context: "change_appointment",
+      appointmentOverrides: {
+        date: "Monday, June 29, 2026",
+        time: "10:00 AM",
+        provider: "Dr. Bach",
+      },
+    });
+    state.availability.slots = [
+      availabilitySlot({
+        slotId: "S4",
+        spoken: "July 27 at 10:45 AM with Doctor Smith",
+        date: "2026-07-27",
+        time: "10:45 AM",
+        datetime: "2026-07-27T10:45:00",
+      }),
+    ];
+    storeAvailabilityBookingToken(state, "S4", "private-token");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const wrongDateResult = await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "S4",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+        oldAppointmentDate: "June 30",
+        oldAppointmentTime: "10 AM",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(wrongDateResult).toBe(
+      "No loaded appointment matches those details. Load appointments again or ask which loaded appointment to use.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const correctedDateResult = await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "S4",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+        oldAppointmentDate: "June 29",
+        oldAppointmentTime: "10 AM",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+
+    expect(correctedDateResult).toBe(
+      'Read back exactly: I have you moving Monday, June 29, 2026 at 10:00 AM with Dr. Bach to July 27 at 10:45 AM with Doctor Smith. Ask the caller to confirm both appointment details. Call reschedule_appointment again with appointmentSelectionRef "selected-appointment" and readBack true only after the caller confirms.',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects changed old appointment details after reschedule staging", async () => {
+    const state = createState();
+    prepareRescheduleState(state, {
+      context: "change_appointment",
+      appointmentOverrides: {
+        date: "Monday, June 29, 2026",
+        time: "10:00 AM",
+        provider: "Dr. Bach",
+      },
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        oldAppointmentDate: "June 29",
+        oldAppointmentTime: "10 AM",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    const result = await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+        oldAppointmentDate: "June 30",
+        oldAppointmentTime: "10 AM",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "The old appointment selection changed after confirmation. Ask the caller to confirm the loaded appointment again before continuing.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("does not require a live booking token before reschedule read-back confirmation", async () => {
@@ -4460,7 +4705,7 @@ describe("direct session state cleanup", () => {
     );
 
     expect(result).toBe(
-      "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it as the new appointment. Call reschedule_appointment again only after the caller confirms the new appointment details are correct.",
+      'Read back exactly: I have you moving Monday, June 1, 2026 at 9:00 AM with Dr. Licht to June 1 at 9:00 AM with Doctor Smith. Ask the caller to confirm both appointment details. Call reschedule_appointment again with appointmentSelectionRef "selected-appointment" and readBack true only after the caller confirms.',
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -4484,6 +4729,10 @@ describe("direct session state cleanup", () => {
         readBack: true,
         oldAppointmentDate: "June 1",
         oldAppointmentTime: "9:00 AM",
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4518,6 +4767,10 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4552,6 +4805,10 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4623,6 +4880,11 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+          state.identity.patient.appointments[0],
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4646,6 +4908,10 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4726,6 +4992,10 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4797,6 +5067,11 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+          state.identity.patient.appointments[0],
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4836,6 +5111,10 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -4916,6 +5195,10 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -5010,6 +5293,10 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        appointmentSelectionRef: stageAppointmentSelectionForTest(
+          state,
+          "reschedule",
+        ),
       },
       {
         ctx: createToolContext(state) as never,
@@ -5030,20 +5317,20 @@ describe("direct session state cleanup", () => {
     const state = createState();
     clearSchedulingContext(state);
 
-    await expect(
-      reschedule_appointment.execute(
-        {
-          appointmentSlotRef: "A",
-          appointmentReason: "move my appointment",
-          referringDoctor: "none",
-        },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      ),
-    ).rejects.toThrow(
-      "Load appointments and confirm the exact appointment before cancelling.",
+    const result = await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Load appointments and confirm the exact appointment before continuing.",
     );
   });
 

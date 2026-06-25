@@ -3,18 +3,24 @@ import {
   activeAppointments,
   activeOfficeKey,
   activePatientId,
+  clearPendingAppointmentSelection,
   completedCancellations,
   latestBookedAppointmentId,
+  pendingAppointmentSelection,
   recordCompletedCancellation,
   removeBookedAppointmentReference,
+  setPendingAppointmentSelection,
   setLatestBookedAppointment,
   type AppointmentLoadStatus,
   type CallState,
   type CallerAppointment,
+  type PendingAppointmentSelectionAction,
   type StoredAvailabilitySlot,
   type StoredCallerAppointment,
 } from "../state/call-state.js";
 import { publicProviderName } from "./availability-slots.js";
+
+export const APPOINTMENT_SELECTION_REF = "selected-appointment";
 
 export function extractAppointments(
   result: unknown,
@@ -128,6 +134,14 @@ export type CancellationAppointmentSelection =
   | { status: "ambiguous"; message: string }
   | { status: "not_found"; message: string };
 
+export type LockedCancellationAppointmentSelection =
+  | CancellationAppointmentSelection
+  | {
+      status: "needs_confirmation";
+      appointment: CallerAppointment;
+      appointmentSelectionRef: string;
+    };
+
 export function cancellationAppointmentForState(
   state: CallState,
   selector: CancellationAppointmentSelector,
@@ -138,7 +152,7 @@ export function cancellationAppointmentForState(
     return {
       status: "not_found",
       message:
-        "No loaded appointment matches that appointment ID. Load appointments again and confirm the exact appointment before cancelling.",
+        "No loaded appointment matches that appointment ID. Load appointments again and confirm the exact appointment before continuing.",
     };
   }
 
@@ -167,7 +181,7 @@ export function cancellationAppointmentForState(
     return {
       status: "ambiguous",
       message: appointmentClarificationMessage(
-        "Which appointment should I cancel?",
+        "Which loaded appointment should I use?",
         appointments,
       ),
     };
@@ -176,7 +190,89 @@ export function cancellationAppointmentForState(
   return {
     status: "not_found",
     message:
-      "Load appointments and confirm the exact appointment before cancelling.",
+      "Load appointments and confirm the exact appointment before continuing.",
+  };
+}
+
+export function lockedCancellationAppointmentForState(
+  state: CallState,
+  {
+    action,
+    patientId,
+    appointmentSelectionRef,
+    selector,
+  }: {
+    action: PendingAppointmentSelectionAction;
+    patientId: string;
+    appointmentSelectionRef?: string;
+    selector: CancellationAppointmentSelector;
+  },
+): LockedCancellationAppointmentSelection {
+  const pending = pendingAppointmentSelection(state);
+  if (appointmentSelectionRef) {
+    if (
+      !pending ||
+      pending.ref !== appointmentSelectionRef ||
+      pending.action !== action ||
+      pending.patientId !== patientId
+    ) {
+      return {
+        status: "not_found",
+        message:
+          "The selected appointment is no longer pending. Ask the caller to confirm the loaded appointment again before continuing.",
+      };
+    }
+
+    const appointment = activeAppointmentById(state, pending.appointmentId);
+    if (!appointment) {
+      return {
+        status: "not_found",
+        message:
+          "The selected appointment is no longer loaded. Load appointments again before continuing.",
+      };
+    }
+    if (
+      selectorHasDetails(selector) &&
+      !appointmentMatchesSelector(appointment, selector)
+    ) {
+      return appointmentSelectionChangedResult();
+    }
+    return { status: "selected", appointment };
+  }
+
+  const selection = cancellationAppointmentForState(state, selector);
+  if (selection.status !== "selected") {
+    if (
+      pending &&
+      pending.action === action &&
+      pending.patientId === patientId &&
+      selectorHasDetails(selector)
+    ) {
+      return appointmentSelectionChangedResult();
+    }
+    return selection;
+  }
+
+  if (
+    pending &&
+    pending.action === action &&
+    pending.patientId === patientId &&
+    pending.appointmentId !== selection.appointment.id
+  ) {
+    return appointmentSelectionChangedResult();
+  }
+
+  setPendingAppointmentSelection(state, {
+    action,
+    ref: APPOINTMENT_SELECTION_REF,
+    patientId,
+    appointmentId: selection.appointment.id,
+    appointment: selection.appointment,
+  });
+  return {
+    status: "needs_confirmation",
+    appointment: selection.appointment,
+    appointmentSelectionRef: APPOINTMENT_SELECTION_REF,
   };
 }
 
@@ -190,6 +286,10 @@ export function removeAppointmentById(
     recordCompletedCancellation(state, patientId, appointment);
   }
   removeBookedAppointmentReference(state, appointmentId);
+  const pending = pendingAppointmentSelection(state);
+  if (pending?.appointmentId === appointmentId) {
+    clearPendingAppointmentSelection(state);
+  }
   state.identity.patient.appointments =
     state.identity.patient.appointments.filter(
       (appointment) => appointment.id !== appointmentId,
@@ -233,6 +333,50 @@ export function completedCancellationForState(
   return cancelledAppointments.length === 1 ? cancelledAppointments[0] : null;
 }
 
+function selectorHasDetails(
+  selector: CancellationAppointmentSelector,
+): boolean {
+  return Boolean(
+    selector.appointmentId !== undefined ||
+    selector.appointmentDate?.trim() ||
+    selector.appointmentTime?.trim(),
+  );
+}
+
+function appointmentMatchesSelector(
+  appointment: CallerAppointment,
+  selector: CancellationAppointmentSelector,
+): boolean {
+  if (
+    selector.appointmentId !== undefined &&
+    selector.appointmentId !== appointment.id
+  ) {
+    return false;
+  }
+
+  const dateText = selector.appointmentDate?.trim();
+  if (dateText) {
+    const date = parseDateParts(dateText);
+    if (!date || !appointmentDateMatches(appointment.date, date)) return false;
+  }
+
+  const timeText = selector.appointmentTime?.trim();
+  if (timeText) {
+    const time = parseTimeParts(timeText);
+    if (!time || !appointmentTimeMatches(appointment.time, time)) return false;
+  }
+
+  return true;
+}
+
+function appointmentSelectionChangedResult(): CancellationAppointmentSelection {
+  return {
+    status: "not_found",
+    message:
+      "The old appointment selection changed after confirmation. Ask the caller to confirm the loaded appointment again before continuing.",
+  };
+}
+
 function extractAppointmentsStatus(
   result: unknown,
 ): AppointmentLoadStatus | null {
@@ -268,7 +412,7 @@ function appointmentSelectedByDateTime(
     return {
       status: "not_found",
       message:
-        "I could not match that appointment date. Use one of the loaded appointment dates before cancelling.",
+        "I could not match that appointment date. Use one of the loaded appointment dates before continuing.",
     };
   }
   const time = timeText ? parseTimeParts(timeText) : null;
@@ -276,7 +420,7 @@ function appointmentSelectedByDateTime(
     return {
       status: "not_found",
       message:
-        "I could not match that appointment time. Use one of the loaded appointment times before cancelling.",
+        "I could not match that appointment time. Use one of the loaded appointment times before continuing.",
     };
   }
 
@@ -301,7 +445,7 @@ function appointmentSelectedByDateTime(
   return {
     status: "not_found",
     message:
-      "No loaded appointment matches those details. Load appointments again or ask which loaded appointment to cancel.",
+      "No loaded appointment matches those details. Load appointments again or ask which loaded appointment to use.",
   };
 }
 
@@ -471,7 +615,7 @@ function appointmentClarificationMessage(
   return `${prefix} Loaded appointments: ${choices}${more}.`;
 }
 
-function spokenAppointment(appointment: CallerAppointment): string {
+export function spokenAppointment(appointment: CallerAppointment): string {
   return [
     appointment.date,
     appointment.time ? `at ${appointment.time}` : "",
