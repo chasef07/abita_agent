@@ -2963,7 +2963,19 @@ describe("direct session state cleanup", () => {
         lastName: "DOE",
         dob: "01/01/1980",
         patientId: "patient-al",
-        insuranceCarrier: undefined,
+        appointments: [
+          {
+            id: 123,
+            date: "June 1",
+            time: "9:00 AM",
+            provider: "Dr. Bach",
+            type: "Office Visit",
+            facility: "Spring Hill",
+            confirmed: false,
+          },
+        ],
+        appointmentsStatus: "found",
+        insuranceCarrier: "Aetna",
         routing: undefined,
         allowedProviders: undefined,
       }),
@@ -2988,7 +3000,7 @@ describe("direct session state cleanup", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toBe(
-      "Patient record loaded from the phone lookup. Continue with scheduling.",
+      "Verified existing patient AL DOE. Insurance on file: Aetna. Loaded 1 appointment: June 1 at 9:00 AM with Dr. Bach.",
     );
     expect(state.identity.patient.identityConfirmed).toBe(true);
     expect(state.identity.patient.patientId).toBe("patient-al");

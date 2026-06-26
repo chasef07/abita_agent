@@ -137,7 +137,7 @@ function resolveFromPreCallState(
   if (hasFullIdentity(identity)) {
     const fullMatch = findFullIdentityPreCallMatch(preCall, identity);
     if (!fullMatch) return null;
-    return activatePreCallMatch(state, fullMatch, "full_identity");
+    return activatePreCallMatch(state, fullMatch);
   }
 
   const match = matchCandidatesByFirstName(
@@ -151,13 +151,12 @@ function resolveFromPreCallState(
     return "More than one preloaded patient matched that first name. Ask for the patient's date of birth, then call resolve_patient with first name, last name, and DOB.";
   }
 
-  return activatePreCallMatch(state, match.candidate, "first_name");
+  return activatePreCallMatch(state, match.candidate);
 }
 
 function activatePreCallMatch(
   state: CallState,
   candidate: PreCallContextState["candidates"][number],
-  replyStyle: "first_name" | "full_identity" = "first_name",
 ): string {
   const activePatientId = state.identity.patient.patientId?.trim() || null;
   const wasConfirmedActive =
@@ -183,11 +182,7 @@ function activatePreCallMatch(
     return `Switched active patient to ${candidateDisplayName(candidate)}. Check availability again before booking.`;
   }
 
-  if (replyStyle === "full_identity") {
-    return confirmedPatientReply(state);
-  }
-
-  return "Patient record loaded from the phone lookup. Continue with scheduling.";
+  return confirmedPatientReply(state);
 }
 
 function preCallNameMismatchReply(
