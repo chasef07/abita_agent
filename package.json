@@ -19,7 +19,6 @@
     "@livekit/agents-plugin-assemblyai": "1.4.9",
     "@livekit/agents-plugin-baseten": "1.4.9",
     "@livekit/agents-plugin-rime": "1.4.9",
-    "@livekit/noise-cancellation-node": "0.1.9",
     "@livekit/rtc-node": "^0.13.29",
     "livekit-server-sdk": "^2.15.5",
     "zod": "^4.4.3"

@@ -14,7 +14,7 @@ Switched STT from Deepgram Nova-3 to AssemblyAI Universal-3 Pro Streaming on 202
 
 **VAD thresholds aligned at 0.3:** Universal-3.5 Pro defaults its internal VAD to 0.3. Silero must match to avoid a dead zone where AssemblyAI is transcribing but LiveKit hasn't detected speech yet, delaying barge-in. Silero is still recommended with STT turn detection for faster local interruption handling — LiveKit uses whichever speech-start signal arrives first.
 
-**Noise cancellation removed from agent pipeline:** AssemblyAI recommends no audio pre-processing — NC artifacts hurt transcription more than background noise. SIP trunk-level noise/echo cancellation (Telnyx) is fine and separate from this.
+**LiveKit noise cancellation removed from agent pipeline:** The agent does not run LiveKit-side background voice cancellation before STT. AssemblyAI Voice Focus is enabled as `near-field` on the startup STT connection, with no explicit threshold override. SIP trunk-level noise/echo cancellation (Telnyx) is separate from this.
 
 **Conservative keyterms enabled at startup:** The agent passes a short `keytermsPrompt` list for hard-to-hear practice terms, locations, provider names, and only a couple of distinctive always-on payer terms. This targets observed STT misses without loading the full insurance list.
 

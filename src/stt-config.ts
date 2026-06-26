@@ -76,6 +76,7 @@ export function getAssemblyAISttOptions(): Partial<AssemblyAIPluginSttOptions> {
   return {
     speechModel: "universal-3-5-pro",
     languageDetection: true,
+    voiceFocus: "near-field",
     inactivityTimeout: ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
     ...ASSEMBLYAI_STT_PROFILES.default,
   };

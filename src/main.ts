@@ -13,7 +13,6 @@ import {
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as baseten from "@livekit/agents-plugin-baseten";
 import * as rime from "@livekit/agents-plugin-rime";
-import { TelephonyBackgroundVoiceCancellation } from "@livekit/noise-cancellation-node";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Agent } from "./agent.js";
@@ -526,7 +525,6 @@ export default defineAgent({
         agent,
         room: ctx.room,
         inputOptions: {
-          noiseCancellation: TelephonyBackgroundVoiceCancellation(),
           deleteRoomOnClose: true,
           participantIdentity: participant.identity,
         },
