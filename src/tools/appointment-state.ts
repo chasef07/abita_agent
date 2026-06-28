@@ -121,6 +121,7 @@ export interface CancellationAppointmentSelector {
   appointmentId?: number;
   appointmentDate?: string;
   appointmentTime?: string;
+  fallbackToSingleLoadedAppointment?: boolean;
 }
 
 export type CancellationAppointmentSelection =
@@ -135,6 +136,8 @@ export function cancellationAppointmentForState(
   if (selector.appointmentId !== undefined) {
     const appointment = activeAppointmentById(state, selector.appointmentId);
     if (appointment) return { status: "selected", appointment };
+    const fallback = singleLoadedAppointmentFallback(state, selector);
+    if (fallback) return fallback;
     return {
       status: "not_found",
       message:
@@ -144,6 +147,10 @@ export function cancellationAppointmentForState(
 
   const selectorResult = appointmentSelectedByDateTime(state, selector);
   if (selectorResult) {
+    if (selectorResult.status === "not_found") {
+      const fallback = singleLoadedAppointmentFallback(state, selector);
+      if (fallback) return fallback;
+    }
     return selectorResult;
   }
 
@@ -178,6 +185,18 @@ export function cancellationAppointmentForState(
     message:
       "Load appointments and confirm the exact appointment before cancelling.",
   };
+}
+
+function singleLoadedAppointmentFallback(
+  state: CallState,
+  selector: CancellationAppointmentSelector,
+): CancellationAppointmentSelection | null {
+  if (selector.fallbackToSingleLoadedAppointment !== true) return null;
+
+  const appointments = activeAppointments(state);
+  return appointments.length === 1
+    ? { status: "selected", appointment: appointments[0] }
+    : null;
 }
 
 export function removeAppointmentById(

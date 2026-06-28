@@ -135,6 +135,7 @@ export const reschedule_appointment = llm.tool({
     const selection = cancellationAppointmentForState(state, {
       appointmentDate: oldAppointmentDate,
       appointmentTime: oldAppointmentTime,
+      fallbackToSingleLoadedAppointment: true,
     });
     if (selection.status === "ambiguous") {
       return selection.message;

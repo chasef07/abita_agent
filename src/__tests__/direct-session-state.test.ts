@@ -4006,6 +4006,40 @@ describe("direct session state cleanup", () => {
     ).toEqual([111]);
   });
 
+  it("does not cancel a single loaded appointment when caller date and time miss", async () => {
+    const state = createState();
+    setLoadedAppointments(
+      state,
+      appointment({
+        id: 123,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Bach",
+      }),
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      cancel_appointment.execute(
+        {
+          appointmentDate: "June 2",
+          appointmentTime: "10:00 AM",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "No loaded appointment matches those details. Load appointments again or ask which loaded appointment to cancel.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      state.identity.patient.appointments.map((appointment) => appointment.id),
+    ).toEqual([123]);
+  });
+
   it("treats duplicate cancel_appointment for a cancelled appointment as already done", async () => {
     const state = createState();
     setLoadedAppointments(state, appointment({ provider: "Dr. Bach" }));
@@ -4530,6 +4564,42 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+      appointmentId: 123,
+      patientId: "patient-1",
+      office: "+17275919997",
+    });
+  });
+
+  it("reschedules the single loaded appointment when old date and time selectors miss", async () => {
+    const state = createState();
+    prepareRescheduleState(state, { context: "change_appointment" });
+    const fetchMock = stubRescheduleFetch({
+      status: "booked",
+      appointmentId: 456,
+      providerName: "Doctor Smith",
+      locationName: "Spring Hill",
+      appointmentTypeName: "Medical",
+    });
+
+    const result = await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+        oldAppointmentDate: "June 2",
+        oldAppointmentTime: "10:00 AM",
       },
       {
         ctx: createToolContext(state) as never,
