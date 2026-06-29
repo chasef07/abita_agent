@@ -385,7 +385,12 @@ describe("Crystal River prompt guidance", () => {
     expect(route_to_spring_hill.description).toContain(
       "pediatric ophthalmology",
     );
-    expect(route_to_spring_hill.description).toContain("cataract evaluations");
+    expect(route_to_spring_hill.description).not.toContain(
+      "cataract evaluations",
+    );
+    expect(route_to_spring_hill.description).toContain(
+      "cataract surgery workups",
+    );
     expect(route_to_spring_hill.description).toContain("routine eye exams");
     expect(route_to_spring_hill.description).toContain(
       "caller is actively scheduling and agrees",
@@ -394,8 +399,12 @@ describe("Crystal River prompt guidance", () => {
     expect(crystalRiverKnowledge).toContain(
       "does **not** see pediatric ophthalmology",
     );
-    expect(crystalRiverKnowledge).toContain(
+    expect(crystalRiverKnowledge).toContain("cataract evaluations");
+    expect(crystalRiverKnowledge).not.toContain(
       "does **not** schedule cataract evaluations",
+    );
+    expect(crystalRiverKnowledge).toContain(
+      "does **not** schedule cataract surgery workups",
     );
     expect(crystalRiverKnowledge).toContain(
       "routine eye exams/glasses/contact lens prescriptions",
