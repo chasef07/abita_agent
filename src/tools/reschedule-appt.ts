@@ -27,9 +27,9 @@ import {
   selectedAvailabilitySlot,
 } from "./availability-slots.js";
 import {
-  cancellationAppointmentForState,
   removeAppointmentById,
   recordBookedAppointmentInState,
+  rescheduleAppointmentForState,
 } from "./appointment-state.js";
 import {
   appointmentPatientStatusForLoadedAppointment,
@@ -78,17 +78,13 @@ const rescheduleAppointmentParameters = z
       .describe(
         "Set to true only after reading back the selected new appointment date, time, and provider and the caller confirms the new appointment details are correct.",
       ),
-    oldAppointmentDate: z
+    oldAppointmentRef: z
       .string()
+      .trim()
+      .min(1)
       .optional()
       .describe(
-        'Date the caller used to identify the old loaded appointment being moved, such as "June 2", "June 2nd", or "2026-06-02". Omit when exactly one old appointment is loaded and confirmed.',
-      ),
-    oldAppointmentTime: z
-      .string()
-      .optional()
-      .describe(
-        'Time the caller used to identify the old loaded appointment being moved, such as "10 AM" or "2:30 PM". Use with oldAppointmentDate when needed.',
+        "Loaded appointment reference returned by reschedule_appointment when multiple old appointments are loaded. Omit when exactly one old appointment is loaded.",
       ),
   })
   .strict();
@@ -97,8 +93,8 @@ export const reschedule_appointment = llm.tool({
   description:
     "Reschedule a loaded appointment. " +
     "Call only after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns slots, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. " +
-    "Pass appointmentSlotRef for the caller-confirmed new slot. Do not pass backend patient IDs or appointment IDs; the tool selects the old appointment from loaded appointment state. " +
-    "If more than one old appointment is loaded, pass oldAppointmentDate and oldAppointmentTime for the caller-confirmed old appointment. " +
+    "Pass appointmentSlotRef for the caller-confirmed new slot. Do not pass backend patient IDs or appointment IDs. Do not pass old appointment dates or old appointment times; the tool selects the old appointment from loaded appointment state. " +
+    "If more than one old appointment is loaded, call once without oldAppointmentRef, ask the caller which listed appointment to move, then pass the matching oldAppointmentRef. " +
     "Before booking the new appointment, read back the selected new appointment date, time, and provider, then get caller confirmation. " +
     "This tool books the new appointment first and cancels the old appointment only after booking succeeds.",
   parameters: rescheduleAppointmentParameters,
@@ -108,8 +104,7 @@ export const reschedule_appointment = llm.tool({
       referringDoctor,
       readBack,
       appointmentSlotRef,
-      oldAppointmentDate,
-      oldAppointmentTime,
+      oldAppointmentRef,
     } = args;
 
     const state = getState(ctx);
@@ -132,10 +127,11 @@ export const reschedule_appointment = llm.tool({
     }
 
     const selectedSlot = selectedSlotForBooking(state, appointmentSlotRef);
-    const selection = cancellationAppointmentForState(state, {
-      appointmentDate: oldAppointmentDate,
-      appointmentTime: oldAppointmentTime,
-    });
+    const selection = rescheduleAppointmentForState(
+      state,
+      completedReschedule ? undefined : oldAppointmentRef,
+      { preferLatestBooked: Boolean(completedReschedule) },
+    );
     if (selection.status === "ambiguous") {
       return selection.message;
     }

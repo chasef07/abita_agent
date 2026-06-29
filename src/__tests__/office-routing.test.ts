@@ -918,6 +918,7 @@ describe("model-facing tool definitions", () => {
     expect(reschedule_appointment.description).toContain(
       "Do not pass backend patient IDs or appointment IDs",
     );
+    expect(reschedule_appointment.description).toContain("oldAppointmentRef");
     expect(reschedule_appointment.description).toContain(
       "cancels the old appointment only after booking succeeds",
     );
@@ -931,8 +932,7 @@ describe("model-facing tool definitions", () => {
       "appointmentReason",
       "referringDoctor",
       "readBack",
-      "oldAppointmentDate",
-      "oldAppointmentTime",
+      "oldAppointmentRef",
     ]);
     expect(
       parameters.safeParse({
@@ -947,10 +947,18 @@ describe("model-facing tool definitions", () => {
         appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
+        oldAppointmentRef: "old-appointment-2-abc123",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        appointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
         oldAppointmentDate: "June 2",
         oldAppointmentTime: "9 AM",
       }).success,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       parameters.safeParse({
         slotId: "A",

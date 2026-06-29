@@ -128,6 +128,62 @@ export type CancellationAppointmentSelection =
   | { status: "ambiguous"; message: string }
   | { status: "not_found"; message: string };
 
+type RescheduleAppointmentSelectionOptions = {
+  preferLatestBooked?: boolean;
+};
+
+export function rescheduleAppointmentForState(
+  state: CallState,
+  oldAppointmentRef?: string,
+  options: RescheduleAppointmentSelectionOptions = {},
+): CancellationAppointmentSelection {
+  const appointments = activeAppointments(state);
+  const ref = oldAppointmentRef?.trim();
+
+  if (ref) {
+    const index = appointments.findIndex(
+      (appointment, index) => oldAppointmentRefFor(appointment, index) === ref,
+    );
+    if (index >= 0)
+      return { status: "selected", appointment: appointments[index] };
+    return {
+      status: "not_found",
+      message:
+        "No loaded appointment matches that oldAppointmentRef. Ask which loaded appointment to reschedule.",
+    };
+  }
+
+  if (options.preferLatestBooked) {
+    const latestBookedId = latestBookedAppointmentId(state);
+    if (latestBookedId !== null) {
+      const latestBookedAppointment = activeAppointmentById(
+        state,
+        latestBookedId,
+      );
+      if (latestBookedAppointment) {
+        return { status: "selected", appointment: latestBookedAppointment };
+      }
+    }
+  }
+
+  if (appointments.length === 1) {
+    return { status: "selected", appointment: appointments[0] };
+  }
+
+  if (appointments.length > 1) {
+    return {
+      status: "ambiguous",
+      message: rescheduleAppointmentClarificationMessage(appointments),
+    };
+  }
+
+  return {
+    status: "not_found",
+    message:
+      "Load appointments and confirm the exact appointment before rescheduling.",
+  };
+}
+
 export function cancellationAppointmentForState(
   state: CallState,
   selector: CancellationAppointmentSelector,
@@ -469,6 +525,42 @@ function appointmentClarificationMessage(
   const remaining = appointments.length - 3;
   const more = remaining > 0 ? `; and ${remaining} more` : "";
   return `${prefix} Loaded appointments: ${choices}${more}.`;
+}
+
+function rescheduleAppointmentClarificationMessage(
+  appointments: CallerAppointment[],
+): string {
+  const choices = appointments
+    .map(
+      (appointment, index) =>
+        `${oldAppointmentRefFor(appointment, index)}: ${spokenAppointment(appointment)}`,
+    )
+    .join("; ");
+  return `Which loaded appointment should I reschedule? Use oldAppointmentRef with one of: ${choices}.`;
+}
+
+function oldAppointmentRefFor(
+  appointment: CallerAppointment,
+  index: number,
+): string {
+  return `old-appointment-${index + 1}-${appointmentRefDigest(appointment)}`;
+}
+
+function appointmentRefDigest(appointment: CallerAppointment): string {
+  const source = [
+    appointment.id,
+    appointment.date,
+    appointment.time,
+    appointment.provider,
+    appointment.type,
+    appointment.facility,
+  ].join("|");
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
 }
 
 function spokenAppointment(appointment: CallerAppointment): string {
