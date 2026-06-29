@@ -1,11 +1,7 @@
 // Abita customer profile: office registry for trunk routing, prompts, and tool behavior.
 
 export type OfficeKey =
-  | "spring-hill"
-  | "crystal-river"
-  | "hollywood"
-  | "sweetwater"
-  | "dev";
+  "spring-hill" | "crystal-river" | "hollywood" | "sweetwater" | "dev";
 export const SPRING_HILL_OFFICE_PHONE = "+17275919997";
 export const SPRING_HILL_813_TRUNK_PHONE = "+18135484830";
 export const CRYSTAL_RIVER_OFFICE_PHONE = "+13523202007";

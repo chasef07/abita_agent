@@ -7,9 +7,7 @@ const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 export type InsuranceCoverageType = "medical" | "routine_vision";
 
 export type InsuranceMatchStatus =
-  | "accepted"
-  | "not_accepted"
-  | "needs_clarification";
+  "accepted" | "not_accepted" | "needs_clarification";
 
 export interface InsurancePlanRule {
   id?: string;

@@ -130,10 +130,7 @@ type PatientStatus = "unknown" | "matched" | "verified" | "new" | "created";
 type VisitType = "medical" | "routine_vision";
 
 type SchedulingRouting =
-  | "bach_only"
-  | "bach_licht"
-  | "all_three"
-  | "optical_only";
+  "bach_only" | "bach_licht" | "all_three" | "optical_only";
 
 type TurnIntent = "schedule" | "change_appointment";
 
