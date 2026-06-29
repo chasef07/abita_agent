@@ -18,7 +18,7 @@ export const route_to_spring_hill = llm.tool({
   description:
     "Switch scheduling to Spring Hill without transferring the caller. " +
     "Call this from Crystal River after the caller agrees to schedule a Spring Hill-only visit. " +
-    "Spring Hill-only visits include pediatric ophthalmology or callers implied to be under 18, cataract evaluations or cataract surgery workups, routine eye exams, glasses prescriptions, contact lens prescriptions, and insurance accepted at Spring Hill but not Crystal River. " +
+    "Spring Hill-only visits include pediatric ophthalmology or callers implied to be under 18, cataract surgery workups, routine eye exams, glasses prescriptions, contact lens prescriptions, and insurance accepted at Spring Hill but not Crystal River. " +
     "Do not call this just because Spring Hill is mentioned in a question; use it only when the caller is actively scheduling and agrees to route scheduling to Spring Hill.",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
