@@ -372,6 +372,14 @@ function fetchCallKinds(fetchMock: ReturnType<typeof vi.fn>) {
   );
 }
 
+function oldAppointmentRefForOrdinal(message: string, ordinal: number): string {
+  const match = message.match(
+    new RegExp(`\\bold-appointment-${ordinal}-[a-z0-9]+\\b`),
+  );
+  if (!match) throw new Error(`Missing old appointment ref ${ordinal}`);
+  return match[0];
+}
+
 describe("direct session state cleanup", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -4477,9 +4485,24 @@ describe("direct session state cleanup", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("reschedules by caller date and time when the supplied appointment ID is wrong", async () => {
+  it("reschedules the loaded appointment selected by old appointment ref", async () => {
     const state = createState();
     prepareRescheduleState(state, { context: "change_appointment" });
+    setLoadedAppointments(
+      state,
+      appointment({
+        id: 111,
+        date: "Tuesday, June 2, 2026",
+        time: "9:00 AM",
+        provider: "Dr. Bach",
+      }),
+      appointment({
+        id: 222,
+        date: "Thursday, June 25, 2026",
+        time: "2:00 PM",
+        provider: "Dr. Licht",
+      }),
+    );
     const fetchMock = stubRescheduleFetch({
       status: "booked",
       appointmentId: 456,
@@ -4487,6 +4510,18 @@ describe("direct session state cleanup", () => {
       locationName: "Spring Hill",
       appointmentTypeName: "Medical",
     });
+    const prompt = await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-prompt",
+      } as never,
+    );
+    const oldAppointmentRef = oldAppointmentRefForOrdinal(prompt, 2);
 
     const result = await reschedule_appointment.execute(
       {
@@ -4494,8 +4529,7 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        oldAppointmentDate: "June 1",
-        oldAppointmentTime: "9:00 AM",
+        oldAppointmentRef,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4504,10 +4538,10 @@ describe("direct session state cleanup", () => {
     );
 
     expect(result).toBe(
-      "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+      "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Thursday, June 25, 2026 at 2:00 PM.",
     );
     expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
-      appointmentId: 123,
+      appointmentId: 222,
       patientId: "patient-1",
       office: "+17275919997",
     });
@@ -4603,6 +4637,20 @@ describe("direct session state cleanup", () => {
   it("allows a caller correction to a different slot after a successful reschedule", async () => {
     const state = createState();
     prepareRescheduleState(state, { context: "change_appointment" });
+    setLoadedAppointments(
+      state,
+      appointment({
+        id: 123,
+        date: "Monday, June 1, 2026",
+        time: "9:00 AM",
+      }),
+      appointment({
+        id: 222,
+        date: "Thursday, June 25, 2026",
+        time: "2:00 PM",
+        provider: "Dr. Bach",
+      }),
+    );
     let bookingCallCount = 0;
     const fetchMock = vi.fn(async (url: string | URL) => {
       const path = String(url);
@@ -4628,6 +4676,18 @@ describe("direct session state cleanup", () => {
       };
     });
     vi.stubGlobal("fetch", fetchMock);
+    const prompt = await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "A",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-prompt",
+      } as never,
+    );
+    const firstOldAppointmentRef = oldAppointmentRefForOrdinal(prompt, 1);
 
     await reschedule_appointment.execute(
       {
@@ -4635,6 +4695,7 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        oldAppointmentRef: firstOldAppointmentRef,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4658,6 +4719,7 @@ describe("direct session state cleanup", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        oldAppointmentRef: firstOldAppointmentRef,
       },
       {
         ctx: createToolContext(state) as never,
@@ -4680,6 +4742,15 @@ describe("direct session state cleanup", () => {
       office: "+17275919997",
     });
     expect(state.identity.patient.appointments).toEqual([
+      {
+        id: 222,
+        date: "Thursday, June 25, 2026",
+        time: "2:00 PM",
+        provider: "Dr. Bach",
+        type: "Follow-up",
+        facility: "Spring Hill",
+        confirmed: false,
+      },
       {
         id: 789,
         date: "2026-06-01",
@@ -4864,7 +4935,7 @@ describe("direct session state cleanup", () => {
     ).toEqual([123]);
   });
 
-  it("does not book when the old appointment selection is ambiguous", async () => {
+  it("returns old appointment refs before booking when multiple appointments are loaded", async () => {
     const state = createState();
     markSchedulingTriaged(state);
     setLoadedAppointments(
@@ -4881,7 +4952,20 @@ describe("direct session state cleanup", () => {
         time: "2:00 PM",
         type: "Routine Vision",
       }),
+      appointment({
+        id: 333,
+        date: "Wednesday, June 3, 2026",
+        time: "10:00 AM",
+        provider: "Dr. Calero",
+      }),
+      appointment({
+        id: 444,
+        date: "Thursday, June 4, 2026",
+        time: "11:00 AM",
+        provider: "Dr. Bach",
+      }),
     );
+    state.identity.latestBookedAppointmentId = 222;
     storeAvailabilityBookingToken(state, "A", "private-token");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -4891,7 +4975,6 @@ describe("direct session state cleanup", () => {
         appointmentSlotRef: "A",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
-        oldAppointmentDate: "June 2",
       },
       {
         ctx: createToolContext(state) as never,
@@ -4899,8 +4982,8 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toBe(
-      "I found more than one matching appointment. Loaded appointments: Tuesday, June 2, 2026 at 9:00 AM with Dr. Bach; Tuesday, June 2, 2026 at 2:00 PM with Dr. Licht.",
+    expect(result).toMatch(
+      /^Which loaded appointment should I reschedule\? Use oldAppointmentRef with one of: old-appointment-1-[a-z0-9]+: Tuesday, June 2, 2026 at 9:00 AM with Dr\. Bach; old-appointment-2-[a-z0-9]+: Tuesday, June 2, 2026 at 2:00 PM with Dr\. Licht; old-appointment-3-[a-z0-9]+: Wednesday, June 3, 2026 at 10:00 AM with Dr\. Calero; old-appointment-4-[a-z0-9]+: Thursday, June 4, 2026 at 11:00 AM with Dr\. Bach\.$/,
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -5055,7 +5138,7 @@ describe("direct session state cleanup", () => {
         } as never,
       ),
     ).rejects.toThrow(
-      "Load appointments and confirm the exact appointment before cancelling.",
+      "Load appointments and confirm the exact appointment before rescheduling.",
     );
   });
 
