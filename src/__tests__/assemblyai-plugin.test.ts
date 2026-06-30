@@ -5,9 +5,11 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { initializeLogger } from "@livekit/agents";
 import { STT } from "@livekit/agents-plugin-assemblyai";
 import {
+  ASSEMBLYAI_AGENT_CONTEXT_MAX_CHARS,
   ASSEMBLYAI_DEFAULT_KEYTERMS,
   ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
   ASSEMBLYAI_STT_PROFILES,
+  getAssemblyAIAgentContext,
   getAssemblyAISttOptions,
   getAssemblyAISttProfileOptions,
   selectAssemblyAISttProfileForAssistantText,
@@ -36,6 +38,7 @@ describe("official AssemblyAI plugin", () => {
     expect(getAssemblyAISttOptions().maxTurnSilence).toBe(2000);
     expect(getAssemblyAISttOptions().voiceFocus).toBe("near-field");
     expect(getAssemblyAISttOptions()).not.toHaveProperty("voiceFocusThreshold");
+    expect(getAssemblyAISttOptions()).not.toHaveProperty("agentContext");
     expect(getAssemblyAISttOptions().inactivityTimeout).toBe(
       ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
     );
@@ -71,6 +74,20 @@ describe("official AssemblyAI plugin", () => {
     expect(sttSource).toContain("languageConfidence");
     expect(sttSource).toContain("speechDataMetadata");
     expect(sttSource).toContain("metadata");
+  });
+
+  it("builds agent context from the latest assistant message", () => {
+    expect(getAssemblyAIAgentContext("What insurance do you have?")).toBe(
+      "What insurance do you have?",
+    );
+    expect(getAssemblyAIAgentContext("")).toBeUndefined();
+
+    const longText = `start-${"x".repeat(ASSEMBLYAI_AGENT_CONTEXT_MAX_CHARS)}-end`;
+    const agentContext = getAssemblyAIAgentContext(longText);
+
+    expect(agentContext).toHaveLength(ASSEMBLYAI_AGENT_CONTEXT_MAX_CHARS);
+    expect(agentContext).not.toContain("start-");
+    expect(agentContext).toContain("-end");
   });
 
   it("keeps startup keyterms conservative and AssemblyAI-compatible", () => {

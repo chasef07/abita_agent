@@ -63,6 +63,7 @@ import {
 } from "./stt-language-detector.js";
 import {
   type SttProfile,
+  getAssemblyAIAgentContext,
   getAssemblyAISttOptions,
   getAssemblyAISttProfileOptions,
   selectSttProfileForAssistantText,
@@ -334,11 +335,22 @@ export default defineAgent({
           callerText?: string;
           createdAt?: number;
         } = {},
+        extraOptions: Partial<assemblyai.STTOptions> = {},
       ) => {
-        if (profile === activeSttProfile) return;
+        if (
+          profile === activeSttProfile &&
+          Object.keys(extraOptions).length === 0
+        ) {
+          return;
+        }
 
         const previousProfile = activeSttProfile;
-        stt.updateOptions(getAssemblyAISttProfileOptions(profile));
+        stt.updateOptions({
+          ...getAssemblyAISttProfileOptions(profile),
+          ...extraOptions,
+        });
+        if (profile === activeSttProfile) return;
+
         activeSttProfile = profile;
         sttProfiles.push(
           snapshotSttProfileTransition({
@@ -378,10 +390,16 @@ export default defineAgent({
           fallbackProfile: promptedSttProfile,
         });
         promptedSttProfile = profile === "default" ? null : profile;
-        applySttProfile(profile, "assistant_prompt", {
-          assistantText,
-          createdAt: ev.createdAt,
-        });
+        const agentContext = getAssemblyAIAgentContext(assistantText);
+        applySttProfile(
+          profile,
+          "assistant_prompt",
+          {
+            assistantText,
+            createdAt: ev.createdAt,
+          },
+          agentContext ? { agentContext } : {},
+        );
       });
 
       session.on(voice.AgentSessionEventTypes.SessionUsageUpdated, (ev) => {

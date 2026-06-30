@@ -7,6 +7,7 @@ export const ASSEMBLYAI_BASE_TIMING = {
 } as const;
 
 export const ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS = 30;
+export const ASSEMBLYAI_AGENT_CONTEXT_MAX_CHARS = 1500;
 
 export const ASSEMBLYAI_DEFAULT_KEYTERMS = [
   "Abita Eye Group",
@@ -92,6 +93,11 @@ export function getAssemblyAISttProfileOptions(
       ? [...options.keytermsPrompt]
       : undefined,
   };
+}
+
+export function getAssemblyAIAgentContext(text: string): string | undefined {
+  if (!text) return undefined;
+  return text.slice(-ASSEMBLYAI_AGENT_CONTEXT_MAX_CHARS);
 }
 
 const READBACK_CUES = [
