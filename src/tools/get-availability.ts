@@ -52,13 +52,10 @@ const isoDateSchema = z
 
 export const get_availability = llm.tool({
   description:
-    "Search appointment availability from a start date. " +
-    "For new appointments, pass appointmentLane after the visit reason is clear. Use medical_md for symptom-driven eye care, medical ophthalmology, or any eye problem or concern. Use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. " +
-    "For reschedules, omit appointmentLane only when the existing appointment to move is already identified. " +
-    "Pass timePreference morning when the caller asks for morning or before noon, afternoon when they ask for afternoon or PM, and none when they have no time preference. " +
-    "Do not call for same-day or past dates; ask for tomorrow or a later date. " +
-    "For explicit calendar dates like June 16, June 16 2026, or 2026-06-16, choose the exact YYYY-MM-DD date and call this tool directly. " +
-    "If the caller uses a relative date like today, tomorrow, next week, or Friday, call get_current_datetime before choosing the YYYY-MM-DD date. Do not pass relative phrases like next Wednesday here. " +
+    "Search appointment availability from an exact YYYY-MM-DD start date. " +
+    "For new appointments, pass appointmentLane after the visit reason is clear; for reschedules, omit it only when the existing appointment to move is already identified. " +
+    "Use timePreference to rank morning, afternoon, or no-preference requests. " +
+    "Do not call for same-day or past dates. Call get_current_datetime before using relative dates, and do not pass relative phrases here. " +
     "This tool returns plain instructions with at most two appointmentSlotRef values; offer only those returned slots and do not invent other times.",
   parameters: z.object({
     date: isoDateSchema.describe("Start date in YYYY-MM-DD format."),
@@ -66,7 +63,7 @@ export const get_availability = llm.tool({
       .enum(["medical_md", "routine_od"])
       .optional()
       .describe(
-        "Required for new appointment searches. Use medical_md for symptom-driven eye care or any eye problem; use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. Omit only for reschedules when the loaded appointment supplies the lane.",
+        "Required for new appointment searches. Use medical_md for medical or eye-problem visits, routine_od for routine vision. Omit only for reschedules when the loaded appointment supplies the lane.",
       ),
     timePreference: z
       .enum(["morning", "afternoon", "none"])

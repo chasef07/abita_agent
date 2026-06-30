@@ -698,20 +698,20 @@ describe("model-facing tool definitions", () => {
   });
 
   it("keeps availability from exposing Bach-only routing internals", () => {
-    expect(get_availability.description).toContain("pass appointmentLane");
-    expect(get_availability.description).toContain("medical_md");
-    expect(get_availability.description).toContain("routine_od");
-    expect(get_availability.description).toContain("symptom-driven eye care");
     expect(get_availability.description).toContain(
-      "routine eye exams with no active eye problem",
+      "exact YYYY-MM-DD start date",
     );
+    expect(get_availability.description).toContain("pass appointmentLane");
+    expect(get_availability.description).toContain("Use timePreference");
     expect(get_availability.description).toContain(
       "Do not call for same-day or past dates",
     );
     expect(get_availability.description).toContain(
-      "For explicit calendar dates like June 16",
+      "Call get_current_datetime before using relative dates",
     );
-    expect(get_availability.description).toContain("Pass timePreference");
+    expect(get_availability.description).toContain(
+      "at most two appointmentSlotRef values",
+    );
     expect(get_availability.description).not.toContain("bach_only routing");
     expect(get_availability.description).not.toContain(
       "Under 18 medical visits = Dr. Bach only",
@@ -719,7 +719,20 @@ describe("model-facing tool definitions", () => {
 
     const parameters = get_availability.parameters as {
       safeParse: (value: unknown) => { success: boolean };
+      shape: {
+        appointmentLane: { description?: string };
+        timePreference: { description?: string };
+      };
     };
+    expect(parameters.shape.appointmentLane.description).toContain(
+      "medical_md",
+    );
+    expect(parameters.shape.appointmentLane.description).toContain(
+      "routine_od",
+    );
+    expect(parameters.shape.timePreference.description).toContain("morning");
+    expect(parameters.shape.timePreference.description).toContain("afternoon");
+    expect(parameters.shape.timePreference.description).toContain("none");
     expect(
       parameters.safeParse({
         date: "2026-06-01",
