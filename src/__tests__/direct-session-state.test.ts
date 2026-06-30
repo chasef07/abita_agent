@@ -312,11 +312,13 @@ function availabilityFoundResponse(
 async function getMedicalAvailability(
   ctx: ReturnType<typeof createToolContext>,
   toolCallId: string,
+  timePreference?: "morning" | "afternoon" | "none",
 ) {
   return get_availability.execute(
     {
       date: "2026-07-09",
       appointmentLane: "medical_md",
+      ...(timePreference ? { timePreference } : {}),
     },
     {
       ctx: ctx as never,
@@ -392,7 +394,7 @@ describe("direct session state cleanup", () => {
     transferCallerToOfficeMock.mockClear();
   });
 
-  it("returns public slots while storing booking tokens privately", async () => {
+  it("returns plain availability instructions while storing booking tokens privately", async () => {
     const state = createState();
     clearAvailabilitySelection(state);
     markSchedulingTriaged(state);
@@ -425,7 +427,7 @@ describe("direct session state cleanup", () => {
 
     const ctx = createToolContext(state);
 
-    const result = (await get_availability.execute(
+    const result = await get_availability.execute(
       {
         date: "2026-06-01",
         appointmentLane: "medical_md",
@@ -434,31 +436,14 @@ describe("direct session state cleanup", () => {
         ctx: ctx as never,
         toolCallId: "tool-1",
       } as never,
-    )) as Record<string, unknown>;
+    );
 
     expect(ctx.session.say).not.toHaveBeenCalled();
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      result: "slots_found",
-      reply: "I found June 1 at 9:00 AM with Dr. Bach. Does that work?",
-      next: "offer_slot",
-      appointmentSlotRef: "S1",
-      slots: [
-        {
-          appointmentSlotRef: "S1",
-          spoken: "June 1 at 9:00 AM with Dr. Bach",
-          provider: "Dr. Bach",
-          date: "2026-06-01",
-          time: "9:00 AM",
-        },
-      ],
-    });
-    expect(result).not.toHaveProperty("slotId");
-    expect((result.slots as Record<string, unknown>[])[0]).not.toHaveProperty(
-      "slotId",
+    expect(result).toBe(
+      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another date to check and call get_availability with that date.",
     );
-    expect(result).not.toHaveProperty("bookingToken");
-    expect(JSON.stringify(result)).not.toContain("private-token");
+    expect(result).not.toContain("private-token");
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "private-token",
     });
@@ -478,6 +463,247 @@ describe("direct session state cleanup", () => {
         routing: "all_three",
       },
     ]);
+  });
+
+  it("offers two visible slot options without storing hidden active slots", async () => {
+    const state = createState();
+    clearAvailabilitySelection(state);
+    markSchedulingTriaged(state);
+    const fetchMock = stubFetchJson({
+      status: "success",
+      outcome: "availability_found",
+      availabilityFound: true,
+      requestedDate: "2026-06-01",
+      actualDate: "2026-06-01",
+      searchedFrom: "2026-06-01",
+      searchedThrough: "2026-06-01",
+      shouldRetrySameSearch: false,
+      slots: [
+        {
+          provider: "Dr. Austin Bach",
+          date: "2026-06-01",
+          time: "9:00 AM",
+          datetime: "2026-06-01T09:00:00",
+          bookingToken: "first-private-token",
+        },
+        {
+          provider: "Dr. D. Noel",
+          date: "2026-06-01",
+          time: "10:00 AM",
+          datetime: "2026-06-01T10:00:00",
+          bookingToken: "second-private-token",
+        },
+        {
+          provider: "Dr. J. Licht",
+          date: "2026-06-01",
+          time: "11:00 AM",
+          datetime: "2026-06-01T11:00:00",
+          bookingToken: "third-private-token",
+        },
+      ],
+    });
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Offer these options: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1), or June 1 at 10:00 AM with Dr. Noel (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date.",
+    );
+    expect(result).not.toContain("S3");
+    expect(result).not.toContain("third-private-token");
+    expect(state.availability.slots.map((slot) => slot.slotId)).toEqual([
+      "S1",
+      "S2",
+    ]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      S1: "first-private-token",
+      S2: "second-private-token",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers a morning and afternoon spread when the caller has no time preference", async () => {
+    const state = createState();
+    clearAvailabilitySelection(state);
+    markSchedulingTriaged(state);
+    stubFetchJson({
+      status: "success",
+      outcome: "availability_found",
+      availabilityFound: true,
+      requestedDate: "2026-06-01",
+      actualDate: "2026-06-01",
+      searchedFrom: "2026-06-01",
+      searchedThrough: "2026-06-01",
+      shouldRetrySameSearch: false,
+      slots: [
+        {
+          provider: "Dr. Austin Bach",
+          date: "2026-06-01",
+          time: "9:00 AM",
+          datetime: "2026-06-01T09:00:00",
+          bookingToken: "morning-private-token",
+        },
+        {
+          provider: "Dr. D. Noel",
+          date: "2026-06-01",
+          time: "10:00 AM",
+          datetime: "2026-06-01T10:00:00",
+          bookingToken: "hidden-private-token",
+        },
+        {
+          provider: "Dr. J. Licht",
+          date: "2026-06-01",
+          time: "2:00 PM",
+          datetime: "2026-06-01T14:00:00",
+          bookingToken: "afternoon-private-token",
+        },
+      ],
+    });
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+        timePreference: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Offer these options: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1), or June 1 at 2:00 PM with Dr. Licht (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date.",
+    );
+    expect(result).not.toContain("10:00 AM");
+    expect(state.availability.slots.map((slot) => slot.time)).toEqual([
+      "9:00 AM",
+      "2:00 PM",
+    ]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      S1: "morning-private-token",
+      S2: "afternoon-private-token",
+    });
+  });
+
+  it("ranks afternoon slots first when the caller asks for afternoon", async () => {
+    const state = createState();
+    clearAvailabilitySelection(state);
+    markSchedulingTriaged(state);
+    stubFetchJson({
+      status: "success",
+      outcome: "availability_found",
+      availabilityFound: true,
+      requestedDate: "2026-06-01",
+      actualDate: "2026-06-01",
+      searchedFrom: "2026-06-01",
+      searchedThrough: "2026-06-01",
+      shouldRetrySameSearch: false,
+      slots: [
+        {
+          provider: "Dr. Austin Bach",
+          date: "2026-06-01",
+          time: "9:00 AM",
+          datetime: "2026-06-01T09:00:00",
+          bookingToken: "hidden-morning-token",
+        },
+        {
+          provider: "Dr. D. Noel",
+          date: "2026-06-01",
+          time: "2:00 PM",
+          datetime: "2026-06-01T14:00:00",
+          bookingToken: "first-afternoon-token",
+        },
+        {
+          provider: "Dr. J. Licht",
+          date: "2026-06-01",
+          time: "3:00 PM",
+          datetime: "2026-06-01T15:00:00",
+          bookingToken: "second-afternoon-token",
+        },
+      ],
+    });
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+        timePreference: "afternoon",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Offer these options: June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S1), or June 1 at 3:00 PM with Dr. Licht (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date.",
+    );
+    expect(result).not.toContain("9:00 AM");
+    expect(state.availability.slots.map((slot) => slot.time)).toEqual([
+      "2:00 PM",
+      "3:00 PM",
+    ]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      S1: "first-afternoon-token",
+      S2: "second-afternoon-token",
+    });
+  });
+
+  it("falls back clearly when no returned slots match the requested time preference", async () => {
+    const state = createState();
+    clearAvailabilitySelection(state);
+    markSchedulingTriaged(state);
+    stubFetchJson({
+      status: "success",
+      outcome: "availability_found",
+      availabilityFound: true,
+      requestedDate: "2026-06-01",
+      actualDate: "2026-06-01",
+      searchedFrom: "2026-06-01",
+      searchedThrough: "2026-06-01",
+      shouldRetrySameSearch: false,
+      slots: [
+        {
+          provider: "Dr. Austin Bach",
+          date: "2026-06-01",
+          time: "9:00 AM",
+          datetime: "2026-06-01T09:00:00",
+          bookingToken: "first-private-token",
+        },
+        {
+          provider: "Dr. D. Noel",
+          date: "2026-06-01",
+          time: "10:00 AM",
+          datetime: "2026-06-01T10:00:00",
+          bookingToken: "second-private-token",
+        },
+      ],
+    });
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+        timePreference: "afternoon",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "No afternoon openings were found on June 1. Offer these options: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1), or June 1 at 10:00 AM with Dr. Noel (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date.",
+    );
   });
 
   it("keeps earlier offered slots bookable after a later availability search", async () => {
@@ -522,7 +748,7 @@ describe("direct session state cleanup", () => {
     );
     const ctx = createToolContext(state);
 
-    const firstResult = (await get_availability.execute(
+    const firstResult = await get_availability.execute(
       {
         date: "2026-07-09",
         appointmentLane: "medical_md",
@@ -531,8 +757,8 @@ describe("direct session state cleanup", () => {
         ctx: ctx as never,
         toolCallId: "tool-1",
       } as never,
-    )) as Record<string, unknown>;
-    const secondResult = (await get_availability.execute(
+    );
+    const secondResult = await get_availability.execute(
       {
         date: "2026-07-10",
         appointmentLane: "medical_md",
@@ -541,26 +767,12 @@ describe("direct session state cleanup", () => {
         ctx: ctx as never,
         toolCallId: "tool-2",
       } as never,
-    )) as Record<string, unknown>;
+    );
 
-    expect(firstResult).toMatchObject({
-      appointmentSlotRef: "S1",
-      slots: [
-        expect.objectContaining({
-          appointmentSlotRef: "S1",
-          date: "2026-07-09",
-        }),
-      ],
-    });
-    expect(secondResult).toMatchObject({
-      appointmentSlotRef: "S2",
-      slots: [
-        expect.objectContaining({
-          appointmentSlotRef: "S2",
-          date: "2026-07-10",
-        }),
-      ],
-    });
+    expect(firstResult).toContain("July 9 at 9:00 AM with Dr. Bach");
+    expect(firstResult).toContain("appointmentSlotRef S1");
+    expect(secondResult).toContain("July 10 at 10:00 AM with Dr. Bach");
+    expect(secondResult).toContain("appointmentSlotRef S2");
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "first-private-token",
       S2: "second-private-token",
@@ -649,7 +861,7 @@ describe("direct session state cleanup", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = (await get_availability.execute(
+    const result = await get_availability.execute(
       {
         date: "2026-06-01",
         appointmentLane: "routine_od",
@@ -658,7 +870,7 @@ describe("direct session state cleanup", () => {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-2",
       } as never,
-    )) as Record<string, unknown>;
+    );
 
     expect(state.workflow.current?.appointmentLane).toBe("routine_od");
     expect(state.availability.latestRouting).toBe("optical_only");
@@ -673,10 +885,8 @@ describe("direct session state cleanup", () => {
         routing: "optical_only",
       },
     ]);
-    expect(result).toMatchObject({
-      result: "slots_found",
-      appointmentSlotRef: "S1",
-    });
+    expect(result).toContain("June 1 at 10:00 AM with Dr. Kyler Farnan");
+    expect(result).toContain("appointmentSlotRef S1");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
         date: "2026-06-01",
@@ -716,7 +926,7 @@ describe("direct session state cleanup", () => {
         ctx: ctx as never,
         toolCallId: "tool-1",
       } as never,
-    ) as Promise<Record<string, unknown>>;
+    ) as Promise<string>;
 
     await vi.advanceTimersByTimeAsync(499);
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
@@ -757,11 +967,8 @@ describe("direct session state cleanup", () => {
     const result = await execution;
 
     expect(ctx.spokenHandle.interrupt).toHaveBeenCalledTimes(1);
-    expect(result).toMatchObject({
-      result: "slots_found",
-      next: "offer_slot",
-      appointmentSlotRef: "S1",
-    });
+    expect(result).toContain("Offer this slot:");
+    expect(result).toContain("appointmentSlotRef S1");
   });
 
   it("asks for a date before checking availability", async () => {
@@ -803,14 +1010,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toEqual({
-      result: "invalid_date",
-      reply:
-        "Same-day and past-date appointments are not available. Ask for tomorrow or a later date.",
-      next: "ask_future_date",
-      earliestDate: "2026-06-09",
-      slots: [],
-    });
+    expect(result).toBe(
+      "Same-day and past-date appointments are not available. Ask for tomorrow or a later date; the earliest date to check is 2026-06-09.",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(ctx.session.say).not.toHaveBeenCalled();
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
@@ -828,18 +1030,62 @@ describe("direct session state cleanup", () => {
     const firstResult = await getMedicalAvailability(ctx, "tool-1");
     const secondResult = await getMedicalAvailability(ctx, "tool-2");
 
-    expect(firstResult).toEqual({
-      result: "no_slots_found",
-      reply:
-        "I checked July 9 through July 23 and did not find openings. Ask if they want me to check starting July 24, or if they prefer a different day or time.",
-      next: "ask_next_search_or_new_preference",
-      searched: "2026-07-09 through 2026-07-23",
-      nextSearchDate: "2026-07-24",
-      slots: [],
-    });
+    expect(firstResult).toBe(
+      "No openings were found from July 9 through July 23. Ask whether to check starting July 24, or whether they prefer a different day or time.",
+    );
     expect(secondResult).toEqual(firstResult);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
+  });
+
+  it("keeps cached availability separate by time preference", async () => {
+    const state = createState();
+    clearAvailabilitySelection(state);
+    markSchedulingTriaged(state);
+    const ctx = createToolContext(state);
+    const response = availabilityFoundResponse(
+      {
+        provider: "Dr. Austin Bach",
+        date: "2026-07-09",
+        time: "9:00 AM",
+        datetime: "2026-07-09T09:00:00",
+        bookingToken: "morning-private-token",
+      },
+      {
+        slots: [
+          {
+            provider: "Dr. Austin Bach",
+            date: "2026-07-09",
+            time: "9:00 AM",
+            datetime: "2026-07-09T09:00:00",
+            bookingToken: "morning-private-token",
+          },
+          {
+            provider: "Dr. D. Noel",
+            date: "2026-07-09",
+            time: "2:00 PM",
+            datetime: "2026-07-09T14:00:00",
+            bookingToken: "afternoon-private-token",
+          },
+        ],
+      },
+    );
+    const fetchMock = stubFetchJson(response, response);
+
+    const firstResult = await getMedicalAvailability(ctx, "tool-1", "none");
+    const secondResult = await getMedicalAvailability(
+      ctx,
+      "tool-2",
+      "afternoon",
+    );
+
+    expect(firstResult).toBe(
+      "Offer these options: July 9 at 9:00 AM with Dr. Bach (appointmentSlotRef S1), or July 9 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date.",
+    );
+    expect(secondResult).toBe(
+      "Offer this slot: July 9 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). If the caller accepts it, use appointmentSlotRef S2; if they want a different day or time, ask for another date to check and call get_availability with that date.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("does not cache retryable availability responses", async () => {
@@ -862,16 +1108,12 @@ describe("direct session state cleanup", () => {
     const firstResult = await getMedicalAvailability(ctx, "tool-1");
     const secondResult = await getMedicalAvailability(ctx, "tool-2");
 
-    expect(firstResult).toMatchObject({
-      result: "retry",
-      next: "retry_search_once",
-      slots: [],
-    });
-    expect(secondResult).toMatchObject({
-      result: "no_slots_found",
-      next: "ask_next_search_or_new_preference",
-      slots: [],
-    });
+    expect(firstResult).toBe(
+      "Availability was not fully checked from July 9 through July 23. Call get_availability again once with the same date.",
+    );
+    expect(secondResult).toBe(
+      "No openings were found from July 9 through July 23. Ask whether to check starting July 24, or whether they prefer a different day or time.",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
   });
@@ -892,17 +1134,12 @@ describe("direct session state cleanup", () => {
     const firstResult = await getMedicalAvailability(ctx, "tool-1");
     const secondResult = await getMedicalAvailability(ctx, "tool-2");
 
-    expect(firstResult).toEqual({
-      result: "error",
-      reply: "The scheduler could not complete that search.",
-      next: "ask_new_date_or_time",
-      slots: [],
-    });
-    expect(secondResult).toMatchObject({
-      result: "no_slots_found",
-      next: "ask_next_search_or_new_preference",
-      slots: [],
-    });
+    expect(firstResult).toBe(
+      "The scheduler could not complete that search. Ask for a different date or time preference.",
+    );
+    expect(secondResult).toBe(
+      "No openings were found from July 9 through July 23. Ask whether to check starting July 24, or whether they prefer a different day or time.",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
   });
@@ -925,12 +1162,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toEqual({
-      result: "missing_patient",
-      reply: "Verify or create the patient before checking availability.",
-      next: "resolve_or_create_patient",
-      slots: [],
-    });
+    expect(result).toBe(
+      "Verify or create the patient before checking availability.",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -1113,7 +1347,7 @@ describe("direct session state cleanup", () => {
       }),
     );
 
-    const result = (await get_availability.execute(
+    const result = await get_availability.execute(
       {
         date: "2026-07-09",
       },
@@ -1121,16 +1355,14 @@ describe("direct session state cleanup", () => {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-1",
       } as never,
-    )) as Record<string, unknown>;
+    );
 
     expect(state.workflow.current).toEqual({
       intent: "change_appointment",
       appointmentLane: "not_applicable",
     });
-    expect(result).toMatchObject({
-      result: "slots_found",
-      appointmentSlotRef: "S2",
-    });
+    expect(result).toContain("July 9 at 9:45 AM with Dr. Bach");
+    expect(result).toContain("appointmentSlotRef S2");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
         date: "2026-07-09",
@@ -1172,7 +1404,7 @@ describe("direct session state cleanup", () => {
       }),
     );
 
-    const result = (await get_availability.execute(
+    const result = await get_availability.execute(
       {
         date: "2026-07-09",
       },
@@ -1180,7 +1412,7 @@ describe("direct session state cleanup", () => {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-1",
       } as never,
-    )) as Record<string, unknown>;
+    );
 
     expect(state.workflow.current).toEqual({
       intent: "change_appointment",
@@ -1188,10 +1420,8 @@ describe("direct session state cleanup", () => {
     });
     expect(state.office.activeKey).toBe("spring-hill");
     expect(state.availability.latestRouting).toBe("optical_only");
-    expect(result).toMatchObject({
-      result: "slots_found",
-      appointmentSlotRef: "S1",
-    });
+    expect(result).toContain("July 9 at 10:00 AM with Dr. Kyler Farnan");
+    expect(result).toContain("appointmentSlotRef S1");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
         date: "2026-07-09",
@@ -1246,7 +1476,7 @@ describe("direct session state cleanup", () => {
       ),
     );
 
-    const result = (await get_availability.execute(
+    const result = await get_availability.execute(
       {
         date: "2026-07-23",
       },
@@ -1254,7 +1484,7 @@ describe("direct session state cleanup", () => {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-1",
       } as never,
-    )) as Record<string, unknown>;
+    );
 
     expect(state.workflow.current).toEqual({
       intent: "change_appointment",
@@ -1262,10 +1492,8 @@ describe("direct session state cleanup", () => {
     });
     expect(state.office.activeKey).toBe("sweetwater");
     expect(state.availability.latestRouting).toBe("optical_only");
-    expect(result).toMatchObject({
-      result: "slots_found",
-      appointmentSlotRef: "S2",
-    });
+    expect(result).toContain("July 23 at 9:00 AM with Dr. Maria Casas");
+    expect(result).toContain("appointmentSlotRef S2");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
       {
         date: "2026-07-23",
@@ -1411,13 +1639,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toEqual({
-      result: "missing_availability_context",
-      reply:
-        "Before checking availability for a reschedule, load appointments by resolving the patient. If this is a new appointment instead, pass appointmentLane medical_md or routine_od.",
-      next: "resolve_patient_or_pass_lane",
-      slots: [],
-    });
+    expect(result).toBe(
+      "Before checking availability for a reschedule, load appointments by resolving the patient. If this is a new appointment instead, call get_availability again with appointmentLane medical_md or routine_od.",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -1438,13 +1662,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toEqual({
-      result: "missing_availability_context",
-      reply:
-        "Before checking availability for a reschedule, load appointments by resolving the patient. If this is a new appointment instead, pass appointmentLane medical_md or routine_od.",
-      next: "resolve_patient_or_pass_lane",
-      slots: [],
-    });
+    expect(result).toBe(
+      "Before checking availability for a reschedule, load appointments by resolving the patient. If this is a new appointment instead, call get_availability again with appointmentLane medical_md or routine_od.",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -1469,13 +1689,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toEqual({
-      result: "missing_availability_context",
-      reply:
-        "Before checking availability, ask which loaded appointment the caller wants to move. If this is a new appointment instead, pass appointmentLane medical_md or routine_od.",
-      next: "confirm_loaded_appointment_or_pass_lane",
-      slots: [],
-    });
+    expect(result).toBe(
+      "Before checking availability, ask which loaded appointment the caller wants to move. If this is a new appointment instead, call get_availability again with appointmentLane medical_md or routine_od.",
+    );
     expect(state.workflow.current).toBeUndefined();
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -1497,12 +1713,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toEqual({
-      result: "missing_patient",
-      reply: "Verify or create the patient before checking availability.",
-      next: "resolve_or_create_patient",
-      slots: [],
-    });
+    expect(result).toBe(
+      "Verify or create the patient before checking availability.",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

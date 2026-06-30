@@ -11,7 +11,10 @@ import {
   type CallState,
   type SchedulingAppointmentLane,
 } from "../state/call-state.js";
-import { storeAvailabilitySlots } from "./availability-slots.js";
+import {
+  storeAvailabilitySlots,
+  type AvailabilityTimePreference,
+} from "./availability-slots.js";
 import {
   ensureRoutineVisionOffice,
   getAmdOfficeForToolCall,
@@ -27,17 +30,7 @@ import {
 type AvailabilityLookupArgs = {
   date?: string;
   appointmentLane?: SchedulingAppointmentLane;
-};
-
-type AvailabilityLookupBlockedResponse = {
-  result: "missing_patient" | "missing_availability_context";
-  reply: string;
-  next:
-    | "resolve_or_create_patient"
-    | "pass_appointment_lane"
-    | "confirm_loaded_appointment_or_pass_lane"
-    | "resolve_patient_or_pass_lane";
-  slots: [];
+  timePreference?: AvailabilityTimePreference;
 };
 
 type GeneratedSpeechHandle = ReturnType<
@@ -59,26 +52,32 @@ const isoDateSchema = z
 
 export const get_availability = llm.tool({
   description:
-    "Search appointment availability from a start date. " +
-    "For new appointments, pass appointmentLane after the visit reason is clear. Use medical_md for symptom-driven eye care, medical ophthalmology, or any eye problem or concern. Use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. " +
-    "For reschedules, omit appointmentLane only when the existing appointment to move is already identified. " +
-    "Do not call for same-day or past dates; ask for tomorrow or a later date. " +
-    "For explicit calendar dates like June 16, June 16 2026, or 2026-06-16, choose the exact YYYY-MM-DD date and call this tool directly. " +
-    "If the caller uses a relative date like today, tomorrow, next week, or Friday, call get_current_datetime before choosing the YYYY-MM-DD date. Do not pass relative phrases like next Wednesday here.",
+    "Search appointment availability from an exact YYYY-MM-DD start date. " +
+    "For new appointments, pass appointmentLane after the visit reason is clear; for reschedules, omit it only when the existing appointment to move is already identified. " +
+    "Use timePreference to rank morning, afternoon, or no-preference requests. " +
+    "Do not call for same-day or past dates. Call get_current_datetime before using relative dates, and do not pass relative phrases here. " +
+    "This tool returns plain instructions with at most two appointmentSlotRef values; offer only those returned slots and do not invent other times.",
   parameters: z.object({
     date: isoDateSchema.describe("Start date in YYYY-MM-DD format."),
     appointmentLane: z
       .enum(["medical_md", "routine_od"])
       .optional()
       .describe(
-        "Required for new appointment searches. Use medical_md for symptom-driven eye care or any eye problem; use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. Omit only for reschedules when the loaded appointment supplies the lane.",
+        "Required for new appointment searches. Use medical_md for medical or eye-problem visits, routine_od for routine vision. Omit only for reschedules when the loaded appointment supplies the lane.",
+      ),
+    timePreference: z
+      .enum(["morning", "afternoon", "none"])
+      .optional()
+      .describe(
+        "Caller time-of-day preference for ranking returned slots. Use morning for AM or before-noon requests, afternoon for PM or afternoon requests, and none when the caller has no time preference.",
       ),
   }),
-  execute: async ({ date, appointmentLane }, { ctx }) => {
+  execute: async ({ date, appointmentLane, timePreference }, { ctx }) => {
     const state = getState(ctx);
     const request = buildAvailabilityLookupRequestForState(state, {
       date,
       appointmentLane,
+      timePreference,
     });
     if ("blocked" in request) return request.blocked;
 
@@ -106,11 +105,16 @@ export const get_availability = llm.tool({
     } finally {
       statusUpdate.cancel();
     }
-    const response = storeAvailabilitySlots(state, result, request.routing);
-    if (isCacheableAvailabilityResponse(response)) {
-      setAvailabilitySearchResult(state, request.signature, response);
+    const response = storeAvailabilitySlots(
+      state,
+      result,
+      request.routing,
+      request.timePreference,
+    );
+    if (response.cacheable) {
+      setAvailabilitySearchResult(state, request.signature, response.message);
     }
-    return response;
+    return response.message;
   },
 });
 
@@ -155,18 +159,6 @@ function startAvailabilityStatusUpdate(ctx: voice.RunContext): {
   };
 }
 
-function isCacheableAvailabilityResponse(response: unknown): boolean {
-  if (!response || typeof response !== "object" || Array.isArray(response)) {
-    return false;
-  }
-  const record = response as Record<string, unknown>;
-  return (
-    (record.result === "slots_found" && record.next === "offer_slot") ||
-    (record.result === "no_slots_found" &&
-      record.next === "ask_next_search_or_new_preference")
-  );
-}
-
 function buildAvailabilityLookupRequestForState(
   state: CallState,
   args: AvailabilityLookupArgs,
@@ -176,9 +168,11 @@ function buildAvailabilityLookupRequestForState(
       date: string;
       routing: string | null;
       signature: string;
+      timePreference: AvailabilityTimePreference;
     }
-  | { blocked: AvailabilityLookupBlockedResponse } {
+  | { blocked: string } {
   const date = args.date?.trim();
+  const timePreference = args.timePreference ?? "none";
   if (!date) {
     throw new llm.ToolError(
       "Ask what date or starting day the caller wants before checking availability.",
@@ -187,12 +181,7 @@ function buildAvailabilityLookupRequestForState(
   const patientId = activePatientId(state);
   if (!patientId) {
     return {
-      blocked: {
-        result: "missing_patient",
-        reply: "Verify or create the patient before checking availability.",
-        next: "resolve_or_create_patient",
-        slots: [],
-      },
+      blocked: "Verify or create the patient before checking availability.",
     };
   }
 
@@ -218,7 +207,9 @@ function buildAvailabilityLookupRequestForState(
       date,
       patientId,
       routing: effectiveRouting,
+      timePreference,
     }),
+    timePreference,
   };
 }
 
@@ -229,6 +220,7 @@ function availabilitySearchSignature(
     date: string;
     patientId: string | null;
     routing: string | null;
+    timePreference: AvailabilityTimePreference;
   },
 ): string {
   const turn = state.workflow.current;
@@ -238,31 +230,19 @@ function availabilitySearchSignature(
     intent: turn?.intent ?? null,
     appointmentLane: turn?.appointmentLane ?? null,
     date: input.date,
+    timePreference: input.timePreference,
     dob: typeof input.body.dob === "string" ? input.body.dob : null,
     routing: input.routing,
     preauthRequired: input.body.preauthRequired === true,
   });
 }
 
-function invalidAvailabilityDateResponse(requestedDate: string): {
-  result: "invalid_date";
-  reply: string;
-  next: "ask_future_date";
-  earliestDate: string;
-  slots: [];
-} | null {
+function invalidAvailabilityDateResponse(requestedDate: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return null;
   const today = clinicTodayIso();
   if (requestedDate > today) return null;
 
-  return {
-    result: "invalid_date",
-    reply:
-      "Same-day and past-date appointments are not available. Ask for tomorrow or a later date.",
-    next: "ask_future_date",
-    earliestDate: nextIsoDate(today),
-    slots: [],
-  };
+  return `Same-day and past-date appointments are not available. Ask for tomorrow or a later date; the earliest date to check is ${nextIsoDate(today)}.`;
 }
 
 function clinicTodayIso(now: Date = new Date()): string {

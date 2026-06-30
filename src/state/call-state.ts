@@ -290,7 +290,7 @@ interface AvailabilitySessionState {
 
 interface AvailabilitySearchCache {
   signature: string;
-  response: unknown;
+  response: string;
 }
 
 export interface CallState {
@@ -699,7 +699,7 @@ export function reserveAvailabilitySlotIds(
 export function cachedAvailabilitySearchResult(
   state: CallState,
   signature: string,
-): unknown | null {
+): string | null {
   return state.availability.latestSearch?.signature === signature
     ? state.availability.latestSearch.response
     : null;
@@ -708,7 +708,7 @@ export function cachedAvailabilitySearchResult(
 export function setAvailabilitySearchResult(
   state: CallState,
   signature: string,
-  response: unknown,
+  response: string,
 ): void {
   state.availability.latestSearch = {
     signature,

@@ -40,7 +40,7 @@ function seedAvailability(state: ReturnType<typeof createState>) {
   state.availability.bookingTokensBySlotId = { A: "private-token" };
   state.availability.latestSearch = {
     signature: "old-search",
-    response: { result: "slots_found" },
+    response: "Offer this slot: June 1 at 9:00 AM with Dr. Bach.",
   };
   state.availability.slots = [
     {

@@ -96,10 +96,15 @@ Description should be short and action-oriented:
 ```txt
 Reschedule a loaded appointment. Call only after the patient is verified, the
 caller confirms the exact old appointment to move, get_availability returns
-slots, the caller confirms the exact new slot, and the caller provides a
-referring doctor or says they have none. This tool books the new appointment
-first and cancels the old appointment only after booking succeeds.
+an appointmentSlotRef, the caller confirms the exact new slot, and the caller
+provides a referring doctor or says they have none. This tool books the new
+appointment first and cancels the old appointment only after booking succeeds.
 ```
+
+When the caller has a time-of-day preference during rescheduling,
+`get_availability` can receive `timePreference: "morning"`, `"afternoon"`, or
+`"none"` to rank the returned slots before exposing at most two
+`appointmentSlotRef` values. The middleware availability request is unchanged.
 
 Parameters:
 
