@@ -202,7 +202,7 @@ describe("call observability", () => {
     expect(
       classifyToolOutput(
         "get_availability",
-        JSON.stringify({ result: "missing_availability_context" }),
+        "Before checking availability for a new appointment, call get_availability again with appointmentLane medical_md or routine_od.",
         false,
       ),
     ).toBe("availability_blocked");
@@ -278,9 +278,8 @@ describe("call observability", () => {
           {
             callId: "call_3",
             isError: false,
-            output: JSON.stringify({
-              result: "missing_patient",
-            }),
+            output:
+              "Verify or create the patient before checking availability.",
           },
         ],
       })[0],

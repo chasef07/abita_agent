@@ -66,7 +66,7 @@ export const book_appointment = llm.tool({
   description:
     "Book a caller-confirmed appointment slot. " +
     "Use only for new appointments after get_availability recorded appointmentLane; do not use for reschedules or other appointment changes. " +
-    "Call only after get_availability returns slots with the right appointment lane, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. " +
+    "Call only after get_availability returns an appointmentSlotRef for the right appointment lane, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. " +
     "Before booking, read back the selected appointment date, time, and provider, then get caller confirmation. ",
   parameters: bookAppointmentParameters,
   execute: async (

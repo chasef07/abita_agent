@@ -50,8 +50,8 @@ provider, type, routing, or AMD appointment type ID.
 ### `book_appointment`
 
 `book_appointment` does not accept `appointmentLane`. It books only a caller-confirmed
-slot returned by `get_availability`, using the cached private booking token and
-stored slot routing.
+appointmentSlotRef returned by `get_availability`, using the cached private
+booking token and stored slot routing.
 
 This avoids duplicate lane entry and prevents the model from changing the lane
 between availability and booking. If backend state says the caller is changing

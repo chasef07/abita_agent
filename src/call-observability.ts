@@ -296,7 +296,11 @@ export function classifyToolOutput(
     case "get_availability":
       if (
         parsed?.result === "missing_patient" ||
-        parsed?.result === "missing_availability_context"
+        parsed?.result === "missing_availability_context" ||
+        /\bverify or create the patient before checking availability\b/.test(
+          outputText,
+        ) ||
+        /\bbefore checking availability\b/.test(outputText)
       ) {
         return "availability_blocked";
       }

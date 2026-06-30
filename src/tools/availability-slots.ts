@@ -7,14 +7,6 @@ import {
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
 
-type PublicAvailabilitySlot = {
-  appointmentSlotRef: string;
-  spoken: string;
-  provider: string;
-  date: string;
-  time: string;
-};
-
 type AvailabilitySearchSummary = {
   requestedDate?: string;
   searchedFrom?: string;
@@ -24,6 +16,13 @@ type AvailabilitySearchSummary = {
   shouldRetrySameSearch: boolean;
   nextSearchDate?: string;
 };
+
+type AvailabilityToolResponse = {
+  message: string;
+  cacheable: boolean;
+};
+
+const MAX_AVAILABILITY_SLOT_OFFERS = 2;
 
 export function removeAvailabilitySlot(
   state: CallState,
@@ -60,7 +59,7 @@ export function storeAvailabilitySlots(
   state: CallState,
   rawResponse: unknown,
   routing: string | null,
-): unknown {
+): AvailabilityToolResponse {
   if (!isRecord(rawResponse)) {
     clearAvailabilitySelection(state);
     return cleanAvailabilityErrorResponse(rawResponse);
@@ -80,8 +79,9 @@ export function storeAvailabilitySlots(
   const sortedSlots = apiSlots
     .filter(isRecord)
     .sort(compareRawAvailabilitySlot);
+  const offeredSlots = sortedSlots.slice(0, MAX_AVAILABILITY_SLOT_OFFERS);
   const storedSlots: StoredAvailabilitySlot[] = [];
-  for (const slot of sortedSlots) {
+  for (const slot of offeredSlots) {
     const candidate = storedAvailabilitySlot(slot, "", routing);
     const existingSlot = [
       ...availabilitySlotsForState(state),
@@ -97,7 +97,7 @@ export function storeAvailabilitySlots(
     storedSlots,
   );
   state.availability.latestRouting = routing;
-  sortedSlots.forEach((slot, index) => {
+  offeredSlots.forEach((slot, index) => {
     storeAvailabilityBookingToken(
       state,
       storedSlots[index]?.slotId ?? "",
@@ -107,7 +107,6 @@ export function storeAvailabilitySlots(
 
   const searchedRange = availabilitySearchedRange(rawResponse);
   const nextSearchDate = nextIsoDate(searchedRange?.end);
-  const recommendedSlot = storedSlots[0];
   const search = buildAvailabilitySearchSummary({
     rawResponse,
     searchedRange,
@@ -122,7 +121,6 @@ export function storeAvailabilitySlots(
     rawResponse,
     search,
     slots: storedSlots,
-    recommendedSlot,
   });
 }
 
@@ -288,13 +286,12 @@ function buildAvailabilitySearchSummary(input: {
   };
 }
 
-function buildAvailabilityReply(input: {
+function buildAvailabilityMessage(input: {
   rawResponse: Record<string, unknown>;
   search: AvailabilitySearchSummary;
-  recommendedSlot?: StoredAvailabilitySlot;
-  hasAlternates: boolean;
+  slots: StoredAvailabilitySlot[];
 }): string {
-  const { rawResponse, search, recommendedSlot, hasAlternates } = input;
+  const { rawResponse, search, slots } = input;
   const outcome = stringField(rawResponse, "outcome") ?? "unknown";
   const spokenSearchedRange =
     search.searchedFrom && search.searchedThrough
@@ -308,50 +305,55 @@ function buildAvailabilityReply(input: {
           spokenIsoDate(search.searchedThrough) ?? search.searchedThrough
         }`
       : "those dates";
+  const noAvailabilityWindow =
+    search.searchedFrom && search.searchedThrough
+      ? `from ${conciseSearchedRange}`
+      : `for ${conciseSearchedRange}`;
   const spokenNextDate = spokenIsoDate(search.nextSearchDate);
 
   if (outcome === "no_availability") {
     return search.nextSearchDate
-      ? `I checked ${conciseSearchedRange} and did not find openings. Ask if they want me to check starting ${spokenNextDate ?? search.nextSearchDate}, or if they prefer a different day or time.`
-      : `I checked ${conciseSearchedRange} and did not find openings. Ask if they prefer a different day or time.`;
+      ? `No openings were found ${noAvailabilityWindow}. Ask whether to check starting ${spokenNextDate ?? search.nextSearchDate}, or whether they prefer a different day or time.`
+      : `No openings were found ${noAvailabilityWindow}. Ask whether they prefer a different day or time.`;
   }
 
   if (outcome === "availability_search_incomplete") {
-    return `I could not fully check availability ${spokenSearchedRange}. Let me try once more.`;
+    return `Availability was not fully checked ${spokenSearchedRange}. Call get_availability again once with the same date.`;
   }
 
-  if (!recommendedSlot) {
+  const primarySlot = slots[0];
+  if (!primarySlot) {
     return "I do not see openings for those details. Would you like to try a different day or time?";
   }
 
   const requestedDate = spokenIsoDate(search.requestedDate);
-  const foundDate =
-    spokenIsoDate(search.actualDate) ??
-    spokenIsoDate(recommendedSlot.date) ??
-    recommendedSlot.date;
-  const foundText =
-    search.dateShifted && requestedDate && foundDate
-      ? `I do not see anything on ${requestedDate}, but I found ${foundDate} at ${recommendedSlot.time} with ${recommendedSlot.provider}.`
-      : `I found ${foundDate} at ${recommendedSlot.time} with ${recommendedSlot.provider}.`;
-  const alternateText = hasAlternates
-    ? " If not, I can offer another option."
-    : "";
+  const dateShiftText =
+    search.dateShifted && requestedDate
+      ? `No opening was found on ${requestedDate}. `
+      : "";
+  const backupSlot = slots[1];
+  if (backupSlot) {
+    return (
+      `${dateShiftText}Offer this slot first: ${slotOffer(primarySlot)}. ` +
+      `If the caller wants another option, offer ${slotOffer(backupSlot)}. ` +
+      "If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date."
+    );
+  }
 
-  return `${foundText} Does that work?${alternateText}`;
+  return (
+    `${dateShiftText}Offer this slot: ${slotOffer(primarySlot)}. ` +
+    `If the caller accepts it, use appointmentSlotRef ${primarySlot.slotId}; if they want a different day or time, ask for another date to check and call get_availability with that date.`
+  );
 }
 
-function cleanAvailabilityErrorResponse(rawResponse: unknown): {
-  result: string;
-  reply: string;
-  next: string;
-  slots: PublicAvailabilitySlot[];
-} {
+function cleanAvailabilityErrorResponse(
+  rawResponse: unknown,
+): AvailabilityToolResponse {
   if (!isRecord(rawResponse)) {
     return {
-      result: "retry",
-      reply: "I'm having trouble checking availability. Let me try once more.",
-      next: "retry_search_once",
-      slots: [],
+      message:
+        "I'm having trouble checking availability. Call get_availability again once with the same date.",
+      cacheable: false,
     };
   }
 
@@ -360,67 +362,45 @@ function cleanAvailabilityErrorResponse(rawResponse: unknown): {
     stringField(rawResponse, "message") ??
     "I'm having trouble checking availability. Let me try once more.";
   const shouldRetry = booleanField(rawResponse, "shouldRetrySameSearch");
+  const retryMessage =
+    outcome === "availability_search_incomplete" || shouldRetry
+      ? `${reply} Call get_availability again once with the same date.`
+      : `${reply} Ask for a different date or time preference.`;
   return {
-    result: outcome === "availability_search_incomplete" ? "retry" : "error",
-    reply,
-    next: shouldRetry ? "retry_search_once" : "ask_new_date_or_time",
-    slots: [],
+    message: retryMessage,
+    cacheable: false,
   };
 }
 
-function publicAvailabilitySlot(slot: StoredAvailabilitySlot) {
+function slotOffer(slot: StoredAvailabilitySlot): string {
   const spokenDate = spokenIsoDate(slot.date) ?? slot.date;
   const dateTime = [spokenDate, slot.time].filter(Boolean).join(" at ");
   const spoken = [dateTime, slot.provider ? `with ${slot.provider}` : ""]
     .filter(Boolean)
     .join(" ");
-  return {
-    appointmentSlotRef: slot.slotId,
-    spoken,
-    provider: slot.provider,
-    date: slot.date,
-    time: slot.time,
-  };
+  return `${spoken} (appointmentSlotRef ${slot.slotId})`;
 }
 
 function cleanAvailabilityResponse(input: {
   rawResponse: Record<string, unknown>;
   search: AvailabilitySearchSummary;
   slots: StoredAvailabilitySlot[];
-  recommendedSlot?: StoredAvailabilitySlot;
-}) {
-  const { rawResponse, search, slots, recommendedSlot } = input;
+}): AvailabilityToolResponse {
+  const { rawResponse, search, slots } = input;
   const outcome = stringField(rawResponse, "outcome") ?? "unknown";
   const foundSlots = slots.length > 0;
-  const result = foundSlots
-    ? "slots_found"
-    : outcome === "availability_search_incomplete"
-      ? "retry"
-      : "no_slots_found";
-  const next =
-    result === "slots_found"
-      ? "offer_slot"
-      : search.shouldRetrySameSearch
-        ? "retry_search_once"
-        : "ask_next_search_or_new_preference";
-  const searched =
-    search.searchedFrom && search.searchedThrough
-      ? `${search.searchedFrom} through ${search.searchedThrough}`
-      : undefined;
+  const cacheable =
+    foundSlots ||
+    (outcome !== "availability_search_incomplete" &&
+      !search.shouldRetrySameSearch);
 
   return {
-    result,
-    reply: buildAvailabilityReply({
+    message: buildAvailabilityMessage({
       rawResponse,
       search,
-      recommendedSlot,
-      hasAlternates: slots.length > 1,
+      slots,
     }),
-    next,
-    ...(searched ? { searched } : {}),
-    ...(search.nextSearchDate ? { nextSearchDate: search.nextSearchDate } : {}),
-    ...(recommendedSlot ? { appointmentSlotRef: recommendedSlot.slotId } : {}),
-    slots: slots.map(publicAvailabilitySlot),
+    cacheable,
   };
 }
 

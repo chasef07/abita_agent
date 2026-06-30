@@ -29,17 +29,6 @@ type AvailabilityLookupArgs = {
   appointmentLane?: SchedulingAppointmentLane;
 };
 
-type AvailabilityLookupBlockedResponse = {
-  result: "missing_patient" | "missing_availability_context";
-  reply: string;
-  next:
-    | "resolve_or_create_patient"
-    | "pass_appointment_lane"
-    | "confirm_loaded_appointment_or_pass_lane"
-    | "resolve_patient_or_pass_lane";
-  slots: [];
-};
-
 type GeneratedSpeechHandle = ReturnType<
   voice.RunContext["session"]["generateReply"]
 >;
@@ -64,7 +53,8 @@ export const get_availability = llm.tool({
     "For reschedules, omit appointmentLane only when the existing appointment to move is already identified. " +
     "Do not call for same-day or past dates; ask for tomorrow or a later date. " +
     "For explicit calendar dates like June 16, June 16 2026, or 2026-06-16, choose the exact YYYY-MM-DD date and call this tool directly. " +
-    "If the caller uses a relative date like today, tomorrow, next week, or Friday, call get_current_datetime before choosing the YYYY-MM-DD date. Do not pass relative phrases like next Wednesday here.",
+    "If the caller uses a relative date like today, tomorrow, next week, or Friday, call get_current_datetime before choosing the YYYY-MM-DD date. Do not pass relative phrases like next Wednesday here. " +
+    "This tool returns plain instructions with at most two appointmentSlotRef values; offer only those returned slots and do not invent other times.",
   parameters: z.object({
     date: isoDateSchema.describe("Start date in YYYY-MM-DD format."),
     appointmentLane: z
@@ -107,10 +97,10 @@ export const get_availability = llm.tool({
       statusUpdate.cancel();
     }
     const response = storeAvailabilitySlots(state, result, request.routing);
-    if (isCacheableAvailabilityResponse(response)) {
-      setAvailabilitySearchResult(state, request.signature, response);
+    if (response.cacheable) {
+      setAvailabilitySearchResult(state, request.signature, response.message);
     }
-    return response;
+    return response.message;
   },
 });
 
@@ -155,18 +145,6 @@ function startAvailabilityStatusUpdate(ctx: voice.RunContext): {
   };
 }
 
-function isCacheableAvailabilityResponse(response: unknown): boolean {
-  if (!response || typeof response !== "object" || Array.isArray(response)) {
-    return false;
-  }
-  const record = response as Record<string, unknown>;
-  return (
-    (record.result === "slots_found" && record.next === "offer_slot") ||
-    (record.result === "no_slots_found" &&
-      record.next === "ask_next_search_or_new_preference")
-  );
-}
-
 function buildAvailabilityLookupRequestForState(
   state: CallState,
   args: AvailabilityLookupArgs,
@@ -177,7 +155,7 @@ function buildAvailabilityLookupRequestForState(
       routing: string | null;
       signature: string;
     }
-  | { blocked: AvailabilityLookupBlockedResponse } {
+  | { blocked: string } {
   const date = args.date?.trim();
   if (!date) {
     throw new llm.ToolError(
@@ -187,12 +165,7 @@ function buildAvailabilityLookupRequestForState(
   const patientId = activePatientId(state);
   if (!patientId) {
     return {
-      blocked: {
-        result: "missing_patient",
-        reply: "Verify or create the patient before checking availability.",
-        next: "resolve_or_create_patient",
-        slots: [],
-      },
+      blocked: "Verify or create the patient before checking availability.",
     };
   }
 
@@ -244,25 +217,12 @@ function availabilitySearchSignature(
   });
 }
 
-function invalidAvailabilityDateResponse(requestedDate: string): {
-  result: "invalid_date";
-  reply: string;
-  next: "ask_future_date";
-  earliestDate: string;
-  slots: [];
-} | null {
+function invalidAvailabilityDateResponse(requestedDate: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return null;
   const today = clinicTodayIso();
   if (requestedDate > today) return null;
 
-  return {
-    result: "invalid_date",
-    reply:
-      "Same-day and past-date appointments are not available. Ask for tomorrow or a later date.",
-    next: "ask_future_date",
-    earliestDate: nextIsoDate(today),
-    slots: [],
-  };
+  return `Same-day and past-date appointments are not available. Ask for tomorrow or a later date; the earliest date to check is ${nextIsoDate(today)}.`;
 }
 
 function clinicTodayIso(now: Date = new Date()): string {
