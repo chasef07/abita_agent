@@ -101,6 +101,11 @@ provides a referring doctor or says they have none. This tool books the new
 appointment first and cancels the old appointment only after booking succeeds.
 ```
 
+When the caller has a time-of-day preference during rescheduling,
+`get_availability` can receive `timePreference: "morning"`, `"afternoon"`, or
+`"none"` to rank the returned slots before exposing at most two
+`appointmentSlotRef` values. The middleware availability request is unchanged.
+
 Parameters:
 
 ```ts

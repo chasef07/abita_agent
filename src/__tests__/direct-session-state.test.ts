@@ -312,11 +312,13 @@ function availabilityFoundResponse(
 async function getMedicalAvailability(
   ctx: ReturnType<typeof createToolContext>,
   toolCallId: string,
+  timePreference?: "morning" | "afternoon" | "none",
 ) {
   return get_availability.execute(
     {
       date: "2026-07-09",
       appointmentLane: "medical_md",
+      ...(timePreference ? { timePreference } : {}),
     },
     {
       ctx: ctx as never,
@@ -463,7 +465,7 @@ describe("direct session state cleanup", () => {
     ]);
   });
 
-  it("offers one backup slot without storing hidden active slots", async () => {
+  it("offers two visible slot options without storing hidden active slots", async () => {
     const state = createState();
     clearAvailabilitySelection(state);
     markSchedulingTriaged(state);
@@ -513,7 +515,7 @@ describe("direct session state cleanup", () => {
     );
 
     expect(result).toBe(
-      "Offer this slot first: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller wants another option, offer June 1 at 10:00 AM with Dr. Noel (appointmentSlotRef S2). If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date.",
+      "Offer these options: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1), or June 1 at 10:00 AM with Dr. Noel (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date.",
     );
     expect(result).not.toContain("S3");
     expect(result).not.toContain("third-private-token");
@@ -526,6 +528,182 @@ describe("direct session state cleanup", () => {
       S2: "second-private-token",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers a morning and afternoon spread when the caller has no time preference", async () => {
+    const state = createState();
+    clearAvailabilitySelection(state);
+    markSchedulingTriaged(state);
+    stubFetchJson({
+      status: "success",
+      outcome: "availability_found",
+      availabilityFound: true,
+      requestedDate: "2026-06-01",
+      actualDate: "2026-06-01",
+      searchedFrom: "2026-06-01",
+      searchedThrough: "2026-06-01",
+      shouldRetrySameSearch: false,
+      slots: [
+        {
+          provider: "Dr. Austin Bach",
+          date: "2026-06-01",
+          time: "9:00 AM",
+          datetime: "2026-06-01T09:00:00",
+          bookingToken: "morning-private-token",
+        },
+        {
+          provider: "Dr. D. Noel",
+          date: "2026-06-01",
+          time: "10:00 AM",
+          datetime: "2026-06-01T10:00:00",
+          bookingToken: "hidden-private-token",
+        },
+        {
+          provider: "Dr. J. Licht",
+          date: "2026-06-01",
+          time: "2:00 PM",
+          datetime: "2026-06-01T14:00:00",
+          bookingToken: "afternoon-private-token",
+        },
+      ],
+    });
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+        timePreference: "none",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Offer these options: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1), or June 1 at 2:00 PM with Dr. Licht (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date.",
+    );
+    expect(result).not.toContain("10:00 AM");
+    expect(state.availability.slots.map((slot) => slot.time)).toEqual([
+      "9:00 AM",
+      "2:00 PM",
+    ]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      S1: "morning-private-token",
+      S2: "afternoon-private-token",
+    });
+  });
+
+  it("ranks afternoon slots first when the caller asks for afternoon", async () => {
+    const state = createState();
+    clearAvailabilitySelection(state);
+    markSchedulingTriaged(state);
+    stubFetchJson({
+      status: "success",
+      outcome: "availability_found",
+      availabilityFound: true,
+      requestedDate: "2026-06-01",
+      actualDate: "2026-06-01",
+      searchedFrom: "2026-06-01",
+      searchedThrough: "2026-06-01",
+      shouldRetrySameSearch: false,
+      slots: [
+        {
+          provider: "Dr. Austin Bach",
+          date: "2026-06-01",
+          time: "9:00 AM",
+          datetime: "2026-06-01T09:00:00",
+          bookingToken: "hidden-morning-token",
+        },
+        {
+          provider: "Dr. D. Noel",
+          date: "2026-06-01",
+          time: "2:00 PM",
+          datetime: "2026-06-01T14:00:00",
+          bookingToken: "first-afternoon-token",
+        },
+        {
+          provider: "Dr. J. Licht",
+          date: "2026-06-01",
+          time: "3:00 PM",
+          datetime: "2026-06-01T15:00:00",
+          bookingToken: "second-afternoon-token",
+        },
+      ],
+    });
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+        timePreference: "afternoon",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Offer these options: June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S1), or June 1 at 3:00 PM with Dr. Licht (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date.",
+    );
+    expect(result).not.toContain("9:00 AM");
+    expect(state.availability.slots.map((slot) => slot.time)).toEqual([
+      "2:00 PM",
+      "3:00 PM",
+    ]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      S1: "first-afternoon-token",
+      S2: "second-afternoon-token",
+    });
+  });
+
+  it("falls back clearly when no returned slots match the requested time preference", async () => {
+    const state = createState();
+    clearAvailabilitySelection(state);
+    markSchedulingTriaged(state);
+    stubFetchJson({
+      status: "success",
+      outcome: "availability_found",
+      availabilityFound: true,
+      requestedDate: "2026-06-01",
+      actualDate: "2026-06-01",
+      searchedFrom: "2026-06-01",
+      searchedThrough: "2026-06-01",
+      shouldRetrySameSearch: false,
+      slots: [
+        {
+          provider: "Dr. Austin Bach",
+          date: "2026-06-01",
+          time: "9:00 AM",
+          datetime: "2026-06-01T09:00:00",
+          bookingToken: "first-private-token",
+        },
+        {
+          provider: "Dr. D. Noel",
+          date: "2026-06-01",
+          time: "10:00 AM",
+          datetime: "2026-06-01T10:00:00",
+          bookingToken: "second-private-token",
+        },
+      ],
+    });
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+        timePreference: "afternoon",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "No afternoon openings were found on June 1. Offer these options: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1), or June 1 at 10:00 AM with Dr. Noel (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date.",
+    );
   });
 
   it("keeps earlier offered slots bookable after a later availability search", async () => {
@@ -858,6 +1036,56 @@ describe("direct session state cleanup", () => {
     expect(secondResult).toEqual(firstResult);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
+  });
+
+  it("keeps cached availability separate by time preference", async () => {
+    const state = createState();
+    clearAvailabilitySelection(state);
+    markSchedulingTriaged(state);
+    const ctx = createToolContext(state);
+    const response = availabilityFoundResponse(
+      {
+        provider: "Dr. Austin Bach",
+        date: "2026-07-09",
+        time: "9:00 AM",
+        datetime: "2026-07-09T09:00:00",
+        bookingToken: "morning-private-token",
+      },
+      {
+        slots: [
+          {
+            provider: "Dr. Austin Bach",
+            date: "2026-07-09",
+            time: "9:00 AM",
+            datetime: "2026-07-09T09:00:00",
+            bookingToken: "morning-private-token",
+          },
+          {
+            provider: "Dr. D. Noel",
+            date: "2026-07-09",
+            time: "2:00 PM",
+            datetime: "2026-07-09T14:00:00",
+            bookingToken: "afternoon-private-token",
+          },
+        ],
+      },
+    );
+    const fetchMock = stubFetchJson(response, response);
+
+    const firstResult = await getMedicalAvailability(ctx, "tool-1", "none");
+    const secondResult = await getMedicalAvailability(
+      ctx,
+      "tool-2",
+      "afternoon",
+    );
+
+    expect(firstResult).toBe(
+      "Offer these options: July 9 at 9:00 AM with Dr. Bach (appointmentSlotRef S1), or July 9 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date.",
+    );
+    expect(secondResult).toBe(
+      "Offer this slot: July 9 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). If the caller accepts it, use appointmentSlotRef S2; if they want a different day or time, ask for another date to check and call get_availability with that date.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("does not cache retryable availability responses", async () => {

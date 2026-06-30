@@ -31,7 +31,8 @@ For a new appointment, call:
 ```json
 {
   "date": "2026-07-23",
-  "appointmentLane": "medical_md"
+  "appointmentLane": "medical_md",
+  "timePreference": "none"
 }
 ```
 
@@ -39,9 +40,17 @@ Use:
 
 - `medical_md` for medical ophthalmology or symptom-driven eye care.
 - `routine_od` for routine vision, glasses, contacts, optical, or optometry.
+- `timePreference: "morning"` when the caller asks for morning or before noon.
+- `timePreference: "afternoon"` when the caller asks for afternoon or PM.
+- `timePreference: "none"` when the caller gives no time-of-day preference.
 
 If the caller only says they need an appointment and the lane is unclear, ask a
 short clarifying question before checking availability.
+
+`timePreference` ranks the returned slots inside the agent. It does not change
+the middleware availability request. The tool returns a plain instruction with
+at most two `appointmentSlotRef` values, and only those visible refs are
+bookable.
 
 For reschedules, omit `appointmentLane` only after the existing appointment to
 move is identified. Backend state derives the lane from the loaded appointment

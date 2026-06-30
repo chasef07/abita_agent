@@ -711,6 +711,7 @@ describe("model-facing tool definitions", () => {
     expect(get_availability.description).toContain(
       "For explicit calendar dates like June 16",
     );
+    expect(get_availability.description).toContain("Pass timePreference");
     expect(get_availability.description).not.toContain("bach_only routing");
     expect(get_availability.description).not.toContain(
       "Under 18 medical visits = Dr. Bach only",
@@ -723,8 +724,23 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({
         date: "2026-06-01",
         appointmentLane: "medical_md",
+        timePreference: "afternoon",
       }).success,
     ).toBe(true);
+    expect(
+      parameters.safeParse({
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+        timePreference: "morning",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+        timePreference: "evening",
+      }).success,
+    ).toBe(false);
     expect(
       parameters.safeParse({
         date: "2026-06-01",

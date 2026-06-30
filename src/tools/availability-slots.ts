@@ -22,6 +22,8 @@ type AvailabilityToolResponse = {
   cacheable: boolean;
 };
 
+export type AvailabilityTimePreference = "morning" | "afternoon" | "none";
+
 const MAX_AVAILABILITY_SLOT_OFFERS = 2;
 
 export function removeAvailabilitySlot(
@@ -59,6 +61,7 @@ export function storeAvailabilitySlots(
   state: CallState,
   rawResponse: unknown,
   routing: string | null,
+  timePreference: AvailabilityTimePreference = "none",
 ): AvailabilityToolResponse {
   if (!isRecord(rawResponse)) {
     clearAvailabilitySelection(state);
@@ -79,7 +82,8 @@ export function storeAvailabilitySlots(
   const sortedSlots = apiSlots
     .filter(isRecord)
     .sort(compareRawAvailabilitySlot);
-  const offeredSlots = sortedSlots.slice(0, MAX_AVAILABILITY_SLOT_OFFERS);
+  const selection = selectAvailabilitySlots(sortedSlots, timePreference);
+  const offeredSlots = selection.slots.slice(0, MAX_AVAILABILITY_SLOT_OFFERS);
   const storedSlots: StoredAvailabilitySlot[] = [];
   for (const slot of offeredSlots) {
     const candidate = storedAvailabilitySlot(slot, "", routing);
@@ -121,6 +125,7 @@ export function storeAvailabilitySlots(
     rawResponse,
     search,
     slots: storedSlots,
+    preferenceFallback: selection.preferenceFallback,
   });
 }
 
@@ -153,6 +158,51 @@ function compareRawAvailabilitySlot(
   right: Record<string, unknown>,
 ): number {
   return sortableSlotTimestamp(left) - sortableSlotTimestamp(right);
+}
+
+function selectAvailabilitySlots(
+  sortedSlots: Record<string, unknown>[],
+  timePreference: AvailabilityTimePreference,
+): {
+  slots: Record<string, unknown>[];
+  preferenceFallback: AvailabilityTimePreference | null;
+} {
+  if (timePreference === "morning" || timePreference === "afternoon") {
+    const preferredSlots = sortedSlots.filter((slot) =>
+      slotMatchesTimePreference(slot, timePreference),
+    );
+    return preferredSlots.length > 0
+      ? { slots: preferredSlots, preferenceFallback: null }
+      : { slots: sortedSlots, preferenceFallback: timePreference };
+  }
+
+  const firstSlot = sortedSlots[0];
+  const firstAfternoonSlot = sortedSlots.find((slot) =>
+    slotMatchesTimePreference(slot, "afternoon"),
+  );
+  if (firstSlot && firstAfternoonSlot && firstAfternoonSlot !== firstSlot) {
+    return {
+      slots: [
+        firstSlot,
+        firstAfternoonSlot,
+        ...sortedSlots.filter(
+          (slot) => slot !== firstSlot && slot !== firstAfternoonSlot,
+        ),
+      ],
+      preferenceFallback: null,
+    };
+  }
+
+  return { slots: sortedSlots, preferenceFallback: null };
+}
+
+function slotMatchesTimePreference(
+  slot: Record<string, unknown>,
+  timePreference: Exclude<AvailabilityTimePreference, "none">,
+): boolean {
+  const minutes = minutesFromDisplayTime(slotTime(slot));
+  if (minutes === null) return false;
+  return timePreference === "morning" ? minutes < 12 * 60 : minutes >= 12 * 60;
 }
 
 function sortableSlotTimestamp(slot: Record<string, unknown>): number {
@@ -290,8 +340,9 @@ function buildAvailabilityMessage(input: {
   rawResponse: Record<string, unknown>;
   search: AvailabilitySearchSummary;
   slots: StoredAvailabilitySlot[];
+  preferenceFallback: AvailabilityTimePreference | null;
 }): string {
-  const { rawResponse, search, slots } = input;
+  const { rawResponse, search, slots, preferenceFallback } = input;
   const outcome = stringField(rawResponse, "outcome") ?? "unknown";
   const spokenSearchedRange =
     search.searchedFrom && search.searchedThrough
@@ -331,19 +382,32 @@ function buildAvailabilityMessage(input: {
     search.dateShifted && requestedDate
       ? `No opening was found on ${requestedDate}. `
       : "";
+  const preferenceFallbackText = availabilityPreferenceFallbackText(
+    preferenceFallback,
+    search,
+  );
   const backupSlot = slots[1];
   if (backupSlot) {
     return (
-      `${dateShiftText}Offer this slot first: ${slotOffer(primarySlot)}. ` +
-      `If the caller wants another option, offer ${slotOffer(backupSlot)}. ` +
+      `${dateShiftText}${preferenceFallbackText}Offer these options: ${slotOffer(primarySlot)}, or ${slotOffer(backupSlot)}. ` +
+      "Ask which one works better. " +
       "If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date."
     );
   }
 
   return (
-    `${dateShiftText}Offer this slot: ${slotOffer(primarySlot)}. ` +
+    `${dateShiftText}${preferenceFallbackText}Offer this slot: ${slotOffer(primarySlot)}. ` +
     `If the caller accepts it, use appointmentSlotRef ${primarySlot.slotId}; if they want a different day or time, ask for another date to check and call get_availability with that date.`
   );
+}
+
+function availabilityPreferenceFallbackText(
+  timePreference: AvailabilityTimePreference | null,
+  search: AvailabilitySearchSummary,
+): string {
+  if (timePreference === null || timePreference === "none") return "";
+  const fallbackDate = spokenIsoDate(search.actualDate ?? search.requestedDate);
+  return `No ${timePreference} openings were found${fallbackDate ? ` on ${fallbackDate}` : ""}. `;
 }
 
 function cleanAvailabilityErrorResponse(
@@ -385,8 +449,9 @@ function cleanAvailabilityResponse(input: {
   rawResponse: Record<string, unknown>;
   search: AvailabilitySearchSummary;
   slots: StoredAvailabilitySlot[];
+  preferenceFallback: AvailabilityTimePreference | null;
 }): AvailabilityToolResponse {
-  const { rawResponse, search, slots } = input;
+  const { rawResponse, search, slots, preferenceFallback } = input;
   const outcome = stringField(rawResponse, "outcome") ?? "unknown";
   const foundSlots = slots.length > 0;
   const cacheable =
@@ -399,6 +464,7 @@ function cleanAvailabilityResponse(input: {
       rawResponse,
       search,
       slots,
+      preferenceFallback,
     }),
     cacheable,
   };

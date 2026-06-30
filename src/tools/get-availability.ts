@@ -11,7 +11,10 @@ import {
   type CallState,
   type SchedulingAppointmentLane,
 } from "../state/call-state.js";
-import { storeAvailabilitySlots } from "./availability-slots.js";
+import {
+  storeAvailabilitySlots,
+  type AvailabilityTimePreference,
+} from "./availability-slots.js";
 import {
   ensureRoutineVisionOffice,
   getAmdOfficeForToolCall,
@@ -27,6 +30,7 @@ import {
 type AvailabilityLookupArgs = {
   date?: string;
   appointmentLane?: SchedulingAppointmentLane;
+  timePreference?: AvailabilityTimePreference;
 };
 
 type GeneratedSpeechHandle = ReturnType<
@@ -51,6 +55,7 @@ export const get_availability = llm.tool({
     "Search appointment availability from a start date. " +
     "For new appointments, pass appointmentLane after the visit reason is clear. Use medical_md for symptom-driven eye care, medical ophthalmology, or any eye problem or concern. Use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. " +
     "For reschedules, omit appointmentLane only when the existing appointment to move is already identified. " +
+    "Pass timePreference morning when the caller asks for morning or before noon, afternoon when they ask for afternoon or PM, and none when they have no time preference. " +
     "Do not call for same-day or past dates; ask for tomorrow or a later date. " +
     "For explicit calendar dates like June 16, June 16 2026, or 2026-06-16, choose the exact YYYY-MM-DD date and call this tool directly. " +
     "If the caller uses a relative date like today, tomorrow, next week, or Friday, call get_current_datetime before choosing the YYYY-MM-DD date. Do not pass relative phrases like next Wednesday here. " +
@@ -63,12 +68,19 @@ export const get_availability = llm.tool({
       .describe(
         "Required for new appointment searches. Use medical_md for symptom-driven eye care or any eye problem; use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. Omit only for reschedules when the loaded appointment supplies the lane.",
       ),
+    timePreference: z
+      .enum(["morning", "afternoon", "none"])
+      .optional()
+      .describe(
+        "Caller time-of-day preference for ranking returned slots. Use morning for AM or before-noon requests, afternoon for PM or afternoon requests, and none when the caller has no time preference.",
+      ),
   }),
-  execute: async ({ date, appointmentLane }, { ctx }) => {
+  execute: async ({ date, appointmentLane, timePreference }, { ctx }) => {
     const state = getState(ctx);
     const request = buildAvailabilityLookupRequestForState(state, {
       date,
       appointmentLane,
+      timePreference,
     });
     if ("blocked" in request) return request.blocked;
 
@@ -96,7 +108,12 @@ export const get_availability = llm.tool({
     } finally {
       statusUpdate.cancel();
     }
-    const response = storeAvailabilitySlots(state, result, request.routing);
+    const response = storeAvailabilitySlots(
+      state,
+      result,
+      request.routing,
+      request.timePreference,
+    );
     if (response.cacheable) {
       setAvailabilitySearchResult(state, request.signature, response.message);
     }
@@ -154,9 +171,11 @@ function buildAvailabilityLookupRequestForState(
       date: string;
       routing: string | null;
       signature: string;
+      timePreference: AvailabilityTimePreference;
     }
   | { blocked: string } {
   const date = args.date?.trim();
+  const timePreference = args.timePreference ?? "none";
   if (!date) {
     throw new llm.ToolError(
       "Ask what date or starting day the caller wants before checking availability.",
@@ -191,7 +210,9 @@ function buildAvailabilityLookupRequestForState(
       date,
       patientId,
       routing: effectiveRouting,
+      timePreference,
     }),
+    timePreference,
   };
 }
 
@@ -202,6 +223,7 @@ function availabilitySearchSignature(
     date: string;
     patientId: string | null;
     routing: string | null;
+    timePreference: AvailabilityTimePreference;
   },
 ): string {
   const turn = state.workflow.current;
@@ -211,6 +233,7 @@ function availabilitySearchSignature(
     intent: turn?.intent ?? null,
     appointmentLane: turn?.appointmentLane ?? null,
     date: input.date,
+    timePreference: input.timePreference,
     dob: typeof input.body.dob === "string" ? input.body.dob : null,
     routing: input.routing,
     preauthRequired: input.body.preauthRequired === true,
