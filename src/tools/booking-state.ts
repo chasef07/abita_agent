@@ -153,7 +153,10 @@ export function bookedAppointmentMessage(
   selectedSlot: StoredAvailabilitySlot,
   result: unknown,
 ): string {
-  return `Booked ${spokenSlot(selectedSlot)}.${bookingNoteWarning(result)}`;
+  return (
+    `Booked ${spokenSlot(selectedSlot)}.${bookingNoteWarning(result)}` +
+    " The practice typically sends an email confirmation with the appointment information."
+  );
 }
 
 export function bookingNoteWarning(result: unknown): string {

@@ -579,7 +579,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toBe("Booked July 9 at 9:00 AM with Dr. Bach.");
+    expect(result).toBe(
+      "Booked July 9 at 9:00 AM with Dr. Bach. The practice typically sends an email confirmation with the appointment information.",
+    );
     expect(JSON.parse(fetchMock.mock.calls[2][1].body as string)).toMatchObject(
       {
         bookingToken: "first-private-token",
@@ -1536,7 +1538,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toBe("Booked June 1 at 9:00 AM with Doctor Smith.");
+    expect(result).toBe(
+      "Booked June 1 at 9:00 AM with Doctor Smith. The practice typically sends an email confirmation with the appointment information.",
+    );
     expect(state.workflow.current).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
@@ -1686,14 +1690,17 @@ describe("direct session state cleanup", () => {
     );
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(result).toBe("Booked June 1 at 9:00 AM with Doctor Smith.");
+    expect(result).toBe(
+      "Booked June 1 at 9:00 AM with Doctor Smith. The practice typically sends an email confirmation with the appointment information.",
+    );
     expect(appointmentActions(state)).toEqual([
       {
         action: "booked",
         status: "success",
         toolName: "book_appointment",
         createdAt: "2026-05-30T16:00:00.000Z",
-        message: "Booked June 1 at 9:00 AM with Doctor Smith.",
+        message:
+          "Booked June 1 at 9:00 AM with Doctor Smith. The practice typically sends an email confirmation with the appointment information.",
         appointment: {
           appointmentId: "123",
           patientName: "Jane Doe",
@@ -1865,7 +1872,9 @@ describe("direct session state cleanup", () => {
       } as never,
     );
 
-    expect(result).toBe("Booked June 1 at 2:00 PM with Doctor Smith.");
+    expect(result).toBe(
+      "Booked June 1 at 2:00 PM with Doctor Smith. The practice typically sends an email confirmation with the appointment information.",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
       bookingToken: "private-token-b",
