@@ -3871,7 +3871,7 @@ describe("direct session state cleanup", () => {
     });
   });
 
-  it("updates insurance from the checked medical plan in session state", async () => {
+  it("updates insurance from the canonical checked medical plan in session state", async () => {
     const state = createState();
     state.insurance.onFile = {
       plan: "Old Plan",
@@ -3880,10 +3880,10 @@ describe("direct session state cleanup", () => {
       currentCarrier: "Old Plan",
     };
     state.insurance.lastEligibilityCheck = {
-      plan: "Aetna",
-      canonicalPlan: "Aetna Commercial",
+      plan: "UnitedHealthcare",
+      canonicalPlan: "United Healthcare",
       coverageType: "medical",
-      currentCarrier: "Aetna Commercial",
+      currentCarrier: "UnitedHealthcare",
       accepted: true,
     };
     state.identity.patientBackend = {
@@ -3897,7 +3897,7 @@ describe("direct session state cleanup", () => {
         status: "updated",
         patientId: "patient-1",
         oldInsurance: "Old Plan",
-        newInsurance: "Aetna",
+        newInsurance: "United Healthcare",
         routing: "bach_only",
         allowedProviders: ["Dr. Bach"],
         routingAmbiguous: false,
@@ -3914,14 +3914,14 @@ describe("direct session state cleanup", () => {
     );
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(result).toBe("Updated insurance to Aetna.");
+    expect(result).toBe("Updated insurance to United Healthcare.");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       patientId: "patient-1",
       dob: "01/01/1980",
       insPlanId: "ins-old",
       respPartyId: "resp-1",
       oldInsurance: "Old Plan",
-      insurance: "Aetna",
+      insurance: "United Healthcare",
       coverageType: "medical",
       subscriberNum: "ABC123",
     });
@@ -3929,10 +3929,10 @@ describe("direct session state cleanup", () => {
       "subscriberName",
     );
     expect(state.insurance.onFile).toEqual({
-      plan: "Aetna",
-      canonicalPlan: "Aetna Commercial",
+      plan: "United Healthcare",
+      canonicalPlan: "United Healthcare",
       coverageType: "medical",
-      currentCarrier: "Aetna",
+      currentCarrier: "United Healthcare",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
     expect(state.identity.patientBackend).toEqual({
@@ -3945,7 +3945,7 @@ describe("direct session state cleanup", () => {
     expect(state.availability.slots).toEqual([]);
   });
 
-  it("updates routine vision insurance with the checked caller plan", async () => {
+  it("updates routine vision insurance with the canonical checked plan", async () => {
     const state = createState();
     state.office.activeKey = "hollywood";
     state.insurance.onFile = null;
@@ -3966,7 +3966,7 @@ describe("direct session state cleanup", () => {
         status: "updated",
         patientId: "patient-1",
         oldInsurance: "",
-        newInsurance: "Sunshine Health",
+        newInsurance: "Envolve",
         routing: "optical_only",
         allowedProviders: [],
         routingAmbiguous: false,
@@ -3982,22 +3982,22 @@ describe("direct session state cleanup", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe("Updated insurance to Sunshine Health.");
+    expect(result).toBe("Updated insurance to Envolve.");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       patientId: "patient-1",
       dob: "01/01/1980",
       insPlanId: "",
       respPartyId: "resp-1",
       oldInsurance: "",
-      insurance: "Sunshine Health",
+      insurance: "Envolve",
       coverageType: "routine_vision",
       subscriberNum: "946-327-2674",
     });
     expect(state.insurance.onFile).toEqual({
-      plan: "Sunshine Health",
+      plan: "Envolve",
       canonicalPlan: "Envolve",
       coverageType: "routine_vision",
-      currentCarrier: "Sunshine Health",
+      currentCarrier: "Envolve",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
     expect(state.identity.patientBackend).toEqual({
@@ -4025,7 +4025,7 @@ describe("direct session state cleanup", () => {
       json: async () => ({
         status: "error",
         message:
-          'Insurance not recognized: "Sunshine Health". Please use an insurance name from the accepted list.',
+          'Insurance not recognized: "Envolve". Please use an insurance name from the accepted list.',
       }),
     }));
     vi.stubGlobal("fetch", fetchMock);
@@ -4041,12 +4041,12 @@ describe("direct session state cleanup", () => {
         } as never,
       ),
     ).rejects.toThrow(
-      'Insurance not recognized: "Sunshine Health". Please use an insurance name from the accepted list.',
+      'Insurance not recognized: "Envolve". Please use an insurance name from the accepted list.',
     );
     expect(state.insurance.onFile).toBeNull();
   });
 
-  it("uses self pay without collecting a member ID", async () => {
+  it("uses explicit self pay as the member ID sentinel", async () => {
     const state = createState();
     state.insurance.lastEligibilityCheck = {
       plan: "Self Pay",
@@ -4068,10 +4068,13 @@ describe("direct session state cleanup", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await update_insurance.execute({}, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "tool-1",
-    } as never);
+    const result = await update_insurance.execute(
+      { insuranceMemberId: "self pay" },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
 
     expect(result).toBe("Updated insurance to Self Pay.");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({

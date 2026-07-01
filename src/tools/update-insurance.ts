@@ -28,8 +28,10 @@ export const update_insurance = llm.tool({
       insuranceMemberId: z
         .string()
         .trim()
-        .optional()
-        .describe("Member ID from the insurance card."),
+        .min(1)
+        .describe(
+          'Member ID from the insurance card. Use "self pay" only when check_insurance accepted Self Pay.',
+        ),
     })
     .strict(),
   execute: async ({ insuranceMemberId }, { ctx }) => {
@@ -48,9 +50,9 @@ export const update_insurance = llm.tool({
       );
     }
     const insurance =
-      checkedInsurance.plan?.trim() ||
+      checkedInsurance.canonicalPlan?.trim() ||
       checkedInsurance.currentCarrier?.trim() ||
-      checkedInsurance.canonicalPlan?.trim();
+      checkedInsurance.plan?.trim();
     const canonicalInsurance = checkedInsurance.canonicalPlan?.trim() || null;
     const coverageType = checkedInsurance.coverageType;
     if (!insurance || !coverageType) {
@@ -62,7 +64,7 @@ export const update_insurance = llm.tool({
     const selfPay =
       normalizeInsuranceText(insurance) === "self pay" ||
       normalizeInsuranceText(canonicalInsurance ?? "") === "self pay";
-    const memberId = selfPay ? "self pay" : insuranceMemberId?.trim();
+    const memberId = selfPay ? "self pay" : insuranceMemberId.trim();
     if (!memberId) {
       throw new llm.ToolError(
         "Collect the member ID before updating insurance.",

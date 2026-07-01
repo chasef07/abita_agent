@@ -1292,6 +1292,26 @@
       "needsExactPlanName": false
     },
     {
+      "id": "not-accepted-leon-health-plan",
+      "status": "not_accepted",
+      "canonicalPlan": "Leon Health Plan",
+      "displayName": "Leon Health Plan",
+      "aliases": [
+        "Leon",
+        "Leon Health",
+        "Leon Health Plan",
+        "Leon Healthplan",
+        "Leon Health Center",
+        "Leon Health Centers",
+        "Leon Medical Center",
+        "Leon Medical Centers",
+        "Leon Medical Centers Health Plan",
+        "Leon Medical Centers Health Plans"
+      ],
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
       "id": "needs-clarification-molina",
       "status": "needs_clarification",
       "canonicalPlan": null,

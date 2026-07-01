@@ -869,7 +869,7 @@ describe("model-facing tool definitions", () => {
       shape: Record<string, unknown>;
     };
     expect(Object.keys(parameters.shape)).toEqual(["insuranceMemberId"]);
-    expect(parameters.safeParse({}).success).toBe(true);
+    expect(parameters.safeParse({}).success).toBe(false);
     expect(parameters.safeParse({ insuranceMemberId: "ABC123" }).success).toBe(
       true,
     );

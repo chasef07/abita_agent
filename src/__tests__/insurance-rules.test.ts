@@ -107,6 +107,33 @@ describe("insurance matcher", () => {
     }
   });
 
+  it("explicitly rejects Leon health plan variants for Hollywood and Sweetwater", () => {
+    const medicalOffices = ["hollywood", "sweetwater"] as const;
+    const queries = [
+      "Leon Healthplan",
+      "Leon Health Plan",
+      "Leon Health Center",
+    ] as const;
+
+    for (const office of medicalOffices) {
+      for (const query of queries) {
+        const result = matchInsurancePlanForOffice(office, query, "medical");
+        expect(result.status, `${office} ${query}`).toBe("not_accepted");
+        expect(result.canProceed, `${office} ${query}`).toBe(false);
+        expect(canonicalInsurancePlan(result), `${office} ${query}`).toBeNull();
+      }
+    }
+
+    for (const office of ["spring-hill", "crystal-river"] as const) {
+      const result = matchInsurancePlanForOffice(
+        office,
+        "Leon Health Center",
+        "medical",
+      );
+      expect(result.status, office).toBe("needs_clarification");
+    }
+  });
+
   it("prefers more specific aliases over generic family aliases", () => {
     const bcbsMedicare = matchInsurancePlan(reference, "BCBS Medicare HMO");
     expect(bcbsMedicare.status).toBe("accepted");
