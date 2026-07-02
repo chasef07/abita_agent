@@ -19,13 +19,13 @@
     "@livekit/agents-plugin-assemblyai": "1.4.11",
     "@livekit/agents-plugin-baseten": "1.4.11",
     "@livekit/agents-plugin-rime": "1.4.11",
-    "@livekit/rtc-node": "^0.13.29",
-    "livekit-server-sdk": "^2.15.5",
+    "@livekit/rtc-node": "^0.13.30",
+    "livekit-server-sdk": "^2.16.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^26.0.1",
+    "@types/node": "^26.1.0",
     "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.7.0",
