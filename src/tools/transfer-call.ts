@@ -1,9 +1,10 @@
-import { llm } from "@livekit/agents";
+import { tool } from "@livekit/agents";
 import { z } from "zod";
 import { transferCallerToOffice } from "./handoff.js";
 import { getState } from "./session.js";
 
-export const transfer_call = llm.tool({
+export const transfer_call = tool({
+  name: "transfer_call",
   description:
     "Transfer the caller to office staff only when their request truly needs a live human or is outside the agent's front-desk scope. " +
     "If they ask for a human, representative, staff, or the office without saying why, ask what they are calling about before calling this tool. " +
@@ -13,7 +14,7 @@ export const transfer_call = llm.tool({
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
-    ctx.speechHandle.allowInterruptions = false;
+    ctx.disallowInterruptions();
 
     if (state.runtime.transferred) {
       return "Transfer already started.";

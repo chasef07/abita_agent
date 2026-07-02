@@ -3,7 +3,7 @@
 Status: cleanup complete for the custom flow harness. The live path is direct
 LiveKit tools plus typed `session.userData`.
 
-Last verified against LiveKit docs: 2026-05-29
+Last verified against LiveKit docs: 2026-07-02
 
 ## Current Runtime
 
@@ -11,7 +11,7 @@ Last verified against LiveKit docs: 2026-05-29
 AgentSession<CallState>
   -> pre-call phone lookup
   -> session.userData as the call state
-  -> llm.tool definitions
+  -> direct tool() definitions
   -> tool handlers enforce prerequisites and write state
   -> Agent.onUserTurnCompleted records latest transcript for observability
 ```
@@ -28,7 +28,7 @@ Current live code should not contain:
 
 ## LiveKit Basis
 
-- Model-callable tools should be focused `llm.tool()` definitions with clear
+- Model-callable tools should be focused `tool()` definitions with clear
   descriptions, schemas, and `execute` handlers.
   Source: https://docs.livekit.io/agents/logic/tools/definition/
 - Keep each tool's description, schema, and execute handler together. Shared

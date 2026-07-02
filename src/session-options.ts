@@ -1,4 +1,4 @@
-import type { voice } from "@livekit/agents";
+import type { AgentSessionOptions } from "@livekit/agents";
 import type { CallState } from "./state/call-state.js";
 
 export const voiceMaxToolSteps = 3;
@@ -10,4 +10,4 @@ export const voiceTurnHandlingOptions = {
   interruption: {
     mode: "adaptive",
   },
-} satisfies NonNullable<voice.AgentSessionOptions<CallState>["turnHandling"]>;
+} satisfies NonNullable<AgentSessionOptions<CallState>["turnHandling"]>;

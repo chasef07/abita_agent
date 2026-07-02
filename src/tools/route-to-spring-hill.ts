@@ -1,4 +1,4 @@
-import { llm } from "@livekit/agents";
+import { tool } from "@livekit/agents";
 import { z } from "zod";
 import { SPRING_HILL_OFFICE_PHONE } from "../customer/profile.js";
 import {
@@ -14,7 +14,8 @@ import {
 } from "../state/call-state.js";
 import { getState } from "./session.js";
 
-export const route_to_spring_hill = llm.tool({
+export const route_to_spring_hill = tool({
+  name: "route_to_spring_hill",
   description:
     "Switch scheduling to Spring Hill without transferring the caller. " +
     "Call this from Crystal River after the caller agrees to schedule a Spring Hill-only visit. " +
@@ -23,7 +24,7 @@ export const route_to_spring_hill = llm.tool({
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
-    ctx.speechHandle.allowInterruptions = false;
+    ctx.disallowInterruptions();
     const previousInsuranceCheck = lastInsuranceEligibilityCheck(state);
 
     state.office.phoneOverrides = {

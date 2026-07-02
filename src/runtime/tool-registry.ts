@@ -1,5 +1,6 @@
-import type { llm } from "@livekit/agents";
+import { beta, type ToolContextEntry } from "@livekit/agents";
 import { getOfficeConfigByPhone } from "../customer/profile.js";
+import type { CallState } from "../state/call-state.js";
 import {
   add_patient,
   book_appointment,
@@ -15,7 +16,13 @@ import {
   update_insurance,
 } from "../tools/index.js";
 
-const COMMON_TOOLS = {
+const end_call = beta.createEndCallTool<CallState>({
+  // RoomIO owns room cleanup through deleteRoomOnClose for every session close.
+  deleteRoom: false,
+  endInstructions: "Say a brief goodbye to the caller.",
+});
+
+const COMMON_TOOLS = [
   get_current_datetime,
   resolve_patient,
   add_patient,
@@ -27,12 +34,13 @@ const COMMON_TOOLS = {
   check_insurance,
   lookup_knowledge,
   transfer_call,
-} satisfies llm.ToolContext;
+  end_call,
+] as const satisfies readonly ToolContextEntry<CallState>[];
 
-const ROUTING_TOOLS = {
+const ROUTING_TOOLS = [
   ...COMMON_TOOLS,
   route_to_spring_hill,
-} satisfies llm.ToolContext;
+] as const satisfies readonly ToolContextEntry<CallState>[];
 
 export type AgentTools = typeof COMMON_TOOLS | typeof ROUTING_TOOLS;
 

@@ -79,7 +79,7 @@ export async function callApi(
   path: string,
   body: Record<string, unknown>,
   office: string,
-  options: { includeOffice?: boolean } = {},
+  options: { includeOffice?: boolean; signal?: AbortSignal } = {},
 ): Promise<unknown> {
   const payload =
     options.includeOffice === false ? { ...body } : { ...body, office };
@@ -90,13 +90,18 @@ export async function callApi(
       Authorization: AUTH_TOKEN,
     },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(10_000),
+    signal: requestSignal(options.signal),
   });
   if (!res.ok) {
     const text = await res.text();
     throw new ApiError(`API error ${res.status}: ${text}`, res.status);
   }
   return res.json();
+}
+
+function requestSignal(signal?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(10_000);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
 function normalizePatientResolveResponse(

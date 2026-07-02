@@ -1,10 +1,11 @@
-import { llm } from "@livekit/agents";
+import { tool } from "@livekit/agents";
 import { z } from "zod";
 import { activeOfficeKey } from "../state/call-state.js";
 import { lookupOfficeKnowledge } from "./knowledge.js";
 import { getState } from "./session.js";
 
-export const lookup_knowledge = llm.tool({
+export const lookup_knowledge = tool({
+  name: "lookup_knowledge",
   description:
     "Look up office facts before answering general practice questions about address, hours, providers, services, what to bring, phone, fax, or appointment expectations. ",
   parameters: z.object({

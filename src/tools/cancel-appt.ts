@@ -1,4 +1,4 @@
-import { llm } from "@livekit/agents";
+import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import {
@@ -32,7 +32,8 @@ const cancelAppointmentParameters = z
   })
   .strict();
 
-export const cancel_appointment = llm.tool({
+export const cancel_appointment = tool({
+  name: "cancel_appointment",
   description:
     "Cancel a loaded appointment. " +
     "Call this after the patient is verified and the caller confirms the exact appointment to cancel. " +
@@ -42,12 +43,12 @@ export const cancel_appointment = llm.tool({
   parameters: cancelAppointmentParameters,
   execute: async ({ appointmentDate, appointmentTime }, { ctx }) => {
     const state = getState(ctx);
-    ctx.speechHandle.allowInterruptions = false;
+    ctx.disallowInterruptions();
 
     restoreConfirmedPreCallCaller(state);
     const patientId = activePatientId(state);
     if (!patientId) {
-      throw new llm.ToolError("Verify the patient before cancelling.");
+      throw new ToolError("Verify the patient before cancelling.");
     }
 
     const selector = {
@@ -66,7 +67,7 @@ export const cancel_appointment = llm.tool({
       if (cancelledAppointment) {
         return `That appointment was already cancelled on this call: ${cancelledAppointment.date} at ${cancelledAppointment.time}. Continue without calling cancel_appointment again.`;
       }
-      throw new llm.ToolError(selection.message);
+      throw new ToolError(selection.message);
     }
     const appointment = selection.appointment;
 

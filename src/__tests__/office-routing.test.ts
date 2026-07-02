@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { isToolset, type ToolContextEntry } from "@livekit/agents";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildToolsForTrunk } from "../agent.js";
 import { buildPrompt } from "../prompt.js";
@@ -72,6 +73,16 @@ function verifiedPhoneLookup(
   };
 }
 
+function toolNames(entries: readonly ToolContextEntry[]): string[] {
+  return entries.flatMap((entry) =>
+    isToolset(entry) ? toolNames(entry.tools) : [entry.id],
+  );
+}
+
+function toolNamesForTrunk(trunkPhone: string): string[] {
+  return toolNames(buildToolsForTrunk(trunkPhone));
+}
+
 describe("office routing helpers", () => {
   afterEach(() => {
     delete process.env.SPRING_HILL_HANDOFF_TARGET;
@@ -98,7 +109,7 @@ describe("office routing helpers", () => {
 
     expect(office.key).toBe("spring-hill");
     expect(office.amdOfficePhone).toBe(SPRING_HILL_OFFICE_PHONE);
-    expect(buildToolsForTrunk(SPRING_HILL_813_TRUNK_PHONE)).not.toHaveProperty(
+    expect(toolNamesForTrunk(SPRING_HILL_813_TRUNK_PHONE)).not.toContain(
       "route_to_spring_hill",
     );
   });
@@ -108,7 +119,7 @@ describe("office routing helpers", () => {
 
     expect(hollywood.key).toBe("hollywood");
     expect(hollywood.amdOfficePhone).toBe(HOLLYWOOD_OFFICE_PHONE);
-    expect(buildToolsForTrunk(HOLLYWOOD_OFFICE_PHONE)).not.toHaveProperty(
+    expect(toolNamesForTrunk(HOLLYWOOD_OFFICE_PHONE)).not.toContain(
       "route_to_spring_hill",
     );
 
@@ -117,9 +128,7 @@ describe("office routing helpers", () => {
 
       expect(sweetwater.key).toBe("sweetwater");
       expect(sweetwater.amdOfficePhone).toBe(SWEETWATER_OFFICE_PHONE);
-      expect(buildToolsForTrunk(phone)).not.toHaveProperty(
-        "route_to_spring_hill",
-      );
+      expect(toolNamesForTrunk(phone)).not.toContain("route_to_spring_hill");
     }
   });
 
@@ -237,30 +246,26 @@ describe("office routing helpers", () => {
   });
 
   it("only exposes Spring Hill routing on Crystal River calls", () => {
-    expect(buildToolsForTrunk("+13523202007")).toHaveProperty(
+    expect(toolNamesForTrunk("+13523202007")).toContain("route_to_spring_hill");
+    expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toContain(
       "route_to_spring_hill",
     );
-    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toHaveProperty(
+    expect(toolNamesForTrunk(DEV_OFFICE_PHONE)).not.toContain(
       "route_to_spring_hill",
     );
-    expect(buildToolsForTrunk(DEV_OFFICE_PHONE)).not.toHaveProperty(
-      "route_to_spring_hill",
-    );
-    expect(buildToolsForTrunk(HOLLYWOOD_OFFICE_PHONE)).not.toHaveProperty(
+    expect(toolNamesForTrunk(HOLLYWOOD_OFFICE_PHONE)).not.toContain(
       "route_to_spring_hill",
     );
     for (const phone of SWEETWATER_TRUNK_PHONES) {
-      expect(buildToolsForTrunk(phone)).not.toHaveProperty(
-        "route_to_spring_hill",
-      );
+      expect(toolNamesForTrunk(phone)).not.toContain("route_to_spring_hill");
     }
   });
 
   it("always exposes one patient resolution tool without a separate switch tool", () => {
-    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).toHaveProperty(
+    expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).toContain(
       "resolve_patient",
     );
-    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toHaveProperty(
+    expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toContain(
       "switch_preloaded_patient",
     );
   });
@@ -522,13 +527,17 @@ describe("Crystal River prompt guidance", () => {
   });
 
   it("does not expose a standalone turn context recorder", () => {
-    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toHaveProperty(
+    expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toContain(
       "record_turn_context",
     );
   });
 
+  it("exposes the LiveKit-native end call tool", () => {
+    expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).toContain("end_call");
+  });
+
   it("exposes current date/time as an on-demand read-only tool", () => {
-    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).toHaveProperty(
+    expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).toContain(
       "get_current_datetime",
     );
     expect(get_current_datetime.description).toContain(
@@ -879,7 +888,7 @@ describe("model-facing tool definitions", () => {
   });
 
   it("exposes clear active appointment tool names without legacy aliases", () => {
-    const toolNames = Object.keys(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE));
+    const toolNames = toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE);
 
     expect(toolNames).toEqual(
       expect.arrayContaining([
@@ -932,7 +941,7 @@ describe("model-facing tool definitions", () => {
   });
 
   it("exposes reschedule_appointment as the deterministic appointment move tool", () => {
-    expect(buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE)).toHaveProperty(
+    expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).toContain(
       "reschedule_appointment",
     );
     expect(reschedule_appointment.description).toContain(

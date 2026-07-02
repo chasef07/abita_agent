@@ -1,4 +1,4 @@
-import { llm } from "@livekit/agents";
+import { ToolError } from "@livekit/agents";
 import {
   activePatientDob,
   activePatientName,
@@ -41,7 +41,7 @@ export function selectedSlotForBooking(
 ): StoredAvailabilitySlot {
   const selectedSlot = selectedAvailabilitySlot(state, slotId);
   if (!selectedSlot) {
-    throw new llm.ToolError(
+    throw new ToolError(
       "Search availability again and choose one of the returned slots before booking.",
     );
   }
@@ -65,7 +65,7 @@ export function bookingRequestBodyForSlot(
   );
   if (!bookingToken) {
     clearAvailabilitySelection(state);
-    throw new llm.ToolError(
+    throw new ToolError(
       "Search availability again before booking because the selected slot expired.",
     );
   }
@@ -194,7 +194,7 @@ export function spokenSlot(slot: StoredAvailabilitySlot): string {
 function normalizeAppointmentReason(appointmentReason: string): string {
   const trimmedReason = appointmentReason.trim();
   if (!trimmedReason || isGenericBookingReason(trimmedReason)) {
-    throw new llm.ToolError("Ask for the appointment reason before booking.");
+    throw new ToolError("Ask for the appointment reason before booking.");
   }
   return trimmedReason;
 }
@@ -202,7 +202,7 @@ function normalizeAppointmentReason(appointmentReason: string): string {
 function normalizeReferringDoctor(referringDoctor: string | undefined): string {
   const trimmedReferrer = referringDoctor?.trim();
   if (!trimmedReferrer) {
-    throw new llm.ToolError(
+    throw new ToolError(
       'Ask whether the caller has a referring doctor before booking. If they have none, pass "none".',
     );
   }

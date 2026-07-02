@@ -1,4 +1,4 @@
-import { llm } from "@livekit/agents";
+import { tool } from "@livekit/agents";
 import { z } from "zod";
 
 const CLINIC_TIME_ZONE = "America/New_York";
@@ -316,7 +316,8 @@ function ordinalDay(day: number): string {
   }
 }
 
-export const get_current_datetime = llm.tool({
+export const get_current_datetime = tool({
+  name: "get_current_datetime",
   description:
     "Get the current clinic-local date and time in America/New_York. " +
     "Call this before interpreting relative dates or times for scheduling, availability, booking, or appointment changes, including phrases like today, tomorrow, next week, Friday, this morning, or this afternoon. " +

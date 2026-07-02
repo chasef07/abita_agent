@@ -15,10 +15,10 @@
     "format:check": "prettier --check . --ignore-unknown"
   },
   "dependencies": {
-    "@livekit/agents": "1.4.11",
-    "@livekit/agents-plugin-assemblyai": "1.4.11",
-    "@livekit/agents-plugin-baseten": "1.4.11",
-    "@livekit/agents-plugin-rime": "1.4.11",
+    "@livekit/agents": "1.5.0",
+    "@livekit/agents-plugin-assemblyai": "1.5.0",
+    "@livekit/agents-plugin-baseten": "1.5.0",
+    "@livekit/agents-plugin-rime": "1.5.0",
     "@livekit/rtc-node": "^0.13.30",
     "livekit-server-sdk": "^2.16.0",
     "zod": "^4.4.3"

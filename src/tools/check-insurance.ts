@@ -1,4 +1,4 @@
-import { llm } from "@livekit/agents";
+import { tool } from "@livekit/agents";
 import { z } from "zod";
 import {
   buildInsuranceToolResponse,
@@ -11,7 +11,8 @@ import {
 } from "../state/call-state.js";
 import { getState } from "./session.js";
 
-export const check_insurance = llm.tool({
+export const check_insurance = tool({
+  name: "check_insurance",
   description:
     "Check whether the active office accepts the caller's insurance. " +
     "Call this before adding a new patient, after you know the plan name and whether the visit is medical or glasses/contacts routine vision. " +

@@ -1,8 +1,8 @@
-import { llm } from "@livekit/agents";
+import { ChatContext } from "@livekit/agents";
 import { describe, expect, it, vi } from "vitest";
 import { addDurableInternalSystemMessage } from "../runtime/durable-chat-context.js";
 
-function hasSystemMessage(chatCtx: llm.ChatContext, expected: string): boolean {
+function hasSystemMessage(chatCtx: ChatContext, expected: string): boolean {
   return chatCtx.items.some(
     (item) =>
       item.type === "message" &&
@@ -13,13 +13,13 @@ function hasSystemMessage(chatCtx: llm.ChatContext, expected: string): boolean {
 
 describe("durable chat context updates", () => {
   it("adds internal state messages to the active and durable chat contexts", async () => {
-    let durableChatCtx = llm.ChatContext.empty();
+    let durableChatCtx = ChatContext.empty();
     durableChatCtx.addMessage({
       role: "assistant",
       content: "Who is the appointment for?",
     });
     const activeChatCtx = durableChatCtx.copy();
-    const updateChatCtx = vi.fn(async (nextChatCtx: llm.ChatContext) => {
+    const updateChatCtx = vi.fn(async (nextChatCtx: ChatContext) => {
       durableChatCtx = nextChatCtx;
     });
     const agent = {

@@ -1,4 +1,4 @@
-import { llm } from "@livekit/agents";
+import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import {
@@ -62,7 +62,8 @@ const bookAppointmentParameters = z
   })
   .strict();
 
-export const book_appointment = llm.tool({
+export const book_appointment = tool({
+  name: "book_appointment",
   description:
     "Book a caller-confirmed appointment slot. " +
     "Use only for new appointments after get_availability recorded appointmentLane; do not use for reschedules or other appointment changes. " +
@@ -85,7 +86,7 @@ export const book_appointment = llm.tool({
     ensureNewAppointmentBookingContext(state);
 
     if (!patientId) {
-      throw new llm.ToolError("Verify or create the patient before booking.");
+      throw new ToolError("Verify or create the patient before booking.");
     }
 
     ensureRoutineVisionOffice(state);
@@ -103,7 +104,7 @@ export const book_appointment = llm.tool({
       );
     }
 
-    ctx.speechHandle.allowInterruptions = false;
+    ctx.disallowInterruptions();
     const result = await callApi(
       "/api/appointment/book",
       bookingBody,
@@ -184,7 +185,7 @@ export const book_appointment = llm.tool({
 function ensureNewAppointmentBookingContext(state: CallState): void {
   const turn = state.workflow.current;
   if (turn?.intent === "change_appointment") {
-    throw new llm.ToolError(
+    throw new ToolError(
       "Use reschedule_appointment for appointment changes so the old appointment is cancelled after the new booking succeeds.",
     );
   }
@@ -195,7 +196,7 @@ function ensureNewAppointmentBookingContext(state: CallState): void {
   ) {
     return;
   }
-  throw new llm.ToolError(
+  throw new ToolError(
     "Search availability again with appointmentLane medical_md or routine_od before booking a new appointment.",
   );
 }
