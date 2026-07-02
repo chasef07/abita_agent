@@ -9,9 +9,8 @@ voice agent.
 
 - Added LiveKit's native `end_call` tool for caller-ended conversations; room
   deletion remains owned by the session-close path.
-- Added async availability lookup behavior using `ctx.update()`,
-  `ctx.filler()`, `ToolFlag.CANCELLABLE`, duplicate replacement, and middleware
-  abort signals.
+- Added async availability lookup behavior using `ctx.update()`, `ctx.filler()`,
+  and middleware abort signals.
 
 ### Changed
 

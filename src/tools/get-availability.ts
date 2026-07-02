@@ -1,4 +1,4 @@
-import { ToolError, ToolFlag, tool } from "@livekit/agents";
+import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import {
@@ -48,8 +48,6 @@ const isoDateSchema = z
 
 export const get_availability = tool({
   name: "get_availability",
-  flags: ToolFlag.CANCELLABLE,
-  onDuplicate: "replace",
   description:
     "Search appointment availability from an exact YYYY-MM-DD start date. " +
     "For new appointments, pass appointmentLane after the visit reason is clear; for reschedules, omit it only when the existing appointment to move is already identified. " +
