@@ -1,13 +1,13 @@
-import { llm } from "@livekit/agents";
+import type { ChatContext } from "@livekit/agents";
 
 interface DurableChatContextAgent {
-  readonly chatCtx: llm.ChatContext;
-  updateChatCtx(chatCtx: llm.ChatContext): Promise<void>;
+  readonly chatCtx: ChatContext;
+  updateChatCtx(chatCtx: ChatContext): Promise<void>;
 }
 
 export async function addDurableInternalSystemMessage(
   agent: DurableChatContextAgent,
-  activeChatCtx: llm.ChatContext,
+  activeChatCtx: ChatContext,
   content: string,
 ): Promise<void> {
   activeChatCtx.addMessage({ role: "system", content });

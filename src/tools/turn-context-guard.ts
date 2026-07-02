@@ -1,4 +1,4 @@
-import { llm } from "@livekit/agents";
+import { ToolError } from "@livekit/agents";
 import {
   activeAppointments,
   activeAppointmentsStatus,
@@ -34,7 +34,7 @@ export function ensureAvailabilityContext(
   action: string,
 ): void {
   if (availabilityContextReady(state)) return;
-  throw new llm.ToolError(
+  throw new ToolError(
     `Pass appointmentLane medical_md or routine_od, or identify the existing appointment to move, before ${action}.`,
   );
 }

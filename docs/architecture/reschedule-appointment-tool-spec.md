@@ -55,7 +55,7 @@ the patient has no history.
 
 ## Design Decision
 
-Add one agent-side `llm.tool()` named `reschedule_appointment`.
+Add one agent-side `tool()` named `reschedule_appointment`.
 
 This is simpler than a new middleware endpoint because the agent already owns:
 

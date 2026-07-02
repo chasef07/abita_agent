@@ -1,4 +1,4 @@
-import { llm } from "@livekit/agents";
+import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import {
@@ -89,7 +89,8 @@ const rescheduleAppointmentParameters = z
   })
   .strict();
 
-export const reschedule_appointment = llm.tool({
+export const reschedule_appointment = tool({
+  name: "reschedule_appointment",
   description:
     "Reschedule a loaded appointment. " +
     "Call only after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns an appointmentSlotRef, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. " +
@@ -112,7 +113,7 @@ export const reschedule_appointment = llm.tool({
     restoreConfirmedPreCallCaller(state);
     const patientId = activePatientId(state);
     if (!patientId) {
-      throw new llm.ToolError("Verify the patient before rescheduling.");
+      throw new ToolError("Verify the patient before rescheduling.");
     }
     const completedReschedule = completedRescheduleForPatient(state, patientId);
     if (completedReschedule) {
@@ -136,7 +137,7 @@ export const reschedule_appointment = llm.tool({
       return selection.message;
     }
     if (selection.status === "not_found") {
-      throw new llm.ToolError(selection.message);
+      throw new ToolError(selection.message);
     }
     const oldAppointment = selection.appointment;
     const cancellationOffice = getAmdOfficeForCancellationAppointment(
@@ -172,7 +173,7 @@ export const reschedule_appointment = llm.tool({
         appointmentPatientStatusForLoadedAppointment(oldAppointment),
     });
 
-    ctx.speechHandle.allowInterruptions = false;
+    ctx.disallowInterruptions();
     const bookingResult = await callApi(
       "/api/appointment/book",
       bookingBody,

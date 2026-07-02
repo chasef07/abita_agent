@@ -1,4 +1,9 @@
-import { inference, initializeLogger, voice } from "@livekit/agents";
+import {
+  AgentSession,
+  type AgentSessionOptions,
+  inference,
+  initializeLogger,
+} from "@livekit/agents";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   voiceMaxToolSteps,
@@ -6,7 +11,7 @@ import {
 } from "../session-options.js";
 
 type TurnDetection = NonNullable<
-  NonNullable<voice.AgentSessionOptions["turnHandling"]>["turnDetection"]
+  NonNullable<AgentSessionOptions["turnHandling"]>["turnDetection"]
 >;
 
 describe("voice session options", () => {
@@ -15,7 +20,7 @@ describe("voice session options", () => {
   });
 
   it("disables preemptive generation", () => {
-    const session = new voice.AgentSession({
+    const session = new AgentSession({
       turnHandling: {
         turnDetection: fakeTurnDetector(),
         ...voiceTurnHandlingOptions,
@@ -32,7 +37,7 @@ describe("voice session options", () => {
 
   it("uses the provided turn detector without overriding endpointing", () => {
     const turnDetection = fakeTurnDetector();
-    const session = new voice.AgentSession({
+    const session = new AgentSession({
       turnHandling: {
         turnDetection,
         ...voiceTurnHandlingOptions,
@@ -52,7 +57,7 @@ describe("voice session options", () => {
 
   it("uses the bundled default VAD and streaming endpointing defaults", async () => {
     const turnDetection = new inference.TurnDetector({ version: "v1-mini" });
-    const session = new voice.AgentSession({
+    const session = new AgentSession({
       turnHandling: {
         turnDetection,
         ...voiceTurnHandlingOptions,
@@ -80,7 +85,7 @@ describe("voice session options", () => {
   });
 
   it("allows two tool calls before the post-tool reply", () => {
-    const session = new voice.AgentSession({
+    const session = new AgentSession({
       maxToolSteps: voiceMaxToolSteps,
       turnHandling: {
         turnDetection: fakeTurnDetector(),

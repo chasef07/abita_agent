@@ -87,14 +87,31 @@ function createToolContext(state: TestCallState) {
     done: vi.fn(() => false),
     interrupted: false,
   };
+  const filler = vi.fn(
+    async (
+      _source: unknown,
+      optionsOrFn: unknown,
+      maybeFn?: () => Promise<unknown> | unknown,
+    ) => {
+      const fn = typeof optionsOrFn === "function" ? optionsOrFn : maybeFn;
+      if (!fn) throw new Error("Missing filler callback");
+      return fn();
+    },
+  );
+  const speechHandle = { allowInterruptions: true };
   return {
     session: {
       userData: state,
       say: vi.fn(() => spokenHandle),
       generateReply: vi.fn(() => spokenHandle),
     },
-    speechHandle: { allowInterruptions: true },
+    speechHandle,
+    disallowInterruptions: vi.fn(() => {
+      speechHandle.allowInterruptions = false;
+    }),
     waitForPlayout: vi.fn(async () => undefined),
+    update: vi.fn(async () => undefined),
+    filler,
     spokenHandle,
   };
 }
@@ -897,7 +914,7 @@ describe("direct session state cleanup", () => {
     );
   });
 
-  it("generates an availability status update only while a lookup is still running", async () => {
+  it("releases long availability lookups with a native async update and filler", async () => {
     const state = createState();
     clearAvailabilitySelection(state);
     markSchedulingTriaged(state);
@@ -928,18 +945,21 @@ describe("direct session state cleanup", () => {
       } as never,
     ) as Promise<string>;
 
-    await vi.advanceTimersByTimeAsync(499);
+    await Promise.resolve();
+    expect(ctx.update).toHaveBeenCalledWith(
+      "Checking appointment availability now.",
+    );
+    expect(ctx.filler).toHaveBeenCalledWith(
+      expect.any(Function),
+      {
+        delay: 5_000,
+        interval: 8_000,
+        maxSteps: 2,
+        signal: undefined,
+      },
+      expect.any(Function),
+    );
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
-
-    await vi.advanceTimersByTimeAsync(1);
-    expect(ctx.waitForPlayout).toHaveBeenCalledTimes(1);
-    expect(ctx.session.generateReply).toHaveBeenCalledWith({
-      instructions: expect.stringContaining(
-        "checking appointment availability",
-      ),
-      allowInterruptions: true,
-      toolChoice: "none",
-    });
 
     resolveFetch({
       ok: true,
@@ -966,7 +986,7 @@ describe("direct session state cleanup", () => {
 
     const result = await execution;
 
-    expect(ctx.spokenHandle.interrupt).toHaveBeenCalledTimes(1);
+    expect(ctx.spokenHandle.interrupt).not.toHaveBeenCalled();
     expect(result).toContain("Offer this slot:");
     expect(result).toContain("appointmentSlotRef S1");
   });

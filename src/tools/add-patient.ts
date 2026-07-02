@@ -1,4 +1,4 @@
-import { llm } from "@livekit/agents";
+import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import {
@@ -80,7 +80,8 @@ const addPatientParameters = z
   })
   .strict();
 
-export const add_patient = llm.tool({
+export const add_patient = tool({
+  name: "add_patient",
   description:
     "Creates a chart for a new patient. " +
     "Call this only after resolve_patient has confirmed the caller says the patient is not registered with us. " +
@@ -108,7 +109,7 @@ export const add_patient = llm.tool({
       params.appointmentLane !== "medical_md" &&
       params.appointmentLane !== "routine_od"
     ) {
-      throw new llm.ToolError(
+      throw new ToolError(
         "Pass appointmentLane medical_md or routine_od before creating a patient.",
       );
     }
@@ -125,7 +126,7 @@ export const add_patient = llm.tool({
     }
     const insurance = checkedInsurance.canonicalPlan ?? params.insurance;
     if (checkedInsurance.coverageType !== laneCoverageType) {
-      throw new llm.ToolError(
+      throw new ToolError(
         "Use appointmentLane medical_md with medical coverage, or routine_od with routine_vision coverage. Run check_insurance again for the correct coverage before creating a patient.",
       );
     }
@@ -158,12 +159,12 @@ export const add_patient = llm.tool({
     }
 
     if (!phone) {
-      throw new llm.ToolError(
+      throw new ToolError(
         "A callback phone number is required before creating a chart. Ask whether the inbound number is best, or collect a callback number.",
       );
     }
 
-    ctx.speechHandle.allowInterruptions = false;
+    ctx.disallowInterruptions();
     ensureRoutineVisionOffice(state);
     const payload = {
       firstName: params.firstName,

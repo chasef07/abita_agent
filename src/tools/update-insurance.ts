@@ -1,4 +1,4 @@
-import { llm } from "@livekit/agents";
+import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import { normalizeInsuranceText } from "../insurance-rules.js";
@@ -17,7 +17,8 @@ import {
 import { getAmdOfficeForToolCall } from "./scheduling.js";
 import { getState } from "./session.js";
 
-export const update_insurance = llm.tool({
+export const update_insurance = tool({
+  name: "update_insurance",
   description:
     "Update insurance for a verified existing patient. " +
     "Use when the verified patient explicitly says they want to update the insurance on file. " +
@@ -36,16 +37,16 @@ export const update_insurance = llm.tool({
     .strict(),
   execute: async ({ insuranceMemberId }, { ctx }) => {
     const state = getState(ctx);
-    ctx.speechHandle.allowInterruptions = false;
+    ctx.disallowInterruptions();
 
     const patientId = activePatientId(state);
     if (!patientId) {
-      throw new llm.ToolError("Verify the patient before updating insurance.");
+      throw new ToolError("Verify the patient before updating insurance.");
     }
 
     const checkedInsurance = state.insurance.lastEligibilityCheck;
     if (!checkedInsurance?.accepted) {
-      throw new llm.ToolError(
+      throw new ToolError(
         "Run check_insurance for accepted coverage before updating insurance.",
       );
     }
@@ -56,7 +57,7 @@ export const update_insurance = llm.tool({
     const canonicalInsurance = checkedInsurance.canonicalPlan?.trim() || null;
     const coverageType = checkedInsurance.coverageType;
     if (!insurance || !coverageType) {
-      throw new llm.ToolError(
+      throw new ToolError(
         "Run check_insurance for accepted coverage before updating insurance.",
       );
     }
@@ -66,9 +67,7 @@ export const update_insurance = llm.tool({
       normalizeInsuranceText(canonicalInsurance ?? "") === "self pay";
     const memberId = selfPay ? "self pay" : insuranceMemberId.trim();
     if (!memberId) {
-      throw new llm.ToolError(
-        "Collect the member ID before updating insurance.",
-      );
+      throw new ToolError("Collect the member ID before updating insurance.");
     }
 
     const backendRefs = patientBackendRefs(state);
@@ -95,7 +94,7 @@ export const update_insurance = llm.tool({
     )) as UpdateInsuranceResult;
 
     if (result?.status !== "updated") {
-      throw new llm.ToolError(result?.message ?? "Insurance was not updated.");
+      throw new ToolError(result?.message ?? "Insurance was not updated.");
     }
 
     const newInsurance = result.newInsurance?.trim() || insurance;

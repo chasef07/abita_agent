@@ -2,20 +2,22 @@
 // Bootstraps the voice pipeline and connects to LiveKit Cloud.
 
 import {
+  AgentSession,
+  AgentSessionEventTypes,
+  FallbackAdapter,
   inference,
   type JobContext,
   ServerOptions,
   cli,
   defineAgent,
-  llm,
-  voice,
+  sessionReportToJSON,
 } from "@livekit/agents";
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as baseten from "@livekit/agents-plugin-baseten";
 import * as rime from "@livekit/agents-plugin-rime";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { Agent } from "./agent.js";
+import { createAgent } from "./agent.js";
 import {
   buildLlmSummary,
   createEmptySessionEventAnalytics,
@@ -192,7 +194,7 @@ export default defineAgent({
       const primaryLLM = new baseten.LLM(llmOptions.primary);
       const fallbackLLM = new baseten.LLM(llmOptions.fallback);
 
-      const llmWithFallback = new llm.FallbackAdapter({
+      const llmWithFallback = new FallbackAdapter({
         llms: [primaryLLM, fallbackLLM],
       });
       const llmMetrics: PluginMetricSnapshot[] = [];
@@ -211,7 +213,7 @@ export default defineAgent({
         `[tts] provider=rime trunk=${trunkPhone} voice_language=${initialVoiceLanguage.current} tts_language=${initialVoiceLanguage.ttsLanguage} speaker=${initialVoiceLanguage.speaker}`,
       );
 
-      const session = new voice.AgentSession<CallState>({
+      const session = new AgentSession<CallState>({
         stt,
         llm: llmWithFallback,
         tts,
@@ -270,7 +272,7 @@ export default defineAgent({
       const { office, phoneLookup, verified } = preCall;
       console.log(formatPhoneLookupLogLine(callerPhone, phoneLookup));
 
-      const agent = new Agent(phoneLookup, trunkPhone, {
+      const agent = createAgent(phoneLookup, trunkPhone, {
         onLanguageDecision: (decision) => {
           const voiceLanguage = applyLanguageDecisionToTts(decision);
           if (voiceLanguage) {
@@ -364,7 +366,7 @@ export default defineAgent({
         console.log(`[stt] AssemblyAI profile=${profile} reason=${reason}`);
       };
 
-      session.on(voice.AgentSessionEventTypes.ConversationItemAdded, (ev) => {
+      session.on(AgentSessionEventTypes.ConversationItemAdded, (ev) => {
         if (ev.item.type !== "message") return;
 
         const metrics = Object.fromEntries(
@@ -402,35 +404,35 @@ export default defineAgent({
         );
       });
 
-      session.on(voice.AgentSessionEventTypes.SessionUsageUpdated, (ev) => {
+      session.on(AgentSessionEventTypes.SessionUsageUpdated, (ev) => {
         latestUsage = ev.usage as unknown as Record<string, unknown>;
       });
 
-      session.on(voice.AgentSessionEventTypes.FunctionToolsExecuted, (ev) => {
+      session.on(AgentSessionEventTypes.FunctionToolsExecuted, (ev) => {
         toolExecutions.push(...snapshotToolExecutions(ev));
       });
 
-      session.on(voice.AgentSessionEventTypes.Error, (ev) => {
+      session.on(AgentSessionEventTypes.Error, (ev) => {
         sessionEvents.errors.push(snapshotErrorEvent(ev));
       });
 
-      session.on(voice.AgentSessionEventTypes.Close, (ev) => {
+      session.on(AgentSessionEventTypes.Close, (ev) => {
         sessionEvents.close = snapshotCloseEvent(ev);
       });
 
-      session.on(voice.AgentSessionEventTypes.AgentFalseInterruption, (ev) => {
+      session.on(AgentSessionEventTypes.AgentFalseInterruption, (ev) => {
         sessionEvents.falseInterruptions.push(
           snapshotFalseInterruptionEvent(ev),
         );
       });
 
-      session.on(voice.AgentSessionEventTypes.OverlappingSpeech, (ev) => {
+      session.on(AgentSessionEventTypes.OverlappingSpeech, (ev) => {
         sessionEvents.overlappingSpeech.push(
           snapshotOverlappingSpeechEvent(ev),
         );
       });
 
-      session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (ev) => {
+      session.on(AgentSessionEventTypes.UserInputTranscribed, (ev) => {
         if (ev.isFinal) {
           applySttProfile("default", "user_final", {
             callerText: ev.transcript,
@@ -447,7 +449,7 @@ export default defineAgent({
 
         try {
           const report = ctx.makeSessionReport();
-          sessionReport = voice.sessionReportToJSON(report);
+          sessionReport = sessionReportToJSON(report);
 
           if (report.audioRecordingPath) {
             try {

@@ -1,4 +1,4 @@
-import { llm, voice } from "@livekit/agents";
+import { ToolError, ToolFlag, tool } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import {
@@ -33,14 +33,10 @@ type AvailabilityLookupArgs = {
   timePreference?: AvailabilityTimePreference;
 };
 
-type GeneratedSpeechHandle = ReturnType<
-  voice.RunContext["session"]["generateReply"]
->;
-
-const AVAILABILITY_STATUS_DELAY_MS = 500;
-const AVAILABILITY_STATUS_INSTRUCTIONS =
-  "Briefly tell the caller that you're checking appointment availability now. " +
-  "Use the same language the caller is using. Do not mention tools or systems.";
+const AVAILABILITY_UPDATE = "Checking appointment availability now.";
+const AVAILABILITY_FILLER_DELAY_MS = 5_000;
+const AVAILABILITY_FILLER_INTERVAL_MS = 8_000;
+const AVAILABILITY_FILLER_MAX_STEPS = 2;
 
 const isoDateSchema = z
   .string()
@@ -50,7 +46,10 @@ const isoDateSchema = z
     "Use an exact date in YYYY-MM-DD format. Call get_current_datetime first for relative dates.",
   );
 
-export const get_availability = llm.tool({
+export const get_availability = tool({
+  name: "get_availability",
+  flags: ToolFlag.CANCELLABLE,
+  onDuplicate: "replace",
   description:
     "Search appointment availability from an exact YYYY-MM-DD start date. " +
     "For new appointments, pass appointmentLane after the visit reason is clear; for reschedules, omit it only when the existing appointment to move is already identified. " +
@@ -72,7 +71,10 @@ export const get_availability = llm.tool({
         "Caller time-of-day preference for ranking returned slots. Use morning for AM or before-noon requests, afternoon for PM or afternoon requests, and none when the caller has no time preference.",
       ),
   }),
-  execute: async ({ date, appointmentLane, timePreference }, { ctx }) => {
+  execute: async (
+    { date, appointmentLane, timePreference },
+    { ctx, abortSignal },
+  ) => {
     const state = getState(ctx);
     const request = buildAvailabilityLookupRequestForState(state, {
       date,
@@ -94,16 +96,22 @@ export const get_availability = llm.tool({
     );
     if (cachedResponse) return cachedResponse;
 
-    const statusUpdate = startAvailabilityStatusUpdate(ctx);
-    let result: unknown;
-    try {
-      result = await callApi(
-        "/api/scheduler/availability",
-        request.body,
-        officePhone,
-      );
-    } finally {
-      statusUpdate.cancel();
+    await ctx.update(AVAILABILITY_UPDATE);
+    const result = await ctx.filler(
+      () => availabilityFiller(state),
+      {
+        delay: AVAILABILITY_FILLER_DELAY_MS,
+        interval: AVAILABILITY_FILLER_INTERVAL_MS,
+        maxSteps: AVAILABILITY_FILLER_MAX_STEPS,
+        signal: abortSignal,
+      },
+      () =>
+        callApi("/api/scheduler/availability", request.body, officePhone, {
+          signal: abortSignal,
+        }),
+    );
+    if (!availabilityRequestStillCurrent(state, request)) {
+      return "Availability search was superseded because the patient or appointment context changed. Check availability again with the current details.";
     }
     const response = storeAvailabilitySlots(
       state,
@@ -118,45 +126,32 @@ export const get_availability = llm.tool({
   },
 });
 
-function startAvailabilityStatusUpdate(ctx: voice.RunContext): {
-  cancel: () => void;
-} {
-  let cancelled = false;
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  let statusHandle: GeneratedSpeechHandle | null = null;
+function availabilityFiller(state: CallState): string {
+  if (state.runtime.voiceLanguage?.current === "es") {
+    return "Sigo buscando disponibilidad.";
+  }
+  return "Still checking appointment availability.";
+}
 
-  timeout = setTimeout(() => {
-    timeout = null;
-    void (async () => {
-      try {
-        await ctx.waitForPlayout();
-        if (cancelled) return;
-        statusHandle = ctx.session.generateReply({
-          instructions: AVAILABILITY_STATUS_INSTRUCTIONS,
-          allowInterruptions: true,
-          toolChoice: "none",
-        });
-        await statusHandle.waitForPlayout();
-      } catch (err) {
-        if (!cancelled) {
-          console.warn("[tools] Availability status update failed:", err);
-        }
-      }
-    })();
-  }, AVAILABILITY_STATUS_DELAY_MS);
-
-  return {
-    cancel: () => {
-      cancelled = true;
-      if (timeout) {
-        clearTimeout(timeout);
-        timeout = null;
-      }
-      if (statusHandle && !statusHandle.interrupted && !statusHandle.done()) {
-        statusHandle.interrupt();
-      }
-    },
-  };
+function availabilityRequestStillCurrent(
+  state: CallState,
+  request: {
+    body: Record<string, unknown>;
+    date: string;
+    routing: string | null;
+    signature: string;
+    timePreference: AvailabilityTimePreference;
+  },
+): boolean {
+  return (
+    availabilitySearchSignature(state, {
+      body: request.body,
+      date: request.date,
+      patientId: activePatientId(state),
+      routing: request.routing,
+      timePreference: request.timePreference,
+    }) === request.signature
+  );
 }
 
 function buildAvailabilityLookupRequestForState(
@@ -174,7 +169,7 @@ function buildAvailabilityLookupRequestForState(
   const date = args.date?.trim();
   const timePreference = args.timePreference ?? "none";
   if (!date) {
-    throw new llm.ToolError(
+    throw new ToolError(
       "Ask what date or starting day the caller wants before checking availability.",
     );
   }

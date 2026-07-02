@@ -1,4 +1,4 @@
-import { llm } from "@livekit/agents";
+import { tool } from "@livekit/agents";
 import { z } from "zod";
 import type {
   PatientResolveResult,
@@ -65,7 +65,8 @@ const resolvePatientParameters = z.object({
 type ResolvePatientArgs = z.infer<typeof resolvePatientParameters>;
 type NormalizedResolvePatientArgs = Partial<ResolvePatientArgs>;
 
-export const resolve_patient = llm.tool({
+export const resolve_patient = tool({
+  name: "resolve_patient",
   description:
     "Resolve who the patient is before patient-specific work. " +
     "Use only identity details the caller has provided. " +

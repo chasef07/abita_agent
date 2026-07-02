@@ -5,6 +5,8 @@ dispatches the `abita-agent` worker for supported SIP trunks; the worker handles
 identity, scheduling, appointment changes, insurance, office FAQ, and human
 transfer through the AdvancedMD middleware.
 
+See [CHANGELOG.md](CHANGELOG.md) for dated runtime and dependency changes.
+
 ## Current Shape
 
 The runtime is intentionally small:
@@ -13,7 +15,7 @@ The runtime is intentionally small:
 LiveKit AgentSession<CallState>
   -> pre-call phone lookup
   -> session.userData as typed call state
-  -> llm.tool definitions
+  -> direct tool() definitions
   -> business tools record scheduling lane when needed
   -> get_current_datetime returns clinic-local time on demand
   -> business tools read/write state and call middleware
@@ -73,7 +75,7 @@ src/
     update-insurance.ts   update_insurance definition, schema, execute body
     resolve-patient.ts      resolve_patient schema and identity loading
     route-to-spring-hill.ts route_to_spring_hill definition
-    session.ts            LiveKit RunContext state access and write interruption guard
+    session.ts            LiveKit RunContext state access
     scheduling.ts         Office routing and availability routing helpers
     patient-state.ts      Patient lookup and patient-state mutation helpers
     availability-slots.ts Availability slot cache and model-safe responses

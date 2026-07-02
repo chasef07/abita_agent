@@ -5,29 +5,26 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  '@livekit/agents-plugin-assemblyai@1.4.11':
-    hash: 066837cfe04bf8a5e59a439fdfbe25bb153bcdbe8b11bd14210c30d15724a8ce
-    path: patches/@livekit__agents-plugin-assemblyai@1.4.11.patch
-  '@livekit/agents-plugin-rime@1.4.11':
+  '@livekit/agents-plugin-rime@1.5.0':
     hash: 946f41947a9cb316d818dbd6882821e4369e1331c6f7f568b0c418fe61d92882
-    path: patches/@livekit__agents-plugin-rime@1.4.11.patch
+    path: patches/@livekit__agents-plugin-rime@1.5.0.patch
 
 importers:
 
   .:
     dependencies:
       '@livekit/agents':
-        specifier: 1.4.11
-        version: 1.4.11(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3)
+        specifier: 1.5.0
+        version: 1.5.0(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/agents-plugin-assemblyai':
-        specifier: 1.4.11
-        version: 1.4.11(patch_hash=066837cfe04bf8a5e59a439fdfbe25bb153bcdbe8b11bd14210c30d15724a8ce)(@livekit/agents@1.4.11(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.30)
+        specifier: 1.5.0
+        version: 1.5.0(@livekit/agents@1.5.0(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.30)
       '@livekit/agents-plugin-baseten':
-        specifier: 1.4.11
-        version: 1.4.11(@livekit/agents@1.4.11(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.30)(zod@4.4.3)
+        specifier: 1.5.0
+        version: 1.5.0(@livekit/agents@1.5.0(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.30)(zod@4.4.3)
       '@livekit/agents-plugin-rime':
-        specifier: 1.4.11
-        version: 1.4.11(patch_hash=946f41947a9cb316d818dbd6882821e4369e1331c6f7f568b0c418fe61d92882)(@livekit/agents@1.4.11(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.30)
+        specifier: 1.5.0
+        version: 1.5.0(patch_hash=946f41947a9cb316d818dbd6882821e4369e1331c6f7f568b0c418fe61d92882)(@livekit/agents@1.5.0(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.30)
       '@livekit/rtc-node':
         specifier: ^0.13.30
         version: 0.13.30
@@ -720,29 +717,29 @@ packages:
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
 
-  '@livekit/agents-plugin-assemblyai@1.4.11':
-    resolution: {integrity: sha512-oDbEDpH2R3ATE26ESE4+Cxdmh4s9BGOWPw5HP3zOOFYOISDB2ZPY7WcK9EINrx8YExY4W3zsX1aHgLcgYzTQmA==}
+  '@livekit/agents-plugin-assemblyai@1.5.0':
+    resolution: {integrity: sha512-jVJUcIYeCOVWWW1vtG2yya31YU1p2qPZ8td28aZHm4fpli/nXP9qC7b3TA/6ljdJOrA+48xw3xpZUbxhhGiE3w==}
     peerDependencies:
-      '@livekit/agents': 1.4.11
-      '@livekit/rtc-node': ^0.13.29
+      '@livekit/agents': 1.5.0
+      '@livekit/rtc-node': ^0.13.30
 
-  '@livekit/agents-plugin-baseten@1.4.11':
-    resolution: {integrity: sha512-aDD1IS7z/wsAaZK6iaRAl2sFpNrPZA5iLbBQ34qwtql11cI4AjuEMi37mtnUwaanT0jxY48dkPB/U2viafElKA==}
+  '@livekit/agents-plugin-baseten@1.5.0':
+    resolution: {integrity: sha512-0s6H4luCLTcKoHILXYvXAEDZpSjy4jrU6pW226H8rM7Pj2V/yRilTdF3Aki2vRZSvPG/sSJvDXklUf91LlJmmw==}
     peerDependencies:
-      '@livekit/agents': 1.4.11
-      '@livekit/rtc-node': ^0.13.29
+      '@livekit/agents': 1.5.0
+      '@livekit/rtc-node': ^0.13.30
 
-  '@livekit/agents-plugin-rime@1.4.11':
-    resolution: {integrity: sha512-z6HgtHk/FMC6DAPNQZx5txZH8x2DCKUmIZ6f2mRCT3/wrtIJsbKbPxiODKS5jpVgqlZnxma+vCS0FY21H6YWzg==}
+  '@livekit/agents-plugin-rime@1.5.0':
+    resolution: {integrity: sha512-XFRGNF9VqokU1e2Mx4OdfGwOFS9/4jMPVmHNNBGCAPcGXbPOfNLuEAF0khnHRnZasP3g1hUpTNM1/knKpvIWIg==}
     peerDependencies:
-      '@livekit/agents': 1.4.11
-      '@livekit/rtc-node': ^0.13.29
+      '@livekit/agents': 1.5.0
+      '@livekit/rtc-node': ^0.13.30
 
-  '@livekit/agents@1.4.11':
-    resolution: {integrity: sha512-gM1/+hJ3xPTV3rAVaR0PK4uNJyhh6Z4Ut5RB+RSAvEm3m8UkelCXWapf6AG8VOvGMhO3SxLlaDHb0GcwVYu7Lw==}
+  '@livekit/agents@1.5.0':
+    resolution: {integrity: sha512-vZ0Wx+mmUSh0wEkgnJM734SIx/crpu7ZYiu1Vrsd4I/wD/7U1n1HDc7gxNRGIAtmfRqAq13Vle7mZRP0HkVw3w==}
     hasBin: true
     peerDependencies:
-      '@livekit/rtc-node': ^0.13.29
+      '@livekit/rtc-node': ^0.13.30
       zod: ^3.25.76 || ^4.1.8
 
   '@livekit/local-inference-darwin-arm64@0.2.6':
@@ -776,9 +773,6 @@ packages:
 
   '@livekit/mutex@1.1.1':
     resolution: {integrity: sha512-EsshAucklmpuUAfkABPxJNhzj9v2sG7JuzFDL4ML1oJQSV14sqrpTYnsaOudMAw9yOaW53NU3QQTlUQoRs4czw==}
-
-  '@livekit/protocol@1.47.0':
-    resolution: {integrity: sha512-oJW1OpVAQ+/QZlSnvwwAtkP0fJ6OerlL68k7DFxXScMqaKnkMncwffPOLHjLmem7xNpPUiD0tJ2KSDdsIrNcpQ==}
 
   '@livekit/protocol@1.49.0':
     resolution: {integrity: sha512-TCmihwjHBWAUdNrqvmrN/K59r7vDnPIy3OEaE3p0g4FvdcQTiLynmFC3igR25Q2fnifahhAJjnnfSCtWUK7kYg==}
@@ -2743,18 +2737,18 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@livekit/agents-plugin-assemblyai@1.4.11(patch_hash=066837cfe04bf8a5e59a439fdfbe25bb153bcdbe8b11bd14210c30d15724a8ce)(@livekit/agents@1.4.11(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.30)':
+  '@livekit/agents-plugin-assemblyai@1.5.0(@livekit/agents@1.5.0(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.30)':
     dependencies:
-      '@livekit/agents': 1.4.11(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.5.0(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.30
       ws: 8.21.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@livekit/agents-plugin-baseten@1.4.11(@livekit/agents@1.4.11(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.30)(zod@4.4.3)':
+  '@livekit/agents-plugin-baseten@1.5.0(@livekit/agents@1.5.0(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.30)(zod@4.4.3)':
     dependencies:
-      '@livekit/agents': 1.4.11(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.5.0(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.30
       dotenv: 17.4.2
       openai: 6.42.0(ws@8.21.0)(zod@4.4.3)
@@ -2764,22 +2758,22 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@livekit/agents-plugin-rime@1.4.11(patch_hash=946f41947a9cb316d818dbd6882821e4369e1331c6f7f568b0c418fe61d92882)(@livekit/agents@1.4.11(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.30)':
+  '@livekit/agents-plugin-rime@1.5.0(patch_hash=946f41947a9cb316d818dbd6882821e4369e1331c6f7f568b0c418fe61d92882)(@livekit/agents@1.5.0(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3))(@livekit/rtc-node@0.13.30)':
     dependencies:
-      '@livekit/agents': 1.4.11(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3)
+      '@livekit/agents': 1.5.0(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.30
       ws: 8.21.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@livekit/agents@1.4.11(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3)':
+  '@livekit/agents@1.5.0(@livekit/rtc-node@0.13.30)(typescript@6.0.3)(zod@4.4.3)':
     dependencies:
       '@bufbuild/protobuf': 1.10.1
       '@ffmpeg-installer/ffmpeg': 1.1.0
       '@livekit/local-inference': 0.2.6
       '@livekit/mutex': 1.1.1
-      '@livekit/protocol': 1.47.0
+      '@livekit/protocol': 1.49.0
       '@livekit/rtc-node': 0.13.30
       '@livekit/throws-transformer': 0.1.8(typescript@6.0.3)
       '@livekit/typed-emitter': 3.0.0
@@ -2844,10 +2838,6 @@ snapshots:
       '@livekit/local-inference-win32-x64-msvc': 0.2.6
 
   '@livekit/mutex@1.1.1': {}
-
-  '@livekit/protocol@1.47.0':
-    dependencies:
-      '@bufbuild/protobuf': 1.10.1
 
   '@livekit/protocol@1.49.0':
     dependencies:
