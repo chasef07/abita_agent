@@ -1,12 +1,18 @@
 // Abita customer profile: office registry for trunk routing, prompts, and tool behavior.
 
 export type OfficeKey =
-  "spring-hill" | "crystal-river" | "hollywood" | "sweetwater" | "dev";
+  | "spring-hill"
+  | "crystal-river"
+  | "hollywood"
+  | "sweetwater"
+  | "north-miami-beach-optical"
+  | "dev";
 export const SPRING_HILL_OFFICE_PHONE = "+17275919997";
 export const SPRING_HILL_813_TRUNK_PHONE = "+18135484830";
 export const CRYSTAL_RIVER_OFFICE_PHONE = "+13523202007";
 export const HOLLYWOOD_OFFICE_PHONE = "+19542872010";
 export const SWEETWATER_OFFICE_PHONE = "+17864657475";
+export const NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE = "+13055095333";
 export const SWEETWATER_TRUNK_PHONES = [
   SWEETWATER_OFFICE_PHONE,
   "+17864654845",
@@ -31,6 +37,7 @@ export interface OfficeConfig {
   features: {
     routeToSpringHill: boolean;
     routeRoutineVisionToSpringHill: boolean;
+    medicalScheduling: boolean;
   };
 }
 const SPRING_HILL_TRANSFER_NUMBER = "+16182265883";
@@ -44,6 +51,7 @@ const OFFICE_HANDOFF_TARGET_ENV: Record<OfficeKey, string[]> = {
   "crystal-river": [],
   hollywood: ["HOLLYWOOD_HANDOFF_TARGET"],
   sweetwater: ["SWEETWATER_HANDOFF_TARGET"],
+  "north-miami-beach-optical": [],
   dev: [],
 };
 
@@ -62,6 +70,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     features: {
       routeToSpringHill: false,
       routeRoutineVisionToSpringHill: false,
+      medicalScheduling: true,
     },
   },
   "crystal-river": {
@@ -78,6 +87,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     features: {
       routeToSpringHill: true,
       routeRoutineVisionToSpringHill: true,
+      medicalScheduling: true,
     },
   },
   hollywood: {
@@ -94,6 +104,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     features: {
       routeToSpringHill: false,
       routeRoutineVisionToSpringHill: false,
+      medicalScheduling: true,
     },
   },
   sweetwater: {
@@ -110,6 +121,24 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     features: {
       routeToSpringHill: false,
       routeRoutineVisionToSpringHill: false,
+      medicalScheduling: true,
+    },
+  },
+  "north-miami-beach-optical": {
+    key: "north-miami-beach-optical",
+    displayName: "North Miami Beach Optical",
+    trunkPhones: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
+    greeting:
+      "Hey this is Zoe, the virtual assistant at North Miami Beach Optical. How's your day going",
+    knowledgeFile: "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
+    insuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
+    visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
+    amdOfficePhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+    handoffTarget: `tel:${HOLLYWOOD_SWEETWATER_TRANSFER_NUMBER}`,
+    features: {
+      routeToSpringHill: false,
+      routeRoutineVisionToSpringHill: false,
+      medicalScheduling: false,
     },
   },
   dev: {
@@ -127,6 +156,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     features: {
       routeToSpringHill: false,
       routeRoutineVisionToSpringHill: true,
+      medicalScheduling: true,
     },
   },
 };

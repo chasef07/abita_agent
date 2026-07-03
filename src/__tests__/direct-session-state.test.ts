@@ -3859,6 +3859,88 @@ describe("direct session state cleanup", () => {
     });
   });
 
+  it("rejects medical insurance checks for North Miami Beach Optical", async () => {
+    const state = createState();
+    state.office.activeKey = "north-miami-beach-optical";
+
+    const result = (await check_insurance.execute(
+      {
+        plan: "Humana PPO",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    )) as Record<string, unknown>;
+
+    expect(result).toEqual({
+      status: "not_accepted",
+      plan: "Humana PPO",
+    });
+    expect(state.insurance.lastEligibilityCheck).toEqual({
+      plan: "Humana PPO",
+      canonicalPlan: null,
+      coverageType: "medical",
+      currentCarrier: "Humana PPO",
+      accepted: false,
+    });
+  });
+
+  it("blocks medical scheduling for North Miami Beach Optical before calling middleware", async () => {
+    const state = createState();
+    state.office.activeKey = "north-miami-beach-optical";
+    state.office.phoneOverrides["north-miami-beach-optical"] = "+13055095333";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-07-09",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "North Miami Beach Optical supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("routes routine vision scheduling for North Miami Beach Optical through optical-only middleware", async () => {
+    const state = createState();
+    state.office.activeKey = "north-miami-beach-optical";
+    state.office.phoneOverrides["north-miami-beach-optical"] = "+13055095333";
+    const fetchMock = stubFetchJson(
+      availabilityFoundResponse({
+        date: "2026-07-09",
+        time: "9:00 AM",
+        provider: "Optical",
+        bookingToken: "token-1",
+      }),
+    );
+
+    await get_availability.execute(
+      {
+        date: "2026-07-09",
+        appointmentLane: "routine_od",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
+      {
+        date: "2026-07-09",
+        office: "+13055095333",
+        routing: "optical_only",
+      },
+    );
+  });
+
   it("returns a Spring Hill routing option when Crystal River does not accept the plan", async () => {
     const state = createState();
     state.office.activeKey = "crystal-river";

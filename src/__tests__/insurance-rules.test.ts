@@ -501,7 +501,7 @@ describe("insurance matcher", () => {
     );
   });
 
-  it("uses the routine vision insurance map for Hollywood and Sweetwater", () => {
+  it("uses the routine vision insurance map for Hollywood, Sweetwater, and North Miami Beach Optical", () => {
     const hollywoodVsp = matchInsurancePlanForOffice(
       "hollywood",
       "VSP",
@@ -512,10 +512,29 @@ describe("insurance matcher", () => {
       "VSP",
       "routine_vision",
     );
+    const northMiamiBeachVsp = matchInsurancePlanForOffice(
+      "north-miami-beach-optical",
+      "VSP",
+      "routine_vision",
+    );
 
     expect(hollywoodVsp.status).toBe("accepted");
     expect(canonicalInsurancePlan(hollywoodVsp)).toBe("VSP");
     expect(sweetwaterVsp.status).toBe("accepted");
     expect(canonicalInsurancePlan(sweetwaterVsp)).toBe("VSP");
+    expect(northMiamiBeachVsp.status).toBe("accepted");
+    expect(canonicalInsurancePlan(northMiamiBeachVsp)).toBe("VSP");
+  });
+
+  it("rejects medical insurance checks for North Miami Beach Optical", () => {
+    const result = matchInsurancePlanForOffice(
+      "north-miami-beach-optical",
+      "Humana PPO",
+      "medical",
+    );
+
+    expect(result.status).toBe("not_accepted");
+    expect(result.canProceed).toBe(false);
+    expect(canonicalInsurancePlan(result)).toBeNull();
   });
 });
