@@ -36,6 +36,17 @@ export function ensureRoutineVisionOffice(state: CallState): void {
   setActiveOfficeKey(state, "spring-hill");
 }
 
+export function medicalSchedulingUnavailable(state: CallState): string | null {
+  const office = getOfficeConfig(activeOfficeKey(state));
+  if (office.features.medicalScheduling) return null;
+  if (currentWorkflowVisitType(state) !== "medical") {
+    const turn = state.workflow.current;
+    if (turn?.intent !== "change_appointment") return null;
+    if (isRoutineVisionSchedulingOrChange(state)) return null;
+  }
+  return `${office.displayName} supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.`;
+}
+
 export function routingForAvailability(state: CallState): string | null {
   if (isRoutineVisionSchedulingOrChange(state)) {
     return "optical_only";

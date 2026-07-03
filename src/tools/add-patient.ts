@@ -22,6 +22,7 @@ import { applyPatientResult } from "./patient-state.js";
 import {
   ensureRoutineVisionOffice,
   getAmdOfficeForToolCall,
+  medicalSchedulingUnavailable,
 } from "./scheduling.js";
 import { getState } from "./session.js";
 
@@ -113,6 +114,10 @@ export const add_patient = tool({
         "Pass appointmentLane medical_md or routine_od before creating a patient.",
       );
     }
+    applySchedulingLaneToState(state, params.appointmentLane);
+    const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
+    if (unsupportedMedicalScheduling) return unsupportedMedicalScheduling;
+
     const laneCoverageType = coverageTypeForAppointmentLane(
       params.appointmentLane,
     );
@@ -130,7 +135,6 @@ export const add_patient = tool({
         "Use appointmentLane medical_md with medical coverage, or routine_od with routine_vision coverage. Run check_insurance again for the correct coverage before creating a patient.",
       );
     }
-    applySchedulingLaneToState(state, params.appointmentLane);
     const selfPay = normalizeInsuranceText(insurance) === "self pay";
     const memberId = selfPay ? "self pay" : params.insuranceMemberId;
     const explicitPhone = params.phone?.trim() ?? "";

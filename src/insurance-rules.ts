@@ -142,6 +142,12 @@ export function matchInsurancePlanForOffice(
   query: string,
   coverageType: InsuranceCoverageType = "medical",
 ): InsuranceLookupResult {
+  if (
+    coverageType === "medical" &&
+    !getOfficeConfig(officeKey).features.medicalScheduling
+  ) {
+    return buildUnsupportedMedicalInsuranceResult(query);
+  }
   const file = insuranceFileForCoverage(officeKey, coverageType);
   const reference = loadInsuranceReference(file);
   return matchInsurancePlan(reference, query);
@@ -408,5 +414,21 @@ function buildUnknownInsuranceResult(query: string): InsuranceLookupResult {
     canProceed: false,
     needsExactPlanName: false,
     clarificationNeeded: "the exact plan name from the insurance card",
+  };
+}
+
+function buildUnsupportedMedicalInsuranceResult(
+  query: string,
+): InsuranceLookupResult {
+  return {
+    status: "not_accepted",
+    query,
+    matchedPlan: null,
+    matchedAlias: null,
+    matchedFamily: null,
+    callerFacingPlan: query,
+    canProceed: false,
+    needsExactPlanName: false,
+    clarificationNeeded: null,
   };
 }

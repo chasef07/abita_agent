@@ -12,6 +12,7 @@ import {
   getOfficeHandoffTarget,
   getOfficeKeyByPhone,
   HOLLYWOOD_OFFICE_PHONE,
+  NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
   normalizeHandoffTarget,
   normalizePhoneNumber,
   SPRING_HILL_813_TRUNK_PHONE,
@@ -101,6 +102,9 @@ describe("office routing helpers", () => {
     for (const phone of SWEETWATER_TRUNK_PHONES) {
       expect(getOfficeKeyByPhone(phone)).toBe("sweetwater");
     }
+    expect(getOfficeKeyByPhone(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE)).toBe(
+      "north-miami-beach-optical",
+    );
     expect(getOfficeKeyByPhone(DEV_OFFICE_PHONE)).toBe("dev");
   });
 
@@ -130,6 +134,20 @@ describe("office routing helpers", () => {
       expect(sweetwater.amdOfficePhone).toBe(SWEETWATER_OFFICE_PHONE);
       expect(toolNamesForTrunk(phone)).not.toContain("route_to_spring_hill");
     }
+  });
+
+  it("routes North Miami Beach Optical through its optical-only AMD office phone", () => {
+    const office = getOfficeConfigByPhone(
+      NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+    );
+
+    expect(office.key).toBe("north-miami-beach-optical");
+    expect(office.displayName).toBe("North Miami Beach Optical");
+    expect(office.amdOfficePhone).toBe(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE);
+    expect(office.features.medicalScheduling).toBe(false);
+    expect(
+      toolNamesForTrunk(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE),
+    ).not.toContain("route_to_spring_hill");
   });
 
   it("normalizes LiveKit phone attributes without a plus prefix", () => {
@@ -165,6 +183,9 @@ describe("office routing helpers", () => {
     expect(resolveKnowledgeFileForOffice("sweetwater")).toBe(
       "KNOWLEDGE_SWEETWATER.md",
     );
+    expect(resolveKnowledgeFileForOffice("north-miami-beach-optical")).toBe(
+      "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
+    );
     expect(resolveKnowledgeFileForOffice("spring-hill")).toBe(
       "KNOWLEDGE_SPRINGHILL.md",
     );
@@ -184,8 +205,14 @@ describe("office routing helpers", () => {
     expect(getOfficeConfig("sweetwater").handoffTarget).toBe(
       "tel:+16184220360",
     );
+    expect(getOfficeConfig("north-miami-beach-optical").handoffTarget).toBe(
+      "tel:+17864657479",
+    );
     expect(getOfficeHandoffTarget("hollywood")).toBe("tel:+16184220360");
     expect(getOfficeHandoffTarget("sweetwater")).toBe("tel:+16184220360");
+    expect(getOfficeHandoffTarget("north-miami-beach-optical")).toBe(
+      "tel:+17864657479",
+    );
   });
 
   it("introduces the configured virtual assistant for each office", () => {
@@ -202,6 +229,9 @@ describe("office routing helpers", () => {
     expect(getOfficeConfig("hollywood").greeting).toBe(greeting);
     expect(getOfficeConfig("sweetwater").greeting).toBe(
       "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
+    );
+    expect(getOfficeConfig("north-miami-beach-optical").greeting).toBe(
+      "Hey this is Zoe, the virtual assistant at North Miami Beach Optical. How's your day going",
     );
   });
 
@@ -259,6 +289,9 @@ describe("office routing helpers", () => {
     for (const phone of SWEETWATER_TRUNK_PHONES) {
       expect(toolNamesForTrunk(phone)).not.toContain("route_to_spring_hill");
     }
+    expect(
+      toolNamesForTrunk(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE),
+    ).not.toContain("route_to_spring_hill");
   });
 
   it("always exposes one patient resolution tool without a separate switch tool", () => {
@@ -318,6 +351,7 @@ describe("tool-first prompt gating", () => {
       SPRING_HILL_OFFICE_PHONE,
       SPRING_HILL_813_TRUNK_PHONE,
       HOLLYWOOD_OFFICE_PHONE,
+      NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
     ]) {
       const officePrompt = buildPrompt(undefined, phone);
@@ -510,6 +544,34 @@ describe("Crystal River prompt guidance", () => {
     expect(sweetwaterKnowledge).toContain("Betty is the licensed optician");
     expect(sweetwaterKnowledge).toContain("@abitaeyegroup");
     expect(sweetwaterKnowledge).toContain("Dr. Maria Casas");
+  });
+
+  it("keeps North Miami Beach Optical knowledge limited to provided facts", () => {
+    const prompt = buildPrompt(
+      undefined,
+      NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+    );
+    const knowledge = readFileSync(
+      join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "workspace",
+        "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
+      ),
+      "utf-8",
+    );
+
+    expect(prompt).not.toContain("route_to_spring_hill");
+    expect(knowledge).toContain("North Miami Beach Optical");
+    expect(knowledge).toContain("(305) 509-5333");
+    expect(knowledge).toContain("633 NE 167th Street");
+    expect(knowledge).toContain("optical-only office");
+    expect(knowledge).toContain("Gucci, Montblanc, YSL");
+    expect(knowledge).toContain("Dr. Miriam Bach");
+    expect(knowledge).toContain("less than 10 business days");
+    expect(knowledge).toContain("Do not invent");
+    expect(knowledge).toContain("Medical insurance checks are not supported");
   });
 
   it("keeps compact inline scheduling-lane guidance in the role prompt", () => {

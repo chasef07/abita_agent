@@ -18,6 +18,7 @@ import {
 import {
   ensureRoutineVisionOffice,
   getAmdOfficeForToolCall,
+  medicalSchedulingUnavailable,
   routingForAvailability,
 } from "./scheduling.js";
 import { getState } from "./session.js";
@@ -184,6 +185,9 @@ function buildAvailabilityLookupRequestForState(
     return { blocked: contextRecovery };
   }
   ensureAvailabilityContext(state, "checking availability");
+  const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
+  if (unsupportedMedicalScheduling)
+    return { blocked: unsupportedMedicalScheduling };
   ensureRoutineVisionOffice(state);
   const effectiveRouting = routingForAvailability(state);
   const body: Record<string, unknown> = { date };
