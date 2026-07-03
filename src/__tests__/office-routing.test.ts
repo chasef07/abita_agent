@@ -206,12 +206,12 @@ describe("office routing helpers", () => {
       "tel:+16184220360",
     );
     expect(getOfficeConfig("north-miami-beach-optical").handoffTarget).toBe(
-      "tel:+16184220360",
+      "tel:+17864657479",
     );
     expect(getOfficeHandoffTarget("hollywood")).toBe("tel:+16184220360");
     expect(getOfficeHandoffTarget("sweetwater")).toBe("tel:+16184220360");
     expect(getOfficeHandoffTarget("north-miami-beach-optical")).toBe(
-      "tel:+16184220360",
+      "tel:+17864657479",
     );
   });
 
