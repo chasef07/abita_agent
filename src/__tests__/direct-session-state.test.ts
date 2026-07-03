@@ -3908,6 +3908,41 @@ describe("direct session state cleanup", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("blocks medical reschedule availability for North Miami Beach Optical before calling middleware", async () => {
+    const state = createState();
+    state.office.activeKey = "north-miami-beach-optical";
+    state.office.phoneOverrides["north-miami-beach-optical"] = "+13055095333";
+    markAppointmentChangeContext(state);
+    state.workflow.routing.routing = "bach_only";
+    setLoadedAppointments(
+      state,
+      appointment({
+        id: 321,
+        provider: "Dr. Bach",
+        type: "Medical Follow-up",
+        facility: "North Miami Beach Optical",
+        confirmed: true,
+      }),
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await get_availability.execute(
+      {
+        date: "2026-07-09",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "North Miami Beach Optical supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("routes routine vision scheduling for North Miami Beach Optical through optical-only middleware", async () => {
     const state = createState();
     state.office.activeKey = "north-miami-beach-optical";

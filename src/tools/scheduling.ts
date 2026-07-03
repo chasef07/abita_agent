@@ -37,9 +37,13 @@ export function ensureRoutineVisionOffice(state: CallState): void {
 }
 
 export function medicalSchedulingUnavailable(state: CallState): string | null {
-  if (currentWorkflowVisitType(state) !== "medical") return null;
   const office = getOfficeConfig(activeOfficeKey(state));
   if (office.features.medicalScheduling) return null;
+  if (currentWorkflowVisitType(state) !== "medical") {
+    const turn = state.workflow.current;
+    if (turn?.intent !== "change_appointment") return null;
+    if (isRoutineVisionSchedulingOrChange(state)) return null;
+  }
   return `${office.displayName} supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.`;
 }
 
