@@ -1020,6 +1020,9 @@ describe("model-facing tool definitions", () => {
     );
     expect(reschedule_appointment.description).toContain("oldAppointmentRef");
     expect(reschedule_appointment.description).toContain(
+      "do not call this tool again until you can pass the matching oldAppointmentRef",
+    );
+    expect(reschedule_appointment.description).toContain(
       "cancels the old appointment only after booking succeeds",
     );
 

@@ -95,7 +95,7 @@ export const reschedule_appointment = tool({
     "Reschedule a loaded appointment. " +
     "Call only after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns an appointmentSlotRef, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. " +
     "Pass appointmentSlotRef for the caller-confirmed new slot. Do not pass backend patient IDs or appointment IDs. Do not pass old appointment dates or old appointment times; the tool selects the old appointment from loaded appointment state. " +
-    "If more than one old appointment is loaded, call once without oldAppointmentRef, ask the caller which listed appointment to move, then pass the matching oldAppointmentRef. " +
+    "If more than one old appointment is loaded, call once without oldAppointmentRef, ask the caller which listed appointment to move, then do not call this tool again until you can pass the matching oldAppointmentRef. " +
     "Before booking the new appointment, read back the selected new appointment date, time, and provider, then get caller confirmation. " +
     "This tool books the new appointment first and cancels the old appointment only after booking succeeds.",
   parameters: rescheduleAppointmentParameters,
