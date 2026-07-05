@@ -5219,7 +5219,7 @@ describe("direct session state cleanup", () => {
     );
 
     expect(result).toMatch(
-      /^Which loaded appointment should I reschedule\? Use oldAppointmentRef with one of: old-appointment-1-[a-z0-9]+: Tuesday, June 2, 2026 at 9:00 AM with Dr\. Bach; old-appointment-2-[a-z0-9]+: Tuesday, June 2, 2026 at 2:00 PM with Dr\. Licht; old-appointment-3-[a-z0-9]+: Wednesday, June 3, 2026 at 10:00 AM with Dr\. Calero; old-appointment-4-[a-z0-9]+: Thursday, June 4, 2026 at 11:00 AM with Dr\. Bach\.$/,
+      /^Which loaded appointment should I reschedule\? Ask the caller to choose one, then call reschedule_appointment again only with the matching oldAppointmentRef from: old-appointment-1-[a-z0-9]+: Tuesday, June 2, 2026 at 9:00 AM with Dr\. Bach; old-appointment-2-[a-z0-9]+: Tuesday, June 2, 2026 at 2:00 PM with Dr\. Licht; old-appointment-3-[a-z0-9]+: Wednesday, June 3, 2026 at 10:00 AM with Dr\. Calero; old-appointment-4-[a-z0-9]+: Thursday, June 4, 2026 at 11:00 AM with Dr\. Bach\. Do not call reschedule_appointment again without oldAppointmentRef\.$/,
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
