@@ -47,9 +47,6 @@ export type InsuranceToolResponse =
   | {
       status: "not_accepted";
       plan: string;
-      acceptedAtAlternateOffice?: string;
-      alternatePlan?: string;
-      routeTool?: string;
     }
   | {
       status: "needs_clarification";
@@ -146,7 +143,13 @@ export function matchInsurancePlanForOffice(
     coverageType === "medical" &&
     !getOfficeConfig(officeKey).features.medicalScheduling
   ) {
-    return buildUnsupportedMedicalInsuranceResult(query);
+    return buildUnsupportedInsuranceResult(query);
+  }
+  if (
+    coverageType === "routine_vision" &&
+    !getOfficeConfig(officeKey).features.routineVisionScheduling
+  ) {
+    return buildUnsupportedInsuranceResult(query);
   }
   const file = insuranceFileForCoverage(officeKey, coverageType);
   const reference = loadInsuranceReference(file);
@@ -417,9 +420,7 @@ function buildUnknownInsuranceResult(query: string): InsuranceLookupResult {
   };
 }
 
-function buildUnsupportedMedicalInsuranceResult(
-  query: string,
-): InsuranceLookupResult {
+function buildUnsupportedInsuranceResult(query: string): InsuranceLookupResult {
   return {
     status: "not_accepted",
     query,

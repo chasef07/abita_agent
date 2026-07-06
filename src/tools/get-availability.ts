@@ -16,10 +16,10 @@ import {
   type AvailabilityTimePreference,
 } from "./availability-slots.js";
 import {
-  ensureRoutineVisionOffice,
   getAmdOfficeForToolCall,
   medicalSchedulingUnavailable,
   routingForAvailability,
+  routineVisionSchedulingUnavailable,
 } from "./scheduling.js";
 import { getState } from "./session.js";
 import {
@@ -188,7 +188,10 @@ function buildAvailabilityLookupRequestForState(
   const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
   if (unsupportedMedicalScheduling)
     return { blocked: unsupportedMedicalScheduling };
-  ensureRoutineVisionOffice(state);
+  const unsupportedRoutineVisionScheduling =
+    routineVisionSchedulingUnavailable(state);
+  if (unsupportedRoutineVisionScheduling)
+    return { blocked: unsupportedRoutineVisionScheduling };
   const effectiveRouting = routingForAvailability(state);
   const body: Record<string, unknown> = { date };
   const dob = activePatientDob(state);

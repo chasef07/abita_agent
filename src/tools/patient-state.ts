@@ -22,10 +22,7 @@ import {
   appointmentStatusFromResult,
   extractAppointments,
 } from "./appointment-state.js";
-import {
-  ensureRoutineVisionOffice,
-  getAmdOfficeForToolCall,
-} from "./scheduling.js";
+import { getAmdOfficeForToolCall } from "./scheduling.js";
 
 type PatientResolveRequest = {
   body: Record<string, unknown>;
@@ -74,7 +71,6 @@ export async function resolvePatientForCall(
   state: CallState,
   request: PatientResolveRequest,
 ): Promise<PatientResolveResult> {
-  ensureRoutineVisionOffice(state);
   return resolvePatientByOffice(getAmdOfficeForToolCall(state), request.body);
 }
 
