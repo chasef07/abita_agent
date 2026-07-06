@@ -36,7 +36,7 @@ If a caller needs to reach the after-hours doctor, provide this number: 727-379-
 
 ## Scope of Services
 
-Crystal River sees medical eye conditions such as cataract evaluations with Dr. Licht, glaucoma, eyelid concerns, and flashes/floaters. For cataract evaluations, Dr. Licht sees the patient in Crystal River and Crystal River coordinates with Spring Hill for any testing that cannot be performed there. Crystal River does **not** see pediatric ophthalmology and does **not** schedule routine-vision exams there. For pediatrics or routine eye exams/glasses/contact lens prescriptions, schedule the patient at Spring Hill after getting their agreement.
+Crystal River is a medical-only office. It sees medical eye conditions such as cataract evaluations with Dr. Licht, glaucoma, eyelid concerns, and flashes/floaters. For cataract evaluations and other medical visits, Crystal River can schedule the in-office evaluation when appropriate. Do not promise that every test, procedure, or specialty service is available at Crystal River. Crystal River does **not** see pediatric ophthalmology and does **not** schedule routine-vision exams, glasses prescriptions, or contact lens prescriptions there.
 
 ## Providers
 
@@ -62,7 +62,7 @@ If a patient asks whether their glasses are under warranty or reports broken gla
 - Crystal River accepts standard Medicare, also called Medicare or Florida Medicare.
 - Crystal River accepts United Healthcare. Treat United Healthcare subplans as United Healthcare for insurance mapping.
 - Cigna follows the same medical insurance lookup behavior at Crystal River and Spring Hill. Run check_insurance with the exact Cigna plan name before answering.
-- Crystal River does not accept Humana, Medicaid plans, Ambetter, Staywell, Sunshine, Simply Medicaid, Miami Children's, Doctors Health, AvMed Medicare Advantage, or Eye America. Some of these may be accepted at Spring Hill; run check_insurance before offering Spring Hill routing.
+- Crystal River does not accept Humana, Medicaid plans, Ambetter, Staywell, Sunshine, Simply Medicaid, Miami Children's, Doctors Health, AvMed Medicare Advantage, or Eye America.
 - Referral requirements depend on the patient's insurance policy.
 - Insurance verification may be required prior to appointment confirmation.
 
@@ -84,7 +84,7 @@ Photo ID, insurance card, list of current medications, previous eye records (if 
 
 ## Self-Pay Pricing
 
-New patient medical visit with an optometrist: $150. Established patient medical visit with an optometrist: $75. New patient medical visit with an ophthalmologist: $250. Established patient medical visit with an ophthalmologist: $125. Routine vision exam with an optometrist: $100. Routine vision with contact lens fitting: $150*. If the caller says the cost is too much or they cannot afford it, offer to transfer them to the office to discuss different options.
+New patient medical visit with an optometrist: $150. Established patient medical visit with an optometrist: $75. New patient medical visit with an ophthalmologist: $250. Established patient medical visit with an ophthalmologist: $125. Crystal River does not schedule routine vision exams or contact lens fittings. If the caller says the cost is too much or they cannot afford it, offer to transfer them to the office to discuss different options.
 
 ## Billing
 

@@ -29,7 +29,6 @@ import {
   get_availability,
   resolve_patient,
   reschedule_appointment,
-  route_to_spring_hill,
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
@@ -1393,7 +1392,7 @@ describe("direct session state cleanup", () => {
     );
   });
 
-  it("routes routine-vision reschedule availability through Spring Hill without schedule intent", async () => {
+  it("blocks routine-vision reschedule availability for Crystal River", async () => {
     const state = createState();
     markAppointmentChangeContext(state);
     state.office.activeKey = "crystal-river";
@@ -1438,18 +1437,12 @@ describe("direct session state cleanup", () => {
       intent: "change_appointment",
       appointmentLane: "not_applicable",
     });
-    expect(state.office.activeKey).toBe("spring-hill");
-    expect(state.availability.latestRouting).toBe("optical_only");
-    expect(result).toContain("July 9 at 10:00 AM with Dr. Kyler Farnan");
-    expect(result).toContain("appointmentSlotRef S1");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
-      {
-        date: "2026-07-09",
-        dob: "01/01/1980",
-        office: "+17275919997",
-        routing: "optical_only",
-      },
+    expect(result).toBe(
+      "Eye Radiance handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
     );
+    expect(state.office.activeKey).toBe("crystal-river");
+    expect(state.office.phoneOverrides).not.toHaveProperty("spring-hill");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("routes vision appointment type reschedule availability through optical routing", async () => {
@@ -2439,6 +2432,57 @@ describe("direct session state cleanup", () => {
       "Pass appointmentLane medical_md or routine_od before creating a patient.",
     );
 
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks routine vision chart creation for Crystal River", async () => {
+    const state = createState();
+    state.office.activeKey = "crystal-river";
+    state.office.phoneOverrides = {
+      "crystal-river": "+13523202007",
+    };
+    state.identity.patient.patientId = null;
+    state.identity.patient.name = null;
+    state.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(state);
+    clearSchedulingContext(state);
+    markAcceptedInsurance(state, {
+      plan: "self pay",
+      canonicalPlan: "self pay",
+      coverageType: "routine_vision",
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Crystal River",
+        state: "FL",
+        zip: "34429",
+        sex: "female",
+        insurance: "self pay",
+        appointmentLane: "routine_od",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "self pay",
+        phone: "7275551212",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "Eye Radiance handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
+    );
+    expect(state.office.activeKey).toBe("crystal-river");
+    expect(state.office.phoneOverrides).not.toHaveProperty("spring-hill");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -3976,7 +4020,7 @@ describe("direct session state cleanup", () => {
     );
   });
 
-  it("returns a Spring Hill routing option when Crystal River does not accept the plan", async () => {
+  it("keeps Crystal River insurance denial scoped to the active office", async () => {
     const state = createState();
     state.office.activeKey = "crystal-river";
 
@@ -3991,10 +4035,10 @@ describe("direct session state cleanup", () => {
     expect(result).toMatchObject({
       status: "not_accepted",
       plan: "Humana PPO",
-      acceptedAtAlternateOffice: "Spring Hill",
-      alternatePlan: "Humana PPO",
-      routeTool: "route_to_spring_hill",
     });
+    expect(result).not.toHaveProperty("acceptedAtAlternateOffice");
+    expect(result).not.toHaveProperty("alternatePlan");
+    expect(result).not.toHaveProperty("routeTool");
     expect(result).not.toHaveProperty("canonicalPlan");
     expect(result).not.toHaveProperty("callerMessage");
     expect(result).not.toHaveProperty("canProceed");
@@ -4004,6 +4048,31 @@ describe("direct session state cleanup", () => {
       canonicalPlan: null,
       coverageType: "medical",
       currentCarrier: "Humana PPO",
+      accepted: false,
+    });
+  });
+
+  it("does not accept routine vision insurance for Crystal River", async () => {
+    const state = createState();
+    state.office.activeKey = "crystal-river";
+
+    const result = await check_insurance.execute(
+      {
+        plan: "Aetna",
+        coverageType: "routine_vision",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toEqual({
+      status: "not_accepted",
+      plan: "Aetna",
+    });
+    expect(state.insurance.lastEligibilityCheck).toMatchObject({
+      plan: "Aetna",
+      canonicalPlan: null,
+      coverageType: "routine_vision",
+      currentCarrier: "Aetna",
       accepted: false,
     });
   });
@@ -5495,20 +5564,13 @@ describe("direct session state cleanup", () => {
     );
   });
 
-  it("returns a speech-ready result after routing scheduling to Spring Hill", async () => {
+  it("blocks routine vision booking at Crystal River without routing to Spring Hill", async () => {
     const state = createState();
     state.office.activeKey = "crystal-river";
     state.office.phoneOverrides = {
       "crystal-river": "+13523202007",
     };
-    state.workflow.routing.routing = "bach_only";
-    state.insurance.lastEligibilityCheck = {
-      plan: "Humana PPO",
-      canonicalPlan: "Humana PPO",
-      coverageType: "medical",
-      currentCarrier: "Humana PPO",
-      accepted: true,
-    };
+    markSchedulingTriaged(state, "routine_od");
     state.availability.slots = [
       {
         slotId: "B",
@@ -5517,31 +5579,33 @@ describe("direct session state cleanup", () => {
         date: "2026-06-02",
         time: "10:00 AM",
         datetime: "2026-06-02T10:00:00",
-        routing: "bach_only",
+        routing: "optical_only",
       },
     ];
+    storeAvailabilityBookingToken(state, "B", "routine-token");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
     const ctx = createToolContext(state);
 
-    const result = await route_to_spring_hill.execute({}, {
-      ctx: ctx as never,
-      toolCallId: "tool-1",
-    } as never);
-
-    expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(result).toBe(
-      "Scheduling is now routed to Spring Hill. Continue without transferring the caller.",
+    const result = await book_appointment.execute(
+      {
+        appointmentSlotRef: "B",
+        appointmentReason: "routine eye exam",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "tool-1",
+      } as never,
     );
-    expect(state.office.activeKey).toBe("spring-hill");
-    expect(state.office.phoneOverrides?.["spring-hill"]).toBe("+17275919997");
-    expect(state.insurance.lastEligibilityCheck).toEqual({
-      plan: "Humana PPO",
-      canonicalPlan: "Humana PPO",
-      coverageType: "medical",
-      currentCarrier: "Humana PPO",
-      accepted: true,
-    });
-    expect(state.workflow.routing.routing).toBe("all_three");
-    expect(state.availability.slots).toEqual([]);
+
+    expect(result).toBe(
+      "Eye Radiance handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
+    );
+    expect(state.office.activeKey).toBe("crystal-river");
+    expect(state.office.phoneOverrides).not.toHaveProperty("spring-hill");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("waits for existing speech before transferring the caller", async () => {

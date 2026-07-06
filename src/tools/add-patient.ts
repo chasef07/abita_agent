@@ -20,9 +20,9 @@ import {
 } from "../state/call-state.js";
 import { applyPatientResult } from "./patient-state.js";
 import {
-  ensureRoutineVisionOffice,
   getAmdOfficeForToolCall,
   medicalSchedulingUnavailable,
+  routineVisionSchedulingUnavailable,
 } from "./scheduling.js";
 import { getState } from "./session.js";
 
@@ -117,6 +117,10 @@ export const add_patient = tool({
     applySchedulingLaneToState(state, params.appointmentLane);
     const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
     if (unsupportedMedicalScheduling) return unsupportedMedicalScheduling;
+    const unsupportedRoutineVisionScheduling =
+      routineVisionSchedulingUnavailable(state);
+    if (unsupportedRoutineVisionScheduling)
+      return unsupportedRoutineVisionScheduling;
 
     const laneCoverageType = coverageTypeForAppointmentLane(
       params.appointmentLane,
@@ -169,7 +173,6 @@ export const add_patient = tool({
     }
 
     ctx.disallowInterruptions();
-    ensureRoutineVisionOffice(state);
     const payload = {
       firstName: params.firstName,
       lastName: params.lastName,

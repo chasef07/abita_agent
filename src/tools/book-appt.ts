@@ -27,8 +27,8 @@ import {
 } from "./booking-state.js";
 import { restoreConfirmedPreCallCaller } from "./patient-state.js";
 import {
-  ensureRoutineVisionOffice,
   getAmdOfficeForToolCall,
+  routineVisionSchedulingUnavailable,
 } from "./scheduling.js";
 import { getState } from "./session.js";
 
@@ -89,7 +89,10 @@ export const book_appointment = tool({
       throw new ToolError("Verify or create the patient before booking.");
     }
 
-    ensureRoutineVisionOffice(state);
+    const unsupportedRoutineVisionScheduling =
+      routineVisionSchedulingUnavailable(state);
+    if (unsupportedRoutineVisionScheduling)
+      return unsupportedRoutineVisionScheduling;
     const selectedSlot = selectedSlotForBooking(state, appointmentSlotRef);
     const bookingBody = bookingRequestBodyForSlot(state, {
       selectedSlot,

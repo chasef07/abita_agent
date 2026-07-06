@@ -7,6 +7,5 @@ export { get_availability } from "./get-availability.js";
 export { lookup_knowledge } from "./lookup-knowledge-tool.js";
 export { resolve_patient } from "./resolve-patient.js";
 export { reschedule_appointment } from "./reschedule-appt.js";
-export { route_to_spring_hill } from "./route-to-spring-hill.js";
 export { transfer_call } from "./transfer-call.js";
 export { update_insurance } from "./update-insurance.js";

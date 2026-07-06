@@ -47,25 +47,6 @@ export const check_insurance = tool({
       currentCarrier: result.callerFacingPlan ?? checkedInsurancePlan,
       accepted: Boolean(checkedInsurancePlan && result.status === "accepted"),
     });
-
-    if (office === "crystal-river" && result.status === "not_accepted") {
-      const springHillResult = matchInsurancePlanForOffice(
-        "spring-hill",
-        plan,
-        coverageType,
-      );
-      const springHillPlan = canonicalInsurancePlan(springHillResult);
-      if (springHillResult.status === "accepted" && springHillPlan) {
-        const springHillCallerPlan =
-          springHillResult.callerFacingPlan ?? springHillPlan;
-        return {
-          ...response,
-          acceptedAtAlternateOffice: "Spring Hill",
-          alternatePlan: springHillCallerPlan,
-          routeTool: "route_to_spring_hill",
-        };
-      }
-    }
     return response;
   },
 });

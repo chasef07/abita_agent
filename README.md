@@ -74,7 +74,6 @@ src/
     reschedule-appt.ts    reschedule_appointment definition, schema, execute body
     update-insurance.ts   update_insurance definition, schema, execute body
     resolve-patient.ts      resolve_patient schema and identity loading
-    route-to-spring-hill.ts route_to_spring_hill definition
     session.ts            LiveKit RunContext state access
     scheduling.ts         Office routing and availability routing helpers
     patient-state.ts      Patient lookup and patient-state mutation helpers
@@ -103,16 +102,15 @@ The current broad office tool set is:
 - `book_appointment`
 - `check_insurance`
 - `lookup_knowledge`
-- `route_to_spring_hill` for Crystal River trunks only
 - `transfer_call`
 
 For new scheduling, `get_availability` takes `appointmentLane` directly once the
 medical-versus-routine lane is clear. `add_patient` takes the same lane because
-chart creation can change office routing for routine vision. `book_appointment` does
-not repeat the lane; it uses the private booking token and routing cached from
-the caller-confirmed availability slot. State-changing tools read and write
-`session.userData` directly. The final side effect is not considered complete
-until the tool succeeds.
+chart creation needs the same medical-versus-routine guard. `book_appointment`
+does not repeat the lane; it uses the private booking token and routing cached
+from the caller-confirmed availability slot. State-changing tools read and
+write `session.userData` directly. The final side effect is not considered
+complete until the tool succeeds.
 
 `get_current_datetime` is read-only and returns clinic-local grounding, such as
 `Today is Sunday, May 31st, 2026 at 10:42 AM Eastern time.`, when the caller

@@ -1,14 +1,9 @@
-import {
-  getOfficeConfig,
-  SPRING_HILL_OFFICE_PHONE,
-} from "../customer/profile.js";
+import { getOfficeConfig } from "../customer/profile.js";
 import {
   activeAppointments,
   activeOfficeKey,
   activeRoutingContext,
-  clearAvailabilitySelection,
   currentWorkflowVisitType,
-  setActiveOfficeKey,
   type CallerAppointment,
   type CallState,
 } from "../state/call-state.js";
@@ -20,22 +15,6 @@ export function getAmdOfficeForToolCall(state: CallState): string {
   );
 }
 
-export function ensureRoutineVisionOffice(state: CallState): void {
-  if (!isRoutineVisionSchedulingOrChange(state)) return;
-  if (
-    !getOfficeConfig(activeOfficeKey(state)).features
-      .routeRoutineVisionToSpringHill
-  ) {
-    return;
-  }
-  clearAvailabilitySelection(state);
-  state.office.phoneOverrides = {
-    ...state.office.phoneOverrides,
-    "spring-hill": SPRING_HILL_OFFICE_PHONE,
-  };
-  setActiveOfficeKey(state, "spring-hill");
-}
-
 export function medicalSchedulingUnavailable(state: CallState): string | null {
   const office = getOfficeConfig(activeOfficeKey(state));
   if (office.features.medicalScheduling) return null;
@@ -45,6 +24,16 @@ export function medicalSchedulingUnavailable(state: CallState): string | null {
     if (isRoutineVisionSchedulingOrChange(state)) return null;
   }
   return `${office.displayName} supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.`;
+}
+
+export function routineVisionSchedulingUnavailable(
+  state: CallState,
+): string | null {
+  const office = getOfficeConfig(activeOfficeKey(state));
+  if (office.features.routineVisionScheduling) return null;
+  if (!isRoutineVisionSchedulingOrChange(state)) return null;
+
+  return `${office.displayName} handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.`;
 }
 
 export function routingForAvailability(state: CallState): string | null {

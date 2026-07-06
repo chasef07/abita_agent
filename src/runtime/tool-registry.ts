@@ -11,7 +11,6 @@ import {
   lookup_knowledge,
   resolve_patient,
   reschedule_appointment,
-  route_to_spring_hill,
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
@@ -37,17 +36,9 @@ const COMMON_TOOLS = [
   end_call,
 ] as const satisfies readonly ToolContextEntry<CallState>[];
 
-const ROUTING_TOOLS = [
-  ...COMMON_TOOLS,
-  route_to_spring_hill,
-] as const satisfies readonly ToolContextEntry<CallState>[];
-
-export type AgentTools = typeof COMMON_TOOLS | typeof ROUTING_TOOLS;
+export type AgentTools = typeof COMMON_TOOLS;
 
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
-  const office = getOfficeConfigByPhone(trunkPhone ?? "");
-  if (office.features.routeToSpringHill) {
-    return ROUTING_TOOLS;
-  }
+  getOfficeConfigByPhone(trunkPhone ?? "");
   return COMMON_TOOLS;
 }

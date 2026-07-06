@@ -35,9 +35,8 @@ export interface OfficeConfig {
   middlewareBaseUrl?: string;
   handoffTarget: string;
   features: {
-    routeToSpringHill: boolean;
-    routeRoutineVisionToSpringHill: boolean;
     medicalScheduling: boolean;
+    routineVisionScheduling: boolean;
   };
 }
 const SPRING_HILL_TRANSFER_NUMBER = "+16182265883";
@@ -69,9 +68,8 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
     handoffTarget: `tel:${SPRING_HILL_TRANSFER_NUMBER}`,
     features: {
-      routeToSpringHill: false,
-      routeRoutineVisionToSpringHill: false,
       medicalScheduling: true,
+      routineVisionScheduling: true,
     },
   },
   "crystal-river": {
@@ -86,9 +84,8 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
     handoffTarget: `tel:${CRYSTAL_RIVER_TRANSFER_NUMBER}`,
     features: {
-      routeToSpringHill: true,
-      routeRoutineVisionToSpringHill: true,
       medicalScheduling: true,
+      routineVisionScheduling: false,
     },
   },
   hollywood: {
@@ -103,9 +100,8 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
     handoffTarget: `tel:${HOLLYWOOD_SWEETWATER_TRANSFER_NUMBER}`,
     features: {
-      routeToSpringHill: false,
-      routeRoutineVisionToSpringHill: false,
       medicalScheduling: true,
+      routineVisionScheduling: true,
     },
   },
   sweetwater: {
@@ -120,9 +116,8 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     amdOfficePhone: SWEETWATER_OFFICE_PHONE,
     handoffTarget: `tel:${HOLLYWOOD_SWEETWATER_TRANSFER_NUMBER}`,
     features: {
-      routeToSpringHill: false,
-      routeRoutineVisionToSpringHill: false,
       medicalScheduling: true,
+      routineVisionScheduling: true,
     },
   },
   "north-miami-beach-optical": {
@@ -137,9 +132,8 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     amdOfficePhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
     handoffTarget: `tel:${SWEETWATER_OPTICAL_TRANSFER_NUMBER}`,
     features: {
-      routeToSpringHill: false,
-      routeRoutineVisionToSpringHill: false,
       medicalScheduling: false,
+      routineVisionScheduling: true,
     },
   },
   dev: {
@@ -155,9 +149,8 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
     handoffTarget: `tel:${SPRING_HILL_TRANSFER_NUMBER}`,
     features: {
-      routeToSpringHill: false,
-      routeRoutineVisionToSpringHill: true,
       medicalScheduling: true,
+      routineVisionScheduling: true,
     },
   },
 };

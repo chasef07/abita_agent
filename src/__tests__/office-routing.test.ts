@@ -30,7 +30,6 @@ import {
   get_availability,
   lookup_knowledge,
   reschedule_appointment,
-  route_to_spring_hill,
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
@@ -275,8 +274,10 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("only exposes Spring Hill routing on Crystal River calls", () => {
-    expect(toolNamesForTrunk("+13523202007")).toContain("route_to_spring_hill");
+  it("does not expose Spring Hill routing on any office trunk", () => {
+    expect(toolNamesForTrunk("+13523202007")).not.toContain(
+      "route_to_spring_hill",
+    );
     expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toContain(
       "route_to_spring_hill",
     );
@@ -404,7 +405,7 @@ describe("tool-first prompt gating", () => {
 });
 
 describe("Crystal River prompt guidance", () => {
-  it("keeps Crystal River routing guidance out of the prompt and in tool/knowledge surfaces", () => {
+  it("keeps Crystal River medical-only guidance in knowledge and out of routing tools", () => {
     const prompt = buildPrompt(undefined, "+13523202007");
     const crystalRiverKnowledge = readFileSync(
       join(
@@ -418,38 +419,24 @@ describe("Crystal River prompt guidance", () => {
     );
 
     expect(prompt).not.toContain("Use the routing tool, not the transfer tool");
-    expect(route_to_spring_hill.description).toContain(
-      "Switch scheduling to Spring Hill without transferring",
-    );
-    expect(route_to_spring_hill.description).toContain(
-      "pediatric ophthalmology",
-    );
-    expect(route_to_spring_hill.description).not.toMatch(
-      /Spring Hill-only visits include[^.]*cataract/i,
-    );
-    expect(route_to_spring_hill.description).not.toContain(
-      "cataract surgery workups",
-    );
-    expect(route_to_spring_hill.description).toContain(
-      "Do not call this for Crystal River cataract evaluations",
-    );
-    expect(route_to_spring_hill.description).toContain(
-      "Dr. Licht evaluates cataracts in Crystal River",
-    );
-    expect(route_to_spring_hill.description).toContain("routine eye exams");
-    expect(route_to_spring_hill.description).toContain(
-      "caller is actively scheduling and agrees",
-    );
+    expect(prompt).not.toContain("route_to_spring_hill");
     expect(prompt).not.toContain("do not transfer just for that");
+    expect(getOfficeConfig("crystal-river").features).toMatchObject({
+      medicalScheduling: true,
+      routineVisionScheduling: false,
+    });
+    expect(crystalRiverKnowledge).toContain(
+      "Crystal River is a medical-only office",
+    );
     expect(crystalRiverKnowledge).toContain(
       "does **not** see pediatric ophthalmology",
     );
     expect(crystalRiverKnowledge).toContain("cataract evaluations");
     expect(crystalRiverKnowledge).toContain(
-      "For cataract evaluations, Dr. Licht sees the patient in Crystal River",
+      "Crystal River can schedule the in-office evaluation when appropriate",
     );
     expect(crystalRiverKnowledge).toContain(
-      "coordinates with Spring Hill for any testing that cannot be performed there",
+      "Do not promise that every test, procedure, or specialty service is available at Crystal River",
     );
     expect(crystalRiverKnowledge).not.toContain(
       "does **not** schedule cataract evaluations",
@@ -457,8 +444,9 @@ describe("Crystal River prompt guidance", () => {
     expect(crystalRiverKnowledge).not.toContain(
       "does **not** schedule cataract surgery workups",
     );
+    expect(crystalRiverKnowledge).not.toContain("coordinates with Spring Hill");
     expect(crystalRiverKnowledge).toContain(
-      "routine eye exams/glasses/contact lens prescriptions",
+      "does **not** schedule routine-vision exams, glasses prescriptions, or contact lens prescriptions",
     );
   });
 
@@ -933,9 +921,7 @@ describe("model-facing tool definitions", () => {
     );
     expect(transfer_call.description).not.toContain("tool speaks");
     expect(transfer_call.description).toContain("Do not call for scheduling");
-    expect(transfer_call.description).toContain(
-      "Crystal River-to-Spring Hill routing",
-    );
+    expect(transfer_call.description).not.toContain("Spring Hill routing");
   });
 
   it("keeps update_insurance scoped to verified-patient checked coverage updates", () => {
