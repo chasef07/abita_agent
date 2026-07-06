@@ -424,11 +424,17 @@ describe("Crystal River prompt guidance", () => {
     expect(route_to_spring_hill.description).toContain(
       "pediatric ophthalmology",
     );
+    expect(route_to_spring_hill.description).not.toMatch(
+      /Spring Hill-only visits include[^.]*cataract/i,
+    );
     expect(route_to_spring_hill.description).not.toContain(
-      "cataract evaluations",
+      "cataract surgery workups",
     );
     expect(route_to_spring_hill.description).toContain(
-      "cataract surgery workups",
+      "Do not call this for Crystal River cataract evaluations",
+    );
+    expect(route_to_spring_hill.description).toContain(
+      "Dr. Licht evaluates cataracts in Crystal River",
     );
     expect(route_to_spring_hill.description).toContain("routine eye exams");
     expect(route_to_spring_hill.description).toContain(
@@ -439,10 +445,16 @@ describe("Crystal River prompt guidance", () => {
       "does **not** see pediatric ophthalmology",
     );
     expect(crystalRiverKnowledge).toContain("cataract evaluations");
+    expect(crystalRiverKnowledge).toContain(
+      "For cataract evaluations, Dr. Licht sees the patient in Crystal River",
+    );
+    expect(crystalRiverKnowledge).toContain(
+      "coordinates with Spring Hill for any testing that cannot be performed there",
+    );
     expect(crystalRiverKnowledge).not.toContain(
       "does **not** schedule cataract evaluations",
     );
-    expect(crystalRiverKnowledge).toContain(
+    expect(crystalRiverKnowledge).not.toContain(
       "does **not** schedule cataract surgery workups",
     );
     expect(crystalRiverKnowledge).toContain(
