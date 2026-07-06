@@ -864,6 +864,9 @@ describe("model-facing tool definitions", () => {
     expect(check_insurance.description).toContain(
       "quick insurance acceptance questions",
     );
+    expect(check_insurance.description).toContain(
+      "do not call check_insurance again until the caller gives a more specific plan or coverage type",
+    );
     expect(check_insurance.description).not.toContain("speech-ready");
     expect(check_insurance.description).not.toContain("routeTool");
 
