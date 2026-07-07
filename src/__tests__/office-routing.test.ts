@@ -483,6 +483,11 @@ describe("Crystal River prompt guidance", () => {
     );
     expect(springHillKnowledge).toContain("retinal photos");
     expect(springHillKnowledge).toContain("$39 charge");
+    expect(springHillKnowledge).toContain(
+      "Collect the last 4 of the patient's Social Security number for routine-vision insurance",
+    );
+    expect(springHillKnowledge).toContain("patient's policy number");
+    expect(springHillKnowledge).not.toContain("insured person's SSN");
     expect(springHillKnowledge).toContain("Retina care is available");
     expect(springHillKnowledge).toContain("YSL, Ferragamo, Gucci");
     expect(springHillKnowledge).toContain("Sherry is the licensed optician");

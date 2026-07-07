@@ -3704,8 +3704,10 @@ describe("direct session state cleanup", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       insurance: "Florida Blue",
       subscriberNum: "ABC123",
-      ssn: "1234",
     });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty(
+      "ssn",
+    );
     expect(state.insurance.onFile).toEqual({
       plan: "Florida Blue",
       canonicalPlan: "Florida Blue",
@@ -3716,6 +3718,76 @@ describe("direct session state cleanup", () => {
     expect(state.workflow.current).toEqual({
       intent: "schedule",
       appointmentLane: "medical_md",
+    });
+  });
+
+  it("passes patient SSN last 4 to new patient creation for routine vision", async () => {
+    const state = createState();
+    state.identity.patient.patientId = null;
+    state.identity.patient.name = null;
+    state.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(state);
+    state.insurance.onFile = null;
+    markSchedulingTriaged(state, "routine_od");
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "created",
+        patientId: "patient-new",
+        name: "Jane Doe",
+        phone: "+17275551212",
+        insuranceCarrier: "VSP",
+        routing: "optical_only",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await check_insurance.execute(
+      {
+        plan: "VSP",
+        coverageType: "routine_vision",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        insurance: "VSP",
+        appointmentLane: "routine_od",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "VSP123",
+        ssnLast4: "1234",
+        inboundPhoneConfirmed: true,
+        readBack: true,
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-2" } as never,
+    );
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      insurance: "VSP",
+      subscriberNum: "VSP123",
+      coverageType: "routine_vision",
+      ssn: "1234",
+    });
+    expect(state.insurance.onFile).toEqual({
+      plan: "VSP",
+      canonicalPlan: "VSP",
+      coverageType: "routine_vision",
+      currentCarrier: "VSP",
+    });
+    expect(state.insurance.lastEligibilityCheck).toBeNull();
+    expect(state.workflow.current).toEqual({
+      intent: "schedule",
+      appointmentLane: "routine_od",
     });
   });
 

@@ -63,7 +63,7 @@ Patients can bring an outside prescription to Spring Hill to shop for glasses. I
 
 Non-prescription sunglasses are sold in office. They can be made prescription, but vision insurance generally does not cover non-prescription sunglasses.
 
-For every routine-vision patient, explain that some insurances do not cover retinal photos and there is a $39 charge.
+For every routine-vision patient, explain that some insurances do not cover retinal photos and there is a $39 charge. Collect the last 4 of the patient's Social Security number for routine-vision insurance because some plans, including VSP, use it as the patient's policy number.
 
 ## Licensed Optician
 
@@ -85,7 +85,7 @@ For any billing-related question, do not transfer the caller. Tell them to reach
 
 ## What to Bring
 
-Photo ID, insurance card, list of current medications, previous eye records (if available). For routine-vision insurance, collect the last 4 of the insured person's SSN because some plans, including VSP, use it as the policy number.
+Photo ID, insurance card, list of current medications, previous eye records (if available).
 
 ## Appointment Expectations
 

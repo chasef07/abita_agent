@@ -198,9 +198,11 @@ export const add_patient = tool({
         ? params.subscriberName || `${params.firstName} ${params.lastName}`
         : params.subscriberName,
       subscriberNum: memberId,
-      ...(params.ssnLast4 ? { ssn: params.ssnLast4 } : {}),
       ...(checkedInsurance.coverageType === "routine_vision"
-        ? { coverageType: "routine_vision" }
+        ? {
+            coverageType: "routine_vision",
+            ...(params.ssnLast4 ? { ssn: params.ssnLast4 } : {}),
+          }
         : {}),
       ...(params.email?.trim() ? { email: params.email.trim() } : {}),
     };
