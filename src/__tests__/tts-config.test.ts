@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_RIME_TTS_SPEAKER,
+  LATIN_RIME_TTS_SPEAKER,
   RIME_TTS_BASE_URL,
   RIME_TTS_LANGUAGE,
   RIME_TTS_MODEL,
@@ -19,6 +20,7 @@ import {
 } from "../tts-config.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
+  NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
   SWEETWATER_TRUNK_PHONES,
 } from "../customer/profile.js";
@@ -29,6 +31,7 @@ describe("TTS config", () => {
   it("uses Rime for the full TTS stack", () => {
     expect(RIME_TTS_MODEL).toBe("coda");
     expect(DEFAULT_RIME_TTS_SPEAKER).toBe("wawona");
+    expect(LATIN_RIME_TTS_SPEAKER).toBe("luz");
     expect(SWEETWATER_RIME_TTS_SPEAKER).toBe("luz");
     expect(SPANISH_RIME_TTS_SPEAKER).toBe("luz");
   });
@@ -50,6 +53,18 @@ describe("TTS config", () => {
     ).toEqual({
       language: RIME_TTS_LANGUAGE,
       speaker: SWEETWATER_RIME_TTS_SPEAKER,
+    });
+  });
+
+  it("uses luz for North Miami Beach Optical English", () => {
+    expect(
+      getRimeTtsLanguageOptions({
+        language: "en",
+        trunkPhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+      }),
+    ).toEqual({
+      language: RIME_TTS_LANGUAGE,
+      speaker: LATIN_RIME_TTS_SPEAKER,
     });
   });
 

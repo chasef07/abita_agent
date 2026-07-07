@@ -230,7 +230,7 @@ describe("office routing helpers", () => {
       "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
     );
     expect(getOfficeConfig("north-miami-beach-optical").greeting).toBe(
-      "Hey this is Zoe, the virtual assistant at North Miami Beach Optical. How's your day going",
+      "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
     );
   });
 
