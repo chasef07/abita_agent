@@ -252,6 +252,8 @@ export interface InsuranceSnapshot {
 
 export interface InsuranceEligibilityCheck extends InsuranceSnapshot {
   accepted: boolean;
+  clarificationNeeded?: string | null;
+  checkedAgainstUserTranscript?: string | null;
 }
 
 interface InsuranceSessionState {

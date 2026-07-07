@@ -3650,6 +3650,68 @@ describe("direct session state cleanup", () => {
     expect(state.workflow.current).toBeUndefined();
   });
 
+  it("blocks repeated clarification-needed insurance checks until the caller adds detail", async () => {
+    const state = createState();
+    state.runtime.latestUserTranscript = "I have Cigna.";
+
+    const first = (await check_insurance.execute(
+      {
+        plan: "Cigna",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    )) as Record<string, unknown>;
+
+    expect(first).toEqual({
+      status: "needs_clarification",
+      clarificationNeeded: "which Cigna plan is on the card",
+    });
+    expect(state.insurance.lastEligibilityCheck).toMatchObject({
+      plan: "Cigna",
+      canonicalPlan: null,
+      coverageType: "medical",
+      accepted: false,
+      clarificationNeeded: "which Cigna plan is on the card",
+      checkedAgainstUserTranscript: "I have Cigna.",
+    });
+
+    const retry = (await check_insurance.execute(
+      {
+        plan: "Cigna Company",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-2" } as never,
+    )) as Record<string, unknown>;
+
+    expect(retry).toEqual({
+      status: "needs_clarification",
+      clarificationNeeded:
+        "which Cigna plan is on the card. Ask the caller for this detail before checking insurance again.",
+    });
+    expect(state.insurance.lastEligibilityCheck?.plan).toBe("Cigna");
+
+    state.runtime.latestUserTranscript = "Actually, the card says Blue Cross.";
+    const next = (await check_insurance.execute(
+      {
+        plan: "Blue Cross",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-3" } as never,
+    )) as Record<string, unknown>;
+
+    expect(next).toEqual({
+      status: "accepted",
+      plan: "Blue Cross Blue Shield",
+    });
+    expect(state.insurance.lastEligibilityCheck).toEqual({
+      plan: "Blue Cross",
+      canonicalPlan: "Florida Blue",
+      coverageType: "medical",
+      currentCarrier: "Blue Cross Blue Shield",
+      accepted: true,
+    });
+  });
+
   it("passes the checked canonical insurance plan to new patient creation", async () => {
     const state = createState();
     state.identity.patient.patientId = null;

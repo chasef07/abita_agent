@@ -7,6 +7,7 @@ import {
 } from "../insurance-rules.js";
 import {
   activeOfficeKey,
+  lastInsuranceEligibilityCheck,
   setLastInsuranceEligibilityCheck,
 } from "../state/call-state.js";
 import { getState } from "./session.js";
@@ -32,6 +33,23 @@ export const check_insurance = tool({
   }),
   execute: async ({ plan, coverageType }, { ctx }) => {
     const state = getState(ctx);
+    const callerTranscript = state.runtime.latestUserTranscript?.trim() || null;
+    const previousCheck = lastInsuranceEligibilityCheck(state);
+    if (
+      previousCheck?.clarificationNeeded &&
+      !previousCheck.accepted &&
+      previousCheck.canonicalPlan === null &&
+      previousCheck.coverageType === coverageType &&
+      previousCheck.checkedAgainstUserTranscript === callerTranscript
+    ) {
+      return {
+        status: "needs_clarification",
+        clarificationNeeded:
+          previousCheck.clarificationNeeded +
+          ". Ask the caller for this detail before checking insurance again.",
+      };
+    }
+
     const office = activeOfficeKey(state);
     const result = matchInsurancePlanForOffice(office, plan, coverageType);
     const response = buildInsuranceToolResponse(result);
@@ -46,6 +64,12 @@ export const check_insurance = tool({
       coverageType: checkedInsuranceCoverageType ?? coverageType,
       currentCarrier: result.callerFacingPlan ?? checkedInsurancePlan,
       accepted: Boolean(checkedInsurancePlan && result.status === "accepted"),
+      ...(response.status === "needs_clarification"
+        ? {
+            clarificationNeeded: response.clarificationNeeded,
+            checkedAgainstUserTranscript: callerTranscript,
+          }
+        : {}),
     });
     return response;
   },
