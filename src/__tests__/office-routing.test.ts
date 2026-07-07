@@ -742,6 +742,8 @@ describe("model-facing tool definitions", () => {
     expect(add_patient.description).toContain(
       "last 4 of the insured person's SSN as insuranceMemberId",
     );
+    expect(add_patient.description).toContain("pass it as ssnLast4");
+    expect(add_patient.description).toContain("do not ask for the full SSN");
     expect(add_patient.description).toContain(
       "ask whether the number they are calling from is a good callback number",
     );
@@ -757,12 +759,18 @@ describe("model-facing tool definitions", () => {
       shape: Record<string, unknown>;
     };
     expect(Object.keys(parameters.shape)).toContain("insuranceMemberId");
+    expect(Object.keys(parameters.shape)).toContain("ssnLast4");
     expect(
       String(
         (parameters.shape.insuranceMemberId as { description?: string })
           .description,
       ),
     ).toContain("routine-vision plans");
+    expect(
+      String(
+        (parameters.shape.ssnLast4 as { description?: string }).description,
+      ),
+    ).toContain("patient's Social Security number");
     expect(Object.keys(parameters.shape)).not.toContain("subscriberNum");
     expect(
       parameters.safeParse({
@@ -778,6 +786,42 @@ describe("model-facing tool definitions", () => {
         insurance: "Aetna",
         appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        inboundPhoneConfirmed: true,
+        street: "1 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34609",
+        sex: "female",
+        insurance: "Aetna",
+        appointmentLane: "medical_md",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "ABC123",
+        ssnLast4: "1234",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        inboundPhoneConfirmed: true,
+        street: "1 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34609",
+        sex: "female",
+        insurance: "Aetna",
+        appointmentLane: "medical_md",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "ABC123",
+        ssnLast4: "12345",
       }).success,
     ).toBe(false);
   });

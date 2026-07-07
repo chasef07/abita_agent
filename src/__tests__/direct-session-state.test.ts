@@ -2596,7 +2596,7 @@ describe("direct session state cleanup", () => {
     );
 
     expect(result).toBe(
-      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID or routine-vision insured SSN last 4. Call add_patient again only after the caller confirms the details are correct.",
+      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, member ID or routine-vision insured SSN last 4, and patient SSN last 4 if provided. Call add_patient again only after the caller confirms the details are correct.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(ctx.speechHandle.allowInterruptions).toBe(true);
@@ -3694,6 +3694,7 @@ describe("direct session state cleanup", () => {
         appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         insuranceMemberId: "ABC123",
+        ssnLast4: "1234",
         inboundPhoneConfirmed: true,
         readBack: true,
       },
@@ -3703,6 +3704,7 @@ describe("direct session state cleanup", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       insurance: "Florida Blue",
       subscriberNum: "ABC123",
+      ssn: "1234",
     });
     expect(state.insurance.onFile).toEqual({
       plan: "Florida Blue",
