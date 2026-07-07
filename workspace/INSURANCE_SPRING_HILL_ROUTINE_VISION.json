@@ -64,7 +64,12 @@
       "status": "accepted",
       "canonicalPlan": "iCare",
       "displayName": "iCare",
-      "aliases": [],
+      "aliases": [
+        "Eye Care",
+        "Eye Care Health",
+        "Eye Care Solutions",
+        "i Care"
+      ],
       "canProceed": true,
       "needsExactPlanName": false
     },
@@ -226,7 +231,11 @@
       "canonicalPlan": "iCare",
       "displayName": "iCare",
       "aliases": [
+        "Eye Care",
+        "Eye Care Health",
+        "Eye Care Solutions",
         "Humana Gold Plus",
+        "i Care",
         "Simply Healthcare",
         "Simply Healthcare Medicaid",
         "Simply Medicare",

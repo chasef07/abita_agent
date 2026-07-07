@@ -72,11 +72,19 @@ const addPatientParameters = z
       .trim()
       .min(1)
       .describe("Member ID from the insurance card."),
+    ssnLast4: z
+      .string()
+      .trim()
+      .regex(/^\d{4}$/)
+      .optional()
+      .describe(
+        "Last 4 digits of the patient's Social Security number. Collect when appointmentLane is routine_od; do not ask for the full SSN.",
+      ),
     readBack: z
       .boolean()
       .optional()
       .describe(
-        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID, and the caller confirms they are correct.",
+        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, member ID, and patient SSN last 4 for routine_od, and the caller confirms they are correct.",
       ),
   })
   .strict();
@@ -88,6 +96,7 @@ export const add_patient = tool({
     "Call this only after resolve_patient has confirmed the caller says the patient is not registered with us. " +
     "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. Pass appointmentLane as medical_md for symptom-driven eye care or any eye problem, or routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. " +
     "Before calling, read back the important registration details and get caller confirmation. " +
+    "When appointmentLane is routine_od, collect ssnLast4 because plans like VSP use the last 4 digits of the patient's Social Security number as the patient's policy number. If the patient asks why, explain that vision insurance plans need it to verify coverage. Do not ask for the full SSN. " +
     "Before using the inbound caller number for the chart, ask whether the number they are calling from is a good callback number to put on file. " +
     'Never offer self pay. If the patient asks to self pay, put "self pay" in insuranceMemberId. ' +
     "If they say yes, omit phone and set inboundPhoneConfirmed to true; do not ask them to repeat that number. ",
@@ -161,7 +170,7 @@ export const add_patient = tool({
     if (!params.readBack) {
       return (
         "Read back the new patient details first: patient name, date of birth, sex, address, " +
-        "callback phone, email if provided, insurance plan, policyholder name, and member ID. " +
+        "callback phone, email if provided, insurance plan, policyholder name, member ID, and patient SSN last 4 for routine_od. " +
         "Call add_patient again only after the caller confirms the details are correct."
       );
     }
@@ -190,7 +199,10 @@ export const add_patient = tool({
         : params.subscriberName,
       subscriberNum: memberId,
       ...(checkedInsurance.coverageType === "routine_vision"
-        ? { coverageType: "routine_vision" }
+        ? {
+            coverageType: "routine_vision",
+            ...(params.ssnLast4 ? { ssn: params.ssnLast4 } : {}),
+          }
         : {}),
       ...(params.email?.trim() ? { email: params.email.trim() } : {}),
     };

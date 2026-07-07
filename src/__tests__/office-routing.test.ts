@@ -477,7 +477,17 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).not.toContain("6169");
     expect(prompt).not.toContain("6168");
     expect(springHillKnowledge).toContain("routine-vision scheduling lane");
-    expect(springHillKnowledge).toContain("Routine optometry is age 10+");
+    expect(springHillKnowledge).toContain("Routine optometry is age 7+");
+    expect(springHillKnowledge).toContain(
+      "Children under 7 are not scheduled for routine vision or optical",
+    );
+    expect(springHillKnowledge).toContain("retinal photos");
+    expect(springHillKnowledge).toContain("$39 charge");
+    expect(springHillKnowledge).toContain(
+      "Collect the last 4 of the patient's Social Security number for routine-vision insurance",
+    );
+    expect(springHillKnowledge).toContain("patient's policy number");
+    expect(springHillKnowledge).not.toContain("insured person's SSN");
     expect(springHillKnowledge).toContain("Retina care is available");
     expect(springHillKnowledge).toContain("YSL, Ferragamo, Gucci");
     expect(springHillKnowledge).toContain("Sherry is the licensed optician");
@@ -735,6 +745,14 @@ describe("model-facing tool definitions", () => {
       "read back the important registration details and get caller confirmation",
     );
     expect(add_patient.description).toContain(
+      "plans like VSP use the last 4 digits of the patient's Social Security number as the patient's policy number",
+    );
+    expect(add_patient.description).toContain(
+      "vision insurance plans need it to verify coverage",
+    );
+    expect(add_patient.description).toContain("collect ssnLast4");
+    expect(add_patient.description).toContain("Do not ask for the full SSN");
+    expect(add_patient.description).toContain(
       "ask whether the number they are calling from is a good callback number",
     );
     expect(add_patient.description).toContain(
@@ -749,6 +767,25 @@ describe("model-facing tool definitions", () => {
       shape: Record<string, unknown>;
     };
     expect(Object.keys(parameters.shape)).toContain("insuranceMemberId");
+    expect(Object.keys(parameters.shape)).toContain("ssnLast4");
+    expect(
+      String(
+        (parameters.shape.insuranceMemberId as { description?: string })
+          .description,
+      ),
+    ).toBe("Member ID from the insurance card.");
+    expect(
+      String(
+        (parameters.shape.ssnLast4 as { description?: string }).description,
+      ),
+    ).toBe(
+      "Last 4 digits of the patient's Social Security number. Collect when appointmentLane is routine_od; do not ask for the full SSN.",
+    );
+    expect(
+      String(
+        (parameters.shape.ssnLast4 as { description?: string }).description,
+      ),
+    ).not.toContain("Optional");
     expect(Object.keys(parameters.shape)).not.toContain("subscriberNum");
     expect(
       parameters.safeParse({
@@ -764,6 +801,42 @@ describe("model-facing tool definitions", () => {
         insurance: "Aetna",
         appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        inboundPhoneConfirmed: true,
+        street: "1 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34609",
+        sex: "female",
+        insurance: "Aetna",
+        appointmentLane: "medical_md",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "ABC123",
+        ssnLast4: "1234",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        inboundPhoneConfirmed: true,
+        street: "1 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34609",
+        sex: "female",
+        insurance: "Aetna",
+        appointmentLane: "medical_md",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "ABC123",
+        ssnLast4: "12345",
       }).success,
     ).toBe(false);
   });
@@ -938,9 +1011,12 @@ describe("model-facing tool definitions", () => {
 
     const parameters = update_insurance.parameters as {
       safeParse: (value: unknown) => { success: boolean };
-      shape: Record<string, unknown>;
+      shape: Record<string, { description?: string }>;
     };
     expect(Object.keys(parameters.shape)).toEqual(["insuranceMemberId"]);
+    expect(parameters.shape.insuranceMemberId.description).toBe(
+      'Member ID from the insurance card. Use "self pay" only when check_insurance accepted Self Pay.',
+    );
     expect(parameters.safeParse({}).success).toBe(false);
     expect(parameters.safeParse({ insuranceMemberId: "ABC123" }).success).toBe(
       true,
