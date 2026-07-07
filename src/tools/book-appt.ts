@@ -68,7 +68,8 @@ export const book_appointment = tool({
     "Book a caller-confirmed appointment slot. " +
     "Use only for new appointments after get_availability recorded appointmentLane; do not use for reschedules or other appointment changes. " +
     "Call only after get_availability returns an appointmentSlotRef for the right appointment lane, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. " +
-    "Before booking, read back the selected appointment date, time, and provider, then get caller confirmation. ",
+    "Before booking, read back the selected appointment date, time, and provider, then get caller confirmation. " +
+    "Only after this tool returns a successful booking may you tell the caller they are booked, scheduled, or all set.",
   parameters: bookAppointmentParameters,
   execute: async (
     { appointmentSlotRef, appointmentReason, referringDoctor, readBack },

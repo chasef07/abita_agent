@@ -54,7 +54,8 @@ export const get_availability = tool({
     "For new appointments, pass appointmentLane after the visit reason is clear; for reschedules, omit it only when the existing appointment to move is already identified. " +
     "Use timePreference to rank morning, afternoon, or no-preference requests. " +
     "Do not call for same-day or past dates. Call get_current_datetime before using relative dates, and do not pass relative phrases here. " +
-    "This tool returns plain instructions with at most two appointmentSlotRef values; offer only those returned slots and do not invent other times.",
+    "This tool returns plain instructions with at most two appointmentSlotRef values; offer only those returned slots and do not invent other times. " +
+    "This tool only finds possible slots; do not say the caller is booked, scheduled, or all set until book_appointment returns a successful booking.",
   parameters: z.object({
     date: isoDateSchema.describe("Start date in YYYY-MM-DD format."),
     appointmentLane: z
