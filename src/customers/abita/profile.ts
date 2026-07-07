@@ -125,7 +125,7 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     displayName: "North Miami Beach Optical",
     trunkPhones: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
     greeting:
-      "Hey this is Zoe, the virtual assistant at North Miami Beach Optical. How's your day going",
+      "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
     knowledgeFile: "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
     insuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",

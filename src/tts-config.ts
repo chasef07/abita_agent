@@ -1,13 +1,15 @@
 import type { VoiceLanguage } from "./stt-language-detector.js";
 import {
+  NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
   SWEETWATER_TRUNK_PHONES,
   normalizePhoneNumber,
 } from "./customer/profile.js";
 
 export const RIME_TTS_MODEL = "coda";
 export const DEFAULT_RIME_TTS_SPEAKER = "wawona";
-export const SWEETWATER_RIME_TTS_SPEAKER = "luz";
-export const SPANISH_RIME_TTS_SPEAKER = "luz";
+export const LATIN_RIME_TTS_SPEAKER = "luz";
+export const SWEETWATER_RIME_TTS_SPEAKER = LATIN_RIME_TTS_SPEAKER;
+export const SPANISH_RIME_TTS_SPEAKER = LATIN_RIME_TTS_SPEAKER;
 export const RIME_TTS_LANGUAGE = "eng";
 export const SPANISH_RIME_TTS_LANGUAGE = "spa";
 export const RIME_TTS_SAMPLE_RATE = 16000;
@@ -30,6 +32,14 @@ export function isSweetwaterTtsTrunk(trunkPhone: string): boolean {
   );
 }
 
+function usesLatinEnglishVoice(trunkPhone: string): boolean {
+  return (
+    isSweetwaterTtsTrunk(trunkPhone) ||
+    normalizePhoneNumber(trunkPhone) ===
+      normalizePhoneNumber(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE)
+  );
+}
+
 export function getRimeTtsLanguageOptions(input: {
   language: VoiceLanguage;
   trunkPhone: string;
@@ -43,8 +53,8 @@ export function getRimeTtsLanguageOptions(input: {
 
   return {
     language: RIME_TTS_LANGUAGE,
-    speaker: isSweetwaterTtsTrunk(input.trunkPhone)
-      ? SWEETWATER_RIME_TTS_SPEAKER
+    speaker: usesLatinEnglishVoice(input.trunkPhone)
+      ? LATIN_RIME_TTS_SPEAKER
       : DEFAULT_RIME_TTS_SPEAKER,
   };
 }

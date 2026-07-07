@@ -88,6 +88,7 @@ describe("insurance matcher", () => {
       "Humana Gold Plus",
       "Miami Children's",
       "Humana Medicaid",
+      "Florida Blue BlueSelect",
       "Fl Blue Select",
       "Miami Dade Ddoctors Health",
       "Av Med Medicare Advantage",
@@ -388,11 +389,14 @@ describe("insurance matcher", () => {
     expect(cignaHmo.status).toBe("accepted");
     expect(cignaHmo.matchedFamily).toBe("Cigna HMO");
 
-    const blueSelect = matchInsurancePlan(
-      crystalRiverReference,
+    for (const query of [
+      "Florida Blue BlueSelect",
       "I have Florida Blue HMO",
-    );
-    expect(blueSelect.status).toBe("not_accepted");
+    ]) {
+      const result = matchInsurancePlan(crystalRiverReference, query);
+      expect(result.status, query).toBe("not_accepted");
+      expect(result.canProceed, query).toBe(false);
+    }
   });
 
   it("keeps Crystal River Cigna medical rules aligned with Spring Hill", () => {
@@ -473,6 +477,13 @@ describe("insurance matcher", () => {
     );
     expect(hollywoodBlueSelect.status).toBe("not_accepted");
     expect(hollywoodBlueSelect.canProceed).toBe(false);
+
+    const sweetwaterBlueSelect = matchInsurancePlanForOffice(
+      "sweetwater",
+      "Florida Blue BlueSelect",
+    );
+    expect(sweetwaterBlueSelect.status).toBe("not_accepted");
+    expect(sweetwaterBlueSelect.canProceed).toBe(false);
 
     const hollywoodCigna = matchInsurancePlanForOffice("hollywood", "Cigna");
     expect(hollywoodCigna.status).toBe("needs_clarification");
