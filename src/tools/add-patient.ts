@@ -72,7 +72,7 @@ const addPatientParameters = z
       .trim()
       .min(1)
       .describe(
-        "Member ID from the insurance card. For routine_od, collect the last 4 of the insured person's SSN because some routine-vision plans, including VSP, use it as the policy number.",
+        "Member ID from the insurance card. When collecting insurance information for routine vision plans, collect the last 4 of the insured person's Social Security number; plans like VSP use that as the patient's policy number. If the patient asks why, explain that vision insurance plans need it to verify coverage.",
       ),
     ssnLast4: z
       .string()
@@ -80,7 +80,7 @@ const addPatientParameters = z
       .regex(/^\d{4}$/)
       .optional()
       .describe(
-        "Optional. Last 4 digits of the patient's Social Security number if the caller provides it. Do not ask for the full SSN.",
+        "Last 4 digits of the patient's Social Security number if the caller provides it. Do not ask for the full SSN.",
       ),
     readBack: z
       .boolean()
@@ -98,7 +98,7 @@ export const add_patient = tool({
     "Call this only after resolve_patient has confirmed the caller says the patient is not registered with us. " +
     "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. Pass appointmentLane as medical_md for symptom-driven eye care or any eye problem, or routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. " +
     "Before calling, read back the important registration details and get caller confirmation. " +
-    "For routine_od insurance, collect the last 4 of the insured person's SSN as insuranceMemberId because some routine-vision plans, including VSP, use it as the policy number. " +
+    "When collecting insurance information for routine vision plans, collect the last 4 of the insured person's Social Security number as insuranceMemberId; plans like VSP use that as the patient's policy number. If the patient asks why, explain that vision insurance plans need it to verify coverage. " +
     "If the caller provides the patient's SSN last 4, pass it as ssnLast4; do not ask for the full SSN. " +
     "Before using the inbound caller number for the chart, ask whether the number they are calling from is a good callback number to put on file. " +
     'Never offer self pay. If the patient asks to self pay, put "self pay" in insuranceMemberId. ' +

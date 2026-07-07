@@ -740,7 +740,13 @@ describe("model-facing tool definitions", () => {
       "read back the important registration details and get caller confirmation",
     );
     expect(add_patient.description).toContain(
-      "last 4 of the insured person's SSN as insuranceMemberId",
+      "collect the last 4 of the insured person's Social Security number as insuranceMemberId",
+    );
+    expect(add_patient.description).toContain(
+      "plans like VSP use that as the patient's policy number",
+    );
+    expect(add_patient.description).toContain(
+      "vision insurance plans need it to verify coverage",
     );
     expect(add_patient.description).toContain("pass it as ssnLast4");
     expect(add_patient.description).toContain("do not ask for the full SSN");
@@ -765,12 +771,17 @@ describe("model-facing tool definitions", () => {
         (parameters.shape.insuranceMemberId as { description?: string })
           .description,
       ),
-    ).toContain("routine-vision plans");
+    ).toContain("plans like VSP use that as the patient's policy number");
     expect(
       String(
         (parameters.shape.ssnLast4 as { description?: string }).description,
       ),
     ).toContain("patient's Social Security number");
+    expect(
+      String(
+        (parameters.shape.ssnLast4 as { description?: string }).description,
+      ),
+    ).not.toContain("Optional");
     expect(Object.keys(parameters.shape)).not.toContain("subscriberNum");
     expect(
       parameters.safeParse({
