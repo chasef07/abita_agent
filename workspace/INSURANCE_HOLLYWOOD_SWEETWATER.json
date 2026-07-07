@@ -238,6 +238,29 @@
       "needsExactPlanName": false
     },
     {
+      "id": "accepted-cigna-medicare-advantage",
+      "status": "accepted",
+      "canonicalPlan": "Cigna Medicare Advantage",
+      "displayName": "Cigna Medicare Advantage",
+      "aliases": [
+        "Cigna Medicare Advantage HMO",
+        "Cigna Medicare Advantage Healthspring",
+        "Cigna Medicare Advantage (Medical) HMO & PPO",
+        "Cigna Medicare Advantage (Medical) HMO & PPO effec 1/1/2023 Healthspring"
+      ],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-cigna-medicare-advantage-ppo",
+      "status": "accepted",
+      "canonicalPlan": "Cigna Medicare Advantage PPO",
+      "displayName": "Cigna Medicare Advantage PPO",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
       "id": "accepted-cigna-miami-dade-public-schools",
       "status": "accepted",
       "canonicalPlan": "Cigna Miami Dade Public Schools",
@@ -453,7 +476,9 @@
       "status": "accepted",
       "canonicalPlan": "Humana Medicaid",
       "displayName": "Humana Medicaid",
-      "aliases": [],
+      "aliases": [
+        "Humana Medicaid HMO"
+      ],
       "canProceed": true,
       "needsExactPlanName": false
     },
@@ -678,7 +703,9 @@
       "status": "accepted",
       "canonicalPlan": "Tricare For Life",
       "displayName": "Tricare For Life",
-      "aliases": [],
+      "aliases": [
+        "Tricare for Life - Supplemental Insurance to Medicare"
+      ],
       "canProceed": true,
       "needsExactPlanName": false
     },
@@ -696,7 +723,9 @@
       "status": "accepted",
       "canonicalPlan": "Tricare Prime",
       "displayName": "Tricare Prime",
-      "aliases": [],
+      "aliases": [
+        "Tricare Humana Military (Prime)"
+      ],
       "canProceed": true,
       "needsExactPlanName": false
     },
@@ -705,7 +734,9 @@
       "status": "accepted",
       "canonicalPlan": "Tricare Select",
       "displayName": "Tricare Select",
-      "aliases": [],
+      "aliases": [
+        "Tricare Humana Military (Select)"
+      ],
       "canProceed": true,
       "needsExactPlanName": false
     },
@@ -763,7 +794,10 @@
       "status": "accepted",
       "canonicalPlan": "United Healthcare Global",
       "displayName": "United Healthcare Global",
-      "aliases": [],
+      "aliases": [
+        "United Healthcare Global (Medical) International Plan",
+        "United Healthcare Global International Plan"
+      ],
       "canProceed": true,
       "needsExactPlanName": false
     },
@@ -799,7 +833,10 @@
       "status": "accepted",
       "canonicalPlan": "United Healthcare Individual Exchange",
       "displayName": "United Healthcare Individual Exchange",
-      "aliases": [],
+      "aliases": [
+        "United Healthcare Individual Exchange Network",
+        "United Healthcare Individual Exchange Network (Medical)"
+      ],
       "canProceed": true,
       "needsExactPlanName": false
     },
@@ -961,12 +998,15 @@
       "needsExactPlanName": false
     },
     {
-      "id": "not-accepted-miami-children-s-health-plan",
-      "status": "not_accepted",
+      "id": "accepted-miami-childrens-health-plan",
+      "status": "accepted",
       "canonicalPlan": "Miami Children's Health Plan",
       "displayName": "Miami Children's Health Plan",
-      "aliases": [],
-      "canProceed": false,
+      "aliases": [
+        "Miami Children's Health Plan (Medicaid) Medical",
+        "Miami Childrens Health Plan Medicaid Medical"
+      ],
+      "canProceed": true,
       "needsExactPlanName": false
     },
     {
@@ -1279,18 +1319,20 @@
       "needsExactPlanName": true
     },
     {
-      "id": "not-accepted-miami-children-s-health-plan-2",
-      "status": "not_accepted",
+      "id": "accepted-miami-childrens-health-plan-2",
+      "status": "accepted",
       "canonicalPlan": "Miami Children's Health Plan",
       "displayName": "Miami Children's Health Plan",
       "aliases": [
         "Miami Children",
         "Miami Childrens",
         "Miami Children's",
-        "Miami Children's Health Plan"
+        "Miami Children's Health Plan",
+        "Miami Children's Health Plan (Medicaid) Medical",
+        "Miami Childrens Health Plan Medicaid Medical"
       ],
-      "canProceed": false,
-      "needsExactPlanName": false
+      "canProceed": true,
+      "needsExactPlanName": true
     },
     {
       "id": "not-accepted-leon-health-plan",

@@ -234,11 +234,33 @@
         "Eye Care",
         "Eye Care Health",
         "Eye Care Solutions",
+        "Aetna Medicare PPO Vision",
+        "Aetna Medicare PPO Vision effective 1/1/2026",
+        "Aetna Medicare HMO & PPO Vision",
+        "Aetna Better Health Medicaid MMA Vision",
+        "Aetna Healthy Kids/Kid Care CHIP Vision",
+        "AvMed Entrust Vision",
+        "Community Care Plan Vision",
+        "Doctors Health Medicare Vision",
+        "Doctors Health Medicare Vision EFFECTIVE 8/1/2023",
+        "Freedom Health Medicare Vision",
+        "Healthsun Vision",
+        "Healthsun Vision ONLY",
+        "Humana Medicaid Vision",
+        "Humana Medicare Vision",
         "Humana Gold Plus",
         "i Care",
+        "Miami Children's Health Plan Medicaid Vision",
+        "Miami Children's Health Plan (Medicaid) Vision",
+        "Molina Medicaid Vision",
+        "Optimum Healthplan Medicare Vision",
+        "Preferred Care Network Previously Medica Vision",
+        "Preferred Care Network - Previously Medica Vision",
         "Simply Healthcare",
         "Simply Healthcare Medicaid",
+        "Simply Medicaid/Healthy Kids Vision",
         "Simply Medicare",
+        "Simply Medicare Vision",
         "Simply Medicaid",
         "Simply Medcaid",
         "Freedom",
@@ -270,8 +292,14 @@
       "aliases": [
         "Envolve Vision",
         "Ambetter",
+        "Ambetter Vision",
         "Ambetter from Sunshine Health",
-        "Sunshine"
+        "Children's Medical Services Vision",
+        "Children's Medical Services (Vision)",
+        "Staywell Medicaid Vision",
+        "Sunshine",
+        "Sunshine Medicaid Vision",
+        "Wellcare Medicaid Vision"
       ],
       "canProceed": true,
       "needsExactPlanName": true
@@ -283,22 +311,30 @@
       "displayName": "Premier",
       "aliases": [
         "AmeriHealth",
-        "Devoted"
+        "Devoted",
+        "Devoted Medicare HMO Vision",
+        "Devoted Medicare PPO Vision",
+        "Florida Blue Medicare HMO & PPO Vision",
+        "Solis Medicare Vision",
+        "WellCare Medicare HMO Vision"
       ],
       "canProceed": true,
       "needsExactPlanName": true
     },
     {
-      "id": "accepted-alivi-2",
-      "status": "accepted",
-      "canonicalPlan": "Alivi",
-      "displayName": "Alivi",
+      "id": "pending-careplus-medicare-routine-vision",
+      "status": "needs_clarification",
+      "canonicalPlan": null,
+      "displayName": "CarePlus",
       "aliases": [
-        "CarePlus",
-        "Care Plus"
+        "Care Plus",
+        "CarePlus (Medicare) Vision",
+        "CarePlus Medicare Vision",
+        "CarePlus Medicare Routine Vision"
       ],
-      "canProceed": true,
-      "needsExactPlanName": true
+      "clarificationNeeded": "CarePlus Medicare routine vision is pending for these providers; transfer to the office before scheduling.",
+      "canProceed": false,
+      "needsExactPlanName": false
     },
     {
       "id": "accepted-guardian-2",
