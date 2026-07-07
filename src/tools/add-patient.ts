@@ -71,12 +71,14 @@ const addPatientParameters = z
       .string()
       .trim()
       .min(1)
-      .describe("Member ID from the insurance card."),
+      .describe(
+        "Member ID from the insurance card. For routine_od, collect the last 4 of the insured person's SSN because some routine-vision plans, including VSP, use it as the policy number.",
+      ),
     readBack: z
       .boolean()
       .optional()
       .describe(
-        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID, and the caller confirms they are correct.",
+        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID or routine-vision insured SSN last 4, and the caller confirms they are correct.",
       ),
   })
   .strict();
@@ -88,6 +90,7 @@ export const add_patient = tool({
     "Call this only after resolve_patient has confirmed the caller says the patient is not registered with us. " +
     "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. Pass appointmentLane as medical_md for symptom-driven eye care or any eye problem, or routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. " +
     "Before calling, read back the important registration details and get caller confirmation. " +
+    "For routine_od insurance, collect the last 4 of the insured person's SSN as insuranceMemberId because some routine-vision plans, including VSP, use it as the policy number. " +
     "Before using the inbound caller number for the chart, ask whether the number they are calling from is a good callback number to put on file. " +
     'Never offer self pay. If the patient asks to self pay, put "self pay" in insuranceMemberId. ' +
     "If they say yes, omit phone and set inboundPhoneConfirmed to true; do not ask them to repeat that number. ",
@@ -161,7 +164,7 @@ export const add_patient = tool({
     if (!params.readBack) {
       return (
         "Read back the new patient details first: patient name, date of birth, sex, address, " +
-        "callback phone, email if provided, insurance plan, policyholder name, and member ID. " +
+        "callback phone, email if provided, insurance plan, policyholder name, and member ID or routine-vision insured SSN last 4. " +
         "Call add_patient again only after the caller confirms the details are correct."
       );
     }

@@ -2596,7 +2596,7 @@ describe("direct session state cleanup", () => {
     );
 
     expect(result).toBe(
-      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID. Call add_patient again only after the caller confirms the details are correct.",
+      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID or routine-vision insured SSN last 4. Call add_patient again only after the caller confirms the details are correct.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(ctx.speechHandle.allowInterruptions).toBe(true);

@@ -36,7 +36,7 @@ If a caller needs to reach the after-hours doctor, provide this number: 727-379-
 
 ## Scope of Services
 
-Spring Hill sees medical and surgical eye conditions: cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus (eye misalignment), double vision evaluation, and oculoplastic (eyelid) procedures. Spring Hill also has a routine-vision scheduling lane for routine eye exams, glasses prescriptions, and contact lens prescriptions when the caller is using accepted vision coverage or self-pay. Routine optometry is age 10+. Children under 10 route to Dr. Bach on the pediatric medical lane.
+Spring Hill sees medical and surgical eye conditions: cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus (eye misalignment), double vision evaluation, and oculoplastic (eyelid) procedures. Spring Hill also has a routine-vision scheduling lane for routine eye exams, glasses prescriptions, and contact lens prescriptions when the caller is using accepted vision coverage or self-pay. Routine optometry is age 7+. Children under 7 are not scheduled for routine vision or optical; treat the visit as medical and schedule with Dr. Bach on days he is in the Spring Hill office.
 
 Retina care is available at Spring Hill, but retina surgery is not performed at the office.
 
@@ -63,6 +63,8 @@ Patients can bring an outside prescription to Spring Hill to shop for glasses. I
 
 Non-prescription sunglasses are sold in office. They can be made prescription, but vision insurance generally does not cover non-prescription sunglasses.
 
+For every routine-vision patient, explain that some insurances do not cover retinal photos and there is a $39 charge.
+
 ## Licensed Optician
 
 Sherry is the licensed optician. She has 20+ years of experience and is in the office Tuesday–Friday, 9:30 AM–4:30 PM.
@@ -83,7 +85,7 @@ For any billing-related question, do not transfer the caller. Tell them to reach
 
 ## What to Bring
 
-Photo ID, insurance card, list of current medications, previous eye records (if available).
+Photo ID, insurance card, list of current medications, previous eye records (if available). For routine-vision insurance, collect the last 4 of the insured person's SSN because some plans, including VSP, use it as the policy number.
 
 ## Appointment Expectations
 

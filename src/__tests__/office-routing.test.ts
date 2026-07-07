@@ -477,7 +477,12 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).not.toContain("6169");
     expect(prompt).not.toContain("6168");
     expect(springHillKnowledge).toContain("routine-vision scheduling lane");
-    expect(springHillKnowledge).toContain("Routine optometry is age 10+");
+    expect(springHillKnowledge).toContain("Routine optometry is age 7+");
+    expect(springHillKnowledge).toContain(
+      "Children under 7 are not scheduled for routine vision or optical",
+    );
+    expect(springHillKnowledge).toContain("retinal photos");
+    expect(springHillKnowledge).toContain("$39 charge");
     expect(springHillKnowledge).toContain("Retina care is available");
     expect(springHillKnowledge).toContain("YSL, Ferragamo, Gucci");
     expect(springHillKnowledge).toContain("Sherry is the licensed optician");
@@ -735,6 +740,9 @@ describe("model-facing tool definitions", () => {
       "read back the important registration details and get caller confirmation",
     );
     expect(add_patient.description).toContain(
+      "last 4 of the insured person's SSN as insuranceMemberId",
+    );
+    expect(add_patient.description).toContain(
       "ask whether the number they are calling from is a good callback number",
     );
     expect(add_patient.description).toContain(
@@ -749,6 +757,12 @@ describe("model-facing tool definitions", () => {
       shape: Record<string, unknown>;
     };
     expect(Object.keys(parameters.shape)).toContain("insuranceMemberId");
+    expect(
+      String(
+        (parameters.shape.insuranceMemberId as { description?: string })
+          .description,
+      ),
+    ).toContain("routine-vision plans");
     expect(Object.keys(parameters.shape)).not.toContain("subscriberNum");
     expect(
       parameters.safeParse({
@@ -935,12 +949,18 @@ describe("model-facing tool definitions", () => {
     expect(update_insurance.description).toContain(
       "correct medical or routine-vision coverage type",
     );
+    expect(update_insurance.description).toContain(
+      "last 4 of the insured person's SSN as insuranceMemberId",
+    );
 
     const parameters = update_insurance.parameters as {
       safeParse: (value: unknown) => { success: boolean };
-      shape: Record<string, unknown>;
+      shape: Record<string, { description?: string }>;
     };
     expect(Object.keys(parameters.shape)).toEqual(["insuranceMemberId"]);
+    expect(parameters.shape.insuranceMemberId.description).toContain(
+      "insured person's SSN",
+    );
     expect(parameters.safeParse({}).success).toBe(false);
     expect(parameters.safeParse({ insuranceMemberId: "ABC123" }).success).toBe(
       true,
