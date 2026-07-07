@@ -17,7 +17,8 @@ export const check_insurance = tool({
     "Check whether the active office accepts the caller's insurance. " +
     "Call this before adding a new patient, after you know the plan name and whether the visit is medical or glasses/contacts routine vision. " +
     "Also call for quick insurance acceptance questions. " +
-    "If the result says needs_clarification, ask the caller for the requested detail and do not call check_insurance again until the caller gives a more specific plan or coverage type.",
+    "If the result says needs_clarification, ask the caller for the requested detail and do not call check_insurance again until the caller gives a more specific plan or coverage type. " +
+    "If the result says needs_transfer, transfer the caller to staff before scheduling.",
   parameters: z.object({
     plan: z
       .string()

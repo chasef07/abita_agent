@@ -3650,6 +3650,34 @@ describe("direct session state cleanup", () => {
     expect(state.workflow.current).toBeUndefined();
   });
 
+  it("returns a staff-transfer result for preauth-required insurance checks", async () => {
+    const state = createState();
+    state.office.activeKey = "hollywood";
+
+    const result = (await check_insurance.execute(
+      {
+        plan: "United Healthcare Individual Exchange Network (Medical)",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    )) as Record<string, unknown>;
+
+    expect(result).toEqual({
+      status: "needs_transfer",
+      plan: "United Healthcare Individual Exchange Network (Medical)",
+      preauthRequired: true,
+      message:
+        "Prior authorization is required for United Healthcare Individual Exchange Network (Medical). Transfer the caller to staff before scheduling.",
+    });
+    expect(state.insurance.lastEligibilityCheck).toEqual({
+      plan: "United Healthcare Individual Exchange Network (Medical)",
+      canonicalPlan: null,
+      coverageType: "medical",
+      currentCarrier: "United Healthcare Individual Exchange Network (Medical)",
+      accepted: false,
+    });
+  });
+
   it("passes the checked canonical insurance plan to new patient creation", async () => {
     const state = createState();
     state.identity.patient.patientId = null;
@@ -3806,7 +3834,7 @@ describe("direct session state cleanup", () => {
         patientId: "patient-new",
         name: "Maria Santos",
         phone: "+17275551212",
-        insuranceCarrier: "Care Plus",
+        insuranceCarrier: "United Healthcare",
         routing: "all_three",
       }),
     }));
@@ -3821,7 +3849,7 @@ describe("direct session state cleanup", () => {
       state: "FL",
       zip: "34606",
       sex: "female" as const,
-      insurance: "Care Plus Medicare",
+      insurance: "United Healthcare",
       appointmentLane: "medical_md" as const,
       subscriberName: "Maria Santos",
       insuranceMemberId: "ABC123",
@@ -3831,7 +3859,7 @@ describe("direct session state cleanup", () => {
 
     await check_insurance.execute(
       {
-        plan: "Care Plus Medicare",
+        plan: "United Healthcare",
         coverageType: "medical",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
@@ -3859,14 +3887,14 @@ describe("direct session state cleanup", () => {
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
-      insurance: "CarePlus Medicare Medical",
+      insurance: "United Healthcare",
       subscriberNum: "ABC123",
     });
     expect(state.insurance.onFile).toEqual({
-      plan: "Care Plus",
-      canonicalPlan: "CarePlus Medicare Medical",
+      plan: "United Healthcare",
+      canonicalPlan: "United Healthcare",
       coverageType: "medical",
-      currentCarrier: "Care Plus",
+      currentCarrier: "United Healthcare",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
