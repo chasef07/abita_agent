@@ -740,16 +740,13 @@ describe("model-facing tool definitions", () => {
       "read back the important registration details and get caller confirmation",
     );
     expect(add_patient.description).toContain(
-      "collect the last 4 of the insured person's Social Security number as insuranceMemberId",
-    );
-    expect(add_patient.description).toContain(
-      "plans like VSP use that as the patient's policy number",
+      "plans like VSP use the last 4 digits of the patient's Social Security number as the patient's policy number",
     );
     expect(add_patient.description).toContain(
       "vision insurance plans need it to verify coverage",
     );
-    expect(add_patient.description).toContain("pass it as ssnLast4");
-    expect(add_patient.description).toContain("do not ask for the full SSN");
+    expect(add_patient.description).toContain("collect ssnLast4");
+    expect(add_patient.description).toContain("Do not ask for the full SSN");
     expect(add_patient.description).toContain(
       "ask whether the number they are calling from is a good callback number",
     );
@@ -771,12 +768,14 @@ describe("model-facing tool definitions", () => {
         (parameters.shape.insuranceMemberId as { description?: string })
           .description,
       ),
-    ).toContain("plans like VSP use that as the patient's policy number");
+    ).toBe("Member ID from the insurance card.");
     expect(
       String(
         (parameters.shape.ssnLast4 as { description?: string }).description,
       ),
-    ).toContain("patient's Social Security number");
+    ).toBe(
+      "Last 4 digits of the patient's Social Security number. Collect when appointmentLane is routine_od; do not ask for the full SSN.",
+    );
     expect(
       String(
         (parameters.shape.ssnLast4 as { description?: string }).description,
@@ -1004,17 +1003,14 @@ describe("model-facing tool definitions", () => {
     expect(update_insurance.description).toContain(
       "correct medical or routine-vision coverage type",
     );
-    expect(update_insurance.description).toContain(
-      "last 4 of the insured person's SSN as insuranceMemberId",
-    );
 
     const parameters = update_insurance.parameters as {
       safeParse: (value: unknown) => { success: boolean };
       shape: Record<string, { description?: string }>;
     };
     expect(Object.keys(parameters.shape)).toEqual(["insuranceMemberId"]);
-    expect(parameters.shape.insuranceMemberId.description).toContain(
-      "insured person's SSN",
+    expect(parameters.shape.insuranceMemberId.description).toBe(
+      'Member ID from the insurance card. Use "self pay" only when check_insurance accepted Self Pay.',
     );
     expect(parameters.safeParse({}).success).toBe(false);
     expect(parameters.safeParse({ insuranceMemberId: "ABC123" }).success).toBe(

@@ -23,8 +23,7 @@ export const update_insurance = tool({
     "Update insurance for a verified existing patient. " +
     "Use when the verified patient explicitly says they want to update the insurance on file. " +
     "Do not call for new patients or registration flows. " +
-    "Call this only after check_insurance accepts the new plan for the correct medical or routine-vision coverage type. " +
-    "For routine-vision coverage, collect the last 4 of the insured person's SSN as insuranceMemberId because some plans, including VSP, use it as the policy number.",
+    "Call this only after check_insurance accepts the new plan for the correct medical or routine-vision coverage type.",
   parameters: z
     .object({
       insuranceMemberId: z
@@ -32,7 +31,7 @@ export const update_insurance = tool({
         .trim()
         .min(1)
         .describe(
-          'Member ID from the insurance card. For routine-vision coverage, collect the last 4 of the insured person\'s SSN because some plans, including VSP, use it as the policy number. Use "self pay" only when check_insurance accepted Self Pay.',
+          'Member ID from the insurance card. Use "self pay" only when check_insurance accepted Self Pay.',
         ),
     })
     .strict(),
