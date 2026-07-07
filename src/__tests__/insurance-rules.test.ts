@@ -267,7 +267,7 @@ describe("insurance matcher", () => {
       ["Simply Medcaid", "iCare"],
       ["Optimum", "iCare"],
       ["Optimum Healthcare", "iCare"],
-      ["CarePlus", "Alivi"],
+      ["Alivi", "Alivi"],
       ["Oscar", "Oscar"],
       ["I have Oscar", "Oscar"],
       ["Self Pay", "Self Pay"],
@@ -301,6 +301,66 @@ describe("insurance matcher", () => {
     expect(result.status).toBe("accepted");
     expect(canonicalInsurancePlan(result)).toBe("Envolve");
     expect(result.callerFacingPlan).toBe("Ambetter");
+  });
+
+  it("maps Abita routine vision sheet names to the right carrier buckets", () => {
+    const refreshedRoutineVisionPlans = [
+      ["Aetna Medicare PPO (Vision) effective 1/1/2026", "iCare"],
+      ["Aetna Medicare HMO & PPO (Vision)", "iCare"],
+      ["Aetna Better Health Medicaid MMA (Vision)", "iCare"],
+      ["Aetna Healthy Kids/Kid Care (CHIP) (Vision)", "iCare"],
+      ["Ambetter (Vision)", "Envolve"],
+      ["AvMed Entrust (Vision)", "iCare"],
+      ["Children's Medical Services (Vision)", "Envolve"],
+      ["Community Care Plan Vision", "iCare"],
+      ["Devoted Medicare HMO (Vision)", "Premier"],
+      ["Devoted Medicare PPO (Vision)", "Premier"],
+      ["Doctors Health Medicare (Vision) EFFECTIVE 8/1/2023", "iCare"],
+      ["Florida Blue Medicare HMO & PPO (Vision)", "Premier"],
+      ["Freedom Health Medicare (Vision)", "iCare"],
+      ["Healthsun Vision ONLY", "iCare"],
+      ["Humana (Medicaid) Vision", "iCare"],
+      ["Humana (Medicare) Vision", "iCare"],
+      ["Miami Children's Health Plan (Medicaid) Vision", "iCare"],
+      ["Molina Medicaid (Vision)", "iCare"],
+      ["Optimum Healthplan Medicare (Vision)", "iCare"],
+      ["Preferred Care Network - Previously Medica (Vision)", "iCare"],
+      ["Simply Medicaid/Healthy Kids (Vision)", "iCare"],
+      ["Simply Medicare (Vision)", "iCare"],
+      ["Solis Medicare (Vision)", "Premier"],
+      ["Staywell Medicaid (Vision)", "Envolve"],
+      ["Sunshine Medicaid (Vision)", "Envolve"],
+      ["Wellcare (Medicaid) Vision", "Envolve"],
+      ["WellCare Medicare HMO (Vision)", "Premier"],
+    ] as const;
+
+    for (const [input, canonical] of refreshedRoutineVisionPlans) {
+      const result = matchInsurancePlanForOffice(
+        "hollywood",
+        input,
+        "routine_vision",
+      );
+      expect(result.status, input).toBe("accepted");
+      expect(canonicalInsurancePlan(result), input).toBe(canonical);
+    }
+  });
+
+  it("does not proceed on pending CarePlus routine vision", () => {
+    for (const input of [
+      "CarePlus",
+      "Care Plus",
+      "CarePlus (Medicare) Vision",
+    ]) {
+      const result = matchInsurancePlanForOffice(
+        "hollywood",
+        input,
+        "routine_vision",
+      );
+      expect(result.status, input).toBe("needs_clarification");
+      expect(result.canProceed, input).toBe(false);
+      expect(canonicalInsurancePlan(result), input).toBeNull();
+      expect(result.clarificationNeeded, input).toContain("pending");
+    }
   });
 
   it("accepts self-pay as a medical option", () => {
@@ -513,6 +573,32 @@ describe("insurance matcher", () => {
     expect(canonicalInsurancePlan(hollywoodEyeCare)).toBe(
       "Eye Care Health Solutions",
     );
+
+    const refreshedMedicalPlans: Array<[string, string]> = [
+      ["Cigna Medicare Advantage", "Cigna Medicare Advantage"],
+      ["Cigna Medicare Advantage PPO", "Cigna Medicare Advantage PPO"],
+      [
+        "Miami Children's Health Plan (Medicaid) Medical",
+        "Miami Children's Health Plan",
+      ],
+      ["Humana Medicaid HMO", "Humana Medicaid"],
+      [
+        "United Healthcare Individual Exchange Network (Medical)",
+        "United Healthcare Individual Exchange",
+      ],
+      [
+        "United Healthcare Global (Medical) International Plan",
+        "United Healthcare Global",
+      ],
+      ["Tricare Humana Military (Prime)", "Tricare Prime"],
+      ["Wellcare Medicare LPPO Medical", "WellCare Medicare Lppo"],
+    ];
+
+    for (const [input, canonical] of refreshedMedicalPlans) {
+      const result = matchInsurancePlanForOffice("hollywood", input);
+      expect(result.status).toBe("accepted");
+      expect(canonicalInsurancePlan(result)).toBe(canonical);
+    }
   });
 
   it("uses the routine vision insurance map for Hollywood, Sweetwater, and North Miami Beach Optical", () => {
