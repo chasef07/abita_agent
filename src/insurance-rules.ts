@@ -7,7 +7,7 @@ const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 export type InsuranceCoverageType = "medical" | "routine_vision";
 
 export type InsuranceMatchStatus =
-  "accepted" | "not_accepted" | "needs_clarification";
+  "accepted" | "not_accepted" | "needs_clarification" | "needs_transfer";
 
 export interface InsurancePlanRule {
   id?: string;
@@ -16,6 +16,7 @@ export interface InsurancePlanRule {
   displayName?: string | null;
   aliases?: string[];
   clarificationNeeded?: string;
+  preauthRequired?: boolean;
   canProceed: boolean;
   needsExactPlanName: boolean;
 }
@@ -37,6 +38,7 @@ export interface InsuranceLookupResult {
   canProceed: boolean;
   needsExactPlanName: boolean;
   clarificationNeeded: string | null;
+  preauthRequired: boolean;
 }
 
 export type InsuranceToolResponse =
@@ -51,6 +53,12 @@ export type InsuranceToolResponse =
   | {
       status: "needs_clarification";
       clarificationNeeded: string;
+    }
+  | {
+      status: "needs_transfer";
+      plan: string;
+      preauthRequired: true;
+      message: string;
     };
 
 const referenceCache = new Map<string, InsuranceReference>();
@@ -111,6 +119,17 @@ export function buildInsuranceToolResponse(
     return {
       status: "not_accepted",
       plan: result.callerFacingPlan ?? result.query,
+    };
+  }
+
+  if (result.status === "needs_transfer") {
+    const plan =
+      result.callerFacingPlan ?? result.matchedFamily ?? result.query;
+    return {
+      status: "needs_transfer",
+      plan,
+      preauthRequired: true,
+      message: `Prior authorization is required for ${plan}. Transfer the caller to staff before scheduling.`,
     };
   }
 
@@ -191,6 +210,7 @@ function normalizePlanRule(rule: InsurancePlanRule): InsurancePlanRule | null {
     canonicalPlan,
     displayName,
     aliases,
+    preauthRequired: rule.preauthRequired === true,
     canProceed: rule.canProceed,
     needsExactPlanName: rule.needsExactPlanName,
   };
@@ -356,6 +376,7 @@ function buildPlanMatchResult(
       canProceed: rule.canProceed,
       needsExactPlanName: rule.needsExactPlanName,
       clarificationNeeded,
+      preauthRequired: rule.preauthRequired === true,
     };
   }
 
@@ -365,6 +386,22 @@ function buildPlanMatchResult(
   const matchedPlan = candidateMatchedCanonicalPlan(candidate)
     ? canonicalPlan
     : null;
+  const preauthRequired = rule.preauthRequired === true;
+
+  if (preauthRequired) {
+    return {
+      status: "needs_transfer",
+      query,
+      matchedPlan,
+      matchedAlias: matchedPlan ? null : candidate.term,
+      matchedFamily: canonicalPlan,
+      callerFacingPlan,
+      canProceed: false,
+      needsExactPlanName: rule.needsExactPlanName,
+      clarificationNeeded: null,
+      preauthRequired,
+    };
+  }
 
   return {
     status: rule.status,
@@ -376,6 +413,7 @@ function buildPlanMatchResult(
     canProceed: rule.canProceed,
     needsExactPlanName: rule.needsExactPlanName,
     clarificationNeeded: null,
+    preauthRequired,
   };
 }
 
@@ -417,6 +455,7 @@ function buildUnknownInsuranceResult(query: string): InsuranceLookupResult {
     canProceed: false,
     needsExactPlanName: false,
     clarificationNeeded: "the exact plan name from the insurance card",
+    preauthRequired: false,
   };
 }
 
@@ -431,5 +470,6 @@ function buildUnsupportedInsuranceResult(query: string): InsuranceLookupResult {
     canProceed: false,
     needsExactPlanName: false,
     clarificationNeeded: null,
+    preauthRequired: false,
   };
 }

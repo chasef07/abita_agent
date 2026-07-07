@@ -90,7 +90,8 @@
       "canonicalPlan": "Aetna HMO",
       "displayName": "Aetna HMO",
       "aliases": [],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -216,7 +217,8 @@
       "canonicalPlan": "CarePlus Medicare Medical",
       "displayName": "CarePlus Medicare Medical",
       "aliases": [],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -234,7 +236,8 @@
       "canonicalPlan": "Cigna HMO",
       "displayName": "Cigna HMO",
       "aliases": [],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -248,7 +251,8 @@
         "Cigna Medicare Advantage (Medical) HMO & PPO",
         "Cigna Medicare Advantage (Medical) HMO & PPO effec 1/1/2023 Healthspring"
       ],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -369,7 +373,8 @@
       "canonicalPlan": "Florida Blue HMO",
       "displayName": "Florida Blue HMO",
       "aliases": [],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -378,7 +383,8 @@
       "canonicalPlan": "Florida Blue Medicare HMO",
       "displayName": "Florida Blue Medicare HMO",
       "aliases": [],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -479,7 +485,8 @@
       "aliases": [
         "Humana Medicaid HMO"
       ],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -677,7 +684,8 @@
       "canonicalPlan": "Solis Medicare",
       "displayName": "Solis Medicare",
       "aliases": [],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -715,7 +723,8 @@
       "canonicalPlan": "Tricare Forever",
       "displayName": "Tricare Forever",
       "aliases": [],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -726,7 +735,8 @@
       "aliases": [
         "Tricare Humana Military (Prime)"
       ],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -798,7 +808,8 @@
         "United Healthcare Global (Medical) International Plan",
         "United Healthcare Global International Plan"
       ],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -807,7 +818,8 @@
       "canonicalPlan": "United Healthcare Global Medical",
       "displayName": "United Healthcare Global Medical",
       "aliases": [],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -825,7 +837,8 @@
       "canonicalPlan": "United Healthcare HMO",
       "displayName": "United Healthcare HMO",
       "aliases": [],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -837,7 +850,8 @@
         "United Healthcare Individual Exchange Network",
         "United Healthcare Individual Exchange Network (Medical)"
       ],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -927,7 +941,8 @@
       "canonicalPlan": "WellCare Medicare Lppo",
       "displayName": "WellCare Medicare Lppo",
       "aliases": [],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": false
     },
     {
@@ -1154,7 +1169,8 @@
         "Care Plus",
         "CarePlus"
       ],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": true
     },
     {
@@ -1223,7 +1239,8 @@
       "aliases": [
         "Fl Blue HMO"
       ],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": true
     },
     {
@@ -1457,7 +1474,8 @@
       "aliases": [
         "Solis"
       ],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": true
     },
     {
@@ -1550,7 +1568,8 @@
         "WellCare Medicare",
         "WellCare Medicare Lppo Medical"
       ],
-      "canProceed": true,
+      "preauthRequired": true,
+      "canProceed": false,
       "needsExactPlanName": true
     },
     {

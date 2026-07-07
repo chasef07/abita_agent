@@ -384,6 +384,26 @@ describe("insurance matcher", () => {
     expect(toolResponse).not.toHaveProperty("callerFacingPlan");
   });
 
+  it("returns a transfer response for preauth-required medical plans", () => {
+    const result = matchInsurancePlanForOffice(
+      "hollywood",
+      "United Healthcare Individual Exchange Network (Medical)",
+    );
+    const toolResponse = buildInsuranceToolResponse(result);
+
+    expect(result.status).toBe("needs_transfer");
+    expect(result.preauthRequired).toBe(true);
+    expect(result.canProceed).toBe(false);
+    expect(canonicalInsurancePlan(result)).toBeNull();
+    expect(toolResponse).toEqual({
+      status: "needs_transfer",
+      plan: "United Healthcare Individual Exchange Network (Medical)",
+      preauthRequired: true,
+      message:
+        "Prior authorization is required for United Healthcare Individual Exchange Network (Medical). Transfer the caller to staff before scheduling.",
+    });
+  });
+
   it("uses Crystal River's office-specific insurance map", () => {
     expect(getOfficeConfig("crystal-river").insuranceFile).toBe(
       "INSURANCE_CRYSTAL_RIVER.json",
@@ -529,10 +549,9 @@ describe("insurance matcher", () => {
       "sweetwater",
       "Care Plus",
     );
-    expect(sweetwaterCarePlus.status).toBe("accepted");
-    expect(canonicalInsurancePlan(sweetwaterCarePlus)).toBe(
-      "CarePlus Medicare Medical",
-    );
+    expect(sweetwaterCarePlus.status).toBe("needs_transfer");
+    expect(sweetwaterCarePlus.preauthRequired).toBe(true);
+    expect(canonicalInsurancePlan(sweetwaterCarePlus)).toBeNull();
 
     const hollywoodBlueSelect = matchInsurancePlanForOffice(
       "hollywood",
@@ -575,29 +594,38 @@ describe("insurance matcher", () => {
     );
 
     const refreshedMedicalPlans: Array<[string, string]> = [
-      ["Cigna Medicare Advantage", "Cigna Medicare Advantage"],
       ["Cigna Medicare Advantage PPO", "Cigna Medicare Advantage PPO"],
       [
         "Miami Children's Health Plan (Medicaid) Medical",
         "Miami Children's Health Plan",
       ],
-      ["Humana Medicaid HMO", "Humana Medicaid"],
-      [
-        "United Healthcare Individual Exchange Network (Medical)",
-        "United Healthcare Individual Exchange",
-      ],
-      [
-        "United Healthcare Global (Medical) International Plan",
-        "United Healthcare Global",
-      ],
-      ["Tricare Humana Military (Prime)", "Tricare Prime"],
-      ["Wellcare Medicare LPPO Medical", "WellCare Medicare Lppo"],
     ];
 
     for (const [input, canonical] of refreshedMedicalPlans) {
       const result = matchInsurancePlanForOffice("hollywood", input);
       expect(result.status).toBe("accepted");
       expect(canonicalInsurancePlan(result)).toBe(canonical);
+    }
+
+    for (const input of [
+      "Aetna HMO",
+      "Care Plus",
+      "Cigna HMO",
+      "Cigna Medicare Advantage",
+      "Florida Blue HMO",
+      "Florida Blue Medicare HMO",
+      "Humana Medicaid HMO",
+      "Solis",
+      "Tricare Humana Military (Prime)",
+      "United Healthcare Global (Medical) International Plan",
+      "United Healthcare HMO",
+      "United Healthcare Individual Exchange Network (Medical)",
+      "Wellcare Medicare LPPO Medical",
+    ]) {
+      const result = matchInsurancePlanForOffice("hollywood", input);
+      expect(result.status, input).toBe("needs_transfer");
+      expect(result.preauthRequired, input).toBe(true);
+      expect(canonicalInsurancePlan(result), input).toBeNull();
     }
   });
 
