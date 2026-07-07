@@ -338,6 +338,9 @@ describe("tool-first prompt gating", () => {
     expect(prompt).toContain(
       "For insurance acceptance questions, never answer yes or no without check_insurance.",
     );
+    expect(get_availability.description).toContain(
+      "do not say the caller is booked, scheduled, or all set until book_appointment returns a successful booking",
+    );
     expect(prompt).not.toContain("Today is");
     expect(prompt).not.toContain("The current time is");
 
@@ -1200,6 +1203,9 @@ describe("model-facing tool definitions", () => {
     );
     expect(book_appointment.description).toContain(
       "read back the selected appointment date, time, and provider",
+    );
+    expect(book_appointment.description).toContain(
+      "Only after this tool returns a successful booking may you tell the caller they are booked, scheduled, or all set",
     );
 
     const parameters = book_appointment.parameters as {
