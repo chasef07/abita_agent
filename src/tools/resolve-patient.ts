@@ -77,6 +77,7 @@ export const resolve_patient = tool({
   parameters: resolvePatientParameters,
   execute: async (args, { ctx }) => {
     const state = getState(ctx);
+    ctx.disallowInterruptions();
     const identity = normalizeResolvePatientArgs(args);
 
     if (identity.registrationStatus === "not_registered") {

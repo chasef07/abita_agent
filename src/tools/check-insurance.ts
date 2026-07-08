@@ -33,6 +33,7 @@ export const check_insurance = tool({
   }),
   execute: async ({ plan, coverageType }, { ctx }) => {
     const state = getState(ctx);
+    ctx.disallowInterruptions();
     const office = activeOfficeKey(state);
     const result = matchInsurancePlanForOffice(office, plan, coverageType);
     const response = buildInsuranceToolResponse(result);

@@ -76,15 +76,20 @@ export const get_availability = tool({
     { ctx, abortSignal },
   ) => {
     const state = getState(ctx);
+    if (!date?.trim()) ctx.disallowInterruptions();
     const request = buildAvailabilityLookupRequestForState(state, {
       date,
       appointmentLane,
       timePreference,
     });
-    if ("blocked" in request) return request.blocked;
+    if ("blocked" in request) {
+      ctx.disallowInterruptions();
+      return request.blocked;
+    }
 
     const invalidDateResponse = invalidAvailabilityDateResponse(request.date);
     if (invalidDateResponse) {
+      ctx.disallowInterruptions();
       clearAvailabilitySelection(state);
       return invalidDateResponse;
     }
@@ -94,7 +99,10 @@ export const get_availability = tool({
       state,
       request.signature,
     );
-    if (cachedResponse) return cachedResponse;
+    if (cachedResponse) {
+      ctx.disallowInterruptions();
+      return cachedResponse;
+    }
 
     await ctx.update(AVAILABILITY_UPDATE);
     const result = await ctx.filler(

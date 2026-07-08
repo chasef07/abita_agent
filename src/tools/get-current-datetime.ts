@@ -335,6 +335,8 @@ export const get_current_datetime = tool({
         "Caller-provided relative date phrase to resolve, such as today, tomorrow, Wednesday, this Wednesday, or next Wednesday. Do not use this for explicit calendar dates like June 16, June 16 2026, or 2026-06-16.",
       ),
   }),
-  execute: async ({ datePhrase }) =>
-    buildCurrentDateTimeMessage(new Date(), datePhrase),
+  execute: async ({ datePhrase }, { ctx }) => {
+    ctx.disallowInterruptions();
+    return buildCurrentDateTimeMessage(new Date(), datePhrase);
+  },
 });

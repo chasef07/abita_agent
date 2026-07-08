@@ -76,6 +76,7 @@ export const book_appointment = tool({
     { ctx },
   ) => {
     const state = getState(ctx);
+    ctx.disallowInterruptions();
 
     restoreConfirmedPreCallCaller(state);
     const patientId = activePatientId(state);
@@ -108,7 +109,6 @@ export const book_appointment = tool({
       );
     }
 
-    ctx.disallowInterruptions();
     const result = await callApi(
       "/api/appointment/book",
       bookingBody,
