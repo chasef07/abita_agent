@@ -1,4 +1,4 @@
-import { getOfficeConfigByPhone } from "../customer/profile.js";
+import { getOfficeConfigByPhone } from "../customers/profile.js";
 
 const DEFAULT_BASE_URL =
   "https://advancedmd-token-management-production.up.railway.app";

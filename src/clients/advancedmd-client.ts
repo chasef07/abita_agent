@@ -1,4 +1,4 @@
-import { getOfficeConfigByPhone } from "../customer/profile.js";
+import { getOfficeConfigByPhone } from "../customers/profile.js";
 import type {
   CallerLookupFailed,
   PhoneLookupResult,

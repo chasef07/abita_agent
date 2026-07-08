@@ -1,4 +1,7 @@
-import { getOfficeConfigByPhone, type OfficeKey } from "../customer/profile.js";
+import {
+  getOfficeConfigByPhone,
+  type OfficeKey,
+} from "../customers/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { RimeTtsLanguageCode } from "../tts-config.js";
 

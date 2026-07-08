@@ -23,7 +23,7 @@ import {
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
   SWEETWATER_TRUNK_PHONES,
-} from "../customer/profile.js";
+} from "../customers/profile.js";
 
 const require = createRequire(import.meta.url);
 

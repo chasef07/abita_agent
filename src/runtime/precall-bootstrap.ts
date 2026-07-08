@@ -1,7 +1,7 @@
 import {
   getOfficeConfigByPhone,
   type OfficeConfig,
-} from "../customer/profile.js";
+} from "../customers/profile.js";
 import { lookupByPhone } from "../clients/advancedmd-client.js";
 import type {
   CallerMatch,

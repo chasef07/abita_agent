@@ -1,5 +1,5 @@
 import { beta, type ToolContextEntry } from "@livekit/agents";
-import { getOfficeConfigByPhone } from "../customer/profile.js";
+import { getOfficeConfigByPhone } from "../customers/profile.js";
 import type { CallState } from "../state/call-state.js";
 import {
   add_patient,
