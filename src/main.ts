@@ -154,11 +154,13 @@ export default defineAgent({
       const trunkPhone = participant.attributes["sip.trunkPhoneNumber"] ?? "";
       const sipCallId = participant.attributes["sip.callID"] ?? "";
       const roomName = ctx.room.name ?? "";
+      const roomSid = ctx.job.room?.sid ?? "";
       const callId = sipCallId || roomName || participant.identity || "unknown";
       const startedAt = new Date();
       const livekitContext = {
         agentJobId: ctx.job.id,
         roomName,
+        roomSid,
         sipCallId,
         sipParticipantIdentity: participant.identity ?? "",
       };
@@ -214,6 +216,29 @@ export default defineAgent({
         shutdownSession: (reason) => {
           session.shutdown({ drain: false, reason });
         },
+      });
+
+      let callStateInitialized = false;
+      const sttProfileSwitcher = createSttProfileSwitcher(stt, { startedAt });
+      const analyticsBuffers = attachSessionAnalytics(session, {
+        sttProfileSwitcher,
+      });
+
+      // Register closeout before pre-call bootstrap so start rows do not get
+      // stranded if setup fails after the initial portal write.
+      attachShutdownAnalytics(ctx, session, {
+        callId,
+        callerPhone,
+        trunkPhone,
+        startedAt,
+        livekitContext,
+        callDurationDeadline,
+        llmOptions,
+        llmMetrics,
+        sttLanguageDetector,
+        analyticsBuffers,
+        initialVoiceLanguage,
+        isCallStateInitialized: () => callStateInitialized,
       });
 
       console.log(
@@ -285,25 +310,7 @@ export default defineAgent({
         voiceLanguage: initialVoiceLanguage,
       });
       session.userData.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;
-
-      const sttProfileSwitcher = createSttProfileSwitcher(stt, { startedAt });
-
-      const analyticsBuffers = attachSessionAnalytics(session, {
-        sttProfileSwitcher,
-      });
-
-      attachShutdownAnalytics(ctx, session, {
-        callId,
-        callerPhone,
-        trunkPhone,
-        startedAt,
-        livekitContext,
-        callDurationDeadline,
-        llmOptions,
-        llmMetrics,
-        sttLanguageDetector,
-        analyticsBuffers,
-      });
+      callStateInitialized = true;
 
       await session.start({
         agent,

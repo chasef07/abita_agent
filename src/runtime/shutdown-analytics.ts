@@ -8,10 +8,17 @@ import {
   buildLlmSummary,
   withAppointmentActionToolExecutionFallback,
 } from "../call-observability.js";
-import { appointmentActions, type CallState } from "../state/call-state.js";
+import {
+  appointmentActions,
+  type CallState,
+  type RuntimeVoiceLanguageState,
+} from "../state/call-state.js";
 import type { getLlmOptions } from "../model-config.js";
 import type { SttLanguageDetector } from "../stt-language-detector.js";
-import { getAnalyticsSecret, postAnalyticsPayload } from "./analytics-post.js";
+import {
+  getAnalyticsSecret,
+  postShutdownAnalyticsPayloads,
+} from "./analytics-post.js";
 import {
   MAX_CALL_DURATION_MS,
   type CallDurationDeadline,
@@ -34,6 +41,8 @@ export function attachShutdownAnalytics(
     llmMetrics: PluginMetricSnapshot[];
     sttLanguageDetector: SttLanguageDetector;
     analyticsBuffers: SessionAnalyticsBuffers;
+    initialVoiceLanguage: RuntimeVoiceLanguageState;
+    isCallStateInitialized: () => boolean;
   },
 ) {
   const {
@@ -47,6 +56,8 @@ export function attachShutdownAnalytics(
     llmMetrics,
     sttLanguageDetector,
     analyticsBuffers,
+    initialVoiceLanguage,
+    isCallStateInitialized,
   } = options;
 
   // Shutdown hook: capture session report + audio, post analytics.
@@ -76,20 +87,28 @@ export function attachShutdownAnalytics(
     // Session-level MetricsCollected is deprecated in LiveKit Agents; usage
     // and ChatMessage.metrics are the supported observability surfaces.
     if (process.env.ANALYTICS_URL) {
+      const callState = isCallStateInitialized() ? session.userData : null;
+      const runtime = callState?.runtime;
       const endedAt = new Date();
-      const status = session.userData.runtime.transferred
+      const status = runtime?.transferred
         ? "ESCALATED"
-        : "COMPLETED";
+        : callState
+          ? "COMPLETED"
+          : "FAILED";
       const endedReason = callDurationDeadline.exceeded()
         ? "duration_limit"
-        : undefined;
-      const recordedAppointmentActions = appointmentActions(session.userData);
+        : callState
+          ? runtime?.endedReason
+          : "call_state_not_initialized";
+      const recordedAppointmentActions = callState
+        ? appointmentActions(callState)
+        : [];
       const payloadToolExecutions = withAppointmentActionToolExecutionFallback(
         analyticsBuffers.toolExecutions,
         recordedAppointmentActions,
       );
       const usage = analyticsBuffers.latestUsage ?? session.usage;
-      const payload: Record<string, unknown> = {
+      const summaryPayload: Record<string, unknown> = {
         callId,
         callerPhone,
         officePhone: trunkPhone,
@@ -102,7 +121,9 @@ export function attachShutdownAnalytics(
         ...(endedReason
           ? {
               endedReason,
-              maxCallDurationMs: MAX_CALL_DURATION_MS,
+              ...(callDurationDeadline.exceeded()
+                ? { maxCallDurationMs: MAX_CALL_DURATION_MS }
+                : {}),
             }
           : {}),
         usage,
@@ -111,18 +132,23 @@ export function attachShutdownAnalytics(
           llmMetrics,
           usage,
         }),
-        llmMetrics,
-        sttProfiles: analyticsBuffers.sttProfiles,
         sessionEvents: analyticsBuffers.sessionEvents,
         toolExecutions: payloadToolExecutions,
-        turnMetrics: analyticsBuffers.turnMetrics,
         appointmentActions: recordedAppointmentActions,
-        callState: session.userData,
-        preCallLookup: session.userData.runtime.preCallLookup,
         language: sttLanguageDetector.telemetry,
-        voiceLanguage: session.userData.runtime.voiceLanguage,
-        sessionReport,
+        voiceLanguage: runtime?.voiceLanguage ?? initialVoiceLanguage,
         ...livekitContext,
+      };
+      const payload: Record<string, unknown> = {
+        ...summaryPayload,
+        llmMetrics,
+        sttProfiles: analyticsBuffers.sttProfiles,
+        turnMetrics: analyticsBuffers.turnMetrics,
+        ...(callState ? { callState } : {}),
+        ...(runtime?.preCallLookup
+          ? { preCallLookup: runtime.preCallLookup }
+          : {}),
+        sessionReport,
       };
 
       // Include audio only if under 4MB base64 to avoid payload limits
@@ -134,8 +160,7 @@ export function attachShutdownAnalytics(
         );
       }
 
-      await postAnalyticsPayload(payload, {
-        phase: "shutdown",
+      await postShutdownAnalyticsPayloads(summaryPayload, payload, {
         secret: getAnalyticsSecret(),
         url: process.env.ANALYTICS_URL,
       });
