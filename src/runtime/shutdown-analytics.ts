@@ -88,6 +88,7 @@ export function attachShutdownAnalytics(
         analyticsBuffers.toolExecutions,
         recordedAppointmentActions,
       );
+      const usage = analyticsBuffers.latestUsage ?? session.usage;
       const payload: Record<string, unknown> = {
         callId,
         callerPhone,
@@ -104,11 +105,11 @@ export function attachShutdownAnalytics(
               maxCallDurationMs: MAX_CALL_DURATION_MS,
             }
           : {}),
-        usage: analyticsBuffers.latestUsage ?? session.usage,
+        usage,
         llmSummary: buildLlmSummary({
           fallbackModel: llmOptions.fallback.model,
           llmMetrics,
-          usage: analyticsBuffers.latestUsage ?? session.usage,
+          usage,
         }),
         llmMetrics,
         sttProfiles: analyticsBuffers.sttProfiles,
