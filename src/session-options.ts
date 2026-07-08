@@ -5,7 +5,10 @@ export const voiceMaxToolSteps = 3;
 
 export const voiceTurnHandlingOptions = {
   preemptiveGeneration: {
-    enabled: false,
+    enabled: true,
+    preemptiveTts: false,
+    maxSpeechDuration: 4_000,
+    maxRetries: 1,
   },
   interruption: {
     mode: "adaptive",

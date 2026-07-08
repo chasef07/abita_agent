@@ -19,20 +19,20 @@ describe("voice session options", () => {
     initializeLogger({ pretty: false, level: "silent" });
   });
 
-  it("disables preemptive generation", () => {
+  it("uses bounded LLM-only preemptive generation", () => {
     const session = new AgentSession({
       turnHandling: {
         turnDetection: fakeTurnDetector(),
         ...voiceTurnHandlingOptions,
       },
     });
+    const preemptiveGeneration =
+      session.sessionOptions.turnHandling.preemptiveGeneration;
 
-    expect(
-      session.sessionOptions.turnHandling.preemptiveGeneration.enabled,
-    ).toBe(false);
-    expect(
-      session.sessionOptions.turnHandling.preemptiveGeneration.preemptiveTts,
-    ).toBe(false);
+    expect(preemptiveGeneration.enabled).toBe(true);
+    expect(preemptiveGeneration.preemptiveTts).toBe(false);
+    expect(preemptiveGeneration.maxSpeechDuration).toBe(4_000);
+    expect(preemptiveGeneration.maxRetries).toBe(1);
   });
 
   it("uses the provided turn detector without overriding endpointing", () => {
