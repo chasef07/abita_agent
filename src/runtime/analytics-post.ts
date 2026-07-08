@@ -7,6 +7,11 @@ export type AnalyticsPostResult = {
   status?: number;
 };
 
+export type ShutdownAnalyticsPostResult = {
+  richResult: AnalyticsPostResult;
+  summaryResult: AnalyticsPostResult;
+};
+
 export function getAnalyticsSecret(
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
@@ -94,4 +99,29 @@ export async function postAnalyticsPayload(
     `[${phase}] Analytics POST exhausted attempts${label ? ` ${label}` : ""}`,
   );
   return { attempts: maxAttempts, ok: false, status: lastStatus };
+}
+
+export async function postShutdownAnalyticsPayloads(
+  summaryPayload: Record<string, unknown>,
+  richPayload: Record<string, unknown>,
+  options: {
+    fetchImpl?: typeof fetch;
+    logger?: AnalyticsLogger;
+    secret?: string;
+    url?: string;
+  },
+): Promise<ShutdownAnalyticsPostResult> {
+  const summaryResult = await postAnalyticsPayload(summaryPayload, {
+    ...options,
+    maxAttempts: 2,
+    phase: "shutdown-summary",
+    retryDelayMs: 1_000,
+    timeoutMs: 3_000,
+  });
+  const richResult = await postAnalyticsPayload(richPayload, {
+    ...options,
+    phase: "shutdown",
+  });
+
+  return { richResult, summaryResult };
 }
