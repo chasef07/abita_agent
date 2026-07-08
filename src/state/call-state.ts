@@ -254,9 +254,16 @@ export interface InsuranceEligibilityCheck extends InsuranceSnapshot {
   accepted: boolean;
 }
 
+export interface InsuranceClarificationRequest {
+  coverageType: InsuranceCoverageType;
+  clarificationNeeded: string;
+  latestUserTranscript: string | null;
+}
+
 interface InsuranceSessionState {
   onFile: InsuranceSnapshot | null;
   lastEligibilityCheck: InsuranceEligibilityCheck | null;
+  lastClarificationRequest: InsuranceClarificationRequest | null;
 }
 
 interface IdentitySessionState {
@@ -380,6 +387,7 @@ export function createCanonicalCallState(
     insurance: {
       onFile: insuranceOnFile,
       lastEligibilityCheck: null,
+      lastClarificationRequest: null,
     },
     workflow: {
       routing: {
@@ -494,6 +502,19 @@ export function setLastInsuranceEligibilityCheck(
   state.insurance.lastEligibilityCheck = check;
 }
 
+export function lastInsuranceClarificationRequest(
+  state: CallState,
+): InsuranceClarificationRequest | null {
+  return state.insurance.lastClarificationRequest;
+}
+
+export function setLastInsuranceClarificationRequest(
+  state: CallState,
+  request: InsuranceClarificationRequest | null,
+): void {
+  state.insurance.lastClarificationRequest = request;
+}
+
 export function applyTurnContextToState(
   state: CallState,
   turn: WorkflowTurnContext,
@@ -543,6 +564,7 @@ export function setActiveOfficeKey(
   if (state.office.activeKey === officeKey) return;
   state.office.activeKey = officeKey;
   state.insurance.lastEligibilityCheck = null;
+  state.insurance.lastClarificationRequest = null;
 }
 
 export function runtimeCallerPhone(state: CallState): string {

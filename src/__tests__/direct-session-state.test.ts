@@ -3650,6 +3650,64 @@ describe("direct session state cleanup", () => {
     expect(state.workflow.current).toBeUndefined();
   });
 
+  it("blocks repeated insurance clarification checks in the same caller turn", async () => {
+    const state = createState();
+    state.office.activeKey = "crystal-river";
+    state.runtime.latestUserTranscript = "I have Aetna.";
+
+    const firstResult = await check_insurance.execute(
+      {
+        plan: "Aetna",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+    const secondResult = await check_insurance.execute(
+      {
+        plan: "Aetna",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-2" } as never,
+    );
+
+    expect(firstResult).toEqual({
+      status: "needs_clarification",
+      clarificationNeeded: "which Aetna plan is on the card",
+    });
+    expect(secondResult).toBe(
+      "Ask the caller for which Aetna plan is on the card before calling check_insurance again.",
+    );
+  });
+
+  it("allows insurance clarification checks after the caller gives new detail", async () => {
+    const state = createState();
+    state.office.activeKey = "crystal-river";
+    state.runtime.latestUserTranscript = "I have Aetna.";
+
+    await check_insurance.execute(
+      {
+        plan: "Aetna",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    state.runtime.latestUserTranscript = "It is Aetna Commercial.";
+    const result = await check_insurance.execute(
+      {
+        plan: "Aetna Commercial",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-2" } as never,
+    );
+
+    expect(result).toEqual({
+      status: "accepted",
+      plan: "Aetna Commercial",
+    });
+    expect(state.insurance.lastClarificationRequest).toBeNull();
+  });
+
   it("returns a staff-transfer result for preauth-required insurance checks", async () => {
     const state = createState();
     state.office.activeKey = "hollywood";

@@ -7,6 +7,8 @@ import {
 } from "../insurance-rules.js";
 import {
   activeOfficeKey,
+  lastInsuranceClarificationRequest,
+  setLastInsuranceClarificationRequest,
   setLastInsuranceEligibilityCheck,
 } from "../state/call-state.js";
 import { getState } from "./session.js";
@@ -33,6 +35,18 @@ export const check_insurance = tool({
   }),
   execute: async ({ plan, coverageType }, { ctx }) => {
     const state = getState(ctx);
+    const latestUserTranscript =
+      state.runtime.latestUserTranscript?.trim() || null;
+    const previousClarification = lastInsuranceClarificationRequest(state);
+
+    if (
+      previousClarification &&
+      previousClarification.coverageType === coverageType &&
+      previousClarification.latestUserTranscript === latestUserTranscript
+    ) {
+      return `Ask the caller for ${previousClarification.clarificationNeeded} before calling check_insurance again.`;
+    }
+
     const office = activeOfficeKey(state);
     const result = matchInsurancePlanForOffice(office, plan, coverageType);
     const response = buildInsuranceToolResponse(result);
@@ -48,6 +62,19 @@ export const check_insurance = tool({
       currentCarrier: result.callerFacingPlan ?? checkedInsurancePlan,
       accepted: Boolean(checkedInsurancePlan && result.status === "accepted"),
     });
+
+    if (response.status === "needs_clarification") {
+      setLastInsuranceClarificationRequest(state, {
+        coverageType,
+        clarificationNeeded:
+          response.clarificationNeeded ||
+          "the exact plan name from the insurance card",
+        latestUserTranscript,
+      });
+    } else {
+      setLastInsuranceClarificationRequest(state, null);
+    }
+
     return response;
   },
 });
