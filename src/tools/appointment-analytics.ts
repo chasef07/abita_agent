@@ -1,4 +1,4 @@
-import { getOfficeConfig } from "../customer/profile.js";
+import { getOfficeConfig } from "../customers/profile.js";
 import {
   activeOfficeKey,
   activePatientName,

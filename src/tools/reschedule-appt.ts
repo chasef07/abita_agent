@@ -5,7 +5,7 @@ import {
   getOfficeConfig,
   normalizePhoneNumber,
   type OfficeKey,
-} from "../customer/profile.js";
+} from "../customers/profile.js";
 import {
   activePatientId,
   clearAvailabilitySelection,

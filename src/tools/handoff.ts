@@ -3,7 +3,7 @@ import {
   getOfficeConfigByPhone,
   getOfficeHandoffTarget,
   type OfficeKey,
-} from "../customer/profile.js";
+} from "../customers/profile.js";
 import type { CallState } from "../state/call-state.js";
 import { activeOfficeKey } from "../state/call-state.js";
 

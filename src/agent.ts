@@ -17,7 +17,7 @@ import {
   type SttLanguageDecision,
   type SttLanguageDetector,
 } from "./stt-language-detector.js";
-import { getOfficeConfigByPhone } from "./customer/profile.js";
+import { getOfficeConfigByPhone } from "./customers/profile.js";
 import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcript-confirmation.js";
 import { addDurableInternalSystemMessage } from "./runtime/durable-chat-context.js";
 import {

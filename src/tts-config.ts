@@ -3,7 +3,7 @@ import {
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
   SWEETWATER_TRUNK_PHONES,
   normalizePhoneNumber,
-} from "./customer/profile.js";
+} from "./customers/profile.js";
 
 export const RIME_TTS_MODEL = "coda";
 export const DEFAULT_RIME_TTS_SPEAKER = "wawona";

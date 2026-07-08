@@ -3,36 +3,19 @@
 
 import {
   AgentSession,
-  AgentSessionEventTypes,
   FallbackAdapter,
   inference,
   type JobContext,
   ServerOptions,
   cli,
   defineAgent,
-  sessionReportToJSON,
 } from "@livekit/agents";
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as baseten from "@livekit/agents-plugin-baseten";
 import * as rime from "@livekit/agents-plugin-rime";
-import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createAgent } from "./agent.js";
 import {
-  buildLlmSummary,
-  createEmptySessionEventAnalytics,
-  snapshotCloseEvent,
-  snapshotErrorEvent,
-  snapshotFalseInterruptionEvent,
-  snapshotOverlappingSpeechEvent,
-  snapshotSttProfileTransition,
-  snapshotToolExecutions,
-  type SttProfileTransitionAnalytics,
-  type ToolExecutionAnalytics,
-  withAppointmentActionToolExecutionFallback,
-} from "./call-observability.js";
-import {
-  appointmentActions,
   createCanonicalCallState,
   publicCallerAppointments,
   type CallState,
@@ -63,29 +46,18 @@ import {
   type SttLanguageDecision,
   type VoiceLanguage,
 } from "./stt-language-detector.js";
-import {
-  type SttProfile,
-  getAssemblyAIAgentContext,
-  getAssemblyAISttOptions,
-  getAssemblyAISttProfileOptions,
-  selectSttProfileForAssistantText,
-} from "./stt-config.js";
+import { getAssemblyAISttOptions } from "./stt-config.js";
 import {
   voiceMaxToolSteps,
   voiceTurnHandlingOptions,
 } from "./session-options.js";
 import { attachSipParticipantShutdown } from "./runtime/sip-room-shutdown.js";
-
-type TurnMetricSnapshot = {
-  itemId: string;
-  role: string;
-  type: string;
-  createdAt: number;
-  interrupted: boolean;
-  metrics: Record<string, unknown>;
-};
-
-type PluginMetricSnapshot = Record<string, unknown>;
+import { createSttProfileSwitcher } from "./runtime/stt-profile-switcher.js";
+import { attachSessionAnalytics } from "./runtime/session-analytics.js";
+import {
+  attachShutdownAnalytics,
+  type PluginMetricSnapshot,
+} from "./runtime/shutdown-analytics.js";
 
 type TtsRuntime = {
   tts: rime.TTS;
@@ -314,231 +286,23 @@ export default defineAgent({
       });
       session.userData.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;
 
-      let activeSttProfile: SttProfile = "default";
-      let promptedSttProfile: SttProfile | null = null;
-      const sttProfiles: SttProfileTransitionAnalytics[] = [
-        snapshotSttProfileTransition({
-          createdAt: startedAt,
-          from: null,
-          reason: "startup",
-          to: activeSttProfile,
-        }),
-      ];
-      const turnMetrics: TurnMetricSnapshot[] = [];
-      const toolExecutions: ToolExecutionAnalytics[] = [];
-      const sessionEvents = createEmptySessionEventAnalytics();
-      let latestUsage: Record<string, unknown> | undefined;
+      const sttProfileSwitcher = createSttProfileSwitcher(stt, { startedAt });
 
-      const applySttProfile = (
-        profile: SttProfile,
-        reason: string,
-        details: {
-          assistantText?: string;
-          callerText?: string;
-          createdAt?: number;
-        } = {},
-        extraOptions: Partial<assemblyai.STTOptions> = {},
-      ) => {
-        if (
-          profile === activeSttProfile &&
-          Object.keys(extraOptions).length === 0
-        ) {
-          return;
-        }
-
-        const previousProfile = activeSttProfile;
-        stt.updateOptions({
-          ...getAssemblyAISttProfileOptions(profile),
-          ...extraOptions,
-        });
-        if (profile === activeSttProfile) return;
-
-        activeSttProfile = profile;
-        sttProfiles.push(
-          snapshotSttProfileTransition({
-            ...details,
-            createdAt: details.createdAt ?? Date.now(),
-            from: previousProfile,
-            reason,
-            to: profile,
-          }),
-        );
-        console.log(`[stt] AssemblyAI profile=${profile} reason=${reason}`);
-      };
-
-      session.on(AgentSessionEventTypes.ConversationItemAdded, (ev) => {
-        if (ev.item.type !== "message") return;
-
-        const metrics = Object.fromEntries(
-          Object.entries(ev.item.metrics ?? {}).filter(
-            ([, value]) => value !== undefined,
-          ),
-        );
-        if (Object.keys(metrics).length > 0) {
-          turnMetrics.push({
-            itemId: ev.item.id,
-            role: ev.item.role,
-            type: ev.item.type,
-            createdAt: ev.createdAt,
-            interrupted: ev.item.interrupted,
-            metrics,
-          });
-        }
-
-        if (ev.item.role !== "assistant") return;
-
-        const assistantText = ev.item.textContent ?? "";
-        const profile = selectSttProfileForAssistantText(assistantText, {
-          fallbackProfile: promptedSttProfile,
-        });
-        promptedSttProfile = profile === "default" ? null : profile;
-        const agentContext = getAssemblyAIAgentContext(assistantText);
-        applySttProfile(
-          profile,
-          "assistant_prompt",
-          {
-            assistantText,
-            createdAt: ev.createdAt,
-          },
-          agentContext ? { agentContext } : {},
-        );
+      const analyticsBuffers = attachSessionAnalytics(session, {
+        sttProfileSwitcher,
       });
 
-      session.on(AgentSessionEventTypes.SessionUsageUpdated, (ev) => {
-        latestUsage = ev.usage as unknown as Record<string, unknown>;
-      });
-
-      session.on(AgentSessionEventTypes.FunctionToolsExecuted, (ev) => {
-        toolExecutions.push(...snapshotToolExecutions(ev));
-      });
-
-      session.on(AgentSessionEventTypes.Error, (ev) => {
-        sessionEvents.errors.push(snapshotErrorEvent(ev));
-      });
-
-      session.on(AgentSessionEventTypes.Close, (ev) => {
-        sessionEvents.close = snapshotCloseEvent(ev);
-      });
-
-      session.on(AgentSessionEventTypes.AgentFalseInterruption, (ev) => {
-        sessionEvents.falseInterruptions.push(
-          snapshotFalseInterruptionEvent(ev),
-        );
-      });
-
-      session.on(AgentSessionEventTypes.OverlappingSpeech, (ev) => {
-        sessionEvents.overlappingSpeech.push(
-          snapshotOverlappingSpeechEvent(ev),
-        );
-      });
-
-      session.on(AgentSessionEventTypes.UserInputTranscribed, (ev) => {
-        if (ev.isFinal) {
-          applySttProfile("default", "user_final", {
-            callerText: ev.transcript,
-            createdAt: ev.createdAt,
-          });
-        }
-      });
-
-      // Shutdown hook: capture session report + audio, post analytics.
-      ctx.addShutdownCallback(async () => {
-        callDurationDeadline.clear();
-        let sessionReport: Record<string, unknown> | undefined;
-        let audioBase64: string | undefined;
-
-        try {
-          const report = ctx.makeSessionReport();
-          sessionReport = sessionReportToJSON(report);
-
-          if (report.audioRecordingPath) {
-            try {
-              const audioBuffer = await readFile(report.audioRecordingPath);
-              audioBase64 = audioBuffer.toString("base64");
-              console.log(
-                `[shutdown] Audio captured: ${audioBuffer.length} bytes`,
-              );
-            } catch (audioErr) {
-              console.warn("[shutdown] Could not read audio file:", audioErr);
-            }
-          }
-        } catch (reportErr) {
-          console.warn(
-            "[shutdown] Could not capture session report:",
-            reportErr,
-          );
-        }
-
-        // Post usage, turn metrics, and session report to analytics dashboard.
-        // Session-level MetricsCollected is deprecated in LiveKit Agents; usage
-        // and ChatMessage.metrics are the supported observability surfaces.
-        if (process.env.ANALYTICS_URL) {
-          const endedAt = new Date();
-          const status = session.userData.runtime.transferred
-            ? "ESCALATED"
-            : "COMPLETED";
-          const endedReason = callDurationDeadline.exceeded()
-            ? "duration_limit"
-            : undefined;
-          const recordedAppointmentActions = appointmentActions(
-            session.userData,
-          );
-          const payloadToolExecutions =
-            withAppointmentActionToolExecutionFallback(
-              toolExecutions,
-              recordedAppointmentActions,
-            );
-          const payload: Record<string, unknown> = {
-            callId,
-            callerPhone,
-            officePhone: trunkPhone,
-            startedAt: startedAt.toISOString(),
-            endedAt: endedAt.toISOString(),
-            durationSec: Math.round(
-              (endedAt.getTime() - startedAt.getTime()) / 1000,
-            ),
-            status,
-            ...(endedReason
-              ? {
-                  endedReason,
-                  maxCallDurationMs: MAX_CALL_DURATION_MS,
-                }
-              : {}),
-            usage: latestUsage ?? session.usage,
-            llmSummary: buildLlmSummary({
-              fallbackModel: llmOptions.fallback.model,
-              llmMetrics,
-              usage: latestUsage ?? session.usage,
-            }),
-            llmMetrics,
-            sttProfiles,
-            sessionEvents,
-            toolExecutions: payloadToolExecutions,
-            turnMetrics,
-            appointmentActions: recordedAppointmentActions,
-            callState: session.userData,
-            preCallLookup: session.userData.runtime.preCallLookup,
-            language: sttLanguageDetector.telemetry,
-            voiceLanguage: session.userData.runtime.voiceLanguage,
-            sessionReport,
-            ...livekitContext,
-          };
-
-          // Include audio only if under 4MB base64 to avoid payload limits
-          if (audioBase64 && audioBase64.length < 4 * 1024 * 1024) {
-            payload.audioBase64 = audioBase64;
-          } else if (audioBase64) {
-            console.warn(
-              `[shutdown] Audio too large for analytics POST (${(audioBase64.length / 1024 / 1024).toFixed(1)}MB), sending without audio`,
-            );
-          }
-
-          await postAnalyticsPayload(payload, {
-            phase: "shutdown",
-            secret: getAnalyticsSecret(),
-            url: process.env.ANALYTICS_URL,
-          });
-        }
+      attachShutdownAnalytics(ctx, session, {
+        callId,
+        callerPhone,
+        trunkPhone,
+        startedAt,
+        livekitContext,
+        callDurationDeadline,
+        llmOptions,
+        llmMetrics,
+        sttLanguageDetector,
+        analyticsBuffers,
       });
 
       await session.start({
