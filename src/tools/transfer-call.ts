@@ -9,7 +9,8 @@ export const transfer_call = tool({
     "Transfer the caller to office staff only when their request truly needs a live human or is outside the agent's front-desk scope. " +
     "If they ask for a human, representative, staff, or the office without saying why, ask what they are calling about before calling this tool. " +
     "Before calling this tool, briefly tell the caller you're transferring them now. " +
-    "Call this for prescription questions, medical records, surgery coordination, clinical advice, urgent symptoms, medical decisions, asking for a specific person, returning a missed call or received call from this number, status of glasses or contacts already ordered, or when the caller still insists after you try to help. " +
+    "Call this for medication or prescription questions, clinical advice, urgent symptoms, medical decisions, returned missed calls or received calls from this number, failed staff task creation, or when the caller still insists after you try to help. " +
+    "If create_staff_task is available, use that instead for safe non-live office work like billing questions, records/forms requests, optical order status, or named-person messages where a message is acceptable. " +
     "Do not call for scheduling, insurance checks, availability, patient verification, cancellations, or office facts. ",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {

@@ -293,6 +293,17 @@ export function classifyToolOutput(
         return "transfer_not_started";
       }
       return "transfer_started";
+    case "create_staff_task":
+      if (/\bcould not send the staff task\b/.test(outputText)) {
+        return "staff_task_failed";
+      }
+      if (/\btask already sent to staff\b/.test(outputText)) {
+        return "staff_task_duplicate";
+      }
+      if (/\btask sent to staff\b/.test(outputText)) {
+        return "staff_task_created";
+      }
+      return "staff_task_created";
     case "get_availability":
       if (
         parsed?.result === "missing_patient" ||
@@ -338,7 +349,8 @@ function toolExecutionStatus(
     outputClass === "availability_blocked" ||
     outputClass === "appointment_reschedule_partial" ||
     outputClass === "transfer_failed" ||
-    outputClass === "transfer_not_started"
+    outputClass === "transfer_not_started" ||
+    outputClass === "staff_task_failed"
   ) {
     return "error";
   }

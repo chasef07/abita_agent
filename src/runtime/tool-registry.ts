@@ -6,6 +6,7 @@ import {
   book_appointment,
   cancel_appointment,
   check_insurance,
+  create_staff_task,
   get_current_datetime,
   get_availability,
   lookup_knowledge,
@@ -36,9 +37,15 @@ const COMMON_TOOLS = [
   end_call,
 ] as const satisfies readonly ToolContextEntry<CallState>[];
 
-export type AgentTools = typeof COMMON_TOOLS;
+const SPRING_HILL_TOOLS = [
+  ...COMMON_TOOLS,
+  create_staff_task,
+] as const satisfies readonly ToolContextEntry<CallState>[];
+
+export type AgentTools = typeof COMMON_TOOLS | typeof SPRING_HILL_TOOLS;
 
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
-  getOfficeConfigByPhone(trunkPhone ?? "");
+  const office = getOfficeConfigByPhone(trunkPhone ?? "");
+  if (office.key === "spring-hill") return SPRING_HILL_TOOLS;
   return COMMON_TOOLS;
 }
