@@ -103,6 +103,7 @@ export const add_patient = tool({
   parameters: addPatientParameters,
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
+    ctx.disallowInterruptions();
 
     if (state.identity.patient.status === "created") {
       const patientName =
@@ -181,7 +182,6 @@ export const add_patient = tool({
       );
     }
 
-    ctx.disallowInterruptions();
     const payload = {
       firstName: params.firstName,
       lastName: params.lastName,

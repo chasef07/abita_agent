@@ -13,6 +13,7 @@ export const lookup_knowledge = tool({
   }),
   execute: async ({ question }, { ctx }) => {
     const state = getState(ctx);
+    ctx.disallowInterruptions();
     return lookupOfficeKnowledge(activeOfficeKey(state), question);
   },
 });

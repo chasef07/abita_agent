@@ -1800,7 +1800,7 @@ describe("direct session state cleanup", () => {
       "Use reschedule_appointment for appointment changes so the old appointment is cancelled after the new booking succeeds.",
     );
 
-    expect(ctx.speechHandle.allowInterruptions).toBe(true);
+    expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -1826,7 +1826,7 @@ describe("direct session state cleanup", () => {
       "Search availability again before booking because the selected slot expired.",
     );
 
-    expect(ctx.speechHandle.allowInterruptions).toBe(true);
+    expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(state.availability.slots).toEqual([]);
   });
 
@@ -1854,7 +1854,7 @@ describe("direct session state cleanup", () => {
       "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it. Call book_appointment again only after the caller confirms the appointment details are correct.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(ctx.speechHandle.allowInterruptions).toBe(true);
+    expect(ctx.speechHandle.allowInterruptions).toBe(false);
   });
 
   it("requires referring doctor information before booking", async () => {
@@ -2265,6 +2265,7 @@ describe("direct session state cleanup", () => {
     markAcceptedInsurance(state);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
+    const ctx = createToolContext(state);
 
     const result = await add_patient.execute(
       {
@@ -2285,7 +2286,7 @@ describe("direct session state cleanup", () => {
         readBack: true,
       },
       {
-        ctx: createToolContext(state) as never,
+        ctx: ctx as never,
         toolCallId: "tool-1",
       } as never,
     );
@@ -2293,6 +2294,8 @@ describe("direct session state cleanup", () => {
     expect(result).toBe(
       "Before creating a new chart, ask whether the patient is already registered with us and call resolve_patient with registrationStatus not_registered after the caller confirms they are not registered.",
     );
+    expect(ctx.speechHandle.allowInterruptions).toBe(false);
+    expect(ctx.disallowInterruptions).toHaveBeenCalledOnce();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -2599,7 +2602,7 @@ describe("direct session state cleanup", () => {
       "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, member ID, and patient SSN last 4 for routine_od. Call add_patient again only after the caller confirms the details are correct.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(ctx.speechHandle.allowInterruptions).toBe(true);
+    expect(ctx.speechHandle.allowInterruptions).toBe(false);
   });
 
   it("asks before using the inbound caller phone for a new patient chart", async () => {
@@ -4979,7 +4982,7 @@ describe("direct session state cleanup", () => {
       "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it as the new appointment. Call reschedule_appointment again only after the caller confirms the new appointment details are correct.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(ctx.speechHandle.allowInterruptions).toBe(true);
+    expect(ctx.speechHandle.allowInterruptions).toBe(false);
   });
 
   it("does not require a live booking token before reschedule read-back confirmation", async () => {

@@ -109,6 +109,7 @@ export const reschedule_appointment = tool({
     } = args;
 
     const state = getState(ctx);
+    ctx.disallowInterruptions();
 
     restoreConfirmedPreCallCaller(state);
     const patientId = activePatientId(state);
@@ -176,7 +177,6 @@ export const reschedule_appointment = tool({
         appointmentPatientStatusForLoadedAppointment(oldAppointment),
     });
 
-    ctx.disallowInterruptions();
     const bookingResult = await callApi(
       "/api/appointment/book",
       bookingBody,
