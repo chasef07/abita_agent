@@ -34,11 +34,6 @@ type AvailabilityLookupArgs = {
   timePreference?: AvailabilityTimePreference;
 };
 
-const AVAILABILITY_UPDATE = "Checking appointment availability now.";
-const AVAILABILITY_FILLER_DELAY_MS = 5_000;
-const AVAILABILITY_FILLER_INTERVAL_MS = 8_000;
-const AVAILABILITY_FILLER_MAX_STEPS = 2;
-
 const isoDateSchema = z
   .string()
   .trim()
@@ -76,20 +71,16 @@ export const get_availability = tool({
     { ctx, abortSignal },
   ) => {
     const state = getState(ctx);
-    if (!date?.trim()) ctx.disallowInterruptions();
+    ctx.disallowInterruptions();
     const request = buildAvailabilityLookupRequestForState(state, {
       date,
       appointmentLane,
       timePreference,
     });
-    if ("blocked" in request) {
-      ctx.disallowInterruptions();
-      return request.blocked;
-    }
+    if ("blocked" in request) return request.blocked;
 
     const invalidDateResponse = invalidAvailabilityDateResponse(request.date);
     if (invalidDateResponse) {
-      ctx.disallowInterruptions();
       clearAvailabilitySelection(state);
       return invalidDateResponse;
     }
@@ -99,24 +90,13 @@ export const get_availability = tool({
       state,
       request.signature,
     );
-    if (cachedResponse) {
-      ctx.disallowInterruptions();
-      return cachedResponse;
-    }
+    if (cachedResponse) return cachedResponse;
 
-    await ctx.update(AVAILABILITY_UPDATE);
-    const result = await ctx.filler(
-      () => availabilityFiller(state),
-      {
-        delay: AVAILABILITY_FILLER_DELAY_MS,
-        interval: AVAILABILITY_FILLER_INTERVAL_MS,
-        maxSteps: AVAILABILITY_FILLER_MAX_STEPS,
-        signal: abortSignal,
-      },
-      () =>
-        callApi("/api/scheduler/availability", request.body, officePhone, {
-          signal: abortSignal,
-        }),
+    const result = await callApi(
+      "/api/scheduler/availability",
+      request.body,
+      officePhone,
+      { signal: abortSignal },
     );
     if (!availabilityRequestStillCurrent(state, request)) {
       return "Availability search was superseded because the patient or appointment context changed. Check availability again with the current details.";
@@ -133,13 +113,6 @@ export const get_availability = tool({
     return response.message;
   },
 });
-
-function availabilityFiller(state: CallState): string {
-  if (state.runtime.voiceLanguage?.current === "es") {
-    return "Sigo buscando disponibilidad.";
-  }
-  return "Still checking appointment availability.";
-}
 
 function availabilityRequestStillCurrent(
   state: CallState,

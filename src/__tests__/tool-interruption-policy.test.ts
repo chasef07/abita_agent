@@ -10,6 +10,7 @@ const blockingToolFiles = [
   ["book_appointment", "src/tools/book-appt.ts"],
   ["cancel_appointment", "src/tools/cancel-appt.ts"],
   ["check_insurance", "src/tools/check-insurance.ts"],
+  ["get_availability", "src/tools/get-availability.ts"],
   ["get_current_datetime", "src/tools/get-current-datetime.ts"],
   ["lookup_knowledge", "src/tools/lookup-knowledge-tool.ts"],
   ["resolve_patient", "src/tools/resolve-patient.ts"],
@@ -20,10 +21,9 @@ const blockingToolFiles = [
 
 describe("tool interruption policy", () => {
   it("classifies every exported LiveKit tool", () => {
-    const coveredTools = new Set([
-      ...blockingToolFiles.map(([toolName]) => toolName),
-      "get_availability",
-    ]);
+    const coveredTools = new Set(
+      blockingToolFiles.map(([toolName]) => toolName),
+    );
     const toolNames = readdirSync(resolve(rootDir, "src/tools"))
       .filter((fileName) => fileName.endsWith(".ts"))
       .flatMap((fileName) => {
@@ -63,38 +63,6 @@ describe("tool interruption policy", () => {
       expect(disallowIndex).toBeLessThan(firstOrphanableStep);
     },
   );
-
-  it("protects get_availability preflight returns while keeping live search interruptible", () => {
-    const source = readFileSync(
-      resolve(rootDir, "src/tools/get-availability.ts"),
-      "utf8",
-    );
-    const body = source.slice(source.indexOf("execute: async"));
-
-    expect(body).toContain("if (!date?.trim()) ctx.disallowInterruptions();");
-    expect(body).toContain(`if ("blocked" in request) {
-      ctx.disallowInterruptions();
-      return request.blocked;
-    }`);
-    expect(body).toContain(`if (invalidDateResponse) {
-      ctx.disallowInterruptions();
-      clearAvailabilitySelection(state);
-      return invalidDateResponse;
-    }`);
-    expect(body).toContain(`if (cachedResponse) {
-      ctx.disallowInterruptions();
-      return cachedResponse;
-    }`);
-    expect(source).toContain("{ ctx, abortSignal }");
-    expect(source).toContain("await ctx.update(AVAILABILITY_UPDATE)");
-    expect(source).toContain("signal: abortSignal");
-
-    const updateIndex = body.indexOf("await ctx.update(AVAILABILITY_UPDATE)");
-    expect(updateIndex).toBeGreaterThanOrEqual(0);
-    expect(body.slice(updateIndex)).not.toContain(
-      "ctx.disallowInterruptions()",
-    );
-  });
 });
 
 function firstIndexOf(source: string, tokens: readonly string[]): number {

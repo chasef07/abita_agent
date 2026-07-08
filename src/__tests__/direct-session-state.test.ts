@@ -913,7 +913,7 @@ describe("direct session state cleanup", () => {
     );
   });
 
-  it("releases long availability lookups with a native async update and filler", async () => {
+  it("waits for availability lookup before returning final instructions", async () => {
     const state = createState();
     clearAvailabilitySelection(state);
     markSchedulingTriaged(state);
@@ -945,19 +945,10 @@ describe("direct session state cleanup", () => {
     ) as Promise<string>;
 
     await Promise.resolve();
-    expect(ctx.update).toHaveBeenCalledWith(
-      "Checking appointment availability now.",
-    );
-    expect(ctx.filler).toHaveBeenCalledWith(
-      expect.any(Function),
-      {
-        delay: 5_000,
-        interval: 8_000,
-        maxSteps: 2,
-        signal: undefined,
-      },
-      expect.any(Function),
-    );
+    expect(ctx.disallowInterruptions).toHaveBeenCalledOnce();
+    expect(ctx.speechHandle.allowInterruptions).toBe(false);
+    expect(ctx.update).not.toHaveBeenCalled();
+    expect(ctx.filler).not.toHaveBeenCalled();
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
 
     resolveFetch({
