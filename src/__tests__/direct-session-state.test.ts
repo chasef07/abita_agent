@@ -3672,6 +3672,56 @@ describe("direct session state cleanup", () => {
     });
   });
 
+  it("blocks repeated insurance clarification checks until the caller gives more detail", async () => {
+    const state = createState();
+    state.runtime.latestUserTranscript = "I have Cigna.";
+
+    const firstResult = (await check_insurance.execute(
+      {
+        plan: "Cigna",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    )) as Record<string, unknown>;
+    const firstEligibilityCheck = state.insurance.lastEligibilityCheck;
+
+    expect(firstResult).toMatchObject({
+      status: "needs_clarification",
+    });
+
+    const blockedResult = await check_insurance.execute(
+      {
+        plan: "Cigna PPO",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-2" } as never,
+    );
+
+    expect(blockedResult).toEqual(firstResult);
+    expect(state.insurance.lastEligibilityCheck).toEqual(firstEligibilityCheck);
+
+    state.runtime.latestUserTranscript = "It is Cigna PPO.";
+
+    const retryResult = (await check_insurance.execute(
+      {
+        plan: "Cigna PPO",
+        coverageType: "medical",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-3" } as never,
+    )) as Record<string, unknown>;
+
+    expect(retryResult).toMatchObject({
+      status: "accepted",
+      plan: "Cigna PPO",
+    });
+    expect(state.insurance.lastEligibilityCheck).toMatchObject({
+      plan: "Cigna PPO",
+      coverageType: "medical",
+      accepted: true,
+    });
+    expect(state.insurance.clarificationRequest).toBeNull();
+  });
+
   it("passes the checked canonical insurance plan to new patient creation", async () => {
     const state = createState();
     state.identity.patient.patientId = null;

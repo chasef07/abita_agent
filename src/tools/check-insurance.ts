@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { tool } from "@livekit/agents";
 import { z } from "zod";
 import {
@@ -7,6 +8,8 @@ import {
 } from "../insurance-rules.js";
 import {
   activeOfficeKey,
+  lastInsuranceClarificationRequest,
+  setInsuranceClarificationRequest,
   setLastInsuranceEligibilityCheck,
 } from "../state/call-state.js";
 import { getState } from "./session.js";
@@ -34,6 +37,18 @@ export const check_insurance = tool({
   execute: async ({ plan, coverageType }, { ctx }) => {
     const state = getState(ctx);
     ctx.disallowInterruptions();
+    const callerTurnFingerprint = latestCallerTurnFingerprint(state);
+    const pendingClarification = lastInsuranceClarificationRequest(state);
+    if (
+      pendingClarification?.coverageType === coverageType &&
+      pendingClarification.callerTurnFingerprint === callerTurnFingerprint
+    ) {
+      return {
+        status: "needs_clarification",
+        clarificationNeeded: pendingClarification.clarificationNeeded,
+      };
+    }
+
     const office = activeOfficeKey(state);
     const result = matchInsurancePlanForOffice(office, plan, coverageType);
     const response = buildInsuranceToolResponse(result);
@@ -49,6 +64,27 @@ export const check_insurance = tool({
       currentCarrier: result.callerFacingPlan ?? checkedInsurancePlan,
       accepted: Boolean(checkedInsurancePlan && result.status === "accepted"),
     });
+    setInsuranceClarificationRequest(
+      state,
+      result.status === "needs_clarification"
+        ? {
+            coverageType,
+            callerTurnFingerprint,
+            clarificationNeeded:
+              result.clarificationNeeded ??
+              "the exact plan name from the insurance card",
+          }
+        : null,
+    );
     return response;
   },
 });
+
+function latestCallerTurnFingerprint(state: ReturnType<typeof getState>) {
+  const transcript = state.runtime.latestUserTranscript?.trim();
+  if (!transcript) return null;
+
+  return createHash("sha256")
+    .update(transcript.toLowerCase().replace(/\s+/g, " "))
+    .digest("hex");
+}

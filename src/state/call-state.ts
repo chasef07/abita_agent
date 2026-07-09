@@ -257,9 +257,16 @@ export interface InsuranceEligibilityCheck extends InsuranceSnapshot {
   accepted: boolean;
 }
 
+export interface InsuranceClarificationRequest {
+  coverageType: InsuranceCoverageType;
+  callerTurnFingerprint: string | null;
+  clarificationNeeded: string;
+}
+
 interface InsuranceSessionState {
   onFile: InsuranceSnapshot | null;
   lastEligibilityCheck: InsuranceEligibilityCheck | null;
+  clarificationRequest: InsuranceClarificationRequest | null;
 }
 
 interface IdentitySessionState {
@@ -383,6 +390,7 @@ export function createCanonicalCallState(
     insurance: {
       onFile: insuranceOnFile,
       lastEligibilityCheck: null,
+      clarificationRequest: null,
     },
     workflow: {
       routing: {
@@ -483,6 +491,12 @@ export function lastInsuranceEligibilityCheck(
   return state.insurance.lastEligibilityCheck;
 }
 
+export function lastInsuranceClarificationRequest(
+  state: CallState,
+): InsuranceClarificationRequest | null {
+  return state.insurance.clarificationRequest;
+}
+
 export function setInsuranceOnFile(
   state: CallState,
   insurance: InsuranceSnapshot | null,
@@ -495,6 +509,13 @@ export function setLastInsuranceEligibilityCheck(
   check: InsuranceEligibilityCheck | null,
 ): void {
   state.insurance.lastEligibilityCheck = check;
+}
+
+export function setInsuranceClarificationRequest(
+  state: CallState,
+  request: InsuranceClarificationRequest | null,
+): void {
+  state.insurance.clarificationRequest = request;
 }
 
 export function applyTurnContextToState(
@@ -546,6 +567,7 @@ export function setActiveOfficeKey(
   if (state.office.activeKey === officeKey) return;
   state.office.activeKey = officeKey;
   state.insurance.lastEligibilityCheck = null;
+  state.insurance.clarificationRequest = null;
 }
 
 export function runtimeCallerPhone(state: CallState): string {
@@ -675,6 +697,7 @@ export function resetPatientScopedBookingState(
   delete state.identity.latestBookedAppointmentId;
   state.workflow.current = undefined;
   state.insurance.lastEligibilityCheck = eligibilityCheck;
+  state.insurance.clarificationRequest = null;
   resetActiveOfficeToTrunk(state);
   setRoutingContext(state, {});
 }
