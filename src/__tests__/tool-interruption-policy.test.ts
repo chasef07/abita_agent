@@ -10,6 +10,7 @@ const blockingToolFiles = [
   ["book_appointment", "src/tools/book-appt.ts"],
   ["cancel_appointment", "src/tools/cancel-appt.ts"],
   ["check_insurance", "src/tools/check-insurance.ts"],
+  ["create_staff_task", "src/tools/create-staff-task.ts"],
   ["get_availability", "src/tools/get-availability.ts"],
   ["get_current_datetime", "src/tools/get-current-datetime.ts"],
   ["lookup_knowledge", "src/tools/lookup-knowledge-tool.ts"],

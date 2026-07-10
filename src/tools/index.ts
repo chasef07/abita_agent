@@ -2,6 +2,7 @@ export { add_patient } from "./add-patient.js";
 export { book_appointment } from "./book-appt.js";
 export { cancel_appointment } from "./cancel-appt.js";
 export { check_insurance } from "./check-insurance.js";
+export { create_staff_task } from "./create-staff-task.js";
 export { get_current_datetime } from "./get-current-datetime.js";
 export { get_availability } from "./get-availability.js";
 export { lookup_knowledge } from "./lookup-knowledge-tool.js";

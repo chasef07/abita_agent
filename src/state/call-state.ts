@@ -200,6 +200,22 @@ export interface AppointmentActionAnalytics {
   cancelledAppointment?: AppointmentAnalytics;
 }
 
+export type StaffTaskCategory =
+  "billing" | "appointments" | "documentation" | "other";
+
+export type StaffTaskUrgency = "high_priority" | "normal" | "non_urgent";
+
+export interface StaffTaskReceipt {
+  category: StaffTaskCategory;
+  createdAt: string;
+  idempotencyKey: string;
+  message: string;
+  status: "created" | "duplicate";
+  summary: string;
+  taskId: string;
+  urgency: StaffTaskUrgency;
+}
+
 interface PatientBackendRefs {
   insPlanId?: string | null;
   respPartyId?: string | null;
@@ -227,6 +243,7 @@ interface RuntimeCallState {
   trunkPhone: string;
   transferred: boolean;
   appointmentActions: AppointmentActionAnalytics[];
+  staffTasks: StaffTaskReceipt[];
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
 
@@ -408,6 +425,7 @@ export function createCanonicalCallState(
       trunkPhone: input.trunkPhone,
       transferred: input.transferred,
       appointmentActions: [],
+      staffTasks: [],
       voiceLanguage: input.voiceLanguage ?? null,
     },
   };
@@ -638,6 +656,33 @@ export function appointmentActions(
   state: CallState,
 ): AppointmentActionAnalytics[] {
   return [...state.runtime.appointmentActions];
+}
+
+export function staffTaskReceipts(state: CallState): StaffTaskReceipt[] {
+  return [...state.runtime.staffTasks];
+}
+
+export function findStaffTaskReceipt(
+  state: CallState,
+  idempotencyKey: string,
+): StaffTaskReceipt | null {
+  return (
+    state.runtime.staffTasks.find(
+      (receipt) => receipt.idempotencyKey === idempotencyKey,
+    ) ?? null
+  );
+}
+
+export function recordStaffTaskReceipt(
+  state: CallState,
+  receipt: StaffTaskReceipt,
+): void {
+  state.runtime.staffTasks = [
+    ...state.runtime.staffTasks.filter(
+      (item) => item.idempotencyKey !== receipt.idempotencyKey,
+    ),
+    receipt,
+  ];
 }
 
 export function storeAvailabilityBookingToken(

@@ -25,6 +25,7 @@ import {
   book_appointment,
   cancel_appointment,
   check_insurance,
+  create_staff_task,
   resolve_patient,
   get_current_datetime,
   get_availability,
@@ -293,6 +294,30 @@ describe("office routing helpers", () => {
     expect(
       toolNamesForTrunk(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE),
     ).not.toContain("route_to_spring_hill");
+  });
+
+  it("exposes staff task capture only on Spring Hill inbound trunks", () => {
+    expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).toContain(
+      "create_staff_task",
+    );
+    expect(toolNamesForTrunk(SPRING_HILL_813_TRUNK_PHONE)).toContain(
+      "create_staff_task",
+    );
+    expect(toolNamesForTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).not.toContain(
+      "create_staff_task",
+    );
+    expect(toolNamesForTrunk(DEV_OFFICE_PHONE)).not.toContain(
+      "create_staff_task",
+    );
+    expect(toolNamesForTrunk(HOLLYWOOD_OFFICE_PHONE)).not.toContain(
+      "create_staff_task",
+    );
+    for (const phone of SWEETWATER_TRUNK_PHONES) {
+      expect(toolNamesForTrunk(phone)).not.toContain("create_staff_task");
+    }
+    expect(
+      toolNamesForTrunk(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE),
+    ).not.toContain("create_staff_task");
   });
 
   it("always exposes one patient resolution tool without a separate switch tool", () => {
@@ -631,6 +656,8 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "Transfer only when the request truly needs a human",
     );
+    expect(prompt).toContain("create_staff_task is available");
+    expect(prompt).toContain("Do not promise a callback time or outcome");
   });
 
   it("keeps concise voice guidance in the base voice prompt", () => {
@@ -991,16 +1018,46 @@ describe("model-facing tool definitions", () => {
       "ask what they are calling about before calling this tool",
     );
     expect(transfer_call.description).toContain("prescription questions");
-    expect(transfer_call.description).toContain("asking for a specific person");
+    expect(transfer_call.description).toContain("medication");
     expect(transfer_call.description).toContain(
-      "returning a missed call or received call from this number",
+      "returned missed calls or received calls from this number",
     );
+    expect(transfer_call.description).toContain("failed staff task creation");
     expect(transfer_call.description).toContain(
-      "status of glasses or contacts already ordered",
+      "use that instead for safe non-live office work",
     );
     expect(transfer_call.description).not.toContain("tool speaks");
     expect(transfer_call.description).toContain("Do not call for scheduling");
     expect(transfer_call.description).not.toContain("Spring Hill routing");
+  });
+
+  it("keeps staff task capture scoped to safe non-live work", () => {
+    expect(create_staff_task.description).toContain(
+      "safe non-live office work",
+    );
+    expect(create_staff_task.description).toContain("high_priority");
+    expect(create_staff_task.description).toContain(
+      "never use it for clinical acuity",
+    );
+    expect(create_staff_task.description).toContain("returned calls");
+    expect(create_staff_task.description).toContain("medication refills");
+    expect(create_staff_task.description).toContain("Transfer those instead");
+    expect(
+      create_staff_task.parameters.safeParse({
+        category: "billing",
+        urgency: "high_priority",
+        summary: "Caller has a billing question.",
+        message: "The caller wants billing to review a recent bill.",
+      }).success,
+    ).toBe(true);
+    expect(
+      create_staff_task.parameters.safeParse({
+        category: "billing",
+        urgency: "urgent",
+        summary: "Caller has a billing question.",
+        message: "The caller wants billing to review a recent bill.",
+      }).success,
+    ).toBe(false);
   });
 
   it("keeps update_insurance scoped to verified-patient checked coverage updates", () => {

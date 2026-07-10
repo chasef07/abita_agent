@@ -66,6 +66,23 @@ describe("call observability", () => {
       classifyToolOutput("transfer_call", "Transfer already started.", false),
     ).toBe("duplicate_tool_call");
     expect(
+      classifyToolOutput("create_staff_task", "Task sent to staff.", false),
+    ).toBe("staff_task_created");
+    expect(
+      classifyToolOutput(
+        "create_staff_task",
+        "Task already sent to staff.",
+        false,
+      ),
+    ).toBe("staff_task_duplicate");
+    expect(
+      classifyToolOutput(
+        "create_staff_task",
+        "Could not send the staff task.",
+        false,
+      ),
+    ).toBe("staff_task_failed");
+    expect(
       classifyToolOutput(
         "resolve_patient",
         JSON.stringify({ status: "multiple_matches" }),

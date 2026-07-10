@@ -24,6 +24,19 @@ Tasks are not a second transcript log and not a full ticketing system. They are 
 compact message-capture queue for office work that cannot be finished by the
 agent.
 
+## V1 Scope
+
+V1 is Spring Hill inbound only.
+
+The agent exposes `create_staff_task` only when the inbound trunk/office context
+is Spring Hill. Tasking is not a replacement for routing other offices into
+Spring Hill, and the agent should not move a call to Spring Hill just to create a
+task.
+
+Returned calls remain live-transfer work. Medication, prescription, clinical
+advice, urgent symptoms, and medical decision requests also remain transfer work.
+The task inbox is for safe non-live office follow-up only.
+
 ## Non-Goals
 
 - Do not build a full ticketing system in v1.
@@ -33,6 +46,9 @@ agent.
   adjustment, or same-day completion.
 - Do not route emergencies, urgent symptoms, or caller-insisted live handoffs
   into tasks.
+- Do not create tasks for medication, prescription, or clinical questions in
+  v1.
+- Do not create tasks for returned-call workflows; transfer those.
 - Do not create tasks for work the agent can already complete safely, such as
   supported scheduling, cancellation, rescheduling, insurance checks, or office
   facts.
@@ -43,19 +59,21 @@ Create a task when the request is real office work, the agent cannot complete it
 and the caller can safely leave a message:
 
 - billing questions or billing callback requests
-- optical order status, glasses, contacts, or prescription copy requests
-- prescription refill messages or medication questions for staff follow-up
+- appointment issues the agent cannot complete safely
 - medical records, paperwork, forms, or document requests
-- surgery coordinator messages that are not urgent symptoms
+- optical order status or other safe office follow-up that does not need a
+  clinical answer
 - requests for a named person when a message or callback is acceptable
 - general callback requests after the agent has gathered the need
-- other non-urgent office work that staff should review
+- other safe non-live office work that staff should review
 
 Transfer when:
 
 - the caller reports emergency symptoms or urgent clinical risk
+- the caller asks about medication, prescription refills, prescription approval,
+  clinical advice, or medical decisions
 - the caller repeatedly asks for a human now
-- the caller is returning a call and office policy requires live routing
+- the caller is returning a call
 - the request cannot be safely captured as a message
 - the agent cannot gather enough request context
 
@@ -130,7 +148,7 @@ Each task has three layers:
 
 1. `summary`: a short staff-facing title.
 2. `message`: the long free-form request the caller wants sent to the team.
-3. structured fields: category, urgency, patient, practice/location, call, and phone
+3. structured fields: category, priority, patient, practice/location, call, and phone
    metadata.
 
 The `message` is the staff source of truth for what the caller asked. Structured
@@ -171,14 +189,17 @@ a practice-wide task. V1 should prefer a failed tool result over putting work in
 the wrong location.
 
 For the current `abita_agent`, the portal source of truth is the phone mapping,
-not Abita-specific office keys. The agent should send the phone that represents
-the location responsible for the task:
+not Abita-specific office keys. The Spring Hill inbound runtime sends the phone
+that represents the Spring Hill location responsible for the task:
 
-- default to the inbound office/trunk phone
-- if runtime deliberately moved the active office for the work, send that active
-  office phone instead
+- send the active Spring Hill office phone used by runtime state
+- include the original inbound trunk phone when it differs from that office
+  phone
 - include `officeKey` only as optional agent metadata, not as the portal routing
   source of truth
+
+Do not add agent-side Spring Hill routing to support tasking. If the call is not
+in the Spring Hill inbound context, `create_staff_task` should not be available.
 
 ## Model-Facing Tool
 
@@ -191,24 +212,16 @@ create_staff_task
 Purpose:
 
 ```txt
-Create a staff follow-up task after gathering what the caller needs the team to
-know.
+Create a Spring Hill staff follow-up task after gathering what the caller needs
+the team to do, check, send, update, answer, or review.
 ```
 
 Parameters:
 
 ```ts
 parameters: z.object({
-  category: z.enum([
-    "billing",
-    "optical",
-    "prescription",
-    "records_forms",
-    "surgery",
-    "callback",
-    "other",
-  ]),
-  urgency: z.number().min(0).max(1),
+  category: z.enum(["billing", "appointments", "documentation", "other"]),
+  urgency: z.enum(["high_priority", "normal", "non_urgent"]),
   summary: z.string().trim().min(1).max(240),
   message: z.string().trim().min(1).max(2500),
 })
@@ -222,24 +235,24 @@ Model contract:
 - Ask what exactly the caller needs the team to know.
 - Keep `summary` short and staff-ready; use it as the task title.
 - Put the caller's full concrete request in `message`. Preserve specific names,
-  order details, dates, medication names, document names, and callback
-  preferences the caller gave.
+  order details, dates, document names, and callback preferences the caller
+  gave.
 - Do not extract patient, requested-person, callback-time, or alternate-phone
   fields. Put those details in `message` if the caller says them.
-- Set `urgency` as a 0-1 non-emergency score:
-  - `0.0` to `0.25`: routine, no timing pressure
-  - `0.25` to `0.5`: normal follow-up
-  - `0.5` to `0.75`: time-sensitive but not urgent clinical risk
-  - `0.75` to `1.0`: highest non-emergency staff attention
-- Emergency or urgent clinical symptoms must transfer instead of becoming a
-  high-urgency task.
+- Set `urgency` as a coarse non-clinical office priority:
+  - `non_urgent`: routine follow-up
+  - `normal`: normal staff review
+  - `high_priority`: office follow-up that should be reviewed before normal work
+- Never use `high_priority` to represent clinical acuity. Emergency symptoms,
+  urgent clinical risk, medication questions, prescription questions, and
+  returned calls must transfer instead of becoming tasks.
 
 Example:
 
 ```json
 {
-  "category": "optical",
-  "urgency": 0.25,
+  "category": "other",
+  "urgency": "normal",
   "summary": "Caller wants a status update on glasses ordered last week.",
   "message": "The caller said they ordered glasses last week and wants optical to check whether the glasses are ready for pickup."
 }
@@ -262,7 +275,7 @@ The tool owns the write path in code:
 3. Generate an idempotency key for this call and message.
 4. POST the task to the portal immediately.
 5. Store the created task receipt in call state.
-6. Return a structured tool result plus speech-ready confirmation.
+6. Return a speech-ready confirmation string.
 
 The task post must not wait for call shutdown analytics. End-of-call ingestion
 can later enrich the linked call row, but the task should exist as soon as the
@@ -272,16 +285,12 @@ If the portal post fails, the tool should say it could not send the message and
 offer transfer or another office-policy fallback. It should not pretend the task
 was created.
 
-The tool result should be machine-readable:
+The tool response should tell the model exactly what to say next:
 
 ```ts
-{
-  status: "created" | "duplicate" | "failed";
-  taskId?: string;
-  category?: TaskCategory;
-  urgency?: number;
-  message: string;
-}
+"Task sent to staff. Tell the caller: I wrote that down for the team. They'll review it and follow up."
+"Task already sent to staff. Tell the caller: I already sent that to the team. They'll review it and follow up."
+"Could not send the staff task. Tell the caller: I couldn't send that message, but I can transfer you to the office."
 ```
 
 ## Portal Endpoint
@@ -309,7 +318,7 @@ Request shape:
   inboundOfficePhone?: string;
   officeKey?: string;
   category: TaskCategory;
-  urgency: number;
+  urgency: TaskPriority;
   summary: string;
   message: string;
   callerPhone: string;
@@ -331,7 +340,7 @@ Response shape:
   status: "created" | "duplicate";
   taskId: string;
   category: TaskCategory;
-  urgency: number;
+  urgency: TaskPriority;
 }
 ```
 
@@ -359,7 +368,7 @@ AgentTask
   idempotencyKey
   status
   category
-  urgency
+  priority
   officeKey
   officePhone
   inboundOfficePhone
@@ -388,23 +397,21 @@ Categories:
 
 ```txt
 billing
-optical
-prescription
-records_forms
-surgery
-callback
+appointments
+documentation
 other
 ```
 
-Urgency:
+Priority:
 
 ```txt
-0.0 to 1.0
+high_priority
+normal
+non_urgent
 ```
 
-The model chooses the non-emergency urgency score. The portal can display simple
-bands, but the stored value should remain numeric so staff can sort and tune
-thresholds over time.
+The model chooses a non-clinical office priority. `high_priority` is not medical
+urgency and must not be used for clinical triage.
 
 Useful constraints and indexes:
 
@@ -412,7 +419,7 @@ Useful constraints and indexes:
 unique(idempotencyKey)
 index(practiceId, status, category, createdAt)
 index(practiceId, locationId, status, createdAt)
-index(practiceId, status, urgency, createdAt)
+index(practiceId, status, priority, createdAt)
 index(agentCallId)
 index(callId)
 ```
@@ -438,13 +445,13 @@ Default view:
 - scoped to the current portal user's allowed practice locations
 - location filter when the practice has multiple locations
 - grouped by category
-- highest urgency first inside each group, then newest
-- filters for status, category, office, and urgency band
+- highest priority first inside each group, then newest
+- filters for status, category, office, and priority
 
 Task row:
 
 - category
-- urgency
+- priority
 - patient or caller
 - office
 - one-line summary
@@ -458,9 +465,6 @@ Task detail:
 - linked call detail page
 - patient snapshot
 - transcript excerpt or call link when available
-
-The call detail page should also show linked tasks so staff reviewing a call can
-see whether follow-up was created.
 
 The page should use the same portal access model as calls, bookings, SMS, and
 call center: users with all-location access can see all practice tasks, while
@@ -487,8 +491,9 @@ they still insist on a live human now or the request cannot be safely captured.
 `transfer_call` should remain scoped to true live-human needs:
 
 - emergency symptoms or urgent clinical risk
+- medication, prescription, clinical advice, or medical decision requests
 - caller insists on a human now
-- returned-call workflows that office policy says must be live
+- returned-call workflows
 - unsafe or incomplete message capture
 - failed task creation when office policy requires live handoff
 
@@ -511,7 +516,7 @@ Portal analytics should show:
 - tasks created per call count
 - transfer count before and after launch
 - task completion time
-- high-urgency task backlog
+- high-priority task backlog
 
 This is the feedback loop for deciding what the agent should automate next.
 
@@ -524,18 +529,21 @@ Agent:
 - `officePhone` is sent so the portal can resolve practice without an agent-side
   `practiceId`.
 - current task office phone is distinct from original inbound trunk phone when
-  runtime routing moves the task to another office.
+  the Spring Hill inbound trunk differs from the portal office phone.
 - inbound caller phone and patient snapshot are attached silently from state.
 - model parameters include only `category`, `urgency`, `summary`, and full
   free-form `message`.
+- model parameters allow only four categories and three non-clinical priorities.
+- `create_staff_task` is exposed only for Spring Hill inbound runtime context.
 - duplicate task creation in one call returns the existing receipt.
 - portal failure does not mark the task as created.
 - failed portal post produces a failure message, not a success confirmation.
 - `transfer_call` remains available for emergency or caller-insisted live
   handoff language.
-- prompt and tool tests no longer route ordinary billing, optical,
-  prescription, records/forms, surgery, or named-person callback messages
-  straight to transfer when task capture is safe.
+- prompt and tool tests no longer route ordinary billing, appointment,
+  documentation, optical order status, or named-person messages straight to
+  transfer when task capture is safe.
+- medication, prescription, clinical, and returned-call examples still transfer.
 - caller asks for the office or a human with no reason; prompt asks what they are
   calling about before transfer.
 - caller gives only a vague callback request; prompt asks what the team needs to
@@ -555,14 +563,15 @@ Portal:
 - task POST rejects unknown `officePhone` instead of creating unscoped work.
 - portal task queries respect membership location scope.
 - tasking page groups open tasks by category.
-- tasking page sorts by urgency inside each category.
-- tasking page filters by status, category, office, and urgency band.
+- tasking page sorts by priority inside each category.
+- tasking page filters by status, category, office, and priority.
 - task status transitions persist.
 
 ## Rollout
 
 1. Build the portal endpoint, table, and `/portal/app/tasking` inbox first.
-2. Add the agent poster and `create_staff_task` tool behind a feature flag.
+2. Add the agent poster and expose `create_staff_task` only for Spring Hill
+   inbound runtime context.
 3. Update the base prompt and `transfer_call` wording so task-worthy work no
    longer routes straight to live handoff.
 4. Review real calls for one week:
@@ -583,8 +592,8 @@ one table
 one tasking inbox
 one call link
 four statuses
-seven categories
-one urgency score
+four categories
+one non-clinical priority enum
 ```
 
 Anything beyond that should be justified by real staff usage.
