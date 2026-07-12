@@ -43,9 +43,10 @@ export const create_staff_task = tool({
   name: "create_staff_task",
   description:
     "Create a Spring Hill staff follow-up task after gathering what the caller needs the team to do, check, send, update, answer, or review. " +
-    "Use this only for safe non-live office work the agent cannot complete, such as billing questions, appointment issues, documentation/forms/records requests, optical order status, or named-person messages where a message is acceptable. " +
+    "Use this only for safe non-live office work the agent cannot complete, such as billing questions, appointment issues, documentation/forms/records requests, optical order status, named-person messages, or routine medication and prescription requests that staff can review asynchronously, including refills, status checks, and pharmacy updates. " +
     "Before calling, ask what exactly the caller needs the team to know if the request is vague. " +
-    "Do not call for urgent symptoms, medical concerns, clinical advice, medication refills, medication status, medication instructions, prescription approval, returned calls, or callers who still insist on a live human now. Transfer those instead. " +
+    "For medication or prescription tasks, use category other and include the medication or prescription name, requested action, and pharmacy name or location when the caller knows them. Do not promise approval, a refill, or a completion time. " +
+    "Do not call for emergency or urgent symptoms, suspected medication reactions, new or worsening medical concerns, dosage or medication instructions, clinical advice, medical decisions, returned calls, or callers who still insist on a live human now. Transfer those instead. " +
     "Use high_priority only for non-clinical office follow-up that should be reviewed before normal work; never use it for clinical acuity.",
   parameters: taskParameters,
   execute: async (input, { ctx }) => {

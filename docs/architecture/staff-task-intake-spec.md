@@ -33,9 +33,11 @@ is Spring Hill. Tasking is not a replacement for routing other offices into
 Spring Hill, and the agent should not move a call to Spring Hill just to create a
 task.
 
-Returned calls remain live-transfer work. Medication, prescription, clinical
-advice, urgent symptoms, and medical decision requests also remain transfer work.
-The task inbox is for safe non-live office follow-up only.
+Returned calls remain live-transfer work. Routine medication and prescription
+follow-up, including refills, status checks, and pharmacy updates, can use the
+task inbox. Emergency or urgent symptoms, suspected medication reactions,
+dosage or medication instructions, clinical advice, and medical decisions remain
+transfer work.
 
 ## Non-Goals
 
@@ -46,8 +48,8 @@ The task inbox is for safe non-live office follow-up only.
   adjustment, or same-day completion.
 - Do not route emergencies, urgent symptoms, or caller-insisted live handoffs
   into tasks.
-- Do not create tasks for medication, prescription, or clinical questions in
-  v1.
+- Do not create tasks for suspected medication reactions, dosage or medication
+  instructions, clinical advice, or medical decisions.
 - Do not create tasks for returned-call workflows; transfer those.
 - Do not create tasks for work the agent can already complete safely, such as
   supported scheduling, cancellation, rescheduling, insurance checks, or office
@@ -65,13 +67,15 @@ and the caller can safely leave a message:
   clinical answer
 - requests for a named person when a message or callback is acceptable
 - general callback requests after the agent has gathered the need
+- routine medication or prescription requests that staff can review
+  asynchronously, such as refills, status checks, and pharmacy updates
 - other safe non-live office work that staff should review
 
 Transfer when:
 
 - the caller reports emergency symptoms or urgent clinical risk
-- the caller asks about medication, prescription refills, prescription approval,
-  clinical advice, or medical decisions
+- the caller reports a suspected medication reaction or asks for dosage,
+  medication instructions, clinical advice, or a medical decision
 - the caller repeatedly asks for a human now
 - the caller is returning a call
 - the request cannot be safely captured as a message
@@ -237,6 +241,9 @@ Model contract:
 - Put the caller's full concrete request in `message`. Preserve specific names,
   order details, dates, document names, and callback preferences the caller
   gave.
+- For medication or prescription work, use category `other` and include the
+  medication or prescription name, requested action, and pharmacy name or
+  location when known. Never promise approval or completion.
 - Do not extract patient, requested-person, callback-time, or alternate-phone
   fields. Put those details in `message` if the caller says them.
 - Set `urgency` as a coarse non-clinical office priority:
@@ -244,8 +251,9 @@ Model contract:
   - `normal`: normal staff review
   - `high_priority`: office follow-up that should be reviewed before normal work
 - Never use `high_priority` to represent clinical acuity. Emergency symptoms,
-  urgent clinical risk, medication questions, prescription questions, and
-  returned calls must transfer instead of becoming tasks.
+  urgent clinical risk, suspected medication reactions, dosage or medication
+  instructions, clinical advice, medical decisions, and returned calls must
+  transfer instead of becoming tasks.
 
 Example:
 
@@ -491,7 +499,10 @@ they still insist on a live human now or the request cannot be safely captured.
 `transfer_call` should remain scoped to true live-human needs:
 
 - emergency symptoms or urgent clinical risk
-- medication, prescription, clinical advice, or medical decision requests
+- suspected medication reactions, dosage or medication instructions, clinical
+  advice, or medical decision requests
+- routine medication or prescription requests use `create_staff_task` when it
+  is available
 - caller insists on a human now
 - returned-call workflows
 - unsafe or incomplete message capture
@@ -543,7 +554,9 @@ Agent:
 - prompt and tool tests no longer route ordinary billing, appointment,
   documentation, optical order status, or named-person messages straight to
   transfer when task capture is safe.
-- medication, prescription, clinical, and returned-call examples still transfer.
+- routine medication and prescription examples create tasks; medication
+  reactions, dosage or instruction questions, clinical decisions, and returned
+  calls still transfer.
 - caller asks for the office or a human with no reason; prompt asks what they are
   calling about before transfer.
 - caller gives only a vague callback request; prompt asks what the team needs to

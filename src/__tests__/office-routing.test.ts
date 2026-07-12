@@ -654,9 +654,14 @@ describe("Crystal River prompt guidance", () => {
 
     expect(prompt).toContain("urgent symptoms");
     expect(prompt).toContain(
-      "Transfer only when the request truly needs a human",
+      "Transfer only when the request truly needs a live human",
     );
     expect(prompt).toContain("create_staff_task is available");
+    expect(prompt).toContain("do not transfer those requests by default");
+    expect(prompt).toContain(
+      "If create_staff_task is not available, transfer routine medication or prescription work the agent cannot complete",
+    );
+    expect(prompt).toContain("suspected medication reactions");
     expect(prompt).toContain("Do not promise a callback time or outcome");
   });
 
@@ -1017,14 +1022,21 @@ describe("model-facing tool definitions", () => {
     expect(transfer_call.description).toContain(
       "ask what they are calling about before calling this tool",
     );
-    expect(transfer_call.description).toContain("prescription questions");
-    expect(transfer_call.description).toContain("medication");
+    expect(transfer_call.description).toContain(
+      "suspected medication reactions",
+    );
+    expect(transfer_call.description).toContain(
+      "dosage or medication instructions",
+    );
     expect(transfer_call.description).toContain(
       "returned missed calls or received calls from this number",
     );
     expect(transfer_call.description).toContain("failed staff task creation");
     expect(transfer_call.description).toContain(
       "use that instead for safe non-live office work",
+    );
+    expect(transfer_call.description).toContain(
+      "routine medication and prescription requests",
     );
     expect(transfer_call.description).not.toContain("tool speaks");
     expect(transfer_call.description).toContain("Do not call for scheduling");
@@ -1040,7 +1052,16 @@ describe("model-facing tool definitions", () => {
       "never use it for clinical acuity",
     );
     expect(create_staff_task.description).toContain("returned calls");
-    expect(create_staff_task.description).toContain("medication refills");
+    expect(create_staff_task.description).toContain(
+      "routine medication and prescription requests",
+    );
+    expect(create_staff_task.description).toContain("use category other");
+    expect(create_staff_task.description).toContain(
+      "medication or prescription name",
+    );
+    expect(create_staff_task.description).toContain(
+      "suspected medication reactions",
+    );
     expect(create_staff_task.description).toContain("Transfer those instead");
     expect(
       create_staff_task.parameters.safeParse({
@@ -1048,6 +1069,15 @@ describe("model-facing tool definitions", () => {
         urgency: "high_priority",
         summary: "Caller has a billing question.",
         message: "The caller wants billing to review a recent bill.",
+      }).success,
+    ).toBe(true);
+    expect(
+      create_staff_task.parameters.safeParse({
+        category: "other",
+        urgency: "normal",
+        summary: "Caller needs a medication refill reviewed.",
+        message:
+          "The caller needs staff to review a refill request and provided the medication and pharmacy.",
       }).success,
     ).toBe(true);
     expect(
