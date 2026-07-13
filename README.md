@@ -162,6 +162,12 @@ Important variables:
 - `AMD_API_TOKEN`
 - `ANALYTICS_URL`
 - `WEBHOOK_SECRET`
+- optional direct Acuity handoff: `ACUITY_HANDOFF_URL` and
+  `ACUITY_HANDOFF_SECRET`; both must be set to enable it and the URL must use
+  HTTPS
+- `ACUITY_HANDOFF_PHONE_FALLBACK_ENABLED`, optional and disabled by default;
+  set to `true` only to use the configured phone target when the handoff API
+  fails before a SIP transfer starts; ownership conflicts always fail closed
 - optional handoff overrides: `SPRING_HILL_HANDOFF_TARGET`,
   `TELNYX_VOICE_API_HANDOFF_TARGET`, `HOLLYWOOD_HANDOFF_TARGET`,
   `SWEETWATER_HANDOFF_TARGET`
