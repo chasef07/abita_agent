@@ -5,6 +5,7 @@
 
 import { readFileSync } from "fs";
 import { join } from "path";
+import { getOfficeConfigByPhone } from "./customers/profile.js";
 import type { PhoneLookupResult } from "./state/call-state.js";
 
 const WORKSPACE = join(
@@ -18,6 +19,11 @@ const BASE_FILES: { file: string; tag: string }[] = [
   { file: "VOICE.md", tag: "voice" },
 ];
 
+const SPRING_HILL_POLICY = {
+  file: "SPRING_HILL_STAFF_TASKS.md",
+  tag: "office_policy",
+};
+
 /** Build the static system prompt. Pre-call facts stay in backend state. */
 export function buildPrompt(
   phoneLookup?: PhoneLookupResult,
@@ -29,6 +35,12 @@ export function buildPrompt(
   }
 
   for (const { file, tag } of BASE_FILES) {
+    const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
+    sections.push(`<${tag}>\n${content}\n</${tag}>`);
+  }
+
+  if (getOfficeConfigByPhone(trunkPhone).key === "spring-hill") {
+    const { file, tag } = SPRING_HILL_POLICY;
     const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
     sections.push(`<${tag}>\n${content}\n</${tag}>`);
   }

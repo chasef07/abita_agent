@@ -649,20 +649,52 @@ describe("Crystal River prompt guidance", () => {
     expect(get_current_datetime.description).toContain("read-only");
   });
 
-  it("keeps emergency transfer policy in the base role prompt", () => {
-    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+  it("keeps emergency transfer policy in the shared role prompt", () => {
+    const prompt = buildPrompt(undefined, HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).toContain("urgent symptoms");
     expect(prompt).toContain(
       "Transfer only when the request truly needs a live human",
     );
-    expect(prompt).toContain("create_staff_task is available");
-    expect(prompt).toContain("do not transfer those requests by default");
-    expect(prompt).toContain(
-      "If create_staff_task is not available, transfer routine medication or prescription work the agent cannot complete",
-    );
     expect(prompt).toContain("suspected medication reactions");
     expect(prompt).toContain("Do not promise a callback time or outcome");
+    expect(prompt).not.toContain("create_staff_task");
+    expect(prompt).not.toContain("<office_policy>");
+  });
+
+  it("keeps staff-task instructions in the Spring Hill prompt only", () => {
+    const springHillPrompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+
+    expect(springHillPrompt).toContain("<office_policy>");
+    expect(springHillPrompt).toContain("# Spring Hill Staff Tasks");
+    expect(springHillPrompt).toContain("create_staff_task");
+    expect(springHillPrompt).toContain(
+      "Do not transfer those requests by default",
+    );
+    expect(springHillPrompt).toContain("medication or prescription name");
+
+    for (const phone of [
+      CRYSTAL_RIVER_OFFICE_PHONE,
+      DEV_OFFICE_PHONE,
+      HOLLYWOOD_OFFICE_PHONE,
+      NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+      ...SWEETWATER_TRUNK_PHONES,
+    ]) {
+      const prompt = buildPrompt(undefined, phone);
+
+      expect(prompt).not.toContain("create_staff_task");
+      expect(prompt).not.toContain("# Spring Hill Staff Tasks");
+      expect(prompt).not.toContain("<office_policy>");
+    }
+  });
+
+  it("keeps Spring Hill staff-task fallback guidance explicit", () => {
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+
+    expect(prompt).toContain("Do not transfer those requests by default");
+    expect(prompt).toContain(
+      "If the request cannot safely become a staff task or task creation fails, transfer the caller to the office",
+    );
   });
 
   it("keeps concise voice guidance in the base voice prompt", () => {
@@ -1031,13 +1063,8 @@ describe("model-facing tool definitions", () => {
     expect(transfer_call.description).toContain(
       "returned missed calls or received calls from this number",
     );
-    expect(transfer_call.description).toContain("failed staff task creation");
-    expect(transfer_call.description).toContain(
-      "use that instead for safe non-live office work",
-    );
-    expect(transfer_call.description).toContain(
-      "routine medication and prescription requests",
-    );
+    expect(transfer_call.description).not.toContain("create_staff_task");
+    expect(transfer_call.description).not.toContain("staff task");
     expect(transfer_call.description).not.toContain("tool speaks");
     expect(transfer_call.description).toContain("Do not call for scheduling");
     expect(transfer_call.description).not.toContain("Spring Hill routing");
