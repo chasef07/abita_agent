@@ -5724,4 +5724,45 @@ describe("direct session state cleanup", () => {
     expect(result).toBe("Transfer started to the spring-hill office.");
     expect(state.runtime.transferred).toBe(true);
   });
+
+  it("does not mark the call transferred when handoff fails", async () => {
+    const state = createState();
+    const ctx = createToolContext(state);
+    transferCallerToOfficeMock.mockRejectedValueOnce(
+      new Error("handoff failed"),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await transfer_call.execute({}, {
+      ctx: ctx as never,
+      toolCallId: "tool-1",
+    } as never);
+
+    expect(result).toBe("Could not transfer the call.");
+    expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
+    expect(state.runtime.transferred).toBe(false);
+  });
+
+  it("does not retry after an ambiguous REFER result", async () => {
+    const state = createState();
+    const ctx = createToolContext(state);
+    transferCallerToOfficeMock.mockImplementationOnce(async () => {
+      state.runtime.transferred = true;
+      throw new Error("ambiguous transfer result");
+    });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const first = await transfer_call.execute({}, {
+      ctx: ctx as never,
+      toolCallId: "tool-1",
+    } as never);
+    const second = await transfer_call.execute({}, {
+      ctx: ctx as never,
+      toolCallId: "tool-2",
+    } as never);
+
+    expect(first).toBe("Could not transfer the call.");
+    expect(second).toBe("Transfer already started.");
+    expect(transferCallerToOfficeMock).toHaveBeenCalledTimes(1);
+  });
 });
