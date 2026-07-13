@@ -7,4 +7,4 @@ allowBuilds:
   protobufjs: true
   sharp: true
 patchedDependencies:
-  "@livekit/agents-plugin-rime@1.5.1": patches/@livekit__agents-plugin-rime@1.5.1.patch
+  "@livekit/agents-plugin-rime@1.5.2": patches/@livekit__agents-plugin-rime@1.5.2.patch
