@@ -66,6 +66,13 @@ describe("call observability", () => {
       classifyToolOutput("transfer_call", "Transfer already started.", false),
     ).toBe("duplicate_tool_call");
     expect(
+      classifyToolOutput(
+        "transfer_call",
+        "The transfer may already be in progress. Do not try again.",
+        false,
+      ),
+    ).toBe("transfer_ambiguous");
+    expect(
       classifyToolOutput("create_staff_task", "Task sent to staff.", false),
     ).toBe("staff_task_created");
     expect(

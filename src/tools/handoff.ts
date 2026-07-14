@@ -224,9 +224,7 @@ export async function transferCallerToOffice(
 ): Promise<{ handoffOfficeKey: OfficeKey; handoffTarget: string }> {
   const handoffOfficeKey = getHandoffOfficeKey(state);
   const { mode, target } = await resolveHandoffTarget(state, handoffOfficeKey);
-  // A rejected direct-transfer RPC is ambiguous: the REFER may already have
-  // reached the provider. Prevent a second direct REFER before awaiting it.
-  if (mode === "DIRECT") state.runtime.transferred = true;
+  state.runtime.transferState = "pending";
   try {
     await getSipClient(mode).transferSipParticipant(
       state.runtime.sipRoomName,
@@ -247,7 +245,9 @@ export async function transferCallerToOffice(
       },
     );
   } catch {
-    throw new Error("SIP transfer failed.");
+    state.runtime.transferState = "ambiguous";
+    throw new Error("SIP transfer outcome is unknown.");
   }
+  state.runtime.transferState = "accepted";
   return { handoffOfficeKey, handoffTarget: target };
 }

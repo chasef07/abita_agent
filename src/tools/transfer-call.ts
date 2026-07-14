@@ -1,7 +1,12 @@
 import { tool } from "@livekit/agents";
 import { z } from "zod";
+import type { CallState } from "../state/call-state.js";
 import { transferCallerToOffice } from "./handoff.js";
 import { getState } from "./session.js";
+
+function transferIsAmbiguous(state: CallState): boolean {
+  return state.runtime.transferState === "ambiguous";
+}
 
 export const transfer_call = tool({
   name: "transfer_call",
@@ -16,7 +21,16 @@ export const transfer_call = tool({
     const state = getState(ctx);
     ctx.disallowInterruptions();
 
-    if (state.runtime.transferred) {
+    if (transferIsAmbiguous(state)) {
+      return "The transfer may already be in progress. Do not try again.";
+    }
+    if (state.runtime.transferState === "pending") {
+      return "Transfer already in progress.";
+    }
+    if (
+      state.runtime.transferred ||
+      state.runtime.transferState === "accepted"
+    ) {
       return "Transfer already started.";
     }
     if (!state.runtime.sipRoomName || !state.runtime.sipParticipantIdentity) {
@@ -26,10 +40,16 @@ export const transfer_call = tool({
     try {
       await ctx.waitForPlayout();
       const { handoffOfficeKey } = await transferCallerToOffice(state);
+      state.runtime.transferState = "accepted";
       state.runtime.transferred = true;
       return `Transfer started to the ${handoffOfficeKey} office.`;
-    } catch (err) {
-      console.error("[tools] Transfer failed:", err);
+    } catch {
+      console.error(
+        `[tools] Transfer failed (state=${state.runtime.transferState}).`,
+      );
+      if (transferIsAmbiguous(state)) {
+        return "The transfer may already be in progress. Do not try again.";
+      }
       return "Could not transfer the call.";
     }
   },
