@@ -1319,6 +1319,9 @@ describe("model-facing tool definitions", () => {
       "caller provides a referring doctor or says they have none",
     );
     expect(book_appointment.description).toContain(
+      "enough caller-provided detail for staff to prepare appropriate diagnostic testing",
+    );
+    expect(book_appointment.description).toContain(
       "read back the selected appointment date, time, and provider",
     );
     expect(book_appointment.description).toContain(
@@ -1335,6 +1338,15 @@ describe("model-facing tool definitions", () => {
       "referringDoctor",
       "readBack",
     ]);
+    expect(
+      (
+        parameters.shape.appointmentReason as {
+          description?: string;
+        }
+      ).description,
+    ).toContain(
+      "enough detail for staff to prepare appropriate diagnostic testing",
+    );
     expect(parameters.safeParse({}).success).toBe(false);
     expect(
       parameters.safeParse({

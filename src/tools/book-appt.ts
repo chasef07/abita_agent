@@ -45,7 +45,9 @@ const bookAppointmentParameters = z
       .string()
       .trim()
       .min(1)
-      .describe("Caller-provided reason for the appointment."),
+      .describe(
+        "Concise caller-provided reason with enough detail for staff to prepare appropriate diagnostic testing. For an eye problem, include the symptom or concern plus one useful detail, such as which eye or when it started. For routine care, state the routine purpose. Do not diagnose or add details the caller did not provide.",
+      ),
     referringDoctor: z
       .string()
       .trim()
@@ -67,6 +69,7 @@ export const book_appointment = tool({
   description:
     "Book a caller-confirmed appointment slot. " +
     "Use only for new appointments after get_availability recorded appointmentLane; do not use for reschedules or other appointment changes. " +
+    "Pass an appointmentReason with enough caller-provided detail for staff to prepare appropriate diagnostic testing; do not diagnose or add details the caller did not provide. " +
     "Call only after get_availability returns an appointmentSlotRef for the right appointment lane, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. " +
     "Before booking, read back the selected appointment date, time, and provider, then get caller confirmation. " +
     "Only after this tool returns a successful booking may you tell the caller they are booked, scheduled, or all set.",
