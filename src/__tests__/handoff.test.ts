@@ -15,15 +15,12 @@ vi.mock("livekit-server-sdk", () => ({
 import { createCanonicalCallState } from "../state/call-state.js";
 import { transferCallerToOffice } from "../tools/handoff.js";
 
+const DIRECT_TOKEN = "a".repeat(43);
 const DIRECT_RESPONSE = {
   type: "DIRECT",
   handoffId: "handoff-test",
-  sipUri: "sip:one-time-route@handoff.example",
+  sipUri: `sip:one-time-route~ah1~${DIRECT_TOKEN}@handoff.example`,
   expiresAt: "2099-07-13T12:00:30.000Z",
-  sipHeaders: {
-    "X-Acuity-Handoff-Id": "handoff-test",
-    "X-Acuity-Handoff-Token": "one-time-token",
-  },
 };
 
 function createState() {
@@ -81,28 +78,16 @@ describe("call-center handoff", () => {
     vi.restoreAllMocks();
   });
 
-  it("keeps the current phone handoff when direct handoff is not configured", async () => {
+  it("fails closed when direct handoff is not configured", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await transferCallerToOffice(createState());
+    await expect(transferCallerToOffice(createState())).rejects.toThrow(
+      "Acuity handoff API configuration is incomplete.",
+    );
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(result).toEqual({
-      handoffOfficeKey: "spring-hill",
-      handoffTarget: "tel:+16182265883",
-    });
-    expect(transferSipParticipantMock).toHaveBeenCalledTimes(1);
-    expect(transferSipParticipantMock).toHaveBeenCalledWith(
-      "test-room",
-      "sip-caller",
-      "tel:+16182265883",
-      expect.objectContaining({
-        playDialtone: true,
-        ringingTimeout: 20,
-      }),
-    );
-    expect(vi.mocked(SipClient).mock.calls[0]?.[3]).toBeUndefined();
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 
   it("reserves and transfers once to the direct SIP target", async () => {
@@ -144,7 +129,6 @@ describe("call-center handoff", () => {
       "sip-caller",
       DIRECT_RESPONSE.sipUri,
       {
-        headers: DIRECT_RESPONSE.sipHeaders,
         playDialtone: true,
         ringingTimeout: 20,
       },
@@ -162,10 +146,45 @@ describe("call-center handoff", () => {
       vi.fn(async () =>
         jsonResponse({
           ...DIRECT_RESPONSE,
-          sipHeaders: {
-            ...DIRECT_RESPONSE.sipHeaders,
-            "X-Acuity-Handoff-Token": "",
-          },
+          handoffId: "",
+        }),
+      ),
+    );
+
+    await expect(transferCallerToOffice(createState())).rejects.toThrow(
+      "Acuity handoff API returned an invalid response.",
+    );
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a direct response whose SIP URI loses the token", async () => {
+    vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
+    vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          ...DIRECT_RESPONSE,
+          sipUri: "sip:one-time-route@handoff.example",
+        }),
+      ),
+    );
+
+    await expect(transferCallerToOffice(createState())).rejects.toThrow(
+      "Acuity handoff API returned an invalid response.",
+    );
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a SIP URI carrying a malformed handoff token", async () => {
+    vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
+    vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          ...DIRECT_RESPONSE,
+          sipUri: `sip:one-time-route~ah1~${"b".repeat(42)}@handoff.example`,
         }),
       ),
     );
@@ -286,6 +305,7 @@ describe("call-center handoff", () => {
   });
 
   it("preserves legacy retry state when the phone REFER fails", async () => {
+    vi.stubEnv("ACUITY_HANDOFF_PHONE_FALLBACK_ENABLED", "true");
     transferSipParticipantMock.mockRejectedValueOnce(new Error("rejected"));
     const state = createState();
 

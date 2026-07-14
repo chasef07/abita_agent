@@ -9,12 +9,11 @@ import type { CallState } from "../state/call-state.js";
 import { activeOfficeKey } from "../state/call-state.js";
 
 const HANDOFF_TIMEOUT_MS = 2_000;
-const HANDOFF_ID_HEADER = "X-Acuity-Handoff-Id";
-const HANDOFF_TOKEN_HEADER = "X-Acuity-Handoff-Token";
+const HANDOFF_TOKEN_MARKER = "~ah1~";
+const HANDOFF_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 type HandoffTarget = {
   mode: "DIRECT" | "PHONE";
-  sipHeaders?: Record<string, string>;
   target: string;
 };
 
@@ -46,10 +45,7 @@ function buildCallCenterHandoffHeaders(
   state: CallState,
   handoffTarget: string,
   handoffOfficeKey: OfficeKey = activeOfficeKey(state),
-  sipHeaders?: Record<string, string>,
 ): Record<string, string> {
-  if (sipHeaders) return sipHeaders;
-
   return {
     "X-Acuity-Caller-Phone": state.runtime.callerPhone,
     "X-Acuity-Handoff": "call-center",
@@ -82,8 +78,6 @@ async function resolveHandoffTarget(
 ): Promise<HandoffTarget> {
   const url = process.env.ACUITY_HANDOFF_URL?.trim();
   const secret = process.env.ACUITY_HANDOFF_SECRET?.trim();
-
-  if (!url && !secret) return phoneHandoffTarget(handoffOfficeKey);
 
   try {
     if (!url || !secret) {
@@ -177,21 +171,18 @@ function parseDirectHandoff(value: unknown): HandoffTarget {
     throw new Error("Acuity handoff API returned an invalid response.");
   }
 
-  const { expiresAt, handoffId, sipHeaders, sipUri } = value;
+  const { expiresAt, handoffId, sipUri } = value;
   if (
     !isSafeValue(handoffId) ||
-    !isSipUri(sipUri) ||
+    !isDirectSipUri(sipUri) ||
     typeof expiresAt !== "string" ||
     !Number.isFinite(Date.parse(expiresAt)) ||
-    Date.parse(expiresAt) <= Date.now() ||
-    !isSipHeaders(sipHeaders) ||
-    sipHeaders[HANDOFF_ID_HEADER] !== handoffId ||
-    !isSafeValue(sipHeaders[HANDOFF_TOKEN_HEADER])
+    Date.parse(expiresAt) <= Date.now()
   ) {
     throw new Error("Acuity handoff API returned an invalid response.");
   }
 
-  return { mode: "DIRECT", target: sipUri, sipHeaders };
+  return { mode: "DIRECT", target: sipUri };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -213,15 +204,14 @@ function isSipUri(value: unknown): value is string {
   return !value.slice(4, value.indexOf("@")).includes(":");
 }
 
-function isSipHeaders(value: unknown): value is Record<string, string> {
-  if (!isRecord(value)) return false;
-  const names = Object.keys(value);
+function isDirectSipUri(value: unknown): value is string {
+  if (!isSipUri(value)) return false;
+  const user = value.slice(4, value.indexOf("@"));
+  const marker = user.lastIndexOf(HANDOFF_TOKEN_MARKER);
   return (
-    names.length === 2 &&
-    names.every((name) =>
-      [HANDOFF_ID_HEADER, HANDOFF_TOKEN_HEADER].includes(name),
-    ) &&
-    names.every((name) => isSafeValue(value[name]))
+    marker > 0 &&
+    marker === user.indexOf(HANDOFF_TOKEN_MARKER) &&
+    HANDOFF_TOKEN_PATTERN.test(user.slice(marker + HANDOFF_TOKEN_MARKER.length))
   );
 }
 
@@ -229,10 +219,7 @@ export async function transferCallerToOffice(
   state: CallState,
 ): Promise<{ handoffOfficeKey: OfficeKey; handoffTarget: string }> {
   const handoffOfficeKey = getHandoffOfficeKey(state);
-  const { mode, sipHeaders, target } = await resolveHandoffTarget(
-    state,
-    handoffOfficeKey,
-  );
+  const { mode, target } = await resolveHandoffTarget(state, handoffOfficeKey);
   // A rejected direct-transfer RPC is ambiguous: the REFER may already have
   // reached the provider. Prevent a second direct REFER before awaiting it.
   if (mode === "DIRECT") state.runtime.transferred = true;
@@ -242,12 +229,15 @@ export async function transferCallerToOffice(
       state.runtime.sipParticipantIdentity,
       target,
       {
-        headers: buildCallCenterHandoffHeaders(
-          state,
-          target,
-          handoffOfficeKey,
-          sipHeaders,
-        ),
+        ...(mode === "PHONE"
+          ? {
+              headers: buildCallCenterHandoffHeaders(
+                state,
+                target,
+                handoffOfficeKey,
+              ),
+            }
+          : {}),
         playDialtone: true,
         ringingTimeout: 20,
       },
