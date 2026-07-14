@@ -13,6 +13,10 @@ vi.mock("livekit-server-sdk", () => ({
 }));
 
 import { createCanonicalCallState } from "../state/call-state.js";
+import {
+  CRYSTAL_RIVER_OFFICE_PHONE,
+  getOfficeHandoffTarget,
+} from "../customers/profile.js";
 import { transferCallerToOffice } from "../tools/handoff.js";
 
 const DIRECT_TOKEN = "a".repeat(43);
@@ -88,6 +92,38 @@ describe("call-center handoff", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
+  });
+
+  it("routes Crystal River directly to its configured phone target", async () => {
+    vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
+    vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createState();
+    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
+    const target = getOfficeHandoffTarget("crystal-river");
+
+    const result = await transferCallerToOffice(state);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      handoffOfficeKey: "crystal-river",
+      handoffTarget: target,
+    });
+    expect(transferSipParticipantMock).toHaveBeenCalledWith(
+      "test-room",
+      "sip-caller",
+      target,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-Acuity-Handoff-Target": target,
+          "X-Acuity-Office-Key": "crystal-river",
+        }),
+        playDialtone: true,
+        ringingTimeout: 20,
+      }),
+    );
+    expect(vi.mocked(SipClient).mock.calls.at(-1)?.[3]).toBeUndefined();
   });
 
   it("reserves and transfers once to the direct SIP target", async () => {

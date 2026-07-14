@@ -194,7 +194,9 @@ export function spokenSlot(slot: StoredAvailabilitySlot): string {
 function normalizeAppointmentReason(appointmentReason: string): string {
   const trimmedReason = appointmentReason.trim();
   if (!trimmedReason || isGenericBookingReason(trimmedReason)) {
-    throw new ToolError("Ask for the appointment reason before booking.");
+    throw new ToolError(
+      "Ask for a useful appointment reason before booking: the routine purpose, or the eye symptom or concern plus one caller-provided detail. If the caller cannot add detail, say that in the reason.",
+    );
   }
   return trimmedReason;
 }
@@ -268,7 +270,9 @@ function looksLikePostOpVisit(visitReason: string | undefined): boolean {
 }
 
 function isGenericBookingReason(value: string): boolean {
-  return /^(appointment|appt|visit|office visit|booking)$/i.test(value.trim());
+  return /^(appointment|appt|visit|office visit|booking|(?:my )?eyes?|(?:my )?eye (?:exam|issues?|problems?|concerns?))$/i.test(
+    value.trim(),
+  );
 }
 
 function bookingStatus(result: unknown): string {

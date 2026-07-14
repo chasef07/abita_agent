@@ -797,7 +797,7 @@ describe("direct session state cleanup", () => {
     const result = await book_appointment.execute(
       {
         appointmentSlotRef: "S1",
-        appointmentReason: "eye exam",
+        appointmentReason: "blurry vision in the left eye",
         referringDoctor: "none",
         readBack: true,
       },
@@ -1766,6 +1766,34 @@ describe("direct session state cleanup", () => {
       },
     );
   });
+
+  it.each(["my eye", "eye issues", "eye exam"])(
+    "asks for useful detail before booking a vague reason: %s",
+    async (appointmentReason) => {
+      const state = createState();
+      markSchedulingTriaged(state);
+      storeAvailabilityBookingToken(state, "A", "private-token");
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(
+        book_appointment.execute(
+          {
+            appointmentSlotRef: "A",
+            appointmentReason,
+            referringDoctor: "none",
+            readBack: true,
+          },
+          {
+            ctx: createToolContext(state) as never,
+            toolCallId: "tool-1",
+          } as never,
+        ),
+      ).rejects.toThrow("Ask for a useful appointment reason before booking");
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 
   it("blocks book_appointment from consuming appointment-change availability", async () => {
     const state = createState();
@@ -4706,7 +4734,7 @@ describe("direct session state cleanup", () => {
     await book_appointment.execute(
       {
         appointmentSlotRef: "A",
-        appointmentReason: "eye exam",
+        appointmentReason: "routine eye exam for glasses",
         referringDoctor: "none",
         readBack: true,
       },

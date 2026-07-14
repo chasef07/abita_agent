@@ -76,6 +76,10 @@ async function resolveHandoffTarget(
   state: CallState,
   handoffOfficeKey: OfficeKey,
 ): Promise<HandoffTarget> {
+  if (handoffOfficeKey === "crystal-river") {
+    return phoneHandoffTarget(handoffOfficeKey);
+  }
+
   const url = process.env.ACUITY_HANDOFF_URL?.trim();
   const secret = process.env.ACUITY_HANDOFF_SECRET?.trim();
 
