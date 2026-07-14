@@ -231,6 +231,8 @@ export interface RuntimeVoiceLanguageState {
   updatedAt?: string;
 }
 
+export type TransferState = "idle" | "pending" | "accepted" | "ambiguous";
+
 interface RuntimeCallState {
   endedReason?: "duration_limit";
   preCallLookup: PreCallLookupTelemetry;
@@ -242,6 +244,7 @@ interface RuntimeCallState {
   callerPhone: string;
   trunkPhone: string;
   transferred: boolean;
+  transferState: TransferState;
   appointmentActions: AppointmentActionAnalytics[];
   staffTasks: StaffTaskReceipt[];
   voiceLanguage?: RuntimeVoiceLanguageState | null;
@@ -424,6 +427,7 @@ export function createCanonicalCallState(
       callerPhone: input.callerPhone,
       trunkPhone: input.trunkPhone,
       transferred: input.transferred,
+      transferState: input.transferred ? "accepted" : "idle",
       appointmentActions: [],
       staffTasks: [],
       voiceLanguage: input.voiceLanguage ?? null,

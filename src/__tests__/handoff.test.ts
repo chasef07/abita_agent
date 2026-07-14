@@ -81,13 +81,16 @@ describe("call-center handoff", () => {
   it("fails closed when direct handoff is not configured", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
+    const state = createState();
 
-    await expect(transferCallerToOffice(createState())).rejects.toThrow(
+    await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity handoff API configuration is incomplete.",
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
+    expect(state.runtime.transferState).toBe("idle");
+    expect(state.runtime.transferred).toBe(false);
   });
 
   it("reserves and transfers once to the direct SIP target", async () => {
@@ -104,7 +107,8 @@ describe("call-center handoff", () => {
       .update(JSON.stringify(payload))
       .digest("hex");
 
-    const result = await transferCallerToOffice(createState());
+    const state = createState();
+    const result = await transferCallerToOffice(state);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -136,6 +140,8 @@ describe("call-center handoff", () => {
     expect(vi.mocked(SipClient).mock.calls.at(-1)?.[3]).toEqual({
       failover: false,
     });
+    expect(state.runtime.transferState).toBe("accepted");
+    expect(state.runtime.transferred).toBe(false);
   });
 
   it("fails before REFER when the direct response is invalid", async () => {
@@ -283,7 +289,7 @@ describe("call-center handoff", () => {
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 
-  it("never phone-fallbacks after a direct REFER attempt", async () => {
+  it("records an upstream timeout as ambiguous without claiming success", async () => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
     vi.stubEnv("ACUITY_HANDOFF_PHONE_FALLBACK_ENABLED", "true");
@@ -291,28 +297,60 @@ describe("call-center handoff", () => {
       "fetch",
       vi.fn(async () => jsonResponse(DIRECT_RESPONSE)),
     );
-    transferSipParticipantMock.mockRejectedValueOnce(new Error("ambiguous"));
+    transferSipParticipantMock.mockRejectedValueOnce(new Error("timeout"));
 
     const state = createState();
     await expect(transferCallerToOffice(state)).rejects.toThrow(
-      "SIP transfer failed.",
+      "SIP transfer outcome is unknown.",
     );
-    expect(state.runtime.transferred).toBe(true);
+    expect(state.runtime.transferState).toBe("ambiguous");
+    expect(state.runtime.transferred).toBe(false);
     expect(transferSipParticipantMock).toHaveBeenCalledTimes(1);
     expect(transferSipParticipantMock.mock.calls[0]?.[2]).toBe(
       DIRECT_RESPONSE.sipUri,
     );
   });
 
-  it("preserves legacy retry state when the phone REFER fails", async () => {
+  it("does not make a phone REFER retryable after an ambiguous failure", async () => {
     vi.stubEnv("ACUITY_HANDOFF_PHONE_FALLBACK_ENABLED", "true");
     transferSipParticipantMock.mockRejectedValueOnce(new Error("rejected"));
     const state = createState();
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
-      "SIP transfer failed.",
+      "SIP transfer outcome is unknown.",
     );
 
+    expect(state.runtime.transferState).toBe("ambiguous");
     expect(state.runtime.transferred).toBe(false);
+  });
+
+  it("keeps a late provider success pending until it is accepted", async () => {
+    vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
+    vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(DIRECT_RESPONSE)),
+    );
+    let accept!: () => void;
+    transferSipParticipantMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          accept = resolve;
+        }),
+    );
+    const state = createState();
+
+    const transfer = transferCallerToOffice(state);
+    await vi.waitFor(() => {
+      expect(state.runtime.transferState).toBe("pending");
+    });
+    expect(state.runtime.transferred).toBe(false);
+
+    accept();
+    await expect(transfer).resolves.toEqual({
+      handoffOfficeKey: "spring-hill",
+      handoffTarget: DIRECT_RESPONSE.sipUri,
+    });
+    expect(state.runtime.transferState).toBe("accepted");
   });
 });

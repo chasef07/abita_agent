@@ -5722,6 +5722,7 @@ describe("direct session state cleanup", () => {
     );
     expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
     expect(result).toBe("Transfer started to the spring-hill office.");
+    expect(state.runtime.transferState).toBe("accepted");
     expect(state.runtime.transferred).toBe(true);
   });
 
@@ -5747,7 +5748,7 @@ describe("direct session state cleanup", () => {
     const state = createState();
     const ctx = createToolContext(state);
     transferCallerToOfficeMock.mockImplementationOnce(async () => {
-      state.runtime.transferred = true;
+      state.runtime.transferState = "ambiguous";
       throw new Error("ambiguous transfer result");
     });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -5761,8 +5762,75 @@ describe("direct session state cleanup", () => {
       toolCallId: "tool-2",
     } as never);
 
-    expect(first).toBe("Could not transfer the call.");
-    expect(second).toBe("Transfer already started.");
+    expect(first).toBe(
+      "The transfer may already be in progress. Do not try again.",
+    );
+    expect(second).toBe(
+      "The transfer may already be in progress. Do not try again.",
+    );
     expect(transferCallerToOfficeMock).toHaveBeenCalledTimes(1);
+    expect(state.runtime.transferred).toBe(false);
+  });
+
+  it("blocks a duplicate invocation while a late success is pending", async () => {
+    const state = createState();
+    const ctx = createToolContext(state);
+    let accept!: () => void;
+    transferCallerToOfficeMock.mockImplementationOnce(async () => {
+      state.runtime.transferState = "pending";
+      await new Promise<void>((resolve) => {
+        accept = resolve;
+      });
+      state.runtime.transferState = "accepted";
+      return {
+        handoffOfficeKey: "spring-hill",
+        handoffTarget: "sip:handoff@example.test",
+      };
+    });
+
+    const first = transfer_call.execute({}, {
+      ctx: ctx as never,
+      toolCallId: "tool-1",
+    } as never);
+    await vi.waitFor(() => {
+      expect(state.runtime.transferState).toBe("pending");
+    });
+    const second = await transfer_call.execute({}, {
+      ctx: ctx as never,
+      toolCallId: "tool-2",
+    } as never);
+
+    expect(second).toBe("Transfer already in progress.");
+    expect(transferCallerToOfficeMock).toHaveBeenCalledTimes(1);
+    expect(state.runtime.transferred).toBe(false);
+
+    accept();
+    await expect(first).resolves.toBe(
+      "Transfer started to the spring-hill office.",
+    );
+    expect(state.runtime.transferState).toBe("accepted");
+    expect(state.runtime.transferred).toBe(true);
+  });
+
+  it("keeps caller disconnect ambiguity out of final transferred state", async () => {
+    const state = createState();
+    const ctx = createToolContext(state);
+    transferCallerToOfficeMock.mockImplementationOnce(async () => {
+      state.runtime.transferState = "pending";
+      state.runtime.transferState = "ambiguous";
+      throw new Error("caller disconnected while transfer was pending");
+    });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await transfer_call.execute({}, {
+      ctx: ctx as never,
+      toolCallId: "tool-1",
+    } as never);
+
+    expect(result).toBe(
+      "The transfer may already be in progress. Do not try again.",
+    );
+    expect(state.runtime.transferState).toBe("ambiguous");
+    expect(state.runtime.transferred).toBe(false);
   });
 });

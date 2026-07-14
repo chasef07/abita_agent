@@ -274,8 +274,11 @@ export function classifyToolOutput(
       }
       return "appointment_lookup_returned";
     case "transfer_call":
-      if (/\btransfer already started\b/.test(outputText)) {
+      if (/\btransfer already (?:in progress|started)\b/.test(outputText)) {
         return "duplicate_tool_call";
+      }
+      if (/\btransfer may already be in progress\b/.test(outputText)) {
+        return "transfer_ambiguous";
       }
       if (
         /\bcould not transfer\b/.test(outputText) ||
