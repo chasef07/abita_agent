@@ -13,6 +13,7 @@ vi.mock("livekit-server-sdk", () => ({
 }));
 
 import { createCanonicalCallState } from "../state/call-state.js";
+import { transferIsAccepted, transferStatus } from "../state/call-lifecycle.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   getOfficeHandoffTarget,
@@ -53,7 +54,6 @@ function createState() {
     preauthRequired: false,
     appointmentsStatus: null,
     appointments: [],
-    transferred: false,
   });
 }
 
@@ -93,8 +93,8 @@ describe("call-center handoff", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
-    expect(state.runtime.transferState).toBe("idle");
-    expect(state.runtime.transferred).toBe(false);
+    expect(transferStatus(state)).toBe("idle");
+    expect(transferIsAccepted(state)).toBe(false);
   });
 
   it("routes Crystal River directly to its configured phone target", async () => {
@@ -176,8 +176,8 @@ describe("call-center handoff", () => {
     expect(vi.mocked(SipClient).mock.calls.at(-1)?.[3]).toEqual({
       failover: false,
     });
-    expect(state.runtime.transferState).toBe("accepted");
-    expect(state.runtime.transferred).toBe(false);
+    expect(transferStatus(state)).toBe("accepted");
+    expect(transferIsAccepted(state)).toBe(true);
   });
 
   it("fails before REFER when the direct response is invalid", async () => {
@@ -339,8 +339,8 @@ describe("call-center handoff", () => {
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "SIP transfer outcome is unknown.",
     );
-    expect(state.runtime.transferState).toBe("ambiguous");
-    expect(state.runtime.transferred).toBe(false);
+    expect(transferStatus(state)).toBe("ambiguous");
+    expect(transferIsAccepted(state)).toBe(false);
     expect(transferSipParticipantMock).toHaveBeenCalledTimes(1);
     expect(transferSipParticipantMock.mock.calls[0]?.[2]).toBe(
       DIRECT_RESPONSE.sipUri,
@@ -356,8 +356,8 @@ describe("call-center handoff", () => {
       "SIP transfer outcome is unknown.",
     );
 
-    expect(state.runtime.transferState).toBe("ambiguous");
-    expect(state.runtime.transferred).toBe(false);
+    expect(transferStatus(state)).toBe("ambiguous");
+    expect(transferIsAccepted(state)).toBe(false);
   });
 
   it("keeps a late provider success pending until it is accepted", async () => {
@@ -378,15 +378,15 @@ describe("call-center handoff", () => {
 
     const transfer = transferCallerToOffice(state);
     await vi.waitFor(() => {
-      expect(state.runtime.transferState).toBe("pending");
+      expect(transferStatus(state)).toBe("pending");
     });
-    expect(state.runtime.transferred).toBe(false);
+    expect(transferIsAccepted(state)).toBe(false);
 
     accept();
     await expect(transfer).resolves.toEqual({
       handoffOfficeKey: "spring-hill",
       handoffTarget: DIRECT_RESPONSE.sipUri,
     });
-    expect(state.runtime.transferState).toBe("accepted");
+    expect(transferStatus(state)).toBe("accepted");
   });
 });

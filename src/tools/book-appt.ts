@@ -1,18 +1,18 @@
 import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
+import { latestBookedAppointmentId } from "../state/appointments.js";
+import { type CallState } from "../state/call-state.js";
+import { activePatientId } from "../state/identity.js";
+import { recordAppointmentAction } from "../state/observability.js";
 import {
-  activePatientId,
   clearAvailabilitySelection,
-  latestBookedAppointmentId,
-  recordAppointmentAction,
-  type CallState,
-} from "../state/call-state.js";
+  removeAvailabilitySlot,
+} from "../state/scheduling.js";
 import {
   appointmentActionStatusForBookingResult,
   bookedSlotAppointmentAnalytics,
 } from "./appointment-analytics.js";
-import { removeAvailabilitySlot } from "./availability-slots.js";
 import { recordBookedAppointmentInState } from "./appointment-state.js";
 import {
   bookedAppointmentMessage,

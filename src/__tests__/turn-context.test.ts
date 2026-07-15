@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { createCanonicalCallState } from "../state/call-state.js";
 import {
   applySchedulingLaneToState,
   applyTurnContextToState,
-  createCanonicalCallState,
-} from "../state/call-state.js";
+  removeAvailabilitySlot,
+} from "../state/scheduling.js";
 
 function createState() {
   return createCanonicalCallState({
@@ -31,7 +32,6 @@ function createState() {
     preauthRequired: false,
     appointmentsStatus: null,
     appointments: [],
-    transferred: false,
   });
 }
 
@@ -113,5 +113,16 @@ describe("turn context state", () => {
       intent: "change_appointment",
       appointmentLane: "not_applicable",
     });
+  });
+
+  it("removes a slot and its private token atomically", () => {
+    const state = createState();
+    seedAvailability(state);
+
+    const remaining = removeAvailabilitySlot(state, "A");
+
+    expect(remaining).toEqual([]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
+    expect(state.availability.latestSearch).toBeUndefined();
   });
 });

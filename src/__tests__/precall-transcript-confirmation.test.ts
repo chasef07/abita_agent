@@ -33,7 +33,6 @@ function createState(): TestCallState {
     preauthRequired: false,
     appointmentsStatus: null,
     appointments: [],
-    transferred: false,
   });
 }
 

@@ -1,15 +1,16 @@
 import { ToolError } from "@livekit/agents";
 import {
-  activePatientDob,
-  activePatientName,
-  availabilityBookingToken,
-  clearAvailabilitySelection,
-  currentWorkflowVisitType,
-  latestAvailabilityRouting,
   type CallState,
   type CallerAppointment,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
+import { activePatientDob, activePatientName } from "../state/identity.js";
+import {
+  availabilityBookingToken,
+  clearAvailabilitySelection,
+  currentWorkflowVisitType,
+  latestAvailabilityRouting,
+} from "../state/scheduling.js";
 import {
   publicProviderName,
   selectedAvailabilitySlot,

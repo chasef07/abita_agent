@@ -6,7 +6,12 @@ import {
   type OfficeKey,
 } from "../customers/profile.js";
 import type { CallState } from "../state/call-state.js";
-import { activeOfficeKey } from "../state/call-state.js";
+import {
+  activeOfficeKey,
+  acceptTransfer,
+  beginTransfer,
+  markTransferAmbiguous,
+} from "../state/call-lifecycle.js";
 
 const HANDOFF_TIMEOUT_MS = 2_000;
 const HANDOFF_TOKEN_MARKER = "~ah1~";
@@ -224,7 +229,7 @@ export async function transferCallerToOffice(
 ): Promise<{ handoffOfficeKey: OfficeKey; handoffTarget: string }> {
   const handoffOfficeKey = getHandoffOfficeKey(state);
   const { mode, target } = await resolveHandoffTarget(state, handoffOfficeKey);
-  state.runtime.transferState = "pending";
+  beginTransfer(state);
   try {
     await getSipClient(mode).transferSipParticipant(
       state.runtime.sipRoomName,
@@ -245,9 +250,9 @@ export async function transferCallerToOffice(
       },
     );
   } catch {
-    state.runtime.transferState = "ambiguous";
+    markTransferAmbiguous(state);
     throw new Error("SIP transfer outcome is unknown.");
   }
-  state.runtime.transferState = "accepted";
+  acceptTransfer(state);
   return { handoffOfficeKey, handoffTarget: target };
 }

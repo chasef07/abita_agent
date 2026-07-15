@@ -5,15 +5,17 @@ import { normalizeInsuranceText } from "../insurance-rules.js";
 import {
   activePatientDob,
   activePatientId,
+  patientBackendRefs,
+  setPatientBackendRefs,
+} from "../state/identity.js";
+import {
   clearAvailabilitySelection,
   insuranceOnFile,
   insuranceSnapshot,
-  patientBackendRefs,
   setInsuranceOnFile,
   setLastInsuranceEligibilityCheck,
-  setPatientBackendRefs,
   setRoutingContext,
-} from "../state/call-state.js";
+} from "../state/scheduling.js";
 import { getAmdOfficeForToolCall } from "./scheduling.js";
 import { getState } from "./session.js";
 

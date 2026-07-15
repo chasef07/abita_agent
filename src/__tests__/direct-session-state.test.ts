@@ -1,26 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const transferCallerToOfficeMock = vi.hoisted(() =>
-  vi.fn(async () => ({
-    handoffOfficeKey: "spring-hill",
-    handoffTarget: "tel:+16182265883",
-  })),
-);
-
-vi.mock("../tools/handoff.js", () => ({
-  transferCallerToOffice: transferCallerToOfficeMock,
-}));
-
 import {
   CALLER_CANDIDATE_REF,
-  appointmentActions,
-  clearAvailabilitySelection,
   createCanonicalCallState,
-  storeAvailabilityBookingToken,
   type CallerAppointment,
   type PreCallContextState,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
+import { appointmentActions } from "../state/observability.js";
+import {
+  clearAvailabilitySelection,
+  storeAvailabilityBookingToken,
+} from "../state/scheduling.js";
 import {
   add_patient,
   book_appointment,
@@ -29,7 +20,6 @@ import {
   get_availability,
   resolve_patient,
   reschedule_appointment,
-  transfer_call,
   update_insurance,
 } from "../tools/index.js";
 
@@ -62,7 +52,6 @@ function createState(): TestCallState {
     preauthRequired: false,
     appointmentsStatus: null,
     appointments: [],
-    transferred: false,
   });
   state.identity.patient.identityConfirmed = true;
   state.availability.slots = [
@@ -407,7 +396,6 @@ describe("direct session state cleanup", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
-    transferCallerToOfficeMock.mockClear();
   });
 
   it("returns plain availability instructions while storing booking tokens privately", async () => {
@@ -2950,7 +2938,6 @@ describe("direct session state cleanup", () => {
       preauthRequired: false,
       appointmentsStatus: null,
       appointments: [],
-      transferred: false,
     });
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -5730,135 +5717,5 @@ describe("direct session state cleanup", () => {
     expect(state.office.activeKey).toBe("crystal-river");
     expect(state.office.phoneOverrides).not.toHaveProperty("spring-hill");
     expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("waits for existing speech before transferring the caller", async () => {
-    const state = createState();
-    const ctx = createToolContext(state);
-
-    const result = await transfer_call.execute({}, {
-      ctx: ctx as never,
-      toolCallId: "tool-1",
-    } as never);
-
-    expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(ctx.waitForPlayout).toHaveBeenCalledTimes(1);
-    expect(ctx.session.generateReply).not.toHaveBeenCalled();
-    expect(ctx.spokenHandle.waitForPlayout).not.toHaveBeenCalled();
-    expect(ctx.waitForPlayout.mock.invocationCallOrder[0]).toBeLessThan(
-      transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0,
-    );
-    expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
-    expect(result).toBe("Transfer started to the spring-hill office.");
-    expect(state.runtime.transferState).toBe("accepted");
-    expect(state.runtime.transferred).toBe(true);
-  });
-
-  it("does not mark the call transferred when handoff fails", async () => {
-    const state = createState();
-    const ctx = createToolContext(state);
-    transferCallerToOfficeMock.mockRejectedValueOnce(
-      new Error("handoff failed"),
-    );
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-    const result = await transfer_call.execute({}, {
-      ctx: ctx as never,
-      toolCallId: "tool-1",
-    } as never);
-
-    expect(result).toBe("Could not transfer the call.");
-    expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
-    expect(state.runtime.transferred).toBe(false);
-  });
-
-  it("does not retry after an ambiguous REFER result", async () => {
-    const state = createState();
-    const ctx = createToolContext(state);
-    transferCallerToOfficeMock.mockImplementationOnce(async () => {
-      state.runtime.transferState = "ambiguous";
-      throw new Error("ambiguous transfer result");
-    });
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-    const first = await transfer_call.execute({}, {
-      ctx: ctx as never,
-      toolCallId: "tool-1",
-    } as never);
-    const second = await transfer_call.execute({}, {
-      ctx: ctx as never,
-      toolCallId: "tool-2",
-    } as never);
-
-    expect(first).toBe(
-      "The transfer may already be in progress. Do not try again.",
-    );
-    expect(second).toBe(
-      "The transfer may already be in progress. Do not try again.",
-    );
-    expect(transferCallerToOfficeMock).toHaveBeenCalledTimes(1);
-    expect(state.runtime.transferred).toBe(false);
-  });
-
-  it("blocks a duplicate invocation while a late success is pending", async () => {
-    const state = createState();
-    const ctx = createToolContext(state);
-    let accept!: () => void;
-    transferCallerToOfficeMock.mockImplementationOnce(async () => {
-      state.runtime.transferState = "pending";
-      await new Promise<void>((resolve) => {
-        accept = resolve;
-      });
-      state.runtime.transferState = "accepted";
-      return {
-        handoffOfficeKey: "spring-hill",
-        handoffTarget: "sip:handoff@example.test",
-      };
-    });
-
-    const first = transfer_call.execute({}, {
-      ctx: ctx as never,
-      toolCallId: "tool-1",
-    } as never);
-    await vi.waitFor(() => {
-      expect(state.runtime.transferState).toBe("pending");
-    });
-    const second = await transfer_call.execute({}, {
-      ctx: ctx as never,
-      toolCallId: "tool-2",
-    } as never);
-
-    expect(second).toBe("Transfer already in progress.");
-    expect(transferCallerToOfficeMock).toHaveBeenCalledTimes(1);
-    expect(state.runtime.transferred).toBe(false);
-
-    accept();
-    await expect(first).resolves.toBe(
-      "Transfer started to the spring-hill office.",
-    );
-    expect(state.runtime.transferState).toBe("accepted");
-    expect(state.runtime.transferred).toBe(true);
-  });
-
-  it("keeps caller disconnect ambiguity out of final transferred state", async () => {
-    const state = createState();
-    const ctx = createToolContext(state);
-    transferCallerToOfficeMock.mockImplementationOnce(async () => {
-      state.runtime.transferState = "pending";
-      state.runtime.transferState = "ambiguous";
-      throw new Error("caller disconnected while transfer was pending");
-    });
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-    const result = await transfer_call.execute({}, {
-      ctx: ctx as never,
-      toolCallId: "tool-1",
-    } as never);
-
-    expect(result).toBe(
-      "The transfer may already be in progress. Do not try again.",
-    );
-    expect(state.runtime.transferState).toBe("ambiguous");
-    expect(state.runtime.transferred).toBe(false);
   });
 });

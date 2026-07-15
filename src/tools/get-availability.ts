@@ -2,15 +2,16 @@ import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import {
-  activePatientDob,
-  activePatientId,
+  type CallState,
+  type SchedulingAppointmentLane,
+} from "../state/call-state.js";
+import { activePatientDob, activePatientId } from "../state/identity.js";
+import {
   activeRoutingContext,
   cachedAvailabilitySearchResult,
   clearAvailabilitySelection,
   setAvailabilitySearchResult,
-  type CallState,
-  type SchedulingAppointmentLane,
-} from "../state/call-state.js";
+} from "../state/scheduling.js";
 import {
   storeAvailabilitySlots,
   type AvailabilityTimePreference,

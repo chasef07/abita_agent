@@ -9,10 +9,11 @@ import {
   withAppointmentActionToolExecutionFallback,
 } from "../call-observability.js";
 import {
-  appointmentActions,
   type CallState,
   type RuntimeVoiceLanguageState,
 } from "../state/call-state.js";
+import { appointmentActions } from "../state/observability.js";
+import { transferIsAccepted } from "../state/call-lifecycle.js";
 import type { getLlmOptions } from "../model-config.js";
 import type { SttLanguageDetector } from "../stt-language-detector.js";
 import {
@@ -90,11 +91,12 @@ export function attachShutdownAnalytics(
       const callState = isCallStateInitialized() ? session.userData : null;
       const runtime = callState?.runtime;
       const endedAt = new Date();
-      const status = runtime?.transferred
-        ? "ESCALATED"
-        : callState
-          ? "COMPLETED"
-          : "FAILED";
+      const status =
+        callState && transferIsAccepted(callState)
+          ? "ESCALATED"
+          : callState
+            ? "COMPLETED"
+            : "FAILED";
       const endedReason = callDurationDeadline.exceeded()
         ? "duration_limit"
         : callState

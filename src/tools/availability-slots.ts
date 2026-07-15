@@ -1,11 +1,14 @@
 import {
-  availabilitySlotsForState,
-  clearAvailabilitySelection,
-  reserveAvailabilitySlotIds,
-  storeAvailabilityBookingToken,
   type CallState,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
+import {
+  availabilitySlotsForState,
+  clearAvailabilitySelection,
+  mergeAvailabilitySlots,
+  reserveAvailabilitySlotIds,
+  storeAvailabilityBookingToken,
+} from "../state/scheduling.js";
 
 type AvailabilitySearchSummary = {
   requestedDate?: string;
@@ -25,25 +28,6 @@ type AvailabilityToolResponse = {
 export type AvailabilityTimePreference = "morning" | "afternoon" | "none";
 
 const MAX_AVAILABILITY_SLOT_OFFERS = 2;
-
-export function removeAvailabilitySlot(
-  state: CallState,
-  slotId: string,
-): StoredAvailabilitySlot[] {
-  const normalized = normalizeSlotId(slotId);
-  state.availability.slots = state.availability.slots.filter(
-    (slot) => normalizeSlotId(slot.slotId) !== normalized,
-  );
-  for (const storedSlotId of Object.keys(
-    state.availability.bookingTokensBySlotId,
-  )) {
-    if (normalizeSlotId(storedSlotId) === normalized) {
-      delete state.availability.bookingTokensBySlotId[storedSlotId];
-    }
-  }
-  state.availability.latestSearch = undefined;
-  return availabilitySlotsForState(state);
-}
 
 export function selectedAvailabilitySlot(
   state: CallState,
@@ -96,11 +80,7 @@ export function storeAvailabilitySlots(
     storedSlots.push({ ...candidate, slotId });
   }
 
-  state.availability.slots = mergeAvailabilitySlots(
-    availabilitySlotsForState(state),
-    storedSlots,
-  );
-  state.availability.latestRouting = routing;
+  mergeAvailabilitySlots(state, storedSlots, routing);
   offeredSlots.forEach((slot, index) => {
     storeAvailabilityBookingToken(
       state,
@@ -468,24 +448,6 @@ function cleanAvailabilityResponse(input: {
     }),
     cacheable,
   };
-}
-
-function mergeAvailabilitySlots(
-  existingSlots: StoredAvailabilitySlot[],
-  newSlots: StoredAvailabilitySlot[],
-): StoredAvailabilitySlot[] {
-  const mergedSlots = [...existingSlots];
-  for (const slot of newSlots) {
-    const existingIndex = mergedSlots.findIndex((existingSlot) =>
-      sameAvailabilitySlot(existingSlot, slot),
-    );
-    if (existingIndex >= 0) {
-      mergedSlots[existingIndex] = slot;
-    } else {
-      mergedSlots.push(slot);
-    }
-  }
-  return mergedSlots;
 }
 
 function sameAvailabilitySlot(

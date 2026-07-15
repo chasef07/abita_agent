@@ -10,10 +10,8 @@ import type {
   PreCallLookupTelemetry,
   PreCallContextState,
 } from "../state/call-state.js";
-import {
-  CALLER_CANDIDATE_REF,
-  publicCallerAppointments,
-} from "../state/call-state.js";
+import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
+import { publicCallerAppointments } from "../state/appointments.js";
 
 interface PreCallBootstrap {
   office: OfficeConfig;

@@ -1,12 +1,11 @@
 import { getOfficeConfig } from "../customers/profile.js";
+import { activeAppointments } from "../state/appointments.js";
+import { activeOfficeKey } from "../state/call-lifecycle.js";
+import { type CallerAppointment, type CallState } from "../state/call-state.js";
 import {
-  activeAppointments,
-  activeOfficeKey,
   activeRoutingContext,
   currentWorkflowVisitType,
-  type CallerAppointment,
-  type CallState,
-} from "../state/call-state.js";
+} from "../state/scheduling.js";
 
 export function getAmdOfficeForToolCall(state: CallState): string {
   return (

@@ -7,27 +7,29 @@ import {
   type OfficeKey,
 } from "../customers/profile.js";
 import {
-  activePatientId,
-  clearAvailabilitySelection,
   completedRescheduleForPatient,
-  latestAvailabilityRouting,
-  recordAppointmentAction,
   recordCompletedRescheduleForPatient,
+  removeActiveAppointment,
+} from "../state/appointments.js";
+import {
   type CallerAppointment,
   type CallState,
   type CompletedRescheduleState,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
+import { activePatientId } from "../state/identity.js";
+import { recordAppointmentAction } from "../state/observability.js";
+import {
+  clearAvailabilitySelection,
+  latestAvailabilityRouting,
+  removeAvailabilitySlot,
+} from "../state/scheduling.js";
 import {
   bookedSlotAppointmentAnalytics,
   cancelledAppointmentAnalytics,
 } from "./appointment-analytics.js";
+import { selectedAvailabilitySlot } from "./availability-slots.js";
 import {
-  removeAvailabilitySlot,
-  selectedAvailabilitySlot,
-} from "./availability-slots.js";
-import {
-  removeAppointmentById,
   recordBookedAppointmentInState,
   rescheduleAppointmentForState,
 } from "./appointment-state.js";
@@ -245,7 +247,7 @@ export const reschedule_appointment = tool({
       return message;
     }
 
-    removeAppointmentById(state, oldAppointment.id);
+    removeActiveAppointment(state, oldAppointment.id);
     recordCompletedReschedule(state, patientId, selectedSlot, "rescheduled");
     const message = rescheduledAppointmentMessage(
       selectedSlot,
