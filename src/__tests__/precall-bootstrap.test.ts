@@ -1,10 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/profile.js";
 import { lookupByPhone } from "../clients/advancedmd-client.js";
-import {
-  buildPreCallContextState,
-  loadPreCallBootstrap,
-} from "../runtime/precall-bootstrap.js";
+import { loadPreCallBootstrap } from "../runtime/precall-bootstrap.js";
 
 describe("pre-call bootstrap", () => {
   afterEach(() => {
@@ -111,7 +108,7 @@ describe("pre-call bootstrap", () => {
 
     expect(bootstrap).toMatchObject({
       office: { key: "spring-hill" },
-      verified: {
+      phoneLookup: {
         patientId: "patient-1",
         name: "Doe, Jane",
         appointmentsStatus: "none",
@@ -166,91 +163,6 @@ describe("pre-call bootstrap", () => {
       phone: "+17275551212",
       appointmentsStatus: "found",
       appointments: [expect.objectContaining({ id: 12345 })],
-    });
-  });
-
-  it("maps lookup outcomes into session pre-call state", () => {
-    const single = buildPreCallContextState(
-      {
-        status: "verified",
-        patientId: "patient-1",
-        name: "Doe, Jane",
-        dob: "01/01/1980",
-        phone: "+17275551212",
-        insuranceCarrier: "Aetna",
-        insPlanId: "plan-1",
-        respPartyId: "resp-1",
-        routing: "all_three",
-        allowedProviders: ["Dr. Bach"],
-        routingAmbiguous: false,
-        appointmentsStatus: "found",
-        appointmentsMessage: null,
-        appointments: [
-          {
-            id: 12345,
-            date: "2026-06-01",
-            time: "9:00 AM",
-            provider: "Dr. Bach",
-            type: "Follow-up",
-            facility: "Spring Hill",
-            confirmed: true,
-          },
-        ],
-      },
-      "+17275551212",
-    );
-
-    expect(single).toMatchObject({
-      status: "single_match_pending_confirmation",
-      selectedCandidateRef: "caller",
-      appointmentLoadStatus: "found",
-      candidates: [
-        {
-          ref: "caller",
-          firstName: "Jane",
-          lastName: "Doe",
-          patientId: "patient-1",
-          relationshipToCaller: "self",
-          insuranceCarrier: "Aetna",
-          insPlanId: "plan-1",
-          respPartyId: "resp-1",
-          routing: "all_three",
-          allowedProviders: ["Dr. Bach"],
-        },
-      ],
-    });
-
-    const multiple = buildPreCallContextState(
-      {
-        status: "multiple_matches",
-        message: "multiple",
-        matches: [{ firstName: "Jane" }, { firstName: "Maria" }],
-      },
-      "+17275551212",
-    );
-
-    expect(multiple).toMatchObject({
-      status: "multiple_matches_pending_selection",
-      candidates: [
-        { ref: "precall:1", firstName: "Jane" },
-        { ref: "precall:2", firstName: "Maria" },
-      ],
-    });
-
-    expect(
-      buildPreCallContextState(
-        {
-          status: "lookup_failed",
-          phone: "+17275551212",
-          reason: "network_error",
-          retryable: true,
-        },
-        "+17275551212",
-      ),
-    ).toMatchObject({
-      status: "lookup_failed",
-      failureReason: "network_error",
-      retryable: true,
     });
   });
 
@@ -312,8 +224,6 @@ describe("pre-call bootstrap", () => {
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );
-    const preCall = buildPreCallContextState(result, "+17275551212");
-
     expect(result).toMatchObject({
       status: "multiple_matches",
       matches: [
@@ -326,32 +236,6 @@ describe("pre-call bootstrap", () => {
           status: "verified",
           patientId: "patient-2",
           appointmentsStatus: "none",
-        },
-      ],
-    });
-    expect(preCall).toMatchObject({
-      status: "multiple_matches_pending_selection",
-      candidates: [
-        {
-          ref: "precall:1",
-          firstName: "Jane",
-          lastName: "Doe",
-          patientId: "patient-1",
-          appointmentsStatus: "found",
-          insuranceCarrier: "Aetna",
-          routing: "all_three",
-          allowedProviders: ["Dr. Bach"],
-          preauthRequired: false,
-        },
-        {
-          ref: "precall:2",
-          firstName: "Maria",
-          lastName: "Doe",
-          patientId: "patient-2",
-          appointmentsStatus: "none",
-          insuranceCarrier: "Humana",
-          routing: "bach_only",
-          preauthRequired: true,
         },
       ],
     });

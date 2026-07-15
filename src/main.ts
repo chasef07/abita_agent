@@ -16,14 +16,12 @@ import * as rime from "@livekit/agents-plugin-rime";
 import { fileURLToPath } from "node:url";
 import { createAgent } from "./agent.js";
 import {
-  createCanonicalCallState,
   type CallState,
   type RuntimeVoiceLanguageState,
 } from "./state/call-state.js";
-import { publicCallerAppointments } from "./state/appointments.js";
+import { createInitialCallState } from "./state/initial-call-state.js";
 import { transferIsAccepted } from "./state/call-lifecycle.js";
 import {
-  buildPreCallContextState,
   formatPhoneLookupLogLine,
   loadPreCallBootstrap,
 } from "./runtime/precall-bootstrap.js";
@@ -266,11 +264,10 @@ export default defineAgent({
       );
 
       // Phone lookup before session start so context is ready for the first LLM turn.
-      const preCall = await loadPreCallBootstrap({ callerPhone, trunkPhone });
-      const { office, phoneLookup, verified } = preCall;
-      console.log(formatPhoneLookupLogLine(callerPhone, phoneLookup));
+      const bootstrap = await loadPreCallBootstrap({ callerPhone, trunkPhone });
+      console.log(formatPhoneLookupLogLine(callerPhone, bootstrap.phoneLookup));
 
-      const agent = createAgent(phoneLookup, trunkPhone, {
+      const agent = createAgent(bootstrap.phoneLookup, trunkPhone, {
         onLanguageDecision: (decision) => {
           const voiceLanguage = applyLanguageDecisionToTts(decision);
           if (voiceLanguage) {
@@ -280,36 +277,18 @@ export default defineAgent({
         sttLanguageDetector,
       });
 
-      session.userData = createCanonicalCallState({
-        preCall: buildPreCallContextState(phoneLookup, callerPhone),
-        preCallLookup: preCall.telemetry,
-        officeKey: office.key,
-        amdOfficePhone: office.amdOfficePhone,
-        sipRoomName: roomName,
-        sipParticipantIdentity: participant.identity ?? "",
-        callId,
-        callerPhone,
-        trunkPhone,
-        patientId: verified?.patientId ?? null,
-        patientName: verified?.name ?? null,
-        dob: verified?.dob ?? null,
-        insuranceCarrier: verified?.insuranceCarrier ?? null,
-        insPlanId: verified?.insPlanId ?? null,
-        respPartyId: verified?.respPartyId ?? null,
-        checkedInsurancePlan: verified?.insuranceCarrier ?? null,
-        checkedInsuranceCoverageType: null,
-        routing: verified?.routing ?? null,
-        lastAvailabilityRouting: null,
-        lastAvailabilitySlots: [],
-        bookableAvailabilitySlots: [],
-        allowedProviders: verified?.allowedProviders ?? [],
-        routingAmbiguous: verified?.routingAmbiguous ?? false,
-        preauthRequired: verified?.preauthRequired ?? false,
-        appointmentsStatus: verified?.appointmentsStatus ?? null,
-        appointments: publicCallerAppointments(verified?.appointments),
+      session.userData = createInitialCallState({
+        call: {
+          callId,
+          callerPhone,
+          trunkPhone,
+          sipRoomName: roomName,
+          sipParticipantIdentity: participant.identity ?? "",
+        },
+        bootstrap,
         voiceLanguage: initialVoiceLanguage,
+        maxDurationMs: MAX_CALL_DURATION_MS,
       });
-      session.userData.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;
       callStateInitialized = true;
 
       await session.start({
