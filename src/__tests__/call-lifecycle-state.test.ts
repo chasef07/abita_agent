@@ -9,8 +9,8 @@ import {
   transferStatus,
 } from "../state/call-lifecycle.js";
 
-describe("transfer state", () => {
-  it("owns the transfer lifecycle behind one state interface", () => {
+describe("call lifecycle state", () => {
+  it("tracks the transfer lifecycle and latest caller transcript", () => {
     const state = createTestCallState();
 
     expect(transferStatus(state)).toBe("idle");

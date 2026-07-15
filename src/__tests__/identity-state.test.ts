@@ -19,14 +19,10 @@ function createState() {
     patientName: "Jane Doe",
     dob: "01/01/1980",
     insuranceCarrier: "self pay",
-    insPlanId: null,
-    respPartyId: null,
     checkedInsurancePlan: "self pay",
     checkedInsuranceCoverageType: "medical",
     routing: "all_three",
     lastAvailabilityRouting: "all_three",
-    lastAvailabilitySlots: [],
-    allowedProviders: [],
   });
   state.identity.patient.identityConfirmed = true;
   return state;

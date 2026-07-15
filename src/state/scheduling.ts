@@ -251,7 +251,7 @@ export function mergeAvailabilitySlots(
   state.availability.latestRouting = routing;
 }
 
-export function normalizeSchedulingRouting(
+function normalizeSchedulingRouting(
   value: string | null | undefined,
 ): SchedulingRouting | null {
   return value === "bach_only" ||

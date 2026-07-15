@@ -71,7 +71,7 @@ export function removeActiveAppointment(
     );
 }
 
-export function removeBookedAppointmentReference(
+function removeBookedAppointmentReference(
   state: CallState,
   appointmentId: number,
 ): void {
@@ -91,7 +91,7 @@ export function latestBookedAppointmentId(state: CallState): number | null {
   return state.identity.latestBookedAppointmentId ?? null;
 }
 
-export function recordCompletedCancellation(
+function recordCompletedCancellation(
   state: CallState,
   patientId: string,
   appointment: CallerAppointment,

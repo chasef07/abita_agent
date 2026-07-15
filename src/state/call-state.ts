@@ -146,12 +146,6 @@ export interface WorkflowTurnContext {
   appointmentLane: AppointmentLane;
 }
 
-export interface PatientIdentitySnapshot {
-  patientId?: string | null;
-  name?: string | null;
-  dob?: string | null;
-}
-
 export interface CompletedRescheduleState {
   status: "rescheduled" | "needs_human_cancellation";
   appointmentDescription: string;

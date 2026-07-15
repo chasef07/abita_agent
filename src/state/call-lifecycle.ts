@@ -3,21 +3,11 @@ import {
   type OfficeKey,
 } from "../customers/profile.js";
 import type { CallState } from "./call-state.js";
-import { setLastInsuranceEligibilityCheck } from "./scheduling.js";
 
 export type TransferState = "idle" | "pending" | "accepted" | "ambiguous";
 
 export function activeOfficeKey(state: CallState): OfficeKey {
   return state.office.activeKey;
-}
-
-export function setActiveOfficeKey(
-  state: CallState,
-  officeKey: OfficeKey,
-): void {
-  if (state.office.activeKey === officeKey) return;
-  state.office.activeKey = officeKey;
-  setLastInsuranceEligibilityCheck(state, null);
 }
 
 export function resetActiveOfficeToTrunk(state: CallState): void {

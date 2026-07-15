@@ -12,13 +12,13 @@ vi.mock("livekit-server-sdk", () => ({
   }),
 }));
 
-import { createCanonicalCallState } from "../state/call-state.js";
 import { transferIsAccepted, transferStatus } from "../state/call-lifecycle.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   getOfficeHandoffTarget,
 } from "../customers/profile.js";
 import { transferCallerToOffice } from "../tools/handoff.js";
+import { createTestCallState } from "./support/call-state.js";
 
 const DIRECT_TOKEN = "a".repeat(43);
 const DIRECT_RESPONSE = {
@@ -29,32 +29,7 @@ const DIRECT_RESPONSE = {
 };
 
 function createState() {
-  return createCanonicalCallState({
-    preCallLookup: { status: "not_attempted", durationMs: null },
-    officeKey: "spring-hill",
-    amdOfficePhone: "+17275919997",
-    sipRoomName: "test-room",
-    sipParticipantIdentity: "sip-caller",
-    callId: "call-test",
-    callerPhone: "+17275551212",
-    trunkPhone: "+17275919997",
-    patientId: null,
-    patientName: null,
-    dob: null,
-    insuranceCarrier: null,
-    insPlanId: null,
-    respPartyId: null,
-    checkedInsurancePlan: null,
-    checkedInsuranceCoverageType: null,
-    routing: null,
-    lastAvailabilityRouting: null,
-    lastAvailabilitySlots: [],
-    allowedProviders: [],
-    routingAmbiguous: false,
-    preauthRequired: false,
-    appointmentsStatus: null,
-    appointments: [],
-  });
+  return createTestCallState();
 }
 
 function jsonResponse(body: unknown, status = 200): Response {

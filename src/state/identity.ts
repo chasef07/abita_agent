@@ -2,7 +2,6 @@ import type {
   AppointmentLoadStatus,
   CallState,
   CallerAppointment,
-  PatientIdentitySnapshot,
 } from "./call-state.js";
 import { resetActiveOfficeToTrunk } from "./call-lifecycle.js";
 import {
@@ -15,6 +14,12 @@ import {
 interface PatientBackendRefs {
   insPlanId?: string | null;
   respPartyId?: string | null;
+}
+
+interface PatientIdentitySnapshot {
+  patientId?: string | null;
+  name?: string | null;
+  dob?: string | null;
 }
 
 export interface ActivePatientInput {
@@ -148,7 +153,7 @@ export function resetPatientScopedWork(
   resetActiveOfficeToTrunk(state);
 }
 
-export function snapshotActivePatientIdentity(
+function snapshotActivePatientIdentity(
   state: CallState,
 ): PatientIdentitySnapshot {
   return {
@@ -156,20 +161,6 @@ export function snapshotActivePatientIdentity(
     name: state.identity.patient.name,
     dob: state.identity.patient.dob,
   };
-}
-
-export function hasActivePatientIdentityChanged(
-  state: CallState,
-  previous: PatientIdentitySnapshot,
-): boolean {
-  return (
-    changedKnownIdentityValue(
-      previous.patientId,
-      state.identity.patient.patientId,
-    ) ||
-    changedKnownIdentityValue(previous.name, state.identity.patient.name) ||
-    changedKnownIdentityValue(previous.dob, state.identity.patient.dob)
-  );
 }
 
 function identityDiffers(

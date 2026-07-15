@@ -1,38 +1,16 @@
 import { describe, expect, it } from "vitest";
-import {
-  CALLER_CANDIDATE_REF,
-  createCanonicalCallState,
-} from "../state/call-state.js";
+import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
 import { confirmPreCallIdentityFromTranscript } from "../runtime/precall-transcript-confirmation.js";
+import { createTestCallState } from "./support/call-state.js";
 
-type TestCallState = ReturnType<typeof createCanonicalCallState>;
+type TestCallState = ReturnType<typeof createTestCallState>;
 
 function createState(): TestCallState {
-  return createCanonicalCallState({
-    preCallLookup: { status: "not_attempted", durationMs: null },
+  return createTestCallState({
     officeKey: "crystal-river",
     amdOfficePhone: "+13523202007",
-    sipRoomName: "test-room",
-    sipParticipantIdentity: "sip-caller",
-    callId: "call-test",
     callerPhone: "+19546097250",
     trunkPhone: "+13523202007",
-    patientId: null,
-    patientName: null,
-    dob: null,
-    insuranceCarrier: null,
-    insPlanId: null,
-    respPartyId: null,
-    checkedInsurancePlan: null,
-    checkedInsuranceCoverageType: null,
-    routing: null,
-    lastAvailabilityRouting: null,
-    lastAvailabilitySlots: [],
-    allowedProviders: [],
-    routingAmbiguous: false,
-    preauthRequired: false,
-    appointmentsStatus: null,
-    appointments: [],
   });
 }
 

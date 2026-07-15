@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   CALLER_CANDIDATE_REF,
-  createCanonicalCallState,
   type CallerAppointment,
   type PreCallContextState,
   type StoredAvailabilitySlot,
@@ -22,36 +21,21 @@ import {
   reschedule_appointment,
   update_insurance,
 } from "../tools/index.js";
+import { createTestCallState } from "./support/call-state.js";
 
-type TestCallState = ReturnType<typeof createCanonicalCallState>;
+type TestCallState = ReturnType<typeof createTestCallState>;
 type PreCallCandidate = PreCallContextState["candidates"][number];
 
 function createState(): TestCallState {
-  const state = createCanonicalCallState({
-    preCallLookup: { status: "not_attempted", durationMs: null },
-    officeKey: "spring-hill",
-    amdOfficePhone: "+17275919997",
-    sipRoomName: "test-room",
-    sipParticipantIdentity: "sip-caller",
-    callId: "call-test",
-    callerPhone: "+17275551212",
-    trunkPhone: "+17275919997",
+  const state = createTestCallState({
     patientId: "patient-1",
     patientName: "Jane Doe",
     dob: "01/01/1980",
     insuranceCarrier: "self pay",
-    insPlanId: null,
-    respPartyId: null,
     checkedInsurancePlan: "self pay",
     checkedInsuranceCoverageType: "medical",
     routing: "all_three",
     lastAvailabilityRouting: "all_three",
-    lastAvailabilitySlots: [],
-    allowedProviders: [],
-    routingAmbiguous: false,
-    preauthRequired: false,
-    appointmentsStatus: null,
-    appointments: [],
   });
   state.identity.patient.identityConfirmed = true;
   state.availability.slots = [
@@ -387,7 +371,7 @@ function oldAppointmentRefForOrdinal(message: string, ordinal: number): string {
   return match[0];
 }
 
-describe("direct session state cleanup", () => {
+describe("stateful call tools", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-30T16:00:00.000Z"));
@@ -2871,7 +2855,7 @@ describe("direct session state cleanup", () => {
   });
 
   it("confirms a pre-call single match from full identity without middleware lookup", async () => {
-    const state = createCanonicalCallState({
+    const state = createTestCallState({
       preCall: {
         status: "single_match_pending_confirmation",
         source: "phone_lookup",
@@ -2915,29 +2899,6 @@ describe("direct session state cleanup", () => {
         candidateCount: 1,
         appointmentsStatus: "found",
       },
-      officeKey: "spring-hill",
-      amdOfficePhone: "+17275919997",
-      sipRoomName: "test-room",
-      sipParticipantIdentity: "sip-caller",
-      callId: "call-test",
-      callerPhone: "+17275551212",
-      trunkPhone: "+17275919997",
-      patientId: null,
-      patientName: null,
-      dob: null,
-      insuranceCarrier: null,
-      insPlanId: null,
-      respPartyId: null,
-      checkedInsurancePlan: null,
-      checkedInsuranceCoverageType: null,
-      routing: null,
-      lastAvailabilityRouting: null,
-      lastAvailabilitySlots: [],
-      allowedProviders: [],
-      routingAmbiguous: false,
-      preauthRequired: false,
-      appointmentsStatus: null,
-      appointments: [],
     });
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
