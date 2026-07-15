@@ -9,6 +9,7 @@ import {
   type CallState,
   type PhoneLookupResult,
   type PreCallContextState,
+  type PreCallLookupTelemetry,
   type RuntimeVoiceLanguageState,
 } from "./call-state.js";
 
@@ -46,7 +47,7 @@ export function createInitialCallState({
   const verified = seed.verified;
   const state = createCanonicalCallState({
     preCall: preCallContext(seed, call.callerPhone),
-    preCallLookup: bootstrap.telemetry,
+    preCallLookup: preCallLookupTelemetry(seed.lookup),
     officeKey: bootstrap.office.key,
     amdOfficePhone: bootstrap.office.amdOfficePhone,
     sipRoomName: call.sipRoomName,
@@ -90,6 +91,36 @@ function normalizeCallerMatch(match: CallerMatch): NormalizedCallerMatch {
   return {
     ...match,
     appointments: publicCallerAppointments(match.appointments),
+  };
+}
+
+function preCallLookupTelemetry(
+  lookup: PhoneLookupResult,
+): PreCallLookupTelemetry {
+  if (!lookup) {
+    return {
+      status: "not_attempted",
+      durationMs: null,
+    };
+  }
+
+  return {
+    status: lookup.status,
+    durationMs: lookup.lookupDurationMs ?? null,
+    ...(lookup.status === "verified"
+      ? { candidateCount: 1, appointmentsStatus: lookup.appointmentsStatus }
+      : {}),
+    ...(lookup.status === "multiple_matches"
+      ? { candidateCount: lookup.matches.length }
+      : {}),
+    ...(lookup.status === "no_match" ? { candidateCount: 0 } : {}),
+    ...(lookup.status === "lookup_failed"
+      ? {
+          candidateCount: 0,
+          failureReason: lookup.reason,
+          retryable: lookup.retryable,
+        }
+      : {}),
   };
 }
 

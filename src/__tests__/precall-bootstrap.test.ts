@@ -79,7 +79,7 @@ describe("pre-call bootstrap", () => {
     });
   });
 
-  it("builds bootstrap state with lookup telemetry", async () => {
+  it("builds bootstrap state from the phone lookup", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({
@@ -112,9 +112,7 @@ describe("pre-call bootstrap", () => {
         patientId: "patient-1",
         name: "Doe, Jane",
         appointmentsStatus: "none",
-      },
-      telemetry: {
-        status: "verified",
+        lookupDurationMs: expect.any(Number),
       },
     });
     expect(String(fetchMock.mock.calls[0][0])).toContain(
@@ -123,7 +121,6 @@ describe("pre-call bootstrap", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       phone: "+17275551212",
     });
-    expect(bootstrap.telemetry.durationMs).toEqual(expect.any(Number));
   });
 
   it("accepts verified phone lookups when middleware omits echoed phone", async () => {

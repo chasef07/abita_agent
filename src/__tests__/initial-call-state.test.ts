@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getOfficeConfigByPhone } from "../customers/profile.js";
 import { createInitialCallState } from "../state/initial-call-state.js";
-import type {
-  PhoneLookupResult,
-  PreCallLookupTelemetry,
-} from "../state/call-state.js";
+import type { PhoneLookupResult } from "../state/call-state.js";
 
 const callerPhone = "+17275551212";
 const trunkPhone = "+17275919997";
@@ -22,19 +19,10 @@ const voiceLanguage = {
   speaker: "astra",
 };
 
-function bootstrap(
-  phoneLookup: PhoneLookupResult,
-  telemetry: PreCallLookupTelemetry = phoneLookup
-    ? {
-        status: phoneLookup.status,
-        durationMs: phoneLookup.lookupDurationMs ?? null,
-      }
-    : { status: "not_attempted", durationMs: null },
-) {
+function bootstrap(phoneLookup: PhoneLookupResult) {
   return {
     office: getOfficeConfigByPhone(trunkPhone),
     phoneLookup,
-    telemetry,
   };
 }
 
@@ -42,43 +30,35 @@ describe("initial call state", () => {
   it("promotes one verified lookup into pre-call and active patient state", () => {
     const state = createInitialCallState({
       call,
-      bootstrap: bootstrap(
-        {
-          status: "verified",
-          patientId: "patient-1",
-          name: "Doe, Jane",
-          dob: "01/01/1980",
-          phone: callerPhone,
-          insuranceCarrier: "Aetna",
-          insPlanId: "plan-1",
-          respPartyId: "resp-1",
-          routing: "all_three",
-          allowedProviders: ["Dr. Bach"],
-          routingAmbiguous: false,
-          preauthRequired: true,
-          appointmentsStatus: "found",
-          appointmentsMessage: "Appointments found",
-          appointments: [
-            {
-              id: 12345,
-              date: "2026-07-20",
-              time: "9:00 AM",
-              provider: "Dr. Bach",
-              type: "Follow-up",
-              appointmentTypeId: 42,
-              facility: "Spring Hill",
-              confirmed: true,
-            },
-          ],
-          lookupDurationMs: 37,
-        },
-        {
-          status: "verified",
-          durationMs: 37,
-          candidateCount: 1,
-          appointmentsStatus: "found",
-        },
-      ),
+      bootstrap: bootstrap({
+        status: "verified",
+        patientId: "patient-1",
+        name: "Doe, Jane",
+        dob: "01/01/1980",
+        phone: callerPhone,
+        insuranceCarrier: "Aetna",
+        insPlanId: "plan-1",
+        respPartyId: "resp-1",
+        routing: "all_three",
+        allowedProviders: ["Dr. Bach"],
+        routingAmbiguous: false,
+        preauthRequired: true,
+        appointmentsStatus: "found",
+        appointmentsMessage: "Appointments found",
+        appointments: [
+          {
+            id: 12345,
+            date: "2026-07-20",
+            time: "9:00 AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            appointmentTypeId: 42,
+            facility: "Spring Hill",
+            confirmed: true,
+          },
+        ],
+        lookupDurationMs: 37,
+      }),
       voiceLanguage,
       maxDurationMs: 900_000,
     });
@@ -293,7 +273,7 @@ describe("initial call state", () => {
     ({ lookup, expectedPreCall, telemetry }) => {
       const state = createInitialCallState({
         call,
-        bootstrap: bootstrap(lookup, telemetry),
+        bootstrap: bootstrap(lookup),
         voiceLanguage,
         maxDurationMs: 900_000,
       });

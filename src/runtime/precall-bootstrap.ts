@@ -3,15 +3,11 @@ import {
   type OfficeConfig,
 } from "../customers/profile.js";
 import { lookupByPhone } from "../clients/advancedmd-client.js";
-import type {
-  PhoneLookupResult,
-  PreCallLookupTelemetry,
-} from "../state/call-state.js";
+import type { PhoneLookupResult } from "../state/call-state.js";
 
 export interface PreCallBootstrap {
   office: OfficeConfig;
   phoneLookup: PhoneLookupResult;
-  telemetry: PreCallLookupTelemetry;
 }
 
 export async function loadPreCallBootstrap({
@@ -27,37 +23,6 @@ export async function loadPreCallBootstrap({
   return {
     office,
     phoneLookup,
-    telemetry: preCallLookupTelemetry(phoneLookup),
-  };
-}
-
-function preCallLookupTelemetry(
-  lookup: PhoneLookupResult,
-): PreCallLookupTelemetry {
-  if (!lookup) {
-    return {
-      status: "not_attempted",
-      durationMs: null,
-    };
-  }
-
-  return {
-    status: lookup.status,
-    durationMs: lookup.lookupDurationMs ?? null,
-    ...(lookup.status === "verified"
-      ? { candidateCount: 1, appointmentsStatus: lookup.appointmentsStatus }
-      : {}),
-    ...(lookup.status === "multiple_matches"
-      ? { candidateCount: lookup.matches.length }
-      : {}),
-    ...(lookup.status === "no_match" ? { candidateCount: 0 } : {}),
-    ...(lookup.status === "lookup_failed"
-      ? {
-          candidateCount: 0,
-          failureReason: lookup.reason,
-          retryable: lookup.retryable,
-        }
-      : {}),
   };
 }
 
