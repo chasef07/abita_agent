@@ -503,7 +503,10 @@
       "status": "accepted",
       "canonicalPlan": "Humana Medicare HMO",
       "displayName": "Humana Medicare HMO",
-      "aliases": [],
+      "aliases": [
+        "Humana Gold Plus",
+        "Humana Gold"
+      ],
       "canProceed": true,
       "needsExactPlanName": false
     },
@@ -998,17 +1001,6 @@
       "canonicalPlan": "Florida Blue Select",
       "displayName": "Florida Blue Select",
       "aliases": [],
-      "canProceed": false,
-      "needsExactPlanName": false
-    },
-    {
-      "id": "not-accepted-humana-gold-plus",
-      "status": "not_accepted",
-      "canonicalPlan": "Humana Gold Plus",
-      "displayName": "Humana Gold Plus",
-      "aliases": [
-        "Humana Gold"
-      ],
       "canProceed": false,
       "needsExactPlanName": false
     },

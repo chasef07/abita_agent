@@ -530,6 +530,47 @@ describe("insurance matcher", () => {
     expect(crystalRiverHumana.status).toBe("not_accepted");
   });
 
+  it("maps Humana Gold medical plans to Humana Medicare HMO for Hollywood and Sweetwater", () => {
+    for (const office of ["hollywood", "sweetwater"] as const) {
+      for (const query of [
+        "Humana Gold Plus",
+        "Humana Gold",
+        "Humana Medicare HMO",
+      ]) {
+        const result = matchInsurancePlanForOffice(office, query, "medical");
+
+        expect(result.status, `${office} ${query}`).toBe("accepted");
+        expect(result.canProceed, `${office} ${query}`).toBe(true);
+        expect(result.preauthRequired, `${office} ${query}`).toBe(false);
+        expect(canonicalInsurancePlan(result), `${office} ${query}`).toBe(
+          "Humana Medicare HMO",
+        );
+      }
+    }
+  });
+
+  it("keeps other office and routine vision Humana Gold policies unchanged", () => {
+    for (const office of ["spring-hill", "crystal-river"] as const) {
+      const result = matchInsurancePlanForOffice(
+        office,
+        "Humana Gold Plus",
+        "medical",
+      );
+
+      expect(result.status, office).toBe("not_accepted");
+      expect(result.canProceed, office).toBe(false);
+      expect(canonicalInsurancePlan(result), office).toBeNull();
+    }
+
+    const routineVision = matchInsurancePlanForOffice(
+      "hollywood",
+      "Humana Gold Plus",
+      "routine_vision",
+    );
+    expect(routineVision.status).toBe("accepted");
+    expect(canonicalInsurancePlan(routineVision)).toBe("iCare");
+  });
+
   it("uses the Hollywood and Sweetwater medical insurance map", () => {
     expect(getOfficeConfig("hollywood").insuranceFile).toBe(
       "INSURANCE_HOLLYWOOD_SWEETWATER.json",
