@@ -22,7 +22,7 @@ const end_call = beta.createEndCallTool<CallState>({
   endInstructions: "Say a brief goodbye to the caller.",
 });
 
-const COMMON_TOOLS = [
+const CORE_TOOLS = [
   get_current_datetime,
   resolve_patient,
   add_patient,
@@ -33,6 +33,10 @@ const COMMON_TOOLS = [
   reschedule_appointment,
   check_insurance,
   lookup_knowledge,
+] as const satisfies readonly ToolContextEntry<CallState>[];
+
+const COMMON_TOOLS = [
+  ...CORE_TOOLS,
   transfer_call,
   end_call,
 ] as const satisfies readonly ToolContextEntry<CallState>[];

@@ -100,6 +100,9 @@ function selectKnowledgeSections(
       "doctor",
       "provider",
       "dr ",
+      "dermatologist",
+      "aesthetician",
+      "injector",
       "bach",
       "licht",
       "noel",
@@ -109,6 +112,11 @@ function selectKnowledgeSections(
       "casas",
       "otero",
       "optometrist",
+      "marlowe",
+      "cole",
+      "ramirez",
+      "bennett",
+      "torres",
     ])
   ) {
     addTitles(wantedTitles, "Providers", "Providers - Hollywood");
@@ -129,9 +137,50 @@ function selectKnowledgeSections(
       "floaters",
       "flashes",
       "pain",
+      "dermatology",
+      "skin",
+      "rash",
+      "acne",
+      "eczema",
+      "psoriasis",
+      "rosacea",
+      "mole",
+      "lesion",
+      "mohs",
+      "biopsy",
+      "hair loss",
+      "nail",
+      "scar",
+      "pigmentation",
     ])
   ) {
-    addTitles(wantedTitles, "Scope of Services", "Urgency Screening");
+    addTitles(
+      wantedTitles,
+      "Scope of Services",
+      "Medical or Cosmetic",
+      "Skin Cancer and Mohs",
+      "Urgency Screening",
+    );
+  }
+
+  if (
+    hasAny(query, [
+      "botox",
+      "dysport",
+      "filler",
+      "facial",
+      "peel",
+      "dermaplaning",
+      "microneedling",
+      "ipl",
+      "laser",
+      "cosmetic",
+      "med spa",
+      "medspa",
+      "aesthetic",
+    ])
+  ) {
+    addTitles(wantedTitles, "Scope of Services", "Medical or Cosmetic");
   }
 
   if (hasAny(query, ["insurance", "referral", "preauth", "payment", "cost"])) {
