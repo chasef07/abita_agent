@@ -22,12 +22,14 @@ export const SWEETWATER_TRUNK_PHONES = [
   "+17864654882",
 ] as const;
 export const DEV_OFFICE_PHONE = "+14843989071";
+export const DEV_DEMO_TRANSFER_NUMBER = "+17277092035";
 
 export interface OfficeConfig {
   key: OfficeKey;
   displayName: string;
   trunkPhones: string[];
   greeting: string;
+  roleFile?: string;
   knowledgeFile: string;
   insuranceFile: string;
   visionInsuranceFile?: string;
@@ -52,7 +54,7 @@ const OFFICE_HANDOFF_TARGET_ENV: Record<OfficeKey, string[]> = {
   hollywood: ["HOLLYWOOD_HANDOFF_TARGET"],
   sweetwater: ["SWEETWATER_HANDOFF_TARGET"],
   "north-miami-beach-optical": ["NORTH_MIAMI_BEACH_OPTICAL_HANDOFF_TARGET"],
-  dev: [],
+  dev: ["DEV_HANDOFF_TARGET"],
 };
 
 export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
@@ -138,19 +140,20 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
   },
   dev: {
     key: "dev",
-    displayName: "Abita Dev",
+    displayName: "Harborleaf Dermatology & Aesthetics",
     trunkPhones: [DEV_OFFICE_PHONE],
     greeting:
-      "Hey this is Julia, the virtual assistant at Acuity Health. How's your day going",
-    knowledgeFile: "KNOWLEDGE_SPRINGHILL.md",
+      "Hi, this is Julia, the virtual assistant at Harborleaf Dermatology and Aesthetics. How can I help you today?",
+    roleFile: "SOUL_DERM_DEMO.md",
+    knowledgeFile: "KNOWLEDGE_DERM_DEMO.md",
     insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: DEV_OFFICE_PHONE,
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
-    handoffTarget: `tel:${SPRING_HILL_TRANSFER_NUMBER}`,
+    handoffTarget: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
     features: {
       medicalScheduling: true,
-      routineVisionScheduling: true,
+      routineVisionScheduling: false,
     },
   },
 };

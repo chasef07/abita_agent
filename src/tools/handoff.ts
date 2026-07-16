@@ -76,7 +76,7 @@ async function resolveHandoffTarget(
   state: CallState,
   handoffOfficeKey: OfficeKey,
 ): Promise<HandoffTarget> {
-  if (handoffOfficeKey === "crystal-river") {
+  if (handoffOfficeKey === "crystal-river" || handoffOfficeKey === "dev") {
     return phoneHandoffTarget(handoffOfficeKey);
   }
 

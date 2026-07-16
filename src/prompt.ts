@@ -14,11 +14,6 @@ const WORKSPACE = join(
   process.env.PROMPT_WORKSPACE || "workspace",
 );
 
-const BASE_FILES: { file: string; tag: string }[] = [
-  { file: "SOUL.md", tag: "role" },
-  { file: "VOICE.md", tag: "voice" },
-];
-
 const SPRING_HILL_POLICY = {
   file: "SPRING_HILL_STAFF_TASKS.md",
   tag: "office_policy",
@@ -34,12 +29,18 @@ export function buildPrompt(
     throw new Error("buildPrompt requires a trunk phone number");
   }
 
-  for (const { file, tag } of BASE_FILES) {
+  const office = getOfficeConfigByPhone(trunkPhone);
+  const promptFiles = [
+    { file: office.roleFile ?? "SOUL.md", tag: "role" },
+    { file: "VOICE.md", tag: "voice" },
+  ];
+
+  for (const { file, tag } of promptFiles) {
     const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
     sections.push(`<${tag}>\n${content}\n</${tag}>`);
   }
 
-  if (getOfficeConfigByPhone(trunkPhone).key === "spring-hill") {
+  if (office.key === "spring-hill") {
     const { file, tag } = SPRING_HILL_POLICY;
     const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
     sections.push(`<${tag}>\n${content}\n</${tag}>`);

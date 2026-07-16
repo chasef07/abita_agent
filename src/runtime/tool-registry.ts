@@ -22,7 +22,7 @@ const end_call = beta.createEndCallTool<CallState>({
   endInstructions: "Say a brief goodbye to the caller.",
 });
 
-const COMMON_TOOLS = [
+const CORE_TOOLS = [
   get_current_datetime,
   resolve_patient,
   add_patient,
@@ -33,6 +33,16 @@ const COMMON_TOOLS = [
   reschedule_appointment,
   check_insurance,
   lookup_knowledge,
+] as const satisfies readonly ToolContextEntry<CallState>[];
+
+const COMMON_TOOLS = [
+  ...CORE_TOOLS,
+  transfer_call,
+  end_call,
+] as const satisfies readonly ToolContextEntry<CallState>[];
+
+const DEV_TOOLS = [
+  ...CORE_TOOLS,
   transfer_call,
   end_call,
 ] as const satisfies readonly ToolContextEntry<CallState>[];
@@ -42,10 +52,12 @@ const SPRING_HILL_TOOLS = [
   create_staff_task,
 ] as const satisfies readonly ToolContextEntry<CallState>[];
 
-export type AgentTools = typeof COMMON_TOOLS | typeof SPRING_HILL_TOOLS;
+export type AgentTools =
+  typeof COMMON_TOOLS | typeof DEV_TOOLS | typeof SPRING_HILL_TOOLS;
 
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
   const office = getOfficeConfigByPhone(trunkPhone ?? "");
   if (office.key === "spring-hill") return SPRING_HILL_TOOLS;
+  if (office.key === "dev") return DEV_TOOLS;
   return COMMON_TOOLS;
 }

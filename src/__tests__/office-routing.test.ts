@@ -6,6 +6,7 @@ import { buildToolsForTrunk } from "../agent.js";
 import { buildPrompt } from "../prompt.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
+  DEV_DEMO_TRANSFER_NUMBER,
   DEV_OFFICE_PHONE,
   getOfficeConfig,
   getOfficeConfigByPhone,
@@ -36,7 +37,10 @@ import {
 } from "../tools/index.js";
 import { getBaseUrlForOfficePhone } from "../clients/advancedmd-client.js";
 import type { PhoneLookupResult } from "../state/call-state.js";
-import { resolveKnowledgeFileForOffice } from "../tools/knowledge.js";
+import {
+  lookupOfficeKnowledge,
+  resolveKnowledgeFileForOffice,
+} from "../tools/knowledge.js";
 
 type VerifiedPhoneLookup = Extract<
   NonNullable<PhoneLookupResult>,
@@ -189,9 +193,7 @@ describe("office routing helpers", () => {
     expect(resolveKnowledgeFileForOffice("spring-hill")).toBe(
       "KNOWLEDGE_SPRINGHILL.md",
     );
-    expect(resolveKnowledgeFileForOffice("dev")).toBe(
-      "KNOWLEDGE_SPRINGHILL.md",
-    );
+    expect(resolveKnowledgeFileForOffice("dev")).toBe("KNOWLEDGE_DERM_DEMO.md");
   });
 
   it("uses office-specific human handoff targets for live offices", () => {
@@ -208,6 +210,9 @@ describe("office routing helpers", () => {
     expect(getOfficeConfig("north-miami-beach-optical").handoffTarget).toBe(
       "tel:+17864657479",
     );
+    expect(getOfficeConfig("dev").handoffTarget).toBe(
+      `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+    );
     expect(getOfficeHandoffTarget("hollywood")).toBe("tel:+16184220360");
     expect(getOfficeHandoffTarget("sweetwater")).toBe("tel:+16184220360");
     expect(getOfficeHandoffTarget("north-miami-beach-optical")).toBe(
@@ -221,7 +226,7 @@ describe("office routing helpers", () => {
 
     expect(getOfficeConfig("spring-hill").greeting).toBe(greeting);
     expect(getOfficeConfig("dev").greeting).toBe(
-      "Hey this is Julia, the virtual assistant at Acuity Health. How's your day going",
+      "Hi, this is Julia, the virtual assistant at Harborleaf Dermatology and Aesthetics. How can I help you today?",
     );
     expect(getOfficeConfig("crystal-river").greeting).toBe(
       "Hey this is Zoe, the virtual assistant at Eye Radiance, powered by Abeeta Eye Group. How's your day going",
@@ -332,7 +337,7 @@ describe("office routing helpers", () => {
 
 describe("tool-first prompt gating", () => {
   it("includes core tool-use rules from the role prompt", () => {
-    const prompt = buildPrompt(undefined, DEV_OFFICE_PHONE);
+    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
 
     expect(prompt).toContain("<role>");
     expect(prompt).toContain("# Tool Use");
@@ -429,6 +434,93 @@ describe("tool-first prompt gating", () => {
       "Are you already registered with us, or should I make a new chart?",
     );
     expect(prompt).not.toContain("have you been seen here before");
+  });
+});
+
+describe("dermatology demo", () => {
+  it("uses a fictional dermatology identity and short role prompt", () => {
+    const office = getOfficeConfig("dev");
+    const prompt = buildPrompt(undefined, DEV_OFFICE_PHONE);
+
+    expect(office.displayName).toBe("Harborleaf Dermatology & Aesthetics");
+    expect(office.roleFile).toBe("SOUL_DERM_DEMO.md");
+    expect(office.knowledgeFile).toBe("KNOWLEDGE_DERM_DEMO.md");
+    expect(office.features).toEqual({
+      medicalScheduling: true,
+      routineVisionScheduling: false,
+    });
+    expect(prompt).toContain("You are Julia");
+    expect(prompt).toContain("fictional dermatology practice");
+    expect(prompt).toContain("Medical dermatology includes");
+    expect(prompt).toContain("appointmentLane medical_md");
+    expect(prompt).toContain(
+      "The current demo does not book cosmetic or med-spa services",
+    );
+    expect(prompt).toContain("You speak English and Spanish");
+    expect(prompt).not.toContain("Abita Eye Group");
+    expect(prompt).not.toContain("an ophthalmology clinic");
+    expect(prompt).not.toContain("glasses");
+    expect(prompt).not.toContain("contact lenses");
+    expect(prompt).not.toContain("# Spring Hill Staff Tasks");
+  });
+
+  it("exposes the demo transfer without exposing staff-task tools", () => {
+    const names = toolNamesForTrunk(DEV_OFFICE_PHONE);
+
+    expect(names).toContain("lookup_knowledge");
+    expect(names).toContain("check_insurance");
+    expect(names).toContain("get_availability");
+    expect(names).toContain("book_appointment");
+    expect(names).toContain("end_call");
+    expect(names).toContain("transfer_call");
+    expect(names).not.toContain("create_staff_task");
+  });
+
+  it("routes demo transfers only to the configured demo cellphone", () => {
+    expect(getOfficeHandoffTarget("dev")).toBe(
+      `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+    );
+    expect(getOfficeHandoffTarget("dev")).not.toBe(
+      getOfficeHandoffTarget("spring-hill"),
+    );
+  });
+
+  it("retrieves dermatology knowledge for medical and cosmetic questions", () => {
+    const cosmetic = lookupOfficeKnowledge("dev", "Do you offer Botox?");
+    const medical = lookupOfficeKnowledge(
+      "dev",
+      "I have a changing mole that is bleeding",
+    );
+
+    expect(cosmetic).toContain("## Medical or Cosmetic");
+    expect(cosmetic).toContain("Botox and Dysport consultations");
+    expect(medical).toContain("## Skin Cancer and Mohs");
+    expect(medical).toContain("## Urgency Screening");
+    expect(medical).toContain("cannot diagnose skin cancer");
+  });
+
+  it("keeps the knowledge base fictional and free of eye-practice identity", () => {
+    const knowledge = readFileSync(
+      join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "workspace",
+        "KNOWLEDGE_DERM_DEMO.md",
+      ),
+      "utf-8",
+    );
+
+    expect(knowledge).toContain(
+      "fictional practice created for product demonstrations",
+    );
+    expect(knowledge).toContain("medical dermatology");
+    expect(knowledge).toContain(
+      "Cosmetic consultations and med-spa services are self-pay",
+    );
+    expect(knowledge).not.toContain("Abita");
+    expect(knowledge).not.toContain("Clear Skin");
+    expect(knowledge).not.toContain("Spring Hill");
   });
 });
 

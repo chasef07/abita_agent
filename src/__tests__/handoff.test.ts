@@ -15,6 +15,8 @@ vi.mock("livekit-server-sdk", () => ({
 import { createCanonicalCallState } from "../state/call-state.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
+  DEV_DEMO_TRANSFER_NUMBER,
+  DEV_OFFICE_PHONE,
   getOfficeHandoffTarget,
 } from "../customers/profile.js";
 import { transferCallerToOffice } from "../tools/handoff.js";
@@ -127,6 +129,36 @@ describe("call-center handoff", () => {
       }),
     );
     expect(vi.mocked(SipClient).mock.calls.at(-1)?.[3]).toBeUndefined();
+  });
+
+  it("routes the demo directly to the configured demo cellphone", async () => {
+    vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
+    vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createState();
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+
+    const result = await transferCallerToOffice(state);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      handoffOfficeKey: "dev",
+      handoffTarget: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+    });
+    expect(transferSipParticipantMock).toHaveBeenCalledWith(
+      "test-room",
+      "sip-caller",
+      `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-Acuity-Handoff-Target": `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+          "X-Acuity-Office-Key": "dev",
+        }),
+        playDialtone: true,
+        ringingTimeout: 20,
+      }),
+    );
   });
 
   it("reserves and transfers once to the direct SIP target", async () => {
