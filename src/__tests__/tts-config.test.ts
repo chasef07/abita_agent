@@ -51,7 +51,7 @@ describe("TTS config", () => {
         trunkPhone: SWEETWATER_OFFICE_PHONE,
       }),
     ).toEqual({
-      language: RIME_TTS_LANGUAGE,
+      lang: RIME_TTS_LANGUAGE,
       speaker: SWEETWATER_RIME_TTS_SPEAKER,
     });
   });
@@ -63,7 +63,7 @@ describe("TTS config", () => {
         trunkPhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
       }),
     ).toEqual({
-      language: RIME_TTS_LANGUAGE,
+      lang: RIME_TTS_LANGUAGE,
       speaker: LATIN_RIME_TTS_SPEAKER,
     });
   });
@@ -75,7 +75,7 @@ describe("TTS config", () => {
         trunkPhone: CRYSTAL_RIVER_OFFICE_PHONE,
       }),
     ).toEqual({
-      language: RIME_TTS_LANGUAGE,
+      lang: RIME_TTS_LANGUAGE,
       speaker: DEFAULT_RIME_TTS_SPEAKER,
     });
   });
@@ -87,7 +87,7 @@ describe("TTS config", () => {
         trunkPhone: SWEETWATER_OFFICE_PHONE,
       }),
     ).toEqual({
-      language: SPANISH_RIME_TTS_LANGUAGE,
+      lang: SPANISH_RIME_TTS_LANGUAGE,
       speaker: SPANISH_RIME_TTS_SPEAKER,
     });
     expect(
@@ -96,7 +96,7 @@ describe("TTS config", () => {
         trunkPhone: CRYSTAL_RIVER_OFFICE_PHONE,
       }),
     ).toEqual({
-      language: SPANISH_RIME_TTS_LANGUAGE,
+      lang: SPANISH_RIME_TTS_LANGUAGE,
       speaker: SPANISH_RIME_TTS_SPEAKER,
     });
   });
@@ -110,7 +110,7 @@ describe("TTS config", () => {
     ).toEqual({
       modelId: RIME_TTS_MODEL,
       speaker: DEFAULT_RIME_TTS_SPEAKER,
-      language: RIME_TTS_LANGUAGE,
+      lang: RIME_TTS_LANGUAGE,
       useWebsocket: true,
       segment: RIME_TTS_SEGMENT,
       baseURL: RIME_TTS_BASE_URL,
@@ -122,17 +122,17 @@ describe("TTS config", () => {
         language: "es",
         trunkPhone: CRYSTAL_RIVER_OFFICE_PHONE,
       }),
-    ).not.toHaveProperty("lang");
+    ).not.toHaveProperty("language");
   });
 
   it("returns only mutable Rime language options for switch edges", () => {
     expect(getRimeTtsOptionsByLanguage(SWEETWATER_OFFICE_PHONE)).toEqual({
       en: {
-        language: RIME_TTS_LANGUAGE,
+        lang: RIME_TTS_LANGUAGE,
         speaker: SWEETWATER_RIME_TTS_SPEAKER,
       },
       es: {
-        language: SPANISH_RIME_TTS_LANGUAGE,
+        lang: SPANISH_RIME_TTS_LANGUAGE,
         speaker: SPANISH_RIME_TTS_SPEAKER,
       },
     });
@@ -142,7 +142,7 @@ describe("TTS config", () => {
     const rimeEntry = require.resolve("@livekit/agents-plugin-rime");
     const ttsSource = readFileSync(join(dirname(rimeEntry), "tts.js"), "utf8");
 
-    expect(ttsSource).toContain("params.language");
-    expect(ttsSource).not.toContain("params.lang = opts.lang");
+    expect(ttsSource).toContain("params.lang = opts.lang");
+    expect(ttsSource).not.toContain("params.language");
   });
 });

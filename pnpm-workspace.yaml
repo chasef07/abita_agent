@@ -6,5 +6,3 @@ allowBuilds:
   onnxruntime-node: true
   protobufjs: true
   sharp: true
-patchedDependencies:
-  "@livekit/agents-plugin-rime@1.5.2": patches/@livekit__agents-plugin-rime@1.5.2.patch
