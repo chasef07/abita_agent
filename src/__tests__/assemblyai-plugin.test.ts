@@ -31,7 +31,7 @@ describe("official AssemblyAI plugin", () => {
     );
     expect(getAssemblyAISttOptions().keytermsPrompt).toContain("iCare");
     expect(getAssemblyAISttOptions().maxTurnSilence).toBe(2000);
-    expect(getAssemblyAISttOptions().voiceFocus).toBe("near-field");
+    expect(getAssemblyAISttOptions()).not.toHaveProperty("voiceFocus");
     expect(getAssemblyAISttOptions()).not.toHaveProperty("voiceFocusThreshold");
     expect(getAssemblyAISttOptions()).not.toHaveProperty("agentContext");
     expect(getAssemblyAISttOptions().inactivityTimeout).toBe(
