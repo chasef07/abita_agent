@@ -1,9 +1,9 @@
-import {
-  getOfficeConfigByPhone,
-  type OfficeKey,
-} from "../customers/profile.js";
+import type { OfficeKey } from "../customers/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { RimeTtsLanguageCode } from "../tts-config.js";
+import { setPatientBackendRefs } from "./identity.js";
+import { createSchedulingState } from "./scheduling.js";
+import type { TransferState } from "./call-lifecycle.js";
 
 export const CALLER_CANDIDATE_REF = "caller";
 
@@ -130,8 +130,6 @@ export interface PreCallContextState {
 
 type PatientStatus = "unknown" | "matched" | "verified" | "new" | "created";
 
-type VisitType = "medical" | "routine_vision";
-
 type SchedulingRouting =
   "bach_only" | "bach_licht" | "all_three" | "optical_only";
 
@@ -146,12 +144,6 @@ export type SchedulingAppointmentLane = Exclude<
 export interface WorkflowTurnContext {
   intent: TurnIntent;
   appointmentLane: AppointmentLane;
-}
-
-export interface PatientIdentitySnapshot {
-  patientId?: string | null;
-  name?: string | null;
-  dob?: string | null;
 }
 
 export interface CompletedRescheduleState {
@@ -231,8 +223,6 @@ export interface RuntimeVoiceLanguageState {
   updatedAt?: string;
 }
 
-export type TransferState = "idle" | "pending" | "accepted" | "ambiguous";
-
 interface RuntimeCallState {
   endedReason?: "duration_limit";
   preCallLookup: PreCallLookupTelemetry;
@@ -243,7 +233,6 @@ interface RuntimeCallState {
   callId: string;
   callerPhone: string;
   trunkPhone: string;
-  transferred: boolean;
   transferState: TransferState;
   appointmentActions: AppointmentActionAnalytics[];
   staffTasks: StaffTaskReceipt[];
@@ -353,30 +342,13 @@ export interface InitialCallStateInput {
   preauthRequired: boolean;
   appointmentsStatus: AppointmentLoadStatus | null;
   appointments: CallerAppointment[];
-  transferred: boolean;
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
 
 export function createCanonicalCallState(
   input: InitialCallStateInput,
 ): CallState {
-  const routing = normalizeSchedulingRouting(input.routing);
-  const coverageType =
-    input.checkedInsuranceCoverageType ??
-    (routing === "optical_only" ? "routine_vision" : null);
-  const checkedPlan = input.checkedInsurancePlan ?? input.insuranceCarrier;
-  const insuranceOnFile = checkedPlan
-    ? insuranceSnapshot({
-        plan: checkedPlan,
-        canonicalPlan: checkedPlan,
-        coverageType,
-        currentCarrier: input.insuranceCarrier ?? checkedPlan,
-      })
-    : null;
   const patientStatus: PatientStatus = input.patientId ? "matched" : "unknown";
-  const initialAvailabilitySlots = input.bookableAvailabilitySlots?.length
-    ? input.bookableAvailabilitySlots
-    : input.lastAvailabilitySlots;
   const state: CallState = {
     office: {
       activeKey: input.officeKey,
@@ -400,24 +372,7 @@ export function createCanonicalCallState(
       completedCancellations: [],
       completedReschedulesByPatientId: {},
     },
-    insurance: {
-      onFile: insuranceOnFile,
-      lastEligibilityCheck: null,
-    },
-    workflow: {
-      routing: {
-        routing,
-        allowedProviders: input.allowedProviders,
-        routingAmbiguous: input.routingAmbiguous,
-        preauthRequired: input.preauthRequired,
-      },
-    },
-    availability: {
-      slots: initialAvailabilitySlots,
-      latestRouting: input.lastAvailabilityRouting,
-      bookingTokensBySlotId: {},
-      nextSlotIndex: nextAvailabilitySlotIndexAfter(initialAvailabilitySlots),
-    },
+    ...createSchedulingState(input),
     runtime: {
       preCallLookup: input.preCallLookup,
       latestUserTranscript: null,
@@ -426,8 +381,7 @@ export function createCanonicalCallState(
       callId: input.callId,
       callerPhone: input.callerPhone,
       trunkPhone: input.trunkPhone,
-      transferred: input.transferred,
-      transferState: input.transferred ? "accepted" : "idle",
+      transferState: "idle",
       appointmentActions: [],
       staffTasks: [],
       voiceLanguage: input.voiceLanguage ?? null,
@@ -439,481 +393,4 @@ export function createCanonicalCallState(
     respPartyId: input.respPartyId,
   });
   return state;
-}
-
-export function publicCallerAppointments(
-  appointments: readonly StoredCallerAppointment[] | null | undefined,
-): CallerAppointment[] {
-  return (appointments ?? []).map(
-    ({
-      id,
-      date,
-      time,
-      provider,
-      type,
-      appointmentTypeId,
-      facility,
-      confirmed,
-    }) => ({
-      id,
-      date,
-      time,
-      provider,
-      type,
-      ...(appointmentTypeId !== undefined ? { appointmentTypeId } : {}),
-      facility,
-      confirmed,
-    }),
-  );
-}
-
-export function activePatientId(state: CallState): string | null {
-  if (
-    !state.identity.patient.identityConfirmed &&
-    state.identity.patient.status !== "created"
-  ) {
-    return null;
-  }
-  return state.identity.patient.patientId ?? null;
-}
-
-export function activePatientName(state: CallState): string | null {
-  return state.identity.patient.name?.trim() || null;
-}
-
-export function activePatientDob(state: CallState): string | null {
-  return state.identity.patient.dob?.trim() || null;
-}
-
-export function activeAppointments(state: CallState): CallerAppointment[] {
-  return [...state.identity.patient.appointments];
-}
-
-export function activeAppointmentsStatus(
-  state: CallState,
-): AppointmentLoadStatus | null {
-  return state.identity.patient.appointmentsStatus ?? null;
-}
-
-export function insuranceOnFile(state: CallState): InsuranceSnapshot | null {
-  return state.insurance.onFile;
-}
-
-export function lastInsuranceEligibilityCheck(
-  state: CallState,
-): InsuranceEligibilityCheck | null {
-  return state.insurance.lastEligibilityCheck;
-}
-
-export function setInsuranceOnFile(
-  state: CallState,
-  insurance: InsuranceSnapshot | null,
-): void {
-  state.insurance.onFile = insurance;
-}
-
-export function setLastInsuranceEligibilityCheck(
-  state: CallState,
-  check: InsuranceEligibilityCheck | null,
-): void {
-  state.insurance.lastEligibilityCheck = check;
-}
-
-export function applyTurnContextToState(
-  state: CallState,
-  turn: WorkflowTurnContext,
-): void {
-  const previousTurn = state.workflow.current;
-  const previousVisitType = currentWorkflowVisitType(state);
-  state.workflow.current = turn;
-  const visitType = visitTypeFromAppointmentLane(turn);
-  const intentChanged = previousTurn?.intent !== turn.intent;
-  if (!intentChanged && (!visitType || previousVisitType === visitType)) return;
-
-  clearAvailabilitySelection(state);
-}
-
-export function applySchedulingLaneToState(
-  state: CallState,
-  appointmentLane: SchedulingAppointmentLane,
-): void {
-  applyTurnContextToState(state, {
-    intent: "schedule",
-    appointmentLane,
-  });
-}
-
-export function activeRoutingContext(state: CallState): {
-  routing: SchedulingRouting | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
-  preauthRequired: boolean;
-} {
-  return {
-    routing: state.workflow.routing.routing ?? null,
-    allowedProviders: state.workflow.routing.allowedProviders,
-    routingAmbiguous: state.workflow.routing.routingAmbiguous,
-    preauthRequired: state.workflow.routing.preauthRequired,
-  };
-}
-
-export function activeOfficeKey(state: CallState): OfficeKey {
-  return state.office.activeKey;
-}
-
-export function setActiveOfficeKey(
-  state: CallState,
-  officeKey: OfficeKey,
-): void {
-  if (state.office.activeKey === officeKey) return;
-  state.office.activeKey = officeKey;
-  state.insurance.lastEligibilityCheck = null;
-}
-
-export function runtimeCallerPhone(state: CallState): string {
-  return state.runtime.callerPhone;
-}
-
-export function patientBackendRefs(state: CallState): PatientBackendRefs {
-  return state.identity.patientBackend;
-}
-
-export function setPatientBackendRefs(
-  state: CallState,
-  refs: PatientBackendRefs,
-): void {
-  state.identity.patientBackend = {
-    ...state.identity.patientBackend,
-    ...refs,
-  };
-}
-
-export function removeBookedAppointmentReference(
-  state: CallState,
-  appointmentId: number,
-): void {
-  if (state.identity.latestBookedAppointmentId === appointmentId) {
-    delete state.identity.latestBookedAppointmentId;
-  }
-}
-
-export function setLatestBookedAppointment(
-  state: CallState,
-  appointmentId: number,
-): void {
-  state.identity.latestBookedAppointmentId = appointmentId;
-}
-
-export function latestBookedAppointmentId(state: CallState): number | null {
-  return state.identity.latestBookedAppointmentId ?? null;
-}
-
-export function recordCompletedCancellation(
-  state: CallState,
-  patientId: string,
-  appointment: CallerAppointment,
-): void {
-  state.identity.completedCancellations = [
-    ...state.identity.completedCancellations.filter(
-      (item) =>
-        item.patientId !== patientId || item.appointment.id !== appointment.id,
-    ),
-    { patientId, appointment },
-  ];
-}
-
-export function completedCancellations(
-  state: CallState,
-): CompletedCancellationState[] {
-  return [...state.identity.completedCancellations];
-}
-
-export function completedRescheduleForPatient(
-  state: CallState,
-  patientId: string,
-): CompletedRescheduleState | null {
-  return state.identity.completedReschedulesByPatientId[patientId] ?? null;
-}
-
-export function recordCompletedRescheduleForPatient(
-  state: CallState,
-  patientId: string,
-  reschedule: CompletedRescheduleState,
-): void {
-  state.identity.completedReschedulesByPatientId[patientId] = reschedule;
-}
-
-export function recordAppointmentAction(
-  state: CallState,
-  action: AppointmentActionAnalytics,
-): void {
-  state.runtime.appointmentActions = [
-    ...state.runtime.appointmentActions,
-    {
-      createdAt: new Date().toISOString(),
-      ...action,
-    },
-  ];
-}
-
-export function appointmentActions(
-  state: CallState,
-): AppointmentActionAnalytics[] {
-  return [...state.runtime.appointmentActions];
-}
-
-export function staffTaskReceipts(state: CallState): StaffTaskReceipt[] {
-  return [...state.runtime.staffTasks];
-}
-
-export function findStaffTaskReceipt(
-  state: CallState,
-  idempotencyKey: string,
-): StaffTaskReceipt | null {
-  return (
-    state.runtime.staffTasks.find(
-      (receipt) => receipt.idempotencyKey === idempotencyKey,
-    ) ?? null
-  );
-}
-
-export function recordStaffTaskReceipt(
-  state: CallState,
-  receipt: StaffTaskReceipt,
-): void {
-  state.runtime.staffTasks = [
-    ...state.runtime.staffTasks.filter(
-      (item) => item.idempotencyKey !== receipt.idempotencyKey,
-    ),
-    receipt,
-  ];
-}
-
-export function storeAvailabilityBookingToken(
-  state: CallState,
-  slotId: string,
-  bookingToken?: string,
-): void {
-  if (bookingToken?.trim()) {
-    state.availability.bookingTokensBySlotId[slotId] = bookingToken.trim();
-  }
-}
-
-export function availabilityBookingToken(
-  state: CallState,
-  slotId: string,
-): string | null {
-  return state.availability.bookingTokensBySlotId[slotId]?.trim() || null;
-}
-
-export function clearAvailabilitySelection(state: CallState): void {
-  state.availability.slots = [];
-  state.availability.latestRouting = null;
-  state.availability.bookingTokensBySlotId = {};
-  state.availability.latestSearch = undefined;
-}
-
-export function resetPatientScopedBookingState(
-  state: CallState,
-  options: { preserveEligibilityCheck?: boolean } = {},
-): void {
-  const eligibilityCheck = options.preserveEligibilityCheck
-    ? state.insurance.lastEligibilityCheck
-    : null;
-  clearAvailabilitySelection(state);
-  delete state.identity.latestBookedAppointmentId;
-  state.workflow.current = undefined;
-  state.insurance.lastEligibilityCheck = eligibilityCheck;
-  resetActiveOfficeToTrunk(state);
-  setRoutingContext(state, {});
-}
-
-export function reserveAvailabilitySlotIds(
-  state: CallState,
-  count: number,
-): string[] {
-  if (count <= 0) return [];
-  const nextSlotIndex = Math.max(
-    state.availability.nextSlotIndex,
-    nextAvailabilitySlotIndexAfter(state.availability.slots),
-    nextAvailabilitySlotIndexAfter(
-      Object.keys(state.availability.bookingTokensBySlotId).map((slotId) => ({
-        slotId,
-      })),
-    ),
-  );
-  state.availability.nextSlotIndex = nextSlotIndex + count;
-  return Array.from({ length: count }, (_, index) =>
-    slotIdForIndex(nextSlotIndex + index),
-  );
-}
-
-export function cachedAvailabilitySearchResult(
-  state: CallState,
-  signature: string,
-): string | null {
-  return state.availability.latestSearch?.signature === signature
-    ? state.availability.latestSearch.response
-    : null;
-}
-
-export function setAvailabilitySearchResult(
-  state: CallState,
-  signature: string,
-  response: string,
-): void {
-  state.availability.latestSearch = {
-    signature,
-    response,
-  };
-}
-
-export function latestAvailabilityRouting(state: CallState): string | null {
-  return (
-    state.availability.latestRouting ?? state.workflow.routing.routing ?? null
-  );
-}
-
-export function availabilitySlotsForState(
-  state: CallState,
-): StoredAvailabilitySlot[] {
-  return state.availability.slots;
-}
-
-function nextAvailabilitySlotIndexAfter(
-  slots: readonly { slotId: string }[],
-): number {
-  return slots.reduce((nextIndex, slot) => {
-    const index = availabilitySlotIndex(slot.slotId);
-    return index === null ? nextIndex : Math.max(nextIndex, index + 1);
-  }, 0);
-}
-
-function availabilitySlotIndex(slotId: string): number | null {
-  const normalized = slotId.trim().toUpperCase();
-  const stableMatch = normalized.match(/^S(\d+)$/);
-  if (stableMatch) {
-    const index = Number(stableMatch[1]) - 1;
-    return Number.isSafeInteger(index) && index >= 0 ? index : null;
-  }
-  if (/^[A-Z]$/.test(normalized)) {
-    return normalized.charCodeAt(0) - "A".charCodeAt(0);
-  }
-  const slotMatch = normalized.match(/^SLOT_(\d+)$/);
-  if (!slotMatch) return null;
-  const index = Number(slotMatch[1]) - 1;
-  return Number.isSafeInteger(index) && index >= 0 ? index : null;
-}
-
-function slotIdForIndex(index: number): string {
-  return `S${index + 1}`;
-}
-
-function resetActiveOfficeToTrunk(state: CallState): void {
-  const office = getOfficeConfigByPhone(state.runtime.trunkPhone);
-  state.office.activeKey = office.key;
-  state.office.phoneOverrides = {
-    ...state.office.phoneOverrides,
-    [office.key]:
-      state.office.phoneOverrides[office.key] ?? office.amdOfficePhone,
-  };
-}
-
-export function snapshotActivePatientIdentity(
-  state: CallState,
-): PatientIdentitySnapshot {
-  return {
-    patientId: state.identity.patient.patientId,
-    name: state.identity.patient.name,
-    dob: state.identity.patient.dob,
-  };
-}
-
-export function hasActivePatientIdentityChanged(
-  state: CallState,
-  previous: PatientIdentitySnapshot,
-): boolean {
-  return (
-    changedKnownIdentityValue(
-      previous.patientId,
-      state.identity.patient.patientId,
-    ) ||
-    changedKnownIdentityValue(previous.name, state.identity.patient.name) ||
-    changedKnownIdentityValue(previous.dob, state.identity.patient.dob)
-  );
-}
-
-export function normalizeSchedulingRouting(
-  value: string | null | undefined,
-): SchedulingRouting | null {
-  return value === "bach_only" ||
-    value === "bach_licht" ||
-    value === "all_three" ||
-    value === "optical_only"
-    ? value
-    : null;
-}
-
-function visitTypeFromAppointmentLane(
-  turn: WorkflowTurnContext,
-): VisitType | null {
-  if (turn.intent !== "schedule") return null;
-  if (turn.appointmentLane === "routine_od") return "routine_vision";
-  if (turn.appointmentLane === "medical_md") return "medical";
-  return null;
-}
-
-export function currentWorkflowVisitType(state: CallState): VisitType | null {
-  const turn = state.workflow.current;
-  return turn ? visitTypeFromAppointmentLane(turn) : null;
-}
-
-export function setRoutingContext(
-  state: CallState,
-  routing: {
-    routing?: string | null;
-    allowedProviders?: string[];
-    routingAmbiguous?: boolean;
-    preauthRequired?: boolean;
-  },
-): void {
-  state.workflow.routing = {
-    routing: normalizeSchedulingRouting(routing.routing),
-    allowedProviders: routing.allowedProviders ?? [],
-    routingAmbiguous: routing.routingAmbiguous ?? false,
-    preauthRequired: routing.preauthRequired ?? false,
-  };
-}
-
-export function insuranceSnapshot(input: {
-  plan?: string | null;
-  canonicalPlan?: string | null;
-  coverageType?: InsuranceCoverageType | null;
-  currentCarrier?: string | null;
-}): InsuranceSnapshot {
-  const plan = input.plan?.trim() || input.canonicalPlan?.trim() || null;
-  const canonicalPlan = input.canonicalPlan?.trim() || plan;
-  return {
-    plan,
-    canonicalPlan,
-    coverageType: input.coverageType ?? null,
-    currentCarrier: input.currentCarrier?.trim() || plan,
-  };
-}
-
-function changedKnownIdentityValue(
-  previous: string | null | undefined,
-  next: string | null | undefined,
-): boolean {
-  const normalizedPrevious = normalizeIdentityValue(previous);
-  const normalizedNext = normalizeIdentityValue(next);
-  return Boolean(
-    normalizedPrevious &&
-    normalizedNext &&
-    normalizedPrevious !== normalizedNext,
-  );
-}
-
-function normalizeIdentityValue(value: string | null | undefined): string {
-  return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
 }

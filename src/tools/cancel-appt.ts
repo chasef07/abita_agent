@@ -1,15 +1,13 @@
 import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
-import {
-  activePatientId,
-  recordAppointmentAction,
-} from "../state/call-state.js";
+import { removeActiveAppointment } from "../state/appointments.js";
+import { activePatientId } from "../state/identity.js";
+import { recordAppointmentAction } from "../state/observability.js";
 import { cancelledAppointmentAnalytics } from "./appointment-analytics.js";
 import {
   cancellationAppointmentForState,
   completedCancellationForState,
-  removeAppointmentById,
 } from "./appointment-state.js";
 import { restoreConfirmedPreCallCaller } from "./patient-state.js";
 import { getAmdOfficeForToolCall } from "./scheduling.js";
@@ -89,7 +87,7 @@ export const cancel_appointment = tool({
       return message;
     }
 
-    removeAppointmentById(state, appointment.id);
+    removeActiveAppointment(state, appointment.id);
     const message = `Cancelled the appointment on ${appointment.date} at ${appointment.time}.`;
     recordAppointmentAction(state, {
       action: "cancelled",

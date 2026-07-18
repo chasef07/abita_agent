@@ -2,17 +2,21 @@ import { createHash } from "node:crypto";
 import { tool } from "@livekit/agents";
 import { z } from "zod";
 import { getAnalyticsSecret } from "../runtime/analytics-post.js";
+import { activeOfficeKey } from "../state/call-lifecycle.js";
 import {
-  activeOfficeKey,
-  activePatientDob,
-  activePatientId,
-  activePatientName,
-  findStaffTaskReceipt,
-  recordStaffTaskReceipt,
   type CallState,
   type StaffTaskCategory,
   type StaffTaskUrgency,
 } from "../state/call-state.js";
+import {
+  activePatientDob,
+  activePatientId,
+  activePatientName,
+} from "../state/identity.js";
+import {
+  findStaffTaskReceipt,
+  recordStaffTaskReceipt,
+} from "../state/observability.js";
 import { getOfficeConfig, normalizePhoneNumber } from "../customers/profile.js";
 import { getState } from "./session.js";
 

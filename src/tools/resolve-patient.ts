@@ -16,13 +16,12 @@ import {
   lastNameAndDobMatchCandidate,
   type FullIdentity,
 } from "../identity/preloaded-patient.js";
+import type { CallState, PreCallContextState } from "../state/call-state.js";
 import {
-  insuranceOnFile,
-  resetPatientScopedBookingState,
-  setPatientBackendRefs,
-  type CallState,
-  type PreCallContextState,
-} from "../state/call-state.js";
+  beginNewPatientRegistration,
+  resetPatientScopedWork,
+} from "../state/identity.js";
+import { insuranceOnFile } from "../state/scheduling.js";
 import {
   applyResolvedPatientToState,
   resolvePatientForCall,
@@ -104,7 +103,7 @@ export const resolve_patient = tool({
     }
 
     if (identityTargetsDifferentPatient(state, identity)) {
-      resetPatientScopedBookingState(state);
+      resetPatientScopedWork(state);
     }
 
     const result = await resolvePatientForCall(state, {
@@ -290,22 +289,7 @@ function uniqueNameParts(parts: Array<string | undefined>): string[] {
 }
 
 function markNewChartPath(state: CallState): string {
-  resetPatientScopedBookingState(state, { preserveEligibilityCheck: true });
-  state.insurance.onFile = null;
-  setPatientBackendRefs(state, {
-    insPlanId: null,
-    respPartyId: null,
-  });
-  state.identity.patient = {
-    ...state.identity.patient,
-    status: "new",
-    identityConfirmed: false,
-    patientId: null,
-    name: null,
-    dob: null,
-    appointments: [],
-    appointmentsStatus: null,
-  };
+  beginNewPatientRegistration(state);
   return "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.";
 }
 

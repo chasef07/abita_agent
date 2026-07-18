@@ -1,38 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  createCanonicalCallState,
-  staffTaskReceipts,
-} from "../state/call-state.js";
+import { staffTaskReceipts } from "../state/observability.js";
 import { create_staff_task } from "../tools/index.js";
 import { getStaffTasksUrl } from "../tools/create-staff-task.js";
+import { createTestCallState } from "./support/call-state.js";
 
 function createState() {
-  const state = createCanonicalCallState({
-    preCallLookup: { status: "not_attempted", durationMs: null },
-    officeKey: "spring-hill",
-    amdOfficePhone: "+17275919997",
-    sipRoomName: "test-room",
-    sipParticipantIdentity: "sip-caller",
-    callId: "call-test",
-    callerPhone: "+17275551212",
+  const state = createTestCallState({
     trunkPhone: "+18135484830",
     patientId: "patient-1",
     patientName: "Jane Doe",
     dob: "01/01/1980",
     insuranceCarrier: "self pay",
-    insPlanId: null,
-    respPartyId: null,
     checkedInsurancePlan: "self pay",
     checkedInsuranceCoverageType: "medical",
     routing: "all_three",
     lastAvailabilityRouting: "all_three",
-    lastAvailabilitySlots: [],
-    allowedProviders: [],
-    routingAmbiguous: false,
-    preauthRequired: false,
-    appointmentsStatus: null,
-    appointments: [],
-    transferred: false,
   });
   state.identity.patient.identityConfirmed = true;
   return state;

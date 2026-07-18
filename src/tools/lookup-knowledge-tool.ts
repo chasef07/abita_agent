@@ -1,6 +1,6 @@
 import { tool } from "@livekit/agents";
 import { z } from "zod";
-import { activeOfficeKey } from "../state/call-state.js";
+import { activeOfficeKey } from "../state/call-lifecycle.js";
 import { lookupOfficeKnowledge } from "./knowledge.js";
 import { getState } from "./session.js";
 

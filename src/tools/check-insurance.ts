@@ -5,10 +5,8 @@ import {
   canonicalInsurancePlan,
   matchInsurancePlanForOffice,
 } from "../insurance-rules.js";
-import {
-  activeOfficeKey,
-  setLastInsuranceEligibilityCheck,
-} from "../state/call-state.js";
+import { activeOfficeKey } from "../state/call-lifecycle.js";
+import { setLastInsuranceEligibilityCheck } from "../state/scheduling.js";
 import { getState } from "./session.js";
 
 export const check_insurance = tool({

@@ -2,13 +2,17 @@ import { ToolError } from "@livekit/agents";
 import {
   activeAppointments,
   activeAppointmentsStatus,
-  activePatientId,
-  activeRoutingContext,
-  applySchedulingLaneToState,
-  applyTurnContextToState,
+} from "../state/appointments.js";
+import {
   type CallState,
   type SchedulingAppointmentLane,
 } from "../state/call-state.js";
+import { activePatientId } from "../state/identity.js";
+import {
+  activeRoutingContext,
+  applySchedulingLaneToState,
+  applyTurnContextToState,
+} from "../state/scheduling.js";
 
 export function prepareAvailabilityLookupContext(
   state: CallState,

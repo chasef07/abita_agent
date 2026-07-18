@@ -2,37 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   applySchedulingLaneToState,
   applyTurnContextToState,
-  createCanonicalCallState,
-} from "../state/call-state.js";
+  removeAvailabilitySlot,
+} from "../state/scheduling.js";
+import { createTestCallState } from "./support/call-state.js";
 
 function createState() {
-  return createCanonicalCallState({
-    preCallLookup: { status: "not_attempted", durationMs: null },
-    officeKey: "spring-hill",
-    amdOfficePhone: "+17275919997",
-    sipRoomName: "test-room",
-    sipParticipantIdentity: "sip-caller",
-    callId: "call-test",
-    callerPhone: "+17275551212",
-    trunkPhone: "+17275919997",
-    patientId: null,
-    patientName: null,
-    dob: null,
-    insuranceCarrier: null,
-    insPlanId: null,
-    respPartyId: null,
-    checkedInsurancePlan: null,
-    checkedInsuranceCoverageType: null,
-    routing: null,
-    lastAvailabilityRouting: null,
-    lastAvailabilitySlots: [],
-    allowedProviders: [],
-    routingAmbiguous: false,
-    preauthRequired: false,
-    appointmentsStatus: null,
-    appointments: [],
-    transferred: false,
-  });
+  return createTestCallState();
 }
 
 function seedAvailability(state: ReturnType<typeof createState>) {
@@ -113,5 +88,16 @@ describe("turn context state", () => {
       intent: "change_appointment",
       appointmentLane: "not_applicable",
     });
+  });
+
+  it("removes a slot and its private token atomically", () => {
+    const state = createState();
+    seedAvailability(state);
+
+    const remaining = removeAvailabilitySlot(state, "A");
+
+    expect(remaining).toEqual([]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
+    expect(state.availability.latestSearch).toBeUndefined();
   });
 });

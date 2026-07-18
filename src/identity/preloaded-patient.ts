@@ -1,13 +1,13 @@
 import {
   CALLER_CANDIDATE_REF,
-  insuranceSnapshot,
-  resetPatientScopedBookingState,
-  setInsuranceOnFile,
-  setPatientBackendRefs,
-  setRoutingContext,
   type CallState,
   type PreCallContextState,
 } from "../state/call-state.js";
+import {
+  activatePatient,
+  confirmPreCallSelection,
+  resetPatientScopedWork,
+} from "../state/identity.js";
 import { dobMatches, namesMatch } from "./name-matcher.js";
 
 export type PreCallCandidate = PreCallContextState["candidates"][number];
@@ -40,44 +40,27 @@ export function activatePreloadedCandidate(
       ? "single_match_confirmed"
       : "multiple_match_confirmed";
 
-  state.identity.preCall.status = confirmedStatus;
-  state.identity.preCall.selectedCandidateRef = selectedRef;
-  state.identity.preCall.identityPromotion = reason;
-
-  resetPatientScopedBookingState(state);
-
-  state.identity.patient = {
-    ...state.identity.patient,
+  confirmPreCallSelection(state, {
+    candidateRef: selectedRef,
+    status: confirmedStatus,
+    promotion: reason,
+  });
+  resetPatientScopedWork(state);
+  activatePatient(state, {
     status: "verified",
-    identityConfirmed: true,
     patientId: candidate.patientId,
     name: candidateDisplayName(candidate),
     dob: candidate.dob ?? null,
+    phone: state.identity.patient.phone ?? state.runtime.callerPhone,
     appointments: candidate.appointments,
     appointmentsStatus: candidate.appointmentsStatus ?? null,
-  };
-
-  setInsuranceOnFile(
-    state,
-    candidate.insuranceCarrier
-      ? insuranceSnapshot({
-          plan: candidate.insuranceCarrier,
-          canonicalPlan: candidate.insuranceCarrier,
-          coverageType:
-            candidate.routing === "optical_only" ? "routine_vision" : null,
-          currentCarrier: candidate.insuranceCarrier,
-        })
-      : null,
-  );
-  setPatientBackendRefs(state, {
+    insuranceCarrier: candidate.insuranceCarrier ?? null,
     insPlanId: candidate.insPlanId ?? null,
     respPartyId: candidate.respPartyId ?? null,
-  });
-  setRoutingContext(state, {
-    routing: candidate.routing,
-    allowedProviders: candidate.allowedProviders,
-    routingAmbiguous: candidate.routingAmbiguous,
-    preauthRequired: candidate.preauthRequired,
+    routing: candidate.routing ?? null,
+    allowedProviders: candidate.allowedProviders ?? [],
+    routingAmbiguous: candidate.routingAmbiguous ?? false,
+    preauthRequired: candidate.preauthRequired ?? false,
   });
 }
 

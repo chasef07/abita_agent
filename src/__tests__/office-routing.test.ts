@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isToolset, type ToolContextEntry } from "@livekit/agents";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildToolsForTrunk } from "../agent.js";
+import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { buildPrompt } from "../prompt.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,

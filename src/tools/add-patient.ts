@@ -9,15 +9,17 @@ import {
 } from "../insurance-rules.js";
 import { dobMatches, namesMatch } from "../identity/name-matcher.js";
 import {
-  applySchedulingLaneToState,
-  insuranceSnapshot,
-  lastInsuranceEligibilityCheck,
-  runtimeCallerPhone,
-  setInsuranceOnFile,
-  setLastInsuranceEligibilityCheck,
   type CallState,
   type InsuranceEligibilityCheck,
 } from "../state/call-state.js";
+import { runtimeCallerPhone } from "../state/call-lifecycle.js";
+import {
+  applySchedulingLaneToState,
+  insuranceSnapshot,
+  lastInsuranceEligibilityCheck,
+  setInsuranceOnFile,
+  setLastInsuranceEligibilityCheck,
+} from "../state/scheduling.js";
 import { applyPatientResult } from "./patient-state.js";
 import {
   getAmdOfficeForToolCall,

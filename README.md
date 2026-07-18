@@ -44,49 +44,11 @@ code.
 2. `loadPreCallBootstrap()` resolves the office and runs phone lookup.
 3. `session.userData` is initialized with `createCanonicalCallState()`.
 4. `Agent` starts with office-appropriate tools from `buildToolsForTrunk()`.
-5. Tools in `src/tools/*.ts` mutate `CallState`, enforce prerequisites, and
-   call AdvancedMD middleware.
+5. Tools enforce prerequisites, delegate state transitions, and call AdvancedMD
+   middleware.
 6. `onUserTurnCompleted()` records the latest caller transcript for backend
    observability without injecting backend state into the model context.
 7. Shutdown posts analytics and deletes the LiveKit room.
-
-## Repo Layout
-
-```txt
-src/
-  main.ts                 LiveKit worker/session setup and analytics shutdown
-  agent.ts                Agent class, greeting, STT hook, transcript capture
-  prompt.ts               Static prompt assembly
-  state/
-    call-state.ts         Typed session state and state selectors
-  clients/
-    advancedmd-client.ts  Middleware client and response normalization
-  runtime/
-    precall-bootstrap.ts  Pre-call phone lookup hydration
-    tool-registry.ts      Office-specific LiveKit tool registry
-  tools/
-    get-current-datetime.ts get_current_datetime definition, schema, execute body
-    add-patient.ts        add_patient definition, schema, execute body
-    book-appt.ts          book_appointment definition, schema, execute body
-    cancel-appt.ts        cancel_appointment definition, schema, execute body
-    check-insurance.ts    check_insurance definition, schema, execute body
-    get-availability.ts   get_availability definition, schema, execute body
-    reschedule-appt.ts    reschedule_appointment definition, schema, execute body
-    update-insurance.ts   update_insurance definition, schema, execute body
-    resolve-patient.ts      resolve_patient schema and identity loading
-    session.ts            LiveKit RunContext state access
-    scheduling.ts         Office routing and availability routing helpers
-    patient-state.ts      Patient lookup and patient-state mutation helpers
-    availability-slots.ts Availability slot cache and model-safe responses
-    appointment-state.ts  Appointment selection helpers
-    handoff.ts            SIP transfer helper
-    knowledge.ts          Office knowledge lookup
-  customers/abita/        Office registry, trunk routing, greetings, handoffs
-  __tests__/              Vitest coverage for runtime behavior
-
-workspace/                Runtime prompt and office data files
-docs/                     Current architecture, ops, and historical notes
-```
 
 ## Backend Tool Handlers
 
@@ -108,9 +70,8 @@ For new scheduling, `get_availability` takes `appointmentLane` directly once the
 medical-versus-routine lane is clear. `add_patient` takes the same lane because
 chart creation needs the same medical-versus-routine guard. `book_appointment`
 does not repeat the lane; it uses the private booking token and routing cached
-from the caller-confirmed availability slot. State-changing tools read and
-write `session.userData` directly. The final side effect is not considered
-complete until the tool succeeds.
+from the caller-confirmed availability slot. The final side effect is not
+considered complete until the tool succeeds.
 
 `get_current_datetime` is read-only and returns clinic-local grounding, such as
 `Today is Sunday, May 31st, 2026 at 10:42 AM Eastern time.`, when the caller

@@ -1,15 +1,17 @@
 import { getOfficeConfig } from "../customers/profile.js";
+import { activeOfficeKey } from "../state/call-lifecycle.js";
 import {
-  activeOfficeKey,
-  activePatientName,
-  currentWorkflowVisitType,
-  latestAvailabilityRouting,
   type AppointmentActionStatus,
   type AppointmentAnalytics,
   type CallState,
   type CallerAppointment,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
+import { activePatientName } from "../state/identity.js";
+import {
+  currentWorkflowVisitType,
+  latestAvailabilityRouting,
+} from "../state/scheduling.js";
 
 export function bookedSlotAppointmentAnalytics(
   state: CallState,

@@ -17,10 +17,11 @@ import { fileURLToPath } from "node:url";
 import { createAgent } from "./agent.js";
 import {
   createCanonicalCallState,
-  publicCallerAppointments,
   type CallState,
   type RuntimeVoiceLanguageState,
 } from "./state/call-state.js";
+import { publicCallerAppointments } from "./state/appointments.js";
+import { transferIsAccepted } from "./state/call-lifecycle.js";
 import {
   buildPreCallContextState,
   formatPhoneLookupLogLine,
@@ -198,7 +199,7 @@ export default defineAgent({
         },
       });
       attachSipParticipantShutdown(ctx, participant, {
-        isTransferred: () => session.userData.runtime.transferred,
+        isTransferred: () => transferIsAccepted(session.userData),
       });
 
       const callDurationDeadline = attachCallDurationDeadline(ctx, {
@@ -306,7 +307,6 @@ export default defineAgent({
         preauthRequired: verified?.preauthRequired ?? false,
         appointmentsStatus: verified?.appointmentsStatus ?? null,
         appointments: publicCallerAppointments(verified?.appointments),
-        transferred: false,
         voiceLanguage: initialVoiceLanguage,
       });
       session.userData.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;

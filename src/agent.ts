@@ -12,6 +12,7 @@ import type { AudioFrame } from "@livekit/rtc-node";
 import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
 import { type CallState, type PhoneLookupResult } from "./state/call-state.js";
+import { recordLatestUserTranscript } from "./state/call-lifecycle.js";
 import {
   observeSttLanguage,
   type SttLanguageDecision,
@@ -20,16 +21,9 @@ import {
 import { getOfficeConfigByPhone } from "./customers/profile.js";
 import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcript-confirmation.js";
 import { addDurableInternalSystemMessage } from "./runtime/durable-chat-context.js";
-import {
-  buildToolsForTrunk as buildToolsForTrunkFromRegistry,
-  type AgentTools,
-} from "./runtime/tool-registry.js";
+import { buildToolsForTrunk } from "./runtime/tool-registry.js";
 
 export { addDurableInternalSystemMessage };
-
-export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
-  return buildToolsForTrunkFromRegistry(trunkPhone);
-}
 
 export function createAgent(
   phoneLookup?: PhoneLookupResult,
@@ -63,7 +57,7 @@ export function createAgent(
       const transcript = newMessage.textContent ?? "";
       if (!transcript) return;
 
-      state.runtime.latestUserTranscript = transcript;
+      recordLatestUserTranscript(state, transcript);
       const confirmation = confirmPreCallIdentityFromTranscript({
         state,
         transcript,

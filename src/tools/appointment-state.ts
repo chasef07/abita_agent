@@ -1,19 +1,20 @@
 import { getOfficeConfig } from "../customers/profile.js";
+import { activeOfficeKey } from "../state/call-lifecycle.js";
 import {
   activeAppointments,
-  activeOfficeKey,
-  activePatientId,
   completedCancellations,
   latestBookedAppointmentId,
-  recordCompletedCancellation,
-  removeBookedAppointmentReference,
+  replaceActiveAppointments,
   setLatestBookedAppointment,
+} from "../state/appointments.js";
+import {
   type AppointmentLoadStatus,
   type CallState,
   type CallerAppointment,
   type StoredAvailabilitySlot,
   type StoredCallerAppointment,
 } from "../state/call-state.js";
+import { activePatientId } from "../state/identity.js";
 import { publicProviderName } from "./availability-slots.js";
 
 export function extractAppointments(
@@ -112,8 +113,7 @@ export function recordBookedAppointmentInState(
     ...activeAppointments(state).filter((item) => item.id !== appointmentId),
     appointment,
   ];
-  state.identity.patient.appointments = nextAppointments;
-  state.identity.patient.appointmentsStatus = "found";
+  replaceActiveAppointments(state, nextAppointments, "found");
   setLatestBookedAppointment(state, appointmentId);
 }
 
@@ -234,22 +234,6 @@ export function cancellationAppointmentForState(
     message:
       "Load appointments and confirm the exact appointment before cancelling.",
   };
-}
-
-export function removeAppointmentById(
-  state: CallState,
-  appointmentId: number,
-): void {
-  const appointment = activeAppointmentById(state, appointmentId);
-  const patientId = activePatientId(state);
-  if (appointment && patientId) {
-    recordCompletedCancellation(state, patientId, appointment);
-  }
-  removeBookedAppointmentReference(state, appointmentId);
-  state.identity.patient.appointments =
-    state.identity.patient.appointments.filter(
-      (appointment) => appointment.id !== appointmentId,
-    );
 }
 
 export function completedCancellationForState(
