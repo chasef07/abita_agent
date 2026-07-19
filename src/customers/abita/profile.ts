@@ -7,6 +7,7 @@ export type OfficeKey =
   | "sweetwater"
   | "north-miami-beach-optical"
   | "dev";
+export type PhoneHandoffOfficeKey = Extract<OfficeKey, "crystal-river" | "dev">;
 export const SPRING_HILL_OFFICE_PHONE = "+17275919997";
 export const SPRING_HILL_813_TRUNK_PHONE = "+18135484830";
 export const CRYSTAL_RIVER_OFFICE_PHONE = "+13523202007";
@@ -35,26 +36,15 @@ export interface OfficeConfig {
   visionInsuranceFile?: string;
   amdOfficePhone: string;
   middlewareBaseUrl?: string;
-  handoffTarget: string;
   features: {
     medicalScheduling: boolean;
     routineVisionScheduling: boolean;
   };
 }
-const SPRING_HILL_TRANSFER_NUMBER = "+16182265883";
 const CRYSTAL_RIVER_TRANSFER_NUMBER = "+13527941244";
-const HOLLYWOOD_SWEETWATER_TRANSFER_NUMBER = "+16184220360";
-const SWEETWATER_OPTICAL_TRANSFER_NUMBER = "+17864657479";
-const OFFICE_HANDOFF_TARGET_ENV: Record<OfficeKey, string[]> = {
-  "spring-hill": [
-    "SPRING_HILL_HANDOFF_TARGET",
-    "TELNYX_VOICE_API_HANDOFF_TARGET",
-  ],
-  "crystal-river": [],
-  hollywood: ["HOLLYWOOD_HANDOFF_TARGET"],
-  sweetwater: ["SWEETWATER_HANDOFF_TARGET"],
-  "north-miami-beach-optical": ["NORTH_MIAMI_BEACH_OPTICAL_HANDOFF_TARGET"],
-  dev: ["DEV_HANDOFF_TARGET"],
+const PHONE_HANDOFF_TARGETS: Record<PhoneHandoffOfficeKey, string> = {
+  "crystal-river": `tel:${CRYSTAL_RIVER_TRANSFER_NUMBER}`,
+  dev: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
 };
 
 export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
@@ -68,7 +58,6 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
-    handoffTarget: `tel:${SPRING_HILL_TRANSFER_NUMBER}`,
     features: {
       medicalScheduling: true,
       routineVisionScheduling: true,
@@ -84,7 +73,6 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     insuranceFile: "INSURANCE_CRYSTAL_RIVER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
-    handoffTarget: `tel:${CRYSTAL_RIVER_TRANSFER_NUMBER}`,
     features: {
       medicalScheduling: true,
       routineVisionScheduling: false,
@@ -100,7 +88,6 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     insuranceFile: "INSURANCE_HOLLYWOOD_SWEETWATER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
-    handoffTarget: `tel:${HOLLYWOOD_SWEETWATER_TRANSFER_NUMBER}`,
     features: {
       medicalScheduling: true,
       routineVisionScheduling: true,
@@ -116,7 +103,6 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     insuranceFile: "INSURANCE_HOLLYWOOD_SWEETWATER.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: SWEETWATER_OFFICE_PHONE,
-    handoffTarget: `tel:${HOLLYWOOD_SWEETWATER_TRANSFER_NUMBER}`,
     features: {
       medicalScheduling: true,
       routineVisionScheduling: true,
@@ -132,7 +118,6 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     insuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
-    handoffTarget: `tel:${SWEETWATER_OPTICAL_TRANSFER_NUMBER}`,
     features: {
       medicalScheduling: false,
       routineVisionScheduling: true,
@@ -150,7 +135,6 @@ export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
     visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
     amdOfficePhone: DEV_OFFICE_PHONE,
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
-    handoffTarget: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
     features: {
       medicalScheduling: true,
       routineVisionScheduling: false,
@@ -195,10 +179,12 @@ export function normalizeHandoffTarget(target: string): string {
   return `tel:${normalizePhoneNumber(trimmed)}`;
 }
 
-export function getOfficeHandoffTarget(key: OfficeKey): string {
-  for (const envVar of OFFICE_HANDOFF_TARGET_ENV[key]) {
-    const value = process.env[envVar]?.trim();
-    if (value) return normalizeHandoffTarget(value);
+export function getOfficePhoneHandoffTarget(
+  key: PhoneHandoffOfficeKey,
+): string {
+  if (key === "dev") {
+    const override = process.env.DEV_HANDOFF_TARGET?.trim();
+    if (override) return normalizeHandoffTarget(override);
   }
-  return normalizeHandoffTarget(getOfficeConfig(key).handoffTarget);
+  return PHONE_HANDOFF_TARGETS[key];
 }

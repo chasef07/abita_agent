@@ -45,7 +45,7 @@ describe("transfer call", () => {
       acceptTransfer(state);
       return {
         handoffOfficeKey: "spring-hill",
-        handoffTarget: "tel:+16182265883",
+        handoffTarget: "sip:direct-handoff@example.test",
       };
     });
   });

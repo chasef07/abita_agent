@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { SipClient } from "livekit-server-sdk";
 import {
   getOfficeConfigByPhone,
-  getOfficeHandoffTarget,
+  getOfficePhoneHandoffTarget,
   type OfficeKey,
+  type PhoneHandoffOfficeKey,
 } from "../customers/profile.js";
 import type { CallState } from "../state/call-state.js";
 import {
@@ -21,8 +22,6 @@ type HandoffTarget = {
   mode: "DIRECT" | "PHONE";
   target: string;
 };
-
-class DirectHandoffConflictError extends Error {}
 
 let _sipClient: SipClient | undefined;
 let _singleReferSipClient: SipClient | undefined;
@@ -73,8 +72,13 @@ function getHandoffOfficeKey(state: CallState): OfficeKey {
   }
 }
 
-function phoneHandoffTarget(handoffOfficeKey: OfficeKey): HandoffTarget {
-  return { mode: "PHONE", target: getOfficeHandoffTarget(handoffOfficeKey) };
+function phoneHandoffTarget(
+  handoffOfficeKey: PhoneHandoffOfficeKey,
+): HandoffTarget {
+  return {
+    mode: "PHONE",
+    target: getOfficePhoneHandoffTarget(handoffOfficeKey),
+  };
 }
 
 async function resolveHandoffTarget(
@@ -87,31 +91,10 @@ async function resolveHandoffTarget(
 
   const url = process.env.ACUITY_HANDOFF_URL?.trim();
   const secret = process.env.ACUITY_HANDOFF_SECRET?.trim();
-
-  try {
-    if (!url || !secret) {
-      throw new Error("Acuity handoff API configuration is incomplete.");
-    }
-    return await requestDirectHandoff(state, url, secret);
-  } catch (error) {
-    if (
-      error instanceof DirectHandoffConflictError ||
-      !phoneFallbackEnabled()
-    ) {
-      throw error;
-    }
-    console.warn(
-      "[tools] Acuity handoff resolution failed; using the configured phone fallback.",
-    );
-    return phoneHandoffTarget(handoffOfficeKey);
+  if (!url || !secret) {
+    throw new Error("Acuity handoff API configuration is incomplete.");
   }
-}
-
-function phoneFallbackEnabled(): boolean {
-  return (
-    process.env.ACUITY_HANDOFF_PHONE_FALLBACK_ENABLED?.trim().toLowerCase() ===
-    "true"
-  );
+  return requestDirectHandoff(state, url, secret);
 }
 
 async function requestDirectHandoff(
@@ -148,9 +131,7 @@ async function requestDirectHandoff(
 
   if (!response.ok) {
     if (response.status === 409) {
-      throw new DirectHandoffConflictError(
-        "Acuity handoff conflicts with an existing transfer.",
-      );
+      throw new Error("Acuity handoff conflicts with an existing transfer.");
     }
     throw new Error(`Acuity handoff API returned ${response.status}.`);
   }
