@@ -17,7 +17,7 @@ import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   DEV_DEMO_TRANSFER_NUMBER,
   DEV_OFFICE_PHONE,
-  getOfficeHandoffTarget,
+  getOfficePhoneHandoffTarget,
 } from "../customers/profile.js";
 import { transferCallerToOffice } from "../tools/handoff.js";
 import { createTestCallState } from "./support/call-state.js";
@@ -46,9 +46,7 @@ describe("call-center handoff", () => {
   beforeEach(() => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "");
-    vi.stubEnv("ACUITY_HANDOFF_PHONE_FALLBACK_ENABLED", "");
-    vi.stubEnv("SPRING_HILL_HANDOFF_TARGET", "");
-    vi.stubEnv("TELNYX_VOICE_API_HANDOFF_TARGET", "");
+    vi.stubEnv("DEV_HANDOFF_TARGET", "");
     transferSipParticipantMock.mockReset();
     transferSipParticipantMock.mockResolvedValue(undefined);
   });
@@ -81,7 +79,7 @@ describe("call-center handoff", () => {
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
     state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
-    const target = getOfficeHandoffTarget("crystal-river");
+    const target = getOfficePhoneHandoffTarget("crystal-river");
 
     const result = await transferCallerToOffice(state);
 
@@ -244,32 +242,23 @@ describe("call-center handoff", () => {
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 
-  it("uses the phone fallback only when explicitly enabled", async () => {
+  it("fails closed when direct handoff resolution fails", async () => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
-    vi.stubEnv("ACUITY_HANDOFF_PHONE_FALLBACK_ENABLED", "true");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => jsonResponse({}, 503)),
     );
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
-    const result = await transferCallerToOffice(createState());
-
-    expect(result.handoffTarget).toBe("tel:+16182265883");
-    expect(transferSipParticipantMock).toHaveBeenCalledTimes(1);
-    expect(transferSipParticipantMock.mock.calls[0]?.[2]).toBe(
-      "tel:+16182265883",
+    await expect(transferCallerToOffice(createState())).rejects.toThrow(
+      "Acuity handoff API returned 503.",
     );
-    expect(warn).toHaveBeenCalledWith(
-      "[tools] Acuity handoff resolution failed; using the configured phone fallback.",
-    );
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 
-  it("never phone-fallbacks an existing-transfer conflict", async () => {
+  it("fails closed on an existing-transfer conflict", async () => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
-    vi.stubEnv("ACUITY_HANDOFF_PHONE_FALLBACK_ENABLED", "true");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => jsonResponse({}, 409)),
@@ -335,7 +324,6 @@ describe("call-center handoff", () => {
   it("records an upstream timeout as ambiguous without claiming success", async () => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
-    vi.stubEnv("ACUITY_HANDOFF_PHONE_FALLBACK_ENABLED", "true");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => jsonResponse(DIRECT_RESPONSE)),
@@ -355,9 +343,9 @@ describe("call-center handoff", () => {
   });
 
   it("does not make a phone REFER retryable after an ambiguous failure", async () => {
-    vi.stubEnv("ACUITY_HANDOFF_PHONE_FALLBACK_ENABLED", "true");
     transferSipParticipantMock.mockRejectedValueOnce(new Error("rejected"));
     const state = createState();
+    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "SIP transfer outcome is unknown.",

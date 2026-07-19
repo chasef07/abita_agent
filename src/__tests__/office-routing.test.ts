@@ -10,7 +10,7 @@ import {
   DEV_OFFICE_PHONE,
   getOfficeConfig,
   getOfficeConfigByPhone,
-  getOfficeHandoffTarget,
+  getOfficePhoneHandoffTarget,
   getOfficeKeyByPhone,
   HOLLYWOOD_OFFICE_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
@@ -90,10 +90,7 @@ function toolNamesForTrunk(trunkPhone: string): string[] {
 
 describe("office routing helpers", () => {
   afterEach(() => {
-    delete process.env.SPRING_HILL_HANDOFF_TARGET;
-    delete process.env.HOLLYWOOD_HANDOFF_TARGET;
-    delete process.env.SWEETWATER_HANDOFF_TARGET;
-    delete process.env.TELNYX_VOICE_API_HANDOFF_TARGET;
+    delete process.env.DEV_HANDOFF_TARGET;
   });
 
   it("maps trunk numbers to office keys", () => {
@@ -196,27 +193,12 @@ describe("office routing helpers", () => {
     expect(resolveKnowledgeFileForOffice("dev")).toBe("KNOWLEDGE_DERM_DEMO.md");
   });
 
-  it("uses office-specific human handoff targets for live offices", () => {
-    expect(getOfficeConfig("crystal-river").handoffTarget).toBe(
+  it("keeps phone handoff targets only for non-call-center offices", () => {
+    expect(getOfficePhoneHandoffTarget("crystal-river")).toBe(
       "tel:+13527941244",
     );
-    expect(getOfficeConfig("spring-hill").handoffTarget).toBe(
-      "tel:+16182265883",
-    );
-    expect(getOfficeConfig("hollywood").handoffTarget).toBe("tel:+16184220360");
-    expect(getOfficeConfig("sweetwater").handoffTarget).toBe(
-      "tel:+16184220360",
-    );
-    expect(getOfficeConfig("north-miami-beach-optical").handoffTarget).toBe(
-      "tel:+17864657479",
-    );
-    expect(getOfficeConfig("dev").handoffTarget).toBe(
+    expect(getOfficePhoneHandoffTarget("dev")).toBe(
       `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
-    );
-    expect(getOfficeHandoffTarget("hollywood")).toBe("tel:+16184220360");
-    expect(getOfficeHandoffTarget("sweetwater")).toBe("tel:+16184220360");
-    expect(getOfficeHandoffTarget("north-miami-beach-optical")).toBe(
-      "tel:+17864657479",
     );
   });
 
@@ -241,42 +223,11 @@ describe("office routing helpers", () => {
   });
 
   it("normalizes handoff targets while allowing SIP URIs directly", () => {
-    expect(normalizeHandoffTarget("+16182265883")).toBe("tel:+16182265883");
-    expect(normalizeHandoffTarget("16182265883")).toBe("tel:+16182265883");
-    expect(normalizeHandoffTarget("tel:+16182265883")).toBe("tel:+16182265883");
+    expect(normalizeHandoffTarget("+12025550123")).toBe("tel:+12025550123");
+    expect(normalizeHandoffTarget("12025550123")).toBe("tel:+12025550123");
+    expect(normalizeHandoffTarget("tel:+12025550123")).toBe("tel:+12025550123");
     expect(normalizeHandoffTarget("sip:office@sip.telnyx.com")).toBe(
       "sip:office@sip.telnyx.com",
-    );
-  });
-
-  it("allows Spring Hill to use a Voice API SIP handoff target", () => {
-    process.env.SPRING_HILL_HANDOFF_TARGET =
-      "sip:+16182265883@livekitappacuity.sip.telnyx.com";
-
-    expect(getOfficeHandoffTarget("spring-hill")).toBe(
-      "sip:+16182265883@livekitappacuity.sip.telnyx.com",
-    );
-    expect(getOfficeHandoffTarget("crystal-river")).toBe("tel:+13527941244");
-  });
-
-  it("supports a shared Voice API env override for Spring Hill only", () => {
-    process.env.TELNYX_VOICE_API_HANDOFF_TARGET =
-      "sip:+16182265883@livekitappacuity.sip.telnyx.com";
-
-    expect(getOfficeHandoffTarget("spring-hill")).toBe(
-      "sip:+16182265883@livekitappacuity.sip.telnyx.com",
-    );
-    expect(getOfficeHandoffTarget("crystal-river")).toBe("tel:+13527941244");
-  });
-
-  it("supports office-specific handoff overrides for Hollywood and Sweetwater", () => {
-    process.env.HOLLYWOOD_HANDOFF_TARGET = "9545550100";
-    process.env.SWEETWATER_HANDOFF_TARGET =
-      "sip:sweetwater@livekitappacuity.sip.telnyx.com";
-
-    expect(getOfficeHandoffTarget("hollywood")).toBe("tel:+19545550100");
-    expect(getOfficeHandoffTarget("sweetwater")).toBe(
-      "sip:sweetwater@livekitappacuity.sip.telnyx.com",
     );
   });
 
@@ -476,13 +427,12 @@ describe("dermatology demo", () => {
     expect(names).not.toContain("create_staff_task");
   });
 
-  it("routes demo transfers only to the configured demo cellphone", () => {
-    expect(getOfficeHandoffTarget("dev")).toBe(
+  it("routes demo transfers only to the configured demo target", () => {
+    expect(getOfficePhoneHandoffTarget("dev")).toBe(
       `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
     );
-    expect(getOfficeHandoffTarget("dev")).not.toBe(
-      getOfficeHandoffTarget("spring-hill"),
-    );
+    process.env.DEV_HANDOFF_TARGET = "sip:demo@example.test";
+    expect(getOfficePhoneHandoffTarget("dev")).toBe("sip:demo@example.test");
   });
 
   it("retrieves dermatology knowledge for medical and cosmetic questions", () => {
