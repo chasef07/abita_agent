@@ -14,12 +14,13 @@ import {
   clearAvailabilitySelection,
   currentWorkflowVisitType,
   latestAvailabilityRouting,
-} from "../state/scheduling.js";
+} from "./state.js";
 import {
   publicProviderName,
   selectedAvailabilitySlot,
-} from "./availability-slots.js";
-import { routingForAvailability } from "./scheduling.js";
+} from "./availability.js";
+import { routingForAvailability } from "./routing.js";
+import type { BookingSuccess } from "./middleware.js";
 
 type AppointmentKind = "medical" | "routine_vision" | "post_op";
 export type AppointmentPatientStatus = "new" | "established";
@@ -126,7 +127,9 @@ export function appointmentPatientStatusForLoadedAppointment(
   return null;
 }
 
-export function bookingSucceeded(result: BookAppointmentResult): boolean {
+export function bookingSucceeded(
+  result: BookAppointmentResult,
+): result is BookingSuccess {
   return result.status === "booked" || result.status === "partial";
 }
 
@@ -148,13 +151,13 @@ export function bookingTokenRejected(result: BookAppointmentResult): boolean {
 
 export function bookedAppointmentMessage(
   selectedSlot: StoredAvailabilitySlot,
-  result: unknown,
+  result: BookingSuccess,
 ): string {
   return `Booked ${spokenSlot(selectedSlot)}.${bookingNoteWarning(result)}`;
 }
 
-export function bookingNoteWarning(result: unknown): string {
-  return isRecord(result) && result.status === "partial"
+export function bookingNoteWarning(result: BookingSuccess): string {
+  return result.status === "partial"
     ? " The appointment was booked, but the patient note did not save."
     : "";
 }
@@ -316,8 +319,4 @@ function normalizeAppointmentTypeName(value: string | undefined): string {
     value?.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ") ??
     ""
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

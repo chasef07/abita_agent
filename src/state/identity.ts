@@ -9,7 +9,7 @@ import {
   resetPatientSchedulingState,
   setInsuranceOnFile,
   setRoutingContext,
-} from "./scheduling.js";
+} from "../scheduling/state.js";
 
 interface PatientBackendRefs {
   insPlanId?: string | null;

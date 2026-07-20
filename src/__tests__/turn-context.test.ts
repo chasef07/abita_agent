@@ -3,7 +3,7 @@ import {
   applySchedulingLaneToState,
   applyTurnContextToState,
   removeAvailabilitySlot,
-} from "../state/scheduling.js";
+} from "../scheduling/state.js";
 import { createTestCallState } from "./support/call-state.js";
 
 function createState() {

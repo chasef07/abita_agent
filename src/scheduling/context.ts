@@ -12,7 +12,7 @@ import {
   activeRoutingContext,
   applySchedulingLaneToState,
   applyTurnContextToState,
-} from "../state/scheduling.js";
+} from "./state.js";
 
 export function prepareAvailabilityLookupContext(
   state: CallState,

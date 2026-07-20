@@ -23,13 +23,13 @@ import {
   lastInsuranceEligibilityCheck,
   setInsuranceOnFile,
   setLastInsuranceEligibilityCheck,
-} from "../state/scheduling.js";
+} from "../scheduling/state.js";
 import { applyPatientResult } from "./patient-state.js";
 import {
   getAmdOfficeForToolCall,
   medicalSchedulingUnavailable,
   routineVisionSchedulingUnavailable,
-} from "./scheduling.js";
+} from "../scheduling/routing.js";
 import { getState } from "./session.js";
 
 const addPatientParameters = z

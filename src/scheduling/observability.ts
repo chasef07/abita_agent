@@ -11,26 +11,27 @@ import { activePatientName } from "../state/identity.js";
 import {
   currentWorkflowVisitType,
   latestAvailabilityRouting,
-} from "../state/scheduling.js";
+} from "./state.js";
+import type { BookingResult } from "./middleware.js";
 
 export function bookedSlotAppointmentAnalytics(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
-  result: unknown,
+  result: BookingResult,
 ): AppointmentAnalytics {
-  const receipt = isRecord(result) ? result : {};
+  const booking =
+    result.status === "booked" || result.status === "partial" ? result : null;
   return stripEmptyFields({
-    appointmentId: stringField(receipt, "appointmentId"),
+    appointmentId: booking ? String(booking.appointmentId) : undefined,
     patientName: activePatientName(state) ?? undefined,
     appointmentDate: selectedSlot.date,
     appointmentTime: selectedSlot.time,
-    startDatetime:
-      stringField(receipt, "startDatetime") ?? selectedSlot.datetime,
-    providerName: stringField(receipt, "providerName") ?? selectedSlot.provider,
+    startDatetime: selectedSlot.datetime,
+    providerName: booking?.providerName ?? selectedSlot.provider,
     locationName:
-      stringField(receipt, "locationName") ??
+      booking?.locationName ??
       getOfficeProfile(activeOfficeKey(state)).displayName,
-    appointmentTypeName: stringField(receipt, "appointmentTypeName"),
+    appointmentTypeName: booking?.appointmentTypeName ?? undefined,
     careLane: careLaneForBookedSlot(state, selectedSlot),
   });
 }
@@ -38,10 +39,11 @@ export function bookedSlotAppointmentAnalytics(
 export function cancelledAppointmentAnalytics(
   state: CallState,
   appointment: CallerAppointment,
+  patientName: string | null = activePatientName(state),
 ): AppointmentAnalytics {
   return stripEmptyFields({
     appointmentId: String(appointment.id),
-    patientName: activePatientName(state) ?? undefined,
+    patientName: patientName ?? undefined,
     appointmentDate: appointment.date,
     appointmentTime: appointment.time,
     providerName: appointment.provider,
@@ -52,12 +54,9 @@ export function cancelledAppointmentAnalytics(
 }
 
 export function appointmentActionStatusForBookingResult(
-  result: unknown,
+  result: BookingResult,
 ): AppointmentActionStatus {
-  if (!isRecord(result)) return "success";
-  return stringField(result, "status")?.toLowerCase() === "partial"
-    ? "partial"
-    : "success";
+  return result.status === "partial" ? "partial" : "success";
 }
 
 function careLaneForBookedSlot(
@@ -96,18 +95,4 @@ function stripEmptyFields(input: AppointmentAnalytics): AppointmentAnalytics {
       ([, value]) => typeof value === "string" && value.trim(),
     ),
   );
-}
-
-function stringField(
-  record: Record<string, unknown>,
-  field: string,
-): string | undefined {
-  const value = record[field];
-  if (typeof value === "string" && value.trim()) return value;
-  if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  return undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

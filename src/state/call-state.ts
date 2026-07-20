@@ -2,7 +2,7 @@ import type { OfficeKey } from "../customers/abita/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { RuntimeVoiceLanguageState } from "../tts-config.js";
 import { setPatientBackendRefs } from "./identity.js";
-import { createSchedulingState } from "./scheduling.js";
+import { createSchedulingState } from "../scheduling/state.js";
 import type { TransferState } from "./call-lifecycle.js";
 
 export const CALLER_CANDIDATE_REF = "caller";
@@ -151,6 +151,11 @@ export interface CompletedRescheduleState {
   appointmentDescription: string;
 }
 
+export interface CompletedBookingState {
+  appointmentId: number;
+  appointmentDescription: string;
+}
+
 export interface CompletedCancellationState {
   patientId: string;
   appointment: CallerAppointment;
@@ -295,6 +300,7 @@ interface IdentitySessionState {
   patient: PatientSessionState;
   patientBackend: PatientBackendRefs;
   latestBookedAppointmentId?: number;
+  completedBookingsByPatientId: Record<string, CompletedBookingState>;
   completedCancellations: CompletedCancellationState[];
   completedReschedulesByPatientId: Record<string, CompletedRescheduleState>;
 }
@@ -388,6 +394,7 @@ export function createCanonicalCallState(
         appointmentsStatus: input.appointmentsStatus,
       },
       patientBackend: {},
+      completedBookingsByPatientId: {},
       completedCancellations: [],
       completedReschedulesByPatientId: {},
     },

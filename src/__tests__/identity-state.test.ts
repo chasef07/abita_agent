@@ -11,7 +11,7 @@ import {
   availabilitySlotsForState,
   lastInsuranceEligibilityCheck,
   storeAvailabilityBookingToken,
-} from "../state/scheduling.js";
+} from "../scheduling/state.js";
 
 function createState() {
   const state = createTestCallState({

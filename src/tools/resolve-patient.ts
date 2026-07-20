@@ -22,7 +22,7 @@ import {
   resetPatientScopedWork,
 } from "../state/identity.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
-import { insuranceOnFile } from "../state/scheduling.js";
+import { insuranceOnFile } from "../scheduling/state.js";
 import {
   applyResolvedPatientToState,
   resolvePatientForCall,

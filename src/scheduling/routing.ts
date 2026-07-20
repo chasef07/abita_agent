@@ -10,7 +10,7 @@ import {
   activeRoutingContext,
   clearAvailabilitySelection,
   currentWorkflowVisitType,
-} from "../state/scheduling.js";
+} from "./state.js";
 
 export function selectAvailabilityOffice(
   state: CallState,

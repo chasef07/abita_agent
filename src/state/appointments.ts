@@ -2,6 +2,7 @@ import type {
   AppointmentLoadStatus,
   CallState,
   CallerAppointment,
+  CompletedBookingState,
   CompletedCancellationState,
   CompletedRescheduleState,
   StoredCallerAppointment,
@@ -62,7 +63,7 @@ export function removeActiveAppointment(
   );
   const patientId = activePatientId(state);
   if (appointment && patientId) {
-    recordCompletedCancellation(state, patientId, appointment);
+    recordCompletedCancellationForPatient(state, patientId, appointment);
   }
   removeBookedAppointmentReference(state, appointmentId);
   state.identity.patient.appointments =
@@ -91,11 +92,17 @@ export function latestBookedAppointmentId(state: CallState): number | null {
   return state.identity.latestBookedAppointmentId ?? null;
 }
 
-function recordCompletedCancellation(
+export function recordCompletedCancellationForPatient(
   state: CallState,
   patientId: string,
   appointment: CallerAppointment,
 ): void {
+  if (
+    state.identity.completedBookingsByPatientId[patientId]?.appointmentId ===
+    appointment.id
+  ) {
+    delete state.identity.completedBookingsByPatientId[patientId];
+  }
   state.identity.completedCancellations = [
     ...state.identity.completedCancellations.filter(
       (item) =>
@@ -103,6 +110,21 @@ function recordCompletedCancellation(
     ),
     { patientId, appointment },
   ];
+}
+
+export function completedBookingForPatient(
+  state: CallState,
+  patientId: string,
+): CompletedBookingState | null {
+  return state.identity.completedBookingsByPatientId[patientId] ?? null;
+}
+
+export function recordCompletedBookingForPatient(
+  state: CallState,
+  patientId: string,
+  booking: CompletedBookingState,
+): void {
+  state.identity.completedBookingsByPatientId[patientId] = booking;
 }
 
 export function completedCancellations(
