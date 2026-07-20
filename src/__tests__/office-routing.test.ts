@@ -607,7 +607,12 @@ describe("Crystal River prompt guidance", () => {
     expect(hollywoodPrompt).not.toContain("Crystal River routing rules");
     expect(sweetwaterPrompt).not.toContain("Crystal River routing rules");
     expect(hollywoodKnowledge).toContain("Abita Eye Group Hollywood");
-    expect(hollywoodKnowledge).toContain("4330 Sheridan St, Suite 102B");
+    expect(hollywoodKnowledge).toContain(
+      "4330 Sheridan St, Suite 102B, Hollywood, FL 33021",
+    );
+    expect(hollywoodKnowledge).toContain(
+      "12750 NW 17th St, #201, Miami, FL 33182",
+    );
     expect(hollywoodKnowledge).toContain("Route to ophthalmology");
     expect(hollywoodKnowledge).toContain(
       "does not perform retina surgical care",
@@ -617,6 +622,9 @@ describe("Crystal River prompt guidance", () => {
     expect(hollywoodKnowledge).toContain("Dr. Bach");
     expect(sweetwaterKnowledge).toContain("Abita Eye Group Sweetwater");
     expect(sweetwaterKnowledge).toContain("12750 NW 17th St, #201");
+    expect(sweetwaterKnowledge).toContain(
+      "4330 Sheridan St, Suite 102B, Hollywood, FL 33021",
+    );
     expect(sweetwaterKnowledge).toContain("Route to ophthalmology");
     expect(sweetwaterKnowledge).toContain(
       "does not perform retina surgical care",
@@ -624,6 +632,20 @@ describe("Crystal River prompt guidance", () => {
     expect(sweetwaterKnowledge).toContain("Betty is the licensed optician");
     expect(sweetwaterKnowledge).toContain("@abitaeyegroup");
     expect(sweetwaterKnowledge).toContain("Dr. Maria Casas");
+  });
+
+  it("answers either office with both Hollywood and Sweetwater scheduling addresses", () => {
+    for (const office of ["hollywood", "sweetwater"] as const) {
+      const result = lookupOfficeKnowledge(
+        office,
+        "What are the Hollywood and Sweetwater office addresses?",
+      );
+
+      expect(result).toContain(
+        "4330 Sheridan St, Suite 102B, Hollywood, FL 33021",
+      );
+      expect(result).toContain("12750 NW 17th St, #201, Miami, FL 33182");
+    }
   });
 
   it("keeps North Miami Beach Optical knowledge limited to provided facts", () => {
@@ -974,6 +996,7 @@ describe("model-facing tool definitions", () => {
       safeParse: (value: unknown) => { success: boolean };
       shape: {
         appointmentLane: { description?: string };
+        office: { description?: string };
         timePreference: { description?: string };
       };
     };
@@ -983,6 +1006,12 @@ describe("model-facing tool definitions", () => {
     expect(parameters.shape.appointmentLane.description).toContain(
       "routine_od",
     );
+    expect(parameters.shape.office.description).toContain(
+      "Hollywood and Sweetwater calls",
+    );
+    expect(parameters.shape.office.description).toContain(
+      "Do not infer it from the number called",
+    );
     expect(parameters.shape.timePreference.description).toContain("morning");
     expect(parameters.shape.timePreference.description).toContain("afternoon");
     expect(parameters.shape.timePreference.description).toContain("none");
@@ -990,9 +1019,24 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({
         date: "2026-06-01",
         appointmentLane: "medical_md",
+        office: "hollywood",
         timePreference: "afternoon",
       }).success,
     ).toBe(true);
+    expect(
+      parameters.safeParse({
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+        office: "sweetwater",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+        office: "spring-hill",
+      }).success,
+    ).toBe(false);
     expect(
       parameters.safeParse({
         date: "2026-06-01",

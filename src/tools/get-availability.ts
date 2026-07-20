@@ -18,9 +18,11 @@ import {
 } from "./availability-slots.js";
 import {
   getAmdOfficeForToolCall,
+  type HollywoodSweetwaterOffice,
   medicalSchedulingUnavailable,
   routingForAvailability,
   routineVisionSchedulingUnavailable,
+  selectAvailabilityOffice,
 } from "./scheduling.js";
 import { getState } from "./session.js";
 import {
@@ -32,6 +34,7 @@ import {
 type AvailabilityLookupArgs = {
   date?: string;
   appointmentLane?: SchedulingAppointmentLane;
+  office?: HollywoodSweetwaterOffice;
   timePreference?: AvailabilityTimePreference;
 };
 
@@ -48,6 +51,7 @@ export const get_availability = tool({
   description:
     "Search appointment availability from an exact YYYY-MM-DD start date. " +
     "For new appointments, pass appointmentLane after the visit reason is clear; for reschedules, omit it only when the existing appointment to move is already identified. " +
+    "On Hollywood or Sweetwater calls, ask which of those two offices the caller wants and pass office; never infer the scheduling office from the number they called. " +
     "Use timePreference to rank morning, afternoon, or no-preference requests. " +
     "Do not call for same-day or past dates. Call get_current_datetime before using relative dates, and do not pass relative phrases here. " +
     "This tool returns plain instructions with at most two appointmentSlotRef values; offer only those returned slots and do not invent other times. " +
@@ -60,6 +64,12 @@ export const get_availability = tool({
       .describe(
         "Required for new appointment searches. Use medical_md for medical or eye-problem visits, routine_od for routine vision. Omit only for reschedules when the loaded appointment supplies the lane.",
       ),
+    office: z
+      .enum(["hollywood", "sweetwater"])
+      .optional()
+      .describe(
+        "Required on Hollywood and Sweetwater calls after asking which office the caller wants. Do not infer it from the number called. Omit for every other office.",
+      ),
     timePreference: z
       .enum(["morning", "afternoon", "none"])
       .optional()
@@ -68,7 +78,7 @@ export const get_availability = tool({
       ),
   }),
   execute: async (
-    { date, appointmentLane, timePreference },
+    { date, appointmentLane, office, timePreference },
     { ctx, abortSignal },
   ) => {
     const state = getState(ctx);
@@ -76,6 +86,7 @@ export const get_availability = tool({
     const request = buildAvailabilityLookupRequestForState(state, {
       date,
       appointmentLane,
+      office,
       timePreference,
     });
     if ("blocked" in request) return request.blocked;
@@ -161,6 +172,9 @@ function buildAvailabilityLookupRequestForState(
       blocked: "Verify or create the patient before checking availability.",
     };
   }
+
+  const officeSelection = selectAvailabilityOffice(state, args.office);
+  if (officeSelection) return { blocked: officeSelection };
 
   prepareAvailabilityLookupContext(state, args.appointmentLane);
   const contextRecovery = availabilityContextRecovery(state);

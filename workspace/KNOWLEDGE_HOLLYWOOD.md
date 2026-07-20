@@ -31,7 +31,9 @@ Hollywood does not perform retina surgical care. Retina surgical care needs to b
 ## Location + Contact
 
 Practice Name: Abita Eye Group Hollywood
-Address: 4330 Sheridan St, Suite 102B, Hollywood, FL
+Address: 4330 Sheridan St, Suite 102B, Hollywood, FL 33021
+Other scheduling office: Abita Eye Group Sweetwater
+Other scheduling office address: 12750 NW 17th St, #201, Miami, FL 33182
 Administrative email for new-patient paperwork or requested documents: newpatient@abitaeye.com
 Do not tell callers to email doctors, clinical questions, prescriptions, surgery questions, urgent symptoms, or medical concerns to this address. For those needs, transfer the call or follow the appropriate scheduling/office workflow.
 Phone: (954) 287-2010
