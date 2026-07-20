@@ -8,13 +8,13 @@ import {
   setLatestBookedAppointment,
 } from "../state/appointments.js";
 import {
+  activePatientId,
   type AppointmentLoadStatus,
   type CallState,
   type CallerAppointment,
   type StoredAvailabilitySlot,
   type StoredCallerAppointment,
 } from "../state/call-state.js";
-import { activePatientId } from "../state/identity.js";
 import { publicProviderName } from "./availability.js";
 import type { BookingSuccess } from "./middleware.js";
 

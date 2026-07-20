@@ -4,10 +4,10 @@ import {
   activeAppointmentsStatus,
 } from "../state/appointments.js";
 import {
+  activePatientId,
   type CallState,
   type SchedulingAppointmentLane,
 } from "../state/call-state.js";
-import { activePatientId } from "../state/identity.js";
 import {
   activeRoutingContext,
   applySchedulingLaneToState,

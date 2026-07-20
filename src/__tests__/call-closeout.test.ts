@@ -9,7 +9,10 @@ import {
   type CallCloseoutResult,
 } from "../runtime/call-closeout.js";
 import { getAnalyticsSecret } from "../runtime/portal-auth.js";
-import type { CallState } from "../state/call-state.js";
+import {
+  recordPatientIdentityTransition,
+  type CallState,
+} from "../state/call-state.js";
 import {
   acceptTransfer,
   beginTransfer,
@@ -137,6 +140,27 @@ describe("call closeout", () => {
     });
     expect(portal.deliveries[1]?.payload).not.toHaveProperty("callState");
     expect(portal.deliveries[1]?.payload).not.toHaveProperty("sessionReport");
+  });
+
+  it("includes identity transitions in compact and rich observation", async () => {
+    const state = createTestCallState();
+    recordPatientIdentityTransition(state, {
+      outcome: "pending",
+      source: "pre_call_phone_lookup",
+    });
+    recordPatientIdentityTransition(state, {
+      outcome: "confirmed",
+      source: "caller_transcript",
+    });
+    const { events, portal } = await setupCloseout({ state });
+    await events.close();
+
+    const expected = [
+      { outcome: "pending", source: "pre_call_phone_lookup" },
+      { outcome: "confirmed", source: "caller_transcript" },
+    ];
+    expect(portal.deliveries[1]?.payload.identityTransitions).toEqual(expected);
+    expect(portal.deliveries[2]?.payload.identityTransitions).toEqual(expected);
   });
 
   it("classifies only accepted transfer state as escalated", async () => {

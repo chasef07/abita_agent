@@ -10,7 +10,7 @@ import {
   activePatientId,
   patientBackendRefs,
   setPatientBackendRefs,
-} from "../state/identity.js";
+} from "../state/call-state.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import {
   clearAvailabilitySelection,

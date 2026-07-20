@@ -22,10 +22,12 @@ import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcript-confirmation.js";
 import { addDurableInternalSystemMessage } from "./runtime/durable-chat-context.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
+import type { PatientResolveLookup } from "./identity/promotion.js";
 
 export { addDurableInternalSystemMessage };
 
 type VoiceAgentOptions = {
+  identityLookup?: PatientResolveLookup;
   onAssistantText?: (text: string, complete: boolean) => void;
   onLanguageDecision?: (decision: SttLanguageDecision) => void;
   suppressGreeting?: boolean;
@@ -42,7 +44,9 @@ export function createVoiceAgent(
 
   const agent = LiveKitAgent.create<CallState>({
     instructions: buildPrompt(phoneLookup, trunkPhone),
-    tools: buildToolsForTrunk(trunkPhone),
+    tools: buildToolsForTrunk(trunkPhone, {
+      identityLookup: options.identityLookup,
+    }),
 
     async onEnter(ctx): Promise<void> {
       if (!greeting) return;

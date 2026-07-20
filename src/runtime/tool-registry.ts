@@ -15,6 +15,8 @@ import {
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
+import { createResolvePatientTool } from "../tools/resolve-patient.js";
+import type { PatientResolveLookup } from "../identity/promotion.js";
 
 const end_call = beta.createEndCallTool<CallState>({
   // RoomIO owns room cleanup through deleteRoomOnClose for every session close.
@@ -22,34 +24,28 @@ const end_call = beta.createEndCallTool<CallState>({
   endInstructions: "Say a brief goodbye to the caller.",
 });
 
-const CORE_TOOLS = [
-  get_current_datetime,
-  resolve_patient,
-  add_patient,
-  update_insurance,
-  get_availability,
-  cancel_appointment,
-  book_appointment,
-  reschedule_appointment,
-  check_insurance,
-  lookup_knowledge,
-] as const satisfies readonly ToolContextEntry<CallState>[];
+export type AgentTools = readonly ToolContextEntry<CallState>[];
 
-const COMMON_TOOLS = [
-  ...CORE_TOOLS,
-  transfer_call,
-  end_call,
-] as const satisfies readonly ToolContextEntry<CallState>[];
-
-const STAFF_TASK_TOOLS = [
-  ...COMMON_TOOLS,
-  create_staff_task,
-] as const satisfies readonly ToolContextEntry<CallState>[];
-
-export type AgentTools = typeof COMMON_TOOLS | typeof STAFF_TASK_TOOLS;
-
-export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
+export function buildToolsForTrunk(
+  trunkPhone?: string,
+  options: { identityLookup?: PatientResolveLookup } = {},
+): AgentTools {
+  const coreTools = [
+    get_current_datetime,
+    options.identityLookup
+      ? createResolvePatientTool(options.identityLookup)
+      : resolve_patient,
+    add_patient,
+    update_insurance,
+    get_availability,
+    cancel_appointment,
+    book_appointment,
+    reschedule_appointment,
+    check_insurance,
+    lookup_knowledge,
+  ] as const satisfies readonly ToolContextEntry<CallState>[];
+  const commonTools = [...coreTools, transfer_call, end_call] as const;
   const office = getOfficeProfileByPhone(trunkPhone ?? "");
-  if (office.staffTaskCapture) return STAFF_TASK_TOOLS;
-  return COMMON_TOOLS;
+  if (office.staffTaskCapture) return [...commonTools, create_staff_task];
+  return commonTools;
 }

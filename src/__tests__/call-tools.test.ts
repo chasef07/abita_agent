@@ -16,6 +16,7 @@ import { storeAvailabilityBookingToken } from "../scheduling/state.js";
 import { ownedMiddlewareFailures } from "../state/observability.js";
 import {
   add_patient,
+  cancel_appointment,
   check_insurance,
   resolve_patient,
   update_insurance,
@@ -297,6 +298,14 @@ function createdPatientResult(
   };
 }
 
+function deferredResult<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((value) => {
+    resolve = value;
+  });
+  return { promise, resolve };
+}
+
 describe("stateful call tools", () => {
   beforeEach(() => {
     useMiddleware({});
@@ -308,6 +317,11 @@ describe("stateful call tools", () => {
     setOwnedMiddleware(undefined);
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("rejects concurrent duplicate identity writes", () => {
+    expect(resolve_patient.onDuplicate).toBe("reject");
+    expect(add_patient.onDuplicate).toBe("reject");
   });
 
   it("returns a speech-ready result after creating a patient", async () => {
@@ -368,6 +382,281 @@ describe("stateful call tools", () => {
       insurance: "self pay",
       subscriberNum: "self pay",
     });
+  });
+
+  it.each(["resolve_first", "creation_first"] as const)(
+    "does not let chart creation replace a newer resolved patient when %s completes",
+    async (completionOrder) => {
+      const creation = deferredResult<CreatePatientResult>();
+      const lookup = deferredResult<PatientResolveResult>();
+      const state = createState();
+      markNewPatientPathConfirmed(state);
+      markSchedulingTriaged(state);
+      markAcceptedInsurance(state);
+      const middleware = useMiddleware({
+        createPatient: [creation.promise],
+        resolvePatient: [lookup.promise],
+      });
+
+      const pendingCreation = add_patient.execute(
+        {
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          street: "123 Main St",
+          aptSuite: "",
+          city: "Spring Hill",
+          state: "FL",
+          zip: "34606",
+          sex: "female",
+          insurance: "self pay",
+          appointmentLane: "medical_md",
+          subscriberName: "Jane Doe",
+          insuranceMemberId: "self pay",
+          inboundPhoneConfirmed: true,
+          readBack: true,
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      );
+      const pendingResolution = resolve_patient.execute(
+        { firstName: "John", lastName: "Doe", dob: "02/02/1982" },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-2",
+        } as never,
+      );
+      const creationResult = {
+        ...createdPatientResult(),
+        status: "partial" as const,
+        insuranceCarrier: null,
+      };
+      const lookupResult = verifiedPatientResult({
+        patientId: "patient-john",
+        name: "John Doe",
+        dob: "02/02/1982",
+        phone: "+17275550102",
+      });
+
+      if (completionOrder === "resolve_first") {
+        lookup.resolve(lookupResult);
+        await pendingResolution;
+        creation.resolve(creationResult);
+      } else {
+        creation.resolve(creationResult);
+        await pendingCreation;
+        lookup.resolve(lookupResult);
+      }
+
+      await expect(pendingResolution).resolves.toContain(
+        "Verified existing patient John Doe",
+      );
+      await expect(pendingCreation).resolves.toContain(
+        "Created a patient chart for Jane Doe, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration.",
+      );
+      expect(state.identity.patient).toMatchObject({
+        status: "verified",
+        identityConfirmed: true,
+        patientId: "patient-john",
+        name: "John Doe",
+        dob: "02/02/1982",
+        phone: "+17275550102",
+      });
+      expect(middleware.operations.map(({ name }) => name)).toEqual([
+        "createPatient",
+        "resolvePatient",
+      ]);
+    },
+  );
+
+  it("keeps a committed chart when a later identity lookup fails", async () => {
+    const deferred = deferredResult<CreatePatientResult>();
+    const state = createState();
+    markNewPatientPathConfirmed(state);
+    markSchedulingTriaged(state);
+    markAcceptedInsurance(state);
+    const middleware = useMiddleware({
+      createPatient: [deferred.promise],
+      resolvePatient: [{ status: "error", reason: "network_error" }],
+    });
+    const params = {
+      firstName: "Jane",
+      lastName: "Doe",
+      dob: "01/01/1980",
+      street: "123 Main St",
+      aptSuite: "",
+      city: "Spring Hill",
+      state: "FL",
+      zip: "34606",
+      sex: "female" as const,
+      insurance: "self pay",
+      appointmentLane: "medical_md" as const,
+      subscriberName: "Jane Doe",
+      insuranceMemberId: "self pay",
+      inboundPhoneConfirmed: true,
+      readBack: true,
+    };
+
+    const pendingCreation = add_patient.execute(params, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-1",
+    } as never);
+    const resolution = await resolve_patient.execute(
+      { firstName: "John", lastName: "Doe", dob: "02/02/1982" },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+    deferred.resolve(createdPatientResult());
+
+    expect(resolution).toBe("Patient lookup failed. Try again.");
+    await expect(pendingCreation).resolves.toBe(
+      "Created a patient chart for Jane Doe. Continue with scheduling.",
+    );
+    expect(state.identity.patient).toMatchObject({
+      status: "created",
+      identityConfirmed: true,
+      patientId: "patient-new",
+      name: "Jane Doe",
+    });
+    expect(state.identity.pendingRegistration).toBeUndefined();
+    await expect(
+      add_patient.execute(params, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-3",
+      } as never),
+    ).resolves.toContain("Patient chart is already created for Jane Doe");
+    expect(middleware.operations.map(({ name }) => name)).toEqual([
+      "createPatient",
+      "resolvePatient",
+    ]);
+  });
+
+  it("keeps repeated new-chart confirmation idempotent during chart creation", async () => {
+    const creation = deferredResult<CreatePatientResult>();
+    const state = createState();
+    markNewPatientPathConfirmed(state);
+    markSchedulingTriaged(state);
+    markAcceptedInsurance(state);
+    const middleware = useMiddleware({ createPatient: [creation.promise] });
+    const params = {
+      firstName: "Jane",
+      lastName: "Doe",
+      dob: "01/01/1980",
+      street: "123 Main St",
+      aptSuite: "",
+      city: "Spring Hill",
+      state: "FL",
+      zip: "34606",
+      sex: "female" as const,
+      insurance: "self pay",
+      appointmentLane: "medical_md" as const,
+      subscriberName: "Jane Doe",
+      insuranceMemberId: "self pay",
+      inboundPhoneConfirmed: true,
+      readBack: true,
+    };
+
+    const pendingCreation = add_patient.execute(params, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-1",
+    } as never);
+    const repeatedConfirmation = await resolve_patient.execute(
+      { firstName: "Jane", registrationStatus: "not_registered" },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+    creation.resolve(createdPatientResult());
+
+    expect(repeatedConfirmation).toBe(
+      "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.",
+    );
+    await expect(pendingCreation).resolves.toBe(
+      "Created a patient chart for Jane Doe. Continue with scheduling.",
+    );
+    expect(state.identity.patient).toMatchObject({
+      status: "created",
+      identityConfirmed: true,
+      patientId: "patient-new",
+      name: "Jane Doe",
+    });
+    expect(state.identity.pendingRegistration).toBeUndefined();
+    await expect(
+      add_patient.execute(params, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-3",
+      } as never),
+    ).resolves.toContain("Patient chart is already created for Jane Doe");
+    expect(middleware.operations.map(({ name }) => name)).toEqual([
+      "createPatient",
+    ]);
+  });
+
+  it("invalidates pending chart creation when a different new patient is named", async () => {
+    const creation = deferredResult<CreatePatientResult>();
+    const state = createState();
+    markNewPatientPathConfirmed(state);
+    markSchedulingTriaged(state);
+    markAcceptedInsurance(state);
+    storeAvailabilityBookingToken(state, "A", "private-token");
+    const middleware = useMiddleware({ createPatient: [creation.promise] });
+
+    const pendingCreation = add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        insurance: "self pay",
+        appointmentLane: "medical_md",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "self pay",
+        inboundPhoneConfirmed: true,
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+    const newPatient = await resolve_patient.execute(
+      { firstName: "John", registrationStatus: "not_registered" },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never,
+    );
+    creation.resolve(createdPatientResult());
+
+    expect(newPatient).toBe(
+      "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.",
+    );
+    await expect(pendingCreation).resolves.toBe(
+      "Created a patient chart for Jane Doe, but the active patient changed before the result returned. Do not create another chart. Continue with the current patient's state.",
+    );
+    expect(state.identity.patient).toMatchObject({
+      status: "new",
+      identityConfirmed: false,
+      patientId: null,
+      name: null,
+    });
+    expect(state.identity.pendingRegistration).toEqual({ firstName: "John" });
+    expect(state.workflow.current).toBeUndefined();
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
+    expect(state.insurance.lastEligibilityCheck).toBeNull();
+    expect(middleware.operations.map(({ name }) => name)).toEqual([
+      "createPatient",
+    ]);
   });
 
   it("keeps a partially created chart active without claiming insurance was attached", async () => {
@@ -1214,7 +1503,7 @@ describe("stateful call tools", () => {
       patientId: "patient-brandon",
       name: "BRANDON ANDERSON",
       dob: "04/05/2012",
-      phone: null,
+      phone: "+19045550199",
       appointments: [],
       appointmentsStatus: "none",
     };
@@ -1270,6 +1559,7 @@ describe("stateful call tools", () => {
     expect(state.identity.patient.identityConfirmed).toBe(true);
     expect(state.identity.patient.patientId).toBe("patient-monique");
     expect(state.identity.patient.name).toBe("MONIQUE HAMILTON");
+    expect(state.identity.patient.phone).toBe("+17863488102");
   });
 
   it("does not clear booking state when resolving the already active pre-call patient", async () => {
@@ -1644,6 +1934,61 @@ describe("stateful call tools", () => {
     expect(state.identity.patient.status).toBe("new");
     expect(state.identity.patient.identityConfirmed).toBe(false);
     expect(state.identity.patient.patientId).toBeNull();
+  });
+
+  it("keeps a confirmed pre-call patient inactive after starting a new chart", async () => {
+    const state = createState();
+    state.identity.preCall = {
+      status: "single_match_confirmed",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      selectedCandidateRef: CALLER_CANDIDATE_REF,
+      candidates: [
+        {
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "JANE",
+          lastName: "DOE",
+          dob: "01/01/1980",
+          patientId: "patient-jane",
+          appointments: [
+            {
+              id: 123,
+              date: "2026-06-01",
+              time: "9:00 AM",
+              provider: "Doctor Smith",
+              type: "Medical",
+              facility: "Spring Hill",
+              confirmed: true,
+            },
+          ],
+          appointmentsStatus: "found",
+        },
+      ],
+      identityPromotion: "confirmed_by_identity_tool",
+    };
+
+    await resolve_patient.execute(
+      { firstName: "John", registrationStatus: "not_registered" },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(state.identity.patient).toMatchObject({
+      status: "new",
+      identityConfirmed: false,
+      patientId: null,
+      name: null,
+      dob: null,
+      phone: null,
+      appointments: [],
+    });
+    await expect(
+      cancel_appointment.execute({}, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never),
+    ).rejects.toThrow("Verify the patient before cancelling.");
+    expect(testMiddleware.operations).toHaveLength(0);
+    expect(state.identity.patient.status).toBe("new");
   });
 
   it("blocks new chart creation when a confirmed pre-call candidate has the same last name and DOB", async () => {

@@ -1,7 +1,6 @@
 import type { OfficeKey } from "../customers/abita/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { RuntimeVoiceLanguageState } from "../tts-config.js";
-import { setPatientBackendRefs } from "./identity.js";
 import { createSchedulingState } from "../scheduling/state.js";
 import type { TransferState } from "./call-lifecycle.js";
 
@@ -241,9 +240,32 @@ export interface StaffTaskReceipt {
   urgency: StaffTaskUrgency;
 }
 
-interface PatientBackendRefs {
+export interface PatientBackendRefs {
   insPlanId?: string | null;
   respPartyId?: string | null;
+}
+
+export interface PendingPatientRegistrationIdentity {
+  firstName?: string;
+  lastName?: string;
+  dob?: string;
+}
+
+export type PatientIdentityOutcome =
+  | "verified"
+  | "switched"
+  | "new"
+  | "not_found"
+  | "multiple_matches"
+  | "lookup_failed"
+  | "needs_identity";
+
+export type PatientIdentityTransitionOutcome =
+  "pending" | "confirmed" | Exclude<PatientIdentityOutcome, "verified">;
+
+export interface PatientIdentityTransitionAnalytics {
+  outcome: PatientIdentityTransitionOutcome;
+  source: "pre_call_phone_lookup" | "caller_transcript" | "resolve_patient";
 }
 
 interface RuntimeCallState {
@@ -260,6 +282,8 @@ interface RuntimeCallState {
   appointmentActions: AppointmentActionAnalytics[];
   ownedMiddlewareFailures: OwnedMiddlewareFailureAnalytics[];
   staffTasks: StaffTaskReceipt[];
+  patientIdentityOutcomes: PatientIdentityOutcome[];
+  patientIdentityTransitions: PatientIdentityTransitionAnalytics[];
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
 
@@ -297,8 +321,11 @@ interface InsuranceSessionState {
 
 interface IdentitySessionState {
   preCall?: PreCallContextState;
+  pendingRegistration?: PendingPatientRegistrationIdentity;
   patient: PatientSessionState;
   patientBackend: PatientBackendRefs;
+  operationVersion: number;
+  transitionVersion: number;
   latestBookedAppointmentId?: number;
   completedBookingsByPatientId: Record<string, CompletedBookingState>;
   completedCancellations: CompletedCancellationState[];
@@ -337,6 +364,64 @@ export interface CallState {
   workflow: WorkflowSessionState;
   availability: AvailabilitySessionState;
   runtime: RuntimeCallState;
+}
+
+export function activePatientId(state: CallState): string | null {
+  if (
+    !state.identity.patient.identityConfirmed &&
+    state.identity.patient.status !== "created"
+  ) {
+    return null;
+  }
+  return state.identity.patient.patientId ?? null;
+}
+
+export function activePatientName(state: CallState): string | null {
+  return state.identity.patient.name?.trim() || null;
+}
+
+export function activePatientDob(state: CallState): string | null {
+  return state.identity.patient.dob?.trim() || null;
+}
+
+export function patientBackendRefs(state: CallState): PatientBackendRefs {
+  return state.identity.patientBackend;
+}
+
+export function setPatientBackendRefs(
+  state: CallState,
+  refs: PatientBackendRefs,
+): void {
+  state.identity.patientBackend = {
+    ...state.identity.patientBackend,
+    ...refs,
+  };
+}
+
+export function recordPatientIdentityOutcome(
+  state: CallState,
+  outcome: PatientIdentityOutcome,
+): void {
+  state.runtime.patientIdentityOutcomes.push(outcome);
+}
+
+export function recordPatientIdentityTransition(
+  state: CallState,
+  transition: PatientIdentityTransitionAnalytics,
+): void {
+  state.runtime.patientIdentityTransitions.push(transition);
+}
+
+export function patientIdentityTransitions(
+  state: CallState,
+): PatientIdentityTransitionAnalytics[] {
+  return [...state.runtime.patientIdentityTransitions];
+}
+
+export function takePatientIdentityOutcome(
+  state: CallState,
+): PatientIdentityOutcome | undefined {
+  return state.runtime.patientIdentityOutcomes.shift();
 }
 
 export interface InitialCallStateInput {
@@ -395,6 +480,8 @@ export function createCanonicalCallState(
       },
       patientBackend: {},
       completedBookingsByPatientId: {},
+      operationVersion: 0,
+      transitionVersion: 0,
       completedCancellations: [],
       completedReschedulesByPatientId: {},
     },
@@ -411,6 +498,10 @@ export function createCanonicalCallState(
       appointmentActions: [],
       ownedMiddlewareFailures: [],
       staffTasks: [],
+      patientIdentityOutcomes: [],
+      patientIdentityTransitions: initialPatientIdentityTransitions(
+        input.preCall,
+      ),
       voiceLanguage: input.voiceLanguage ?? null,
     },
   };
@@ -420,4 +511,33 @@ export function createCanonicalCallState(
     respPartyId: input.respPartyId,
   });
   return state;
+}
+
+function initialPatientIdentityTransitions(
+  preCall: PreCallContextState | null | undefined,
+): PatientIdentityTransitionAnalytics[] {
+  if (!preCall) return [];
+
+  switch (preCall.status) {
+    case "single_match_pending_confirmation":
+    case "multiple_matches_pending_selection":
+      return [{ outcome: "pending", source: "pre_call_phone_lookup" }];
+    case "lookup_failed":
+      return [{ outcome: "lookup_failed", source: "pre_call_phone_lookup" }];
+    case "no_match":
+      return [{ outcome: "not_found", source: "pre_call_phone_lookup" }];
+    case "single_match_confirmed":
+    case "multiple_match_confirmed":
+      return [
+        {
+          outcome: "confirmed",
+          source:
+            preCall.identityPromotion === "confirmed_by_transcript"
+              ? "caller_transcript"
+              : "resolve_patient",
+        },
+      ];
+    case "not_attempted":
+      return [];
+  }
 }

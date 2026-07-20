@@ -11,7 +11,7 @@ import {
   ownedMiddlewareFailures,
 } from "../state/observability.js";
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
-import { activatePatient } from "../state/identity.js";
+import { applyPatientResult } from "../identity/promotion.js";
 import type {
   CallerAppointment,
   StoredAvailabilitySlot,
@@ -176,7 +176,7 @@ function switchActivePatient(
   state: ReturnType<typeof createState>,
   appointments: CallerAppointment[] = [],
 ) {
-  activatePatient(state, {
+  applyPatientResult(state, {
     status: "verified",
     patientId: "patient-2",
     name: "John Doe",
@@ -198,7 +198,7 @@ function restoreFirstPatient(
   state: ReturnType<typeof createState>,
   appointments: CallerAppointment[] = [],
 ) {
-  activatePatient(state, {
+  applyPatientResult(state, {
     status: "verified",
     patientId: "patient-1",
     name: "Jane Doe",
@@ -547,7 +547,7 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    activatePatient(state, {
+    applyPatientResult(state, {
       status: "verified",
       patientId: "patient-2",
       name: "John Doe",
@@ -938,7 +938,7 @@ describe("scheduling tools", () => {
       toolCallId: "booking-1",
     } as never);
 
-    activatePatient(state, {
+    applyPatientResult(state, {
       status: "verified",
       patientId: "patient-2",
       name: "John Doe",
@@ -1231,7 +1231,7 @@ describe("scheduling tools", () => {
       toolCallId: "cancel-1",
     } as never);
 
-    activatePatient(state, {
+    applyPatientResult(state, {
       status: "verified",
       patientId: "patient-2",
       name: "John Doe",
