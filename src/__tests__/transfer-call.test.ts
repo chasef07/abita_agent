@@ -55,13 +55,16 @@ describe("transfer call", () => {
     vi.restoreAllMocks();
   });
 
-  it("starts the transfer without waiting for speech playout", async () => {
+  it("waits for existing speech before transferring the caller", async () => {
     const { state, ctx } = createToolContext();
 
     const result = await executeTransfer(ctx, "tool-1");
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(ctx.waitForPlayout).not.toHaveBeenCalled();
+    expect(ctx.waitForPlayout).toHaveBeenCalledTimes(1);
+    expect(ctx.waitForPlayout.mock.invocationCallOrder[0]).toBeLessThan(
+      transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0,
+    );
     expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
     expect(result).toBe("Transfer started to the spring-hill office.");
     expect(transferStatus(state)).toBe("accepted");

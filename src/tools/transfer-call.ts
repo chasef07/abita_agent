@@ -13,6 +13,7 @@ export const transfer_call = tool({
   description:
     "Transfer the caller to office staff only when their request truly needs a live human or is outside the agent's front-desk scope. " +
     "If they ask for a human, representative, staff, or the office without saying why, ask what they are calling about before calling this tool. " +
+    "Before calling this tool, briefly tell the caller you're transferring them now. " +
     "Call this for emergency or urgent symptoms, suspected medication reactions, dosage or medication instructions, clinical advice, medical decisions, returned missed calls or received calls from this number, or when the caller still insists after you try to help. " +
     "Do not call for scheduling, insurance checks, availability, patient verification, cancellations, or office facts. ",
   parameters: z.object({}),
@@ -34,6 +35,7 @@ export const transfer_call = tool({
     }
 
     try {
+      await ctx.waitForPlayout();
       const { handoffOfficeKey } = await transferCallerToOffice(state);
       return `Transfer started to the ${handoffOfficeKey} office.`;
     } catch {
