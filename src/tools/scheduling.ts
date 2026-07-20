@@ -1,11 +1,41 @@
-import { getOfficeConfig } from "../customers/profile.js";
+import {
+  getOfficeConfig,
+  getOfficeConfigByPhone,
+} from "../customers/profile.js";
 import { activeAppointments } from "../state/appointments.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
 import { type CallerAppointment, type CallState } from "../state/call-state.js";
 import {
   activeRoutingContext,
+  clearAvailabilitySelection,
   currentWorkflowVisitType,
 } from "../state/scheduling.js";
+
+export type HollywoodSweetwaterOffice = "hollywood" | "sweetwater";
+
+export function selectAvailabilityOffice(
+  state: CallState,
+  requestedOffice: HollywoodSweetwaterOffice | undefined,
+): string | null {
+  const trunkOffice = getOfficeConfigByPhone(state.runtime.trunkPhone);
+  const requiresOfficeChoice =
+    trunkOffice.key === "hollywood" || trunkOffice.key === "sweetwater";
+
+  if (!requiresOfficeChoice) {
+    if (!requestedOffice) return null;
+    return `${trunkOffice.displayName} calls cannot search Hollywood or Sweetwater. Check availability again without office.`;
+  }
+  if (!requestedOffice) {
+    return "Ask whether the caller wants the Hollywood or Sweetwater office, then check availability again with that office.";
+  }
+  if (activeOfficeKey(state) === requestedOffice) return null;
+
+  const office = getOfficeConfig(requestedOffice);
+  clearAvailabilitySelection(state);
+  state.office.activeKey = office.key;
+  state.office.phoneOverrides[office.key] ??= office.amdOfficePhone;
+  return null;
+}
 
 export function getAmdOfficeForToolCall(state: CallState): string {
   return (

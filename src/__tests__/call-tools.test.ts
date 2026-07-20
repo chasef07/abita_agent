@@ -6,6 +6,10 @@ import {
   type PreCallContextState,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
+import {
+  HOLLYWOOD_OFFICE_PHONE,
+  SWEETWATER_OFFICE_PHONE,
+} from "../customers/profile.js";
 import { appointmentActions } from "../state/observability.js";
 import {
   clearAvailabilitySelection,
@@ -49,6 +53,18 @@ function createState(): TestCallState {
       routing: "all_three",
     },
   ];
+  return state;
+}
+
+function createHollywoodSweetwaterState(
+  office: "hollywood" | "sweetwater",
+): TestCallState {
+  const state = createState();
+  const officePhone =
+    office === "hollywood" ? HOLLYWOOD_OFFICE_PHONE : SWEETWATER_OFFICE_PHONE;
+  state.office.activeKey = office;
+  state.office.phoneOverrides[office] = officePhone;
+  state.runtime.trunkPhone = officePhone;
   return state;
 }
 
@@ -380,6 +396,70 @@ describe("stateful call tools", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it.each(["hollywood", "sweetwater"] as const)(
+    "asks %s callers which office they want before searching availability",
+    async (office) => {
+      const state = createHollywoodSweetwaterState(office);
+      clearAvailabilitySelection(state);
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+
+      const result = await get_availability.execute(
+        {
+          date: "2026-06-01",
+          appointmentLane: "medical_md",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      );
+
+      expect(result).toBe(
+        "Ask whether the caller wants the Hollywood or Sweetwater office, then check availability again with that office.",
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it("searches the Hollywood schedule when a Sweetwater caller chooses Hollywood", async () => {
+    const state = createHollywoodSweetwaterState("sweetwater");
+    const fetchMock = stubFetchJson(
+      availabilityFoundResponse({
+        provider: "Dr. Austin Bach",
+        date: "2026-06-01",
+        time: "10:00 AM",
+        datetime: "2026-06-01T10:00:00",
+        bookingToken: "hollywood-token",
+      }),
+    );
+
+    await get_availability.execute(
+      {
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+        office: "hollywood",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(state.office.activeKey).toBe("hollywood");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
+      {
+        office: HOLLYWOOD_OFFICE_PHONE,
+      },
+    );
+    expect(state.availability.slots).toEqual([
+      expect.objectContaining({
+        slotId: "S1",
+        time: "10:00 AM",
+      }),
+    ]);
   });
 
   it("returns plain availability instructions while storing booking tokens privately", async () => {
