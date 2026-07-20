@@ -17,8 +17,7 @@ import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   DEV_DEMO_TRANSFER_NUMBER,
   DEV_OFFICE_PHONE,
-  getOfficePhoneHandoffTarget,
-} from "../customers/profile.js";
+} from "../customers/abita/profile.js";
 import { transferCallerToOffice } from "../tools/handoff.js";
 import { createTestCallState } from "./support/call-state.js";
 
@@ -79,7 +78,7 @@ describe("call-center handoff", () => {
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
     state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
-    const target = getOfficePhoneHandoffTarget("crystal-river");
+    const target = "tel:+13527941244";
 
     const result = await transferCallerToOffice(state);
 

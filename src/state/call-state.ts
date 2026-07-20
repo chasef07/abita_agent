@@ -1,4 +1,4 @@
-import type { OfficeKey } from "../customers/profile.js";
+import type { OfficeKey } from "../customers/abita/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { RimeTtsLanguageCode } from "../tts-config.js";
 import { setPatientBackendRefs } from "./identity.js";

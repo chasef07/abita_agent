@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
-import { getOfficeConfig, type OfficeKey } from "./customers/profile.js";
+import { getOfficeProfile, type OfficeKey } from "./customers/abita/profile.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 
@@ -83,21 +83,6 @@ export function loadInsuranceReference(file: string): InsuranceReference {
   return parsed;
 }
 
-export function insuranceFileForCoverage(
-  officeKey: OfficeKey,
-  coverageType: InsuranceCoverageType = "medical",
-): string {
-  const office = getOfficeConfig(officeKey);
-  if (coverageType === "routine_vision") {
-    return (
-      office.visionInsuranceFile ??
-      getOfficeConfig("spring-hill").visionInsuranceFile ??
-      office.insuranceFile
-    );
-  }
-  return office.insuranceFile;
-}
-
 export function canonicalInsurancePlan(
   result: InsuranceLookupResult,
 ): string | null {
@@ -158,20 +143,11 @@ export function matchInsurancePlanForOffice(
   query: string,
   coverageType: InsuranceCoverageType = "medical",
 ): InsuranceLookupResult {
-  if (
-    coverageType === "medical" &&
-    !getOfficeConfig(officeKey).features.medicalScheduling
-  ) {
+  const policy = getOfficeProfile(officeKey).insuranceFor(coverageType);
+  if (!policy.supported) {
     return buildUnsupportedInsuranceResult(query);
   }
-  if (
-    coverageType === "routine_vision" &&
-    !getOfficeConfig(officeKey).features.routineVisionScheduling
-  ) {
-    return buildUnsupportedInsuranceResult(query);
-  }
-  const file = insuranceFileForCoverage(officeKey, coverageType);
-  const reference = loadInsuranceReference(file);
+  const reference = loadInsuranceReference(policy.source);
   return matchInsurancePlan(reference, query);
 }
 

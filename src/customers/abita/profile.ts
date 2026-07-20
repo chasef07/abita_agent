@@ -7,7 +7,18 @@ export type OfficeKey =
   | "sweetwater"
   | "north-miami-beach-optical"
   | "dev";
-export type PhoneHandoffOfficeKey = Extract<OfficeKey, "crystal-river" | "dev">;
+export type OfficeCare = "medical" | "routine_vision";
+export type OfficeSpeechLanguage = "en" | "es";
+export type OfficeSchedulingPolicy =
+  { supported: true } | { supported: false; message: string };
+export type OfficeInsurancePolicy =
+  { supported: true; source: string } | { supported: false };
+export type OfficeHandoffPolicy =
+  { mode: "call-center" } | { mode: "phone"; target: string };
+export type OfficePromptSource = {
+  file: string;
+  tag: "office_policy" | "role" | "voice";
+};
 export const SPRING_HILL_OFFICE_PHONE = "+17275919997";
 export const SPRING_HILL_813_TRUNK_PHONE = "+18135484830";
 export const CRYSTAL_RIVER_OFFICE_PHONE = "+13523202007";
@@ -25,125 +36,245 @@ export const SWEETWATER_TRUNK_PHONES = [
 export const DEV_OFFICE_PHONE = "+14843989071";
 export const DEV_DEMO_TRANSFER_NUMBER = "+17277092035";
 
-export interface OfficeConfig {
+export interface OfficeProfile {
   key: OfficeKey;
   displayName: string;
   trunkPhones: string[];
   greeting: string;
-  roleFile?: string;
-  knowledgeFile: string;
-  insuranceFile: string;
-  visionInsuranceFile?: string;
   amdOfficePhone: string;
-  middlewareBaseUrl?: string;
-  features: {
-    medicalScheduling: boolean;
-    routineVisionScheduling: boolean;
+  knowledgeSource: string;
+  staffTaskCapture: boolean;
+  handoff(): OfficeHandoffPolicy;
+  insuranceFor(coverageType: OfficeCare): OfficeInsurancePolicy;
+  middlewareBaseUrl(defaultBaseUrl: string): string;
+  promptSources(): OfficePromptSource[];
+  schedulingFor(care: OfficeCare): OfficeSchedulingPolicy;
+  speechFor(language: OfficeSpeechLanguage): {
+    lang: "eng" | "spa";
+    speaker: string;
   };
 }
 const CRYSTAL_RIVER_TRANSFER_NUMBER = "+13527941244";
-const PHONE_HANDOFF_TARGETS: Record<PhoneHandoffOfficeKey, string> = {
-  "crystal-river": `tel:${CRYSTAL_RIVER_TRANSFER_NUMBER}`,
-  dev: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+type OfficeCareInput =
+  { supported: true; insuranceSource: string } | { supported: false };
+type OfficeProfileInput = {
+  amdOfficePhone: string;
+  care: Record<OfficeCare, OfficeCareInput>;
+  displayName: string;
+  englishSpeaker?: string;
+  greeting: string;
+  handoff?: () => OfficeHandoffPolicy;
+  key: OfficeKey;
+  knowledgeSource: string;
+  middlewareBaseUrl?: string;
+  officePolicyFile?: string;
+  roleFile?: string;
+  staffTaskCapture?: boolean;
+  trunkPhones: string[];
 };
 
-export const OFFICE_CONFIGS: Record<OfficeKey, OfficeConfig> = {
-  "spring-hill": {
+function defineOffice(input: OfficeProfileInput): OfficeProfile {
+  const {
+    amdOfficePhone,
+    care,
+    displayName,
+    englishSpeaker = "wawona",
+    greeting,
+    handoff = () => ({ mode: "call-center" }),
+    key,
+    knowledgeSource,
+    middlewareBaseUrl,
+    officePolicyFile,
+    roleFile,
+    staffTaskCapture = false,
+    trunkPhones,
+  } = input;
+
+  function schedulingFor(careType: OfficeCare): OfficeSchedulingPolicy {
+    if (care[careType].supported) return { supported: true };
+
+    return {
+      supported: false,
+      message:
+        careType === "medical"
+          ? `${displayName} supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.`
+          : `${displayName} handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.`,
+    };
+  }
+
+  return {
+    amdOfficePhone,
+    displayName,
+    greeting,
+    key,
+    knowledgeSource,
+    staffTaskCapture,
+    trunkPhones,
+    handoff,
+    insuranceFor(coverageType) {
+      const policy = care[coverageType];
+      if (!policy.supported) return { supported: false };
+
+      return {
+        supported: true,
+        source: policy.insuranceSource,
+      };
+    },
+    middlewareBaseUrl: (defaultBaseUrl) => middlewareBaseUrl ?? defaultBaseUrl,
+    promptSources() {
+      return [
+        { file: roleFile ?? "SOUL.md", tag: "role" },
+        { file: "VOICE.md", tag: "voice" },
+        ...(officePolicyFile
+          ? [
+              {
+                file: officePolicyFile,
+                tag: "office_policy" as const,
+              },
+            ]
+          : []),
+      ];
+    },
+    schedulingFor,
+    speechFor(language) {
+      return language === "es"
+        ? { lang: "spa", speaker: "luz" }
+        : { lang: "eng", speaker: englishSpeaker };
+    },
+  };
+}
+
+function devHandoff(): OfficeHandoffPolicy {
+  const override = process.env.DEV_HANDOFF_TARGET?.trim();
+  return {
+    mode: "phone",
+    target: override
+      ? normalizeHandoffTarget(override)
+      : `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+  };
+}
+
+const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
+  "spring-hill": defineOffice({
     key: "spring-hill",
     displayName: "Abita Eye Group",
     trunkPhones: [SPRING_HILL_OFFICE_PHONE, SPRING_HILL_813_TRUNK_PHONE],
     greeting:
       "Hey this is Zoe, the virtual assistant at Abeeta Eye Group. How's your day going",
-    knowledgeFile: "KNOWLEDGE_SPRINGHILL.md",
-    insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
-    visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
-    amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
-    features: {
-      medicalScheduling: true,
-      routineVisionScheduling: true,
+    knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
+    care: {
+      medical: {
+        supported: true,
+        insuranceSource: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+      },
+      routine_vision: {
+        supported: true,
+        insuranceSource: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
+      },
     },
-  },
-  "crystal-river": {
+    amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+    officePolicyFile: "SPRING_HILL_STAFF_TASKS.md",
+    staffTaskCapture: true,
+  }),
+  "crystal-river": defineOffice({
     key: "crystal-river",
     displayName: "Eye Radiance",
     trunkPhones: [CRYSTAL_RIVER_OFFICE_PHONE],
     greeting:
       "Hey this is Zoe, the virtual assistant at Eye Radiance, powered by Abeeta Eye Group. How's your day going",
-    knowledgeFile: "KNOWLEDGE_EYERADIANCE.md",
-    insuranceFile: "INSURANCE_CRYSTAL_RIVER.json",
-    visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
-    amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
-    features: {
-      medicalScheduling: true,
-      routineVisionScheduling: false,
+    knowledgeSource: "KNOWLEDGE_EYERADIANCE.md",
+    care: {
+      medical: {
+        supported: true,
+        insuranceSource: "INSURANCE_CRYSTAL_RIVER.json",
+      },
+      routine_vision: { supported: false },
     },
-  },
-  hollywood: {
+    amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
+    handoff: () => ({
+      mode: "phone",
+      target: `tel:${CRYSTAL_RIVER_TRANSFER_NUMBER}`,
+    }),
+  }),
+  hollywood: defineOffice({
     key: "hollywood",
     displayName: "Abita Eye Group Hollywood",
     trunkPhones: [HOLLYWOOD_OFFICE_PHONE],
     greeting:
       "Hey this is Zoe, the virtual assistant at Abeeta Eye Group. How's your day going",
-    knowledgeFile: "KNOWLEDGE_HOLLYWOOD.md",
-    insuranceFile: "INSURANCE_HOLLYWOOD_SWEETWATER.json",
-    visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
-    amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
-    features: {
-      medicalScheduling: true,
-      routineVisionScheduling: true,
+    knowledgeSource: "KNOWLEDGE_HOLLYWOOD.md",
+    care: {
+      medical: {
+        supported: true,
+        insuranceSource: "INSURANCE_HOLLYWOOD_SWEETWATER.json",
+      },
+      routine_vision: {
+        supported: true,
+        insuranceSource: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
+      },
     },
-  },
-  sweetwater: {
+    amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
+  }),
+  sweetwater: defineOffice({
     key: "sweetwater",
     displayName: "Abita Eye Group Sweetwater",
     trunkPhones: [...SWEETWATER_TRUNK_PHONES],
     greeting:
       "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
-    knowledgeFile: "KNOWLEDGE_SWEETWATER.md",
-    insuranceFile: "INSURANCE_HOLLYWOOD_SWEETWATER.json",
-    visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
-    amdOfficePhone: SWEETWATER_OFFICE_PHONE,
-    features: {
-      medicalScheduling: true,
-      routineVisionScheduling: true,
+    knowledgeSource: "KNOWLEDGE_SWEETWATER.md",
+    care: {
+      medical: {
+        supported: true,
+        insuranceSource: "INSURANCE_HOLLYWOOD_SWEETWATER.json",
+      },
+      routine_vision: {
+        supported: true,
+        insuranceSource: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
+      },
     },
-  },
-  "north-miami-beach-optical": {
+    amdOfficePhone: SWEETWATER_OFFICE_PHONE,
+    englishSpeaker: "luz",
+  }),
+  "north-miami-beach-optical": defineOffice({
     key: "north-miami-beach-optical",
     displayName: "North Miami Beach Optical",
     trunkPhones: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
     greeting:
       "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
-    knowledgeFile: "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
-    insuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
-    visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
-    amdOfficePhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
-    features: {
-      medicalScheduling: false,
-      routineVisionScheduling: true,
+    knowledgeSource: "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
+    care: {
+      medical: { supported: false },
+      routine_vision: {
+        supported: true,
+        insuranceSource: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
+      },
     },
-  },
-  dev: {
+    amdOfficePhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+    englishSpeaker: "luz",
+  }),
+  dev: defineOffice({
     key: "dev",
     displayName: "Harborleaf Dermatology & Aesthetics",
     trunkPhones: [DEV_OFFICE_PHONE],
     greeting:
       "Hi, this is Julia, the virtual assistant at Harborleaf Dermatology and Aesthetics. How can I help you today?",
     roleFile: "SOUL_DERM_DEMO.md",
-    knowledgeFile: "KNOWLEDGE_DERM_DEMO.md",
-    insuranceFile: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
-    visionInsuranceFile: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
+    knowledgeSource: "KNOWLEDGE_DERM_DEMO.md",
+    care: {
+      medical: {
+        supported: true,
+        insuranceSource: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+      },
+      routine_vision: { supported: false },
+    },
     amdOfficePhone: DEV_OFFICE_PHONE,
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
-    features: {
-      medicalScheduling: true,
-      routineVisionScheduling: false,
-    },
-  },
+    handoff: devHandoff,
+  }),
 };
 
-export const OFFICE_BY_PHONE: Record<string, OfficeKey> = Object.fromEntries(
-  Object.values(OFFICE_CONFIGS).flatMap((office) =>
+const OFFICE_BY_PHONE: Record<string, OfficeKey> = Object.fromEntries(
+  Object.values(OFFICE_PROFILES).flatMap((office) =>
     office.trunkPhones.map(
       (phone) => [normalizePhoneNumber(phone), office.key] as const,
     ),
@@ -165,12 +296,48 @@ export function getOfficeKeyByPhone(phone: string): OfficeKey {
   return officeKey;
 }
 
-export function getOfficeConfig(key: OfficeKey): OfficeConfig {
-  return OFFICE_CONFIGS[key];
+export function getOfficeProfile(key: OfficeKey): OfficeProfile {
+  return OFFICE_PROFILES[key];
 }
 
-export function getOfficeConfigByPhone(phone: string): OfficeConfig {
-  return getOfficeConfig(getOfficeKeyByPhone(phone));
+export function getOfficeProfileByPhone(phone: string): OfficeProfile {
+  return getOfficeProfile(getOfficeKeyByPhone(phone));
+}
+
+export function getOfficeProfileByFacility(
+  facility: string | undefined,
+): OfficeProfile | null {
+  const normalized = normalizeFacilityName(facility);
+  if (!normalized) return null;
+
+  const explicitMatch: Array<[string[], OfficeKey]> = [
+    [["crystal river", "eye radiance"], "crystal-river"],
+    [["spring hill"], "spring-hill"],
+    [["hollywood"], "hollywood"],
+    [["sweetwater"], "sweetwater"],
+  ];
+  for (const [aliases, key] of explicitMatch) {
+    if (aliases.some((alias) => normalized.includes(alias))) {
+      return getOfficeProfile(key);
+    }
+  }
+
+  for (const key of [
+    "spring-hill",
+    "crystal-river",
+    "hollywood",
+    "sweetwater",
+    "dev",
+  ] satisfies OfficeKey[]) {
+    const displayName = normalizeFacilityName(
+      getOfficeProfile(key).displayName,
+    );
+    if (displayName && normalized.includes(displayName)) {
+      return getOfficeProfile(key);
+    }
+  }
+
+  return null;
 }
 
 export function normalizeHandoffTarget(target: string): string {
@@ -179,12 +346,12 @@ export function normalizeHandoffTarget(target: string): string {
   return `tel:${normalizePhoneNumber(trimmed)}`;
 }
 
-export function getOfficePhoneHandoffTarget(
-  key: PhoneHandoffOfficeKey,
-): string {
-  if (key === "dev") {
-    const override = process.env.DEV_HANDOFF_TARGET?.trim();
-    if (override) return normalizeHandoffTarget(override);
-  }
-  return PHONE_HANDOFF_TARGETS[key];
+function normalizeFacilityName(value: string | undefined): string {
+  return (
+    value
+      ?.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim() ?? ""
+  );
 }

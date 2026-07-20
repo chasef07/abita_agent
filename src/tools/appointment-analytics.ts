@@ -1,4 +1,4 @@
-import { getOfficeConfig } from "../customers/profile.js";
+import { getOfficeProfile } from "../customers/abita/profile.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
 import {
   type AppointmentActionStatus,
@@ -29,7 +29,7 @@ export function bookedSlotAppointmentAnalytics(
     providerName: stringField(receipt, "providerName") ?? selectedSlot.provider,
     locationName:
       stringField(receipt, "locationName") ??
-      getOfficeConfig(activeOfficeKey(state)).displayName,
+      getOfficeProfile(activeOfficeKey(state)).displayName,
     appointmentTypeName: stringField(receipt, "appointmentTypeName"),
     careLane: careLaneForBookedSlot(state, selectedSlot),
   });

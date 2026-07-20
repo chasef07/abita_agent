@@ -18,26 +18,28 @@ import {
   type SttLanguageDecision,
   type SttLanguageDetector,
 } from "./stt-language-detector.js";
-import { getOfficeConfigByPhone } from "./customers/profile.js";
+import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcript-confirmation.js";
 import { addDurableInternalSystemMessage } from "./runtime/durable-chat-context.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
 
 export { addDurableInternalSystemMessage };
 
-export function createAgent(
+type VoiceAgentOptions = {
+  onLanguageDecision?: (decision: SttLanguageDecision) => void;
+  suppressGreeting?: boolean;
+  sttLanguageDetector?: SttLanguageDetector;
+};
+
+export function createVoiceAgent(
   phoneLookup?: PhoneLookupResult,
   trunkPhone?: string,
-  options: {
-    onLanguageDecision?: (decision: SttLanguageDecision) => void;
-    suppressGreeting?: boolean;
-    sttLanguageDetector?: SttLanguageDetector;
-  } = {},
+  options: VoiceAgentOptions = {},
 ) {
-  const office = getOfficeConfigByPhone(trunkPhone ?? "");
+  const office = getOfficeProfileByPhone(trunkPhone ?? "");
   const greeting = options.suppressGreeting ? "" : office.greeting;
 
-  return LiveKitAgent.create<CallState>({
+  const agent = LiveKitAgent.create<CallState>({
     instructions: buildPrompt(phoneLookup, trunkPhone),
     tools: buildToolsForTrunk(trunkPhone),
 
@@ -91,6 +93,8 @@ export function createAgent(
       );
     },
   });
+
+  return { agent, office };
 }
 
 function latestAssistantText(chatCtx: ChatContext): string | null {

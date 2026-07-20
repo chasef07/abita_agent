@@ -1,7 +1,7 @@
 import {
-  getOfficeConfigByPhone,
+  getOfficeProfileByPhone,
   type OfficeKey,
-} from "../customers/profile.js";
+} from "../customers/abita/profile.js";
 import type { CallState } from "./call-state.js";
 
 export type TransferState = "idle" | "pending" | "accepted" | "ambiguous";
@@ -11,7 +11,7 @@ export function activeOfficeKey(state: CallState): OfficeKey {
 }
 
 export function resetActiveOfficeToTrunk(state: CallState): void {
-  const office = getOfficeConfigByPhone(state.runtime.trunkPhone);
+  const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
   state.office.activeKey = office.key;
   state.office.phoneOverrides[office.key] ??= office.amdOfficePhone;
 }

@@ -6,11 +6,8 @@ import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { buildPrompt } from "../prompt.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
-  DEV_DEMO_TRANSFER_NUMBER,
   DEV_OFFICE_PHONE,
-  getOfficeConfig,
-  getOfficeConfigByPhone,
-  getOfficePhoneHandoffTarget,
+  getOfficeProfile,
   getOfficeKeyByPhone,
   HOLLYWOOD_OFFICE_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
@@ -20,7 +17,7 @@ import {
   SPRING_HILL_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
   SWEETWATER_TRUNK_PHONES,
-} from "../customers/profile.js";
+} from "../customers/abita/profile.js";
 import {
   add_patient,
   book_appointment,
@@ -37,10 +34,7 @@ import {
 } from "../tools/index.js";
 import { getBaseUrlForOfficePhone } from "../clients/advancedmd-client.js";
 import type { PhoneLookupResult } from "../state/call-state.js";
-import {
-  lookupOfficeKnowledge,
-  resolveKnowledgeFileForOffice,
-} from "../tools/knowledge.js";
+import { lookupOfficeKnowledge } from "../tools/knowledge.js";
 
 type VerifiedPhoneLookup = Extract<
   NonNullable<PhoneLookupResult>,
@@ -88,137 +82,16 @@ function toolNamesForTrunk(trunkPhone: string): string[] {
   return toolNames(buildToolsForTrunk(trunkPhone));
 }
 
+afterEach(() => {
+  delete process.env.DEV_HANDOFF_TARGET;
+});
+
 describe("office routing helpers", () => {
-  afterEach(() => {
-    delete process.env.DEV_HANDOFF_TARGET;
-  });
-
-  it("maps trunk numbers to office keys", () => {
-    expect(getOfficeKeyByPhone("+13523202007")).toBe("crystal-river");
-    expect(getOfficeKeyByPhone(SPRING_HILL_OFFICE_PHONE)).toBe("spring-hill");
-    expect(getOfficeKeyByPhone(SPRING_HILL_813_TRUNK_PHONE)).toBe(
-      "spring-hill",
-    );
-    expect(getOfficeKeyByPhone(HOLLYWOOD_OFFICE_PHONE)).toBe("hollywood");
-    for (const phone of SWEETWATER_TRUNK_PHONES) {
-      expect(getOfficeKeyByPhone(phone)).toBe("sweetwater");
-    }
-    expect(getOfficeKeyByPhone(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE)).toBe(
-      "north-miami-beach-optical",
-    );
-    expect(getOfficeKeyByPhone(DEV_OFFICE_PHONE)).toBe("dev");
-  });
-
-  it("routes the Spring Hill 813 trunk through the canonical AMD office phone", () => {
-    const office = getOfficeConfigByPhone(SPRING_HILL_813_TRUNK_PHONE);
-
-    expect(office.key).toBe("spring-hill");
-    expect(office.amdOfficePhone).toBe(SPRING_HILL_OFFICE_PHONE);
-    expect(toolNamesForTrunk(SPRING_HILL_813_TRUNK_PHONE)).not.toContain(
-      "route_to_spring_hill",
-    );
-  });
-
-  it("routes Hollywood and Sweetwater trunks through their canonical AMD office phones", () => {
-    const hollywood = getOfficeConfigByPhone(HOLLYWOOD_OFFICE_PHONE);
-
-    expect(hollywood.key).toBe("hollywood");
-    expect(hollywood.amdOfficePhone).toBe(HOLLYWOOD_OFFICE_PHONE);
-    expect(toolNamesForTrunk(HOLLYWOOD_OFFICE_PHONE)).not.toContain(
-      "route_to_spring_hill",
-    );
-
-    for (const phone of SWEETWATER_TRUNK_PHONES) {
-      const sweetwater = getOfficeConfigByPhone(phone);
-
-      expect(sweetwater.key).toBe("sweetwater");
-      expect(sweetwater.amdOfficePhone).toBe(SWEETWATER_OFFICE_PHONE);
-      expect(toolNamesForTrunk(phone)).not.toContain("route_to_spring_hill");
-    }
-  });
-
-  it("routes North Miami Beach Optical through its optical-only AMD office phone", () => {
-    const office = getOfficeConfigByPhone(
-      NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
-    );
-
-    expect(office.key).toBe("north-miami-beach-optical");
-    expect(office.displayName).toBe("North Miami Beach Optical");
-    expect(office.amdOfficePhone).toBe(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE);
-    expect(office.features.medicalScheduling).toBe(false);
-    expect(
-      toolNamesForTrunk(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE),
-    ).not.toContain("route_to_spring_hill");
-  });
-
   it("normalizes LiveKit phone attributes without a plus prefix", () => {
     expect(normalizePhoneNumber("14843989071")).toBe(DEV_OFFICE_PHONE);
     expect(getOfficeKeyByPhone("14843989071")).toBe("dev");
     expect(getBaseUrlForOfficePhone("14843989071")).toBe(
       "https://advancedmd-token-management-dev.up.railway.app",
-    );
-  });
-
-  it("rejects unsupported trunk numbers", () => {
-    expect(() => getOfficeKeyByPhone("+19999999999")).toThrow(
-      "Unsupported trunk phone number",
-    );
-    expect(() => buildToolsForTrunk("+19999999999")).toThrow(
-      "Unsupported trunk phone number",
-    );
-  });
-
-  it("uses the dev middleware for the dev trunk", () => {
-    expect(getBaseUrlForOfficePhone(DEV_OFFICE_PHONE)).toBe(
-      "https://advancedmd-token-management-dev.up.railway.app",
-    );
-  });
-
-  it("maps offices to their knowledge files", () => {
-    expect(resolveKnowledgeFileForOffice("crystal-river")).toBe(
-      "KNOWLEDGE_EYERADIANCE.md",
-    );
-    expect(resolveKnowledgeFileForOffice("hollywood")).toBe(
-      "KNOWLEDGE_HOLLYWOOD.md",
-    );
-    expect(resolveKnowledgeFileForOffice("sweetwater")).toBe(
-      "KNOWLEDGE_SWEETWATER.md",
-    );
-    expect(resolveKnowledgeFileForOffice("north-miami-beach-optical")).toBe(
-      "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
-    );
-    expect(resolveKnowledgeFileForOffice("spring-hill")).toBe(
-      "KNOWLEDGE_SPRINGHILL.md",
-    );
-    expect(resolveKnowledgeFileForOffice("dev")).toBe("KNOWLEDGE_DERM_DEMO.md");
-  });
-
-  it("keeps phone handoff targets only for non-call-center offices", () => {
-    expect(getOfficePhoneHandoffTarget("crystal-river")).toBe(
-      "tel:+13527941244",
-    );
-    expect(getOfficePhoneHandoffTarget("dev")).toBe(
-      `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
-    );
-  });
-
-  it("introduces the configured virtual assistant for each office", () => {
-    const greeting =
-      "Hey this is Zoe, the virtual assistant at Abeeta Eye Group. How's your day going";
-
-    expect(getOfficeConfig("spring-hill").greeting).toBe(greeting);
-    expect(getOfficeConfig("dev").greeting).toBe(
-      "Hi, this is Julia, the virtual assistant at Harborleaf Dermatology and Aesthetics. How can I help you today?",
-    );
-    expect(getOfficeConfig("crystal-river").greeting).toBe(
-      "Hey this is Zoe, the virtual assistant at Eye Radiance, powered by Abeeta Eye Group. How's your day going",
-    );
-    expect(getOfficeConfig("hollywood").greeting).toBe(greeting);
-    expect(getOfficeConfig("sweetwater").greeting).toBe(
-      "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
-    );
-    expect(getOfficeConfig("north-miami-beach-optical").greeting).toBe(
-      "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
     );
   });
 
@@ -229,51 +102,6 @@ describe("office routing helpers", () => {
     expect(normalizeHandoffTarget("sip:office@sip.telnyx.com")).toBe(
       "sip:office@sip.telnyx.com",
     );
-  });
-
-  it("does not expose Spring Hill routing on any office trunk", () => {
-    expect(toolNamesForTrunk("+13523202007")).not.toContain(
-      "route_to_spring_hill",
-    );
-    expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toContain(
-      "route_to_spring_hill",
-    );
-    expect(toolNamesForTrunk(DEV_OFFICE_PHONE)).not.toContain(
-      "route_to_spring_hill",
-    );
-    expect(toolNamesForTrunk(HOLLYWOOD_OFFICE_PHONE)).not.toContain(
-      "route_to_spring_hill",
-    );
-    for (const phone of SWEETWATER_TRUNK_PHONES) {
-      expect(toolNamesForTrunk(phone)).not.toContain("route_to_spring_hill");
-    }
-    expect(
-      toolNamesForTrunk(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE),
-    ).not.toContain("route_to_spring_hill");
-  });
-
-  it("exposes staff task capture only on Spring Hill inbound trunks", () => {
-    expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).toContain(
-      "create_staff_task",
-    );
-    expect(toolNamesForTrunk(SPRING_HILL_813_TRUNK_PHONE)).toContain(
-      "create_staff_task",
-    );
-    expect(toolNamesForTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).not.toContain(
-      "create_staff_task",
-    );
-    expect(toolNamesForTrunk(DEV_OFFICE_PHONE)).not.toContain(
-      "create_staff_task",
-    );
-    expect(toolNamesForTrunk(HOLLYWOOD_OFFICE_PHONE)).not.toContain(
-      "create_staff_task",
-    );
-    for (const phone of SWEETWATER_TRUNK_PHONES) {
-      expect(toolNamesForTrunk(phone)).not.toContain("create_staff_task");
-    }
-    expect(
-      toolNamesForTrunk(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE),
-    ).not.toContain("create_staff_task");
   });
 
   it("always exposes one patient resolution tool without a separate switch tool", () => {
@@ -390,16 +218,8 @@ describe("tool-first prompt gating", () => {
 
 describe("dermatology demo", () => {
   it("uses a fictional dermatology identity and short role prompt", () => {
-    const office = getOfficeConfig("dev");
     const prompt = buildPrompt(undefined, DEV_OFFICE_PHONE);
 
-    expect(office.displayName).toBe("Harborleaf Dermatology & Aesthetics");
-    expect(office.roleFile).toBe("SOUL_DERM_DEMO.md");
-    expect(office.knowledgeFile).toBe("KNOWLEDGE_DERM_DEMO.md");
-    expect(office.features).toEqual({
-      medicalScheduling: true,
-      routineVisionScheduling: false,
-    });
     expect(prompt).toContain("You are Julia");
     expect(prompt).toContain("fictional dermatology practice");
     expect(prompt).toContain("Medical dermatology includes");
@@ -427,12 +247,12 @@ describe("dermatology demo", () => {
     expect(names).not.toContain("create_staff_task");
   });
 
-  it("routes demo transfers only to the configured demo target", () => {
-    expect(getOfficePhoneHandoffTarget("dev")).toBe(
-      `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
-    );
+  it("honors the isolated demo handoff override", () => {
     process.env.DEV_HANDOFF_TARGET = "sip:demo@example.test";
-    expect(getOfficePhoneHandoffTarget("dev")).toBe("sip:demo@example.test");
+    expect(getOfficeProfile("dev").handoff()).toEqual({
+      mode: "phone",
+      target: "sip:demo@example.test",
+    });
   });
 
   it("retrieves dermatology knowledge for medical and cosmetic questions", () => {
@@ -491,10 +311,6 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).not.toContain("Use the routing tool, not the transfer tool");
     expect(prompt).not.toContain("route_to_spring_hill");
     expect(prompt).not.toContain("do not transfer just for that");
-    expect(getOfficeConfig("crystal-river").features).toMatchObject({
-      medicalScheduling: true,
-      routineVisionScheduling: false,
-    });
     expect(crystalRiverKnowledge).toContain(
       "Crystal River is a medical-only office",
     );

@@ -5,7 +5,7 @@
 
 import { readFileSync } from "fs";
 import { join } from "path";
-import { getOfficeConfigByPhone } from "./customers/profile.js";
+import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import type { PhoneLookupResult } from "./state/call-state.js";
 
 const WORKSPACE = join(
@@ -13,11 +13,6 @@ const WORKSPACE = join(
   "..",
   process.env.PROMPT_WORKSPACE || "workspace",
 );
-
-const SPRING_HILL_POLICY = {
-  file: "SPRING_HILL_STAFF_TASKS.md",
-  tag: "office_policy",
-};
 
 /** Build the static system prompt. Pre-call facts stay in backend state. */
 export function buildPrompt(
@@ -29,19 +24,9 @@ export function buildPrompt(
     throw new Error("buildPrompt requires a trunk phone number");
   }
 
-  const office = getOfficeConfigByPhone(trunkPhone);
-  const promptFiles = [
-    { file: office.roleFile ?? "SOUL.md", tag: "role" },
-    { file: "VOICE.md", tag: "voice" },
-  ];
+  const office = getOfficeProfileByPhone(trunkPhone);
 
-  for (const { file, tag } of promptFiles) {
-    const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
-    sections.push(`<${tag}>\n${content}\n</${tag}>`);
-  }
-
-  if (office.key === "spring-hill") {
-    const { file, tag } = SPRING_HILL_POLICY;
+  for (const { file, tag } of office.promptSources()) {
     const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
     sections.push(`<${tag}>\n${content}\n</${tag}>`);
   }

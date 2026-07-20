@@ -1,11 +1,10 @@
 import { createHash } from "node:crypto";
 import { SipClient } from "livekit-server-sdk";
 import {
-  getOfficeConfigByPhone,
-  getOfficePhoneHandoffTarget,
+  getOfficeProfile,
+  getOfficeProfileByPhone,
   type OfficeKey,
-  type PhoneHandoffOfficeKey,
-} from "../customers/profile.js";
+} from "../customers/abita/profile.js";
 import type { CallState } from "../state/call-state.js";
 import {
   activeOfficeKey,
@@ -63,7 +62,7 @@ function buildCallCenterHandoffHeaders(
 function getHandoffOfficeKey(state: CallState): OfficeKey {
   if (!state.runtime.trunkPhone) return activeOfficeKey(state);
   try {
-    return getOfficeConfigByPhone(state.runtime.trunkPhone).key;
+    return getOfficeProfileByPhone(state.runtime.trunkPhone).key;
   } catch {
     console.warn(
       "[tools] Could not resolve handoff office from original trunk; using the active office.",
@@ -72,21 +71,13 @@ function getHandoffOfficeKey(state: CallState): OfficeKey {
   }
 }
 
-function phoneHandoffTarget(
-  handoffOfficeKey: PhoneHandoffOfficeKey,
-): HandoffTarget {
-  return {
-    mode: "PHONE",
-    target: getOfficePhoneHandoffTarget(handoffOfficeKey),
-  };
-}
-
 async function resolveHandoffTarget(
   state: CallState,
   handoffOfficeKey: OfficeKey,
 ): Promise<HandoffTarget> {
-  if (handoffOfficeKey === "crystal-river" || handoffOfficeKey === "dev") {
-    return phoneHandoffTarget(handoffOfficeKey);
+  const policy = getOfficeProfile(handoffOfficeKey).handoff();
+  if (policy.mode === "phone") {
+    return { mode: "PHONE", target: policy.target };
   }
 
   const url = process.env.ACUITY_HANDOFF_URL?.trim();

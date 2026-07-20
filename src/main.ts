@@ -14,7 +14,7 @@ import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as baseten from "@livekit/agents-plugin-baseten";
 import * as rime from "@livekit/agents-plugin-rime";
 import { fileURLToPath } from "node:url";
-import { createAgent } from "./agent.js";
+import { createVoiceAgent } from "./agent.js";
 import {
   createCanonicalCallState,
   type CallState,
@@ -239,10 +239,10 @@ export default defineAgent({
 
       // Phone lookup before session start so context is ready for the first LLM turn.
       const preCall = await loadPreCallBootstrap({ callerPhone, trunkPhone });
-      const { office, phoneLookup, verified } = preCall;
+      const { phoneLookup, verified } = preCall;
       console.log(formatPhoneLookupLogLine(callerPhone, phoneLookup));
 
-      const agent = createAgent(phoneLookup, trunkPhone, {
+      const { agent, office } = createVoiceAgent(phoneLookup, trunkPhone, {
         onLanguageDecision: (decision) => {
           const voiceLanguage = applyLanguageDecisionToTts(decision);
           if (voiceLanguage) {

@@ -1,7 +1,3 @@
-import {
-  getOfficeConfigByPhone,
-  type OfficeConfig,
-} from "../customers/profile.js";
 import { lookupByPhone } from "../clients/advancedmd-client.js";
 import type {
   CallerMatch,
@@ -14,7 +10,6 @@ import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
 import { publicCallerAppointments } from "../state/appointments.js";
 
 interface PreCallBootstrap {
-  office: OfficeConfig;
   phoneLookup: PhoneLookupResult;
   verified: CallerMatch | null;
   telemetry: PreCallLookupTelemetry;
@@ -27,12 +22,10 @@ export async function loadPreCallBootstrap({
   callerPhone: string;
   trunkPhone: string;
 }): Promise<PreCallBootstrap> {
-  const office = getOfficeConfigByPhone(trunkPhone);
   const phoneLookup = await lookupByPhone(callerPhone, trunkPhone);
   const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
 
   return {
-    office,
     phoneLookup,
     verified,
     telemetry: preCallLookupTelemetry(phoneLookup),

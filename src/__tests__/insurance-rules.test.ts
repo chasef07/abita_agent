@@ -6,7 +6,6 @@ import {
   matchInsurancePlan,
   matchInsurancePlanForOffice,
 } from "../insurance-rules.js";
-import { getOfficeConfig } from "../customers/profile.js";
 
 describe("insurance matcher", () => {
   const reference = loadInsuranceReference(
@@ -405,10 +404,6 @@ describe("insurance matcher", () => {
   });
 
   it("uses Crystal River's office-specific insurance map", () => {
-    expect(getOfficeConfig("crystal-river").insuranceFile).toBe(
-      "INSURANCE_CRYSTAL_RIVER.json",
-    );
-
     const unitedHmo = matchInsurancePlanForOffice(
       "crystal-river",
       "United Healthcare HMO",
@@ -572,13 +567,6 @@ describe("insurance matcher", () => {
   });
 
   it("uses the Hollywood and Sweetwater medical insurance map", () => {
-    expect(getOfficeConfig("hollywood").insuranceFile).toBe(
-      "INSURANCE_HOLLYWOOD_SWEETWATER.json",
-    );
-    expect(getOfficeConfig("sweetwater").insuranceFile).toBe(
-      "INSURANCE_HOLLYWOOD_SWEETWATER.json",
-    );
-
     const hollywoodAetnaEpo = matchInsurancePlanForOffice(
       "hollywood",
       "Aetna EPO",

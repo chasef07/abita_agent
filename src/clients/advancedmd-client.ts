@@ -1,4 +1,4 @@
-import { getOfficeConfigByPhone } from "../customers/profile.js";
+import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import type {
   CallerLookupFailed,
   PhoneLookupResult,
@@ -43,7 +43,7 @@ export async function lookupByPhone(
 ): Promise<PhoneLookupResult> {
   const startedAt = Date.now();
   try {
-    const office = getOfficeConfigByPhone(trunkPhone);
+    const office = getOfficeProfileByPhone(trunkPhone);
     const data = await resolvePatientByOffice(
       office.amdOfficePhone,
       { phone },
