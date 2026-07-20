@@ -14,7 +14,6 @@ import {
   vi,
 } from "vitest";
 import { createVoiceAgent } from "../agent.js";
-import { getBaseUrlForOfficePhone } from "../clients/advancedmd-client.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   DEV_DEMO_TRANSFER_NUMBER,
@@ -459,7 +458,7 @@ describe("Voice Agent office profile", () => {
           },
           key: office.key,
           knowledgeSource: knowledge.split("\n", 1)[0],
-          middlewareBaseUrl: getBaseUrlForOfficePhone(trunkPhone),
+          middlewareBaseUrl: office.middlewareBaseUrl(PRODUCTION_MIDDLEWARE),
           promptHasConfiguredRole: instructions.includes(expected.promptMarker),
           scheduling: {
             medical: office.schedulingFor("medical"),

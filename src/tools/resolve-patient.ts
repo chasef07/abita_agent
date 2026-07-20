@@ -3,7 +3,7 @@ import { z } from "zod";
 import type {
   PatientResolveResult,
   PatientResolveVerified,
-} from "../clients/advancedmd-client.js";
+} from "../clients/owned-middleware.js";
 import {
   dobMatches,
   matchCandidatesByFirstName,

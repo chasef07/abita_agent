@@ -1,6 +1,9 @@
 import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
-import { callApi } from "../clients/advancedmd-client.js";
+import {
+  ownedMiddleware,
+  type CreatePatientInput,
+} from "../clients/owned-middleware.js";
 import {
   canonicalInsurancePlan,
   matchInsurancePlanForOffice,
@@ -184,7 +187,7 @@ export const add_patient = tool({
       );
     }
 
-    const payload = {
+    const payload: CreatePatientInput = {
       firstName: params.firstName,
       lastName: params.lastName,
       dob: params.dob,
@@ -209,19 +212,13 @@ export const add_patient = tool({
       ...(params.email?.trim() ? { email: params.email.trim() } : {}),
     };
 
-    const result = (await callApi(
-      "/api/add-patient",
-      payload,
-      getAmdOfficeForToolCall(state),
-    )) as AddPatientResult;
-    if (!result.patientId) {
-      return (
-        result.message ??
-        "The patient chart was not created. Confirm the registration details and try again."
-      );
-    }
+    const result = await ownedMiddleware().createPatient({
+      office: getAmdOfficeForToolCall(state),
+      patient: payload,
+    });
+    if (result.status === "error") return result.message;
 
-    applyPatientResult(state, { ...result, status: "created" });
+    applyPatientResult(state, result);
     setInsuranceOnFile(
       state,
       insuranceSnapshot({
@@ -308,18 +305,3 @@ function hasMatchingPreCallPatient(
       dobMatches(params.dob, candidate.dob),
   );
 }
-
-type AddPatientResult = {
-  patientId?: string | null;
-  name?: string | null;
-  message?: string | null;
-  status?: string | null;
-  phone?: string | null;
-  insuranceCarrier?: string | null;
-  insPlanId?: string | null;
-  respPartyId?: string | null;
-  routing?: string | null;
-  allowedProviders?: string[];
-  routingAmbiguous?: boolean;
-  preauthRequired?: boolean;
-};

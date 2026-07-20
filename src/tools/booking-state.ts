@@ -1,4 +1,8 @@
 import { ToolError } from "@livekit/agents";
+import type {
+  BookAppointmentInput,
+  BookAppointmentResult,
+} from "../clients/owned-middleware.js";
 import {
   type CallState,
   type CallerAppointment,
@@ -52,7 +56,7 @@ export function selectedSlotForBooking(
 export function bookingRequestBodyForSlot(
   state: CallState,
   input: BookingRequestInput,
-): Record<string, unknown> {
+): BookAppointmentInput {
   const normalizedReason = normalizeAppointmentReason(input.appointmentReason);
   const normalizedReferrer = normalizeReferringDoctor(input.referringDoctor);
   const routing =
@@ -122,32 +126,26 @@ export function appointmentPatientStatusForLoadedAppointment(
   return null;
 }
 
-export function bookingSucceeded(result: unknown): boolean {
-  if (!isRecord(result)) return false;
-  const status = bookingStatus(result);
-  const appointmentId = appointmentIdFromResult(result);
-  if (status === "booked" || status === "partial" || status === "success") {
-    return appointmentId !== null;
-  }
-  if (status === "error") return false;
-  return appointmentId !== null;
+export function bookingSucceeded(result: BookAppointmentResult): boolean {
+  return result.status === "booked" || result.status === "partial";
 }
 
 export function bookingHadPositiveStatusWithoutAppointmentId(
-  result: unknown,
+  result: BookAppointmentResult,
 ): boolean {
-  if (!isRecord(result)) return false;
-  const status = bookingStatus(result);
   return (
-    (status === "booked" || status === "partial" || status === "success") &&
-    appointmentIdFromResult(result) === null
+    result.status === "error" &&
+    result.reason === "invalid_response" &&
+    result.message.includes("appointment ID")
   );
 }
 
-export function bookingOutcome(result: unknown): string {
-  return isRecord(result) && typeof result.outcome === "string"
-    ? result.outcome.toLowerCase()
-    : "";
+export function bookingSlotUnavailable(result: BookAppointmentResult): boolean {
+  return result.status === "unavailable";
+}
+
+export function bookingTokenRejected(result: BookAppointmentResult): boolean {
+  return result.status === "rejected";
 }
 
 export function bookedAppointmentMessage(
@@ -173,15 +171,8 @@ export function slotUnavailableMessage(
   return "That time is no longer available. Check availability again before booking.";
 }
 
-export function bookingFailureMessage(result: unknown): string {
-  const status = bookingStatus(result);
-  if (status === "booked" || status === "partial" || status === "success") {
-    return "I could not confirm the booking because the appointment ID was missing. Check availability again before booking.";
-  }
-  if (isRecord(result) && typeof result.message === "string") {
-    return result.message;
-  }
-  return "The appointment was not booked.";
+export function bookingFailureMessage(result: BookAppointmentResult): string {
+  return result.message ?? "The appointment was not booked.";
 }
 
 export function spokenSlot(slot: StoredAvailabilitySlot): string {
@@ -217,7 +208,10 @@ function appointmentIntentForBooking(
   routing: string | null,
   appointmentReason?: string,
   patientStatusOverride?: AppointmentPatientStatus | null,
-): Record<string, unknown> {
+): Pick<
+  BookAppointmentInput,
+  "visitCategory" | "visitKind" | "patientStatus" | "isPostOp" | "visitReason"
+> {
   const visitKind = inferAppointmentKindForBooking(
     state,
     routing,
@@ -274,23 +268,6 @@ function isGenericBookingReason(value: string): boolean {
   return /^(appointment|appt|visit|office visit|booking|(?:my )?eyes?|(?:my )?eye (?:exam|issues?|problems?|concerns?))$/i.test(
     value.trim(),
   );
-}
-
-function bookingStatus(result: unknown): string {
-  return isRecord(result) && typeof result.status === "string"
-    ? result.status.toLowerCase()
-    : "";
-}
-
-function appointmentIdFromResult(
-  result: Record<string, unknown>,
-): number | null {
-  const appointmentId = result.appointmentId;
-  if (typeof appointmentId === "number") return appointmentId;
-  if (typeof appointmentId === "string" && /^\d+$/.test(appointmentId)) {
-    return Number(appointmentId);
-  }
-  return null;
 }
 
 function spokenIsoDate(date: string | undefined): string | undefined {

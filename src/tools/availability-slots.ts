@@ -2,6 +2,7 @@ import {
   type CallState,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
+import type { AvailabilityResult } from "../clients/owned-middleware.js";
 import {
   availabilitySlotsForState,
   clearAvailabilitySelection,
@@ -43,25 +44,25 @@ export function selectedAvailabilitySlot(
 
 export function storeAvailabilitySlots(
   state: CallState,
-  rawResponse: unknown,
+  result: AvailabilityResult,
   routing: string | null,
   timePreference: AvailabilityTimePreference = "none",
 ): AvailabilityToolResponse {
-  if (!isRecord(rawResponse)) {
+  if (result.status === "error") {
     clearAvailabilitySelection(state);
-    return cleanAvailabilityErrorResponse(rawResponse);
+    return cleanAvailabilityErrorResponse(result);
   }
 
-  const apiSlots = Array.isArray(rawResponse.slots) ? rawResponse.slots : [];
-  const outcome = stringField(rawResponse, "outcome");
-  if (
-    !Array.isArray(rawResponse.slots) &&
-    outcome !== "no_availability" &&
-    outcome !== "availability_search_incomplete"
-  ) {
-    clearAvailabilitySelection(state);
-    return cleanAvailabilityErrorResponse(rawResponse);
-  }
+  const rawResponse: Record<string, unknown> = {
+    ...result,
+    outcome:
+      result.status === "none"
+        ? "no_availability"
+        : result.status === "incomplete"
+          ? "availability_search_incomplete"
+          : "availability_found",
+  };
+  const apiSlots = result.slots;
 
   const sortedSlots = apiSlots
     .filter(isRecord)

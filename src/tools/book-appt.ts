@@ -1,6 +1,6 @@
 import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
-import { callApi } from "../clients/advancedmd-client.js";
+import { ownedMiddleware } from "../clients/owned-middleware.js";
 import { latestBookedAppointmentId } from "../state/appointments.js";
 import { type CallState } from "../state/call-state.js";
 import { activePatientId } from "../state/identity.js";
@@ -18,9 +18,10 @@ import {
   bookedAppointmentMessage,
   bookingFailureMessage,
   bookingHadPositiveStatusWithoutAppointmentId,
-  bookingOutcome,
   bookingRequestBodyForSlot,
+  bookingSlotUnavailable,
   bookingSucceeded,
+  bookingTokenRejected,
   selectedSlotForBooking,
   slotUnavailableMessage,
   spokenSlot,
@@ -112,12 +113,10 @@ export const book_appointment = tool({
       );
     }
 
-    const result = await callApi(
-      "/api/appointment/book",
-      bookingBody,
-      getAmdOfficeForToolCall(state),
-      { includeOffice: false },
-    );
+    const result = await ownedMiddleware().bookAppointment({
+      office: getAmdOfficeForToolCall(state),
+      booking: bookingBody,
+    });
 
     if (bookingSucceeded(result)) {
       recordBookedAppointmentInState(state, selectedSlot, result);
@@ -153,8 +152,7 @@ export const book_appointment = tool({
       return message;
     }
 
-    const outcome = bookingOutcome(result);
-    if (outcome === "slot_unavailable") {
+    if (bookingSlotUnavailable(result)) {
       const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
       const message = slotUnavailableMessage(remainingSlots);
       recordAppointmentAction(state, {
@@ -170,10 +168,7 @@ export const book_appointment = tool({
       });
       return message;
     }
-    if (
-      outcome === "invalid_booking_token" ||
-      outcome === "booking_token_required"
-    ) {
+    if (bookingTokenRejected(result)) {
       clearAvailabilitySelection(state);
     }
 

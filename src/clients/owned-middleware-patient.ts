@@ -1,7 +1,5 @@
 import type {
   AppointmentLoadStatus,
-  CallerLookupFailed,
-  CallerMatch,
   CallerMatchHint,
   StoredCallerAppointment,
 } from "../state/call-state.js";
@@ -39,7 +37,7 @@ interface PatientResolveNotFound {
 interface PatientResolveError {
   status: "error";
   message: string;
-  reason?: CallerLookupFailed["reason"];
+  reason: "middleware_error" | "invalid_response";
 }
 
 export type PatientResolveResult =
@@ -121,7 +119,7 @@ export function normalizePatientResolveResponse(
   if (status === "error" || status === "failed" || status === "failure") {
     return {
       status: "error",
-      message: stringValue(raw.message) ?? "Patient lookup failed.",
+      message: "Patient lookup failed.",
       reason: "middleware_error",
     };
   }
@@ -159,35 +157,6 @@ export function normalizePatientMatches(
     }
     return [];
   });
-}
-
-export function patientResolveMatchToCallerMatch(
-  match: PatientResolveVerified | CallerMatchHint,
-  fallbackPhone: string,
-  lookupDurationMs: number,
-): CallerMatch | CallerMatchHint {
-  if ("status" in match && match.status === "verified") {
-    return {
-      status: "verified",
-      patientId: match.patientId,
-      name: match.name ?? "",
-      dob: match.dob ?? "",
-      phone: match.phone ?? fallbackPhone,
-      insuranceCarrier: match.insuranceCarrier,
-      insPlanId: match.insPlanId ?? null,
-      respPartyId: match.respPartyId ?? null,
-      routing: match.routing,
-      allowedProviders: match.allowedProviders ?? [],
-      routingAmbiguous: match.routingAmbiguous ?? false,
-      preauthRequired: match.preauthRequired ?? false,
-      appointmentsStatus: match.appointmentsStatus,
-      appointmentsMessage: match.appointmentsMessage ?? null,
-      appointments: match.appointments,
-      lookupDurationMs,
-    };
-  }
-  if ("firstName" in match) return { firstName: match.firstName };
-  return { firstName: "" };
 }
 
 export function normalizeAppointmentsStatus(

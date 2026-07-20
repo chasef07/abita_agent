@@ -1,5 +1,13 @@
-import { lookupByPhone } from "../clients/advancedmd-client.js";
+import {
+  getOfficeProfileByPhone,
+  type OfficeProfile,
+} from "../customers/abita/profile.js";
+import {
+  ownedMiddleware,
+  type PatientResolveVerified,
+} from "../clients/owned-middleware.js";
 import type {
+  CallerLookupFailed,
   CallerMatch,
   CallerMatchHint,
   PhoneLookupResult,
@@ -13,6 +21,126 @@ interface PreCallBootstrap {
   phoneLookup: PhoneLookupResult;
   verified: CallerMatch | null;
   telemetry: PreCallLookupTelemetry;
+}
+
+export async function lookupByPhone(
+  phone: string,
+  trunkPhone: string,
+): Promise<PhoneLookupResult> {
+  const startedAt = Date.now();
+  let office: OfficeProfile;
+  try {
+    office = getOfficeProfileByPhone(trunkPhone);
+  } catch {
+    return {
+      status: "lookup_failed",
+      phone,
+      reason: "unsupported_trunk",
+      retryable: false,
+      lookupDurationMs: Date.now() - startedAt,
+    };
+  }
+
+  const result = await ownedMiddleware().resolvePatient({
+    office: office.amdOfficePhone,
+    identity: { phone },
+    fallbackPhone: phone,
+  });
+  const lookupDurationMs = Date.now() - startedAt;
+  if (result.status === "verified") {
+    if (
+      !result.patientId.trim() ||
+      !result.name?.trim() ||
+      !result.dob?.trim()
+    ) {
+      return lookupFailure(phone, "invalid_response", lookupDurationMs);
+    }
+    return {
+      status: "verified",
+      patientId: result.patientId,
+      name: result.name,
+      dob: result.dob,
+      phone: result.phone ?? phone,
+      insuranceCarrier: result.insuranceCarrier,
+      insPlanId: result.insPlanId,
+      respPartyId: result.respPartyId,
+      routing: result.routing,
+      allowedProviders: result.allowedProviders,
+      routingAmbiguous: result.routingAmbiguous,
+      preauthRequired: result.preauthRequired,
+      appointmentsStatus: result.appointmentsStatus,
+      appointmentsMessage: result.appointmentsMessage,
+      appointments: result.appointments,
+      lookupDurationMs,
+    };
+  }
+  if (result.status === "multiple_matches") {
+    return {
+      status: "multiple_matches",
+      message: result.message,
+      matches: result.matches.map((match) =>
+        patientResolveMatchToCallerMatch(match, phone, lookupDurationMs),
+      ),
+      lookupDurationMs,
+    };
+  }
+  if (result.status === "not_found") {
+    return {
+      status: "no_match",
+      phone,
+      message: result.message,
+      lookupDurationMs,
+    };
+  }
+  return lookupFailure(
+    phone,
+    result.reason === "unsupported_office"
+      ? "unsupported_trunk"
+      : result.reason === "cancelled"
+        ? "network_error"
+        : result.reason,
+    lookupDurationMs,
+  );
+}
+
+function lookupFailure(
+  phone: string,
+  reason: CallerLookupFailed["reason"],
+  lookupDurationMs: number,
+): CallerLookupFailed {
+  return {
+    status: "lookup_failed",
+    phone,
+    reason,
+    retryable: reason !== "unsupported_trunk",
+    lookupDurationMs,
+  };
+}
+
+function patientResolveMatchToCallerMatch(
+  match: PatientResolveVerified | CallerMatchHint,
+  fallbackPhone: string,
+  lookupDurationMs: number,
+): CallerMatch | CallerMatchHint {
+  if ("firstName" in match) return { firstName: match.firstName };
+  return {
+    status: "verified",
+    patientId: match.patientId,
+    name: match.name ?? "",
+    dob: match.dob ?? "",
+    phone: match.phone ?? fallbackPhone,
+    insuranceCarrier: match.insuranceCarrier,
+    insPlanId: match.insPlanId,
+    respPartyId: match.respPartyId,
+    routing: match.routing,
+    allowedProviders: match.allowedProviders,
+    routingAmbiguous: match.routingAmbiguous,
+    preauthRequired: match.preauthRequired,
+    appointmentsStatus: match.appointmentsStatus,
+    appointmentsMessage: match.appointmentsMessage,
+    appointments: match.appointments,
+    lookupDurationMs,
+  };
 }
 
 export async function loadPreCallBootstrap({

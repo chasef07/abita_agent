@@ -1,6 +1,9 @@
 import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
-import { callApi } from "../clients/advancedmd-client.js";
+import {
+  ownedMiddleware,
+  type UpdateInsuranceInput,
+} from "../clients/owned-middleware.js";
 import { normalizeInsuranceText } from "../insurance-rules.js";
 import {
   activePatientDob,
@@ -74,14 +77,15 @@ export const update_insurance = tool({
 
     const backendRefs = patientBackendRefs(state);
     const currentInsurance = insuranceOnFile(state);
+    const dob = activePatientDob(state);
     const oldInsurance =
       currentInsurance?.currentCarrier ??
       currentInsurance?.canonicalPlan ??
       currentInsurance?.plan ??
       "";
-    const payload: Record<string, unknown> = {
+    const payload: UpdateInsuranceInput = {
       patientId,
-      ...(activePatientDob(state) ? { dob: activePatientDob(state) } : {}),
+      ...(dob ? { dob } : {}),
       insPlanId: backendRefs.insPlanId ?? "",
       respPartyId: backendRefs.respPartyId ?? "",
       oldInsurance,
@@ -89,14 +93,13 @@ export const update_insurance = tool({
       coverageType,
       subscriberNum: memberId,
     };
-    const result = (await callApi(
-      "/api/patient/update-insurance",
-      payload,
-      getAmdOfficeForToolCall(state),
-    )) as UpdateInsuranceResult;
+    const result = await ownedMiddleware().updateInsurance({
+      office: getAmdOfficeForToolCall(state),
+      update: payload,
+    });
 
-    if (result?.status !== "updated") {
-      throw new ToolError(result?.message ?? "Insurance was not updated.");
+    if (result.status !== "updated") {
+      throw new ToolError(result.message);
     }
 
     const newInsurance = result.newInsurance?.trim() || insurance;
@@ -125,13 +128,3 @@ export const update_insurance = tool({
     return `Updated insurance to ${newInsurance}.`;
   },
 });
-
-type UpdateInsuranceResult = {
-  status?: string;
-  message?: string;
-  newInsurance?: string;
-  routing?: string | null;
-  allowedProviders?: string[];
-  routingAmbiguous?: boolean;
-  preauthRequired?: boolean;
-};
