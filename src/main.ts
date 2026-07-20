@@ -27,14 +27,7 @@ import {
   formatPhoneLookupLogLine,
   loadPreCallBootstrap,
 } from "./runtime/precall-bootstrap.js";
-import {
-  getAnalyticsSecret,
-  postAnalyticsPayload,
-} from "./runtime/analytics-post.js";
-import {
-  MAX_CALL_DURATION_MS,
-  attachCallDurationDeadline,
-} from "./runtime/call-duration-deadline.js";
+import { MAX_CALL_DURATION_MS } from "./runtime/call-duration-deadline.js";
 import { getLlmOptions } from "./model-config.js";
 import {
   getRimeTtsLanguageOptions,
@@ -54,11 +47,12 @@ import {
 } from "./session-options.js";
 import { attachSipParticipantShutdown } from "./runtime/sip-room-shutdown.js";
 import { createSttProfileSwitcher } from "./runtime/stt-profile-switcher.js";
-import { attachSessionAnalytics } from "./runtime/session-analytics.js";
 import {
-  attachShutdownAnalytics,
-  type PluginMetricSnapshot,
-} from "./runtime/shutdown-analytics.js";
+  HttpCallPortal,
+  attachCallCloseout,
+  createLiveKitCallCloseoutEventAdapter,
+} from "./runtime/call-closeout.js";
+import { getAnalyticsSecret } from "./runtime/portal-auth.js";
 
 type TtsRuntime = {
   tts: rime.TTS;
@@ -172,12 +166,6 @@ export default defineAgent({
       const llmWithFallback = new FallbackAdapter({
         llms: [primaryLLM, fallbackLLM],
       });
-      const llmMetrics: PluginMetricSnapshot[] = [];
-      llmWithFallback.on("metrics_collected", (metrics) => {
-        // Per-plugin metrics are not deprecated and preserve token-speed and
-        // peak-context analytics that cumulative session usage cannot express.
-        llmMetrics.push(metrics as unknown as PluginMetricSnapshot);
-      });
       const {
         applyLanguageDecisionToTts,
         initialVoiceLanguage,
@@ -198,71 +186,55 @@ export default defineAgent({
           ...voiceTurnHandlingOptions,
         },
       });
+      const getCallState = (): CallState | null => {
+        try {
+          return session.userData;
+        } catch {
+          return null;
+        }
+      };
       attachSipParticipantShutdown(ctx, participant, {
-        isTransferred: () => transferIsAccepted(session.userData),
-      });
-
-      const callDurationDeadline = attachCallDurationDeadline(ctx, {
-        callId,
-        onExceeded: () => {
-          try {
-            session.userData.runtime.endedReason = "duration_limit";
-            session.userData.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;
-          } catch {
-            // The deadline is far beyond normal bootstrap time, but keep this
-            // guard so shutdown still happens if state has not initialized.
-          }
-        },
-        roomName,
-        shutdownSession: (reason) => {
-          session.shutdown({ drain: false, reason });
+        isTransferred: () => {
+          const state = getCallState();
+          return state ? transferIsAccepted(state) : false;
         },
       });
 
-      let callStateInitialized = false;
       const sttProfileSwitcher = createSttProfileSwitcher(stt, { startedAt });
-      const analyticsBuffers = attachSessionAnalytics(session, {
-        sttProfileSwitcher,
-      });
 
       // Register closeout before pre-call bootstrap so start rows do not get
       // stranded if setup fails after the initial portal write.
-      attachShutdownAnalytics(ctx, session, {
-        callId,
-        callerPhone,
-        trunkPhone,
-        startedAt,
-        livekitContext,
-        callDurationDeadline,
-        llmOptions,
-        llmMetrics,
-        sttLanguageDetector,
-        analyticsBuffers,
-        initialVoiceLanguage,
-        isCallStateInitialized: () => callStateInitialized,
+      await attachCallCloseout({
+        call: {
+          callId,
+          callerPhone,
+          fallbackModel: llmOptions.fallback.model,
+          initialVoiceLanguage,
+          livekitContext,
+          maxCallDurationMs: MAX_CALL_DURATION_MS,
+          officePhone: trunkPhone,
+          startedAt,
+        },
+        events: createLiveKitCallCloseoutEventAdapter(ctx, session, {
+          callId,
+          llm: llmWithFallback,
+          maxCallDurationMs: MAX_CALL_DURATION_MS,
+          roomName,
+          shutdownSession: (reason) => {
+            session.shutdown({ drain: false, reason });
+          },
+          sttLanguageDetector,
+          sttProfileSwitcher,
+        }),
+        getCallState,
+        portal: new HttpCallPortal({
+          secret: getAnalyticsSecret(),
+          url: process.env.ANALYTICS_URL,
+        }),
       });
 
       console.log(
         `[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`,
-      );
-
-      await postAnalyticsPayload(
-        {
-          callId,
-          callerPhone,
-          officePhone: trunkPhone,
-          startedAt: startedAt.toISOString(),
-          status: "IN_PROGRESS",
-          ...livekitContext,
-        },
-        {
-          maxAttempts: 1,
-          phase: "call-start",
-          retryDelayMs: 0,
-          secret: getAnalyticsSecret(),
-          timeoutMs: 2_000,
-          url: process.env.ANALYTICS_URL,
-        },
       );
 
       // Phone lookup before session start so context is ready for the first LLM turn.
@@ -310,7 +282,6 @@ export default defineAgent({
         voiceLanguage: initialVoiceLanguage,
       });
       session.userData.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;
-      callStateInitialized = true;
 
       await session.start({
         agent,
