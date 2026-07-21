@@ -40,7 +40,11 @@ import {
   medicalSchedulingUnavailable,
   routineVisionSchedulingUnavailable,
 } from "../tools/scheduling.js";
-import { getRimeTtsOptions } from "../tts-config.js";
+import {
+  createRimeVoiceLanguageState,
+  getRimeTtsLanguageOptions,
+  getRimeTtsOptions,
+} from "../tts-config.js";
 import { createTestCallState } from "./support/call-state.js";
 
 const transferSipParticipantMock = vi.hoisted(() => vi.fn());
@@ -309,7 +313,7 @@ const officeBehaviors: OfficeBehavior[] = [
       routineVision: {
         supported: false,
         message:
-          "Harborleaf Dermatology & Aesthetics handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
+          "Harborleaf Dermatology & Aesthetics does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
       },
     },
     staffTaskCapture: false,
@@ -363,6 +367,20 @@ async function selectedHandoff(trunkPhone: string, officeKey: OfficeKey) {
   };
 }
 
+function availabilityOfficeSelection(
+  trunkPhone: string,
+  requestedOffice?: "hollywood" | "sweetwater",
+) {
+  const selection = createVoiceAgent(
+    undefined,
+    trunkPhone,
+  ).office.availabilityOfficeFor(requestedOffice);
+
+  return selection.status === "selected"
+    ? { status: selection.status, officeKey: selection.office.key }
+    : selection;
+}
+
 describe("Voice Agent office profile", () => {
   beforeAll(() => {
     initializeLogger({ pretty: false, level: "silent" });
@@ -407,6 +425,15 @@ describe("Voice Agent office profile", () => {
           officeKey: office.key,
           trunkPhone,
         });
+        const voiceLanguageState = createTestCallState({
+          voiceLanguage: createRimeVoiceLanguageState({
+            language: "en",
+            options: getRimeTtsLanguageOptions({
+              language: "en",
+              trunkPhone,
+            }),
+          }),
+        }).runtime.voiceLanguage;
         routineVisionState.workflow.current = {
           appointmentLane: "routine_od",
           intent: "schedule",
@@ -455,6 +482,7 @@ describe("Voice Agent office profile", () => {
           },
           staffTaskCapture: tools.includes("create_staff_task"),
           tools: tools.sort(),
+          voiceLanguageState,
         }).toEqual({
           amdOfficePhone: expected.amdOfficePhone,
           displayName: expected.displayName,
@@ -507,6 +535,12 @@ describe("Voice Agent office profile", () => {
             ...COMMON_TOOL_NAMES,
             ...(expected.staffTaskCapture ? ["create_staff_task"] : []),
           ].sort(),
+          voiceLanguageState: {
+            current: "en",
+            speaker: expected.englishSpeaker,
+            ttsLanguage: "eng",
+            ttsProvider: "rime",
+          },
         });
       });
     }
@@ -529,5 +563,44 @@ describe("Voice Agent office profile", () => {
       "Unsupported trunk phone number: not-a-phone-number",
       "Unsupported trunk phone number: (empty)",
     ]);
+  });
+
+  it("owns Hollywood and Sweetwater availability office selection", () => {
+    expect({
+      hollywoodMissing: availabilityOfficeSelection(HOLLYWOOD_OFFICE_PHONE),
+      hollywoodSelected: availabilityOfficeSelection(
+        HOLLYWOOD_OFFICE_PHONE,
+        "hollywood",
+      ),
+      sweetwaterSelected: availabilityOfficeSelection(
+        SWEETWATER_OFFICE_PHONE,
+        "sweetwater",
+      ),
+    }).toEqual({
+      hollywoodMissing: {
+        status: "blocked",
+        message:
+          "Ask whether the caller wants the Hollywood or Sweetwater office, then check availability again with that office.",
+      },
+      hollywoodSelected: { status: "selected", officeKey: "hollywood" },
+      sweetwaterSelected: { status: "selected", officeKey: "sweetwater" },
+    });
+  });
+
+  it("keeps availability office selection unavailable elsewhere", () => {
+    expect({
+      current: availabilityOfficeSelection(SPRING_HILL_OFFICE_PHONE),
+      rejected: availabilityOfficeSelection(
+        SPRING_HILL_OFFICE_PHONE,
+        "hollywood",
+      ),
+    }).toEqual({
+      current: { status: "current" },
+      rejected: {
+        status: "blocked",
+        message:
+          "Abita Eye Group calls cannot search Hollywood or Sweetwater. Check availability again without office.",
+      },
+    });
   });
 });

@@ -18,7 +18,6 @@ import { createVoiceAgent } from "./agent.js";
 import {
   createCanonicalCallState,
   type CallState,
-  type RuntimeVoiceLanguageState,
 } from "./state/call-state.js";
 import { publicCallerAppointments } from "./state/appointments.js";
 import { transferIsAccepted } from "./state/call-lifecycle.js";
@@ -30,10 +29,12 @@ import {
 import { MAX_CALL_DURATION_MS } from "./runtime/call-duration-deadline.js";
 import { getLlmOptions } from "./model-config.js";
 import {
+  createRimeVoiceLanguageState,
   getRimeTtsLanguageOptions,
   getRimeTtsOptions,
   getRimeTtsOptionsByLanguage,
   type RimeTtsLanguageOptions,
+  type RuntimeVoiceLanguageState,
 } from "./tts-config.js";
 import {
   SttLanguageDetector,
@@ -63,28 +64,6 @@ type TtsRuntime = {
   sttLanguageDetector: SttLanguageDetector;
 };
 
-function createRuntimeVoiceLanguageState(input: {
-  decision?: Extract<SttLanguageDecision, { action: "switch" }>;
-  language: VoiceLanguage;
-  options: RimeTtsLanguageOptions;
-}): RuntimeVoiceLanguageState {
-  return {
-    current: input.language,
-    speaker: input.options.speaker,
-    ttsLanguage: input.options.lang,
-    ttsProvider: "rime",
-    ...(input.decision
-      ? {
-          providerCode: input.decision.providerCode,
-          updatedAt: new Date().toISOString(),
-          ...(input.decision.confidence !== undefined
-            ? { confidence: input.decision.confidence }
-            : {}),
-        }
-      : {}),
-  };
-}
-
 function createRimeLanguageDecisionApplicator(input: {
   optionsByLanguage: Record<VoiceLanguage, RimeTtsLanguageOptions>;
   tts: rime.TTS;
@@ -98,7 +77,7 @@ function createRimeLanguageDecisionApplicator(input: {
     const ttsOptions = input.optionsByLanguage[decision.to];
     input.tts.updateOptions(ttsOptions);
     appliedLanguage = decision.to;
-    const voiceLanguage = createRuntimeVoiceLanguageState({
+    const voiceLanguage = createRimeVoiceLanguageState({
       decision,
       language: decision.to,
       options: ttsOptions,
@@ -127,7 +106,7 @@ function createTtsRuntime(input: { trunkPhone: string }): TtsRuntime {
       optionsByLanguage: getRimeTtsOptionsByLanguage(input.trunkPhone),
       tts,
     }),
-    initialVoiceLanguage: createRuntimeVoiceLanguageState({
+    initialVoiceLanguage: createRimeVoiceLanguageState({
       language: "en",
       options: initialLanguageOptions,
     }),

@@ -5,6 +5,10 @@ import {
   type CallState,
   type SchedulingAppointmentLane,
 } from "../state/call-state.js";
+import {
+  AVAILABILITY_OFFICE_TOOL_POLICY,
+  type AvailabilityOfficeKey,
+} from "../customers/abita/profile.js";
 import { activePatientDob, activePatientId } from "../state/identity.js";
 import {
   activeRoutingContext,
@@ -18,7 +22,6 @@ import {
 } from "./availability-slots.js";
 import {
   getAmdOfficeForToolCall,
-  type HollywoodSweetwaterOffice,
   medicalSchedulingUnavailable,
   routingForAvailability,
   routineVisionSchedulingUnavailable,
@@ -34,7 +37,7 @@ import {
 type AvailabilityLookupArgs = {
   date?: string;
   appointmentLane?: SchedulingAppointmentLane;
-  office?: HollywoodSweetwaterOffice;
+  office?: AvailabilityOfficeKey;
   timePreference?: AvailabilityTimePreference;
 };
 
@@ -51,7 +54,7 @@ export const get_availability = tool({
   description:
     "Search appointment availability from an exact YYYY-MM-DD start date. " +
     "For new appointments, pass appointmentLane after the visit reason is clear; for reschedules, omit it only when the existing appointment to move is already identified. " +
-    "On Hollywood or Sweetwater calls, ask which of those two offices the caller wants and pass office; never infer the scheduling office from the number they called. " +
+    AVAILABILITY_OFFICE_TOOL_POLICY.instruction +
     "Use timePreference to rank morning, afternoon, or no-preference requests. " +
     "Do not call for same-day or past dates. Call get_current_datetime before using relative dates, and do not pass relative phrases here. " +
     "This tool returns plain instructions with at most two appointmentSlotRef values; offer only those returned slots and do not invent other times. " +
@@ -65,11 +68,9 @@ export const get_availability = tool({
         "Required for new appointment searches. Use medical_md for medical or eye-problem visits, routine_od for routine vision. Omit only for reschedules when the loaded appointment supplies the lane.",
       ),
     office: z
-      .enum(["hollywood", "sweetwater"])
+      .enum(AVAILABILITY_OFFICE_TOOL_POLICY.keys)
       .optional()
-      .describe(
-        "Required on Hollywood and Sweetwater calls after asking which office the caller wants. Do not infer it from the number called. Omit for every other office.",
-      ),
+      .describe(AVAILABILITY_OFFICE_TOOL_POLICY.parameterDescription),
     timePreference: z
       .enum(["morning", "afternoon", "none"])
       .optional()

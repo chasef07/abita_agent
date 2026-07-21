@@ -1,6 +1,7 @@
 import {
   getOfficeProfile,
   getOfficeProfileByPhone,
+  type AvailabilityOfficeKey,
 } from "../customers/abita/profile.js";
 import { activeAppointments } from "../state/appointments.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
@@ -11,26 +12,17 @@ import {
   currentWorkflowVisitType,
 } from "../state/scheduling.js";
 
-export type HollywoodSweetwaterOffice = "hollywood" | "sweetwater";
-
 export function selectAvailabilityOffice(
   state: CallState,
-  requestedOffice: HollywoodSweetwaterOffice | undefined,
+  requestedOffice: AvailabilityOfficeKey | undefined,
 ): string | null {
   const trunkOffice = getOfficeProfileByPhone(state.runtime.trunkPhone);
-  const requiresOfficeChoice =
-    trunkOffice.key === "hollywood" || trunkOffice.key === "sweetwater";
+  const selection = trunkOffice.availabilityOfficeFor(requestedOffice);
+  if (selection.status === "blocked") return selection.message;
+  if (selection.status === "current") return null;
+  if (activeOfficeKey(state) === selection.office.key) return null;
 
-  if (!requiresOfficeChoice) {
-    if (!requestedOffice) return null;
-    return `${trunkOffice.displayName} calls cannot search Hollywood or Sweetwater. Check availability again without office.`;
-  }
-  if (!requestedOffice) {
-    return "Ask whether the caller wants the Hollywood or Sweetwater office, then check availability again with that office.";
-  }
-  if (activeOfficeKey(state) === requestedOffice) return null;
-
-  const office = getOfficeProfile(requestedOffice);
+  const { office } = selection;
   clearAvailabilitySelection(state);
   state.office.activeKey = office.key;
   state.office.phoneOverrides[office.key] ??= office.amdOfficePhone;

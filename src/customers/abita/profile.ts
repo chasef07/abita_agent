@@ -9,6 +9,22 @@ export type OfficeKey =
   | "dev";
 export type OfficeCare = "medical" | "routine_vision";
 export type OfficeSpeechLanguage = "en" | "es";
+export const AVAILABILITY_OFFICE_KEYS = ["hollywood", "sweetwater"] as const;
+export type AvailabilityOfficeKey = (typeof AVAILABILITY_OFFICE_KEYS)[number];
+const AVAILABILITY_OFFICE_NAMES = "Hollywood or Sweetwater";
+export const AVAILABILITY_OFFICE_TOOL_POLICY = {
+  keys: AVAILABILITY_OFFICE_KEYS,
+  instruction:
+    `On ${AVAILABILITY_OFFICE_NAMES} calls, ask which of those two offices the caller wants and pass office; ` +
+    "never infer the scheduling office from the number they called. ",
+  parameterDescription:
+    "Required on Hollywood and Sweetwater calls after asking which office the caller wants. " +
+    "Do not infer it from the number called. Omit for every other office.",
+} as const;
+export type AvailabilityOfficeSelection =
+  | { status: "current" }
+  | { status: "blocked"; message: string }
+  | { status: "selected"; office: OfficeProfile };
 export type OfficeSchedulingPolicy =
   { supported: true } | { supported: false; message: string };
 export type OfficeInsurancePolicy =
@@ -44,6 +60,9 @@ export interface OfficeProfile {
   amdOfficePhone: string;
   knowledgeSource: string;
   staffTaskCapture: boolean;
+  availabilityOfficeFor(
+    requestedOffice?: AvailabilityOfficeKey,
+  ): AvailabilityOfficeSelection;
   handoff(): OfficeHandoffPolicy;
   insuranceFor(coverageType: OfficeCare): OfficeInsurancePolicy;
   middlewareBaseUrl(defaultBaseUrl: string): string;
@@ -56,7 +75,8 @@ export interface OfficeProfile {
 }
 const CRYSTAL_RIVER_TRANSFER_NUMBER = "+13527941244";
 type OfficeCareInput =
-  { supported: true; insuranceSource: string } | { supported: false };
+  | { supported: true; insuranceSource: string }
+  | { supported: false; message?: string };
 type OfficeProfileInput = {
   amdOfficePhone: string;
   care: Record<OfficeCare, OfficeCareInput>;
@@ -96,9 +116,10 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
     return {
       supported: false,
       message:
-        careType === "medical"
+        care[careType].message ??
+        (careType === "medical"
           ? `${displayName} supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.`
-          : `${displayName} handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.`,
+          : `${displayName} handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.`),
     };
   }
 
@@ -110,6 +131,23 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
     knowledgeSource,
     staffTaskCapture,
     trunkPhones,
+    availabilityOfficeFor(requestedOffice) {
+      if (!AVAILABILITY_OFFICE_KEYS.some((officeKey) => officeKey === key)) {
+        return requestedOffice
+          ? {
+              status: "blocked",
+              message: `${displayName} calls cannot search ${AVAILABILITY_OFFICE_NAMES}. Check availability again without office.`,
+            }
+          : { status: "current" };
+      }
+      if (!requestedOffice) {
+        return {
+          status: "blocked",
+          message: `Ask whether the caller wants the ${AVAILABILITY_OFFICE_NAMES} office, then check availability again with that office.`,
+        };
+      }
+      return { status: "selected", office: getOfficeProfile(requestedOffice) };
+    },
     handoff,
     insuranceFor(coverageType) {
       const policy = care[coverageType];
@@ -265,7 +303,11 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
         supported: true,
         insuranceSource: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
       },
-      routine_vision: { supported: false },
+      routine_vision: {
+        supported: false,
+        message:
+          "Harborleaf Dermatology & Aesthetics does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
+      },
     },
     amdOfficePhone: DEV_OFFICE_PHONE,
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
