@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SPRING_HILL_OFFICE_PHONE } from "../customers/profile.js";
+import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import { lookupByPhone } from "../clients/advancedmd-client.js";
 import {
   buildPreCallContextState,
@@ -110,7 +110,6 @@ describe("pre-call bootstrap", () => {
     });
 
     expect(bootstrap).toMatchObject({
-      office: { key: "spring-hill" },
       verified: {
         patientId: "patient-1",
         name: "Doe, Jane",

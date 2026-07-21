@@ -9,7 +9,7 @@ import {
 import {
   HOLLYWOOD_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
-} from "../customers/profile.js";
+} from "../customers/abita/profile.js";
 import { appointmentActions } from "../state/observability.js";
 import {
   clearAvailabilitySelection,

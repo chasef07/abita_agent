@@ -5,13 +5,11 @@ import {
   type JobContext,
 } from "@livekit/agents";
 import { readFile } from "node:fs/promises";
-import type {
-  CallState,
-  RuntimeVoiceLanguageState,
-} from "../state/call-state.js";
+import type { CallState } from "../state/call-state.js";
 import { transferIsAccepted } from "../state/call-lifecycle.js";
 import { appointmentActions } from "../state/observability.js";
 import type { SttLanguageDetector } from "../stt-language-detector.js";
+import type { RuntimeVoiceLanguageState } from "../tts-config.js";
 import {
   buildLlmSummary,
   createEmptySessionEventAnalytics,

@@ -1,4 +1,4 @@
-import { getOfficeConfig } from "../customers/profile.js";
+import { getOfficeProfile } from "../customers/abita/profile.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
 import {
   activeAppointments,
@@ -93,7 +93,7 @@ export function recordBookedAppointmentInState(
   const facility =
     isRecord(result) && typeof result.locationName === "string"
       ? result.locationName
-      : getOfficeConfig(activeOfficeKey(state)).displayName;
+      : getOfficeProfile(activeOfficeKey(state)).displayName;
   const type =
     isRecord(result) && typeof result.appointmentTypeName === "string"
       ? result.appointmentTypeName

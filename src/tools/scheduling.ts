@@ -1,7 +1,8 @@
 import {
-  getOfficeConfig,
-  getOfficeConfigByPhone,
-} from "../customers/profile.js";
+  getOfficeProfile,
+  getOfficeProfileByPhone,
+  type AvailabilityOfficeKey,
+} from "../customers/abita/profile.js";
 import { activeAppointments } from "../state/appointments.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
 import { type CallerAppointment, type CallState } from "../state/call-state.js";
@@ -11,26 +12,17 @@ import {
   currentWorkflowVisitType,
 } from "../state/scheduling.js";
 
-export type HollywoodSweetwaterOffice = "hollywood" | "sweetwater";
-
 export function selectAvailabilityOffice(
   state: CallState,
-  requestedOffice: HollywoodSweetwaterOffice | undefined,
+  requestedOffice: AvailabilityOfficeKey | undefined,
 ): string | null {
-  const trunkOffice = getOfficeConfigByPhone(state.runtime.trunkPhone);
-  const requiresOfficeChoice =
-    trunkOffice.key === "hollywood" || trunkOffice.key === "sweetwater";
+  const trunkOffice = getOfficeProfileByPhone(state.runtime.trunkPhone);
+  const selection = trunkOffice.availabilityOfficeFor(requestedOffice);
+  if (selection.status === "blocked") return selection.message;
+  if (selection.status === "current") return null;
+  if (activeOfficeKey(state) === selection.office.key) return null;
 
-  if (!requiresOfficeChoice) {
-    if (!requestedOffice) return null;
-    return `${trunkOffice.displayName} calls cannot search Hollywood or Sweetwater. Check availability again without office.`;
-  }
-  if (!requestedOffice) {
-    return "Ask whether the caller wants the Hollywood or Sweetwater office, then check availability again with that office.";
-  }
-  if (activeOfficeKey(state) === requestedOffice) return null;
-
-  const office = getOfficeConfig(requestedOffice);
+  const { office } = selection;
   clearAvailabilitySelection(state);
   state.office.activeKey = office.key;
   state.office.phoneOverrides[office.key] ??= office.amdOfficePhone;
@@ -40,29 +32,31 @@ export function selectAvailabilityOffice(
 export function getAmdOfficeForToolCall(state: CallState): string {
   return (
     state.office.phoneOverrides[activeOfficeKey(state)] ||
-    getOfficeConfig(activeOfficeKey(state)).amdOfficePhone
+    getOfficeProfile(activeOfficeKey(state)).amdOfficePhone
   );
 }
 
 export function medicalSchedulingUnavailable(state: CallState): string | null {
-  const office = getOfficeConfig(activeOfficeKey(state));
-  if (office.features.medicalScheduling) return null;
+  const office = getOfficeProfile(activeOfficeKey(state));
+  const policy = office.schedulingFor("medical");
+  if (policy.supported) return null;
   if (currentWorkflowVisitType(state) !== "medical") {
     const turn = state.workflow.current;
     if (turn?.intent !== "change_appointment") return null;
     if (isRoutineVisionSchedulingOrChange(state)) return null;
   }
-  return `${office.displayName} supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.`;
+  return policy.message;
 }
 
 export function routineVisionSchedulingUnavailable(
   state: CallState,
 ): string | null {
-  const office = getOfficeConfig(activeOfficeKey(state));
-  if (office.features.routineVisionScheduling) return null;
+  const office = getOfficeProfile(activeOfficeKey(state));
+  const policy = office.schedulingFor("routine_vision");
+  if (policy.supported) return null;
   if (!isRoutineVisionSchedulingOrChange(state)) return null;
 
-  return `${office.displayName} handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.`;
+  return policy.message;
 }
 
 export function routingForAvailability(state: CallState): string | null {

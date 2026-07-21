@@ -1,4 +1,4 @@
-import { getOfficeConfigByPhone } from "../customers/profile.js";
+import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 
 const DEFAULT_BASE_URL =
   "https://advancedmd-token-management-production.up.railway.app";
@@ -21,7 +21,7 @@ function normalizeBaseUrl(url: string): string {
 
 export function getBaseUrlForOfficePhone(officePhone: string): string {
   return normalizeBaseUrl(
-    getOfficeConfigByPhone(officePhone).middlewareBaseUrl ?? BASE_URL,
+    getOfficeProfileByPhone(officePhone).middlewareBaseUrl(BASE_URL),
   );
 }
 

@@ -17,7 +17,10 @@ import {
   findStaffTaskReceipt,
   recordStaffTaskReceipt,
 } from "../state/observability.js";
-import { getOfficeConfig, normalizePhoneNumber } from "../customers/profile.js";
+import {
+  getOfficeProfile,
+  normalizePhoneNumber,
+} from "../customers/abita/profile.js";
 import { getState } from "./session.js";
 
 const TASK_CREATED_REPLY =
@@ -109,7 +112,7 @@ export function getStaffTasksUrl(
 
 function buildStaffTaskPayload(state: CallState, input: TaskParameters) {
   const officeKey = activeOfficeKey(state);
-  const office = getOfficeConfig(officeKey);
+  const office = getOfficeProfile(officeKey);
   const officePhone =
     state.office.phoneOverrides[officeKey] ?? office.amdOfficePhone;
   const patientId = activePatientId(state);

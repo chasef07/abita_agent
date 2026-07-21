@@ -1,6 +1,9 @@
 import { readFileSync } from "fs";
 import { join } from "path";
-import { getOfficeConfig, type OfficeKey } from "../customers/profile.js";
+import {
+  getOfficeProfile,
+  type OfficeKey,
+} from "../customers/abita/profile.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "..", "workspace");
 const workspaceFileCache: Record<string, string> = {};
@@ -15,15 +18,11 @@ function readWorkspaceFile(file: string): string {
   return workspaceFileCache[file];
 }
 
-export function resolveKnowledgeFileForOffice(officeKey: OfficeKey): string {
-  return getOfficeConfig(officeKey).knowledgeFile;
-}
-
 export function lookupOfficeKnowledge(
   officeKey: OfficeKey,
   question: string,
 ): string {
-  const file = resolveKnowledgeFileForOffice(officeKey);
+  const file = getOfficeProfile(officeKey).knowledgeSource;
   const content = readWorkspaceFile(file);
   const sections = parseMarkdownSections(content);
   const selected = selectKnowledgeSections(sections, question);

@@ -1,5 +1,5 @@
 import { beta, type ToolContextEntry } from "@livekit/agents";
-import { getOfficeConfigByPhone } from "../customers/profile.js";
+import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import type { CallState } from "../state/call-state.js";
 import {
   add_patient,
@@ -41,15 +41,15 @@ const COMMON_TOOLS = [
   end_call,
 ] as const satisfies readonly ToolContextEntry<CallState>[];
 
-const SPRING_HILL_TOOLS = [
+const STAFF_TASK_TOOLS = [
   ...COMMON_TOOLS,
   create_staff_task,
 ] as const satisfies readonly ToolContextEntry<CallState>[];
 
-export type AgentTools = typeof COMMON_TOOLS | typeof SPRING_HILL_TOOLS;
+export type AgentTools = typeof COMMON_TOOLS | typeof STAFF_TASK_TOOLS;
 
 export function buildToolsForTrunk(trunkPhone?: string): AgentTools {
-  const office = getOfficeConfigByPhone(trunkPhone ?? "");
-  if (office.key === "spring-hill") return SPRING_HILL_TOOLS;
+  const office = getOfficeProfileByPhone(trunkPhone ?? "");
+  if (office.staffTaskCapture) return STAFF_TASK_TOOLS;
   return COMMON_TOOLS;
 }

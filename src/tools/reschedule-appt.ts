@@ -2,10 +2,9 @@ import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
 import { callApi } from "../clients/advancedmd-client.js";
 import {
-  getOfficeConfig,
+  getOfficeProfileByFacility,
   normalizePhoneNumber,
-  type OfficeKey,
-} from "../customers/profile.js";
+} from "../customers/abita/profile.js";
 import {
   completedRescheduleForPatient,
   recordCompletedRescheduleForPatient,
@@ -326,55 +325,10 @@ function getAmdOfficeForCancellationAppointment(
   state: CallState,
   appointment: CallerAppointment,
 ): string {
-  const officeKey = officeKeyForAppointmentFacility(appointment.facility);
-  if (!officeKey) return getAmdOfficeForToolCall(state);
-  return (
-    state.office.phoneOverrides?.[officeKey] ??
-    getOfficeConfig(officeKey).amdOfficePhone
-  );
+  const office = getOfficeProfileByFacility(appointment.facility);
+  if (!office) return getAmdOfficeForToolCall(state);
+  return state.office.phoneOverrides?.[office.key] ?? office.amdOfficePhone;
 }
-
-function officeKeyForAppointmentFacility(
-  facility: string | undefined,
-): OfficeKey | null {
-  const normalized = normalizeFacilityName(facility);
-  if (!normalized) return null;
-
-  if (
-    normalized.includes("crystal river") ||
-    normalized.includes("eye radiance")
-  ) {
-    return "crystal-river";
-  }
-  if (normalized.includes("spring hill")) return "spring-hill";
-  if (normalized.includes("hollywood")) return "hollywood";
-  if (normalized.includes("sweetwater")) return "sweetwater";
-
-  for (const key of OFFICE_KEYS) {
-    const displayName = normalizeFacilityName(getOfficeConfig(key).displayName);
-    if (displayName && normalized.includes(displayName)) return key;
-  }
-
-  return null;
-}
-
-function normalizeFacilityName(value: string | undefined): string {
-  return (
-    value
-      ?.trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim() ?? ""
-  );
-}
-
-const OFFICE_KEYS: OfficeKey[] = [
-  "spring-hill",
-  "crystal-river",
-  "hollywood",
-  "sweetwater",
-  "dev",
-];
 
 function handleRescheduleBookingFailure(
   state: CallState,

@@ -1,6 +1,6 @@
-import type { OfficeKey } from "../customers/profile.js";
+import type { OfficeKey } from "../customers/abita/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
-import type { RimeTtsLanguageCode } from "../tts-config.js";
+import type { RuntimeVoiceLanguageState } from "../tts-config.js";
 import { setPatientBackendRefs } from "./identity.js";
 import { createSchedulingState } from "./scheduling.js";
 import type { TransferState } from "./call-lifecycle.js";
@@ -217,16 +217,6 @@ export interface StaffTaskReceipt {
 interface PatientBackendRefs {
   insPlanId?: string | null;
   respPartyId?: string | null;
-}
-
-export interface RuntimeVoiceLanguageState {
-  current: "en" | "es";
-  ttsProvider: "rime";
-  ttsLanguage: RimeTtsLanguageCode;
-  speaker: string;
-  confidence?: number;
-  providerCode?: string;
-  updatedAt?: string;
 }
 
 interface RuntimeCallState {
