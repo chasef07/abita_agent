@@ -32,6 +32,8 @@ vad_threshold: 0.3      — AssemblyAI internal VAD, must match Silero
 
 - Increase `min_turn_silence` if brief pauses cause early EOT on terminal punctuation
 - Increase `max_turn_silence` if forced turn end cuts off users mid-thought or splits entities (phone numbers, DOBs) across turns
-- Runtime profile changes are based on the assistant's last prompt in `src/main.ts`; examples include insurance plan lookup, insurance member ID, intake/DOB/address, and email collection.
+- Runtime profile changes are owned by `src/runtime/stt-profile-switcher.ts`,
+  attached during session startup in `src/main.ts`; examples include insurance
+  plan lookup, insurance member ID, intake/DOB/address, and email collection.
 - `keytermsPrompt` is configured in `src/stt-config.ts`. Keep the default list short: AssemblyAI limits streaming keyterms to 100 terms and ignores individual terms longer than 50 characters.
 - `src/stt-config.ts` defines the `default`, `insurance`, `memberId`, `intake`, and `email` profiles. Keep profile terms specific; broad/common terms can over-bias transcription.

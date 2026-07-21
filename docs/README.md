@@ -1,24 +1,28 @@
-# Documentation Map
+# Documentation
 
-Start here when you need context beyond the runtime code.
+Runtime code and interface-level tests are the source of truth. Use this folder
+only for agent workflow, provider operations, and sanitized incident history.
 
-## Current Architecture
+## Agent Workflow
 
-- `architecture/livekit-native-dynamic-tools-cleanup-spec.md` — current runtime shape: LiveKit agent, tools, session state, prompts, and optional native dynamic tool updates.
-- `architecture/reschedule-appointment-tool-spec.md` — deterministic reschedule tool design: one model-callable tool that books the new slot, cancels the old appointment, and preserves New Patient status.
-- `architecture/inline-scheduling-lane-spec.md` — current scheduling-lane contract: lane is passed to availability and chart-creation tools instead of using a standalone context-recording tool.
-- `architecture/staff-task-intake-spec.md` — proposed task-intake design for turning non-live office work into structured portal tasks instead of default transfers.
+- [`agents/issue-tracker.md`](agents/issue-tracker.md) — GitHub issue workflow.
+- [`agents/triage-labels.md`](agents/triage-labels.md) — canonical triage labels.
+- [`agents/domain.md`](agents/domain.md) — how engineering skills consume
+  [`../CONTEXT.md`](../CONTEXT.md).
 
 ## Operations
 
-- `ops/assemblyai.md` — active AssemblyAI STT setup notes.
-- `ops/telnyx-setup.md` — SIP trunk setup and call testing notes.
+- [`ops/assemblyai.md`](ops/assemblyai.md) — active AssemblyAI STT decisions and
+  tuning notes.
+- [`ops/telnyx-setup.md`](ops/telnyx-setup.md) — Telnyx-to-LiveKit SIP setup and
+  troubleshooting. Recheck provider-console values before applying changes.
 
 ## History
 
-These are retained for audit/debug context, not first-pass implementation context.
-They should not be used as current runtime guidance.
+- [`history/incident-2026-04-09-concurrent-dispatch.md`](history/incident-2026-04-09-concurrent-dispatch.md)
+  — sanitized concurrency incident retained for operational context, not current
+  runtime guidance.
 
-- `history/incident-2026-04-09-concurrent-dispatch.md`
-
-Runtime prompt and customer knowledge files stay in `../workspace/`.
+Feature specifications and architecture decisions live in
+[GitHub Issues](https://github.com/chasef07/abita_agent/issues). Runtime prompt,
+office policy, knowledge, and insurance sources live in [`../workspace/`](../workspace/).

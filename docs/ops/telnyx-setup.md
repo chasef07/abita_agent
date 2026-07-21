@@ -20,9 +20,11 @@ Find your project ID:
 lk project list
 ```
 
-If your project ID is `p_3ix7gzvuwmc`, your SIP endpoint is `3ix7gzvuwmc.us.sip.livekit.cloud`.
+If your project ID is `p_example123`, your SIP endpoint is
+`example123.us.sip.livekit.cloud`.
 
-> The project name subdomain (e.g. `abitatest-aqvfuhdr`) works for WebSocket but NOT for SIP. Always use the project ID.
+> A project-name subdomain such as `your-project-name` can work for WebSocket
+> but not for SIP. Always use the project ID.
 
 ## Step 2: Create LiveKit inbound trunk
 

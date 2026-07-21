@@ -7,17 +7,19 @@
 
 ## What happened
 
-Caller `+19789675279` dialed in. The room was created, the caller joined, and then sat in silence for 60 seconds before hanging up. The agent never arrived during the call.
+Caller B dialed in. The room was created, the caller joined, and then sat in
+silence for 60 seconds before hanging up. The agent never arrived during the
+call. Production caller and LiveKit identifiers are redacted.
 
 The agent dispatched at **09:32:55 — 39 seconds after the caller had already left** (`CLIENT_INITIATED` disconnect). It joined an empty room and stayed there until `ROOM_CLOSED` at 09:36:16.
 
-From LiveKit's event log for room `RM_a4ZmN5oe4PKq`:
+From LiveKit's event log for the affected room:
 
 | Time (EDT) | Event |
 |---|---|
-| 09:31:16 | Room created, caller `sip_+19789675279` joins |
+| 09:31:16 | Room created, caller B joins |
 | 09:32:16 | Caller leaves (CLIENT_INITIATED) — hung up after 60s |
-| 09:32:55 | Agent `AJ_nAmMRTLR7NFi` joins (empty room) |
+| 09:32:55 | Agent joins the empty room |
 | 09:36:16 | Agent leaves (ROOM_CLOSED) |
 | 09:36:37 | Room ended |
 
@@ -33,9 +35,10 @@ The fix releases `initMutex` immediately after `warmedProcQueue.put()` succeeds,
 
 ## Timeline of the incident call
 
-- **09:30:49** — Call 1 (`+18137862344`) arrives. Worker has a warmed proc. Agent joins in 1s.
+- **09:30:49** — Caller A arrives. Worker has a warmed proc. Agent joins in 1s.
 - **09:30:49 onwards** — Call 1 running. `initMutex` held by the owning `procWatchTask`. No replacement proc can initialize.
-- **09:31:16** — Call 2 (`+19789675279`) arrives. `warmedProcQueue` is empty. Cloud cannot dispatch to the worker. Call 2 sits silent in the dispatch queue.
+- **09:31:16** — Caller B arrives. `warmedProcQueue` is empty. Cloud cannot
+  dispatch to the worker. Caller B sits silent in the dispatch queue.
 - **09:32:16** — Caller 2 hangs up after 60s of silence.
 - **09:32:53** — Call 1 ends, child proc exits, `initMutex` released.
 - **09:32:55** — New proc initialized, Call 2 dispatched (~2s matches the worker's 2.5s `UPDATE_LOAD_INTERVAL` for load reports to Cloud).
