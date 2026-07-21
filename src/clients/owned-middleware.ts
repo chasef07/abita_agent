@@ -68,20 +68,23 @@ export type CreatePatientInput = {
   email?: string;
 };
 
+type PatientCreationEvidence = {
+  patientId: string;
+  name: string | null;
+  dob: string;
+  phone: string;
+  insuranceCarrier: string | null;
+  insPlanId: string | null;
+  respPartyId: string | null;
+  routing: string | null;
+  allowedProviders: string[];
+  routingAmbiguous: boolean;
+  preauthRequired: boolean;
+};
+
 export type CreatePatientResult =
-  | {
-      status: "created";
-      patientId: string;
-      name: string | null;
-      phone: string | null;
-      insuranceCarrier: string | null;
-      insPlanId: string | null;
-      respPartyId: string | null;
-      routing: string | null;
-      allowedProviders: string[];
-      routingAmbiguous: boolean;
-      preauthRequired: boolean;
-    }
+  | ({ status: "created" } & PatientCreationEvidence)
+  | ({ status: "partial" } & PatientCreationEvidence)
   | MiddlewareFailure;
 
 export type BookAppointmentInput = {
@@ -100,6 +103,14 @@ export type BookAppointmentInput = {
   routing?: string;
 };
 
+export type AppointmentTypeMissingFact =
+  | "patientStatus"
+  | "dob"
+  | "routing"
+  | "routeToSpringHill"
+  | "appointmentLane"
+  | "office";
+
 export type BookAppointmentResult =
   | {
       status: "booked" | "partial";
@@ -117,6 +128,11 @@ export type BookAppointmentResult =
   | {
       status: "rejected";
       reason: "invalid_booking_token" | "booking_token_required";
+    }
+  | {
+      status: "needs_input";
+      reason: "appointment_type_unresolved";
+      missing: AppointmentTypeMissingFact[];
     }
   | MiddlewareFailure;
 
@@ -263,7 +279,10 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       request.patient,
     );
     return transport.ok
-      ? normalizeCreatedPatient(transport.value)
+      ? normalizeCreatedPatient(transport.value, {
+          dob: request.patient.dob,
+          phone: request.patient.phone,
+        })
       : transport.failure;
   }
 
@@ -521,13 +540,13 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
 }
 
 function normalizeAvailability(raw: unknown): AvailabilityResult {
-  if (hasFailureStatus(raw)) {
+  const outcome = isRecord(raw) ? stringValue(raw.outcome) : null;
+  if (hasFailureStatus(raw) && outcome !== "availability_search_incomplete") {
     return {
       status: "error",
       reason: "middleware_error",
     };
   }
-  const outcome = isRecord(raw) ? stringValue(raw.outcome) : null;
   const status = availabilityStatus(outcome);
   if (!status) {
     return {
@@ -595,7 +614,10 @@ function availabilityStatus(outcome: string | null) {
   }
 }
 
-function normalizeCreatedPatient(raw: unknown): CreatePatientResult {
+function normalizeCreatedPatient(
+  raw: unknown,
+  fallback: { dob: string; phone: string },
+): CreatePatientResult {
   if (hasFailureStatus(raw)) {
     return {
       status: "error",
@@ -608,7 +630,10 @@ function normalizeCreatedPatient(raw: unknown): CreatePatientResult {
   if (
     !isRecord(raw) ||
     !stringValue(raw.patientId) ||
-    (status !== "" && status !== "created" && status !== "success")
+    (status !== "" &&
+      status !== "created" &&
+      status !== "partial" &&
+      status !== "success")
   ) {
     return {
       status: "error",
@@ -616,10 +641,11 @@ function normalizeCreatedPatient(raw: unknown): CreatePatientResult {
     };
   }
   return {
-    status: "created",
+    status: status === "partial" ? "partial" : "created",
     patientId: stringValue(raw.patientId) ?? "",
     name: stringValue(raw.name),
-    phone: stringValue(raw.phone),
+    dob: stringValue(raw.dob) ?? fallback.dob,
+    phone: stringValue(raw.phone) ?? fallback.phone,
     insuranceCarrier: stringValue(raw.insuranceCarrier),
     insPlanId: stringValue(raw.insPlanId),
     respPartyId: stringValue(raw.respPartyId),
@@ -638,6 +664,15 @@ function normalizeBookedAppointment(raw: unknown): BookAppointmentResult {
   if (!isRecord(raw)) return invalidBookingResult();
   const status = stringValue(raw.status)?.toLowerCase();
   const outcome = stringValue(raw.outcome)?.toLowerCase();
+  if (outcome === "appointment_type_unresolved") {
+    const missing = normalizeAppointmentTypeMissingFacts(raw.missing);
+    if (!missing) return invalidBookingResult();
+    return {
+      status: "needs_input",
+      reason: "appointment_type_unresolved",
+      missing,
+    };
+  }
   if (outcome === "slot_unavailable") {
     return {
       status: "unavailable",
@@ -723,6 +758,35 @@ function invalidBookingResult(): BookAppointmentResult {
     status: "error",
     reason: "invalid_response",
   };
+}
+
+function normalizeAppointmentTypeMissingFacts(
+  value: unknown,
+): AppointmentTypeMissingFact[] | null {
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    !value.every(isAppointmentTypeMissingFact)
+  ) {
+    return null;
+  }
+  return value;
+}
+
+function isAppointmentTypeMissingFact(
+  value: unknown,
+): value is AppointmentTypeMissingFact {
+  switch (value) {
+    case "patientStatus":
+    case "dob":
+    case "routing":
+    case "routeToSpringHill":
+    case "appointmentLane":
+    case "office":
+      return true;
+    default:
+      return false;
+  }
 }
 
 function positiveInteger(value: unknown): number | null {

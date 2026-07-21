@@ -147,10 +147,11 @@ function normalizeStoredCallerAppointments(
       !Number.isFinite(appointment.id) ||
       !isNonEmptyString(appointment.date) ||
       !isNonEmptyString(appointment.time) ||
-      !isNonEmptyString(appointment.provider) ||
-      !isNonEmptyString(appointment.type) ||
-      !isNonEmptyString(appointment.facility) ||
-      typeof appointment.confirmed !== "boolean" ||
+      !isOptionalString(appointment.provider) ||
+      !isOptionalString(appointment.type) ||
+      !isOptionalString(appointment.facility) ||
+      (appointment.confirmed !== undefined &&
+        typeof appointment.confirmed !== "boolean") ||
       (appointment.appointmentTypeId !== undefined &&
         (typeof appointment.appointmentTypeId !== "number" ||
           !Number.isFinite(appointment.appointmentTypeId)))
@@ -162,13 +163,13 @@ function normalizeStoredCallerAppointments(
       id: appointment.id,
       date: appointment.date,
       time: appointment.time,
-      provider: appointment.provider,
-      type: appointment.type,
+      provider: appointment.provider ?? "",
+      type: appointment.type ?? "",
       ...(appointment.appointmentTypeId === undefined
         ? {}
         : { appointmentTypeId: appointment.appointmentTypeId }),
-      facility: appointment.facility,
-      confirmed: appointment.confirmed,
+      facility: appointment.facility ?? "",
+      confirmed: appointment.confirmed ?? false,
     });
   }
   return appointments;
@@ -180,6 +181,10 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === "string";
 }
 
 export function stringValue(value: unknown): string | null {

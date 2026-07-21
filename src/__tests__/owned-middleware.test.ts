@@ -292,6 +292,7 @@ const createdPatient: CreatePatientResult = {
   status: "created",
   patientId: "patient-2",
   name: "Jane Doe",
+  dob: "01/01/1980",
   phone: "+17275551212",
   insuranceCarrier: "Aetna",
   insPlanId: null,
@@ -311,6 +312,7 @@ describe.each([
           Response.json({
             patientId: "patient-2",
             name: "Jane Doe",
+            dob: "01/01/1980",
             phone: "+17275551212",
             insuranceCarrier: "Aetna",
             routing: "all_three",
@@ -726,6 +728,47 @@ describe("HTTP owned middleware transport", () => {
     });
   });
 
+  it("normalizes Railway appointments without agent-owned confirmation state", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "verified",
+          patientId: "patient-1",
+          appointmentsStatus: "found",
+          appointments: [
+            {
+              id: 12345,
+              date: "Friday, August 1, 2026",
+              time: "9:00 AM",
+            },
+          ],
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.resolvePatient({
+      office: SPRING_HILL_OFFICE_PHONE,
+      identity: { phone: "+17275551212" },
+    });
+
+    expect(result).toMatchObject({
+      status: "verified",
+      appointmentsStatus: "found",
+      appointments: [
+        {
+          id: 12345,
+          date: "Friday, August 1, 2026",
+          time: "9:00 AM",
+          provider: "",
+          type: "",
+          facility: "",
+          confirmed: false,
+        },
+      ],
+    });
+  });
+
   it("rejects malformed appointment records at the patient adapter boundary", async () => {
     const middleware = new HttpOwnedMiddleware({
       fetch: vi.fn(async () =>
@@ -808,6 +851,46 @@ describe("HTTP owned middleware transport", () => {
     ).resolves.toEqual({
       status: "error",
       reason: "invalid_response",
+    });
+  });
+
+  it("preserves a committed chart when Railway reports partial creation", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "partial",
+          patientId: "patient-2",
+          name: "Jane Doe",
+          dob: "01/01/1980",
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.createPatient({
+      office: SPRING_HILL_OFFICE_PHONE,
+      patient: {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "1 Main Street",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34609",
+        sex: "female",
+        insurance: "Aetna",
+        phone: "+17275551212",
+        subscriberName: "Jane Doe",
+        subscriberNum: "member-1",
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "partial",
+      patientId: "patient-2",
+      name: "Jane Doe",
+      dob: "01/01/1980",
     });
   });
 
@@ -923,6 +1006,8 @@ describe("HTTP owned middleware transport", () => {
     const middleware = new HttpOwnedMiddleware({
       fetch: vi.fn(async () =>
         Response.json({
+          status:
+            testCase.expectedStatus === "incomplete" ? "error" : "success",
           outcome: testCase.outcome,
           slots: [],
           shouldRetrySameSearch: testCase.expectedStatus === "incomplete",
@@ -1053,6 +1138,69 @@ describe("HTTP owned middleware transport", () => {
       status: "error",
       reason: "invalid_response",
       detail: "missing_appointment_id",
+    });
+  });
+
+  it("preserves Railway appointment-type recovery guidance", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "error",
+          outcome: "appointment_type_unresolved",
+          missing: ["patientStatus", "dob"],
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.bookAppointment({
+      office: SPRING_HILL_OFFICE_PHONE,
+      booking: {
+        bookingToken: "booking-token",
+        visitCategory: "medical",
+        visitKind: "medical",
+        patientStatus: "established",
+        patientId: "patient-1",
+        appointmentReason: "blurred vision",
+        referringDoctor: "none",
+      },
+    });
+
+    expect(result).toEqual({
+      status: "needs_input",
+      reason: "appointment_type_unresolved",
+      missing: ["patientStatus", "dob"],
+    });
+  });
+
+  it("rejects unknown appointment-type recovery fields", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "error",
+          outcome: "appointment_type_unresolved",
+          missing: ["schemaDrift"],
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    await expect(
+      middleware.bookAppointment({
+        office: SPRING_HILL_OFFICE_PHONE,
+        booking: {
+          bookingToken: "booking-token",
+          visitCategory: "medical",
+          visitKind: "medical",
+          patientStatus: "established",
+          patientId: "patient-1",
+          appointmentReason: "blurred vision",
+          referringDoctor: "none",
+        },
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      reason: "invalid_response",
     });
   });
 

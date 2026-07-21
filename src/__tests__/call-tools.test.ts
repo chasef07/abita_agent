@@ -378,6 +378,7 @@ function createdPatientResult(
     status: "created",
     patientId: "patient-new",
     name: "Jane Doe",
+    dob: "01/01/1980",
     phone: "+17275551212",
     insuranceCarrier: "self pay",
     insPlanId: null,
@@ -2213,6 +2214,73 @@ describe("stateful call tools", () => {
     ]);
   });
 
+  it.each([
+    {
+      name: "patient status and DOB",
+      missing: ["patientStatus", "dob"],
+      message:
+        "The appointment was not booked. Confirm whether the patient is new or established and verify the patient's date of birth, then try booking again.",
+    },
+    {
+      name: "Spring Hill routine vision routing",
+      missing: ["routeToSpringHill"],
+      message:
+        "The appointment was not booked. Check routine vision availability at Spring Hill, then book a returned slot there.",
+    },
+    {
+      name: "medical appointment lane",
+      missing: ["appointmentLane"],
+      message:
+        "The appointment was not booked. Treat the visit as medical and check Spring Hill medical availability before booking.",
+    },
+    {
+      name: "supported medical routing",
+      missing: ["routing"],
+      message:
+        "The appointment was not booked. Check availability at an office that supports the required medical scheduling lane before booking.",
+    },
+    {
+      name: "scheduling office",
+      missing: ["office"],
+      message:
+        "The appointment was not booked. Select the scheduling office and check availability again before booking.",
+    },
+  ])(
+    "keeps the selected slot while recovering $name",
+    async ({ missing, message }) => {
+      const state = createState();
+      markSchedulingTriaged(state);
+      storeAvailabilityBookingToken(state, "A", "private-token");
+      stubBooking({
+        status: "needs_input",
+        reason: "appointment_type_unresolved",
+        missing,
+      });
+
+      const result = await book_appointment.execute(
+        {
+          appointmentSlotRef: "A",
+          appointmentReason: "blurry vision",
+          referringDoctor: "none",
+          readBack: true,
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      );
+
+      expect(result).toBe(message);
+      expect(state.availability.slots.map((slot) => slot.slotId)).toEqual([
+        "A",
+      ]);
+      expect(state.availability.bookingTokensBySlotId).toEqual({
+        A: "private-token",
+      });
+      expect(ownedMiddlewareFailures(state)).toEqual([]);
+    },
+  );
+
   it("removes unavailable slots and returns the next bookable option", async () => {
     const state = createState();
     markSchedulingTriaged(state);
@@ -2288,6 +2356,8 @@ describe("stateful call tools", () => {
     );
     expect(state.identity.patient.patientId).toBe("patient-new");
     expect(state.identity.patient.status).toBe("created");
+    expect(state.identity.patient.dob).toBe("01/01/1980");
+    expect(state.identity.patient.phone).toBe("+17275551212");
     expect(state.insurance.onFile).toEqual({
       plan: "self pay",
       canonicalPlan: "self pay",
@@ -2306,6 +2376,71 @@ describe("stateful call tools", () => {
       insurance: "self pay",
       subscriberNum: "self pay",
     });
+  });
+
+  it("keeps a partially created chart active without claiming insurance was attached", async () => {
+    const state = createState();
+    state.identity.patient.patientId = null;
+    state.identity.patient.name = null;
+    state.identity.patient.identityConfirmed = false;
+    markNewPatientPathConfirmed(state);
+    markSchedulingTriaged(state);
+    markAcceptedInsurance(state);
+    const middleware = stubCreatePatient({
+      status: "partial",
+      patientId: "patient-new",
+      name: "Jane Doe",
+      dob: "01/01/1980",
+      phone: "+17275551212",
+      insuranceCarrier: null,
+      insPlanId: null,
+      respPartyId: null,
+      routing: null,
+      allowedProviders: [],
+      routingAmbiguous: false,
+      preauthRequired: false,
+    });
+    const params = {
+      firstName: "Jane",
+      lastName: "Doe",
+      dob: "01/01/1980",
+      street: "123 Main St",
+      aptSuite: "",
+      city: "Spring Hill",
+      state: "FL",
+      zip: "34606",
+      sex: "female" as const,
+      insurance: "self pay",
+      appointmentLane: "medical_md" as const,
+      subscriberName: "Jane Doe",
+      insuranceMemberId: "self pay",
+      inboundPhoneConfirmed: true,
+      readBack: true,
+    };
+
+    const firstResult = await add_patient.execute(params, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-1",
+    } as never);
+    const secondResult = await add_patient.execute(params, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-2",
+    } as never);
+
+    expect(firstResult).toBe(
+      "Created a patient chart for Jane Doe, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration.",
+    );
+    expect(secondResult).toBe(
+      "Patient chart is already created for Jane Doe, but insurance is not attached. Do not create another chart. Connect the caller to office staff to finish registration.",
+    );
+    expect(state.identity.patient).toMatchObject({
+      status: "created",
+      patientId: "patient-new",
+      dob: "01/01/1980",
+      phone: "+17275551212",
+    });
+    expect(state.insurance.onFile).toBeNull();
+    expect(middleware.requests.createPatient).toHaveLength(1);
   });
 
   it("requires not-registered confirmation before creating a patient chart", async () => {

@@ -109,9 +109,10 @@ export function applyPatientResult(
     result,
     extractedAppointments,
   );
+  const resultStatus = String(result.status ?? "").toLowerCase();
   activatePatient(state, {
     status:
-      String(result.status ?? "").toLowerCase() === "created"
+      resultStatus === "created" || resultStatus === "partial"
         ? "created"
         : "verified",
     patientId,
