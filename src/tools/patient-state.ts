@@ -109,9 +109,10 @@ export function applyPatientResult(
     result,
     extractedAppointments,
   );
+  const resultStatus = String(result.status ?? "").toLowerCase();
   activatePatient(state, {
     status:
-      String(result.status ?? "").toLowerCase() === "created"
+      resultStatus === "created" || resultStatus === "partial"
         ? "created"
         : "verified",
     patientId,
@@ -130,4 +131,12 @@ export function applyPatientResult(
     appointmentsStatus,
     appointments: publicCallerAppointments(extractedAppointments),
   });
+}
+
+export function incompletePatientRegistrationMessage(
+  state: CallState,
+): string | null {
+  return state.identity.patient.status === "created" && !state.insurance.onFile
+    ? "The patient chart exists, but insurance is not attached. Connect the caller to office staff to finish registration before scheduling."
+    : null;
 }

@@ -29,7 +29,10 @@ import {
   slotUnavailableMessage,
   spokenSlot,
 } from "./booking-state.js";
-import { restoreConfirmedPreCallCaller } from "./patient-state.js";
+import {
+  incompletePatientRegistrationMessage,
+  restoreConfirmedPreCallCaller,
+} from "./patient-state.js";
 import {
   getAmdOfficeForToolCall,
   routineVisionSchedulingUnavailable,
@@ -86,6 +89,8 @@ export const book_appointment = tool({
     ctx.disallowInterruptions();
 
     restoreConfirmedPreCallCaller(state);
+    const incompleteRegistration = incompletePatientRegistrationMessage(state);
+    if (incompleteRegistration) return incompleteRegistration;
     const patientId = activePatientId(state);
     if (patientId && hasCompletedBookingForActivePatient(state)) {
       clearAvailabilitySelection(state);

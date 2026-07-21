@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  HttpOwnedMiddleware,
   InMemoryOwnedMiddleware,
   setOwnedMiddleware,
   type PatientResolveResult,
@@ -158,6 +159,51 @@ describe("pre-call bootstrap", () => {
       phone: "+17275551212",
       appointmentsStatus: "found",
       appointments: [expect.objectContaining({ id: 12345 })],
+    });
+  });
+
+  it("preloads Railway appointments without confirmation metadata", async () => {
+    setOwnedMiddleware(
+      new HttpOwnedMiddleware({
+        fetch: vi.fn(async () =>
+          Response.json({
+            status: "verified",
+            patientId: "patient-1",
+            name: "Doe, Jane",
+            dob: "01/01/1980",
+            appointmentsStatus: "found",
+            appointments: [
+              {
+                id: 12345,
+                date: "Friday, August 1, 2026",
+                time: "9:00 AM",
+                provider: "Dr. Bach",
+              },
+            ],
+          }),
+        ),
+        productionBaseUrl: "https://middleware.test",
+      }),
+    );
+
+    const result = await lookupByPhone(
+      "+17275551212",
+      SPRING_HILL_OFFICE_PHONE,
+    );
+
+    expect(result).toMatchObject({
+      status: "verified",
+      phone: "+17275551212",
+      appointmentsStatus: "found",
+      appointments: [
+        {
+          id: 12345,
+          provider: "Dr. Bach",
+          type: "",
+          facility: "",
+          confirmed: false,
+        },
+      ],
     });
   });
 

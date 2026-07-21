@@ -173,6 +173,32 @@ export function bookingFailureMessage(result: BookAppointmentResult): string {
   if (result.status === "error" && result.detail === "missing_appointment_id") {
     return "I could not confirm the booking because the appointment ID was missing. Check availability again before booking.";
   }
+  if (result.status === "needs_input") {
+    if (result.missing.includes("routeToSpringHill")) {
+      return "The appointment was not booked. Check routine vision availability at Spring Hill, then book a returned slot there.";
+    }
+    if (result.missing.includes("appointmentLane")) {
+      return "The appointment was not booked. Treat the visit as medical and check Spring Hill medical availability before booking.";
+    }
+    if (result.missing.includes("routing")) {
+      return "The appointment was not booked. Check availability at an office that supports the required medical scheduling lane before booking.";
+    }
+    if (result.missing.includes("office")) {
+      return "The appointment was not booked. Select the scheduling office and check availability again before booking.";
+    }
+    const needsPatientStatus = result.missing.includes("patientStatus");
+    const needsDob = result.missing.includes("dob");
+    if (needsPatientStatus && needsDob) {
+      return "The appointment was not booked. Confirm whether the patient is new or established and verify the patient's date of birth, then try booking again.";
+    }
+    if (needsPatientStatus) {
+      return "The appointment was not booked. Confirm whether the patient is new or established, then try booking again.";
+    }
+    if (needsDob) {
+      return "The appointment was not booked. Verify the patient's date of birth, then try booking again.";
+    }
+    return "The appointment was not booked. Verify the patient details, then try booking again.";
+  }
   if (result.status === "rejected") {
     return "Check availability again before booking.";
   }

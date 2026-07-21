@@ -115,6 +115,9 @@ export const add_patient = tool({
       const patientName =
         state.identity.patient.name?.trim() ||
         `${params.firstName} ${params.lastName}`;
+      if (!state.insurance.onFile) {
+        return `Patient chart is already created for ${patientName}, but insurance is not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
+      }
       return `Patient chart is already created for ${patientName}. Continue with scheduling.`;
     }
 
@@ -223,6 +226,13 @@ export const add_patient = tool({
     }
 
     applyPatientResult(state, result);
+    const patientName =
+      result.name?.trim() || `${params.firstName} ${params.lastName}`;
+    if (result.status === "partial") {
+      setInsuranceOnFile(state, null);
+      setLastInsuranceEligibilityCheck(state, null);
+      return `Created a patient chart for ${patientName}, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
+    }
     setInsuranceOnFile(
       state,
       insuranceSnapshot({
@@ -234,8 +244,6 @@ export const add_patient = tool({
       }),
     );
     setLastInsuranceEligibilityCheck(state, null);
-    const patientName =
-      result.name?.trim() || `${params.firstName} ${params.lastName}`;
     return `Created a patient chart for ${patientName}. Continue with scheduling.`;
   },
 });
