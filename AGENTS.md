@@ -55,7 +55,7 @@ actionable error.
 - Stage only intended files.
 - Push only when asked.
 - For non-trivial code before final, commit, push, PR, or ship, use the
-  autoreview skill.
+  code-review skill.
 - Final report: files changed, checks run, accepted/rejected review findings,
   remaining risk.
 
