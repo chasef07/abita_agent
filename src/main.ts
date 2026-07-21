@@ -11,7 +11,6 @@ import {
   defineAgent,
 } from "@livekit/agents";
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
-import * as baseten from "@livekit/agents-plugin-baseten";
 import * as rime from "@livekit/agents-plugin-rime";
 import { fileURLToPath } from "node:url";
 import { createVoiceAgent } from "./agent.js";
@@ -27,7 +26,7 @@ import {
   loadPreCallBootstrap,
 } from "./runtime/precall-bootstrap.js";
 import { MAX_CALL_DURATION_MS } from "./runtime/call-duration-deadline.js";
-import { getLlmOptions } from "./model-config.js";
+import { createLlmPair } from "./model-config.js";
 import {
   createRimeVoiceLanguageState,
   getRimeTtsLanguageOptions,
@@ -138,9 +137,7 @@ export default defineAgent({
         sipCallId,
         sipParticipantIdentity: participant.identity ?? "",
       };
-      const llmOptions = getLlmOptions();
-      const primaryLLM = new baseten.LLM(llmOptions.primary);
-      const fallbackLLM = new baseten.LLM(llmOptions.fallback);
+      const { primary: primaryLLM, fallback: fallbackLLM } = createLlmPair();
 
       const llmWithFallback = new FallbackAdapter({
         llms: [primaryLLM, fallbackLLM],
@@ -187,7 +184,7 @@ export default defineAgent({
         call: {
           callId,
           callerPhone,
-          fallbackModel: llmOptions.fallback.model,
+          fallbackModel: fallbackLLM.model,
           initialVoiceLanguage,
           livekitContext,
           maxCallDurationMs: MAX_CALL_DURATION_MS,
