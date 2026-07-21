@@ -1,7 +1,6 @@
 {
   "name": "abita_agent",
   "version": "2.0.0",
-  "packageManager": "pnpm@10.34.3",
   "type": "module",
   "scripts": {
     "dev": "tsx src/main.ts dev",
