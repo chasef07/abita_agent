@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { tool } from "@livekit/agents";
 import { z } from "zod";
-import { getAnalyticsSecret } from "../runtime/analytics-post.js";
+import { getAnalyticsSecret } from "../runtime/portal-auth.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
 import {
   type CallState,
