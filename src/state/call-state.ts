@@ -193,7 +193,13 @@ export interface AppointmentActionAnalytics {
 }
 
 export type StaffTaskCategory =
-  "billing" | "appointments" | "documentation" | "other";
+  | "billing"
+  | "appointments"
+  | "documentation"
+  | "optical"
+  | "medication"
+  | "referrals"
+  | "other";
 
 export type StaffTaskUrgency = "high_priority" | "normal" | "non_urgent";
 

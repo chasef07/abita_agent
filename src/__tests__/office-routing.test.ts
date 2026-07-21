@@ -1168,7 +1168,9 @@ describe("model-facing tool definitions", () => {
     expect(create_staff_task.description).toContain(
       "routine medication and prescription requests",
     );
-    expect(create_staff_task.description).toContain("use category other");
+    expect(create_staff_task.description).toContain("category medication");
+    expect(create_staff_task.description).toContain("category optical");
+    expect(create_staff_task.description).toContain("category referrals");
     expect(create_staff_task.description).toContain(
       "medication or prescription name",
     );
@@ -1186,13 +1188,24 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
     expect(
       create_staff_task.parameters.safeParse({
-        category: "other",
+        category: "medication",
         urgency: "normal",
         summary: "Caller needs a medication refill reviewed.",
         message:
           "The caller needs staff to review a refill request and provided the medication and pharmacy.",
       }).success,
     ).toBe(true);
+    for (const category of ["optical", "referrals"]) {
+      expect(
+        create_staff_task.parameters.safeParse({
+          category,
+          urgency: "normal",
+          summary: "Caller needs staff follow-up.",
+          message:
+            "The caller provided the information staff needs to follow up.",
+        }).success,
+      ).toBe(true);
+    }
     expect(
       create_staff_task.parameters.safeParse({
         category: "billing",
