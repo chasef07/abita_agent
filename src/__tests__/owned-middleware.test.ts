@@ -616,6 +616,74 @@ describe("HTTP owned middleware transport", () => {
     });
   });
 
+  it("derives the slot date from the middleware datetime", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "success",
+          outcome: "availability_found",
+          slots: [
+            {
+              provider: "Dr. Bach",
+              time: "9:00 AM",
+              datetime: "2026-08-01T09:00:00",
+              bookingToken: "booking-token",
+              columnId: 1513,
+              profileId: 620,
+              duration: 30,
+            },
+          ],
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.getAvailability({
+      office: SPRING_HILL_OFFICE_PHONE,
+      date: "2026-08-01",
+    });
+
+    expect(result).toMatchObject({
+      status: "found",
+      slots: [
+        {
+          provider: "Dr. Bach",
+          date: "2026-08-01",
+          time: "9:00 AM",
+          datetime: "2026-08-01T09:00:00",
+          bookingToken: "booking-token",
+        },
+      ],
+    });
+  });
+
+  it("normalizes no eligible providers as no availability", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "success",
+          outcome: "no_eligible_providers",
+          requestedDate: "2026-08-01",
+          shouldRetrySameSearch: false,
+          slots: [],
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.getAvailability({
+      office: SPRING_HILL_OFFICE_PHONE,
+      date: "2026-08-01",
+    });
+
+    expect(result).toMatchObject({
+      status: "none",
+      slots: [],
+      requestedDate: "2026-08-01",
+      shouldRetrySameSearch: false,
+    });
+  });
+
   it("rejects unknown availability outcomes at the adapter boundary", async () => {
     const middleware = new HttpOwnedMiddleware({
       fetch: vi.fn(async () =>
