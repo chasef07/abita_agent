@@ -2,7 +2,11 @@ import {
   type CallState,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
-import type { AvailabilityResult } from "../clients/owned-middleware.js";
+import type {
+  AvailabilityResult,
+  AvailabilitySlot,
+  MiddlewareFailure,
+} from "../clients/owned-middleware.js";
 import {
   availabilitySlotsForState,
   clearAvailabilitySelection,
@@ -25,6 +29,8 @@ type AvailabilityToolResponse = {
   message: string;
   cacheable: boolean;
 };
+
+type AvailableSlotsResult = Exclude<AvailabilityResult, MiddlewareFailure>;
 
 export type AvailabilityTimePreference = "morning" | "afternoon" | "none";
 
@@ -50,23 +56,10 @@ export function storeAvailabilitySlots(
 ): AvailabilityToolResponse {
   if (result.status === "error") {
     clearAvailabilitySelection(state);
-    return cleanAvailabilityErrorResponse(result);
+    return cleanAvailabilityErrorResponse();
   }
 
-  const rawResponse: Record<string, unknown> = {
-    ...result,
-    outcome:
-      result.status === "none"
-        ? "no_availability"
-        : result.status === "incomplete"
-          ? "availability_search_incomplete"
-          : "availability_found",
-  };
-  const apiSlots = result.slots;
-
-  const sortedSlots = apiSlots
-    .filter(isRecord)
-    .sort(compareRawAvailabilitySlot);
+  const sortedSlots = [...result.slots].sort(compareAvailabilitySlot);
   const selection = selectAvailabilitySlots(sortedSlots, timePreference);
   const offeredSlots = selection.slots.slice(0, MAX_AVAILABILITY_SLOT_OFFERS);
   const storedSlots: StoredAvailabilitySlot[] = [];
@@ -86,24 +79,23 @@ export function storeAvailabilitySlots(
     storeAvailabilityBookingToken(
       state,
       storedSlots[index]?.slotId ?? "",
-      typeof slot.bookingToken === "string" ? slot.bookingToken : undefined,
+      slot.bookingToken,
     );
   });
 
-  const searchedRange = availabilitySearchedRange(rawResponse);
+  const searchedRange = availabilitySearchedRange(result);
   const nextSearchDate = nextIsoDate(searchedRange?.end);
   const search = buildAvailabilitySearchSummary({
-    rawResponse,
+    result,
     searchedRange,
     nextSearchDate:
-      rawResponse.outcome === "no_availability" ||
-      rawResponse.outcome === "availability_found"
+      result.status === "none" || result.status === "found"
         ? nextSearchDate
         : undefined,
   });
 
   return cleanAvailabilityResponse({
-    rawResponse,
+    result,
     search,
     slots: storedSlots,
     preferenceFallback: selection.preferenceFallback,
@@ -111,14 +103,14 @@ export function storeAvailabilitySlots(
 }
 
 function storedAvailabilitySlot(
-  slot: Record<string, unknown>,
+  slot: AvailabilitySlot,
   slotId: string,
   routing: string | null,
 ): StoredAvailabilitySlot {
   const provider = slotProvider(slot);
   const date = slotDate(slot);
   const time = slotTime(slot);
-  const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
+  const datetime = slot.datetime;
   const spoken = [date, time, provider ? `with ${provider}` : ""]
     .filter(Boolean)
     .join(" ");
@@ -134,18 +126,18 @@ function storedAvailabilitySlot(
   };
 }
 
-function compareRawAvailabilitySlot(
-  left: Record<string, unknown>,
-  right: Record<string, unknown>,
+function compareAvailabilitySlot(
+  left: AvailabilitySlot,
+  right: AvailabilitySlot,
 ): number {
   return sortableSlotTimestamp(left) - sortableSlotTimestamp(right);
 }
 
 function selectAvailabilitySlots(
-  sortedSlots: Record<string, unknown>[],
+  sortedSlots: AvailabilitySlot[],
   timePreference: AvailabilityTimePreference,
 ): {
-  slots: Record<string, unknown>[];
+  slots: AvailabilitySlot[];
   preferenceFallback: AvailabilityTimePreference | null;
 } {
   if (timePreference === "morning" || timePreference === "afternoon") {
@@ -178,7 +170,7 @@ function selectAvailabilitySlots(
 }
 
 function slotMatchesTimePreference(
-  slot: Record<string, unknown>,
+  slot: AvailabilitySlot,
   timePreference: Exclude<AvailabilityTimePreference, "none">,
 ): boolean {
   const minutes = minutesFromDisplayTime(slotTime(slot));
@@ -186,8 +178,8 @@ function slotMatchesTimePreference(
   return timePreference === "morning" ? minutes < 12 * 60 : minutes >= 12 * 60;
 }
 
-function sortableSlotTimestamp(slot: Record<string, unknown>): number {
-  const datetime = typeof slot.datetime === "string" ? slot.datetime : "";
+function sortableSlotTimestamp(slot: AvailabilitySlot): number {
+  const datetime = slot.datetime;
   const date = slotDate(slot);
   const time = slotTime(slot);
   const isoLike = datetime || (date && time ? `${date}T${time}` : "");
@@ -196,21 +188,16 @@ function sortableSlotTimestamp(slot: Record<string, unknown>): number {
   return minutesFromDisplayTime(time) ?? Number.MAX_SAFE_INTEGER;
 }
 
-function slotProvider(slot: Record<string, unknown>): string {
-  return typeof slot.provider === "string"
-    ? publicProviderName(slot.provider)
-    : "";
+function slotProvider(slot: AvailabilitySlot): string {
+  return publicProviderName(slot.provider);
 }
 
-function slotDate(slot: Record<string, unknown>): string {
-  if (typeof slot.date === "string") return slot.date;
-  return typeof slot.datetime === "string"
-    ? (slot.datetime.split("T")[0] ?? "")
-    : "";
+function slotDate(slot: AvailabilitySlot): string {
+  return slot.date || (slot.datetime.split("T")[0] ?? "");
 }
 
-function slotTime(slot: Record<string, unknown>): string {
-  return typeof slot.time === "string" ? slot.time : "";
+function slotTime(slot: AvailabilitySlot): string {
+  return slot.time;
 }
 
 function normalizeSlotId(slotId: string): string {
@@ -256,50 +243,21 @@ function spokenIsoDate(date: string | undefined): string | undefined {
   }).format(parsed);
 }
 
-function availabilitySearchedRange(rawResponse: Record<string, unknown>) {
-  const start =
-    typeof rawResponse.searchedFrom === "string"
-      ? rawResponse.searchedFrom
-      : typeof rawResponse.requestedDate === "string"
-        ? rawResponse.requestedDate
-        : undefined;
-  const end =
-    typeof rawResponse.searchedThrough === "string"
-      ? rawResponse.searchedThrough
-      : typeof rawResponse.actualDate === "string"
-        ? rawResponse.actualDate
-        : start;
+function availabilitySearchedRange(result: AvailableSlotsResult) {
+  const start = result.searchedFrom ?? result.requestedDate;
+  const end = result.searchedThrough ?? result.actualDate ?? start;
   if (!start || !end) return undefined;
   return { start, end };
 }
 
-function stringField(
-  record: Record<string, unknown>,
-  field: string,
-): string | undefined {
-  const value = record[field];
-  return typeof value === "string" && value.trim() ? value : undefined;
-}
-
-function booleanField(
-  record: Record<string, unknown>,
-  field: string,
-): boolean | undefined {
-  const value = record[field];
-  return typeof value === "boolean" ? value : undefined;
-}
-
 function buildAvailabilitySearchSummary(input: {
-  rawResponse: Record<string, unknown>;
+  result: AvailableSlotsResult;
   searchedRange?: { start: string; end: string };
   nextSearchDate?: string;
 }): AvailabilitySearchSummary {
-  const { rawResponse, searchedRange, nextSearchDate } = input;
-  const requestedDate = stringField(rawResponse, "requestedDate");
-  const actualDate = stringField(rawResponse, "actualDate");
-  const dateShifted =
-    booleanField(rawResponse, "dateShifted") ??
-    Boolean(requestedDate && actualDate && requestedDate !== actualDate);
+  const { result, searchedRange, nextSearchDate } = input;
+  const { requestedDate, actualDate, dateShifted, shouldRetrySameSearch } =
+    result;
 
   return {
     ...(requestedDate ? { requestedDate } : {}),
@@ -311,20 +269,18 @@ function buildAvailabilitySearchSummary(input: {
       : {}),
     ...(actualDate ? { actualDate } : {}),
     dateShifted,
-    shouldRetrySameSearch:
-      booleanField(rawResponse, "shouldRetrySameSearch") ?? false,
+    shouldRetrySameSearch,
     ...(nextSearchDate ? { nextSearchDate } : {}),
   };
 }
 
 function buildAvailabilityMessage(input: {
-  rawResponse: Record<string, unknown>;
+  result: AvailableSlotsResult;
   search: AvailabilitySearchSummary;
   slots: StoredAvailabilitySlot[];
   preferenceFallback: AvailabilityTimePreference | null;
 }): string {
-  const { rawResponse, search, slots, preferenceFallback } = input;
-  const outcome = stringField(rawResponse, "outcome") ?? "unknown";
+  const { result, search, slots, preferenceFallback } = input;
   const spokenSearchedRange =
     search.searchedFrom && search.searchedThrough
       ? `from ${spokenIsoDate(search.searchedFrom) ?? search.searchedFrom} through ${
@@ -343,13 +299,13 @@ function buildAvailabilityMessage(input: {
       : `for ${conciseSearchedRange}`;
   const spokenNextDate = spokenIsoDate(search.nextSearchDate);
 
-  if (outcome === "no_availability") {
+  if (result.status === "none") {
     return search.nextSearchDate
       ? `No openings were found ${noAvailabilityWindow}. Ask whether to check starting ${spokenNextDate ?? search.nextSearchDate}, or whether they prefer a different day or time.`
       : `No openings were found ${noAvailabilityWindow}. Ask whether they prefer a different day or time.`;
   }
 
-  if (outcome === "availability_search_incomplete") {
+  if (result.status === "incomplete") {
     return `Availability was not fully checked ${spokenSearchedRange}. Call get_availability again once with the same date.`;
   }
 
@@ -391,28 +347,10 @@ function availabilityPreferenceFallbackText(
   return `No ${timePreference} openings were found${fallbackDate ? ` on ${fallbackDate}` : ""}. `;
 }
 
-function cleanAvailabilityErrorResponse(
-  rawResponse: unknown,
-): AvailabilityToolResponse {
-  if (!isRecord(rawResponse)) {
-    return {
-      message:
-        "I'm having trouble checking availability. Call get_availability again once with the same date.",
-      cacheable: false,
-    };
-  }
-
-  const outcome = stringField(rawResponse, "outcome") ?? "error";
-  const reply =
-    stringField(rawResponse, "message") ??
-    "I'm having trouble checking availability. Let me try once more.";
-  const shouldRetry = booleanField(rawResponse, "shouldRetrySameSearch");
-  const retryMessage =
-    outcome === "availability_search_incomplete" || shouldRetry
-      ? `${reply} Call get_availability again once with the same date.`
-      : `${reply} Ask for a different date or time preference.`;
+function cleanAvailabilityErrorResponse(): AvailabilityToolResponse {
   return {
-    message: retryMessage,
+    message:
+      "I'm having trouble checking availability. Let me try once more. Ask for a different date or time preference.",
     cacheable: false,
   };
 }
@@ -427,22 +365,20 @@ function slotOffer(slot: StoredAvailabilitySlot): string {
 }
 
 function cleanAvailabilityResponse(input: {
-  rawResponse: Record<string, unknown>;
+  result: AvailableSlotsResult;
   search: AvailabilitySearchSummary;
   slots: StoredAvailabilitySlot[];
   preferenceFallback: AvailabilityTimePreference | null;
 }): AvailabilityToolResponse {
-  const { rawResponse, search, slots, preferenceFallback } = input;
-  const outcome = stringField(rawResponse, "outcome") ?? "unknown";
+  const { result, search, slots, preferenceFallback } = input;
   const foundSlots = slots.length > 0;
   const cacheable =
     foundSlots ||
-    (outcome !== "availability_search_incomplete" &&
-      !search.shouldRetrySameSearch);
+    (result.status !== "incomplete" && !search.shouldRetrySameSearch);
 
   return {
     message: buildAvailabilityMessage({
-      rawResponse,
+      result,
       search,
       slots,
       preferenceFallback,
@@ -462,8 +398,4 @@ function sameAvailabilitySlot(
     left.datetime === right.datetime &&
     left.routing === right.routing
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

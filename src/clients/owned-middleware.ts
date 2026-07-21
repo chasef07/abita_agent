@@ -22,7 +22,6 @@ export type MiddlewareFailureReason =
 export type MiddlewareFailure = {
   status: "error";
   reason: MiddlewareFailureReason;
-  message: string;
 };
 
 export type PatientResolveResult =
@@ -117,13 +116,12 @@ export type BookAppointmentResult =
   | {
       status: "unavailable";
       reason: "slot_unavailable";
-      message: string;
     }
   | {
       status: "rejected";
       reason: "invalid_booking_token" | "booking_token_required";
-      message: string;
     }
+  | { status: "error"; reason: "missing_appointment_id" }
   | MiddlewareFailure;
 
 export type CancelAppointmentResult =
@@ -228,7 +226,6 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       "/api/patient/resolve",
       request.office,
       request.identity,
-      { failureMessage: "Patient lookup failed." },
     );
     if (!transport.ok) return transport.failure;
     return normalizePatientResolveResponse(transport.value, {
@@ -253,10 +250,7 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
         ...(request.routing ? { routing: request.routing } : {}),
         ...(request.preauthRequired ? { preauthRequired: true } : {}),
       },
-      {
-        failureMessage: "I'm having trouble checking availability.",
-        signal: request.signal,
-      },
+      { signal: request.signal },
     );
     return transport.ok
       ? normalizeAvailability(transport.value)
@@ -271,7 +265,6 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       "/api/add-patient",
       request.office,
       request.patient,
-      { failureMessage: "The patient chart was not created." },
     );
     return transport.ok
       ? normalizeCreatedPatient(transport.value)
@@ -287,7 +280,6 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       request.office,
       request.booking,
       {
-        failureMessage: "The appointment was not booked.",
         includeOffice: false,
       },
     );
@@ -308,7 +300,6 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
         appointmentId: request.appointmentId,
         patientId: request.patientId,
       },
-      { failureMessage: "The appointment was not cancelled." },
     );
     return transport.ok
       ? normalizeCancelledAppointment(transport.value)
@@ -323,7 +314,6 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       "/api/patient/update-insurance",
       request.office,
       request.update,
-      { failureMessage: "Insurance was not updated." },
     );
     return transport.ok
       ? normalizeUpdatedInsurance(transport.value)
@@ -342,10 +332,9 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     office: string,
     body: object,
     options: {
-      failureMessage: string;
       includeOffice?: boolean;
       signal?: AbortSignal;
-    },
+    } = {},
   ): Promise<
     { ok: true; value: unknown } | { ok: false; failure: MiddlewareFailure }
   > {
@@ -360,7 +349,6 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
         failure: {
           status: "error",
           reason: "unsupported_office",
-          message: options.failureMessage,
         },
       };
     }
@@ -380,7 +368,6 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
           failure: {
             status: "error",
             reason: "middleware_error",
-            message: options.failureMessage,
           },
         };
       }
@@ -392,7 +379,6 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
           failure: {
             status: "error",
             reason: "invalid_response",
-            message: options.failureMessage,
           },
         };
       }
@@ -402,7 +388,6 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
         failure: {
           status: "error",
           reason: options.signal?.aborted ? "cancelled" : "network_error",
-          message: options.failureMessage,
         },
       };
     }
@@ -467,7 +452,6 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
     if (!result) {
       return {
         status: "error",
-        message: "Patient lookup failed.",
         reason: "invalid_response",
       };
     }
@@ -483,7 +467,6 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
       (await this.#responses.getAvailability?.shift()) ?? {
         status: "error",
         reason: "invalid_response",
-        message: "Availability returned an invalid response.",
       }
     );
   }
@@ -497,7 +480,6 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
       (await this.#responses.createPatient?.shift()) ?? {
         status: "error",
         reason: "invalid_response",
-        message: "The patient chart was not created.",
       }
     );
   }
@@ -511,7 +493,6 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
       (await this.#responses.bookAppointment?.shift()) ?? {
         status: "error",
         reason: "invalid_response",
-        message: "The appointment was not booked.",
       }
     );
   }
@@ -525,7 +506,6 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
       (await this.#responses.cancelAppointment?.shift()) ?? {
         status: "error",
         reason: "invalid_response",
-        message: "The appointment was not cancelled.",
       }
     );
   }
@@ -539,7 +519,6 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
       (await this.#responses.updateInsurance?.shift()) ?? {
         status: "error",
         reason: "invalid_response",
-        message: "Insurance was not updated.",
       }
     );
   }
@@ -550,7 +529,6 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
     return {
       status: "error",
       reason: "middleware_error",
-      message: "I'm having trouble checking availability.",
     };
   }
   if (
@@ -564,22 +542,19 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
   ) {
     return {
       status: "error",
-      reason: "middleware_error",
-      message: "I'm having trouble checking availability.",
+      reason: "invalid_response",
     };
   }
   if (!isRecord(raw) || !Array.isArray(raw.slots)) {
     return {
       status: "error",
       reason: "invalid_response",
-      message: "Availability returned an invalid response.",
     };
   }
   if (!raw.slots.every(isAvailabilitySlot)) {
     return {
       status: "error",
       reason: "invalid_response",
-      message: "Availability returned an invalid response.",
     };
   }
   const slots = raw.slots.map((slot) => ({
@@ -626,14 +601,19 @@ function normalizeCreatedPatient(raw: unknown): CreatePatientResult {
     return {
       status: "error",
       reason: "middleware_error",
-      message: "The patient chart was not created.",
     };
   }
-  if (!isRecord(raw) || !stringValue(raw.patientId)) {
+  const status = isRecord(raw)
+    ? (stringValue(raw.status)?.toLowerCase() ?? "")
+    : "";
+  if (
+    !isRecord(raw) ||
+    !stringValue(raw.patientId) ||
+    (status !== "" && status !== "created" && status !== "success")
+  ) {
     return {
       status: "error",
       reason: "invalid_response",
-      message: "The patient chart was not created.",
     };
   }
   return {
@@ -663,7 +643,6 @@ function normalizeBookedAppointment(raw: unknown): BookAppointmentResult {
     return {
       status: "unavailable",
       reason: "slot_unavailable",
-      message: "That appointment time is no longer available.",
     };
   }
   if (
@@ -673,7 +652,6 @@ function normalizeBookedAppointment(raw: unknown): BookAppointmentResult {
     return {
       status: "rejected",
       reason: outcome,
-      message: "Check availability again before booking.",
     };
   }
   const appointmentId = positiveInteger(raw.appointmentId);
@@ -695,16 +673,13 @@ function normalizeBookedAppointment(raw: unknown): BookAppointmentResult {
   if (status === "booked" || status === "partial" || status === "success") {
     return {
       status: "error",
-      reason: "invalid_response",
-      message:
-        "I could not confirm the booking because the appointment ID was missing. Check availability again before booking.",
+      reason: "missing_appointment_id",
     };
   }
   return hasFailureStatus(raw)
     ? {
         status: "error",
         reason: "middleware_error",
-        message: "The appointment was not booked.",
       }
     : invalidBookingResult();
 }
@@ -719,7 +694,6 @@ function normalizeCancelledAppointment(raw: unknown): CancelAppointmentResult {
   return {
     status: "error",
     reason: hasFailureStatus(raw) ? "middleware_error" : "invalid_response",
-    message: "The appointment was not cancelled.",
   };
 }
 
@@ -741,7 +715,6 @@ function normalizeUpdatedInsurance(raw: unknown): UpdateInsuranceResult {
   return {
     status: "error",
     reason: hasFailureStatus(raw) ? "middleware_error" : "invalid_response",
-    message: "Insurance was not updated.",
   };
 }
 
@@ -749,7 +722,6 @@ function invalidBookingResult(): BookAppointmentResult {
   return {
     status: "error",
     reason: "invalid_response",
-    message: "The appointment was not booked.",
   };
 }
 

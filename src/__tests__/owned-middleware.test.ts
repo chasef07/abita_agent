@@ -568,9 +568,7 @@ describe("HTTP owned middleware transport", () => {
       status: "error",
       reason: testCase.expectedReason,
     });
-    expect(result.message).not.toMatch(
-      /private backend detail|private host|middleware\.test|19999999999/,
-    );
+    expect(result).not.toHaveProperty("message");
   });
 
   it("distinguishes caller cancellation from transport failure", async () => {
@@ -615,7 +613,25 @@ describe("HTTP owned middleware transport", () => {
     expect(result).toEqual({
       status: "error",
       reason: "invalid_response",
-      message: "Availability returned an invalid response.",
+    });
+  });
+
+  it("rejects unknown availability outcomes at the adapter boundary", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({ outcome: "schema_drift", slots: [] }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    await expect(
+      middleware.getAvailability({
+        office: SPRING_HILL_OFFICE_PHONE,
+        date: "2026-08-01",
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      reason: "invalid_response",
     });
   });
 
@@ -639,7 +655,6 @@ describe("HTTP owned middleware transport", () => {
     expect(result).toEqual({
       status: "error",
       reason: "middleware_error",
-      message: "Patient lookup failed.",
     });
   });
 
@@ -673,7 +688,58 @@ describe("HTTP owned middleware transport", () => {
     expect(result).toEqual({
       status: "error",
       reason: "invalid_response",
-      message: "Patient lookup returned an invalid response.",
+    });
+  });
+
+  it("rejects multiple-match outcomes without valid matches", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({ status: "multiple_matches", matches: null }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    await expect(
+      middleware.resolvePatient({
+        office: SPRING_HILL_OFFICE_PHONE,
+        identity: { phone: "+17275551212" },
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      reason: "invalid_response",
+    });
+  });
+
+  it("rejects unknown chart-creation statuses even with a patient ID", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({ status: "schema_drift", patientId: "patient-2" }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    await expect(
+      middleware.createPatient({
+        office: SPRING_HILL_OFFICE_PHONE,
+        patient: {
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          street: "1 Main Street",
+          aptSuite: "",
+          city: "Spring Hill",
+          state: "FL",
+          zip: "34609",
+          sex: "female",
+          insurance: "Aetna",
+          phone: "+17275551212",
+          subscriberName: "Jane Doe",
+          subscriberNum: "member-1",
+        },
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      reason: "invalid_response",
     });
   });
 
@@ -685,7 +751,6 @@ describe("HTTP owned middleware transport", () => {
           office: SPRING_HILL_OFFICE_PHONE,
           identity: { phone: "+17275551212" },
         }),
-      failureMessage: "Patient lookup failed.",
     },
     {
       name: "availability",
@@ -694,7 +759,6 @@ describe("HTTP owned middleware transport", () => {
           office: SPRING_HILL_OFFICE_PHONE,
           date: "2026-08-01",
         }),
-      failureMessage: "I'm having trouble checking availability.",
     },
     {
       name: "chart creation",
@@ -717,7 +781,6 @@ describe("HTTP owned middleware transport", () => {
             subscriberNum: "member-1",
           },
         }),
-      failureMessage: "The patient chart was not created.",
     },
     {
       name: "booking",
@@ -734,7 +797,6 @@ describe("HTTP owned middleware transport", () => {
             referringDoctor: "none",
           },
         }),
-      failureMessage: "The appointment was not booked.",
     },
     {
       name: "cancellation",
@@ -744,7 +806,6 @@ describe("HTTP owned middleware transport", () => {
           appointmentId: 12345,
           patientId: "patient-1",
         }),
-      failureMessage: "The appointment was not cancelled.",
     },
     {
       name: "insurance update",
@@ -761,30 +822,25 @@ describe("HTTP owned middleware transport", () => {
             subscriberNum: "member-1",
           },
         }),
-      failureMessage: "Insurance was not updated.",
     },
-  ])(
-    "sanitizes semantic $name failure bodies",
-    async ({ call, failureMessage }) => {
-      const middleware = new HttpOwnedMiddleware({
-        fetch: vi.fn(async () =>
-          Response.json({
-            status: "error",
-            message: "private patient and backend detail",
-          }),
-        ),
-        productionBaseUrl: "https://middleware.test",
-      });
+  ])("sanitizes semantic $name failure bodies", async ({ call }) => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "error",
+          message: "private patient and backend detail",
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
 
-      const result = await call(middleware);
+    const result = await call(middleware);
 
-      expect(result).toEqual({
-        status: "error",
-        reason: "middleware_error",
-        message: failureMessage,
-      });
-    },
-  );
+    expect(result).toEqual({
+      status: "error",
+      reason: "middleware_error",
+    });
+  });
 
   it.each([
     {
@@ -848,7 +904,6 @@ describe("HTTP owned middleware transport", () => {
     await expect(middleware.resolvePatient(request)).resolves.toEqual({
       status: "error",
       reason: "invalid_response",
-      message: "Patient lookup returned an invalid response.",
     });
   });
 
@@ -881,7 +936,6 @@ describe("HTTP owned middleware transport", () => {
     expect(result).toEqual({
       status: "error",
       reason: testCase.reason,
-      message: "Patient lookup failed.",
     });
   });
 
@@ -926,13 +980,10 @@ describe("HTTP owned middleware transport", () => {
     await expect(middleware.bookAppointment(request)).resolves.toEqual({
       status: "unavailable",
       reason: "slot_unavailable",
-      message: "That appointment time is no longer available.",
     });
     await expect(middleware.bookAppointment(request)).resolves.toEqual({
       status: "error",
-      reason: "invalid_response",
-      message:
-        "I could not confirm the booking because the appointment ID was missing. Check availability again before booking.",
+      reason: "missing_appointment_id",
     });
   });
 
@@ -964,7 +1015,6 @@ describe("HTTP owned middleware transport", () => {
     ).resolves.toEqual({
       status: "error",
       reason: "invalid_response",
-      message: "The patient chart was not created.",
     });
     await expect(
       middleware.cancelAppointment({
@@ -975,7 +1025,6 @@ describe("HTTP owned middleware transport", () => {
     ).resolves.toEqual({
       status: "error",
       reason: "invalid_response",
-      message: "The appointment was not cancelled.",
     });
     await expect(
       middleware.updateInsurance({
@@ -993,7 +1042,6 @@ describe("HTTP owned middleware transport", () => {
     ).resolves.toEqual({
       status: "error",
       reason: "invalid_response",
-      message: "Insurance was not updated.",
     });
   });
 });
@@ -1106,13 +1154,12 @@ const semanticFailure = (
     | "network_error"
     | "invalid_response"
     | "unsupported_office"
-    | "cancelled",
-  message: string,
+    | "cancelled"
+    | "missing_appointment_id",
 ) =>
   ({
     status: "error",
     reason,
-    message,
   }) as const;
 
 const semanticContractCases: SemanticContractCase[] = [
@@ -1126,7 +1173,6 @@ const semanticContractCases: SemanticContractCase[] = [
       resolvePatient: [
         {
           status: "multiple_matches",
-          message: "Multiple patient matches found.",
           matches: [verifiedPatient, { firstName: "Maria" }],
         },
       ],
@@ -1141,65 +1187,48 @@ const semanticContractCases: SemanticContractCase[] = [
     name: "patient not found",
     http: httpResult({ status: "not_found" }),
     memory: memoryResult({
-      resolvePatient: [
-        { status: "not_found", message: "No patient match found." },
-      ],
+      resolvePatient: [{ status: "not_found" }],
     }),
     invoke: patientLookup,
     expected: {
       status: "not_found",
-      message: "No patient match found.",
     },
   },
   {
     name: "patient middleware failure",
     http: httpResult({ status: "error", message: "private detail" }),
     memory: memoryResult({
-      resolvePatient: [
-        semanticFailure("middleware_error", "Patient lookup failed."),
-      ],
+      resolvePatient: [semanticFailure("middleware_error")],
     }),
     invoke: patientLookup,
-    expected: semanticFailure("middleware_error", "Patient lookup failed."),
+    expected: semanticFailure("middleware_error"),
   },
   {
     name: "patient network failure",
     http: httpFailure(new TypeError("private network detail")),
     memory: memoryResult({
-      resolvePatient: [
-        semanticFailure("network_error", "Patient lookup failed."),
-      ],
+      resolvePatient: [semanticFailure("network_error")],
     }),
     invoke: patientLookup,
-    expected: semanticFailure("network_error", "Patient lookup failed."),
+    expected: semanticFailure("network_error"),
   },
   {
     name: "patient invalid response",
     http: httpResult({ unexpected: true }),
     memory: memoryResult({
-      resolvePatient: [
-        semanticFailure(
-          "invalid_response",
-          "Patient lookup returned an invalid response.",
-        ),
-      ],
+      resolvePatient: [semanticFailure("invalid_response")],
     }),
     invoke: patientLookup,
-    expected: semanticFailure(
-      "invalid_response",
-      "Patient lookup returned an invalid response.",
-    ),
+    expected: semanticFailure("invalid_response"),
   },
   {
     name: "patient unsupported office",
     http: httpResult(verifiedPatient),
     memory: memoryResult({
-      resolvePatient: [
-        semanticFailure("unsupported_office", "Patient lookup failed."),
-      ],
+      resolvePatient: [semanticFailure("unsupported_office")],
     }),
     invoke: (middleware) => patientLookup(middleware, "+19999999999"),
-    expected: semanticFailure("unsupported_office", "Patient lookup failed."),
+    expected: semanticFailure("unsupported_office"),
   },
   {
     name: "no availability",
@@ -1245,18 +1274,10 @@ const semanticContractCases: SemanticContractCase[] = [
     name: "invalid availability",
     http: httpResult({ outcome: "availability_found", slots: [{}] }),
     memory: memoryResult({
-      getAvailability: [
-        semanticFailure(
-          "invalid_response",
-          "Availability returned an invalid response.",
-        ),
-      ],
+      getAvailability: [semanticFailure("invalid_response")],
     }),
     invoke: availabilityLookup,
-    expected: semanticFailure(
-      "invalid_response",
-      "Availability returned an invalid response.",
-    ),
+    expected: semanticFailure("invalid_response"),
   },
   {
     name: "availability transport failure",
@@ -1266,18 +1287,10 @@ const semanticContractCases: SemanticContractCase[] = [
         productionBaseUrl: "https://middleware.test",
       }),
     memory: memoryResult({
-      getAvailability: [
-        semanticFailure(
-          "middleware_error",
-          "I'm having trouble checking availability.",
-        ),
-      ],
+      getAvailability: [semanticFailure("middleware_error")],
     }),
     invoke: availabilityLookup,
-    expected: semanticFailure(
-      "middleware_error",
-      "I'm having trouble checking availability.",
-    ),
+    expected: semanticFailure("middleware_error"),
   },
   {
     name: "availability caller cancellation",
@@ -1290,12 +1303,7 @@ const semanticContractCases: SemanticContractCase[] = [
         productionBaseUrl: "https://middleware.test",
       }),
     memory: memoryResult({
-      getAvailability: [
-        semanticFailure(
-          "cancelled",
-          "I'm having trouble checking availability.",
-        ),
-      ],
+      getAvailability: [semanticFailure("cancelled")],
     }),
     invoke: (middleware) => {
       const controller = new AbortController();
@@ -1306,44 +1314,25 @@ const semanticContractCases: SemanticContractCase[] = [
         signal: controller.signal,
       });
     },
-    expected: semanticFailure(
-      "cancelled",
-      "I'm having trouble checking availability.",
-    ),
+    expected: semanticFailure("cancelled"),
   },
   {
     name: "chart creation failure",
     http: httpResult({ status: "error", message: "private detail" }),
     memory: memoryResult({
-      createPatient: [
-        semanticFailure(
-          "middleware_error",
-          "The patient chart was not created.",
-        ),
-      ],
+      createPatient: [semanticFailure("middleware_error")],
     }),
     invoke: createPatient,
-    expected: semanticFailure(
-      "middleware_error",
-      "The patient chart was not created.",
-    ),
+    expected: semanticFailure("middleware_error"),
   },
   {
     name: "invalid chart response",
     http: httpResult({ unexpected: true }),
     memory: memoryResult({
-      createPatient: [
-        semanticFailure(
-          "invalid_response",
-          "The patient chart was not created.",
-        ),
-      ],
+      createPatient: [semanticFailure("invalid_response")],
     }),
     invoke: createPatient,
-    expected: semanticFailure(
-      "invalid_response",
-      "The patient chart was not created.",
-    ),
+    expected: semanticFailure("invalid_response"),
   },
   {
     name: "partial booking",
@@ -1369,7 +1358,6 @@ const semanticContractCases: SemanticContractCase[] = [
         {
           status: "unavailable",
           reason: "slot_unavailable",
-          message: "That appointment time is no longer available.",
         },
       ],
     }),
@@ -1377,95 +1365,61 @@ const semanticContractCases: SemanticContractCase[] = [
     expected: {
       status: "unavailable",
       reason: "slot_unavailable",
-      message: "That appointment time is no longer available.",
     },
   },
   {
     name: "booking missing evidence",
     http: httpResult({ status: "booked" }),
     memory: memoryResult({
-      bookAppointment: [
-        semanticFailure(
-          "invalid_response",
-          "I could not confirm the booking because the appointment ID was missing. Check availability again before booking.",
-        ),
-      ],
+      bookAppointment: [semanticFailure("missing_appointment_id")],
     }),
     invoke: bookAppointment,
-    expected: semanticFailure(
-      "invalid_response",
-      "I could not confirm the booking because the appointment ID was missing. Check availability again before booking.",
-    ),
+    expected: semanticFailure("missing_appointment_id"),
   },
   {
     name: "booking middleware failure",
     http: httpResult({ status: "error", message: "private detail" }),
     memory: memoryResult({
-      bookAppointment: [
-        semanticFailure("middleware_error", "The appointment was not booked."),
-      ],
+      bookAppointment: [semanticFailure("middleware_error")],
     }),
     invoke: bookAppointment,
-    expected: semanticFailure(
-      "middleware_error",
-      "The appointment was not booked.",
-    ),
+    expected: semanticFailure("middleware_error"),
   },
   {
     name: "cancellation failure",
     http: httpResult({ status: "error", message: "private detail" }),
     memory: memoryResult({
-      cancelAppointment: [
-        semanticFailure(
-          "middleware_error",
-          "The appointment was not cancelled.",
-        ),
-      ],
+      cancelAppointment: [semanticFailure("middleware_error")],
     }),
     invoke: cancelAppointment,
-    expected: semanticFailure(
-      "middleware_error",
-      "The appointment was not cancelled.",
-    ),
+    expected: semanticFailure("middleware_error"),
   },
   {
     name: "invalid cancellation response",
     http: httpResult({ unexpected: true }),
     memory: memoryResult({
-      cancelAppointment: [
-        semanticFailure(
-          "invalid_response",
-          "The appointment was not cancelled.",
-        ),
-      ],
+      cancelAppointment: [semanticFailure("invalid_response")],
     }),
     invoke: cancelAppointment,
-    expected: semanticFailure(
-      "invalid_response",
-      "The appointment was not cancelled.",
-    ),
+    expected: semanticFailure("invalid_response"),
   },
   {
     name: "insurance update failure",
     http: httpResult({ status: "error", message: "private detail" }),
     memory: memoryResult({
-      updateInsurance: [
-        semanticFailure("middleware_error", "Insurance was not updated."),
-      ],
+      updateInsurance: [semanticFailure("middleware_error")],
     }),
     invoke: updateInsurance,
-    expected: semanticFailure("middleware_error", "Insurance was not updated."),
+    expected: semanticFailure("middleware_error"),
   },
   {
     name: "invalid insurance update response",
     http: httpResult({ unexpected: true }),
     memory: memoryResult({
-      updateInsurance: [
-        semanticFailure("invalid_response", "Insurance was not updated."),
-      ],
+      updateInsurance: [semanticFailure("invalid_response")],
     }),
     invoke: updateInsurance,
-    expected: semanticFailure("invalid_response", "Insurance was not updated."),
+    expected: semanticFailure("invalid_response"),
   },
 ];
 

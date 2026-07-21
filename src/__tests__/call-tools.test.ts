@@ -417,11 +417,10 @@ function noAvailabilityResponse(
   } as AvailabilityResult;
 }
 
-function availabilityError(message: string): AvailabilityResult {
+function availabilityError(): AvailabilityResult {
   return {
     status: "error",
     reason: "middleware_error",
-    message,
   };
 }
 
@@ -1249,7 +1248,7 @@ describe("stateful call tools", () => {
     markSchedulingTriaged(state);
     const ctx = createToolContext(state);
     const middleware = stubAvailability(
-      availabilityError("The scheduler could not complete that search."),
+      availabilityError(),
       noAvailabilityResponse(),
     );
 
@@ -1257,7 +1256,7 @@ describe("stateful call tools", () => {
     const secondResult = await getMedicalAvailability(ctx, "tool-2");
 
     expect(firstResult).toBe(
-      "The scheduler could not complete that search. Ask for a different date or time preference.",
+      "I'm having trouble checking availability. Let me try once more. Ask for a different date or time preference.",
     );
     expect(secondResult).toBe(
       "No openings were found from July 9 through July 23. Ask whether to check starting July 24, or whether they prefer a different day or time.",
@@ -2177,9 +2176,7 @@ describe("stateful call tools", () => {
     storeAvailabilityBookingToken(state, "A", "private-token");
     stubBooking({
       status: "error",
-      reason: "invalid_response",
-      message:
-        "I could not confirm the booking because the appointment ID was missing. Check availability again before booking.",
+      reason: "missing_appointment_id",
     });
 
     const result = await book_appointment.execute(
@@ -2218,7 +2215,6 @@ describe("stateful call tools", () => {
     stubBooking({
       status: "unavailable",
       reason: "slot_unavailable",
-      message: "This time slot is no longer available.",
     });
 
     const result = await book_appointment.execute(
@@ -2945,13 +2941,12 @@ describe("stateful call tools", () => {
     expect(state.identity.patient.identityConfirmed).toBe(false);
   });
 
-  it("preserves backend lookup errors instead of using the pre-call spelling fallback", async () => {
+  it("preserves lookup failures instead of using the pre-call spelling fallback", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
     stubPatient({
       status: "error",
       reason: "middleware_error",
-      message: "Patient lookup failed. Try again.",
     });
 
     const result = await resolve_patient.execute(
@@ -4225,8 +4220,6 @@ describe("stateful call tools", () => {
     stubInsuranceUpdate({
       status: "error",
       reason: "middleware_error",
-      message:
-        'Insurance not recognized: "Envolve". Please use an insurance name from the accepted list.',
     });
 
     await expect(
@@ -4239,9 +4232,7 @@ describe("stateful call tools", () => {
           toolCallId: "tool-1",
         } as never,
       ),
-    ).rejects.toThrow(
-      'Insurance not recognized: "Envolve". Please use an insurance name from the accepted list.',
-    );
+    ).rejects.toThrow("Insurance was not updated.");
     expect(state.insurance.onFile).toBeNull();
   });
 
@@ -5301,7 +5292,6 @@ describe("stateful call tools", () => {
         {
           status: "unavailable",
           reason: "slot_unavailable",
-          message: "This time slot is no longer available.",
         },
       ],
     });
@@ -5394,7 +5384,6 @@ describe("stateful call tools", () => {
       {
         status: "error",
         reason: "middleware_error",
-        message: "Unable to verify appointment before cancellation.",
       },
     );
 
@@ -5412,7 +5401,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Booked the new appointment for June 1 at 9:00 AM with Doctor Smith, but I could not cancel the old appointment. Unable to verify appointment before cancellation. I need to transfer you so the office can finish the cancellation.",
+      "Booked the new appointment for June 1 at 9:00 AM with Doctor Smith, but I could not cancel the old appointment. The old appointment was not cancelled. I need to transfer you so the office can finish the cancellation.",
     );
     expect(appointmentActions(state)).toMatchObject([
       {
@@ -5474,7 +5463,6 @@ describe("stateful call tools", () => {
     const middleware = stubRescheduleMiddleware(bookedResult(456), {
       status: "error",
       reason: "network_error",
-      message: "The appointment was not cancelled.",
     });
 
     const result = await reschedule_appointment.execute(

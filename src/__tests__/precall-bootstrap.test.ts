@@ -53,7 +53,7 @@ describe("pre-call bootstrap", () => {
   });
 
   it("returns an explicit no_match outcome instead of null", async () => {
-    usePatientResult({ status: "not_found", message: "No match" });
+    usePatientResult({ status: "not_found" });
 
     const result = await lookupByPhone(
       "+17275551212",
@@ -63,7 +63,7 @@ describe("pre-call bootstrap", () => {
     expect(result).toMatchObject({
       status: "no_match",
       phone: "+17275551212",
-      message: "No match",
+      message: "No patient match found.",
     });
   });
 
@@ -71,7 +71,6 @@ describe("pre-call bootstrap", () => {
     usePatientResult({
       status: "error",
       reason: "middleware_error",
-      message: "Patient lookup failed.",
     });
 
     const result = await lookupByPhone(
@@ -91,7 +90,6 @@ describe("pre-call bootstrap", () => {
     usePatientResult({
       status: "error",
       reason: "middleware_error",
-      message: "Patient lookup failed.",
     });
 
     const result = await lookupByPhone(

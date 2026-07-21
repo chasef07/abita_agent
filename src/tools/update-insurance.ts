@@ -99,7 +99,7 @@ export const update_insurance = tool({
     });
 
     if (result.status !== "updated") {
-      throw new ToolError(result.message);
+      throw new ToolError("Insurance was not updated.");
     }
 
     const newInsurance = result.newInsurance?.trim() || insurance;

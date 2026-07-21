@@ -392,15 +392,12 @@ function verifiedExistingPatientPrefix(
 
 function patientLookupReply(result: PatientResolveResult): string {
   if (result.status === "not_found") {
-    return (
-      result.message ??
-      "No matching patient was found. Confirm the spelling and date of birth, or ask whether the patient is already registered with us."
-    );
+    return "No matching patient was found. Confirm the spelling and date of birth, or ask whether the patient is already registered with us.";
   }
   if (result.status === "multiple_matches") {
     return "Multiple matching patients were found. Confirm the spelling and date of birth, then try again.";
   }
-  return result.message ?? "Patient lookup failed. Try again.";
+  return "Patient lookup failed. Try again.";
 }
 
 function spokenAppointment(appointment: {

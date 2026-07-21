@@ -25,18 +25,15 @@ export interface PatientResolveVerified {
 
 interface PatientResolveMultipleMatches {
   status: "multiple_matches";
-  message: string;
   matches: Array<PatientResolveVerified | CallerMatchHint>;
 }
 
 interface PatientResolveNotFound {
   status: "not_found";
-  message: string;
 }
 
 interface PatientResolveError {
   status: "error";
-  message: string;
   reason: "middleware_error" | "invalid_response";
 }
 
@@ -53,7 +50,6 @@ export function normalizePatientResolveResponse(
   if (!isRecord(raw)) {
     return {
       status: "error",
-      message: "Patient lookup returned an invalid response.",
       reason: "invalid_response",
     };
   }
@@ -62,16 +58,22 @@ export function normalizePatientResolveResponse(
   if (status === "error" || status === "failed" || status === "failure") {
     return {
       status: "error",
-      message: "Patient lookup failed.",
       reason: "middleware_error",
     };
   }
 
   if (status === "multiple_matches") {
+    const matches = normalizePatientMatches(raw.matches, options);
+    if (
+      !Array.isArray(raw.matches) ||
+      matches.length === 0 ||
+      matches.length !== raw.matches.length
+    ) {
+      return { status: "error", reason: "invalid_response" };
+    }
     return {
       status: "multiple_matches",
-      message: stringValue(raw.message) ?? "Multiple patient matches found.",
-      matches: normalizePatientMatches(raw.matches, options),
+      matches,
     };
   }
 
@@ -82,7 +84,6 @@ export function normalizePatientResolveResponse(
   ) {
     return {
       status: "not_found",
-      message: stringValue(raw.message) ?? "No patient match found.",
     };
   }
 
@@ -90,8 +91,6 @@ export function normalizePatientResolveResponse(
     if (!isNonEmptyString(raw.patientId)) {
       return {
         status: "error",
-        message:
-          "Patient lookup returned a verified response without a patient ID.",
         reason: "invalid_response",
       };
     }
@@ -99,7 +98,6 @@ export function normalizePatientResolveResponse(
     if (!appointments) {
       return {
         status: "error",
-        message: "Patient lookup returned an invalid response.",
         reason: "invalid_response",
       };
     }
@@ -131,7 +129,6 @@ export function normalizePatientResolveResponse(
 
   return {
     status: "error",
-    message: "Patient lookup returned an invalid response.",
     reason: "invalid_response",
   };
 }

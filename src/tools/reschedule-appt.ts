@@ -214,10 +214,7 @@ export const reschedule_appointment = tool({
       );
       const message = rescheduleCancellationFailureMessage(
         selectedSlot,
-        cancelResult.reason === "middleware_error" &&
-          cancelResult.message !== "The appointment was not cancelled."
-          ? cancelResult.message
-          : "The old appointment was not cancelled.",
+        "The old appointment was not cancelled.",
       );
       recordRescheduleAction(state, {
         status: "partial",

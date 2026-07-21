@@ -216,7 +216,7 @@ export const add_patient = tool({
       office: getAmdOfficeForToolCall(state),
       patient: payload,
     });
-    if (result.status === "error") return result.message;
+    if (result.status === "error") return "The patient chart was not created.";
 
     applyPatientResult(state, result);
     setInsuranceOnFile(

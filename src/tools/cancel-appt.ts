@@ -76,7 +76,7 @@ export const cancel_appointment = tool({
     });
 
     if (result.status !== "cancelled") {
-      const message = result.message;
+      const message = "The appointment was not cancelled.";
       recordAppointmentAction(state, {
         action: "cancelled",
         status: "error",

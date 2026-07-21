@@ -77,7 +77,7 @@ export async function lookupByPhone(
   if (result.status === "multiple_matches") {
     return {
       status: "multiple_matches",
-      message: result.message,
+      message: "Multiple patient matches found.",
       matches: result.matches.map((match) =>
         patientResolveMatchToCallerMatch(match, phone, lookupDurationMs),
       ),
@@ -88,7 +88,7 @@ export async function lookupByPhone(
     return {
       status: "no_match",
       phone,
-      message: result.message,
+      message: "No patient match found.",
       lookupDurationMs,
     };
   }
