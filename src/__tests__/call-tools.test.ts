@@ -1,6 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  InMemoryOwnedMiddleware,
+  setOwnedMiddleware,
+  type AvailabilityResult,
+  type AvailabilitySlot,
+  type BookAppointmentResult,
+  type CancelAppointmentResult,
+  type CreatePatientResult,
+  type InMemoryOwnedMiddlewareResponses,
+  type PatientResolveResult,
+  type UpdateInsuranceResult,
+} from "../clients/owned-middleware.js";
+import {
   CALLER_CANDIDATE_REF,
   type CallerAppointment,
   type PreCallContextState,
@@ -10,7 +22,10 @@ import {
   HOLLYWOOD_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
-import { appointmentActions } from "../state/observability.js";
+import {
+  appointmentActions,
+  ownedMiddlewareFailures,
+} from "../state/observability.js";
 import {
   clearAvailabilitySelection,
   storeAvailabilityBookingToken,
@@ -29,6 +44,7 @@ import { createTestCallState } from "./support/call-state.js";
 
 type TestCallState = ReturnType<typeof createTestCallState>;
 type PreCallCandidate = PreCallContextState["candidates"][number];
+let testMiddleware: InMemoryOwnedMiddleware;
 
 function createState(): TestCallState {
   const state = createTestCallState({
@@ -268,48 +284,179 @@ function setMultiplePreCallCandidates(
   };
 }
 
-function stubFetchJson(...responses: Record<string, unknown>[]) {
-  const fetchMock = vi.fn();
-  for (const response of responses) {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => response,
-    });
-  }
-  vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
+function useMiddleware(
+  responses: InMemoryOwnedMiddlewareResponses,
+): InMemoryOwnedMiddleware {
+  const middleware = new InMemoryOwnedMiddleware(responses);
+  testMiddleware = middleware;
+  setOwnedMiddleware(middleware);
+  return middleware;
 }
 
-function noAvailabilityResponse(
-  overrides: Record<string, unknown> = {},
-): Record<string, unknown> {
+function stubAvailability(
+  ...responses: AvailabilityResult[]
+): InMemoryOwnedMiddleware {
+  return useMiddleware({ getAvailability: responses });
+}
+
+function stubPatient(
+  ...responses: PatientResolveResult[]
+): InMemoryOwnedMiddleware {
+  return useMiddleware({ resolvePatient: responses });
+}
+
+function verifiedPatientResult(
+  overrides: Partial<
+    Extract<PatientResolveResult, { status: "verified" }>
+  > = {},
+): Extract<PatientResolveResult, { status: "verified" }> {
   return {
-    status: "success",
-    outcome: "no_availability",
-    availabilityFound: false,
-    requestedDate: "2026-07-09",
-    searchedFrom: "2026-07-09",
-    searchedThrough: "2026-07-23",
-    shouldRetrySameSearch: false,
-    slots: [],
+    status: "verified",
+    patientId: "patient-1",
+    name: "Jane Doe",
+    dob: "01/01/1980",
+    phone: "+17275551212",
+    insuranceCarrier: "self pay",
+    insPlanId: null,
+    respPartyId: null,
+    routing: "all_three",
+    allowedProviders: [],
+    routingAmbiguous: false,
+    preauthRequired: false,
+    appointmentsStatus: "none",
+    appointmentsMessage: null,
+    appointments: [],
+    message: null,
     ...overrides,
   };
 }
 
-function availabilityFoundResponse(
-  slot: Record<string, unknown>,
-  overrides: Record<string, unknown> = {},
-): Record<string, unknown> {
+function stubCancellation(
+  ...responses: CancelAppointmentResult[]
+): InMemoryOwnedMiddleware {
+  return useMiddleware({ cancelAppointment: responses });
+}
+
+function stubBooking(
+  ...responses: BookAppointmentResult[]
+): InMemoryOwnedMiddleware {
+  return useMiddleware({ bookAppointment: responses });
+}
+
+function stubCreatePatient(
+  ...responses: CreatePatientResult[]
+): InMemoryOwnedMiddleware {
+  return useMiddleware({ createPatient: responses });
+}
+
+function stubInsuranceUpdate(
+  ...responses: UpdateInsuranceResult[]
+): InMemoryOwnedMiddleware {
+  return useMiddleware({ updateInsurance: responses });
+}
+
+function updatedInsuranceResult(
+  overrides: Partial<
+    Extract<UpdateInsuranceResult, { status: "updated" }>
+  > = {},
+): UpdateInsuranceResult {
   return {
-    status: "success",
-    outcome: "availability_found",
-    availabilityFound: true,
+    status: "updated",
+    newInsurance: "Aetna",
+    routing: "all_three",
+    allowedProviders: [],
+    routingAmbiguous: false,
+    preauthRequired: false,
+    ...overrides,
+  };
+}
+
+function createdPatientResult(
+  overrides: Partial<Extract<CreatePatientResult, { status: "created" }>> = {},
+): CreatePatientResult {
+  return {
+    status: "created",
+    patientId: "patient-new",
+    name: "Jane Doe",
+    phone: "+17275551212",
+    insuranceCarrier: "self pay",
+    insPlanId: null,
+    respPartyId: null,
+    routing: "all_three",
+    allowedProviders: [],
+    routingAmbiguous: false,
+    preauthRequired: false,
+    ...overrides,
+  };
+}
+
+function bookedResult(
+  appointmentId: number,
+  overrides: Partial<Extract<BookAppointmentResult, { status: "booked" }>> = {},
+): BookAppointmentResult {
+  return {
+    status: "booked",
+    appointmentId,
+    providerName: "Doctor Smith",
+    locationName: "Spring Hill",
+    appointmentTypeName: "Medical",
+    message: null,
+    ...overrides,
+  };
+}
+
+function noAvailabilityResponse(
+  overrides: Record<string, unknown> = {},
+): AvailabilityResult {
+  return {
+    status: "none",
+    requestedDate: "2026-07-09",
+    searchedFrom: "2026-07-09",
+    searchedThrough: "2026-07-23",
+    dateShifted: false,
+    shouldRetrySameSearch: false,
+    slots: [],
+    ...overrides,
+  } as AvailabilityResult;
+}
+
+function availabilityError(): AvailabilityResult {
+  return {
+    status: "error",
+    reason: "middleware_error",
+  };
+}
+
+function availabilityFoundResponse(
+  slot: AvailabilitySlot,
+  overrides: Record<string, unknown> = {},
+): AvailabilityResult {
+  return {
+    status: "found",
     requestedDate: "2026-07-09",
     actualDate: "2026-07-09",
     searchedFrom: "2026-07-09",
     searchedThrough: "2026-07-09",
+    dateShifted: false,
     shouldRetrySameSearch: false,
     slots: [slot],
+    ...overrides,
+  } as AvailabilityResult;
+}
+
+function foundAvailability(
+  slots: AvailabilitySlot[],
+  overrides: Partial<Extract<AvailabilityResult, { status: "found" }>> = {},
+): AvailabilityResult {
+  return {
+    status: "found",
+    slots,
+    requestedDate: "2026-06-01",
+    actualDate: "2026-06-01",
+    searchedFrom: "2026-06-01",
+    searchedThrough: "2026-06-01",
+    dateShifted: false,
+    shouldRetrySameSearch: false,
     ...overrides,
   };
 }
@@ -332,24 +479,17 @@ async function getMedicalAvailability(
   );
 }
 
-function stubRescheduleFetch(
-  bookResponse: Record<string, unknown>,
-  cancelResponse: Record<string, unknown> = {
+function stubRescheduleMiddleware(
+  bookResponse: InMemoryOwnedMiddlewareResponses["bookAppointment"][number],
+  cancelResponse: InMemoryOwnedMiddlewareResponses["cancelAppointment"][number] = {
     status: "cancelled",
-    appointmentId: 123,
     message: "Appointment cancelled successfully",
   },
 ) {
-  const fetchMock = vi.fn(async (url: string | URL) => {
-    const path = String(url);
-    return {
-      ok: true,
-      json: async () =>
-        path.includes("/api/appointment/book") ? bookResponse : cancelResponse,
-    };
+  return useMiddleware({
+    bookAppointment: [bookResponse],
+    cancelAppointment: [cancelResponse],
   });
-  vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
 }
 
 function prepareRescheduleState(
@@ -373,9 +513,9 @@ function prepareRescheduleState(
   storeAvailabilityBookingToken(state, "A", token);
 }
 
-function fetchCallKinds(fetchMock: ReturnType<typeof vi.fn>) {
-  return fetchMock.mock.calls.map((call) =>
-    String(call[0]).includes("/api/appointment/book") ? "book" : "cancel",
+function middlewareCallKinds(middleware: InMemoryOwnedMiddleware) {
+  return middleware.operations.map((operation) =>
+    operation.name === "bookAppointment" ? "book" : "cancel",
   );
 }
 
@@ -389,11 +529,13 @@ function oldAppointmentRefForOrdinal(message: string, ordinal: number): string {
 
 describe("stateful call tools", () => {
   beforeEach(() => {
+    useMiddleware({});
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-30T16:00:00.000Z"));
   });
 
   afterEach(() => {
+    setOwnedMiddleware(undefined);
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
@@ -403,8 +545,6 @@ describe("stateful call tools", () => {
     async (office) => {
       const state = createHollywoodSweetwaterState(office);
       clearAvailabilitySelection(state);
-      const fetchMock = vi.fn();
-      vi.stubGlobal("fetch", fetchMock);
 
       const result = await get_availability.execute(
         {
@@ -420,21 +560,25 @@ describe("stateful call tools", () => {
       expect(result).toBe(
         "Ask whether the caller wants the Hollywood or Sweetwater office, then check availability again with that office.",
       );
-      expect(fetchMock).not.toHaveBeenCalled();
+      expect(testMiddleware.operations).toEqual([]);
     },
   );
 
   it("searches the Hollywood schedule when a Sweetwater caller chooses Hollywood", async () => {
     const state = createHollywoodSweetwaterState("sweetwater");
-    const fetchMock = stubFetchJson(
-      availabilityFoundResponse({
-        provider: "Dr. Austin Bach",
-        date: "2026-06-01",
-        time: "10:00 AM",
-        datetime: "2026-06-01T10:00:00",
-        bookingToken: "hollywood-token",
-      }),
-    );
+    const middleware = useMiddleware({
+      getAvailability: [
+        foundAvailability([
+          {
+            provider: "Dr. Austin Bach",
+            date: "2026-06-01",
+            time: "10:00 AM",
+            datetime: "2026-06-01T10:00:00",
+            bookingToken: "hollywood-token",
+          },
+        ]),
+      ],
+    });
 
     await get_availability.execute(
       {
@@ -449,11 +593,9 @@ describe("stateful call tools", () => {
     );
 
     expect(state.office.activeKey).toBe("hollywood");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
-      {
-        office: HOLLYWOOD_OFFICE_PHONE,
-      },
-    );
+    expect(middleware.requests.getAvailability[0]).toMatchObject({
+      office: HOLLYWOOD_OFFICE_PHONE,
+    });
     expect(state.availability.slots).toEqual([
       expect.objectContaining({
         slotId: "S1",
@@ -466,32 +608,19 @@ describe("stateful call tools", () => {
     const state = createState();
     clearAvailabilitySelection(state);
     markSchedulingTriaged(state);
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "success",
-        outcome: "availability_found",
-        availabilityFound: true,
-        requestedDate: "2026-06-01",
-        actualDate: "2026-06-01",
-        searchedFrom: "2026-06-01",
-        searchedThrough: "2026-06-01",
-        shouldRetrySameSearch: false,
-        slots: [
+    useMiddleware({
+      getAvailability: [
+        foundAvailability([
           {
             provider: "Dr. Austin Bach",
             date: "2026-06-01",
             time: "9:00 AM",
             datetime: "2026-06-01T09:00:00",
             bookingToken: "private-token",
-            columnId: 123,
-            profileId: 456,
-            duration: 15,
           },
-        ],
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+        ]),
+      ],
+    });
 
     const ctx = createToolContext(state);
 
@@ -537,16 +666,8 @@ describe("stateful call tools", () => {
     const state = createState();
     clearAvailabilitySelection(state);
     markSchedulingTriaged(state);
-    const fetchMock = stubFetchJson({
-      status: "success",
-      outcome: "availability_found",
-      availabilityFound: true,
-      requestedDate: "2026-06-01",
-      actualDate: "2026-06-01",
-      searchedFrom: "2026-06-01",
-      searchedThrough: "2026-06-01",
-      shouldRetrySameSearch: false,
-      slots: [
+    const middleware = stubAvailability(
+      foundAvailability([
         {
           provider: "Dr. Austin Bach",
           date: "2026-06-01",
@@ -568,8 +689,8 @@ describe("stateful call tools", () => {
           datetime: "2026-06-01T11:00:00",
           bookingToken: "third-private-token",
         },
-      ],
-    });
+      ]),
+    );
 
     const result = await get_availability.execute(
       {
@@ -595,23 +716,15 @@ describe("stateful call tools", () => {
       S1: "first-private-token",
       S2: "second-private-token",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(middleware.requests.getAvailability).toHaveLength(1);
   });
 
   it("offers a morning and afternoon spread when the caller has no time preference", async () => {
     const state = createState();
     clearAvailabilitySelection(state);
     markSchedulingTriaged(state);
-    stubFetchJson({
-      status: "success",
-      outcome: "availability_found",
-      availabilityFound: true,
-      requestedDate: "2026-06-01",
-      actualDate: "2026-06-01",
-      searchedFrom: "2026-06-01",
-      searchedThrough: "2026-06-01",
-      shouldRetrySameSearch: false,
-      slots: [
+    stubAvailability(
+      foundAvailability([
         {
           provider: "Dr. Austin Bach",
           date: "2026-06-01",
@@ -633,8 +746,8 @@ describe("stateful call tools", () => {
           datetime: "2026-06-01T14:00:00",
           bookingToken: "afternoon-private-token",
         },
-      ],
-    });
+      ]),
+    );
 
     const result = await get_availability.execute(
       {
@@ -666,16 +779,8 @@ describe("stateful call tools", () => {
     const state = createState();
     clearAvailabilitySelection(state);
     markSchedulingTriaged(state);
-    stubFetchJson({
-      status: "success",
-      outcome: "availability_found",
-      availabilityFound: true,
-      requestedDate: "2026-06-01",
-      actualDate: "2026-06-01",
-      searchedFrom: "2026-06-01",
-      searchedThrough: "2026-06-01",
-      shouldRetrySameSearch: false,
-      slots: [
+    stubAvailability(
+      foundAvailability([
         {
           provider: "Dr. Austin Bach",
           date: "2026-06-01",
@@ -697,8 +802,8 @@ describe("stateful call tools", () => {
           datetime: "2026-06-01T15:00:00",
           bookingToken: "second-afternoon-token",
         },
-      ],
-    });
+      ]),
+    );
 
     const result = await get_availability.execute(
       {
@@ -730,16 +835,8 @@ describe("stateful call tools", () => {
     const state = createState();
     clearAvailabilitySelection(state);
     markSchedulingTriaged(state);
-    stubFetchJson({
-      status: "success",
-      outcome: "availability_found",
-      availabilityFound: true,
-      requestedDate: "2026-06-01",
-      actualDate: "2026-06-01",
-      searchedFrom: "2026-06-01",
-      searchedThrough: "2026-06-01",
-      shouldRetrySameSearch: false,
-      slots: [
+    stubAvailability(
+      foundAvailability([
         {
           provider: "Dr. Austin Bach",
           date: "2026-06-01",
@@ -754,8 +851,8 @@ describe("stateful call tools", () => {
           datetime: "2026-06-01T10:00:00",
           bookingToken: "second-private-token",
         },
-      ],
-    });
+      ]),
+    );
 
     const result = await get_availability.execute(
       {
@@ -778,42 +875,50 @@ describe("stateful call tools", () => {
     const state = createState();
     clearAvailabilitySelection(state);
     markSchedulingTriaged(state);
-    const fetchMock = stubFetchJson(
-      availabilityFoundResponse(
+    const middleware = useMiddleware({
+      getAvailability: [
+        availabilityFoundResponse(
+          {
+            provider: "Dr. Austin Bach",
+            date: "2026-07-09",
+            time: "9:00 AM",
+            datetime: "2026-07-09T09:00:00",
+            bookingToken: "first-private-token",
+          },
+          {
+            requestedDate: "2026-07-09",
+            actualDate: "2026-07-09",
+            searchedFrom: "2026-07-09",
+            searchedThrough: "2026-07-09",
+          },
+        ),
+        availabilityFoundResponse(
+          {
+            provider: "Dr. Austin Bach",
+            date: "2026-07-10",
+            time: "10:00 AM",
+            datetime: "2026-07-10T10:00:00",
+            bookingToken: "second-private-token",
+          },
+          {
+            requestedDate: "2026-07-10",
+            actualDate: "2026-07-10",
+            searchedFrom: "2026-07-10",
+            searchedThrough: "2026-07-10",
+          },
+        ),
+      ],
+      bookAppointment: [
         {
-          provider: "Dr. Austin Bach",
-          date: "2026-07-09",
-          time: "9:00 AM",
-          datetime: "2026-07-09T09:00:00",
-          bookingToken: "first-private-token",
+          status: "booked",
+          appointmentId: 789,
+          providerName: null,
+          locationName: null,
+          appointmentTypeName: null,
+          message: null,
         },
-        {
-          requestedDate: "2026-07-09",
-          actualDate: "2026-07-09",
-          searchedFrom: "2026-07-09",
-          searchedThrough: "2026-07-09",
-        },
-      ),
-      availabilityFoundResponse(
-        {
-          provider: "Dr. Austin Bach",
-          date: "2026-07-10",
-          time: "10:00 AM",
-          datetime: "2026-07-10T10:00:00",
-          bookingToken: "second-private-token",
-        },
-        {
-          requestedDate: "2026-07-10",
-          actualDate: "2026-07-10",
-          searchedFrom: "2026-07-10",
-          searchedThrough: "2026-07-10",
-        },
-      ),
-      {
-        status: "booked",
-        appointmentId: 789,
-      },
-    );
+      ],
+    });
     const ctx = createToolContext(state);
 
     const firstResult = await get_availability.execute(
@@ -860,16 +965,15 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe("Booked July 9 at 9:00 AM with Dr. Bach.");
-    expect(JSON.parse(fetchMock.mock.calls[2][1].body as string)).toMatchObject(
-      {
-        bookingToken: "first-private-token",
-      },
-    );
+    expect(middleware.requests.bookAppointment[0]?.booking).toMatchObject({
+      bookingToken: "first-private-token",
+    });
     expect(state.availability.slots.map((slot) => slot.slotId)).toEqual(["S2"]);
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S2: "second-private-token",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(middleware.requests.getAvailability).toHaveLength(2);
+    expect(middleware.requests.bookAppointment).toHaveLength(1);
   });
 
   it("uses routine vision lane instead of verified-patient Bach routing for availability", async () => {
@@ -902,32 +1006,17 @@ describe("stateful call tools", () => {
       },
     ];
 
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "success",
-        outcome: "availability_found",
-        availabilityFound: true,
-        requestedDate: "2026-06-01",
-        actualDate: "2026-06-01",
-        searchedFrom: "2026-06-01",
-        searchedThrough: "2026-06-01",
-        shouldRetrySameSearch: false,
-        slots: [
-          {
-            provider: "Dr. Kyler Farnan",
-            date: "2026-06-01",
-            time: "10:00 AM",
-            datetime: "2026-06-01T10:00:00",
-            bookingToken: "routine-token",
-            columnId: 1555,
-            profileId: 2075,
-            duration: 30,
-          },
-        ],
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    const middleware = stubAvailability(
+      foundAvailability([
+        {
+          provider: "Dr. Kyler Farnan",
+          date: "2026-06-01",
+          time: "10:00 AM",
+          datetime: "2026-06-01T10:00:00",
+          bookingToken: "routine-token",
+        },
+      ]),
+    );
 
     const result = await get_availability.execute(
       {
@@ -955,34 +1044,24 @@ describe("stateful call tools", () => {
     ]);
     expect(result).toContain("June 1 at 10:00 AM with Dr. Kyler Farnan");
     expect(result).toContain("appointmentSlotRef S1");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
-      {
-        date: "2026-06-01",
-        dob: "01/01/1980",
-        office: "+19542872010",
-        routing: "optical_only",
-      },
-    );
+    expect(middleware.requests.getAvailability[0]).toMatchObject({
+      date: "2026-06-01",
+      dob: "01/01/1980",
+      office: "+19542872010",
+      routing: "optical_only",
+    });
   });
 
   it("waits for availability lookup before returning final instructions", async () => {
     const state = createState();
     clearAvailabilitySelection(state);
     markSchedulingTriaged(state);
-    let resolveFetch: (response: {
-      ok: true;
-      json: () => Promise<Record<string, unknown>>;
-    }) => void = () => undefined;
-    const fetchMock = vi.fn(
-      () =>
-        new Promise<{
-          ok: true;
-          json: () => Promise<Record<string, unknown>>;
-        }>((resolve) => {
-          resolveFetch = resolve;
-        }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    let resolveAvailability: (result: AvailabilityResult) => void = () =>
+      undefined;
+    const availability = new Promise<AvailabilityResult>((resolve) => {
+      resolveAvailability = resolve;
+    });
+    useMiddleware({ getAvailability: [availability] });
 
     const ctx = createToolContext(state);
     const execution = get_availability.execute(
@@ -1003,28 +1082,17 @@ describe("stateful call tools", () => {
     expect(ctx.filler).not.toHaveBeenCalled();
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
 
-    resolveFetch({
-      ok: true,
-      json: async () => ({
-        status: "success",
-        outcome: "availability_found",
-        availabilityFound: true,
-        requestedDate: "2026-06-01",
-        actualDate: "2026-06-01",
-        searchedFrom: "2026-06-01",
-        searchedThrough: "2026-06-01",
-        shouldRetrySameSearch: false,
-        slots: [
-          {
-            provider: "Dr. Austin Bach",
-            date: "2026-06-01",
-            time: "9:00 AM",
-            datetime: "2026-06-01T09:00:00",
-            bookingToken: "private-token",
-          },
-        ],
-      }),
-    });
+    resolveAvailability(
+      foundAvailability([
+        {
+          provider: "Dr. Austin Bach",
+          date: "2026-06-01",
+          time: "9:00 AM",
+          datetime: "2026-06-01T09:00:00",
+          bookingToken: "private-token",
+        },
+      ]),
+    );
 
     const result = await execution;
 
@@ -1058,8 +1126,6 @@ describe("stateful call tools", () => {
     state.availability.latestRouting = "all_three";
     storeAvailabilityBookingToken(state, "A", "stale-token");
     const ctx = createToolContext(state);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await get_availability.execute(
       {
@@ -1075,7 +1141,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Same-day and past-date appointments are not available. Ask for tomorrow or a later date; the earliest date to check is 2026-06-09.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(ctx.session.say).not.toHaveBeenCalled();
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
     expect(state.availability.slots).toEqual([]);
@@ -1087,7 +1153,7 @@ describe("stateful call tools", () => {
     const state = createState();
     markSchedulingTriaged(state);
     const ctx = createToolContext(state);
-    const fetchMock = stubFetchJson(noAvailabilityResponse());
+    const middleware = stubAvailability(noAvailabilityResponse());
 
     const firstResult = await getMedicalAvailability(ctx, "tool-1");
     const secondResult = await getMedicalAvailability(ctx, "tool-2");
@@ -1096,7 +1162,7 @@ describe("stateful call tools", () => {
       "No openings were found from July 9 through July 23. Ask whether to check starting July 24, or whether they prefer a different day or time.",
     );
     expect(secondResult).toEqual(firstResult);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(middleware.requests.getAvailability).toHaveLength(1);
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
   });
 
@@ -1132,7 +1198,7 @@ describe("stateful call tools", () => {
         ],
       },
     );
-    const fetchMock = stubFetchJson(response, response);
+    const middleware = stubAvailability(response, response);
 
     const firstResult = await getMedicalAvailability(ctx, "tool-1", "none");
     const secondResult = await getMedicalAvailability(
@@ -1147,20 +1213,20 @@ describe("stateful call tools", () => {
     expect(secondResult).toBe(
       "Offer this slot: July 9 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). If the caller accepts it, use appointmentSlotRef S2; if they want a different day or time, ask for another date to check and call get_availability with that date.",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(middleware.requests.getAvailability).toHaveLength(2);
   });
 
   it("does not cache retryable availability responses", async () => {
     const state = createState();
     markSchedulingTriaged(state);
     const ctx = createToolContext(state);
-    const fetchMock = stubFetchJson(
+    const middleware = stubAvailability(
       {
-        status: "success",
-        outcome: "availability_search_incomplete",
+        status: "incomplete",
         requestedDate: "2026-07-09",
         searchedFrom: "2026-07-09",
         searchedThrough: "2026-07-23",
+        dateShifted: false,
         shouldRetrySameSearch: true,
         slots: [],
       },
@@ -1176,7 +1242,7 @@ describe("stateful call tools", () => {
     expect(secondResult).toBe(
       "No openings were found from July 9 through July 23. Ask whether to check starting July 24, or whether they prefer a different day or time.",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(middleware.requests.getAvailability).toHaveLength(2);
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
   });
 
@@ -1184,12 +1250,8 @@ describe("stateful call tools", () => {
     const state = createState();
     markSchedulingTriaged(state);
     const ctx = createToolContext(state);
-    const fetchMock = stubFetchJson(
-      {
-        outcome: "scheduler_error",
-        message: "The scheduler could not complete that search.",
-        shouldRetrySameSearch: false,
-      },
+    const middleware = stubAvailability(
+      availabilityError(),
       noAvailabilityResponse(),
     );
 
@@ -1197,12 +1259,15 @@ describe("stateful call tools", () => {
     const secondResult = await getMedicalAvailability(ctx, "tool-2");
 
     expect(firstResult).toBe(
-      "The scheduler could not complete that search. Ask for a different date or time preference.",
+      "I'm having trouble checking availability. Let me try once more. Ask for a different date or time preference.",
     );
     expect(secondResult).toBe(
       "No openings were found from July 9 through July 23. Ask whether to check starting July 24, or whether they prefer a different day or time.",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(middleware.requests.getAvailability).toHaveLength(2);
+    expect(ownedMiddlewareFailures(state)).toMatchObject([
+      { operation: "getAvailability", reason: "middleware_error" },
+    ]);
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
   });
 
@@ -1211,8 +1276,6 @@ describe("stateful call tools", () => {
     markSchedulingTriaged(state);
     state.identity.patient.patientId = null;
     state.identity.patient.identityConfirmed = false;
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await get_availability.execute(
       {
@@ -1227,7 +1290,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Verify or create the patient before checking availability.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("switches between preloaded phone-match patients and clears patient-scoped booking state", async () => {
@@ -1314,8 +1377,6 @@ describe("stateful call tools", () => {
       currentCarrier: "Aetna",
       accepted: true,
     };
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute(
       {
@@ -1330,7 +1391,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Switched active patient to ELLIE MEJIA. Check availability again before booking.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.patient).toMatchObject({
       status: "verified",
       identityConfirmed: true,
@@ -1396,7 +1457,7 @@ describe("stateful call tools", () => {
         facility: "Abita Eye Group Hollywood",
       }),
     );
-    const fetchMock = stubFetchJson(
+    const middleware = stubAvailability(
       availabilityFoundResponse({
         provider: "Dr. Austin Bach",
         date: "2026-07-09",
@@ -1425,14 +1486,12 @@ describe("stateful call tools", () => {
     });
     expect(result).toContain("July 9 at 9:45 AM with Dr. Bach");
     expect(result).toContain("appointmentSlotRef S2");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
-      {
-        date: "2026-07-09",
-        dob: "01/01/1980",
-        office: "+17275919997",
-        routing: "all_three",
-      },
-    );
+    expect(middleware.requests.getAvailability[0]).toMatchObject({
+      date: "2026-07-09",
+      dob: "01/01/1980",
+      office: "+17275919997",
+      routing: "all_three",
+    });
   });
 
   it("blocks routine-vision reschedule availability for Crystal River", async () => {
@@ -1453,7 +1512,7 @@ describe("stateful call tools", () => {
         facility: "Crystal River",
       }),
     );
-    const fetchMock = stubFetchJson(
+    const middleware = stubAvailability(
       availabilityFoundResponse({
         provider: "Dr. Kyler Farnan",
         date: "2026-07-09",
@@ -1485,7 +1544,7 @@ describe("stateful call tools", () => {
     );
     expect(state.office.activeKey).toBe("crystal-river");
     expect(state.office.phoneOverrides).not.toHaveProperty("spring-hill");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(middleware.requests.getAvailability).toHaveLength(0);
   });
 
   it("routes vision appointment type reschedule availability through optical routing", async () => {
@@ -1511,7 +1570,7 @@ describe("stateful call tools", () => {
         facility: "Abita Eye Group Sweetwater",
       }),
     );
-    const fetchMock = stubFetchJson(
+    const middleware = stubAvailability(
       availabilityFoundResponse(
         {
           provider: "Dr. Maria Casas",
@@ -1550,14 +1609,12 @@ describe("stateful call tools", () => {
     expect(state.availability.latestRouting).toBe("optical_only");
     expect(result).toContain("July 23 at 9:00 AM with Dr. Maria Casas");
     expect(result).toContain("appointmentSlotRef S2");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
-      {
-        date: "2026-07-23",
-        dob: "04/15/2015",
-        office: "+17864657475",
-        routing: "optical_only",
-      },
-    );
+    expect(middleware.requests.getAvailability[0]).toMatchObject({
+      date: "2026-07-23",
+      dob: "04/15/2015",
+      office: "+17864657475",
+      routing: "optical_only",
+    });
   });
 
   it("clears stale scheduling lane when no-lane availability uses a loaded appointment", async () => {
@@ -1595,7 +1652,7 @@ describe("stateful call tools", () => {
         facility: "Abita Eye Group Sweetwater",
       }),
     );
-    const fetchMock = stubFetchJson(
+    const middleware = stubAvailability(
       availabilityFoundResponse(
         {
           provider: "Dr. Maria Casas",
@@ -1634,14 +1691,12 @@ describe("stateful call tools", () => {
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "sweetwater-optical-token",
     });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
-      {
-        date: "2026-07-23",
-        dob: "04/15/2015",
-        office: "+17864657475",
-        routing: "optical_only",
-      },
-    );
+    expect(middleware.requests.getAvailability[0]).toMatchObject({
+      date: "2026-07-23",
+      dob: "04/15/2015",
+      office: "+17864657475",
+      routing: "optical_only",
+    });
   });
 
   it("records appointment-change context from a single loaded appointment", async () => {
@@ -1658,7 +1713,7 @@ describe("stateful call tools", () => {
         facility: "Abita Eye Group Hollywood",
       }),
     );
-    const fetchMock = stubFetchJson(
+    const middleware = stubAvailability(
       availabilityFoundResponse({}, { slots: [] }),
     );
 
@@ -1672,7 +1727,7 @@ describe("stateful call tools", () => {
       } as never,
     );
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(middleware.requests.getAvailability).toHaveLength(1);
     expect(state.workflow.current).toEqual({
       intent: "change_appointment",
       appointmentLane: "not_applicable",
@@ -1682,8 +1737,6 @@ describe("stateful call tools", () => {
   it("requires scheduling or existing appointment context before checking availability", async () => {
     const state = createState();
     clearSchedulingContext(state);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await get_availability.execute(
       {
@@ -1698,15 +1751,13 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Before checking availability for a reschedule, load appointments by resolving the patient. If this is a new appointment instead, call get_availability again with appointmentLane medical_md or routine_od.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("treats failed appointment loading as unresolved reschedule context", async () => {
     const state = createState();
     clearSchedulingContext(state);
     state.identity.patient.appointmentsStatus = "error";
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await get_availability.execute(
       {
@@ -1721,7 +1772,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Before checking availability for a reschedule, load appointments by resolving the patient. If this is a new appointment instead, call get_availability again with appointmentLane medical_md or routine_od.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("points no-lane availability toward loaded-appointment confirmation", async () => {
@@ -1732,8 +1783,6 @@ describe("stateful call tools", () => {
       appointment({ id: 123 }),
       appointment({ id: 456 }),
     );
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await get_availability.execute(
       {
@@ -1749,14 +1798,12 @@ describe("stateful call tools", () => {
       "Before checking availability, ask which loaded appointment the caller wants to move. If this is a new appointment instead, call get_availability again with appointmentLane medical_md or routine_od.",
     );
     expect(state.workflow.current).toBeUndefined();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("returns patient recovery before checking availability", async () => {
     const state = createState();
     setPatientUnknown(state);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await get_availability.execute(
       {
@@ -1772,7 +1819,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Verify or create the patient before checking availability.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("books from cached availability after inline scheduling lane is recorded", async () => {
@@ -1780,17 +1827,7 @@ describe("stateful call tools", () => {
     clearSchedulingContext(state);
     markSchedulingTriaged(state);
     storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "booked",
-        appointmentId: 456,
-        providerName: "Doctor Smith",
-        locationName: "Spring Hill",
-        appointmentTypeName: "Medical",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    const middleware = stubBooking(bookedResult(456));
 
     const result = await book_appointment.execute(
       {
@@ -1810,13 +1847,11 @@ describe("stateful call tools", () => {
       intent: "schedule",
       appointmentLane: "medical_md",
     });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
-      {
-        bookingToken: "private-token",
-        patientId: "patient-1",
-        routing: "all_three",
-      },
-    );
+    expect(middleware.requests.bookAppointment[0]?.booking).toMatchObject({
+      bookingToken: "private-token",
+      patientId: "patient-1",
+      routing: "all_three",
+    });
   });
 
   it.each(["my eye", "eye issues", "eye exam"])(
@@ -1825,8 +1860,6 @@ describe("stateful call tools", () => {
       const state = createState();
       markSchedulingTriaged(state);
       storeAvailabilityBookingToken(state, "A", "private-token");
-      const fetchMock = vi.fn();
-      vi.stubGlobal("fetch", fetchMock);
 
       await expect(
         book_appointment.execute(
@@ -1843,7 +1876,7 @@ describe("stateful call tools", () => {
         ),
       ).rejects.toThrow("Ask for a useful appointment reason before booking");
 
-      expect(fetchMock).not.toHaveBeenCalled();
+      expect(testMiddleware.operations).toHaveLength(0);
     },
   );
 
@@ -1852,8 +1885,6 @@ describe("stateful call tools", () => {
     markAppointmentChangeContext(state);
     storeAvailabilityBookingToken(state, "A", "private-token");
     const ctx = createToolContext(state);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     await expect(
       book_appointment.execute(
@@ -1872,7 +1903,7 @@ describe("stateful call tools", () => {
     );
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("requires a fresh private booking token before booking", async () => {
@@ -1906,8 +1937,6 @@ describe("stateful call tools", () => {
     markSchedulingTriaged(state);
     storeAvailabilityBookingToken(state, "A", "private-token");
     const ctx = createToolContext(state);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await book_appointment.execute(
       {
@@ -1924,15 +1953,13 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it. Call book_appointment again only after the caller confirms the appointment details are correct.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
   });
 
   it("requires referring doctor information before booking", async () => {
     const state = createState();
     markSchedulingTriaged(state);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     await expect(
       book_appointment.execute(
@@ -1948,25 +1975,16 @@ describe("stateful call tools", () => {
     ).rejects.toThrow(
       'Ask whether the caller has a referring doctor before booking. If they have none, pass "none".',
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("books an active slot with private state and records analytics", async () => {
     const state = createState();
     markSchedulingTriaged(state);
     storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "booked",
-        appointmentId: 123,
-        providerName: "Doctor Smith",
-        locationName: "Spring Hill",
-        appointmentTypeName: "Medical",
-        message: "Appointment booked successfully",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    const middleware = stubBooking(
+      bookedResult(123, { message: "Appointment booked successfully" }),
+    );
     const ctx = createToolContext(state);
 
     const result = await book_appointment.execute(
@@ -2004,7 +2022,7 @@ describe("stateful call tools", () => {
         },
       },
     ]);
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const body = middleware.requests.bookAppointment[0]?.booking ?? {};
     expect(body).toMatchObject({
       bookingToken: "private-token",
       patientId: "patient-1",
@@ -2038,17 +2056,7 @@ describe("stateful call tools", () => {
     const state = createState();
     markSchedulingTriaged(state);
     storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "booked",
-        appointmentId: 123,
-        providerName: "Doctor Smith",
-        locationName: "Spring Hill",
-        appointmentTypeName: "Medical",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    const middleware = stubBooking(bookedResult(123));
 
     await book_appointment.execute(
       {
@@ -2090,7 +2098,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "The appointment is already booked. Tell the caller the confirmed appointment details instead of booking again.",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(middleware.requests.bookAppointment).toHaveLength(1);
     expect(state.availability.slots).toEqual([]);
   });
 
@@ -2098,22 +2106,7 @@ describe("stateful call tools", () => {
     const state = createState();
     markSchedulingTriaged(state);
     storeAvailabilityBookingToken(state, "A", "private-token");
-    let nextAppointmentId = 123;
-    const fetchMock = vi.fn(async () => {
-      const appointmentId = nextAppointmentId;
-      nextAppointmentId = 456;
-      return {
-        ok: true,
-        json: async () => ({
-          status: "booked",
-          appointmentId,
-          providerName: "Doctor Smith",
-          locationName: "Spring Hill",
-          appointmentTypeName: "Medical",
-        }),
-      };
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    const middleware = stubBooking(bookedResult(123), bookedResult(456));
 
     await book_appointment.execute(
       {
@@ -2163,8 +2156,8 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe("Booked June 1 at 2:00 PM with Doctor Smith.");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+    expect(middleware.requests.bookAppointment).toHaveLength(2);
+    expect(middleware.requests.bookAppointment[1]?.booking).toMatchObject({
       bookingToken: "private-token-b",
       patientId: "patient-2",
       patientName: "Esa Arshed",
@@ -2187,14 +2180,11 @@ describe("stateful call tools", () => {
     const state = createState();
     markSchedulingTriaged(state);
     storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "success",
-        message: "Appointment booked successfully",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubBooking({
+      status: "error",
+      reason: "invalid_response",
+      detail: "missing_appointment_id",
+    });
 
     const result = await book_appointment.execute(
       {
@@ -2214,6 +2204,13 @@ describe("stateful call tools", () => {
     );
     expect(state.identity.patient.appointments).toEqual([]);
     expect(state.availability.slots).toEqual([]);
+    expect(ownedMiddlewareFailures(state)).toMatchObject([
+      {
+        operation: "bookAppointment",
+        reason: "invalid_response",
+        detail: "missing_appointment_id",
+      },
+    ]);
   });
 
   it("removes unavailable slots and returns the next bookable option", async () => {
@@ -2229,15 +2226,10 @@ describe("stateful call tools", () => {
       routing: "all_three",
     });
     storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "error",
-        outcome: "slot_unavailable",
-        message: "This time slot is no longer available.",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubBooking({
+      status: "unavailable",
+      reason: "slot_unavailable",
+    });
 
     const result = await book_appointment.execute(
       {
@@ -2267,18 +2259,7 @@ describe("stateful call tools", () => {
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
     const ctx = createToolContext(state);
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "created",
-        patientId: "patient-new",
-        name: "Jane Doe",
-        phone: "+17275551212",
-        insuranceCarrier: "self pay",
-        routing: "all_three",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    const middleware = stubCreatePatient(createdPatientResult());
 
     const result = await add_patient.execute(
       {
@@ -2318,7 +2299,7 @@ describe("stateful call tools", () => {
       intent: "schedule",
       appointmentLane: "medical_md",
     });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+    expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
       firstName: "Jane",
       lastName: "Doe",
       phone: "+17275551212",
@@ -2334,8 +2315,6 @@ describe("stateful call tools", () => {
     state.identity.patient.identityConfirmed = false;
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
     const ctx = createToolContext(state);
 
     const result = await add_patient.execute(
@@ -2367,7 +2346,7 @@ describe("stateful call tools", () => {
     );
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(ctx.disallowInterruptions).toHaveBeenCalledOnce();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("marks a created chart as new-patient state when middleware omits status", async () => {
@@ -2378,16 +2357,7 @@ describe("stateful call tools", () => {
     markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        patientId: "patient-new",
-        name: "Jane Doe",
-        phone: "+17275551212",
-        routing: "all_three",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubCreatePatient(createdPatientResult({ insuranceCarrier: null }));
 
     await add_patient.execute(
       {
@@ -2435,8 +2405,6 @@ describe("stateful call tools", () => {
       currentCarrier: "Florida Blue Shield",
       accepted: true,
     };
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await add_patient.execute(
       {
@@ -2465,7 +2433,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "A patient record may already exist for that last name and date of birth from the caller phone lookup. Confirm the existing patient record before creating a new chart.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("requires appointment lane before creating a patient", async () => {
@@ -2476,8 +2444,6 @@ describe("stateful call tools", () => {
     markNewPatientPathConfirmed(state);
     clearSchedulingContext(state);
     markAcceptedInsurance(state);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     await expect(
       add_patient.execute(
@@ -2506,7 +2472,7 @@ describe("stateful call tools", () => {
       "Pass appointmentLane medical_md or routine_od before creating a patient.",
     );
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("blocks routine vision chart creation for Crystal River", async () => {
@@ -2525,8 +2491,6 @@ describe("stateful call tools", () => {
       canonicalPlan: "self pay",
       coverageType: "routine_vision",
     });
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await add_patient.execute(
       {
@@ -2557,7 +2521,7 @@ describe("stateful call tools", () => {
     );
     expect(state.office.activeKey).toBe("crystal-river");
     expect(state.office.phoneOverrides).not.toHaveProperty("spring-hill");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("requires appointment lane to match checked insurance coverage before creating a patient", async () => {
@@ -2577,8 +2541,6 @@ describe("stateful call tools", () => {
       phone: "7275551212",
       readBack: true,
     };
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const medicalState = createState();
     medicalState.identity.patient.patientId = null;
@@ -2634,7 +2596,7 @@ describe("stateful call tools", () => {
       "Use appointmentLane medical_md with medical coverage, or routine_od with routine_vision coverage. Run check_insurance again for the correct coverage before creating a patient.",
     );
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("requires read-back confirmation before creating a patient", async () => {
@@ -2646,8 +2608,6 @@ describe("stateful call tools", () => {
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
     const ctx = createToolContext(state);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await add_patient.execute(
       {
@@ -2672,7 +2632,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, member ID, and patient SSN last 4 for routine_od. Call add_patient again only after the caller confirms the details are correct.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
   });
 
@@ -2684,8 +2644,6 @@ describe("stateful call tools", () => {
     markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await add_patient.execute(
       {
@@ -2713,7 +2671,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Ask the caller: Is the number you are calling from a good callback number to put on file? If yes, call add_patient again with inboundPhoneConfirmed set to true. If not, collect the callback phone number and pass it as phone.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("uses the inbound caller phone after explicit confirmation", async () => {
@@ -2724,18 +2682,7 @@ describe("stateful call tools", () => {
     markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "created",
-        patientId: "patient-new",
-        name: "Jane Doe",
-        phone: "+17275551212",
-        insuranceCarrier: "self pay",
-        routing: "all_three",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    const middleware = stubCreatePatient(createdPatientResult());
 
     await add_patient.execute(
       {
@@ -2762,7 +2709,7 @@ describe("stateful call tools", () => {
       } as never,
     );
 
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+    expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
       phone: "+17275551212",
     });
   });
@@ -2772,19 +2719,8 @@ describe("stateful call tools", () => {
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
     state.identity.patient.identityConfirmed = false;
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "verified",
-        patientId: "patient-1",
-        name: "Jane Doe",
-        dob: "01/01/1980",
-        phone: "+17275551212",
-        insuranceCarrier: "self pay",
-        routing: "all_three",
-        allowedProviders: [],
-        routingAmbiguous: false,
-        preauthRequired: false,
+    const middleware = stubPatient(
+      verifiedPatientResult({
         appointmentsStatus: "found",
         appointments: [
           {
@@ -2798,8 +2734,7 @@ describe("stateful call tools", () => {
           },
         ],
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
 
     const result = await resolve_patient.execute(
       {
@@ -2815,12 +2750,14 @@ describe("stateful call tools", () => {
     );
     expect(state.identity.patient.patientId).toBe("patient-1");
     expect(state.identity.patient.appointments).toHaveLength(1);
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
-      firstName: "Jane",
-      lastName: "Doe",
-      dob: "01/01/1980",
+    expect(middleware.requests.resolvePatient[0]).toMatchObject({
+      identity: {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+      },
     });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty(
+    expect(middleware.requests.resolvePatient[0]?.identity).not.toHaveProperty(
       "phone",
     );
   });
@@ -2844,24 +2781,16 @@ describe("stateful call tools", () => {
       currentCarrier: "Aetna",
       accepted: true,
     };
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "verified",
+    const middleware = stubPatient(
+      verifiedPatientResult({
         patientId: "patient-2",
         name: "John Doe",
         dob: "02/02/1982",
-        phone: "+17275551212",
         insuranceCarrier: "Aetna",
         routing: "bach_only",
         allowedProviders: ["Dr. Bach"],
-        routingAmbiguous: false,
-        preauthRequired: false,
-        appointmentsStatus: "none",
-        appointments: [],
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
 
     const result = await resolve_patient.execute(
       {
@@ -2875,10 +2804,12 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Verified existing patient John Doe. Insurance on file: Aetna. No upcoming appointments are loaded.",
     );
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
-      firstName: "John",
-      lastName: "Doe",
-      dob: "02/02/1982",
+    expect(middleware.requests.resolvePatient[0]).toMatchObject({
+      identity: {
+        firstName: "John",
+        lastName: "Doe",
+        dob: "02/02/1982",
+      },
       office: "+13523202007",
     });
     expect(state.identity.patient.patientId).toBe("patient-2");
@@ -2895,26 +2826,16 @@ describe("stateful call tools", () => {
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
     state.identity.patient.identityConfirmed = false;
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "verified",
-        patientId: "patient-1",
+    stubPatient(
+      verifiedPatientResult({
         name: "TEST,CHASE",
         dob: "04/07/2000",
         phone: "(954) 609-7250",
         insuranceCarrier: null,
-        insPlanId: null,
         respPartyId: "resp-1",
         routing: null,
-        allowedProviders: [],
-        routingAmbiguous: false,
-        preauthRequired: false,
-        appointmentsStatus: "none",
-        appointments: [],
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
 
     const result = await resolve_patient.execute(
       {
@@ -2980,8 +2901,6 @@ describe("stateful call tools", () => {
         appointmentsStatus: "found",
       },
     });
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute(
       {
@@ -2992,7 +2911,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
       "Verified existing patient Jane Doe. Insurance on file: Aetna. Loaded 1 appointment: June 1 at 9:00 AM with Dr. Bach.",
     );
@@ -3006,7 +2925,7 @@ describe("stateful call tools", () => {
   it("asks for first-name spelling after lookup fails for a pre-call single match with matching last name and DOB", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
-    const fetchMock = stubFetchJson({
+    const middleware = stubPatient({
       status: "not_found",
       message: "No patient found matching that first name.",
     });
@@ -3023,10 +2942,12 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "I found a record with that last name and date of birth, but the first name does not match what I heard. Could you spell the patient's first name?",
     );
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
-      firstName: "Lisa",
-      lastName: "Arshed",
-      dob: "10/03/2020",
+    expect(middleware.requests.resolvePatient[0]).toMatchObject({
+      identity: {
+        firstName: "Lisa",
+        lastName: "Arshed",
+        dob: "10/03/2020",
+      },
     });
     expect(state.identity.preCall.status).toBe(
       "single_match_pending_confirmation",
@@ -3034,12 +2955,12 @@ describe("stateful call tools", () => {
     expect(state.identity.patient.identityConfirmed).toBe(false);
   });
 
-  it("preserves backend lookup errors instead of using the pre-call spelling fallback", async () => {
+  it("preserves lookup failures instead of using the pre-call spelling fallback", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
-    stubFetchJson({
+    stubPatient({
       status: "error",
-      message: "Patient lookup failed. Try again.",
+      reason: "middleware_error",
     });
 
     const result = await resolve_patient.execute(
@@ -3056,24 +2977,31 @@ describe("stateful call tools", () => {
       "single_match_pending_confirmation",
     );
     expect(state.identity.patient.identityConfirmed).toBe(false);
+    expect(ownedMiddlewareFailures(state)).toMatchObject([
+      { operation: "resolvePatient", reason: "middleware_error" },
+    ]);
   });
 
   it("verifies a backend patient before spelling fallback when a pre-call single match shares last name and DOB", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
-    const fetchMock = stubFetchJson({
+    const middleware = stubPatient({
       status: "verified",
       patientId: "patient-ella",
       name: "ELLA ARSHED",
       dob: "10/03/2020",
       phone: "+17275551212",
       insuranceCarrier: "Aetna",
+      insPlanId: null,
+      respPartyId: null,
       routing: "all_three",
       allowedProviders: [],
       routingAmbiguous: false,
       preauthRequired: false,
       appointmentsStatus: "none",
+      appointmentsMessage: null,
       appointments: [],
+      message: null,
     });
 
     const result = await resolve_patient.execute(
@@ -3088,10 +3016,12 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Verified existing patient ELLA ARSHED. Insurance on file: Aetna. No upcoming appointments are loaded.",
     );
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
-      firstName: "Ella",
-      lastName: "Arshed",
-      dob: "10/03/2020",
+    expect(middleware.requests.resolvePatient[0]).toMatchObject({
+      identity: {
+        firstName: "Ella",
+        lastName: "Arshed",
+        dob: "10/03/2020",
+      },
     });
     expect(state.identity.patient.identityConfirmed).toBe(true);
     expect(state.identity.patient.patientId).toBe("patient-ella");
@@ -3128,8 +3058,6 @@ describe("stateful call tools", () => {
         allowedProviders: ["Dr. Licht"],
       }),
     ]);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute(
       {
@@ -3140,7 +3068,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
       "Verified existing patient CHASE TEST. No insurance is currently on file. No upcoming appointments are loaded.",
     );
@@ -3194,8 +3122,6 @@ describe("stateful call tools", () => {
         identityPromotion: "confirmed_by_transcript",
       },
     );
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute(
       {
@@ -3206,7 +3132,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
       "Switched active patient to MONIQUE HAMILTON. Check availability again before booking.",
     );
@@ -3262,15 +3188,13 @@ describe("stateful call tools", () => {
       currentCarrier: "Aetna",
       accepted: true,
     };
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute({ firstName: "Brandon" }, {
       ctx: createToolContext(state) as never,
       toolCallId: "tool-1",
     } as never);
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
       "BRANDON ANDERSON is already the active patient. Continue with loaded patient state.",
     );
@@ -3325,15 +3249,13 @@ describe("stateful call tools", () => {
         allowedProviders: undefined,
       }),
     ]);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute({ firstName: "Al" }, {
       ctx: createToolContext(state) as never,
       toolCallId: "tool-1",
     } as never);
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
       "Verified existing patient AL DOE. Insurance on file: Aetna. Loaded 1 appointment: June 1 at 9:00 AM with Dr. Bach.",
     );
@@ -3368,8 +3290,6 @@ describe("stateful call tools", () => {
         allowedProviders: undefined,
       }),
     ]);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute(
       {
@@ -3383,7 +3303,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "More than one preloaded patient matched that first name. Ask for the patient's date of birth, then call resolve_patient with first name, last name, and DOB.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.patient.identityConfirmed).toBe(false);
   });
 
@@ -3399,8 +3319,6 @@ describe("stateful call tools", () => {
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
     state.identity.patient.identityConfirmed = false;
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute(
       {
@@ -3414,7 +3332,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Collect the patient's last name and date of birth, then call resolve_patient again.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("marks the new-chart path before chart creation while preserving accepted insurance eligibility", async () => {
@@ -3457,8 +3375,6 @@ describe("stateful call tools", () => {
 
   it("does not demote an already confirmed patient to the new-chart path", async () => {
     const state = createState();
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute(
       { registrationStatus: "not_registered" },
@@ -3468,7 +3384,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Jane Doe is already loaded as an existing patient. Continue with the loaded patient state instead of creating a new chart.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.patient).toMatchObject({
       status: "matched",
       identityConfirmed: true,
@@ -3488,8 +3404,6 @@ describe("stateful call tools", () => {
     const state = createState();
     state.identity.patient.name = "TEST,CHASE";
     state.identity.patient.dob = "01/01/1980";
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute(
       {
@@ -3504,7 +3418,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "TEST,CHASE is already loaded as an existing patient. Continue with the loaded patient state instead of creating a new chart.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.patient).toMatchObject({
       status: "matched",
       identityConfirmed: true,
@@ -3516,8 +3430,6 @@ describe("stateful call tools", () => {
 
   it("allows the new-chart path for a different patient after another patient is active", async () => {
     const state = createState();
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute(
       {
@@ -3530,7 +3442,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.patient).toMatchObject({
       status: "new",
       identityConfirmed: false,
@@ -3544,8 +3456,6 @@ describe("stateful call tools", () => {
   it("allows the new-chart path when the new first name is a substring of the active patient name", async () => {
     const state = createState();
     state.identity.patient.name = "Sally Doe";
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute(
       {
@@ -3558,7 +3468,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.patient).toMatchObject({
       status: "new",
       identityConfirmed: false,
@@ -3591,8 +3501,6 @@ describe("stateful call tools", () => {
       ],
       identityPromotion: "none",
     };
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await resolve_patient.execute(
       { firstName: "Jane", registrationStatus: "not_registered" },
@@ -3602,7 +3510,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.preCall.status).toBe(
       "single_match_pending_confirmation",
     );
@@ -3638,8 +3546,6 @@ describe("stateful call tools", () => {
       ],
       identityPromotion: "confirmed_by_identity_tool",
     };
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await add_patient.execute(
       {
@@ -3665,7 +3571,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "A patient record may already exist for that last name and date of birth from the caller phone lookup. Confirm the existing patient record before creating a new chart.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("stores accepted insurance from check_insurance", async () => {
@@ -3736,18 +3642,11 @@ describe("stateful call tools", () => {
     markNewPatientPathConfirmed(state);
     state.insurance.onFile = null;
     markSchedulingTriaged(state);
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "created",
-        patientId: "patient-new",
-        name: "Jane Doe",
-        phone: "+17275551212",
+    const middleware = stubCreatePatient(
+      createdPatientResult({
         insuranceCarrier: "Florida Blue",
-        routing: "all_three",
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
 
     await check_insurance.execute(
       {
@@ -3779,11 +3678,11 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-2" } as never,
     );
 
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+    expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
       insurance: "Florida Blue",
       subscriberNum: "ABC123",
     });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty(
+    expect(middleware.requests.createPatient[0]?.patient).not.toHaveProperty(
       "ssn",
     );
     expect(state.insurance.onFile).toEqual({
@@ -3807,18 +3706,12 @@ describe("stateful call tools", () => {
     markNewPatientPathConfirmed(state);
     state.insurance.onFile = null;
     markSchedulingTriaged(state, "routine_od");
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "created",
-        patientId: "patient-new",
-        name: "Jane Doe",
-        phone: "+17275551212",
+    const middleware = stubCreatePatient(
+      createdPatientResult({
         insuranceCarrier: "VSP",
         routing: "optical_only",
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
 
     await check_insurance.execute(
       {
@@ -3850,7 +3743,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-2" } as never,
     );
 
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+    expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
       insurance: "VSP",
       subscriberNum: "VSP123",
       coverageType: "routine_vision",
@@ -3877,18 +3770,12 @@ describe("stateful call tools", () => {
     state.identity.patient.identityConfirmed = false;
     state.insurance.onFile = null;
     markSchedulingTriaged(state);
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "created",
-        patientId: "patient-new",
+    const middleware = stubCreatePatient(
+      createdPatientResult({
         name: "Maria Santos",
-        phone: "+17275551212",
         insuranceCarrier: "United Healthcare",
-        routing: "all_three",
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
     const params = {
       firstName: "Maria",
       lastName: "Santos",
@@ -3935,8 +3822,8 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Created a patient chart for Maria Santos. Continue with scheduling.",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+    expect(middleware.requests.createPatient).toHaveLength(1);
+    expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
       insurance: "United Healthcare",
       subscriberNum: "ABC123",
     });
@@ -3957,18 +3844,7 @@ describe("stateful call tools", () => {
     markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "created",
-        patientId: "patient-new",
-        name: "Jane Doe",
-        phone: "+17275551212",
-        insuranceCarrier: "self pay",
-        routing: "all_three",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    const middleware = stubCreatePatient(createdPatientResult());
     const params = {
       firstName: "Jane",
       lastName: "Doe",
@@ -3999,7 +3875,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Patient chart is already created for Jane Doe. Continue with scheduling.",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(middleware.requests.createPatient).toHaveLength(1);
   });
 
   it("keeps canonical insurance internal for caller-facing alias responses", async () => {
@@ -4084,8 +3960,6 @@ describe("stateful call tools", () => {
     const state = createState();
     state.office.activeKey = "north-miami-beach-optical";
     state.office.phoneOverrides["north-miami-beach-optical"] = "+13055095333";
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await get_availability.execute(
       {
@@ -4101,7 +3975,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "North Miami Beach Optical supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("blocks medical reschedule availability for North Miami Beach Optical before calling middleware", async () => {
@@ -4120,8 +3994,6 @@ describe("stateful call tools", () => {
         confirmed: true,
       }),
     );
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await get_availability.execute(
       {
@@ -4136,14 +4008,14 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "North Miami Beach Optical supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("routes routine vision scheduling for North Miami Beach Optical through optical-only middleware", async () => {
     const state = createState();
     state.office.activeKey = "north-miami-beach-optical";
     state.office.phoneOverrides["north-miami-beach-optical"] = "+13055095333";
-    const fetchMock = stubFetchJson(
+    const middleware = stubAvailability(
       availabilityFoundResponse({
         date: "2026-07-09",
         time: "9:00 AM",
@@ -4163,13 +4035,11 @@ describe("stateful call tools", () => {
       } as never,
     );
 
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject(
-      {
-        date: "2026-07-09",
-        office: "+13055095333",
-        routing: "optical_only",
-      },
-    );
+    expect(middleware.requests.getAvailability[0]).toMatchObject({
+      date: "2026-07-09",
+      office: "+13055095333",
+      routing: "optical_only",
+    });
   });
 
   it("keeps Crystal River insurance denial scoped to the active office", async () => {
@@ -4249,20 +4119,14 @@ describe("stateful call tools", () => {
       respPartyId: "resp-1",
     };
     const ctx = createToolContext(state);
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "updated",
-        patientId: "patient-1",
-        oldInsurance: "Old Plan",
+    const middleware = stubInsuranceUpdate(
+      updatedInsuranceResult({
         newInsurance: "United Healthcare",
         routing: "bach_only",
         allowedProviders: ["Dr. Bach"],
-        routingAmbiguous: false,
         preauthRequired: true,
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
 
     const result = await update_insurance.execute(
       {
@@ -4273,7 +4137,7 @@ describe("stateful call tools", () => {
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(result).toBe("Updated insurance to United Healthcare.");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+    expect(middleware.requests.updateInsurance[0]?.update).toMatchObject({
       patientId: "patient-1",
       dob: "01/01/1980",
       insPlanId: "ins-old",
@@ -4283,7 +4147,7 @@ describe("stateful call tools", () => {
       coverageType: "medical",
       subscriberNum: "ABC123",
     });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty(
+    expect(middleware.requests.updateInsurance[0]?.update).not.toHaveProperty(
       "subscriberName",
     );
     expect(state.insurance.onFile).toEqual({
@@ -4318,20 +4182,12 @@ describe("stateful call tools", () => {
       insPlanId: null,
       respPartyId: "resp-1",
     };
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "updated",
-        patientId: "patient-1",
-        oldInsurance: "",
+    const middleware = stubInsuranceUpdate(
+      updatedInsuranceResult({
         newInsurance: "Envolve",
         routing: "optical_only",
-        allowedProviders: [],
-        routingAmbiguous: false,
-        preauthRequired: false,
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
 
     const result = await update_insurance.execute(
       {
@@ -4341,7 +4197,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe("Updated insurance to Envolve.");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+    expect(middleware.requests.updateInsurance[0]?.update).toMatchObject({
       patientId: "patient-1",
       dob: "01/01/1980",
       insPlanId: "",
@@ -4378,15 +4234,10 @@ describe("stateful call tools", () => {
       currentCarrier: "Sunshine",
       accepted: true,
     };
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "error",
-        message:
-          'Insurance not recognized: "Envolve". Please use an insurance name from the accepted list.',
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubInsuranceUpdate({
+      status: "error",
+      reason: "middleware_error",
+    });
 
     await expect(
       update_insurance.execute(
@@ -4398,10 +4249,11 @@ describe("stateful call tools", () => {
           toolCallId: "tool-1",
         } as never,
       ),
-    ).rejects.toThrow(
-      'Insurance not recognized: "Envolve". Please use an insurance name from the accepted list.',
-    );
+    ).rejects.toThrow("Insurance was not updated.");
     expect(state.insurance.onFile).toBeNull();
+    expect(ownedMiddlewareFailures(state)).toMatchObject([
+      { operation: "updateInsurance", reason: "middleware_error" },
+    ]);
   });
 
   it("uses explicit self pay as the member ID sentinel", async () => {
@@ -4413,18 +4265,11 @@ describe("stateful call tools", () => {
       currentCarrier: "Self Pay",
       accepted: true,
     };
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "updated",
+    const middleware = stubInsuranceUpdate(
+      updatedInsuranceResult({
         newInsurance: "Self Pay",
-        routing: "all_three",
-        allowedProviders: [],
-        routingAmbiguous: false,
-        preauthRequired: false,
       }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    );
 
     const result = await update_insurance.execute(
       { insuranceMemberId: "self pay" },
@@ -4435,7 +4280,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe("Updated insurance to Self Pay.");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+    expect(middleware.requests.updateInsurance[0]?.update).toMatchObject({
       insurance: "Self Pay",
       subscriberNum: "self pay",
     });
@@ -4453,9 +4298,8 @@ describe("stateful call tools", () => {
       }),
     );
     const ctx = createToolContext(state);
-    const fetchMock = stubFetchJson({
+    const middleware = stubCancellation({
       status: "cancelled",
-      appointmentId: 123,
       message: "Appointment cancelled successfully",
     });
 
@@ -4485,7 +4329,7 @@ describe("stateful call tools", () => {
         },
       },
     ]);
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+    expect(middleware.requests.cancelAppointment[0]).toEqual({
       appointmentId: 123,
       patientId: "patient-1",
       office: "+17275919997",
@@ -4512,9 +4356,8 @@ describe("stateful call tools", () => {
         facility: "Crystal River",
       }),
     );
-    const fetchMock = stubFetchJson({
+    const middleware = stubCancellation({
       status: "cancelled",
-      appointmentId: 222,
       message: "Appointment cancelled successfully",
     });
 
@@ -4531,7 +4374,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Cancelled the appointment on Tuesday, June 2, 2026 at 10:00 AM.",
     );
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+    expect(middleware.requests.cancelAppointment[0]).toEqual({
       appointmentId: 222,
       patientId: "patient-1",
       office: "+17275919997",
@@ -4558,9 +4401,8 @@ describe("stateful call tools", () => {
         provider: "Dr. Calero",
       }),
     );
-    const fetchMock = stubFetchJson({
+    const middleware = stubCancellation({
       status: "cancelled",
-      appointmentId: 222,
       message: "Appointment cancelled successfully",
     });
 
@@ -4578,7 +4420,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Cancelled the appointment on Thursday, June 25, 2026 at 3:15 PM.",
     );
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+    expect(middleware.requests.cancelAppointment[0]).toEqual({
       appointmentId: 222,
       patientId: "patient-1",
       office: "+17275919997",
@@ -4591,9 +4433,8 @@ describe("stateful call tools", () => {
   it("treats duplicate cancel_appointment for a cancelled appointment as already done", async () => {
     const state = createState();
     setLoadedAppointments(state, appointment({ provider: "Dr. Bach" }));
-    const fetchMock = stubFetchJson({
+    const middleware = stubCancellation({
       status: "cancelled",
-      appointmentId: 123,
       message: "Appointment cancelled successfully",
     });
 
@@ -4621,15 +4462,14 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "That appointment was already cancelled on this call: Monday, June 1, 2026 at 9:00 AM. Continue without calling cancel_appointment again.",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(middleware.requests.cancelAppointment).toHaveLength(1);
   });
 
   it("does not replay a cancellation after switching active patients", async () => {
     const state = createState();
     setLoadedAppointments(state, appointment({ provider: "Dr. Bach" }));
-    const fetchMock = stubFetchJson({
+    const middleware = stubCancellation({
       status: "cancelled",
-      appointmentId: 123,
       message: "Appointment cancelled successfully",
     });
 
@@ -4665,7 +4505,7 @@ describe("stateful call tools", () => {
     ).rejects.toThrow(
       "No loaded appointment matches those details. Load appointments again or ask which loaded appointment to cancel.",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(middleware.requests.cancelAppointment).toHaveLength(1);
   });
 
   it("asks for clarification when a caller date matches multiple appointments", async () => {
@@ -4687,8 +4527,6 @@ describe("stateful call tools", () => {
         facility: "Crystal River",
       }),
     );
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await cancel_appointment.execute(
       {
@@ -4703,7 +4541,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "I found more than one matching appointment. Loaded appointments: Tuesday, June 2, 2026 at 9:00 AM with Dr. Bach; Tuesday, June 2, 2026 at 2:00 PM with Dr. Licht.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("cancels the latest booked appointment without replaying stale pre-call appointments", async () => {
@@ -4734,30 +4572,17 @@ describe("stateful call tools", () => {
       identityPromotion: "confirmed_by_identity_tool",
     };
     storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn(async (url: string | URL) => {
-      const path = String(url);
-      if (path.includes("/api/appointment/book")) {
-        return {
-          ok: true,
-          json: async () => ({
-            status: "booked",
-            appointmentId: 456,
-            providerName: "Doctor Smith",
-            locationName: "Spring Hill",
-            appointmentTypeName: "Routine Vision",
-          }),
-        };
-      }
-      return {
-        ok: true,
-        json: async () => ({
+    const middleware = useMiddleware({
+      bookAppointment: [
+        bookedResult(456, { appointmentTypeName: "Routine Vision" }),
+      ],
+      cancelAppointment: [
+        {
           status: "cancelled",
-          appointmentId: 456,
           message: "Appointment cancelled successfully",
-        }),
-      };
+        },
+      ],
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     await book_appointment.execute(
       {
@@ -4791,7 +4616,7 @@ describe("stateful call tools", () => {
     } as never);
 
     expect(result).toBe("Cancelled the appointment on 2026-06-01 at 9:00 AM.");
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+    expect(middleware.requests.cancelAppointment[0]).toEqual({
       appointmentId: 456,
       patientId: "patient-1",
       office: "+17275919997",
@@ -4826,7 +4651,7 @@ describe("stateful call tools", () => {
         facility: "Crystal River",
       },
     });
-    const fetchMock = stubRescheduleFetch({
+    const middleware = stubRescheduleMiddleware({
       status: "booked",
       appointmentId: 456,
       providerName: "Doctor Smith",
@@ -4881,8 +4706,8 @@ describe("stateful call tools", () => {
         },
       },
     ]);
-    expect(fetchCallKinds(fetchMock)).toEqual(["book", "cancel"]);
-    const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(middlewareCallKinds(middleware)).toEqual(["book", "cancel"]);
+    const bookingBody = middleware.requests.bookAppointment[0]?.booking ?? {};
     expect(bookingBody).toMatchObject({
       bookingToken: "private-token",
       patientId: "patient-1",
@@ -4895,7 +4720,7 @@ describe("stateful call tools", () => {
       intent: "change_appointment",
       appointmentLane: "not_applicable",
     });
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+    expect(middleware.requests.cancelAppointment[0]).toEqual({
       appointmentId: 123,
       patientId: "patient-1",
       office: "+13523202007",
@@ -4917,7 +4742,7 @@ describe("stateful call tools", () => {
   it("keeps completed reschedule analytics successful when only booking note save is partial", async () => {
     const state = createState();
     prepareRescheduleState(state, { context: "change_appointment" });
-    stubRescheduleFetch({
+    stubRescheduleMiddleware({
       status: "partial",
       appointmentId: 456,
       providerName: "Doctor Smith",
@@ -4968,7 +4793,7 @@ describe("stateful call tools", () => {
         facility: "Spring Hill",
       },
     });
-    const fetchMock = stubRescheduleFetch({
+    const middleware = stubRescheduleMiddleware({
       status: "booked",
       appointmentId: 456,
       providerName: "Doctor Smith",
@@ -4989,7 +4814,7 @@ describe("stateful call tools", () => {
       } as never,
     );
 
-    const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const bookingBody = middleware.requests.bookAppointment[0]?.booking ?? {};
     expect(bookingBody).toMatchObject({
       bookingToken: "private-token",
       patientId: "patient-1",
@@ -4999,7 +4824,7 @@ describe("stateful call tools", () => {
       routing: "all_three",
     });
     expect(bookingBody).not.toHaveProperty("appointmentTypeId");
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+    expect(middleware.requests.cancelAppointment[0]).toEqual({
       appointmentId: 123,
       patientId: "patient-1",
       office: "+17275919997",
@@ -5010,8 +4835,6 @@ describe("stateful call tools", () => {
     const state = createState();
     prepareRescheduleState(state, { context: "change_appointment" });
     const ctx = createToolContext(state);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await reschedule_appointment.execute(
       {
@@ -5028,7 +4851,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it as the new appointment. Call reschedule_appointment again only after the caller confirms the new appointment details are correct.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
   });
 
@@ -5038,8 +4861,6 @@ describe("stateful call tools", () => {
       context: "change_appointment",
       token: "",
     });
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await reschedule_appointment.execute(
       {
@@ -5056,7 +4877,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Read back June 1 at 9:00 AM with Doctor Smith and ask the caller to confirm it as the new appointment. Call reschedule_appointment again only after the caller confirms the new appointment details are correct.",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("reschedules the loaded appointment selected by old appointment ref", async () => {
@@ -5077,7 +4898,7 @@ describe("stateful call tools", () => {
         provider: "Dr. Licht",
       }),
     );
-    const fetchMock = stubRescheduleFetch({
+    const middleware = stubRescheduleMiddleware({
       status: "booked",
       appointmentId: 456,
       providerName: "Doctor Smith",
@@ -5114,7 +4935,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Thursday, June 25, 2026 at 2:00 PM.",
     );
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+    expect(middleware.requests.cancelAppointment[0]).toEqual({
       appointmentId: 222,
       patientId: "patient-1",
       office: "+17275919997",
@@ -5124,7 +4945,7 @@ describe("stateful call tools", () => {
   it("reschedules the single loaded appointment when the supplied appointment ID is wrong", async () => {
     const state = createState();
     prepareRescheduleState(state, { context: "change_appointment" });
-    const fetchMock = stubRescheduleFetch({
+    const middleware = stubRescheduleMiddleware({
       status: "booked",
       appointmentId: 456,
       providerName: "Doctor Smith",
@@ -5148,7 +4969,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Rescheduled the appointment to June 1 at 9:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
     );
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+    expect(middleware.requests.cancelAppointment[0]).toEqual({
       appointmentId: 123,
       patientId: "patient-1",
       office: "+17275919997",
@@ -5158,7 +4979,7 @@ describe("stateful call tools", () => {
   it("does not reschedule again when the selected slot matches the completed reschedule", async () => {
     const state = createState();
     prepareRescheduleState(state, { context: "change_appointment" });
-    const fetchMock = stubRescheduleFetch({
+    const middleware = stubRescheduleMiddleware({
       status: "booked",
       appointmentId: 456,
       providerName: "Doctor Smith",
@@ -5201,7 +5022,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "The appointment is already rescheduled to June 1 at 9:00 AM with Doctor Smith. Tell the caller the confirmed appointment details instead of rescheduling again.",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(middleware.operations).toHaveLength(2);
     expect(state.availability.slots).toEqual([duplicateSlot]);
     expect(state.availability.bookingTokensBySlotId).toEqual({
       B: "private-token-b",
@@ -5225,31 +5046,36 @@ describe("stateful call tools", () => {
         provider: "Dr. Bach",
       }),
     );
-    let bookingCallCount = 0;
-    const fetchMock = vi.fn(async (url: string | URL) => {
-      const path = String(url);
-      if (path.includes("/api/appointment/book")) {
-        bookingCallCount += 1;
-        return {
-          ok: true,
-          json: async () => ({
-            status: "booked",
-            appointmentId: bookingCallCount === 1 ? 456 : 789,
-            providerName: "Doctor Smith",
-            locationName: "Spring Hill",
-            appointmentTypeName: "Medical",
-          }),
-        };
-      }
-      return {
-        ok: true,
-        json: async () => ({
+    const middleware = useMiddleware({
+      bookAppointment: [
+        {
+          status: "booked",
+          appointmentId: 456,
+          providerName: "Doctor Smith",
+          locationName: "Spring Hill",
+          appointmentTypeName: "Medical",
+          message: null,
+        },
+        {
+          status: "booked",
+          appointmentId: 789,
+          providerName: "Doctor Smith",
+          locationName: "Spring Hill",
+          appointmentTypeName: "Medical",
+          message: null,
+        },
+      ],
+      cancelAppointment: [
+        {
           status: "cancelled",
           message: "Appointment cancelled successfully",
-        }),
-      };
+        },
+        {
+          status: "cancelled",
+          message: "Appointment cancelled successfully",
+        },
+      ],
     });
-    vi.stubGlobal("fetch", fetchMock);
     const prompt = await reschedule_appointment.execute(
       {
         appointmentSlotRef: "A",
@@ -5304,13 +5130,13 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Rescheduled the appointment to June 1 at 2:00 PM with Doctor Smith. Cancelled the old appointment on 2026-06-01 at 9:00 AM.",
     );
-    expect(fetchCallKinds(fetchMock)).toEqual([
+    expect(middlewareCallKinds(middleware)).toEqual([
       "book",
       "cancel",
       "book",
       "cancel",
     ]);
-    expect(JSON.parse(fetchMock.mock.calls[3][1].body as string)).toEqual({
+    expect(middleware.requests.cancelAppointment[1]).toEqual({
       appointmentId: 456,
       patientId: "patient-1",
       office: "+17275919997",
@@ -5369,7 +5195,7 @@ describe("stateful call tools", () => {
       }),
     ];
     storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = stubRescheduleFetch({
+    const middleware = stubRescheduleMiddleware({
       status: "booked",
       appointmentId: 456,
       providerName: "Doctor Smith",
@@ -5393,7 +5219,7 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Rescheduled the appointment to June 3 at 10:00 AM with Doctor Smith. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
     );
-    const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const bookingBody = middleware.requests.bookAppointment[0]?.booking ?? {};
     expect(bookingBody).toMatchObject({
       bookingToken: "private-token",
       patientId: "patient-1",
@@ -5402,7 +5228,7 @@ describe("stateful call tools", () => {
     });
     expect(bookingBody).not.toHaveProperty("appointmentTypeId");
     expect(bookingBody).not.toHaveProperty("office");
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+    expect(middleware.requests.cancelAppointment[0]).toEqual({
       appointmentId: 123,
       patientId: "patient-1",
       office: "+13523202007",
@@ -5440,7 +5266,7 @@ describe("stateful call tools", () => {
       }),
     ];
     storeAvailabilityBookingToken(state, "A", "sweetwater-optical-token");
-    const fetchMock = stubRescheduleFetch({
+    const middleware = stubRescheduleMiddleware({
       status: "booked",
       appointmentId: 20396300,
       providerName: "Dr. Maria Casas",
@@ -5461,7 +5287,7 @@ describe("stateful call tools", () => {
       } as never,
     );
 
-    const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const bookingBody = middleware.requests.bookAppointment[0]?.booking ?? {};
     expect(bookingBody).toMatchObject({
       bookingToken: "sweetwater-optical-token",
       patientId: "patient-1",
@@ -5471,7 +5297,7 @@ describe("stateful call tools", () => {
       visitKind: "routine_vision",
     });
     expect(bookingBody).not.toHaveProperty("appointmentTypeId");
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+    expect(middleware.requests.cancelAppointment[0]).toEqual({
       appointmentId: 20396260,
       patientId: "patient-1",
       office: "+17864657475",
@@ -5481,10 +5307,13 @@ describe("stateful call tools", () => {
   it("does not cancel the old appointment when reschedule booking fails", async () => {
     const state = createState();
     prepareRescheduleState(state);
-    const fetchMock = stubFetchJson({
-      status: "error",
-      outcome: "slot_unavailable",
-      message: "This time slot is no longer available.",
+    const middleware = useMiddleware({
+      bookAppointment: [
+        {
+          status: "unavailable",
+          reason: "slot_unavailable",
+        },
+      ],
     });
 
     const result = await reschedule_appointment.execute(
@@ -5503,7 +5332,8 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "That time is no longer available. Check availability again before booking. I did not cancel the existing appointment.",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(middleware.requests.bookAppointment).toHaveLength(1);
+    expect(middleware.requests.cancelAppointment).toHaveLength(0);
     expect(
       state.identity.patient.appointments.map((appointment) => appointment.id),
     ).toEqual([123]);
@@ -5541,8 +5371,6 @@ describe("stateful call tools", () => {
     );
     state.identity.latestBookedAppointmentId = 222;
     storeAvailabilityBookingToken(state, "A", "private-token");
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await reschedule_appointment.execute(
       {
@@ -5559,13 +5387,13 @@ describe("stateful call tools", () => {
     expect(result).toMatch(
       /^Which loaded appointment should I reschedule\? Ask the caller to choose one, then call reschedule_appointment again only with the matching oldAppointmentRef from: old-appointment-1-[a-z0-9]+: Tuesday, June 2, 2026 at 9:00 AM with Dr\. Bach; old-appointment-2-[a-z0-9]+: Tuesday, June 2, 2026 at 2:00 PM with Dr\. Licht; old-appointment-3-[a-z0-9]+: Wednesday, June 3, 2026 at 10:00 AM with Dr\. Calero; old-appointment-4-[a-z0-9]+: Thursday, June 4, 2026 at 11:00 AM with Dr\. Bach\. Do not call reschedule_appointment again without oldAppointmentRef\.$/,
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("keeps both appointments when reschedule cancellation fails after booking", async () => {
     const state = createState();
     prepareRescheduleState(state);
-    const fetchMock = stubRescheduleFetch(
+    const middleware = stubRescheduleMiddleware(
       {
         status: "booked",
         appointmentId: 456,
@@ -5575,7 +5403,7 @@ describe("stateful call tools", () => {
       },
       {
         status: "error",
-        message: "Unable to verify appointment before cancellation.",
+        reason: "middleware_error",
       },
     );
 
@@ -5593,7 +5421,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Booked the new appointment for June 1 at 9:00 AM with Doctor Smith, but I could not cancel the old appointment. Unable to verify appointment before cancellation. I need to transfer you so the office can finish the cancellation.",
+      "Booked the new appointment for June 1 at 9:00 AM with Doctor Smith, but I could not cancel the old appointment. The old appointment was not cancelled. I need to transfer you so the office can finish the cancellation.",
     );
     expect(appointmentActions(state)).toMatchObject([
       {
@@ -5639,7 +5467,7 @@ describe("stateful call tools", () => {
     expect(replayResult).toBe(
       "The new appointment was already booked, but the old appointment still needs office staff to finish cancellation. Transfer the caller instead of rescheduling again.",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(middleware.operations).toHaveLength(2);
     expect(state.availability.slots).toEqual([heldSlot]);
     expect(state.availability.bookingTokensBySlotId).toEqual({
       B: "private-token-b",
@@ -5652,26 +5480,10 @@ describe("stateful call tools", () => {
   it("keeps both appointments when reschedule cancellation request throws after booking", async () => {
     const state = createState();
     prepareRescheduleState(state);
-    const fetchMock = vi.fn(async (url: string | URL) => {
-      const path = String(url);
-      if (path.includes("/api/appointment/book")) {
-        return {
-          ok: true,
-          json: async () => ({
-            status: "booked",
-            appointmentId: 456,
-            providerName: "Doctor Smith",
-            locationName: "Spring Hill",
-            appointmentTypeName: "Medical",
-          }),
-        };
-      }
-      return {
-        ok: false,
-        text: async () => "cancel failed",
-      };
+    const middleware = stubRescheduleMiddleware(bookedResult(456), {
+      status: "error",
+      reason: "network_error",
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     const result = await reschedule_appointment.execute(
       {
@@ -5689,10 +5501,13 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Booked the new appointment for June 1 at 9:00 AM with Doctor Smith, but I could not cancel the old appointment. The old appointment was not cancelled. I need to transfer you so the office can finish the cancellation.",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(middleware.operations).toHaveLength(2);
     expect(
       state.identity.patient.appointments.map((appointment) => appointment.id),
     ).toEqual([123, 456]);
+    expect(ownedMiddlewareFailures(state)).toMatchObject([
+      { operation: "cancelAppointment", reason: "network_error" },
+    ]);
   });
 
   it("requires a loaded appointment before rescheduling", async () => {
@@ -5735,8 +5550,6 @@ describe("stateful call tools", () => {
       },
     ];
     storeAvailabilityBookingToken(state, "B", "routine-token");
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
     const ctx = createToolContext(state);
 
     const result = await book_appointment.execute(
@@ -5757,6 +5570,6 @@ describe("stateful call tools", () => {
     );
     expect(state.office.activeKey).toBe("crystal-river");
     expect(state.office.phoneOverrides).not.toHaveProperty("spring-hill");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 });

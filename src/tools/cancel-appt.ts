@@ -1,9 +1,12 @@
 import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
-import { callApi } from "../clients/advancedmd-client.js";
+import { ownedMiddleware } from "../clients/owned-middleware.js";
 import { removeActiveAppointment } from "../state/appointments.js";
 import { activePatientId } from "../state/identity.js";
-import { recordAppointmentAction } from "../state/observability.js";
+import {
+  recordAppointmentAction,
+  recordOwnedMiddlewareFailure,
+} from "../state/observability.js";
 import { cancelledAppointmentAnalytics } from "./appointment-analytics.js";
 import {
   cancellationAppointmentForState,
@@ -69,14 +72,15 @@ export const cancel_appointment = tool({
     }
     const appointment = selection.appointment;
 
-    const result = (await callApi(
-      "/api/appointment/cancel",
-      { appointmentId: appointment.id, patientId },
-      getAmdOfficeForToolCall(state),
-    )) as CancelAppointmentResult;
+    const result = await ownedMiddleware().cancelAppointment({
+      office: getAmdOfficeForToolCall(state),
+      appointmentId: appointment.id,
+      patientId,
+    });
 
-    if (result?.status !== "cancelled") {
-      const message = result?.message ?? "The appointment was not cancelled.";
+    if (result.status !== "cancelled") {
+      recordOwnedMiddlewareFailure(state, "cancelAppointment", result);
+      const message = "The appointment was not cancelled.";
       recordAppointmentAction(state, {
         action: "cancelled",
         status: "error",
@@ -99,8 +103,3 @@ export const cancel_appointment = tool({
     return message;
   },
 });
-
-type CancelAppointmentResult = {
-  status?: string;
-  message?: string;
-};

@@ -1,7 +1,5 @@
 import type {
   AppointmentLoadStatus,
-  CallerLookupFailed,
-  CallerMatch,
   CallerMatchHint,
   StoredCallerAppointment,
 } from "../state/call-state.js";
@@ -27,19 +25,16 @@ export interface PatientResolveVerified {
 
 interface PatientResolveMultipleMatches {
   status: "multiple_matches";
-  message: string;
   matches: Array<PatientResolveVerified | CallerMatchHint>;
 }
 
 interface PatientResolveNotFound {
   status: "not_found";
-  message: string;
 }
 
 interface PatientResolveError {
   status: "error";
-  message: string;
-  reason?: CallerLookupFailed["reason"];
+  reason: "middleware_error" | "invalid_response";
 }
 
 export type PatientResolveResult =
@@ -55,24 +50,57 @@ export function normalizePatientResolveResponse(
   if (!isRecord(raw)) {
     return {
       status: "error",
-      message: "Patient lookup returned an invalid response.",
       reason: "invalid_response",
     };
   }
 
   const status = stringValue(raw.status)?.toLowerCase() ?? "";
-  if (status === "verified" || isNonEmptyString(raw.patientId)) {
+  if (status === "error" || status === "failed" || status === "failure") {
+    return {
+      status: "error",
+      reason: "middleware_error",
+    };
+  }
+
+  if (status === "multiple_matches") {
+    const matches = normalizePatientMatches(raw.matches, options);
+    if (
+      !Array.isArray(raw.matches) ||
+      matches.length === 0 ||
+      matches.length !== raw.matches.length
+    ) {
+      return { status: "error", reason: "invalid_response" };
+    }
+    return {
+      status: "multiple_matches",
+      matches,
+    };
+  }
+
+  if (
+    status === "not_found" ||
+    status === "no_match" ||
+    status === "no_appointments"
+  ) {
+    return {
+      status: "not_found",
+    };
+  }
+
+  if (status === "verified" || (!status && isNonEmptyString(raw.patientId))) {
     if (!isNonEmptyString(raw.patientId)) {
       return {
         status: "error",
-        message:
-          "Patient lookup returned a verified response without a patient ID.",
         reason: "invalid_response",
       };
     }
-    const appointments = Array.isArray(raw.appointments)
-      ? (raw.appointments as StoredCallerAppointment[])
-      : [];
+    const appointments = normalizeStoredCallerAppointments(raw.appointments);
+    if (!appointments) {
+      return {
+        status: "error",
+        reason: "invalid_response",
+      };
+    }
     return {
       status: "verified",
       patientId: raw.patientId,
@@ -92,45 +120,58 @@ export function normalizePatientResolveResponse(
       preauthRequired: raw.preauthRequired === true,
       appointmentsStatus:
         normalizeAppointmentsStatus(raw.appointmentsStatus) ??
-        statusFromAppointments(raw.appointments),
+        statusFromAppointments(appointments),
       appointmentsMessage: stringValue(raw.appointmentsMessage),
       appointments,
       message: stringValue(raw.message),
     };
   }
 
-  if (status === "multiple_matches") {
-    return {
-      status: "multiple_matches",
-      message: stringValue(raw.message) ?? "Multiple patient matches found.",
-      matches: normalizePatientMatches(raw.matches, options),
-    };
-  }
-
-  if (
-    status === "not_found" ||
-    status === "no_match" ||
-    status === "no_appointments"
-  ) {
-    return {
-      status: "not_found",
-      message: stringValue(raw.message) ?? "No patient match found.",
-    };
-  }
-
-  if (status === "error" || status === "failed" || status === "failure") {
-    return {
-      status: "error",
-      message: stringValue(raw.message) ?? "Patient lookup failed.",
-      reason: "middleware_error",
-    };
-  }
-
   return {
     status: "error",
-    message: "Patient lookup returned an invalid response.",
     reason: "invalid_response",
   };
+}
+
+function normalizeStoredCallerAppointments(
+  value: unknown,
+): StoredCallerAppointment[] | null {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) return null;
+
+  const appointments: StoredCallerAppointment[] = [];
+  for (const appointment of value) {
+    if (
+      !isRecord(appointment) ||
+      typeof appointment.id !== "number" ||
+      !Number.isFinite(appointment.id) ||
+      !isNonEmptyString(appointment.date) ||
+      !isNonEmptyString(appointment.time) ||
+      !isNonEmptyString(appointment.provider) ||
+      !isNonEmptyString(appointment.type) ||
+      !isNonEmptyString(appointment.facility) ||
+      typeof appointment.confirmed !== "boolean" ||
+      (appointment.appointmentTypeId !== undefined &&
+        (typeof appointment.appointmentTypeId !== "number" ||
+          !Number.isFinite(appointment.appointmentTypeId)))
+    ) {
+      return null;
+    }
+
+    appointments.push({
+      id: appointment.id,
+      date: appointment.date,
+      time: appointment.time,
+      provider: appointment.provider,
+      type: appointment.type,
+      ...(appointment.appointmentTypeId === undefined
+        ? {}
+        : { appointmentTypeId: appointment.appointmentTypeId }),
+      facility: appointment.facility,
+      confirmed: appointment.confirmed,
+    });
+  }
+  return appointments;
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -159,35 +200,6 @@ export function normalizePatientMatches(
     }
     return [];
   });
-}
-
-export function patientResolveMatchToCallerMatch(
-  match: PatientResolveVerified | CallerMatchHint,
-  fallbackPhone: string,
-  lookupDurationMs: number,
-): CallerMatch | CallerMatchHint {
-  if ("status" in match && match.status === "verified") {
-    return {
-      status: "verified",
-      patientId: match.patientId,
-      name: match.name ?? "",
-      dob: match.dob ?? "",
-      phone: match.phone ?? fallbackPhone,
-      insuranceCarrier: match.insuranceCarrier,
-      insPlanId: match.insPlanId ?? null,
-      respPartyId: match.respPartyId ?? null,
-      routing: match.routing,
-      allowedProviders: match.allowedProviders ?? [],
-      routingAmbiguous: match.routingAmbiguous ?? false,
-      preauthRequired: match.preauthRequired ?? false,
-      appointmentsStatus: match.appointmentsStatus,
-      appointmentsMessage: match.appointmentsMessage ?? null,
-      appointments: match.appointments,
-      lookupDurationMs,
-    };
-  }
-  if ("firstName" in match) return { firstName: match.firstName };
-  return { firstName: "" };
 }
 
 export function normalizeAppointmentsStatus(

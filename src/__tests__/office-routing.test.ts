@@ -32,7 +32,6 @@ import {
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
-import { getBaseUrlForOfficePhone } from "../clients/advancedmd-client.js";
 import type { PhoneLookupResult } from "../state/call-state.js";
 import { lookupOfficeKnowledge } from "../tools/knowledge.js";
 
@@ -90,9 +89,6 @@ describe("office routing helpers", () => {
   it("normalizes LiveKit phone attributes without a plus prefix", () => {
     expect(normalizePhoneNumber("14843989071")).toBe(DEV_OFFICE_PHONE);
     expect(getOfficeKeyByPhone("14843989071")).toBe("dev");
-    expect(getBaseUrlForOfficePhone("14843989071")).toBe(
-      "https://advancedmd-token-management-dev.up.railway.app",
-    );
   });
 
   it("normalizes handoff targets while allowing SIP URIs directly", () => {

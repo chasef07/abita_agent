@@ -1,8 +1,8 @@
 import {
+  ownedMiddleware,
   type PatientResolveResult,
   type PatientResolveVerified,
-  resolvePatientByOffice,
-} from "../clients/advancedmd-client.js";
+} from "../clients/owned-middleware.js";
 import { activatePreloadedCandidate } from "../identity/preloaded-patient.js";
 import { publicCallerAppointments } from "../state/appointments.js";
 import {
@@ -19,7 +19,11 @@ import {
 import { getAmdOfficeForToolCall } from "./scheduling.js";
 
 type PatientResolveRequest = {
-  body: Record<string, unknown>;
+  body: {
+    firstName: string;
+    lastName: string;
+    dob: string;
+  };
 };
 
 type PatientStatePayload = {
@@ -65,7 +69,11 @@ export async function resolvePatientForCall(
   state: CallState,
   request: PatientResolveRequest,
 ): Promise<PatientResolveResult> {
-  return resolvePatientByOffice(getAmdOfficeForToolCall(state), request.body);
+  const { firstName, lastName, dob } = request.body;
+  return ownedMiddleware().resolvePatient({
+    office: getAmdOfficeForToolCall(state),
+    identity: { firstName, lastName, dob },
+  });
 }
 
 export function applyResolvedPatientToState(

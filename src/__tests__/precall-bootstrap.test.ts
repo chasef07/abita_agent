@@ -1,26 +1,59 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  InMemoryOwnedMiddleware,
+  setOwnedMiddleware,
+  type PatientResolveResult,
+} from "../clients/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
-import { lookupByPhone } from "../clients/advancedmd-client.js";
 import {
   buildPreCallContextState,
   loadPreCallBootstrap,
+  lookupByPhone,
 } from "../runtime/precall-bootstrap.js";
+
+function usePatientResult(result: PatientResolveResult) {
+  const middleware = new InMemoryOwnedMiddleware({
+    resolvePatient: [result],
+  });
+  setOwnedMiddleware(middleware);
+  return middleware;
+}
+
+function verifiedPatient(
+  overrides: Partial<
+    Extract<PatientResolveResult, { status: "verified" }>
+  > = {},
+): Extract<PatientResolveResult, { status: "verified" }> {
+  return {
+    status: "verified",
+    patientId: "patient-1",
+    name: "Doe, Jane",
+    dob: "01/01/1980",
+    phone: "+17275551212",
+    insuranceCarrier: "Aetna",
+    insPlanId: "plan-1",
+    respPartyId: "resp-1",
+    routing: "all_three",
+    allowedProviders: [],
+    routingAmbiguous: false,
+    preauthRequired: false,
+    appointmentsStatus: "none",
+    appointmentsMessage: null,
+    appointments: [],
+    message: null,
+    ...overrides,
+  };
+}
 
 describe("pre-call bootstrap", () => {
   afterEach(() => {
+    setOwnedMiddleware(undefined);
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
   it("returns an explicit no_match outcome instead of null", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({ status: "not_found", message: "No match" }),
-        text: async () => "",
-      })),
-    );
+    usePatientResult({ status: "not_found" });
 
     const result = await lookupByPhone(
       "+17275551212",
@@ -30,21 +63,15 @@ describe("pre-call bootstrap", () => {
     expect(result).toMatchObject({
       status: "no_match",
       phone: "+17275551212",
-      message: "No match",
+      message: "No patient match found.",
     });
   });
 
   it("keeps middleware failures separate from no-match callers", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: false,
-        status: 500,
-        json: async () => ({}),
-        text: async () => "middleware down",
-      })),
-    );
+    usePatientResult({
+      status: "error",
+      reason: "middleware_error",
+    });
 
     const result = await lookupByPhone(
       "+17275551212",
@@ -60,14 +87,10 @@ describe("pre-call bootstrap", () => {
   });
 
   it("treats 200 error payloads as lookup failures", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({ status: "error", message: "middleware failed" }),
-        text: async () => "",
-      })),
-    );
+    usePatientResult({
+      status: "error",
+      reason: "middleware_error",
+    });
 
     const result = await lookupByPhone(
       "+17275551212",
@@ -83,26 +106,7 @@ describe("pre-call bootstrap", () => {
   });
 
   it("builds bootstrap state with lookup telemetry", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        status: "verified",
-        patientId: "patient-1",
-        name: "Doe, Jane",
-        dob: "01/01/1980",
-        phone: "+17275551212",
-        insuranceCarrier: "Aetna",
-        insPlanId: "plan-1",
-        respPartyId: "resp-1",
-        routing: "all_three",
-        allowedProviders: [],
-        routingAmbiguous: false,
-        appointmentsStatus: "none",
-        appointments: [],
-      }),
-      text: async () => "",
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    const middleware = usePatientResult(verifiedPatient());
 
     const bootstrap = await loadPreCallBootstrap({
       callerPhone: "+17275551212",
@@ -119,40 +123,29 @@ describe("pre-call bootstrap", () => {
         status: "verified",
       },
     });
-    expect(String(fetchMock.mock.calls[0][0])).toContain(
-      "/api/patient/resolve",
-    );
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
-      phone: "+17275551212",
+    expect(middleware.requests.resolvePatient[0]).toMatchObject({
+      identity: { phone: "+17275551212" },
     });
     expect(bootstrap.telemetry.durationMs).toEqual(expect.any(Number));
   });
 
   it("accepts verified phone lookups when middleware omits echoed phone", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({
-          status: "verified",
-          patientId: "patient-1",
-          name: "Doe, Jane",
-          dob: "01/01/1980",
-          appointmentsStatus: "found",
-          appointments: [
-            {
-              id: 12345,
-              date: "2026-06-01",
-              time: "9:00 AM",
-              provider: "Dr. Bach",
-              type: "Follow-up",
-              facility: "Spring Hill",
-              confirmed: true,
-            },
-          ],
-        }),
-        text: async () => "",
-      })),
+    usePatientResult(
+      verifiedPatient({
+        phone: null,
+        appointmentsStatus: "found",
+        appointments: [
+          {
+            id: 12345,
+            date: "2026-06-01",
+            time: "9:00 AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            facility: "Spring Hill",
+            confirmed: true,
+          },
+        ],
+      }),
     );
 
     const result = await lookupByPhone(
@@ -254,58 +247,36 @@ describe("pre-call bootstrap", () => {
   });
 
   it("stores full multiple-match patient details in pre-call candidates", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({
-          status: "multiple_matches",
-          message: "Found 2 patients for this phone number.",
-          appointments: [],
-          matches: [
+    usePatientResult({
+      status: "multiple_matches",
+      message: "Found 2 patients for this phone number.",
+      matches: [
+        verifiedPatient({
+          allowedProviders: ["Dr. Bach"],
+          appointmentsStatus: "found",
+          appointments: [
             {
-              status: "verified",
-              patientId: "patient-1",
-              name: "Doe, Jane",
-              dob: "01/01/1980",
-              phone: "+17275551212",
-              insuranceCarrier: "Aetna",
-              routing: "all_three",
-              allowedProviders: ["Dr. Bach"],
-              routingAmbiguous: false,
-              preauthRequired: false,
-              appointmentsStatus: "found",
-              appointments: [
-                {
-                  id: 12345,
-                  date: "2026-06-01",
-                  time: "9:00 AM",
-                  provider: "Dr. Bach",
-                  type: "Follow-up",
-                  facility: "Spring Hill",
-                  confirmed: true,
-                },
-              ],
-            },
-            {
-              status: "verified",
-              patientId: "patient-2",
-              name: "Doe, Maria",
-              dob: "02/02/1985",
-              phone: "+17275551212",
-              insuranceCarrier: "Humana",
-              routing: "bach_only",
-              allowedProviders: ["Dr. Bach"],
-              routingAmbiguous: false,
-              preauthRequired: true,
-              appointmentsStatus: "none",
-              appointments: [],
+              id: 12345,
+              date: "2026-06-01",
+              time: "9:00 AM",
+              provider: "Dr. Bach",
+              type: "Follow-up",
+              facility: "Spring Hill",
+              confirmed: true,
             },
           ],
         }),
-        text: async () => "",
-      })),
-    );
+        verifiedPatient({
+          patientId: "patient-2",
+          name: "Doe, Maria",
+          dob: "02/02/1985",
+          insuranceCarrier: "Humana",
+          routing: "bach_only",
+          allowedProviders: ["Dr. Bach"],
+          preauthRequired: true,
+        }),
+      ],
+    });
 
     const result = await lookupByPhone(
       "+17275551212",
@@ -357,30 +328,25 @@ describe("pre-call bootstrap", () => {
   });
 
   it("keeps verified caller context when insurance is missing", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({
-          status: "verified",
-          patientId: "patient-1",
-          name: "Doe, Jane",
-          dob: "01/01/1980",
-          phone: "+17275551212",
-          appointments: [
-            {
-              id: 12345,
-              date: "2026-06-01",
-              time: "9:00 AM",
-              provider: "Dr. Bach",
-              type: "Follow-up",
-              facility: "Spring Hill",
-              confirmed: true,
-            },
-          ],
-        }),
-        text: async () => "",
-      })),
+    usePatientResult(
+      verifiedPatient({
+        insuranceCarrier: null,
+        insPlanId: null,
+        respPartyId: null,
+        routing: null,
+        appointmentsStatus: "found",
+        appointments: [
+          {
+            id: 12345,
+            date: "2026-06-01",
+            time: "9:00 AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            facility: "Spring Hill",
+            confirmed: true,
+          },
+        ],
+      }),
     );
 
     const result = await lookupByPhone(

@@ -1,6 +1,9 @@
 import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
-import { callApi } from "../clients/advancedmd-client.js";
+import {
+  ownedMiddleware,
+  type BookAppointmentResult,
+} from "../clients/owned-middleware.js";
 import {
   getOfficeProfileByFacility,
   normalizePhoneNumber,
@@ -17,7 +20,10 @@ import {
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
 import { activePatientId } from "../state/identity.js";
-import { recordAppointmentAction } from "../state/observability.js";
+import {
+  recordAppointmentAction,
+  recordOwnedMiddlewareFailure,
+} from "../state/observability.js";
 import {
   clearAvailabilitySelection,
   latestAvailabilityRouting,
@@ -37,9 +43,10 @@ import {
   bookingFailureMessage,
   bookingHadPositiveStatusWithoutAppointmentId,
   bookingNoteWarning,
-  bookingOutcome,
   bookingRequestBodyForSlot,
+  bookingSlotUnavailable,
   bookingSucceeded,
+  bookingTokenRejected,
   selectedSlotForBooking,
   slotUnavailableMessage,
   spokenSlot,
@@ -178,12 +185,14 @@ export const reschedule_appointment = tool({
         appointmentPatientStatusForLoadedAppointment(oldAppointment),
     });
 
-    const bookingResult = await callApi(
-      "/api/appointment/book",
-      bookingBody,
-      bookingOffice,
-      { includeOffice: false },
-    );
+    const bookingResult = await ownedMiddleware().bookAppointment({
+      office: bookingOffice,
+      booking: bookingBody,
+    });
+
+    if (bookingResult.status === "error") {
+      recordOwnedMiddlewareFailure(state, "bookAppointment", bookingResult);
+    }
 
     if (bookingSucceeded(bookingResult)) {
       recordBookedAppointmentInState(state, selectedSlot, bookingResult);
@@ -197,14 +206,14 @@ export const reschedule_appointment = tool({
       );
     }
 
-    let cancelResult: CancelAppointmentResult;
-    try {
-      cancelResult = (await callApi(
-        "/api/appointment/cancel",
-        { appointmentId: oldAppointment.id, patientId },
-        cancellationOffice,
-      )) as CancelAppointmentResult;
-    } catch {
+    const cancelResult = await ownedMiddleware().cancelAppointment({
+      office: cancellationOffice,
+      appointmentId: oldAppointment.id,
+      patientId,
+    });
+
+    if (cancelResult.status !== "cancelled") {
+      recordOwnedMiddlewareFailure(state, "cancelAppointment", cancelResult);
       recordCompletedReschedule(
         state,
         patientId,
@@ -214,27 +223,6 @@ export const reschedule_appointment = tool({
       const message = rescheduleCancellationFailureMessage(
         selectedSlot,
         "The old appointment was not cancelled.",
-      );
-      recordRescheduleAction(state, {
-        status: "partial",
-        message,
-        selectedSlot,
-        bookingResult,
-        oldAppointment,
-      });
-      return message;
-    }
-
-    if (cancelResult?.status !== "cancelled") {
-      recordCompletedReschedule(
-        state,
-        patientId,
-        selectedSlot,
-        "needs_human_cancellation",
-      );
-      const message = rescheduleCancellationFailureMessage(
-        selectedSlot,
-        cancelResult?.message ?? "The old appointment was not cancelled.",
       );
       recordRescheduleAction(state, {
         status: "partial",
@@ -334,7 +322,7 @@ function handleRescheduleBookingFailure(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
   oldAppointment: CallerAppointment,
-  bookingResult: unknown,
+  bookingResult: BookAppointmentResult,
 ): string {
   if (bookingHadPositiveStatusWithoutAppointmentId(bookingResult)) {
     clearAvailabilitySelection(state);
@@ -350,8 +338,7 @@ function handleRescheduleBookingFailure(
     return message;
   }
 
-  const outcome = bookingOutcome(bookingResult);
-  if (outcome === "slot_unavailable") {
+  if (bookingSlotUnavailable(bookingResult)) {
     const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
     const message = `${slotUnavailableMessage(remainingSlots)} I did not cancel the existing appointment.`;
     recordRescheduleAction(state, {
@@ -363,10 +350,7 @@ function handleRescheduleBookingFailure(
     });
     return message;
   }
-  if (
-    outcome === "invalid_booking_token" ||
-    outcome === "booking_token_required"
-  ) {
+  if (bookingTokenRejected(bookingResult)) {
     clearAvailabilitySelection(state);
   }
 
@@ -430,8 +414,3 @@ function recordRescheduleAction(
     ),
   });
 }
-
-type CancelAppointmentResult = {
-  status?: string;
-  message?: string;
-};

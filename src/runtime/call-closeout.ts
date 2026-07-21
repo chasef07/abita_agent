@@ -7,7 +7,10 @@ import {
 import { readFile } from "node:fs/promises";
 import type { CallState } from "../state/call-state.js";
 import { transferIsAccepted } from "../state/call-lifecycle.js";
-import { appointmentActions } from "../state/observability.js";
+import {
+  appointmentActions,
+  ownedMiddlewareFailures,
+} from "../state/observability.js";
 import type { SttLanguageDetector } from "../stt-language-detector.js";
 import type { RuntimeVoiceLanguageState } from "../tts-config.js";
 import {
@@ -295,6 +298,9 @@ export async function attachCallCloseout(input: {
     const recordedAppointmentActions = callState
       ? appointmentActions(callState)
       : [];
+    const recordedOwnedMiddlewareFailures = callState
+      ? ownedMiddlewareFailures(callState)
+      : [];
     const toolExecutions = withAppointmentActionToolExecutionFallback(
       observedToolExecutions,
       recordedAppointmentActions,
@@ -357,6 +363,7 @@ export async function attachCallCloseout(input: {
         callState?.runtime.voiceLanguage ?? input.call.initialVoiceLanguage,
       toolExecutions,
       appointmentActions: recordedAppointmentActions,
+      ownedMiddlewareFailures: recordedOwnedMiddlewareFailures,
       ...input.call.livekitContext,
     };
     const richPayload: Record<string, unknown> = {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import type {
   PatientResolveResult,
   PatientResolveVerified,
-} from "../clients/advancedmd-client.js";
+} from "../clients/owned-middleware.js";
 import {
   dobMatches,
   matchCandidatesByFirstName,
@@ -21,6 +21,7 @@ import {
   beginNewPatientRegistration,
   resetPatientScopedWork,
 } from "../state/identity.js";
+import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import { insuranceOnFile } from "../state/scheduling.js";
 import {
   applyResolvedPatientToState,
@@ -120,6 +121,9 @@ export const resolve_patient = tool({
     if (result.status === "not_found") {
       const preCallClarification = preCallNameMismatchReply(state, identity);
       if (preCallClarification) return preCallClarification;
+    }
+    if (result.status === "error") {
+      recordOwnedMiddlewareFailure(state, "resolvePatient", result);
     }
     return patientLookupReply(result);
   },
@@ -392,15 +396,12 @@ function verifiedExistingPatientPrefix(
 
 function patientLookupReply(result: PatientResolveResult): string {
   if (result.status === "not_found") {
-    return (
-      result.message ??
-      "No matching patient was found. Confirm the spelling and date of birth, or ask whether the patient is already registered with us."
-    );
+    return "No matching patient was found. Confirm the spelling and date of birth, or ask whether the patient is already registered with us.";
   }
   if (result.status === "multiple_matches") {
     return "Multiple matching patients were found. Confirm the spelling and date of birth, then try again.";
   }
-  return result.message ?? "Patient lookup failed. Try again.";
+  return "Patient lookup failed. Try again.";
 }
 
 function spokenAppointment(appointment: {

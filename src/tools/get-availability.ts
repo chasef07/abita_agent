@@ -1,6 +1,9 @@
 import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
-import { callApi } from "../clients/advancedmd-client.js";
+import {
+  ownedMiddleware,
+  type OwnedMiddleware,
+} from "../clients/owned-middleware.js";
 import {
   type CallState,
   type SchedulingAppointmentLane,
@@ -40,6 +43,10 @@ type AvailabilityLookupArgs = {
   office?: AvailabilityOfficeKey;
   timePreference?: AvailabilityTimePreference;
 };
+type MiddlewareAvailabilityRequest = Omit<
+  Parameters<OwnedMiddleware["getAvailability"]>[0],
+  "office" | "signal"
+>;
 
 const isoDateSchema = z
   .string()
@@ -105,12 +112,11 @@ export const get_availability = tool({
     );
     if (cachedResponse) return cachedResponse;
 
-    const result = await callApi(
-      "/api/scheduler/availability",
-      request.body,
-      officePhone,
-      { signal: abortSignal },
-    );
+    const result = await ownedMiddleware().getAvailability({
+      office: officePhone,
+      ...request.body,
+      signal: abortSignal,
+    });
     if (!availabilityRequestStillCurrent(state, request)) {
       return "Availability search was superseded because the patient or appointment context changed. Check availability again with the current details.";
     }
@@ -130,7 +136,7 @@ export const get_availability = tool({
 function availabilityRequestStillCurrent(
   state: CallState,
   request: {
-    body: Record<string, unknown>;
+    body: MiddlewareAvailabilityRequest;
     date: string;
     routing: string | null;
     signature: string;
@@ -153,7 +159,7 @@ function buildAvailabilityLookupRequestForState(
   args: AvailabilityLookupArgs,
 ):
   | {
-      body: Record<string, unknown>;
+      body: MiddlewareAvailabilityRequest;
       date: string;
       routing: string | null;
       signature: string;
@@ -191,7 +197,7 @@ function buildAvailabilityLookupRequestForState(
   if (unsupportedRoutineVisionScheduling)
     return { blocked: unsupportedRoutineVisionScheduling };
   const effectiveRouting = routingForAvailability(state);
-  const body: Record<string, unknown> = { date };
+  const body: MiddlewareAvailabilityRequest = { date };
   const dob = activePatientDob(state);
   if (dob) body.dob = dob;
   if (effectiveRouting) body.routing = effectiveRouting;
@@ -214,7 +220,7 @@ function buildAvailabilityLookupRequestForState(
 function availabilitySearchSignature(
   state: CallState,
   input: {
-    body: Record<string, unknown>;
+    body: MiddlewareAvailabilityRequest;
     date: string;
     patientId: string | null;
     routing: string | null;
