@@ -134,7 +134,7 @@ export function bookingHadPositiveStatusWithoutAppointmentId(
   result: BookAppointmentResult,
 ): boolean {
   return (
-    result.status === "error" && result.reason === "missing_appointment_id"
+    result.status === "error" && result.detail === "missing_appointment_id"
   );
 }
 
@@ -170,7 +170,7 @@ export function slotUnavailableMessage(
 }
 
 export function bookingFailureMessage(result: BookAppointmentResult): string {
-  if (result.status === "error" && result.reason === "missing_appointment_id") {
+  if (result.status === "error" && result.detail === "missing_appointment_id") {
     return "I could not confirm the booking because the appointment ID was missing. Check availability again before booking.";
   }
   if (result.status === "rejected") {

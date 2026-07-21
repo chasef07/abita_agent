@@ -21,6 +21,7 @@ import {
   beginNewPatientRegistration,
   resetPatientScopedWork,
 } from "../state/identity.js";
+import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import { insuranceOnFile } from "../state/scheduling.js";
 import {
   applyResolvedPatientToState,
@@ -120,6 +121,9 @@ export const resolve_patient = tool({
     if (result.status === "not_found") {
       const preCallClarification = preCallNameMismatchReply(state, identity);
       if (preCallClarification) return preCallClarification;
+    }
+    if (result.status === "error") {
+      recordOwnedMiddlewareFailure(state, "resolvePatient", result);
     }
     return patientLookupReply(result);
   },

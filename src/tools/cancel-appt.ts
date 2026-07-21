@@ -3,7 +3,10 @@ import { z } from "zod";
 import { ownedMiddleware } from "../clients/owned-middleware.js";
 import { removeActiveAppointment } from "../state/appointments.js";
 import { activePatientId } from "../state/identity.js";
-import { recordAppointmentAction } from "../state/observability.js";
+import {
+  recordAppointmentAction,
+  recordOwnedMiddlewareFailure,
+} from "../state/observability.js";
 import { cancelledAppointmentAnalytics } from "./appointment-analytics.js";
 import {
   cancellationAppointmentForState,
@@ -76,6 +79,7 @@ export const cancel_appointment = tool({
     });
 
     if (result.status !== "cancelled") {
+      recordOwnedMiddlewareFailure(state, "cancelAppointment", result);
       const message = "The appointment was not cancelled.";
       recordAppointmentAction(state, {
         action: "cancelled",

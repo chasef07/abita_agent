@@ -16,6 +16,7 @@ import {
   type InsuranceEligibilityCheck,
 } from "../state/call-state.js";
 import { runtimeCallerPhone } from "../state/call-lifecycle.js";
+import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import {
   applySchedulingLaneToState,
   insuranceSnapshot,
@@ -216,7 +217,10 @@ export const add_patient = tool({
       office: getAmdOfficeForToolCall(state),
       patient: payload,
     });
-    if (result.status === "error") return "The patient chart was not created.";
+    if (result.status === "error") {
+      recordOwnedMiddlewareFailure(state, "createPatient", result);
+      return "The patient chart was not created.";
+    }
 
     applyPatientResult(state, result);
     setInsuranceOnFile(

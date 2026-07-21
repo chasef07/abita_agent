@@ -15,7 +15,10 @@ import {
   beginTransfer,
   markTransferAmbiguous,
 } from "../state/call-lifecycle.js";
-import { recordAppointmentAction } from "../state/observability.js";
+import {
+  recordAppointmentAction,
+  recordOwnedMiddlewareFailure,
+} from "../state/observability.js";
 import { createTestCallState } from "./support/call-state.js";
 
 class TestLiveKitEvents implements CallCloseoutEventAdapter {
@@ -204,6 +207,10 @@ describe("call closeout", () => {
       status: "error",
       toolName: "cancel_appointment",
     });
+    recordOwnedMiddlewareFailure(state, "bookAppointment", {
+      reason: "invalid_response",
+      detail: "missing_appointment_id",
+    });
     const { events, portal } = await setupCloseout({ state });
     await events.close();
 
@@ -225,6 +232,15 @@ describe("call closeout", () => {
       },
     ]);
     expect(portal.deliveries[2]?.payload.appointmentActions).toHaveLength(3);
+    expect(portal.deliveries[2]?.payload.ownedMiddlewareFailures).toMatchObject(
+      [
+        {
+          operation: "bookAppointment",
+          reason: "invalid_response",
+          detail: "missing_appointment_id",
+        },
+      ],
+    );
     expect(
       JSON.stringify(portal.deliveries[2]?.payload.toolExecutions),
     ).not.toContain("Private");

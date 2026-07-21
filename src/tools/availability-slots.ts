@@ -14,6 +14,7 @@ import {
   reserveAvailabilitySlotIds,
   storeAvailabilityBookingToken,
 } from "../state/scheduling.js";
+import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 
 type AvailabilitySearchSummary = {
   requestedDate?: string;
@@ -55,6 +56,7 @@ export function storeAvailabilitySlots(
   timePreference: AvailabilityTimePreference = "none",
 ): AvailabilityToolResponse {
   if (result.status === "error") {
+    recordOwnedMiddlewareFailure(state, "getAvailability", result);
     clearAvailabilitySelection(state);
     return cleanAvailabilityErrorResponse();
   }

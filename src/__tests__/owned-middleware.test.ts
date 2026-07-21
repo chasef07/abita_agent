@@ -983,7 +983,8 @@ describe("HTTP owned middleware transport", () => {
     });
     await expect(middleware.bookAppointment(request)).resolves.toEqual({
       status: "error",
-      reason: "missing_appointment_id",
+      reason: "invalid_response",
+      detail: "missing_appointment_id",
     });
   });
 
@@ -1154,12 +1155,13 @@ const semanticFailure = (
     | "network_error"
     | "invalid_response"
     | "unsupported_office"
-    | "cancelled"
-    | "missing_appointment_id",
+    | "cancelled",
+  detail?: "missing_appointment_id",
 ) =>
   ({
     status: "error",
     reason,
+    ...(detail ? { detail } : {}),
   }) as const;
 
 const semanticContractCases: SemanticContractCase[] = [
@@ -1371,10 +1373,12 @@ const semanticContractCases: SemanticContractCase[] = [
     name: "booking missing evidence",
     http: httpResult({ status: "booked" }),
     memory: memoryResult({
-      bookAppointment: [semanticFailure("missing_appointment_id")],
+      bookAppointment: [
+        semanticFailure("invalid_response", "missing_appointment_id"),
+      ],
     }),
     invoke: bookAppointment,
-    expected: semanticFailure("missing_appointment_id"),
+    expected: semanticFailure("invalid_response", "missing_appointment_id"),
   },
   {
     name: "booking middleware failure",

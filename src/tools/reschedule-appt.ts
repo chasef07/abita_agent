@@ -20,7 +20,10 @@ import {
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
 import { activePatientId } from "../state/identity.js";
-import { recordAppointmentAction } from "../state/observability.js";
+import {
+  recordAppointmentAction,
+  recordOwnedMiddlewareFailure,
+} from "../state/observability.js";
 import {
   clearAvailabilitySelection,
   latestAvailabilityRouting,
@@ -187,6 +190,10 @@ export const reschedule_appointment = tool({
       booking: bookingBody,
     });
 
+    if (bookingResult.status === "error") {
+      recordOwnedMiddlewareFailure(state, "bookAppointment", bookingResult);
+    }
+
     if (bookingSucceeded(bookingResult)) {
       recordBookedAppointmentInState(state, selectedSlot, bookingResult);
       clearAvailabilitySelection(state);
@@ -206,6 +213,7 @@ export const reschedule_appointment = tool({
     });
 
     if (cancelResult.status !== "cancelled") {
+      recordOwnedMiddlewareFailure(state, "cancelAppointment", cancelResult);
       recordCompletedReschedule(
         state,
         patientId,

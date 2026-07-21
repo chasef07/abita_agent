@@ -22,7 +22,10 @@ import {
   HOLLYWOOD_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
-import { appointmentActions } from "../state/observability.js";
+import {
+  appointmentActions,
+  ownedMiddlewareFailures,
+} from "../state/observability.js";
 import {
   clearAvailabilitySelection,
   storeAvailabilityBookingToken,
@@ -1262,6 +1265,9 @@ describe("stateful call tools", () => {
       "No openings were found from July 9 through July 23. Ask whether to check starting July 24, or whether they prefer a different day or time.",
     );
     expect(middleware.requests.getAvailability).toHaveLength(2);
+    expect(ownedMiddlewareFailures(state)).toMatchObject([
+      { operation: "getAvailability", reason: "middleware_error" },
+    ]);
     expect(ctx.session.generateReply).not.toHaveBeenCalled();
   });
 
@@ -2176,7 +2182,8 @@ describe("stateful call tools", () => {
     storeAvailabilityBookingToken(state, "A", "private-token");
     stubBooking({
       status: "error",
-      reason: "missing_appointment_id",
+      reason: "invalid_response",
+      detail: "missing_appointment_id",
     });
 
     const result = await book_appointment.execute(
@@ -2197,6 +2204,13 @@ describe("stateful call tools", () => {
     );
     expect(state.identity.patient.appointments).toEqual([]);
     expect(state.availability.slots).toEqual([]);
+    expect(ownedMiddlewareFailures(state)).toMatchObject([
+      {
+        operation: "bookAppointment",
+        reason: "invalid_response",
+        detail: "missing_appointment_id",
+      },
+    ]);
   });
 
   it("removes unavailable slots and returns the next bookable option", async () => {
@@ -2963,6 +2977,9 @@ describe("stateful call tools", () => {
       "single_match_pending_confirmation",
     );
     expect(state.identity.patient.identityConfirmed).toBe(false);
+    expect(ownedMiddlewareFailures(state)).toMatchObject([
+      { operation: "resolvePatient", reason: "middleware_error" },
+    ]);
   });
 
   it("verifies a backend patient before spelling fallback when a pre-call single match shares last name and DOB", async () => {
@@ -4234,6 +4251,9 @@ describe("stateful call tools", () => {
       ),
     ).rejects.toThrow("Insurance was not updated.");
     expect(state.insurance.onFile).toBeNull();
+    expect(ownedMiddlewareFailures(state)).toMatchObject([
+      { operation: "updateInsurance", reason: "middleware_error" },
+    ]);
   });
 
   it("uses explicit self pay as the member ID sentinel", async () => {
@@ -5485,6 +5505,9 @@ describe("stateful call tools", () => {
     expect(
       state.identity.patient.appointments.map((appointment) => appointment.id),
     ).toEqual([123, 456]);
+    expect(ownedMiddlewareFailures(state)).toMatchObject([
+      { operation: "cancelAppointment", reason: "network_error" },
+    ]);
   });
 
   it("requires a loaded appointment before rescheduling", async () => {

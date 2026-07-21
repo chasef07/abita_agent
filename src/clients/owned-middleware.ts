@@ -1,4 +1,5 @@
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
+import type { OwnedMiddlewareFailureReason } from "../state/call-state.js";
 import {
   isRecord,
   normalizePatientResolveResponse,
@@ -12,16 +13,12 @@ const DEFAULT_PRODUCTION_BASE_URL =
 
 export type { PatientResolveVerified };
 
-export type MiddlewareFailureReason =
-  | "middleware_error"
-  | "network_error"
-  | "invalid_response"
-  | "unsupported_office"
-  | "cancelled";
+export type MiddlewareFailureReason = OwnedMiddlewareFailureReason;
 
 export type MiddlewareFailure = {
   status: "error";
   reason: MiddlewareFailureReason;
+  detail?: "missing_appointment_id";
 };
 
 export type PatientResolveResult =
@@ -121,7 +118,6 @@ export type BookAppointmentResult =
       status: "rejected";
       reason: "invalid_booking_token" | "booking_token_required";
     }
-  | { status: "error"; reason: "missing_appointment_id" }
   | MiddlewareFailure;
 
 export type CancelAppointmentResult =
@@ -673,7 +669,8 @@ function normalizeBookedAppointment(raw: unknown): BookAppointmentResult {
   if (status === "booked" || status === "partial" || status === "success") {
     return {
       status: "error",
-      reason: "missing_appointment_id",
+      reason: "invalid_response",
+      detail: "missing_appointment_id",
     };
   }
   return hasFailureStatus(raw)

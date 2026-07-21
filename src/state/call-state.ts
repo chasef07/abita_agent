@@ -170,6 +170,28 @@ export type AppointmentActionStatus = "success" | "partial" | "error";
 
 export type AppointmentActionName = "booked" | "rescheduled" | "cancelled";
 
+export type OwnedMiddlewareFailureReason =
+  | "middleware_error"
+  | "network_error"
+  | "invalid_response"
+  | "unsupported_office"
+  | "cancelled";
+
+export type OwnedMiddlewareOperation =
+  | "resolvePatient"
+  | "getAvailability"
+  | "createPatient"
+  | "bookAppointment"
+  | "cancelAppointment"
+  | "updateInsurance";
+
+export interface OwnedMiddlewareFailureAnalytics {
+  operation: OwnedMiddlewareOperation;
+  reason: OwnedMiddlewareFailureReason;
+  detail?: "missing_appointment_id";
+  createdAt?: string;
+}
+
 export interface AppointmentAnalytics {
   appointmentId?: string;
   patientName?: string;
@@ -231,6 +253,7 @@ interface RuntimeCallState {
   trunkPhone: string;
   transferState: TransferState;
   appointmentActions: AppointmentActionAnalytics[];
+  ownedMiddlewareFailures: OwnedMiddlewareFailureAnalytics[];
   staffTasks: StaffTaskReceipt[];
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
@@ -379,6 +402,7 @@ export function createCanonicalCallState(
       trunkPhone: input.trunkPhone,
       transferState: "idle",
       appointmentActions: [],
+      ownedMiddlewareFailures: [],
       staffTasks: [],
       voiceLanguage: input.voiceLanguage ?? null,
     },

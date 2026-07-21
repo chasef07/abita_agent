@@ -4,7 +4,10 @@ import { ownedMiddleware } from "../clients/owned-middleware.js";
 import { latestBookedAppointmentId } from "../state/appointments.js";
 import { type CallState } from "../state/call-state.js";
 import { activePatientId } from "../state/identity.js";
-import { recordAppointmentAction } from "../state/observability.js";
+import {
+  recordAppointmentAction,
+  recordOwnedMiddlewareFailure,
+} from "../state/observability.js";
 import {
   clearAvailabilitySelection,
   removeAvailabilitySlot,
@@ -117,6 +120,10 @@ export const book_appointment = tool({
       office: getAmdOfficeForToolCall(state),
       booking: bookingBody,
     });
+
+    if (result.status === "error") {
+      recordOwnedMiddlewareFailure(state, "bookAppointment", result);
+    }
 
     if (bookingSucceeded(result)) {
       recordBookedAppointmentInState(state, selectedSlot, result);

@@ -11,6 +11,7 @@ import {
   patientBackendRefs,
   setPatientBackendRefs,
 } from "../state/identity.js";
+import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import {
   clearAvailabilitySelection,
   insuranceOnFile,
@@ -99,6 +100,7 @@ export const update_insurance = tool({
     });
 
     if (result.status !== "updated") {
+      recordOwnedMiddlewareFailure(state, "updateInsurance", result);
       throw new ToolError("Insurance was not updated.");
     }
 
