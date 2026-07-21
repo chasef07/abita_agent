@@ -619,6 +619,64 @@ describe("HTTP owned middleware transport", () => {
     });
   });
 
+  it("honors an explicit patient lookup error even when a patient ID is present", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "error",
+          patientId: "stale-patient-id",
+          message: "private detail",
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.resolvePatient({
+      office: SPRING_HILL_OFFICE_PHONE,
+      identity: { phone: "+17275551212" },
+    });
+
+    expect(result).toEqual({
+      status: "error",
+      reason: "middleware_error",
+      message: "Patient lookup failed.",
+    });
+  });
+
+  it("rejects malformed appointment records at the patient adapter boundary", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          ...verifiedPatient,
+          appointmentsStatus: "found",
+          appointments: [
+            {
+              id: 12345,
+              date: "2026-08-01",
+              time: "9:00 AM",
+              provider: "Dr. Bach",
+              type: "Follow-up",
+              facility: "Spring Hill",
+              confirmed: "true",
+            },
+          ],
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.resolvePatient({
+      office: SPRING_HILL_OFFICE_PHONE,
+      identity: { phone: "+17275551212" },
+    });
+
+    expect(result).toEqual({
+      status: "error",
+      reason: "invalid_response",
+      message: "Patient lookup returned an invalid response.",
+    });
+  });
+
   it.each([
     {
       name: "patient lookup",

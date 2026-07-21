@@ -332,7 +332,9 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
 
   #baseUrl(officePhone: string): string {
     const office = getOfficeProfileByPhone(officePhone);
-    return office.middlewareBaseUrl(this.#productionBaseUrl).replace(/\/+$/, "");
+    return office
+      .middlewareBaseUrl(this.#productionBaseUrl)
+      .replace(/\/+$/, "");
   }
 
   async #post(

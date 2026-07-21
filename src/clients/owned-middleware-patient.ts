@@ -59,41 +59,11 @@ export function normalizePatientResolveResponse(
   }
 
   const status = stringValue(raw.status)?.toLowerCase() ?? "";
-  if (status === "verified" || isNonEmptyString(raw.patientId)) {
-    if (!isNonEmptyString(raw.patientId)) {
-      return {
-        status: "error",
-        message:
-          "Patient lookup returned a verified response without a patient ID.",
-        reason: "invalid_response",
-      };
-    }
-    const appointments = Array.isArray(raw.appointments)
-      ? (raw.appointments as StoredCallerAppointment[])
-      : [];
+  if (status === "error" || status === "failed" || status === "failure") {
     return {
-      status: "verified",
-      patientId: raw.patientId,
-      name: stringValue(raw.name),
-      dob: stringValue(raw.dob),
-      phone: stringValue(raw.phone) ?? options.fallbackPhone ?? null,
-      insuranceCarrier: stringValue(raw.insuranceCarrier),
-      insPlanId: stringValue(raw.insPlanId),
-      respPartyId: stringValue(raw.respPartyId),
-      routing: stringValue(raw.routing),
-      allowedProviders: Array.isArray(raw.allowedProviders)
-        ? raw.allowedProviders.filter(
-            (provider): provider is string => typeof provider === "string",
-          )
-        : [],
-      routingAmbiguous: raw.routingAmbiguous === true,
-      preauthRequired: raw.preauthRequired === true,
-      appointmentsStatus:
-        normalizeAppointmentsStatus(raw.appointmentsStatus) ??
-        statusFromAppointments(raw.appointments),
-      appointmentsMessage: stringValue(raw.appointmentsMessage),
-      appointments,
-      message: stringValue(raw.message),
+      status: "error",
+      message: "Patient lookup failed.",
+      reason: "middleware_error",
     };
   }
 
@@ -116,11 +86,46 @@ export function normalizePatientResolveResponse(
     };
   }
 
-  if (status === "error" || status === "failed" || status === "failure") {
+  if (status === "verified" || (!status && isNonEmptyString(raw.patientId))) {
+    if (!isNonEmptyString(raw.patientId)) {
+      return {
+        status: "error",
+        message:
+          "Patient lookup returned a verified response without a patient ID.",
+        reason: "invalid_response",
+      };
+    }
+    const appointments = normalizeStoredCallerAppointments(raw.appointments);
+    if (!appointments) {
+      return {
+        status: "error",
+        message: "Patient lookup returned an invalid response.",
+        reason: "invalid_response",
+      };
+    }
     return {
-      status: "error",
-      message: "Patient lookup failed.",
-      reason: "middleware_error",
+      status: "verified",
+      patientId: raw.patientId,
+      name: stringValue(raw.name),
+      dob: stringValue(raw.dob),
+      phone: stringValue(raw.phone) ?? options.fallbackPhone ?? null,
+      insuranceCarrier: stringValue(raw.insuranceCarrier),
+      insPlanId: stringValue(raw.insPlanId),
+      respPartyId: stringValue(raw.respPartyId),
+      routing: stringValue(raw.routing),
+      allowedProviders: Array.isArray(raw.allowedProviders)
+        ? raw.allowedProviders.filter(
+            (provider): provider is string => typeof provider === "string",
+          )
+        : [],
+      routingAmbiguous: raw.routingAmbiguous === true,
+      preauthRequired: raw.preauthRequired === true,
+      appointmentsStatus:
+        normalizeAppointmentsStatus(raw.appointmentsStatus) ??
+        statusFromAppointments(appointments),
+      appointmentsMessage: stringValue(raw.appointmentsMessage),
+      appointments,
+      message: stringValue(raw.message),
     };
   }
 
@@ -129,6 +134,47 @@ export function normalizePatientResolveResponse(
     message: "Patient lookup returned an invalid response.",
     reason: "invalid_response",
   };
+}
+
+function normalizeStoredCallerAppointments(
+  value: unknown,
+): StoredCallerAppointment[] | null {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) return null;
+
+  const appointments: StoredCallerAppointment[] = [];
+  for (const appointment of value) {
+    if (
+      !isRecord(appointment) ||
+      typeof appointment.id !== "number" ||
+      !Number.isFinite(appointment.id) ||
+      !isNonEmptyString(appointment.date) ||
+      !isNonEmptyString(appointment.time) ||
+      !isNonEmptyString(appointment.provider) ||
+      !isNonEmptyString(appointment.type) ||
+      !isNonEmptyString(appointment.facility) ||
+      typeof appointment.confirmed !== "boolean" ||
+      (appointment.appointmentTypeId !== undefined &&
+        (typeof appointment.appointmentTypeId !== "number" ||
+          !Number.isFinite(appointment.appointmentTypeId)))
+    ) {
+      return null;
+    }
+
+    appointments.push({
+      id: appointment.id,
+      date: appointment.date,
+      time: appointment.time,
+      provider: appointment.provider,
+      type: appointment.type,
+      ...(appointment.appointmentTypeId === undefined
+        ? {}
+        : { appointmentTypeId: appointment.appointmentTypeId }),
+      facility: appointment.facility,
+      confirmed: appointment.confirmed,
+    });
+  }
+  return appointments;
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
