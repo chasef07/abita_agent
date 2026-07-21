@@ -2426,12 +2426,51 @@ describe("stateful call tools", () => {
       ctx: createToolContext(state) as never,
       toolCallId: "tool-2",
     } as never);
+    const availabilityResult = await get_availability.execute(
+      {
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-3",
+      } as never,
+    );
+    markSchedulingTriaged(state);
+    state.availability.slots.push({
+      slotId: "A",
+      spoken: "2026-06-01 9:00 AM with Doctor Smith",
+      provider: "Doctor Smith",
+      date: "2026-06-01",
+      time: "9:00 AM",
+      datetime: "2026-06-01T09:00:00",
+      routing: "all_three",
+    });
+    storeAvailabilityBookingToken(state, "A", "private-token");
+    const bookingResult = await book_appointment.execute(
+      {
+        appointmentSlotRef: "A",
+        appointmentReason: "blurry vision",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-4",
+      } as never,
+    );
 
     expect(firstResult).toBe(
       "Created a patient chart for Jane Doe, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration.",
     );
     expect(secondResult).toBe(
       "Patient chart is already created for Jane Doe, but insurance is not attached. Do not create another chart. Connect the caller to office staff to finish registration.",
+    );
+    expect(availabilityResult).toBe(
+      "The patient chart exists, but insurance is not attached. Connect the caller to office staff to finish registration before scheduling.",
+    );
+    expect(bookingResult).toBe(
+      "The patient chart exists, but insurance is not attached. Connect the caller to office staff to finish registration before scheduling.",
     );
     expect(state.identity.patient).toMatchObject({
       status: "created",
@@ -2441,6 +2480,8 @@ describe("stateful call tools", () => {
     });
     expect(state.insurance.onFile).toBeNull();
     expect(middleware.requests.createPatient).toHaveLength(1);
+    expect(middleware.requests.getAvailability).toHaveLength(0);
+    expect(middleware.requests.bookAppointment).toHaveLength(0);
   });
 
   it("requires not-registered confirmation before creating a patient chart", async () => {

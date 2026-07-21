@@ -23,6 +23,7 @@ import {
   storeAvailabilitySlots,
   type AvailabilityTimePreference,
 } from "./availability-slots.js";
+import { incompletePatientRegistrationMessage } from "./patient-state.js";
 import {
   getAmdOfficeForToolCall,
   medicalSchedulingUnavailable,
@@ -172,6 +173,10 @@ function buildAvailabilityLookupRequestForState(
     throw new ToolError(
       "Ask what date or starting day the caller wants before checking availability.",
     );
+  }
+  const incompleteRegistration = incompletePatientRegistrationMessage(state);
+  if (incompleteRegistration) {
+    return { blocked: incompleteRegistration };
   }
   const patientId = activePatientId(state);
   if (!patientId) {

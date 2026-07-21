@@ -132,3 +132,11 @@ export function applyPatientResult(
     appointments: publicCallerAppointments(extractedAppointments),
   });
 }
+
+export function incompletePatientRegistrationMessage(
+  state: CallState,
+): string | null {
+  return state.identity.patient.status === "created" && !state.insurance.onFile
+    ? "The patient chart exists, but insurance is not attached. Connect the caller to office staff to finish registration before scheduling."
+    : null;
+}
