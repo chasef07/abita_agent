@@ -527,15 +527,9 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
       reason: "middleware_error",
     };
   }
-  if (
-    isRecord(raw) &&
-    stringValue(raw.outcome) &&
-    ![
-      "availability_found",
-      "no_availability",
-      "availability_search_incomplete",
-    ].includes(stringValue(raw.outcome) ?? "")
-  ) {
+  const outcome = isRecord(raw) ? stringValue(raw.outcome) : null;
+  const status = availabilityStatus(outcome);
+  if (!status) {
     return {
       status: "error",
       reason: "invalid_response",
@@ -555,20 +549,14 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
   }
   const slots = raw.slots.map((slot) => ({
     provider: stringValue(slot.provider) ?? "",
-    date: stringValue(slot.date) ?? "",
+    date:
+      stringValue(slot.date) ?? stringValue(slot.datetime)?.split("T")[0] ?? "",
     time: stringValue(slot.time) ?? "",
     datetime: stringValue(slot.datetime) ?? "",
     ...(stringValue(slot.bookingToken)
       ? { bookingToken: stringValue(slot.bookingToken) ?? undefined }
       : {}),
   }));
-  const outcome = stringValue(raw.outcome);
-  const status =
-    outcome === "no_availability"
-      ? "none"
-      : outcome === "availability_search_incomplete"
-        ? "incomplete"
-        : "found";
   return {
     status,
     slots,
@@ -590,6 +578,21 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
       ? { message: stringValue(raw.message) ?? undefined }
       : {}),
   };
+}
+
+function availabilityStatus(outcome: string | null) {
+  switch (outcome) {
+    case null:
+    case "availability_found":
+      return "found" as const;
+    case "no_availability":
+    case "no_eligible_providers":
+      return "none" as const;
+    case "availability_search_incomplete":
+      return "incomplete" as const;
+    default:
+      return null;
+  }
 }
 
 function normalizeCreatedPatient(raw: unknown): CreatePatientResult {
@@ -736,7 +739,6 @@ function isAvailabilitySlot(value: unknown): value is Record<string, unknown> {
   return (
     isRecord(value) &&
     stringValue(value.provider) !== null &&
-    stringValue(value.date) !== null &&
     stringValue(value.time) !== null &&
     stringValue(value.datetime) !== null
   );
