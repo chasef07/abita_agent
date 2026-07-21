@@ -1,93 +1,80 @@
-# LiveKit Voice Agent
- 
-Production phone agent for Abita Eye Group and Eye Radiance. LiveKit Cloud
-dispatches the `abita-agent` worker for supported SIP trunks; the worker handles
-identity, scheduling, appointment changes, insurance, office FAQ, and human
-transfer through the AdvancedMD middleware.
+# Abita Voice Agent
 
-See [CHANGELOG.md](CHANGELOG.md) for dated runtime and dependency changes.
+Production LiveKit Voice Agent for Abita Eye Group, Eye Radiance, and supported
+practice lines. It answers SIP calls, identifies callers, handles scheduling and
+insurance workflows, answers office questions, captures staff tasks, and
+transfers callers when software should stop.
 
-## Current Shape
+Runtime code is the source of truth. Product and engineering work is tracked in
+[GitHub Issues](https://github.com/chasef07/abita_agent/issues).
 
-The runtime is intentionally small:
+> **Draft dependency:** this README describes the target layout after scheduling
+> PR #254 and identity PR #256 land. Until then, follow the paths in the checked
+> out runtime. Do not merge this documentation change before both dependencies.
 
-```txt
-LiveKit AgentSession<CallState>
-  -> pre-call phone lookup
-  -> session.userData as typed call state
-  -> direct tool() definitions
-  -> business tools record scheduling lane when needed
-  -> get_current_datetime returns clinic-local time on demand
-  -> business tools read/write state and call middleware
+## Runtime
+
+```text
+SIP caller
+  -> LiveKit dispatches the worker
+  -> office profile selects policy, prompts, tools, and handoff behavior
+  -> pre-call bootstrap loads available caller context
+  -> session.userData holds the authoritative CallState
+  -> the Voice Agent invokes model-facing tools
+  -> owned middleware performs backend reads and writes
+  -> call closeout sends sanitized evidence and releases the room
 ```
 
-There is no custom flow harness, planner, reducer, `record_turn_understanding`
-tool, standalone context-recording tool, or historical replay path in the live
-code.
+The runtime preserves these invariants:
 
-## Stack
+- `session.userData` is the single call-state container.
+- A state-changing action succeeds only after its tool and middleware operation
+  succeed.
+- Patient IDs, booking tokens, provider payloads, and other private backend
+  facts stay outside model-visible text.
+- Identity promotion invalidates state belonging to the previous patient.
+- Rescheduling books the replacement before cancelling the old appointment.
+- Office policy comes from the active office profile, not scattered tool
+  conditionals.
+- Middleware owns backend availability, booking, cancellation, patient lookup,
+  and insurance contract details.
 
-| Layer | Provider | Runtime path |
-| --- | --- | --- |
-| Telephony | Twilio + Telnyx SIP into LiveKit Cloud | inbound SIP room dispatch |
-| Agent runtime | `@livekit/agents` on Node 22 | `src/main.ts` |
-| STT | AssemblyAI plugin | `src/stt-config.ts` |
-| LLM | Baseten with fallback adapter | `src/model-config.ts` |
-| TTS | Rime plugin | `src/tts-config.ts` |
-| VAD/turns | Silero + LiveKit turn handling | `src/session-options.ts` |
-| Backend | AdvancedMD middleware | `src/clients/advancedmd-client.ts` |
-| Analytics | webhook payload on shutdown | `src/main.ts`, `src/call-observability.ts` |
+## Target Repository Map
 
-## Runtime Flow
+| Path | Ownership |
+| --- | --- |
+| `src/main.ts` | LiveKit job composition and session startup |
+| `src/agent.ts` | Voice Agent construction and turn hooks |
+| `src/customers/abita/profile.ts` | Office policy, prompts, routing, speech, scheduling capability, and handoff behavior |
+| `src/identity/promotion.ts` | Identity confirmation, activation, switching, reset, and registration gates |
+| `src/scheduling/` | Availability, booking, cancellation, rescheduling, replay protection, and speech-ready outcomes |
+| `src/clients/owned-middleware.ts` | Semantic middleware interface with production and in-memory adapters |
+| `src/runtime/` | Pre-call bootstrap, speech profiles, deadlines, shutdown, and call closeout |
+| `src/state/` | `CallState` composition and state owned outside the deeper workflow modules |
+| `src/tools/` | Remaining model-facing tool definitions and narrow runtime adapters |
+| `src/__tests__/` | Interface-level behavior and dependency-contract tests |
+| `workspace/` | Runtime role, voice, office policy, knowledge, and insurance sources |
 
-1. `src/main.ts` connects to the LiveKit room and waits for the SIP caller.
-2. `loadPreCallBootstrap()` resolves the office and runs phone lookup.
-3. `session.userData` is initialized with `createCanonicalCallState()`.
-4. `Agent` starts with office-appropriate tools from `buildToolsForTrunk()`.
-5. Tools enforce prerequisites, delegate state transitions, and call AdvancedMD
-   middleware.
-6. `onUserTurnCompleted()` records the latest caller transcript for backend
-   observability without injecting backend state into the model context.
-7. Shutdown posts analytics and deletes the LiveKit room.
+## Agent Reading Order
 
-## Backend Tool Handlers
+1. Read [`AGENTS.md`](AGENTS.md) for repository rules.
+2. Read [`CONTEXT.md`](CONTEXT.md) for domain language.
+3. Find the owning module in the map above.
+4. Read that module's interface, callers, dependency adapter, and adjacent
+   interface-level tests.
+5. Read office profile and `workspace/` sources only when the behavior is
+   customer- or office-specific.
+6. Use [`docs/ops/`](docs/ops/) only for provider setup or operational work.
 
-The current broad office tool set is:
-
-- `get_current_datetime`
-- `resolve_patient`
-- `add_patient`
-- `update_insurance`
-- `get_availability`
-- `cancel_appointment`
-- `reschedule_appointment`
-- `book_appointment`
-- `check_insurance`
-- `lookup_knowledge`
-- `transfer_call`
-
-For new scheduling, `get_availability` takes `appointmentLane` directly once the
-medical-versus-routine lane is clear. `add_patient` takes the same lane because
-chart creation needs the same medical-versus-routine guard. `book_appointment`
-does not repeat the lane; it uses the private booking token and routing cached
-from the caller-confirmed availability slot. The final side effect is not
-considered complete until the tool succeeds.
-
-`get_current_datetime` is read-only and returns clinic-local grounding, such as
-`Today is Sunday, May 31st, 2026 at 10:42 AM Eastern time.`, when the caller
-uses relative date or time language for scheduling, availability, booking, or
-appointment changes. If the caller gives a supported phrase such as
-`next Wednesday`, the tool also returns a natural-language interpretation with
-the exact `YYYY-MM-DD` date for availability lookup.
-
-Pre-call phone lookup data stays in backend state and can be promoted from
-caller-provided first-name evidence. `resolve_patient` handles preloaded
-first-name matches, patient switching, backend lookup by first name, last name,
-and date of birth, and explicit new-chart state marking before `add_patient`.
+Do not reconstruct current behavior from old design prose. Read runtime code,
+tests, current GitHub issues, and provider evidence.
 
 ## Local Development
 
-Use Node 22 and pnpm 10.
+Requirements:
+
+- Node 22
+- pnpm 10.34.3
 
 ```bash
 corepack enable
@@ -95,7 +82,7 @@ corepack prepare pnpm@10.34.3 --activate
 pnpm install --frozen-lockfile
 ```
 
-Useful checks:
+Checks:
 
 ```bash
 pnpm format:check
@@ -104,32 +91,26 @@ pnpm typecheck
 pnpm test
 ```
 
-The runtime does not auto-load `.env`, `.env.local`, or other env files. LiveKit
-Cloud supplies production worker environment variables. If you run the worker
-manually, provide the required variables through the process environment.
+The runtime does not automatically load `.env` files. LiveKit Cloud supplies
+production worker variables. For local runs, export the required values before
+starting the worker:
 
-Real call testing requires LiveKit Cloud credentials and a configured SIP trunk.
-See `docs/ops/telnyx-setup.md`.
+```bash
+pnpm dev
+```
 
-## Environment
+See [`.env.example`](.env.example) for the supported variables. The main groups
+are LiveKit, Baseten, AssemblyAI, Rime, owned middleware, portal delivery,
+call-center handoff, and prompt workspace configuration.
+`LIVEKIT_FORWARD_SYNC_SECRET` is the preferred portal-delivery secret;
+`WEBHOOK_SECRET` remains a legacy fallback.
 
-Important variables:
+Real call testing requires LiveKit Cloud credentials and a configured SIP
+trunk. See [`docs/ops/telnyx-setup.md`](docs/ops/telnyx-setup.md).
 
-- `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
-- `BASETEN_API_KEY`
-- `ASSEMBLYAI_API_KEY`
-- `RIME_API_KEY`
-- `AMD_API_URL`
-- `AMD_API_TOKEN`
-- `ANALYTICS_URL`
-- `WEBHOOK_SECRET`
-- direct Acuity call-center handoff: `ACUITY_HANDOFF_URL` and
-  `ACUITY_HANDOFF_SECRET`; both are required for call-center offices and the
-  URL must use HTTPS
-- optional demo phone handoff override: `DEV_HANDOFF_TARGET`
-- `PROMPT_WORKSPACE`, defaulting to `workspace`
+## Documentation
 
-## Docs
-
-Start with `docs/README.md`. Runtime code in `src/` remains the source of
-truth when docs and implementation disagree.
+[`docs/README.md`](docs/README.md) maps the small set of retained agent,
+operations, and sanitized history documents. Architecture decisions and feature
+specifications belong in GitHub Issues so implementation status and discussion
+stay together.
