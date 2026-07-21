@@ -77,7 +77,5 @@ USER appuser
 # Set Node.js to production mode
 ENV NODE_ENV=production
 
-# Run the application
-# The "start" command tells the worker to connect to LiveKit and begin waiting for jobs.
-# Your package.json must contain a "start" script, such as `"start": "node dist/agent.js start"`
-CMD [ "pnpm", "start" ]
+# Run the compiled worker directly so package-manager setup cannot block startup.
+CMD [ "node", "dist/main.js", "start" ]
