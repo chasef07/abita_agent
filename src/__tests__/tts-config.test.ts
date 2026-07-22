@@ -14,12 +14,34 @@ import {
 } from "../tts-config.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
+  DEV_OFFICE_PHONE,
+  HOLLYWOOD_OFFICE_PHONE,
+  NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+  SPRING_HILL_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
 
 const require = createRequire(import.meta.url);
 
 describe("TTS config", () => {
+  it("uses Rime segment never for every office", () => {
+    const trunkPhones = [
+      SPRING_HILL_OFFICE_PHONE,
+      CRYSTAL_RIVER_OFFICE_PHONE,
+      HOLLYWOOD_OFFICE_PHONE,
+      SWEETWATER_OFFICE_PHONE,
+      NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+      DEV_OFFICE_PHONE,
+    ];
+
+    expect(RIME_TTS_SEGMENT).toBe("never");
+    expect(
+      trunkPhones.map(
+        (trunkPhone) => getRimeTtsOptions({ trunkPhone }).segment,
+      ),
+    ).toEqual(["never", "never", "never", "never", "never", "never"]);
+  });
+
   it("builds the Rime websocket config with documented language option names", () => {
     expect(
       getRimeTtsOptions({

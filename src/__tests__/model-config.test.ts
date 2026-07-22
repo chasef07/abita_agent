@@ -5,6 +5,10 @@ import {
   getLlmOptions,
   primaryLLMOptions,
 } from "../model-config.js";
+import {
+  DEV_OFFICE_PHONE,
+  SPRING_HILL_OFFICE_PHONE,
+} from "../customers/abita/profile.js";
 
 describe("LLM model config", () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -20,7 +24,20 @@ describe("LLM model config", () => {
     expect(fallback.model).toBe("zai-org/GLM-4.7");
   });
 
-  it("uses the same primary and fallback models for every trunk", () => {
+  it("uses Inkling through Baseten only for the demo trunk", () => {
+    vi.stubEnv("BASETEN_API_KEY", "test-key");
+
+    const demo = createLlmPair(DEV_OFFICE_PHONE);
+    const production = createLlmPair(SPRING_HILL_OFFICE_PHONE);
+
+    expect(demo.primary.label()).toBe("baseten.LLM");
+    expect(demo.primary.model).toBe("thinkingmachines/inkling");
+    expect(demo.fallback.model).toBe("zai-org/GLM-4.7");
+    expect(production.primary.model).toBe("zai-org/GLM-5.2");
+    expect(production.fallback.model).toBe("zai-org/GLM-4.7");
+  });
+
+  it("uses the production models when no trunk override is provided", () => {
     expect(getLlmOptions().primary).toBe(primaryLLMOptions);
     expect(getLlmOptions().fallback).toBe(fallbackLLMOptions);
   });

@@ -9,7 +9,7 @@ export const RIME_TTS_LANGUAGE = "eng";
 export const SPANISH_RIME_TTS_LANGUAGE = "spa";
 export const RIME_TTS_SAMPLE_RATE = 16000;
 export const RIME_TTS_BASE_URL = "wss://users-east-ws.rime.ai";
-export const RIME_TTS_SEGMENT = "bySentence";
+export const RIME_TTS_SEGMENT = "never";
 
 export type RimeTtsLanguageCode =
   typeof RIME_TTS_LANGUAGE | typeof SPANISH_RIME_TTS_LANGUAGE;
