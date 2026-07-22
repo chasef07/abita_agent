@@ -78,6 +78,8 @@ If a patient wants glasses or contacts and already has a prescription, they can 
 
 Glasses are usually ready in less than 10 business days.
 
+If a caller asks whether ordered glasses are ready, tell them: "Check your texts. You'll receive a text when they're ready. If you haven't received a text, they aren't ready yet."
+
 Non-prescription sunglasses are available for purchase. If the patient wears prescription glasses, the office can customize prescription lenses into those frames. Most vision insurance plans do not cover non-prescription sunglasses. Sunglass brands include Maui Jim, Costa, Ray-Ban, Gucci, and many more.
 
 ## Contact Lenses

@@ -40,6 +40,9 @@ type VerifiedPhoneLookup = Extract<
   { status: "verified" }
 >;
 
+const GLASSES_READY_ANSWER =
+  "Check your texts. You'll receive a text when they're ready. If you haven't received a text, they aren't ready yet.";
+
 function verifiedPhoneLookup(
   overrides: Partial<VerifiedPhoneLookup> = {},
 ): VerifiedPhoneLookup {
@@ -499,6 +502,40 @@ describe("Crystal River prompt guidance", () => {
     );
     expect(prompt).toContain(
       'ask: "Is this mainly for glasses or contacts, or for the eye problem?"',
+    );
+  });
+
+  it("answers ordered-glasses readiness from text notification status", () => {
+    for (const phone of [
+      SPRING_HILL_OFFICE_PHONE,
+      CRYSTAL_RIVER_OFFICE_PHONE,
+      HOLLYWOOD_OFFICE_PHONE,
+      NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+      ...SWEETWATER_TRUNK_PHONES,
+    ]) {
+      expect(buildPrompt(undefined, phone)).toContain(GLASSES_READY_ANSWER);
+    }
+
+    expect(buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE)).toContain(
+      "optical order issues other than a simple glasses-readiness check",
+    );
+  });
+
+  it("returns the glasses-readiness answer from every production knowledge base", () => {
+    for (const officeKey of [
+      "spring-hill",
+      "crystal-river",
+      "hollywood",
+      "sweetwater",
+      "north-miami-beach-optical",
+    ] as const) {
+      expect(
+        lookupOfficeKnowledge(officeKey, "Are my glasses ready?"),
+      ).toContain(GLASSES_READY_ANSWER);
+    }
+
+    expect(lookupOfficeKnowledge("dev", "Are my glasses ready?")).not.toContain(
+      GLASSES_READY_ANSWER,
     );
   });
 

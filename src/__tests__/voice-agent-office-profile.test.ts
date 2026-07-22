@@ -121,8 +121,7 @@ const officeBehaviors: OfficeBehavior[] = [
     amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
     displayName: "Abita Eye Group",
     englishSpeaker: "wawona",
-    greeting:
-      "Hey this is Zoe, the virtual assistant at Abeeta Eye Group. How's your day going",
+    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
     handoff: {
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
@@ -154,7 +153,7 @@ const officeBehaviors: OfficeBehavior[] = [
     displayName: "Eye Radiance",
     englishSpeaker: "wawona",
     greeting:
-      "Hey this is Zoe, the virtual assistant at Eye Radiance, powered by Abeeta Eye Group. How's your day going",
+      "Hey this is Maya at Eye Radiance, powered by Abeeta Eye Group. How are you doing today?",
     handoff: { mode: "phone", target: "tel:+13527941244" },
     hasOfficePolicy: false,
     insurance: {
@@ -186,8 +185,7 @@ const officeBehaviors: OfficeBehavior[] = [
     amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
     displayName: "Abita Eye Group Hollywood",
     englishSpeaker: "wawona",
-    greeting:
-      "Hey this is Zoe, the virtual assistant at Abeeta Eye Group. How's your day going",
+    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
     handoff: {
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
@@ -218,8 +216,7 @@ const officeBehaviors: OfficeBehavior[] = [
     amdOfficePhone: SWEETWATER_OFFICE_PHONE,
     displayName: "Abita Eye Group Sweetwater",
     englishSpeaker: "luz",
-    greeting:
-      "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
+    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
     handoff: {
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
@@ -250,8 +247,7 @@ const officeBehaviors: OfficeBehavior[] = [
     amdOfficePhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
     displayName: "North Miami Beach Optical",
     englishSpeaker: "luz",
-    greeting:
-      "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
+    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
     handoff: {
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,

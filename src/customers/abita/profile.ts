@@ -197,8 +197,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "spring-hill",
     displayName: "Abita Eye Group",
     trunkPhones: [SPRING_HILL_OFFICE_PHONE, SPRING_HILL_813_TRUNK_PHONE],
-    greeting:
-      "Hey this is Zoe, the virtual assistant at Abeeta Eye Group. How's your day going",
+    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
     knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
     care: {
       medical: {
@@ -219,7 +218,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     displayName: "Eye Radiance",
     trunkPhones: [CRYSTAL_RIVER_OFFICE_PHONE],
     greeting:
-      "Hey this is Zoe, the virtual assistant at Eye Radiance, powered by Abeeta Eye Group. How's your day going",
+      "Hey this is Maya at Eye Radiance, powered by Abeeta Eye Group. How are you doing today?",
     knowledgeSource: "KNOWLEDGE_EYERADIANCE.md",
     care: {
       medical: {
@@ -238,8 +237,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "hollywood",
     displayName: "Abita Eye Group Hollywood",
     trunkPhones: [HOLLYWOOD_OFFICE_PHONE],
-    greeting:
-      "Hey this is Zoe, the virtual assistant at Abeeta Eye Group. How's your day going",
+    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
     knowledgeSource: "KNOWLEDGE_HOLLYWOOD.md",
     care: {
       medical: {
@@ -257,8 +255,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "sweetwater",
     displayName: "Abita Eye Group Sweetwater",
     trunkPhones: [...SWEETWATER_TRUNK_PHONES],
-    greeting:
-      "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
+    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
     knowledgeSource: "KNOWLEDGE_SWEETWATER.md",
     care: {
       medical: {
@@ -277,8 +274,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "north-miami-beach-optical",
     displayName: "North Miami Beach Optical",
     trunkPhones: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
-    greeting:
-      "Hey this is Maya, the virtual assistant at Abeeta Eye Group. How's your day going",
+    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
     knowledgeSource: "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
     care: {
       medical: { supported: false },
