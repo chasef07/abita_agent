@@ -140,8 +140,7 @@ export default defineAgent({
         sipCallId,
         sipParticipantIdentity: participant.identity ?? "",
       };
-      const { primary: primaryLLM, fallback: fallbackLLM } =
-        createLlmPair(trunkPhone);
+      const { primary: primaryLLM, fallback: fallbackLLM } = createLlmPair();
 
       const llmWithFallback = new FallbackAdapter({
         llms: [primaryLLM, fallbackLLM],
