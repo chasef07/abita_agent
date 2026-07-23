@@ -1,8 +1,8 @@
 import * as baseten from "@livekit/agents-plugin-baseten";
 import type { BasetenLLMOptions } from "@livekit/agents-plugin-baseten";
 import {
-  DEV_OFFICE_PHONE,
-  normalizePhoneNumber,
+  getOfficeKeyByPhone,
+  type OfficeKey,
 } from "./customers/abita/profile.js";
 
 export const primaryLLMOptions = {
@@ -17,19 +17,19 @@ export const fallbackLLMOptions = {
   parallelToolCalls: false,
 } as const satisfies BasetenLLMOptions;
 
-const demoPrimaryLLMOptions = {
+const inklingPrimaryLLMOptions = {
   maxTokens: 512,
   model: "thinkingmachines/inkling",
   parallelToolCalls: false,
 } as const satisfies BasetenLLMOptions;
 
+const inklingOfficeKeys = new Set<OfficeKey>(["dev", "spring-hill"]);
+
 export function getLlmOptions(trunkPhone?: string) {
   return {
     primary:
-      trunkPhone &&
-      normalizePhoneNumber(trunkPhone) ===
-        normalizePhoneNumber(DEV_OFFICE_PHONE)
-        ? demoPrimaryLLMOptions
+      trunkPhone && inklingOfficeKeys.has(getOfficeKeyByPhone(trunkPhone))
+        ? inklingPrimaryLLMOptions
         : primaryLLMOptions,
     fallback: fallbackLLMOptions,
   } as const;

@@ -6,7 +6,9 @@ import {
   primaryLLMOptions,
 } from "../model-config.js";
 import {
+  CRYSTAL_RIVER_OFFICE_PHONE,
   DEV_OFFICE_PHONE,
+  SPRING_HILL_813_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
 
@@ -24,17 +26,21 @@ describe("LLM model config", () => {
     expect(fallback.model).toBe("zai-org/GLM-4.7");
   });
 
-  it("uses Inkling through Baseten only for the demo trunk", () => {
+  it("uses Inkling through Baseten for the demo and Spring Hill trunks", () => {
     vi.stubEnv("BASETEN_API_KEY", "test-key");
 
     const demo = createLlmPair(DEV_OFFICE_PHONE);
-    const production = createLlmPair(SPRING_HILL_OFFICE_PHONE);
+    const springHill = createLlmPair(SPRING_HILL_OFFICE_PHONE);
+    const springHill813 = createLlmPair(SPRING_HILL_813_TRUNK_PHONE);
+    const crystalRiver = createLlmPair(CRYSTAL_RIVER_OFFICE_PHONE);
 
     expect(demo.primary.label()).toBe("baseten.LLM");
     expect(demo.primary.model).toBe("thinkingmachines/inkling");
     expect(demo.fallback.model).toBe("zai-org/GLM-4.7");
-    expect(production.primary.model).toBe("zai-org/GLM-5.2");
-    expect(production.fallback.model).toBe("zai-org/GLM-4.7");
+    expect(springHill.primary.model).toBe("thinkingmachines/inkling");
+    expect(springHill813.primary.model).toBe("thinkingmachines/inkling");
+    expect(crystalRiver.primary.model).toBe("zai-org/GLM-5.2");
+    expect(crystalRiver.fallback.model).toBe("zai-org/GLM-4.7");
   });
 
   it("uses the production models when no trunk override is provided", () => {
