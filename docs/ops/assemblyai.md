@@ -8,7 +8,7 @@ Switched STT from Deepgram Nova-3 to AssemblyAI Universal-3 Pro Streaming on 202
 
 **LiveKit audio turn detection:** The session uses `inference.TurnDetector()` as the primary turn-boundary owner. AssemblyAI's silence settings still control transcription timing and entity-dictation quality, but its end-of-speech events do not commit turns in this mode.
 
-**Context-aware endpointing:** Normal conversation uses dynamic `300-1500ms` endpointing with `alpha=0.7`. Insurance, member ID, intake, and email prompts temporarily use `500-2500ms`. The normal profile returns only after LiveKit commits the caller's message, not when AssemblyAI first emits a final transcript.
+**Context-aware endpointing:** Normal conversation uses fixed `300-600ms` endpointing. Insurance, member ID, intake, and email prompts temporarily use fixed `500-2500ms` endpointing. The normal profile returns only after LiveKit commits the caller's message, not when AssemblyAI first emits a final transcript.
 
 **No language pinned:** Universal-3.5 Pro auto-detects and code-switches between English, Spanish, German, French, Portuguese, and Italian. Omitting `language` lets it detect automatically — important since callers may speak Spanish.
 

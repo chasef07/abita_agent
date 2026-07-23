@@ -84,7 +84,7 @@ describe("turn profile controller", () => {
     });
 
     expect(updateEndpointing).toHaveBeenLastCalledWith({
-      maxDelay: 1_500,
+      maxDelay: 600,
       minDelay: 300,
     });
   });

@@ -6,7 +6,7 @@ export const voiceMaxToolSteps = 3;
 export const voiceEndpointingProfiles = {
   conversation: {
     minDelay: 300,
-    maxDelay: 1_500,
+    maxDelay: 600,
   },
   deliberate: {
     minDelay: 500,
@@ -16,9 +16,8 @@ export const voiceEndpointingProfiles = {
 
 export const voiceTurnHandlingOptions = {
   endpointing: {
-    mode: "dynamic",
+    mode: "fixed",
     ...voiceEndpointingProfiles.conversation,
-    alpha: 0.7,
   },
   preemptiveGeneration: {
     enabled: true,

@@ -35,7 +35,7 @@ describe("voice session options", () => {
     expect(preemptiveGeneration.maxRetries).toBe(1);
   });
 
-  it("uses responsive dynamic endpointing for normal conversation", () => {
+  it("uses responsive fixed endpointing for normal conversation", () => {
     const turnDetection = fakeTurnDetector();
     const session = new AgentSession({
       turnHandling: {
@@ -47,11 +47,15 @@ describe("voice session options", () => {
     expect(session.sessionOptions.turnHandling.turnDetection).toBe(
       turnDetection,
     );
-    expect(session.sessionOptions.turnHandling.endpointing).toMatchObject({
-      alpha: 0.7,
-      maxDelay: 1_500,
+    expect(voiceTurnHandlingOptions.endpointing).toEqual({
+      maxDelay: 600,
       minDelay: 300,
-      mode: "dynamic",
+      mode: "fixed",
+    });
+    expect(session.sessionOptions.turnHandling.endpointing).toMatchObject({
+      maxDelay: 600,
+      minDelay: 300,
+      mode: "fixed",
     });
     expect(session.sessionOptions.turnHandling.interruption.mode).toBe(
       "adaptive",

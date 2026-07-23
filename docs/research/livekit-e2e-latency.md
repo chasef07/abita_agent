@@ -96,10 +96,10 @@ distribution around the SDK's 300ms/2500ms choices, not an isolated timer spike.
 ## Current Abita settings
 
 - Audio turn detector: `new inference.TurnDetector()` in `src/main.ts`.
-- Endpointing: dynamic `300-1500ms` with `alpha=0.7` for normal conversation.
-  Insurance, member ID, intake/DOB/address, and email prompts temporarily use
-  `500-2500ms`, beginning as the prompt enters TTS and ending when LiveKit
-  commits the caller's message.
+- Endpointing: fixed `300-600ms` for normal conversation. Insurance, member ID,
+  intake/DOB/address, and email prompts temporarily use fixed `500-2500ms`,
+  beginning as the prompt enters TTS and ending when LiveKit commits the
+  caller's message.
 - VAD: no explicit VAD is supplied, so LiveKit auto-provisions its bundled
   Silero VAD. Installed defaults are `minSpeechDuration: 50ms`,
   `minSilenceDuration: 250ms`, activation `0.5`, deactivation `0.35`.
@@ -109,8 +109,8 @@ distribution around the SDK's 300ms/2500ms choices, not an isolated timer spike.
 - STT: AssemblyAI Universal-3.5 Pro, with a base `275-2000ms` provider turn
   silence window and longer prompt-specific profiles in `src/stt-config.ts`.
 
-The production aggregate above predates this explicit endpointing change and is
-the baseline the new normal-conversation profile is intended to improve.
+The production aggregate above predates the explicit endpointing experiments
+and is the baseline the normal-conversation profile is intended to improve.
 
 Preemptive generation can hide some LLM work behind the endpointing wait, but it
 does not reduce `endOfTurnDelay`. With `preemptiveTts: false`, TTS still waits for
@@ -130,26 +130,23 @@ tradeoff; LiveKit recommends the turn detector for most agents and identifies
 VAD-only as the minimal-latency option. [turn detection guidance][turns-docs]
 
 The selected latency configuration preserves the semantic detector while using
-dynamic endpointing for normal conversation:
+fixed endpointing for normal conversation:
 
 ```ts
 endpointing: {
-  mode: "dynamic",
+  mode: "fixed",
   minDelay: 300,
-  maxDelay: 1500,
-  alpha: 0.7,
+  maxDelay: 600,
 }
 ```
 
-This leaves confident turns on the existing 300ms path, adapts within the range
-to the caller's pace, and removes one second only from turns the detector thinks
-may continue. Structured dictation prompts temporarily use `500-2500ms`, then
-return to the normal profile after the caller's message is committed. These are
-Abita-specific settings, not LiveKit defaults. On the 14-day sample the 1500ms
-ceiling would have affected 18.8% of turns, saving a mean 1006ms on affected
-turns and 189ms across all turns. Validate it against false cutoffs, immediate
-caller barge-ins, and the EOU probability/threshold traces before lowering it
-further.
+This leaves confident turns on the 300ms path and caps turns the detector thinks
+may continue at 600ms without learning delay from session history. Structured
+dictation prompts temporarily use fixed `500-2500ms`, then return to the normal
+profile after the caller's message is committed. These are Abita-specific
+settings, not LiveKit defaults. Validate the tighter normal ceiling against
+false cutoffs, immediate caller resumptions, and the EOU
+probability/threshold traces before lowering it further.
 
 There is also a provider-aligned alternative: LiveKit's official AssemblyAI
 Universal-3.5 Pro example uses `turnDetection: "stt"` with `minDelay: 0`, because
