@@ -6,13 +6,13 @@ Switched STT from Deepgram Nova-3 to AssemblyAI Universal-3 Pro Streaming on 202
 
 **Direct AssemblyAI plugin:** Using `new assemblyai.STT(getAssemblyAISttOptions())` from `@livekit/agents-plugin-assemblyai`. This keeps STT on AssemblyAI Universal-3.5 Pro while preserving direct AssemblyAI runtime options and profile updates.
 
-**STT-based turn detection (`turnDetection: "stt"`):** Both LiveKit and AssemblyAI docs recommend this as the primary approach for Universal-3.5 Pro. The model has built-in punctuation-based turn detection (checks for `.` `?` `!` after silence). MultilingualModel is only an alternative if you specifically want a third-party model making turn decisions on top.
+**LiveKit audio turn detection:** The session uses `inference.TurnDetector()` as the primary turn-boundary owner. AssemblyAI's silence settings still control transcription timing and entity-dictation quality, but its end-of-speech events do not commit turns in this mode.
 
-**Endpointing minDelay set to 0:** LiveKit's default 0.5s delay is additive on top of AssemblyAI's own endpointing — pure extra latency. AssemblyAI's `min_turn_silence` and `max_turn_silence` already control timing.
+**Context-aware endpointing:** Normal conversation uses dynamic `300-1500ms` endpointing with `alpha=0.7`. Insurance, member ID, intake, and email prompts temporarily use `500-2500ms`. The normal profile returns only after LiveKit commits the caller's message, not when AssemblyAI first emits a final transcript.
 
 **No language pinned:** Universal-3.5 Pro auto-detects and code-switches between English, Spanish, German, French, Portuguese, and Italian. Omitting `language` lets it detect automatically — important since callers may speak Spanish.
 
-**VAD thresholds aligned at 0.3:** Universal-3.5 Pro defaults its internal VAD to 0.3. Silero must match to avoid a dead zone where AssemblyAI is transcribing but LiveKit hasn't detected speech yet, delaying barge-in. Silero is still recommended with STT turn detection for faster local interruption handling — LiveKit uses whichever speech-start signal arrives first.
+**Bundled LiveKit VAD:** The session does not override VAD, so LiveKit provisions its bundled Silero model. AssemblyAI retains its `vad_threshold=0.3`; that provider setting is separate from LiveKit's primary audio turn detector.
 
 **No agent-side noise cancellation:** The agent does not configure LiveKit background voice cancellation or AssemblyAI Voice Focus before STT. SIP trunk-level noise/echo cancellation (Telnyx) is separate from this.
 
@@ -25,14 +25,15 @@ Switched STT from Deepgram Nova-3 to AssemblyAI Universal-3 Pro Streaming on 202
 ```
 min_turn_silence: 275   — silence (ms) before speculative EOT check (punctuation-based)
 max_turn_silence: 2000  — max silence (ms) before forced turn end on normal turns
-vad_threshold: 0.3      — AssemblyAI internal VAD, must match Silero
+vad_threshold: 0.3      — AssemblyAI internal VAD threshold
 ```
 
 ## Tuning notes
 
 - Increase `min_turn_silence` if brief pauses cause early EOT on terminal punctuation
 - Increase `max_turn_silence` if forced turn end cuts off users mid-thought or splits entities (phone numbers, DOBs) across turns
-- Runtime profile changes are owned by `src/runtime/stt-profile-switcher.ts`,
+- Tune LiveKit turn-commit timing in `src/session-options.ts`.
+- Runtime profile changes are owned by `src/runtime/turn-profile-controller.ts`,
   attached during session startup in `src/main.ts`; examples include insurance
   plan lookup, insurance member ID, intake/DOB/address, and email collection.
 - `keytermsPrompt` is configured in `src/stt-config.ts`. Keep the default list short: AssemblyAI limits streaming keyterms to 100 terms and ignores individual terms longer than 50 characters.

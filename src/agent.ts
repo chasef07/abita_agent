@@ -26,6 +26,7 @@ import { buildToolsForTrunk } from "./runtime/tool-registry.js";
 export { addDurableInternalSystemMessage };
 
 type VoiceAgentOptions = {
+  onAssistantText?: (text: string, complete: boolean) => void;
   onLanguageDecision?: (decision: SttLanguageDecision) => void;
   suppressGreeting?: boolean;
   sttLanguageDetector?: SttLanguageDetector;
@@ -92,9 +93,34 @@ export function createVoiceAgent(
         options.onLanguageDecision,
       );
     },
+
+    async ttsNode(ctx, text, modelSettings) {
+      return LiveKitAgent.default.ttsNode(
+        ctx.agent,
+        options.onAssistantText
+          ? observeAssistantText(text, options.onAssistantText)
+          : text,
+        modelSettings,
+      );
+    },
   });
 
   return { agent, office };
+}
+
+export async function* observeAssistantText(
+  chunks: AsyncIterable<string>,
+  observer: (text: string, complete: boolean) => void,
+): AsyncIterable<string> {
+  let text = "";
+
+  for await (const chunk of chunks) {
+    text += chunk;
+    observer(text, false);
+    yield chunk;
+  }
+
+  observer(text, true);
 }
 
 function latestAssistantText(chatCtx: ChatContext): string | null {

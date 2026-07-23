@@ -46,7 +46,10 @@ import {
   voiceTurnHandlingOptions,
 } from "./session-options.js";
 import { attachSipParticipantShutdown } from "./runtime/sip-room-shutdown.js";
-import { createSttProfileSwitcher } from "./runtime/stt-profile-switcher.js";
+import {
+  attachTurnProfileLifecycle,
+  createTurnProfileController,
+} from "./runtime/turn-profile-controller.js";
 import {
   HttpCallPortal,
   attachCallCloseout,
@@ -177,7 +180,13 @@ export default defineAgent({
         },
       });
 
-      const sttProfileSwitcher = createSttProfileSwitcher(stt, { startedAt });
+      const turnProfileController = createTurnProfileController(stt, {
+        startedAt,
+        updateEndpointing: (endpointing) => {
+          session.updateOptions({ turnHandling: { endpointing } });
+        },
+      });
+      attachTurnProfileLifecycle(session, turnProfileController);
 
       // Register closeout before pre-call bootstrap so start rows do not get
       // stranded if setup fails after the initial portal write.
@@ -201,7 +210,7 @@ export default defineAgent({
             session.shutdown({ drain: false, reason });
           },
           sttLanguageDetector,
-          sttProfileSwitcher,
+          sttProfiles: turnProfileController.sttProfiles,
         }),
         getCallState,
         portal: new HttpCallPortal({
@@ -220,6 +229,7 @@ export default defineAgent({
       console.log(formatPhoneLookupLogLine(callerPhone, phoneLookup));
 
       const { agent, office } = createVoiceAgent(phoneLookup, trunkPhone, {
+        onAssistantText: turnProfileController.observeAssistantText,
         onLanguageDecision: (decision) => {
           const voiceLanguage = applyLanguageDecisionToTts(decision);
           if (voiceLanguage) {

@@ -1,8 +1,11 @@
+import { AgentSessionEventTypes, type AgentSession } from "@livekit/agents";
 import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import {
   snapshotSttProfileTransition,
   type SttProfileTransitionAnalytics,
 } from "../call-observability.js";
+import { voiceEndpointingProfiles } from "../session-options.js";
+import type { CallState } from "../state/call-state.js";
 import {
   type SttProfile,
   getAssemblyAIAgentContext,
@@ -10,7 +13,10 @@ import {
   selectSttProfileForAssistantText,
 } from "../stt-config.js";
 
-export type SttProfileSwitcher = {
+type EndpointingProfile = keyof typeof voiceEndpointingProfiles;
+type EndpointingOptions = (typeof voiceEndpointingProfiles)[EndpointingProfile];
+
+export type TurnProfileController = {
   applySttProfile: (
     profile: SttProfile,
     reason: string,
@@ -21,19 +27,21 @@ export type SttProfileSwitcher = {
     },
     extraOptions?: Partial<assemblyai.STTOptions>,
   ) => void;
-  applyAssistantPromptProfile: (
-    assistantText: string,
-    details: { createdAt?: number },
-  ) => void;
+  commitUserTurn: () => void;
+  observeAssistantText: (assistantText: string, complete: boolean) => void;
   sttProfiles: SttProfileTransitionAnalytics[];
   readonly activeSttProfile: SttProfile;
 };
 
-export function createSttProfileSwitcher(
+export function createTurnProfileController(
   stt: assemblyai.STT,
-  options: { startedAt: Date },
-): SttProfileSwitcher {
+  options: {
+    startedAt: Date;
+    updateEndpointing: (options: EndpointingOptions) => void;
+  },
+): TurnProfileController {
   let activeSttProfile: SttProfile = "default";
+  let activeEndpointingProfile: EndpointingProfile = "conversation";
   let promptedSttProfile: SttProfile | null = null;
   const sttProfiles: SttProfileTransitionAnalytics[] = [
     snapshotSttProfileTransition({
@@ -81,32 +89,59 @@ export function createSttProfileSwitcher(
     console.log(`[stt] AssemblyAI profile=${profile} reason=${reason}`);
   };
 
-  const applyAssistantPromptProfile = (
-    assistantText: string,
-    details: { createdAt?: number },
-  ) => {
+  const applyEndpointingProfile = (profile: EndpointingProfile) => {
+    if (profile === activeEndpointingProfile) return;
+    activeEndpointingProfile = profile;
+    options.updateEndpointing(voiceEndpointingProfiles[profile]);
+  };
+
+  const observeAssistantText = (assistantText: string, complete: boolean) => {
     const profile = selectSttProfileForAssistantText(assistantText, {
       fallbackProfile: promptedSttProfile,
     });
+    if (!complete && profile === "default") return;
+
     promptedSttProfile = profile === "default" ? null : profile;
-    const agentContext = getAssemblyAIAgentContext(assistantText);
+    const agentContext = complete
+      ? getAssemblyAIAgentContext(assistantText)
+      : undefined;
     applySttProfile(
       profile,
       "assistant_prompt",
-      {
-        assistantText,
-        createdAt: details.createdAt,
-      },
+      { assistantText },
       agentContext ? { agentContext } : {},
     );
+    if (profile !== "default") {
+      applyEndpointingProfile("deliberate");
+    }
   };
 
   return {
     applySttProfile,
-    applyAssistantPromptProfile,
+    commitUserTurn: () => applyEndpointingProfile("conversation"),
+    observeAssistantText,
     sttProfiles,
     get activeSttProfile() {
       return activeSttProfile;
     },
   };
+}
+
+export function attachTurnProfileLifecycle(
+  session: AgentSession<CallState>,
+  controller: TurnProfileController,
+): void {
+  session.on(AgentSessionEventTypes.UserInputTranscribed, (event) => {
+    if (!event.isFinal) return;
+    controller.applySttProfile("default", "user_final", {
+      callerText: event.transcript,
+      createdAt: event.createdAt,
+    });
+  });
+
+  session.on(AgentSessionEventTypes.ConversationItemAdded, (event) => {
+    if (event.item.type === "message" && event.item.role === "user") {
+      controller.commitUserTurn();
+    }
+  });
 }

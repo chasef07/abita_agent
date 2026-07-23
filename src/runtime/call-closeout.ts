@@ -23,10 +23,10 @@ import {
   snapshotToolExecutions,
   withAppointmentActionToolExecutionFallback,
   type SessionEventAnalytics,
+  type SttProfileTransitionAnalytics,
   type ToolExecutionAnalytics,
 } from "../call-observability.js";
 import { attachCallDurationDeadline } from "./call-duration-deadline.js";
-import type { SttProfileSwitcher } from "./stt-profile-switcher.js";
 
 type ConversationItemAdded = {
   createdAt: number;
@@ -433,7 +433,7 @@ export function createLiveKitCallCloseoutEventAdapter(
     roomName: string;
     shutdownSession: (reason: string) => void;
     sttLanguageDetector: SttLanguageDetector;
-    sttProfileSwitcher: SttProfileSwitcher;
+    sttProfiles: SttProfileTransitionAnalytics[];
   },
 ): CallCloseoutEventAdapter {
   let closeout: (() => Promise<CallCloseoutResult>) | undefined;
@@ -467,7 +467,7 @@ export function createLiveKitCallCloseoutEventAdapter(
         ...(reportUnavailable ? { reportUnavailable } : {}),
         sessionReport,
         sessionUsage: session.usage as unknown as Record<string, unknown>,
-        sttProfiles: [...options.sttProfileSwitcher.sttProfiles],
+        sttProfiles: [...options.sttProfiles],
       };
     },
     observe(observer) {
@@ -499,12 +499,6 @@ export function createLiveKitCallCloseoutEventAdapter(
             type: event.item.type,
           },
         });
-        if (event.item.role === "assistant") {
-          options.sttProfileSwitcher.applyAssistantPromptProfile(
-            event.item.textContent ?? "",
-            { createdAt: event.createdAt },
-          );
-        }
       });
       session.on(AgentSessionEventTypes.SessionUsageUpdated, (event) => {
         observer.usageUpdated(
@@ -524,13 +518,6 @@ export function createLiveKitCallCloseoutEventAdapter(
         AgentSessionEventTypes.OverlappingSpeech,
         observer.overlappingSpeech,
       );
-      session.on(AgentSessionEventTypes.UserInputTranscribed, (event) => {
-        if (!event.isFinal) return;
-        options.sttProfileSwitcher.applySttProfile("default", "user_final", {
-          callerText: event.transcript,
-          createdAt: event.createdAt,
-        });
-      });
     },
     onClose(callback) {
       closeout = callback;

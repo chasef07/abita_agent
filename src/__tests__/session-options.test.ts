@@ -35,7 +35,7 @@ describe("voice session options", () => {
     expect(preemptiveGeneration.maxRetries).toBe(1);
   });
 
-  it("uses the provided turn detector without overriding endpointing", () => {
+  it("uses responsive dynamic endpointing for normal conversation", () => {
     const turnDetection = fakeTurnDetector();
     const session = new AgentSession({
       turnHandling: {
@@ -47,15 +47,18 @@ describe("voice session options", () => {
     expect(session.sessionOptions.turnHandling.turnDetection).toBe(
       turnDetection,
     );
-    expect(session.sessionOptions.turnHandling.endpointing.mode).toBe("fixed");
-    expect(session.sessionOptions.turnHandling.endpointing.minDelay).toBe(500);
-    expect(session.sessionOptions.turnHandling.endpointing.maxDelay).toBe(3000);
+    expect(session.sessionOptions.turnHandling.endpointing).toMatchObject({
+      alpha: 0.7,
+      maxDelay: 1_500,
+      minDelay: 300,
+      mode: "dynamic",
+    });
     expect(session.sessionOptions.turnHandling.interruption.mode).toBe(
       "adaptive",
     );
   });
 
-  it("uses the bundled default VAD and streaming endpointing defaults", async () => {
+  it("uses the bundled default VAD with the audio turn detector", async () => {
     const turnDetection = new inference.TurnDetector({ version: "v1-mini" });
     const session = new AgentSession({
       turnHandling: {
@@ -67,15 +70,6 @@ describe("voice session options", () => {
     try {
       expect(session.sessionOptions.turnHandling.turnDetection).toBe(
         turnDetection,
-      );
-      expect(session.sessionOptions.turnHandling.endpointing.mode).toBe(
-        "fixed",
-      );
-      expect(session.sessionOptions.turnHandling.endpointing.minDelay).toBe(
-        300,
-      );
-      expect(session.sessionOptions.turnHandling.endpointing.maxDelay).toBe(
-        2500,
       );
       expect(session.vad?.provider).toBe("livekit-local-inference");
       expect(session._usingDefaultVad).toBe(true);
