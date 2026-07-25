@@ -106,7 +106,6 @@ const COMMON_TOOL_NAMES = [
   "check_insurance",
   "end_call",
   "get_availability",
-  "get_current_datetime",
   "reschedule_appointment",
   "resolve_patient",
   "transfer_call",

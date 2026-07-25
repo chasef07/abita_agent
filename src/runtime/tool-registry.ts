@@ -7,7 +7,6 @@ import {
   cancel_appointment,
   check_insurance,
   create_staff_task,
-  get_current_datetime,
   get_availability,
   resolve_patient,
   reschedule_appointment,
@@ -30,7 +29,6 @@ export function buildToolsForTrunk(
   options: { identityLookup?: PatientResolveLookup } = {},
 ): AgentTools {
   const coreTools = [
-    get_current_datetime,
     options.identityLookup
       ? createResolvePatientTool(options.identityLookup)
       : resolve_patient,
