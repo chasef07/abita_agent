@@ -10,7 +10,15 @@ import {
   normalizeInsuranceText,
   type InsuranceCoverageType,
 } from "../insurance-rules.js";
-import { dobMatches, namesMatch } from "../identity/name-matcher.js";
+import {
+  applyPatientResult,
+  beginPatientIdentityOperation,
+  currentPatientIdentityTransitionVersion,
+  patientIdentityOperationIsCurrent,
+  patientIdentityTransitionIsCurrent,
+  preCallCandidateMatchesIdentity,
+  setPendingRegistrationIdentity,
+} from "../identity/promotion.js";
 import {
   type CallState,
   type InsuranceEligibilityCheck,
@@ -24,7 +32,6 @@ import {
   setInsuranceOnFile,
   setLastInsuranceEligibilityCheck,
 } from "../scheduling/state.js";
-import { applyPatientResult } from "./patient-state.js";
 import {
   getAmdOfficeForToolCall,
   medicalSchedulingUnavailable,
@@ -97,6 +104,7 @@ const addPatientParameters = z
 
 export const add_patient = tool({
   name: "add_patient",
+  onDuplicate: "reject",
   description:
     "Creates a chart for a new patient. " +
     "Call this only after resolve_patient has confirmed the caller says the patient is not registered with us. " +
@@ -216,12 +224,31 @@ export const add_patient = tool({
       ...(params.email?.trim() ? { email: params.email.trim() } : {}),
     };
 
+    setPendingRegistrationIdentity(state, params);
+    const transitionVersion = currentPatientIdentityTransitionVersion(state);
+    const operationVersion = beginPatientIdentityOperation(state);
     const result = await ownedMiddleware().createPatient({
       office: getAmdOfficeForToolCall(state),
       patient: payload,
     });
     if (result.status === "error") {
       recordOwnedMiddlewareFailure(state, "createPatient", result);
+    }
+    if (
+      !patientIdentityOperationIsCurrent(state, operationVersion) &&
+      !patientIdentityTransitionIsCurrent(state, transitionVersion)
+    ) {
+      if (result.status === "error") {
+        return "The patient chart was not created. The active patient changed before the result returned. Continue with the current patient's state.";
+      }
+      const patientName =
+        result.name?.trim() || `${params.firstName} ${params.lastName}`;
+      if (result.status === "partial") {
+        return `Created a patient chart for ${patientName}, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration. The active patient changed before the result returned. Continue with the current patient's state.`;
+      }
+      return `Created a patient chart for ${patientName}, but the active patient changed before the result returned. Do not create another chart. Continue with the current patient's state.`;
+    }
+    if (result.status === "error") {
       return "The patient chart was not created.";
     }
 
@@ -310,10 +337,7 @@ function hasMatchingPreCallPatient(
   const preCall = state.identity.preCall;
   if (!preCall) return false;
 
-  return preCall.candidates.some(
-    (candidate) =>
-      Boolean(candidate.patientId) &&
-      namesMatch(params.lastName, candidate.lastName) &&
-      dobMatches(params.dob, candidate.dob),
+  return preCall.candidates.some((candidate) =>
+    preCallCandidateMatchesIdentity(candidate, params),
   );
 }

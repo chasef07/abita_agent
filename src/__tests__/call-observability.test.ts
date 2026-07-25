@@ -94,8 +94,73 @@ describe("call observability", () => {
         "resolve_patient",
         JSON.stringify({ status: "multiple_matches" }),
         false,
+        "multiple_matches",
       ),
     ).toBe("multiple_patient_matches");
+    expect(
+      classifyToolOutput(
+        "resolve_patient",
+        "Verified existing patient Jane Doe. Patient record is loaded.",
+        false,
+        "verified",
+      ),
+    ).toBe("patient_verified");
+    expect(
+      classifyToolOutput(
+        "resolve_patient",
+        "Switched active patient to Jane Doe. Check availability again before booking.",
+        false,
+        "switched",
+      ),
+    ).toBe("patient_switched");
+    expect(
+      classifyToolOutput(
+        "resolve_patient",
+        "New-chart path confirmed. Continue registration.",
+        false,
+        "new",
+      ),
+    ).toBe("patient_new");
+    expect(
+      classifyToolOutput(
+        "resolve_patient",
+        "No matching patient was found.",
+        false,
+        "not_found",
+      ),
+    ).toBe("patient_not_found");
+    expect(
+      classifyToolOutput(
+        "resolve_patient",
+        "Patient lookup failed. Try again.",
+        false,
+        "lookup_failed",
+      ),
+    ).toBe("patient_lookup_failed");
+    expect(
+      classifyToolOutput(
+        "resolve_patient",
+        "Multiple patient matches found.",
+        false,
+        "multiple_matches",
+      ),
+    ).toBe("multiple_patient_matches");
+    expect(
+      classifyToolOutput(
+        "resolve_patient",
+        "No patient match found.",
+        false,
+        "not_found",
+      ),
+    ).toBe("patient_not_found");
+    expect(
+      classifyToolOutput(
+        "resolve_patient",
+        "Patient lookup returned an invalid response.",
+        false,
+        "lookup_failed",
+      ),
+    ).toBe("patient_lookup_failed");
     expect(
       classifyToolOutput(
         "book_appointment",
@@ -347,6 +412,114 @@ describe("call observability", () => {
       outputClass: "appointment_not_booked",
       status: "error",
     });
+  });
+
+  it("marks identity lookup failures as failed executions", () => {
+    expect(
+      snapshotToolExecutions(
+        {
+          functionCalls: [{ callId: "call_1", name: "resolve_patient" }],
+          functionCallOutputs: [
+            {
+              callId: "call_1",
+              isError: false,
+              output: "Patient lookup failed. Try again.",
+            },
+          ],
+        },
+        () => "lookup_failed",
+      )[0],
+    ).toMatchObject({
+      outputClass: "patient_lookup_failed",
+      status: "error",
+    });
+  });
+
+  it("does not consume an identity outcome for an errored tool call", () => {
+    const outcomes = ["verified" as const];
+    const executions = snapshotToolExecutions(
+      {
+        functionCalls: [
+          { callId: "call_1", name: "resolve_patient" },
+          { callId: "call_2", name: "resolve_patient" },
+        ],
+        functionCallOutputs: [
+          {
+            callId: "call_1",
+            isError: true,
+            output: "Invalid tool arguments.",
+          },
+          {
+            callId: "call_2",
+            isError: false,
+            output: "Verified existing patient. Patient record is loaded.",
+          },
+        ],
+      },
+      () => outcomes.shift(),
+    );
+
+    expect(executions).toMatchObject([
+      { outputClass: "middleware_error", status: "error" },
+      { outputClass: "patient_verified", status: "success" },
+    ]);
+  });
+
+  it.each([true, false])(
+    "classifies rejected duplicate identity tools without consuming outcomes (duplicate first: %s)",
+    (duplicateFirst) => {
+      const duplicate = {
+        callId: "duplicate",
+        name: "resolve_patient",
+        output: JSON.stringify(
+          "Same tool `resolve_patient` is already running:\n- call_1\nIf you want to cancel the existing one, call `lk_agents_cancel_task` with call_id.",
+        ),
+      };
+      const success = {
+        callId: "success",
+        name: "resolve_patient",
+        output: "Verified existing patient. Patient record is loaded.",
+      };
+      const ordered = duplicateFirst
+        ? [duplicate, success]
+        : [success, duplicate];
+      const outcomes = ["verified" as const];
+      const executions = snapshotToolExecutions(
+        {
+          functionCalls: ordered.map(({ callId, name }) => ({ callId, name })),
+          functionCallOutputs: ordered.map(({ callId, output }) => ({
+            callId,
+            isError: false,
+            output,
+          })),
+        },
+        () => outcomes.shift(),
+      );
+
+      expect(
+        executions.find(({ callId }) => callId === "duplicate"),
+      ).toMatchObject({
+        outputClass: "duplicate_tool_rejected",
+        status: "error",
+      });
+      expect(
+        executions.find(({ callId }) => callId === "success"),
+      ).toMatchObject({
+        outputClass: "patient_verified",
+        status: "success",
+      });
+      expect(outcomes).toEqual([]);
+    },
+  );
+
+  it("does not classify a rejected duplicate add_patient call as a created chart", () => {
+    expect(
+      classifyToolOutput(
+        "add_patient",
+        JSON.stringify("Same tool `add_patient` is already running:\n- call_1"),
+        false,
+      ),
+    ).toBe("duplicate_tool_rejected");
   });
 
   it("adds sanitized appointment action fallbacks for missing tool executions", () => {

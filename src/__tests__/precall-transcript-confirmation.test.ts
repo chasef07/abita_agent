@@ -67,7 +67,7 @@ describe("pre-call transcript confirmation", () => {
 
     expect(confirmation?.candidateRef).toBe("precall:2");
     expect(confirmation?.systemMessage).toContain("Patient: LARRY TEST.");
-    expect(confirmation?.systemMessage).toContain("Patient ID: patient-larry.");
+    expect(confirmation?.systemMessage).not.toContain("patient-larry");
     expect(confirmation?.systemMessage).toContain(
       "No upcoming appointments are loaded.",
     );

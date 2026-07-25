@@ -7,7 +7,7 @@ import type {
   CompletedRescheduleState,
   StoredCallerAppointment,
 } from "./call-state.js";
-import { activePatientId } from "./identity.js";
+import { activePatientId } from "./call-state.js";
 
 export function publicCallerAppointments(
   appointments: readonly StoredCallerAppointment[] | null | undefined,

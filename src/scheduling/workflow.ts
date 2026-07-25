@@ -4,7 +4,7 @@ import {
   normalizePhoneNumber,
   type AvailabilityOfficeKey,
 } from "../customers/abita/profile.js";
-import { restoreConfirmedPreCallPatient } from "../identity/preloaded-patient.js";
+import { restoreConfirmedPreCallPatient } from "../identity/promotion.js";
 import {
   completedBookingForPatient,
   completedRescheduleForPatient,
@@ -14,6 +14,9 @@ import {
   removeActiveAppointment,
 } from "../state/appointments.js";
 import {
+  activePatientDob,
+  activePatientId,
+  activePatientName,
   type AppointmentAnalytics,
   type CallState,
   type CallerAppointment,
@@ -21,11 +24,6 @@ import {
   type SchedulingAppointmentLane,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
-import {
-  activePatientDob,
-  activePatientId,
-  activePatientName,
-} from "../state/identity.js";
 import {
   recordAppointmentAction,
   recordOwnedMiddlewareFailure,

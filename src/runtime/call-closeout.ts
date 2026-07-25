@@ -5,7 +5,11 @@ import {
   type JobContext,
 } from "@livekit/agents";
 import { readFile } from "node:fs/promises";
-import type { CallState } from "../state/call-state.js";
+import {
+  patientIdentityTransitions,
+  takePatientIdentityOutcome,
+  type CallState,
+} from "../state/call-state.js";
 import { transferIsAccepted } from "../state/call-lifecycle.js";
 import {
   appointmentActions,
@@ -285,7 +289,12 @@ export async function attachCallCloseout(input: {
       sessionEvents.errors.push(snapshotErrorEvent(event));
     },
     toolsExecuted(event) {
-      observedToolExecutions.push(...snapshotToolExecutions(event));
+      const callState = input.getCallState();
+      observedToolExecutions.push(
+        ...snapshotToolExecutions(event, () =>
+          callState ? takePatientIdentityOutcome(callState) : undefined,
+        ),
+      );
     },
     usageUpdated(usage) {
       latestUsage = usage;
@@ -300,6 +309,9 @@ export async function attachCallCloseout(input: {
       : [];
     const recordedOwnedMiddlewareFailures = callState
       ? ownedMiddlewareFailures(callState)
+      : [];
+    const recordedIdentityTransitions = callState
+      ? patientIdentityTransitions(callState)
       : [];
     const toolExecutions = withAppointmentActionToolExecutionFallback(
       observedToolExecutions,
@@ -362,6 +374,7 @@ export async function attachCallCloseout(input: {
       voiceLanguage:
         callState?.runtime.voiceLanguage ?? input.call.initialVoiceLanguage,
       toolExecutions,
+      identityTransitions: recordedIdentityTransitions,
       appointmentActions: recordedAppointmentActions,
       ownedMiddlewareFailures: recordedOwnedMiddlewareFailures,
       ...input.call.livekitContext,

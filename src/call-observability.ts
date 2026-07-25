@@ -1,4 +1,7 @@
-import type { AppointmentActionAnalytics } from "./state/call-state.js";
+import type {
+  AppointmentActionAnalytics,
+  PatientIdentityOutcome,
+} from "./state/call-state.js";
 
 type TimestampInput = number | string | Date | undefined;
 
@@ -23,10 +26,51 @@ type FunctionToolsExecutedLike = {
   functionCallOutputs?: FunctionCallOutputLike[];
 };
 
+const TOOL_EXECUTION_STATUS_BY_OUTPUT_CLASS = {
+  appointment_booked: "success",
+  appointment_cancelled: "success",
+  appointment_lookup_returned: "success",
+  appointment_not_booked: "error",
+  appointment_not_cancelled: "error",
+  appointment_not_rescheduled: "error",
+  appointment_reschedule_partial: "error",
+  appointment_rescheduled: "success",
+  appointments_found: "success",
+  appointments_not_found: "success",
+  availability_blocked: "error",
+  availability_returned: "success",
+  duplicate_tool_call: "success",
+  duplicate_tool_rejected: "error",
+  insurance_checked: "success",
+  insurance_updated: "success",
+  knowledge_returned: "success",
+  middleware_error: "error",
+  multiple_patient_matches: "success",
+  patient_created: "success",
+  patient_lookup_failed: "error",
+  patient_lookup_returned: "success",
+  patient_new: "success",
+  patient_not_found: "success",
+  patient_switched: "success",
+  patient_verified: "success",
+  staff_task_created: "success",
+  staff_task_duplicate: "success",
+  staff_task_failed: "error",
+  tool_error: "error",
+  transfer_ambiguous: "success",
+  transfer_failed: "error",
+  transfer_not_started: "error",
+  transfer_started: "success",
+  unknown: "success",
+} as const;
+
+export type ToolOutputClass =
+  keyof typeof TOOL_EXECUTION_STATUS_BY_OUTPUT_CLASS;
+
 export type ToolExecutionAnalytics = {
   callId: string;
   createdAt: string;
-  outputClass: string;
+  outputClass: ToolOutputClass;
   status: "success" | "error";
   toolName: string;
 };
@@ -166,14 +210,22 @@ function normalizedOutcome(
 }
 
 function normalizedOutputText(output: string | undefined): string {
-  return typeof output === "string" ? output.toLowerCase() : "";
+  if (typeof output !== "string") return "";
+  try {
+    const parsed = JSON.parse(output) as unknown;
+    if (typeof parsed === "string") return parsed.toLowerCase();
+  } catch {
+    // Some tests and provider adapters pass the already-decoded tool string.
+  }
+  return output.toLowerCase();
 }
 
 export function classifyToolOutput(
   toolName: string,
   output: string | undefined,
   isError: boolean,
-): string {
+  patientIdentityOutcome?: PatientIdentityOutcome,
+): ToolOutputClass {
   if (isError) return "middleware_error";
 
   const parsed = parseJsonObject(output);
@@ -181,6 +233,7 @@ export function classifyToolOutput(
   const outcome = normalizedOutcome(parsed);
   if (status === "error") return "tool_error";
   const outputText = normalizedOutputText(output);
+  if (duplicateToolWasRejected(outputText)) return "duplicate_tool_rejected";
 
   switch (toolName) {
     case "book_appt":
@@ -321,10 +374,7 @@ export function classifyToolOutput(
       return "availability_returned";
     case "resolve_patient":
     case "verify_patient":
-      if (status === "verified") return "patient_verified";
-      if (status === "multiple_matches") return "multiple_patient_matches";
-      if (status === "not_found") return "patient_not_found";
-      return "patient_lookup_returned";
+      return patientIdentityOutputClass(patientIdentityOutcome);
     case "add_patient":
       return "patient_created";
     case "update_insurance":
@@ -339,30 +389,15 @@ export function classifyToolOutput(
 }
 
 function toolExecutionStatus(
-  isError: boolean,
-  outputClass: string,
+  outputClass: ToolOutputClass,
 ): ToolExecutionAnalytics["status"] {
-  if (
-    isError ||
-    outputClass === "middleware_error" ||
-    outputClass === "tool_error" ||
-    outputClass === "appointment_not_booked" ||
-    outputClass === "appointment_not_cancelled" ||
-    outputClass === "appointment_not_rescheduled" ||
-    outputClass === "availability_blocked" ||
-    outputClass === "appointment_reschedule_partial" ||
-    outputClass === "transfer_failed" ||
-    outputClass === "transfer_not_started" ||
-    outputClass === "staff_task_failed"
-  ) {
-    return "error";
-  }
-
-  return "success";
+  return TOOL_EXECUTION_STATUS_BY_OUTPUT_CLASS[outputClass];
 }
 
 export function snapshotToolExecutions(
   event: FunctionToolsExecutedLike,
+  takePatientIdentityOutcome: () => PatientIdentityOutcome | undefined = () =>
+    undefined,
 ): ToolExecutionAnalytics[] {
   const outputsByCallId = new Map<string, FunctionCallOutputLike>();
   for (const output of event.functionCallOutputs ?? []) {
@@ -375,7 +410,21 @@ export function snapshotToolExecutions(
       event.functionCallOutputs?.[index];
     const toolName = call.name ?? output?.name ?? "unknown";
     const isError = output?.isError === true;
-    const outputClass = classifyToolOutput(toolName, output?.output, isError);
+    const duplicateRejected = duplicateToolWasRejected(
+      normalizedOutputText(output?.output),
+    );
+    const patientIdentityOutcome =
+      !isError &&
+      !duplicateRejected &&
+      (toolName === "resolve_patient" || toolName === "verify_patient")
+        ? takePatientIdentityOutcome()
+        : undefined;
+    const outputClass = classifyToolOutput(
+      toolName,
+      output?.output,
+      isError,
+      patientIdentityOutcome,
+    );
 
     return {
       callId: call.callId ?? output?.callId ?? call.id ?? "unknown",
@@ -383,10 +432,36 @@ export function snapshotToolExecutions(
         event.createdAt ?? output?.createdAt ?? call.createdAt,
       ),
       outputClass,
-      status: toolExecutionStatus(isError, outputClass),
+      status: toolExecutionStatus(outputClass),
       toolName,
     };
   });
+}
+
+function duplicateToolWasRejected(outputText: string): boolean {
+  return /^same tool `[^`]+` is already running:/.test(outputText);
+}
+
+function patientIdentityOutputClass(
+  outcome: PatientIdentityOutcome | undefined,
+): ToolOutputClass {
+  switch (outcome) {
+    case "verified":
+      return "patient_verified";
+    case "switched":
+      return "patient_switched";
+    case "new":
+      return "patient_new";
+    case "not_found":
+      return "patient_not_found";
+    case "multiple_matches":
+      return "multiple_patient_matches";
+    case "lookup_failed":
+      return "patient_lookup_failed";
+    case "needs_identity":
+    case undefined:
+      return "patient_lookup_returned";
+  }
 }
 
 export function withAppointmentActionToolExecutionFallback(
@@ -421,7 +496,7 @@ export function withAppointmentActionToolExecutionFallback(
       callId: `appointment_action_${index + 1}`,
       createdAt: timestampToIso(action.createdAt),
       outputClass,
-      status: executionStatusForAppointmentAction(action),
+      status: toolExecutionStatus(outputClass),
       toolName,
     });
   });
@@ -431,7 +506,7 @@ export function withAppointmentActionToolExecutionFallback(
 
 function appointmentExecutionKey(
   toolName: string,
-  outputClass: string,
+  outputClass: ToolOutputClass,
 ): string {
   return `${toolName}:${outputClass}`;
 }
@@ -451,7 +526,7 @@ function toolNameForAppointmentAction(
 
 function outputClassForAppointmentAction(
   action: AppointmentActionAnalytics,
-): string {
+): ToolOutputClass {
   switch (action.action) {
     case "booked":
       return action.status === "error"
@@ -467,16 +542,6 @@ function outputClassForAppointmentAction(
         ? "appointment_not_rescheduled"
         : "appointment_rescheduled";
   }
-}
-
-function executionStatusForAppointmentAction(
-  action: AppointmentActionAnalytics,
-): ToolExecutionAnalytics["status"] {
-  if (action.status === "error") return "error";
-  if (action.action === "rescheduled" && action.status === "partial") {
-    return "error";
-  }
-  return "success";
 }
 
 function errorCode(error: unknown): string | undefined {

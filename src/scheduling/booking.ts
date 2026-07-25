@@ -4,11 +4,12 @@ import type {
   BookAppointmentResult,
 } from "../clients/owned-middleware.js";
 import {
+  activePatientDob,
+  activePatientName,
   type CallState,
   type CallerAppointment,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
-import { activePatientDob, activePatientName } from "../state/identity.js";
 import {
   availabilityBookingToken,
   clearAvailabilitySelection,
