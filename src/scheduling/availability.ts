@@ -13,7 +13,7 @@ import {
   mergeAvailabilitySlots,
   reserveAvailabilitySlotIds,
   storeAvailabilityBookingToken,
-} from "../state/scheduling.js";
+} from "./state.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 
 type AvailabilitySearchSummary = {

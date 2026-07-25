@@ -38,7 +38,7 @@ import { lookupOfficeKnowledge } from "../tools/knowledge.js";
 import {
   medicalSchedulingUnavailable,
   routineVisionSchedulingUnavailable,
-} from "../tools/scheduling.js";
+} from "../scheduling/routing.js";
 import {
   createRimeVoiceLanguageState,
   getRimeTtsLanguageOptions,

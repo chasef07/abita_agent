@@ -3,10 +3,8 @@ import {
   type PatientResolveResult,
   type PatientResolveVerified,
 } from "../clients/owned-middleware.js";
-import { activatePreloadedCandidate } from "../identity/preloaded-patient.js";
 import { publicCallerAppointments } from "../state/appointments.js";
 import {
-  CALLER_CANDIDATE_REF,
   type AppointmentLoadStatus,
   type CallState,
   type StoredCallerAppointment,
@@ -15,8 +13,8 @@ import { activatePatient } from "../state/identity.js";
 import {
   appointmentStatusFromResult,
   extractAppointments,
-} from "./appointment-state.js";
-import { getAmdOfficeForToolCall } from "./scheduling.js";
+} from "../scheduling/appointments.js";
+import { getAmdOfficeForToolCall } from "../scheduling/routing.js";
 
 type PatientResolveRequest = {
   body: {
@@ -42,28 +40,6 @@ type PatientStatePayload = {
   appointmentsStatus?: AppointmentLoadStatus | null;
   rawAppointments?: StoredCallerAppointment[] | null;
 };
-
-export function restoreConfirmedPreCallCaller(state: CallState): void {
-  const preCall = state.identity.preCall;
-  if (
-    preCall?.status !== "single_match_confirmed" &&
-    preCall?.status !== "multiple_match_confirmed"
-  ) {
-    return;
-  }
-  const selectedRef = preCall.selectedCandidateRef ?? CALLER_CANDIDATE_REF;
-  const candidate = preCall.candidates.find(
-    (candidate) => candidate.ref === selectedRef,
-  );
-  if (!candidate?.patientId) return;
-  if (
-    state.identity.patient.identityConfirmed ||
-    state.identity.patient.status === "created"
-  ) {
-    return;
-  }
-  activatePreloadedCandidate(state, candidate, "confirmed_by_identity_tool");
-}
 
 export async function resolvePatientForCall(
   state: CallState,
@@ -131,12 +107,4 @@ export function applyPatientResult(
     appointmentsStatus,
     appointments: publicCallerAppointments(extractedAppointments),
   });
-}
-
-export function incompletePatientRegistrationMessage(
-  state: CallState,
-): string | null {
-  return state.identity.patient.status === "created" && !state.insurance.onFile
-    ? "The patient chart exists, but insurance is not attached. Connect the caller to office staff to finish registration before scheduling."
-    : null;
 }

@@ -15,7 +15,8 @@ import {
   type StoredCallerAppointment,
 } from "../state/call-state.js";
 import { activePatientId } from "../state/identity.js";
-import { publicProviderName } from "./availability-slots.js";
+import { publicProviderName } from "./availability.js";
+import type { BookingSuccess } from "./middleware.js";
 
 export function extractAppointments(
   result: unknown,
@@ -47,58 +48,19 @@ export function activeAppointmentById(
   );
 }
 
-function appointmentIdFromBookingResult(result: unknown): number | null {
-  if (!isRecord(result)) return null;
-  const appointmentId = result.appointmentId;
-  if (typeof appointmentId === "number") return appointmentId;
-  if (typeof appointmentId === "string" && /^\d+$/.test(appointmentId)) {
-    return Number(appointmentId);
-  }
-  return null;
-}
-
-function appointmentTypeIdFromBookingResult(
-  result: unknown,
-): number | undefined {
-  if (!isRecord(result)) return undefined;
-  const appointmentTypeId = result.appointmentTypeId;
-  if (
-    typeof appointmentTypeId === "number" &&
-    Number.isInteger(appointmentTypeId) &&
-    appointmentTypeId > 0
-  ) {
-    return appointmentTypeId;
-  }
-  if (
-    typeof appointmentTypeId === "string" &&
-    /^[1-9]\d*$/.test(appointmentTypeId)
-  ) {
-    return Number(appointmentTypeId);
-  }
-  return undefined;
-}
-
 export function recordBookedAppointmentInState(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
-  result: unknown,
+  result: BookingSuccess,
 ): void {
-  const appointmentId = appointmentIdFromBookingResult(result);
-  if (appointmentId === null) return;
-
-  const provider =
-    isRecord(result) && typeof result.providerName === "string"
-      ? publicProviderName(result.providerName)
-      : selectedSlot.provider;
+  const appointmentId = result.appointmentId;
+  const provider = result.providerName
+    ? publicProviderName(result.providerName)
+    : selectedSlot.provider;
   const facility =
-    isRecord(result) && typeof result.locationName === "string"
-      ? result.locationName
-      : getOfficeProfile(activeOfficeKey(state)).displayName;
-  const type =
-    isRecord(result) && typeof result.appointmentTypeName === "string"
-      ? result.appointmentTypeName
-      : "Appointment";
-  const appointmentTypeId = appointmentTypeIdFromBookingResult(result);
+    result.locationName ?? getOfficeProfile(activeOfficeKey(state)).displayName;
+  const type = result.appointmentTypeName ?? "Appointment";
+  const appointmentTypeId = result.appointmentTypeId;
   const appointment: CallerAppointment = {
     id: appointmentId,
     date: selectedSlot.date,

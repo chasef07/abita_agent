@@ -64,6 +64,28 @@ export function activatePreloadedCandidate(
   });
 }
 
+export function restoreConfirmedPreCallPatient(state: CallState): void {
+  const preCall = state.identity.preCall;
+  if (
+    preCall?.status !== "single_match_confirmed" &&
+    preCall?.status !== "multiple_match_confirmed"
+  ) {
+    return;
+  }
+  const candidate = candidateByRef(
+    preCall,
+    preCall.selectedCandidateRef ?? CALLER_CANDIDATE_REF,
+  );
+  if (!candidate?.patientId) return;
+  if (
+    state.identity.patient.identityConfirmed ||
+    state.identity.patient.status === "created"
+  ) {
+    return;
+  }
+  activatePreloadedCandidate(state, candidate, "confirmed_by_identity_tool");
+}
+
 export function selectedPreCallCandidate(
   preCall: PreCallContextState,
 ): PreCallCandidate | null {

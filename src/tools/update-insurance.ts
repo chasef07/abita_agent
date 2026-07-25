@@ -19,8 +19,8 @@ import {
   setInsuranceOnFile,
   setLastInsuranceEligibilityCheck,
   setRoutingContext,
-} from "../state/scheduling.js";
-import { getAmdOfficeForToolCall } from "./scheduling.js";
+} from "../scheduling/state.js";
+import { getAmdOfficeForToolCall } from "../scheduling/routing.js";
 import { getState } from "./session.js";
 
 export const update_insurance = tool({

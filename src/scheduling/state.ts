@@ -6,7 +6,7 @@ import type {
   SchedulingAppointmentLane,
   StoredAvailabilitySlot,
   WorkflowTurnContext,
-} from "./call-state.js";
+} from "../state/call-state.js";
 
 type VisitType = "medical" | "routine_vision";
 

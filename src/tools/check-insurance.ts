@@ -6,7 +6,7 @@ import {
   matchInsurancePlanForOffice,
 } from "../insurance-rules.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
-import { setLastInsuranceEligibilityCheck } from "../state/scheduling.js";
+import { setLastInsuranceEligibilityCheck } from "../scheduling/state.js";
 import { getState } from "./session.js";
 
 export const check_insurance = tool({
