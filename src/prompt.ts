@@ -34,7 +34,7 @@ export function buildPrompt(
   const identityHint = callerIdentityHint(phoneLookup);
   if (identityHint) {
     sections.push(
-      `<caller_identity_hint>\n${identityHint}\n</caller_identity_hint>`,
+      `<caller_identity_hint>\nUse this hint only after the caller asks for patient-specific help. Do not reveal hidden patient details before identity is confirmed.\n${identityHint}\n</caller_identity_hint>`,
     );
   }
 

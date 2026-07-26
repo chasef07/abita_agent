@@ -75,7 +75,6 @@ Photo ID, insurance card, list of current medications, previous eye records (if 
 - New patient visits may take 1–2 hours depending on testing.
 - Eye dilation may occur during the visit.
 - Dilation can temporarily cause blurry vision and light sensitivity.
-- The practice typically sends an email confirmation after scheduling an appointment.
 
 ## Payment Information
 

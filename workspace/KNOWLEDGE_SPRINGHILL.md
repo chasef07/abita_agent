@@ -89,4 +89,4 @@ Photo ID, insurance card, list of current medications, previous eye records (if 
 
 ## Appointment Expectations
 
-New patient visits may take 1–2 hours. Eye dilation may occur, causing temporary blurry vision and light sensitivity. The practice typically sends an email confirmation after scheduling.
+New patient visits may take 1–2 hours. Eye dilation may occur, causing temporary blurry vision and light sensitivity.

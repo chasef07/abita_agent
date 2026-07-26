@@ -67,7 +67,7 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
       "For phone lookup matches, pass the caller-provided firstName and this tool will deterministically match or switch the active preloaded patient. " +
       "For existing patients not resolved from phone lookup, collect firstName, lastName, and DOB before calling. " +
       "When the caller says the patient has not registered with us before, call with registrationStatus not_registered before add_patient. " +
-      "If internal state says the correct patient is already active, do not call this tool again unless the caller clearly asks about another patient.",
+      "If the correct patient is already active, do not call this tool again. For multiple patients, finish the active patient's task before calling this tool to switch to the next patient.",
     parameters: resolvePatientParameters,
     execute: async (identity: ResolvePatientArgs, { ctx }: ToolOptions) => {
       const state = getState(ctx);

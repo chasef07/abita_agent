@@ -110,6 +110,7 @@ export function createSchedulingTools(middleware: SchedulingMiddleware) {
     description:
       "Search appointment availability from an exact YYYY-MM-DD start date. " +
       "For new appointments, pass appointmentLane after the visit reason is clear; for reschedules, omit it only when the existing appointment to move is already identified. " +
+      "If the caller requests a routine exam but also mentions an eye problem or symptom, ask whether the appointment is mainly for glasses or contacts or for the eye problem before choosing appointmentLane. " +
       "On Hollywood or Sweetwater calls, ask which of those two offices the caller wants and pass office; never infer the scheduling office from the number they called. " +
       "Use timePreference to rank morning, afternoon, or no-preference requests. " +
       "Do not call for same-day or past dates. Call get_current_datetime before using relative dates, and do not pass relative phrases here. " +
@@ -151,7 +152,8 @@ export function createSchedulingTools(middleware: SchedulingMiddleware) {
       "Pass an appointmentReason with enough caller-provided detail for staff to prepare appropriate diagnostic testing; do not diagnose or add details the caller did not provide. " +
       "Call only after get_availability returns an appointmentSlotRef for the right appointment lane, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. " +
       "Before booking, read back the selected appointment date, time, and provider, then get caller confirmation. " +
-      "Only after this tool returns a successful booking may you tell the caller they are booked, scheduled, or all set.",
+      "Only after this tool returns a successful booking may you tell the caller they are booked, scheduled, or all set. " +
+      "After a successful booking, if the caller asks whether they will receive confirmation, say yes, a confirmation email will be sent.",
     parameters: bookAppointmentParameters,
     execute: async (args, { ctx }) => {
       ctx.disallowInterruptions();
