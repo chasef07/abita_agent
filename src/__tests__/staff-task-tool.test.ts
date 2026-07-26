@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  SWEETWATER_OFFICE_PHONE,
+  SWEETWATER_TRUNK_PHONES,
+} from "../customers/abita/profile.js";
+import type { InitialCallStateInput } from "../state/call-state.js";
 import { staffTaskReceipts } from "../state/observability.js";
 import { create_staff_task } from "../tools/index.js";
 import { getStaffTasksUrl } from "../tools/create-staff-task.js";
 import { createTestCallState } from "./support/call-state.js";
 
-function createState() {
+function createState(overrides: Partial<InitialCallStateInput> = {}) {
   const state = createTestCallState({
     trunkPhone: "+18135484830",
     patientId: "patient-1",
@@ -15,6 +20,7 @@ function createState() {
     checkedInsuranceCoverageType: "medical",
     routing: "all_three",
     lastAvailabilityRouting: "all_three",
+    ...overrides,
   });
   state.identity.patient.identityConfirmed = true;
   return state;
@@ -53,7 +59,7 @@ describe("create_staff_task", () => {
     ).toBe("https://tasks.example/custom");
   });
 
-  it("posts a staff task with bearer auth and backend-owned call state", async () => {
+  it("posts a non-Spring Hill task with bearer auth and backend-owned office state", async () => {
     vi.stubEnv("STAFF_TASKS_URL", "https://portal.example/api/livekit/tasks");
     vi.stubEnv("LIVEKIT_FORWARD_SYNC_SECRET", "task-secret");
     const fetchMock = vi.fn(async () =>
@@ -65,7 +71,11 @@ describe("create_staff_task", () => {
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const state = createState();
+    const state = createState({
+      amdOfficePhone: SWEETWATER_OFFICE_PHONE,
+      officeKey: "sweetwater",
+      trunkPhone: SWEETWATER_TRUNK_PHONES[1],
+    });
     const ctx = createToolContext(state);
 
     const result = await create_staff_task.execute(
@@ -102,10 +112,10 @@ describe("create_staff_task", () => {
       callId: "call-test",
       callerPhone: "+17275551212",
       category: "billing",
-      inboundOfficePhone: "+18135484830",
+      inboundOfficePhone: SWEETWATER_TRUNK_PHONES[1],
       message: "Caller received a bill and wants the team to review it.",
-      officeKey: "spring-hill",
-      officePhone: "+17275919997",
+      officeKey: "sweetwater",
+      officePhone: SWEETWATER_OFFICE_PHONE,
       source: "agent",
       summary: "Caller has a billing question.",
       urgency: "high_priority",
