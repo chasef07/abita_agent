@@ -67,7 +67,9 @@ export function storeAvailabilitySlots(
     return cleanAvailabilityErrorResponse();
   }
 
-  const sortedSlots = [...result.slots].sort(compareAvailabilitySlot);
+  const sortedSlots = distinctAvailabilitySlots(result.slots, routing).sort(
+    compareAvailabilitySlot,
+  );
   const offeredSlots = selectAvailabilitySlots(
     sortedSlots,
     timeConstraint,
@@ -90,6 +92,7 @@ export function storeAvailabilitySlots(
       state,
       storedSlots[index]?.slotId ?? "",
       slot.bookingToken,
+      result.bookingTokenExpiresAt,
     );
   });
 
@@ -135,6 +138,33 @@ function storedAvailabilitySlot(
     datetime,
     routing,
   };
+}
+
+function distinctAvailabilitySlots(
+  slots: AvailabilitySlot[],
+  routing: string | null,
+): AvailabilitySlot[] {
+  const distinct: AvailabilitySlot[] = [];
+  for (const slot of slots) {
+    const candidate = storedAvailabilitySlot(slot, "", routing);
+    const existingIndex = distinct.findIndex((existing) =>
+      sameAvailabilitySlot(
+        storedAvailabilitySlot(existing, "", routing),
+        candidate,
+      ),
+    );
+    if (existingIndex < 0) {
+      distinct.push(slot);
+      continue;
+    }
+    if (
+      !distinct[existingIndex]?.bookingToken?.trim() &&
+      slot.bookingToken?.trim()
+    ) {
+      distinct[existingIndex] = slot;
+    }
+  }
+  return distinct;
 }
 
 function compareAvailabilitySlot(

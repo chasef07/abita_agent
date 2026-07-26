@@ -46,9 +46,11 @@ import {
 } from "./availability.js";
 import {
   availabilityReadGeneration,
+  availabilityResultHasExpiredBookingTokens,
   cacheCompletedAvailabilityRead,
   coordinatedAvailabilityRead,
   discardAvailabilityRead,
+  invalidateAvailabilityCacheForExpiredResult,
   invalidateAvailabilityReads,
 } from "./availability-coordinator.js";
 import {
@@ -85,6 +87,7 @@ import {
 } from "./context.js";
 import type {
   AvailabilityRequest as MiddlewareAvailabilityRequest,
+  AvailabilityResult,
   BookingResult,
   BookingSuccess,
   CancellationRequest,
@@ -146,20 +149,42 @@ export class SchedulingWorkflow {
     if ("blocked" in request) return request.blocked;
 
     const office = getAmdOfficeForToolCall(state);
-    const result = await coordinatedAvailabilityRead(
-      state,
-      request.backendKey,
-      () =>
-        this.middleware.getAvailability({
-          request: request.body,
-          office,
+    let result: AvailabilityResult;
+    for (let attempt = 0; ; attempt += 1) {
+      result = await coordinatedAvailabilityRead(
+        state,
+        request.backendKey,
+        () =>
+          this.middleware.getAvailability({
+            request: request.body,
+            office,
+            signal,
+          }),
+        {
+          now: this.clock.now(),
+          onCacheExpired: () => clearAvailabilitySelection(state),
           signal,
-        }),
-      signal,
-    );
-    if (signal?.aborted || !availabilityRequestStillCurrent(state, request)) {
-      discardAvailabilityRead(state, request.backendKey);
-      return "Availability search was superseded because the patient or appointment context changed. Check availability again with the current details.";
+        },
+      );
+      if (signal?.aborted || !availabilityRequestStillCurrent(state, request)) {
+        discardAvailabilityRead(state, request.backendKey, result);
+        return "Availability search was superseded because the patient or appointment context changed. Check availability again with the current details.";
+      }
+      if (
+        !availabilityResultHasExpiredBookingTokens(result, this.clock.now())
+      ) {
+        break;
+      }
+
+      clearAvailabilitySelection(state);
+      invalidateAvailabilityCacheForExpiredResult(
+        state,
+        request.backendKey,
+        result,
+      );
+      if (attempt > 0) {
+        return "Availability expired before it could be offered. Check availability again.";
+      }
     }
     try {
       const response = storeAvailabilitySlots(
@@ -170,13 +195,18 @@ export class SchedulingWorkflow {
         request.dateSearchMode,
       );
       if (response.cacheable) {
-        cacheCompletedAvailabilityRead(state, request.backendKey, result);
+        cacheCompletedAvailabilityRead(
+          state,
+          request.backendKey,
+          result,
+          this.clock.now(),
+        );
       } else {
-        discardAvailabilityRead(state, request.backendKey);
+        discardAvailabilityRead(state, request.backendKey, result);
       }
       return response.message;
     } catch (error) {
-      discardAvailabilityRead(state, request.backendKey);
+      discardAvailabilityRead(state, request.backendKey, result);
       throw error;
     }
   }
@@ -216,6 +246,7 @@ export class SchedulingWorkflow {
       patientId,
       appointmentReason,
       referringDoctor,
+      now: this.clock.now(),
     });
     if (!readBack) {
       return (
@@ -515,6 +546,7 @@ export class SchedulingWorkflow {
       patientId,
       appointmentReason,
       referringDoctor,
+      now: this.clock.now(),
       appointmentTypeIdOverride: appointmentTypeIdForRescheduleBooking(
         oldAppointment,
         cancellationOffice,
