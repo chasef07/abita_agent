@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/v17.6.0/schemas/config.json",
+  "bootstrap-sha": "d29b9864ed37dbe720003d4b505baf6742d1be6f",
+  "include-component-in-tag": false,
+  "include-v-in-tag": false,
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "abita_agent",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}

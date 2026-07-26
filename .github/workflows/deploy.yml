@@ -1,17 +1,25 @@
-name: Deploy to LiveKit Cloud
+name: Production deployment
 
 on:
   push:
     branches: [main]
 
-jobs:
-  build:
-    name: Build Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
+permissions:
+  contents: read
 
-      - uses: actions/setup-node@v6
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
           package-manager-cache: false
@@ -19,32 +27,112 @@ jobs:
       - name: Enable pnpm via Corepack
         run: |
           corepack enable
-          corepack prepare pnpm@10 --activate
+          corepack prepare pnpm@10.34.3 --activate
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
       - name: Type check
         run: pnpm typecheck
 
+      - name: Test
+        run: pnpm test
+
   deploy:
     name: Deploy Agent
-    needs: build
+    needs: verify
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install LiveKit CLI
         run: |
+          set -euo pipefail
           LIVEKIT_CLI_VERSION=2.16.0
-          mkdir -p "$HOME/.livekit/bin"
-          curl -sSL "https://github.com/livekit/livekit-cli/releases/download/v${LIVEKIT_CLI_VERSION}/lk_${LIVEKIT_CLI_VERSION}_linux_amd64.tar.gz" \
-            | tar xzf - -C "$HOME/.livekit/bin" --wildcards --no-anchored lk
-          echo "$HOME/.livekit/bin" >> $GITHUB_PATH
+          LIVEKIT_CLI_SHA256=64597a9b14671047d78539ca892b8cd5dcde38bf3b2604c6e5bdba8ca2386923
+          install_dir="$RUNNER_TEMP/livekit/bin"
+          archive="$RUNNER_TEMP/livekit-cli.tar.gz"
+          mkdir -p "$install_dir"
+          curl --fail --silent --show-error --location \
+            "https://github.com/livekit/livekit-cli/releases/download/v${LIVEKIT_CLI_VERSION}/lk_${LIVEKIT_CLI_VERSION}_linux_amd64.tar.gz" \
+            --output "$archive"
+          echo "$LIVEKIT_CLI_SHA256  $archive" | sha256sum --check
+          tar xzf "$archive" -C "$install_dir" --wildcards --no-anchored lk
+          echo "$install_dir" >> "$GITHUB_PATH"
 
       - name: Deploy to LiveKit Cloud
         env:
           LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
           LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
           LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
-        run: lk agent deploy --yes
+        run: |
+          set -euo pipefail
+
+          agent_id="$(awk -F '"' '/^[[:space:]]*id =/ { print $2; exit }' livekit.toml)"
+          if [[ -z "$agent_id" ]]; then
+            echo "livekit.toml does not contain an agent ID." >&2
+            exit 1
+          fi
+
+          read_agent_state() {
+            local output
+            if ! output="$(lk agent status)"; then
+              return 1
+            fi
+            printf '%s\n' "$output" >&2
+            printf '%s\n' "$output" | awk -F '│' -v id="$agent_id" '
+              NF >= 6 && index($2, id) {
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $5)
+                print $3 "\t" $5
+                exit
+              }
+            '
+          }
+
+          if ! agent_state="$(read_agent_state)"; then
+            echo "Could not read the current LiveKit agent status." >&2
+            exit 1
+          fi
+          IFS=$'\t' read -r previous_version _ <<< "$agent_state"
+          if [[ -z "$previous_version" ]]; then
+            echo "Could not read the current LiveKit agent version." >&2
+            exit 1
+          fi
+
+          lk agent deploy --yes
+
+          for attempt in {1..30}; do
+            if agent_state="$(read_agent_state)"; then
+              IFS=$'\t' read -r deployed_version status <<< "$agent_state"
+              case "$status" in
+                Running|Sleeping)
+                  if [[ "$deployed_version" != "$previous_version" ]]; then
+                    echo "LiveKit agent version $deployed_version is $status."
+                    exit 0
+                  fi
+                  ;;
+                Error|CrashLoop|Disabled|"Build Failed"|"Server Error"|Deleted|Suspended)
+                  if [[ "$deployed_version" != "$previous_version" ]]; then
+                    echo "New LiveKit agent version entered terminal status: $status" >&2
+                    exit 1
+                  fi
+                  ;;
+              esac
+            fi
+
+            echo "Waiting for the new LiveKit agent version to become healthy ($attempt/30)."
+            sleep 10
+          done
+
+          echo "Timed out waiting for the new LiveKit agent version to become healthy." >&2
+          exit 1
