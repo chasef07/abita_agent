@@ -614,12 +614,14 @@ describe("Scheduling Workflow temporal resolution", () => {
     expect(middleware.operations).toHaveLength(2);
   });
 
-  it("does not collide different time constraints in the cache", async () => {
+  it("reranks different time constraints from one backend result", async () => {
     const state = createState();
     const middleware = new InMemorySchedulingMiddleware({
       availability: [
-        foundAvailability("2026-06-10", [{ time: "9:00 AM" }]),
-        foundAvailability("2026-06-10", [{ time: "2:00 PM" }]),
+        foundAvailability("2026-06-10", [
+          { time: "9:00 AM" },
+          { time: "2:00 PM" },
+        ]),
       ],
     });
     const { get_availability } = createSchedulingTools(
@@ -628,16 +630,18 @@ describe("Scheduling Workflow temporal resolution", () => {
     );
     const ctx = createToolContext(state);
 
-    await get_availability.execute(
+    const morning = await get_availability.execute(
       { when: "tomorrow morning", appointmentLane: "medical_md" },
       { ctx: ctx as never, toolCallId: "availability-1" } as never,
     );
-    await get_availability.execute(
+    const afternoon = await get_availability.execute(
       { when: "tomorrow afternoon", appointmentLane: "medical_md" },
       { ctx: ctx as never, toolCallId: "availability-2" } as never,
     );
 
-    expect(middleware.operations).toHaveLength(2);
+    expect(morning).toContain("June 10 at 9:00 AM");
+    expect(afternoon).toContain("June 10 at 2:00 PM");
+    expect(middleware.operations).toHaveLength(1);
   });
 
   it("books through the opaque reference returned after phrase resolution", async () => {

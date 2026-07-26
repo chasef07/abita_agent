@@ -31,11 +31,9 @@ import {
 } from "../state/observability.js";
 import {
   activeRoutingContext,
-  cachedAvailabilitySearchResult,
   clearAvailabilitySelection,
   latestAvailabilityRouting,
   removeAvailabilitySlot,
-  setAvailabilitySearchResult,
 } from "./state.js";
 import {
   appointmentActionStatusForBookingResult,
@@ -46,6 +44,13 @@ import {
   selectedAvailabilitySlot,
   storeAvailabilitySlots,
 } from "./availability.js";
+import {
+  availabilityReadGeneration,
+  cacheCompletedAvailabilityRead,
+  coordinatedAvailabilityRead,
+  discardAvailabilityRead,
+  invalidateAvailabilityReads,
+} from "./availability-coordinator.js";
 import {
   recordBookedAppointmentInState,
   rescheduleAppointmentForState,
@@ -89,7 +94,6 @@ import type {
 import {
   resolveAvailabilityWhen,
   systemSchedulingClock,
-  timeConstraintCacheValue,
   type AvailabilityDateSearchMode,
   type AvailabilityTimeConstraint,
   type SchedulingClock,
@@ -142,31 +146,39 @@ export class SchedulingWorkflow {
     if ("blocked" in request) return request.blocked;
 
     const office = getAmdOfficeForToolCall(state);
-    const cachedResponse = cachedAvailabilitySearchResult(
+    const result = await coordinatedAvailabilityRead(
       state,
-      request.signature,
-    );
-    if (cachedResponse) return cachedResponse;
-
-    const result = await this.middleware.getAvailability({
-      request: request.body,
-      office,
+      request.backendKey,
+      () =>
+        this.middleware.getAvailability({
+          request: request.body,
+          office,
+          signal,
+        }),
       signal,
-    });
-    if (!availabilityRequestStillCurrent(state, request)) {
+    );
+    if (signal?.aborted || !availabilityRequestStillCurrent(state, request)) {
+      discardAvailabilityRead(state, request.backendKey);
       return "Availability search was superseded because the patient or appointment context changed. Check availability again with the current details.";
     }
-    const response = storeAvailabilitySlots(
-      state,
-      result,
-      request.routing,
-      request.timeConstraint,
-      request.dateSearchMode,
-    );
-    if (response.cacheable) {
-      setAvailabilitySearchResult(state, request.signature, response.message);
+    try {
+      const response = storeAvailabilitySlots(
+        state,
+        result,
+        request.routing,
+        request.timeConstraint,
+        request.dateSearchMode,
+      );
+      if (response.cacheable) {
+        cacheCompletedAvailabilityRead(state, request.backendKey, result);
+      } else {
+        discardAvailabilityRead(state, request.backendKey);
+      }
+      return response.message;
+    } catch (error) {
+      discardAvailabilityRead(state, request.backendKey);
+      throw error;
     }
-    return response.message;
   }
 
   async bookAppointment(
@@ -253,7 +265,9 @@ export class SchedulingWorkflow {
         appointmentDescription: spokenSlot(selectedSlot),
       });
       recordBookedAppointmentInState(state, selectedSlot, result);
-      removeAvailabilitySlot(state, selectedSlot.slotId);
+      clearAvailabilitySelection(state, {
+        invalidateReads: "booking_succeeded",
+      });
       const message = bookedAppointmentMessage(selectedSlot, result);
       recordAppointmentAction(state, {
         action: "booked",
@@ -269,7 +283,9 @@ export class SchedulingWorkflow {
       return message;
     }
     if (bookingHadPositiveStatusWithoutAppointmentId(result)) {
-      clearAvailabilitySelection(state);
+      clearAvailabilitySelection(state, {
+        invalidateReads: "booking_authorization_invalidated",
+      });
       const message = bookingFailureMessage(result);
       recordAppointmentAction(state, {
         action: "booked",
@@ -286,6 +302,7 @@ export class SchedulingWorkflow {
     }
 
     if (bookingSlotUnavailable(result)) {
+      invalidateAvailabilityReads(state, "booking_authorization_invalidated");
       const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
       const message = slotUnavailableMessage(remainingSlots);
       recordAppointmentAction(state, {
@@ -302,7 +319,9 @@ export class SchedulingWorkflow {
       return message;
     }
     if (bookingTokenRejected(result)) {
-      clearAvailabilitySelection(state);
+      clearAvailabilitySelection(state, {
+        invalidateReads: "booking_authorization_invalidated",
+      });
     }
 
     const message = bookingFailureMessage(result);
@@ -411,6 +430,9 @@ export class SchedulingWorkflow {
     }
 
     removeActiveAppointment(state, appointment.id);
+    clearAvailabilitySelection(state, {
+      invalidateReads: "cancellation_succeeded",
+    });
     const message = `Cancelled the appointment on ${appointment.date} at ${appointment.time}.`;
     recordAppointmentAction(state, {
       action: "cancelled",
@@ -544,7 +566,9 @@ export class SchedulingWorkflow {
 
     if (bookingSucceeded(bookingResult)) {
       recordBookedAppointmentInState(state, selectedSlot, bookingResult);
-      clearAvailabilitySelection(state);
+      clearAvailabilitySelection(state, {
+        invalidateReads: "reschedule_succeeded",
+      });
     } else {
       return handleRescheduleBookingFailure(
         state,
@@ -700,21 +724,19 @@ function availabilityRequestStillCurrent(
   request: AvailabilityWorkflowRequest,
 ): boolean {
   return (
-    availabilitySearchSignature(state, {
+    availabilityBackendKey(state, {
       body: request.body,
       patientId: activePatientId(state),
       routing: request.routing,
-      dateSearchMode: request.dateSearchMode,
-      timeConstraint: request.timeConstraint,
-    }) === request.signature
+    }) === request.backendKey
   );
 }
 
 type AvailabilityWorkflowRequest = {
   body: MiddlewareAvailabilityRequest;
+  backendKey: string;
   date: string;
   routing: string | null;
-  signature: string;
   dateSearchMode: AvailabilityDateSearchMode;
   timeConstraint: AvailabilityTimeConstraint | null;
 };
@@ -761,40 +783,38 @@ function buildAvailabilityLookupRequestForState(
   if (activeRoutingContext(state).preauthRequired) body.preauthRequired = true;
   return {
     body,
-    date,
-    routing,
-    signature: availabilitySearchSignature(state, {
+    backendKey: availabilityBackendKey(state, {
       body,
       patientId,
       routing,
-      dateSearchMode,
-      timeConstraint,
     }),
     dateSearchMode,
     timeConstraint,
+    date,
+    routing,
   };
 }
 
-function availabilitySearchSignature(
+function availabilityBackendKey(
   state: CallState,
   input: {
     body: MiddlewareAvailabilityRequest;
     patientId: string | null;
     routing: string | null;
-    dateSearchMode: AvailabilityDateSearchMode;
-    timeConstraint: AvailabilityTimeConstraint | null;
   },
 ): string {
   const turn = state.workflow.current;
   return JSON.stringify({
-    patientId: input.patientId,
-    office: getAmdOfficeForToolCall(state),
+    availabilityGeneration: availabilityReadGeneration(state),
+    patientContextGeneration: state.identity.transitionVersion,
+    patientId: input.patientId?.trim() || null,
+    officeProfile: state.office.activeKey,
+    providerOffice: normalizePhoneNumber(getAmdOfficeForToolCall(state)),
     intent: turn?.intent ?? null,
     appointmentLane: turn?.appointmentLane ?? null,
-    date: input.body.date,
-    dateSearchMode: input.dateSearchMode,
-    timeConstraint: timeConstraintCacheValue(input.timeConstraint),
-    dob: typeof input.body.dob === "string" ? input.body.dob : null,
+    date: input.body.date.trim(),
+    dob:
+      typeof input.body.dob === "string" ? input.body.dob.trim() || null : null,
     routing: input.routing,
     preauthRequired: input.body.preauthRequired === true,
   });
@@ -927,7 +947,9 @@ function handleRescheduleBookingFailure(
   bookingResult: BookingResult,
 ): string {
   if (bookingHadPositiveStatusWithoutAppointmentId(bookingResult)) {
-    clearAvailabilitySelection(state);
+    clearAvailabilitySelection(state, {
+      invalidateReads: "booking_authorization_invalidated",
+    });
     const message =
       "I could not confirm the new booking because the appointment ID was missing, so I did not cancel the existing appointment. Check availability again before booking.";
     recordRescheduleAction(state, {
@@ -941,6 +963,7 @@ function handleRescheduleBookingFailure(
   }
 
   if (bookingSlotUnavailable(bookingResult)) {
+    invalidateAvailabilityReads(state, "booking_authorization_invalidated");
     const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
     const message = `${slotUnavailableMessage(remainingSlots)} I did not cancel the existing appointment.`;
     recordRescheduleAction(state, {
@@ -953,7 +976,9 @@ function handleRescheduleBookingFailure(
     return message;
   }
   if (bookingTokenRejected(bookingResult)) {
-    clearAvailabilitySelection(state);
+    clearAvailabilitySelection(state, {
+      invalidateReads: "booking_authorization_invalidated",
+    });
   }
 
   const message = `${bookingFailureMessage(bookingResult)} I did not cancel the existing appointment.`;

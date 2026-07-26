@@ -366,10 +366,6 @@ function cleanAvailabilityResponse(input: {
   timeConstraint: AvailabilityTimeConstraint | null;
 }): AvailabilityToolResponse {
   const { dateSearchMode, result, search, slots, timeConstraint } = input;
-  const foundSlots = slots.length > 0;
-  const cacheable =
-    foundSlots ||
-    (result.status !== "incomplete" && !search.shouldRetrySameSearch);
 
   return {
     message: buildAvailabilityMessage({
@@ -379,8 +375,26 @@ function cleanAvailabilityResponse(input: {
       dateSearchMode,
       timeConstraint,
     }),
-    cacheable,
+    cacheable: completeAvailabilityResult(result),
   };
+}
+
+function completeAvailabilityResult(result: AvailableSlotsResult): boolean {
+  if (result.shouldRetrySameSearch || result.status === "incomplete") {
+    return false;
+  }
+  if (result.status === "none") return result.slots.length === 0;
+  return (
+    result.slots.length > 0 &&
+    result.slots.every(
+      (slot) =>
+        Boolean(slot.provider.trim()) &&
+        Boolean(slot.date.trim()) &&
+        Boolean(slot.time.trim()) &&
+        Boolean(slot.datetime.trim()) &&
+        Boolean(slot.bookingToken?.trim()),
+    )
+  );
 }
 
 function sameAvailabilitySlot(

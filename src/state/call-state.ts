@@ -249,6 +249,29 @@ export interface AppointmentActionAnalytics {
   cancelledAppointment?: AppointmentAnalytics;
 }
 
+export type AvailabilityInvalidationReason =
+  | "booking_authorization_invalidated"
+  | "booking_succeeded"
+  | "cancellation_succeeded"
+  | "office_changed"
+  | "patient_context_changed"
+  | "request_cancelled"
+  | "reschedule_succeeded"
+  | "routing_context_changed"
+  | "scheduling_context_changed";
+
+export type AvailabilityReadAnalytics =
+  | {
+      operation: "completed_cache_hit" | "in_flight_join" | "middleware_call";
+      durationMs: number;
+      createdAt?: string;
+    }
+  | {
+      operation: "invalidation";
+      reason: AvailabilityInvalidationReason;
+      createdAt?: string;
+    };
+
 export type StaffTaskCategory =
   | "billing"
   | "appointments"
@@ -321,6 +344,7 @@ interface RuntimeCallState {
   trunkPhone: string;
   transferState: TransferState;
   appointmentActions: AppointmentActionAnalytics[];
+  availabilityReads: AvailabilityReadAnalytics[];
   knowledgeRetrievals: OfficeKnowledgeRetrievalAnalytics[];
   ownedMiddlewareFailures: OwnedMiddlewareFailureAnalytics[];
   staffTasks: StaffTaskReceipt[];
@@ -390,13 +414,7 @@ interface AvailabilitySessionState {
   slots: StoredAvailabilitySlot[];
   latestRouting?: string | null;
   bookingTokensBySlotId: Record<string, string>;
-  latestSearch?: AvailabilitySearchCache;
   nextSlotIndex: number;
-}
-
-interface AvailabilitySearchCache {
-  signature: string;
-  response: string;
 }
 
 export interface CallState {
@@ -538,6 +556,7 @@ export function createCanonicalCallState(
       trunkPhone: input.trunkPhone,
       transferState: "idle",
       appointmentActions: [],
+      availabilityReads: [],
       knowledgeRetrievals: [],
       ownedMiddlewareFailures: [],
       staffTasks: [],

@@ -71,7 +71,9 @@ export function bookingRequestBodyForSlot(
     input.selectedSlot.slotId,
   );
   if (!bookingToken) {
-    clearAvailabilitySelection(state);
+    clearAvailabilitySelection(state, {
+      invalidateReads: "booking_authorization_invalidated",
+    });
     throw new ToolError(
       "Search availability again before booking because the selected slot expired.",
     );

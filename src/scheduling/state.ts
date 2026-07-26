@@ -3,10 +3,12 @@ import type {
   CallState,
   InsuranceEligibilityCheck,
   InsuranceSnapshot,
+  AvailabilityInvalidationReason,
   SchedulingAppointmentLane,
   StoredAvailabilitySlot,
   WorkflowTurnContext,
 } from "../state/call-state.js";
+import { invalidateAvailabilityReads } from "./availability-coordinator.js";
 
 type VisitType = "medical" | "routine_vision";
 
@@ -99,7 +101,9 @@ export function applyTurnContextToState(
   const intentChanged = previousTurn?.intent !== turn.intent;
   if (!intentChanged && (!visitType || previousVisitType === visitType)) return;
 
-  clearAvailabilitySelection(state);
+  clearAvailabilitySelection(state, {
+    invalidateReads: "scheduling_context_changed",
+  });
 }
 
 export function applySchedulingLaneToState(
@@ -143,11 +147,16 @@ export function availabilityBookingToken(
   return state.availability.bookingTokensBySlotId[slotId]?.trim() || null;
 }
 
-export function clearAvailabilitySelection(state: CallState): void {
+export function clearAvailabilitySelection(
+  state: CallState,
+  options: { invalidateReads?: AvailabilityInvalidationReason } = {},
+): void {
+  if (options.invalidateReads) {
+    invalidateAvailabilityReads(state, options.invalidateReads);
+  }
   state.availability.slots = [];
   state.availability.latestRouting = null;
   state.availability.bookingTokensBySlotId = {};
-  state.availability.latestSearch = undefined;
 }
 
 export function resetPatientSchedulingState(
@@ -157,7 +166,9 @@ export function resetPatientSchedulingState(
   const eligibilityCheck = options.preserveEligibilityCheck
     ? state.insurance.lastEligibilityCheck
     : null;
-  clearAvailabilitySelection(state);
+  clearAvailabilitySelection(state, {
+    invalidateReads: "patient_context_changed",
+  });
   state.workflow.current = undefined;
   setLastInsuranceEligibilityCheck(state, eligibilityCheck);
   setRoutingContext(state, {});
@@ -181,23 +192,6 @@ export function reserveAvailabilitySlotIds(
   return Array.from({ length: count }, (_, index) =>
     slotIdForIndex(nextSlotIndex + index),
   );
-}
-
-export function cachedAvailabilitySearchResult(
-  state: CallState,
-  signature: string,
-): string | null {
-  return state.availability.latestSearch?.signature === signature
-    ? state.availability.latestSearch.response
-    : null;
-}
-
-export function setAvailabilitySearchResult(
-  state: CallState,
-  signature: string,
-  response: string,
-): void {
-  state.availability.latestSearch = { signature, response };
 }
 
 export function latestAvailabilityRouting(state: CallState): string | null {
@@ -227,7 +221,6 @@ export function removeAvailabilitySlot(
       delete state.availability.bookingTokensBySlotId[storedSlotId];
     }
   }
-  state.availability.latestSearch = undefined;
   return availabilitySlotsForState(state);
 }
 
@@ -276,12 +269,22 @@ export function setRoutingContext(
     preauthRequired?: boolean;
   },
 ): void {
-  state.workflow.routing = {
+  const nextRouting = {
     routing: normalizeSchedulingRouting(routing.routing),
     allowedProviders: routing.allowedProviders ?? [],
     routingAmbiguous: routing.routingAmbiguous ?? false,
     preauthRequired: routing.preauthRequired ?? false,
   };
+  const currentRouting = state.workflow.routing;
+  if (
+    currentRouting.routing !== nextRouting.routing ||
+    currentRouting.preauthRequired !== nextRouting.preauthRequired
+  ) {
+    clearAvailabilitySelection(state, {
+      invalidateReads: "routing_context_changed",
+    });
+  }
+  state.workflow.routing = nextRouting;
 }
 
 export function insuranceSnapshot(input: {
