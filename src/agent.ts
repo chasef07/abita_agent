@@ -21,9 +21,11 @@ import {
 } from "./stt-language-detector.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcript-confirmation.js";
-import { addDurableInternalSystemMessage } from "./runtime/durable-chat-context.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
-import type { PatientResolveLookup } from "./identity/promotion.js";
+import {
+  confirmedPatientModelContext,
+  type PatientResolveLookup,
+} from "./identity/promotion.js";
 import {
   officeKnowledgeReference,
   resolveOfficeKnowledge,
@@ -39,8 +41,6 @@ import {
   systemSchedulingClock,
   type SchedulingClock,
 } from "./scheduling/temporal.js";
-
-export { addDurableInternalSystemMessage };
 
 type VoiceAgentOptions = {
   identityLookup?: PatientResolveLookup;
@@ -101,12 +101,13 @@ export function createVoiceAgent(
         },
         identityLookup,
       );
-      if (confirmation) {
-        await addDurableInternalSystemMessage(
-          ctx.agent,
-          chatCtx,
-          confirmation.systemMessage,
-        );
+      const patientContext =
+        confirmation?.systemMessage ?? confirmedPatientModelContext(state);
+      if (patientContext) {
+        chatCtx.addMessage({
+          role: "system",
+          content: patientContext,
+        });
       }
 
       const officeKey = activeOfficeKey(state);

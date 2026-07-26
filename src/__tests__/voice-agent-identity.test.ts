@@ -206,7 +206,7 @@ describe("Voice Agent identity promotion", () => {
       });
     };
     const initialReply =
-      "Verified existing patient Jane Doe. No insurance is currently on file. No upcoming appointments are loaded.";
+      "Verified existing patient Jane Doe. No upcoming appointments are loaded.";
     const toolReply =
       "Jane Doe is already the active patient. Continue with loaded patient state.";
     const llm = new voice.testing.FakeLLM([
@@ -317,8 +317,8 @@ describe("Voice Agent identity promotion", () => {
       });
     };
     const failedReply =
-      "Verified existing patient Jane Doe. No insurance is currently on file. Appointments could not be loaded. Try confirming identity again before confirming or cancelling.";
-    const loadedReply = `Verified existing patient Jane Doe. No insurance is currently on file. Loaded 1 appointment: Monday, June 1, 2026 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`;
+      "Verified existing patient Jane Doe. Appointments could not be loaded. Try confirming identity again before confirming or cancelling.";
+    const loadedReply = `Verified existing patient Jane Doe. Loaded 1 appointment: Monday, June 1, 2026 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`;
     const llm = new voice.testing.FakeLLM([
       resolveTurn(
         "This is for Jane Doe, January 2, 1980.",
@@ -439,7 +439,7 @@ describe("Voice Agent identity promotion", () => {
             reason: "network_error",
           };
     const initialReply =
-      "Verified existing patient Jane Doe. No insurance is currently on file. No upcoming appointments are loaded.";
+      "Verified existing patient Jane Doe. No upcoming appointments are loaded.";
     const llm = new voice.testing.FakeLLM([
       {
         input: "This is for Jane Doe, January 2, 1980.",
@@ -592,16 +592,25 @@ describe("Voice Agent identity promotion", () => {
       { outcome: "pending", source: "pre_call_phone_lookup" },
       { outcome: "confirmed", source: "caller_transcript" },
     ]);
-    const durableSystemText = session.currentAgent.chatCtx.items
+    const turnSystemText = chatCtx.items
       .filter((item) => item.type === "message" && item.role === "system")
       .map((item) => item.textContent ?? "")
       .join(" ");
-    expect(durableSystemText).toContain(
+    expect(turnSystemText).toContain(
       `Upcoming appointments loaded: Monday, June 1, 2026 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`,
     );
-    expect(durableSystemText).not.toContain("private-patient-id");
-    expect(durableSystemText).not.toContain("private-plan-id");
-    expect(durableSystemText).not.toContain("private-party-id");
+    expect(turnSystemText).toContain("Insurance on file: Aetna.");
+    expect(turnSystemText).not.toContain("private-patient-id");
+    expect(turnSystemText).not.toContain("private-plan-id");
+    expect(turnSystemText).not.toContain("private-party-id");
+    expect(
+      session.currentAgent.chatCtx.items.some(
+        (item) =>
+          item.type === "message" &&
+          item.role === "system" &&
+          item.textContent?.includes("Patient: Jane Doe."),
+      ),
+    ).toBe(false);
     const turnLocalKnowledge = chatCtx.items
       .filter(
         (item) =>
@@ -698,13 +707,21 @@ describe("Voice Agent identity promotion", () => {
       patientId: "private-jane-id",
       name: "Jane Doe",
     });
-    const durableSystemText = session.currentAgent.chatCtx.items
+    const turnSystemText = chatCtx.items
       .filter((item) => item.type === "message" && item.role === "system")
       .map((item) => item.textContent ?? "")
       .join(" ");
-    expect(durableSystemText).toContain("Patient: Jane Doe.");
-    expect(durableSystemText).not.toContain("private-jane-id");
-    expect(durableSystemText).not.toContain("01/02/1980");
+    expect(turnSystemText).toContain("Patient: Jane Doe.");
+    expect(turnSystemText).not.toContain("private-jane-id");
+    expect(turnSystemText).not.toContain("01/02/1980");
+    expect(
+      session.currentAgent.chatCtx.items.some(
+        (item) =>
+          item.type === "message" &&
+          item.role === "system" &&
+          item.textContent?.includes("Patient: Jane Doe."),
+      ),
+    ).toBe(false);
   });
 
   it("hydrates exactly the selected lightweight candidate before promotion", async () => {
@@ -1160,10 +1177,11 @@ describe("Voice Agent identity promotion", () => {
           patientId: "private-maria-id",
           name: "Maria Doe",
           dob: "02/03/1982",
+          insuranceCarrier: "Humana",
         }),
       ),
     ).resolves.toBe(
-      "Switched active patient to Maria Doe. Check availability again before booking.",
+      "Switched active patient to Maria Doe. Insurance on file: Humana. No upcoming appointments are loaded. Check availability again before booking.",
     );
     expect(state.identity.patient).toMatchObject({
       identityConfirmed: true,
@@ -1308,7 +1326,7 @@ describe("Voice Agent identity promotion", () => {
 
   it("resolves a preloaded comma-name patient with normalized DOB", async () => {
     const reply =
-      "Verified existing patient JANE DOE. No insurance is currently on file. No upcoming appointments are loaded.";
+      "Verified existing patient JANE DOE. No upcoming appointments are loaded.";
     const llm = new voice.testing.FakeLLM([
       resolveTurn(
         "This is Jane Doe, born January 2, 1980.",
@@ -1502,9 +1520,9 @@ describe("Voice Agent identity promotion", () => {
             appointmentsStatus: "error",
           });
     const janeReply =
-      "Verified existing patient Jane Doe. No insurance is currently on file. No upcoming appointments are loaded.";
+      "Verified existing patient Jane Doe. No upcoming appointments are loaded.";
     const johnReply =
-      "Verified existing patient John Doe. No insurance is currently on file. Appointments could not be loaded. Try confirming identity again before confirming or cancelling.";
+      "Verified existing patient John Doe. Appointments could not be loaded. Try confirming identity again before confirming or cancelling.";
     const llm = new voice.testing.FakeLLM([
       resolveTurn(
         "This is for Jane Doe, January 2, 1980.",
@@ -1658,7 +1676,7 @@ describe("Voice Agent identity promotion", () => {
   it("keeps an active existing patient out of the new-chart path", async () => {
     let lookupCalls = 0;
     const existingReply =
-      "Verified existing patient Jane Doe. No insurance is currently on file. No upcoming appointments are loaded.";
+      "Verified existing patient Jane Doe. No upcoming appointments are loaded.";
     const duplicateReply =
       "Jane Doe is already loaded as an existing patient. Continue with the loaded patient state instead of creating a new chart.";
     const llm = new voice.testing.FakeLLM([

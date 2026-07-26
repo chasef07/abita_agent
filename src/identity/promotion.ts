@@ -259,6 +259,12 @@ export async function confirmIdentityFromTranscript(
   };
 }
 
+export function confirmedPatientModelContext(state: CallState): string | null {
+  return state.identity.patient.identityConfirmed
+    ? confirmedPatientSystemMessage(state, false)
+    : null;
+}
+
 export async function resolvePatientIdentity(
   state: CallState,
   input: ResolvePatientIdentityInput,
@@ -851,7 +857,7 @@ async function performCandidateHydration(
   return hadDifferentActivePatient
     ? {
         outcome: "switched",
-        reply: `Switched active patient to ${result.name?.trim() || "the selected patient"}. Check availability again before booking.`,
+        reply: switchedPatientReply(state),
       }
     : {
         outcome: "verified",
@@ -889,7 +895,7 @@ function activatePreCallMatch(
   if (hadDifferentActivePatient) {
     return {
       outcome: "switched",
-      reply: `Switched active patient to ${candidateDisplayName(candidate)}. Check availability again before booking.`,
+      reply: switchedPatientReply(state),
     };
   }
   return {
@@ -988,13 +994,17 @@ function isFirstNamePrompt(text: string | null | undefined): boolean {
   if (
     normalized.includes("last name") ||
     normalized.includes("date of birth") ||
-    normalized.includes("dob")
+    normalized.includes("dob") ||
+    normalized.includes("apellido") ||
+    normalized.includes("fecha de nacimiento")
   ) {
     return false;
   }
   return (
     normalized.includes("first name") ||
-    (normalized.includes("who") && normalized.includes("for"))
+    (normalized.includes("who") && normalized.includes("for")) ||
+    (normalized.includes("primer nombre") &&
+      (normalized.includes("paciente") || normalized.includes("deletrear")))
   );
 }
 
@@ -1004,13 +1014,14 @@ function confirmedPatientSystemMessage(
 ): string {
   const patientName = state.identity.patient.name?.trim() || "the patient";
   return [
-    "Internal state: patient identity is confirmed from a pre-call phone candidate after the caller provided the patient's first name.",
+    "Internal state: patient identity is confirmed.",
     `Patient: ${patientName}.`,
     mentionedAnotherCandidate
       ? `The caller also mentioned another patient. Finish ${patientName} first. Before working on another patient, call resolve_patient with the first name the caller provided to switch the active patient.`
       : "",
+    knownInsuranceOnFileSummary(state),
     appointmentSummary(state),
-    "Do not ask for last name or date of birth again. Continue using the loaded patient state for appointment questions, booking, or cancellation.",
+    "Do not ask for last name or date of birth again for this active patient. Continue using the loaded patient state for appointment questions, booking, or cancellation. If the caller needs help for a different non-preloaded patient, collect the identity details required by resolve_patient.",
   ]
     .filter(Boolean)
     .join(" ");
@@ -1170,11 +1181,38 @@ function verifiedExistingPatientPrefix(
   insuranceCarrier: string | null | undefined,
 ): string {
   const insurance = insuranceCarrier?.trim();
-  return `Verified existing patient ${patientName}. ${
-    insurance
-      ? `Insurance on file: ${insurance}.`
-      : "No insurance is currently on file."
-  }`;
+  return [
+    `Verified existing patient ${patientName}.`,
+    insurance ? `Insurance on file: ${insurance}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function switchedPatientReply(state: CallState): string {
+  const patientName =
+    state.identity.patient.name?.trim() || "the selected patient";
+  const prefix = [
+    `Switched active patient to ${patientName}.`,
+    knownInsuranceOnFileSummary(state),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `${appointmentReply(
+    prefix,
+    state.identity.patient.appointmentsStatus ?? null,
+    state.identity.patient.appointments,
+  )} Check availability again before booking.`;
+}
+
+function knownInsuranceOnFileSummary(state: CallState): string {
+  const insurance = insuranceOnFile(state);
+  const carrier = (
+    insurance?.currentCarrier ??
+    insurance?.canonicalPlan ??
+    insurance?.plan
+  )?.trim();
+  return carrier ? `Insurance on file: ${carrier}.` : "";
 }
 
 function appointmentReply(

@@ -95,13 +95,16 @@ describe("pre-call model context", () => {
     });
 
     expect(agent.instructions).toContain(
-      "If the caller is speaking English and has not supplied the patient's first name",
+      "do not reveal whether the phone lookup found one record or several",
     );
     expect(agent.instructions).toContain(
-      'For single_match in English, say exactly: "I see a record associated with this number. Could you spell the patient\'s first name?"',
+      "ask the same privacy-safe question for either status",
     );
     expect(agent.instructions).toContain(
-      'For multiple_matches in English, say exactly: "I see a few records associated with this number. Could you spell the patient\'s first name?"',
+      'In English, say exactly: "To help with the appointment, could you spell the patient\'s first name?"',
+    );
+    expect(agent.instructions).toContain(
+      'In Spanish, say exactly: "Para ayudar con la cita, ¿podría deletrear el primer nombre del paciente?"',
     );
     expect(agent.instructions).toContain(
       "If the caller already supplied the patient's first name, call resolve_patient with it instead of asking again.",
