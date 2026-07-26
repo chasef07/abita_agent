@@ -285,7 +285,22 @@ describe("pre-call bootstrap", () => {
       {
         status: "multiple_matches",
         message: "multiple",
-        matches: [{ firstName: "Jane" }, { firstName: "Maria" }],
+        matches: [
+          {
+            status: "candidate",
+            patientId: "patient-1",
+            firstName: "Jane",
+            lastName: "Doe",
+            dob: "01/01/1980",
+          },
+          {
+            status: "candidate",
+            patientId: "patient-2",
+            firstName: "Maria",
+            lastName: "Doe",
+            dob: "02/02/1985",
+          },
+        ],
       },
       "+17275551212",
     );
@@ -293,8 +308,18 @@ describe("pre-call bootstrap", () => {
     expect(multiple).toMatchObject({
       status: "multiple_matches_pending_selection",
       candidates: [
-        { ref: "precall:1", firstName: "Jane" },
-        { ref: "precall:2", firstName: "Maria" },
+        {
+          status: "candidate",
+          ref: "precall:1",
+          patientId: "patient-1",
+          firstName: "Jane",
+        },
+        {
+          status: "candidate",
+          ref: "precall:2",
+          patientId: "patient-2",
+          firstName: "Maria",
+        },
       ],
     });
 
@@ -373,6 +398,7 @@ describe("pre-call bootstrap", () => {
       candidates: [
         {
           ref: "precall:1",
+          status: "verified",
           firstName: "Jane",
           lastName: "Doe",
           patientId: "patient-1",
@@ -384,6 +410,7 @@ describe("pre-call bootstrap", () => {
         },
         {
           ref: "precall:2",
+          status: "verified",
           firstName: "Maria",
           lastName: "Doe",
           patientId: "patient-2",
@@ -391,6 +418,79 @@ describe("pre-call bootstrap", () => {
           insuranceCarrier: "Humana",
           routing: "bach_only",
           preauthRequired: true,
+        },
+      ],
+    });
+  });
+
+  it("stores lightweight candidates as unresolved private pre-call state", async () => {
+    usePatientResult({
+      status: "multiple_matches",
+      matches: [
+        {
+          status: "candidate",
+          patientId: "private-patient-1",
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/02/1980",
+        },
+        {
+          status: "candidate",
+          patientId: "private-patient-2",
+          firstName: "Maria",
+          lastName: "Doe",
+          dob: "02/03/1982",
+        },
+      ],
+    });
+
+    const result = await lookupByPhone(
+      "+17275551212",
+      SPRING_HILL_OFFICE_PHONE,
+    );
+    const preCall = buildPreCallContextState(result, "+17275551212");
+
+    expect(result).toEqual({
+      status: "multiple_matches",
+      message: "Multiple patient matches found.",
+      matches: [
+        {
+          status: "candidate",
+          patientId: "private-patient-1",
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/02/1980",
+        },
+        {
+          status: "candidate",
+          patientId: "private-patient-2",
+          firstName: "Maria",
+          lastName: "Doe",
+          dob: "02/03/1982",
+        },
+      ],
+      lookupDurationMs: expect.any(Number),
+    });
+    expect(preCall).toMatchObject({
+      status: "multiple_matches_pending_selection",
+      candidates: [
+        {
+          status: "candidate",
+          ref: "precall:1",
+          patientId: "private-patient-1",
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/02/1980",
+          appointments: [],
+        },
+        {
+          status: "candidate",
+          ref: "precall:2",
+          patientId: "private-patient-2",
+          firstName: "Maria",
+          lastName: "Doe",
+          dob: "02/03/1982",
+          appointments: [],
         },
       ],
     });

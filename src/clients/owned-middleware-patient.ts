@@ -1,8 +1,10 @@
 import type {
   AppointmentLoadStatus,
-  CallerMatchHint,
   StoredCallerAppointment,
 } from "../state/call-state.js";
+import type { LightweightPatientCandidate } from "../identity/candidate.js";
+
+export type PatientResolveCandidate = LightweightPatientCandidate;
 
 export interface PatientResolveVerified {
   status: "verified";
@@ -25,7 +27,7 @@ export interface PatientResolveVerified {
 
 interface PatientResolveMultipleMatches {
   status: "multiple_matches";
-  matches: Array<PatientResolveVerified | CallerMatchHint>;
+  matches: Array<PatientResolveVerified | PatientResolveCandidate>;
 }
 
 interface PatientResolveNotFound {
@@ -199,17 +201,48 @@ export function stringValue(value: unknown): string | null {
 export function normalizePatientMatches(
   matches: unknown,
   options: { fallbackPhone?: string | null } = {},
-): Array<PatientResolveVerified | CallerMatchHint> {
+): Array<PatientResolveVerified | PatientResolveCandidate> {
   if (!Array.isArray(matches)) return [];
-  return matches.flatMap<PatientResolveVerified | CallerMatchHint>((match) => {
-    const normalized = normalizePatientResolveResponse(match, options);
-    if (normalized.status === "verified") return [normalized];
-    if (isRecord(match) && isNonEmptyString(match.firstName)) {
-      const hint: CallerMatchHint = { firstName: match.firstName };
-      return [hint];
-    }
-    return [];
-  });
+  return matches.flatMap<PatientResolveVerified | PatientResolveCandidate>(
+    (match) => {
+      const candidate = normalizePatientCandidate(match);
+      if (candidate) return [candidate];
+
+      if (!isRecord(match) || match.status !== "verified") return [];
+      const normalized = normalizePatientResolveResponse(match, options);
+      return normalized.status === "verified" ? [normalized] : [];
+    },
+  );
+}
+
+function normalizePatientCandidate(
+  value: unknown,
+): PatientResolveCandidate | null {
+  if (!isRecord(value) || value.status !== "candidate") return null;
+  const allowedFields = new Set([
+    "status",
+    "patientId",
+    "firstName",
+    "lastName",
+    "dob",
+  ]);
+  if (
+    Object.keys(value).some((field) => !allowedFields.has(field)) ||
+    !isNonEmptyString(value.patientId) ||
+    !isNonEmptyString(value.firstName) ||
+    !isNonEmptyString(value.lastName) ||
+    !isNonEmptyString(value.dob)
+  ) {
+    return null;
+  }
+
+  return {
+    status: "candidate",
+    patientId: value.patientId,
+    firstName: value.firstName,
+    lastName: value.lastName,
+    dob: value.dob,
+  };
 }
 
 export function normalizeAppointmentsStatus(

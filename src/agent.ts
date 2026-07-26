@@ -11,6 +11,7 @@ import {
 import type { AudioFrame } from "@livekit/rtc-node";
 import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
+import { resolvePatientWithOwnedMiddleware } from "./clients/owned-middleware.js";
 import { type CallState, type PhoneLookupResult } from "./state/call-state.js";
 import { recordLatestUserTranscript } from "./state/call-lifecycle.js";
 import {
@@ -54,11 +55,13 @@ export function createVoiceAgent(
 ) {
   const office = getOfficeProfileByPhone(trunkPhone ?? "");
   const greeting = options.suppressGreeting ? "" : office.greeting;
+  const identityLookup: PatientResolveLookup =
+    options.identityLookup ?? resolvePatientWithOwnedMiddleware;
 
   const agent = LiveKitAgent.create<CallState>({
     instructions: buildPrompt(phoneLookup, trunkPhone),
     tools: buildToolsForTrunk(trunkPhone, {
-      identityLookup: options.identityLookup,
+      identityLookup,
     }),
 
     async onEnter(ctx): Promise<void> {
@@ -85,11 +88,14 @@ export function createVoiceAgent(
       if (!transcript) return;
 
       recordLatestUserTranscript(state, transcript);
-      const confirmation = confirmPreCallIdentityFromTranscript({
-        state,
-        transcript,
-        lastAssistantText: latestAssistantText(chatCtx),
-      });
+      const confirmation = await confirmPreCallIdentityFromTranscript(
+        {
+          state,
+          transcript,
+          lastAssistantText: latestAssistantText(chatCtx),
+        },
+        identityLookup,
+      );
       if (confirmation) {
         await addDurableInternalSystemMessage(
           ctx.agent,
