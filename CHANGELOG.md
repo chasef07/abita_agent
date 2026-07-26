@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.1](https://github.com/chasef07/abita_agent/compare/4.2.0...4.2.1) (2026-07-26)
+
+
+### Bug Fixes
+
+* **scheduling:** reuse complete availability safely ([5318948](https://github.com/chasef07/abita_agent/commit/5318948dfe934d6d91a5fc6c95b6df11fd0407d9))
+
 ## [4.2.0](https://github.com/chasef07/abita_agent/compare/4.1.0...4.2.0) (2026-07-26)
 
 
