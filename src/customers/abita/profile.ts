@@ -332,6 +332,10 @@ export function getOfficeProfile(key: OfficeKey): OfficeProfile {
   return OFFICE_PROFILES[key];
 }
 
+export function getOfficeProfiles(): OfficeProfile[] {
+  return Object.values(OFFICE_PROFILES);
+}
+
 export function getOfficeProfileByPhone(phone: string): OfficeProfile {
   return getOfficeProfile(getOfficeKeyByPhone(phone));
 }

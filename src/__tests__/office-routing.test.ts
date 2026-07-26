@@ -27,13 +27,12 @@ import {
   resolve_patient,
   get_current_datetime,
   get_availability,
-  lookup_knowledge,
   reschedule_appointment,
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
 import type { PhoneLookupResult } from "../state/call-state.js";
-import { lookupOfficeKnowledge } from "../tools/knowledge.js";
+import { resolveOfficeKnowledge } from "../office-knowledge.js";
 
 type VerifiedPhoneLookup = Extract<
   NonNullable<PhoneLookupResult>,
@@ -264,7 +263,6 @@ describe("dermatology demo", () => {
   it("exposes the demo transfer without exposing staff-task tools", () => {
     const names = toolNamesForTrunk(DEV_OFFICE_PHONE);
 
-    expect(names).toContain("lookup_knowledge");
     expect(names).toContain("check_insurance");
     expect(names).toContain("get_availability");
     expect(names).toContain("book_appointment");
@@ -282,17 +280,17 @@ describe("dermatology demo", () => {
   });
 
   it("retrieves dermatology knowledge for medical and cosmetic questions", () => {
-    const cosmetic = lookupOfficeKnowledge("dev", "Do you offer Botox?");
-    const medical = lookupOfficeKnowledge(
-      "dev",
-      "I have a changing mole that is bleeding",
-    );
+    const cosmetic = resolveOfficeKnowledge("dev", "Do you offer Botox?");
+    const medical = resolveOfficeKnowledge("dev", "Do you perform Mohs?");
 
-    expect(cosmetic).toContain("## Medical or Cosmetic");
-    expect(cosmetic).toContain("Botox and Dysport consultations");
-    expect(medical).toContain("## Skin Cancer and Mohs");
-    expect(medical).toContain("## Urgency Screening");
-    expect(medical).toContain("cannot diagnose skin cancer");
+    expect(cosmetic.sections.join("\n")).toContain("## Medical or Cosmetic");
+    expect(cosmetic.sections.join("\n")).toContain(
+      "Botox and Dysport consultations",
+    );
+    expect(medical.sections.join("\n")).toContain("## Skin Cancer and Mohs");
+    expect(medical.sections.join("\n")).toContain(
+      "Do not promise that a caller needs Mohs surgery",
+    );
   });
 
   it("keeps the knowledge base fictional and free of eye-practice identity", () => {
@@ -478,15 +476,17 @@ describe("Crystal River prompt guidance", () => {
 
   it("answers either office with both Hollywood and Sweetwater scheduling addresses", () => {
     for (const office of ["hollywood", "sweetwater"] as const) {
-      const result = lookupOfficeKnowledge(
+      const result = resolveOfficeKnowledge(
         office,
         "What are the Hollywood and Sweetwater office addresses?",
       );
 
-      expect(result).toContain(
+      expect(result.sections.join("\n")).toContain(
         "4330 Sheridan St, Suite 102B, Hollywood, FL 33021",
       );
-      expect(result).toContain("12750 NW 17th St, #201, Miami, FL 33182");
+      expect(result.sections.join("\n")).toContain(
+        "12750 NW 17th St, #201, Miami, FL 33182",
+      );
     }
   });
 
@@ -543,13 +543,13 @@ describe("Crystal River prompt guidance", () => {
       "north-miami-beach-optical",
     ] as const) {
       expect(
-        lookupOfficeKnowledge(officeKey, "Are my glasses ready?"),
-      ).not.toContain(GLASSES_READY_ANSWER);
+        resolveOfficeKnowledge(officeKey, "Are my glasses ready?"),
+      ).toMatchObject({ outcome: "skipped" });
     }
 
-    expect(lookupOfficeKnowledge("dev", "Are my glasses ready?")).not.toContain(
-      GLASSES_READY_ANSWER,
-    );
+    expect(
+      resolveOfficeKnowledge("dev", "Are my glasses ready?"),
+    ).toMatchObject({ outcome: "skipped" });
   });
 
   it("does not expose a standalone turn context recorder", () => {
@@ -965,18 +965,6 @@ describe("model-facing tool definitions", () => {
         coverageType: "medical",
       }).success,
     ).toBe(true);
-  });
-
-  it("keeps lookup_knowledge scoped to general office facts", () => {
-    expect(lookup_knowledge.description).toContain(
-      "general practice questions",
-    );
-    expect(lookup_knowledge.description).toContain("address, hours, providers");
-    expect(lookup_knowledge.description).not.toContain("patient-specific");
-    expect(lookup_knowledge.description).not.toContain("availability, booking");
-
-    const parameter = lookup_knowledge.parameters.shape.question;
-    expect(parameter.description).toBe("The caller's office-fact question");
   });
 
   it("keeps transfer_call scoped to human-only work", () => {

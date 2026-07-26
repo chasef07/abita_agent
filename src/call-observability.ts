@@ -43,7 +43,6 @@ const TOOL_EXECUTION_STATUS_BY_OUTPUT_CLASS = {
   duplicate_tool_rejected: "error",
   insurance_checked: "success",
   insurance_updated: "success",
-  knowledge_returned: "success",
   middleware_error: "error",
   multiple_patient_matches: "success",
   patient_created: "success",
@@ -381,8 +380,6 @@ export function classifyToolOutput(
       return "insurance_updated";
     case "check_insurance":
       return "insurance_checked";
-    case "lookup_knowledge":
-      return "knowledge_returned";
     default:
       return "unknown";
   }

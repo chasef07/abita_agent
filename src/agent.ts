@@ -23,11 +23,18 @@ import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcri
 import { addDurableInternalSystemMessage } from "./runtime/durable-chat-context.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
 import type { PatientResolveLookup } from "./identity/promotion.js";
+import {
+  officeKnowledgeReference,
+  resolveOfficeKnowledge,
+} from "./office-knowledge.js";
+import { activeOfficeKey } from "./state/call-lifecycle.js";
+import { recordOfficeKnowledgeRetrieval } from "./state/observability.js";
 
 export { addDurableInternalSystemMessage };
 
 type VoiceAgentOptions = {
   identityLookup?: PatientResolveLookup;
+  officeKnowledgeResolver?: typeof resolveOfficeKnowledge;
   onAssistantText?: (text: string, complete: boolean) => void;
   onLanguageDecision?: (decision: SttLanguageDecision) => void;
   suppressGreeting?: boolean;
@@ -76,6 +83,37 @@ export function createVoiceAgent(
           chatCtx,
           confirmation.systemMessage,
         );
+      }
+
+      const officeKey = activeOfficeKey(state);
+      const startedAt = performance.now();
+      try {
+        const knowledge = (
+          options.officeKnowledgeResolver ?? resolveOfficeKnowledge
+        )(officeKey, transcript, recentNaturalLanguageConversation(chatCtx));
+        if (knowledge.outcome !== "skipped") {
+          chatCtx.addMessage({
+            role: "assistant",
+            content: officeKnowledgeReference(officeKey, knowledge),
+          });
+        }
+        recordOfficeKnowledgeRetrieval(state, {
+          elapsedMs: elapsedMilliseconds(startedAt),
+          language: knowledge.language,
+          officeKey,
+          outcome: knowledge.outcome,
+          sectionCount: knowledge.sections.length,
+          topic: knowledge.topic,
+        });
+      } catch {
+        recordOfficeKnowledgeRetrieval(state, {
+          elapsedMs: elapsedMilliseconds(startedAt),
+          language: "unknown",
+          officeKey,
+          outcome: "failure",
+          sectionCount: 0,
+          topic: null,
+        });
       }
     },
 
@@ -135,4 +173,20 @@ function latestAssistantText(chatCtx: ChatContext): string | null {
     }
   }
   return null;
+}
+
+function recentNaturalLanguageConversation(chatCtx: ChatContext): string[] {
+  return chatCtx.items
+    .flatMap((item) =>
+      item.type === "message" &&
+      (item.role === "user" || item.role === "assistant") &&
+      item.textContent?.trim()
+        ? [item.textContent]
+        : [],
+    )
+    .slice(-2);
+}
+
+function elapsedMilliseconds(startedAt: number): number {
+  return Math.round((performance.now() - startedAt) * 100) / 100;
 }

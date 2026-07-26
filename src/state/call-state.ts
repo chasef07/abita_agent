@@ -3,6 +3,10 @@ import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { RuntimeVoiceLanguageState } from "../tts-config.js";
 import { createSchedulingState } from "../scheduling/state.js";
 import type { TransferState } from "./call-lifecycle.js";
+import type {
+  OfficeKnowledgeLanguage,
+  OfficeKnowledgeTopic,
+} from "../office-knowledge.js";
 
 export const CALLER_CANDIDATE_REF = "caller";
 
@@ -268,6 +272,16 @@ export interface PatientIdentityTransitionAnalytics {
   source: "pre_call_phone_lookup" | "caller_transcript" | "resolve_patient";
 }
 
+export interface OfficeKnowledgeRetrievalAnalytics {
+  createdAt: string;
+  elapsedMs: number;
+  language: OfficeKnowledgeLanguage;
+  officeKey: OfficeKey;
+  outcome: "matched" | "unavailable" | "skipped" | "failure";
+  sectionCount: number;
+  topic: OfficeKnowledgeTopic | null;
+}
+
 interface RuntimeCallState {
   endedReason?: "duration_limit";
   preCallLookup: PreCallLookupTelemetry;
@@ -280,6 +294,7 @@ interface RuntimeCallState {
   trunkPhone: string;
   transferState: TransferState;
   appointmentActions: AppointmentActionAnalytics[];
+  knowledgeRetrievals: OfficeKnowledgeRetrievalAnalytics[];
   ownedMiddlewareFailures: OwnedMiddlewareFailureAnalytics[];
   staffTasks: StaffTaskReceipt[];
   patientIdentityOutcomes: PatientIdentityOutcome[];
@@ -496,6 +511,7 @@ export function createCanonicalCallState(
       trunkPhone: input.trunkPhone,
       transferState: "idle",
       appointmentActions: [],
+      knowledgeRetrievals: [],
       ownedMiddlewareFailures: [],
       staffTasks: [],
       patientIdentityOutcomes: [],

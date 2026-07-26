@@ -13,6 +13,7 @@ import {
 import { transferIsAccepted } from "../state/call-lifecycle.js";
 import {
   appointmentActions,
+  officeKnowledgeRetrievals,
   ownedMiddlewareFailures,
 } from "../state/observability.js";
 import type { SttLanguageDetector } from "../stt-language-detector.js";
@@ -313,6 +314,9 @@ export async function attachCallCloseout(input: {
     const recordedIdentityTransitions = callState
       ? patientIdentityTransitions(callState)
       : [];
+    const recordedKnowledgeRetrievals = callState
+      ? officeKnowledgeRetrievals(callState)
+      : [];
     const toolExecutions = withAppointmentActionToolExecutionFallback(
       observedToolExecutions,
       recordedAppointmentActions,
@@ -374,6 +378,7 @@ export async function attachCallCloseout(input: {
       voiceLanguage:
         callState?.runtime.voiceLanguage ?? input.call.initialVoiceLanguage,
       toolExecutions,
+      knowledgeRetrievals: recordedKnowledgeRetrievals,
       identityTransitions: recordedIdentityTransitions,
       appointmentActions: recordedAppointmentActions,
       ownedMiddlewareFailures: recordedOwnedMiddlewareFailures,
