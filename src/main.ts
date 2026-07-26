@@ -312,6 +312,7 @@ cli.runApp(
   new ServerOptions({
     agent: fileURLToPath(import.meta.url),
     agentName: "abita-agent",
-    shutdownProcessTimeout: 10_000,
+    // LiveKit can spend 60s closing the session before capture callbacks run.
+    shutdownProcessTimeout: 70_000,
   }),
 );
