@@ -136,32 +136,31 @@ describe("tool-first prompt gating", () => {
 
     expect(prompt).toContain("<role>");
     expect(prompt).toContain("# Tool Use");
+    expect(prompt).toContain(
+      "Callers have already reached Abita Eye Group. Do not send them to a separate clinic line or phone number",
+    );
+    expect(prompt).toContain(
+      "handle routine front desk work with the available tools or transfer them to live office staff when needed",
+    );
     expect(prompt).toContain("You speak English and Spanish");
     expect(prompt).toContain("Reply in the caller's current language");
     expect(prompt).toContain(
       "When asking for a patient's first or last name, ask them to spell it",
     );
     expect(prompt).toContain(
-      "Use resolve_patient for patient-specific work when internal state has not already confirmed the patient.",
+      "Always call book_appointment before saying an appointment is booked.",
     );
     expect(prompt).toContain(
-      "For a pre-call phone lookup match, ask for the patient's first name and call resolve_patient with that first name.",
+      "For calls involving more than one patient, finish one patient's task at a time.",
     );
     expect(prompt).toContain(
-      "If internal state says patient identity is already confirmed, do not ask for last name or date of birth again and do not call resolve_patient again unless the caller clearly asks about a different patient.",
+      "Before starting work for the next patient, call resolve_patient to switch the active patient.",
     );
-    expect(prompt).toContain("already registered with us");
-    expect(prompt).toContain(
-      "Do not start identity confirmation just because a caller identity hint exists.",
-    );
-    expect(prompt).toContain("First learn why the caller is calling.");
-    expect(prompt).toContain(
-      "Use the caller identity hint only after the caller asks for patient-specific work",
-    );
-    expect(prompt).toContain("say you see a patient record on file");
-    expect(prompt).toContain("say you see a few patient records on file");
     expect(prompt).toContain(
       "For insurance acceptance questions, never answer yes or no without check_insurance.",
+    );
+    expect(prompt).not.toContain(
+      "Use resolve_patient for patient-specific work when internal state has not already confirmed the patient.",
     );
     expect(get_availability.description).toContain(
       "do not say the caller is booked, scheduled, or all set until book_appointment returns a successful booking",
@@ -205,6 +204,12 @@ describe("tool-first prompt gating", () => {
     expect(prompt).toContain(
       "Caller identity hint: phone lookup failed before the call.",
     );
+    expect(prompt).toContain(
+      "Use this hint only after the caller asks for patient-specific help.",
+    );
+    expect(prompt).toContain(
+      "Do not reveal hidden patient details before identity is confirmed.",
+    );
     expect(prompt).not.toContain("PHONE LOOKUP UNAVAILABLE");
     expect(prompt).not.toContain("do not say they are new");
     expect(prompt).not.toContain("middleware_error");
@@ -242,6 +247,12 @@ describe("dermatology demo", () => {
     expect(prompt).toContain("appointmentLane medical_md");
     expect(prompt).toContain(
       "The current demo does not book cosmetic or med-spa services",
+    );
+    expect(prompt).toContain(
+      "For calls involving more than one patient, finish one patient's task at a time.",
+    );
+    expect(prompt).toContain(
+      "Before starting work for the next patient, call resolve_patient to switch the active patient.",
     );
     expect(prompt).toContain("You speak English and Spanish");
     expect(prompt).not.toContain("Abita Eye Group");
@@ -507,20 +518,6 @@ describe("Crystal River prompt guidance", () => {
     expect(knowledge).toContain("Medical insurance checks are not supported");
   });
 
-  it("keeps compact inline scheduling-lane guidance in the role prompt", () => {
-    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
-
-    expect(prompt).toContain(
-      "For new scheduling, pass appointmentLane to get_availability once the medical-versus-routine lane is clear.",
-    );
-    expect(prompt).toContain(
-      "Use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem.",
-    );
-    expect(prompt).toContain(
-      'ask: "Is this mainly for glasses or contacts, or for the eye problem?"',
-    );
-  });
-
   it("answers ordered-glasses readiness from text notification status", () => {
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
@@ -537,7 +534,7 @@ describe("Crystal River prompt guidance", () => {
     );
   });
 
-  it("returns the glasses-readiness answer from every production knowledge base", () => {
+  it("keeps universal glasses-readiness policy out of office knowledge", () => {
     for (const officeKey of [
       "spring-hill",
       "crystal-river",
@@ -547,7 +544,7 @@ describe("Crystal River prompt guidance", () => {
     ] as const) {
       expect(
         lookupOfficeKnowledge(officeKey, "Are my glasses ready?"),
-      ).toContain(GLASSES_READY_ANSWER);
+      ).not.toContain(GLASSES_READY_ANSWER);
     }
 
     expect(lookupOfficeKnowledge("dev", "Are my glasses ready?")).not.toContain(
@@ -583,10 +580,13 @@ describe("Crystal River prompt guidance", () => {
 
     expect(prompt).toContain("urgent symptoms");
     expect(prompt).toContain(
-      "Transfer only when the request truly needs a live human",
+      "callers returning a missed or received call from this number",
     );
-    expect(prompt).toContain("suspected medication reactions");
     expect(prompt).toContain("Do not promise a callback time or outcome");
+    expect(prompt).not.toContain("suspected medication reactions");
+    expect(transfer_call.description).toContain(
+      "suspected medication reactions",
+    );
     expect(prompt).not.toContain("create_staff_task");
     expect(prompt).not.toContain("<office_policy>");
   });
@@ -826,6 +826,12 @@ describe("model-facing tool definitions", () => {
       "exact YYYY-MM-DD start date",
     );
     expect(get_availability.description).toContain("pass appointmentLane");
+    expect(get_availability.description).toContain(
+      "routine exam but also mentions an eye problem or symptom",
+    );
+    expect(get_availability.description).toContain(
+      "ask whether the appointment is mainly for glasses or contacts or for the eye problem",
+    );
     expect(get_availability.description).toContain("Use timePreference");
     expect(get_availability.description).toContain(
       "Do not call for same-day or past dates",
@@ -997,6 +1003,9 @@ describe("model-facing tool definitions", () => {
     );
     expect(transfer_call.description).toContain(
       "returned missed calls or received calls from this number",
+    );
+    expect(transfer_call.description).toContain(
+      "safe non-live office follow-up that another available tool can capture",
     );
     expect(transfer_call.description).not.toContain("create_staff_task");
     expect(transfer_call.description).not.toContain("staff task");
@@ -1276,6 +1285,9 @@ describe("model-facing tool definitions", () => {
     expect(book_appointment.description).toContain(
       "Only after this tool returns a successful booking may you tell the caller they are booked, scheduled, or all set",
     );
+    expect(book_appointment.description).toContain(
+      "if the caller asks whether they will receive confirmation, say yes, a confirmation email will be sent",
+    );
 
     const parameters = book_appointment.parameters as {
       safeParse: (value: unknown) => { success: boolean };
@@ -1314,6 +1326,9 @@ describe("model-facing tool definitions", () => {
     );
     expect(resolve_patient.description).toContain(
       "registrationStatus not_registered before add_patient",
+    );
+    expect(resolve_patient.description).toContain(
+      "Use this tool to switch to a different patient using caller-provided identity details",
     );
     expect(resolve_patient.description).not.toContain("insurance updates");
     expect(resolve_patient.description).not.toContain("private account");

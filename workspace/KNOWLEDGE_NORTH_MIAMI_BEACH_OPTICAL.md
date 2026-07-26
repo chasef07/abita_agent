@@ -47,8 +47,6 @@ If a patient wants glasses and already has a prescription, they can bring the pr
 
 Glasses are usually ready in less than 10 business days.
 
-If a caller asks whether ordered glasses are ready, tell them: "Check your texts. You'll receive a text when they're ready. If you haven't received a text, they aren't ready yet."
-
 Frames include free adjustments and a two- or three-year warranty.
 
 If a caller says their glasses are broken or asks whether they are under warranty, tell them to come in so the office can look at the frame or lenses.

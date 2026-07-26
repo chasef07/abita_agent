@@ -49,8 +49,6 @@ Crystal River is a medical-only office. It sees medical eye conditions such as c
 
 ## Glasses Warranty or Broken Glasses
 
-If a caller asks whether ordered glasses are ready, tell them: "Check your texts. You'll receive a text when they're ready. If you haven't received a text, they aren't ready yet."
-
 If a patient asks whether their glasses are under warranty or reports broken glasses:
 - Patients should bring their glasses into the Spring Hill location.
 - The staff will review the glasses and determine what options may be available.
@@ -77,7 +75,6 @@ Photo ID, insurance card, list of current medications, previous eye records (if 
 - New patient visits may take 1–2 hours depending on testing.
 - Eye dilation may occur during the visit.
 - Dilation can temporarily cause blurry vision and light sensitivity.
-- The practice typically sends an email confirmation after scheduling an appointment.
 
 ## Payment Information
 
