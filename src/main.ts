@@ -42,6 +42,7 @@ import {
 } from "./stt-language-detector.js";
 import { getAssemblyAISttOptions } from "./stt-config.js";
 import {
+  configureVoiceVad,
   voiceMaxToolSteps,
   voiceTurnHandlingOptions,
 } from "./session-options.js";
@@ -165,6 +166,7 @@ export default defineAgent({
           ...voiceTurnHandlingOptions,
         },
       });
+      configureVoiceVad(session.vad);
       const getCallState = (): CallState | null => {
         try {
           return session.userData;

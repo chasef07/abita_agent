@@ -4,10 +4,12 @@ import {
   inference,
   initializeLogger,
 } from "@livekit/agents";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
+  configureVoiceVad,
   voiceMaxToolSteps,
   voiceTurnHandlingOptions,
+  voiceVadOptions,
 } from "../session-options.js";
 
 type TurnDetection = NonNullable<
@@ -62,7 +64,7 @@ describe("voice session options", () => {
     );
   });
 
-  it("uses the bundled default VAD with the audio turn detector", async () => {
+  it("aligns the LiveKit VAD threshold with AssemblyAI", async () => {
     const turnDetection = new inference.TurnDetector({ version: "v1-mini" });
     const session = new AgentSession({
       turnHandling: {
@@ -75,8 +77,21 @@ describe("voice session options", () => {
       expect(session.sessionOptions.turnHandling.turnDetection).toBe(
         turnDetection,
       );
-      expect(session.vad?.provider).toBe("livekit-local-inference");
-      expect(session._usingDefaultVad).toBe(true);
+      expect(session.vad).toBeInstanceOf(inference.VAD);
+      const updateOptions = vi.spyOn(
+        session.vad as inference.VAD,
+        "updateOptions",
+      );
+      const vad = configureVoiceVad(session.vad);
+      expect(updateOptions).toHaveBeenCalledWith(voiceVadOptions);
+      expect(session.vad).toBe(vad);
+      expect(vad.provider).toBe("livekit-local-inference");
+      expect(vad.model).toBe("silero");
+      expect(vad.minSilenceDuration).toBe(250);
+      expect(voiceVadOptions).toEqual({
+        activationThreshold: 0.3,
+        deactivationThreshold: 0.15,
+      });
     } finally {
       await session.close().catch(() => undefined);
     }
