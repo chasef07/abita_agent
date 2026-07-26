@@ -4,7 +4,7 @@
 import {
   Agent as LiveKitAgent,
   ChatContext,
-  type ChatMessage,
+  ChatMessage,
   type ModelSettings,
   type stt,
 } from "@livekit/agents";
@@ -51,6 +51,8 @@ type VoiceAgentOptions = {
   sttLanguageDetector?: SttLanguageDetector;
   turnClock?: SchedulingClock;
 };
+
+const PATIENT_CONTEXT_MESSAGE_ID_PREFIX = "call_state_patient_context:";
 
 export function createVoiceAgent(
   lookupStatus: ModelFacingLookupStatus,
@@ -103,12 +105,7 @@ export function createVoiceAgent(
       );
       const patientContext =
         confirmation?.systemMessage ?? confirmedPatientModelContext(state);
-      if (patientContext) {
-        chatCtx.addMessage({
-          role: "system",
-          content: patientContext,
-        });
-      }
+      setPatientModelContext(chatCtx, state, patientContext);
 
       const officeKey = activeOfficeKey(state);
       const startedAt = performance.now();
@@ -142,6 +139,18 @@ export function createVoiceAgent(
       }
     },
 
+    async llmNode(ctx, chatCtx, toolCtx, modelSettings) {
+      refreshPatientModelContext(chatCtx, ctx.session.userData);
+      return LiveKitAgent.default.llmNode(
+        ctx.agent,
+        chatCtx,
+        toolCtx as unknown as Parameters<
+          typeof LiveKitAgent.default.llmNode
+        >[2],
+        modelSettings,
+      );
+    },
+
     async sttNode(
       ctx,
       audio: ReadableStream<AudioFrame> | AsyncIterable<AudioFrame>,
@@ -173,6 +182,52 @@ export function createVoiceAgent(
   });
 
   return { agent, office };
+}
+
+function setPatientModelContext(
+  chatCtx: ChatContext,
+  state: CallState,
+  content: string | null,
+): void {
+  let insertionIndex = chatCtx.items.findIndex((item) =>
+    item.id.startsWith(PATIENT_CONTEXT_MESSAGE_ID_PREFIX),
+  );
+  chatCtx.items = chatCtx.items.filter(
+    (item) => !item.id.startsWith(PATIENT_CONTEXT_MESSAGE_ID_PREFIX),
+  );
+  if (!content) return;
+
+  if (insertionIndex < 0) {
+    insertionIndex = chatCtx.items.length - 1;
+    while (insertionIndex >= 0) {
+      const item = chatCtx.items[insertionIndex];
+      if (item.type === "message" && item.role === "user") break;
+      insertionIndex -= 1;
+    }
+  }
+  if (insertionIndex < 0) insertionIndex = chatCtx.items.length;
+
+  chatCtx.items.splice(
+    insertionIndex,
+    0,
+    ChatMessage.create({
+      id: patientContextMessageId(state),
+      role: "system",
+      content,
+    }),
+  );
+}
+
+function refreshPatientModelContext(
+  chatCtx: ChatContext,
+  state: CallState,
+): void {
+  if (chatCtx.getById(patientContextMessageId(state))) return;
+  setPatientModelContext(chatCtx, state, confirmedPatientModelContext(state));
+}
+
+function patientContextMessageId(state: CallState): string {
+  return `${PATIENT_CONTEXT_MESSAGE_ID_PREFIX}${state.identity.transitionVersion}`;
 }
 
 export async function* observeAssistantText(

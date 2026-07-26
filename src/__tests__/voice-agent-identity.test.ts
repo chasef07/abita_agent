@@ -28,6 +28,30 @@ import { createTestCallState } from "./support/call-state.js";
 const createAgent = (...args: Parameters<typeof createVoiceAgent>) =>
   createVoiceAgent(...args).agent;
 
+class CapturingFakeLLM extends voice.testing.FakeLLM {
+  readonly requests: ChatContext[] = [];
+
+  override chat(options: Parameters<voice.testing.FakeLLM["chat"]>[0]) {
+    this.requests.push(options.chatCtx.copy());
+    const fakeContext = options.chatCtx.copy();
+    const lastItem = fakeContext.items.at(-1);
+    const lastUserMessage = [...fakeContext.items]
+      .reverse()
+      .find((item) => item.type === "message" && item.role === "user");
+    if (
+      lastItem?.type === "message" &&
+      lastItem.role !== "user" &&
+      lastUserMessage?.type === "message"
+    ) {
+      fakeContext.addMessage({
+        role: "user",
+        content: lastUserMessage.textContent ?? "",
+      });
+    }
+    return super.chat({ ...options, chatCtx: fakeContext });
+  }
+}
+
 describe("Voice Agent identity promotion", () => {
   initializeLogger({ pretty: false, level: "silent" });
 
@@ -1589,6 +1613,63 @@ describe("Voice Agent identity promotion", () => {
     ]);
   });
 
+  it("replaces patient context before replying to a same-turn identity switch", async () => {
+    const toolReply =
+      "Verified existing patient John Doe. Insurance on file: Humana. No upcoming appointments are loaded.";
+    const llm = new CapturingFakeLLM([
+      resolveTurn(
+        "Now help John Doe, February 3, 1982.",
+        "John",
+        "Doe",
+        "02/03/1982",
+      ),
+      {
+        input: JSON.stringify(toolReply),
+        content: "John is loaded.",
+      },
+    ]);
+    const session = new AgentSession({ llm });
+    sessions.push(session);
+    session.userData = createTestCallState({
+      officeKey: "spring-hill",
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+      patientId: "private-jane-id",
+      patientName: "Jane Doe",
+      insuranceCarrier: "Aetna",
+      appointmentsStatus: "none",
+    });
+    session.userData.identity.patient.identityConfirmed = true;
+
+    await session.start({
+      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+        identityLookup: async () =>
+          verifiedPatient({
+            patientId: "private-john-id",
+            name: "John Doe",
+            dob: "02/03/1982",
+            insuranceCarrier: "Humana",
+          }),
+        suppressGreeting: true,
+      }),
+    });
+
+    await completeUserTurn(session, "Now help John Doe, February 3, 1982.");
+    await vi.waitFor(() => expect(llm.requests).toHaveLength(2));
+    await session.waitForIdle();
+
+    expect(llm.requests).toHaveLength(2);
+    expect(llm.requests[1]!.items.at(-1)?.type).toBe("function_call_output");
+    expect(systemText(llm.requests[0]!)).toContain("Patient: Jane Doe.");
+    expect(systemText(llm.requests[0]!)).toContain("Insurance on file: Aetna.");
+    expect(systemText(llm.requests[1]!)).toContain("Patient: John Doe.");
+    expect(systemText(llm.requests[1]!)).toContain(
+      "Insurance on file: Humana.",
+    );
+    expect(systemText(llm.requests[1]!)).not.toContain("Jane Doe");
+    expect(systemText(llm.requests[1]!)).not.toContain("Aetna");
+  });
+
   it.each([
     {
       label: "not found",
@@ -1815,6 +1896,28 @@ function resolveTurn(
       },
     ],
   };
+}
+
+function systemText(chatCtx: ChatContext): string {
+  return chatCtx.items
+    .filter((item) => item.type === "message" && item.role === "system")
+    .map((item) => item.textContent ?? "")
+    .join(" ");
+}
+
+async function completeUserTurn(
+  session: AgentSession,
+  transcript: string,
+): Promise<void> {
+  const activity = await session.waitForIdle();
+  await activity.onEndOfTurn({
+    endOfUtteranceDelay: 0,
+    newTranscript: transcript,
+    startedSpeakingAt: undefined,
+    stoppedSpeakingAt: undefined,
+    transcriptionDelay: 0,
+    transcriptConfidence: 0.99,
+  });
 }
 
 async function startPreCallSession(
