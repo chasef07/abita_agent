@@ -6,7 +6,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
-import type { PhoneLookupResult } from "./state/call-state.js";
 
 const WORKSPACE = join(
   import.meta.dirname,
@@ -14,11 +13,15 @@ const WORKSPACE = join(
   process.env.PROMPT_WORKSPACE || "workspace",
 );
 
-/** Build the static system prompt. Pre-call facts stay in backend state. */
-export function buildPrompt(
-  phoneLookup?: PhoneLookupResult,
-  trunkPhone?: string,
-): string {
+const CALLER_IDENTITY_POLICY = `<caller_identity_policy>
+The initial system chat context contains exactly one pre-call phone lookup status: single_match, multiple_matches, no_match, or lookup_failed.
+Use that status only after the caller asks for patient-specific help. It describes the lookup outcome, not whether the caller is a new or existing patient.
+Never reveal or infer hidden candidate details before identity is confirmed. Use resolve_patient with identity details supplied by the caller.
+After identity is confirmed, use the selected patient's name and loaded appointments provided by the durable internal system message or resolve_patient result.
+</caller_identity_policy>`;
+
+/** Build the static system prompt. Per-call facts stay out of instructions. */
+export function buildPrompt(trunkPhone: string): string {
   const sections: string[] = [];
   if (!trunkPhone) {
     throw new Error("buildPrompt requires a trunk phone number");
@@ -31,27 +34,7 @@ export function buildPrompt(
     sections.push(`<${tag}>\n${content}\n</${tag}>`);
   }
 
-  const identityHint = callerIdentityHint(phoneLookup);
-  if (identityHint) {
-    sections.push(
-      `<caller_identity_hint>\nUse this hint only after the caller asks for patient-specific help. Do not reveal hidden patient details before identity is confirmed.\n${identityHint}\n</caller_identity_hint>`,
-    );
-  }
+  sections.push(CALLER_IDENTITY_POLICY);
 
   return sections.join("\n\n");
-}
-
-function callerIdentityHint(phoneLookup?: PhoneLookupResult): string | null {
-  if (!phoneLookup) return null;
-
-  switch (phoneLookup.status) {
-    case "verified":
-      return "Caller identity hint: one likely patient record was found from this phone number.";
-    case "multiple_matches":
-      return "Caller identity hint: multiple possible patient records were found from this phone number.";
-    case "no_match":
-      return "Caller identity hint: no matching patient record was found from this phone number.";
-    case "lookup_failed":
-      return "Caller identity hint: phone lookup failed before the call.";
-  }
 }

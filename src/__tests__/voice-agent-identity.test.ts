@@ -105,7 +105,7 @@ describe("Voice Agent identity promotion", () => {
     });
 
     await session.start({
-      agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
         identityLookup: lookup,
         suppressGreeting: true,
       }),
@@ -254,7 +254,7 @@ describe("Voice Agent identity promotion", () => {
     });
 
     await session.start({
-      agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
         identityLookup: lookup,
         suppressGreeting: true,
       }),
@@ -356,7 +356,7 @@ describe("Voice Agent identity promotion", () => {
     });
 
     await session.start({
-      agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
         identityLookup: lookup,
         suppressGreeting: true,
       }),
@@ -485,7 +485,7 @@ describe("Voice Agent identity promotion", () => {
     });
 
     await session.start({
-      agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
         identityLookup: lookup,
         suppressGreeting: true,
       }),
@@ -562,7 +562,7 @@ describe("Voice Agent identity promotion", () => {
     });
 
     await session.start({
-      agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
         suppressGreeting: true,
       }),
     });
@@ -777,7 +777,7 @@ describe("Voice Agent identity promotion", () => {
     });
 
     await session.start({
-      agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
         identityLookup: async () => {
           throw new Error("preloaded match should not call middleware");
         },
@@ -832,7 +832,7 @@ describe("Voice Agent identity promotion", () => {
     });
 
     await session.start({
-      agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
         identityLookup: async () => ({
           status: "not_found",
           message: "No patient match found.",
@@ -904,7 +904,7 @@ describe("Voice Agent identity promotion", () => {
     });
 
     await session.start({
-      agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
         identityLookup: lookup,
         suppressGreeting: true,
       }),
@@ -972,7 +972,7 @@ describe("Voice Agent identity promotion", () => {
     });
 
     await session.start({
-      agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
         identityLookup: lookup,
         suppressGreeting: true,
       }),
@@ -1072,7 +1072,7 @@ describe("Voice Agent identity promotion", () => {
       });
 
       await session.start({
-        agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+        agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
           identityLookup: async () => result,
           suppressGreeting: true,
         }),
@@ -1139,7 +1139,7 @@ describe("Voice Agent identity promotion", () => {
     });
 
     await session.start({
-      agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
         identityLookup: async () => {
           lookupCalls += 1;
           return verifiedPatient({
@@ -1199,7 +1199,7 @@ describe("Voice Agent identity promotion", () => {
     });
 
     await session.start({
-      agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
         identityLookup: async () => {
           throw new Error("lookup should not run");
         },
@@ -1254,7 +1254,7 @@ async function startPreCallSession(
     preCall,
   });
   await session.start({
-    agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+    agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
       suppressGreeting: true,
     }),
   });

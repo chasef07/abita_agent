@@ -11,6 +11,7 @@ import {
   formatPhoneLookupLogLine,
   loadPreCallBootstrap,
   lookupByPhone,
+  preCallLookupTelemetry,
 } from "../runtime/precall-bootstrap.js";
 
 function usePatientResult(result: PatientResolveResult) {
@@ -107,7 +108,7 @@ describe("pre-call bootstrap", () => {
     });
   });
 
-  it("builds bootstrap state with lookup telemetry", async () => {
+  it("returns one lookup seed for state and telemetry derivation", async () => {
     const middleware = usePatientResult(verifiedPatient());
 
     const bootstrap = await loadPreCallBootstrap({
@@ -116,19 +117,20 @@ describe("pre-call bootstrap", () => {
     });
 
     expect(bootstrap).toMatchObject({
-      verified: {
+      phoneLookup: {
         patientId: "patient-1",
         name: "Doe, Jane",
         appointmentsStatus: "none",
-      },
-      telemetry: {
-        status: "verified",
       },
     });
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: { phone: "+17275551212" },
     });
-    expect(bootstrap.telemetry.durationMs).toEqual(expect.any(Number));
+    expect(preCallLookupTelemetry(bootstrap.phoneLookup)).toMatchObject({
+      status: "verified",
+      durationMs: expect.any(Number),
+      candidateCount: 1,
+    });
   });
 
   it("accepts verified phone lookups when middleware omits echoed phone", async () => {

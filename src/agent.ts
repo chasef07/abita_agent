@@ -3,7 +3,7 @@
 
 import {
   Agent as LiveKitAgent,
-  type ChatContext,
+  ChatContext,
   type ChatMessage,
   type ModelSettings,
   type stt,
@@ -11,7 +11,7 @@ import {
 import type { AudioFrame } from "@livekit/rtc-node";
 import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
-import { type CallState, type PhoneLookupResult } from "./state/call-state.js";
+import type { CallState } from "./state/call-state.js";
 import { recordLatestUserTranscript } from "./state/call-lifecycle.js";
 import {
   observeSttLanguage,
@@ -29,6 +29,10 @@ import {
 } from "./office-knowledge.js";
 import { activeOfficeKey } from "./state/call-lifecycle.js";
 import { recordOfficeKnowledgeRetrieval } from "./state/observability.js";
+import {
+  createInitialLookupChatContext,
+  type ModelFacingLookupStatus,
+} from "./runtime/precall-model-context.js";
 
 export { addDurableInternalSystemMessage };
 
@@ -42,15 +46,16 @@ type VoiceAgentOptions = {
 };
 
 export function createVoiceAgent(
-  phoneLookup?: PhoneLookupResult,
-  trunkPhone?: string,
+  lookupStatus: ModelFacingLookupStatus,
+  trunkPhone: string,
   options: VoiceAgentOptions = {},
 ) {
-  const office = getOfficeProfileByPhone(trunkPhone ?? "");
+  const office = getOfficeProfileByPhone(trunkPhone);
   const greeting = options.suppressGreeting ? "" : office.greeting;
 
   const agent = LiveKitAgent.create<CallState>({
-    instructions: buildPrompt(phoneLookup, trunkPhone),
+    instructions: buildPrompt(trunkPhone),
+    chatCtx: createInitialLookupChatContext(lookupStatus),
     tools: buildToolsForTrunk(trunkPhone, {
       identityLookup: options.identityLookup,
     }),

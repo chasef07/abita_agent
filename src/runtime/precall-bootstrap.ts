@@ -17,10 +17,8 @@ import type {
 import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
 import { normalizeCallerAppointments } from "../state/appointments.js";
 
-interface PreCallBootstrap {
+export interface PreCallBootstrap {
   phoneLookup: PhoneLookupResult;
-  verified: CallerMatch | null;
-  telemetry: PreCallLookupTelemetry;
 }
 
 export async function lookupByPhone(
@@ -151,16 +149,11 @@ export async function loadPreCallBootstrap({
   trunkPhone: string;
 }): Promise<PreCallBootstrap> {
   const phoneLookup = await lookupByPhone(callerPhone, trunkPhone);
-  const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
 
-  return {
-    phoneLookup,
-    verified,
-    telemetry: preCallLookupTelemetry(phoneLookup),
-  };
+  return { phoneLookup };
 }
 
-function preCallLookupTelemetry(
+export function preCallLookupTelemetry(
   lookup: PhoneLookupResult,
 ): PreCallLookupTelemetry {
   if (!lookup) {
