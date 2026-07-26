@@ -81,9 +81,8 @@ term.
 
 **Call Capture**
 
-The runtime module that progressively checkpoints committed conversation items
-and sanitized tool outcomes, then performs bounded final reconciliation before
-LiveKit releases the job. Call Capture does not redefine tool or appointment
-outcomes.
+The runtime module that sends one bounded final call record before LiveKit
+releases the job. The final record contains the sanitized session report and
+tool outcomes. Call Capture does not redefine tool or appointment outcomes.
 
 _Avoid_: call closeout when referring to the complete capture lifecycle.

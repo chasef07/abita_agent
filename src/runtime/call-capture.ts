@@ -33,139 +33,58 @@ import {
 import type { SttProfileTransitionAnalytics } from "../call-observability.js";
 import { attachCallDurationDeadline } from "./call-duration-deadline.js";
 
-export type CommittedConversationItem = {
-  id: string;
-  interrupted: boolean;
-  metrics?: Record<string, unknown>;
-  role: string;
-  text: string;
-  timestamp: number;
-  transcriptConfidence?: number;
-};
-
-export type CallCaptureEnvelope = {
-  callId: string;
-  call?: Record<string, unknown>;
-  finalState?: Record<string, unknown>;
-  idempotencyKey: string;
-  items?: CommittedConversationItem[];
-  schemaVersion: 1;
-  sequence: number;
-  toolOutcomes?: SanitizedToolOutcome[];
-  type: "start" | "checkpoint" | "final";
-};
-
-export type SanitizedToolOutcome = ToolExecutionAnalytics & {
-  idempotencyKey: string;
-};
-
 export type CallCaptureDelivery = {
-  envelope: CallCaptureEnvelope;
-  legacyPayload?: Record<string, unknown>;
+  payload: Record<string, unknown>;
   timeoutMs: number;
 };
 
 export type CallCapturePortalResult = {
-  durable?: boolean;
   ok: boolean;
   skipped?: boolean;
   status?: number;
 };
 
-export type CallCaptureFinalSnapshot = {
-  language: Record<string, unknown>;
-  reportUnavailable?: boolean;
-  sessionReport?: Record<string, unknown>;
-  sessionUsage?: Record<string, unknown>;
-  sttProfiles: Record<string, unknown>[];
-};
-
-export type CallCaptureFinishResult = {
-  finalResult: CallCapturePortalResult;
-  pendingItemCount: number;
-  pendingToolOutcomeCount: number;
-  timedOut: boolean;
-};
-
 export interface CallCapturePortal {
   deliver(delivery: CallCaptureDelivery): Promise<CallCapturePortalResult>;
-  wait(ms: number): Promise<void>;
-}
-
-async function responseAcknowledgesDelivery(
-  response: Response,
-  envelope: CallCaptureEnvelope,
-): Promise<boolean> {
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    return false;
-  }
-  const acknowledgment = asRecord(body);
-  if (
-    acknowledgment?.ok !== true ||
-    acknowledgment.callId !== envelope.callId ||
-    acknowledgment.idempotencyKey !== envelope.idempotencyKey ||
-    acknowledgment.sequence !== envelope.sequence
-  ) {
-    return false;
-  }
-
-  const recordedItemIds = stringSet(acknowledgment.recordedItemIds);
-  const recordedToolCallIds = stringSet(acknowledgment.recordedToolCallIds);
-  return (
-    (envelope.items ?? []).every((item) => recordedItemIds.has(item.id)) &&
-    (envelope.toolOutcomes ?? []).every((outcome) =>
-      recordedToolCallIds.has(outcome.callId),
-    )
-  );
 }
 
 export class HttpCallCapturePortal implements CallCapturePortal {
-  private readonly captureUrl: string | undefined;
   private readonly fetchImpl: typeof fetch;
-  private readonly legacyUrl: string | undefined;
   private readonly logger: Pick<Console, "log" | "warn">;
   private readonly secret: string | undefined;
+  private readonly url: string | undefined;
 
   constructor(options: {
-    captureUrl?: string;
     fetchImpl?: typeof fetch;
-    legacyUrl?: string;
     logger?: Pick<Console, "log" | "warn">;
     secret?: string;
+    url?: string;
   }) {
-    this.captureUrl = nonEmpty(options.captureUrl);
     this.fetchImpl = options.fetchImpl ?? fetch;
-    this.legacyUrl = nonEmpty(options.legacyUrl);
     this.logger = options.logger ?? console;
     this.secret = nonEmpty(options.secret);
+    this.url = nonEmpty(options.url);
   }
 
   async deliver(
     delivery: CallCaptureDelivery,
   ): Promise<CallCapturePortalResult> {
-    const usesCaptureContract = Boolean(this.captureUrl);
-    if (usesCaptureContract && !this.secret) {
-      this.logger.warn("[call-capture] delivery skipped reason=missing_auth");
+    if (!this.url) return { ok: false, skipped: true };
+    if (!this.secret) {
+      this.logger.warn(
+        "[call-capture] final delivery skipped reason=missing_auth",
+      );
       return { ok: false, skipped: true };
     }
-    const url =
-      this.captureUrl ??
-      (delivery.envelope.type === "checkpoint" ? undefined : this.legacyUrl);
-    if (!url) return { ok: false, skipped: true };
 
     const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.secret}`,
       "Content-Type": "application/json",
     };
-    if (this.secret) headers.Authorization = `Bearer ${this.secret}`;
 
     try {
-      const response = await this.fetchImpl(url, {
-        body: JSON.stringify(
-          usesCaptureContract ? delivery.envelope : delivery.legacyPayload,
-        ),
+      const response = await this.fetchImpl(this.url, {
+        body: JSON.stringify(delivery.payload),
         headers,
         method: "POST",
         signal:
@@ -175,76 +94,29 @@ export class HttpCallCapturePortal implements CallCapturePortal {
       });
       if (!response.ok) {
         this.logger.warn(
-          `[call-capture] delivery failed type=${delivery.envelope.type} status=${response.status}`,
+          `[call-capture] final delivery failed status=${response.status}`,
         );
         return { ok: false, status: response.status };
       }
-      if (
-        usesCaptureContract &&
-        !(await responseAcknowledgesDelivery(response, delivery.envelope))
-      ) {
-        this.logger.warn(
-          `[call-capture] delivery acknowledgment invalid type=${delivery.envelope.type} status=${response.status}`,
-        );
-        return { ok: false, status: response.status };
-      }
-
       this.logger.log(
-        `[call-capture] delivery succeeded type=${delivery.envelope.type} status=${response.status}`,
+        `[call-capture] final delivery succeeded status=${response.status}`,
       );
-      return {
-        ...(usesCaptureContract ? { durable: true } : {}),
-        ok: true,
-        status: response.status,
-      };
+      return { ok: true, status: response.status };
     } catch {
-      this.logger.warn(
-        `[call-capture] delivery request failed type=${delivery.envelope.type}`,
-      );
+      this.logger.warn("[call-capture] final delivery request failed");
       return { ok: false };
     }
-  }
-
-  async wait(ms: number): Promise<void> {
-    if (ms <= 0) return;
-    await new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
 export class InMemoryCallCapturePortal implements CallCapturePortal {
   readonly deliveries: CallCaptureDelivery[] = [];
-  readonly waits: number[] = [];
-  private readonly results: Partial<
-    Record<CallCaptureEnvelope["type"], CallCapturePortalResult[]>
-  >;
-
-  constructor(
-    results: Partial<
-      Record<CallCaptureEnvelope["type"], CallCapturePortalResult[]>
-    > = {},
-  ) {
-    this.results = Object.fromEntries(
-      Object.entries(results).map(([type, typeResults]) => [
-        type,
-        [...typeResults],
-      ]),
-    );
-  }
 
   async deliver(
     delivery: CallCaptureDelivery,
   ): Promise<CallCapturePortalResult> {
     this.deliveries.push(delivery);
-    return (
-      this.results[delivery.envelope.type]?.shift() ?? {
-        ok: true,
-        status: 200,
-      }
-    );
-  }
-
-  async wait(ms: number): Promise<void> {
-    this.waits.push(ms);
+    return { ok: true, status: 200 };
   }
 }
 
@@ -259,20 +131,20 @@ export type CallCaptureContext = {
   startedAt: Date;
 };
 
-export interface CallCaptureEventAdapter {
-  observe(record: (record: CallCaptureRecord) => void): void;
-  onClose(
-    finish: (
-      snapshot: CallCaptureFinalSnapshot,
-    ) => Promise<CallCaptureFinishResult>,
-  ): void;
-}
+export type CallCaptureFinalSnapshot = {
+  language: Record<string, unknown>;
+  reportUnavailable?: boolean;
+  sessionReport?: Record<string, unknown>;
+  sessionUsage?: Record<string, unknown>;
+  sttProfiles: Record<string, unknown>[];
+};
 
-type CallCaptureRecord =
-  | {
-      item: CommittedConversationItem;
-      type: "conversation-item";
-    }
+export type CallCaptureFinishResult = {
+  finalResult: CallCapturePortalResult;
+  timedOut: boolean;
+};
+
+export type CallCaptureRecord =
   | {
       event: Parameters<typeof snapshotToolExecutions>[0];
       type: "tools-executed";
@@ -305,36 +177,29 @@ type CallCaptureRecord =
       usage: Record<string, unknown>;
     };
 
-type TurnMetricSnapshot = {
-  interrupted: boolean;
-  itemId: string;
-  metrics: Record<string, unknown>;
-  role: string;
-  timestamp: number;
-};
+export interface CallCaptureEventAdapter {
+  observe(record: (record: CallCaptureRecord) => void): void;
+  onClose(
+    finish: (
+      snapshot: CallCaptureFinalSnapshot,
+    ) => Promise<CallCaptureFinishResult>,
+  ): void;
+}
 
-export class CallCapture {
+class CallCapture {
   private readonly call: CallCaptureContext;
   private readonly finalizationTimeoutMs: number;
   private readonly getCallState: () => CallState | null;
-  private readonly items = new Map<string, CommittedConversationItem>();
   private readonly llmMetrics: Record<string, unknown>[] = [];
   private readonly logger: Pick<Console, "warn">;
   private latestUsage: Record<string, unknown> | undefined;
   private readonly now: () => Date;
   private readonly portal: CallCapturePortal;
-  private readonly recordedItemIds = new Set<string>();
-  private readonly recordedToolCallIds = new Set<string>();
-  private readonly retryDelayMs: number;
   private readonly sessionEvents: SessionEventAnalytics =
     createEmptySessionEventAnalytics();
-  private readonly toolOutcomes = new Map<string, SanitizedToolOutcome>();
-  private readonly turnMetrics: TurnMetricSnapshot[] = [];
-  private queue = Promise.resolve();
-  private sequence = 0;
+  private readonly toolOutcomes = new Map<string, ToolExecutionAnalytics>();
   private durationLimitReached = false;
   private finishing = false;
-  private stopRetries = false;
 
   constructor(input: {
     call: CallCaptureContext;
@@ -343,7 +208,6 @@ export class CallCapture {
     logger?: Pick<Console, "warn">;
     now?: () => Date;
     portal: CallCapturePortal;
-    retryDelayMs?: number;
   }) {
     this.call = input.call;
     this.finalizationTimeoutMs = input.finalizationTimeoutMs ?? 4_000;
@@ -351,42 +215,11 @@ export class CallCapture {
     this.logger = input.logger ?? console;
     this.now = input.now ?? (() => new Date());
     this.portal = input.portal;
-    this.retryDelayMs = input.retryDelayMs ?? 1_000;
-  }
-
-  start(): void {
-    this.enqueue({
-      envelope: {
-        callId: this.call.callId,
-        call: {
-          callerPhone: this.call.callerPhone,
-          officePhone: this.call.officePhone,
-          startedAt: this.call.startedAt.toISOString(),
-          ...this.call.livekitContext,
-        },
-        idempotencyKey: `${this.call.callId}:start`,
-        schemaVersion: 1,
-        sequence: this.nextSequence(),
-        type: "start",
-      },
-      legacyPayload: {
-        callId: this.call.callId,
-        callerPhone: this.call.callerPhone,
-        officePhone: this.call.officePhone,
-        startedAt: this.call.startedAt.toISOString(),
-        status: "IN_PROGRESS",
-        ...this.call.livekitContext,
-      },
-      timeoutMs: 1_500,
-    });
   }
 
   record(record: CallCaptureRecord): void {
     if (this.finishing) return;
     switch (record.type) {
-      case "conversation-item":
-        this.recordConversationItem(record.item);
-        return;
       case "tools-executed":
         this.recordToolOutcomes(record.event);
         return;
@@ -425,101 +258,25 @@ export class CallCapture {
     }
   }
 
-  private recordConversationItem(item: CommittedConversationItem): void {
-    if (this.items.has(item.id)) return;
-    this.items.set(item.id, item);
-    if (item.metrics && Object.keys(item.metrics).length > 0) {
-      this.turnMetrics.push({
-        interrupted: item.interrupted,
-        itemId: item.id,
-        metrics: item.metrics,
-        role: item.role,
-        timestamp: item.timestamp,
-      });
-    }
-    this.enqueue(
-      {
-        envelope: {
-          callId: this.call.callId,
-          idempotencyKey: `${this.call.callId}:${item.id}`,
-          items: [item],
-          schemaVersion: 1,
-          sequence: this.nextSequence(),
-          type: "checkpoint",
-        },
-        timeoutMs: 1_500,
-      },
-      () => this.recordedItemIds.add(item.id),
-    );
-  }
-
-  private recordToolOutcomes(
-    event: Parameters<typeof snapshotToolExecutions>[0],
-  ): void {
-    const callState = this.getCallState();
-    for (const outcome of snapshotToolExecutions(event, () =>
-      callState ? takePatientIdentityOutcome(callState) : undefined,
-    )) {
-      this.recordSanitizedToolOutcome(outcome);
-    }
-  }
-
-  private recordSanitizedToolOutcome(outcome: ToolExecutionAnalytics): void {
-    if (this.toolOutcomes.has(outcome.callId)) return;
-    const idempotencyKey = `${this.call.callId}:tool:${outcome.callId}`;
-    const sanitizedOutcome = { ...outcome, idempotencyKey };
-    this.toolOutcomes.set(outcome.callId, sanitizedOutcome);
-    this.enqueue(
-      {
-        envelope: {
-          callId: this.call.callId,
-          idempotencyKey,
-          schemaVersion: 1,
-          sequence: this.nextSequence(),
-          toolOutcomes: [sanitizedOutcome],
-          type: "checkpoint",
-        },
-        timeoutMs: 1_500,
-      },
-      () => this.recordedToolCallIds.add(outcome.callId),
-    );
-  }
-
   async finish(
     snapshot: CallCaptureFinalSnapshot,
   ): Promise<CallCaptureFinishResult> {
     this.finishing = true;
     const sessionReport = sanitizedSessionReport(snapshot.sessionReport);
-    for (const item of committedItemsFromReport(sessionReport)) {
-      this.recordConversationItem(item);
-    }
     const callState = this.getCallState();
     const recordedAppointmentActions = callState
       ? appointmentActions(callState)
       : [];
-    const toolExecutions = [...this.toolOutcomes.values()].map(
-      toolExecutionFromOutcome,
-    );
     for (const outcome of withAppointmentActionToolExecutionFallback(
-      toolExecutions,
+      [...this.toolOutcomes.values()],
       recordedAppointmentActions,
     )) {
-      this.recordSanitizedToolOutcome(outcome);
+      this.recordToolOutcome(outcome);
     }
-    const finalReserveMs = Math.min(
-      1_000,
-      Math.max(10, Math.floor(this.finalizationTimeoutMs / 3)),
-    );
-    const flush = await settleWithin(
-      this.queue,
-      Math.max(0, this.finalizationTimeoutMs - finalReserveMs),
-    );
-    if (!flush.settled) this.stopRetries = true;
-    const finalDeadline = Date.now() + finalReserveMs;
 
     const endedAt = this.now();
     const usage = this.latestUsage ?? snapshot.sessionUsage;
-    const legacyPayload: Record<string, unknown> = {
+    const payload: Record<string, unknown> = {
       callId: this.call.callId,
       callerPhone: this.call.callerPhone,
       durationSec: Math.round(
@@ -556,9 +313,7 @@ export class CallCapture {
       language: snapshot.language,
       voiceLanguage:
         callState?.runtime.voiceLanguage ?? this.call.initialVoiceLanguage,
-      toolExecutions: [...this.toolOutcomes.values()].map(
-        toolExecutionFromOutcome,
-      ),
+      toolExecutions: [...this.toolOutcomes.values()],
       knowledgeRetrievals: callState
         ? officeKnowledgeRetrievals(callState)
         : [],
@@ -573,7 +328,7 @@ export class CallCapture {
       ...this.call.livekitContext,
       llmMetrics: this.llmMetrics,
       sttProfiles: snapshot.sttProfiles,
-      turnMetrics: this.turnMetrics,
+      turnMetrics: turnMetricsFromReport(sessionReport),
       ...(callState
         ? { callState: sanitizeCallStateForCapture(callState) }
         : {}),
@@ -585,88 +340,41 @@ export class CallCapture {
     if (snapshot.reportUnavailable) {
       this.logger.warn("[call-capture] LiveKit session report unavailable");
     }
-    const finalDelivery: CallCaptureDelivery = {
-      envelope: {
-        callId: this.call.callId,
-        finalState: legacyPayload,
-        idempotencyKey: `${this.call.callId}:final`,
-        items: [...this.items.values()],
-        schemaVersion: 1,
-        sequence: this.nextSequence(),
-        toolOutcomes: [...this.toolOutcomes.values()],
-        type: "final",
-      },
-      legacyPayload,
-      timeoutMs: Math.max(1, Math.min(750, finalDeadline - Date.now())),
-    };
-    const final = await deliverWithRetryUntil(
-      this.portal,
-      finalDelivery,
-      finalDeadline,
-      Math.min(this.retryDelayMs, 100),
-    );
-    if (final.value?.durable) {
-      for (const itemId of this.items.keys()) {
-        this.recordedItemIds.add(itemId);
-      }
-      for (const callId of this.toolOutcomes.keys()) {
-        this.recordedToolCallIds.add(callId);
-      }
-    }
+
+    const delivery = this.portal
+      .deliver({
+        payload,
+        timeoutMs: this.finalizationTimeoutMs,
+      })
+      .catch((): CallCapturePortalResult => ({ ok: false }));
+    const final = await settleWithin(delivery, this.finalizationTimeoutMs);
     const result = {
       finalResult: final.value ?? { ok: false },
-      pendingItemCount: [...this.items.keys()].filter(
-        (itemId) => !this.recordedItemIds.has(itemId),
-      ).length,
-      pendingToolOutcomeCount: [...this.toolOutcomes.keys()].filter(
-        (callId) => !this.recordedToolCallIds.has(callId),
-      ).length,
-      timedOut: !flush.settled || !final.settled,
+      timedOut: !final.settled,
     };
-    if (
-      result.timedOut ||
-      result.pendingItemCount > 0 ||
-      result.pendingToolOutcomeCount > 0 ||
-      !result.finalResult.ok
-    ) {
+    if (result.timedOut || !result.finalResult.ok) {
       this.logger.warn(
-        `[call-capture] finalization incomplete timedOut=${result.timedOut} pendingItems=${result.pendingItemCount} pendingToolOutcomes=${result.pendingToolOutcomeCount} finalOk=${result.finalResult.ok}`,
+        `[call-capture] final delivery incomplete timedOut=${result.timedOut} finalOk=${result.finalResult.ok}`,
       );
     }
     return result;
   }
 
-  private enqueue(
-    delivery: CallCaptureDelivery,
-    onAccepted?: () => void,
+  private recordToolOutcomes(
+    event: Parameters<typeof snapshotToolExecutions>[0],
   ): void {
-    this.queue = this.queue.then(async () => {
-      let attempt = 0;
-      while (true) {
-        const result = await this.portal.deliver(delivery);
-        if (result.ok) {
-          onAccepted?.();
-          return;
-        }
-        if (result.skipped || this.stopRetries) return;
-        if (!isRetryableDeliveryFailure(result)) {
-          this.logger.warn(
-            `[call-capture] delivery pending type=${delivery.envelope.type} status=${result.status ?? "unknown"} retryable=false`,
-          );
-          return;
-        }
-        attempt += 1;
-        await this.portal.wait(
-          Math.min(this.retryDelayMs * attempt, this.retryDelayMs * 5),
-        );
-        if (this.stopRetries) return;
-      }
-    });
+    const callState = this.getCallState();
+    for (const outcome of snapshotToolExecutions(event, () =>
+      callState ? takePatientIdentityOutcome(callState) : undefined,
+    )) {
+      this.recordToolOutcome(outcome);
+    }
   }
 
-  private nextSequence(): number {
-    this.sequence += 1;
-    return this.sequence;
+  private recordToolOutcome(outcome: ToolExecutionAnalytics): void {
+    if (!this.toolOutcomes.has(outcome.callId)) {
+      this.toolOutcomes.set(outcome.callId, outcome);
+    }
   }
 }
 
@@ -678,8 +386,7 @@ export function attachCallCapture(input: {
   logger?: Pick<Console, "warn">;
   now?: () => Date;
   portal: CallCapturePortal;
-  retryDelayMs?: number;
-}): CallCapture {
+}): void {
   const capture = new CallCapture({
     call: input.call,
     ...(input.finalizationTimeoutMs === undefined
@@ -689,14 +396,9 @@ export function attachCallCapture(input: {
     ...(input.logger ? { logger: input.logger } : {}),
     ...(input.now ? { now: input.now } : {}),
     portal: input.portal,
-    ...(input.retryDelayMs === undefined
-      ? {}
-      : { retryDelayMs: input.retryDelayMs }),
   });
   input.events.observe((record) => capture.record(record));
   input.events.onClose((snapshot) => capture.finish(snapshot));
-  capture.start();
-  return capture;
 }
 
 type LlmMetricsSource = {
@@ -738,33 +440,6 @@ export function createLiveKitCallCaptureEventAdapter(
             type: "llm-metric",
           });
         }
-      });
-
-      session.on(AgentSessionEventTypes.ConversationItemAdded, (event) => {
-        if (event.item.type !== "message") return;
-        const text = event.item.textContent;
-        if (!text) return;
-        const metrics = Object.fromEntries(
-          Object.entries(event.item.metrics ?? {}).filter(
-            ([, value]) => value !== undefined,
-          ),
-        );
-        record({
-          item: {
-            id: event.item.id,
-            interrupted: event.item.interrupted,
-            ...(Object.keys(metrics).length > 0 ? { metrics } : {}),
-            role: event.item.role,
-            text,
-            timestamp: event.item.createdAt,
-            ...(event.item.transcriptConfidence === undefined
-              ? {}
-              : {
-                  transcriptConfidence: event.item.transcriptConfidence,
-                }),
-          },
-          type: "conversation-item",
-        });
       });
       session.on(AgentSessionEventTypes.SessionUsageUpdated, (event) => {
         record({
@@ -863,18 +538,10 @@ function sanitizedSessionReport(
   report: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
   if (!report) return undefined;
-  const items = committedItemsFromReport(report).map((item) => ({
-    content: [item.text],
-    created_at: item.timestamp,
-    id: item.id,
-    interrupted: item.interrupted,
-    ...(item.metrics ? { metrics: item.metrics } : {}),
-    role: item.role,
-    ...(item.transcriptConfidence === undefined
-      ? {}
-      : { transcript_confidence: item.transcriptConfidence }),
-    type: "message",
-  }));
+  const chatHistory = asRecord(report.chat_history);
+  const items = Array.isArray(chatHistory?.items)
+    ? chatHistory.items.flatMap(sanitizedMessageItem)
+    : [];
   return {
     chat_history: { items },
     ...Object.fromEntries(
@@ -885,16 +552,64 @@ function sanitizedSessionReport(
   };
 }
 
-function toolExecutionFromOutcome(
-  outcome: SanitizedToolOutcome,
-): ToolExecutionAnalytics {
-  return {
-    callId: outcome.callId,
-    createdAt: outcome.createdAt,
-    outputClass: outcome.outputClass,
-    status: outcome.status,
-    toolName: outcome.toolName,
-  };
+function sanitizedMessageItem(value: unknown): Record<string, unknown>[] {
+  const item = asRecord(value);
+  if (
+    item?.type !== "message" ||
+    typeof item.id !== "string" ||
+    typeof item.role !== "string" ||
+    !Array.isArray(item.content)
+  ) {
+    return [];
+  }
+  const content = item.content.filter(
+    (part): part is string => typeof part === "string" && part.length > 0,
+  );
+  if (content.length === 0) return [];
+
+  return [
+    {
+      content,
+      ...(typeof item.created_at === "number"
+        ? { created_at: item.created_at }
+        : {}),
+      id: item.id,
+      interrupted: item.interrupted === true,
+      ...(asRecord(item.metrics) ? { metrics: item.metrics } : {}),
+      role: item.role,
+      ...(typeof item.transcript_confidence === "number"
+        ? { transcript_confidence: item.transcript_confidence }
+        : {}),
+      type: "message",
+    },
+  ];
+}
+
+function turnMetricsFromReport(
+  report: Record<string, unknown> | undefined,
+): Record<string, unknown>[] {
+  const chatHistory = asRecord(report?.chat_history);
+  if (!Array.isArray(chatHistory?.items)) return [];
+  return chatHistory.items.flatMap((value) => {
+    const item = asRecord(value);
+    const metrics = asRecord(item?.metrics);
+    if (!item || !metrics || Object.keys(metrics).length === 0) return [];
+    return [
+      {
+        createdAt: item.created_at,
+        interrupted: item.interrupted === true,
+        itemId: item.id,
+        metrics,
+        role: item.role,
+        type: "message",
+      },
+    ];
+  });
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
 }
 
 async function settleWithin<T>(
@@ -914,93 +629,7 @@ async function settleWithin<T>(
   return result;
 }
 
-async function deliverWithRetryUntil(
-  portal: CallCapturePortal,
-  delivery: CallCaptureDelivery,
-  deadline: number,
-  retryDelayMs: number,
-): Promise<{ settled: boolean; value?: CallCapturePortalResult }> {
-  let value: CallCapturePortalResult | undefined;
-  while (Date.now() < deadline) {
-    const remainingMs = deadline - Date.now();
-    const attempt = await settleWithin(
-      portal.deliver({
-        ...delivery,
-        timeoutMs: Math.max(1, Math.min(delivery.timeoutMs, remainingMs)),
-      }),
-      remainingMs,
-    );
-    if (!attempt.settled) return { settled: false, value };
-    value = attempt.value;
-    if (value?.ok || value?.skipped) return { settled: true, value };
-
-    const waitMs = Math.min(retryDelayMs, deadline - Date.now());
-    if (waitMs > 0) {
-      const wait = await settleWithin(
-        portal.wait(waitMs),
-        Math.min(waitMs + 10, deadline - Date.now()),
-      );
-      if (!wait.settled) return { settled: false, value };
-    }
-  }
-  return { settled: false, value };
-}
-
-function committedItemsFromReport(
-  report: Record<string, unknown> | undefined,
-): CommittedConversationItem[] {
-  const chatHistory = asRecord(report?.chat_history);
-  if (!Array.isArray(chatHistory?.items)) return [];
-
-  const items: CommittedConversationItem[] = [];
-  for (const value of chatHistory.items) {
-    const item = asRecord(value);
-    if (
-      item?.type !== "message" ||
-      typeof item.id !== "string" ||
-      typeof item.role !== "string" ||
-      !Array.isArray(item.content)
-    ) {
-      continue;
-    }
-    const text = item.content
-      .filter((part): part is string => typeof part === "string")
-      .join("\n");
-    if (!text) continue;
-    const timestamp =
-      typeof item.created_at === "number" ? item.created_at : Date.now();
-    items.push({
-      id: item.id,
-      interrupted: item.interrupted === true,
-      role: item.role,
-      text,
-      timestamp,
-      ...(typeof item.transcript_confidence === "number"
-        ? { transcriptConfidence: item.transcript_confidence }
-        : {}),
-    });
-  }
-  return items;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
-
-function stringSet(value: unknown): Set<string> {
-  if (!Array.isArray(value)) return new Set();
-  return new Set(
-    value.filter((item): item is string => typeof item === "string"),
-  );
-}
-
 function nonEmpty(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed || undefined;
-}
-
-function isRetryableDeliveryFailure(result: CallCapturePortalResult): boolean {
-  if (result.status === undefined) return true;
-  return result.status === 408 || result.status === 429 || result.status >= 500;
 }

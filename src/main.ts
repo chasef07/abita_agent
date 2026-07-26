@@ -240,9 +240,8 @@ export default defineAgent({
             }),
             getCallState,
             portal: new HttpCallCapturePortal({
-              captureUrl: process.env.CALL_CAPTURE_URL,
-              legacyUrl: process.env.ANALYTICS_URL,
               secret: getAnalyticsSecret(),
+              url: process.env.ANALYTICS_URL,
             }),
           });
 
