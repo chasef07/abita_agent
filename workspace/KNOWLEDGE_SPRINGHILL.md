@@ -57,8 +57,6 @@ Spring Hill stocks frames from YSL, Ferragamo, Gucci, Ray-Ban, Nike, Bebe, Anne 
 
 Lens upgrades are available. Glasses usually take about 10 business days to come in.
 
-If a caller asks whether ordered glasses are ready, tell them: "Check your texts. You'll receive a text when they're ready. If you haven't received a text, they aren't ready yet."
-
 Eyeglass prescriptions are valid for 2 years, but a yearly eye exam is recommended.
 
 Patients can bring an outside prescription to Spring Hill to shop for glasses. If they do not already have a valid prescription, schedule a routine eye exam with the optometrist first.

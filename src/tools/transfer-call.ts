@@ -15,6 +15,7 @@ export const transfer_call = tool({
     "If they ask for a human, representative, staff, or the office without saying why, ask what they are calling about before calling this tool. " +
     "Before calling this tool, briefly tell the caller you're transferring them now. " +
     "Call this for emergency or urgent symptoms, suspected medication reactions, dosage or medication instructions, clinical advice, medical decisions, returned missed calls or received calls from this number, or when the caller still insists after you try to help. " +
+    "Do not call this tool for safe non-live office follow-up that another available tool can capture. " +
     "Do not call for scheduling, insurance checks, availability, patient verification, cancellations, or office facts. ",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
