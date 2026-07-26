@@ -15,6 +15,13 @@ import {
   storeAvailabilityBookingToken,
 } from "./state.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
+import {
+  describeTimeConstraint,
+  parseClockMinutes,
+  slotMatchesTimeConstraint,
+  type AvailabilityDateSearchMode,
+  type AvailabilityTimeConstraint,
+} from "./temporal.js";
 
 type AvailabilitySearchSummary = {
   requestedDate?: string;
@@ -32,8 +39,6 @@ type AvailabilityToolResponse = {
 };
 
 type AvailableSlotsResult = Exclude<AvailabilityResult, MiddlewareFailure>;
-
-export type AvailabilityTimePreference = "morning" | "afternoon" | "none";
 
 const MAX_AVAILABILITY_SLOT_OFFERS = 2;
 
@@ -53,7 +58,8 @@ export function storeAvailabilitySlots(
   state: CallState,
   result: AvailabilityResult,
   routing: string | null,
-  timePreference: AvailabilityTimePreference = "none",
+  timeConstraint: AvailabilityTimeConstraint | null,
+  dateSearchMode: AvailabilityDateSearchMode,
 ): AvailabilityToolResponse {
   if (result.status === "error") {
     recordOwnedMiddlewareFailure(state, "getAvailability", result);
@@ -62,8 +68,10 @@ export function storeAvailabilitySlots(
   }
 
   const sortedSlots = [...result.slots].sort(compareAvailabilitySlot);
-  const selection = selectAvailabilitySlots(sortedSlots, timePreference);
-  const offeredSlots = selection.slots.slice(0, MAX_AVAILABILITY_SLOT_OFFERS);
+  const offeredSlots = selectAvailabilitySlots(
+    sortedSlots,
+    timeConstraint,
+  ).slice(0, MAX_AVAILABILITY_SLOT_OFFERS);
   const storedSlots: StoredAvailabilitySlot[] = [];
   for (const slot of offeredSlots) {
     const candidate = storedAvailabilitySlot(slot, "", routing);
@@ -100,7 +108,8 @@ export function storeAvailabilitySlots(
     result,
     search,
     slots: storedSlots,
-    preferenceFallback: selection.preferenceFallback,
+    dateSearchMode,
+    timeConstraint,
   });
 }
 
@@ -137,47 +146,51 @@ function compareAvailabilitySlot(
 
 function selectAvailabilitySlots(
   sortedSlots: AvailabilitySlot[],
-  timePreference: AvailabilityTimePreference,
-): {
-  slots: AvailabilitySlot[];
-  preferenceFallback: AvailabilityTimePreference | null;
-} {
-  if (timePreference === "morning" || timePreference === "afternoon") {
-    const preferredSlots = sortedSlots.filter((slot) =>
-      slotMatchesTimePreference(slot, timePreference),
-    );
-    return preferredSlots.length > 0
-      ? { slots: preferredSlots, preferenceFallback: null }
-      : { slots: sortedSlots, preferenceFallback: timePreference };
+  timeConstraint: AvailabilityTimeConstraint | null,
+): AvailabilitySlot[] {
+  if (timeConstraint) {
+    const matchingSlots = sortedSlots.filter((slot) => {
+      const minutes = parseClockMinutes(slotTime(slot));
+      return (
+        minutes !== null && slotMatchesTimeConstraint(minutes, timeConstraint)
+      );
+    });
+    if (timeConstraint.kind === "near") {
+      matchingSlots.sort((left, right) => {
+        const dateOrder = slotDate(left).localeCompare(slotDate(right));
+        if (dateOrder) return dateOrder;
+        const leftMinutes =
+          parseClockMinutes(slotTime(left)) ?? Number.MAX_SAFE_INTEGER;
+        const rightMinutes =
+          parseClockMinutes(slotTime(right)) ?? Number.MAX_SAFE_INTEGER;
+        return (
+          Math.abs(leftMinutes - timeConstraint.minutes) -
+            Math.abs(rightMinutes - timeConstraint.minutes) ||
+          leftMinutes - rightMinutes
+        );
+      });
+    }
+    return matchingSlots;
   }
 
   const firstSlot = sortedSlots[0];
-  const firstAfternoonSlot = sortedSlots.find((slot) =>
-    slotMatchesTimePreference(slot, "afternoon"),
-  );
+  const firstAfternoonSlot = sortedSlots.find((slot) => slotIsAfternoon(slot));
   if (firstSlot && firstAfternoonSlot && firstAfternoonSlot !== firstSlot) {
-    return {
-      slots: [
-        firstSlot,
-        firstAfternoonSlot,
-        ...sortedSlots.filter(
-          (slot) => slot !== firstSlot && slot !== firstAfternoonSlot,
-        ),
-      ],
-      preferenceFallback: null,
-    };
+    return [
+      firstSlot,
+      firstAfternoonSlot,
+      ...sortedSlots.filter(
+        (slot) => slot !== firstSlot && slot !== firstAfternoonSlot,
+      ),
+    ];
   }
 
-  return { slots: sortedSlots, preferenceFallback: null };
+  return sortedSlots;
 }
 
-function slotMatchesTimePreference(
-  slot: AvailabilitySlot,
-  timePreference: Exclude<AvailabilityTimePreference, "none">,
-): boolean {
-  const minutes = minutesFromDisplayTime(slotTime(slot));
-  if (minutes === null) return false;
-  return timePreference === "morning" ? minutes < 12 * 60 : minutes >= 12 * 60;
+function slotIsAfternoon(slot: AvailabilitySlot): boolean {
+  const minutes = parseClockMinutes(slotTime(slot));
+  return minutes !== null && minutes >= 12 * 60;
 }
 
 function sortableSlotTimestamp(slot: AvailabilitySlot): number {
@@ -187,7 +200,7 @@ function sortableSlotTimestamp(slot: AvailabilitySlot): number {
   const isoLike = datetime || (date && time ? `${date}T${time}` : "");
   const parsed = Date.parse(isoLike);
   if (Number.isFinite(parsed)) return parsed;
-  return minutesFromDisplayTime(time) ?? Number.MAX_SAFE_INTEGER;
+  return parseClockMinutes(time) ?? Number.MAX_SAFE_INTEGER;
 }
 
 function slotProvider(slot: AvailabilitySlot): string {
@@ -212,18 +225,6 @@ export function publicProviderName(provider: string): string {
     .replace("Dr. Austin Bach", "Dr. Bach")
     .replace("Dr. J. Licht", "Dr. Licht")
     .replace("Dr. D. Noel", "Dr. Noel");
-}
-
-function minutesFromDisplayTime(time: string): number | null {
-  const match = time.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
-  if (!match) return null;
-  let hour = Number(match[1]);
-  const minute = Number(match[2] ?? "0");
-  const meridiem = match[3]?.toUpperCase();
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-  if (meridiem === "PM" && hour !== 12) hour += 12;
-  if (meridiem === "AM" && hour === 12) hour = 0;
-  return hour * 60 + minute;
 }
 
 function nextIsoDate(date: string | undefined): string | undefined {
@@ -280,9 +281,10 @@ function buildAvailabilityMessage(input: {
   result: AvailableSlotsResult;
   search: AvailabilitySearchSummary;
   slots: StoredAvailabilitySlot[];
-  preferenceFallback: AvailabilityTimePreference | null;
+  dateSearchMode: AvailabilityDateSearchMode;
+  timeConstraint: AvailabilityTimeConstraint | null;
 }): string {
-  const { result, search, slots, preferenceFallback } = input;
+  const { dateSearchMode, result, search, slots, timeConstraint } = input;
   const spokenSearchedRange =
     search.searchedFrom && search.searchedThrough
       ? `from ${spokenIsoDate(search.searchedFrom) ?? search.searchedFrom} through ${
@@ -308,45 +310,35 @@ function buildAvailabilityMessage(input: {
   }
 
   if (result.status === "incomplete") {
-    return `Availability was not fully checked ${spokenSearchedRange}. Call get_availability again once with the same date.`;
+    return `Availability was not fully checked ${spokenSearchedRange}. Call get_availability again once with the same when phrase.`;
   }
 
   const primarySlot = slots[0];
   if (!primarySlot) {
+    if (timeConstraint) {
+      return `No returned openings matched the requested ${describeTimeConstraint(timeConstraint)}. Ask whether the caller wants a different time or day.`;
+    }
     return "I do not see openings for those details. Would you like to try a different day or time?";
   }
 
   const requestedDate = spokenIsoDate(search.requestedDate);
   const dateShiftText =
-    search.dateShifted && requestedDate
+    dateSearchMode === "specific" && search.dateShifted && requestedDate
       ? `No opening was found on ${requestedDate}. `
       : "";
-  const preferenceFallbackText = availabilityPreferenceFallbackText(
-    preferenceFallback,
-    search,
-  );
   const backupSlot = slots[1];
   if (backupSlot) {
     return (
-      `${dateShiftText}${preferenceFallbackText}Offer these options: ${slotOffer(primarySlot)}, or ${slotOffer(backupSlot)}. ` +
+      `${dateShiftText}Offer these options: ${slotOffer(primarySlot)}, or ${slotOffer(backupSlot)}. ` +
       "Ask which one works better. " +
-      "If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another date to check and call get_availability with that date."
+      "If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another day or time and call get_availability with the caller's new when phrase."
     );
   }
 
   return (
-    `${dateShiftText}${preferenceFallbackText}Offer this slot: ${slotOffer(primarySlot)}. ` +
-    `If the caller accepts it, use appointmentSlotRef ${primarySlot.slotId}; if they want a different day or time, ask for another date to check and call get_availability with that date.`
+    `${dateShiftText}Offer this slot: ${slotOffer(primarySlot)}. ` +
+    `If the caller accepts it, use appointmentSlotRef ${primarySlot.slotId}; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.`
   );
-}
-
-function availabilityPreferenceFallbackText(
-  timePreference: AvailabilityTimePreference | null,
-  search: AvailabilitySearchSummary,
-): string {
-  if (timePreference === null || timePreference === "none") return "";
-  const fallbackDate = spokenIsoDate(search.actualDate ?? search.requestedDate);
-  return `No ${timePreference} openings were found${fallbackDate ? ` on ${fallbackDate}` : ""}. `;
 }
 
 function cleanAvailabilityErrorResponse(): AvailabilityToolResponse {
@@ -370,9 +362,10 @@ function cleanAvailabilityResponse(input: {
   result: AvailableSlotsResult;
   search: AvailabilitySearchSummary;
   slots: StoredAvailabilitySlot[];
-  preferenceFallback: AvailabilityTimePreference | null;
+  dateSearchMode: AvailabilityDateSearchMode;
+  timeConstraint: AvailabilityTimeConstraint | null;
 }): AvailabilityToolResponse {
-  const { result, search, slots, preferenceFallback } = input;
+  const { dateSearchMode, result, search, slots, timeConstraint } = input;
   const foundSlots = slots.length > 0;
   const cacheable =
     foundSlots ||
@@ -383,7 +376,8 @@ function cleanAvailabilityResponse(input: {
       result,
       search,
       slots,
-      preferenceFallback,
+      dateSearchMode,
+      timeConstraint,
     }),
     cacheable,
   };

@@ -119,7 +119,6 @@ describe("Office Knowledge turn enrichment", () => {
         "create_staff_task",
         "end_call",
         "get_availability",
-        "get_current_datetime",
         "reschedule_appointment",
         "resolve_patient",
         "transfer_call",
@@ -226,7 +225,7 @@ describe("Office Knowledge turn enrichment", () => {
     });
   });
 
-  it("preserves context equivalence for unrelated turns and injects unavailable facts", async () => {
+  it("skips unrelated turns and injects unavailable facts", async () => {
     const unrelatedSession = new AgentSession();
     sessions.push(unrelatedSession);
     unrelatedSession.userData = createTestCallState({
@@ -243,14 +242,12 @@ describe("Office Knowledge turn enrichment", () => {
       role: "system",
       content: "Internal state mentions office hours.",
     });
-    const before = unrelatedContext.copy();
-
     await unrelatedSession.currentAgent.onUserTurnCompleted(
       unrelatedContext,
       ChatMessage.create({ role: "user", content: "What about that?" }),
     );
 
-    expect(unrelatedContext.isEquivalent(before)).toBe(true);
+    expect(knowledgeMessages(unrelatedContext)).toEqual([]);
     expect(unrelatedSession.userData.runtime).toMatchObject({
       knowledgeRetrievals: [
         {
@@ -315,7 +312,6 @@ describe("Office Knowledge turn enrichment", () => {
       }).agent,
     });
     const turnContext = session.currentAgent.chatCtx.copy();
-    const before = turnContext.copy();
 
     await expect(
       session.currentAgent.onUserTurnCompleted(
@@ -327,7 +323,7 @@ describe("Office Knowledge turn enrichment", () => {
       ),
     ).resolves.toBeUndefined();
 
-    expect(turnContext.isEquivalent(before)).toBe(true);
+    expect(knowledgeMessages(turnContext)).toEqual([]);
     expect(session.userData.runtime.latestUserTranscript).toBe(
       "What are your hours?",
     );

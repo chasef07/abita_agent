@@ -25,7 +25,6 @@ import {
   check_insurance,
   create_staff_task,
   resolve_patient,
-  get_current_datetime,
   get_availability,
   reschedule_appointment,
   transfer_call,
@@ -562,17 +561,10 @@ describe("Crystal River prompt guidance", () => {
     expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).toContain("end_call");
   });
 
-  it("exposes current date/time as an on-demand read-only tool", () => {
-    expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).toContain(
+  it("does not expose a standalone current date/time tool", () => {
+    expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).not.toContain(
       "get_current_datetime",
     );
-    expect(get_current_datetime.description).toContain(
-      "current clinic-local date and time",
-    );
-    expect(get_current_datetime.description).toContain(
-      "relative scheduling dates or times",
-    );
-    expect(get_current_datetime.description).toContain("exact YYYY-MM-DD date");
   });
 
   it("keeps emergency transfer policy in the shared role prompt", () => {
@@ -807,19 +799,19 @@ describe("model-facing tool definitions", () => {
 
   it("keeps availability from exposing Bach-only routing internals", () => {
     expect(get_availability.description).toContain(
-      "exact YYYY-MM-DD start date",
+      "caller's own date and time words",
     );
     expect(get_availability.description).toContain(
-      "routine exam but also mentions an eye problem or symptom",
+      "Pass those words unchanged in when",
+    );
+    expect(get_availability.description).toContain(
+      "search from the earliest allowed date",
+    );
+    expect(get_availability.description).toContain(
+      "routine exam caller also mentions an eye problem or symptom",
     );
     expect(get_availability.description).toContain(
       "ask whether the appointment is mainly for glasses or contacts or for the eye problem",
-    );
-    expect(get_availability.description).toContain(
-      "Do not call for same-day or past dates",
-    );
-    expect(get_availability.description).toContain(
-      "resolve relative dates with get_current_datetime",
     );
     expect(get_availability.description).toContain(
       "Offer only the returned slots",
@@ -834,7 +826,7 @@ describe("model-facing tool definitions", () => {
       shape: {
         appointmentLane: { description?: string };
         office: { description?: string };
-        timePreference: { description?: string };
+        when: { description?: string };
       };
     };
     expect(parameters.shape.appointmentLane.description).toContain(
@@ -849,43 +841,36 @@ describe("model-facing tool definitions", () => {
     expect(parameters.shape.office.description).toContain(
       "Do not infer it from the number called",
     );
-    expect(parameters.shape.timePreference.description).toContain("morning");
-    expect(parameters.shape.timePreference.description).toContain("afternoon");
-    expect(parameters.shape.timePreference.description).toContain(
-      "Omit when there is no preference",
+    expect(parameters.shape.when.description).toContain(
+      "caller's own date and time phrase",
+    );
+    expect(parameters.shape.when.description).toContain(
+      "without converting it",
     );
     expect(
       parameters.safeParse({
-        date: "2026-06-01",
+        when: "next Tuesday around 3 PM",
         appointmentLane: "medical_md",
         office: "hollywood",
-        timePreference: "afternoon",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        date: "2026-06-01",
+        when: "tomorrow morning",
         appointmentLane: "medical_md",
         office: "sweetwater",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        date: "2026-06-01",
+        when: "tomorrow",
         appointmentLane: "medical_md",
         office: "spring-hill",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        date: "2026-06-01",
-        appointmentLane: "medical_md",
-        timePreference: "morning",
-      }).success,
-    ).toBe(true);
-    expect(
-      parameters.safeParse({
-        date: "2026-06-01",
+        when: "tomorrow",
         appointmentLane: "medical_md",
         timePreference: "evening",
       }).success,
@@ -899,25 +884,26 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        date: "2026-06-01",
+        when: "June 1",
         appointmentLane: "routine_od",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        date: "2026-06-01",
+        when: "June 1",
         appointmentLane: "unknown",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        date: "next Wednesday",
+        date: "2026-06-01",
         appointmentLane: "medical_md",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        date: "2026-6-1",
+        when: "next Wednesday",
+        date: "2026-06-01",
         appointmentLane: "medical_md",
       }).success,
     ).toBe(false);

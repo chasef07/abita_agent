@@ -34,10 +34,7 @@ export const voiceTurnHandlingOptions = {
     ...voiceEndpointingProfiles.conversation,
   },
   preemptiveGeneration: {
-    enabled: true,
-    preemptiveTts: false,
-    maxSpeechDuration: 4_000,
-    maxRetries: 1,
+    enabled: false,
   },
   interruption: {
     mode: "adaptive",

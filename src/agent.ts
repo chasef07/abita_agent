@@ -29,6 +29,11 @@ import {
 } from "./office-knowledge.js";
 import { activeOfficeKey } from "./state/call-lifecycle.js";
 import { recordOfficeKnowledgeRetrieval } from "./state/observability.js";
+import {
+  clinicTimestampMessage,
+  systemSchedulingClock,
+  type SchedulingClock,
+} from "./scheduling/temporal.js";
 
 export { addDurableInternalSystemMessage };
 
@@ -39,6 +44,7 @@ type VoiceAgentOptions = {
   onLanguageDecision?: (decision: SttLanguageDecision) => void;
   suppressGreeting?: boolean;
   sttLanguageDetector?: SttLanguageDetector;
+  turnClock?: SchedulingClock;
 };
 
 export function createVoiceAgent(
@@ -67,6 +73,13 @@ export function createVoiceAgent(
       chatCtx: ChatContext,
       newMessage: ChatMessage,
     ): Promise<void> {
+      chatCtx.addMessage({
+        role: "system",
+        content: clinicTimestampMessage(
+          (options.turnClock ?? systemSchedulingClock).now(),
+        ),
+      });
+
       const state = ctx.session.userData;
       const transcript = newMessage.textContent ?? "";
       if (!transcript) return;
