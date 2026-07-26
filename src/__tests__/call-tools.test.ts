@@ -324,6 +324,15 @@ describe("stateful call tools", () => {
     expect(add_patient.onDuplicate).toBe("reject");
   });
 
+  it("keeps private patient references out of the resolve_patient schema", () => {
+    expect(Object.keys(resolve_patient.parameters.shape)).toEqual([
+      "firstName",
+      "lastName",
+      "dob",
+      "registrationStatus",
+    ]);
+  });
+
   it("returns a speech-ready result after creating a patient", async () => {
     const state = createState();
     state.identity.patient.patientId = null;

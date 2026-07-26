@@ -174,9 +174,13 @@ describe("call closeout", () => {
       callerPhone: "+17275551212",
       candidates: [
         {
+          status: "candidate",
           ref: "precall:1",
           patientId: "private-patient-backend-id",
-          appointments: [appointment],
+          firstName: "Private",
+          lastName: "Candidate",
+          dob: "01/02/1980",
+          appointments: [],
         },
       ],
     };
@@ -216,6 +220,9 @@ describe("call closeout", () => {
     expect(callStatePayload).not.toContain("987654321");
     expect(callStatePayload).not.toContain("private-ins-plan-id");
     expect(callStatePayload).not.toContain("private-party-id");
+    expect(callStatePayload).not.toContain("Private");
+    expect(callStatePayload).not.toContain("Candidate");
+    expect(callStatePayload).not.toContain("01/02/1980");
     expect(state.identity.patient.appointments[0]?.cancellationToken).toBe(
       "private-cancellation-token",
     );

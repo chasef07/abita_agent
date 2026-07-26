@@ -5,7 +5,7 @@ import {
   initializeLogger,
   voice,
 } from "@livekit/agents";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
 import type {
   PatientResolveResult,
@@ -619,6 +619,564 @@ describe("Voice Agent identity promotion", () => {
           item.textContent?.includes("OFFICE KNOWLEDGE FOR THIS REPLY"),
       ),
     ).toBe(false);
+  });
+
+  it("hydrates a lightweight transcript selection before activating it", async () => {
+    const hydration = deferredResult<PatientResolveResult>();
+    const lookup = vi.fn<PatientResolveLookup>(
+      async (_officePhone, identity) => {
+        expect(identity).toEqual({ patientId: "private-jane-id" });
+        return hydration.promise;
+      },
+    );
+    const session = new AgentSession();
+    sessions.push(session);
+    session.userData = createTestCallState({
+      officeKey: "spring-hill",
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+      preCall: buildPreCallContextState(
+        {
+          status: "multiple_matches",
+          message: "Multiple patient matches found.",
+          matches: [
+            {
+              status: "candidate",
+              patientId: "private-jane-id",
+              firstName: "Jane",
+              lastName: "Doe",
+              dob: "01/02/1980",
+            },
+            {
+              status: "candidate",
+              patientId: "private-maria-id",
+              firstName: "Maria",
+              lastName: "Doe",
+              dob: "02/03/1982",
+            },
+          ],
+        },
+        "+17275551212",
+      ),
+    });
+    await session.start({
+      agent: createAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+        identityLookup: lookup,
+        suppressGreeting: true,
+      }),
+    });
+    const chatCtx = ChatContext.empty();
+    chatCtx.addMessage({
+      role: "assistant",
+      content: "Who is the appointment for?",
+    });
+
+    const completingTurn = session.currentAgent.onUserTurnCompleted(
+      chatCtx,
+      ChatMessage.create({ role: "user", content: "Jane" }),
+    );
+    await Promise.resolve();
+
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(session.userData.identity.patient).toMatchObject({
+      identityConfirmed: false,
+      patientId: null,
+    });
+
+    hydration.resolve(
+      verifiedPatient({
+        patientId: "private-jane-id",
+        name: "Jane Doe",
+        dob: "01/02/1980",
+      }),
+    );
+    await completingTurn;
+
+    expect(session.userData.identity.patient).toMatchObject({
+      status: "verified",
+      identityConfirmed: true,
+      patientId: "private-jane-id",
+      name: "Jane Doe",
+    });
+    const durableSystemText = session.currentAgent.chatCtx.items
+      .filter((item) => item.type === "message" && item.role === "system")
+      .map((item) => item.textContent ?? "")
+      .join(" ");
+    expect(durableSystemText).toContain("Patient: Jane Doe.");
+    expect(durableSystemText).not.toContain("private-jane-id");
+    expect(durableSystemText).not.toContain("01/02/1980");
+  });
+
+  it("hydrates exactly the selected lightweight candidate before promotion", async () => {
+    const hydration = deferredResult<PatientResolveResult>();
+    const lookup = vi.fn<PatientResolveLookup>(
+      async (_officePhone, identity) => {
+        expect(identity).toEqual({ patientId: "private-maria-id" });
+        return hydration.promise;
+      },
+    );
+    const state = createTestCallState({
+      officeKey: "spring-hill",
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+      preCall: buildPreCallContextState(
+        {
+          status: "multiple_matches",
+          message: "Multiple patient matches found.",
+          matches: [
+            {
+              status: "candidate",
+              patientId: "private-jane-id",
+              firstName: "Jane",
+              lastName: "Doe",
+              dob: "01/02/1980",
+            },
+            {
+              status: "candidate",
+              patientId: "private-maria-id",
+              firstName: "Maria",
+              lastName: "Doe",
+              dob: "02/03/1982",
+            },
+          ],
+        },
+        "+17275551212",
+      ),
+    });
+
+    const resolving = resolvePatientIdentity(
+      state,
+      { firstName: "Maria" },
+      lookup,
+    );
+
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(state.identity.preCall).toMatchObject({
+      status: "multiple_matches_pending_selection",
+      selectedCandidateRef: "precall:2",
+    });
+    expect(state.identity.patient).toMatchObject({
+      status: "unknown",
+      identityConfirmed: false,
+      patientId: null,
+      appointments: [],
+    });
+
+    hydration.resolve(
+      verifiedPatient({
+        patientId: "private-maria-id",
+        name: "Maria Doe",
+        dob: "02/03/1982",
+        appointmentsStatus: "found",
+        appointments: [
+          {
+            id: 12345,
+            cancellationToken: "private-cancellation-token",
+            date: "Monday, August 3, 2026",
+            time: "9:00 AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            facility: "Spring Hill",
+            confirmed: true,
+          },
+        ],
+      }),
+    );
+
+    await expect(resolving).resolves.toContain(
+      "Verified existing patient Maria Doe.",
+    );
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(state.identity.patient).toMatchObject({
+      status: "verified",
+      identityConfirmed: true,
+      patientId: "private-maria-id",
+      name: "Maria Doe",
+      appointmentsStatus: "found",
+      appointments: [
+        expect.objectContaining({
+          cancellationToken: "private-cancellation-token",
+        }),
+      ],
+    });
+    expect(state.identity.preCall).toMatchObject({
+      status: "multiple_match_confirmed",
+      selectedCandidateRef: "precall:2",
+      identityPromotion: "confirmed_by_identity_tool",
+    });
+
+    await expect(
+      resolvePatientIdentity(state, { firstName: "Maria" }, lookup),
+    ).resolves.toBe(
+      "Maria Doe is already the active patient. Continue with loaded patient state.",
+    );
+    expect(lookup).toHaveBeenCalledTimes(1);
+  });
+
+  it("joins overlapping hydration attempts for the same selected candidate", async () => {
+    const hydration = deferredResult<PatientResolveResult>();
+    const lookup = vi.fn<PatientResolveLookup>(async () => hydration.promise);
+    const state = createTestCallState({
+      officeKey: "spring-hill",
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+      preCall: buildPreCallContextState(
+        {
+          status: "multiple_matches",
+          message: "Multiple patient matches found.",
+          matches: [
+            {
+              status: "candidate",
+              patientId: "private-maria-id",
+              firstName: "Maria",
+              lastName: "Doe",
+              dob: "02/03/1982",
+            },
+          ],
+        },
+        "+17275551212",
+      ),
+    });
+
+    const first = resolvePatientIdentity(state, { firstName: "Maria" }, lookup);
+    const second = resolvePatientIdentity(
+      state,
+      { firstName: "Maria" },
+      lookup,
+    );
+
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(state.identity.patient.identityConfirmed).toBe(false);
+
+    hydration.resolve(
+      verifiedPatient({
+        patientId: "private-maria-id",
+        name: "Maria Doe",
+        dob: "02/03/1982",
+      }),
+    );
+
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      expect.stringContaining("Verified existing patient Maria Doe."),
+      expect.stringContaining("Verified existing patient Maria Doe."),
+    ]);
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(state.identity.patient).toMatchObject({
+      identityConfirmed: true,
+      patientId: "private-maria-id",
+    });
+  });
+
+  it("does not promote an incomplete selected-candidate hydration", async () => {
+    const state = createTestCallState({
+      officeKey: "spring-hill",
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+      preCall: buildPreCallContextState(
+        {
+          status: "multiple_matches",
+          message: "Multiple patient matches found.",
+          matches: [
+            {
+              status: "candidate",
+              patientId: "private-maria-id",
+              firstName: "Maria",
+              lastName: "Doe",
+              dob: "02/03/1982",
+            },
+          ],
+        },
+        "+17275551212",
+      ),
+    });
+
+    await expect(
+      resolvePatientIdentity(state, { firstName: "Maria" }, async () =>
+        verifiedPatient({
+          patientId: "private-maria-id",
+          name: null,
+          dob: "02/03/1982",
+        }),
+      ),
+    ).resolves.toBe(
+      "Patient lookup returned an incomplete identity. Try again.",
+    );
+    expect(state.identity.patient).toMatchObject({
+      status: "unknown",
+      identityConfirmed: false,
+      patientId: null,
+    });
+    expect(state.runtime.preCallLookup.hydrationOutcome).toBe("incomplete");
+  });
+
+  it("keeps the active patient intact when selected-candidate hydration fails", async () => {
+    const state = createTestCallState({
+      officeKey: "spring-hill",
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+      preCall: buildPreCallContextState(
+        {
+          status: "multiple_matches",
+          message: "Multiple patient matches found.",
+          matches: [
+            {
+              status: "candidate",
+              patientId: "private-maria-id",
+              firstName: "Maria",
+              lastName: "Doe",
+              dob: "02/03/1982",
+            },
+          ],
+        },
+        "+17275551212",
+      ),
+    });
+    await resolvePatientIdentity(
+      state,
+      { firstName: "Jane", lastName: "Doe", dob: "01/02/1980" },
+      async () =>
+        verifiedPatient({
+          patientId: "private-jane-id",
+          name: "Jane Doe",
+          dob: "01/02/1980",
+        }),
+    );
+    applySchedulingLaneToState(state, "medical_md");
+    storeAvailabilityBookingToken(state, "S1", "private-booking-token");
+
+    const reply = await resolvePatientIdentity(
+      state,
+      { firstName: "Maria" },
+      async () => ({ status: "error", reason: "network_error" }),
+    );
+
+    expect(reply).toBe("Patient lookup failed. Try again.");
+    expect(state.identity.patient).toMatchObject({
+      identityConfirmed: true,
+      patientId: "private-jane-id",
+      name: "Jane Doe",
+    });
+    expect(state.workflow.current).toEqual({
+      intent: "schedule",
+      appointmentLane: "medical_md",
+    });
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      S1: "private-booking-token",
+    });
+    expect(state.identity.preCall).toMatchObject({
+      status: "multiple_matches_pending_selection",
+      selectedCandidateRef: "precall:1",
+      identityPromotion: "none",
+    });
+    expect(state.runtime.preCallLookup.hydrationOutcome).toBe("lookup_failed");
+  });
+
+  it("requires full identity for ambiguous candidate names before hydration", async () => {
+    const state = createTestCallState({
+      officeKey: "spring-hill",
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+      preCall: buildPreCallContextState(
+        {
+          status: "multiple_matches",
+          message: "Multiple patient matches found.",
+          matches: [
+            {
+              status: "candidate",
+              patientId: "private-jane-doe-id",
+              firstName: "Jane",
+              lastName: "Doe",
+              dob: "01/02/1980",
+            },
+            {
+              status: "candidate",
+              patientId: "private-jane-smith-id",
+              firstName: "Jane",
+              lastName: "Smith",
+              dob: "02/03/1982",
+            },
+          ],
+        },
+        "+17275551212",
+      ),
+    });
+    const lookup = vi.fn<PatientResolveLookup>(
+      async (_officePhone, identity) => {
+        expect(identity).toEqual({ patientId: "private-jane-smith-id" });
+        return verifiedPatient({
+          patientId: "private-jane-smith-id",
+          name: "Jane Smith",
+          dob: "02/03/1982",
+        });
+      },
+    );
+
+    await expect(
+      resolvePatientIdentity(state, { firstName: "Jane" }, lookup),
+    ).resolves.toBe(
+      "More than one preloaded patient matched that first name. Ask for the patient's date of birth, then call resolve_patient with first name, last name, and DOB.",
+    );
+    expect(lookup).not.toHaveBeenCalled();
+    expect(state.identity.patient.identityConfirmed).toBe(false);
+
+    await expect(
+      resolvePatientIdentity(
+        state,
+        { firstName: "Jane", lastName: "Smith", dob: "02/03/1982" },
+        lookup,
+      ),
+    ).resolves.toContain("Verified existing patient Jane Smith.");
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(state.identity.patient).toMatchObject({
+      identityConfirmed: true,
+      patientId: "private-jane-smith-id",
+      name: "Jane Smith",
+    });
+  });
+
+  it("does not let a superseded candidate hydration replace the newer patient", async () => {
+    const janeHydration = deferredResult<PatientResolveResult>();
+    const mariaHydration = deferredResult<PatientResolveResult>();
+    const lookup = vi.fn<PatientResolveLookup>(
+      async (_officePhone, identity) => {
+        if (!("patientId" in identity)) {
+          throw new Error("Expected private candidate hydration");
+        }
+        return identity.patientId === "private-jane-id"
+          ? janeHydration.promise
+          : mariaHydration.promise;
+      },
+    );
+    const state = createTestCallState({
+      officeKey: "spring-hill",
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+      preCall: buildPreCallContextState(
+        {
+          status: "multiple_matches",
+          message: "Multiple patient matches found.",
+          matches: [
+            {
+              status: "candidate",
+              patientId: "private-jane-id",
+              firstName: "Jane",
+              lastName: "Doe",
+              dob: "01/02/1980",
+            },
+            {
+              status: "candidate",
+              patientId: "private-maria-id",
+              firstName: "Maria",
+              lastName: "Doe",
+              dob: "02/03/1982",
+            },
+          ],
+        },
+        "+17275551212",
+      ),
+    });
+
+    const resolvingJane = resolvePatientIdentity(
+      state,
+      { firstName: "Jane" },
+      lookup,
+    );
+    const resolvingMaria = resolvePatientIdentity(
+      state,
+      { firstName: "Maria" },
+      lookup,
+    );
+    expect(lookup).toHaveBeenCalledTimes(2);
+
+    mariaHydration.resolve(
+      verifiedPatient({
+        patientId: "private-maria-id",
+        name: "Maria Doe",
+        dob: "02/03/1982",
+      }),
+    );
+    await expect(resolvingMaria).resolves.toContain(
+      "Verified existing patient Maria Doe.",
+    );
+
+    janeHydration.resolve(
+      verifiedPatient({
+        patientId: "private-jane-id",
+        name: "Jane Doe",
+        dob: "01/02/1980",
+      }),
+    );
+    await expect(resolvingJane).resolves.toBe(
+      "Patient lookup was superseded by a newer identity change. Continue with the current patient's state.",
+    );
+    expect(state.identity.patient).toMatchObject({
+      identityConfirmed: true,
+      patientId: "private-maria-id",
+      name: "Maria Doe",
+    });
+    expect(state.identity.preCall?.selectedCandidateRef).toBe("precall:2");
+    expect(state.runtime.preCallLookup.hydrationOutcome).toBe("verified");
+  });
+
+  it("switches through candidate hydration and clears prior patient work", async () => {
+    const state = createTestCallState({
+      officeKey: "spring-hill",
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+      preCall: buildPreCallContextState(
+        {
+          status: "multiple_matches",
+          message: "Multiple patient matches found.",
+          matches: [
+            {
+              status: "candidate",
+              patientId: "private-maria-id",
+              firstName: "Maria",
+              lastName: "Doe",
+              dob: "02/03/1982",
+            },
+          ],
+        },
+        "+17275551212",
+      ),
+    });
+    await resolvePatientIdentity(
+      state,
+      { firstName: "Jane", lastName: "Doe", dob: "01/02/1980" },
+      async () =>
+        verifiedPatient({
+          patientId: "private-jane-id",
+          name: "Jane Doe",
+          dob: "01/02/1980",
+        }),
+    );
+    applySchedulingLaneToState(state, "medical_md");
+    storeAvailabilityBookingToken(state, "S1", "private-booking-token");
+    state.identity.latestBookedAppointmentId = 12345;
+
+    await expect(
+      resolvePatientIdentity(state, { firstName: "Maria" }, async () =>
+        verifiedPatient({
+          patientId: "private-maria-id",
+          name: "Maria Doe",
+          dob: "02/03/1982",
+        }),
+      ),
+    ).resolves.toBe(
+      "Switched active patient to Maria Doe. Check availability again before booking.",
+    );
+    expect(state.identity.patient).toMatchObject({
+      identityConfirmed: true,
+      patientId: "private-maria-id",
+      name: "Maria Doe",
+    });
+    expect(state.workflow.current).toBeUndefined();
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
+    expect(state.identity.latestBookedAppointmentId).toBeUndefined();
+    expect(state.identity.preCall).toMatchObject({
+      status: "multiple_match_confirmed",
+      identityPromotion: "switched_by_identity_tool",
+    });
   });
 
   it("selects a unique comma-name candidate from a spelled transcript", async () => {

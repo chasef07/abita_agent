@@ -1,6 +1,7 @@
 import type { OfficeKey } from "../customers/abita/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { RuntimeVoiceLanguageState } from "../tts-config.js";
+import type { LightweightPatientCandidate } from "../identity/candidate.js";
 import { createSchedulingState } from "../scheduling/state.js";
 import type { TransferState } from "./call-lifecycle.js";
 import type {
@@ -11,6 +12,18 @@ import type {
 export const CALLER_CANDIDATE_REF = "caller";
 
 export type AppointmentLoadStatus = "found" | "none" | "error";
+export type PreCallHydrationOutcome =
+  | "verified"
+  | "not_found"
+  | "multiple_matches"
+  | "lookup_failed"
+  | "incomplete";
+
+export interface StartupOverlapTelemetry {
+  overlapped: true;
+  lookupCompletedBeforeRuntimeSetup: boolean;
+  runtimeSetupDurationMs: number;
+}
 
 export interface CallerAppointment {
   id: number;
@@ -46,14 +59,12 @@ export interface CallerMatch {
   lookupDurationMs?: number;
 }
 
-export interface CallerMatchHint {
-  firstName: string;
-}
+export type CallerCandidate = LightweightPatientCandidate;
 
 export interface CallerMultipleMatches {
   status: "multiple_matches";
   message: string;
-  matches: Array<CallerMatch | CallerMatchHint>;
+  matches: Array<CallerMatch | CallerCandidate>;
   lookupDurationMs?: number;
 }
 
@@ -89,7 +100,9 @@ export interface PreCallLookupTelemetry {
   candidateCount?: number;
   appointmentsStatus?: AppointmentLoadStatus | null;
   failureReason?: CallerLookupFailed["reason"];
+  hydrationOutcome?: PreCallHydrationOutcome;
   retryable?: boolean;
+  startupOverlap?: StartupOverlapTelemetry;
 }
 
 type PreCallIdentityStatus =
@@ -101,13 +114,22 @@ type PreCallIdentityStatus =
   | "no_match"
   | "lookup_failed";
 
-interface PreCallPatientCandidate {
+interface PreCallCandidateReference {
   ref: string;
+  relationshipToCaller?: string;
+}
+
+export interface PreCallLightweightPatientCandidate extends LightweightPatientCandidate {
+  ref: string;
+  appointments: [];
+}
+
+export interface PreCallVerifiedPatientCandidate extends PreCallCandidateReference {
+  status: "verified";
   firstName?: string;
   lastName?: string;
   dob?: string;
-  patientId?: string;
-  relationshipToCaller?: string;
+  patientId: string;
   appointments: CallerAppointment[];
   appointmentsStatus?: AppointmentLoadStatus;
   insuranceCarrier?: string | null;
@@ -118,6 +140,9 @@ interface PreCallPatientCandidate {
   routingAmbiguous?: boolean;
   preauthRequired?: boolean;
 }
+
+export type PreCallPatientCandidate =
+  PreCallLightweightPatientCandidate | PreCallVerifiedPatientCandidate;
 
 export interface PreCallContextState {
   status: PreCallIdentityStatus;

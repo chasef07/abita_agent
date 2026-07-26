@@ -57,6 +57,7 @@ import {
   createLiveKitCallCloseoutEventAdapter,
 } from "./runtime/call-closeout.js";
 import { getAnalyticsSecret } from "./runtime/portal-auth.js";
+import { coordinateSessionStartup } from "./runtime/session-startup.js";
 
 type TtsRuntime = {
   tts: rime.TTS;
@@ -141,145 +142,166 @@ export default defineAgent({
         sipCallId,
         sipParticipantIdentity: participant.identity ?? "",
       };
-      const { primary: primaryLLM, fallback: fallbackLLM } = createLlmPair();
-
-      const llmWithFallback = new FallbackAdapter({
-        llms: [primaryLLM, fallbackLLM],
+      let startupActive = true;
+      ctx.addShutdownCallback(async () => {
+        startupActive = false;
       });
-      const {
-        applyLanguageDecisionToTts,
-        initialVoiceLanguage,
-        sttLanguageDetector,
-        tts,
-      } = createTtsRuntime({ trunkPhone });
-      console.log(
-        `[tts] provider=rime trunk=${trunkPhone} voice_language=${initialVoiceLanguage.current} tts_language=${initialVoiceLanguage.ttsLanguage} speaker=${initialVoiceLanguage.speaker}`,
-      );
-
-      const session = new AgentSession<CallState>({
-        stt,
-        llm: llmWithFallback,
-        tts,
-        maxToolSteps: voiceMaxToolSteps,
-        turnHandling: {
-          turnDetection: new inference.TurnDetector(),
-          ...voiceTurnHandlingOptions,
-        },
-      });
-      configureVoiceVad(session.vad);
-      const getCallState = (): CallState | null => {
-        try {
-          return session.userData;
-        } catch {
-          return null;
-        }
-      };
-      attachSipParticipantShutdown(ctx, participant, {
-        isTransferred: () => {
-          const state = getCallState();
-          return state ? transferIsAccepted(state) : false;
-        },
-      });
-
-      const turnProfileController = createTurnProfileController(stt, {
-        startedAt,
-        updateEndpointing: (endpointing) => {
-          session.updateOptions({ turnHandling: { endpointing } });
-        },
-      });
-      attachTurnProfileLifecycle(session, turnProfileController);
-
-      // Register closeout before pre-call bootstrap so start rows do not get
-      // stranded if setup fails after the initial portal write.
-      await attachCallCloseout({
-        call: {
-          callId,
-          callerPhone,
-          fallbackModel: fallbackLLM.model,
-          initialVoiceLanguage,
-          livekitContext,
-          maxCallDurationMs: MAX_CALL_DURATION_MS,
-          officePhone: trunkPhone,
-          startedAt,
-        },
-        events: createLiveKitCallCloseoutEventAdapter(ctx, session, {
-          callId,
-          llm: llmWithFallback,
-          maxCallDurationMs: MAX_CALL_DURATION_MS,
-          roomName,
-          shutdownSession: (reason) => {
-            session.shutdown({ drain: false, reason });
-          },
-          sttLanguageDetector,
-          sttProfiles: turnProfileController.sttProfiles,
-        }),
-        getCallState,
-        portal: new HttpCallPortal({
-          secret: getAnalyticsSecret(),
-          url: process.env.ANALYTICS_URL,
-        }),
-      });
-
       console.log(
         `[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`,
       );
+      await coordinateSessionStartup({
+        lookup: (signal) =>
+          loadPreCallBootstrap({ callerPhone, trunkPhone, signal }),
+        startupIsActive: () => startupActive,
+        initializeRuntime: async () => {
+          const { primary: primaryLLM, fallback: fallbackLLM } =
+            createLlmPair();
+          const llmWithFallback = new FallbackAdapter({
+            llms: [primaryLLM, fallbackLLM],
+          });
+          const {
+            applyLanguageDecisionToTts,
+            initialVoiceLanguage,
+            sttLanguageDetector,
+            tts,
+          } = createTtsRuntime({ trunkPhone });
+          console.log(
+            `[tts] provider=rime trunk=${trunkPhone} voice_language=${initialVoiceLanguage.current} tts_language=${initialVoiceLanguage.ttsLanguage} speaker=${initialVoiceLanguage.speaker}`,
+          );
 
-      // Phone lookup before session start so context is ready for the first LLM turn.
-      const preCall = await loadPreCallBootstrap({ callerPhone, trunkPhone });
-      const { phoneLookup, verified } = preCall;
-      console.log(formatPhoneLookupLogLine(callerPhone, phoneLookup));
+          const session = new AgentSession<CallState>({
+            stt,
+            llm: llmWithFallback,
+            tts,
+            maxToolSteps: voiceMaxToolSteps,
+            turnHandling: {
+              turnDetection: new inference.TurnDetector(),
+              ...voiceTurnHandlingOptions,
+            },
+          });
+          configureVoiceVad(session.vad);
+          const getCallState = (): CallState | null => {
+            try {
+              return session.userData;
+            } catch {
+              return null;
+            }
+          };
+          attachSipParticipantShutdown(ctx, participant, {
+            isTransferred: () => {
+              const state = getCallState();
+              return state ? transferIsAccepted(state) : false;
+            },
+          });
 
-      const { agent, office } = createVoiceAgent(phoneLookup, trunkPhone, {
-        onAssistantText: turnProfileController.observeAssistantText,
-        onLanguageDecision: (decision) => {
-          const voiceLanguage = applyLanguageDecisionToTts(decision);
-          if (voiceLanguage) {
-            session.userData.runtime.voiceLanguage = voiceLanguage;
-          }
+          const turnProfileController = createTurnProfileController(stt, {
+            startedAt,
+            updateEndpointing: (endpointing) => {
+              session.updateOptions({ turnHandling: { endpointing } });
+            },
+          });
+          attachTurnProfileLifecycle(session, turnProfileController);
+
+          // Registration completes before state construction and session start.
+          // If later setup fails, closeout can still finish the call-start row.
+          await attachCallCloseout({
+            call: {
+              callId,
+              callerPhone,
+              fallbackModel: fallbackLLM.model,
+              initialVoiceLanguage,
+              livekitContext,
+              maxCallDurationMs: MAX_CALL_DURATION_MS,
+              officePhone: trunkPhone,
+              startedAt,
+            },
+            events: createLiveKitCallCloseoutEventAdapter(ctx, session, {
+              callId,
+              llm: llmWithFallback,
+              maxCallDurationMs: MAX_CALL_DURATION_MS,
+              roomName,
+              shutdownSession: (reason) => {
+                session.shutdown({ drain: false, reason });
+              },
+              sttLanguageDetector,
+              sttProfiles: turnProfileController.sttProfiles,
+            }),
+            getCallState,
+            portal: new HttpCallPortal({
+              secret: getAnalyticsSecret(),
+              url: process.env.ANALYTICS_URL,
+            }),
+          });
+
+          return {
+            applyLanguageDecisionToTts,
+            initialVoiceLanguage,
+            session,
+            sttLanguageDetector,
+            turnProfileController,
+          };
         },
-        sttLanguageDetector,
-      });
+        createState: (preCall, runtime, startupOverlap) => {
+          const { phoneLookup, verified } = preCall;
+          preCall.telemetry.startupOverlap = startupOverlap;
+          console.log(formatPhoneLookupLogLine(callerPhone, phoneLookup));
 
-      session.userData = createCanonicalCallState({
-        preCall: buildPreCallContextState(phoneLookup, callerPhone),
-        preCallLookup: preCall.telemetry,
-        officeKey: office.key,
-        amdOfficePhone: office.amdOfficePhone,
-        sipRoomName: roomName,
-        sipParticipantIdentity: participant.identity ?? "",
-        callId,
-        callerPhone,
-        trunkPhone,
-        patientId: verified?.patientId ?? null,
-        patientName: verified?.name ?? null,
-        dob: verified?.dob ?? null,
-        insuranceCarrier: verified?.insuranceCarrier ?? null,
-        insPlanId: verified?.insPlanId ?? null,
-        respPartyId: verified?.respPartyId ?? null,
-        checkedInsurancePlan: verified?.insuranceCarrier ?? null,
-        checkedInsuranceCoverageType: null,
-        routing: verified?.routing ?? null,
-        lastAvailabilityRouting: null,
-        lastAvailabilitySlots: [],
-        bookableAvailabilitySlots: [],
-        allowedProviders: verified?.allowedProviders ?? [],
-        routingAmbiguous: verified?.routingAmbiguous ?? false,
-        preauthRequired: verified?.preauthRequired ?? false,
-        appointmentsStatus: verified?.appointmentsStatus ?? null,
-        appointments: normalizeCallerAppointments(
-          verified?.appointments,
-          verified?.patientId,
-        ),
-        voiceLanguage: initialVoiceLanguage,
-      });
-      session.userData.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;
-
-      await session.start({
-        agent,
-        room: ctx.room,
-        inputOptions: {
-          deleteRoomOnClose: true,
-          participantIdentity: participant.identity,
+          const { agent, office } = createVoiceAgent(phoneLookup, trunkPhone, {
+            onAssistantText: runtime.turnProfileController.observeAssistantText,
+            onLanguageDecision: (decision) => {
+              const voiceLanguage =
+                runtime.applyLanguageDecisionToTts(decision);
+              if (voiceLanguage) {
+                runtime.session.userData.runtime.voiceLanguage = voiceLanguage;
+              }
+            },
+            sttLanguageDetector: runtime.sttLanguageDetector,
+          });
+          const callState = createCanonicalCallState({
+            preCall: buildPreCallContextState(phoneLookup, callerPhone),
+            preCallLookup: preCall.telemetry,
+            officeKey: office.key,
+            amdOfficePhone: office.amdOfficePhone,
+            sipRoomName: roomName,
+            sipParticipantIdentity: participant.identity ?? "",
+            callId,
+            callerPhone,
+            trunkPhone,
+            patientId: verified?.patientId ?? null,
+            patientName: verified?.name ?? null,
+            dob: verified?.dob ?? null,
+            insuranceCarrier: verified?.insuranceCarrier ?? null,
+            insPlanId: verified?.insPlanId ?? null,
+            respPartyId: verified?.respPartyId ?? null,
+            checkedInsurancePlan: verified?.insuranceCarrier ?? null,
+            checkedInsuranceCoverageType: null,
+            routing: verified?.routing ?? null,
+            lastAvailabilityRouting: null,
+            lastAvailabilitySlots: [],
+            bookableAvailabilitySlots: [],
+            allowedProviders: verified?.allowedProviders ?? [],
+            routingAmbiguous: verified?.routingAmbiguous ?? false,
+            preauthRequired: verified?.preauthRequired ?? false,
+            appointmentsStatus: verified?.appointmentsStatus ?? null,
+            appointments: normalizeCallerAppointments(
+              verified?.appointments,
+              verified?.patientId,
+            ),
+            voiceLanguage: runtime.initialVoiceLanguage,
+          });
+          callState.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;
+          runtime.session.userData = callState;
+          return { agent, callState };
+        },
+        startSession: async ({ agent }, runtime) => {
+          await runtime.session.start({
+            agent,
+            room: ctx.room,
+            inputOptions: {
+              deleteRoomOnClose: true,
+              participantIdentity: participant.identity,
+            },
+          });
         },
       });
     } catch (err) {
