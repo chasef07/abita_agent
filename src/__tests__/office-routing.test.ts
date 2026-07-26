@@ -160,7 +160,7 @@ describe("tool-first prompt gating", () => {
       "Never reveal or infer hidden candidate details before identity is confirmed.",
     );
     expect(prompt).toContain(
-      "After identity is confirmed, use the selected patient's name and loaded appointments",
+      "After identity is confirmed, use the selected patient's name, insurance carrier when loaded, and appointments",
     );
     expect(prompt).not.toContain("<caller_identity_hint>");
     expect(prompt).not.toContain("middleware_error");

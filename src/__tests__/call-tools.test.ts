@@ -1317,7 +1317,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Verified existing patient TEST,CHASE. No insurance is currently on file. No upcoming appointments are loaded.",
+      "Verified existing patient TEST,CHASE. No upcoming appointments are loaded.",
     );
     expect(state.identity.patient.patientId).toBe("patient-1");
     expect(state.identity.patient.identityConfirmed).toBe(true);
@@ -1540,7 +1540,7 @@ describe("stateful call tools", () => {
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "Verified existing patient CHASE TEST. No insurance is currently on file. No upcoming appointments are loaded.",
+      "Verified existing patient CHASE TEST. No upcoming appointments are loaded.",
     );
     expect(state.identity.preCall.status).toBe("multiple_match_confirmed");
     expect(state.identity.preCall.selectedCandidateRef).toBe("precall:1");
@@ -1580,7 +1580,7 @@ describe("stateful call tools", () => {
           lastName: "HAMILTON",
           dob: "12/21/2016",
           patientId: "patient-monique",
-          insuranceCarrier: undefined,
+          insuranceCarrier: "HUMANA",
           routing: undefined,
           allowedProviders: undefined,
         }),
@@ -1604,7 +1604,7 @@ describe("stateful call tools", () => {
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "Switched active patient to MONIQUE HAMILTON. Check availability again before booking.",
+      "Switched active patient to MONIQUE HAMILTON. Insurance on file: HUMANA. No upcoming appointments are loaded. Check availability again before booking.",
     );
     expect(state.identity.preCall.selectedCandidateRef).toBe("precall:2");
     expect(state.identity.preCall.identityPromotion).toBe(

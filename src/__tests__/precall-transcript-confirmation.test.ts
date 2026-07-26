@@ -1,6 +1,4 @@
-import { ChatContext } from "@livekit/agents";
-import { describe, expect, it, vi } from "vitest";
-import { addDurableInternalSystemMessage } from "../runtime/durable-chat-context.js";
+import { describe, expect, it } from "vitest";
 import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
 import { confirmPreCallIdentityFromTranscript } from "../runtime/precall-transcript-confirmation.js";
 import { createTestCallState } from "./support/call-state.js";
@@ -72,20 +70,28 @@ describe("pre-call transcript confirmation", () => {
       state,
       transcript: "L-A-R-R-Y.",
       lastAssistantText:
-        "Got it. Could you please spell the first name for me?",
+        "To help with the appointment, could you spell the patient's first name?",
     });
 
     expect(confirmation?.candidateRef).toBe("precall:2");
     expect(confirmation?.systemMessage).toContain("Patient: LARRY TEST.");
     expect(confirmation?.systemMessage).not.toContain("patient-larry");
     expect(confirmation?.systemMessage).toContain(
+      "Insurance on file: FLORIDA BLUE SHIELD.",
+    );
+    expect(confirmation?.systemMessage).not.toContain("plan-larry");
+    expect(confirmation?.systemMessage).not.toContain("resp-larry");
+    expect(confirmation?.systemMessage).toContain(
       "No upcoming appointments are loaded.",
     );
     expect(confirmation?.systemMessage).toContain(
-      "Do not ask for last name or date of birth again.",
+      "Do not ask for last name or date of birth again for this active patient.",
     );
     expect(confirmation?.systemMessage).toContain(
       "appointment questions, booking, or cancellation",
+    );
+    expect(confirmation?.systemMessage).toContain(
+      "different non-preloaded patient",
     );
     expect(state.identity.preCall.status).toBe("multiple_match_confirmed");
     expect(state.identity.preCall.selectedCandidateRef).toBe("precall:2");
@@ -151,6 +157,10 @@ describe("pre-call transcript confirmation", () => {
       "Finish BRANDON ANDERSON first.",
     );
     expect(confirmation?.systemMessage).toContain("resolve_patient");
+    expect(confirmation?.systemMessage).not.toContain("Insurance on file:");
+    expect(confirmation?.systemMessage).not.toContain(
+      "No insurance is currently on file.",
+    );
     expect(confirmation?.systemMessage).not.toContain("MONIQUE");
     expect(confirmation?.systemMessage).not.toContain("HAMILTON");
     expect(confirmation?.systemMessage).not.toContain("patient-monique");
@@ -166,7 +176,7 @@ describe("pre-call transcript confirmation", () => {
     expect(state.identity.patient.name).toBe("BRANDON ANDERSON");
   });
 
-  it("keeps only the selected patient in durable post-confirmation context", async () => {
+  it("keeps only the selected patient in post-confirmation context", async () => {
     const state = createState();
     state.identity.preCall = {
       status: "multiple_matches_pending_selection",
@@ -192,6 +202,7 @@ describe("pre-call transcript confirmation", () => {
             },
           ],
           appointmentsStatus: "found",
+          insuranceCarrier: "SELECTED HEALTH",
         },
         {
           ref: "precall:2",
@@ -212,6 +223,7 @@ describe("pre-call transcript confirmation", () => {
             },
           ],
           appointmentsStatus: "found",
+          insuranceCarrier: "UNSELECTED HEALTH",
           allowedProviders: ["private-provider-reference"],
         },
       ],
@@ -225,44 +237,23 @@ describe("pre-call transcript confirmation", () => {
     });
     expect(confirmation).not.toBeNull();
 
-    let durableChatCtx = ChatContext.empty();
-    const activeChatCtx = durableChatCtx.copy();
-    const agent = {
-      get chatCtx() {
-        return durableChatCtx;
-      },
-      updateChatCtx: vi.fn(async (nextChatCtx: ChatContext) => {
-        durableChatCtx = nextChatCtx;
-      }),
-    };
-    await addDurableInternalSystemMessage(
-      agent,
-      activeChatCtx,
-      confirmation!.systemMessage,
-    );
-    const durableSystemText = durableChatCtx.items
-      .filter((item) => item.type === "message" && item.role === "system")
-      .map((item) => item.textContent ?? "")
-      .join(" ");
+    const modelContext = confirmation!.systemMessage;
 
     expect(confirmation?.candidateRef).toBe("precall:1");
     const appointmentRef =
       state.identity.patient.appointments[0]?.appointmentRef;
     expect(appointmentRef).toMatch(/^appointment-[a-z0-9]+$/);
-    expect(durableSystemText).toContain(
+    expect(modelContext).toContain(
       `Upcoming appointments loaded: June 1 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`,
     );
-    expect(durableSystemText).toContain("Patient: CHASE TEST.");
-    expect(durableSystemText).not.toContain("patient-chase");
-    expect(durableSystemText).not.toContain("LARRY TEST");
-    expect(durableSystemText).not.toContain(
-      "selected-private-cancellation-token",
-    );
-    expect(durableSystemText).not.toContain(
-      "unselected-private-cancellation-token",
-    );
-    expect(durableSystemText).not.toContain("private-provider-reference");
-    expect(agent.updateChatCtx).toHaveBeenCalledTimes(1);
+    expect(modelContext).toContain("Insurance on file: SELECTED HEALTH.");
+    expect(modelContext).toContain("Patient: CHASE TEST.");
+    expect(modelContext).not.toContain("patient-chase");
+    expect(modelContext).not.toContain("LARRY TEST");
+    expect(modelContext).not.toContain("UNSELECTED HEALTH");
+    expect(modelContext).not.toContain("selected-private-cancellation-token");
+    expect(modelContext).not.toContain("unselected-private-cancellation-token");
+    expect(modelContext).not.toContain("private-provider-reference");
   });
 
   it("does not confirm a first-name candidate while collecting last name", async () => {
@@ -474,36 +465,41 @@ describe("pre-call transcript confirmation", () => {
     expect(state.identity.patient.patientId).toBeNull();
   });
 
-  it("confirms a single pre-call candidate from first name", async () => {
-    const state = createState();
-    state.identity.preCall = {
-      status: "single_match_pending_confirmation",
-      source: "phone_lookup",
-      callerPhone: "+19546097250",
-      selectedCandidateRef: CALLER_CANDIDATE_REF,
-      candidates: [
-        {
-          ref: CALLER_CANDIDATE_REF,
-          firstName: "JANE",
-          lastName: "DOE",
-          patientId: "patient-jane",
-          appointments: [],
-          appointmentsStatus: "none",
-        },
-      ],
-      identityPromotion: "none",
-    };
+  it.each([
+    "To help with the appointment, could you spell the patient's first name?",
+    "Para ayudar con la cita, ¿podría deletrear el primer nombre del paciente?",
+  ])(
+    "confirms a single pre-call candidate after %s",
+    async (lastAssistantText) => {
+      const state = createState();
+      state.identity.preCall = {
+        status: "single_match_pending_confirmation",
+        source: "phone_lookup",
+        callerPhone: "+19546097250",
+        selectedCandidateRef: CALLER_CANDIDATE_REF,
+        candidates: [
+          {
+            ref: CALLER_CANDIDATE_REF,
+            firstName: "JANE",
+            lastName: "DOE",
+            patientId: "patient-jane",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+        ],
+        identityPromotion: "none",
+      };
 
-    const confirmation = await confirmTranscript({
-      state,
-      transcript: "Jane",
-      lastAssistantText:
-        "I see a patient record associated with this phone number. Could you please spell the first name for me?",
-    });
+      const confirmation = await confirmTranscript({
+        state,
+        transcript: "Jane",
+        lastAssistantText,
+      });
 
-    expect(confirmation?.candidateRef).toBe(CALLER_CANDIDATE_REF);
-    expect(state.identity.preCall.status).toBe("single_match_confirmed");
-    expect(state.identity.patient.identityConfirmed).toBe(true);
-    expect(state.identity.patient.patientId).toBe("patient-jane");
-  });
+      expect(confirmation?.candidateRef).toBe(CALLER_CANDIDATE_REF);
+      expect(state.identity.preCall.status).toBe("single_match_confirmed");
+      expect(state.identity.patient.identityConfirmed).toBe(true);
+      expect(state.identity.patient.patientId).toBe("patient-jane");
+    },
+  );
 });
