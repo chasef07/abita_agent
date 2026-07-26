@@ -33,7 +33,7 @@ export type OfficeHandoffPolicy =
   { mode: "call-center" } | { mode: "phone"; target: string };
 export type OfficePromptSource = {
   file: string;
-  tag: "office_policy" | "role" | "voice";
+  tag: "role" | "voice";
 };
 export const SPRING_HILL_OFFICE_PHONE = "+17275919997";
 export const SPRING_HILL_813_TRUNK_PHONE = "+18135484830";
@@ -87,9 +87,8 @@ type OfficeProfileInput = {
   key: OfficeKey;
   knowledgeSource: string;
   middlewareBaseUrl?: string;
-  officePolicyFile?: string;
   roleFile?: string;
-  staffTaskCapture?: boolean;
+  staffTaskCapture: boolean;
   trunkPhones: string[];
 };
 
@@ -104,9 +103,8 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
     key,
     knowledgeSource,
     middlewareBaseUrl,
-    officePolicyFile,
     roleFile,
-    staffTaskCapture = false,
+    staffTaskCapture,
     trunkPhones,
   } = input;
 
@@ -163,14 +161,6 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
       return [
         { file: roleFile ?? "SOUL.md", tag: "role" },
         { file: "VOICE.md", tag: "voice" },
-        ...(officePolicyFile
-          ? [
-              {
-                file: officePolicyFile,
-                tag: "office_policy" as const,
-              },
-            ]
-          : []),
       ];
     },
     schedulingFor,
@@ -210,7 +200,6 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       },
     },
     amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
-    officePolicyFile: "SPRING_HILL_STAFF_TASKS.md",
     staffTaskCapture: true,
   }),
   "crystal-river": defineOffice({
@@ -228,6 +217,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       routine_vision: { supported: false },
     },
     amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
+    staffTaskCapture: true,
     handoff: () => ({
       mode: "phone",
       target: `tel:${CRYSTAL_RIVER_TRANSFER_NUMBER}`,
@@ -250,6 +240,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       },
     },
     amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
+    staffTaskCapture: true,
   }),
   sweetwater: defineOffice({
     key: "sweetwater",
@@ -269,6 +260,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     },
     amdOfficePhone: SWEETWATER_OFFICE_PHONE,
     englishSpeaker: "luz",
+    staffTaskCapture: true,
   }),
   "north-miami-beach-optical": defineOffice({
     key: "north-miami-beach-optical",
@@ -285,6 +277,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     },
     amdOfficePhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
     englishSpeaker: "luz",
+    staffTaskCapture: true,
   }),
   dev: defineOffice({
     key: "dev",
@@ -306,6 +299,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       },
     },
     amdOfficePhone: DEV_OFFICE_PHONE,
+    staffTaskCapture: false,
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
     handoff: devHandoff,
   }),

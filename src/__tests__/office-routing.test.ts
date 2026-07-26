@@ -111,6 +111,23 @@ describe("office routing helpers", () => {
       "switch_preloaded_patient",
     );
   });
+
+  it("exposes staff task capture on every production office and not the demo", () => {
+    for (const phone of [
+      SPRING_HILL_OFFICE_PHONE,
+      SPRING_HILL_813_TRUNK_PHONE,
+      CRYSTAL_RIVER_OFFICE_PHONE,
+      HOLLYWOOD_OFFICE_PHONE,
+      NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+      ...SWEETWATER_TRUNK_PHONES,
+    ]) {
+      expect(toolNamesForTrunk(phone)).toContain("create_staff_task");
+    }
+
+    expect(toolNamesForTrunk(DEV_OFFICE_PHONE)).not.toContain(
+      "create_staff_task",
+    );
+  });
 });
 
 describe("tool-first prompt gating", () => {
@@ -231,7 +248,6 @@ describe("dermatology demo", () => {
     expect(prompt).not.toContain("an ophthalmology clinic");
     expect(prompt).not.toContain("glasses");
     expect(prompt).not.toContain("contact lenses");
-    expect(prompt).not.toContain("# Spring Hill Staff Tasks");
   });
 
   it("exposes the demo transfer without exposing staff-task tools", () => {
@@ -516,7 +532,7 @@ describe("Crystal River prompt guidance", () => {
       expect(buildPrompt(undefined, phone)).toContain(GLASSES_READY_ANSWER);
     }
 
-    expect(buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE)).toContain(
+    expect(create_staff_task.description).toContain(
       "optical order issues other than a simple glasses-readiness check",
     );
   });
@@ -575,18 +591,10 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).not.toContain("<office_policy>");
   });
 
-  it("keeps staff-task instructions in the Spring Hill prompt only", () => {
-    const springHillPrompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
-
-    expect(springHillPrompt).toContain("<office_policy>");
-    expect(springHillPrompt).toContain("# Spring Hill Staff Tasks");
-    expect(springHillPrompt).toContain("create_staff_task");
-    expect(springHillPrompt).toContain(
-      "Do not transfer those requests by default",
-    );
-    expect(springHillPrompt).toContain("medication or prescription name");
-
+  it("keeps staff-task tool policy out of static system prompts", () => {
     for (const phone of [
+      SPRING_HILL_OFFICE_PHONE,
+      SPRING_HILL_813_TRUNK_PHONE,
       CRYSTAL_RIVER_OFFICE_PHONE,
       DEV_OFFICE_PHONE,
       HOLLYWOOD_OFFICE_PHONE,
@@ -596,18 +604,10 @@ describe("Crystal River prompt guidance", () => {
       const prompt = buildPrompt(undefined, phone);
 
       expect(prompt).not.toContain("create_staff_task");
-      expect(prompt).not.toContain("# Spring Hill Staff Tasks");
+      expect(prompt.toLowerCase()).not.toContain("staff task");
+      expect(prompt).not.toContain("# Staff Tasks");
       expect(prompt).not.toContain("<office_policy>");
     }
-  });
-
-  it("keeps Spring Hill staff-task fallback guidance explicit", () => {
-    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
-
-    expect(prompt).toContain("Do not transfer those requests by default");
-    expect(prompt).toContain(
-      "If the request cannot safely become a staff task or task creation fails, transfer the caller to the office",
-    );
   });
 
   it("keeps concise voice guidance in the base voice prompt", () => {
@@ -1006,6 +1006,7 @@ describe("model-facing tool definitions", () => {
   });
 
   it("keeps staff task capture scoped to safe non-live work", () => {
+    expect(create_staff_task.description).not.toContain("Spring Hill");
     expect(create_staff_task.description).toContain(
       "safe non-live office work",
     );

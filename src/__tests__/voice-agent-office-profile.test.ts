@@ -71,7 +71,6 @@ type OfficeBehavior = {
     mode: "call-center" | "phone";
     target: string;
   };
-  hasOfficePolicy: boolean;
   insurance: {
     medical: InsuranceBehavior;
     routineVision: InsuranceBehavior;
@@ -126,7 +125,6 @@ const officeBehaviors: OfficeBehavior[] = [
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
     },
-    hasOfficePolicy: true,
     insurance: {
       routineVision: {
         query: "VSP",
@@ -155,7 +153,6 @@ const officeBehaviors: OfficeBehavior[] = [
     greeting:
       "Hey this is Maya at Eye Radiance, powered by Abeeta Eye Group. How are you doing today?",
     handoff: { mode: "phone", target: "tel:+13527941244" },
-    hasOfficePolicy: false,
     insurance: {
       medical: {
         query: "Cigna Open Access",
@@ -178,7 +175,7 @@ const officeBehaviors: OfficeBehavior[] = [
           "Eye Radiance handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
       },
     },
-    staffTaskCapture: false,
+    staffTaskCapture: true,
     trunks: [CRYSTAL_RIVER_OFFICE_PHONE],
   },
   {
@@ -190,7 +187,6 @@ const officeBehaviors: OfficeBehavior[] = [
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
     },
-    hasOfficePolicy: false,
     insurance: {
       medical: {
         query: "Aetna EPO North Broward",
@@ -209,7 +205,7 @@ const officeBehaviors: OfficeBehavior[] = [
       medical: { supported: true },
       routineVision: { supported: true },
     },
-    staffTaskCapture: false,
+    staffTaskCapture: true,
     trunks: [HOLLYWOOD_OFFICE_PHONE],
   },
   {
@@ -221,7 +217,6 @@ const officeBehaviors: OfficeBehavior[] = [
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
     },
-    hasOfficePolicy: false,
     insurance: {
       medical: {
         query: "Aetna EPO North Broward",
@@ -240,7 +235,7 @@ const officeBehaviors: OfficeBehavior[] = [
       medical: { supported: true },
       routineVision: { supported: true },
     },
-    staffTaskCapture: false,
+    staffTaskCapture: true,
     trunks: SWEETWATER_TRUNK_PHONES,
   },
   {
@@ -252,7 +247,6 @@ const officeBehaviors: OfficeBehavior[] = [
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
     },
-    hasOfficePolicy: false,
     insurance: {
       medical: {
         query: "Aetna",
@@ -275,7 +269,7 @@ const officeBehaviors: OfficeBehavior[] = [
       },
       routineVision: { supported: true },
     },
-    staffTaskCapture: false,
+    staffTaskCapture: true,
     trunks: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
   },
   {
@@ -288,7 +282,6 @@ const officeBehaviors: OfficeBehavior[] = [
       mode: "phone",
       target: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
     },
-    hasOfficePolicy: false,
     insurance: {
       medical: {
         query: "Ambetter Premier",
@@ -439,7 +432,6 @@ describe("Voice Agent office profile", () => {
           displayName: office.displayName,
           greeting: await spokenGreeting(voiceAgent.agent),
           handoff: await selectedHandoff(trunkPhone, office.key),
-          hasOfficePolicy: instructions.includes("<office_policy>"),
           insurance: {
             medical: insuranceResponse(
               office.key,
@@ -487,7 +479,6 @@ describe("Voice Agent office profile", () => {
             officeKey: expected.key,
             target: expected.handoff.target,
           },
-          hasOfficePolicy: expected.hasOfficePolicy,
           insurance: {
             medical: expected.insurance.medical.response,
             routineVision: expected.insurance.routineVision.response,
