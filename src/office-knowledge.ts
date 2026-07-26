@@ -13,6 +13,7 @@ const MAX_SELECTED_SECTIONS = 2;
 const MIN_TOPIC_SCORE = 3;
 const MIN_TOPIC_MARGIN = 2;
 const knowledgeCache = new Map<OfficeKey, OfficeKnowledgeIndex>();
+const phraseNeedleCache = new Map<string, string>();
 
 export type OfficeKnowledgeLanguage = "en" | "es" | "mixed" | "unknown";
 
@@ -38,6 +39,7 @@ export type OfficeKnowledgeTopic =
 
 type KnowledgeSection = {
   body: string;
+  normalizedBody: string;
   title: string;
 };
 
@@ -47,9 +49,18 @@ type OfficeKnowledgeIndex = {
 };
 
 type TopicDefinition = {
-  aliases: Array<readonly [phrase: string, weight: number]>;
+  aliases: Array<
+    readonly [phrase: string, weight: number, sourceTerms?: readonly string[]]
+  >;
   sectionTitles: string[];
   topic: OfficeKnowledgeTopic;
+};
+
+type RankedTopic = {
+  definition: TopicDefinition;
+  score: number;
+  sourceSections: KnowledgeSection[];
+  sourceSupported: boolean;
 };
 
 export type OfficeKnowledgeResolution =
@@ -98,6 +109,9 @@ const TOPICS: TopicDefinition[] = [
       ["horas", 3],
       ["hours", 3],
       ["when are you open", 5],
+      ["what time do you close", 6],
+      ["when do you close", 5],
+      ["closing time", 5],
       ["cuando abren", 5],
       ["a que hora abren", 5],
       ["cuando cierran", 5],
@@ -170,24 +184,36 @@ const TOPICS: TopicDefinition[] = [
       ["biopsia", 4],
       ["suspicious mole", 5],
       ["lunar sospechoso", 5],
+      ["skin check", 5],
+      ["skin checks", 5],
+      ["suspicious lesion", 5],
+      ["lesion evaluation", 5],
     ],
   ),
   topic(
     "medical_cosmetic",
     ["Scope of Services", "Medical or Cosmetic"],
     [
-      ["medical or cosmetic", 6],
-      ["medico o cosmetico", 6],
-      ["cosmetic", 4],
-      ["cosmetico", 4],
-      ["aesthetic", 4],
-      ["estetico", 4],
-      ["botox", 5],
-      ["dysport", 5],
-      ["dermal filler", 5],
-      ["relleno dermico", 5],
-      ["microneedling", 5],
-      ["chemical peel", 5],
+      ["medical or cosmetic", 6, ["medical or cosmetic"]],
+      ["medico o cosmetico", 6, ["medical or cosmetic"]],
+      ["cosmetic", 4, ["cosmetic"]],
+      ["cosmetico", 4, ["cosmetic"]],
+      ["aesthetic", 4, ["aesthetic", "cosmetic"]],
+      ["estetico", 4, ["aesthetic", "cosmetic"]],
+      ["botox", 5, ["botox"]],
+      ["dysport", 5, ["dysport"]],
+      ["dermal filler", 5, ["dermal fillers"]],
+      ["relleno dermico", 5, ["dermal fillers"]],
+      ["microneedling", 5, ["microneedling"]],
+      ["chemical peel", 5, ["chemical peels"]],
+      ["facial", 4, ["facials"]],
+      ["facials", 4, ["facials"]],
+      ["dermaplaning", 5, ["dermaplaning"]],
+      ["ipl", 5, ["ipl"]],
+      ["laser hair removal", 6, ["laser hair removal"]],
+      ["skin resurfacing", 5, ["skin resurfacing"]],
+      ["skincare", 4, ["skincare"]],
+      ["med spa", 5, ["med spa"]],
     ],
   ),
   topic(
@@ -198,22 +224,54 @@ const TOPICS: TopicDefinition[] = [
       ["que servicios", 5],
       ["services", 3],
       ["servicios", 3],
-      ["cataract", 4],
-      ["catarata", 4],
-      ["cataratas", 4],
-      ["cirugia de cataratas", 6],
-      ["glaucoma", 4],
-      ["retina", 4],
-      ["routine eye exam", 5],
-      ["examen de la vista", 5],
-      ["pediatric", 4],
-      ["pediatrico", 4],
-      ["dermatology", 4],
-      ["dermatologia", 4],
-      ["acne", 4],
-      ["eczema", 4],
-      ["psoriasis", 4],
-      ["rosacea", 4],
+      ["cataract", 4, ["cataract"]],
+      ["catarata", 4, ["cataract"]],
+      ["cataratas", 4, ["cataract"]],
+      ["cirugia de cataratas", 6, ["cataract"]],
+      ["glaucoma", 4, ["glaucoma"]],
+      ["retina", 4, ["retina"]],
+      ["routine eye exam", 5, ["routine eye exam", "eye exam"]],
+      ["examen de la vista", 5, ["routine eye exam", "eye exam"]],
+      ["ophthalmology", 4, ["ophthalmology"]],
+      ["oftalmologia", 4, ["ophthalmology"]],
+      ["uveitis", 5, ["uveitis"]],
+      ["strabismus", 5, ["strabismus"]],
+      ["estrabismo", 5, ["strabismus"]],
+      ["double vision", 5, ["double vision"]],
+      ["vision doble", 5, ["double vision"]],
+      ["eye misalignment", 5, ["eye misalignment"]],
+      ["oculoplastic", 5, ["oculoplastic"]],
+      ["eyelid", 4, ["eyelid"]],
+      ["eyelid surgery", 6, ["eyelid", "oculoplastic"]],
+      ["eyelid procedures", 6, ["eyelid", "oculoplastic"]],
+      ["cirugia de parpados", 6, ["eyelid", "oculoplastic"]],
+      ["thyroid eye disease", 5, ["thyroid eye disease"]],
+      ["diabetic eye care", 5, ["diabetic eye care"]],
+      ["pediatric", 4, ["pediatric"]],
+      ["pediatrico", 4, ["pediatric"]],
+      ["dermatology", 4, ["dermatology"]],
+      ["dermatologia", 4, ["dermatology"]],
+      ["medical dermatology", 5, ["medical dermatology"]],
+      ["dermatologic surgery", 5, ["dermatologic surgery"]],
+      ["acne", 4, ["acne"]],
+      ["eczema", 4, ["eczema"]],
+      ["dermatitis", 4, ["dermatitis"]],
+      ["psoriasis", 4, ["psoriasis"]],
+      ["rosacea", 4, ["rosacea"]],
+      ["rash", 4, ["rash", "rashes"]],
+      ["rashes", 4, ["rash", "rashes"]],
+      ["sarpullido", 4, ["rash", "rashes"]],
+      ["skin infection", 5, ["skin infection", "skin infections"]],
+      ["skin infections", 5, ["skin infection", "skin infections"]],
+      ["hair loss", 5, ["hair loss"]],
+      ["perdida de cabello", 5, ["hair loss"]],
+      ["nail disorder", 5, ["nail disorder", "nail disorders"]],
+      ["nail disorders", 5, ["nail disorder", "nail disorders"]],
+      ["warts", 4, ["warts"]],
+      ["verrugas", 4, ["warts"]],
+      ["skin tags", 5, ["skin tags"]],
+      ["mole evaluation", 5, ["mole evaluation"]],
+      ["full body skin exam", 5, ["full body skin examinations"]],
     ],
   ),
   topic(
@@ -352,12 +410,16 @@ const TOPICS: TopicDefinition[] = [
       ["emergencia medica", 6],
       ["emergency", 5],
       ["emergencia", 5],
-      ["urgent eye pain", 6],
-      ["dolor urgente", 6],
-      ["flashes and floaters", 6],
-      ["destellos y moscas volantes", 6],
-      ["sudden vision loss", 6],
-      ["perdida repentina de vision", 6],
+      ["urgent eye pain", 6, ["eye pain", "urgency screening"]],
+      ["dolor urgente", 6, ["eye pain", "urgency screening"]],
+      ["flashes and floaters", 6, ["flashes", "floaters"]],
+      ["destellos y moscas volantes", 6, ["flashes", "floaters"]],
+      ["flashes", 5, ["flashes"]],
+      ["floaters", 5, ["floaters"]],
+      ["destellos", 5, ["flashes"]],
+      ["moscas volantes", 5, ["floaters"]],
+      ["sudden vision loss", 6, ["vision loss"]],
+      ["perdida repentina de vision", 6, ["vision loss"]],
       ["urgent", 4],
       ["urgente", 4],
     ],
@@ -386,8 +448,7 @@ export function resolveOfficeKnowledge(
   }
   const index = knowledgeIndex(officeKey);
   const { sections } = index;
-  const providerAliases = index.providerNames;
-  const currentScores = rankTopics(normalized, providerAliases);
+  const currentScores = rankTopics(normalized, index);
   let selected = selectConfidentTopic(currentScores);
 
   if (
@@ -398,9 +459,7 @@ export function resolveOfficeKnowledge(
     const recentText = recentConversation.slice(-2).join(" ");
     const normalizedRecentText = normalize(recentText);
     if (!isBusinessOwnedTurn(normalizedRecentText)) {
-      selected = selectConfidentTopic(
-        rankTopics(normalizedRecentText, providerAliases),
-      );
+      selected = selectConfidentTopic(rankTopics(normalizedRecentText, index));
     }
   }
 
@@ -408,13 +467,30 @@ export function resolveOfficeKnowledge(
     return { language, outcome: "skipped", sections: [], topic: null };
   }
 
-  const selectedSections = selectSections(sections, selected.sectionTitles);
+  const { definition } = selected;
+  if (!selected.sourceSupported) {
+    return {
+      language,
+      outcome: "unavailable",
+      sections: [],
+      topic: definition.topic,
+    };
+  }
+
+  const selectedSections = [
+    ...selectSections(sections, definition.sectionTitles),
+    ...selected.sourceSections,
+  ]
+    .filter(
+      (section, index, candidates) => candidates.indexOf(section) === index,
+    )
+    .slice(0, MAX_SELECTED_SECTIONS);
   if (selectedSections.length === 0) {
     return {
       language,
       outcome: "unavailable",
       sections: [],
-      topic: selected.topic,
+      topic: definition.topic,
     };
   }
 
@@ -422,7 +498,7 @@ export function resolveOfficeKnowledge(
     language,
     outcome: "matched",
     sections: selectedSections.map((section) => section.body),
-    topic: selected.topic,
+    topic: definition.topic,
   };
 }
 
@@ -487,32 +563,56 @@ function topic(
 function topicScore(
   normalizedTranscript: string,
   definition: TopicDefinition,
-): number {
-  return definition.aliases.reduce(
-    (score, [phrase, weight]) =>
-      hasPhrase(normalizedTranscript, phrase) ? score + weight : score,
-    0,
-  );
+  sections: KnowledgeSection[],
+): Pick<RankedTopic, "score" | "sourceSections" | "sourceSupported"> {
+  let score = 0;
+  const sourceSections: KnowledgeSection[] = [];
+  let sourceSupported = true;
+
+  for (const [phrase, weight, sourceTerms] of definition.aliases) {
+    if (!hasPhrase(normalizedTranscript, phrase)) continue;
+    score += weight;
+    if (sourceTerms) {
+      const matchingSections = sections.filter((section) =>
+        sourceTerms.some((term) => hasPhrase(section.normalizedBody, term)),
+      );
+      if (matchingSections.length === 0) {
+        sourceSupported = false;
+      } else {
+        for (const section of matchingSections) {
+          if (!sourceSections.includes(section)) sourceSections.push(section);
+        }
+      }
+    }
+  }
+  return { score, sourceSections, sourceSupported };
 }
 
 function rankTopics(
   normalizedTranscript: string,
-  providerAliases: string[] = [],
-) {
-  return TOPICS.map((definition) => ({
-    definition,
-    score:
-      topicScore(normalizedTranscript, definition) +
-      (definition.topic === "providers" &&
-      providerAliases.some((alias) => hasPhrase(normalizedTranscript, alias))
+  index: OfficeKnowledgeIndex,
+): RankedTopic[] {
+  return TOPICS.map((definition) => {
+    const match = topicScore(normalizedTranscript, definition, index.sections);
+    const providerScore =
+      definition.topic === "providers" &&
+      index.providerNames.some((alias) =>
+        hasPhrase(normalizedTranscript, alias),
+      )
         ? 6
-        : 0),
-  })).sort((left, right) => right.score - left.score);
+        : 0;
+    return {
+      definition,
+      score: match.score + providerScore,
+      sourceSections: match.sourceSections,
+      sourceSupported: match.sourceSupported,
+    };
+  }).sort((left, right) => right.score - left.score);
 }
 
 function selectConfidentTopic(
   ranked: ReturnType<typeof rankTopics>,
-): TopicDefinition | null {
+): RankedTopic | null {
   const best = ranked[0];
   const next = ranked[1];
   if (
@@ -522,29 +622,42 @@ function selectConfidentTopic(
   ) {
     return null;
   }
-  return best.definition;
+  return best;
 }
 
 function isContextualFollowUp(normalizedTranscript: string): boolean {
   if (normalizedTranscript.split(" ").filter(Boolean).length > 6) return false;
-  return [
+  const cues = [
     "and",
     "and that",
     "and there",
     "correct",
     "exactly",
     "how about",
+    "how about it",
+    "how about that",
+    "how about there",
     "it",
     "that",
     "the same",
     "what about",
+    "what about it",
+    "what about that",
+    "what about there",
     "yes",
     "yep",
     "y",
     "y alli",
     "y eso",
     "si",
-  ].some((cue) => hasPhrase(normalizedTranscript, cue));
+  ];
+  const withoutLeadIn = normalizedTranscript.replace(
+    /^(?:and|bueno|okay|ok|so|well)\s+/,
+    "",
+  );
+  return [normalizedTranscript, withoutLeadIn].some((candidate) =>
+    cues.includes(candidate),
+  );
 }
 
 function isBusinessOwnedTurn(normalizedTranscript: string): boolean {
@@ -776,7 +889,7 @@ function pushSection(
   if (!lines.slice(1).join("\n").trim()) {
     throw new Error(`Office knowledge section is empty: ${title}`);
   }
-  sections.push({ body, title });
+  sections.push({ body, normalizedBody: normalize(body), title });
 }
 
 function normalize(value: string): string {
@@ -789,7 +902,12 @@ function normalize(value: string): string {
 }
 
 function hasPhrase(value: string, phrase: string): boolean {
-  return ` ${value} `.includes(` ${normalize(phrase)} `);
+  let needle = phraseNeedleCache.get(phrase);
+  if (!needle) {
+    needle = ` ${normalize(phrase)} `;
+    phraseNeedleCache.set(phrase, needle);
+  }
+  return ` ${value} `.includes(needle);
 }
 
 const ENGLISH_LANGUAGE_MARKERS = new Set([

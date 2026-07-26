@@ -263,6 +263,21 @@ describe("Office Knowledge Resolver", () => {
       "What about that?",
       ["Do you accept Aetna insurance?", "Which Aetna plan do you have?"],
     );
+    const unsupportedTopic = resolveOfficeKnowledge(
+      "spring-hill",
+      "How about parking?",
+      ["What are your office hours?", "We are open during the week."],
+    );
+    const prefixedFollowUp = resolveOfficeKnowledge(
+      "spring-hill",
+      "Well, what about that?",
+      ["What are your office hours?", "We are open during the week."],
+    );
+    const coordinatedFollowUp = resolveOfficeKnowledge(
+      "spring-hill",
+      "And what about that?",
+      ["What are your office hours?", "We are open during the week."],
+    );
 
     expect(contextual).toMatchObject({
       outcome: "matched",
@@ -297,6 +312,18 @@ describe("Office Knowledge Resolver", () => {
       outcome: "skipped",
       topic: null,
     });
+    expect(unsupportedTopic).toMatchObject({
+      outcome: "skipped",
+      topic: null,
+    });
+    expect(prefixedFollowUp).toMatchObject({
+      outcome: "matched",
+      topic: "hours",
+    });
+    expect(coordinatedFollowUp).toMatchObject({
+      outcome: "matched",
+      topic: "hours",
+    });
   });
 
   it.each([
@@ -322,7 +349,6 @@ describe("Office Knowledge Resolver", () => {
     "What is my billing statement?",
     "What is my current bill?",
     "Can I see my patient record?",
-    "Do you provide eyelid surgery?",
     "The weather is lovely today.",
   ])(
     "leaves business operations and unsupported turns to their owners: %s",
@@ -330,6 +356,22 @@ describe("Office Knowledge Resolver", () => {
       expect(resolveOfficeKnowledge("spring-hill", transcript)).toMatchObject({
         outcome: "skipped",
         topic: null,
+      });
+    },
+  );
+
+  it.each([
+    ["spring-hill", "Do you treat hair loss?", "services"],
+    ["dev", "Do you treat uveitis?", "services"],
+    ["dev", "I started seeing flashes.", "emergency_urgency"],
+  ] as const)(
+    "does not borrow $topic facts from another office: %s",
+    (officeKey, transcript, topic) => {
+      expect(resolveOfficeKnowledge(officeKey, transcript)).toEqual({
+        language: expect.any(String),
+        outcome: "unavailable",
+        sections: [],
+        topic,
       });
     },
   );
@@ -459,6 +501,23 @@ describe("Office Knowledge Resolver", () => {
   });
 
   it.each([
+    ["spring-hill", "What time do you close?", "hours"],
+    ["spring-hill", "I started seeing flashes.", "emergency_urgency"],
+    ["spring-hill", "I have new floaters.", "emergency_urgency"],
+    ["spring-hill", "Do you provide eyelid surgery?", "services"],
+    ["spring-hill", "Do you treat uveitis?", "services"],
+    ["dev", "Do you treat hair loss?", "services"],
+  ] as const)(
+    "recognizes office-authored caller wording: %s",
+    (officeKey, transcript, topic) => {
+      expect(resolveOfficeKnowledge(officeKey, transcript)).toMatchObject({
+        outcome: "matched",
+        topic,
+      });
+    },
+  );
+
+  it.each([
     ["¿A qué hora abren?", "hours"],
     ["¿Están abiertos el sábado?", "hours"],
     ["¿Quiénes son los médicos?", "providers"],
@@ -476,7 +535,10 @@ describe("Office Knowledge Resolver", () => {
       resolveOfficeKnowledge("spring-hill", "What ID should I bring?"),
     ).toMatchObject({ outcome: "matched", topic: "preparation" });
     expect(
-      resolveOfficeKnowledge("spring-hill", "Do you provide eyelid surgery?"),
+      resolveOfficeKnowledge(
+        "spring-hill",
+        "The candidate selection is unrelated.",
+      ),
     ).toMatchObject({ outcome: "skipped", topic: null });
   });
 
