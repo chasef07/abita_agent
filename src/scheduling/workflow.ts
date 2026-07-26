@@ -12,6 +12,7 @@ import {
   recordCompletedCancellationForPatient,
   recordCompletedRescheduleForPatient,
   removeActiveAppointment,
+  replaceActiveAppointments,
 } from "../state/appointments.js";
 import {
   activePatientDob,
@@ -82,6 +83,7 @@ import type {
   AvailabilityRequest as MiddlewareAvailabilityRequest,
   BookingResult,
   BookingSuccess,
+  CancellationRequest,
   CancellationResult,
   SchedulingMiddleware,
 } from "./middleware.js";
@@ -101,8 +103,7 @@ export interface BookAppointmentArgs {
 }
 
 export interface CancelAppointmentArgs {
-  appointmentDate?: string;
-  appointmentTime?: string;
+  appointmentRef: string;
 }
 
 export interface RescheduleAppointmentArgs extends BookAppointmentArgs {
@@ -302,7 +303,7 @@ export class SchedulingWorkflow {
 
   async cancelAppointment(
     state: CallState,
-    { appointmentDate, appointmentTime }: CancelAppointmentArgs,
+    { appointmentRef }: CancelAppointmentArgs,
   ): Promise<string> {
     restoreConfirmedPreCallPatient(state);
     const patientId = activePatientId(state);
@@ -310,7 +311,7 @@ export class SchedulingWorkflow {
       throw new ToolError("Verify the patient before cancelling.");
     }
 
-    const selector = { appointmentDate, appointmentTime };
+    const selector = { appointmentRef };
     const selection = cancellationAppointmentForState(state, selector);
     if (selection.status === "ambiguous") {
       return selection.message;
@@ -327,7 +328,7 @@ export class SchedulingWorkflow {
     }
     const appointment = selection.appointment;
     const completedCancellation = completedCancellationForState(state, {
-      appointmentId: appointment.id,
+      appointmentRef,
     });
     if (completedCancellation) {
       return completedCancellationReplayMessage(completedCancellation);
@@ -335,7 +336,7 @@ export class SchedulingWorkflow {
     const patientName = activePatientName(state);
 
     const result = await this.middleware.cancelAppointment({
-      request: { appointmentId: appointment.id, patientId },
+      request: cancellationRequestForAppointment(appointment, patientId),
       office: getAmdOfficeForToolCall(state),
     });
 
@@ -363,6 +364,23 @@ export class SchedulingWorkflow {
         ),
       });
       return `${message} The active patient changed before the cancellation result returned. Continue with the current patient's state.`;
+    }
+
+    if (
+      result.status === "rejected" &&
+      result.reason === "invalid_cancellation_token"
+    ) {
+      replaceActiveAppointments(state, [], "error");
+      const message =
+        "That loaded appointment authorization is no longer valid. Load appointments again, confirm the exact appointment with the caller, then use its new appointmentRef to cancel.";
+      recordAppointmentAction(state, {
+        action: "cancelled",
+        status: "error",
+        toolName: "cancel_appointment",
+        message,
+        cancelledAppointment: cancelledAppointmentAnalytics(state, appointment),
+      });
+      return message;
     }
 
     if (result.status !== "cancelled") {
@@ -522,10 +540,17 @@ export class SchedulingWorkflow {
     }
 
     let cancelResult: CancellationResult;
+    const cancellationRequest = cancellationRequestForAppointment(
+      oldAppointment,
+      patientId,
+    );
     try {
       cancelResult = await this.middleware.cancelAppointment({
-        request: { appointmentId: oldAppointment.id, patientId },
-        office: cancellationOffice,
+        request: cancellationRequest,
+        office:
+          "cancellationToken" in cancellationRequest
+            ? bookingOffice
+            : cancellationOffice,
       });
     } catch {
       recordOwnedMiddlewareFailure(state, "cancelAppointment", {
@@ -643,6 +668,16 @@ export class SchedulingWorkflow {
     });
     return message;
   }
+}
+
+function cancellationRequestForAppointment(
+  appointment: CallerAppointment,
+  patientId: string,
+): CancellationRequest {
+  const cancellationToken = appointment.cancellationToken?.trim();
+  return cancellationToken
+    ? { cancellationToken }
+    : { appointmentId: appointment.id, patientId };
 }
 
 function availabilityRequestStillCurrent(
@@ -814,7 +849,6 @@ function appointmentAnalyticsForCapturedBooking(
 ): AppointmentAnalytics {
   const booking = bookingSucceeded(result) ? result : null;
   return {
-    ...(booking ? { appointmentId: String(booking.appointmentId) } : {}),
     ...(patientName ? { patientName } : {}),
     appointmentDate: selectedSlot.date,
     appointmentTime: selectedSlot.time,

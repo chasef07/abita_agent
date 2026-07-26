@@ -22,7 +22,6 @@ export function bookedSlotAppointmentAnalytics(
   const booking =
     result.status === "booked" || result.status === "partial" ? result : null;
   return stripEmptyFields({
-    appointmentId: booking ? String(booking.appointmentId) : undefined,
     patientName: activePatientName(state) ?? undefined,
     appointmentDate: selectedSlot.date,
     appointmentTime: selectedSlot.time,
@@ -42,7 +41,6 @@ export function cancelledAppointmentAnalytics(
   patientName: string | null = activePatientName(state),
 ): AppointmentAnalytics {
   return stripEmptyFields({
-    appointmentId: String(appointment.id),
     patientName: patientName ?? undefined,
     appointmentDate: appointment.date,
     appointmentTime: appointment.time,

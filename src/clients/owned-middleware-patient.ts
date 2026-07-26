@@ -150,6 +150,7 @@ function normalizeStoredCallerAppointments(
       !isOptionalString(appointment.provider) ||
       !isOptionalString(appointment.type) ||
       !isOptionalString(appointment.facility) ||
+      !isOptionalString(appointment.cancellationToken) ||
       (appointment.confirmed !== undefined &&
         typeof appointment.confirmed !== "boolean") ||
       (appointment.appointmentTypeId !== undefined &&
@@ -159,6 +160,9 @@ function normalizeStoredCallerAppointments(
       return null;
     }
 
+    const cancellationToken = stringValue(
+      appointment.cancellationToken,
+    )?.trim();
     appointments.push({
       id: appointment.id,
       date: appointment.date,
@@ -170,6 +174,7 @@ function normalizeStoredCallerAppointments(
         : { appointmentTypeId: appointment.appointmentTypeId }),
       facility: appointment.facility ?? "",
       confirmed: appointment.confirmed ?? false,
+      ...(cancellationToken ? { cancellationToken } : {}),
     });
   }
   return appointments;

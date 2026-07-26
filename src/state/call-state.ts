@@ -10,6 +10,8 @@ export type AppointmentLoadStatus = "found" | "none" | "error";
 
 export interface CallerAppointment {
   id: number;
+  appointmentRef?: string;
+  cancellationToken?: string;
   date: string;
   time: string;
   provider: string;
@@ -175,6 +177,7 @@ export type AppointmentActionStatus = "success" | "partial" | "error";
 export type AppointmentActionName = "booked" | "rescheduled" | "cancelled";
 
 export type OwnedMiddlewareFailureReason =
+  | "invalid_cancellation_token"
   | "middleware_error"
   | "network_error"
   | "invalid_response"
@@ -197,7 +200,6 @@ export interface OwnedMiddlewareFailureAnalytics {
 }
 
 export interface AppointmentAnalytics {
-  appointmentId?: string;
   patientName?: string;
   appointmentDate?: string;
   appointmentTime?: string;

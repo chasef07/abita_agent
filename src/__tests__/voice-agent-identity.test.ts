@@ -17,6 +17,7 @@ import {
   type PatientResolveLookup,
 } from "../identity/promotion.js";
 import { buildPreCallContextState } from "../runtime/precall-bootstrap.js";
+import { appointmentRefForPatient } from "../state/appointments.js";
 import type { PreCallContextState } from "../state/call-state.js";
 import {
   applySchedulingLaneToState,
@@ -37,6 +38,20 @@ describe("Voice Agent identity promotion", () => {
   });
 
   it("promotes a remotely verified patient through resolve_patient", async () => {
+    const appointment = {
+      id: 123,
+      date: "Monday, June 1, 2026",
+      time: "9:00 AM",
+      provider: "Dr. Bach",
+      type: "Follow-up",
+      facility: "Spring Hill",
+      confirmed: false,
+    };
+    const appointmentRef = appointmentRefForPatient(
+      "private-patient-id",
+      appointment,
+    );
+    const loadedReply = `Verified existing patient Doe, Jane. Insurance on file: Aetna. Loaded 1 appointment: Monday, June 1, 2026 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`;
     const lookup: PatientResolveLookup = async (_officePhone, identity) => {
       expect(identity).toEqual({
         firstName: "Jane",
@@ -58,17 +73,7 @@ describe("Voice Agent identity promotion", () => {
         preauthRequired: false,
         appointmentsStatus: "found",
         appointmentsMessage: null,
-        appointments: [
-          {
-            id: 123,
-            date: "Monday, June 1, 2026",
-            time: "9:00 AM",
-            provider: "Dr. Bach",
-            type: "Follow-up",
-            facility: "Spring Hill",
-            confirmed: false,
-          },
-        ],
+        appointments: [appointment],
         message: null,
       };
     };
@@ -87,9 +92,7 @@ describe("Voice Agent identity promotion", () => {
         ],
       },
       {
-        input: JSON.stringify(
-          "Verified existing patient Doe, Jane. Insurance on file: Aetna. Loaded 1 appointment: Monday, June 1, 2026 at 9:00 AM with Dr. Bach.",
-        ),
+        input: JSON.stringify(loadedReply),
         content: "I found Jane's record and upcoming appointment.",
       },
     ]);
@@ -121,9 +124,7 @@ describe("Voice Agent identity promotion", () => {
       },
     });
     run.expect.containsFunctionCallOutput({
-      output: JSON.stringify(
-        "Verified existing patient Doe, Jane. Insurance on file: Aetna. Loaded 1 appointment: Monday, June 1, 2026 at 9:00 AM with Dr. Bach.",
-      ),
+      output: JSON.stringify(loadedReply),
       isError: false,
     });
     expect(session.userData.identity.patient).toMatchObject({
@@ -133,7 +134,9 @@ describe("Voice Agent identity promotion", () => {
       name: "Doe, Jane",
       appointmentsStatus: "found",
     });
-    expect(session.userData.identity.patient.appointments).toHaveLength(1);
+    expect(session.userData.identity.patient.appointments).toEqual([
+      { ...appointment, appointmentRef },
+    ]);
     expect(session.userData.identity.patientBackend).toEqual({
       insPlanId: "private-plan-id",
       respPartyId: "private-party-id",
@@ -299,6 +302,10 @@ describe("Voice Agent identity promotion", () => {
       facility: "Spring Hill",
       confirmed: false,
     };
+    const appointmentRef = appointmentRefForPatient(
+      "private-patient-id",
+      appointment,
+    );
     const lookup: PatientResolveLookup = async () => {
       lookupCalls += 1;
       return verifiedPatient({
@@ -311,8 +318,7 @@ describe("Voice Agent identity promotion", () => {
     };
     const failedReply =
       "Verified existing patient Jane Doe. No insurance is currently on file. Appointments could not be loaded. Try confirming identity again before confirming or cancelling.";
-    const loadedReply =
-      "Verified existing patient Jane Doe. No insurance is currently on file. Loaded 1 appointment: Monday, June 1, 2026 at 9:00 AM with Dr. Bach.";
+    const loadedReply = `Verified existing patient Jane Doe. No insurance is currently on file. Loaded 1 appointment: Monday, June 1, 2026 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`;
     const llm = new voice.testing.FakeLLM([
       resolveTurn(
         "This is for Jane Doe, January 2, 1980.",
@@ -378,7 +384,7 @@ describe("Voice Agent identity promotion", () => {
     expect(session.userData.identity.patient).toMatchObject({
       patientId: "private-patient-id",
       appointmentsStatus: "found",
-      appointments: [appointment],
+      appointments: [{ ...appointment, appointmentRef }],
     });
     expect(session.userData.workflow.current).toEqual({
       intent: "schedule",
@@ -576,7 +582,9 @@ describe("Voice Agent identity promotion", () => {
       name: "Jane Doe",
       appointmentsStatus: "found",
     });
-    expect(session.userData.identity.patient.appointments).toHaveLength(1);
+    const appointmentRef =
+      session.userData.identity.patient.appointments[0]?.appointmentRef;
+    expect(appointmentRef).toMatch(/^appointment-[a-z0-9]+$/);
     expect(session.userData.runtime.patientIdentityTransitions).toEqual([
       { outcome: "pending", source: "pre_call_phone_lookup" },
       { outcome: "confirmed", source: "caller_transcript" },
@@ -586,7 +594,7 @@ describe("Voice Agent identity promotion", () => {
       .map((item) => item.textContent ?? "")
       .join(" ");
     expect(durableSystemText).toContain(
-      "Upcoming appointments loaded: Monday, June 1, 2026 at 9:00 AM with Dr. Bach.",
+      `Upcoming appointments loaded: Monday, June 1, 2026 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`,
     );
     expect(durableSystemText).not.toContain("private-patient-id");
     expect(durableSystemText).not.toContain("private-plan-id");

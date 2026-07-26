@@ -132,7 +132,11 @@ describe("call closeout", () => {
       status: "COMPLETED",
     });
     expect(portal.deliveries[2]?.payload).toMatchObject({
-      callState: state,
+      callState: {
+        office: state?.office,
+        insurance: state?.insurance,
+        workflow: state?.workflow,
+      },
       preCallLookup: state?.runtime.preCallLookup,
       sessionReport: { chat_history: { items: [] } },
       status: "COMPLETED",
@@ -140,6 +144,80 @@ describe("call closeout", () => {
     });
     expect(portal.deliveries[1]?.payload).not.toHaveProperty("callState");
     expect(portal.deliveries[1]?.payload).not.toHaveProperty("sessionReport");
+  });
+
+  it("redacts private appointment selectors from the rich call-state snapshot", async () => {
+    const state = createTestCallState({
+      patientId: "private-patient-backend-id",
+    });
+    const appointment = {
+      id: 987654321,
+      appointmentRef: "appointment-safe-reference",
+      cancellationToken: "private-cancellation-token",
+      date: "Monday, June 1, 2026",
+      time: "9:00 AM",
+      provider: "Dr. Bach",
+      type: "Follow-up",
+      appointmentTypeId: 1005,
+      facility: "Spring Hill",
+      confirmed: true,
+    };
+    state.identity.patient.appointments = [appointment];
+    state.identity.patientBackend = {
+      insPlanId: "private-ins-plan-id",
+      respPartyId: "private-party-id",
+    };
+    state.identity.preCall = {
+      status: "single_match_confirmed",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [
+        {
+          ref: "precall:1",
+          patientId: "private-patient-backend-id",
+          appointments: [appointment],
+        },
+      ],
+    };
+    state.identity.latestBookedAppointmentId = appointment.id;
+    state.identity.completedBookingsByPatientId = {
+      "private-patient-backend-id": {
+        appointmentId: appointment.id,
+        appointmentDescription: "private completed booking",
+      },
+    };
+    state.identity.completedCancellations = [
+      {
+        patientId: "private-patient-backend-id",
+        appointment,
+      },
+    ];
+    state.identity.completedReschedulesByPatientId = {
+      "private-patient-backend-id": {
+        status: "rescheduled",
+        appointmentDescription: "private completed reschedule",
+      },
+    };
+    state.availability.bookingTokensBySlotId = {
+      S1: "private-booking-token",
+    };
+    const { events, portal } = await setupCloseout({ state });
+
+    await events.close();
+
+    const callStatePayload = JSON.stringify(
+      portal.deliveries[2]?.payload.callState,
+    );
+    expect(callStatePayload).toContain("appointment-safe-reference");
+    expect(callStatePayload).not.toContain("private-cancellation-token");
+    expect(callStatePayload).not.toContain("private-booking-token");
+    expect(callStatePayload).not.toContain("private-patient-backend-id");
+    expect(callStatePayload).not.toContain("987654321");
+    expect(callStatePayload).not.toContain("private-ins-plan-id");
+    expect(callStatePayload).not.toContain("private-party-id");
+    expect(state.identity.patient.appointments[0]?.cancellationToken).toBe(
+      "private-cancellation-token",
+    );
   });
 
   it("includes identity transitions in compact and rich observation", async () => {

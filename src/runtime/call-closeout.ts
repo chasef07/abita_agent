@@ -384,7 +384,9 @@ export async function attachCallCloseout(input: {
       llmMetrics,
       sttProfiles: capture.sttProfiles,
       turnMetrics,
-      ...(callState ? { callState } : {}),
+      ...(callState
+        ? { callState: sanitizeCallStateForAnalytics(callState) }
+        : {}),
       ...(callState?.runtime.preCallLookup
         ? { preCallLookup: callState.runtime.preCallLookup }
         : {}),
@@ -430,6 +432,39 @@ export async function attachCallCloseout(input: {
     { maxAttempts: 1, retryDelayMs: 0 },
   );
   return { startResult };
+}
+
+const PRIVATE_CALL_STATE_ANALYTICS_FIELDS = new Set([
+  "appointmentId",
+  "appointmentTypeId",
+  "bookingToken",
+  "bookingTokensBySlotId",
+  "cancellationToken",
+  "completedBookingsByPatientId",
+  "completedReschedulesByPatientId",
+  "id",
+  "insPlanId",
+  "latestBookedAppointmentId",
+  "patientId",
+  "respPartyId",
+]);
+
+function sanitizeCallStateForAnalytics(state: CallState): unknown {
+  return sanitizeAnalyticsValue(state);
+}
+
+function sanitizeAnalyticsValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeAnalyticsValue);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !PRIVATE_CALL_STATE_ANALYTICS_FIELDS.has(key))
+      .map(([key, nestedValue]) => [key, sanitizeAnalyticsValue(nestedValue)]),
+  );
 }
 
 type LlmMetricsSource = {

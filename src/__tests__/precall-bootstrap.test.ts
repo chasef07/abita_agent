@@ -8,6 +8,7 @@ import {
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import {
   buildPreCallContextState,
+  formatPhoneLookupLogLine,
   loadPreCallBootstrap,
   lookupByPhone,
 } from "../runtime/precall-bootstrap.js";
@@ -144,6 +145,7 @@ describe("pre-call bootstrap", () => {
             type: "Follow-up",
             facility: "Spring Hill",
             confirmed: true,
+            cancellationToken: "private-cancellation-token",
           },
         ],
       }),
@@ -153,13 +155,34 @@ describe("pre-call bootstrap", () => {
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );
+    const preCall = buildPreCallContextState(result, "+17275551212");
 
     expect(result).toMatchObject({
       status: "verified",
       phone: "+17275551212",
       appointmentsStatus: "found",
-      appointments: [expect.objectContaining({ id: 12345 })],
+      appointments: [
+        expect.objectContaining({
+          id: 12345,
+          cancellationToken: "private-cancellation-token",
+        }),
+      ],
     });
+    expect(preCall.candidates[0]?.appointments).toEqual([
+      expect.objectContaining({
+        appointmentRef: expect.stringMatching(/^appointment-[a-z0-9]+$/),
+        cancellationToken: "private-cancellation-token",
+      }),
+    ]);
+    expect(formatPhoneLookupLogLine("+17275551212", result)).toBe(
+      "[call] Caller match found",
+    );
+    expect(formatPhoneLookupLogLine("+17275551212", result)).not.toContain(
+      "private-cancellation-token",
+    );
+    expect(formatPhoneLookupLogLine("+17275551212", result)).not.toContain(
+      "12345",
+    );
   });
 
   it("preloads Railway appointments without confirmation metadata", async () => {

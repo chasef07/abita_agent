@@ -15,7 +15,7 @@ import type {
   PreCallContextState,
 } from "../state/call-state.js";
 import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
-import { publicCallerAppointments } from "../state/appointments.js";
+import { normalizeCallerAppointments } from "../state/appointments.js";
 
 interface PreCallBootstrap {
   phoneLookup: PhoneLookupResult;
@@ -206,7 +206,10 @@ export function buildPreCallContextState(
 
   if (lookup.status === "verified") {
     const name = splitPatientName(lookup.name);
-    const appointments = publicCallerAppointments(lookup.appointments);
+    const appointments = normalizeCallerAppointments(
+      lookup.appointments,
+      lookup.patientId,
+    );
     return {
       status: "single_match_pending_confirmation",
       source: "phone_lookup",
@@ -287,7 +290,10 @@ function preCallCandidateFromMatch(
       dob: match.dob,
       patientId: match.patientId,
       relationshipToCaller: "unknown" as const,
-      appointments: publicCallerAppointments(match.appointments),
+      appointments: normalizeCallerAppointments(
+        match.appointments,
+        match.patientId,
+      ),
       appointmentsStatus: match.appointmentsStatus ?? undefined,
       insuranceCarrier: match.insuranceCarrier,
       insPlanId: match.insPlanId,

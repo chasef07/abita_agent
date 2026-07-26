@@ -1137,13 +1137,13 @@ describe("model-facing tool definitions", () => {
       "caller confirms the exact appointment",
     );
     expect(cancel_appointment.description).toContain(
-      "latest booked appointment or exactly one loaded appointment",
-    );
-    expect(cancel_appointment.description).toContain(
-      "Pass appointmentDate and appointmentTime",
+      "Pass the matching appointmentRef",
     );
     expect(cancel_appointment.description).toContain(
       "Do not pass backend patient IDs or appointment IDs",
+    );
+    expect(cancel_appointment.description).toContain(
+      "Do not pass appointment dates or times",
     );
     expect(cancel_appointment.description).not.toContain(
       "For reschedules, book the new appointment",
@@ -1153,18 +1153,20 @@ describe("model-facing tool definitions", () => {
       safeParse: (value: unknown) => { success: boolean };
       shape: Record<string, unknown>;
     };
-    expect(Object.keys(parameters.shape)).toEqual([
-      "appointmentDate",
-      "appointmentTime",
-    ]);
+    expect(Object.keys(parameters.shape)).toEqual(["appointmentRef"]);
     expect(parameters.safeParse({ appointmentId: 123 }).success).toBe(false);
     expect(
+      parameters.safeParse({ appointmentRef: "appointment-abc123" }).success,
+    ).toBe(true);
+    expect(
       parameters.safeParse({
+        appointmentRef: "appointment-abc123",
         appointmentDate: "June 2",
         appointmentTime: "9 AM",
       }).success,
-    ).toBe(true);
-    expect(parameters.safeParse({}).success).toBe(true);
+    ).toBe(false);
+    expect(parameters.safeParse({ appointmentRef: " " }).success).toBe(false);
+    expect(parameters.safeParse({}).success).toBe(false);
   });
 
   it("exposes reschedule_appointment as the deterministic appointment move tool", () => {
