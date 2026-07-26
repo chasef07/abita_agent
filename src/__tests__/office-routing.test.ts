@@ -1284,7 +1284,7 @@ describe("model-facing tool definitions", () => {
       "do not use for reschedules",
     );
     expect(book_appointment.description).toContain(
-      "caller provides a referring doctor or says they have none",
+      "provides a referring doctor or says they have none",
     );
     expect(book_appointment.description).toContain(
       "Only after this tool returns a successful booking may you tell the caller they are booked, scheduled, or all set",
