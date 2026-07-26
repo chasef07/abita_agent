@@ -1,6 +1,6 @@
 import { tool, type ToolOptions } from "@livekit/agents";
 import { z } from "zod";
-import { ownedMiddleware } from "../clients/owned-middleware.js";
+import { resolvePatientWithOwnedMiddleware } from "../clients/owned-middleware.js";
 import {
   resolvePatientIdentity,
   type PatientResolveLookup,
@@ -40,14 +40,8 @@ const resolvePatientParameters = z.object({
     ),
 });
 
-const defaultPatientResolveLookup: PatientResolveLookup = (
-  officePhone,
-  identity,
-) =>
-  ownedMiddleware().resolvePatient({
-    office: officePhone,
-    identity,
-  });
+const defaultPatientResolveLookup: PatientResolveLookup =
+  resolvePatientWithOwnedMiddleware;
 
 type ResolvePatientArgs = z.infer<typeof resolvePatientParameters>;
 

@@ -12,6 +12,7 @@ import {
   type PatientIdentityOutcome,
   type PendingPatientRegistrationIdentity,
   type PreCallContextState,
+  type PreCallVerifiedPatientCandidate,
   recordPatientIdentityOutcome,
   recordPatientIdentityTransition,
   setPatientBackendRefs,
@@ -43,9 +44,16 @@ export interface PatientLookupIdentity {
   dob: string;
 }
 
+export interface PatientReferenceIdentity {
+  patientId: string;
+}
+
+export type PatientResolveLookupIdentity =
+  PatientLookupIdentity | PatientReferenceIdentity;
+
 export type PatientResolveLookup = (
   officePhone: string,
-  identity: PatientLookupIdentity,
+  identity: PatientResolveLookupIdentity,
 ) => Promise<PatientResolveResult>;
 
 export type ResolvePatientIdentityInput = Partial<PatientLookupIdentity> & {
@@ -68,6 +76,11 @@ type IdentityResolution = {
   outcome: PatientIdentityOutcome;
   reply: string;
 };
+
+const pendingCandidateHydrations = new WeakMap<
+  CallState,
+  Map<string, Promise<IdentityResolution>>
+>();
 
 interface PatientIdentitySnapshot {
   patientId?: string | null;
@@ -123,7 +136,7 @@ export function restoreConfirmedPreCallPatient(state: CallState): void {
       preCall,
       preCall.selectedCandidateRef ?? CALLER_CANDIDATE_REF,
     ) ?? null;
-  if (!candidate?.patientId) return;
+  if (candidate?.status !== "verified") return;
   if (
     state.identity.patient.identityConfirmed ||
     state.identity.patient.status === "created" ||
@@ -186,15 +199,18 @@ export function preCallCandidateMatchesIdentity(
   );
 }
 
-export function confirmIdentityFromTranscript({
-  state,
-  transcript,
-  lastAssistantText,
-}: {
-  state: CallState;
-  transcript: string;
-  lastAssistantText: string | null | undefined;
-}): TranscriptIdentityConfirmation | null {
+export async function confirmIdentityFromTranscript(
+  {
+    state,
+    transcript,
+    lastAssistantText,
+  }: {
+    state: CallState;
+    transcript: string;
+    lastAssistantText: string | null | undefined;
+  },
+  lookup: PatientResolveLookup,
+): Promise<TranscriptIdentityConfirmation | null> {
   const preCall = state.identity.preCall;
   if (!preCall || state.identity.patient.identityConfirmed) return null;
   if (state.identity.patient.status === "new") return null;
@@ -204,10 +220,30 @@ export function confirmIdentityFromTranscript({
     preCall.status === "single_match_pending_confirmation"
       ? singlePreCallCandidateSelection(preCall, transcript)
       : multiplePreCallCandidateSelection(preCall, transcript);
-  if (!selection?.candidate.patientId) return null;
+  if (!selection) return null;
   const candidate = selection.candidate;
 
-  activatePreloadedCandidate(state, candidate, "confirmed_by_transcript");
+  if (candidate.status === "candidate") {
+    const resolution = await hydratePreCallCandidate(
+      state,
+      candidate,
+      lookup,
+      "caller_transcript",
+    );
+    if (!state.identity.patient.identityConfirmed) {
+      recordPatientIdentityTransition(state, {
+        outcome:
+          resolution.outcome === "verified" ? "confirmed" : resolution.outcome,
+        source: "caller_transcript",
+      });
+      return {
+        candidateRef: candidate.ref,
+        systemMessage: `Internal state: the selected pre-call patient was not activated. ${resolution.reply}`,
+      };
+    }
+  } else {
+    activatePreloadedCandidate(state, candidate, "confirmed_by_transcript");
+  }
   if (!state.identity.patient.identityConfirmed) return null;
   recordPatientIdentityTransition(state, {
     outcome: "confirmed",
@@ -218,7 +254,7 @@ export function confirmIdentityFromTranscript({
     candidateRef: candidate.ref,
     systemMessage: confirmedPatientSystemMessage(
       state,
-      selection.otherMentionedCandidates,
+      selection.mentionedAnotherCandidate,
     ),
   };
 }
@@ -265,7 +301,11 @@ export async function resolvePatientIdentity(
     });
   }
 
-  const preCallResolution = resolveFromPreCallState(state, identity);
+  const preCallResolution = await resolveFromPreCallState(
+    state,
+    identity,
+    lookup,
+  );
   if (preCallResolution) {
     return recordIdentityResolution(state, preCallResolution);
   }
@@ -415,7 +455,7 @@ function activatePatient(
 
 function activatePreloadedCandidate(
   state: CallState,
-  candidate: PreCallCandidate,
+  candidate: PreCallVerifiedPatientCandidate,
   reason: ActivationReason,
 ): void {
   const preCall = state.identity.preCall;
@@ -651,10 +691,11 @@ function normalizeIdentityValue(value: string | null | undefined): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
 }
 
-function resolveFromPreCallState(
+async function resolveFromPreCallState(
   state: CallState,
   identity: ResolvePatientIdentityInput,
-): IdentityResolution | null {
+  lookup: PatientResolveLookup,
+): Promise<IdentityResolution | null> {
   const preCall = state.identity.preCall;
   if (state.identity.patient.status === "new") return null;
   if (!preCall || preCall.candidates.length === 0 || !identity.firstName) {
@@ -664,7 +705,7 @@ function resolveFromPreCallState(
   if (hasFullIdentity(identity)) {
     const fullMatch = findFullIdentityPreCallMatch(preCall, identity);
     if (!fullMatch) return null;
-    return activatePreCallMatch(state, fullMatch);
+    return resolveSelectedPreCallMatch(state, fullMatch, lookup);
   }
 
   const match = matchCandidatesByFirstName(
@@ -680,12 +721,147 @@ function resolveFromPreCallState(
         "More than one preloaded patient matched that first name. Ask for the patient's date of birth, then call resolve_patient with first name, last name, and DOB.",
     };
   }
-  return activatePreCallMatch(state, match.candidate);
+  return resolveSelectedPreCallMatch(state, match.candidate, lookup);
+}
+
+async function resolveSelectedPreCallMatch(
+  state: CallState,
+  candidate: PreCallCandidate,
+  lookup: PatientResolveLookup,
+): Promise<IdentityResolution | null> {
+  return candidate.status === "candidate"
+    ? hydratePreCallCandidate(state, candidate, lookup, "resolve_patient")
+    : activatePreCallMatch(state, candidate);
+}
+
+async function hydratePreCallCandidate(
+  state: CallState,
+  candidate: Extract<PreCallCandidate, { status: "candidate" }>,
+  lookup: PatientResolveLookup,
+  source: "caller_transcript" | "resolve_patient",
+): Promise<IdentityResolution> {
+  let pendingForCall = pendingCandidateHydrations.get(state);
+  if (!pendingForCall) {
+    pendingForCall = new Map();
+    pendingCandidateHydrations.set(state, pendingForCall);
+  }
+
+  const existing = pendingForCall.get(candidate.patientId);
+  if (existing) return existing;
+
+  const hydration = performCandidateHydration(state, candidate, lookup, source);
+  pendingForCall.set(candidate.patientId, hydration);
+  const clearPending = () => {
+    if (pendingForCall?.get(candidate.patientId) === hydration) {
+      pendingForCall.delete(candidate.patientId);
+    }
+  };
+  void hydration.then(clearPending, clearPending);
+  return hydration;
+}
+
+async function performCandidateHydration(
+  state: CallState,
+  candidate: Extract<PreCallCandidate, { status: "candidate" }>,
+  lookup: PatientResolveLookup,
+  source: "caller_transcript" | "resolve_patient",
+): Promise<IdentityResolution> {
+  const preCall = state.identity.preCall;
+  if (!preCall) {
+    return {
+      outcome: "lookup_failed",
+      reply: "Patient lookup failed. Try again.",
+    };
+  }
+
+  preCall.selectedCandidateRef = candidate.ref;
+  const activePatientId = state.identity.patient.patientId?.trim() || null;
+  const wasConfirmedActive =
+    state.identity.patient.identityConfirmed &&
+    activePatientId === candidate.patientId;
+  if (
+    wasConfirmedActive &&
+    state.identity.patient.appointmentsStatus !== "error"
+  ) {
+    const activePatientName =
+      state.identity.patient.name?.trim() || candidateDisplayName(candidate);
+    return {
+      outcome: "verified",
+      reply: `${activePatientName} is already the active patient. Continue with loaded patient state.`,
+    };
+  }
+  const hadDifferentActivePatient =
+    state.identity.patient.identityConfirmed &&
+    activePatientId !== candidate.patientId;
+  const operationVersion = beginPatientIdentityOperation(state);
+  const officePhone = getOfficeProfileByPhone(
+    state.runtime.trunkPhone,
+  ).amdOfficePhone;
+  const result = await lookup(officePhone, { patientId: candidate.patientId });
+  if (!patientIdentityOperationIsCurrent(state, operationVersion)) {
+    return {
+      outcome: "lookup_failed",
+      reply:
+        "Patient lookup was superseded by a newer identity change. Continue with the current patient's state.",
+    };
+  }
+
+  if (
+    result.status !== "verified" ||
+    !completeVerifiedIdentity(result) ||
+    result.patientId !== candidate.patientId
+  ) {
+    if (result.status === "error") {
+      recordOwnedMiddlewareFailure(state, "resolvePatient", result);
+    }
+    state.runtime.preCallLookup.hydrationOutcome =
+      result.status === "verified"
+        ? "incomplete"
+        : result.status === "not_found"
+          ? "not_found"
+          : result.status === "multiple_matches"
+            ? "multiple_matches"
+            : "lookup_failed";
+    return {
+      outcome:
+        result.status === "not_found"
+          ? "not_found"
+          : result.status === "multiple_matches"
+            ? "multiple_matches"
+            : "lookup_failed",
+      reply:
+        result.status === "verified"
+          ? "Patient lookup returned an incomplete identity. Try again."
+          : patientLookupReply(result),
+    };
+  }
+
+  preCall.status =
+    preCall.status === "single_match_pending_confirmation"
+      ? "single_match_confirmed"
+      : "multiple_match_confirmed";
+  preCall.identityPromotion =
+    source === "caller_transcript"
+      ? "confirmed_by_transcript"
+      : hadDifferentActivePatient
+        ? "switched_by_identity_tool"
+        : "confirmed_by_identity_tool";
+  state.runtime.preCallLookup.hydrationOutcome = "verified";
+  activateResolvedPatient(state, result);
+  return hadDifferentActivePatient
+    ? {
+        outcome: "switched",
+        reply: `Switched active patient to ${result.name?.trim() || "the selected patient"}. Check availability again before booking.`,
+      }
+    : {
+        outcome: "verified",
+        reply: confirmedPatientReply(state),
+      };
 }
 
 function activatePreCallMatch(
   state: CallState,
-  candidate: PreCallCandidate,
+  candidate: PreCallVerifiedPatientCandidate,
 ): IdentityResolution | null {
   const activePatientId = state.identity.patient.patientId?.trim() || null;
   const wasConfirmedActive =
@@ -763,7 +939,7 @@ function singlePreCallCandidateSelection(
   transcript: string,
 ): {
   candidate: PreCallCandidate;
-  otherMentionedCandidates: PreCallCandidate[];
+  mentionedAnotherCandidate: boolean;
 } | null {
   const candidate =
     selectedPreCallCandidate(preCall) ??
@@ -776,7 +952,7 @@ function singlePreCallCandidateSelection(
     transcriptMatchOptions,
   );
   return match.status === "unique"
-    ? { candidate: match.candidate, otherMentionedCandidates: [] }
+    ? { candidate: match.candidate, mentionedAnotherCandidate: false }
     : null;
 }
 
@@ -785,7 +961,7 @@ function multiplePreCallCandidateSelection(
   transcript: string,
 ): {
   candidate: PreCallCandidate;
-  otherMentionedCandidates: PreCallCandidate[];
+  mentionedAnotherCandidate: boolean;
 } | null {
   if (preCall.status !== "multiple_matches_pending_selection") return null;
   const match = matchCandidatesByFirstName(
@@ -797,7 +973,7 @@ function multiplePreCallCandidateSelection(
   if (match.status !== "unique") return null;
   return {
     candidate: match.candidate,
-    otherMentionedCandidates: match.otherCandidates,
+    mentionedAnotherCandidate: match.otherCandidates.length > 0,
   };
 }
 
@@ -824,33 +1000,20 @@ function isFirstNamePrompt(text: string | null | undefined): boolean {
 
 function confirmedPatientSystemMessage(
   state: CallState,
-  otherMentionedCandidates: PreCallCandidate[],
+  mentionedAnotherCandidate: boolean,
 ): string {
   const patientName = state.identity.patient.name?.trim() || "the patient";
   return [
     "Internal state: patient identity is confirmed from a pre-call phone candidate after the caller provided the patient's first name.",
     `Patient: ${patientName}.`,
-    otherMentionedPatientsSystemMessage(patientName, otherMentionedCandidates),
+    mentionedAnotherCandidate
+      ? `The caller also mentioned another patient. Finish ${patientName} first. Before working on another patient, call resolve_patient with the first name the caller provided to switch the active patient.`
+      : "",
     appointmentSummary(state),
     "Do not ask for last name or date of birth again. Continue using the loaded patient state for appointment questions, booking, or cancellation.",
   ]
     .filter(Boolean)
     .join(" ");
-}
-
-function otherMentionedPatientsSystemMessage(
-  activePatientName: string,
-  candidates: PreCallCandidate[],
-): string {
-  const names = [
-    ...new Set(candidates.map(candidateDisplayName).filter(Boolean)),
-  ];
-  if (names.length === 0) return "";
-  return [
-    `Caller also mentioned preloaded patient${names.length === 1 ? "" : "s"}: ${names.join(", ")}.`,
-    `Finish ${activePatientName} first.`,
-    "Before working on another mentioned patient, call resolve_patient with that patient's first name to switch the active patient.",
-  ].join(" ");
 }
 
 function preCallNameMismatchReply(

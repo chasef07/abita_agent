@@ -12,6 +12,7 @@ import {
   type CancelAppointmentResult,
   type CreatePatientResult,
   type OwnedMiddleware,
+  type PatientResolveCandidate,
   type PatientResolveVerified,
   type UpdateInsuranceResult,
 } from "../clients/owned-middleware.js";
@@ -37,6 +38,14 @@ const verifiedPatient: PatientResolveVerified = {
   appointmentsMessage: null,
   appointments: [],
   message: null,
+};
+
+const candidatePatient: PatientResolveCandidate = {
+  status: "candidate",
+  patientId: "patient-2",
+  firstName: "Maria",
+  lastName: "Doe",
+  dob: "02/02/1985",
 };
 
 function patientContractAdapters(): Array<{
@@ -657,6 +666,24 @@ describe("HTTP owned middleware transport", () => {
     });
   });
 
+  it("serializes private candidate hydration by patient ID only", async () => {
+    const fetchMock = vi.fn(async () => Response.json(verifiedPatient));
+    const middleware = new HttpOwnedMiddleware({
+      fetch: fetchMock,
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    await middleware.resolvePatient({
+      office: SPRING_HILL_OFFICE_PHONE,
+      identity: { patientId: "private-patient-id" },
+    });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      patientId: "private-patient-id",
+      office: SPRING_HILL_OFFICE_PHONE,
+    });
+  });
+
   it("serializes a private cancellation token without backend identity fields", async () => {
     const fetchMock = vi.fn(async () => Response.json(cancelledAppointment));
     const middleware = new HttpOwnedMiddleware({
@@ -879,6 +906,118 @@ describe("HTTP owned middleware transport", () => {
     });
 
     expect(result).toEqual({
+      status: "error",
+      reason: "invalid_response",
+    });
+  });
+
+  it("normalizes lightweight multiple-match candidates without hydrating them", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "multiple_matches",
+          matches: [
+            {
+              status: "candidate",
+              patientId: "private-patient-1",
+              firstName: "Jane",
+              lastName: "Doe",
+              dob: "01/02/1980",
+            },
+            {
+              status: "candidate",
+              patientId: "private-patient-2",
+              firstName: "Maria",
+              lastName: "Doe",
+              dob: "02/03/1982",
+            },
+          ],
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.resolvePatient({
+      office: SPRING_HILL_OFFICE_PHONE,
+      identity: { phone: "+17275551212" },
+    });
+
+    expect(result).toEqual({
+      status: "multiple_matches",
+      matches: [
+        {
+          status: "candidate",
+          patientId: "private-patient-1",
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/02/1980",
+        },
+        {
+          status: "candidate",
+          patientId: "private-patient-2",
+          firstName: "Maria",
+          lastName: "Doe",
+          dob: "02/03/1982",
+        },
+      ],
+    });
+  });
+
+  it("rejects a candidate carrying hydrated patient fields", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "multiple_matches",
+          matches: [
+            {
+              status: "candidate",
+              patientId: "private-patient-1",
+              firstName: "Jane",
+              lastName: "Doe",
+              dob: "01/02/1980",
+              appointments: [],
+            },
+          ],
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    await expect(
+      middleware.resolvePatient({
+        office: SPRING_HILL_OFFICE_PHONE,
+        identity: { phone: "+17275551212" },
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      reason: "invalid_response",
+    });
+  });
+
+  it("rejects a statusless lightweight match instead of treating it as verified", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "multiple_matches",
+          matches: [
+            {
+              patientId: "private-patient-1",
+              firstName: "Jane",
+              lastName: "Doe",
+              dob: "01/02/1980",
+            },
+          ],
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    await expect(
+      middleware.resolvePatient({
+        office: SPRING_HILL_OFFICE_PHONE,
+        identity: { phone: "+17275551212" },
+      }),
+    ).resolves.toEqual({
       status: "error",
       reason: "invalid_response",
     });
@@ -1115,7 +1254,7 @@ describe("HTTP owned middleware transport", () => {
       .mockResolvedValueOnce(
         Response.json({
           status: "multiple_matches",
-          matches: [verifiedPatient, { firstName: "Maria" }],
+          matches: [verifiedPatient, candidatePatient],
         }),
       )
       .mockResolvedValueOnce(Response.json({ status: "not_found" }))
@@ -1131,7 +1270,7 @@ describe("HTTP owned middleware transport", () => {
 
     await expect(middleware.resolvePatient(request)).resolves.toMatchObject({
       status: "multiple_matches",
-      matches: [verifiedPatient, { firstName: "Maria" }],
+      matches: [verifiedPatient, candidatePatient],
     });
     await expect(middleware.resolvePatient(request)).resolves.toMatchObject({
       status: "not_found",
@@ -1467,20 +1606,20 @@ const semanticContractCases: SemanticContractCase[] = [
     name: "patient multiple matches",
     http: httpResult({
       status: "multiple_matches",
-      matches: [verifiedPatient, { firstName: "Maria" }],
+      matches: [verifiedPatient, candidatePatient],
     }),
     memory: memoryResult({
       resolvePatient: [
         {
           status: "multiple_matches",
-          matches: [verifiedPatient, { firstName: "Maria" }],
+          matches: [verifiedPatient, candidatePatient],
         },
       ],
     }),
     invoke: patientLookup,
     expected: expect.objectContaining({
       status: "multiple_matches",
-      matches: [verifiedPatient, { firstName: "Maria" }],
+      matches: [verifiedPatient, candidatePatient],
     }),
   },
   {

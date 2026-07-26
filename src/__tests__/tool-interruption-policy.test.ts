@@ -12,7 +12,6 @@ const blockingToolFiles = [
   ["check_insurance", "src/tools/check-insurance.ts"],
   ["create_staff_task", "src/tools/create-staff-task.ts"],
   ["get_availability", "src/scheduling/tools.ts"],
-  ["get_current_datetime", "src/tools/get-current-datetime.ts"],
   ["resolve_patient", "src/tools/resolve-patient.ts"],
   ["reschedule_appointment", "src/scheduling/tools.ts"],
   ["transfer_call", "src/tools/transfer-call.ts"],

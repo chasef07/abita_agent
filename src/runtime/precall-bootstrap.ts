@@ -4,12 +4,13 @@ import {
 } from "../customers/abita/profile.js";
 import {
   ownedMiddleware,
+  type PatientResolveCandidate,
   type PatientResolveVerified,
 } from "../clients/owned-middleware.js";
 import type {
+  CallerCandidate,
   CallerLookupFailed,
   CallerMatch,
-  CallerMatchHint,
   PhoneLookupResult,
   PreCallLookupTelemetry,
   PreCallContextState,
@@ -24,6 +25,7 @@ export interface PreCallBootstrap {
 export async function lookupByPhone(
   phone: string,
   trunkPhone: string,
+  signal?: AbortSignal,
 ): Promise<PhoneLookupResult> {
   const startedAt = Date.now();
   let office: OfficeProfile;
@@ -43,6 +45,7 @@ export async function lookupByPhone(
     office: office.amdOfficePhone,
     identity: { phone },
     fallbackPhone: phone,
+    signal,
   });
   const lookupDurationMs = Date.now() - startedAt;
   if (result.status === "verified") {
@@ -116,11 +119,11 @@ function lookupFailure(
 }
 
 function patientResolveMatchToCallerMatch(
-  match: PatientResolveVerified | CallerMatchHint,
+  match: PatientResolveVerified | PatientResolveCandidate,
   fallbackPhone: string,
   lookupDurationMs: number,
-): CallerMatch | CallerMatchHint {
-  if ("firstName" in match) return { firstName: match.firstName };
+): CallerMatch | CallerCandidate {
+  if (match.status === "candidate") return match;
   return {
     status: "verified",
     patientId: match.patientId,
@@ -144,11 +147,13 @@ function patientResolveMatchToCallerMatch(
 export async function loadPreCallBootstrap({
   callerPhone,
   trunkPhone,
+  signal,
 }: {
   callerPhone: string;
   trunkPhone: string;
+  signal?: AbortSignal;
 }): Promise<PreCallBootstrap> {
-  const phoneLookup = await lookupByPhone(callerPhone, trunkPhone);
+  const phoneLookup = await lookupByPhone(callerPhone, trunkPhone, signal);
 
   return { phoneLookup };
 }
@@ -210,6 +215,7 @@ export function buildPreCallContextState(
       lookupDurationMs: lookup.lookupDurationMs,
       candidates: [
         {
+          status: "verified",
           ref: CALLER_CANDIDATE_REF,
           firstName: name.firstName,
           lastName: name.lastName,
@@ -271,12 +277,13 @@ export function buildPreCallContextState(
 }
 
 function preCallCandidateFromMatch(
-  match: CallerMatch | CallerMatchHint,
+  match: CallerMatch | CallerCandidate,
   index: number,
 ) {
-  if ("status" in match && match.status === "verified") {
+  if (match.status === "verified") {
     const name = splitPatientName(match.name);
     return {
+      status: "verified" as const,
       ref: `precall:${index + 1}`,
       firstName: name.firstName,
       lastName: name.lastName,
@@ -298,18 +305,14 @@ function preCallCandidateFromMatch(
     };
   }
 
-  if ("firstName" in match) {
-    return {
-      ref: `precall:${index + 1}`,
-      firstName: match.firstName,
-      appointments: [],
-    };
-  }
-
   return {
+    status: "candidate" as const,
     ref: `precall:${index + 1}`,
-    firstName: "",
-    appointments: [],
+    patientId: match.patientId,
+    firstName: match.firstName,
+    lastName: match.lastName,
+    dob: match.dob,
+    appointments: [] as [],
   };
 }
 

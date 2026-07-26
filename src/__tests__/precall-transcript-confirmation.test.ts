@@ -16,8 +16,16 @@ function createState(): TestCallState {
   });
 }
 
+async function confirmTranscript(
+  input: Parameters<typeof confirmPreCallIdentityFromTranscript>[0],
+) {
+  return confirmPreCallIdentityFromTranscript(input, async () => {
+    throw new Error("Fully verified pre-call candidates must not be hydrated");
+  });
+}
+
 describe("pre-call transcript confirmation", () => {
-  it("confirms a unique multiple-match candidate from a spelled first name", () => {
+  it("confirms a unique multiple-match candidate from a spelled first name", async () => {
     const state = createState();
     state.identity.preCall = {
       status: "multiple_matches_pending_selection",
@@ -60,7 +68,7 @@ describe("pre-call transcript confirmation", () => {
       identityPromotion: "none",
     };
 
-    const confirmation = confirmPreCallIdentityFromTranscript({
+    const confirmation = await confirmTranscript({
       state,
       transcript: "L-A-R-R-Y.",
       lastAssistantText:
@@ -89,7 +97,7 @@ describe("pre-call transcript confirmation", () => {
     expect(state.identity.patient.name).toBe("LARRY TEST");
   });
 
-  it("selects the first mentioned pre-call patient when the caller names multiple patients", () => {
+  it("selects the first mentioned pre-call patient when the caller names multiple patients", async () => {
     const state = createState();
     state.identity.preCall = {
       status: "multiple_matches_pending_selection",
@@ -127,7 +135,7 @@ describe("pre-call transcript confirmation", () => {
       identityPromotion: "none",
     };
 
-    const confirmation = confirmPreCallIdentityFromTranscript({
+    const confirmation = await confirmTranscript({
       state,
       transcript: "Brandon and Monique, Brandon Anderson and Monique Hamilton.",
       lastAssistantText:
@@ -137,12 +145,17 @@ describe("pre-call transcript confirmation", () => {
     expect(confirmation?.candidateRef).toBe("precall:2");
     expect(confirmation?.systemMessage).toContain("Patient: BRANDON ANDERSON.");
     expect(confirmation?.systemMessage).toContain(
-      "Caller also mentioned preloaded patient: MONIQUE HAMILTON.",
+      "The caller also mentioned another patient.",
     );
     expect(confirmation?.systemMessage).toContain(
       "Finish BRANDON ANDERSON first.",
     );
     expect(confirmation?.systemMessage).toContain("resolve_patient");
+    expect(confirmation?.systemMessage).not.toContain("MONIQUE");
+    expect(confirmation?.systemMessage).not.toContain("HAMILTON");
+    expect(confirmation?.systemMessage).not.toContain("patient-monique");
+    expect(confirmation?.systemMessage).not.toContain("04/05/2012");
+    expect(confirmation?.systemMessage).not.toContain("12/21/2016");
     expect(state.identity.preCall.status).toBe("multiple_match_confirmed");
     expect(state.identity.preCall.selectedCandidateRef).toBe("precall:2");
     expect(state.identity.preCall.identityPromotion).toBe(
@@ -205,7 +218,7 @@ describe("pre-call transcript confirmation", () => {
       identityPromotion: "none",
     };
 
-    const confirmation = confirmPreCallIdentityFromTranscript({
+    const confirmation = await confirmTranscript({
       state,
       transcript: "Chase",
       lastAssistantText: "Who is the appointment for?",
@@ -252,7 +265,7 @@ describe("pre-call transcript confirmation", () => {
     expect(agent.updateChatCtx).toHaveBeenCalledTimes(1);
   });
 
-  it("does not confirm a first-name candidate while collecting last name", () => {
+  it("does not confirm a first-name candidate while collecting last name", async () => {
     const state = createState();
     state.identity.preCall = {
       status: "multiple_matches_pending_selection",
@@ -277,7 +290,7 @@ describe("pre-call transcript confirmation", () => {
       identityPromotion: "none",
     };
 
-    const confirmation = confirmPreCallIdentityFromTranscript({
+    const confirmation = await confirmTranscript({
       state,
       transcript: "T-E-S-T.",
       lastAssistantText: "Thank you. And what is your last name?",
@@ -290,7 +303,7 @@ describe("pre-call transcript confirmation", () => {
     expect(state.identity.patient.identityConfirmed).toBe(false);
   });
 
-  it("does not confirm when multiple candidates share the same first-name signal", () => {
+  it("does not confirm when multiple candidates share the same first-name signal", async () => {
     const state = createState();
     state.identity.preCall = {
       status: "multiple_matches_pending_selection",
@@ -315,7 +328,7 @@ describe("pre-call transcript confirmation", () => {
       identityPromotion: "none",
     };
 
-    const confirmation = confirmPreCallIdentityFromTranscript({
+    const confirmation = await confirmTranscript({
       state,
       transcript: "Kyle",
       lastAssistantText: "Who is the appointment for?",
@@ -325,7 +338,7 @@ describe("pre-call transcript confirmation", () => {
     expect(state.identity.patient.identityConfirmed).toBe(false);
   });
 
-  it("prefers the spoken name over earlier filler words", () => {
+  it("prefers the spoken name over earlier filler words", async () => {
     const state = createState();
     state.identity.preCall = {
       status: "multiple_matches_pending_selection",
@@ -350,7 +363,7 @@ describe("pre-call transcript confirmation", () => {
       identityPromotion: "none",
     };
 
-    const confirmation = confirmPreCallIdentityFromTranscript({
+    const confirmation = await confirmTranscript({
       state,
       transcript: "Can I schedule Jane?",
       lastAssistantText: "Who is the appointment for?",
@@ -360,7 +373,7 @@ describe("pre-call transcript confirmation", () => {
     expect(state.identity.patient.patientId).toBe("patient-jane");
   });
 
-  it("fuzzily confirms a pre-call candidate from a near-name transcript", () => {
+  it("fuzzily confirms a pre-call candidate from a near-name transcript", async () => {
     const state = createState();
     state.identity.preCall = {
       status: "single_match_pending_confirmation",
@@ -379,7 +392,7 @@ describe("pre-call transcript confirmation", () => {
       identityPromotion: "none",
     };
 
-    const confirmation = confirmPreCallIdentityFromTranscript({
+    const confirmation = await confirmTranscript({
       state,
       transcript: "Jayne",
       lastAssistantText:
@@ -391,7 +404,7 @@ describe("pre-call transcript confirmation", () => {
     expect(state.identity.patient.patientId).toBe("patient-jane");
   });
 
-  it("does not auto-confirm a short-name candidate from unrelated speech", () => {
+  it("does not auto-confirm a short-name candidate from unrelated speech", async () => {
     const state = createState();
     state.identity.preCall = {
       status: "single_match_pending_confirmation",
@@ -410,7 +423,7 @@ describe("pre-call transcript confirmation", () => {
       identityPromotion: "none",
     };
 
-    const confirmation = confirmPreCallIdentityFromTranscript({
+    const confirmation = await confirmTranscript({
       state,
       transcript: "I am calling for my son.",
       lastAssistantText:
@@ -421,7 +434,7 @@ describe("pre-call transcript confirmation", () => {
     expect(state.identity.patient.identityConfirmed).toBe(false);
   });
 
-  it("does not promote a pre-call candidate after the caller confirms a new-chart path", () => {
+  it("does not promote a pre-call candidate after the caller confirms a new-chart path", async () => {
     const state = createState();
     state.identity.patient = {
       ...state.identity.patient,
@@ -449,7 +462,7 @@ describe("pre-call transcript confirmation", () => {
       identityPromotion: "none",
     };
 
-    const confirmation = confirmPreCallIdentityFromTranscript({
+    const confirmation = await confirmTranscript({
       state,
       transcript: "Jane",
       lastAssistantText: "What is the patient's first name for the new chart?",
@@ -461,7 +474,7 @@ describe("pre-call transcript confirmation", () => {
     expect(state.identity.patient.patientId).toBeNull();
   });
 
-  it("confirms a single pre-call candidate from first name", () => {
+  it("confirms a single pre-call candidate from first name", async () => {
     const state = createState();
     state.identity.preCall = {
       status: "single_match_pending_confirmation",
@@ -481,7 +494,7 @@ describe("pre-call transcript confirmation", () => {
       identityPromotion: "none",
     };
 
-    const confirmation = confirmPreCallIdentityFromTranscript({
+    const confirmation = await confirmTranscript({
       state,
       transcript: "Jane",
       lastAssistantText:

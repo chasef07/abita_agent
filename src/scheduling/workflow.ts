@@ -45,7 +45,6 @@ import {
 import {
   selectedAvailabilitySlot,
   storeAvailabilitySlots,
-  type AvailabilityTimePreference,
 } from "./availability.js";
 import {
   recordBookedAppointmentInState,
@@ -87,12 +86,19 @@ import type {
   CancellationResult,
   SchedulingMiddleware,
 } from "./middleware.js";
+import {
+  resolveAvailabilityWhen,
+  systemSchedulingClock,
+  timeConstraintCacheValue,
+  type AvailabilityDateSearchMode,
+  type AvailabilityTimeConstraint,
+  type SchedulingClock,
+} from "./temporal.js";
 
 export interface AvailabilityLookupArgs {
-  date?: string;
+  when: string;
   appointmentLane?: SchedulingAppointmentLane;
   office?: AvailabilityOfficeKey;
-  timePreference?: AvailabilityTimePreference;
 }
 
 export interface BookAppointmentArgs {
@@ -111,21 +117,29 @@ export interface RescheduleAppointmentArgs extends BookAppointmentArgs {
 }
 
 export class SchedulingWorkflow {
-  constructor(private readonly middleware: SchedulingMiddleware) {}
+  constructor(
+    private readonly middleware: SchedulingMiddleware,
+    private readonly clock: SchedulingClock = systemSchedulingClock,
+  ) {}
 
   async getAvailability(
     state: CallState,
     args: AvailabilityLookupArgs,
     signal?: AbortSignal,
   ): Promise<string> {
-    const request = buildAvailabilityLookupRequestForState(state, args);
-    if ("blocked" in request) return request.blocked;
-
-    const invalidDateResponse = invalidAvailabilityDateResponse(request.date);
-    if (invalidDateResponse) {
+    const resolvedWhen = resolveAvailabilityWhen(args.when, this.clock);
+    if (resolvedWhen.status !== "resolved") {
       clearAvailabilitySelection(state);
-      return invalidDateResponse;
+      return resolvedWhen.message;
     }
+
+    const request = buildAvailabilityLookupRequestForState(state, {
+      ...args,
+      date: resolvedWhen.date,
+      dateSearchMode: resolvedWhen.dateSearchMode,
+      timeConstraint: resolvedWhen.timeConstraint,
+    });
+    if ("blocked" in request) return request.blocked;
 
     const office = getAmdOfficeForToolCall(state);
     const cachedResponse = cachedAvailabilitySearchResult(
@@ -146,7 +160,8 @@ export class SchedulingWorkflow {
       state,
       result,
       request.routing,
-      request.timePreference,
+      request.timeConstraint,
+      request.dateSearchMode,
     );
     if (response.cacheable) {
       setAvailabilitySearchResult(state, request.signature, response.message);
@@ -689,7 +704,8 @@ function availabilityRequestStillCurrent(
       body: request.body,
       patientId: activePatientId(state),
       routing: request.routing,
-      timePreference: request.timePreference,
+      dateSearchMode: request.dateSearchMode,
+      timeConstraint: request.timeConstraint,
     }) === request.signature
   );
 }
@@ -699,20 +715,19 @@ type AvailabilityWorkflowRequest = {
   date: string;
   routing: string | null;
   signature: string;
-  timePreference: AvailabilityTimePreference;
+  dateSearchMode: AvailabilityDateSearchMode;
+  timeConstraint: AvailabilityTimeConstraint | null;
 };
 
 function buildAvailabilityLookupRequestForState(
   state: CallState,
-  args: AvailabilityLookupArgs,
+  args: AvailabilityLookupArgs & {
+    date: string;
+    dateSearchMode: AvailabilityDateSearchMode;
+    timeConstraint: AvailabilityTimeConstraint | null;
+  },
 ): AvailabilityWorkflowRequest | { blocked: string } {
-  const date = args.date?.trim();
-  const timePreference = args.timePreference ?? "none";
-  if (!date) {
-    throw new ToolError(
-      "Ask what date or starting day the caller wants before checking availability.",
-    );
-  }
+  const { date, dateSearchMode, timeConstraint } = args;
   const incompleteRegistration = incompletePatientRegistrationMessage(state);
   if (incompleteRegistration) {
     return { blocked: incompleteRegistration };
@@ -752,9 +767,11 @@ function buildAvailabilityLookupRequestForState(
       body,
       patientId,
       routing,
-      timePreference,
+      dateSearchMode,
+      timeConstraint,
     }),
-    timePreference,
+    dateSearchMode,
+    timeConstraint,
   };
 }
 
@@ -764,7 +781,8 @@ function availabilitySearchSignature(
     body: MiddlewareAvailabilityRequest;
     patientId: string | null;
     routing: string | null;
-    timePreference: AvailabilityTimePreference;
+    dateSearchMode: AvailabilityDateSearchMode;
+    timeConstraint: AvailabilityTimeConstraint | null;
   },
 ): string {
   const turn = state.workflow.current;
@@ -774,36 +792,12 @@ function availabilitySearchSignature(
     intent: turn?.intent ?? null,
     appointmentLane: turn?.appointmentLane ?? null,
     date: input.body.date,
-    timePreference: input.timePreference,
+    dateSearchMode: input.dateSearchMode,
+    timeConstraint: timeConstraintCacheValue(input.timeConstraint),
     dob: typeof input.body.dob === "string" ? input.body.dob : null,
     routing: input.routing,
     preauthRequired: input.body.preauthRequired === true,
   });
-}
-
-function invalidAvailabilityDateResponse(requestedDate: string): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return null;
-  const today = clinicTodayIso();
-  if (requestedDate > today) return null;
-  return `Same-day and past-date appointments are not available. Ask for tomorrow or a later date; the earliest date to check is ${nextIsoDate(today)}.`;
-}
-
-function clinicTodayIso(now: Date = new Date()): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((item) => item.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-}
-
-function nextIsoDate(date: string): string {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  parsed.setUTCDate(parsed.getUTCDate() + 1);
-  return parsed.toISOString().slice(0, 10);
 }
 
 function ensureNewAppointmentBookingContext(state: CallState): void {

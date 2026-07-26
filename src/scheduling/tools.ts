@@ -5,15 +5,8 @@ import {
   productionSchedulingMiddleware,
   type SchedulingMiddleware,
 } from "./middleware.js";
+import { systemSchedulingClock, type SchedulingClock } from "./temporal.js";
 import { SchedulingWorkflow } from "./workflow.js";
-
-const isoDateSchema = z
-  .string()
-  .trim()
-  .regex(
-    /^\d{4}-\d{2}-\d{2}$/,
-    "Use an exact date in YYYY-MM-DD format. Call get_current_datetime first for relative dates.",
-  );
 
 const bookAppointmentParameters = z
   .object({
@@ -97,39 +90,45 @@ const rescheduleAppointmentParameters = z
   })
   .strict();
 
-export function createSchedulingTools(middleware: SchedulingMiddleware) {
-  const workflow = new SchedulingWorkflow(middleware);
+export function createSchedulingTools(
+  middleware: SchedulingMiddleware,
+  clock: SchedulingClock = systemSchedulingClock,
+) {
+  const workflow = new SchedulingWorkflow(middleware, clock);
 
   const get_availability = tool({
     name: "get_availability",
     description:
-      "Search appointment availability from an exact YYYY-MM-DD start date. " +
+      "Search appointment availability using the caller's own date and time words. " +
+      "Pass those words unchanged in when, such as tomorrow morning or next Tuesday around 3 PM; do not calculate or convert them to a date or time. " +
+      "If the caller asks for the soonest, next available, any day, or only gives a time preference, pass those words unchanged so the workflow can search from the earliest allowed date. " +
       "For new appointments, call after the visit reason and lane are clear; for reschedules, call only after the existing appointment to move is identified. " +
-      "If the caller requests a routine exam but also mentions an eye problem or symptom, ask whether the appointment is mainly for glasses or contacts or for the eye problem before choosing appointmentLane. " +
+      "If a routine exam caller also mentions an eye problem or symptom, ask whether the appointment is mainly for glasses or contacts or for the eye problem before choosing appointmentLane. " +
       "On Hollywood or Sweetwater calls, ask which office the caller wants; never infer it from the number called. " +
-      "Do not call for same-day or past dates, and resolve relative dates with get_current_datetime first. " +
       "Offer only the returned slots. This tool does not book; only claim success after book_appointment succeeds.",
-    parameters: z.object({
-      date: isoDateSchema.describe("Start date in YYYY-MM-DD format."),
-      appointmentLane: z
-        .enum(["medical_md", "routine_od"])
-        .optional()
-        .describe(
-          "Required for new appointment searches. Use medical_md for medical or eye-problem visits, routine_od for routine vision. Omit only for reschedules when the loaded appointment supplies the lane.",
-        ),
-      office: z
-        .enum(["hollywood", "sweetwater"])
-        .optional()
-        .describe(
-          "Required on Hollywood and Sweetwater calls after asking which office the caller wants. Do not infer it from the number called. Omit for every other office.",
-        ),
-      timePreference: z
-        .enum(["morning", "afternoon"])
-        .optional()
-        .describe(
-          "Caller preference for ranking returned slots: morning for AM or before noon, afternoon for PM or afternoon. Omit when there is no preference.",
-        ),
-    }),
+    parameters: z
+      .object({
+        when: z
+          .string()
+          .trim()
+          .min(1)
+          .describe(
+            "The caller's own date and time phrase, forwarded without converting it, such as tomorrow, next Tuesday around 3 PM, June 16 in the morning, or next available.",
+          ),
+        appointmentLane: z
+          .enum(["medical_md", "routine_od"])
+          .optional()
+          .describe(
+            "Required for new appointment searches. Use medical_md for medical or eye-problem visits, routine_od for routine vision. Omit only for reschedules when the loaded appointment supplies the lane.",
+          ),
+        office: z
+          .enum(["hollywood", "sweetwater"])
+          .optional()
+          .describe(
+            "Required on Hollywood and Sweetwater calls after asking which office the caller wants. Do not infer it from the number called. Omit for every other office.",
+          ),
+      })
+      .strict(),
     execute: async (args, { ctx, abortSignal }) => {
       ctx.disallowInterruptions();
       return workflow.getAvailability(getState(ctx), args, abortSignal);

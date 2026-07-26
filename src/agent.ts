@@ -11,6 +11,7 @@ import {
 import type { AudioFrame } from "@livekit/rtc-node";
 import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
+import { resolvePatientWithOwnedMiddleware } from "./clients/owned-middleware.js";
 import type { CallState } from "./state/call-state.js";
 import { recordLatestUserTranscript } from "./state/call-lifecycle.js";
 import {
@@ -33,6 +34,11 @@ import {
   createInitialLookupChatContext,
   type ModelFacingLookupStatus,
 } from "./runtime/precall-model-context.js";
+import {
+  clinicTimestampMessage,
+  systemSchedulingClock,
+  type SchedulingClock,
+} from "./scheduling/temporal.js";
 
 export { addDurableInternalSystemMessage };
 
@@ -43,6 +49,7 @@ type VoiceAgentOptions = {
   onLanguageDecision?: (decision: SttLanguageDecision) => void;
   suppressGreeting?: boolean;
   sttLanguageDetector?: SttLanguageDetector;
+  turnClock?: SchedulingClock;
 };
 
 export function createVoiceAgent(
@@ -52,12 +59,14 @@ export function createVoiceAgent(
 ) {
   const office = getOfficeProfileByPhone(trunkPhone);
   const greeting = options.suppressGreeting ? "" : office.greeting;
+  const identityLookup: PatientResolveLookup =
+    options.identityLookup ?? resolvePatientWithOwnedMiddleware;
 
   const agent = LiveKitAgent.create<CallState>({
     instructions: buildPrompt(trunkPhone),
     chatCtx: createInitialLookupChatContext(lookupStatus),
     tools: buildToolsForTrunk(trunkPhone, {
-      identityLookup: options.identityLookup,
+      identityLookup,
     }),
 
     async onEnter(ctx): Promise<void> {
@@ -72,16 +81,26 @@ export function createVoiceAgent(
       chatCtx: ChatContext,
       newMessage: ChatMessage,
     ): Promise<void> {
+      chatCtx.addMessage({
+        role: "system",
+        content: clinicTimestampMessage(
+          (options.turnClock ?? systemSchedulingClock).now(),
+        ),
+      });
+
       const state = ctx.session.userData;
       const transcript = newMessage.textContent ?? "";
       if (!transcript) return;
 
       recordLatestUserTranscript(state, transcript);
-      const confirmation = confirmPreCallIdentityFromTranscript({
-        state,
-        transcript,
-        lastAssistantText: latestAssistantText(chatCtx),
-      });
+      const confirmation = await confirmPreCallIdentityFromTranscript(
+        {
+          state,
+          transcript,
+          lastAssistantText: latestAssistantText(chatCtx),
+        },
+        identityLookup,
+      );
       if (confirmation) {
         await addDurableInternalSystemMessage(
           ctx.agent,

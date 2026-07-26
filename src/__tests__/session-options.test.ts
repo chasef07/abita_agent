@@ -21,7 +21,7 @@ describe("voice session options", () => {
     initializeLogger({ pretty: false, level: "silent" });
   });
 
-  it("uses bounded LLM-only preemptive generation", () => {
+  it("disables preemptive generation", () => {
     const session = new AgentSession({
       turnHandling: {
         turnDetection: fakeTurnDetector(),
@@ -31,10 +31,8 @@ describe("voice session options", () => {
     const preemptiveGeneration =
       session.sessionOptions.turnHandling.preemptiveGeneration;
 
-    expect(preemptiveGeneration.enabled).toBe(true);
+    expect(preemptiveGeneration.enabled).toBe(false);
     expect(preemptiveGeneration.preemptiveTts).toBe(false);
-    expect(preemptiveGeneration.maxSpeechDuration).toBe(4_000);
-    expect(preemptiveGeneration.maxRetries).toBe(1);
   });
 
   it("uses responsive fixed endpointing for normal conversation", () => {

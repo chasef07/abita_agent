@@ -5,13 +5,14 @@ import {
   normalizePatientResolveResponse,
   stringValue,
   type PatientResolveResult as LegacyPatientResolveResult,
+  type PatientResolveCandidate,
   type PatientResolveVerified,
 } from "./owned-middleware-patient.js";
 
 const DEFAULT_PRODUCTION_BASE_URL =
   "https://advancedmd-token-management-production.up.railway.app";
 
-export type { PatientResolveVerified };
+export type { PatientResolveCandidate, PatientResolveVerified };
 
 export type MiddlewareFailureReason = Exclude<
   OwnedMiddlewareFailureReason,
@@ -28,7 +29,9 @@ export type PatientResolveResult =
   Exclude<LegacyPatientResolveResult, { status: "error" }> | MiddlewareFailure;
 
 export type PatientIdentity =
-  { phone: string } | { firstName: string; lastName: string; dob: string };
+  | { phone: string }
+  | { patientId: string }
+  | { firstName: string; lastName: string; dob: string };
 
 export type AvailabilitySlot = {
   provider: string;
@@ -187,6 +190,7 @@ export interface OwnedMiddleware {
     office: string;
     identity: PatientIdentity;
     fallbackPhone?: string | null;
+    signal?: AbortSignal;
   }): Promise<PatientResolveResult>;
   getAvailability(request: {
     office: string;
@@ -217,6 +221,13 @@ let activeOwnedMiddleware: OwnedMiddleware | undefined;
 
 export function ownedMiddleware(): OwnedMiddleware {
   return activeOwnedMiddleware ?? new HttpOwnedMiddleware();
+}
+
+export function resolvePatientWithOwnedMiddleware(
+  office: string,
+  identity: PatientIdentity,
+): Promise<PatientResolveResult> {
+  return ownedMiddleware().resolvePatient({ office, identity });
 }
 
 export function setOwnedMiddleware(
@@ -252,11 +263,13 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     office: string;
     identity: PatientIdentity;
     fallbackPhone?: string | null;
+    signal?: AbortSignal;
   }): Promise<PatientResolveResult> {
     const transport = await this.#post(
       "/api/patient/resolve",
       request.office,
       request.identity,
+      { signal: request.signal },
     );
     if (!transport.ok) return transport.failure;
     return normalizePatientResolveResponse(transport.value, {
