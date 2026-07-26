@@ -89,6 +89,25 @@ describe("pre-call model context", () => {
     }
   });
 
+  it("instructs the model to ask the exact privacy-safe identity question", () => {
+    const { agent } = createVoiceAgent("single_match", HOLLYWOOD_OFFICE_PHONE, {
+      suppressGreeting: true,
+    });
+
+    expect(agent.instructions).toContain(
+      "If the caller is speaking English and has not supplied the patient's first name",
+    );
+    expect(agent.instructions).toContain(
+      'For single_match in English, say exactly: "I see a record associated with this number. Could you spell the patient\'s first name?"',
+    );
+    expect(agent.instructions).toContain(
+      'For multiple_matches in English, say exactly: "I see a few records associated with this number. Could you spell the patient\'s first name?"',
+    );
+    expect(agent.instructions).toContain(
+      "If the caller already supplied the patient's first name, call resolve_patient with it instead of asking again.",
+    );
+  });
+
   it("uses one system message for every allowed status", () => {
     for (const status of [
       "single_match",

@@ -72,7 +72,7 @@ describe("pre-call transcript confirmation", () => {
       state,
       transcript: "L-A-R-R-Y.",
       lastAssistantText:
-        "Got it. Could you please spell the first name for me?",
+        "I see a few records associated with this number. Could you spell the patient's first name?",
     });
 
     expect(confirmation?.candidateRef).toBe("precall:2");
@@ -498,7 +498,7 @@ describe("pre-call transcript confirmation", () => {
       state,
       transcript: "Jane",
       lastAssistantText:
-        "I see a patient record associated with this phone number. Could you please spell the first name for me?",
+        "I see a record associated with this number. Could you spell the patient's first name?",
     });
 
     expect(confirmation?.candidateRef).toBe(CALLER_CANDIDATE_REF);
