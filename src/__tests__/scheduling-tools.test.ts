@@ -1280,7 +1280,9 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe("Booked June 1 at 9:00 AM with Dr. Bach.");
+    expect(result).toMatch(
+      /^Booked June 1 at 9:00 AM with Dr\. Bach\. Internal context: appointmentRef appointment-[a-z0-9]+\. Use this exact appointmentRef if the caller asks to cancel this appointment during this call\. Do not read this opaque reference aloud\.$/,
+    );
     expect(middleware.operations).toMatchObject([
       {
         kind: "book",
@@ -1309,6 +1311,61 @@ describe("scheduling tools", () => {
         appointment: { patientName: "Jane Doe" },
       },
     ]);
+  });
+
+  it("cancels a newly booked appointment by its returned appointment reference", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      bookings: [bookingReceipt()],
+      cancellations: [{ status: "cancelled" }],
+    });
+    const { book_appointment, cancel_appointment } =
+      createSchedulingTools(middleware);
+    const state = createState();
+    prepareBooking(state);
+    const ctx = createToolContext(state);
+
+    const bookingResult = await book_appointment.execute(
+      {
+        appointmentSlotRef: "S1",
+        appointmentReason: "left eye pain since yesterday",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "booking-1",
+      } as never,
+    );
+    const appointmentRef = bookingResult.match(
+      /appointmentRef (appointment-[a-z0-9]+)/,
+    )?.[1];
+
+    expect(appointmentRef).toBeDefined();
+    expect(bookingResult).toContain("Do not read this opaque reference aloud.");
+
+    await cancel_appointment.execute(
+      { appointmentRef: appointmentRef as string },
+      {
+        ctx: ctx as never,
+        toolCallId: "cancel-1",
+      } as never,
+    );
+
+    expect(middleware.operations).toEqual([
+      expect.objectContaining({ kind: "book" }),
+      {
+        kind: "cancel",
+        office: "+17275919997",
+        request: { appointmentId: 456, patientId: "patient-1" },
+      },
+    ]);
+    expect(state.identity.patient.appointments).toEqual([]);
+    expect(appointmentActions(state)[0]?.message).toBe(
+      "Booked June 1 at 9:00 AM with Dr. Bach.",
+    );
+    expect(JSON.stringify(appointmentActions(state))).not.toContain(
+      appointmentRef,
+    );
   });
 
   it("invalidates completed availability after a successful booking", async () => {

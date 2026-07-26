@@ -264,7 +264,11 @@ export class SchedulingWorkflow {
         appointmentId: result.appointmentId,
         appointmentDescription: spokenSlot(selectedSlot),
       });
-      recordBookedAppointmentInState(state, selectedSlot, result);
+      const appointmentRef = recordBookedAppointmentInState(
+        state,
+        selectedSlot,
+        result,
+      );
       clearAvailabilitySelection(state, {
         invalidateReads: "booking_succeeded",
       });
@@ -280,7 +284,7 @@ export class SchedulingWorkflow {
           result,
         ),
       });
-      return message;
+      return `${message} Internal context: appointmentRef ${appointmentRef}. Use this exact appointmentRef if the caller asks to cancel this appointment during this call. Do not read this opaque reference aloud.`;
     }
     if (bookingHadPositiveStatusWithoutAppointmentId(result)) {
       clearAvailabilitySelection(state, {
