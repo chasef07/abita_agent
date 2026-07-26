@@ -49,17 +49,12 @@ const bookAppointmentParameters = z
 
 const cancelAppointmentParameters = z
   .object({
-    appointmentDate: z
+    appointmentRef: z
       .string()
-      .optional()
+      .trim()
+      .min(1)
       .describe(
-        'Date the caller used to identify a loaded appointment, such as "June 2", "June 2nd", or "2026-06-02".',
-      ),
-    appointmentTime: z
-      .string()
-      .optional()
-      .describe(
-        'Time the caller used to identify a loaded appointment, such as "10 AM" or "2:30 PM". Use with appointmentDate when needed.',
+        "Opaque appointment reference associated with the exact loaded appointment confirmed by the caller; this is not a backend ID.",
       ),
   })
   .strict();
@@ -162,9 +157,9 @@ export function createSchedulingTools(middleware: SchedulingMiddleware) {
     description:
       "Cancel a loaded appointment. " +
       "Call this after the patient is verified and the caller confirms the exact appointment to cancel. " +
-      "Pass appointmentDate and appointmentTime when the caller identifies the appointment by date or time. " +
-      "Do not pass backend patient IDs or appointment IDs; the tool selects the appointment from loaded appointment state. " +
-      "Omit all appointment selectors only for the latest booked appointment or exactly one loaded appointment.",
+      "Pass the matching appointmentRef shown with that loaded appointment. " +
+      "Do not pass backend patient IDs or appointment IDs. " +
+      "Do not pass appointment dates or times; the tool resolves appointmentRef only against current loaded appointment state.",
     parameters: cancelAppointmentParameters,
     execute: async (args, { ctx }) => {
       ctx.disallowInterruptions();

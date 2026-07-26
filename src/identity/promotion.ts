@@ -3,7 +3,7 @@ import type {
   PatientResolveVerified,
 } from "../clients/owned-middleware.js";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
-import { publicCallerAppointments } from "../state/appointments.js";
+import { normalizeCallerAppointments } from "../state/appointments.js";
 import {
   CALLER_CANDIDATE_REF,
   type AppointmentLoadStatus,
@@ -166,7 +166,10 @@ export function applyPatientResult(
         result,
         extractedAppointments,
       ),
-      appointments: publicCallerAppointments(extractedAppointments),
+      appointments: normalizeCallerAppointments(
+        extractedAppointments,
+        patientId,
+      ),
     },
     "operation",
   );
@@ -324,7 +327,7 @@ export async function resolvePatientIdentity(
     return recordIdentityResolution(state, {
       outcome:
         hadConfirmedActivePatient && patientChanged ? "switched" : "verified",
-      reply: verifiedPatientReply(result),
+      reply: confirmedPatientReply(state),
     });
   }
   if (result.status === "not_found") {
@@ -387,7 +390,10 @@ function activatePatient(
     name: patient.name,
     dob: patient.dob,
     phone: patient.phone,
-    appointments: patient.appointments,
+    appointments: normalizeCallerAppointments(
+      patient.appointments,
+      patient.patientId,
+    ),
     appointmentsStatus: patient.appointmentsStatus,
   };
   delete state.identity.pendingRegistration;
@@ -467,7 +473,10 @@ function activateResolvedPatient(
       routingAmbiguous: result.routingAmbiguous,
       preauthRequired: result.preauthRequired,
       appointmentsStatus: result.appointmentsStatus,
-      appointments: publicCallerAppointments(result.appointments),
+      appointments: normalizeCallerAppointments(
+        result.appointments,
+        result.patientId,
+      ),
     },
     "operation",
   );
@@ -979,19 +988,6 @@ function completeVerifiedIdentity(result: PatientResolveVerified): boolean {
   );
 }
 
-function verifiedPatientReply(result: PatientResolveVerified): string {
-  const patientName = result.name?.trim() || "the patient";
-  const prefix = verifiedExistingPatientPrefix(
-    patientName,
-    result.insuranceCarrier,
-  );
-  return appointmentReply(
-    prefix,
-    result.appointmentsStatus,
-    result.appointments,
-  );
-}
-
 function confirmedPatientReply(state: CallState): string {
   const patientName = state.identity.patient.name?.trim() || "the patient";
   const insurance = insuranceOnFile(state);
@@ -1051,9 +1047,7 @@ function appointmentSummary(state: CallState): string {
 }
 
 function renderAppointments(appointments: CallerAppointment[]): string {
-  const spoken = appointments.slice(0, 3).map(spokenAppointment).join("; ");
-  const remaining = appointments.length - 3;
-  return remaining > 0 ? `${spoken}; and ${remaining} more` : spoken;
+  return appointments.map(spokenAppointment).join("; ");
 }
 
 function patientLookupReply(result: PatientResolveResult): string {
@@ -1075,15 +1069,19 @@ export function incompletePatientRegistrationMessage(
 }
 
 function spokenAppointment(appointment: {
+  appointmentRef?: string;
   date: string;
   time?: string | null;
   provider?: string | null;
 }): string {
-  return [
+  const spoken = [
     appointment.date,
     appointment.time ? `at ${appointment.time}` : "",
     appointment.provider ? `with ${appointment.provider}` : "",
   ]
     .filter(Boolean)
     .join(" ");
+  return appointment.appointmentRef
+    ? `${spoken} (appointmentRef ${appointment.appointmentRef})`
+    : spoken;
 }

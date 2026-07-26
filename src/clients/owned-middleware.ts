@@ -13,7 +13,10 @@ const DEFAULT_PRODUCTION_BASE_URL =
 
 export type { PatientResolveVerified };
 
-export type MiddlewareFailureReason = OwnedMiddlewareFailureReason;
+export type MiddlewareFailureReason = Exclude<
+  OwnedMiddlewareFailureReason,
+  "invalid_cancellation_token"
+>;
 
 export type MiddlewareFailure = {
   status: "error";
@@ -137,7 +140,25 @@ export type BookAppointmentResult =
   | MiddlewareFailure;
 
 export type CancelAppointmentResult =
-  { status: "cancelled"; message: string | null } | MiddlewareFailure;
+  | { status: "cancelled"; message: string | null }
+  | {
+      status: "rejected";
+      reason: "invalid_cancellation_token";
+      message: string | null;
+    }
+  | MiddlewareFailure;
+
+export type CancelAppointmentInput =
+  | {
+      cancellationToken: string;
+      appointmentId?: never;
+      patientId?: never;
+    }
+  | {
+      cancellationToken?: never;
+      appointmentId: number;
+      patientId: string;
+    };
 
 export type UpdateInsuranceInput = {
   patientId: string;
@@ -183,11 +204,9 @@ export interface OwnedMiddleware {
     office: string;
     booking: BookAppointmentInput;
   }): Promise<BookAppointmentResult>;
-  cancelAppointment(request: {
-    office: string;
-    appointmentId: number;
-    patientId: string;
-  }): Promise<CancelAppointmentResult>;
+  cancelAppointment(
+    request: { office: string } & CancelAppointmentInput,
+  ): Promise<CancelAppointmentResult>;
   updateInsurance(request: {
     office: string;
     update: UpdateInsuranceInput;
@@ -303,18 +322,20 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       : transport.failure;
   }
 
-  async cancelAppointment(request: {
-    office: string;
-    appointmentId: number;
-    patientId: string;
-  }): Promise<CancelAppointmentResult> {
+  async cancelAppointment(
+    request: { office: string } & CancelAppointmentInput,
+  ): Promise<CancelAppointmentResult> {
+    const usesCancellationToken = "cancellationToken" in request;
     const transport = await this.#post(
       "/api/appointment/cancel",
       request.office,
-      {
-        appointmentId: request.appointmentId,
-        patientId: request.patientId,
-      },
+      usesCancellationToken
+        ? { cancellationToken: request.cancellationToken }
+        : {
+            appointmentId: request.appointmentId,
+            patientId: request.patientId,
+          },
+      usesCancellationToken ? { includeOffice: false } : {},
     );
     return transport.ok
       ? normalizeCancelledAppointment(transport.value)
@@ -720,10 +741,23 @@ function normalizeBookedAppointment(raw: unknown): BookAppointmentResult {
 }
 
 function normalizeCancelledAppointment(raw: unknown): CancelAppointmentResult {
-  if (isRecord(raw) && stringValue(raw.status)?.toLowerCase() === "cancelled") {
+  const response = isRecord(raw) ? raw : null;
+  const status = response ? stringValue(response.status)?.toLowerCase() : null;
+  if (status === "cancelled") {
     return {
       status: "cancelled",
-      message: stringValue(raw.message),
+      message: stringValue(response?.message),
+    };
+  }
+  if (
+    status === "error" &&
+    stringValue(response?.outcome)?.toLowerCase() ===
+      "invalid_cancellation_token"
+  ) {
+    return {
+      status: "rejected",
+      reason: "invalid_cancellation_token",
+      message: stringValue(response?.message),
     };
   }
   return {

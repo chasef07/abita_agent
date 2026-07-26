@@ -197,8 +197,11 @@ describe("pre-call transcript confirmation", () => {
     });
 
     expect(confirmation?.candidateRef).toBe("precall:1");
+    const appointmentRef =
+      state.identity.patient.appointments[0]?.appointmentRef;
+    expect(appointmentRef).toMatch(/^appointment-[a-z0-9]+$/);
     expect(confirmation?.systemMessage).toContain(
-      "Upcoming appointments loaded: June 1 at 9:00 AM with Dr. Bach.",
+      `Upcoming appointments loaded: June 1 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`,
     );
   });
 

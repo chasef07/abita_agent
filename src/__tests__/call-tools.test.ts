@@ -1087,6 +1087,7 @@ describe("stateful call tools", () => {
             type: "Office Visit",
             facility: "Spring Hill",
             confirmed: false,
+            cancellationToken: "private-cancellation-token",
           },
         ],
       }),
@@ -1101,11 +1102,18 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe(
-      "Verified existing patient Jane Doe. Insurance on file: self pay. Loaded 1 appointment: June 1 at 9:00 AM with Dr. Bach.",
+    expect(result).toMatch(
+      /^Verified existing patient Jane Doe\. Insurance on file: self pay\. Loaded 1 appointment: June 1 at 9:00 AM with Dr\. Bach \(appointmentRef appointment-[a-z0-9]+\)\.$/,
     );
+    expect(result).not.toContain("123");
+    expect(result).not.toContain("private-cancellation-token");
     expect(state.identity.patient.patientId).toBe("patient-1");
-    expect(state.identity.patient.appointments).toHaveLength(1);
+    expect(state.identity.patient.appointments).toEqual([
+      expect.objectContaining({
+        appointmentRef: expect.stringMatching(/^appointment-[a-z0-9]+$/),
+        cancellationToken: "private-cancellation-token",
+      }),
+    ]);
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
         firstName: "Jane",
@@ -1116,6 +1124,103 @@ describe("stateful call tools", () => {
     expect(middleware.requests.resolvePatient[0]?.identity).not.toHaveProperty(
       "phone",
     );
+  });
+
+  it("presents a distinct safe reference with every loaded appointment choice", async () => {
+    const state = createState();
+    state.identity.patient.patientId = null;
+    state.identity.patient.name = null;
+    state.identity.patient.identityConfirmed = false;
+    const middleware = stubPatient(
+      verifiedPatientResult({
+        appointmentsStatus: "found",
+        appointments: [
+          {
+            id: 123,
+            date: "June 1",
+            time: "9:00 AM",
+            provider: "Dr. Bach",
+            type: "Office Visit",
+            facility: "Spring Hill",
+            confirmed: false,
+            cancellationToken: "private-token-one",
+          },
+          {
+            id: 456,
+            date: "June 2",
+            time: "2:00 PM",
+            provider: "Dr. Licht",
+            type: "Follow-up",
+            facility: "Spring Hill",
+            confirmed: false,
+            cancellationToken: "private-token-two",
+          },
+        ],
+      }),
+    );
+
+    const result = await resolve_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    const presentedRefs =
+      result.match(/appointmentRef (appointment-[a-z0-9]+)/g) ?? [];
+    expect(presentedRefs).toHaveLength(2);
+    expect(new Set(presentedRefs).size).toBe(2);
+    expect(result).not.toContain("123");
+    expect(result).not.toContain("456");
+    expect(result).not.toContain("private-token");
+    expect(state.identity.patient.appointments).toEqual([
+      expect.objectContaining({
+        appointmentRef: expect.stringMatching(/^appointment-[a-z0-9]+$/),
+        cancellationToken: "private-token-one",
+      }),
+      expect.objectContaining({
+        appointmentRef: expect.stringMatching(/^appointment-[a-z0-9]+$/),
+        cancellationToken: "private-token-two",
+      }),
+    ]);
+    expect(middleware.requests.resolvePatient).toHaveLength(1);
+  });
+
+  it("presents all loaded appointment references instead of hiding extra choices", async () => {
+    const state = createState();
+    state.identity.patient.patientId = null;
+    state.identity.patient.name = null;
+    state.identity.patient.identityConfirmed = false;
+    stubPatient(
+      verifiedPatientResult({
+        appointmentsStatus: "found",
+        appointments: [1, 2, 3, 4].map((day) => ({
+          id: day,
+          date: `June ${day}`,
+          time: "9:00 AM",
+          provider: "Dr. Bach",
+          type: "Office Visit",
+          facility: "Spring Hill",
+          confirmed: false,
+        })),
+      }),
+    );
+
+    const result = await resolve_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(
+      result.match(/appointmentRef appointment-[a-z0-9]+/g) ?? [],
+    ).toHaveLength(4);
+    expect(result).not.toContain("and 1 more");
   });
 
   it("clears stale booking context before resolving a different full-identity patient", async () => {
@@ -1268,8 +1373,8 @@ describe("stateful call tools", () => {
     );
 
     expect(testMiddleware.operations).toHaveLength(0);
-    expect(result).toBe(
-      "Verified existing patient Jane Doe. Insurance on file: Aetna. Loaded 1 appointment: June 1 at 9:00 AM with Dr. Bach.",
+    expect(result).toMatch(
+      /^Verified existing patient Jane Doe\. Insurance on file: Aetna\. Loaded 1 appointment: June 1 at 9:00 AM with Dr\. Bach \(appointmentRef appointment-[a-z0-9]+\)\.$/,
     );
     expect(state.identity.preCall?.status).toBe("single_match_confirmed");
     expect(state.identity.patient.identityConfirmed).toBe(true);
@@ -1613,8 +1718,8 @@ describe("stateful call tools", () => {
     } as never);
 
     expect(testMiddleware.operations).toHaveLength(0);
-    expect(result).toBe(
-      "Verified existing patient AL DOE. Insurance on file: Aetna. Loaded 1 appointment: June 1 at 9:00 AM with Dr. Bach.",
+    expect(result).toMatch(
+      /^Verified existing patient AL DOE\. Insurance on file: Aetna\. Loaded 1 appointment: June 1 at 9:00 AM with Dr\. Bach \(appointmentRef appointment-[a-z0-9]+\)\.$/,
     );
     expect(state.identity.patient.identityConfirmed).toBe(true);
     expect(state.identity.patient.patientId).toBe("patient-al");

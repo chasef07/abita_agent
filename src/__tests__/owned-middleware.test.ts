@@ -618,6 +618,88 @@ describe("HTTP owned middleware transport", () => {
     });
   });
 
+  it("normalizes and privately retains cancellation tokens on resolved appointments", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          ...verifiedPatient,
+          appointmentsStatus: "found",
+          appointments: [
+            {
+              id: 12345,
+              date: "Monday, August 3, 2026",
+              time: "9:00 AM",
+              provider: "Dr. Bach",
+              type: "Follow-up",
+              facility: "Spring Hill",
+              confirmed: true,
+              cancellationToken: "  private-cancellation-token  ",
+            },
+          ],
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.resolvePatient({
+      office: SPRING_HILL_OFFICE_PHONE,
+      identity: { phone: "+17275551212" },
+    });
+
+    expect(result).toMatchObject({
+      status: "verified",
+      appointments: [
+        {
+          id: 12345,
+          cancellationToken: "private-cancellation-token",
+        },
+      ],
+    });
+  });
+
+  it("serializes a private cancellation token without backend identity fields", async () => {
+    const fetchMock = vi.fn(async () => Response.json(cancelledAppointment));
+    const middleware = new HttpOwnedMiddleware({
+      fetch: fetchMock,
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    await middleware.cancelAppointment({
+      office: SPRING_HILL_OFFICE_PHONE,
+      cancellationToken: "private-cancellation-token",
+    });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      cancellationToken: "private-cancellation-token",
+    });
+  });
+
+  it("preserves invalid cancellation token as a semantic outcome", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "error",
+          outcome: "invalid_cancellation_token",
+          message:
+            "cancellationToken is invalid or expired. Please load appointments again and choose the appointment to cancel.",
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.cancelAppointment({
+      office: SPRING_HILL_OFFICE_PHONE,
+      cancellationToken: "expired-cancellation-token",
+    });
+
+    expect(result).toEqual({
+      status: "rejected",
+      reason: "invalid_cancellation_token",
+      message:
+        "cancellationToken is invalid or expired. Please load appointments again and choose the appointment to cancel.",
+    });
+  });
+
   it("derives the slot date from the middleware datetime", async () => {
     const middleware = new HttpOwnedMiddleware({
       fetch: vi.fn(async () =>

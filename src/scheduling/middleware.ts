@@ -3,6 +3,7 @@ import {
   type AvailabilityResult,
   type BookAppointmentInput,
   type BookAppointmentResult,
+  type CancelAppointmentInput,
   type CancelAppointmentResult,
   type OwnedMiddleware,
 } from "../clients/owned-middleware.js";
@@ -23,10 +24,7 @@ export type BookingSuccess = Extract<
   BookAppointmentResult,
   { status: "booked" | "partial" }
 >;
-export type CancellationRequest = Omit<
-  Parameters<OwnedMiddleware["cancelAppointment"]>[0],
-  "office"
->;
+export type CancellationRequest = CancelAppointmentInput;
 export type CancellationResult = CancelAppointmentResult;
 
 export interface SchedulingMiddleware {

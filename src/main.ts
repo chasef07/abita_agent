@@ -18,7 +18,7 @@ import {
   createCanonicalCallState,
   type CallState,
 } from "./state/call-state.js";
-import { publicCallerAppointments } from "./state/appointments.js";
+import { normalizeCallerAppointments } from "./state/appointments.js";
 import { transferIsAccepted } from "./state/call-lifecycle.js";
 import {
   buildPreCallContextState,
@@ -266,7 +266,10 @@ export default defineAgent({
         routingAmbiguous: verified?.routingAmbiguous ?? false,
         preauthRequired: verified?.preauthRequired ?? false,
         appointmentsStatus: verified?.appointmentsStatus ?? null,
-        appointments: publicCallerAppointments(verified?.appointments),
+        appointments: normalizeCallerAppointments(
+          verified?.appointments,
+          verified?.patientId,
+        ),
         voiceLanguage: initialVoiceLanguage,
       });
       session.userData.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;

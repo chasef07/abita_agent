@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
   AppointmentLoadStatus,
   CallState,
@@ -9,8 +10,9 @@ import type {
 } from "./call-state.js";
 import { activePatientId } from "./call-state.js";
 
-export function publicCallerAppointments(
+export function normalizeCallerAppointments(
   appointments: readonly StoredCallerAppointment[] | null | undefined,
+  patientId: string | null | undefined,
 ): CallerAppointment[] {
   return (appointments ?? []).map(
     ({
@@ -22,21 +24,37 @@ export function publicCallerAppointments(
       appointmentTypeId,
       facility,
       confirmed,
-    }) => ({
-      id,
-      date,
-      time,
-      provider,
-      type,
-      ...(appointmentTypeId !== undefined ? { appointmentTypeId } : {}),
-      facility,
-      confirmed,
-    }),
+      cancellationToken,
+    }) => {
+      const appointment = {
+        id,
+        date,
+        time,
+        provider,
+        type,
+        ...(appointmentTypeId !== undefined ? { appointmentTypeId } : {}),
+        facility,
+        confirmed,
+        ...(cancellationToken?.trim()
+          ? { cancellationToken: cancellationToken.trim() }
+          : {}),
+      };
+      const owner = patientId?.trim();
+      return {
+        ...appointment,
+        ...(owner
+          ? { appointmentRef: appointmentRefForPatient(owner, appointment) }
+          : {}),
+      };
+    },
   );
 }
 
 export function activeAppointments(state: CallState): CallerAppointment[] {
-  return [...state.identity.patient.appointments];
+  return normalizeCallerAppointments(
+    state.identity.patient.appointments,
+    activePatientId(state),
+  );
 }
 
 export function activeAppointmentsStatus(
@@ -50,7 +68,10 @@ export function replaceActiveAppointments(
   appointments: CallerAppointment[],
   status: AppointmentLoadStatus | null,
 ): void {
-  state.identity.patient.appointments = appointments;
+  state.identity.patient.appointments = normalizeCallerAppointments(
+    appointments,
+    activePatientId(state),
+  );
   state.identity.patient.appointmentsStatus = status;
 }
 
@@ -58,7 +79,7 @@ export function removeActiveAppointment(
   state: CallState,
   appointmentId: number,
 ): void {
-  const appointment = state.identity.patient.appointments.find(
+  const appointment = activeAppointments(state).find(
     (item) => item.id === appointmentId,
   );
   const patientId = activePatientId(state);
@@ -146,4 +167,24 @@ export function recordCompletedRescheduleForPatient(
   reschedule: CompletedRescheduleState,
 ): void {
   state.identity.completedReschedulesByPatientId[patientId] = reschedule;
+}
+
+export function appointmentRefForPatient(
+  patientId: string,
+  appointment: Pick<
+    CallerAppointment,
+    "id" | "date" | "time" | "provider" | "type" | "facility"
+  >,
+): string {
+  const source = JSON.stringify([
+    patientId,
+    appointment.id,
+    appointment.date,
+    appointment.time,
+    appointment.provider,
+    appointment.type,
+    appointment.facility,
+  ]);
+  const digest = createHash("sha256").update(source).digest("hex").slice(0, 24);
+  return `appointment-${digest}`;
 }
