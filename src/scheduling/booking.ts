@@ -31,6 +31,7 @@ type BookingRequestInput = {
   patientId: string;
   appointmentReason: string;
   referringDoctor?: string;
+  now: Date;
   appointmentTypeIdOverride?: number | null;
   patientStatusOverride?: AppointmentPatientStatus | null;
 };
@@ -69,6 +70,7 @@ export function bookingRequestBodyForSlot(
   const bookingToken = availabilityBookingToken(
     state,
     input.selectedSlot.slotId,
+    input.now,
   );
   if (!bookingToken) {
     clearAvailabilitySelection(state, {

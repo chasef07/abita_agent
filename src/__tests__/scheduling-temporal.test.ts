@@ -60,6 +60,7 @@ function foundAvailability(
     actualDate: date,
     searchedFrom: date,
     searchedThrough: date,
+    bookingTokenExpiresAt: "2027-01-01T00:00:00Z",
     dateShifted: false,
     shouldRetrySameSearch: false,
     slots: slots.map((slot, index) => ({

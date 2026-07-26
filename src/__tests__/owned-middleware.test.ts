@@ -106,6 +106,7 @@ const availabilityFound: AvailabilityResult = {
   actualDate: "2026-08-01",
   searchedFrom: "2026-08-01",
   searchedThrough: "2026-08-01",
+  bookingTokenExpiresAt: "2026-08-01T16:15:00Z",
   dateShifted: false,
   shouldRetrySameSearch: false,
 };
@@ -125,6 +126,7 @@ describe.each([
             actualDate: "2026-08-01",
             searchedFrom: "2026-08-01",
             searchedThrough: "2026-08-01",
+            bookingTokenExpiresAt: "2026-08-01T16:15:00Z",
             dateShifted: false,
             shouldRetrySameSearch: false,
           }),

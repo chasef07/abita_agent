@@ -252,6 +252,7 @@ export interface AppointmentActionAnalytics {
 export type AvailabilityInvalidationReason =
   | "booking_authorization_invalidated"
   | "booking_succeeded"
+  | "booking_token_expired"
   | "cancellation_succeeded"
   | "office_changed"
   | "patient_context_changed"

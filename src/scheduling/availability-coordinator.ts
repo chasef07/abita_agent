@@ -6,9 +6,23 @@ import { recordAvailabilityReadEvent } from "../state/observability.js";
 import type { AvailabilityResult } from "./middleware.js";
 
 type AvailabilityCoordinator = {
-  completed: Map<string, AvailabilityResult>;
+  completed: Map<
+    string,
+    { expiresAt: number | null; result: AvailabilityResult }
+  >;
   generation: number;
-  inFlight: Map<string, Promise<AvailabilityResult>>;
+  inFlight: Map<string, InFlightAvailabilityRead>;
+};
+
+type InFlightAvailabilityRead = {
+  promise: Promise<AvailabilityResult>;
+  result?: AvailabilityResult;
+};
+
+type CoordinatedAvailabilityReadOptions = {
+  now: Date;
+  onCacheExpired: () => void;
+  signal?: AbortSignal;
 };
 
 const coordinatorKey = Symbol("availabilityCoordinator");
@@ -21,24 +35,34 @@ export async function coordinatedAvailabilityRead(
   state: CallState,
   key: string,
   read: () => Promise<AvailabilityResult>,
-  signal?: AbortSignal,
+  options: CoordinatedAvailabilityReadOptions,
 ): Promise<AvailabilityResult> {
   const startedAt = Date.now();
+  const { now, onCacheExpired, signal } = options;
   signal?.throwIfAborted();
   const coordinator = availabilityCoordinatorFor(state);
   const completed = coordinator.completed.get(key);
   if (completed) {
-    recordAvailabilityReadEvent(state, {
-      operation: "completed_cache_hit",
-      durationMs: elapsedMilliseconds(startedAt),
-    });
-    return completed;
+    if (completed.expiresAt !== null && now.getTime() >= completed.expiresAt) {
+      coordinator.completed.clear();
+      onCacheExpired();
+      recordAvailabilityReadEvent(state, {
+        operation: "invalidation",
+        reason: "booking_token_expired",
+      });
+    } else {
+      recordAvailabilityReadEvent(state, {
+        operation: "completed_cache_hit",
+        durationMs: elapsedMilliseconds(startedAt),
+      });
+      return completed.result;
+    }
   }
 
   const existing = coordinator.inFlight.get(key);
   if (existing) {
     try {
-      return await existing;
+      return await existing.promise;
     } finally {
       recordAvailabilityReadEvent(state, {
         operation: "in_flight_join",
@@ -48,17 +72,22 @@ export async function coordinatedAvailabilityRead(
   }
 
   const pending = Promise.resolve().then(read);
-  coordinator.inFlight.set(key, pending);
+  const inFlight: InFlightAvailabilityRead = { promise: pending };
+  inFlight.promise = pending.then((result) => {
+    inFlight.result = result;
+    return result;
+  });
+  coordinator.inFlight.set(key, inFlight);
   const discard = () => {
-    if (coordinator.inFlight.get(key) === pending) {
+    if (coordinator.inFlight.get(key) === inFlight) {
       invalidateAvailabilityReads(state, "request_cancelled");
     }
   };
   signal?.addEventListener("abort", discard, { once: true });
   try {
-    return await pending;
+    return await inFlight.promise;
   } catch (error) {
-    if (coordinator.inFlight.get(key) === pending) {
+    if (coordinator.inFlight.get(key) === inFlight) {
       coordinator.inFlight.delete(key);
     }
     throw error;
@@ -75,14 +104,59 @@ export function cacheCompletedAvailabilityRead(
   state: CallState,
   key: string,
   result: AvailabilityResult,
+  now: Date,
 ): void {
   const coordinator = availabilityCoordinatorFor(state);
-  coordinator.completed.set(key, copyAvailabilityResult(result));
-  coordinator.inFlight.delete(key);
+  const expiresAt = availabilityResultExpiresAt(result);
+  if (
+    (result.status !== "found" && result.status !== "none") ||
+    (result.status === "found" &&
+      (expiresAt === null || expiresAt <= now.getTime()))
+  ) {
+    discardInFlightAvailabilityResult(coordinator, key, result);
+    return;
+  }
+  coordinator.completed.set(key, {
+    expiresAt,
+    result: copyAvailabilityResult(result),
+  });
+  discardInFlightAvailabilityResult(coordinator, key, result);
 }
 
-export function discardAvailabilityRead(state: CallState, key: string): void {
-  availabilityCoordinatorFor(state).inFlight.delete(key);
+export function discardAvailabilityRead(
+  state: CallState,
+  key: string,
+  result: AvailabilityResult,
+): void {
+  discardInFlightAvailabilityResult(
+    availabilityCoordinatorFor(state),
+    key,
+    result,
+  );
+}
+
+export function invalidateAvailabilityCacheForExpiredResult(
+  state: CallState,
+  key: string,
+  result: AvailabilityResult,
+): void {
+  const coordinator = availabilityCoordinatorFor(state);
+  if (coordinator.inFlight.get(key)?.result !== result) return;
+
+  coordinator.completed.clear();
+  coordinator.inFlight.delete(key);
+  recordAvailabilityReadEvent(state, {
+    operation: "invalidation",
+    reason: "booking_token_expired",
+  });
+}
+
+export function availabilityResultHasExpiredBookingTokens(
+  result: AvailabilityResult,
+  now: Date,
+): boolean {
+  const expiresAt = availabilityResultExpiresAt(result);
+  return expiresAt !== null && expiresAt <= now.getTime();
 }
 
 export function availabilityReadGeneration(state: CallState): number {
@@ -125,6 +199,16 @@ function availabilityCoordinatorFor(state: CallState): AvailabilityCoordinator {
   return coordinator;
 }
 
+function discardInFlightAvailabilityResult(
+  coordinator: AvailabilityCoordinator,
+  key: string,
+  result: AvailabilityResult,
+): void {
+  if (coordinator.inFlight.get(key)?.result === result) {
+    coordinator.inFlight.delete(key);
+  }
+}
+
 function elapsedMilliseconds(startedAt: number): number {
   return Math.max(0, Date.now() - startedAt);
 }
@@ -135,4 +219,12 @@ function copyAvailabilityResult(
   return result.status === "error"
     ? { ...result }
     : { ...result, slots: result.slots.map((slot) => ({ ...slot })) };
+}
+
+function availabilityResultExpiresAt(
+  result: AvailabilityResult,
+): number | null {
+  if (result.status !== "found") return null;
+  const expiresAt = Date.parse(result.bookingTokenExpiresAt ?? "");
+  return Number.isFinite(expiresAt) ? expiresAt : null;
 }

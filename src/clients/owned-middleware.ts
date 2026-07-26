@@ -49,6 +49,7 @@ export type AvailabilityResult =
       actualDate?: string;
       searchedFrom?: string;
       searchedThrough?: string;
+      bookingTokenExpiresAt?: string;
       dateShifted: boolean;
       shouldRetrySameSearch: boolean;
       message?: string;
@@ -624,6 +625,12 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
       : {}),
     ...(stringValue(raw.searchedThrough)
       ? { searchedThrough: stringValue(raw.searchedThrough) ?? undefined }
+      : {}),
+    ...(stringValue(raw.bookingTokenExpiresAt)
+      ? {
+          bookingTokenExpiresAt:
+            stringValue(raw.bookingTokenExpiresAt) ?? undefined,
+        }
       : {}),
     dateShifted: raw.dateShifted === true,
     shouldRetrySameSearch: raw.shouldRetrySameSearch === true,

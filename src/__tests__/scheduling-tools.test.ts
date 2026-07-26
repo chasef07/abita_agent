@@ -9,6 +9,7 @@ import {
   HttpOwnedMiddleware,
   setOwnedMiddleware,
 } from "../clients/owned-middleware.js";
+import type { AvailabilityResult } from "../scheduling/middleware.js";
 import { productionSchedulingMiddleware } from "../scheduling/middleware.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import { InMemorySchedulingMiddleware } from "../scheduling/testing.js";
@@ -151,6 +152,7 @@ function availabilityFound(
     actualDate: "2026-06-01",
     searchedFrom: "2026-06-01",
     searchedThrough: "2026-06-01",
+    bookingTokenExpiresAt: "2026-05-30T16:15:00Z",
     dateShifted: false,
     shouldRetrySameSearch: false,
     slots,
@@ -404,6 +406,51 @@ describe("scheduling tools", () => {
     ]);
   });
 
+  it("collapses duplicate choices and retains one valid private booking token", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        availabilityFound([
+          returnedSlot({ bookingToken: "retained-token" }),
+          returnedSlot({ bookingToken: "duplicate-token" }),
+        ]),
+      ],
+      bookings: [bookingReceipt()],
+    });
+    const { book_appointment, get_availability } =
+      createSchedulingTools(middleware);
+    const state = createState();
+    const ctx = createToolContext(state);
+
+    const availability = await get_availability.execute(
+      { when: "2026-06-01", appointmentLane: "medical_md" },
+      {
+        ctx: ctx as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
+    expect(state.availability.slots).toHaveLength(1);
+    await book_appointment.execute(
+      {
+        appointmentSlotRef: "S1",
+        appointmentReason: "left eye pain since yesterday",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "booking-1",
+      } as never,
+    );
+
+    expect(availability).toBe(
+      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+    );
+    expect(middleware.operations[1]).toMatchObject({
+      kind: "book",
+      request: { bookingToken: "retained-token" },
+    });
+  });
+
   it("joins an identical in-flight availability search", async () => {
     const deferred = deferredResult<ReturnType<typeof availabilityFound>>();
     const middleware = new InMemorySchedulingMiddleware({
@@ -564,6 +611,406 @@ describe("scheduling tools", () => {
     expect(JSON.stringify(availabilityReadEvents(state))).not.toMatch(
       /patient-1|01\/01\/1980|2026-06-01|morning-token|afternoon-token|all_three/,
     );
+  });
+
+  it("books an initially unoffered exact same-day slot from one cached availability read", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        availabilityFound(
+          [
+            returnedSlot({
+              time: "8:00 AM",
+              datetime: "2026-06-01T08:00:00",
+              bookingToken: "early-token",
+            }),
+            returnedSlot({ bookingToken: "exact-token" }),
+            returnedSlot({
+              provider: "Dr. D. Noel",
+              time: "1:00 PM",
+              datetime: "2026-06-01T13:00:00",
+              bookingToken: "afternoon-token",
+            }),
+          ],
+          {
+            bookingTokenExpiresAt: "2026-05-30T16:15:00Z",
+          },
+        ),
+      ],
+      bookings: [bookingReceipt()],
+    });
+    const { book_appointment, get_availability } =
+      createSchedulingTools(middleware);
+    const state = createState();
+    const ctx = createToolContext(state);
+    const initialArgs = {
+      when: "2026-06-01",
+      appointmentLane: "medical_md" as const,
+    };
+
+    const initial = await get_availability.execute(initialArgs, {
+      ctx: ctx as never,
+      toolCallId: "availability-1",
+    } as never);
+    const exact = await get_availability.execute(
+      { ...initialArgs, when: "2026-06-01 at 9:00 AM" },
+      {
+        ctx: ctx as never,
+        toolCallId: "availability-2",
+      } as never,
+    );
+    await book_appointment.execute(
+      {
+        appointmentSlotRef: "S3",
+        appointmentReason: "left eye pain since yesterday",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "booking-1",
+      } as never,
+    );
+
+    expect(initial).toContain("appointmentSlotRef S1");
+    expect(initial).toContain("appointmentSlotRef S2");
+    expect(initial).not.toContain("appointmentSlotRef S3");
+    expect(exact).toContain("9:00 AM");
+    expect(exact).toContain("appointmentSlotRef S3");
+    expect(
+      middleware.operations.filter(
+        (operation) => operation.kind === "availability",
+      ),
+    ).toHaveLength(1);
+    expect(middleware.operations.at(-1)).toMatchObject({
+      kind: "book",
+      request: { bookingToken: "exact-token" },
+    });
+    expect(`${initial} ${exact}`).not.toMatch(
+      /early-token|exact-token|afternoon-token/,
+    );
+  });
+
+  it("refreshes availability when the middleware booking-token validity expires", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        availabilityFound([returnedSlot()], {
+          bookingTokenExpiresAt: "2026-05-30T16:15:00Z",
+        }),
+        availabilityFound(
+          [
+            returnedSlot({
+              time: "10:00 AM",
+              datetime: "2026-06-01T10:00:00",
+              bookingToken: "refreshed-token",
+            }),
+          ],
+          {
+            bookingTokenExpiresAt: "2026-05-30T16:30:00Z",
+          },
+        ),
+      ],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    const ctx = createToolContext(state);
+    const args = {
+      when: "2026-06-01",
+      appointmentLane: "medical_md" as const,
+    };
+
+    const initial = await get_availability.execute(args, {
+      ctx: ctx as never,
+      toolCallId: "availability-1",
+    } as never);
+    vi.setSystemTime(new Date("2026-05-30T16:15:00.000Z"));
+    const refreshed = await get_availability.execute(args, {
+      ctx: ctx as never,
+      toolCallId: "availability-2",
+    } as never);
+
+    expect(initial).toContain("9:00 AM");
+    expect(refreshed).toContain("10:00 AM");
+    expect(
+      middleware.operations.filter(
+        (operation) => operation.kind === "availability",
+      ),
+    ).toHaveLength(2);
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      S2: "refreshed-token",
+    });
+  });
+
+  it("refreshes a fresh result that arrives after its booking token expires", async () => {
+    const expiredResult = deferredResult<AvailabilityResult>();
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        expiredResult.promise,
+        availabilityFound(
+          [
+            returnedSlot({
+              time: "10:00 AM",
+              datetime: "2026-06-01T10:00:00",
+              bookingToken: "refreshed-token",
+            }),
+          ],
+          {
+            bookingTokenExpiresAt: "2026-05-30T16:30:00Z",
+          },
+        ),
+      ],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    const availability = get_availability.execute(
+      { when: "2026-06-01", appointmentLane: "medical_md" },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        middleware.operations.filter(
+          (operation) => operation.kind === "availability",
+        ),
+      ).toHaveLength(1);
+    });
+    vi.setSystemTime(new Date("2026-05-30T16:15:00.000Z"));
+    expiredResult.resolve(
+      availabilityFound([returnedSlot()], {
+        bookingTokenExpiresAt: "2026-05-30T16:15:00Z",
+      }) as AvailabilityResult,
+    );
+    const response = await availability;
+
+    expect(response).toContain("10:00 AM");
+    expect(response).not.toContain("9:00 AM");
+    expect(
+      middleware.operations.filter(
+        (operation) => operation.kind === "availability",
+      ),
+    ).toHaveLength(2);
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      S1: "refreshed-token",
+    });
+  });
+
+  it("single-flights concurrent refreshes of the same fresh expired result", async () => {
+    const expiredResult = deferredResult<AvailabilityResult>();
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        expiredResult.promise,
+        availabilityFound(
+          [
+            returnedSlot({
+              time: "10:00 AM",
+              datetime: "2026-06-01T10:00:00",
+              bookingToken: "refreshed-token",
+            }),
+          ],
+          {
+            bookingTokenExpiresAt: "2026-05-30T16:30:00Z",
+          },
+        ),
+      ],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    const ctx = createToolContext(state);
+    const lookup = (toolCallId: string) =>
+      get_availability.execute(
+        { when: "2026-06-01", appointmentLane: "medical_md" },
+        { ctx: ctx as never, toolCallId } as never,
+      );
+
+    const first = lookup("availability-1");
+    const second = lookup("availability-2");
+    await vi.waitFor(() => {
+      expect(
+        middleware.operations.filter(
+          (operation) => operation.kind === "availability",
+        ),
+      ).toHaveLength(1);
+    });
+    vi.setSystemTime(new Date("2026-05-30T16:15:00.000Z"));
+    expiredResult.resolve(
+      availabilityFound([returnedSlot()], {
+        bookingTokenExpiresAt: "2026-05-30T16:15:00Z",
+      }) as AvailabilityResult,
+    );
+    const responses = await Promise.all([first, second]);
+
+    expect(responses).toEqual([
+      expect.stringContaining("10:00 AM"),
+      expect.stringContaining("10:00 AM"),
+    ]);
+    expect(
+      middleware.operations.filter(
+        (operation) => operation.kind === "availability",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("stores and offers nothing when a fresh result expires twice", async () => {
+    const expired = availabilityFound([returnedSlot()], {
+      bookingTokenExpiresAt: "2026-05-30T16:15:00Z",
+    });
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [expired, expired],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+
+    vi.setSystemTime(new Date("2026-05-30T16:15:00.000Z"));
+    const response = await get_availability.execute(
+      { when: "2026-06-01", appointmentLane: "medical_md" },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
+
+    expect(response).toBe(
+      "Availability expired before it could be offered. Check availability again.",
+    );
+    expect(
+      middleware.operations.filter(
+        (operation) => operation.kind === "availability",
+      ),
+    ).toHaveLength(2);
+    expect(state.availability.slots).toEqual([]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
+    expect(availabilityReadEvents(state)).toMatchObject([
+      { operation: "middleware_call" },
+      { operation: "invalidation", reason: "booking_token_expired" },
+      { operation: "middleware_call" },
+      { operation: "invalidation", reason: "booking_token_expired" },
+    ]);
+  });
+
+  it("refreshes other completed dates after one cached token validity expires", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        availabilityFound([returnedSlot()], {
+          bookingTokenExpiresAt: "2026-05-30T16:15:00Z",
+        }),
+        availabilityFound(
+          [
+            returnedSlot({
+              date: "2026-06-02",
+              time: "10:00 AM",
+              datetime: "2026-06-02T10:00:00",
+              bookingToken: "later-date-token",
+            }),
+          ],
+          {
+            requestedDate: "2026-06-02",
+            actualDate: "2026-06-02",
+            searchedFrom: "2026-06-02",
+            searchedThrough: "2026-06-02",
+            bookingTokenExpiresAt: "2026-05-30T16:30:00Z",
+          },
+        ),
+        availabilityFound(
+          [
+            returnedSlot({
+              time: "11:00 AM",
+              datetime: "2026-06-01T11:00:00",
+              bookingToken: "refreshed-first-date-token",
+            }),
+          ],
+          {
+            bookingTokenExpiresAt: "2026-05-30T16:30:00Z",
+          },
+        ),
+        availabilityFound(
+          [
+            returnedSlot({
+              date: "2026-06-02",
+              time: "12:00 PM",
+              datetime: "2026-06-02T12:00:00",
+              bookingToken: "refreshed-later-date-token",
+            }),
+          ],
+          {
+            requestedDate: "2026-06-02",
+            actualDate: "2026-06-02",
+            searchedFrom: "2026-06-02",
+            searchedThrough: "2026-06-02",
+            bookingTokenExpiresAt: "2026-05-30T16:30:00Z",
+          },
+        ),
+      ],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    const ctx = createToolContext(state);
+    const lookup = (when: string, toolCallId: string) =>
+      get_availability.execute({ when, appointmentLane: "medical_md" }, {
+        ctx: ctx as never,
+        toolCallId,
+      } as never);
+
+    await lookup("2026-06-01", "availability-1");
+    await lookup("2026-06-02", "availability-2");
+    vi.setSystemTime(new Date("2026-05-30T16:15:00.000Z"));
+    const refreshedFirstDate = await lookup("2026-06-01", "availability-3");
+    const refreshedLaterDate = await lookup("2026-06-02", "availability-4");
+
+    expect(refreshedFirstDate).toContain("11:00 AM");
+    expect(refreshedLaterDate).toContain("12:00 PM");
+    expect(
+      middleware.operations.filter(
+        (operation) => operation.kind === "availability",
+      ),
+    ).toHaveLength(4);
+  });
+
+  it("rejects direct booking after the selected token validity expires", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        availabilityFound([returnedSlot()], {
+          bookingTokenExpiresAt: "2026-05-30T16:15:00Z",
+        }),
+      ],
+      bookings: [bookingReceipt()],
+    });
+    const { book_appointment, get_availability } =
+      createSchedulingTools(middleware);
+    const state = createState();
+    const ctx = createToolContext(state);
+
+    await get_availability.execute(
+      { when: "2026-06-01", appointmentLane: "medical_md" },
+      {
+        ctx: ctx as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
+    vi.setSystemTime(new Date("2026-05-30T16:15:00.000Z"));
+
+    await expect(
+      book_appointment.execute(
+        {
+          appointmentSlotRef: "S1",
+          appointmentReason: "left eye pain since yesterday",
+          referringDoctor: "none",
+          readBack: true,
+        },
+        {
+          ctx: ctx as never,
+          toolCallId: "booking-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "Search availability again before booking because the selected slot expired.",
+    );
+    expect(middleware.operations).toEqual([
+      expect.objectContaining({ kind: "availability" }),
+    ]);
+    expect(state.availability.slots).toEqual([]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
   });
 
   it.each([
@@ -867,6 +1314,12 @@ describe("scheduling tools", () => {
     {
       name: "found without a private booking token",
       result: availabilityFound([returnedSlot({ bookingToken: undefined })]),
+    },
+    {
+      name: "found without middleware booking-token validity",
+      result: availabilityFound([returnedSlot()], {
+        bookingTokenExpiresAt: undefined,
+      }),
     },
     {
       name: "found without slots",

@@ -15,6 +15,12 @@ type VisitType = "medical" | "routine_vision";
 type SchedulingRouting =
   "bach_only" | "bach_licht" | "all_three" | "optical_only";
 
+const bookingTokenExpiryKey = Symbol("bookingTokenExpiry");
+
+type CallStateWithBookingTokenExpiry = CallState & {
+  [bookingTokenExpiryKey]?: Map<string, number>;
+};
+
 export function createSchedulingState(input: {
   insuranceCarrier: string | null;
   checkedInsurancePlan: string | null;
@@ -134,17 +140,36 @@ export function storeAvailabilityBookingToken(
   state: CallState,
   slotId: string,
   bookingToken?: string,
+  bookingTokenExpiresAt?: string,
 ): void {
   if (bookingToken?.trim()) {
     state.availability.bookingTokensBySlotId[slotId] = bookingToken.trim();
+    const expiresAt = Date.parse(bookingTokenExpiresAt ?? "");
+    const expiries = bookingTokenExpiriesFor(state);
+    if (Number.isFinite(expiresAt)) {
+      expiries.set(slotId, expiresAt);
+    } else {
+      expiries.delete(slotId);
+    }
   }
 }
 
 export function availabilityBookingToken(
   state: CallState,
   slotId: string,
+  now?: Date,
 ): string | null {
-  return state.availability.bookingTokensBySlotId[slotId]?.trim() || null;
+  const bookingToken =
+    state.availability.bookingTokensBySlotId[slotId]?.trim() || null;
+  if (!bookingToken) return null;
+  const expiries = bookingTokenExpiriesFor(state);
+  const expiresAt = expiries.get(slotId);
+  if (expiresAt !== undefined && now && now.getTime() >= expiresAt) {
+    delete state.availability.bookingTokensBySlotId[slotId];
+    expiries.delete(slotId);
+    return null;
+  }
+  return bookingToken;
 }
 
 export function clearAvailabilitySelection(
@@ -157,6 +182,7 @@ export function clearAvailabilitySelection(
   state.availability.slots = [];
   state.availability.latestRouting = null;
   state.availability.bookingTokensBySlotId = {};
+  bookingTokenExpiriesFor(state).clear();
 }
 
 export function resetPatientSchedulingState(
@@ -219,6 +245,7 @@ export function removeAvailabilitySlot(
   )) {
     if (normalizeSlotId(storedSlotId) === normalized) {
       delete state.availability.bookingTokensBySlotId[storedSlotId];
+      bookingTokenExpiriesFor(state).delete(storedSlotId);
     }
   }
   return availabilitySlotsForState(state);
@@ -242,6 +269,19 @@ export function mergeAvailabilitySlots(
   }
   state.availability.slots = slots;
   state.availability.latestRouting = routing;
+}
+
+function bookingTokenExpiriesFor(state: CallState): Map<string, number> {
+  const sessionState = state as CallStateWithBookingTokenExpiry;
+  const existing = sessionState[bookingTokenExpiryKey];
+  if (existing) return existing;
+
+  const expiries = new Map<string, number>();
+  Object.defineProperty(sessionState, bookingTokenExpiryKey, {
+    value: expiries,
+    enumerable: false,
+  });
+  return expiries;
 }
 
 function normalizeSchedulingRouting(
