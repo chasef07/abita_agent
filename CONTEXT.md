@@ -79,8 +79,11 @@ human help or software cannot continue safely.
 _Avoid_: handoff in product-facing language; handoff is an internal transport
 term.
 
-**Call Closeout**
+**Call Capture**
 
-The terminal runtime process that captures sanitized call evidence, delivers it
-to the portal, and releases LiveKit resources. Closeout does not redefine tool
-or appointment outcomes.
+The runtime module that progressively checkpoints committed conversation items
+and sanitized tool outcomes, then performs bounded final reconciliation before
+LiveKit releases the job. Call Capture does not redefine tool or appointment
+outcomes.
+
+_Avoid_: call closeout when referring to the complete capture lifecycle.

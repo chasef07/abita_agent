@@ -14,6 +14,8 @@ only for agent workflow, provider operations, and sanitized incident history.
 
 - [`ops/assemblyai.md`](ops/assemblyai.md) — active AssemblyAI STT decisions and
   tuning notes.
+- [`ops/call-capture.md`](ops/call-capture.md) — progressive call-capture
+  receiver contract and deployment gate.
 - [`ops/release-automation.md`](ops/release-automation.md) — Release Please and
   production LiveKit deployment contract.
 - [`ops/telnyx-setup.md`](ops/telnyx-setup.md) — Telnyx-to-LiveKit SIP setup and

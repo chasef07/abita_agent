@@ -22,7 +22,7 @@ SIP caller
   -> session.userData holds the authoritative CallState
   -> the Voice Agent invokes model-facing tools
   -> owned middleware performs backend reads and writes
-  -> call closeout sends sanitized evidence and releases the room
+  -> call capture checkpoints committed evidence and finalizes the call
 ```
 
 The runtime preserves these invariants:
@@ -49,7 +49,7 @@ The runtime preserves these invariants:
 | `src/identity/promotion.ts` | Identity confirmation, activation, switching, reset, and registration gates |
 | `src/scheduling/` | Availability, booking, cancellation, rescheduling, replay protection, and speech-ready outcomes |
 | `src/clients/owned-middleware.ts` | Semantic middleware interface with production and in-memory adapters |
-| `src/runtime/` | Pre-call bootstrap, speech profiles, deadlines, shutdown, and call closeout |
+| `src/runtime/` | Pre-call bootstrap, speech profiles, deadlines, shutdown, and call capture |
 | `src/state/` | `CallState` composition and state owned outside the deeper workflow modules |
 | `src/tools/` | Remaining model-facing tool definitions and narrow runtime adapters |
 | `src/__tests__/` | Interface-level behavior and dependency-contract tests |
@@ -104,6 +104,9 @@ are LiveKit and LiveKit Inference, AssemblyAI, Rime, owned middleware, portal
 delivery, call-center handoff, and prompt workspace configuration.
 `LIVEKIT_FORWARD_SYNC_SECRET` is the preferred portal-delivery secret;
 `WEBHOOK_SECRET` remains a legacy fallback.
+`CALL_CAPTURE_URL` enables progressive, acknowledged capture delivery.
+`ANALYTICS_URL` remains the start/final fallback until the portal implements the
+[capture receiver contract](docs/ops/call-capture.md).
 
 Real call testing requires LiveKit Cloud credentials and a configured SIP
 trunk. See [`docs/ops/telnyx-setup.md`](docs/ops/telnyx-setup.md).

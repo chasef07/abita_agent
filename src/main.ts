@@ -52,10 +52,10 @@ import {
   createTurnProfileController,
 } from "./runtime/turn-profile-controller.js";
 import {
-  HttpCallPortal,
-  attachCallCloseout,
-  createLiveKitCallCloseoutEventAdapter,
-} from "./runtime/call-closeout.js";
+  HttpCallCapturePortal,
+  attachCallCapture,
+  createLiveKitCallCaptureEventAdapter,
+} from "./runtime/call-capture.js";
 import { getAnalyticsSecret } from "./runtime/portal-auth.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { coordinateSessionStartup } from "./runtime/session-startup.js";
@@ -214,9 +214,9 @@ export default defineAgent({
           });
           attachTurnProfileLifecycle(session, turnProfileController);
 
-          // Registration completes before lookup-derived state and session start.
-          // If later setup fails, closeout can still finish the call-start row.
-          await attachCallCloseout({
+          // Register capture before lookup-derived state and session start so
+          // finalization still runs if later setup fails.
+          attachCallCapture({
             call: {
               callId,
               callerPhone,
@@ -227,7 +227,7 @@ export default defineAgent({
               officePhone: trunkPhone,
               startedAt,
             },
-            events: createLiveKitCallCloseoutEventAdapter(ctx, session, {
+            events: createLiveKitCallCaptureEventAdapter(ctx, session, {
               callId,
               llm: llmWithFallback,
               maxCallDurationMs: MAX_CALL_DURATION_MS,
@@ -239,9 +239,10 @@ export default defineAgent({
               sttProfiles: turnProfileController.sttProfiles,
             }),
             getCallState,
-            portal: new HttpCallPortal({
+            portal: new HttpCallCapturePortal({
+              captureUrl: process.env.CALL_CAPTURE_URL,
+              legacyUrl: process.env.ANALYTICS_URL,
               secret: getAnalyticsSecret(),
-              url: process.env.ANALYTICS_URL,
             }),
           });
 
@@ -311,6 +312,6 @@ cli.runApp(
   new ServerOptions({
     agent: fileURLToPath(import.meta.url),
     agentName: "abita-agent",
-    shutdownProcessTimeout: 60_000, // 60s to allow analytics POST to complete
+    shutdownProcessTimeout: 10_000,
   }),
 );
