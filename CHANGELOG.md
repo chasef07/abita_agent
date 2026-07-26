@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.0](https://github.com/chasef07/abita_agent/compare/4.2.1...4.3.0) (2026-07-26)
+
+
+### Features
+
+* enrich pre-call identity context ([#291](https://github.com/chasef07/abita_agent/issues/291)) ([b3b9a9c](https://github.com/chasef07/abita_agent/commit/b3b9a9c49a5ccc5446234454d3ef658d391230c3))
+
 ## [4.2.1](https://github.com/chasef07/abita_agent/compare/4.2.0...4.2.1) (2026-07-26)
 
 
