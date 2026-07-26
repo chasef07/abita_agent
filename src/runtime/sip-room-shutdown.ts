@@ -23,6 +23,7 @@ export function attachSipParticipantShutdown(
   options: {
     isTransferred?: () => boolean;
     logger?: LoggerLike;
+    onShutdownRequested?: () => void;
   } = {},
 ) {
   const participantIdentity = participant.identity;
@@ -32,6 +33,7 @@ export function attachSipParticipantShutdown(
   const requestShutdown = () => {
     if (shutdownRequested || !participantIdentity) return;
     shutdownRequested = true;
+    options.onShutdownRequested?.();
 
     const transferred = (() => {
       try {
