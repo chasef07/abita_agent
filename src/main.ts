@@ -54,6 +54,7 @@ import {
 import {
   HttpCallPortal,
   attachCallCloseout,
+  attachStartupCallCloseout,
   createLiveKitCallCloseoutEventAdapter,
 } from "./runtime/call-closeout.js";
 import { getAnalyticsSecret } from "./runtime/portal-auth.js";
@@ -147,11 +148,29 @@ export default defineAgent({
       console.log(
         `[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`,
       );
+      const portal = new HttpCallPortal({
+        secret: getAnalyticsSecret(),
+        url: process.env.ANALYTICS_URL,
+      });
       await coordinateSessionStartup({
         lookup: (signal) =>
           loadPreCallBootstrap({ callerPhone, trunkPhone, signal }),
         startupIsActive: () => startupActive,
         initializeRuntime: async () => {
+          const callStart = await attachStartupCallCloseout({
+            call: {
+              callId,
+              callerPhone,
+              livekitContext,
+              officePhone: trunkPhone,
+              startedAt,
+            },
+            portal,
+            registerShutdownCallback: (closeout) => {
+              ctx.addShutdownCallback(closeout);
+            },
+          });
+          const office = getOfficeProfileByPhone(trunkPhone);
           const { primary: primaryLLM, fallback: fallbackLLM } =
             createLlmPair();
           const llmWithFallback = new FallbackAdapter({
@@ -167,7 +186,6 @@ export default defineAgent({
             `[tts] provider=rime trunk=${trunkPhone} voice_language=${initialVoiceLanguage.current} tts_language=${initialVoiceLanguage.ttsLanguage} speaker=${initialVoiceLanguage.speaker}`,
           );
 
-          const office = getOfficeProfileByPhone(trunkPhone);
           const initialCall = {
             amdOfficePhone: office.amdOfficePhone,
             callId,
@@ -214,8 +232,6 @@ export default defineAgent({
           });
           attachTurnProfileLifecycle(session, turnProfileController);
 
-          // Registration completes before lookup-derived state and session start.
-          // If later setup fails, closeout can still finish the call-start row.
           await attachCallCloseout({
             call: {
               callId,
@@ -239,10 +255,9 @@ export default defineAgent({
               sttProfiles: turnProfileController.sttProfiles,
             }),
             getCallState,
-            portal: new HttpCallPortal({
-              secret: getAnalyticsSecret(),
-              url: process.env.ANALYTICS_URL,
-            }),
+            onCloseoutAttached: callStart.handOffToCallCloseout,
+            portal,
+            startResult: callStart.startResult,
           });
 
           return {

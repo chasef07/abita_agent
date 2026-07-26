@@ -201,15 +201,18 @@ export class InMemoryCallPortal implements CallPortal {
   }
 }
 
-type CallContext = {
+export type CallStartContext = {
   callId: string;
   callerPhone: string;
-  fallbackModel: string;
-  initialVoiceLanguage: RuntimeVoiceLanguageState;
   livekitContext: Record<string, unknown>;
-  maxCallDurationMs?: number;
   officePhone: string;
   startedAt: Date;
+};
+
+type CallContext = CallStartContext & {
+  fallbackModel: string;
+  initialVoiceLanguage: RuntimeVoiceLanguageState;
+  maxCallDurationMs?: number;
 };
 
 async function deliverWithRetries(
@@ -228,13 +231,54 @@ async function deliverWithRetries(
   return result;
 }
 
+export async function attachStartupCallCloseout(input: {
+  call: CallStartContext;
+  now?: () => Date;
+  portal: CallPortal;
+  registerShutdownCallback(closeout: () => Promise<void>): void;
+}): Promise<{
+  handOffToCallCloseout(): void;
+  startResult: CallPortalResult;
+}> {
+  let handedOff = false;
+  let failedCloseout: Promise<void> | undefined;
+  let resolveCallStart: () => void = () => undefined;
+  const callStartFinished = new Promise<void>((resolve) => {
+    resolveCallStart = resolve;
+  });
+  const closeFailedStartup = () => {
+    failedCloseout ??= callStartFinished.then(() =>
+      deliverFailedStartup(
+        input.call,
+        input.portal,
+        input.now?.() ?? new Date(),
+      ),
+    );
+    return failedCloseout;
+  };
+  input.registerShutdownCallback(async () => {
+    if (!handedOff) await closeFailedStartup();
+  });
+  const startResult = await deliverCallStart(input.call, input.portal).finally(
+    resolveCallStart,
+  );
+  return {
+    handOffToCallCloseout() {
+      handedOff = true;
+    },
+    startResult,
+  };
+}
+
 export async function attachCallCloseout(input: {
   call: CallContext;
   events: CallCloseoutEventAdapter;
   getCallState: () => CallState | null;
   logger?: Pick<Console, "warn">;
   now?: () => Date;
+  onCloseoutAttached?: () => void;
   portal: CallPortal;
+  startResult?: CallPortalResult;
 }): Promise<CallCloseoutAttachment> {
   const logger = input.logger ?? console;
   const now = input.now ?? (() => new Date());
@@ -345,14 +389,7 @@ export async function attachCallCloseout(input: {
     }
     const usage = latestUsage ?? capture.sessionUsage;
     const summaryPayload: Record<string, unknown> = {
-      callId: input.call.callId,
-      callerPhone: input.call.callerPhone,
-      officePhone: input.call.officePhone,
-      startedAt: input.call.startedAt.toISOString(),
-      endedAt: endedAt.toISOString(),
-      durationSec: Math.round(
-        (endedAt.getTime() - input.call.startedAt.getTime()) / 1000,
-      ),
+      ...callTimingPayload(input.call, endedAt),
       status:
         callState && transferIsAccepted(callState)
           ? "ESCALATED"
@@ -424,24 +461,89 @@ export async function attachCallCloseout(input: {
     );
     return { richResult, summaryResult };
   });
+  input.onCloseoutAttached?.();
 
-  const startResult = await deliverWithRetries(
-    input.portal,
+  const startResult =
+    input.startResult ?? (await deliverCallStart(input.call, input.portal));
+  return { startResult };
+}
+
+async function deliverCallStart(
+  call: CallStartContext,
+  portal: CallPortal,
+): Promise<CallPortalResult> {
+  return deliverWithRetries(
+    portal,
     {
       payload: {
-        callId: input.call.callId,
-        callerPhone: input.call.callerPhone,
-        officePhone: input.call.officePhone,
-        startedAt: input.call.startedAt.toISOString(),
+        callId: call.callId,
+        callerPhone: call.callerPhone,
+        officePhone: call.officePhone,
+        startedAt: call.startedAt.toISOString(),
         status: "IN_PROGRESS",
-        ...input.call.livekitContext,
+        ...call.livekitContext,
       },
       phase: "call-start",
       timeoutMs: 2_000,
     },
     { maxAttempts: 1, retryDelayMs: 0 },
   );
-  return { startResult };
+}
+
+async function deliverFailedStartup(
+  call: CallStartContext,
+  portal: CallPortal,
+  endedAt: Date,
+): Promise<void> {
+  const payload = {
+    ...callTimingPayload(call, endedAt),
+    status: "FAILED",
+    endedReason: "call_state_not_initialized",
+    sessionEvents: createEmptySessionEventAnalytics(),
+    language: {},
+    toolExecutions: [],
+    knowledgeRetrievals: [],
+    identityTransitions: [],
+    appointmentActions: [],
+    ownedMiddlewareFailures: [],
+    ...call.livekitContext,
+  };
+  await deliverWithRetries(
+    portal,
+    {
+      payload,
+      phase: "shutdown-summary",
+      timeoutMs: 3_000,
+    },
+    { maxAttempts: 2, retryDelayMs: 1_000 },
+  );
+  await deliverWithRetries(
+    portal,
+    {
+      payload: {
+        ...payload,
+        llmMetrics: [],
+        sttProfiles: [],
+        turnMetrics: [],
+      },
+      phase: "shutdown",
+      timeoutMs: 10_000,
+    },
+    { maxAttempts: 4, retryDelayMs: 2_000 },
+  );
+}
+
+function callTimingPayload(call: CallStartContext, endedAt: Date) {
+  return {
+    callId: call.callId,
+    callerPhone: call.callerPhone,
+    officePhone: call.officePhone,
+    startedAt: call.startedAt.toISOString(),
+    endedAt: endedAt.toISOString(),
+    durationSec: Math.round(
+      (endedAt.getTime() - call.startedAt.getTime()) / 1000,
+    ),
+  };
 }
 
 const PRIVATE_CALL_STATE_ANALYTICS_FIELDS = new Set([
