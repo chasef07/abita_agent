@@ -1,21 +1,26 @@
-import * as baseten from "@livekit/agents-plugin-baseten";
-import type { BasetenLLMOptions } from "@livekit/agents-plugin-baseten";
+import { inference } from "@livekit/agents";
+
+type InferenceLLMOptions = ConstructorParameters<typeof inference.LLM>[0];
 
 export const primaryLLMOptions = {
-  maxTokens: 512,
-  model: "zai-org/GLM-5.2",
-  parallelToolCalls: false,
-} as const satisfies BasetenLLMOptions;
+  model: "google/gemma-4-31b-it",
+  modelOptions: {
+    max_completion_tokens: 512,
+    parallel_tool_calls: false,
+  },
+} as const satisfies InferenceLLMOptions;
 
 export const fallbackLLMOptions = {
-  maxTokens: 512,
-  model: "zai-org/GLM-4.7",
-  parallelToolCalls: false,
-} as const satisfies BasetenLLMOptions;
+  model: "xai/grok-4.5",
+  modelOptions: {
+    max_completion_tokens: 512,
+    parallel_tool_calls: false,
+  },
+} as const satisfies InferenceLLMOptions;
 
 export function createLlmPair() {
   return {
-    primary: new baseten.LLM(primaryLLMOptions),
-    fallback: new baseten.LLM(fallbackLLMOptions),
+    primary: new inference.LLM(primaryLLMOptions),
+    fallback: new inference.LLM(fallbackLLMOptions),
   } as const;
 }

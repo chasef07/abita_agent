@@ -100,8 +100,8 @@ pnpm dev
 ```
 
 See [`.env.example`](.env.example) for the supported variables. The main groups
-are LiveKit, Baseten, AssemblyAI, Rime, owned middleware, portal delivery,
-call-center handoff, and prompt workspace configuration.
+are LiveKit and LiveKit Inference, AssemblyAI, Rime, owned middleware, portal
+delivery, call-center handoff, and prompt workspace configuration.
 `LIVEKIT_FORWARD_SYNC_SECRET` is the preferred portal-delivery secret;
 `WEBHOOK_SECRET` remains a legacy fallback.
 
