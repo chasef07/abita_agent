@@ -109,13 +109,11 @@ export function createSchedulingTools(middleware: SchedulingMiddleware) {
     name: "get_availability",
     description:
       "Search appointment availability from an exact YYYY-MM-DD start date. " +
-      "For new appointments, pass appointmentLane after the visit reason is clear; for reschedules, omit it only when the existing appointment to move is already identified. " +
+      "For new appointments, call after the visit reason and lane are clear; for reschedules, call only after the existing appointment to move is identified. " +
       "If the caller requests a routine exam but also mentions an eye problem or symptom, ask whether the appointment is mainly for glasses or contacts or for the eye problem before choosing appointmentLane. " +
-      "On Hollywood or Sweetwater calls, ask which of those two offices the caller wants and pass office; never infer the scheduling office from the number they called. " +
-      "Use timePreference to rank morning, afternoon, or no-preference requests. " +
-      "Do not call for same-day or past dates. Call get_current_datetime before using relative dates, and do not pass relative phrases here. " +
-      "This tool returns plain instructions with at most two appointmentSlotRef values; offer only those returned slots and do not invent other times. " +
-      "This tool only finds possible slots; do not say the caller is booked, scheduled, or all set until book_appointment returns a successful booking.",
+      "On Hollywood or Sweetwater calls, ask which office the caller wants; never infer it from the number called. " +
+      "Do not call for same-day or past dates, and resolve relative dates with get_current_datetime first. " +
+      "Offer only the returned slots. This tool does not book; only claim success after book_appointment succeeds.",
     parameters: z.object({
       date: isoDateSchema.describe("Start date in YYYY-MM-DD format."),
       appointmentLane: z
@@ -131,10 +129,10 @@ export function createSchedulingTools(middleware: SchedulingMiddleware) {
           "Required on Hollywood and Sweetwater calls after asking which office the caller wants. Do not infer it from the number called. Omit for every other office.",
         ),
       timePreference: z
-        .enum(["morning", "afternoon", "none"])
+        .enum(["morning", "afternoon"])
         .optional()
         .describe(
-          "Caller time-of-day preference for ranking returned slots. Use morning for AM or before-noon requests, afternoon for PM or afternoon requests, and none when the caller has no time preference.",
+          "Caller preference for ranking returned slots: morning for AM or before noon, afternoon for PM or afternoon. Omit when there is no preference.",
         ),
     }),
     execute: async (args, { ctx, abortSignal }) => {
@@ -147,11 +145,8 @@ export function createSchedulingTools(middleware: SchedulingMiddleware) {
     name: "book_appointment",
     onDuplicate: "reject",
     description:
-      "Book a caller-confirmed appointment slot. " +
-      "Use only for new appointments after get_availability recorded appointmentLane; do not use for reschedules or other appointment changes. " +
-      "Pass an appointmentReason with enough caller-provided detail for staff to prepare appropriate diagnostic testing; do not diagnose or add details the caller did not provide. " +
-      "Call only after get_availability returns an appointmentSlotRef for the right appointment lane, the caller confirms the exact offered slot, and the caller provides a referring doctor or says they have none. " +
-      "Before booking, read back the selected appointment date, time, and provider, then get caller confirmation. " +
+      "Book a caller-confirmed new appointment using a slot returned by get_availability; do not use for reschedules or other appointment changes. " +
+      "Call only after the caller confirms the exact offered slot and provides a referring doctor or says they have none. " +
       "Only after this tool returns a successful booking may you tell the caller they are booked, scheduled, or all set. " +
       "After a successful booking, if the caller asks whether they will receive confirmation, say yes, a confirmation email will be sent.",
     parameters: bookAppointmentParameters,

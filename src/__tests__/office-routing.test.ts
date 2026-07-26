@@ -163,7 +163,7 @@ describe("tool-first prompt gating", () => {
       "Use resolve_patient for patient-specific work when internal state has not already confirmed the patient.",
     );
     expect(get_availability.description).toContain(
-      "do not say the caller is booked, scheduled, or all set until book_appointment returns a successful booking",
+      "only claim success after book_appointment succeeds",
     );
     expect(prompt).not.toContain("Today is");
     expect(prompt).not.toContain("The current time is");
@@ -530,7 +530,7 @@ describe("Crystal River prompt guidance", () => {
     }
 
     expect(create_staff_task.description).toContain(
-      "optical order issues other than a simple glasses-readiness check",
+      "Do not use for a simple glasses-readiness check",
     );
   });
 
@@ -570,9 +570,9 @@ describe("Crystal River prompt guidance", () => {
       "current clinic-local date and time",
     );
     expect(get_current_datetime.description).toContain(
-      "today, tomorrow, next week, Friday",
+      "relative scheduling dates or times",
     );
-    expect(get_current_datetime.description).toContain("read-only");
+    expect(get_current_datetime.description).toContain("exact YYYY-MM-DD date");
   });
 
   it("keeps emergency transfer policy in the shared role prompt", () => {
@@ -711,41 +711,31 @@ describe("Crystal River prompt guidance", () => {
 describe("model-facing tool definitions", () => {
   it("keeps add_patient focused on new-patient chart creation", () => {
     expect(add_patient.description).toContain(
-      "Creates a chart for a new patient",
+      "Create a chart for a confirmed new patient",
     );
     expect(add_patient.description).toContain(
-      "checking insurance eligibility with check_insurance",
-    );
-    expect(add_patient.description).toContain("Pass appointmentLane");
-    expect(add_patient.description).toContain("symptom-driven eye care");
-    expect(add_patient.description).toContain(
-      "routine eye exams with no active eye problem",
+      "an accepted check_insurance result",
     );
     expect(add_patient.description).toContain(
-      "read back the important registration details and get caller confirmation",
+      "Read back the registration details and get caller confirmation",
     );
     expect(add_patient.description).toContain(
-      "plans like VSP use the last 4 digits of the patient's Social Security number as the patient's policy number",
+      "For routine-vision registration, collect only the patient's SSN last four",
     );
     expect(add_patient.description).toContain(
-      "vision insurance plans need it to verify coverage",
-    );
-    expect(add_patient.description).toContain("collect ssnLast4");
-    expect(add_patient.description).toContain("Do not ask for the full SSN");
-    expect(add_patient.description).toContain(
-      "ask whether the number they are calling from is a good callback number",
+      "confirm it is a good callback number",
     );
     expect(add_patient.description).toContain(
-      "set inboundPhoneConfirmed to true; do not ask them to repeat that number",
+      "set inboundPhoneConfirmed to true",
     );
-    expect(add_patient.description).not.toContain(
-      "Do not infer age from Bach-only routing",
-    );
+    expect(add_patient.description).toContain("Never offer self pay");
 
     const parameters = add_patient.parameters as {
       safeParse: (value: unknown) => { success: boolean };
       shape: Record<string, unknown>;
     };
+    expect(Object.keys(parameters.shape)).not.toContain("insurance");
+    expect(Object.keys(parameters.shape)).not.toContain("appointmentLane");
     expect(Object.keys(parameters.shape)).toContain("insuranceMemberId");
     expect(Object.keys(parameters.shape)).toContain("ssnLast4");
     expect(
@@ -759,7 +749,7 @@ describe("model-facing tool definitions", () => {
         (parameters.shape.ssnLast4 as { description?: string }).description,
       ),
     ).toBe(
-      "Last 4 digits of the patient's Social Security number. Collect when appointmentLane is routine_od; do not ask for the full SSN.",
+      "Last 4 digits of the patient's Social Security number. Collect for routine-vision registration; do not ask for the full SSN.",
     );
     expect(
       String(
@@ -778,8 +768,6 @@ describe("model-facing tool definitions", () => {
         state: "FL",
         zip: "34609",
         sex: "female",
-        insurance: "Aetna",
-        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
       }).success,
     ).toBe(false);
@@ -794,8 +782,6 @@ describe("model-facing tool definitions", () => {
         state: "FL",
         zip: "34609",
         sex: "female",
-        insurance: "Aetna",
-        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         insuranceMemberId: "ABC123",
         ssnLast4: "1234",
@@ -812,8 +798,6 @@ describe("model-facing tool definitions", () => {
         state: "FL",
         zip: "34609",
         sex: "female",
-        insurance: "Aetna",
-        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         insuranceMemberId: "ABC123",
         ssnLast4: "12345",
@@ -825,22 +809,20 @@ describe("model-facing tool definitions", () => {
     expect(get_availability.description).toContain(
       "exact YYYY-MM-DD start date",
     );
-    expect(get_availability.description).toContain("pass appointmentLane");
     expect(get_availability.description).toContain(
       "routine exam but also mentions an eye problem or symptom",
     );
     expect(get_availability.description).toContain(
       "ask whether the appointment is mainly for glasses or contacts or for the eye problem",
     );
-    expect(get_availability.description).toContain("Use timePreference");
     expect(get_availability.description).toContain(
       "Do not call for same-day or past dates",
     );
     expect(get_availability.description).toContain(
-      "Call get_current_datetime before using relative dates",
+      "resolve relative dates with get_current_datetime",
     );
     expect(get_availability.description).toContain(
-      "at most two appointmentSlotRef values",
+      "Offer only the returned slots",
     );
     expect(get_availability.description).not.toContain("bach_only routing");
     expect(get_availability.description).not.toContain(
@@ -869,7 +851,9 @@ describe("model-facing tool definitions", () => {
     );
     expect(parameters.shape.timePreference.description).toContain("morning");
     expect(parameters.shape.timePreference.description).toContain("afternoon");
-    expect(parameters.shape.timePreference.description).toContain("none");
+    expect(parameters.shape.timePreference.description).toContain(
+      "Omit when there is no preference",
+    );
     expect(
       parameters.safeParse({
         date: "2026-06-01",
@@ -904,6 +888,13 @@ describe("model-facing tool definitions", () => {
         date: "2026-06-01",
         appointmentLane: "medical_md",
         timePreference: "evening",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        date: "2026-06-01",
+        appointmentLane: "medical_md",
+        timePreference: "none",
       }).success,
     ).toBe(false);
     expect(
@@ -1017,26 +1008,45 @@ describe("model-facing tool definitions", () => {
   it("keeps staff task capture scoped to safe non-live work", () => {
     expect(create_staff_task.description).not.toContain("Spring Hill");
     expect(create_staff_task.description).toContain(
-      "safe non-live office work",
-    );
-    expect(create_staff_task.description).toContain("high_priority");
-    expect(create_staff_task.description).toContain(
-      "never use it for clinical acuity",
+      "safe asynchronous office work",
     );
     expect(create_staff_task.description).toContain("returned calls");
     expect(create_staff_task.description).toContain(
-      "routine medication and prescription requests",
-    );
-    expect(create_staff_task.description).toContain("category medication");
-    expect(create_staff_task.description).toContain("category optical");
-    expect(create_staff_task.description).toContain("category referrals");
-    expect(create_staff_task.description).toContain(
-      "medication or prescription name",
-    );
-    expect(create_staff_task.description).toContain(
       "suspected medication reactions",
     );
-    expect(create_staff_task.description).toContain("Transfer those instead");
+    expect(create_staff_task.description).toContain("transfer instead");
+    const taskParameters = create_staff_task.parameters as {
+      shape: {
+        category: { description?: string };
+        urgency: { description?: string };
+        summary: { description?: string };
+        message: { description?: string };
+      };
+    };
+    expect(taskParameters.shape.category.description).toContain(
+      "medication for routine prescription work",
+    );
+    expect(taskParameters.shape.category.description).toContain(
+      "optical for glasses, contacts, lab jobs, or optical orders",
+    );
+    expect(taskParameters.shape.category.description).toContain(
+      "referrals for referral coordination",
+    );
+    expect(taskParameters.shape.urgency.description).toContain(
+      "high_priority for time-sensitive non-clinical work",
+    );
+    expect(taskParameters.shape.urgency.description).toContain(
+      "normal for standard follow-up",
+    );
+    expect(taskParameters.shape.urgency.description).toContain(
+      "non_urgent for work with no time sensitivity",
+    );
+    expect(taskParameters.shape.summary.description).toContain(
+      "Short staff inbox title",
+    );
+    expect(taskParameters.shape.message.description).toContain(
+      "For medication include the name, requested action, and pharmacy",
+    );
     expect(
       create_staff_task.parameters.safeParse({
         category: "billing",
@@ -1268,19 +1278,13 @@ describe("model-facing tool definitions", () => {
 
   it("keeps book_appointment scoped to confirmed slots with required referring doctor", () => {
     expect(book_appointment.description).toContain(
-      "Book a caller-confirmed appointment slot",
+      "Book a caller-confirmed new appointment",
     );
     expect(book_appointment.description).toContain(
       "do not use for reschedules",
     );
     expect(book_appointment.description).toContain(
-      "caller provides a referring doctor or says they have none",
-    );
-    expect(book_appointment.description).toContain(
-      "enough caller-provided detail for staff to prepare appropriate diagnostic testing",
-    );
-    expect(book_appointment.description).toContain(
-      "read back the selected appointment date, time, and provider",
+      "provides a referring doctor or says they have none",
     );
     expect(book_appointment.description).toContain(
       "Only after this tool returns a successful booking may you tell the caller they are booked, scheduled, or all set",

@@ -4,12 +4,7 @@ import {
   ownedMiddleware,
   type CreatePatientInput,
 } from "../clients/owned-middleware.js";
-import {
-  canonicalInsurancePlan,
-  matchInsurancePlanForOffice,
-  normalizeInsuranceText,
-  type InsuranceCoverageType,
-} from "../insurance-rules.js";
+import { normalizeInsuranceText } from "../insurance-rules.js";
 import {
   applyPatientResult,
   beginPatientIdentityOperation,
@@ -19,10 +14,7 @@ import {
   preCallCandidateMatchesIdentity,
   setPendingRegistrationIdentity,
 } from "../identity/promotion.js";
-import {
-  type CallState,
-  type InsuranceEligibilityCheck,
-} from "../state/call-state.js";
+import type { CallState } from "../state/call-state.js";
 import { runtimeCallerPhone } from "../state/call-lifecycle.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import {
@@ -63,22 +55,12 @@ const addPatientParameters = z
     street: z.string().describe("Street address"),
     aptSuite: z
       .string()
-      .default("")
-      .describe("Apartment or suite number, or empty string if none"),
+      .optional()
+      .describe("Apartment or suite number, if any"),
     city: z.string().describe("City"),
     state: z.string().describe("State, 2-letter abbreviation"),
     zip: z.string().describe("Zip code"),
     sex: z.enum(["male", "female"]).describe("Patient's sex"),
-    insurance: z
-      .string()
-      .describe(
-        "Insurance plan the caller gave after check_insurance accepts it",
-      ),
-    appointmentLane: z
-      .enum(["medical_md", "routine_od"])
-      .describe(
-        "Required scheduling lane. Use medical_md for symptom-driven eye care or any eye problem; use routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem.",
-      ),
     subscriberName: z.string().describe("Name on the insurance policy"),
     insuranceMemberId: z
       .string()
@@ -91,13 +73,13 @@ const addPatientParameters = z
       .regex(/^\d{4}$/)
       .optional()
       .describe(
-        "Last 4 digits of the patient's Social Security number. Collect when appointmentLane is routine_od; do not ask for the full SSN.",
+        "Last 4 digits of the patient's Social Security number. Collect for routine-vision registration; do not ask for the full SSN.",
       ),
     readBack: z
       .boolean()
       .optional()
       .describe(
-        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, member ID, and patient SSN last 4 for routine_od, and the caller confirms they are correct.",
+        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, member ID, and SSN last 4 for routine vision, and the caller confirms they are correct.",
       ),
   })
   .strict();
@@ -106,14 +88,11 @@ export const add_patient = tool({
   name: "add_patient",
   onDuplicate: "reject",
   description:
-    "Creates a chart for a new patient. " +
-    "Call this only after resolve_patient has confirmed the caller says the patient is not registered with us. " +
-    "Don't call it until triaging medical vs vision and checking insurance eligibility with check_insurance. Pass appointmentLane as medical_md for symptom-driven eye care or any eye problem, or routine_od only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem. " +
-    "Before calling, read back the important registration details and get caller confirmation. " +
-    "When appointmentLane is routine_od, collect ssnLast4 because plans like VSP use the last 4 digits of the patient's Social Security number as the patient's policy number. If the patient asks why, explain that vision insurance plans need it to verify coverage. Do not ask for the full SSN. " +
-    "Before using the inbound caller number for the chart, ask whether the number they are calling from is a good callback number to put on file. " +
-    'Never offer self pay. If the patient asks to self pay, put "self pay" in insuranceMemberId. ' +
-    "If they say yes, omit phone and set inboundPhoneConfirmed to true; do not ask them to repeat that number. ",
+    "Create a chart for a confirmed new patient after visit triage and an accepted check_insurance result. " +
+    "Read back the registration details and get caller confirmation first. " +
+    "For routine-vision registration, collect only the patient's SSN last four. " +
+    "Before using the inbound caller number, confirm it is a good callback number; if yes, omit phone and set inboundPhoneConfirmed to true. " +
+    'Never offer self pay; if the patient asks for it, use "self pay" as insuranceMemberId.',
   parameters: addPatientParameters,
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
@@ -133,15 +112,19 @@ export const add_patient = tool({
       return "Before creating a new chart, ask whether the patient is already registered with us and call resolve_patient with registrationStatus not_registered after the caller confirms they are not registered.";
     }
 
-    if (
-      params.appointmentLane !== "medical_md" &&
-      params.appointmentLane !== "routine_od"
-    ) {
-      throw new ToolError(
-        "Pass appointmentLane medical_md or routine_od before creating a patient.",
-      );
+    const checkedInsurance = lastInsuranceEligibilityCheck(state);
+    const insurance =
+      checkedInsurance?.canonicalPlan?.trim() ||
+      checkedInsurance?.currentCarrier?.trim() ||
+      checkedInsurance?.plan?.trim();
+    const coverageType = checkedInsurance?.coverageType;
+    if (!checkedInsurance?.accepted || !insurance || !coverageType) {
+      return "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.";
     }
-    applySchedulingLaneToState(state, params.appointmentLane);
+
+    const appointmentLane =
+      coverageType === "routine_vision" ? "routine_od" : "medical_md";
+    applySchedulingLaneToState(state, appointmentLane);
     const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
     if (unsupportedMedicalScheduling) return unsupportedMedicalScheduling;
     const unsupportedRoutineVisionScheduling =
@@ -149,23 +132,6 @@ export const add_patient = tool({
     if (unsupportedRoutineVisionScheduling)
       return unsupportedRoutineVisionScheduling;
 
-    const laneCoverageType = coverageTypeForAppointmentLane(
-      params.appointmentLane,
-    );
-    const checkedInsurance = acceptedInsuranceForAddPatient(
-      state,
-      params.insurance,
-      laneCoverageType,
-    );
-    if (!checkedInsurance) {
-      return "Check whether we accept the patient's insurance for this visit type before creating a patient chart.";
-    }
-    const insurance = checkedInsurance.canonicalPlan ?? params.insurance;
-    if (checkedInsurance.coverageType !== laneCoverageType) {
-      throw new ToolError(
-        "Use appointmentLane medical_md with medical coverage, or routine_od with routine_vision coverage. Run check_insurance again for the correct coverage before creating a patient.",
-      );
-    }
     const selfPay = normalizeInsuranceText(insurance) === "self pay";
     const memberId = selfPay ? "self pay" : params.insuranceMemberId;
     const explicitPhone = params.phone?.trim() ?? "";
@@ -175,6 +141,12 @@ export const add_patient = tool({
 
     if (hasMatchingPreCallPatient(state, params)) {
       return "A patient record may already exist for that last name and date of birth from the caller phone lookup. Confirm the existing patient record before creating a new chart.";
+    }
+
+    if (coverageType === "routine_vision" && !params.ssnLast4) {
+      throw new ToolError(
+        "Collect the patient's SSN last four before creating a routine-vision chart.",
+      );
     }
 
     if (!explicitPhone && !params.inboundPhoneConfirmed) {
@@ -188,7 +160,7 @@ export const add_patient = tool({
     if (!params.readBack) {
       return (
         "Read back the new patient details first: patient name, date of birth, sex, address, " +
-        "callback phone, email if provided, insurance plan, policyholder name, member ID, and patient SSN last 4 for routine_od. " +
+        "callback phone, email if provided, insurance plan, policyholder name, member ID, and patient SSN last 4 for routine vision. " +
         "Call add_patient again only after the caller confirms the details are correct."
       );
     }
@@ -204,7 +176,7 @@ export const add_patient = tool({
       lastName: params.lastName,
       dob: params.dob,
       street: params.street,
-      aptSuite: params.aptSuite,
+      aptSuite: params.aptSuite ?? "",
       city: params.city,
       state: params.state,
       zip: params.zip,
@@ -215,10 +187,10 @@ export const add_patient = tool({
         ? params.subscriberName || `${params.firstName} ${params.lastName}`
         : params.subscriberName,
       subscriberNum: memberId,
-      ...(checkedInsurance.coverageType === "routine_vision"
+      ...(coverageType === "routine_vision"
         ? {
             coverageType: "routine_vision",
-            ...(params.ssnLast4 ? { ssn: params.ssnLast4 } : {}),
+            ssn: params.ssnLast4,
           }
         : {}),
       ...(params.email?.trim() ? { email: params.email.trim() } : {}),
@@ -265,7 +237,7 @@ export const add_patient = tool({
       insuranceSnapshot({
         plan: result.insuranceCarrier ?? checkedInsurance.currentCarrier,
         canonicalPlan: checkedInsurance.canonicalPlan,
-        coverageType: checkedInsurance.coverageType,
+        coverageType,
         currentCarrier:
           result.insuranceCarrier ?? checkedInsurance.currentCarrier,
       }),
@@ -274,58 +246,6 @@ export const add_patient = tool({
     return `Created a patient chart for ${patientName}. Continue with scheduling.`;
   },
 });
-
-function coverageTypeForAppointmentLane(
-  appointmentLane: "medical_md" | "routine_od",
-): InsuranceCoverageType {
-  return appointmentLane === "routine_od" ? "routine_vision" : "medical";
-}
-
-function acceptedInsuranceForAddPatient(
-  state: CallState,
-  insurance: string,
-  coverageType: InsuranceCoverageType,
-): InsuranceEligibilityCheck | null {
-  const checkedInsurance = lastInsuranceEligibilityCheck(state);
-  if (
-    checkedInsurance?.accepted &&
-    checkedInsurance.canonicalPlan &&
-    insuranceMatchesCheck(insurance, checkedInsurance)
-  ) {
-    return checkedInsurance;
-  }
-
-  const result = matchInsurancePlanForOffice(
-    state.office.activeKey,
-    insurance,
-    coverageType,
-  );
-  const canonicalPlan = canonicalInsurancePlan(result);
-  if (!canonicalPlan || result.status !== "accepted") return null;
-
-  const resolved: InsuranceEligibilityCheck = {
-    plan: insurance,
-    canonicalPlan,
-    coverageType,
-    currentCarrier: result.callerFacingPlan ?? canonicalPlan,
-    accepted: true,
-  };
-  setLastInsuranceEligibilityCheck(state, resolved);
-  return resolved;
-}
-
-function insuranceMatchesCheck(
-  insurance: string,
-  checkedInsurance: InsuranceEligibilityCheck,
-): boolean {
-  const requested = normalizeInsuranceText(insurance);
-  if (!requested) return false;
-  return [
-    checkedInsurance.plan,
-    checkedInsurance.canonicalPlan,
-    checkedInsurance.currentCarrier,
-  ].some((value) => normalizeInsuranceText(value ?? "") === requested);
-}
 
 function hasMatchingPreCallPatient(
   state: CallState,

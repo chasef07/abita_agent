@@ -346,8 +346,6 @@ describe("stateful call tools", () => {
         state: "FL",
         zip: "34606",
         sex: "female",
-        insurance: "self pay",
-        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         insuranceMemberId: "self pay",
         inboundPhoneConfirmed: true,
@@ -409,8 +407,6 @@ describe("stateful call tools", () => {
           state: "FL",
           zip: "34606",
           sex: "female",
-          insurance: "self pay",
-          appointmentLane: "medical_md",
           subscriberName: "Jane Doe",
           insuranceMemberId: "self pay",
           inboundPhoneConfirmed: true,
@@ -491,8 +487,6 @@ describe("stateful call tools", () => {
       state: "FL",
       zip: "34606",
       sex: "female" as const,
-      insurance: "self pay",
-      appointmentLane: "medical_md" as const,
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
       inboundPhoneConfirmed: true,
@@ -552,8 +546,6 @@ describe("stateful call tools", () => {
       state: "FL",
       zip: "34606",
       sex: "female" as const,
-      insurance: "self pay",
-      appointmentLane: "medical_md" as const,
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
       inboundPhoneConfirmed: true,
@@ -617,8 +609,6 @@ describe("stateful call tools", () => {
         state: "FL",
         zip: "34606",
         sex: "female",
-        insurance: "self pay",
-        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         insuranceMemberId: "self pay",
         inboundPhoneConfirmed: true,
@@ -691,8 +681,6 @@ describe("stateful call tools", () => {
       state: "FL",
       zip: "34606",
       sex: "female" as const,
-      insurance: "self pay",
-      appointmentLane: "medical_md" as const,
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
       inboundPhoneConfirmed: true,
@@ -744,8 +732,6 @@ describe("stateful call tools", () => {
         state: "FL",
         zip: "34606",
         sex: "female",
-        insurance: "self pay",
-        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         insuranceMemberId: "self pay",
         inboundPhoneConfirmed: true,
@@ -786,8 +772,6 @@ describe("stateful call tools", () => {
         state: "FL",
         zip: "34606",
         sex: "female",
-        insurance: "self pay",
-        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         insuranceMemberId: "self pay",
         inboundPhoneConfirmed: true,
@@ -833,8 +817,6 @@ describe("stateful call tools", () => {
         state: "FL",
         zip: "34606",
         sex: "male",
-        insurance: "Florida Blue Shield",
-        appointmentLane: "routine_od",
         subscriberName: "Adam Arshed",
         insuranceMemberId: "FWZ975W06612",
         inboundPhoneConfirmed: true,
@@ -852,42 +834,38 @@ describe("stateful call tools", () => {
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
-  it("requires appointment lane before creating a patient", async () => {
+  it("requires an accepted insurance check before creating a patient", async () => {
     const state = createState();
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
     state.identity.patient.identityConfirmed = false;
     markNewPatientPathConfirmed(state);
     clearSchedulingContext(state);
-    markAcceptedInsurance(state);
 
-    await expect(
-      add_patient.execute(
-        {
-          firstName: "Jane",
-          lastName: "Doe",
-          dob: "01/01/1980",
-          street: "123 Main St",
-          aptSuite: "",
-          city: "Spring Hill",
-          state: "FL",
-          zip: "34606",
-          sex: "female",
-          insurance: "self pay",
-          subscriberName: "Jane Doe",
-          insuranceMemberId: "self pay",
-          phone: "7275551212",
-          readBack: true,
-        },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      ),
-    ).rejects.toThrow(
-      "Pass appointmentLane medical_md or routine_od before creating a patient.",
+    const result = await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "self pay",
+        phone: "7275551212",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
     );
 
+    expect(result).toBe(
+      "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
+    );
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
@@ -919,8 +897,6 @@ describe("stateful call tools", () => {
         state: "FL",
         zip: "34429",
         sex: "female",
-        insurance: "self pay",
-        appointmentLane: "routine_od",
         subscriberName: "Jane Doe",
         insuranceMemberId: "self pay",
         phone: "7275551212",
@@ -940,7 +916,7 @@ describe("stateful call tools", () => {
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
-  it("requires appointment lane to match checked insurance coverage before creating a patient", async () => {
+  it("derives routine vision from accepted coverage and requires SSN last four", async () => {
     const baseParams = {
       firstName: "Jane",
       lastName: "Doe",
@@ -951,39 +927,11 @@ describe("stateful call tools", () => {
       state: "FL",
       zip: "34606",
       sex: "female" as const,
-      insurance: "self pay",
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
       phone: "7275551212",
       readBack: true,
     };
-
-    const medicalState = createState();
-    medicalState.identity.patient.patientId = null;
-    medicalState.identity.patient.name = null;
-    medicalState.identity.patient.identityConfirmed = false;
-    markNewPatientPathConfirmed(medicalState);
-    clearSchedulingContext(medicalState);
-    markAcceptedInsurance(medicalState, {
-      plan: "self pay",
-      canonicalPlan: "self pay",
-      coverageType: "medical",
-    });
-
-    await expect(
-      add_patient.execute(
-        {
-          ...baseParams,
-          appointmentLane: "routine_od",
-        },
-        {
-          ctx: createToolContext(medicalState) as never,
-          toolCallId: "tool-1",
-        } as never,
-      ),
-    ).rejects.toThrow(
-      "Use appointmentLane medical_md with medical coverage, or routine_od with routine_vision coverage. Run check_insurance again for the correct coverage before creating a patient.",
-    );
 
     const routineState = createState();
     routineState.identity.patient.patientId = null;
@@ -998,20 +946,18 @@ describe("stateful call tools", () => {
     });
 
     await expect(
-      add_patient.execute(
-        {
-          ...baseParams,
-          appointmentLane: "medical_md",
-        },
-        {
-          ctx: createToolContext(routineState) as never,
-          toolCallId: "tool-2",
-        } as never,
-      ),
+      add_patient.execute(baseParams, {
+        ctx: createToolContext(routineState) as never,
+        toolCallId: "tool-1",
+      } as never),
     ).rejects.toThrow(
-      "Use appointmentLane medical_md with medical coverage, or routine_od with routine_vision coverage. Run check_insurance again for the correct coverage before creating a patient.",
+      "Collect the patient's SSN last four before creating a routine-vision chart.",
     );
 
+    expect(routineState.workflow.current).toEqual({
+      intent: "schedule",
+      appointmentLane: "routine_od",
+    });
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
@@ -1036,8 +982,6 @@ describe("stateful call tools", () => {
         state: "FL",
         zip: "34606",
         sex: "female",
-        insurance: "self pay",
-        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         insuranceMemberId: "self pay",
         phone: "7275551212",
@@ -1046,7 +990,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, member ID, and patient SSN last 4 for routine_od. Call add_patient again only after the caller confirms the details are correct.",
+      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, member ID, and patient SSN last 4 for routine vision. Call add_patient again only after the caller confirms the details are correct.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
@@ -1072,8 +1016,6 @@ describe("stateful call tools", () => {
         state: "FL",
         zip: "34606",
         sex: "female",
-        insurance: "self pay",
-        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         insuranceMemberId: "self pay",
         readBack: true,
@@ -1111,8 +1053,6 @@ describe("stateful call tools", () => {
         state: "FL",
         zip: "34606",
         sex: "female",
-        insurance: "self pay",
-        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         insuranceMemberId: "self pay",
         phone: "   ",
@@ -2030,8 +1970,6 @@ describe("stateful call tools", () => {
         state: "FL",
         zip: "34606",
         sex: "female",
-        insurance: "Aetna",
-        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         insuranceMemberId: "ABC123",
         inboundPhoneConfirmed: true,
@@ -2139,8 +2077,6 @@ describe("stateful call tools", () => {
         state: "FL",
         zip: "34606",
         sex: "female",
-        insurance: "Blue Cross",
-        appointmentLane: "medical_md",
         subscriberName: "Jane Doe",
         insuranceMemberId: "ABC123",
         ssnLast4: "1234",
@@ -2204,8 +2140,6 @@ describe("stateful call tools", () => {
         state: "FL",
         zip: "34606",
         sex: "female",
-        insurance: "VSP",
-        appointmentLane: "routine_od",
         subscriberName: "Jane Doe",
         insuranceMemberId: "VSP123",
         ssnLast4: "1234",
@@ -2258,8 +2192,6 @@ describe("stateful call tools", () => {
       state: "FL",
       zip: "34606",
       sex: "female" as const,
-      insurance: "United Healthcare",
-      appointmentLane: "medical_md" as const,
       subscriberName: "Maria Santos",
       insuranceMemberId: "ABC123",
       inboundPhoneConfirmed: true,
@@ -2327,8 +2259,6 @@ describe("stateful call tools", () => {
       state: "FL",
       zip: "34606",
       sex: "female" as const,
-      insurance: "self pay",
-      appointmentLane: "medical_md" as const,
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
       inboundPhoneConfirmed: true,

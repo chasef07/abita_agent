@@ -82,14 +82,13 @@ describe("get_current_datetime tool", () => {
       "current clinic-local date and time",
     );
     expect(get_current_datetime.description).toContain(
-      "before interpreting relative dates or times",
+      "before interpreting relative scheduling dates or times",
     );
     expect(get_current_datetime.description).toContain(
-      "Do not call this tool for explicit calendar dates like June 16",
+      "Do not call for explicit calendar dates",
     );
     expect(get_current_datetime.description).toContain(
-      "returns natural English",
+      "returns an exact YYYY-MM-DD date",
     );
-    expect(get_current_datetime.description).toContain("read-only");
   });
 });
