@@ -9,7 +9,6 @@ import {
   create_staff_task,
   get_current_datetime,
   get_availability,
-  lookup_knowledge,
   resolve_patient,
   reschedule_appointment,
   transfer_call,
@@ -42,7 +41,6 @@ export function buildToolsForTrunk(
     book_appointment,
     reschedule_appointment,
     check_insurance,
-    lookup_knowledge,
   ] as const satisfies readonly ToolContextEntry<CallState>[];
   const commonTools = [...coreTools, transfer_call, end_call] as const;
   const office = getOfficeProfileByPhone(trunkPhone ?? "");

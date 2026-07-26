@@ -34,7 +34,6 @@ import {
   type InsuranceToolResponse,
 } from "../insurance-rules.js";
 import { transferCallerToOffice } from "../tools/handoff.js";
-import { lookupOfficeKnowledge } from "../tools/knowledge.js";
 import {
   medicalSchedulingUnavailable,
   routineVisionSchedulingUnavailable,
@@ -108,7 +107,6 @@ const COMMON_TOOL_NAMES = [
   "end_call",
   "get_availability",
   "get_current_datetime",
-  "lookup_knowledge",
   "reschedule_appointment",
   "resolve_patient",
   "transfer_call",
@@ -395,10 +393,6 @@ describe("Voice Agent office profile", () => {
         const { office } = voiceAgent;
         const instructions = String(voiceAgent.agent.instructions);
         const tools = toolNames(voiceAgent.agent.toolCtx.tools);
-        const knowledge = lookupOfficeKnowledge(
-          office.key,
-          "What are your office hours?",
-        );
         const medicalState = createTestCallState({
           amdOfficePhone: office.amdOfficePhone,
           officeKey: office.key,
@@ -445,7 +439,7 @@ describe("Voice Agent office profile", () => {
             ),
           },
           key: office.key,
-          knowledgeSource: knowledge.split("\n", 1)[0],
+          knowledgeSource: office.knowledgeSource,
           middlewareBaseUrl: office.middlewareBaseUrl(PRODUCTION_MIDDLEWARE),
           promptHasConfiguredRole: instructions.includes(expected.promptMarker),
           scheduling: {
@@ -484,7 +478,7 @@ describe("Voice Agent office profile", () => {
             routineVision: expected.insurance.routineVision.response,
           },
           key: expected.key,
-          knowledgeSource: `Knowledge source: ${expected.knowledgeSource}`,
+          knowledgeSource: expected.knowledgeSource,
           middlewareBaseUrl: expected.middlewareBaseUrl,
           promptHasConfiguredRole: true,
           scheduling: expected.scheduling,

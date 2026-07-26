@@ -573,7 +573,10 @@ describe("Voice Agent identity promotion", () => {
     });
     await session.currentAgent.onUserTurnCompleted(
       chatCtx,
-      ChatMessage.create({ role: "user", content: "Jane" }),
+      ChatMessage.create({
+        role: "user",
+        content: "Jane, and what are your office hours?",
+      }),
     );
 
     expect(session.userData.identity.patient).toMatchObject({
@@ -599,6 +602,23 @@ describe("Voice Agent identity promotion", () => {
     expect(durableSystemText).not.toContain("private-patient-id");
     expect(durableSystemText).not.toContain("private-plan-id");
     expect(durableSystemText).not.toContain("private-party-id");
+    const turnLocalKnowledge = chatCtx.items
+      .filter(
+        (item) =>
+          item.type === "message" &&
+          item.role === "assistant" &&
+          item.textContent?.includes("OFFICE KNOWLEDGE FOR THIS REPLY"),
+      )
+      .map((item) => (item.type === "message" ? item.textContent : null));
+    expect(turnLocalKnowledge).toHaveLength(1);
+    expect(turnLocalKnowledge[0]).toContain("## Location + Contact");
+    expect(
+      session.currentAgent.chatCtx.items.some(
+        (item) =>
+          item.type === "message" &&
+          item.textContent?.includes("OFFICE KNOWLEDGE FOR THIS REPLY"),
+      ),
+    ).toBe(false);
   });
 
   it("selects a unique comma-name candidate from a spelled transcript", async () => {

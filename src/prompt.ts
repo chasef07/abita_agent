@@ -1,7 +1,7 @@
 // prompt.ts — Assembles system prompt from workspace files
 // Order matters for LLM attention (U-shaped curve):
 //   Top = identity (sets the frame)
-//   Middle = reference data + speech style (retrieved on demand)
+//   Middle = turn-local reference data + speech style
 
 import { readFileSync } from "fs";
 import { join } from "path";
