@@ -30,47 +30,10 @@ import {
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
-import type { PhoneLookupResult } from "../state/call-state.js";
 import { resolveOfficeKnowledge } from "../office-knowledge.js";
-
-type VerifiedPhoneLookup = Extract<
-  NonNullable<PhoneLookupResult>,
-  { status: "verified" }
->;
 
 const GLASSES_READY_ANSWER =
   "Check your texts. You'll receive a text when they're ready. If you haven't received a text, they aren't ready yet.";
-
-function verifiedPhoneLookup(
-  overrides: Partial<VerifiedPhoneLookup> = {},
-): VerifiedPhoneLookup {
-  return {
-    status: "verified",
-    patientId: "patient-1",
-    name: "Santos, Maria",
-    dob: "01/01/1980",
-    phone: "+17275551212",
-    insuranceCarrier: "Aetna",
-    insPlanId: "plan-1",
-    respPartyId: "resp-1",
-    routing: "bach_only",
-    allowedProviders: [],
-    routingAmbiguous: false,
-    preauthRequired: false,
-    appointments: [
-      {
-        id: 123,
-        date: "2099-01-01",
-        time: "9:30AM",
-        provider: "Dr. Bach",
-        type: "Follow-up",
-        facility: "Hollywood",
-        confirmed: true,
-      },
-    ],
-    ...overrides,
-  };
-}
 
 function toolNames(entries: readonly ToolContextEntry[]): string[] {
   return entries.flatMap((entry) =>
@@ -130,7 +93,7 @@ describe("office routing helpers", () => {
 
 describe("tool-first prompt gating", () => {
   it("includes core tool-use rules from the role prompt", () => {
-    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+    const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
 
     expect(prompt).toContain("<role>");
     expect(prompt).toContain("# Tool Use");
@@ -166,10 +129,7 @@ describe("tool-first prompt gating", () => {
     expect(prompt).not.toContain("Today is");
     expect(prompt).not.toContain("The current time is");
 
-    const crystalRiverPrompt = buildPrompt(
-      undefined,
-      CRYSTAL_RIVER_OFFICE_PHONE,
-    );
+    const crystalRiverPrompt = buildPrompt(CRYSTAL_RIVER_OFFICE_PHONE);
 
     expect(crystalRiverPrompt).toContain("# Tool Use");
 
@@ -180,64 +140,37 @@ describe("tool-first prompt gating", () => {
       NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
     ]) {
-      const officePrompt = buildPrompt(undefined, phone);
+      const officePrompt = buildPrompt(phone);
 
       expect(officePrompt).toContain("# Tool Use");
     }
   });
 
-  it("keeps pre-call lookup failures to a safe prompt hint", () => {
-    const prompt = buildPrompt(
-      {
-        status: "lookup_failed",
-        phone: "+17275551212",
-        reason: "middleware_error",
-        retryable: true,
-        lookupDurationMs: 250,
-      },
-      SPRING_HILL_OFFICE_PHONE,
-    );
+  it("keeps identity and privacy policy in the static prompt", () => {
+    const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
 
-    expect(prompt).toContain("<caller_identity_hint>");
+    expect(prompt).toContain("<caller_identity_policy>");
     expect(prompt).toContain(
-      "Caller identity hint: phone lookup failed before the call.",
+      "single_match, multiple_matches, no_match, or lookup_failed",
     );
     expect(prompt).toContain(
-      "Use this hint only after the caller asks for patient-specific help.",
+      "Use that status only after the caller asks for patient-specific help.",
     );
     expect(prompt).toContain(
-      "Do not reveal hidden patient details before identity is confirmed.",
+      "Never reveal or infer hidden candidate details before identity is confirmed.",
     );
-    expect(prompt).not.toContain("PHONE LOOKUP UNAVAILABLE");
-    expect(prompt).not.toContain("do not say they are new");
+    expect(prompt).toContain(
+      "After identity is confirmed, use the selected patient's name and loaded appointments",
+    );
+    expect(prompt).not.toContain("<caller_identity_hint>");
     expect(prompt).not.toContain("middleware_error");
-    expect(prompt).not.toContain("NO MATCH");
-  });
-
-  it("keeps no-match lookup outcomes to a safe prompt hint", () => {
-    const prompt = buildPrompt(
-      {
-        status: "no_match",
-        phone: "+17275551212",
-      },
-      SPRING_HILL_OFFICE_PHONE,
-    );
-
-    expect(prompt).toContain(
-      "Caller identity hint: no matching patient record was found from this phone number.",
-    );
-    expect(prompt).not.toContain("NO MATCH");
-    expect(prompt).not.toContain("This number is not in the system");
-    expect(prompt).not.toContain(
-      "Are you already registered with us, or should I make a new chart?",
-    );
-    expect(prompt).not.toContain("have you been seen here before");
+    expect(prompt).not.toContain("+17275551212");
   });
 });
 
 describe("dermatology demo", () => {
   it("uses a fictional dermatology identity and short role prompt", () => {
-    const prompt = buildPrompt(undefined, DEV_OFFICE_PHONE);
+    const prompt = buildPrompt(DEV_OFFICE_PHONE);
 
     expect(prompt).toContain("You are Julia");
     expect(prompt).toContain("fictional dermatology practice");
@@ -319,7 +252,7 @@ describe("dermatology demo", () => {
 
 describe("Crystal River prompt guidance", () => {
   it("keeps Crystal River medical-only guidance in knowledge and out of routing tools", () => {
-    const prompt = buildPrompt(undefined, "+13523202007");
+    const prompt = buildPrompt("+13523202007");
     const crystalRiverKnowledge = readFileSync(
       join(
         import.meta.dirname,
@@ -360,7 +293,7 @@ describe("Crystal River prompt guidance", () => {
   });
 
   it("teaches Spring Hill routine vision without the old optometry denial", () => {
-    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+    const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
     const springHillKnowledge = readFileSync(
       join(
         import.meta.dirname,
@@ -409,7 +342,7 @@ describe("Crystal River prompt guidance", () => {
   });
 
   it("keeps full registration prose out of the Spring Hill prompt", () => {
-    const prompt = buildPrompt(undefined, SPRING_HILL_OFFICE_PHONE);
+    const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
 
     expect(prompt).not.toContain(
       `is the number you're calling from a good one on file?`,
@@ -418,8 +351,8 @@ describe("Crystal River prompt guidance", () => {
   });
 
   it("keeps Hollywood and Sweetwater off the Crystal River routing prompt block", () => {
-    const hollywoodPrompt = buildPrompt(undefined, HOLLYWOOD_OFFICE_PHONE);
-    const sweetwaterPrompt = buildPrompt(undefined, SWEETWATER_OFFICE_PHONE);
+    const hollywoodPrompt = buildPrompt(HOLLYWOOD_OFFICE_PHONE);
+    const sweetwaterPrompt = buildPrompt(SWEETWATER_OFFICE_PHONE);
     const hollywoodKnowledge = readFileSync(
       join(
         import.meta.dirname,
@@ -490,10 +423,7 @@ describe("Crystal River prompt guidance", () => {
   });
 
   it("keeps North Miami Beach Optical knowledge limited to provided facts", () => {
-    const prompt = buildPrompt(
-      undefined,
-      NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
-    );
+    const prompt = buildPrompt(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE);
     const knowledge = readFileSync(
       join(
         import.meta.dirname,
@@ -525,7 +455,7 @@ describe("Crystal River prompt guidance", () => {
       NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
     ]) {
-      expect(buildPrompt(undefined, phone)).toContain(GLASSES_READY_ANSWER);
+      expect(buildPrompt(phone)).toContain(GLASSES_READY_ANSWER);
     }
 
     expect(create_staff_task.description).toContain(
@@ -568,7 +498,7 @@ describe("Crystal River prompt guidance", () => {
   });
 
   it("keeps emergency transfer policy in the shared role prompt", () => {
-    const prompt = buildPrompt(undefined, HOLLYWOOD_OFFICE_PHONE);
+    const prompt = buildPrompt(HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).toContain("urgent symptoms");
     expect(prompt).toContain(
@@ -593,7 +523,7 @@ describe("Crystal River prompt guidance", () => {
       NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
     ]) {
-      const prompt = buildPrompt(undefined, phone);
+      const prompt = buildPrompt(phone);
 
       expect(prompt).not.toContain("create_staff_task");
       expect(prompt.toLowerCase()).not.toContain("staff task");
@@ -603,47 +533,8 @@ describe("Crystal River prompt guidance", () => {
   });
 
   it("keeps concise voice guidance in the base voice prompt", () => {
-    const prompt = buildPrompt(
-      {
-        status: "verified",
-        patientId: "patient-1",
-        name: "Santos, Maria",
-        dob: "01/01/1980",
-        phone: "+17275551212",
-        insuranceCarrier: "Aetna",
-        insPlanId: "plan-1",
-        respPartyId: "resp-1",
-        routing: "all_three",
-        allowedProviders: [],
-        routingAmbiguous: false,
-        appointments: [
-          {
-            id: 123,
-            date: "2099-01-01",
-            time: "9:30AM",
-            provider: "Dr. Noel",
-            type: "Follow-up",
-            facility: "Spring Hill",
-            confirmed: true,
-          },
-          {
-            id: 124,
-            date: "2099-01-02",
-            time: "1pm",
-            provider: "Dr. Licht",
-            type: "Follow-up",
-            facility: "Spring Hill",
-            confirmed: true,
-          },
-        ],
-      },
-      SPRING_HILL_OFFICE_PHONE,
-    );
+    const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
 
-    expect(prompt).not.toContain("2099-01-01");
-    expect(prompt).not.toContain("2099-01-02");
-    expect(prompt).not.toContain("9:30AM");
-    expect(prompt).not.toContain("1pm");
     expect(prompt).toContain(
       "Use normal written forms for dates, times, phone numbers, emails, and common acronyms.",
     );
@@ -657,46 +548,20 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).not.toContain("eight fifteen a m");
   });
 
-  it("does not inject preloaded appointment facilities into the prompt", () => {
-    const prompt = buildPrompt(verifiedPhoneLookup(), HOLLYWOOD_OFFICE_PHONE);
+  it("accepts only office configuration and contains no per-call lookup data", () => {
+    const prompt = buildPrompt(HOLLYWOOD_OFFICE_PHONE);
 
+    expect(buildPrompt.length).toBe(1);
+    expect(prompt).not.toContain("<pre_call_context>");
+    expect(prompt).not.toContain("<caller_identity_hint>");
     expect(prompt).not.toContain("Santos");
     expect(prompt).not.toContain("patient-1");
-    expect(prompt).not.toContain("2099-01-01");
-    expect(prompt).not.toContain("Hollywood");
-  });
-
-  it("keeps single-match pre-call facts out of the prompt", () => {
-    const prompt = buildPrompt(verifiedPhoneLookup(), HOLLYWOOD_OFFICE_PHONE);
-
-    expect(prompt).not.toContain("<pre_call_context>");
-    expect(prompt).toContain("<caller_identity_hint>");
-    expect(prompt).toContain(
-      "Caller identity hint: one likely patient record was found from this phone number.",
-    );
-    expect(prompt).not.toContain("Santos");
     expect(prompt).not.toContain("01/01/1980");
     expect(prompt).not.toContain("Aetna");
     expect(prompt).not.toContain("2099-01-01");
-  });
-
-  it("keeps multiple-match pre-call facts out of the prompt", () => {
-    const prompt = buildPrompt(
-      {
-        status: "multiple_matches",
-        message: "Multiple patients found",
-        matches: [{ firstName: "IVETTE" }, { firstName: "KAELI" }],
-      },
-      HOLLYWOOD_OFFICE_PHONE,
-    );
-
-    expect(prompt).toContain(
-      "Caller identity hint: multiple possible patient records were found from this phone number.",
-    );
-    expect(prompt).not.toContain("MULTIPLE MATCHES");
-    expect(prompt).not.toContain("multiple patients on this number");
     expect(prompt).not.toContain("IVETTE");
     expect(prompt).not.toContain("KAELI");
+    expect(prompt).not.toContain("private-cancellation-token");
   });
 });
 

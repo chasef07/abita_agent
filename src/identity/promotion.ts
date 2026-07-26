@@ -254,7 +254,7 @@ export async function confirmIdentityFromTranscript(
     candidateRef: candidate.ref,
     systemMessage: confirmedPatientSystemMessage(
       state,
-      selection.otherMentionedCandidates,
+      selection.mentionedAnotherCandidate,
     ),
   };
 }
@@ -939,7 +939,7 @@ function singlePreCallCandidateSelection(
   transcript: string,
 ): {
   candidate: PreCallCandidate;
-  otherMentionedCandidates: PreCallCandidate[];
+  mentionedAnotherCandidate: boolean;
 } | null {
   const candidate =
     selectedPreCallCandidate(preCall) ??
@@ -952,7 +952,7 @@ function singlePreCallCandidateSelection(
     transcriptMatchOptions,
   );
   return match.status === "unique"
-    ? { candidate: match.candidate, otherMentionedCandidates: [] }
+    ? { candidate: match.candidate, mentionedAnotherCandidate: false }
     : null;
 }
 
@@ -961,7 +961,7 @@ function multiplePreCallCandidateSelection(
   transcript: string,
 ): {
   candidate: PreCallCandidate;
-  otherMentionedCandidates: PreCallCandidate[];
+  mentionedAnotherCandidate: boolean;
 } | null {
   if (preCall.status !== "multiple_matches_pending_selection") return null;
   const match = matchCandidatesByFirstName(
@@ -973,7 +973,7 @@ function multiplePreCallCandidateSelection(
   if (match.status !== "unique") return null;
   return {
     candidate: match.candidate,
-    otherMentionedCandidates: match.otherCandidates,
+    mentionedAnotherCandidate: match.otherCandidates.length > 0,
   };
 }
 
@@ -1000,33 +1000,20 @@ function isFirstNamePrompt(text: string | null | undefined): boolean {
 
 function confirmedPatientSystemMessage(
   state: CallState,
-  otherMentionedCandidates: PreCallCandidate[],
+  mentionedAnotherCandidate: boolean,
 ): string {
   const patientName = state.identity.patient.name?.trim() || "the patient";
   return [
     "Internal state: patient identity is confirmed from a pre-call phone candidate after the caller provided the patient's first name.",
     `Patient: ${patientName}.`,
-    otherMentionedPatientsSystemMessage(patientName, otherMentionedCandidates),
+    mentionedAnotherCandidate
+      ? `The caller also mentioned another patient. Finish ${patientName} first. Before working on another patient, call resolve_patient with the first name the caller provided to switch the active patient.`
+      : "",
     appointmentSummary(state),
     "Do not ask for last name or date of birth again. Continue using the loaded patient state for appointment questions, booking, or cancellation.",
   ]
     .filter(Boolean)
     .join(" ");
-}
-
-function otherMentionedPatientsSystemMessage(
-  activePatientName: string,
-  candidates: PreCallCandidate[],
-): string {
-  const names = [
-    ...new Set(candidates.map(candidateDisplayName).filter(Boolean)),
-  ];
-  if (names.length === 0) return "";
-  return [
-    `Caller also mentioned preloaded patient${names.length === 1 ? "" : "s"}: ${names.join(", ")}.`,
-    `Finish ${activePatientName} first.`,
-    "Before working on another mentioned patient, call resolve_patient with that patient's first name to switch the active patient.",
-  ].join(" ");
 }
 
 function preCallNameMismatchReply(

@@ -14,17 +14,17 @@ import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as rime from "@livekit/agents-plugin-rime";
 import { fileURLToPath } from "node:url";
 import { createVoiceAgent } from "./agent.js";
-import {
-  createCanonicalCallState,
-  type CallState,
-} from "./state/call-state.js";
-import { normalizeCallerAppointments } from "./state/appointments.js";
+import type { CallState } from "./state/call-state.js";
 import { transferIsAccepted } from "./state/call-lifecycle.js";
 import {
-  buildPreCallContextState,
   formatPhoneLookupLogLine,
   loadPreCallBootstrap,
 } from "./runtime/precall-bootstrap.js";
+import {
+  applyPreCallBootstrap,
+  createInitialCallState,
+} from "./runtime/initial-call-state.js";
+import { modelFacingLookupStatus } from "./runtime/precall-model-context.js";
 import { MAX_CALL_DURATION_MS } from "./runtime/call-duration-deadline.js";
 import { createLlmPair } from "./model-config.js";
 import {
@@ -57,6 +57,7 @@ import {
   createLiveKitCallCloseoutEventAdapter,
 } from "./runtime/call-closeout.js";
 import { getAnalyticsSecret } from "./runtime/portal-auth.js";
+import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { coordinateSessionStartup } from "./runtime/session-startup.js";
 
 type TtsRuntime = {
@@ -166,10 +167,25 @@ export default defineAgent({
             `[tts] provider=rime trunk=${trunkPhone} voice_language=${initialVoiceLanguage.current} tts_language=${initialVoiceLanguage.ttsLanguage} speaker=${initialVoiceLanguage.speaker}`,
           );
 
+          const office = getOfficeProfileByPhone(trunkPhone);
+          const initialCall = {
+            amdOfficePhone: office.amdOfficePhone,
+            callId,
+            callerPhone,
+            maxDurationMs: MAX_CALL_DURATION_MS,
+            officeKey: office.key,
+            roomName,
+            sipParticipantIdentity: participant.identity ?? "",
+            trunkPhone,
+            voiceLanguage: initialVoiceLanguage,
+          };
+          const callState = createInitialCallState(initialCall);
+          let callStateReady = false;
           const session = new AgentSession<CallState>({
             stt,
             llm: llmWithFallback,
             tts,
+            userData: callState,
             maxToolSteps: voiceMaxToolSteps,
             turnHandling: {
               turnDetection: new inference.TurnDetector(),
@@ -178,11 +194,7 @@ export default defineAgent({
           });
           configureVoiceVad(session.vad);
           const getCallState = (): CallState | null => {
-            try {
-              return session.userData;
-            } catch {
-              return null;
-            }
+            return callStateReady ? session.userData : null;
           };
           attachSipParticipantShutdown(ctx, participant, {
             isTransferred: () => {
@@ -202,7 +214,7 @@ export default defineAgent({
           });
           attachTurnProfileLifecycle(session, turnProfileController);
 
-          // Registration completes before state construction and session start.
+          // Registration completes before lookup-derived state and session start.
           // If later setup fails, closeout can still finish the call-start row.
           await attachCallCloseout({
             call: {
@@ -235,63 +247,47 @@ export default defineAgent({
 
           return {
             applyLanguageDecisionToTts,
+            callState,
+            initialCall,
             initialVoiceLanguage,
+            markCallStateReady: () => {
+              callStateReady = true;
+            },
             session,
             sttLanguageDetector,
             turnProfileController,
           };
         },
         createState: (preCall, runtime, startupOverlap) => {
-          const { phoneLookup, verified } = preCall;
-          preCall.telemetry.startupOverlap = startupOverlap;
+          const { phoneLookup } = preCall;
           console.log(formatPhoneLookupLogLine(callerPhone, phoneLookup));
+          applyPreCallBootstrap(
+            runtime.callState,
+            runtime.initialCall,
+            preCall,
+          );
+          runtime.callState.runtime.preCallLookup.startupOverlap =
+            startupOverlap;
 
-          const { agent, office } = createVoiceAgent(phoneLookup, trunkPhone, {
-            onAssistantText: runtime.turnProfileController.observeAssistantText,
-            onLanguageDecision: (decision) => {
-              const voiceLanguage =
-                runtime.applyLanguageDecisionToTts(decision);
-              if (voiceLanguage) {
-                runtime.session.userData.runtime.voiceLanguage = voiceLanguage;
-              }
-            },
-            sttLanguageDetector: runtime.sttLanguageDetector,
-          });
-          const callState = createCanonicalCallState({
-            preCall: buildPreCallContextState(phoneLookup, callerPhone),
-            preCallLookup: preCall.telemetry,
-            officeKey: office.key,
-            amdOfficePhone: office.amdOfficePhone,
-            sipRoomName: roomName,
-            sipParticipantIdentity: participant.identity ?? "",
-            callId,
-            callerPhone,
+          const { agent } = createVoiceAgent(
+            modelFacingLookupStatus(phoneLookup),
             trunkPhone,
-            patientId: verified?.patientId ?? null,
-            patientName: verified?.name ?? null,
-            dob: verified?.dob ?? null,
-            insuranceCarrier: verified?.insuranceCarrier ?? null,
-            insPlanId: verified?.insPlanId ?? null,
-            respPartyId: verified?.respPartyId ?? null,
-            checkedInsurancePlan: verified?.insuranceCarrier ?? null,
-            checkedInsuranceCoverageType: null,
-            routing: verified?.routing ?? null,
-            lastAvailabilityRouting: null,
-            lastAvailabilitySlots: [],
-            bookableAvailabilitySlots: [],
-            allowedProviders: verified?.allowedProviders ?? [],
-            routingAmbiguous: verified?.routingAmbiguous ?? false,
-            preauthRequired: verified?.preauthRequired ?? false,
-            appointmentsStatus: verified?.appointmentsStatus ?? null,
-            appointments: normalizeCallerAppointments(
-              verified?.appointments,
-              verified?.patientId,
-            ),
-            voiceLanguage: runtime.initialVoiceLanguage,
-          });
-          callState.runtime.maxCallDurationMs = MAX_CALL_DURATION_MS;
-          runtime.session.userData = callState;
-          return { agent, callState };
+            {
+              onAssistantText:
+                runtime.turnProfileController.observeAssistantText,
+              onLanguageDecision: (decision) => {
+                const voiceLanguage =
+                  runtime.applyLanguageDecisionToTts(decision);
+                if (voiceLanguage) {
+                  runtime.session.userData.runtime.voiceLanguage =
+                    voiceLanguage;
+                }
+              },
+              sttLanguageDetector: runtime.sttLanguageDetector,
+            },
+          );
+          runtime.markCallStateReady();
+          return { agent, callState: runtime.callState };
         },
         startSession: async ({ agent }, runtime) => {
           await runtime.session.start({
