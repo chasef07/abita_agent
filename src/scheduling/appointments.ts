@@ -52,7 +52,7 @@ export function recordBookedAppointmentInState(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
   result: BookingSuccess,
-): void {
+): string {
   const appointmentId = result.appointmentId;
   const provider = result.providerName
     ? publicProviderName(result.providerName)
@@ -77,6 +77,14 @@ export function recordBookedAppointmentInState(
   ];
   replaceActiveAppointments(state, nextAppointments, "found");
   setLatestBookedAppointment(state, appointmentId);
+  const appointmentRef = activeAppointmentById(
+    state,
+    appointmentId,
+  )?.appointmentRef;
+  if (!appointmentRef) {
+    throw new Error("Booked appointment reference was not recorded.");
+  }
+  return appointmentRef;
 }
 
 export interface CancellationAppointmentSelector {
