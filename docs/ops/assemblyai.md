@@ -12,7 +12,7 @@ Switched STT from Deepgram Nova-3 to AssemblyAI Universal-3 Pro Streaming on 202
 
 **No language pinned:** Universal-3.5 Pro auto-detects and code-switches between English, Spanish, German, French, Portuguese, and Italian. Omitting `language` lets it detect automatically — important since callers may speak Spanish.
 
-**Bundled LiveKit VAD:** The session does not override VAD, so LiveKit provisions its bundled Silero model. AssemblyAI retains its `vad_threshold=0.3`; that provider setting is separate from LiveKit's primary audio turn detector.
+**Aligned LiveKit VAD:** The session tunes LiveKit's auto-provisioned local-inference Silero model to `activationThreshold=0.3` and `deactivationThreshold=0.15`, matching AssemblyAI Universal-3.5 Pro's internal VAD threshold for consistent barge-in behavior while preserving LiveKit's default VAD lifecycle. The `250ms` minimum silence duration remains unchanged for the audio turn detector.
 
 **No agent-side noise cancellation:** The agent does not configure LiveKit background voice cancellation or AssemblyAI Voice Focus before STT. SIP trunk-level noise/echo cancellation (Telnyx) is separate from this.
 
