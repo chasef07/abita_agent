@@ -804,4 +804,64 @@ describe("call observability", () => {
       modelsUsed: ["zai-org/GLM-5"],
     });
   });
+
+  it("deduplicates LiveKit Inference model identities across metrics and usage", () => {
+    const summary = buildLlmSummary({
+      fallbackModel: "xai/grok-4.5",
+      llmMetrics: [
+        {
+          completionTokens: 20,
+          metadata: {
+            modelName: "google/gemma-4-31b-it",
+            modelProvider: "livekit",
+          },
+          promptTokens: 100,
+          type: "llm_metrics",
+        },
+      ],
+      usage: {
+        modelUsage: [
+          {
+            inputTokens: 100,
+            model: "google/gemma-4-31b-it",
+            outputTokens: 20,
+            provider: "livekit",
+            type: "llm_usage",
+          },
+        ],
+      },
+    });
+
+    expect(summary).toMatchObject({
+      fallbackUsed: false,
+      modelsUsed: ["google/gemma-4-31b-it"],
+    });
+  });
+
+  it("preserves non-LiveKit provider identities for namespaced models", () => {
+    const summary = buildLlmSummary({
+      fallbackModel: "fallback/model",
+      llmMetrics: [
+        {
+          metadata: {
+            modelName: "acme/model",
+            modelProvider: "provider-a",
+          },
+          type: "llm_metrics",
+        },
+        {
+          metadata: {
+            modelName: "acme/model",
+            modelProvider: "provider-b",
+          },
+          type: "llm_metrics",
+        },
+      ],
+    });
+
+    expect(summary.modelsUsed).toEqual([
+      "provider-a/acme/model",
+      "provider-b/acme/model",
+    ]);
+  });
 });

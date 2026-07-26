@@ -629,6 +629,9 @@ function metricMetadataModel(metric: Record<string, unknown>): string | null {
 
   const modelName = asString(metadata.modelName);
   const provider = asString(metadata.modelProvider);
+  if (provider === "livekit" && modelName?.includes("/")) {
+    return modelName;
+  }
   if (provider && provider !== "unknown" && modelName) {
     return `${provider}/${modelName}`;
   }
