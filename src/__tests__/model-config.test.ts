@@ -8,31 +8,24 @@ import {
 describe("LLM model config", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("uses GLM 5.2 with GLM 4.7 fallback through Baseten", () => {
-    vi.stubEnv("BASETEN_API_KEY", "test-key");
+  it("uses Gemma 4 with Grok 4.5 fallback through LiveKit Inference", () => {
+    vi.stubEnv("LIVEKIT_API_KEY", "test-key");
+    vi.stubEnv("LIVEKIT_API_SECRET", "test-secret");
 
     const { primary, fallback } = createLlmPair();
 
-    expect(primary.label()).toBe("baseten.LLM");
-    expect(primary.model).toBe("zai-org/GLM-5.2");
-    expect(fallback.label()).toBe("baseten.LLM");
-    expect(fallback.model).toBe("zai-org/GLM-4.7");
+    expect(primary.label()).toBe("inference.LLM");
+    expect(primary.model).toBe("google/gemma-4-31b-it");
+    expect(fallback.label()).toBe("inference.LLM");
+    expect(fallback.model).toBe("xai/grok-4.5");
   });
 
   it("caps spoken response length and disables parallel tool calls", () => {
-    expect(primaryLLMOptions.maxTokens).toBe(512);
-    expect(primaryLLMOptions.parallelToolCalls).toBe(false);
-    expect(fallbackLLMOptions.maxTokens).toBe(512);
-    expect(fallbackLLMOptions.parallelToolCalls).toBe(false);
-    expect(Object.keys(primaryLLMOptions)).toEqual([
-      "maxTokens",
-      "model",
-      "parallelToolCalls",
-    ]);
-    expect(Object.keys(fallbackLLMOptions)).toEqual([
-      "maxTokens",
-      "model",
-      "parallelToolCalls",
-    ]);
+    expect(primaryLLMOptions.modelOptions.max_completion_tokens).toBe(512);
+    expect(primaryLLMOptions.modelOptions.parallel_tool_calls).toBe(false);
+    expect(fallbackLLMOptions.modelOptions.max_completion_tokens).toBe(512);
+    expect(fallbackLLMOptions.modelOptions.parallel_tool_calls).toBe(false);
+    expect(Object.keys(primaryLLMOptions)).toEqual(["model", "modelOptions"]);
+    expect(Object.keys(fallbackLLMOptions)).toEqual(["model", "modelOptions"]);
   });
 });
