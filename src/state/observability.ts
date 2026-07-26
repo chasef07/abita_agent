@@ -1,5 +1,6 @@
 import type {
   AppointmentActionAnalytics,
+  AvailabilityReadAnalytics,
   CallState,
   OfficeKnowledgeRetrievalAnalytics,
   OwnedMiddlewareFailureAnalytics,
@@ -45,6 +46,25 @@ export function appointmentActions(
   state: CallState,
 ): AppointmentActionAnalytics[] {
   return [...state.runtime.appointmentActions];
+}
+
+export function recordAvailabilityReadEvent(
+  state: CallState,
+  event: AvailabilityReadAnalytics,
+): void {
+  state.runtime.availabilityReads = [
+    ...state.runtime.availabilityReads,
+    {
+      createdAt: new Date().toISOString(),
+      ...event,
+    },
+  ];
+}
+
+export function availabilityReadEvents(
+  state: CallState,
+): AvailabilityReadAnalytics[] {
+  return [...state.runtime.availabilityReads];
 }
 
 export function recordOwnedMiddlewareFailure(

@@ -13,6 +13,7 @@ import {
 import { transferIsAccepted } from "../state/call-lifecycle.js";
 import {
   appointmentActions,
+  availabilityReadEvents,
   officeKnowledgeRetrievals,
   ownedMiddlewareFailures,
 } from "../state/observability.js";
@@ -308,6 +309,9 @@ export async function attachCallCloseout(input: {
     const recordedAppointmentActions = callState
       ? appointmentActions(callState)
       : [];
+    const recordedAvailabilityReads = callState
+      ? availabilityReadEvents(callState)
+      : [];
     const recordedOwnedMiddlewareFailures = callState
       ? ownedMiddlewareFailures(callState)
       : [];
@@ -381,6 +385,7 @@ export async function attachCallCloseout(input: {
       knowledgeRetrievals: recordedKnowledgeRetrievals,
       identityTransitions: recordedIdentityTransitions,
       appointmentActions: recordedAppointmentActions,
+      availabilityReads: recordedAvailabilityReads,
       ownedMiddlewareFailures: recordedOwnedMiddlewareFailures,
       ...input.call.livekitContext,
     };

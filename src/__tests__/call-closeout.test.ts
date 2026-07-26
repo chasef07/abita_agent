@@ -19,6 +19,7 @@ import {
   markTransferAmbiguous,
 } from "../state/call-lifecycle.js";
 import {
+  recordAvailabilityReadEvent,
   recordAppointmentAction,
   recordOfficeKnowledgeRetrieval,
   recordOwnedMiddlewareFailure,
@@ -145,6 +146,39 @@ describe("call closeout", () => {
     });
     expect(portal.deliveries[1]?.payload).not.toHaveProperty("callState");
     expect(portal.deliveries[1]?.payload).not.toHaveProperty("sessionReport");
+  });
+
+  it("delivers PHI-free availability read telemetry", async () => {
+    const state = createTestCallState({ patientId: "private-patient-id" });
+    recordAvailabilityReadEvent(state, {
+      operation: "middleware_call",
+      durationMs: 125,
+    });
+    recordAvailabilityReadEvent(state, {
+      operation: "completed_cache_hit",
+      durationMs: 0,
+    });
+    recordAvailabilityReadEvent(state, {
+      operation: "invalidation",
+      reason: "patient_context_changed",
+    });
+    const { events, portal } = await setupCloseout({ state });
+
+    await events.close();
+
+    for (const delivery of portal.deliveries.slice(1)) {
+      expect(delivery.payload.availabilityReads).toMatchObject([
+        { operation: "middleware_call", durationMs: 125 },
+        { operation: "completed_cache_hit", durationMs: 0 },
+        {
+          operation: "invalidation",
+          reason: "patient_context_changed",
+        },
+      ]);
+      expect(JSON.stringify(delivery.payload.availabilityReads)).not.toContain(
+        "private-patient-id",
+      );
+    }
   });
 
   it("redacts private appointment selectors from the rich call-state snapshot", async () => {

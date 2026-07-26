@@ -195,15 +195,6 @@ export function clinicTimestampMessage(now: Date): string {
   );
 }
 
-export function timeConstraintCacheValue(
-  constraint: AvailabilityTimeConstraint | null,
-): string | null {
-  if (!constraint) return null;
-  return "minutes" in constraint
-    ? `${constraint.kind}:${constraint.minutes}`
-    : constraint.kind;
-}
-
 export function slotMatchesTimeConstraint(
   minutes: number,
   constraint: AvailabilityTimeConstraint,

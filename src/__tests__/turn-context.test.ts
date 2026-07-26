@@ -13,10 +13,6 @@ function createState() {
 function seedAvailability(state: ReturnType<typeof createState>) {
   state.availability.latestRouting = "all_three";
   state.availability.bookingTokensBySlotId = { A: "private-token" };
-  state.availability.latestSearch = {
-    signature: "old-search",
-    response: "Offer this slot: June 1 at 9:00 AM with Dr. Bach.",
-  };
   state.availability.slots = [
     {
       slotId: "A",
@@ -53,7 +49,6 @@ describe("turn context state", () => {
     expect(state.availability.slots).toEqual([]);
     expect(state.availability.latestRouting).toBeNull();
     expect(state.availability.bookingTokensBySlotId).toEqual({});
-    expect(state.availability.latestSearch).toBeUndefined();
   });
 
   it("clears stale availability when workflow intent changes", () => {
@@ -73,7 +68,6 @@ describe("turn context state", () => {
     expect(state.availability.slots).toEqual([]);
     expect(state.availability.latestRouting).toBeNull();
     expect(state.availability.bookingTokensBySlotId).toEqual({});
-    expect(state.availability.latestSearch).toBeUndefined();
   });
 
   it("keeps appointment-change context distinct from new scheduling lane", () => {
@@ -98,6 +92,5 @@ describe("turn context state", () => {
 
     expect(remaining).toEqual([]);
     expect(state.availability.bookingTokensBySlotId).toEqual({});
-    expect(state.availability.latestSearch).toBeUndefined();
   });
 });

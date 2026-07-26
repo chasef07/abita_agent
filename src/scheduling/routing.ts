@@ -23,7 +23,7 @@ export function selectAvailabilityOffice(
   if (activeOfficeKey(state) === selection.office.key) return null;
 
   const { office } = selection;
-  clearAvailabilitySelection(state);
+  clearAvailabilitySelection(state, { invalidateReads: "office_changed" });
   state.office.activeKey = office.key;
   state.office.phoneOverrides[office.key] ??= office.amdOfficePhone;
   return null;
