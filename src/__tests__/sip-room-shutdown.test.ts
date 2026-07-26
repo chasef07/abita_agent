@@ -46,6 +46,28 @@ describe("SIP room shutdown", () => {
     );
   });
 
+  it("signals startup abandonment before requesting LiveKit shutdown", () => {
+    const room = new TestRoom();
+    const participant = { identity: "sip-caller" };
+    room.remoteParticipants.set(participant.identity, participant);
+    const ctx = createContext(room);
+    const events: string[] = [];
+    ctx.shutdown.mockImplementation(() => {
+      events.push("shutdown");
+    });
+
+    attachSipParticipantShutdown(ctx, participant, {
+      logger: { log: vi.fn() },
+      onShutdownRequested: () => {
+        events.push("abandon");
+      },
+    });
+
+    room.disconnectParticipant(participant);
+
+    expect(events).toEqual(["abandon", "shutdown"]);
+  });
+
   it("ignores other participants and duplicate disconnect events", () => {
     const room = new TestRoom();
     const participant = { identity: "sip-caller" };

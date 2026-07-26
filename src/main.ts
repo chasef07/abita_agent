@@ -143,9 +143,6 @@ export default defineAgent({
         sipParticipantIdentity: participant.identity ?? "",
       };
       let startupActive = true;
-      ctx.addShutdownCallback(async () => {
-        startupActive = false;
-      });
       console.log(
         `[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`,
       );
@@ -191,6 +188,9 @@ export default defineAgent({
             isTransferred: () => {
               const state = getCallState();
               return state ? transferIsAccepted(state) : false;
+            },
+            onShutdownRequested: () => {
+              startupActive = false;
             },
           });
 
