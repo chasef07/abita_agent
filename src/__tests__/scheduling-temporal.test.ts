@@ -261,6 +261,47 @@ describe("Scheduling Workflow structured availability preferences", () => {
     ]);
   });
 
+  it("rejects an explicit past calendar date before middleware access", async () => {
+    const state = createState();
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [foundAvailability([{ time: "9:00 AM" }])],
+    });
+    const { get_availability } = createSchedulingTools(
+      middleware,
+      fixedClock("2026-06-09T14:42:00.000Z"),
+    );
+    const ctx = createToolContext(state);
+
+    await get_availability.execute(
+      {
+        when: [{ date: { kind: "tomorrow" } }],
+        appointmentLane: "medical_md",
+      },
+      { ctx: ctx as never, toolCallId: "availability-1" } as never,
+    );
+    expect(state.availability.slots).toHaveLength(1);
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      S1: "token-1",
+    });
+
+    const response = await get_availability.execute(
+      {
+        when: [
+          {
+            date: { kind: "calendar", month: 6, day: 8, year: 2026 },
+          },
+        ],
+        appointmentLane: "medical_md",
+      },
+      { ctx: ctx as never, toolCallId: "availability-2" } as never,
+    );
+
+    expect(middleware.operations).toHaveLength(1);
+    expect(response).toMatch(/date has already passed.*future date/i);
+    expect(state.availability.slots).toEqual([]);
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
+  });
+
   it("combines a next-week anchor and weekday in one canonical branch", async () => {
     const { middleware } = await checkAvailability({
       when: [{ date: { kind: "next_week" }, weekday: "thursday" }],

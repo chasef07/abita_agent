@@ -134,6 +134,10 @@ export class SchedulingWorkflow {
     signal?: AbortSignal,
   ): Promise<string> {
     const resolvedWhen = resolveAvailabilityPreferences(args.when, this.clock);
+    if (resolvedWhen.status === "invalid") {
+      clearAvailabilitySelection(state);
+      return "That date has already passed. Ask the caller for a future date.";
+    }
 
     const request = buildAvailabilityLookupRequestForState(state, {
       ...args,

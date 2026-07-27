@@ -105,7 +105,8 @@ export function createSchedulingTools(
     description:
       "Search real appointment inventory immediately once required scheduling context is known. " +
       "Translate the caller's date and time language into semantic when branches without calculating calendar dates. Fields in one branch are AND; separate branches are OR. " +
-      "Omit when or pass an empty list for next available, any day, any time, or no stated preference. Use one call for all acceptable alternatives. " +
+      "Omit only the unrestricted dimension: for Monday, any time, keep the weekday and omit time; for any day after 2 PM, keep the time and omit date and weekday. " +
+      "Omit when or pass an empty list only when the caller has no date, weekday, or time constraint. Use one call for all acceptable alternatives. " +
       "For new appointments, call after the visit reason and lane are clear; for reschedules, call only after the existing appointment to move is identified. " +
       "If a routine exam caller also mentions an eye problem or symptom, ask whether the appointment is mainly for glasses or contacts or for the eye problem before choosing appointmentLane. " +
       "On Hollywood or Sweetwater calls, ask which office the caller wants; never infer it from the number called. " +
@@ -115,7 +116,7 @@ export function createSchedulingTools(
         when: availabilityPreferenceListSchema
           .optional()
           .describe(
-            "Complete scheduling preference alternatives for this search. Omit or pass [] for earliest availability without date or time preferences.",
+            "Complete scheduling preference alternatives for this search. Omit or pass [] for earliest availability without a date, weekday, or time constraint.",
           ),
         appointmentLane: z
           .enum(["medical_md", "routine_od"])

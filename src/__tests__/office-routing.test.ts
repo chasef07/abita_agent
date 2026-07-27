@@ -670,7 +670,12 @@ describe("model-facing tool definitions", () => {
       "without calculating calendar dates",
     );
     expect(get_availability.description).toContain(
-      "Omit when or pass an empty list for next available",
+      "Omit only the unrestricted dimension",
+    );
+    expect(get_availability.description).toContain("Monday, any time");
+    expect(get_availability.description).toContain("any day after 2 PM");
+    expect(get_availability.description).toContain(
+      "Omit when or pass an empty list only when the caller has no date, weekday, or time constraint",
     );
     expect(get_availability.description).toContain(
       "Use one call for all acceptable alternatives",
@@ -714,6 +719,9 @@ describe("model-facing tool definitions", () => {
     );
     expect(parameters.shape.when.description).toContain(
       "Omit or pass [] for earliest availability",
+    );
+    expect(parameters.shape.when.description).toContain(
+      "without a date, weekday, or time constraint",
     );
     expect(
       parameters.safeParse({

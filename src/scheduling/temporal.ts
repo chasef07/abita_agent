@@ -144,7 +144,7 @@ export const availabilityPreferenceListSchema = z
   )
   .max(8)
   .describe(
-    "Caller scheduling preferences. Fields in one branch are AND; branches are OR. Omit or pass [] for next available without date or time preferences.",
+    "Caller scheduling preferences. Fields in one branch are AND; branches are OR. Omit or pass [] for next available without a date, weekday, or time constraint.",
   );
 
 export type AvailabilityPreferenceInput = z.infer<
@@ -154,14 +154,31 @@ export type AvailabilityPreferenceInput = z.infer<
 export function resolveAvailabilityPreferences(
   input: AvailabilityPreferenceInput[] | undefined,
   clock: SchedulingClock,
-): { date: string; preferences?: AvailabilityPreference[] } {
+):
+  | { status: "resolved"; date: string; preferences?: AvailabilityPreference[] }
+  | { status: "invalid" } {
   const today = clinicCalendarDate(clock.now());
   const todayIso = isoDate(today);
+  const pastExplicitDate = (input ?? []).some((branch) => {
+    if (branch.date?.kind !== "calendar" || branch.date.year === undefined) {
+      return false;
+    }
+    const date = buildCalendarDate(
+      branch.date.year,
+      branch.date.month,
+      branch.date.day,
+    );
+    return date !== null && compareCalendarDates(date, today) < 0;
+  });
+  if (pastExplicitDate) {
+    return { status: "invalid" };
+  }
+
   const branches = (input ?? []).map((branch) =>
     canonicalAvailabilityPreference(branch, today),
   );
   if (branches.some((branch) => Object.keys(branch).length === 0)) {
-    return { date: todayIso };
+    return { status: "resolved", date: todayIso };
   }
 
   const preferences = [
@@ -171,13 +188,16 @@ export function resolveAvailabilityPreferences(
         .sort(([left], [right]) => left.localeCompare(right)),
     ).values(),
   ];
-  if (preferences.length === 0) return { date: todayIso };
+  if (preferences.length === 0) {
+    return { status: "resolved", date: todayIso };
+  }
 
   const dates = preferences.map((preference) => preference.date);
   const startDate = dates.every(Boolean)
     ? (dates.sort()[0] ?? todayIso)
     : todayIso;
   return {
+    status: "resolved",
     date: startDate < todayIso ? todayIso : startDate,
     preferences,
   };
