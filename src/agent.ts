@@ -99,7 +99,6 @@ export function createVoiceAgent(
         {
           state,
           transcript,
-          lastAssistantText: latestAssistantText(chatCtx),
         },
         identityLookup,
       );
@@ -243,16 +242,6 @@ export async function* observeAssistantText(
   }
 
   observer(text, true);
-}
-
-function latestAssistantText(chatCtx: ChatContext): string | null {
-  for (let index = chatCtx.items.length - 1; index >= 0; index -= 1) {
-    const item = chatCtx.items[index];
-    if (item.type === "message" && item.role === "assistant") {
-      return item.textContent ?? null;
-    }
-  }
-  return null;
 }
 
 function recentNaturalLanguageConversation(chatCtx: ChatContext): string[] {

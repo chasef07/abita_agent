@@ -7,14 +7,13 @@ import {
 import { normalizeInsuranceText } from "../insurance-rules.js";
 import {
   applyPatientResult,
+  beginNewPatientRegistration,
   beginPatientIdentityOperation,
   currentPatientIdentityTransitionVersion,
+  patientRegistrationConflict,
   patientIdentityOperationIsCurrent,
   patientIdentityTransitionIsCurrent,
-  preCallCandidateMatchesIdentity,
-  setPendingRegistrationIdentity,
 } from "../identity/promotion.js";
-import type { CallState } from "../state/call-state.js";
 import { runtimeCallerPhone } from "../state/call-lifecycle.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import {
@@ -75,6 +74,12 @@ const addPatientParameters = z
       .describe(
         "Last 4 digits of the patient's Social Security number. Collect for routine-vision registration; do not ask for the full SSN.",
       ),
+    newPatientConfirmed: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set to true only after the caller explicitly confirms the patient has never registered with or been added to the practice.",
+      ),
     readBack: z
       .boolean()
       .optional()
@@ -88,7 +93,8 @@ export const add_patient = tool({
   name: "add_patient",
   onDuplicate: "reject",
   description:
-    "Create a chart for a confirmed new patient after visit triage and an accepted check_insurance result. " +
+    "Create a chart for a confirmed new patient after the caller explicitly confirms the patient has never registered with or been added to the practice, visit triage, and an accepted check_insurance result. " +
+    "If the caller already clearly confirmed that, call add_patient once with newPatientConfirmed true; do not call resolve_patient first. " +
     "Read back the registration details and get caller confirmation first. " +
     "For routine-vision registration, collect only the patient's SSN last four. " +
     "Before using the inbound caller number, confirm it is a good callback number; if yes, omit phone and set inboundPhoneConfirmed to true. " +
@@ -98,7 +104,8 @@ export const add_patient = tool({
     const state = getState(ctx);
     ctx.disallowInterruptions();
 
-    if (state.identity.patient.status === "created") {
+    const registrationConflict = patientRegistrationConflict(state, params);
+    if (registrationConflict === "created_patient") {
       const patientName =
         state.identity.patient.name?.trim() ||
         `${params.firstName} ${params.lastName}`;
@@ -108,9 +115,19 @@ export const add_patient = tool({
       return `Patient chart is already created for ${patientName}. Continue with scheduling.`;
     }
 
-    if (state.identity.patient.status !== "new") {
-      return "Before creating a new chart, ask whether the patient is already registered with us and call resolve_patient with registrationStatus not_registered after the caller confirms they are not registered.";
+    if (registrationConflict === "active_patient") {
+      return "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.";
     }
+
+    if (registrationConflict === "pre_call_candidate") {
+      return "Do not create a new chart yet. Ask the privacy-safe first-name question, then use the runtime-confirmed patient state or continue an existing-patient lookup.";
+    }
+
+    if (!params.newPatientConfirmed) {
+      return "Before creating a new chart, ask the caller to confirm that the patient has never registered with or been added to the practice. Call add_patient again with newPatientConfirmed set to true only after the caller confirms.";
+    }
+
+    beginNewPatientRegistration(state, params);
 
     const checkedInsurance = lastInsuranceEligibilityCheck(state);
     const insurance =
@@ -138,10 +155,6 @@ export const add_patient = tool({
     const phone =
       explicitPhone ||
       (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
-
-    if (hasMatchingPreCallPatient(state, params)) {
-      return "A patient record may already exist for that last name and date of birth from the caller phone lookup. Confirm the existing patient record before creating a new chart.";
-    }
 
     if (coverageType === "routine_vision" && !params.ssnLast4) {
       throw new ToolError(
@@ -196,7 +209,6 @@ export const add_patient = tool({
       ...(params.email?.trim() ? { email: params.email.trim() } : {}),
     };
 
-    setPendingRegistrationIdentity(state, params);
     const transitionVersion = currentPatientIdentityTransitionVersion(state);
     const operationVersion = beginPatientIdentityOperation(state);
     const result = await ownedMiddleware().createPatient({
@@ -246,18 +258,3 @@ export const add_patient = tool({
     return `Created a patient chart for ${patientName}. Continue with scheduling.`;
   },
 });
-
-function hasMatchingPreCallPatient(
-  state: CallState,
-  params: {
-    lastName: string;
-    dob: string;
-  },
-): boolean {
-  const preCall = state.identity.preCall;
-  if (!preCall) return false;
-
-  return preCall.candidates.some((candidate) =>
-    preCallCandidateMatchesIdentity(candidate, params),
-  );
-}

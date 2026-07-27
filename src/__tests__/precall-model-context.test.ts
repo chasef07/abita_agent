@@ -107,7 +107,16 @@ describe("pre-call model context", () => {
       'In Spanish, say exactly: "Para ayudar con la cita, ¿podría deletrear el primer nombre del paciente?"',
     );
     expect(agent.instructions).toContain(
-      "If the caller already supplied the patient's first name, call resolve_patient with it instead of asking again.",
+      "Before every reply, runtime tries to match any caller-provided first name to a preloaded patient.",
+    );
+    expect(agent.instructions).toContain(
+      "If runtime provides confirmed-patient context, use it and do not call resolve_patient.",
+    );
+    expect(agent.instructions).toContain(
+      "use resolve_patient as the last resort for existing-patient lookup",
+    );
+    expect(agent.instructions).not.toContain(
+      "call resolve_patient with it instead of asking again",
     );
   });
 
