@@ -76,7 +76,7 @@ describe("Voice Agent identity promotion", () => {
       "private-patient-id",
       appointment,
     );
-    const loadedReply = `Verified existing patient Doe, Jane. Insurance on file: Aetna. Loaded 1 appointment: Monday, June 1, 2026 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`;
+    const loadedReply = `Verified existing patient Doe, Jane. Insurance on file: Aetna. Loaded 1 appointment: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`;
     const lookup: PatientResolveLookup = async (_officePhone, identity) => {
       expect(identity).toEqual({
         firstName: "Jane",
@@ -341,7 +341,7 @@ describe("Voice Agent identity promotion", () => {
         appointments: [appointment],
       });
     };
-    const loadedReply = `Verified existing patient Jane Doe. Loaded 1 appointment: Monday, June 1, 2026 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`;
+    const loadedReply = `Verified existing patient Jane Doe. Loaded 1 appointment: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`;
     const llm = new voice.testing.FakeLLM([
       resolveTurn(
         "Please retry Jane Doe, January 2, 1980.",
@@ -606,7 +606,7 @@ describe("Voice Agent identity promotion", () => {
       .map((item) => item.textContent ?? "")
       .join(" ");
     expect(turnSystemText).toContain(
-      `Upcoming appointments loaded: Monday, June 1, 2026 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`,
+      `Upcoming appointments loaded: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`,
     );
     expect(turnSystemText).toContain("Insurance on file: Aetna.");
     expect(turnSystemText).not.toContain("private-patient-id");

@@ -1075,7 +1075,7 @@ describe("stateful call tools", () => {
         appointments: [
           {
             id: 123,
-            date: "June 1",
+            date: "July 27, 2026",
             time: "9:00 AM",
             provider: "Dr. Bach",
             type: "Office Visit",
@@ -1097,7 +1097,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toMatch(
-      /^Verified existing patient Jane Doe\. Insurance on file: self pay\. Loaded 1 appointment: June 1 at 9:00 AM with Dr\. Bach \(appointmentRef appointment-[a-z0-9]+\)\.$/,
+      /^Verified existing patient Jane Doe\. Insurance on file: self pay\. Loaded 1 appointment: Monday, July 27 at 9:00 AM with Dr\. Bach \(appointmentRef appointment-[a-z0-9]+\)\.$/,
     );
     expect(result).not.toContain("123");
     expect(result).not.toContain("private-cancellation-token");

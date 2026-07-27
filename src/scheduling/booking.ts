@@ -21,6 +21,7 @@ import {
   selectedAvailabilitySlot,
 } from "./availability.js";
 import { routingForAvailability } from "./routing.js";
+import { spokenAppointmentDate } from "./spoken-date.js";
 import type { BookingSuccess } from "./middleware.js";
 
 type AppointmentKind = "medical" | "routine_vision" | "post_op";
@@ -214,11 +215,10 @@ export function bookingFailureMessage(result: BookAppointmentResult): string {
 }
 
 export function spokenSlot(slot: StoredAvailabilitySlot): string {
-  const date = spokenIsoDate(slot.date) ?? slot.date;
   const provider = slot.provider
     ? ` with ${publicProviderName(slot.provider)}`
     : "";
-  return `${date} at ${slot.time}${provider}`;
+  return `${spokenAppointmentDate(slot.date)} at ${slot.time}${provider}`;
 }
 
 function normalizeAppointmentReason(appointmentReason: string): string {
@@ -306,17 +306,6 @@ function isGenericBookingReason(value: string): boolean {
   return /^(appointment|appt|visit|office visit|booking|(?:my )?eyes?|(?:my )?eye (?:exam|issues?|problems?|concerns?))$/i.test(
     value.trim(),
   );
-}
-
-function spokenIsoDate(date: string | undefined): string | undefined {
-  if (!date) return undefined;
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) return undefined;
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(parsed);
 }
 
 function normalizeAppointmentTypeName(value: string | undefined): string {

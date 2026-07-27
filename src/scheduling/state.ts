@@ -65,6 +65,7 @@ export function createSchedulingState(input: {
     },
     availability: {
       slots,
+      currentDate: singleAvailabilityDate(slots),
       latestRouting: input.lastAvailabilityRouting,
       bookingTokensBySlotId: {},
       nextSlotIndex: nextAvailabilitySlotIndexAfter(slots),
@@ -178,6 +179,7 @@ export function clearAvailabilitySelection(
 ): void {
   if (options.invalidateReads) {
     invalidateAvailabilityReads(state, options.invalidateReads);
+    state.availability.currentDate = undefined;
   }
   state.availability.slots = [];
   state.availability.latestRouting = null;
@@ -226,6 +228,17 @@ export function latestAvailabilityRouting(state: CallState): string | null {
   );
 }
 
+export function currentAvailabilityDate(state: CallState): string | undefined {
+  return state.availability.currentDate?.trim() || undefined;
+}
+
+export function setCurrentAvailabilityDate(
+  state: CallState,
+  date: string | undefined,
+): void {
+  state.availability.currentDate = date?.trim() || undefined;
+}
+
 export function availabilitySlotsForState(
   state: CallState,
 ): StoredAvailabilitySlot[] {
@@ -251,24 +264,15 @@ export function removeAvailabilitySlot(
   return availabilitySlotsForState(state);
 }
 
-export function mergeAvailabilitySlots(
+export function replaceAvailabilitySlots(
   state: CallState,
-  newSlots: StoredAvailabilitySlot[],
+  slots: StoredAvailabilitySlot[],
   routing: string | null,
 ): void {
-  const slots = availabilitySlotsForState(state);
-  for (const slot of newSlots) {
-    const existingIndex = slots.findIndex((existing) =>
-      sameAvailabilitySlot(existing, slot),
-    );
-    if (existingIndex >= 0) {
-      slots[existingIndex] = slot;
-    } else {
-      slots.push(slot);
-    }
-  }
-  state.availability.slots = slots;
+  state.availability.slots = [...slots];
   state.availability.latestRouting = routing;
+  state.availability.bookingTokensBySlotId = {};
+  bookingTokenExpiriesFor(state).clear();
 }
 
 function bookingTokenExpiriesFor(state: CallState): Map<string, number> {
@@ -352,6 +356,15 @@ function nextAvailabilitySlotIndexAfter(
   }, 0);
 }
 
+function singleAvailabilityDate(
+  slots: readonly StoredAvailabilitySlot[],
+): string | undefined {
+  const dates = [
+    ...new Set(slots.map((slot) => slot.date.trim()).filter(Boolean)),
+  ];
+  return dates.length === 1 ? dates[0] : undefined;
+}
+
 function availabilitySlotIndex(slotId: string): number | null {
   const normalized = slotId.trim().toUpperCase();
   const stableMatch = normalized.match(/^S(\d+)$/);
@@ -374,19 +387,6 @@ function slotIdForIndex(index: number): string {
 
 function normalizeSlotId(slotId: string): string {
   return slotId.trim().toUpperCase();
-}
-
-function sameAvailabilitySlot(
-  left: StoredAvailabilitySlot,
-  right: StoredAvailabilitySlot,
-): boolean {
-  return (
-    left.date === right.date &&
-    left.time === right.time &&
-    left.provider === right.provider &&
-    left.datetime === right.datetime &&
-    left.routing === right.routing
-  );
 }
 
 function visitTypeFromAppointmentLane(

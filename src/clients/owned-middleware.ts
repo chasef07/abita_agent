@@ -41,6 +41,9 @@ export type AvailabilitySlot = {
   bookingToken?: string;
 };
 
+export type AvailabilityTimePreference =
+  { kind: "morning" | "afternoon" } | { minuteOfDay: number };
+
 export type AvailabilityResult =
   | {
       status: "found" | "none" | "incomplete";
@@ -195,7 +198,8 @@ export interface OwnedMiddleware {
   }): Promise<PatientResolveResult>;
   getAvailability(request: {
     office: string;
-    date: string;
+    requestedDate?: string;
+    preferredTime?: AvailabilityTimePreference;
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
@@ -280,7 +284,8 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
 
   async getAvailability(request: {
     office: string;
-    date: string;
+    requestedDate?: string;
+    preferredTime?: AvailabilityTimePreference;
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
@@ -290,16 +295,20 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       "/api/scheduler/availability",
       request.office,
       {
-        date: request.date,
+        ...(request.requestedDate
+          ? { requestedDate: request.requestedDate }
+          : {}),
+        ...(request.preferredTime
+          ? { preferredTime: request.preferredTime }
+          : {}),
         ...(request.dob ? { dob: request.dob } : {}),
         ...(request.routing ? { routing: request.routing } : {}),
         ...(request.preauthRequired ? { preauthRequired: true } : {}),
       },
       { signal: request.signal },
     );
-    return transport.ok
-      ? normalizeAvailability(transport.value)
-      : transport.failure;
+    if (!transport.ok) return transport.failure;
+    return normalizeAvailability(transport.value);
   }
 
   async createPatient(request: {
@@ -642,7 +651,6 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
 
 function availabilityStatus(outcome: string | null) {
   switch (outcome) {
-    case null:
     case "availability_found":
       return "found" as const;
     case "no_availability":

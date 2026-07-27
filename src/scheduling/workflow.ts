@@ -32,8 +32,10 @@ import {
 import {
   activeRoutingContext,
   clearAvailabilitySelection,
+  currentAvailabilityDate,
   latestAvailabilityRouting,
   removeAvailabilitySlot,
+  setCurrentAvailabilityDate,
 } from "./state.js";
 import {
   appointmentActionStatusForBookingResult,
@@ -95,12 +97,11 @@ import type {
   SchedulingMiddleware,
 } from "./middleware.js";
 import {
+  clinicIsoDate,
   resolveAvailabilityWhen,
   systemSchedulingClock,
-  type AvailabilityDateSearchMode,
-  type AvailabilityTimeConstraint,
   type SchedulingClock,
-} from "./temporal.js";
+} from "./availability-when.js";
 
 export interface AvailabilityLookupArgs {
   when: string;
@@ -134,17 +135,17 @@ export class SchedulingWorkflow {
     args: AvailabilityLookupArgs,
     signal?: AbortSignal,
   ): Promise<string> {
-    const resolvedWhen = resolveAvailabilityWhen(args.when, this.clock);
-    if (resolvedWhen.status !== "resolved") {
-      clearAvailabilitySelection(state);
-      return resolvedWhen.message;
-    }
-
+    const now = this.clock.now();
+    const resolvedWhen = resolveAvailabilityWhen(
+      args.when,
+      { now: () => now },
+      currentAvailabilityDate(state),
+    );
     const request = buildAvailabilityLookupRequestForState(state, {
       ...args,
-      date: resolvedWhen.date,
-      dateSearchMode: resolvedWhen.dateSearchMode,
-      timeConstraint: resolvedWhen.timeConstraint,
+      cacheDay: clinicIsoDate(now),
+      requestedDate: resolvedWhen.requestedDate,
+      preferredTime: resolvedWhen.preferredTime,
     });
     if ("blocked" in request) return request.blocked;
 
@@ -158,7 +159,7 @@ export class SchedulingWorkflow {
           this.middleware.getAvailability({
             request: request.body,
             office,
-            signal,
+            ...(signal ? { signal } : {}),
           }),
         {
           now: this.clock.now(),
@@ -187,13 +188,11 @@ export class SchedulingWorkflow {
       }
     }
     try {
-      const response = storeAvailabilitySlots(
+      setCurrentAvailabilityDate(
         state,
-        result,
-        request.routing,
-        request.timeConstraint,
-        request.dateSearchMode,
+        availabilityReferenceDate(request.body, result),
       );
+      const response = storeAvailabilitySlots(state, result, request.routing);
       if (response.cacheable) {
         cacheCompletedAvailabilityRead(
           state,
@@ -762,6 +761,7 @@ function availabilityRequestStillCurrent(
   return (
     availabilityBackendKey(state, {
       body: request.body,
+      cacheDay: request.cacheDay,
       patientId: activePatientId(state),
       routing: request.routing,
     }) === request.backendKey
@@ -771,21 +771,19 @@ function availabilityRequestStillCurrent(
 type AvailabilityWorkflowRequest = {
   body: MiddlewareAvailabilityRequest;
   backendKey: string;
-  date: string;
+  cacheDay: string;
   routing: string | null;
-  dateSearchMode: AvailabilityDateSearchMode;
-  timeConstraint: AvailabilityTimeConstraint | null;
 };
 
 function buildAvailabilityLookupRequestForState(
   state: CallState,
   args: AvailabilityLookupArgs & {
-    date: string;
-    dateSearchMode: AvailabilityDateSearchMode;
-    timeConstraint: AvailabilityTimeConstraint | null;
+    cacheDay: string;
+    requestedDate?: string;
+    preferredTime?: MiddlewareAvailabilityRequest["preferredTime"];
   },
 ): AvailabilityWorkflowRequest | { blocked: string } {
-  const { date, dateSearchMode, timeConstraint } = args;
+  const { cacheDay, requestedDate, preferredTime } = args;
   const incompleteRegistration = incompletePatientRegistrationMessage(state);
   if (incompleteRegistration) {
     return { blocked: incompleteRegistration };
@@ -812,7 +810,9 @@ function buildAvailabilityLookupRequestForState(
   if (unsupportedRoutineVisionScheduling)
     return { blocked: unsupportedRoutineVisionScheduling };
   const routing = routingForAvailability(state);
-  const body: MiddlewareAvailabilityRequest = { date };
+  const body: MiddlewareAvailabilityRequest = {};
+  if (requestedDate) body.requestedDate = requestedDate;
+  if (preferredTime) body.preferredTime = preferredTime;
   const dob = activePatientDob(state);
   if (dob) body.dob = dob;
   if (routing) body.routing = routing;
@@ -821,12 +821,11 @@ function buildAvailabilityLookupRequestForState(
     body,
     backendKey: availabilityBackendKey(state, {
       body,
+      cacheDay,
       patientId,
       routing,
     }),
-    dateSearchMode,
-    timeConstraint,
-    date,
+    cacheDay,
     routing,
   };
 }
@@ -835,6 +834,7 @@ function availabilityBackendKey(
   state: CallState,
   input: {
     body: MiddlewareAvailabilityRequest;
+    cacheDay: string;
     patientId: string | null;
     routing: string | null;
   },
@@ -848,12 +848,37 @@ function availabilityBackendKey(
     providerOffice: normalizePhoneNumber(getAmdOfficeForToolCall(state)),
     intent: turn?.intent ?? null,
     appointmentLane: turn?.appointmentLane ?? null,
-    date: input.body.date.trim(),
+    cacheDay: input.cacheDay,
+    requestedDate: input.body.requestedDate?.trim() || null,
+    preferredTime: input.body.preferredTime ?? null,
     dob:
       typeof input.body.dob === "string" ? input.body.dob.trim() || null : null,
     routing: input.routing,
     preauthRequired: input.body.preauthRequired === true,
   });
+}
+
+function availabilityReferenceDate(
+  request: MiddlewareAvailabilityRequest,
+  result: AvailabilityResult,
+): string | undefined {
+  if (result.status === "error") {
+    return request.requestedDate?.trim() || undefined;
+  }
+  if (result.status !== "found") {
+    return (
+      result.searchedFrom?.trim() ||
+      result.requestedDate?.trim() ||
+      request.requestedDate?.trim() ||
+      undefined
+    );
+  }
+  const dates = result.slots.flatMap((slot) => {
+    const date = slot.date.trim() || slot.datetime.split("T")[0]?.trim();
+    return date ? [date] : [];
+  });
+  const distinctDates = [...new Set(dates)];
+  return distinctDates.length === 1 ? distinctDates[0] : undefined;
 }
 
 function ensureNewAppointmentBookingContext(state: CallState): void {
