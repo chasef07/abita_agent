@@ -40,7 +40,7 @@ import {
   clinicTimestampMessage,
   systemSchedulingClock,
   type SchedulingClock,
-} from "./scheduling/temporal.js";
+} from "./scheduling/availability-when.js";
 
 type VoiceAgentOptions = {
   identityLookup?: PatientResolveLookup;

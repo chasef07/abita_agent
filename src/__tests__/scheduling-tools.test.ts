@@ -400,6 +400,7 @@ describe("scheduling tools", () => {
         request: {
           date: "2026-06-01",
           dob: "01/01/1980",
+          preferences: [{ date: "2026-06-01" }],
           routing: "all_three",
         },
       },
@@ -554,17 +555,25 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(first).toBe(
-      "No openings were found from June 1 through June 15. Ask whether to check starting June 16, or whether they prefer a different day or time.",
+      "No openings were found from June 1 through June 15. Ask whether the caller has another day or time preference.",
     );
     expect(second).toBe(first);
     expect(middleware.operations).toHaveLength(1);
   });
 
-  it("reranks a completed availability search without another middleware operation", async () => {
+  it("asks middleware to rank a changed availability preference", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [
         availabilityFound([
           returnedSlot({ bookingToken: "morning-token" }),
+          returnedSlot({
+            provider: "Dr. D. Noel",
+            time: "2:00 PM",
+            datetime: "2026-06-01T14:00:00",
+            bookingToken: "afternoon-token",
+          }),
+        ]),
+        availabilityFound([
           returnedSlot({
             provider: "Dr. D. Noel",
             time: "2:00 PM",
@@ -587,7 +596,7 @@ describe("scheduling tools", () => {
       toolCallId: "availability-1",
     } as never);
     const afternoon = await get_availability.execute(
-      { ...request, when: "2026-06-01 in the afternoon" },
+      { ...request, when: "2026-06-01 afternoon" },
       {
         ctx: ctx as never,
         toolCallId: "availability-2",
@@ -599,21 +608,31 @@ describe("scheduling tools", () => {
     expect(afternoon).toBe(
       "Offer this slot: June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). If the caller accepts it, use appointmentSlotRef S2; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
     );
-    expect(middleware.operations).toHaveLength(1);
+    expect(middleware.operations).toHaveLength(2);
+    expect(middleware.operations[1]).toMatchObject({
+      kind: "availability",
+      request: {
+        preferences: [
+          {
+            date: "2026-06-01",
+            time: { kind: "afternoon" },
+          },
+        ],
+      },
+    });
     expect(state.availability.bookingTokensBySlotId).toEqual({
-      S1: "morning-token",
       S2: "afternoon-token",
     });
     expect(availabilityReadEvents(state)).toMatchObject([
       { operation: "middleware_call", durationMs: 0 },
-      { operation: "completed_cache_hit", durationMs: 0 },
+      { operation: "middleware_call", durationMs: 0 },
     ]);
     expect(JSON.stringify(availabilityReadEvents(state))).not.toMatch(
       /patient-1|01\/01\/1980|2026-06-01|morning-token|afternoon-token|all_three/,
     );
   });
 
-  it("books an initially unoffered exact same-day slot from one cached availability read", async () => {
+  it("books an exact slot from a fresh preference search", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [
         availabilityFound(
@@ -623,7 +642,6 @@ describe("scheduling tools", () => {
               datetime: "2026-06-01T08:00:00",
               bookingToken: "early-token",
             }),
-            returnedSlot({ bookingToken: "exact-token" }),
             returnedSlot({
               provider: "Dr. D. Noel",
               time: "1:00 PM",
@@ -635,6 +653,9 @@ describe("scheduling tools", () => {
             bookingTokenExpiresAt: "2026-05-30T16:15:00Z",
           },
         ),
+        availabilityFound([returnedSlot({ bookingToken: "exact-token" })], {
+          bookingTokenExpiresAt: "2026-05-30T16:15:00Z",
+        }),
       ],
       bookings: [bookingReceipt()],
     });
@@ -680,7 +701,7 @@ describe("scheduling tools", () => {
       middleware.operations.filter(
         (operation) => operation.kind === "availability",
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
     expect(middleware.operations.at(-1)).toMatchObject({
       kind: "book",
       request: { bookingToken: "exact-token" },
@@ -1236,11 +1257,25 @@ describe("scheduling tools", () => {
     });
   });
 
-  it("preserves stable slot references and private tokens across raw-result reranking", async () => {
+  it("preserves stable references across middleware-ranked results", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [
         availabilityFound([
           returnedSlot({ bookingToken: "morning-token" }),
+          returnedSlot({
+            provider: "Dr. D. Noel",
+            time: "2:00 PM",
+            datetime: "2026-06-01T14:00:00",
+            bookingToken: "early-afternoon-token",
+          }),
+          returnedSlot({
+            provider: "Dr. J. Licht",
+            time: "3:00 PM",
+            datetime: "2026-06-01T15:00:00",
+            bookingToken: "late-afternoon-token",
+          }),
+        ]),
+        availabilityFound([
           returnedSlot({
             provider: "Dr. D. Noel",
             time: "2:00 PM",
@@ -1271,7 +1306,7 @@ describe("scheduling tools", () => {
       toolCallId: "availability-1",
     } as never);
     const reranked = await get_availability.execute(
-      { ...args, when: "2026-06-01 in the afternoon" },
+      { ...args, when: "2026-06-01 afternoon" },
       {
         ctx: ctx as never,
         toolCallId: "availability-2",
@@ -1294,8 +1329,8 @@ describe("scheduling tools", () => {
     expect(initial).toContain("appointmentSlotRef S2");
     expect(reranked).toContain("appointmentSlotRef S2");
     expect(reranked).toContain("appointmentSlotRef S3");
-    expect(middleware.operations).toHaveLength(2);
-    expect(middleware.operations[1]).toMatchObject({
+    expect(middleware.operations).toHaveLength(3);
+    expect(middleware.operations[2]).toMatchObject({
       kind: "book",
       request: { bookingToken: "late-afternoon-token" },
     });
@@ -1535,14 +1570,14 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "I'm having trouble checking availability. Let me try once more. Ask for a different date or time preference.",
+      "I'm having trouble checking availability. Please try the search once more.",
     );
     expect(ownedMiddlewareFailures(state)).toMatchObject([
       { operation: "getAvailability", reason: "middleware_error" },
     ]);
   });
 
-  it("filters returned slots by the caller's time phrase", async () => {
+  it("forwards the caller's time preference and trusts middleware ranking", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [
         availabilityFound([
@@ -1561,7 +1596,7 @@ describe("scheduling tools", () => {
 
     const result = await get_availability.execute(
       {
-        when: "2026-06-01 in the afternoon",
+        when: "2026-06-01 afternoon",
         appointmentLane: "medical_md",
       },
       {
@@ -1571,11 +1606,25 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "Offer this slot: June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "Offer these options: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1), or June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another day or time and call get_availability with the caller's new when phrase.",
     );
     expect(state.availability.bookingTokensBySlotId).toEqual({
-      S1: "afternoon-token",
+      S1: "private-token",
+      S2: "afternoon-token",
     });
+    expect(middleware.operations).toMatchObject([
+      {
+        kind: "availability",
+        request: {
+          preferences: [
+            {
+              date: "2026-06-01",
+              time: { kind: "afternoon" },
+            },
+          ],
+        },
+      },
+    ]);
   });
 
   it("discards availability returned after the active patient changes", async () => {

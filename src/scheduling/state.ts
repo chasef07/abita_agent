@@ -251,24 +251,15 @@ export function removeAvailabilitySlot(
   return availabilitySlotsForState(state);
 }
 
-export function mergeAvailabilitySlots(
+export function replaceAvailabilitySlots(
   state: CallState,
-  newSlots: StoredAvailabilitySlot[],
+  slots: StoredAvailabilitySlot[],
   routing: string | null,
 ): void {
-  const slots = availabilitySlotsForState(state);
-  for (const slot of newSlots) {
-    const existingIndex = slots.findIndex((existing) =>
-      sameAvailabilitySlot(existing, slot),
-    );
-    if (existingIndex >= 0) {
-      slots[existingIndex] = slot;
-    } else {
-      slots.push(slot);
-    }
-  }
-  state.availability.slots = slots;
+  state.availability.slots = [...slots];
   state.availability.latestRouting = routing;
+  state.availability.bookingTokensBySlotId = {};
+  bookingTokenExpiriesFor(state).clear();
 }
 
 function bookingTokenExpiriesFor(state: CallState): Map<string, number> {
@@ -374,19 +365,6 @@ function slotIdForIndex(index: number): string {
 
 function normalizeSlotId(slotId: string): string {
   return slotId.trim().toUpperCase();
-}
-
-function sameAvailabilitySlot(
-  left: StoredAvailabilitySlot,
-  right: StoredAvailabilitySlot,
-): boolean {
-  return (
-    left.date === right.date &&
-    left.time === right.time &&
-    left.provider === right.provider &&
-    left.datetime === right.datetime &&
-    left.routing === right.routing
-  );
 }
 
 function visitTypeFromAppointmentLane(

@@ -31,6 +31,7 @@ import {
 } from "../state/observability.js";
 import {
   activeRoutingContext,
+  availabilitySlotsForState,
   clearAvailabilitySelection,
   latestAvailabilityRouting,
   removeAvailabilitySlot,
@@ -97,10 +98,8 @@ import type {
 import {
   resolveAvailabilityWhen,
   systemSchedulingClock,
-  type AvailabilityDateSearchMode,
-  type AvailabilityTimeConstraint,
   type SchedulingClock,
-} from "./temporal.js";
+} from "./availability-when.js";
 
 export interface AvailabilityLookupArgs {
   when: string;
@@ -134,17 +133,15 @@ export class SchedulingWorkflow {
     args: AvailabilityLookupArgs,
     signal?: AbortSignal,
   ): Promise<string> {
-    const resolvedWhen = resolveAvailabilityWhen(args.when, this.clock);
-    if (resolvedWhen.status !== "resolved") {
-      clearAvailabilitySelection(state);
-      return resolvedWhen.message;
-    }
-
+    const resolvedWhen = resolveAvailabilityWhen(
+      args.when,
+      this.clock,
+      singleCurrentAvailabilityDate(state),
+    );
     const request = buildAvailabilityLookupRequestForState(state, {
       ...args,
       date: resolvedWhen.date,
-      dateSearchMode: resolvedWhen.dateSearchMode,
-      timeConstraint: resolvedWhen.timeConstraint,
+      preferences: resolvedWhen.preferences,
     });
     if ("blocked" in request) return request.blocked;
 
@@ -158,7 +155,7 @@ export class SchedulingWorkflow {
           this.middleware.getAvailability({
             request: request.body,
             office,
-            signal,
+            ...(signal ? { signal } : {}),
           }),
         {
           now: this.clock.now(),
@@ -187,13 +184,7 @@ export class SchedulingWorkflow {
       }
     }
     try {
-      const response = storeAvailabilitySlots(
-        state,
-        result,
-        request.routing,
-        request.timeConstraint,
-        request.dateSearchMode,
-      );
+      const response = storeAvailabilitySlots(state, result, request.routing);
       if (response.cacheable) {
         cacheCompletedAvailabilityRead(
           state,
@@ -745,6 +736,17 @@ export class SchedulingWorkflow {
   }
 }
 
+function singleCurrentAvailabilityDate(state: CallState): string | undefined {
+  const dates = [
+    ...new Set(
+      availabilitySlotsForState(state)
+        .map((slot) => slot.date.trim())
+        .filter(Boolean),
+    ),
+  ];
+  return dates.length === 1 ? dates[0] : undefined;
+}
+
 function cancellationRequestForAppointment(
   appointment: CallerAppointment,
   patientId: string,
@@ -773,19 +775,16 @@ type AvailabilityWorkflowRequest = {
   backendKey: string;
   date: string;
   routing: string | null;
-  dateSearchMode: AvailabilityDateSearchMode;
-  timeConstraint: AvailabilityTimeConstraint | null;
 };
 
 function buildAvailabilityLookupRequestForState(
   state: CallState,
   args: AvailabilityLookupArgs & {
     date: string;
-    dateSearchMode: AvailabilityDateSearchMode;
-    timeConstraint: AvailabilityTimeConstraint | null;
+    preferences?: MiddlewareAvailabilityRequest["preferences"];
   },
 ): AvailabilityWorkflowRequest | { blocked: string } {
-  const { date, dateSearchMode, timeConstraint } = args;
+  const { date, preferences } = args;
   const incompleteRegistration = incompletePatientRegistrationMessage(state);
   if (incompleteRegistration) {
     return { blocked: incompleteRegistration };
@@ -813,6 +812,7 @@ function buildAvailabilityLookupRequestForState(
     return { blocked: unsupportedRoutineVisionScheduling };
   const routing = routingForAvailability(state);
   const body: MiddlewareAvailabilityRequest = { date };
+  if (preferences?.length) body.preferences = preferences;
   const dob = activePatientDob(state);
   if (dob) body.dob = dob;
   if (routing) body.routing = routing;
@@ -824,8 +824,6 @@ function buildAvailabilityLookupRequestForState(
       patientId,
       routing,
     }),
-    dateSearchMode,
-    timeConstraint,
     date,
     routing,
   };
@@ -849,6 +847,7 @@ function availabilityBackendKey(
     intent: turn?.intent ?? null,
     appointmentLane: turn?.appointmentLane ?? null,
     date: input.body.date.trim(),
+    preferences: input.body.preferences ?? [],
     dob:
       typeof input.body.dob === "string" ? input.body.dob.trim() || null : null,
     routing: input.routing,

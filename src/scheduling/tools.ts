@@ -5,7 +5,10 @@ import {
   productionSchedulingMiddleware,
   type SchedulingMiddleware,
 } from "./middleware.js";
-import { systemSchedulingClock, type SchedulingClock } from "./temporal.js";
+import {
+  systemSchedulingClock,
+  type SchedulingClock,
+} from "./availability-when.js";
 import { SchedulingWorkflow } from "./workflow.js";
 
 const bookAppointmentParameters = z

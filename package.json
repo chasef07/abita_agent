@@ -19,6 +19,7 @@
     "@livekit/agents-plugin-assemblyai": "1.5.5",
     "@livekit/agents-plugin-rime": "1.5.5",
     "@livekit/rtc-node": "^0.13.31",
+    "chrono-node": "2.10.1",
     "livekit-server-sdk": "^2.17.0",
     "zod": "^4.4.3"
   },

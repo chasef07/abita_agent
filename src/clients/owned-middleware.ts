@@ -41,6 +41,14 @@ export type AvailabilitySlot = {
   bookingToken?: string;
 };
 
+export type AvailabilityTimePreference =
+  { kind: "morning" | "afternoon" } | { minuteOfDay: number };
+
+export type AvailabilityPreference = {
+  date?: string;
+  time?: AvailabilityTimePreference;
+};
+
 export type AvailabilityResult =
   | {
       status: "found" | "none" | "incomplete";
@@ -199,6 +207,7 @@ export interface OwnedMiddleware {
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
+    preferences?: AvailabilityPreference[];
     signal?: AbortSignal;
   }): Promise<AvailabilityResult>;
   createPatient(request: {
@@ -284,6 +293,7 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
+    preferences?: AvailabilityPreference[];
     signal?: AbortSignal;
   }): Promise<AvailabilityResult> {
     const transport = await this.#post(
@@ -294,6 +304,9 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
         ...(request.dob ? { dob: request.dob } : {}),
         ...(request.routing ? { routing: request.routing } : {}),
         ...(request.preauthRequired ? { preauthRequired: true } : {}),
+        ...(request.preferences?.length
+          ? { preferences: request.preferences }
+          : {}),
       },
       { signal: request.signal },
     );

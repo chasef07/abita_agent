@@ -393,6 +393,14 @@ describe("HTTP owned middleware transport", () => {
       dob: "01/01/1980",
       routing: "all_three",
       preauthRequired: true,
+      preferences: [
+        {
+          date: "2026-08-01",
+          time: {
+            minuteOfDay: 15 * 60,
+          },
+        },
+      ],
     });
     await middleware.createPatient({
       office: SPRING_HILL_OFFICE_PHONE,
@@ -468,6 +476,14 @@ describe("HTTP owned middleware transport", () => {
       dob: "01/01/1980",
       routing: "all_three",
       preauthRequired: true,
+      preferences: [
+        {
+          date: "2026-08-01",
+          time: {
+            minuteOfDay: 15 * 60,
+          },
+        },
+      ],
       office: SPRING_HILL_OFFICE_PHONE,
     });
     expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toEqual({
