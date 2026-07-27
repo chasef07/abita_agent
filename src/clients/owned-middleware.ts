@@ -11,7 +11,6 @@ import {
 
 const DEFAULT_PRODUCTION_BASE_URL =
   "https://advancedmd-token-management-production.up.railway.app";
-const RANKED_AVAILABILITY_SELECTION_POLICY = "preference_ranked_v1";
 
 export type { PatientResolveCandidate, PatientResolveVerified };
 
@@ -45,11 +44,6 @@ export type AvailabilitySlot = {
 export type AvailabilityTimePreference =
   { kind: "morning" | "afternoon" } | { minuteOfDay: number };
 
-export type AvailabilityPreference = {
-  date?: string;
-  time?: AvailabilityTimePreference;
-};
-
 export type AvailabilityResult =
   | {
       status: "found" | "none" | "incomplete";
@@ -59,7 +53,6 @@ export type AvailabilityResult =
       searchedFrom?: string;
       searchedThrough?: string;
       bookingTokenExpiresAt?: string;
-      selectionPolicy?: typeof RANKED_AVAILABILITY_SELECTION_POLICY;
       dateShifted: boolean;
       shouldRetrySameSearch: boolean;
       message?: string;
@@ -205,11 +198,11 @@ export interface OwnedMiddleware {
   }): Promise<PatientResolveResult>;
   getAvailability(request: {
     office: string;
-    date: string;
+    requestedDate?: string;
+    preferredTime?: AvailabilityTimePreference;
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
-    preferences?: AvailabilityPreference[];
     signal?: AbortSignal;
   }): Promise<AvailabilityResult>;
   createPatient(request: {
@@ -291,41 +284,31 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
 
   async getAvailability(request: {
     office: string;
-    date: string;
+    requestedDate?: string;
+    preferredTime?: AvailabilityTimePreference;
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
-    preferences?: AvailabilityPreference[];
     signal?: AbortSignal;
   }): Promise<AvailabilityResult> {
     const transport = await this.#post(
       "/api/scheduler/availability",
       request.office,
       {
-        date: request.date,
+        ...(request.requestedDate
+          ? { requestedDate: request.requestedDate }
+          : {}),
+        ...(request.preferredTime
+          ? { preferredTime: request.preferredTime }
+          : {}),
         ...(request.dob ? { dob: request.dob } : {}),
         ...(request.routing ? { routing: request.routing } : {}),
         ...(request.preauthRequired ? { preauthRequired: true } : {}),
-        ...(request.preferences !== undefined
-          ? { preferences: request.preferences }
-          : {}),
       },
       { signal: request.signal },
     );
     if (!transport.ok) return transport.failure;
-
-    const result = normalizeAvailability(transport.value);
-    if (result.status === "error") return result;
-    if (
-      request.preferences !== undefined &&
-      result.selectionPolicy !== RANKED_AVAILABILITY_SELECTION_POLICY
-    ) {
-      return {
-        status: "error",
-        reason: "invalid_response",
-      };
-    }
-    return result;
+    return normalizeAvailability(transport.value);
   }
 
   async createPatient(request: {
@@ -640,10 +623,6 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
   return {
     status,
     slots,
-    ...(stringValue(raw.selectionPolicy) ===
-    RANKED_AVAILABILITY_SELECTION_POLICY
-      ? { selectionPolicy: RANKED_AVAILABILITY_SELECTION_POLICY }
-      : {}),
     ...(stringValue(raw.requestedDate)
       ? { requestedDate: stringValue(raw.requestedDate) ?? undefined }
       : {}),

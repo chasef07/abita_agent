@@ -398,9 +398,8 @@ describe("scheduling tools", () => {
         kind: "availability",
         office: "+17275919997",
         request: {
-          date: "2026-06-01",
           dob: "01/01/1980",
-          preferences: [{ date: "2026-06-01" }],
+          requestedDate: "2026-06-01",
           routing: "all_three",
         },
       },
@@ -561,6 +560,81 @@ describe("scheduling tools", () => {
     expect(middleware.operations).toHaveLength(1);
   });
 
+  it("refreshes an implicit search after clinic midnight and retains the derived date", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        {
+          status: "none",
+          requestedDate: "2026-05-31",
+          searchedFrom: "2026-05-31",
+          searchedThrough: "2026-06-14",
+          dateShifted: false,
+          shouldRetrySameSearch: false,
+          slots: [],
+        },
+        {
+          status: "none",
+          requestedDate: "2026-06-01",
+          searchedFrom: "2026-06-01",
+          searchedThrough: "2026-06-15",
+          dateShifted: false,
+          shouldRetrySameSearch: false,
+          slots: [],
+        },
+        {
+          status: "none",
+          requestedDate: "2026-06-01",
+          searchedFrom: "2026-06-01",
+          searchedThrough: "2026-06-15",
+          dateShifted: false,
+          shouldRetrySameSearch: false,
+          slots: [],
+        },
+      ],
+    });
+    let beforeMidnight = true;
+    const { get_availability } = createSchedulingTools(middleware, {
+      now: () => {
+        if (beforeMidnight) {
+          beforeMidnight = false;
+          return new Date("2026-05-31T03:59:00.000Z");
+        }
+        return new Date("2026-05-31T04:01:00.000Z");
+      },
+    });
+    const state = createState();
+    const ctx = createToolContext(state);
+    const request = {
+      when: "soonest",
+      appointmentLane: "medical_md" as const,
+    };
+
+    await get_availability.execute(request, {
+      ctx: ctx as never,
+      toolCallId: "availability-before-midnight",
+    } as never);
+    expect(state.availability.currentDate).toBe("2026-05-31");
+
+    await get_availability.execute(request, {
+      ctx: ctx as never,
+      toolCallId: "availability-after-midnight",
+    } as never);
+    expect(middleware.operations).toHaveLength(2);
+    expect(state.availability.currentDate).toBe("2026-06-01");
+
+    await get_availability.execute({ ...request, when: "10 for that day" }, {
+      ctx: ctx as never,
+      toolCallId: "availability-that-day",
+    } as never);
+    expect(middleware.operations[2]).toMatchObject({
+      kind: "availability",
+      request: {
+        requestedDate: "2026-06-01",
+        preferredTime: { minuteOfDay: 600 },
+      },
+    });
+  });
+
   it("asks middleware to rank a changed availability preference", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [
@@ -612,12 +686,8 @@ describe("scheduling tools", () => {
     expect(middleware.operations[1]).toMatchObject({
       kind: "availability",
       request: {
-        preferences: [
-          {
-            date: "2026-06-01",
-            time: { kind: "afternoon" },
-          },
-        ],
+        requestedDate: "2026-06-01",
+        preferredTime: { kind: "afternoon" },
       },
     });
     expect(state.availability.bookingTokensBySlotId).toEqual({
@@ -1616,12 +1686,8 @@ describe("scheduling tools", () => {
       {
         kind: "availability",
         request: {
-          preferences: [
-            {
-              date: "2026-06-01",
-              time: { kind: "afternoon" },
-            },
-          ],
+          requestedDate: "2026-06-01",
+          preferredTime: { kind: "afternoon" },
         },
       },
     ]);

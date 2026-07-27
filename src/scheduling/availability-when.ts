@@ -1,8 +1,5 @@
 import * as chrono from "chrono-node";
-import type {
-  AvailabilityPreference,
-  AvailabilityTimePreference,
-} from "../clients/owned-middleware.js";
+import type { AvailabilityTimePreference } from "../clients/owned-middleware.js";
 
 const CLINIC_TIME_ZONE = "America/New_York";
 
@@ -11,8 +8,8 @@ export interface SchedulingClock {
 }
 
 export type AvailabilityWhenResolution = {
-  date: string;
-  preferences?: AvailabilityPreference[];
+  requestedDate?: string;
+  preferredTime?: AvailabilityTimePreference;
 };
 
 export const systemSchedulingClock: SchedulingClock = {
@@ -35,8 +32,8 @@ export function resolveAvailabilityWhen(
   }
 
   return {
-    date: preference?.date ?? earliestDate,
-    ...(preference ? { preferences: [preference] } : {}),
+    ...(preference?.date ? { requestedDate: preference.date } : {}),
+    ...(preference?.time ? { preferredTime: preference.time } : {}),
   };
 }
 
@@ -187,7 +184,7 @@ function businessHoursHour(hour: number): number {
 function callerPreference(
   results: chrono.ParsedResult[],
   earliestDate: string,
-): AvailabilityPreference | undefined {
+): { date?: string; time?: AvailabilityTimePreference } | undefined {
   const primary = results[0];
   if (!primary) return undefined;
 
@@ -223,7 +220,7 @@ function clinicReferenceDate(instant: Date): Date {
   );
 }
 
-function clinicIsoDate(instant: Date): string {
+export function clinicIsoDate(instant: Date): string {
   const parts = clinicParts(instant, {
     year: "numeric",
     month: "2-digit",

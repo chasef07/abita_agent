@@ -109,8 +109,7 @@ describe("Scheduling Workflow caller-language availability", () => {
       {
         kind: "availability",
         request: {
-          date: "2026-06-01",
-          preferences: [{ date: "2026-06-01" }],
+          requestedDate: "2026-06-01",
         },
       },
     ]);
@@ -126,8 +125,7 @@ describe("Scheduling Workflow caller-language availability", () => {
       {
         kind: "availability",
         request: {
-          date: "2026-06-16",
-          preferences: [{ date: "2026-06-16" }],
+          requestedDate: "2026-06-16",
         },
       },
     ]);
@@ -142,9 +140,13 @@ describe("Scheduling Workflow caller-language availability", () => {
       result: noAvailability(date),
     });
 
-    expect(middleware.operations[0]).toHaveProperty("request.preferences", [
-      { date },
-    ]);
+    expect(middleware.operations[0]).toHaveProperty(
+      "request.requestedDate",
+      date,
+    );
+    expect(middleware.operations[0]).not.toHaveProperty(
+      "request.preferredTime",
+    );
   });
 
   it("uses real clinic inventory to resolve an omitted meridiem", async () => {
@@ -157,15 +159,8 @@ describe("Scheduling Workflow caller-language availability", () => {
       {
         kind: "availability",
         request: {
-          date: "2026-06-16",
-          preferences: [
-            {
-              date: "2026-06-16",
-              time: {
-                minuteOfDay: 900,
-              },
-            },
-          ],
+          requestedDate: "2026-06-16",
+          preferredTime: { minuteOfDay: 900 },
         },
       },
     ]);
@@ -202,13 +197,8 @@ describe("Scheduling Workflow caller-language availability", () => {
     expect(middleware.operations[1]).toMatchObject({
       kind: "availability",
       request: {
-        date: "2026-06-16",
-        preferences: [
-          {
-            date: "2026-06-16",
-            time: { minuteOfDay: 600 },
-          },
-        ],
+        requestedDate: "2026-06-16",
+        preferredTime: { minuteOfDay: 600 },
       },
     });
     expect(response).toContain("June 16 at 10:00 AM");
@@ -240,13 +230,8 @@ describe("Scheduling Workflow caller-language availability", () => {
     expect(middleware.operations[1]).toMatchObject({
       kind: "availability",
       request: {
-        date: "2026-06-16",
-        preferences: [
-          {
-            date: "2026-06-16",
-            time: { minuteOfDay: 600 },
-          },
-        ],
+        requestedDate: "2026-06-16",
+        preferredTime: { minuteOfDay: 600 },
       },
     });
   });
@@ -282,13 +267,8 @@ describe("Scheduling Workflow caller-language availability", () => {
     expect(middleware.operations[1]).toMatchObject({
       kind: "availability",
       request: {
-        date: "2026-06-15",
-        preferences: [
-          {
-            date: "2026-06-15",
-            time: { minuteOfDay: 600 },
-          },
-        ],
+        requestedDate: "2026-06-15",
+        preferredTime: { minuteOfDay: 600 },
       },
     });
   });
@@ -324,13 +304,8 @@ describe("Scheduling Workflow caller-language availability", () => {
     expect(middleware.operations[2]).toMatchObject({
       kind: "availability",
       request: {
-        date: "2026-06-18",
-        preferences: [
-          {
-            date: "2026-06-18",
-            time: { minuteOfDay: 600 },
-          },
-        ],
+        requestedDate: "2026-06-18",
+        preferredTime: { minuteOfDay: 600 },
       },
     });
   });
@@ -361,8 +336,8 @@ describe("Scheduling Workflow caller-language availability", () => {
     expect(middleware.operations[1]).toMatchObject({
       kind: "availability",
       request: {
-        date: "2026-06-15",
-        preferences: [{ date: "2026-06-15", time: { minuteOfDay: 600 } }],
+        requestedDate: "2026-06-15",
+        preferredTime: { minuteOfDay: 600 },
       },
     });
   });
@@ -393,8 +368,7 @@ describe("Scheduling Workflow caller-language availability", () => {
     expect(middleware.operations[1]).toMatchObject({
       kind: "availability",
       request: {
-        date: "2026-06-10",
-        preferences: [{ time: { kind: "morning" } }],
+        preferredTime: { kind: "morning" },
       },
     });
   });
@@ -409,13 +383,17 @@ describe("Scheduling Workflow caller-language availability", () => {
       {
         kind: "availability",
         request: {
-          date: "2026-06-10",
           dob: "01/01/1980",
           routing: "all_three",
         },
       },
     ]);
-    expect(middleware.operations[0]).toHaveProperty("request.preferences", []);
+    expect(middleware.operations[0]).not.toHaveProperty(
+      "request.requestedDate",
+    );
+    expect(middleware.operations[0]).not.toHaveProperty(
+      "request.preferredTime",
+    );
     expect(response).toContain("June 10 at 9:00 AM");
   });
 
@@ -428,8 +406,7 @@ describe("Scheduling Workflow caller-language availability", () => {
       {
         kind: "availability",
         request: {
-          date: "2026-06-10",
-          preferences: [{ time: { kind: "afternoon" } }],
+          preferredTime: { kind: "afternoon" },
         },
       },
     ]);
@@ -445,13 +422,9 @@ describe("Scheduling Workflow caller-language availability", () => {
       {
         kind: "availability",
         request: {
-          date: "2026-06-15",
-          preferences: [{ date: "2026-06-15" }],
+          requestedDate: "2026-06-15",
         },
       },
-    ]);
-    expect(middleware.operations[0]).toHaveProperty("request.preferences", [
-      { date: "2026-06-15" },
     ]);
   });
 
@@ -465,13 +438,8 @@ describe("Scheduling Workflow caller-language availability", () => {
       {
         kind: "availability",
         request: {
-          date: "2026-06-15",
-          preferences: [
-            {
-              date: "2026-06-15",
-              time: { minuteOfDay: 900 },
-            },
-          ],
+          requestedDate: "2026-06-15",
+          preferredTime: { minuteOfDay: 900 },
         },
       },
     ]);
@@ -491,13 +459,8 @@ describe("Scheduling Workflow caller-language availability", () => {
       {
         kind: "availability",
         request: {
-          date: "2026-06-16",
-          preferences: [
-            {
-              date: "2026-06-16",
-              time: { minuteOfDay: 900 },
-            },
-          ],
+          requestedDate: "2026-06-16",
+          preferredTime: { minuteOfDay: 900 },
         },
       },
     ]);
@@ -509,12 +472,12 @@ describe("Scheduling Workflow caller-language availability", () => {
       result: noAvailability("2026-06-15"),
     });
 
-    expect(middleware.operations[0]).toHaveProperty("request.preferences", [
-      {
-        date: "2026-06-15",
-        time: { minuteOfDay: 900 },
+    expect(middleware.operations[0]).toMatchObject({
+      request: {
+        requestedDate: "2026-06-15",
+        preferredTime: { minuteOfDay: 900 },
       },
-    ]);
+    });
   });
 
   it("uses the first daypart in an or phrase", async () => {
@@ -523,12 +486,12 @@ describe("Scheduling Workflow caller-language availability", () => {
       result: noAvailability("2026-06-16"),
     });
 
-    expect(middleware.operations[0]).toHaveProperty("request.preferences", [
-      {
-        date: "2026-06-16",
-        time: { kind: "morning" },
+    expect(middleware.operations[0]).toMatchObject({
+      request: {
+        requestedDate: "2026-06-16",
+        preferredTime: { kind: "morning" },
       },
-    ]);
+    });
   });
 
   it.each([
@@ -543,12 +506,12 @@ describe("Scheduling Workflow caller-language availability", () => {
         result: noAvailability(date),
       });
 
-      expect(middleware.operations[0]).toHaveProperty("request.preferences", [
-        {
-          date,
-          time: { minuteOfDay: 900 },
+      expect(middleware.operations[0]).toMatchObject({
+        request: {
+          requestedDate: date,
+          preferredTime: { minuteOfDay: 900 },
         },
-      ]);
+      });
     },
   );
 
@@ -561,15 +524,8 @@ describe("Scheduling Workflow caller-language availability", () => {
       {
         kind: "availability",
         request: {
-          date: "2026-06-10",
-          preferences: [
-            {
-              date: "2026-06-10",
-              time: {
-                minuteOfDay: 900,
-              },
-            },
-          ],
+          requestedDate: "2026-06-10",
+          preferredTime: { minuteOfDay: 900 },
         },
       },
     ]);
@@ -638,13 +594,8 @@ describe("Scheduling Workflow caller-language availability", () => {
       {
         kind: "availability",
         request: {
-          date: "2026-06-10",
-          preferences: [
-            {
-              date: "2026-06-10",
-              time: { minuteOfDay: 900 },
-            },
-          ],
+          requestedDate: "2026-06-10",
+          preferredTime: { minuteOfDay: 900 },
         },
       },
       {

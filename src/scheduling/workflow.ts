@@ -97,6 +97,7 @@ import type {
   SchedulingMiddleware,
 } from "./middleware.js";
 import {
+  clinicIsoDate,
   resolveAvailabilityWhen,
   systemSchedulingClock,
   type SchedulingClock,
@@ -134,15 +135,17 @@ export class SchedulingWorkflow {
     args: AvailabilityLookupArgs,
     signal?: AbortSignal,
   ): Promise<string> {
+    const now = this.clock.now();
     const resolvedWhen = resolveAvailabilityWhen(
       args.when,
-      this.clock,
+      { now: () => now },
       currentAvailabilityDate(state),
     );
     const request = buildAvailabilityLookupRequestForState(state, {
       ...args,
-      date: resolvedWhen.date,
-      preferences: resolvedWhen.preferences,
+      cacheDay: clinicIsoDate(now),
+      requestedDate: resolvedWhen.requestedDate,
+      preferredTime: resolvedWhen.preferredTime,
     });
     if ("blocked" in request) return request.blocked;
 
@@ -758,6 +761,7 @@ function availabilityRequestStillCurrent(
   return (
     availabilityBackendKey(state, {
       body: request.body,
+      cacheDay: request.cacheDay,
       patientId: activePatientId(state),
       routing: request.routing,
     }) === request.backendKey
@@ -767,18 +771,19 @@ function availabilityRequestStillCurrent(
 type AvailabilityWorkflowRequest = {
   body: MiddlewareAvailabilityRequest;
   backendKey: string;
-  date: string;
+  cacheDay: string;
   routing: string | null;
 };
 
 function buildAvailabilityLookupRequestForState(
   state: CallState,
   args: AvailabilityLookupArgs & {
-    date: string;
-    preferences?: MiddlewareAvailabilityRequest["preferences"];
+    cacheDay: string;
+    requestedDate?: string;
+    preferredTime?: MiddlewareAvailabilityRequest["preferredTime"];
   },
 ): AvailabilityWorkflowRequest | { blocked: string } {
-  const { date, preferences } = args;
+  const { cacheDay, requestedDate, preferredTime } = args;
   const incompleteRegistration = incompletePatientRegistrationMessage(state);
   if (incompleteRegistration) {
     return { blocked: incompleteRegistration };
@@ -805,8 +810,9 @@ function buildAvailabilityLookupRequestForState(
   if (unsupportedRoutineVisionScheduling)
     return { blocked: unsupportedRoutineVisionScheduling };
   const routing = routingForAvailability(state);
-  const body: MiddlewareAvailabilityRequest = { date };
-  body.preferences = preferences ?? [];
+  const body: MiddlewareAvailabilityRequest = {};
+  if (requestedDate) body.requestedDate = requestedDate;
+  if (preferredTime) body.preferredTime = preferredTime;
   const dob = activePatientDob(state);
   if (dob) body.dob = dob;
   if (routing) body.routing = routing;
@@ -815,10 +821,11 @@ function buildAvailabilityLookupRequestForState(
     body,
     backendKey: availabilityBackendKey(state, {
       body,
+      cacheDay,
       patientId,
       routing,
     }),
-    date,
+    cacheDay,
     routing,
   };
 }
@@ -827,6 +834,7 @@ function availabilityBackendKey(
   state: CallState,
   input: {
     body: MiddlewareAvailabilityRequest;
+    cacheDay: string;
     patientId: string | null;
     routing: string | null;
   },
@@ -840,8 +848,9 @@ function availabilityBackendKey(
     providerOffice: normalizePhoneNumber(getAmdOfficeForToolCall(state)),
     intent: turn?.intent ?? null,
     appointmentLane: turn?.appointmentLane ?? null,
-    date: input.body.date.trim(),
-    preferences: input.body.preferences ?? [],
+    cacheDay: input.cacheDay,
+    requestedDate: input.body.requestedDate?.trim() || null,
+    preferredTime: input.body.preferredTime ?? null,
     dob:
       typeof input.body.dob === "string" ? input.body.dob.trim() || null : null,
     routing: input.routing,
@@ -853,15 +862,21 @@ function availabilityReferenceDate(
   request: MiddlewareAvailabilityRequest,
   result: AvailabilityResult,
 ): string | undefined {
-  const dates =
-    result.status === "found"
-      ? result.slots.flatMap((slot) => {
-          const date = slot.date.trim() || slot.datetime.split("T")[0]?.trim();
-          return date ? [date] : [];
-        })
-      : (request.preferences ?? []).flatMap((preference) =>
-          preference.date?.trim() ? [preference.date.trim()] : [],
-        );
+  if (result.status === "error") {
+    return request.requestedDate?.trim() || undefined;
+  }
+  if (result.status !== "found") {
+    return (
+      result.searchedFrom?.trim() ||
+      result.requestedDate?.trim() ||
+      request.requestedDate?.trim() ||
+      undefined
+    );
+  }
+  const dates = result.slots.flatMap((slot) => {
+    const date = slot.date.trim() || slot.datetime.split("T")[0]?.trim();
+    return date ? [date] : [];
+  });
   const distinctDates = [...new Set(dates)];
   return distinctDates.length === 1 ? distinctDates[0] : undefined;
 }
