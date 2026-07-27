@@ -1,41 +1,52 @@
-# Knowledge Base: North Miami Beach Optical
+# Office Knowledge: North Miami Beach Optical
+Schema: abita-office-knowledge/v1
 
-## Emergency Notice
+## Emergency and Urgency
+Status: available
 
 If this is a medical emergency, please hang up and dial 911 or go to the nearest emergency room immediately.
 
-## Urgency Screening
+North Miami Beach Optical is an optical-only office. Do not schedule medical eye care, ophthalmology visits, surgery questions, urgent symptoms, or eye-problem care through this office.
 
-To determine the right scheduling lane, ask what the visit is for.
-
-North Miami Beach Optical is an optical-only office. It handles routine eye exams, glasses, contact lenses, prescriptions, frames, lenses, lens upgrades, adjustments, repairs, and payments.
-
-Do not schedule medical eye care, ophthalmology visits, surgery questions, urgent symptoms, or eye-problem care through this office.
-
-## Location + Contact
+## Location and Contact
+Status: available
 
 Practice Name: North Miami Beach Optical
 Address: 633 NE 167th Street, North Miami Beach, FL 33162
 Phone: (305) 509-5333
 
-Hours, fax number, email, and directions are not available in this knowledge base. Do not invent them.
+Fax number, email, and directions are not supplied. Do not guess.
+
+## Hours
+Status: not-supplied
+
+Office hours are not supplied. Do not guess.
+
+## After Hours
+Status: not-supplied
+
+No after-hours contact information is supplied for this office. Do not guess.
 
 ## Scope of Services
+Status: available
 
-North Miami Beach Optical accepts outside prescriptions.
+North Miami Beach Optical is an optical-only office. It handles routine eye exams, glasses, contact lenses, prescriptions, frames, lenses, lens upgrades, adjustments, repairs, and payments.
 
-North Miami Beach Optical can also schedule an eye exam with one of its professional optometrists.
+The office accepts outside prescriptions and can schedule an eye exam with one of its professional optometrists. Patients can be seen as young as 7 years old.
 
-Patients can be seen as young as 7 years old.
+Medical eye care, ophthalmology visits, surgery questions, urgent symptoms, and eye-problem care are not offered through this office.
 
 ## Providers
+Status: available
 
 Doctor at this location:
+
 - Dr. Miriam Bach
 
 Do not invent additional provider names.
 
-## Optical / Glasses
+## Optical and Glasses
+Status: available
 
 North Miami Beach Optical stocks many major frame brands, including Gucci, Montblanc, YSL, Ray-Ban, Emporio Armani, and Cartier.
 
@@ -47,11 +58,8 @@ If a patient wants glasses and already has a prescription, they can bring the pr
 
 Glasses are usually ready in less than 10 business days.
 
-Frames include free adjustments and a two- or three-year warranty.
-
-If a caller says their glasses are broken or asks whether they are under warranty, tell them to come in so the office can look at the frame or lenses.
-
 ## Contact Lenses
+Status: available
 
 Contact lens prescriptions are valid for up to 1 year.
 
@@ -59,7 +67,15 @@ If a patient wants contact lenses and already has a prescription, they can bring
 
 If the patient's contact lens prescription is on file, the office can take a contact lens order over the phone with payment.
 
-## Insurance
+## Repairs and Warranty
+Status: available
+
+Frames include free adjustments and a two- or three-year warranty.
+
+If a caller says their glasses are broken or asks whether they are under warranty, tell them to come in so the office can look at the frame or lenses.
+
+## Insurance and Referrals
+Status: available
 
 North Miami Beach Optical uses the same routine vision insurance source as Hollywood and Sweetwater optical.
 
@@ -69,18 +85,39 @@ For every routine-vision patient, explain that some insurances do not cover reti
 
 Medical insurance checks are not supported for this office.
 
+Referral information is not supplied. Do not guess.
+
 ## Payments
+Status: available
 
 The office can take payments over the phone.
 
+## Billing
+Status: not-supplied
+
+Billing contact and account-resolution information are not supplied. Do not guess.
+
+## Self-Pay Pricing
+Status: not-supplied
+
+Self-pay prices are not supplied. Do not guess.
+
 ## What to Bring
+Status: available
 
 If the patient has an outside glasses or contact lens prescription, they should bring it with them.
 
 ## Appointment Expectations
+Status: not-supplied
 
-Detailed appointment duration, dilation, arrival, and paperwork expectations are not available in this knowledge base. Do not invent them.
+Detailed appointment duration, dilation, arrival, and paperwork expectations are not supplied. Do not guess.
 
-## Scope Limitation
+## Social Follow-Up
+Status: not-supplied
 
-This knowledge base provides general practice information only. It does not provide diagnosis, medical advice, or treatment recommendations.
+No social follow-up information is supplied for this office. Do not guess.
+
+## Limitations
+Status: available
+
+This knowledge document provides general practice information only. It does not provide diagnosis, medical advice, or treatment recommendations. It does not prove insurance acceptance, appointment availability, patient state, or a completed operation; use the owning tool for those outcomes.

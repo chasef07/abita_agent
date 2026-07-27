@@ -271,7 +271,7 @@ describe("Crystal River prompt guidance", () => {
       "Crystal River is a medical-only office",
     );
     expect(crystalRiverKnowledge).toContain(
-      "does **not** see pediatric ophthalmology",
+      "does not see pediatric ophthalmology",
     );
     expect(crystalRiverKnowledge).toContain("cataract evaluations");
     expect(crystalRiverKnowledge).toContain(
@@ -288,7 +288,7 @@ describe("Crystal River prompt guidance", () => {
     );
     expect(crystalRiverKnowledge).not.toContain("coordinates with Spring Hill");
     expect(crystalRiverKnowledge).toContain(
-      "does **not** schedule routine-vision exams, glasses prescriptions, or contact lens prescriptions",
+      "does not schedule routine-vision exams, glasses prescriptions, or contact lens prescriptions",
     );
   });
 

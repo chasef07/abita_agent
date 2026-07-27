@@ -29,14 +29,14 @@ availability, and human-transfer behavior.
 
 _Avoid_: office config when referring to the complete policy.
 
-**Office Knowledge Resolver**
+**Office Knowledge Hook**
 
-The internal read-only boundary that selects exact customer-authored sections
-from the active Office Profile after a caller turn and supplies them only to the
-next reply. It never proves insurance acceptance, patient state, availability,
-or a completed operation.
+The internal read-only boundary that classifies a completed caller turn and
+supplies only the matching canonical sections from the active Office Profile to
+the next reply. It never proves insurance acceptance, patient state,
+availability, or a completed operation.
 
-_Avoid_: knowledge tool, retrieval service.
+_Avoid_: full-context injection, knowledge tool, retrieval service.
 
 **Owned Middleware**
 

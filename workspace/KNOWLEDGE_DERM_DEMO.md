@@ -1,10 +1,19 @@
-# Knowledge Base: Harborleaf Dermatology & Aesthetics
+# Office Knowledge: Harborleaf Dermatology & Aesthetics
+Schema: abita-office-knowledge/v1
 
-Harborleaf Dermatology & Aesthetics is a fictional practice created for product demonstrations. Do not present any practice fact not listed here as real.
+## Emergency and Urgency
+Status: available
 
-## Location + Contact
+Trouble breathing or swallowing, or swelling of the lips, face, or eyes, requires emergency care now.
 
-Practice name: Harborleaf Dermatology & Aesthetics.
+Prompt medical attention is appropriate for a rapidly spreading, painful, blistering, or widespread rash; fever with a rash; a rash involving the eyes, lips, mouth, or genital skin; pus, warmth, swelling, worsening pain, or other infection signs; or significant bleeding after a procedure.
+
+A new, changing, bleeding, painful, or non-healing spot should be evaluated by a dermatology clinician. The Voice Agent cannot diagnose skin cancer.
+
+## Location and Contact
+Status: available
+
+Practice name: Harborleaf Dermatology & Aesthetics
 
 Demo address: 1840 Harborleaf Way, Suite 300, Tampa, Florida 33606.
 
@@ -12,9 +21,18 @@ Demo phone: (813) 555-0148.
 
 Demo email: hello@harborleafderm.example.
 
-Hours: Monday through Friday, 8:00 AM to 5:00 PM. Closed Saturday and Sunday.
+## Hours
+Status: available
+
+Monday through Friday, 8:00 AM to 5:00 PM. Closed Saturday and Sunday.
+
+## After Hours
+Status: not-supplied
+
+No after-hours contact information is supplied for this demo office. Do not guess.
 
 ## Scope of Services
+Status: available
 
 Harborleaf offers medical dermatology, skin-cancer evaluation, dermatologic surgery consultations, cosmetic dermatology, and med-spa services.
 
@@ -24,7 +42,7 @@ Cosmetic and med-spa services include Botox and Dysport consultations, dermal fi
 
 The demo can schedule medical dermatology visits. Cosmetic and med-spa scheduling is not enabled yet.
 
-## Medical or Cosmetic
+### Medical or Cosmetic
 
 Medical care evaluates a symptom, condition, changing spot, or health concern. Cosmetic care is appearance-focused and generally self-pay.
 
@@ -36,13 +54,14 @@ Rosacea symptoms and diagnosis are medical. Appearance-focused laser treatment f
 
 Hair loss is medical by default. Scar pain, restriction, or a post-surgical concern is medical; appearance-only scar improvement is cosmetic.
 
-## Skin Cancer and Mohs
+### Skin Cancer and Mohs
 
 Harborleaf provides skin checks, suspicious-lesion evaluation, biopsies when ordered by a clinician, and Mohs surgery consultations.
 
 Mohs scheduling requires clinical review and, when applicable, a pathology report or referral. Do not promise that a caller needs Mohs surgery or that it will be performed before provider review.
 
 ## Providers
+Status: available
 
 Doctor Elena Marlowe is a fictional board-certified dermatologist focused on medical dermatology, skin checks, and skin-cancer evaluation.
 
@@ -54,30 +73,65 @@ Maya Bennett, APRN, is a fictional cosmetic provider focused on consultations an
 
 Nina Torres is a fictional licensed medical aesthetician who provides facials, peels, dermaplaning, and skincare consultations.
 
-## Insurance
+## Optical and Glasses
+Status: not-offered
 
-Medical dermatology visits may use medical insurance. Always use check_insurance before saying whether the practice accepts a medical plan.
+This demo dermatology practice does not offer optical or glasses services.
+
+## Contact Lenses
+Status: not-offered
+
+This demo dermatology practice does not offer contact lens services.
+
+## Repairs and Warranty
+Status: not-offered
+
+This demo dermatology practice does not offer optical repairs or warranty services.
+
+## Insurance and Referrals
+Status: available
+
+Medical dermatology visits may use medical insurance. Always use `check_insurance` before saying whether the practice accepts a medical plan.
 
 Plan acceptance does not guarantee payment for a specific visit or procedure. Benefits, referrals, deductibles, authorizations, and procedure coverage depend on the caller's policy.
 
 Cosmetic consultations and med-spa services are self-pay and are not billed to medical insurance.
 
-## Urgency Screening
+## Payments
+Status: not-supplied
 
-Trouble breathing or swallowing, or swelling of the lips, face, or eyes, requires emergency care now.
+Accepted payment methods are not supplied. Do not guess.
 
-Prompt medical attention is appropriate for a rapidly spreading, painful, blistering, or widespread rash; fever with a rash; a rash involving the eyes, lips, mouth, or genital skin; pus, warmth, swelling, worsening pain, or other infection signs; or significant bleeding after a procedure.
+## Billing
+Status: not-supplied
 
-A new, changing, bleeding, painful, or non-healing spot should be evaluated by a dermatology clinician. The virtual assistant cannot diagnose skin cancer.
+Billing contact and account-resolution information are not supplied. Do not guess.
+
+## Self-Pay Pricing
+Status: not-supplied
+
+Cosmetic consultations and med-spa services are self-pay, but prices are not supplied. Do not guess.
 
 ## What to Bring
+Status: available
 
 For medical visits, bring photo identification, an insurance card, a medication list, and any relevant referral, pathology report, biopsy result, or previous dermatology record.
 
 For a full-body skin examination, wear clothing that is easy to change out of. Avoid heavy makeup and nail polish when practical so the clinician can examine the skin and nails.
 
 ## Appointment Expectations
+Status: available
 
 A consultation does not guarantee same-day treatment or removal. The provider may recommend examination, photography, testing, biopsy, treatment, or a separate procedure visit.
 
 Specific procedure preparation and wound-care instructions must come from clinical staff. Do not invent instructions, medication changes, recovery times, prices, or treatment results.
+
+## Social Follow-Up
+Status: not-supplied
+
+No social follow-up information is supplied for this demo office. Do not guess.
+
+## Limitations
+Status: available
+
+Harborleaf Dermatology & Aesthetics is a fictional practice created for product demonstrations. Do not present any practice fact not listed here as real. This knowledge document does not prove insurance acceptance, appointment availability, patient state, or a completed operation; use the owning tool for those outcomes.

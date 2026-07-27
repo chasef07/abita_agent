@@ -108,7 +108,7 @@ describe("Office Knowledge turn enrichment", () => {
     const requestKnowledge = knowledgeMessages(llm.requests[0]!);
     expect(requestKnowledge).toHaveLength(1);
     expect(requestKnowledge[0]).toContain("active office: Abita Eye Group");
-    expect(requestKnowledge[0]).toContain("## Location + Contact");
+    expect(requestKnowledge[0]).toContain("## Hours");
     expect(knowledgeMessages(session.currentAgent.chatCtx)).toEqual([]);
     expect(toolNames(session.currentAgent.toolCtx.tools).sort()).toEqual(
       [

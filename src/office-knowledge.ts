@@ -14,6 +14,27 @@ const MIN_TOPIC_SCORE = 3;
 const MIN_TOPIC_MARGIN = 2;
 const knowledgeCache = new Map<OfficeKey, OfficeKnowledgeIndex>();
 const phraseNeedleCache = new Map<string, string>();
+export const OFFICE_KNOWLEDGE_SCHEMA_VERSION =
+  "abita-office-knowledge/v1" as const;
+const CANONICAL_HEADINGS = [
+  "Emergency and Urgency",
+  "Location and Contact",
+  "Hours",
+  "After Hours",
+  "Scope of Services",
+  "Providers",
+  "Optical and Glasses",
+  "Contact Lenses",
+  "Repairs and Warranty",
+  "Insurance and Referrals",
+  "Payments",
+  "Billing",
+  "Self-Pay Pricing",
+  "What to Bring",
+  "Appointment Expectations",
+  "Social Follow-Up",
+  "Limitations",
+] as const;
 
 export type OfficeKnowledgeLanguage = "en" | "es" | "mixed" | "unknown";
 
@@ -99,7 +120,7 @@ const TOPICS: TopicDefinition[] = [
   ),
   topic(
     "hours",
-    ["Location + Contact"],
+    ["Hours"],
     [
       ["business hours", 5],
       ["office hours", 5],
@@ -126,7 +147,7 @@ const TOPICS: TopicDefinition[] = [
   ),
   topic(
     "location_contact",
-    ["Location + Contact"],
+    ["Location and Contact"],
     [
       ["where are you located", 6],
       ["donde estan ubicados", 6],
@@ -175,7 +196,7 @@ const TOPICS: TopicDefinition[] = [
   ),
   topic(
     "skin_cancer",
-    ["Skin Cancer and Mohs"],
+    ["Scope of Services"],
     [
       ["mohs", 6],
       ["skin cancer", 6],
@@ -192,7 +213,7 @@ const TOPICS: TopicDefinition[] = [
   ),
   topic(
     "medical_cosmetic",
-    ["Scope of Services", "Medical or Cosmetic"],
+    ["Scope of Services"],
     [
       ["medical or cosmetic", 6, ["medical or cosmetic"]],
       ["medico o cosmetico", 6, ["medical or cosmetic"]],
@@ -276,7 +297,7 @@ const TOPICS: TopicDefinition[] = [
   ),
   topic(
     "optical_repairs",
-    ["Glasses Warranty / Repairs", "Glasses Warranty or Broken Glasses"],
+    ["Repairs and Warranty"],
     [
       ["glasses repair", 6],
       ["repair glasses", 6],
@@ -301,7 +322,7 @@ const TOPICS: TopicDefinition[] = [
   ),
   topic(
     "optical",
-    ["Optical / Glasses", "Licensed Optician"],
+    ["Optical and Glasses"],
     [
       ["optical services", 5],
       ["servicios opticos", 5],
@@ -319,7 +340,7 @@ const TOPICS: TopicDefinition[] = [
   ),
   topic(
     "insurance_referrals",
-    ["Insurance & Referrals", "Insurance"],
+    ["Insurance and Referrals"],
     [
       ["referral", 5],
       ["referrals", 5],
@@ -347,12 +368,24 @@ const TOPICS: TopicDefinition[] = [
   ),
   topic(
     "payment",
-    ["Payment Information", "Payments"],
+    ["Payments"],
     [
       ["payment methods", 6],
       ["formas de pago", 6],
       ["how can i pay", 6],
+      ["how do you take payment", 6],
       ["como puedo pagar", 6],
+      ["credit card", 6],
+      ["debit card", 6],
+      ["tarjeta", 5],
+      ["efectivo", 5],
+      ["cash payment", 6],
+      ["payment plan", 6],
+      ["plan de pago", 6],
+      ["pay over the phone", 6],
+      ["pagar por telefono", 6],
+      ["make a payment", 6],
+      ["take a payment", 6],
       ["payment", 4],
       ["payments", 4],
       ["pagar", 4],
@@ -404,14 +437,14 @@ const TOPICS: TopicDefinition[] = [
   ),
   topic(
     "emergency_urgency",
-    ["Emergency Notice", "Urgency Screening"],
+    ["Emergency and Urgency"],
     [
       ["medical emergency", 6],
       ["emergencia medica", 6],
       ["emergency", 5],
       ["emergencia", 5],
-      ["urgent eye pain", 6, ["eye pain", "urgency screening"]],
-      ["dolor urgente", 6, ["eye pain", "urgency screening"]],
+      ["urgent eye pain", 6, ["to determine urgency"]],
+      ["dolor urgente", 6, ["to determine urgency"]],
       ["flashes and floaters", 6, ["flashes", "floaters"]],
       ["destellos y moscas volantes", 6, ["flashes", "floaters"]],
       ["flashes", 5, ["flashes"]],
@@ -493,6 +526,18 @@ export function resolveOfficeKnowledge(
       topic: definition.topic,
     };
   }
+  if (
+    selectedSections.every(
+      (section) => sectionStatus(section) === "not-supplied",
+    )
+  ) {
+    return {
+      language,
+      outcome: "unavailable",
+      sections: [],
+      topic: definition.topic,
+    };
+  }
 
   return {
     language,
@@ -549,6 +594,62 @@ export function validateOfficeKnowledgeSources(
       sectionCount: sections.length,
       source: office.knowledgeSource,
     };
+  });
+}
+
+export function validateOfficeKnowledgeDocument(
+  source: string,
+  content: string,
+): void {
+  const lines = content.split(/\r?\n/);
+  if (!lines[0]?.startsWith("# Office Knowledge: ")) {
+    throw new Error(
+      `Invalid Office Knowledge document ${source}: expected title`,
+    );
+  }
+  if (lines[1] !== `Schema: ${OFFICE_KNOWLEDGE_SCHEMA_VERSION}`) {
+    throw new Error(
+      `Invalid Office Knowledge document ${source}: expected schema ${OFFICE_KNOWLEDGE_SCHEMA_VERSION}`,
+    );
+  }
+
+  const matches = [...content.matchAll(/^## (.+)$/gm)];
+  const headings = matches.map((match) => match[1]);
+  if (
+    headings.length !== CANONICAL_HEADINGS.length ||
+    headings.some((heading, index) => heading !== CANONICAL_HEADINGS[index])
+  ) {
+    throw new Error(
+      `Invalid Office Knowledge document ${source}: expected canonical headings in canonical order`,
+    );
+  }
+
+  matches.forEach((match, index) => {
+    const start = (match.index ?? 0) + match[0].length;
+    const end = matches[index + 1]?.index ?? content.length;
+    const sectionLines = content
+      .slice(start, end)
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const statusLines = sectionLines.filter((line) =>
+      line.startsWith("Status:"),
+    );
+    if (
+      statusLines.length !== 1 ||
+      sectionLines[0] !== statusLines[0] ||
+      !/^Status: (available|not-offered|not-supplied)$/.test(statusLines[0]!)
+    ) {
+      throw new Error(
+        `Invalid Office Knowledge document ${source}: ${match[1]} needs one status as its first line`,
+      );
+    }
+    if (sectionLines.length === 1) {
+      throw new Error(
+        `Invalid Office Knowledge document ${source}: ${match[1]} needs explanatory content`,
+      );
+    }
   });
 }
 
@@ -759,17 +860,16 @@ function isBusinessOwnedTurn(normalizedTranscript: string): boolean {
     );
   if (personalOrderStatus) return true;
 
+  const personalAccountState = [
+    "account balance",
+    "balance on my bill",
+    "billing statement",
+    "current bill",
+    "statement balance",
+  ].some((phrase) => hasPhrase(normalizedTranscript, phrase));
   const personalReference = ["my", "mi", "mis"].some((phrase) =>
     hasPhrase(normalizedTranscript, phrase),
   );
-  const billingSubject = [
-    "balance",
-    "bill",
-    "billing",
-    "statement",
-    "factura",
-    "saldo",
-  ].some((phrase) => hasPhrase(normalizedTranscript, phrase));
   const patientRecordSubject = [
     "patient record",
     "patient records",
@@ -777,7 +877,7 @@ function isBusinessOwnedTurn(normalizedTranscript: string): boolean {
     "medical records",
     "expediente",
   ].some((phrase) => hasPhrase(normalizedTranscript, phrase));
-  if (personalReference && (billingSubject || patientRecordSubject)) {
+  if (personalAccountState || (personalReference && patientRecordSubject)) {
     return true;
   }
 
@@ -852,6 +952,7 @@ function parseKnowledgeSource(
   source: string,
   content: string,
 ): KnowledgeSection[] {
+  validateOfficeKnowledgeDocument(source, content);
   const sections = parseMarkdownSections(content);
   if (sections.length === 0) {
     throw new Error(
@@ -859,6 +960,24 @@ function parseKnowledgeSource(
     );
   }
   return sections;
+}
+
+function sectionStatus(
+  section: KnowledgeSection,
+): "available" | "not-offered" | "not-supplied" {
+  const status = /^Status: (available|not-offered|not-supplied)$/m.exec(
+    section.body,
+  )?.[1];
+  if (
+    status === "available" ||
+    status === "not-offered" ||
+    status === "not-supplied"
+  ) {
+    return status;
+  }
+  throw new Error(
+    `Office knowledge section has no valid status: ${section.title}`,
+  );
 }
 
 function parseMarkdownSections(content: string): KnowledgeSection[] {

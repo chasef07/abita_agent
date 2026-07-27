@@ -629,7 +629,7 @@ describe("Voice Agent identity promotion", () => {
       )
       .map((item) => (item.type === "message" ? item.textContent : null));
     expect(turnLocalKnowledge).toHaveLength(1);
-    expect(turnLocalKnowledge[0]).toContain("## Location + Contact");
+    expect(turnLocalKnowledge[0]).toContain("## Hours");
     expect(
       session.currentAgent.chatCtx.items.some(
         (item) =>

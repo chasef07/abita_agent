@@ -22,7 +22,7 @@ const topicFixtures: TopicFixture[] = [
     officeKey: "spring-hill",
     transcript: "¿Dónde están ubicados?",
     topic: "location_contact",
-    expectedHeading: "## Location + Contact",
+    expectedHeading: "## Location and Contact",
     language: "es",
   },
   {
@@ -36,7 +36,7 @@ const topicFixtures: TopicFixture[] = [
     officeKey: "spring-hill",
     transcript: "¿Qué doctores trabajan allí?",
     topic: "providers",
-    expectedHeading: "## Providers – Spring Hill",
+    expectedHeading: "## Providers",
     language: "es",
   },
   {
@@ -50,21 +50,21 @@ const topicFixtures: TopicFixture[] = [
     officeKey: "dev",
     transcript: "¿Es un servicio médico o cosmético?",
     topic: "medical_cosmetic",
-    expectedHeading: "## Medical or Cosmetic",
+    expectedHeading: "## Scope of Services",
     language: "es",
   },
   {
     officeKey: "dev",
     transcript: "Do you perform Mohs surgery?",
     topic: "skin_cancer",
-    expectedHeading: "## Skin Cancer and Mohs",
+    expectedHeading: "## Scope of Services",
     language: "en",
   },
   {
     officeKey: "hollywood",
     transcript: "Do you sell frames?",
     topic: "optical",
-    expectedHeading: "## Optical / Glasses",
+    expectedHeading: "## Optical and Glasses",
     language: "en",
   },
   {
@@ -78,14 +78,14 @@ const topicFixtures: TopicFixture[] = [
     officeKey: "spring-hill",
     transcript: "Can you repair my frames?",
     topic: "optical_repairs",
-    expectedHeading: "## Glasses Warranty / Repairs",
+    expectedHeading: "## Repairs and Warranty",
     language: "en",
   },
   {
     officeKey: "crystal-river",
     transcript: "Do patients need a referral?",
     topic: "insurance_referrals",
-    expectedHeading: "## Insurance & Referrals",
+    expectedHeading: "## Insurance and Referrals",
     language: "en",
   },
   {
@@ -127,7 +127,7 @@ const topicFixtures: TopicFixture[] = [
     officeKey: "spring-hill",
     transcript: "Tengo dolor urgente en el ojo.",
     topic: "emergency_urgency",
-    expectedHeading: "## Urgency Screening",
+    expectedHeading: "## Emergency and Urgency",
     language: "es",
   },
   {
@@ -141,14 +141,14 @@ const topicFixtures: TopicFixture[] = [
     officeKey: "spring-hill",
     transcript: "Necesito la address de la oficina.",
     topic: "location_contact",
-    expectedHeading: "## Location + Contact",
+    expectedHeading: "## Location and Contact",
     language: "mixed",
   },
   {
     officeKey: "spring-hill",
     transcript: "Cual es su orario?",
     topic: "hours",
-    expectedHeading: "## Location + Contact",
+    expectedHeading: "## Hours",
     language: "es",
   },
 ];
@@ -345,7 +345,7 @@ describe("Office Knowledge Resolver", () => {
     "When will my contact lenses arrive?",
     "How much do I owe?",
     "What is the balance on my bill?",
-    "I need help with my bill.",
+    "What is my account balance?",
     "What is my billing statement?",
     "What is my current bill?",
     "Can I see my patient record?",
@@ -357,6 +357,30 @@ describe("Office Knowledge Resolver", () => {
         outcome: "skipped",
         topic: null,
       });
+    },
+  );
+
+  it.each([
+    [
+      "hollywood",
+      "¿Aceptan tarjeta de crédito para pagar?",
+      "payment",
+      "## Payments",
+    ],
+    ["hollywood", "I need help paying my bill.", "billing", "## Billing"],
+    [
+      "spring-hill",
+      "¿Ofrecen lentes de contacto?",
+      "contact_lenses",
+      "## Contact Lenses",
+    ],
+  ] as const)(
+    "routes a production-shaped %s turn to %s",
+    (officeKey, transcript, topic, heading) => {
+      const result = resolveOfficeKnowledge(officeKey, transcript);
+
+      expect(result).toMatchObject({ outcome: "matched", topic });
+      expect(result.sections).toEqual([expect.stringContaining(heading)]);
     },
   );
 
@@ -411,7 +435,7 @@ describe("Office Knowledge Resolver", () => {
     expect(sources.every(({ sectionCount }) => sectionCount > 0)).toBe(true);
   });
 
-  it("rejects missing, unsectioned, and empty Office Knowledge sources", () => {
+  it("rejects missing and noncanonical Office Knowledge sources", () => {
     expect(() =>
       validateOfficeKnowledgeSources(() => {
         throw new Error("missing source");
@@ -419,9 +443,9 @@ describe("Office Knowledge Resolver", () => {
     ).toThrow("missing source");
     expect(() =>
       validateOfficeKnowledgeSources(() => "# Knowledge without sections"),
-    ).toThrow("has no level-two sections");
+    ).toThrow("expected title");
     expect(() => validateOfficeKnowledgeSources(() => "## Empty\n")).toThrow(
-      "section is empty",
+      "expected title",
     );
   });
 
@@ -473,7 +497,7 @@ describe("Office Knowledge Resolver", () => {
     const expectedSection = source
       .slice(
         source.indexOf("## Self-Pay Pricing"),
-        source.indexOf("## Billing"),
+        source.indexOf("## What to Bring"),
       )
       .trim();
 
