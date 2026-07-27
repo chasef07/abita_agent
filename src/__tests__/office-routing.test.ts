@@ -577,6 +577,12 @@ describe("model-facing tool definitions", () => {
       "Read back the registration details and get caller confirmation",
     );
     expect(add_patient.description).toContain(
+      "caller explicitly confirms the patient has never registered with or been added to the practice",
+    );
+    expect(add_patient.description).toContain(
+      "do not call resolve_patient first",
+    );
+    expect(add_patient.description).toContain(
       "For routine-vision registration, collect only the patient's SSN last four",
     );
     expect(add_patient.description).toContain(
@@ -594,6 +600,7 @@ describe("model-facing tool definitions", () => {
     expect(Object.keys(parameters.shape)).not.toContain("insurance");
     expect(Object.keys(parameters.shape)).not.toContain("appointmentLane");
     expect(Object.keys(parameters.shape)).toContain("insuranceMemberId");
+    expect(Object.keys(parameters.shape)).toContain("newPatientConfirmed");
     expect(Object.keys(parameters.shape)).toContain("ssnLast4");
     expect(
       String(
@@ -1165,15 +1172,14 @@ describe("model-facing tool definitions", () => {
 
   it("keeps resolve_patient scoped to patient identity loading", () => {
     expect(resolve_patient.description).toContain("Resolve who the patient is");
-    expect(resolve_patient.description).toContain("preloaded patient");
     expect(resolve_patient.description).toContain(
       "firstName, lastName, and DOB",
     );
     expect(resolve_patient.description).toContain(
-      "registrationStatus not_registered before add_patient",
+      "Use this tool to switch to a different patient using caller-provided identity details",
     );
     expect(resolve_patient.description).toContain(
-      "Use this tool to switch to a different patient using caller-provided identity details",
+      "Do not use this tool to mark a patient as new",
     );
     expect(resolve_patient.description).not.toContain("insurance updates");
     expect(resolve_patient.description).not.toContain("private account");
@@ -1186,7 +1192,6 @@ describe("model-facing tool definitions", () => {
       "firstName",
       "lastName",
       "dob",
-      "registrationStatus",
     ]);
     expect(
       parameters.safeParse({
@@ -1201,9 +1206,10 @@ describe("model-facing tool definitions", () => {
         dob: "01/01/1980",
       }).success,
     ).toBe(true);
+    expect(parameters.safeParse({}).success).toBe(true);
     expect(
       parameters.safeParse({ registrationStatus: "not_registered" }).success,
-    ).toBe(true);
+    ).toBe(false);
     expect(parameters.safeParse({ firstName: " " }).success).toBe(false);
   });
 });

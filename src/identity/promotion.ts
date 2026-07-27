@@ -56,9 +56,7 @@ export type PatientResolveLookup = (
   identity: PatientResolveLookupIdentity,
 ) => Promise<PatientResolveResult>;
 
-export type ResolvePatientIdentityInput = Partial<PatientLookupIdentity> & {
-  registrationStatus?: "registered_before" | "not_registered" | "unsure";
-};
+export type ResolvePatientIdentityInput = Partial<PatientLookupIdentity>;
 
 export interface TranscriptIdentityConfirmation {
   candidateRef: string;
@@ -199,6 +197,30 @@ export function preCallCandidateMatchesIdentity(
   );
 }
 
+export function patientRegistrationConflict(
+  state: CallState,
+  identity: PatientLookupIdentity,
+): "created_patient" | "active_patient" | "pre_call_candidate" | null {
+  const activePatient =
+    state.identity.patient.identityConfirmed ||
+    state.identity.patient.status === "created";
+  if (activePatient && !identityTargetsDifferentPatient(state, identity)) {
+    return state.identity.patient.status === "created"
+      ? "created_patient"
+      : "active_patient";
+  }
+
+  const preCall = state.identity.preCall;
+  if (
+    preCall?.candidates.some((candidate) =>
+      preCallCandidateMatchesIdentity(candidate, identity),
+    )
+  ) {
+    return "pre_call_candidate";
+  }
+  return null;
+}
+
 export async function confirmIdentityFromTranscript(
   {
     state,
@@ -272,41 +294,6 @@ export async function resolvePatientIdentity(
 ): Promise<string> {
   const identity = normalizeResolvePatientInput(input);
 
-  if (identity.registrationStatus === "not_registered") {
-    if (state.identity.patient.status === "new") {
-      if (pendingRegistrationTargetsDifferentPatient(state, identity)) {
-        beginNewPatientRegistration(state, identity, {
-          preserveEligibilityCheck: false,
-        });
-      } else {
-        mergePendingRegistrationIdentity(state, identity);
-      }
-      return recordIdentityResolution(state, {
-        outcome: "new",
-        reply:
-          "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.",
-      });
-    }
-    const activePatientReply = activePatientBlocksNewChartReply(
-      state,
-      identity,
-    );
-    if (activePatientReply) {
-      return recordIdentityResolution(state, {
-        outcome: "verified",
-        reply: activePatientReply,
-      });
-    }
-    beginNewPatientRegistration(state, identity, {
-      preserveEligibilityCheck: true,
-    });
-    return recordIdentityResolution(state, {
-      outcome: "new",
-      reply:
-        "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.",
-    });
-  }
-
   const preCallResolution = await resolveFromPreCallState(
     state,
     identity,
@@ -314,17 +301,6 @@ export async function resolvePatientIdentity(
   );
   if (preCallResolution) {
     return recordIdentityResolution(state, preCallResolution);
-  }
-
-  if (
-    identity.registrationStatus === "registered_before" &&
-    !hasFullIdentity(identity)
-  ) {
-    return recordIdentityResolution(state, {
-      outcome: "needs_identity",
-      reply:
-        "Collect the patient's first name, last name, and date of birth, then call resolve_patient again.",
-    });
   }
 
   if (!hasFullIdentity(identity)) {
@@ -528,13 +504,33 @@ function activateResolvedPatient(
   );
 }
 
-function beginNewPatientRegistration(
+export function beginNewPatientRegistration(
   state: CallState,
-  identity: ResolvePatientIdentityInput,
-  options: { preserveEligibilityCheck: boolean },
+  identity: PatientLookupIdentity,
+): void {
+  if (state.identity.patient.status === "new") {
+    if (!pendingRegistrationTargetsDifferentPatient(state, identity)) {
+      mergePendingRegistrationIdentity(state, identity);
+      return;
+    }
+    replacePatientWithNewRegistration(state, identity, false);
+    return;
+  }
+
+  const preserveEligibilityCheck =
+    !state.identity.patient.identityConfirmed &&
+    state.identity.patient.status !== "created" &&
+    !state.identity.patient.patientId;
+  replacePatientWithNewRegistration(state, identity, preserveEligibilityCheck);
+}
+
+function replacePatientWithNewRegistration(
+  state: CallState,
+  identity: PatientLookupIdentity,
+  preserveEligibilityCheck: boolean,
 ): void {
   invalidatePatientIdentityOperations(state);
-  resetPatientScopedWork(state, options);
+  resetPatientScopedWork(state, { preserveEligibilityCheck });
   setInsuranceOnFile(state, null);
   setPatientBackendRefs(state, {
     insPlanId: null,
@@ -551,14 +547,6 @@ function beginNewPatientRegistration(
     appointments: [],
     appointmentsStatus: null,
   };
-  state.identity.pendingRegistration = pendingRegistrationIdentity(identity);
-}
-
-export function setPendingRegistrationIdentity(
-  state: CallState,
-  identity: PatientLookupIdentity,
-): void {
-  if (state.identity.patient.status !== "new") return;
   state.identity.pendingRegistration = pendingRegistrationIdentity(identity);
 }
 
@@ -703,7 +691,7 @@ async function resolveFromPreCallState(
   lookup: PatientResolveLookup,
 ): Promise<IdentityResolution | null> {
   const preCall = state.identity.preCall;
-  if (state.identity.patient.status === "new") return null;
+  if (!state.identity.patient.identityConfirmed) return null;
   if (!preCall || preCall.candidates.length === 0 || !identity.firstName) {
     return null;
   }
@@ -1043,17 +1031,6 @@ function preCallNameMismatchReply(
   return "I found a record with that last name and date of birth, but the first name does not match what I heard. Could you spell the patient's first name?";
 }
 
-function activePatientBlocksNewChartReply(
-  state: CallState,
-  identity: ResolvePatientIdentityInput,
-): string | null {
-  if (!state.identity.patient.identityConfirmed) return null;
-  if (identityTargetsDifferentPatient(state, identity)) return null;
-  const patientName =
-    state.identity.patient.name?.trim() || "the active patient";
-  return `${patientName} is already loaded as an existing patient. Continue with the loaded patient state instead of creating a new chart.`;
-}
-
 function identityTargetsDifferentPatient(
   state: CallState,
   identity: ResolvePatientIdentityInput,
@@ -1127,14 +1104,11 @@ function missingIdentityReply(
   state: CallState,
   identity: ResolvePatientIdentityInput,
 ): string {
-  if (identity.registrationStatus === "unsure") {
-    return "Collect the patient's first name, last name, and date of birth so I can check for an existing record.";
-  }
   if (identity.firstName) {
     return "Collect the patient's last name and date of birth, then call resolve_patient again.";
   }
   if (state.identity.preCall?.status === "no_match") {
-    return "Collect the patient's first name, last name, and date of birth to check for an existing record. If the caller already said the patient is not registered with us, call resolve_patient with registrationStatus not_registered.";
+    return "For an existing-patient lookup, collect the patient's first name, last name, and date of birth, then call resolve_patient again.";
   }
   return "Ask who the appointment is for. If the patient is not preloaded from the phone lookup, collect first name, last name, and date of birth.";
 }
@@ -1146,7 +1120,6 @@ function normalizeResolvePatientInput(
     firstName: input.firstName?.trim() || undefined,
     lastName: input.lastName?.trim() || undefined,
     dob: input.dob?.trim() || undefined,
-    registrationStatus: input.registrationStatus,
   };
 }
 

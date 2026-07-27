@@ -13,6 +13,7 @@ import type {
 } from "../clients/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import {
+  confirmIdentityFromTranscript,
   resolvePatientIdentity,
   type PatientResolveLookup,
 } from "../identity/promotion.js";
@@ -340,17 +341,8 @@ describe("Voice Agent identity promotion", () => {
         appointments: [appointment],
       });
     };
-    const failedReply =
-      "Verified existing patient Jane Doe. Appointments could not be loaded. Try confirming identity again before confirming or cancelling.";
     const loadedReply = `Verified existing patient Jane Doe. Loaded 1 appointment: Monday, June 1, 2026 at 9:00 AM with Dr. Bach (appointmentRef ${appointmentRef}).`;
     const llm = new voice.testing.FakeLLM([
-      resolveTurn(
-        "This is for Jane Doe, January 2, 1980.",
-        "Jane",
-        "Doe",
-        "01/02/1980",
-      ),
-      { input: JSON.stringify(failedReply), content: "Let me try that again." },
       resolveTurn(
         "Please retry Jane Doe, January 2, 1980.",
         "Jane",
@@ -368,16 +360,12 @@ describe("Voice Agent identity promotion", () => {
       officeKey: "spring-hill",
       amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
-      preCall: buildPreCallContextState(
-        verifiedPatient({
-          patientId: "private-patient-id",
-          name: "Jane Doe",
-          dob: "01/02/1980",
-          appointmentsStatus: "error",
-        }),
-        "+17275551212",
-      ),
+      patientId: "private-patient-id",
+      patientName: "Jane Doe",
+      dob: "01/02/1980",
+      appointmentsStatus: "error",
     });
+    session.userData.identity.patient.identityConfirmed = true;
 
     await session.start({
       agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
@@ -385,9 +373,6 @@ describe("Voice Agent identity promotion", () => {
         suppressGreeting: true,
       }),
     });
-    await session
-      .run({ userInput: "This is for Jane Doe, January 2, 1980." })
-      .wait();
     applySchedulingLaneToState(session.userData, "medical_md");
     storeAvailabilityBookingToken(
       session.userData,
@@ -748,7 +733,7 @@ describe("Voice Agent identity promotion", () => {
     ).toBe(false);
   });
 
-  it("hydrates exactly the selected lightweight candidate before promotion", async () => {
+  it("hydrates exactly the transcript-selected lightweight candidate before activation", async () => {
     const hydration = deferredResult<PatientResolveResult>();
     const lookup = vi.fn<PatientResolveLookup>(
       async (_officePhone, identity) => {
@@ -785,9 +770,12 @@ describe("Voice Agent identity promotion", () => {
       ),
     });
 
-    const resolving = resolvePatientIdentity(
-      state,
-      { firstName: "Maria" },
+    const resolving = confirmIdentityFromTranscript(
+      {
+        state,
+        transcript: "Maria",
+        lastAssistantText: "Who is the appointment for?",
+      },
       lookup,
     );
 
@@ -824,9 +812,10 @@ describe("Voice Agent identity promotion", () => {
       }),
     );
 
-    await expect(resolving).resolves.toContain(
-      "Verified existing patient Maria Doe.",
-    );
+    await expect(resolving).resolves.toMatchObject({
+      candidateRef: "precall:2",
+      systemMessage: expect.stringContaining("Patient: Maria Doe."),
+    });
     expect(lookup).toHaveBeenCalledTimes(1);
     expect(state.identity.patient).toMatchObject({
       status: "verified",
@@ -843,7 +832,7 @@ describe("Voice Agent identity promotion", () => {
     expect(state.identity.preCall).toMatchObject({
       status: "multiple_match_confirmed",
       selectedCandidateRef: "precall:2",
-      identityPromotion: "confirmed_by_identity_tool",
+      identityPromotion: "confirmed_by_transcript",
     });
 
     await expect(
@@ -854,7 +843,7 @@ describe("Voice Agent identity promotion", () => {
     expect(lookup).toHaveBeenCalledTimes(1);
   });
 
-  it("joins overlapping hydration attempts for the same selected candidate", async () => {
+  it("joins overlapping transcript hydration attempts for the same candidate", async () => {
     const hydration = deferredResult<PatientResolveResult>();
     const lookup = vi.fn<PatientResolveLookup>(async () => hydration.promise);
     const state = createTestCallState({
@@ -879,12 +868,13 @@ describe("Voice Agent identity promotion", () => {
       ),
     });
 
-    const first = resolvePatientIdentity(state, { firstName: "Maria" }, lookup);
-    const second = resolvePatientIdentity(
+    const confirmation = {
       state,
-      { firstName: "Maria" },
-      lookup,
-    );
+      transcript: "Maria",
+      lastAssistantText: "Who is the appointment for?",
+    };
+    const first = confirmIdentityFromTranscript(confirmation, lookup);
+    const second = confirmIdentityFromTranscript(confirmation, lookup);
 
     expect(lookup).toHaveBeenCalledTimes(1);
     expect(state.identity.patient.identityConfirmed).toBe(false);
@@ -898,8 +888,12 @@ describe("Voice Agent identity promotion", () => {
     );
 
     await expect(Promise.all([first, second])).resolves.toEqual([
-      expect.stringContaining("Verified existing patient Maria Doe."),
-      expect.stringContaining("Verified existing patient Maria Doe."),
+      expect.objectContaining({
+        systemMessage: expect.stringContaining("Patient: Maria Doe."),
+      }),
+      expect.objectContaining({
+        systemMessage: expect.stringContaining("Patient: Maria Doe."),
+      }),
     ]);
     expect(lookup).toHaveBeenCalledTimes(1);
     expect(state.identity.patient).toMatchObject({
@@ -908,7 +902,7 @@ describe("Voice Agent identity promotion", () => {
     });
   });
 
-  it("does not promote an incomplete selected-candidate hydration", async () => {
+  it("does not activate an incomplete transcript-selected candidate", async () => {
     const state = createTestCallState({
       officeKey: "spring-hill",
       amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
@@ -932,16 +926,25 @@ describe("Voice Agent identity promotion", () => {
     });
 
     await expect(
-      resolvePatientIdentity(state, { firstName: "Maria" }, async () =>
-        verifiedPatient({
-          patientId: "private-maria-id",
-          name: null,
-          dob: "02/03/1982",
-        }),
+      confirmIdentityFromTranscript(
+        {
+          state,
+          transcript: "Maria",
+          lastAssistantText: "Who is the appointment for?",
+        },
+        async () =>
+          verifiedPatient({
+            patientId: "private-maria-id",
+            name: null,
+            dob: "02/03/1982",
+          }),
       ),
-    ).resolves.toBe(
-      "Patient lookup returned an incomplete identity. Try again.",
-    );
+    ).resolves.toMatchObject({
+      candidateRef: "precall:1",
+      systemMessage: expect.stringContaining(
+        "Patient lookup returned an incomplete identity. Try again.",
+      ),
+    });
     expect(state.identity.patient).toMatchObject({
       status: "unknown",
       identityConfirmed: false,
@@ -1012,7 +1015,7 @@ describe("Voice Agent identity promotion", () => {
     expect(state.runtime.preCallLookup.hydrationOutcome).toBe("lookup_failed");
   });
 
-  it("requires full identity for ambiguous candidate names before hydration", async () => {
+  it("leaves ambiguous transcript names for a full existing-patient lookup", async () => {
     const state = createTestCallState({
       officeKey: "spring-hill",
       amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
@@ -1043,7 +1046,11 @@ describe("Voice Agent identity promotion", () => {
     });
     const lookup = vi.fn<PatientResolveLookup>(
       async (_officePhone, identity) => {
-        expect(identity).toEqual({ patientId: "private-jane-smith-id" });
+        expect(identity).toEqual({
+          firstName: "Jane",
+          lastName: "Smith",
+          dob: "02/03/1982",
+        });
         return verifiedPatient({
           patientId: "private-jane-smith-id",
           name: "Jane Smith",
@@ -1053,10 +1060,15 @@ describe("Voice Agent identity promotion", () => {
     );
 
     await expect(
-      resolvePatientIdentity(state, { firstName: "Jane" }, lookup),
-    ).resolves.toBe(
-      "More than one preloaded patient matched that first name. Ask for the patient's date of birth, then call resolve_patient with first name, last name, and DOB.",
-    );
+      confirmIdentityFromTranscript(
+        {
+          state,
+          transcript: "Jane",
+          lastAssistantText: "Who is the appointment for?",
+        },
+        lookup,
+      ),
+    ).resolves.toBeNull();
     expect(lookup).not.toHaveBeenCalled();
     expect(state.identity.patient.identityConfirmed).toBe(false);
 
@@ -1075,7 +1087,7 @@ describe("Voice Agent identity promotion", () => {
     });
   });
 
-  it("does not let a superseded candidate hydration replace the newer patient", async () => {
+  it("does not let superseded transcript hydration replace the newer patient", async () => {
     const janeHydration = deferredResult<PatientResolveResult>();
     const mariaHydration = deferredResult<PatientResolveResult>();
     const lookup = vi.fn<PatientResolveLookup>(
@@ -1117,14 +1129,20 @@ describe("Voice Agent identity promotion", () => {
       ),
     });
 
-    const resolvingJane = resolvePatientIdentity(
-      state,
-      { firstName: "Jane" },
+    const resolvingJane = confirmIdentityFromTranscript(
+      {
+        state,
+        transcript: "Jane",
+        lastAssistantText: "Who is the appointment for?",
+      },
       lookup,
     );
-    const resolvingMaria = resolvePatientIdentity(
-      state,
-      { firstName: "Maria" },
+    const resolvingMaria = confirmIdentityFromTranscript(
+      {
+        state,
+        transcript: "Maria",
+        lastAssistantText: "Who is the appointment for?",
+      },
       lookup,
     );
     expect(lookup).toHaveBeenCalledTimes(2);
@@ -1136,9 +1154,10 @@ describe("Voice Agent identity promotion", () => {
         dob: "02/03/1982",
       }),
     );
-    await expect(resolvingMaria).resolves.toContain(
-      "Verified existing patient Maria Doe.",
-    );
+    await expect(resolvingMaria).resolves.toMatchObject({
+      candidateRef: "precall:2",
+      systemMessage: expect.stringContaining("Patient: Maria Doe."),
+    });
 
     janeHydration.resolve(
       verifiedPatient({
@@ -1147,9 +1166,10 @@ describe("Voice Agent identity promotion", () => {
         dob: "01/02/1980",
       }),
     );
-    await expect(resolvingJane).resolves.toBe(
-      "Patient lookup was superseded by a newer identity change. Continue with the current patient's state.",
-    );
+    await expect(resolvingJane).resolves.toMatchObject({
+      candidateRef: "precall:1",
+      systemMessage: expect.stringContaining("Patient: Maria Doe."),
+    });
     expect(state.identity.patient).toMatchObject({
       identityConfirmed: true,
       patientId: "private-maria-id",
@@ -1345,58 +1365,6 @@ describe("Voice Agent identity promotion", () => {
     expect(shortNameSession.userData.identity.patient).toMatchObject({
       identityConfirmed: false,
       patientId: null,
-    });
-  });
-
-  it("resolves a preloaded comma-name patient with normalized DOB", async () => {
-    const reply =
-      "Verified existing patient JANE DOE. No upcoming appointments are loaded.";
-    const llm = new voice.testing.FakeLLM([
-      resolveTurn(
-        "This is Jane Doe, born January 2, 1980.",
-        "Jane",
-        "Doe",
-        "01-02-1980",
-      ),
-      { input: JSON.stringify(reply), content: "Jane is loaded." },
-    ]);
-    const session = new AgentSession({ llm });
-    sessions.push(session);
-    session.userData = createTestCallState({
-      officeKey: "spring-hill",
-      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-      preCall: buildPreCallContextState(
-        verifiedPatient({
-          patientId: "private-jane-id",
-          name: "DOE, JANE",
-          dob: "1/2/1980",
-        }),
-        "+17275551212",
-      ),
-    });
-
-    await session.start({
-      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
-        identityLookup: async () => {
-          throw new Error("preloaded match should not call middleware");
-        },
-        suppressGreeting: true,
-      }),
-    });
-    const run = session.run({
-      userInput: "This is Jane Doe, born January 2, 1980.",
-    });
-    await run.wait();
-
-    run.expect.containsFunctionCallOutput({
-      output: JSON.stringify(reply),
-      isError: false,
-    });
-    expect(session.userData.identity.patient).toMatchObject({
-      identityConfirmed: true,
-      patientId: "private-jane-id",
-      name: "JANE DOE",
     });
   });
 
@@ -1759,7 +1727,7 @@ describe("Voice Agent identity promotion", () => {
     const existingReply =
       "Verified existing patient Jane Doe. No upcoming appointments are loaded.";
     const duplicateReply =
-      "Jane Doe is already loaded as an existing patient. Continue with the loaded patient state instead of creating a new chart.";
+      "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.";
     const llm = new voice.testing.FakeLLM([
       resolveTurn(
         "Find Jane Doe, January 2, 1980.",
@@ -1772,12 +1740,21 @@ describe("Voice Agent identity promotion", () => {
         input: "Jane says she has never registered.",
         toolCalls: [
           {
-            name: "resolve_patient",
+            name: "add_patient",
             args: {
               firstName: "Jane",
               lastName: "Doe",
               dob: "01/02/1980",
-              registrationStatus: "not_registered",
+              street: "123 Main St",
+              city: "Spring Hill",
+              state: "FL",
+              zip: "34606",
+              sex: "female",
+              subscriberName: "Jane Doe",
+              insuranceMemberId: "self pay",
+              phone: "7275551212",
+              newPatientConfirmed: true,
+              readBack: true,
             },
           },
         ],
@@ -1824,60 +1801,6 @@ describe("Voice Agent identity promotion", () => {
       identityConfirmed: true,
       patientId: "private-jane-id",
     });
-  });
-
-  it("opens the new-chart path only after caller registration confirmation", async () => {
-    const reply =
-      "New-chart path confirmed. Continue registration and call add_patient only after read-back confirmation.";
-    const llm = new voice.testing.FakeLLM([
-      {
-        input: "Jane has never registered with the practice.",
-        toolCalls: [
-          {
-            name: "resolve_patient",
-            args: {
-              firstName: "Jane",
-              registrationStatus: "not_registered",
-            },
-          },
-        ],
-      },
-      {
-        input: JSON.stringify(reply),
-        content: "I'll collect Jane's registration details.",
-      },
-    ]);
-    const session = new AgentSession({ llm });
-    sessions.push(session);
-    session.userData = createTestCallState({
-      officeKey: "spring-hill",
-      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-    });
-
-    await session.start({
-      agent: createAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
-        identityLookup: async () => {
-          throw new Error("lookup should not run");
-        },
-        suppressGreeting: true,
-      }),
-    });
-    const run = session.run({
-      userInput: "Jane has never registered with the practice.",
-    });
-    await run.wait();
-
-    run.expect.containsFunctionCallOutput({
-      output: JSON.stringify(reply),
-      isError: false,
-    });
-    expect(session.userData.identity.patient).toMatchObject({
-      status: "new",
-      identityConfirmed: false,
-      patientId: null,
-    });
-    expect(session.userData.runtime.patientIdentityOutcomes).toEqual(["new"]);
   });
 });
 

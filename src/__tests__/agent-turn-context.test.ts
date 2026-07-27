@@ -4,10 +4,11 @@ import {
   ChatMessage,
   initializeLogger,
 } from "@livekit/agents";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import { insuranceSnapshot, setInsuranceOnFile } from "../scheduling/state.js";
+import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
 import { createTestCallState } from "./support/call-state.js";
 
 describe("completed user turn context", () => {
@@ -121,6 +122,81 @@ describe("completed user turn context", () => {
     expect(systemText(session.currentAgent.chatCtx)).not.toContain(
       "Insurance on file:",
     );
+  });
+
+  it("activates a matching pre-call patient before the model turn without resolve_patient", async () => {
+    const state = createTestCallState({
+      officeKey: "spring-hill",
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+      patientId: "patient-larry",
+      patientName: "LARRY TEST",
+      dob: "08/18/2020",
+      insuranceCarrier: "FLORIDA BLUE SHIELD",
+      appointmentsStatus: "none",
+      preCall: {
+        status: "single_match_pending_confirmation",
+        source: "phone_lookup",
+        callerPhone: "+19546097250",
+        selectedCandidateRef: CALLER_CANDIDATE_REF,
+        candidates: [
+          {
+            ref: CALLER_CANDIDATE_REF,
+            firstName: "LARRY",
+            lastName: "TEST",
+            dob: "08/18/2020",
+            patientId: "patient-larry",
+            appointments: [],
+            appointmentsStatus: "none",
+            insuranceCarrier: "FLORIDA BLUE SHIELD",
+          },
+        ],
+      },
+    });
+    const identityLookup = vi.fn(async () => {
+      throw new Error("Verified pre-call patients must not be looked up again");
+    });
+    const session = new AgentSession();
+    sessions.push(session);
+    session.userData = state;
+    await session.start({
+      agent: createVoiceAgent("single_match", SPRING_HILL_OFFICE_PHONE, {
+        identityLookup,
+        suppressGreeting: true,
+      }).agent,
+    });
+
+    const turnContext = ChatContext.empty();
+    turnContext.addMessage({
+      role: "assistant",
+      content:
+        "To help with the appointment, could you spell the patient's first name?",
+    });
+    await session.currentAgent.onUserTurnCompleted(
+      turnContext,
+      ChatMessage.create({ role: "user", content: "L-A-R-R-Y" }),
+    );
+
+    expect(identityLookup).not.toHaveBeenCalled();
+    expect(state.identity.patient).toMatchObject({
+      status: "verified",
+      identityConfirmed: true,
+      patientId: "patient-larry",
+      name: "LARRY TEST",
+    });
+    expect(state.runtime.patientIdentityTransitions).toEqual([
+      { outcome: "pending", source: "pre_call_phone_lookup" },
+      { outcome: "confirmed", source: "caller_transcript" },
+    ]);
+    expect(state.runtime.patientIdentityOutcomes).toEqual([]);
+    expect(systemText(turnContext)).toContain(
+      "Internal state: patient identity is confirmed.",
+    );
+    expect(systemText(turnContext)).toContain("Patient: LARRY TEST.");
+    expect(systemText(turnContext)).toContain(
+      "Insurance on file: FLORIDA BLUE SHIELD.",
+    );
+    expect(systemText(turnContext)).not.toContain("patient-larry");
   });
 });
 

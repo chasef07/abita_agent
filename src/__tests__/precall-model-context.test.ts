@@ -107,7 +107,13 @@ describe("pre-call model context", () => {
       'In Spanish, say exactly: "Para ayudar con la cita, ¿podría deletrear el primer nombre del paciente?"',
     );
     expect(agent.instructions).toContain(
-      "If the caller already supplied the patient's first name, call resolve_patient with it instead of asking again.",
+      "If the caller supplies or spells the matching first name, runtime confirms the preloaded patient before your reply.",
+    );
+    expect(agent.instructions).toContain(
+      "Do not call resolve_patient for a patient runtime has already confirmed.",
+    );
+    expect(agent.instructions).not.toContain(
+      "call resolve_patient with it instead of asking again",
     );
   });
 
