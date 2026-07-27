@@ -1759,11 +1759,11 @@ describe("scheduling tools", () => {
     state.availability.slots = [
       {
         slotId: "S1",
-        spoken: "2026-06-01 9:00 AM with Dr. Bach",
+        spoken: "2026-07-27 9:00 AM with Dr. Bach",
         provider: "Dr. Bach",
-        date: "2026-06-01",
+        date: "2026-07-27",
         time: "9:00 AM",
-        datetime: "2026-06-01T09:00:00",
+        datetime: "2026-07-27T09:00:00",
         routing: "all_three",
       },
     ];
@@ -1783,7 +1783,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toMatch(
-      /^Booked June 1 at 9:00 AM with Dr\. Bach\. Internal context: appointmentRef appointment-[a-z0-9]+\. Use this exact appointmentRef if the caller asks to cancel this appointment during this call\. Do not read this opaque reference aloud\.$/,
+      /^Booked Monday, July 27 at 9:00 AM with Dr\. Bach\. Internal context: appointmentRef appointment-[a-z0-9]+\. Use this exact appointmentRef if the caller asks to cancel this appointment during this call\. Do not read this opaque reference aloud\.$/,
     );
     expect(middleware.operations).toMatchObject([
       {
@@ -1801,7 +1801,7 @@ describe("scheduling tools", () => {
     expect(state.identity.patient.appointments).toContainEqual(
       expect.objectContaining({
         id: 456,
-        date: "2026-06-01",
+        date: "2026-07-27",
         time: "9:00 AM",
       }),
     );
@@ -1863,7 +1863,7 @@ describe("scheduling tools", () => {
     ]);
     expect(state.identity.patient.appointments).toEqual([]);
     expect(appointmentActions(state)[0]?.message).toBe(
-      "Booked June 1 at 9:00 AM with Dr. Bach.",
+      "Booked Monday, June 1 at 9:00 AM with Dr. Bach.",
     );
     expect(JSON.stringify(appointmentActions(state))).not.toContain(
       appointmentRef,
@@ -1947,7 +1947,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "Read back June 1 at 9:00 AM with Dr. Bach and ask the caller to confirm it. Call book_appointment again only after the caller confirms the appointment details are correct.",
+      "Read back Monday, June 1 at 9:00 AM with Dr. Bach and ask the caller to confirm it. Call book_appointment again only after the caller confirms the appointment details are correct.",
     );
     expect(middleware.operations).toEqual([]);
   });
@@ -2127,7 +2127,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "That time is no longer available. I can offer June 1 at 2:00 PM with Dr. Bach instead.",
+      "That time is no longer available. I can offer Monday, June 1 at 2:00 PM with Dr. Bach instead.",
     );
     expect(state.availability.slots).toEqual([nextSlot]);
     expect(state.availability.bookingTokensBySlotId).toEqual({
@@ -2914,7 +2914,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "Rescheduled the appointment to June 3 at 10:00 AM with Dr. Bach. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
+      "Rescheduled the appointment to Wednesday, June 3 at 10:00 AM with Dr. Bach. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
     );
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
       "book",
@@ -3066,7 +3066,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "Read back June 1 at 9:00 AM with Dr. Bach and ask the caller to confirm it as the new appointment. Call reschedule_appointment again only after the caller confirms the new appointment details are correct.",
+      "Read back Monday, June 1 at 9:00 AM with Dr. Bach and ask the caller to confirm it as the new appointment. Call reschedule_appointment again only after the caller confirms the new appointment details are correct.",
     );
     expect(middleware.operations).toEqual([]);
   });
@@ -3332,7 +3332,7 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(result).toBe(
-      "Booked the new appointment for June 1 at 9:00 AM with Dr. Bach, but I could not cancel the old appointment. The old appointment was not cancelled. I need to transfer you so the office can finish the cancellation.",
+      "Booked the new appointment for Monday, June 1 at 9:00 AM with Dr. Bach, but I could not cancel the old appointment. The old appointment was not cancelled. I need to transfer you so the office can finish the cancellation.",
     );
     expect(replay).toBe(
       "The new appointment was already booked, but the old appointment still needs office staff to finish cancellation. Transfer the caller instead of rescheduling again.",
@@ -3389,7 +3389,7 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(result).toBe(
-      "Booked the new appointment for June 1 at 9:00 AM with Dr. Bach, but I could not cancel the old appointment. The old appointment was not cancelled. I need to transfer you so the office can finish the cancellation.",
+      "Booked the new appointment for Monday, June 1 at 9:00 AM with Dr. Bach, but I could not cancel the old appointment. The old appointment was not cancelled. I need to transfer you so the office can finish the cancellation.",
     );
     expect(replay).toBe(
       "The new appointment was already booked, but the old appointment still needs office staff to finish cancellation. Transfer the caller instead of rescheduling again.",
@@ -3444,7 +3444,7 @@ describe("scheduling tools", () => {
     expect(state.identity.completedReschedulesByPatientId["patient-1"]).toEqual(
       {
         status: "needs_human_cancellation",
-        appointmentDescription: "June 1 at 9:00 AM with Dr. Bach",
+        appointmentDescription: "Monday, June 1 at 9:00 AM with Dr. Bach",
       },
     );
   });
@@ -3476,7 +3476,7 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(replay).toBe(
-      "The appointment is already rescheduled to June 1 at 9:00 AM with Dr. Bach. Tell the caller the confirmed appointment details instead of rescheduling again.",
+      "The appointment is already rescheduled to Monday, June 1 at 9:00 AM with Dr. Bach. Tell the caller the confirmed appointment details instead of rescheduling again.",
     );
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
       "book",
@@ -3525,7 +3525,7 @@ describe("scheduling tools", () => {
     );
 
     expect(corrected).toBe(
-      "Rescheduled the appointment to June 3 at 2:00 PM with Dr. Bach. Cancelled the old appointment on 2026-06-01 at 9:00 AM.",
+      "Rescheduled the appointment to Wednesday, June 3 at 2:00 PM with Dr. Bach. Cancelled the old appointment on 2026-06-01 at 9:00 AM.",
     );
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
       "book",

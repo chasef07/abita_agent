@@ -502,7 +502,7 @@ describe("Scheduling Workflow caller-language availability", () => {
       { ctx: ctx as never, toolCallId: "booking-1" } as never,
     );
 
-    expect(booking).toContain("Booked June 10 at 3:00 PM");
+    expect(booking).toContain("Booked Wednesday, June 10 at 3:00 PM");
     expect(middleware.operations).toMatchObject([
       {
         kind: "availability",

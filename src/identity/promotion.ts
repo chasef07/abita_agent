@@ -32,6 +32,7 @@ import {
   extractAppointments,
 } from "../scheduling/appointments.js";
 import { getAmdOfficeForToolCall } from "../scheduling/routing.js";
+import { spokenAppointmentDate } from "../scheduling/spoken-date.js";
 import {
   dobMatches,
   matchCandidatesByFirstName,
@@ -1226,7 +1227,7 @@ function spokenAppointment(appointment: {
   provider?: string | null;
 }): string {
   const spoken = [
-    appointment.date,
+    spokenAppointmentDate(appointment.date),
     appointment.time ? `at ${appointment.time}` : "",
     appointment.provider ? `with ${appointment.provider}` : "",
   ]
