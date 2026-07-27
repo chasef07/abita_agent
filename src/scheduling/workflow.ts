@@ -95,15 +95,14 @@ import type {
   SchedulingMiddleware,
 } from "./middleware.js";
 import {
-  resolveAvailabilityWhen,
+  resolveAvailabilityPreferences,
   systemSchedulingClock,
-  type AvailabilityDateSearchMode,
-  type AvailabilityTimeConstraint,
+  type AvailabilityPreferenceInput,
   type SchedulingClock,
 } from "./temporal.js";
 
 export interface AvailabilityLookupArgs {
-  when: string;
+  when?: AvailabilityPreferenceInput[];
   appointmentLane?: SchedulingAppointmentLane;
   office?: AvailabilityOfficeKey;
 }
@@ -134,17 +133,12 @@ export class SchedulingWorkflow {
     args: AvailabilityLookupArgs,
     signal?: AbortSignal,
   ): Promise<string> {
-    const resolvedWhen = resolveAvailabilityWhen(args.when, this.clock);
-    if (resolvedWhen.status !== "resolved") {
-      clearAvailabilitySelection(state);
-      return resolvedWhen.message;
-    }
+    const resolvedWhen = resolveAvailabilityPreferences(args.when, this.clock);
 
     const request = buildAvailabilityLookupRequestForState(state, {
       ...args,
       date: resolvedWhen.date,
-      dateSearchMode: resolvedWhen.dateSearchMode,
-      timeConstraint: resolvedWhen.timeConstraint,
+      preferences: resolvedWhen.preferences,
     });
     if ("blocked" in request) return request.blocked;
 
@@ -187,13 +181,7 @@ export class SchedulingWorkflow {
       }
     }
     try {
-      const response = storeAvailabilitySlots(
-        state,
-        result,
-        request.routing,
-        request.timeConstraint,
-        request.dateSearchMode,
-      );
+      const response = storeAvailabilitySlots(state, result, request.routing);
       if (response.cacheable) {
         cacheCompletedAvailabilityRead(
           state,
@@ -771,21 +759,17 @@ function availabilityRequestStillCurrent(
 type AvailabilityWorkflowRequest = {
   body: MiddlewareAvailabilityRequest;
   backendKey: string;
-  date: string;
   routing: string | null;
-  dateSearchMode: AvailabilityDateSearchMode;
-  timeConstraint: AvailabilityTimeConstraint | null;
 };
 
 function buildAvailabilityLookupRequestForState(
   state: CallState,
   args: AvailabilityLookupArgs & {
     date: string;
-    dateSearchMode: AvailabilityDateSearchMode;
-    timeConstraint: AvailabilityTimeConstraint | null;
+    preferences: MiddlewareAvailabilityRequest["preferences"];
   },
 ): AvailabilityWorkflowRequest | { blocked: string } {
-  const { date, dateSearchMode, timeConstraint } = args;
+  const { date, preferences } = args;
   const incompleteRegistration = incompletePatientRegistrationMessage(state);
   if (incompleteRegistration) {
     return { blocked: incompleteRegistration };
@@ -812,7 +796,10 @@ function buildAvailabilityLookupRequestForState(
   if (unsupportedRoutineVisionScheduling)
     return { blocked: unsupportedRoutineVisionScheduling };
   const routing = routingForAvailability(state);
-  const body: MiddlewareAvailabilityRequest = { date };
+  const body: MiddlewareAvailabilityRequest = {
+    date,
+    ...(preferences?.length ? { preferences } : {}),
+  };
   const dob = activePatientDob(state);
   if (dob) body.dob = dob;
   if (routing) body.routing = routing;
@@ -824,9 +811,6 @@ function buildAvailabilityLookupRequestForState(
       patientId,
       routing,
     }),
-    dateSearchMode,
-    timeConstraint,
-    date,
     routing,
   };
 }
@@ -853,6 +837,7 @@ function availabilityBackendKey(
       typeof input.body.dob === "string" ? input.body.dob.trim() || null : null,
     routing: input.routing,
     preauthRequired: input.body.preauthRequired === true,
+    preferences: input.body.preferences ?? [],
   });
 }
 

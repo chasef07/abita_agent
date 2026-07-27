@@ -5,7 +5,11 @@ import {
   productionSchedulingMiddleware,
   type SchedulingMiddleware,
 } from "./middleware.js";
-import { systemSchedulingClock, type SchedulingClock } from "./temporal.js";
+import {
+  availabilityPreferenceListSchema,
+  systemSchedulingClock,
+  type SchedulingClock,
+} from "./temporal.js";
 import { SchedulingWorkflow } from "./workflow.js";
 
 const bookAppointmentParameters = z
@@ -99,21 +103,19 @@ export function createSchedulingTools(
   const get_availability = tool({
     name: "get_availability",
     description:
-      "Search appointment availability using the caller's own date and time words. " +
-      "Pass those words unchanged in when, such as tomorrow morning or next Tuesday around 3 PM; do not calculate or convert them to a date or time. " +
-      "If the caller asks for the soonest, next available, any day, or only gives a time preference, pass those words unchanged so the workflow can search from the earliest allowed date. " +
+      "Search real appointment inventory immediately once required scheduling context is known. " +
+      "Translate the caller's date and time language into semantic when branches without calculating calendar dates. Fields in one branch are AND; separate branches are OR. " +
+      "Omit when or pass an empty list for next available, any day, any time, or no stated preference. Use one call for all acceptable alternatives. " +
       "For new appointments, call after the visit reason and lane are clear; for reschedules, call only after the existing appointment to move is identified. " +
       "If a routine exam caller also mentions an eye problem or symptom, ask whether the appointment is mainly for glasses or contacts or for the eye problem before choosing appointmentLane. " +
       "On Hollywood or Sweetwater calls, ask which office the caller wants; never infer it from the number called. " +
       "Offer only the returned slots. This tool does not book; only claim success after book_appointment succeeds.",
     parameters: z
       .object({
-        when: z
-          .string()
-          .trim()
-          .min(1)
+        when: availabilityPreferenceListSchema
+          .optional()
           .describe(
-            "The caller's own date and time phrase, forwarded without converting it, such as tomorrow, next Tuesday around 3 PM, June 16 in the morning, or next available.",
+            "Complete scheduling preference alternatives for this search. Omit or pass [] for earliest availability without date or time preferences.",
           ),
         appointmentLane: z
           .enum(["medical_md", "routine_od"])

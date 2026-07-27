@@ -39,6 +39,26 @@ export type AvailabilitySlot = {
   time: string;
   datetime: string;
   bookingToken?: string;
+  preferenceMatch?: "exact" | "fallback";
+  preferenceDifferences?: Array<"date" | "weekday" | "time">;
+};
+
+export type AvailabilityPreference = {
+  date?: string;
+  weekday?:
+    | "sunday"
+    | "monday"
+    | "tuesday"
+    | "wednesday"
+    | "thursday"
+    | "friday"
+    | "saturday";
+  time?:
+    | { kind: "morning" | "afternoon" }
+    | {
+        kind: "exact" | "around" | "before" | "after";
+        minuteOfDay: number;
+      };
 };
 
 export type AvailabilityResult =
@@ -199,6 +219,7 @@ export interface OwnedMiddleware {
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
+    preferences?: AvailabilityPreference[];
     signal?: AbortSignal;
   }): Promise<AvailabilityResult>;
   createPatient(request: {
@@ -284,6 +305,7 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
+    preferences?: AvailabilityPreference[];
     signal?: AbortSignal;
   }): Promise<AvailabilityResult> {
     const transport = await this.#post(
@@ -294,6 +316,9 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
         ...(request.dob ? { dob: request.dob } : {}),
         ...(request.routing ? { routing: request.routing } : {}),
         ...(request.preauthRequired ? { preauthRequired: true } : {}),
+        ...(request.preferences?.length
+          ? { preferences: request.preferences }
+          : {}),
       },
       { signal: request.signal },
     );
@@ -601,16 +626,26 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
       reason: "invalid_response",
     };
   }
-  const slots = raw.slots.map((slot) => ({
-    provider: stringValue(slot.provider) ?? "",
-    date:
-      stringValue(slot.date) ?? stringValue(slot.datetime)?.split("T")[0] ?? "",
-    time: stringValue(slot.time) ?? "",
-    datetime: stringValue(slot.datetime) ?? "",
-    ...(stringValue(slot.bookingToken)
-      ? { bookingToken: stringValue(slot.bookingToken) ?? undefined }
-      : {}),
-  }));
+  const slots = raw.slots.map((slot) => {
+    const preferenceMatch = availabilityPreferenceMatch(slot.preferenceMatch);
+    const preferenceDifferences = availabilityPreferenceDifferences(
+      slot.preferenceDifferences,
+    );
+    return {
+      provider: stringValue(slot.provider) ?? "",
+      date:
+        stringValue(slot.date) ??
+        stringValue(slot.datetime)?.split("T")[0] ??
+        "",
+      time: stringValue(slot.time) ?? "",
+      datetime: stringValue(slot.datetime) ?? "",
+      ...(stringValue(slot.bookingToken)
+        ? { bookingToken: stringValue(slot.bookingToken) ?? undefined }
+        : {}),
+      ...(preferenceMatch ? { preferenceMatch } : {}),
+      ...(preferenceDifferences ? { preferenceDifferences } : {}),
+    };
+  });
   return {
     status,
     slots,
@@ -638,6 +673,29 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
       ? { message: stringValue(raw.message) ?? undefined }
       : {}),
   };
+}
+
+function availabilityPreferenceMatch(
+  value: unknown,
+): AvailabilitySlot["preferenceMatch"] {
+  return value === "exact" || value === "fallback" ? value : undefined;
+}
+
+function availabilityPreferenceDifferences(
+  value: unknown,
+): AvailabilitySlot["preferenceDifferences"] {
+  if (
+    !Array.isArray(value) ||
+    !value.every(
+      (difference) =>
+        difference === "date" ||
+        difference === "weekday" ||
+        difference === "time",
+    )
+  ) {
+    return undefined;
+  }
+  return [...new Set(value)];
 }
 
 function availabilityStatus(outcome: string | null) {

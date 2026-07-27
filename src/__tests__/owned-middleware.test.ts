@@ -393,6 +393,13 @@ describe("HTTP owned middleware transport", () => {
       dob: "01/01/1980",
       routing: "all_three",
       preauthRequired: true,
+      preferences: [
+        {
+          weekday: "monday",
+          time: { kind: "after", minuteOfDay: 810 },
+        },
+        { weekday: "thursday" },
+      ],
     });
     await middleware.createPatient({
       office: SPRING_HILL_OFFICE_PHONE,
@@ -468,6 +475,13 @@ describe("HTTP owned middleware transport", () => {
       dob: "01/01/1980",
       routing: "all_three",
       preauthRequired: true,
+      preferences: [
+        {
+          weekday: "monday",
+          time: { kind: "after", minuteOfDay: 810 },
+        },
+        { weekday: "thursday" },
+      ],
       office: SPRING_HILL_OFFICE_PHONE,
     });
     expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toEqual({
@@ -626,6 +640,43 @@ describe("HTTP owned middleware transport", () => {
     expect(result).toEqual({
       status: "error",
       reason: "invalid_response",
+    });
+  });
+
+  it("normalizes sanitized availability preference metadata", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          outcome: "availability_found",
+          slots: [
+            {
+              provider: "Dr. Provider",
+              date: "2026-08-01",
+              time: "9:00 AM",
+              datetime: "2026-08-01T09:00:00",
+              bookingToken: "private-token",
+              preferenceMatch: "fallback",
+              preferenceDifferences: ["weekday", "time"],
+            },
+          ],
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.getAvailability({
+      office: SPRING_HILL_OFFICE_PHONE,
+      date: "2026-08-01",
+    });
+
+    expect(result).toMatchObject({
+      status: "found",
+      slots: [
+        {
+          preferenceMatch: "fallback",
+          preferenceDifferences: ["weekday", "time"],
+        },
+      ],
     });
   });
 

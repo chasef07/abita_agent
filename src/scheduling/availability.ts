@@ -10,27 +10,15 @@ import type {
 import {
   availabilitySlotsForState,
   clearAvailabilitySelection,
-  mergeAvailabilitySlots,
+  replaceAvailabilitySlots,
   reserveAvailabilitySlotIds,
   storeAvailabilityBookingToken,
 } from "./state.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
-import {
-  describeTimeConstraint,
-  parseClockMinutes,
-  slotMatchesTimeConstraint,
-  type AvailabilityDateSearchMode,
-  type AvailabilityTimeConstraint,
-} from "./temporal.js";
 
 type AvailabilitySearchSummary = {
-  requestedDate?: string;
   searchedFrom?: string;
   searchedThrough?: string;
-  actualDate?: string;
-  dateShifted: boolean;
-  shouldRetrySameSearch: boolean;
-  nextSearchDate?: string;
 };
 
 type AvailabilityToolResponse = {
@@ -58,8 +46,6 @@ export function storeAvailabilitySlots(
   state: CallState,
   result: AvailabilityResult,
   routing: string | null,
-  timeConstraint: AvailabilityTimeConstraint | null,
-  dateSearchMode: AvailabilityDateSearchMode,
 ): AvailabilityToolResponse {
   if (result.status === "error") {
     recordOwnedMiddlewareFailure(state, "getAvailability", result);
@@ -67,13 +53,13 @@ export function storeAvailabilitySlots(
     return cleanAvailabilityErrorResponse();
   }
 
-  const sortedSlots = distinctAvailabilitySlots(result.slots, routing).sort(
-    compareAvailabilitySlot,
-  );
-  const offeredSlots = selectAvailabilitySlots(
-    sortedSlots,
-    timeConstraint,
-  ).slice(0, MAX_AVAILABILITY_SLOT_OFFERS);
+  const offeredSlots =
+    result.status === "found"
+      ? distinctAvailabilitySlots(result.slots, routing).slice(
+          0,
+          MAX_AVAILABILITY_SLOT_OFFERS,
+        )
+      : [];
   const storedSlots: StoredAvailabilitySlot[] = [];
   for (const slot of offeredSlots) {
     const candidate = storedAvailabilitySlot(slot, "", routing);
@@ -86,7 +72,7 @@ export function storeAvailabilitySlots(
     storedSlots.push({ ...candidate, slotId });
   }
 
-  mergeAvailabilitySlots(state, storedSlots, routing);
+  replaceAvailabilitySlots(state, storedSlots, routing);
   offeredSlots.forEach((slot, index) => {
     storeAvailabilityBookingToken(
       state,
@@ -97,22 +83,18 @@ export function storeAvailabilitySlots(
   });
 
   const searchedRange = availabilitySearchedRange(result);
-  const nextSearchDate = nextIsoDate(searchedRange?.end);
-  const search = buildAvailabilitySearchSummary({
-    result,
-    searchedRange,
-    nextSearchDate:
-      result.status === "none" || result.status === "found"
-        ? nextSearchDate
-        : undefined,
-  });
+  const search = searchedRange
+    ? {
+        searchedFrom: searchedRange.start,
+        searchedThrough: searchedRange.end,
+      }
+    : {};
 
   return cleanAvailabilityResponse({
     result,
     search,
     slots: storedSlots,
-    dateSearchMode,
-    timeConstraint,
+    sourceSlots: offeredSlots,
   });
 }
 
@@ -167,72 +149,6 @@ function distinctAvailabilitySlots(
   return distinct;
 }
 
-function compareAvailabilitySlot(
-  left: AvailabilitySlot,
-  right: AvailabilitySlot,
-): number {
-  return sortableSlotTimestamp(left) - sortableSlotTimestamp(right);
-}
-
-function selectAvailabilitySlots(
-  sortedSlots: AvailabilitySlot[],
-  timeConstraint: AvailabilityTimeConstraint | null,
-): AvailabilitySlot[] {
-  if (timeConstraint) {
-    const matchingSlots = sortedSlots.filter((slot) => {
-      const minutes = parseClockMinutes(slotTime(slot));
-      return (
-        minutes !== null && slotMatchesTimeConstraint(minutes, timeConstraint)
-      );
-    });
-    if (timeConstraint.kind === "near") {
-      matchingSlots.sort((left, right) => {
-        const dateOrder = slotDate(left).localeCompare(slotDate(right));
-        if (dateOrder) return dateOrder;
-        const leftMinutes =
-          parseClockMinutes(slotTime(left)) ?? Number.MAX_SAFE_INTEGER;
-        const rightMinutes =
-          parseClockMinutes(slotTime(right)) ?? Number.MAX_SAFE_INTEGER;
-        return (
-          Math.abs(leftMinutes - timeConstraint.minutes) -
-            Math.abs(rightMinutes - timeConstraint.minutes) ||
-          leftMinutes - rightMinutes
-        );
-      });
-    }
-    return matchingSlots;
-  }
-
-  const firstSlot = sortedSlots[0];
-  const firstAfternoonSlot = sortedSlots.find((slot) => slotIsAfternoon(slot));
-  if (firstSlot && firstAfternoonSlot && firstAfternoonSlot !== firstSlot) {
-    return [
-      firstSlot,
-      firstAfternoonSlot,
-      ...sortedSlots.filter(
-        (slot) => slot !== firstSlot && slot !== firstAfternoonSlot,
-      ),
-    ];
-  }
-
-  return sortedSlots;
-}
-
-function slotIsAfternoon(slot: AvailabilitySlot): boolean {
-  const minutes = parseClockMinutes(slotTime(slot));
-  return minutes !== null && minutes >= 12 * 60;
-}
-
-function sortableSlotTimestamp(slot: AvailabilitySlot): number {
-  const datetime = slot.datetime;
-  const date = slotDate(slot);
-  const time = slotTime(slot);
-  const isoLike = datetime || (date && time ? `${date}T${time}` : "");
-  const parsed = Date.parse(isoLike);
-  if (Number.isFinite(parsed)) return parsed;
-  return parseClockMinutes(time) ?? Number.MAX_SAFE_INTEGER;
-}
-
 function slotProvider(slot: AvailabilitySlot): string {
   return publicProviderName(slot.provider);
 }
@@ -257,14 +173,6 @@ export function publicProviderName(provider: string): string {
     .replace("Dr. D. Noel", "Dr. Noel");
 }
 
-function nextIsoDate(date: string | undefined): string | undefined {
-  if (!date) return undefined;
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) return undefined;
-  parsed.setUTCDate(parsed.getUTCDate() + 1);
-  return parsed.toISOString().slice(0, 10);
-}
-
 function spokenIsoDate(date: string | undefined): string | undefined {
   if (!date) return undefined;
   const parsed = new Date(`${date}T00:00:00.000Z`);
@@ -283,38 +191,13 @@ function availabilitySearchedRange(result: AvailableSlotsResult) {
   return { start, end };
 }
 
-function buildAvailabilitySearchSummary(input: {
-  result: AvailableSlotsResult;
-  searchedRange?: { start: string; end: string };
-  nextSearchDate?: string;
-}): AvailabilitySearchSummary {
-  const { result, searchedRange, nextSearchDate } = input;
-  const { requestedDate, actualDate, dateShifted, shouldRetrySameSearch } =
-    result;
-
-  return {
-    ...(requestedDate ? { requestedDate } : {}),
-    ...(searchedRange
-      ? {
-          searchedFrom: searchedRange.start,
-          searchedThrough: searchedRange.end,
-        }
-      : {}),
-    ...(actualDate ? { actualDate } : {}),
-    dateShifted,
-    shouldRetrySameSearch,
-    ...(nextSearchDate ? { nextSearchDate } : {}),
-  };
-}
-
 function buildAvailabilityMessage(input: {
   result: AvailableSlotsResult;
   search: AvailabilitySearchSummary;
   slots: StoredAvailabilitySlot[];
-  dateSearchMode: AvailabilityDateSearchMode;
-  timeConstraint: AvailabilityTimeConstraint | null;
+  sourceSlots: AvailabilitySlot[];
 }): string {
-  const { dateSearchMode, result, search, slots, timeConstraint } = input;
+  const { result, search, slots, sourceSlots } = input;
   const spokenSearchedRange =
     search.searchedFrom && search.searchedThrough
       ? `from ${spokenIsoDate(search.searchedFrom) ?? search.searchedFrom} through ${
@@ -327,56 +210,70 @@ function buildAvailabilityMessage(input: {
           spokenIsoDate(search.searchedThrough) ?? search.searchedThrough
         }`
       : "those dates";
-  const noAvailabilityWindow =
-    search.searchedFrom && search.searchedThrough
-      ? `from ${conciseSearchedRange}`
-      : `for ${conciseSearchedRange}`;
-  const spokenNextDate = spokenIsoDate(search.nextSearchDate);
-
   if (result.status === "none") {
-    return search.nextSearchDate
-      ? `No openings were found ${noAvailabilityWindow}. Ask whether to check starting ${spokenNextDate ?? search.nextSearchDate}, or whether they prefer a different day or time.`
-      : `No openings were found ${noAvailabilityWindow}. Ask whether they prefer a different day or time.`;
+    return `No openings were found for the complete search window ${conciseSearchedRange}.`;
   }
 
   if (result.status === "incomplete") {
-    return `Availability was not fully checked ${spokenSearchedRange}. Call get_availability again once with the same when phrase.`;
+    return `Availability was not fully checked ${spokenSearchedRange}. Do not report no availability; call get_availability again once with the same structured preferences.`;
   }
 
   const primarySlot = slots[0];
   if (!primarySlot) {
-    if (timeConstraint) {
-      return `No returned openings matched the requested ${describeTimeConstraint(timeConstraint)}. Ask whether the caller wants a different time or day.`;
-    }
-    return "I do not see openings for those details. Would you like to try a different day or time?";
+    return "I could not verify a bookable opening from the availability response.";
   }
 
-  const requestedDate = spokenIsoDate(search.requestedDate);
-  const dateShiftText =
-    dateSearchMode === "specific" && search.dateShifted && requestedDate
-      ? `No opening was found on ${requestedDate}. `
-      : "";
   const backupSlot = slots[1];
   if (backupSlot) {
     return (
-      `${dateShiftText}Offer these options: ${slotOffer(primarySlot)}, or ${slotOffer(backupSlot)}. ` +
+      `Offer these options: ${describedSlotOffer(primarySlot, sourceSlots[0])}, or ${describedSlotOffer(backupSlot, sourceSlots[1])}. ` +
       "Ask which one works better. " +
-      "If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another day or time and call get_availability with the caller's new when phrase."
+      "Use the corresponding appointmentSlotRef only if the caller accepts that option."
     );
   }
 
   return (
-    `${dateShiftText}Offer this slot: ${slotOffer(primarySlot)}. ` +
-    `If the caller accepts it, use appointmentSlotRef ${primarySlot.slotId}; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.`
+    `${preferenceDifferenceMessage(sourceSlots[0])}Offer this slot: ${slotOffer(primarySlot)}. ` +
+    `Use appointmentSlotRef ${primarySlot.slotId} only if the caller accepts it.`
   );
 }
 
 function cleanAvailabilityErrorResponse(): AvailabilityToolResponse {
   return {
     message:
-      "I'm having trouble checking availability. Let me try once more. Ask for a different date or time preference.",
+      "I'm having trouble checking availability. Call get_availability once more with the same structured preferences.",
     cacheable: false,
   };
+}
+
+function describedSlotOffer(
+  slot: StoredAvailabilitySlot,
+  source: AvailabilitySlot | undefined,
+): string {
+  const difference = preferenceDifference(source);
+  return difference
+    ? `${slotOffer(slot)}; this option differs from the requested ${difference}`
+    : slotOffer(slot);
+}
+
+function preferenceDifferenceMessage(
+  slot: AvailabilitySlot | undefined,
+): string {
+  const difference = preferenceDifference(slot);
+  return difference
+    ? `The closest real option differs from the requested ${difference}. `
+    : "";
+}
+
+function preferenceDifference(
+  slot: AvailabilitySlot | undefined,
+): string | null {
+  if (slot?.preferenceMatch !== "fallback") return null;
+  const differences = slot.preferenceDifferences ?? [];
+  if (differences.length === 0) return null;
+  if (differences.length === 1) return differences[0] ?? null;
+  if (differences.length === 2) return differences.join(" and ");
+  return `${differences.slice(0, -1).join(", ")}, and ${differences.at(-1)}`;
 }
 
 function slotOffer(slot: StoredAvailabilitySlot): string {
@@ -392,18 +289,16 @@ function cleanAvailabilityResponse(input: {
   result: AvailableSlotsResult;
   search: AvailabilitySearchSummary;
   slots: StoredAvailabilitySlot[];
-  dateSearchMode: AvailabilityDateSearchMode;
-  timeConstraint: AvailabilityTimeConstraint | null;
+  sourceSlots: AvailabilitySlot[];
 }): AvailabilityToolResponse {
-  const { dateSearchMode, result, search, slots, timeConstraint } = input;
+  const { result, search, slots, sourceSlots } = input;
 
   return {
     message: buildAvailabilityMessage({
       result,
       search,
       slots,
-      dateSearchMode,
-      timeConstraint,
+      sourceSlots,
     }),
     cacheable: completeAvailabilityResult(result),
   };

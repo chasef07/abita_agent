@@ -664,13 +664,16 @@ describe("model-facing tool definitions", () => {
 
   it("keeps availability from exposing Bach-only routing internals", () => {
     expect(get_availability.description).toContain(
-      "caller's own date and time words",
+      "Translate the caller's date and time language into semantic when branches",
     );
     expect(get_availability.description).toContain(
-      "Pass those words unchanged in when",
+      "without calculating calendar dates",
     );
     expect(get_availability.description).toContain(
-      "search from the earliest allowed date",
+      "Omit when or pass an empty list for next available",
+    );
+    expect(get_availability.description).toContain(
+      "Use one call for all acceptable alternatives",
     );
     expect(get_availability.description).toContain(
       "routine exam caller also mentions an eye problem or symptom",
@@ -707,55 +710,91 @@ describe("model-facing tool definitions", () => {
       "Do not infer it from the number called",
     );
     expect(parameters.shape.when.description).toContain(
-      "caller's own date and time phrase",
+      "Complete scheduling preference alternatives",
     );
     expect(parameters.shape.when.description).toContain(
-      "without converting it",
+      "Omit or pass [] for earliest availability",
     );
     expect(
       parameters.safeParse({
-        when: "next Tuesday around 3 PM",
+        when: [
+          {
+            date: { kind: "next_week" },
+            weekday: "tuesday",
+            time: {
+              kind: "around",
+              hour: 3,
+              minute: 0,
+              meridiem: "pm",
+            },
+          },
+          { weekday: "thursday", time: { kind: "any" } },
+        ],
         appointmentLane: "medical_md",
         office: "hollywood",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "tomorrow morning",
+        when: [],
         appointmentLane: "medical_md",
         office: "sweetwater",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "tomorrow",
+        appointmentLane: "medical_md",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        when: [{ date: { kind: "tomorrow" } }],
         appointmentLane: "medical_md",
         office: "spring-hill",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "tomorrow",
+        when: [{ date: { kind: "tomorrow" } }],
         appointmentLane: "medical_md",
         timePreference: "evening",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        date: "2026-06-01",
+        when: "June 1",
         appointmentLane: "medical_md",
-        timePreference: "none",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "June 1",
+        when: [
+          {
+            date: { kind: "calendar", month: 6, day: 1 },
+            time: {
+              kind: "exact",
+              hour: 9,
+              minute: 0,
+              meridiem: "am",
+            },
+          },
+        ],
         appointmentLane: "routine_od",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "June 1",
+        when: [
+          {
+            date: { kind: "calendar", month: 2, day: 30 },
+          },
+        ],
+        appointmentLane: "routine_od",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        when: [{ date: { kind: "calendar", month: 6, day: 1 } }],
         appointmentLane: "unknown",
       }).success,
     ).toBe(false);
@@ -767,8 +806,11 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "next Wednesday",
-        date: "2026-06-01",
+        when: [
+          {
+            time: { kind: "after", hour: 1, meridiem: "pm" },
+          },
+        ],
         appointmentLane: "medical_md",
       }).success,
     ).toBe(false);

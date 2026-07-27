@@ -11,6 +11,7 @@ import {
 } from "../clients/owned-middleware.js";
 import type { AvailabilityResult } from "../scheduling/middleware.js";
 import { productionSchedulingMiddleware } from "../scheduling/middleware.js";
+import type { AvailabilityPreferenceInput } from "../scheduling/temporal.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import { InMemorySchedulingMiddleware } from "../scheduling/testing.js";
 import {
@@ -173,6 +174,18 @@ function returnedSlot(
   };
 }
 
+function calendarPreference(
+  day: number,
+  time?: AvailabilityPreferenceInput["time"],
+): AvailabilityPreferenceInput[] {
+  return [
+    {
+      date: { kind: "calendar", month: 6, day, year: 2026 },
+      ...(time ? { time } : {}),
+    },
+  ];
+}
+
 function deferredResult<T>() {
   let resolve: (value: T) => void = () => undefined;
   const promise = new Promise<T>((value) => {
@@ -266,7 +279,7 @@ describe("scheduling tools", () => {
       "The patient chart exists, but insurance is not attached. Connect the caller to office staff to finish registration before scheduling.";
 
     const availabilityResult = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: calendarPreference(1), appointmentLane: "medical_md" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -299,7 +312,7 @@ describe("scheduling tools", () => {
 
       const result = await get_availability.execute(
         {
-          when: "2026-06-01",
+          when: calendarPreference(1),
           appointmentLane: "medical_md",
         },
         {
@@ -324,7 +337,7 @@ describe("scheduling tools", () => {
 
     await get_availability.execute(
       {
-        when: "2026-06-01",
+        when: calendarPreference(1),
         appointmentLane: "medical_md",
         office: "hollywood",
       },
@@ -377,7 +390,7 @@ describe("scheduling tools", () => {
 
     const result = await get_availability.execute(
       {
-        when: "2026-06-01",
+        when: calendarPreference(1),
         appointmentLane: "medical_md",
       },
       {
@@ -387,13 +400,13 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). Use appointmentSlotRef S1 only if the caller accepts it.",
     );
     expect(result).not.toContain("private-token");
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "private-token",
     });
-    expect(middleware.operations).toEqual([
+    expect(middleware.operations).toMatchObject([
       {
         kind: "availability",
         office: "+17275919997",
@@ -401,6 +414,7 @@ describe("scheduling tools", () => {
           date: "2026-06-01",
           dob: "01/01/1980",
           routing: "all_three",
+          preferences: [{ date: "2026-06-01" }],
         },
       },
     ]);
@@ -422,7 +436,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
 
     const availability = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: calendarPreference(1), appointmentLane: "medical_md" },
       {
         ctx: ctx as never,
         toolCallId: "availability-1",
@@ -443,7 +457,7 @@ describe("scheduling tools", () => {
     );
 
     expect(availability).toBe(
-      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). Use appointmentSlotRef S1 only if the caller accepts it.",
     );
     expect(middleware.operations[1]).toMatchObject({
       kind: "book",
@@ -459,7 +473,7 @@ describe("scheduling tools", () => {
     const { get_availability } = createSchedulingTools(middleware);
     const state = createState();
     const args = {
-      when: "2026-06-01",
+      when: calendarPreference(1),
       appointmentLane: "medical_md" as const,
     };
     const ctx = createToolContext(state);
@@ -476,8 +490,8 @@ describe("scheduling tools", () => {
     deferred.resolve(availabilityFound([returnedSlot()]));
 
     await expect(Promise.all([first, second])).resolves.toEqual([
-      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
-      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). Use appointmentSlotRef S1 only if the caller accepts it.",
+      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). Use appointmentSlotRef S1 only if the caller accepts it.",
     ]);
     expect(middleware.operations).toHaveLength(1);
     expect(availabilityReadEvents(state)).toMatchObject([
@@ -495,7 +509,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      when: "2026-06-01",
+      when: calendarPreference(1),
       appointmentLane: "medical_md" as const,
     };
     let lateOverlap: Promise<string> | undefined;
@@ -539,7 +553,7 @@ describe("scheduling tools", () => {
     const { get_availability } = createSchedulingTools(middleware);
     const state = createState();
     const args = {
-      when: "2026-06-01",
+      when: calendarPreference(1),
       appointmentLane: "medical_md" as const,
     };
     const ctx = createToolContext(state);
@@ -554,140 +568,10 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(first).toBe(
-      "No openings were found from June 1 through June 15. Ask whether to check starting June 16, or whether they prefer a different day or time.",
+      "No openings were found for the complete search window June 1 through June 15.",
     );
     expect(second).toBe(first);
     expect(middleware.operations).toHaveLength(1);
-  });
-
-  it("reranks a completed availability search without another middleware operation", async () => {
-    const middleware = new InMemorySchedulingMiddleware({
-      availability: [
-        availabilityFound([
-          returnedSlot({ bookingToken: "morning-token" }),
-          returnedSlot({
-            provider: "Dr. D. Noel",
-            time: "2:00 PM",
-            datetime: "2026-06-01T14:00:00",
-            bookingToken: "afternoon-token",
-          }),
-        ]),
-      ],
-    });
-    const { get_availability } = createSchedulingTools(middleware);
-    const state = createState();
-    const ctx = createToolContext(state);
-    const request = {
-      when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
-    };
-
-    const first = await get_availability.execute(request, {
-      ctx: ctx as never,
-      toolCallId: "availability-1",
-    } as never);
-    const afternoon = await get_availability.execute(
-      { ...request, when: "2026-06-01 in the afternoon" },
-      {
-        ctx: ctx as never,
-        toolCallId: "availability-2",
-      } as never,
-    );
-
-    expect(first).toContain("appointmentSlotRef S1");
-    expect(first).toContain("appointmentSlotRef S2");
-    expect(afternoon).toBe(
-      "Offer this slot: June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). If the caller accepts it, use appointmentSlotRef S2; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
-    );
-    expect(middleware.operations).toHaveLength(1);
-    expect(state.availability.bookingTokensBySlotId).toEqual({
-      S1: "morning-token",
-      S2: "afternoon-token",
-    });
-    expect(availabilityReadEvents(state)).toMatchObject([
-      { operation: "middleware_call", durationMs: 0 },
-      { operation: "completed_cache_hit", durationMs: 0 },
-    ]);
-    expect(JSON.stringify(availabilityReadEvents(state))).not.toMatch(
-      /patient-1|01\/01\/1980|2026-06-01|morning-token|afternoon-token|all_three/,
-    );
-  });
-
-  it("books an initially unoffered exact same-day slot from one cached availability read", async () => {
-    const middleware = new InMemorySchedulingMiddleware({
-      availability: [
-        availabilityFound(
-          [
-            returnedSlot({
-              time: "8:00 AM",
-              datetime: "2026-06-01T08:00:00",
-              bookingToken: "early-token",
-            }),
-            returnedSlot({ bookingToken: "exact-token" }),
-            returnedSlot({
-              provider: "Dr. D. Noel",
-              time: "1:00 PM",
-              datetime: "2026-06-01T13:00:00",
-              bookingToken: "afternoon-token",
-            }),
-          ],
-          {
-            bookingTokenExpiresAt: "2026-05-30T16:15:00Z",
-          },
-        ),
-      ],
-      bookings: [bookingReceipt()],
-    });
-    const { book_appointment, get_availability } =
-      createSchedulingTools(middleware);
-    const state = createState();
-    const ctx = createToolContext(state);
-    const initialArgs = {
-      when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
-    };
-
-    const initial = await get_availability.execute(initialArgs, {
-      ctx: ctx as never,
-      toolCallId: "availability-1",
-    } as never);
-    const exact = await get_availability.execute(
-      { ...initialArgs, when: "2026-06-01 at 9:00 AM" },
-      {
-        ctx: ctx as never,
-        toolCallId: "availability-2",
-      } as never,
-    );
-    await book_appointment.execute(
-      {
-        appointmentSlotRef: "S3",
-        appointmentReason: "left eye pain since yesterday",
-        referringDoctor: "none",
-        readBack: true,
-      },
-      {
-        ctx: ctx as never,
-        toolCallId: "booking-1",
-      } as never,
-    );
-
-    expect(initial).toContain("appointmentSlotRef S1");
-    expect(initial).toContain("appointmentSlotRef S2");
-    expect(initial).not.toContain("appointmentSlotRef S3");
-    expect(exact).toContain("9:00 AM");
-    expect(exact).toContain("appointmentSlotRef S3");
-    expect(
-      middleware.operations.filter(
-        (operation) => operation.kind === "availability",
-      ),
-    ).toHaveLength(1);
-    expect(middleware.operations.at(-1)).toMatchObject({
-      kind: "book",
-      request: { bookingToken: "exact-token" },
-    });
-    expect(`${initial} ${exact}`).not.toMatch(
-      /early-token|exact-token|afternoon-token/,
-    );
   });
 
   it("refreshes availability when the middleware booking-token validity expires", async () => {
@@ -714,7 +598,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      when: "2026-06-01",
+      when: calendarPreference(1),
       appointmentLane: "medical_md" as const,
     };
 
@@ -762,7 +646,7 @@ describe("scheduling tools", () => {
     const { get_availability } = createSchedulingTools(middleware);
     const state = createState();
     const availability = get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: calendarPreference(1), appointmentLane: "medical_md" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -820,7 +704,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const lookup = (toolCallId: string) =>
       get_availability.execute(
-        { when: "2026-06-01", appointmentLane: "medical_md" },
+        { when: calendarPreference(1), appointmentLane: "medical_md" },
         { ctx: ctx as never, toolCallId } as never,
       );
 
@@ -864,7 +748,7 @@ describe("scheduling tools", () => {
 
     vi.setSystemTime(new Date("2026-05-30T16:15:00.000Z"));
     const response = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: calendarPreference(1), appointmentLane: "medical_md" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -946,17 +830,23 @@ describe("scheduling tools", () => {
     const { get_availability } = createSchedulingTools(middleware);
     const state = createState();
     const ctx = createToolContext(state);
-    const lookup = (when: string, toolCallId: string) =>
-      get_availability.execute({ when, appointmentLane: "medical_md" }, {
-        ctx: ctx as never,
-        toolCallId,
-      } as never);
+    const lookup = (day: number, toolCallId: string) =>
+      get_availability.execute(
+        {
+          when: calendarPreference(day),
+          appointmentLane: "medical_md",
+        },
+        {
+          ctx: ctx as never,
+          toolCallId,
+        } as never,
+      );
 
-    await lookup("2026-06-01", "availability-1");
-    await lookup("2026-06-02", "availability-2");
+    await lookup(1, "availability-1");
+    await lookup(2, "availability-2");
     vi.setSystemTime(new Date("2026-05-30T16:15:00.000Z"));
-    const refreshedFirstDate = await lookup("2026-06-01", "availability-3");
-    const refreshedLaterDate = await lookup("2026-06-02", "availability-4");
+    const refreshedFirstDate = await lookup(1, "availability-3");
+    const refreshedLaterDate = await lookup(2, "availability-4");
 
     expect(refreshedFirstDate).toContain("11:00 AM");
     expect(refreshedLaterDate).toContain("12:00 PM");
@@ -982,7 +872,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
 
     await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: calendarPreference(1), appointmentLane: "medical_md" },
       {
         ctx: ctx as never,
         toolCallId: "availability-1",
@@ -1030,7 +920,7 @@ describe("scheduling tools", () => {
     },
     {
       name: "requested date",
-      change: () => ({ when: "2026-06-02" }),
+      change: () => ({ when: calendarPreference(2) }),
     },
     {
       name: "date of birth",
@@ -1077,7 +967,7 @@ describe("scheduling tools", () => {
       const state = createState();
       const ctx = createToolContext(state);
       const args = {
-        when: "2026-06-01",
+        when: calendarPreference(1),
         appointmentLane: "medical_md" as const,
       };
 
@@ -1107,13 +997,13 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
 
     await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: calendarPreference(1), appointmentLane: "medical_md" },
       {
         ctx: ctx as never,
         toolCallId: "availability-1",
       } as never,
     );
-    await get_availability.execute({ when: "2026-06-01" }, {
+    await get_availability.execute({ when: calendarPreference(1) }, {
       ctx: ctx as never,
       toolCallId: "availability-2",
     } as never);
@@ -1135,7 +1025,7 @@ describe("scheduling tools", () => {
 
     await get_availability.execute(
       {
-        when: "2026-06-01",
+        when: calendarPreference(1),
         appointmentLane: "medical_md",
         office: "hollywood",
       },
@@ -1146,7 +1036,7 @@ describe("scheduling tools", () => {
     );
     await get_availability.execute(
       {
-        when: "2026-06-01",
+        when: calendarPreference(1),
         appointmentLane: "medical_md",
         office: "sweetwater",
       },
@@ -1174,7 +1064,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
 
     const first = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: calendarPreference(1), appointmentLane: "medical_md" },
       {
         ctx: ctx as never,
         toolCallId: "availability-1",
@@ -1183,7 +1073,7 @@ describe("scheduling tools", () => {
     state.identity.patient.patientId = "patient-1";
     state.identity.patient.dob = "01/01/1980";
     const second = await get_availability.execute(
-      { when: " 2026-06-01 ", appointmentLane: "medical_md" },
+      { when: calendarPreference(1), appointmentLane: "medical_md" },
       {
         ctx: ctx as never,
         toolCallId: "availability-2",
@@ -1211,7 +1101,7 @@ describe("scheduling tools", () => {
     const firstState = createState();
     const secondState = createState();
     const args = {
-      when: "2026-06-01",
+      when: calendarPreference(1),
       appointmentLane: "medical_md" as const,
     };
 
@@ -1234,74 +1124,6 @@ describe("scheduling tools", () => {
     expect(secondState.availability.bookingTokensBySlotId).toEqual({
       S1: "second-call-token",
     });
-  });
-
-  it("preserves stable slot references and private tokens across raw-result reranking", async () => {
-    const middleware = new InMemorySchedulingMiddleware({
-      availability: [
-        availabilityFound([
-          returnedSlot({ bookingToken: "morning-token" }),
-          returnedSlot({
-            provider: "Dr. D. Noel",
-            time: "2:00 PM",
-            datetime: "2026-06-01T14:00:00",
-            bookingToken: "early-afternoon-token",
-          }),
-          returnedSlot({
-            provider: "Dr. J. Licht",
-            time: "3:00 PM",
-            datetime: "2026-06-01T15:00:00",
-            bookingToken: "late-afternoon-token",
-          }),
-        ]),
-      ],
-      bookings: [bookingReceipt()],
-    });
-    const { book_appointment, get_availability } =
-      createSchedulingTools(middleware);
-    const state = createState();
-    const ctx = createToolContext(state);
-    const args = {
-      when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
-    };
-
-    const initial = await get_availability.execute(args, {
-      ctx: ctx as never,
-      toolCallId: "availability-1",
-    } as never);
-    const reranked = await get_availability.execute(
-      { ...args, when: "2026-06-01 in the afternoon" },
-      {
-        ctx: ctx as never,
-        toolCallId: "availability-2",
-      } as never,
-    );
-    await book_appointment.execute(
-      {
-        appointmentSlotRef: "S3",
-        appointmentReason: "left eye pain since yesterday",
-        referringDoctor: "none",
-        readBack: true,
-      },
-      {
-        ctx: ctx as never,
-        toolCallId: "booking-1",
-      } as never,
-    );
-
-    expect(initial).toContain("appointmentSlotRef S1");
-    expect(initial).toContain("appointmentSlotRef S2");
-    expect(reranked).toContain("appointmentSlotRef S2");
-    expect(reranked).toContain("appointmentSlotRef S3");
-    expect(middleware.operations).toHaveLength(2);
-    expect(middleware.operations[1]).toMatchObject({
-      kind: "book",
-      request: { bookingToken: "late-afternoon-token" },
-    });
-    expect(`${initial} ${reranked}`).not.toMatch(
-      /morning-token|early-afternoon-token|late-afternoon-token/,
-    );
   });
 
   it.each([
@@ -1337,7 +1159,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      when: "2026-06-01",
+      when: calendarPreference(1),
       appointmentLane: "medical_md" as const,
     };
 
@@ -1351,6 +1173,10 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(middleware.operations).toHaveLength(2);
+    if (result.status !== "found") {
+      expect(state.availability.slots).toEqual([]);
+      expect(state.availability.bookingTokensBySlotId).toEqual({});
+    }
   });
 
   it.each([
@@ -1374,7 +1200,7 @@ describe("scheduling tools", () => {
       const state = createState();
       const ctx = createToolContext(state);
       const args = {
-        when: "2026-06-01",
+        when: calendarPreference(1),
         appointmentLane: "medical_md" as const,
       };
 
@@ -1414,7 +1240,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const controller = new AbortController();
     const args = {
-      when: "2026-06-01",
+      when: calendarPreference(1),
       appointmentLane: "medical_md" as const,
     };
 
@@ -1451,7 +1277,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const waiterController = new AbortController();
     const args = {
-      when: "2026-06-01",
+      when: calendarPreference(1),
       appointmentLane: "medical_md" as const,
     };
 
@@ -1493,7 +1319,7 @@ describe("scheduling tools", () => {
     const { get_availability } = createSchedulingTools(middleware);
     const state = createState();
     const args = {
-      when: "2026-06-01",
+      when: calendarPreference(1),
       appointmentLane: "medical_md" as const,
     };
     const ctx = createToolContext(state);
@@ -1508,7 +1334,7 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(first).toBe(
-      "Availability was not fully checked from June 1 through June 2. Call get_availability again once with the same when phrase.",
+      "Availability was not fully checked from June 1 through June 2. Do not report no availability; call get_availability again once with the same structured preferences.",
     );
     expect(second).toBe(first);
     expect(middleware.operations).toHaveLength(2);
@@ -1527,7 +1353,7 @@ describe("scheduling tools", () => {
     const state = createState();
 
     const result = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: calendarPreference(1), appointmentLane: "medical_md" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -1535,47 +1361,11 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "I'm having trouble checking availability. Let me try once more. Ask for a different date or time preference.",
+      "I'm having trouble checking availability. Call get_availability once more with the same structured preferences.",
     );
     expect(ownedMiddlewareFailures(state)).toMatchObject([
       { operation: "getAvailability", reason: "middleware_error" },
     ]);
-  });
-
-  it("filters returned slots by the caller's time phrase", async () => {
-    const middleware = new InMemorySchedulingMiddleware({
-      availability: [
-        availabilityFound([
-          returnedSlot(),
-          returnedSlot({
-            provider: "Dr. D. Noel",
-            time: "2:00 PM",
-            datetime: "2026-06-01T14:00:00",
-            bookingToken: "afternoon-token",
-          }),
-        ]),
-      ],
-    });
-    const { get_availability } = createSchedulingTools(middleware);
-    const state = createState();
-
-    const result = await get_availability.execute(
-      {
-        when: "2026-06-01 in the afternoon",
-        appointmentLane: "medical_md",
-      },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "availability-1",
-      } as never,
-    );
-
-    expect(result).toBe(
-      "Offer this slot: June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
-    );
-    expect(state.availability.bookingTokensBySlotId).toEqual({
-      S1: "afternoon-token",
-    });
   });
 
   it("discards availability returned after the active patient changes", async () => {
@@ -1590,7 +1380,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const pending = get_availability.execute(
       {
-        when: "2026-06-01",
+        when: calendarPreference(1),
         appointmentLane: "medical_md",
       },
       {
@@ -1634,7 +1424,7 @@ describe("scheduling tools", () => {
 
     const pending = get_availability.execute(
       {
-        when: "2026-06-01",
+        when: calendarPreference(1),
         appointmentLane: "medical_md",
       },
       {
@@ -1663,7 +1453,7 @@ describe("scheduling tools", () => {
       "north-miami-beach-optical": "+13055550100",
     };
     const medicalResult = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: calendarPreference(1), appointmentLane: "medical_md" },
       {
         ctx: createToolContext(opticalState) as never,
         toolCallId: "medical-1",
@@ -1675,7 +1465,7 @@ describe("scheduling tools", () => {
       "crystal-river": "+13523202007",
     };
     const routineResult = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "routine_od" },
+      { when: calendarPreference(1), appointmentLane: "routine_od" },
       {
         ctx: createToolContext(medicalState) as never,
         toolCallId: "routine-1",
@@ -1840,7 +1630,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const availabilityArgs = {
-      when: "2026-06-01",
+      when: calendarPreference(1),
       appointmentLane: "medical_md" as const,
     };
 
@@ -2112,7 +1902,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      when: "2026-06-01",
+      when: calendarPreference(1),
       appointmentLane: "medical_md" as const,
     };
 
@@ -2350,7 +2140,7 @@ describe("scheduling tools", () => {
     restoreFirstPatient(state, [loadedAppointment()]);
     const ctx = createToolContext(state);
     const args = {
-      when: "2026-06-01",
+      when: calendarPreference(1),
       appointmentLane: "medical_md" as const,
     };
 
@@ -2924,7 +2714,7 @@ describe("scheduling tools", () => {
     const state = createState();
     restoreFirstPatient(state, [loadedAppointment()]);
     const ctx = createToolContext(state);
-    const args = { when: "2026-06-01" };
+    const args = { when: calendarPreference(1) };
 
     await get_availability.execute(args, {
       ctx: ctx as never,
