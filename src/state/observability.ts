@@ -2,31 +2,31 @@ import type {
   AppointmentActionAnalytics,
   AvailabilityReadAnalytics,
   CallState,
-  OfficeKnowledgeRetrievalAnalytics,
+  OfficeKnowledgeContextAnalytics,
   OwnedMiddlewareFailureAnalytics,
   OwnedMiddlewareOperation,
   StaffTaskReceipt,
 } from "./call-state.js";
 
-const MAX_OFFICE_KNOWLEDGE_RETRIEVALS = 200;
+const MAX_OFFICE_KNOWLEDGE_CONTEXTS = 200;
 
-export function recordOfficeKnowledgeRetrieval(
+export function recordOfficeKnowledgeContext(
   state: CallState,
-  retrieval: Omit<OfficeKnowledgeRetrievalAnalytics, "createdAt">,
+  context: Omit<OfficeKnowledgeContextAnalytics, "createdAt">,
 ): void {
-  state.runtime.knowledgeRetrievals = [
-    ...state.runtime.knowledgeRetrievals,
+  state.runtime.knowledgeContexts = [
+    ...state.runtime.knowledgeContexts,
     {
       createdAt: new Date().toISOString(),
-      ...retrieval,
+      ...context,
     },
-  ].slice(-MAX_OFFICE_KNOWLEDGE_RETRIEVALS);
+  ].slice(-MAX_OFFICE_KNOWLEDGE_CONTEXTS);
 }
 
-export function officeKnowledgeRetrievals(
+export function officeKnowledgeContexts(
   state: CallState,
-): OfficeKnowledgeRetrievalAnalytics[] {
-  return [...state.runtime.knowledgeRetrievals];
+): OfficeKnowledgeContextAnalytics[] {
+  return [...state.runtime.knowledgeContexts];
 }
 
 export function recordAppointmentAction(

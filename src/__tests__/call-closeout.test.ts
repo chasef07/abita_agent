@@ -23,7 +23,7 @@ import {
 import {
   recordAvailabilityReadEvent,
   recordAppointmentAction,
-  recordOfficeKnowledgeRetrieval,
+  recordOfficeKnowledgeContext,
   recordOwnedMiddlewareFailure,
 } from "../state/observability.js";
 import { createTestCallState } from "./support/call-state.js";
@@ -498,15 +498,12 @@ describe("call closeout", () => {
     ).not.toContain("Private");
   });
 
-  it("delivers sanitized Office Knowledge hook outcomes in both closeout payloads", async () => {
+  it("delivers the active Office Knowledge document identity in both closeout payloads", async () => {
     const state = createTestCallState();
-    recordOfficeKnowledgeRetrieval(state, {
-      elapsedMs: 1.25,
-      language: "mixed",
+    recordOfficeKnowledgeContext(state, {
+      documentHash: "a".repeat(64),
       officeKey: "sweetwater",
-      outcome: "matched",
-      sectionCount: 1,
-      topic: "pricing",
+      schemaVersion: "abita-office-knowledge/v1",
     });
     const { events, portal } = await setupCloseout({ state });
 
@@ -514,18 +511,15 @@ describe("call closeout", () => {
 
     const expected = [
       {
-        elapsedMs: 1.25,
-        language: "mixed",
+        documentHash: "a".repeat(64),
         officeKey: "sweetwater",
-        outcome: "matched",
-        sectionCount: 1,
-        topic: "pricing",
+        schemaVersion: "abita-office-knowledge/v1",
       },
     ];
-    expect(portal.deliveries[1]?.payload.knowledgeRetrievals).toMatchObject(
+    expect(portal.deliveries[1]?.payload.knowledgeContexts).toMatchObject(
       expected,
     );
-    expect(portal.deliveries[2]?.payload.knowledgeRetrievals).toMatchObject(
+    expect(portal.deliveries[2]?.payload.knowledgeContexts).toMatchObject(
       expected,
     );
   });
@@ -534,19 +528,20 @@ describe("call closeout", () => {
     const state = createTestCallState();
 
     for (let index = 0; index <= 200; index += 1) {
-      recordOfficeKnowledgeRetrieval(state, {
-        elapsedMs: index,
-        language: "en",
+      recordOfficeKnowledgeContext(state, {
+        documentHash: index.toString().padStart(64, "0"),
         officeKey: "spring-hill",
-        outcome: "skipped",
-        sectionCount: 0,
-        topic: null,
+        schemaVersion: "abita-office-knowledge/v1",
       });
     }
 
-    expect(state.runtime.knowledgeRetrievals).toHaveLength(200);
-    expect(state.runtime.knowledgeRetrievals[0]?.elapsedMs).toBe(1);
-    expect(state.runtime.knowledgeRetrievals.at(-1)?.elapsedMs).toBe(200);
+    expect(state.runtime.knowledgeContexts).toHaveLength(200);
+    expect(state.runtime.knowledgeContexts[0]?.documentHash).toBe(
+      "1".padStart(64, "0"),
+    );
+    expect(state.runtime.knowledgeContexts.at(-1)?.documentHash).toBe(
+      "200".padStart(64, "0"),
+    );
   });
 
   it("uses captured tool events and latest session usage", async () => {

@@ -620,23 +620,24 @@ describe("Voice Agent identity promotion", () => {
           item.textContent?.includes("Patient: Jane Doe."),
       ),
     ).toBe(false);
-    const turnLocalKnowledge = chatCtx.items
+    const turnKnowledge = chatCtx.items
       .filter(
         (item) =>
           item.type === "message" &&
-          item.role === "assistant" &&
-          item.textContent?.includes("OFFICE KNOWLEDGE FOR THIS REPLY"),
+          item.role === "system" &&
+          item.textContent?.includes("ACTIVE OFFICE KNOWLEDGE CONTEXT"),
       )
       .map((item) => (item.type === "message" ? item.textContent : null));
-    expect(turnLocalKnowledge).toHaveLength(1);
-    expect(turnLocalKnowledge[0]).toContain("## Location + Contact");
+    expect(turnKnowledge).toHaveLength(1);
+    expect(turnKnowledge[0]).toContain("## Location and Contact");
     expect(
       session.currentAgent.chatCtx.items.some(
         (item) =>
           item.type === "message" &&
-          item.textContent?.includes("OFFICE KNOWLEDGE FOR THIS REPLY"),
+          item.role === "system" &&
+          item.textContent?.includes("ACTIVE OFFICE KNOWLEDGE CONTEXT"),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("hydrates a lightweight transcript selection before activating it", async () => {

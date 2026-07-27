@@ -14,7 +14,7 @@ import { transferIsAccepted } from "../state/call-lifecycle.js";
 import {
   appointmentActions,
   availabilityReadEvents,
-  officeKnowledgeRetrievals,
+  officeKnowledgeContexts,
   ownedMiddlewareFailures,
 } from "../state/observability.js";
 import type { SttLanguageDetector } from "../stt-language-detector.js";
@@ -362,8 +362,8 @@ export async function attachCallCloseout(input: {
     const recordedIdentityTransitions = callState
       ? patientIdentityTransitions(callState)
       : [];
-    const recordedKnowledgeRetrievals = callState
-      ? officeKnowledgeRetrievals(callState)
+    const recordedKnowledgeContexts = callState
+      ? officeKnowledgeContexts(callState)
       : [];
     const toolExecutions = withAppointmentActionToolExecutionFallback(
       observedToolExecutions,
@@ -419,7 +419,7 @@ export async function attachCallCloseout(input: {
       voiceLanguage:
         callState?.runtime.voiceLanguage ?? input.call.initialVoiceLanguage,
       toolExecutions,
-      knowledgeRetrievals: recordedKnowledgeRetrievals,
+      knowledgeContexts: recordedKnowledgeContexts,
       identityTransitions: recordedIdentityTransitions,
       appointmentActions: recordedAppointmentActions,
       availabilityReads: recordedAvailabilityReads,
@@ -502,7 +502,7 @@ async function deliverFailedStartup(
     sessionEvents: createEmptySessionEventAnalytics(),
     language: {},
     toolExecutions: [],
-    knowledgeRetrievals: [],
+    knowledgeContexts: [],
     identityTransitions: [],
     appointmentActions: [],
     ownedMiddlewareFailures: [],

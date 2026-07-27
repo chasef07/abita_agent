@@ -1,21 +1,15 @@
 import {
   AgentSession,
   type ChatContext,
-  ChatMessage,
   initializeLogger,
-  isToolset,
-  type ToolContextEntry,
   voice,
 } from "@livekit/agents";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
-import {
-  DEV_OFFICE_PHONE,
-  SPRING_HILL_OFFICE_PHONE,
-} from "../customers/abita/profile.js";
+import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import { createTestCallState } from "./support/call-state.js";
 
-const KNOWLEDGE_REFERENCE_MARKER = "OFFICE KNOWLEDGE FOR THIS REPLY";
+const ACTIVE_KNOWLEDGE_MARKER = "ACTIVE OFFICE KNOWLEDGE CONTEXT";
 
 class CapturingFakeLLM extends voice.testing.FakeLLM {
   readonly requests: ChatContext[] = [];
@@ -23,10 +17,15 @@ class CapturingFakeLLM extends voice.testing.FakeLLM {
   override chat(options: Parameters<voice.testing.FakeLLM["chat"]>[0]) {
     this.requests.push(options.chatCtx.copy());
     const fakeContext = options.chatCtx.copy();
+    const lastItem = fakeContext.items.at(-1);
     const lastUserMessage = [...fakeContext.items]
       .reverse()
       .find((item) => item.type === "message" && item.role === "user");
-    if (lastUserMessage?.type === "message") {
+    if (
+      lastItem?.type === "message" &&
+      lastItem.role !== "user" &&
+      lastUserMessage?.type === "message"
+    ) {
       fakeContext.addMessage({
         role: "user",
         content: lastUserMessage.textContent ?? "",
@@ -36,17 +35,11 @@ class CapturingFakeLLM extends voice.testing.FakeLLM {
   }
 }
 
-function toolNames(entries: readonly ToolContextEntry[]): string[] {
-  return entries.flatMap((entry) =>
-    isToolset(entry) ? toolNames(entry.tools) : [entry.id],
-  );
-}
-
-function knowledgeMessages(chatCtx: ChatContext): string[] {
+function activeKnowledgeMessages(chatCtx: ChatContext): string[] {
   return chatCtx.items.flatMap((item) =>
     item.type === "message" &&
-    item.role === "assistant" &&
-    item.textContent?.includes(KNOWLEDGE_REFERENCE_MARKER)
+    item.role === "system" &&
+    item.textContent?.includes(ACTIVE_KNOWLEDGE_MARKER)
       ? [item.textContent]
       : [],
   );
@@ -70,7 +63,7 @@ async function completeUserTurn(
   await activity.onEndOfTurn(turn);
 }
 
-describe("Office Knowledge turn enrichment", () => {
+describe("Office Knowledge model context", () => {
   beforeAll(() => {
     initializeLogger({ pretty: false, level: "silent" });
   });
@@ -81,18 +74,79 @@ describe("Office Knowledge turn enrichment", () => {
     await Promise.all(sessions.splice(0).map((session) => session.close()));
   });
 
-  it("grounds the next model request without persisting knowledge or exposing a tool", async () => {
+  it("grounds every completed caller turn with the full active-office document", async () => {
+    const llm = new CapturingFakeLLM([
+      { input: "How are you?", content: "I am ready to help." },
+    ]);
+    const session = new AgentSession({ llm });
+    sessions.push(session);
+    session.userData = createTestCallState({
+      officeKey: "spring-hill",
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+    });
+    const { agent } = createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+      suppressGreeting: true,
+    });
+
+    await session.start({ agent });
+    await completeUserTurn(session, "How are you?");
+    await vi.waitFor(() => expect(llm.requests).toHaveLength(1));
+
+    const contexts = activeKnowledgeMessages(llm.requests[0]!);
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0]).toContain("Schema: abita-office-knowledge/v1");
+    expect(contexts[0]).toContain("## Payments");
+    expect(contexts[0]).toContain("## Billing");
+    expect(session.userData.runtime.knowledgeContexts).toHaveLength(1);
+    expect(session.userData.runtime.knowledgeContexts[0]).toMatchObject({
+      officeKey: "spring-hill",
+      schemaVersion: "abita-office-knowledge/v1",
+    });
+    expect(session.userData.runtime.knowledgeContexts[0]?.documentHash).toMatch(
+      /^[a-f0-9]{64}$/,
+    );
+  });
+
+  it("replaces the document when Call State changes the active office", async () => {
+    const llm = new CapturingFakeLLM([
+      { input: "How are you?", content: "I am ready to help." },
+    ]);
+    const session = new AgentSession({ llm });
+    sessions.push(session);
+    session.userData = createTestCallState({
+      officeKey: "spring-hill",
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+    });
+    const { agent } = createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+      suppressGreeting: true,
+    });
+
+    await session.start({ agent });
+    session.userData.office.activeKey = "crystal-river";
+    await completeUserTurn(session, "How are you?");
+    await vi.waitFor(() => expect(llm.requests).toHaveLength(1));
+
+    const contexts = activeKnowledgeMessages(llm.requests[0]!);
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0]).toContain(
+      "# Office Knowledge: Eye Radiance powered by Abeeta Eye Group",
+    );
+    expect(contexts[0]).not.toContain(
+      "# Office Knowledge: Abita Eye Group, Spring Hill",
+    );
+  });
+
+  it("grounds preemptive generation without waiting for topic detection", async () => {
     const llm = new CapturingFakeLLM([
       {
-        input: "¿Cuál es su horario?",
-        content: "Our office hours are in the supplied reference.",
+        input: "Do you take payment plans?",
+        content: "I can explain the office policy.",
       },
     ]);
     const session = new AgentSession({ llm });
     sessions.push(session);
     session.userData = createTestCallState({
       officeKey: "spring-hill",
-      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
     const { agent } = createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
@@ -100,246 +154,64 @@ describe("Office Knowledge turn enrichment", () => {
     });
 
     await session.start({ agent });
-    await completeUserTurn(session, "¿Cuál es su horario?");
+    await completeUserTurn(session, "Do you take payment plans?", true);
     await vi.waitFor(() => expect(llm.requests).toHaveLength(1));
+
+    const contexts = activeKnowledgeMessages(llm.requests[0]!);
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0]).toContain("## Payments");
+  });
+
+  it("observes the document supplied after a tool changes the active office", async () => {
+    const toolReply =
+      "No matching patient was found. Confirm the spelling and date of birth, or ask whether the patient is already registered with us.";
+    const llm = new CapturingFakeLLM([
+      {
+        input: "This is Jane Doe, January 2, 1980.",
+        toolCalls: [
+          {
+            name: "resolve_patient",
+            args: {
+              firstName: "Jane",
+              lastName: "Doe",
+              dob: "01/02/1980",
+            },
+          },
+        ],
+      },
+      {
+        input: JSON.stringify(toolReply),
+        content: "I could not find that patient.",
+      },
+    ]);
+    const session = new AgentSession({ llm });
+    sessions.push(session);
+    const state = createTestCallState({
+      officeKey: "spring-hill",
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+    });
+    session.userData = state;
+    const { agent } = createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+      identityLookup: async () => {
+        state.office.activeKey = "crystal-river";
+        return { status: "not_found" };
+      },
+      suppressGreeting: true,
+    });
+
+    await session.start({ agent });
+    await completeUserTurn(session, "This is Jane Doe, January 2, 1980.");
+    await vi.waitFor(() => expect(llm.requests).toHaveLength(2));
     await session.waitForIdle();
 
-    expect(llm.requests).toHaveLength(1);
-    const requestKnowledge = knowledgeMessages(llm.requests[0]!);
-    expect(requestKnowledge).toHaveLength(1);
-    expect(requestKnowledge[0]).toContain("active office: Abita Eye Group");
-    expect(requestKnowledge[0]).toContain("## Location + Contact");
-    expect(knowledgeMessages(session.currentAgent.chatCtx)).toEqual([]);
-    expect(toolNames(session.currentAgent.toolCtx.tools).sort()).toEqual(
-      [
-        "add_patient",
-        "book_appointment",
-        "cancel_appointment",
-        "check_insurance",
-        "create_staff_task",
-        "end_call",
-        "get_availability",
-        "reschedule_appointment",
-        "resolve_patient",
-        "transfer_call",
-        "update_insurance",
-      ].sort(),
+    expect(activeKnowledgeMessages(llm.requests[0]!)[0]).toContain(
+      "# Office Knowledge: Abita Eye Group, Spring Hill",
     );
-  });
-
-  it("reuses an equivalent preemptive reply and invalidates one that needs grounding", async () => {
-    const unrelatedLlm = new CapturingFakeLLM([
-      { input: "How are you?", content: "I am ready to help." },
-    ]);
-    const unrelatedSession = new AgentSession({ llm: unrelatedLlm });
-    sessions.push(unrelatedSession);
-    unrelatedSession.userData = createTestCallState({
-      officeKey: "spring-hill",
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-    });
-    await unrelatedSession.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
-        suppressGreeting: true,
-      }).agent,
-    });
-
-    await completeUserTurn(unrelatedSession, "How are you?", true);
-    await vi.waitFor(() => expect(unrelatedLlm.requests).toHaveLength(1));
-    await unrelatedSession.waitForIdle();
-    expect(knowledgeMessages(unrelatedLlm.requests[0]!)).toEqual([]);
-
-    const groundedLlm = new CapturingFakeLLM([
-      {
-        input: "What are your office hours?",
-        content: "The preemptive answer is not grounded.",
-      },
-      {
-        input: "What are your office hours?",
-        content: "The supplied hours are available.",
-      },
-    ]);
-    const groundedSession = new AgentSession({ llm: groundedLlm });
-    sessions.push(groundedSession);
-    groundedSession.userData = createTestCallState({
-      officeKey: "spring-hill",
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-    });
-    await groundedSession.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
-        suppressGreeting: true,
-      }).agent,
-    });
-
-    await completeUserTurn(
-      groundedSession,
-      "What are your office hours?",
-      true,
+    expect(activeKnowledgeMessages(llm.requests[1]!)[0]).toContain(
+      "# Office Knowledge: Eye Radiance powered by Abeeta Eye Group",
     );
-    await vi.waitFor(() => expect(groundedLlm.requests).toHaveLength(2));
-    await groundedSession.waitForIdle();
-    expect(knowledgeMessages(groundedLlm.requests[0]!)).toEqual([]);
-    expect(knowledgeMessages(groundedLlm.requests[1]!)).toHaveLength(1);
-  });
-
-  it("uses the active Call State office and the immediately preceding exchange", async () => {
-    const session = new AgentSession();
-    sessions.push(session);
-    session.userData = createTestCallState({
-      officeKey: "spring-hill",
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-    });
-    const { agent } = createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
-      suppressGreeting: true,
-    });
-    await session.start({ agent });
-    session.userData.office.activeKey = "crystal-river";
-    const turnContext = session.currentAgent.chatCtx.copy();
-    turnContext.addMessage({
-      role: "user",
-      content: "Where are you located?",
-    });
-    turnContext.addMessage({
-      role: "assistant",
-      content: "I can help with the office location.",
-    });
-
-    await session.currentAgent.onUserTurnCompleted(
-      turnContext,
-      ChatMessage.create({ role: "user", content: "What about that?" }),
-    );
-
-    const messages = knowledgeMessages(turnContext);
-    expect(messages).toHaveLength(1);
-    expect(messages[0]).toContain("active office: Eye Radiance");
-    expect(messages[0]).toContain("1100 N Lyle Avenue");
-    expect(session.userData.runtime).toMatchObject({
-      knowledgeRetrievals: [
-        {
-          language: "en",
-          officeKey: "crystal-river",
-          outcome: "matched",
-          sectionCount: 1,
-          topic: "location_contact",
-        },
-      ],
-    });
-  });
-
-  it("skips unrelated turns and injects unavailable facts", async () => {
-    const unrelatedSession = new AgentSession();
-    sessions.push(unrelatedSession);
-    unrelatedSession.userData = createTestCallState({
-      officeKey: "spring-hill",
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-    });
-    await unrelatedSession.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
-        suppressGreeting: true,
-      }).agent,
-    });
-    const unrelatedContext = unrelatedSession.currentAgent.chatCtx.copy();
-    unrelatedContext.addMessage({
-      role: "system",
-      content: "Internal state mentions office hours.",
-    });
-    await unrelatedSession.currentAgent.onUserTurnCompleted(
-      unrelatedContext,
-      ChatMessage.create({ role: "user", content: "What about that?" }),
-    );
-
-    expect(knowledgeMessages(unrelatedContext)).toEqual([]);
-    expect(unrelatedSession.userData.runtime).toMatchObject({
-      knowledgeRetrievals: [
-        {
-          outcome: "skipped",
-          sectionCount: 0,
-          topic: null,
-        },
-      ],
-    });
-
-    const unavailableSession = new AgentSession();
-    sessions.push(unavailableSession);
-    unavailableSession.userData = createTestCallState({
-      officeKey: "dev",
-      trunkPhone: DEV_OFFICE_PHONE,
-    });
-    await unavailableSession.start({
-      agent: createVoiceAgent("no_match", DEV_OFFICE_PHONE, {
-        suppressGreeting: true,
-      }).agent,
-    });
-    const unavailableContext = unavailableSession.currentAgent.chatCtx.copy();
-
-    await unavailableSession.currentAgent.onUserTurnCompleted(
-      unavailableContext,
-      ChatMessage.create({
-        role: "user",
-        content: "What is your Instagram?",
-      }),
-    );
-
-    const unavailableMessages = knowledgeMessages(unavailableContext);
-    expect(unavailableMessages).toHaveLength(1);
-    expect(unavailableMessages[0]).toContain(
-      "active office has no supplied information",
-    );
-    expect(unavailableSession.userData.runtime).toMatchObject({
-      knowledgeRetrievals: [
-        {
-          officeKey: "dev",
-          outcome: "unavailable",
-          sectionCount: 0,
-          topic: "social_follow_up",
-        },
-      ],
-    });
-  });
-
-  it("records a sanitized failure and lets the reply path continue", async () => {
-    const session = new AgentSession();
-    sessions.push(session);
-    session.userData = createTestCallState({
-      officeKey: "spring-hill",
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-    });
-    await session.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
-        officeKnowledgeResolver: () => {
-          throw new Error("raw caller content and office document");
-        },
-        suppressGreeting: true,
-      }).agent,
-    });
-    const turnContext = session.currentAgent.chatCtx.copy();
-
-    await expect(
-      session.currentAgent.onUserTurnCompleted(
-        turnContext,
-        ChatMessage.create({
-          role: "user",
-          content: "What are your hours?",
-        }),
-      ),
-    ).resolves.toBeUndefined();
-
-    expect(knowledgeMessages(turnContext)).toEqual([]);
-    expect(session.userData.runtime.latestUserTranscript).toBe(
-      "What are your hours?",
-    );
-    expect(session.userData.runtime).toMatchObject({
-      knowledgeRetrievals: [
-        {
-          language: "unknown",
-          officeKey: "spring-hill",
-          outcome: "failure",
-          sectionCount: 0,
-          topic: null,
-        },
-      ],
-    });
     expect(
-      JSON.stringify(session.userData.runtime.knowledgeRetrievals),
-    ).not.toContain("raw caller content");
+      state.runtime.knowledgeContexts.map(({ officeKey }) => officeKey),
+    ).toEqual(["spring-hill", "crystal-river"]);
   });
 });
