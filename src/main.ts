@@ -28,18 +28,13 @@ import { modelFacingLookupStatus } from "./runtime/precall-model-context.js";
 import { MAX_CALL_DURATION_MS } from "./runtime/call-duration-deadline.js";
 import { createLlmPair } from "./model-config.js";
 import {
-  createRimeVoiceLanguageState,
-  getRimeTtsLanguageOptions,
   getRimeTtsOptions,
   getRimeTtsOptionsByLanguage,
-  type RimeTtsLanguageOptions,
-  type RuntimeVoiceLanguageState,
 } from "./tts-config.js";
 import {
-  SttLanguageDetector,
-  type SttLanguageDecision,
-  type VoiceLanguage,
-} from "./stt-language-detector.js";
+  createRimeVoiceLanguageState,
+  VoiceLanguageRuntime,
+} from "./runtime/voice-language.js";
 import { getAssemblyAISttOptions } from "./stt-config.js";
 import {
   configureVoiceVad,
@@ -60,65 +55,6 @@ import {
 import { getAnalyticsSecret } from "./runtime/portal-auth.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { coordinateSessionStartup } from "./runtime/session-startup.js";
-
-type TtsRuntime = {
-  tts: rime.TTS;
-  applyLanguageDecisionToTts: (
-    decision: SttLanguageDecision,
-  ) => RuntimeVoiceLanguageState | null;
-  initialVoiceLanguage: RuntimeVoiceLanguageState;
-  sttLanguageDetector: SttLanguageDetector;
-};
-
-function createRimeLanguageDecisionApplicator(input: {
-  optionsByLanguage: Record<VoiceLanguage, RimeTtsLanguageOptions>;
-  tts: rime.TTS;
-}) {
-  let appliedLanguage: VoiceLanguage = "en";
-
-  return (decision: SttLanguageDecision): RuntimeVoiceLanguageState | null => {
-    if (decision.action !== "switch") return null;
-    if (decision.to === appliedLanguage) return null;
-
-    const ttsOptions = input.optionsByLanguage[decision.to];
-    input.tts.updateOptions(ttsOptions);
-    appliedLanguage = decision.to;
-    const voiceLanguage = createRimeVoiceLanguageState({
-      decision,
-      language: decision.to,
-      options: ttsOptions,
-    });
-    console.log(
-      `[language] applied_tts_options provider=rime voice_language=${decision.to} tts_language=${ttsOptions.lang} speaker=${ttsOptions.speaker}`,
-    );
-    return voiceLanguage;
-  };
-}
-
-function createTtsRuntime(input: { trunkPhone: string }): TtsRuntime {
-  const sttLanguageDetector = new SttLanguageDetector();
-  const initialLanguageOptions = getRimeTtsLanguageOptions({
-    language: "en",
-    trunkPhone: input.trunkPhone,
-  });
-  const ttsOptions = getRimeTtsOptions({
-    language: "en",
-    trunkPhone: input.trunkPhone,
-  });
-  const tts = new rime.TTS(ttsOptions);
-  return {
-    tts,
-    applyLanguageDecisionToTts: createRimeLanguageDecisionApplicator({
-      optionsByLanguage: getRimeTtsOptionsByLanguage(input.trunkPhone),
-      tts,
-    }),
-    initialVoiceLanguage: createRimeVoiceLanguageState({
-      language: "en",
-      options: initialLanguageOptions,
-    }),
-    sttLanguageDetector,
-  };
-}
 
 export default defineAgent({
   entry: async (ctx: JobContext) => {
@@ -176,12 +112,15 @@ export default defineAgent({
           const llmWithFallback = new FallbackAdapter({
             llms: [primaryLLM, fallbackLLM],
           });
-          const {
-            applyLanguageDecisionToTts,
-            initialVoiceLanguage,
-            sttLanguageDetector,
-            tts,
-          } = createTtsRuntime({ trunkPhone });
+          const optionsByLanguage = getRimeTtsOptionsByLanguage(trunkPhone);
+          const initialOptions = optionsByLanguage.en;
+          const initialVoiceLanguage = createRimeVoiceLanguageState(
+            "en",
+            initialOptions,
+          );
+          const tts = new rime.TTS(
+            getRimeTtsOptions({ language: "en", trunkPhone }),
+          );
           console.log(
             `[tts] provider=rime trunk=${trunkPhone} voice_language=${initialVoiceLanguage.current} tts_language=${initialVoiceLanguage.ttsLanguage} speaker=${initialVoiceLanguage.speaker}`,
           );
@@ -198,6 +137,14 @@ export default defineAgent({
             voiceLanguage: initialVoiceLanguage,
           };
           const callState = createInitialCallState(initialCall);
+          if (!callState.runtime.voiceLanguage) {
+            throw new Error("Initial voice language state is required");
+          }
+          const voiceLanguageRuntime = new VoiceLanguageRuntime({
+            optionsByLanguage,
+            state: callState.runtime.voiceLanguage,
+            tts,
+          });
           let callStateReady = false;
           const session = new AgentSession<CallState>({
             stt,
@@ -251,8 +198,8 @@ export default defineAgent({
               shutdownSession: (reason) => {
                 session.shutdown({ drain: false, reason });
               },
-              sttLanguageDetector,
               sttProfiles: turnProfileController.sttProfiles,
+              voiceLanguageRuntime,
             }),
             getCallState,
             onCloseoutAttached: callStart.handOffToCallCloseout,
@@ -261,7 +208,6 @@ export default defineAgent({
           });
 
           return {
-            applyLanguageDecisionToTts,
             callState,
             initialCall,
             initialVoiceLanguage,
@@ -269,8 +215,8 @@ export default defineAgent({
               callStateReady = true;
             },
             session,
-            sttLanguageDetector,
             turnProfileController,
+            voiceLanguageRuntime,
           };
         },
         createState: (preCall, runtime, startupOverlap) => {
@@ -290,15 +236,7 @@ export default defineAgent({
             {
               onAssistantText:
                 runtime.turnProfileController.observeAssistantText,
-              onLanguageDecision: (decision) => {
-                const voiceLanguage =
-                  runtime.applyLanguageDecisionToTts(decision);
-                if (voiceLanguage) {
-                  runtime.session.userData.runtime.voiceLanguage =
-                    voiceLanguage;
-                }
-              },
-              sttLanguageDetector: runtime.sttLanguageDetector,
+              voiceLanguageRuntime: runtime.voiceLanguageRuntime,
             },
           );
           runtime.markCallStateReady();

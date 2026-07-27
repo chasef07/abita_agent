@@ -17,8 +17,10 @@ import {
   officeKnowledgeRetrievals,
   ownedMiddlewareFailures,
 } from "../state/observability.js";
-import type { SttLanguageDetector } from "../stt-language-detector.js";
-import type { RuntimeVoiceLanguageState } from "../tts-config.js";
+import type {
+  RuntimeVoiceLanguageState,
+  VoiceLanguageRuntime,
+} from "./voice-language.js";
 import {
   buildLlmSummary,
   createEmptySessionEventAnalytics,
@@ -78,6 +80,7 @@ export type CallCloseoutCapture = {
   sessionReport?: Record<string, unknown>;
   sessionUsage?: Record<string, unknown>;
   sttProfiles: Record<string, unknown>[];
+  voiceLanguage?: RuntimeVoiceLanguageState;
 };
 
 export interface CallCloseoutEventAdapter {
@@ -417,7 +420,9 @@ export async function attachCallCloseout(input: {
       sessionEvents,
       language: capture.language,
       voiceLanguage:
-        callState?.runtime.voiceLanguage ?? input.call.initialVoiceLanguage,
+        capture.voiceLanguage ??
+        callState?.runtime.voiceLanguage ??
+        input.call.initialVoiceLanguage,
       toolExecutions,
       knowledgeRetrievals: recordedKnowledgeRetrievals,
       identityTransitions: recordedIdentityTransitions,
@@ -593,8 +598,8 @@ export function createLiveKitCallCloseoutEventAdapter(
     maxCallDurationMs: number;
     roomName: string;
     shutdownSession: (reason: string) => void;
-    sttLanguageDetector: SttLanguageDetector;
     sttProfiles: SttProfileTransitionAnalytics[];
+    voiceLanguageRuntime: Pick<VoiceLanguageRuntime, "snapshot">;
   },
 ): CallCloseoutEventAdapter {
   let closeout: (() => Promise<CallCloseoutResult>) | undefined;
@@ -602,6 +607,7 @@ export function createLiveKitCallCloseoutEventAdapter(
 
   return {
     async capture() {
+      const voiceLanguage = options.voiceLanguageRuntime.snapshot();
       let audio: Uint8Array | undefined;
       let audioUnreadable = false;
       let reportUnavailable = false;
@@ -624,11 +630,12 @@ export function createLiveKitCallCloseoutEventAdapter(
       return {
         ...(audio ? { audio } : {}),
         ...(audioUnreadable ? { audioUnreadable } : {}),
-        language: options.sttLanguageDetector.telemetry,
+        language: voiceLanguage.language,
         ...(reportUnavailable ? { reportUnavailable } : {}),
         sessionReport,
         sessionUsage: session.usage as unknown as Record<string, unknown>,
         sttProfiles: [...options.sttProfiles],
+        voiceLanguage: voiceLanguage.voiceLanguage,
       };
     },
     observe(observer) {
