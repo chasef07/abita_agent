@@ -369,7 +369,14 @@ describe("HTTP owned middleware transport", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(Response.json(verifiedPatient))
-      .mockResolvedValueOnce(Response.json(availabilityFound))
+      .mockResolvedValueOnce(
+        Response.json({
+          ...availabilityFound,
+          status: "success",
+          outcome: "availability_found",
+          availabilityFound: true,
+        }),
+      )
       .mockResolvedValueOnce(Response.json(createdPatient))
       .mockResolvedValueOnce(Response.json(bookedAppointment))
       .mockResolvedValueOnce(Response.json(cancelledAppointment))
@@ -615,6 +622,29 @@ describe("HTTP owned middleware transport", () => {
         Response.json({
           outcome: "availability_found",
           slots: [{ date: "2026-08-01", time: "9:00 AM" }],
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.getAvailability({
+      office: SPRING_HILL_OFFICE_PHONE,
+      requestedDate: "2026-08-01",
+    });
+
+    expect(result).toEqual({
+      status: "error",
+      reason: "invalid_response",
+    });
+  });
+
+  it("rejects an availability response without a semantic outcome", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "success",
+          availabilityFound: true,
+          slots: availabilityFound.slots,
         }),
       ),
       productionBaseUrl: "https://middleware.test",

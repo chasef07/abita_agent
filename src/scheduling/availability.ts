@@ -12,6 +12,7 @@ import {
   storeAvailabilityBookingToken,
 } from "./state.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
+import { spokenAppointmentDate } from "./spoken-date.js";
 
 type AvailabilityToolResponse = {
   message: string;
@@ -126,7 +127,7 @@ function spokenSearchRange(result: AvailableSlotsResult): string {
   const start = result.searchedFrom ?? result.requestedDate;
   const end = result.searchedThrough ?? result.actualDate ?? start;
   if (start && end) {
-    return `from ${spokenIsoDate(start)} through ${spokenIsoDate(end)}`;
+    return `from ${spokenAppointmentDate(start)} through ${spokenAppointmentDate(end)}`;
   }
   return "for those dates";
 }
@@ -209,18 +210,8 @@ export function publicProviderName(provider: string): string {
     .replace("Dr. D. Noel", "Dr. Noel");
 }
 
-function spokenIsoDate(date: string): string {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) return date;
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(parsed);
-}
-
 function slotOffer(slot: StoredAvailabilitySlot): string {
-  const dateTime = [spokenIsoDate(slot.date), slot.time]
+  const dateTime = [spokenAppointmentDate(slot.date), slot.time]
     .filter(Boolean)
     .join(" at ");
   const spoken = [dateTime, slot.provider ? `with ${slot.provider}` : ""]

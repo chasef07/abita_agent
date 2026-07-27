@@ -387,7 +387,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "Offer this slot: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
     );
     expect(result).not.toContain("private-token");
     expect(state.availability.bookingTokensBySlotId).toEqual({
@@ -443,7 +443,7 @@ describe("scheduling tools", () => {
     );
 
     expect(availability).toBe(
-      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "Offer this slot: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
     );
     expect(middleware.operations[1]).toMatchObject({
       kind: "book",
@@ -476,8 +476,8 @@ describe("scheduling tools", () => {
     deferred.resolve(availabilityFound([returnedSlot()]));
 
     await expect(Promise.all([first, second])).resolves.toEqual([
-      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
-      "Offer this slot: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "Offer this slot: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "Offer this slot: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
     ]);
     expect(middleware.operations).toHaveLength(1);
     expect(availabilityReadEvents(state)).toMatchObject([
@@ -554,7 +554,7 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(first).toBe(
-      "No openings were found from June 1 through June 15. Ask whether the caller has another day or time preference.",
+      "No openings were found from Monday, June 1 through Monday, June 15. Ask whether the caller has another day or time preference.",
     );
     expect(second).toBe(first);
     expect(middleware.operations).toHaveLength(1);
@@ -680,7 +680,7 @@ describe("scheduling tools", () => {
     expect(first).toContain("appointmentSlotRef S1");
     expect(first).toContain("appointmentSlotRef S2");
     expect(afternoon).toBe(
-      "Offer this slot: June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). If the caller accepts it, use appointmentSlotRef S2; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "Offer this slot: Monday, June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). If the caller accepts it, use appointmentSlotRef S2; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
     );
     expect(middleware.operations).toHaveLength(2);
     expect(middleware.operations[1]).toMatchObject({
@@ -1613,7 +1613,7 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(first).toBe(
-      "Availability was not fully checked from June 1 through June 2. Call get_availability again once with the same when phrase.",
+      "Availability was not fully checked from Monday, June 1 through Tuesday, June 2. Call get_availability again once with the same when phrase.",
     );
     expect(second).toBe(first);
     expect(middleware.operations).toHaveLength(2);
@@ -1676,7 +1676,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "Offer these options: June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1), or June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another day or time and call get_availability with the caller's new when phrase.",
+      "Offer these options: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1), or Monday, June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another day or time and call get_availability with the caller's new when phrase.",
     );
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "private-token",

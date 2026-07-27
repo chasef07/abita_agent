@@ -651,7 +651,6 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
 
 function availabilityStatus(outcome: string | null) {
   switch (outcome) {
-    case null:
     case "availability_found":
       return "found" as const;
     case "no_availability":
