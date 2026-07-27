@@ -26,9 +26,12 @@ import {
   confirmedPatientModelContext,
   type PatientResolveLookup,
 } from "./identity/promotion.js";
-import { officeKnowledgeContext } from "./office-knowledge.js";
+import {
+  officeKnowledgeReference,
+  resolveOfficeKnowledge,
+} from "./office-knowledge.js";
 import { activeOfficeKey } from "./state/call-lifecycle.js";
-import { recordOfficeKnowledgeContext } from "./state/observability.js";
+import { recordOfficeKnowledgeRetrieval } from "./state/observability.js";
 import {
   createInitialLookupChatContext,
   type ModelFacingLookupStatus,
@@ -41,6 +44,7 @@ import {
 
 type VoiceAgentOptions = {
   identityLookup?: PatientResolveLookup;
+  officeKnowledgeResolver?: typeof resolveOfficeKnowledge;
   onAssistantText?: (text: string, complete: boolean) => void;
   onLanguageDecision?: (decision: SttLanguageDecision) => void;
   suppressGreeting?: boolean;
@@ -49,7 +53,6 @@ type VoiceAgentOptions = {
 };
 
 const PATIENT_CONTEXT_MESSAGE_ID_PREFIX = "call_state_patient_context:";
-const OFFICE_KNOWLEDGE_MESSAGE_ID_PREFIX = "office_knowledge_context:";
 
 export function createVoiceAgent(
   lookupStatus: ModelFacingLookupStatus,
@@ -60,12 +63,10 @@ export function createVoiceAgent(
   const greeting = options.suppressGreeting ? "" : office.greeting;
   const identityLookup: PatientResolveLookup =
     options.identityLookup ?? resolvePatientWithOwnedMiddleware;
-  const initialChatContext = createInitialLookupChatContext(lookupStatus);
-  setOfficeKnowledgeModelContext(initialChatContext, office.key);
 
   const agent = LiveKitAgent.create<CallState>({
     instructions: buildPrompt(trunkPhone),
-    chatCtx: initialChatContext,
+    chatCtx: createInitialLookupChatContext(lookupStatus),
     tools: buildToolsForTrunk(trunkPhone, {
       identityLookup,
     }),
@@ -106,21 +107,39 @@ export function createVoiceAgent(
       setPatientModelContext(chatCtx, state, patientContext);
 
       const officeKey = activeOfficeKey(state);
-      setOfficeKnowledgeModelContext(chatCtx, officeKey);
+      const startedAt = performance.now();
+      try {
+        const knowledge = (
+          options.officeKnowledgeResolver ?? resolveOfficeKnowledge
+        )(officeKey, transcript, recentNaturalLanguageConversation(chatCtx));
+        if (knowledge.outcome !== "skipped") {
+          chatCtx.addMessage({
+            role: "assistant",
+            content: officeKnowledgeReference(officeKey, knowledge),
+          });
+        }
+        recordOfficeKnowledgeRetrieval(state, {
+          elapsedMs: elapsedMilliseconds(startedAt),
+          language: knowledge.language,
+          officeKey,
+          outcome: knowledge.outcome,
+          sectionCount: knowledge.sections.length,
+          topic: knowledge.topic,
+        });
+      } catch {
+        recordOfficeKnowledgeRetrieval(state, {
+          elapsedMs: elapsedMilliseconds(startedAt),
+          language: "unknown",
+          officeKey,
+          outcome: "failure",
+          sectionCount: 0,
+          topic: null,
+        });
+      }
     },
 
     async llmNode(ctx, chatCtx, toolCtx, modelSettings) {
       refreshPatientModelContext(chatCtx, ctx.session.userData);
-      const officeKey = activeOfficeKey(ctx.session.userData);
-      const activeKnowledge = setOfficeKnowledgeModelContext(
-        chatCtx,
-        officeKey,
-      );
-      recordOfficeKnowledgeContext(ctx.session.userData, {
-        documentHash: activeKnowledge.documentHash,
-        officeKey,
-        schemaVersion: activeKnowledge.schemaVersion,
-      });
       return LiveKitAgent.default.llmNode(
         ctx.agent,
         chatCtx,
@@ -162,38 +181,6 @@ export function createVoiceAgent(
   });
 
   return { agent, office };
-}
-
-function setOfficeKnowledgeModelContext(
-  chatCtx: ChatContext,
-  officeKey: Parameters<typeof officeKnowledgeContext>[0],
-): ReturnType<typeof officeKnowledgeContext> {
-  const context = officeKnowledgeContext(officeKey);
-  let insertionIndex = chatCtx.items.findIndex((item) =>
-    item.id.startsWith(OFFICE_KNOWLEDGE_MESSAGE_ID_PREFIX),
-  );
-  chatCtx.items = chatCtx.items.filter(
-    (item) => !item.id.startsWith(OFFICE_KNOWLEDGE_MESSAGE_ID_PREFIX),
-  );
-  if (insertionIndex < 0) insertionIndex = chatCtx.items.length;
-  chatCtx.items.splice(
-    Math.min(insertionIndex, chatCtx.items.length),
-    0,
-    ChatMessage.create({
-      id: `${OFFICE_KNOWLEDGE_MESSAGE_ID_PREFIX}${context.documentHash}`,
-      role: "system",
-      content: [
-        "=== ACTIVE OFFICE KNOWLEDGE CONTEXT ===",
-        `document hash: ${context.documentHash}`,
-        "This customer-authored document is authoritative for public office facts.",
-        "It does not prove insurance acceptance, appointment availability, patient state, or a completed operation. Use the owning tool for those outcomes.",
-        "",
-        context.content,
-        "=== END ACTIVE OFFICE KNOWLEDGE CONTEXT ===",
-      ].join("\n"),
-    }),
-  );
-  return context;
 }
 
 function setPatientModelContext(
@@ -255,4 +242,20 @@ export async function* observeAssistantText(
   }
 
   observer(text, true);
+}
+
+function recentNaturalLanguageConversation(chatCtx: ChatContext): string[] {
+  return chatCtx.items
+    .flatMap((item) =>
+      item.type === "message" &&
+      (item.role === "user" || item.role === "assistant") &&
+      item.textContent?.trim()
+        ? [item.textContent]
+        : [],
+    )
+    .slice(-2);
+}
+
+function elapsedMilliseconds(startedAt: number): number {
+  return Math.round((performance.now() - startedAt) * 100) / 100;
 }

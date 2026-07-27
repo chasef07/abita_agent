@@ -29,14 +29,14 @@ availability, and human-transfer behavior.
 
 _Avoid_: office config when referring to the complete policy.
 
-**Office Knowledge Context**
+**Office Knowledge Hook**
 
-The complete customer-authored document for the active Office Profile, validated
-against one canonical schema and supplied to every model turn. It owns public
-office facts, but never proves insurance acceptance, patient state, availability,
-or a completed operation.
+The internal read-only boundary that classifies a completed caller turn and
+supplies only the matching canonical sections from the active Office Profile to
+the next reply. It never proves insurance acceptance, patient state,
+availability, or a completed operation.
 
-_Avoid_: topic router, knowledge tool, retrieval service.
+_Avoid_: full-context injection, knowledge tool, retrieval service.
 
 **Owned Middleware**
 

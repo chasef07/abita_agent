@@ -2,9 +2,12 @@ import type { OfficeKey } from "../customers/abita/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { RuntimeVoiceLanguageState } from "../tts-config.js";
 import type { LightweightPatientCandidate } from "../identity/candidate.js";
-import type { OfficeKnowledgeSchemaVersion } from "../office-knowledge.js";
 import { createSchedulingState } from "../scheduling/state.js";
 import type { TransferState } from "./call-lifecycle.js";
+import type {
+  OfficeKnowledgeLanguage,
+  OfficeKnowledgeTopic,
+} from "../office-knowledge.js";
 
 export const CALLER_CANDIDATE_REF = "caller";
 
@@ -320,11 +323,14 @@ export interface PatientIdentityTransitionAnalytics {
   source: "pre_call_phone_lookup" | "caller_transcript" | "resolve_patient";
 }
 
-export interface OfficeKnowledgeContextAnalytics {
+export interface OfficeKnowledgeRetrievalAnalytics {
   createdAt: string;
-  documentHash: string;
+  elapsedMs: number;
+  language: OfficeKnowledgeLanguage;
   officeKey: OfficeKey;
-  schemaVersion: OfficeKnowledgeSchemaVersion;
+  outcome: "matched" | "unavailable" | "skipped" | "failure";
+  sectionCount: number;
+  topic: OfficeKnowledgeTopic | null;
 }
 
 interface RuntimeCallState {
@@ -340,7 +346,7 @@ interface RuntimeCallState {
   transferState: TransferState;
   appointmentActions: AppointmentActionAnalytics[];
   availabilityReads: AvailabilityReadAnalytics[];
-  knowledgeContexts: OfficeKnowledgeContextAnalytics[];
+  knowledgeRetrievals: OfficeKnowledgeRetrievalAnalytics[];
   ownedMiddlewareFailures: OwnedMiddlewareFailureAnalytics[];
   staffTasks: StaffTaskReceipt[];
   patientIdentityOutcomes: PatientIdentityOutcome[];
@@ -553,7 +559,7 @@ export function createCanonicalCallState(
       transferState: "idle",
       appointmentActions: [],
       availabilityReads: [],
-      knowledgeContexts: [],
+      knowledgeRetrievals: [],
       ownedMiddlewareFailures: [],
       staffTasks: [],
       patientIdentityOutcomes: [],

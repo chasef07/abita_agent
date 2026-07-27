@@ -30,7 +30,7 @@ import {
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
-import { officeKnowledgeContext } from "../office-knowledge.js";
+import { resolveOfficeKnowledge } from "../office-knowledge.js";
 
 const GLASSES_READY_ANSWER =
   "Check your texts. You'll receive a text when they're ready. If you haven't received a text, they aren't ready yet.";
@@ -211,13 +211,16 @@ describe("dermatology demo", () => {
     });
   });
 
-  it("includes dermatology medical and cosmetic policy in the demo document", () => {
-    const knowledge = officeKnowledgeContext("dev").content;
+  it("retrieves dermatology knowledge for medical and cosmetic questions", () => {
+    const cosmetic = resolveOfficeKnowledge("dev", "Do you offer Botox?");
+    const medical = resolveOfficeKnowledge("dev", "Do you perform Mohs?");
 
-    expect(knowledge).toContain("### Medical or Cosmetic");
-    expect(knowledge).toContain("Botox and Dysport consultations");
-    expect(knowledge).toContain("### Skin Cancer and Mohs");
-    expect(knowledge).toContain(
+    expect(cosmetic.sections.join("\n")).toContain("## Medical or Cosmetic");
+    expect(cosmetic.sections.join("\n")).toContain(
+      "Botox and Dysport consultations",
+    );
+    expect(medical.sections.join("\n")).toContain("## Skin Cancer and Mohs");
+    expect(medical.sections.join("\n")).toContain(
       "Do not promise that a caller needs Mohs surgery",
     );
   });
@@ -405,12 +408,17 @@ describe("Crystal River prompt guidance", () => {
 
   it("answers either office with both Hollywood and Sweetwater scheduling addresses", () => {
     for (const office of ["hollywood", "sweetwater"] as const) {
-      const knowledge = officeKnowledgeContext(office).content;
+      const result = resolveOfficeKnowledge(
+        office,
+        "What are the Hollywood and Sweetwater office addresses?",
+      );
 
-      expect(knowledge).toContain(
+      expect(result.sections.join("\n")).toContain(
         "4330 Sheridan St, Suite 102B, Hollywood, FL 33021",
       );
-      expect(knowledge).toContain("12750 NW 17th St, #201, Miami, FL 33182");
+      expect(result.sections.join("\n")).toContain(
+        "12750 NW 17th St, #201, Miami, FL 33182",
+      );
     }
   });
 
@@ -463,14 +471,14 @@ describe("Crystal River prompt guidance", () => {
       "sweetwater",
       "north-miami-beach-optical",
     ] as const) {
-      expect(officeKnowledgeContext(officeKey).content).not.toContain(
-        GLASSES_READY_ANSWER,
-      );
+      expect(
+        resolveOfficeKnowledge(officeKey, "Are my glasses ready?"),
+      ).toMatchObject({ outcome: "skipped" });
     }
 
-    expect(officeKnowledgeContext("dev").content).not.toContain(
-      GLASSES_READY_ANSWER,
-    );
+    expect(
+      resolveOfficeKnowledge("dev", "Are my glasses ready?"),
+    ).toMatchObject({ outcome: "skipped" });
   });
 
   it("does not expose a standalone turn context recorder", () => {

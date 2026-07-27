@@ -1,7 +1,9 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  officeKnowledgeContext,
   validateOfficeKnowledgeDocument,
+  validateOfficeKnowledgeSources,
 } from "../office-knowledge.js";
 
 const CANONICAL_HEADINGS = [
@@ -25,44 +27,24 @@ const CANONICAL_HEADINGS = [
 ];
 
 describe("Office Knowledge Context", () => {
-  it("returns the complete canonical document for the active office", () => {
-    const context = officeKnowledgeContext("spring-hill");
-
-    expect(context).toMatchObject({
-      officeKey: "spring-hill",
-      schemaVersion: "abita-office-knowledge/v1",
-    });
-    expect(context.documentHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(
-      [...context.content.matchAll(/^## (.+)$/gm)].map((match) => match[1]),
-    ).toEqual(CANONICAL_HEADINGS);
-    expect(
-      context.content.match(/^Status: (available|not-offered|not-supplied)$/gm),
-    ).toHaveLength(CANONICAL_HEADINGS.length);
-  });
-
   it("validates the same canonical document contract for every office", () => {
-    const officeKeys = [
-      "crystal-river",
-      "dev",
-      "hollywood",
-      "north-miami-beach-optical",
-      "spring-hill",
-      "sweetwater",
-    ] as const;
+    const sources = validateOfficeKnowledgeSources(readKnowledgeSource);
 
-    const contexts = officeKeys.map(officeKnowledgeContext);
-
-    expect(contexts.map(({ officeKey }) => officeKey)).toEqual(officeKeys);
-    expect(
-      contexts.map(({ content }) =>
+    expect(sources).toHaveLength(6);
+    expect(sources.every(({ sectionCount }) => sectionCount === 17)).toBe(true);
+    for (const { source } of sources) {
+      const content = readKnowledgeSource(source);
+      expect(
         [...content.matchAll(/^## (.+)$/gm)].map((match) => match[1]),
-      ),
-    ).toEqual(officeKeys.map(() => CANONICAL_HEADINGS));
+      ).toEqual(CANONICAL_HEADINGS);
+      expect(
+        content.match(/^Status: (available|not-offered|not-supplied)$/gm),
+      ).toHaveLength(CANONICAL_HEADINGS.length);
+    }
   });
 
   it("rejects malformed section status and content structure", () => {
-    const valid = officeKnowledgeContext("spring-hill").content;
+    const valid = readKnowledgeSource("KNOWLEDGE_SPRINGHILL.md");
 
     expect(() =>
       validateOfficeKnowledgeDocument(
@@ -93,3 +75,10 @@ describe("Office Knowledge Context", () => {
     ).toThrow(/Payments needs explanatory content/);
   });
 });
+
+function readKnowledgeSource(source: string): string {
+  return readFileSync(
+    join(import.meta.dirname, "..", "..", "workspace", source),
+    "utf8",
+  );
+}

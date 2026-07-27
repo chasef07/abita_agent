@@ -70,11 +70,7 @@ describe("pre-call model context", () => {
       initialContext,
     });
 
-    expect(initialContext).toHaveLength(2);
-    expect(initialContext[0]).toBe("single_match");
-    expect(initialContext[1]).toContain(
-      "=== ACTIVE OFFICE KNOWLEDGE CONTEXT ===",
-    );
+    expect(initialContext).toEqual(["single_match"]);
     for (const privateValue of [
       "private-patient-id",
       "Santos, Maria",
