@@ -413,6 +413,7 @@ interface WorkflowSessionState {
 
 interface AvailabilitySessionState {
   slots: StoredAvailabilitySlot[];
+  currentDate?: string;
   latestRouting?: string | null;
   bookingTokensBySlotId: Record<string, string>;
   nextSlotIndex: number;

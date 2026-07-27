@@ -22,33 +22,21 @@ export const systemSchedulingClock: SchedulingClock = {
 export function resolveAvailabilityWhen(
   when: string,
   clock: SchedulingClock,
-  fallbackDate?: string,
+  currentAvailabilityDate?: string,
 ): AvailabilityWhenResolution {
   const now = clock.now();
   const earliestDate = addIsoDays(clinicIsoDate(now), 1);
   const parsed = parseCallerPhrase(when, now);
-  let preferences = callerPreferences(parsed, earliestDate);
-  if (
-    fallbackDate &&
-    refersToCurrentAvailabilityDate(when) &&
-    !preferences.some((preference) => preference.date) &&
-    preferences.some((preference) => preference.time)
-  ) {
-    const date = clampDate(fallbackDate, earliestDate);
-    preferences = preferences.map((preference) => ({
-      ...preference,
-      date,
-    }));
+  let preference = callerPreference(parsed, earliestDate);
+  const currentDateReference = refersToCurrentAvailabilityDate(when);
+  if (currentDateReference && currentAvailabilityDate && !preference?.date) {
+    const date = clampDate(currentAvailabilityDate, earliestDate);
+    preference = preference ? { ...preference, date } : { date };
   }
-  const dates = distinct(
-    preferences.flatMap((preference) =>
-      preference.date ? [preference.date] : [],
-    ),
-  );
 
   return {
-    date: dates.length > 0 ? minIsoDate(dates) : earliestDate,
-    ...(preferences.length > 0 ? { preferences } : {}),
+    date: preference?.date ?? earliestDate,
+    ...(preference ? { preferences: [preference] } : {}),
   };
 }
 
@@ -80,35 +68,21 @@ function parseCallerPhrase(when: string, now: Date): chrono.ParsedResult[] {
   // container timezone while keeping relative calendar components intact.
   const reference = { instant: clinicReferenceDate(now), timezone: 0 };
   const options = { forwardDate: true };
-  const originalResults = [
+  const original = [
     ...chrono.en.parse(when, reference, options),
     ...chrono.es.parse(when, reference, options),
-  ];
-  const results = [...originalResults];
-  const parsedThrough = originalResults.reduce(
-    (end, result) => Math.max(end, result.index + result.text.length),
-    0,
-  );
+  ].sort((left, right) => left.index - right.index)[0];
+  if (!original) {
+    const clock = parseTrailingClock(when, 0, reference, options);
+    return clock ? [clock] : [];
+  }
+
+  const parsedThrough = original.index + original.text.length;
   const trailing = when.slice(parsedThrough);
-  if (originalResults.length === 0 || startsWithClockConnector(trailing)) {
-    results.push(
-      ...parseTrailingClock(trailing, parsedThrough, reference, options),
-    );
-  }
-  const seen = new Set<string>();
-  const distinctResults = results.filter((result) => {
-    const key = parsedResultKey(result);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  const selected: chrono.ParsedResult[] = [];
-  for (const result of distinctResults.sort(compareParsedSpecificity)) {
-    if (!selected.some((candidate) => containsResult(candidate, result))) {
-      selected.push(result);
-    }
-  }
-  return selected.sort((left, right) => left.index - right.index);
+  const clock = startsWithClockConnector(trailing)
+    ? parseTrailingClock(trailing, parsedThrough, reference, options)
+    : undefined;
+  return clock ? [original, clock] : [original];
 }
 
 function parseTrailingClock(
@@ -116,7 +90,7 @@ function parseTrailingClock(
   offset: number,
   reference: chrono.ParsingReference,
   options: chrono.ParsingOption,
-): chrono.ParsedResult[] {
+): chrono.ParsedResult | undefined {
   const words = when.trim().split(" ").filter(Boolean);
   for (let index = 0; index < words.length; index += 1) {
     const candidate = `${" ".repeat(offset)}at ${words.slice(index).join(" ")}`;
@@ -124,9 +98,9 @@ function parseTrailingClock(
       ...chrono.en.parse(candidate, reference, options),
       ...chrono.es.parse(candidate, reference, options),
     ].filter(hasTime);
-    if (parsed.length > 0) return parsed;
+    if (parsed[0]) return parsed[0];
   }
-  return [];
+  return undefined;
 }
 
 function startsWithClockConnector(value: string): boolean {
@@ -144,18 +118,6 @@ function startsWithClockConnector(value: string): boolean {
   );
 }
 
-function parsedResultKey(result: chrono.ParsedResult): string {
-  return [
-    result.index,
-    result.text,
-    result.start.get("year"),
-    result.start.get("month"),
-    result.start.get("day"),
-    result.start.get("hour"),
-    result.start.get("minute"),
-  ].join("|");
-}
-
 function hasDate(result: chrono.ParsedResult): boolean {
   return (
     result.start.isCertain("year") ||
@@ -167,35 +129,6 @@ function hasDate(result: chrono.ParsedResult): boolean {
 
 function hasTime(result: chrono.ParsedResult): boolean {
   return result.start.isCertain("hour");
-}
-
-function compareParsedSpecificity(
-  left: chrono.ParsedResult,
-  right: chrono.ParsedResult,
-): number {
-  return (
-    parsedSpecificity(right) - parsedSpecificity(left) ||
-    right.text.length - left.text.length ||
-    left.index - right.index
-  );
-}
-
-function parsedSpecificity(result: chrono.ParsedResult): number {
-  return (
-    Number(hasDate(result)) +
-    Number(hasTime(result) || daypartPreference(result).length > 0)
-  );
-}
-
-function containsResult(
-  outer: chrono.ParsedResult,
-  inner: chrono.ParsedResult,
-): boolean {
-  return (
-    outer.index <= inner.index &&
-    outer.index + outer.text.length >= inner.index + inner.text.length &&
-    parsedSpecificity(outer) >= parsedSpecificity(inner)
-  );
 }
 
 function componentIsoDate(result: chrono.ParsedResult): string {
@@ -219,18 +152,18 @@ function requiredComponent(
 
 function daypartPreference(
   result: chrono.ParsedResult,
-): AvailabilityTimePreference[] {
+): AvailabilityTimePreference | undefined {
   const tags = result.tags();
-  if (tags.has("casualReference/morning")) return [{ kind: "morning" }];
-  if (tags.has("casualReference/afternoon")) return [{ kind: "afternoon" }];
-  return [];
+  if (tags.has("casualReference/morning")) return { kind: "morning" };
+  if (tags.has("casualReference/afternoon")) return { kind: "afternoon" };
+  return undefined;
 }
 
-function clockTimePreferences(
+function clockTimePreference(
   result: chrono.ParsedResult,
-): AvailabilityTimePreference[] {
+): AvailabilityTimePreference | undefined {
   const hour = result.start.get("hour");
-  if (hour === null) return [];
+  if (hour === null) return undefined;
   const minute = result.start.get("minute") ?? 0;
   if (
     result.start.isCertain("meridiem") ||
@@ -238,18 +171,12 @@ function clockTimePreferences(
     result.tags().has("casualReference/noon") ||
     result.tags().has("casualReference/midnight")
   ) {
-    return [
-      {
-        minuteOfDay: normalizedMinuteOfDay(hour, minute),
-      },
-    ];
+    return { minuteOfDay: normalizedMinuteOfDay(hour, minute) };
   }
 
-  return [
-    {
-      minuteOfDay: normalizedMinuteOfDay(businessHoursHour(hour), minute),
-    },
-  ];
+  return {
+    minuteOfDay: normalizedMinuteOfDay(businessHoursHour(hour), minute),
+  };
 }
 
 function businessHoursHour(hour: number): number {
@@ -257,59 +184,21 @@ function businessHoursHour(hour: number): number {
   return hour === 12 ? 12 : hour;
 }
 
-function callerPreferences(
+function callerPreference(
   results: chrono.ParsedResult[],
   earliestDate: string,
-): AvailabilityPreference[] {
-  const preferences: AvailabilityPreference[] = [];
-  let currentDate: string | undefined;
-  for (const result of results) {
-    const date = hasDate(result) ? futureDate(result, earliestDate) : undefined;
-    if (date) currentDate = date;
-    const dayparts = daypartPreference(result);
-    const times =
-      dayparts.length > 0
-        ? dayparts
-        : hasTime(result)
-          ? clockTimePreferences(result)
-          : [];
-    if (date && times.length === 0) {
-      preferences.push({ date });
-      continue;
-    }
-    if (date) {
-      preferences.push(...times.map((time) => ({ date, time })));
-      continue;
-    }
-    if (times.length === 0) continue;
+): AvailabilityPreference | undefined {
+  const primary = results[0];
+  if (!primary) return undefined;
 
-    const previous = preferences.at(-1);
-    if (currentDate) {
-      if (previous?.date === currentDate && !previous.time) {
-        preferences.pop();
-      }
-      preferences.push(...times.map((time) => ({ date: currentDate, time })));
-    } else {
-      preferences.push(...times.map((time) => ({ time })));
-    }
-  }
-  return distinctPreferences(preferences);
-}
-
-function distinctPreferences(
-  values: AvailabilityPreference[],
-): AvailabilityPreference[] {
-  const seen = new Set<string>();
-  return values.filter((value) => {
-    const key = JSON.stringify(value);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function distinct(values: string[]): string[] {
-  return [...new Set(values)];
+  const date = hasDate(primary) ? futureDate(primary, earliestDate) : undefined;
+  const timeResult =
+    daypartPreference(primary) || hasTime(primary) ? primary : results[1];
+  const time = timeResult
+    ? (daypartPreference(timeResult) ?? clockTimePreference(timeResult))
+    : undefined;
+  if (!date && !time) return undefined;
+  return { ...(date ? { date } : {}), ...(time ? { time } : {}) };
 }
 
 function clinicReferenceDate(instant: Date): Date {
@@ -401,10 +290,6 @@ function futureDate(result: chrono.ParsedResult, earliestDate: string): string {
     return addIsoDays(value, 7);
   }
   return clampDate(value, earliestDate);
-}
-
-function minIsoDate(values: string[]): string {
-  return [...values].sort()[0] ?? "";
 }
 
 function normalizedMinuteOfDay(hour: number, minute: number): number {

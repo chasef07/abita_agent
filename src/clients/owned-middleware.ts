@@ -11,6 +11,7 @@ import {
 
 const DEFAULT_PRODUCTION_BASE_URL =
   "https://advancedmd-token-management-production.up.railway.app";
+const RANKED_AVAILABILITY_SELECTION_POLICY = "preference_ranked_v1";
 
 export type { PatientResolveCandidate, PatientResolveVerified };
 
@@ -58,6 +59,7 @@ export type AvailabilityResult =
       searchedFrom?: string;
       searchedThrough?: string;
       bookingTokenExpiresAt?: string;
+      selectionPolicy?: typeof RANKED_AVAILABILITY_SELECTION_POLICY;
       dateShifted: boolean;
       shouldRetrySameSearch: boolean;
       message?: string;
@@ -304,15 +306,26 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
         ...(request.dob ? { dob: request.dob } : {}),
         ...(request.routing ? { routing: request.routing } : {}),
         ...(request.preauthRequired ? { preauthRequired: true } : {}),
-        ...(request.preferences?.length
+        ...(request.preferences !== undefined
           ? { preferences: request.preferences }
           : {}),
       },
       { signal: request.signal },
     );
-    return transport.ok
-      ? normalizeAvailability(transport.value)
-      : transport.failure;
+    if (!transport.ok) return transport.failure;
+
+    const result = normalizeAvailability(transport.value);
+    if (result.status === "error") return result;
+    if (
+      request.preferences !== undefined &&
+      result.selectionPolicy !== RANKED_AVAILABILITY_SELECTION_POLICY
+    ) {
+      return {
+        status: "error",
+        reason: "invalid_response",
+      };
+    }
+    return result;
   }
 
   async createPatient(request: {
@@ -627,6 +640,10 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
   return {
     status,
     slots,
+    ...(stringValue(raw.selectionPolicy) ===
+    RANKED_AVAILABILITY_SELECTION_POLICY
+      ? { selectionPolicy: RANKED_AVAILABILITY_SELECTION_POLICY }
+      : {}),
     ...(stringValue(raw.requestedDate)
       ? { requestedDate: stringValue(raw.requestedDate) ?? undefined }
       : {}),

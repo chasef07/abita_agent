@@ -31,10 +31,11 @@ import {
 } from "../state/observability.js";
 import {
   activeRoutingContext,
-  availabilitySlotsForState,
   clearAvailabilitySelection,
+  currentAvailabilityDate,
   latestAvailabilityRouting,
   removeAvailabilitySlot,
+  setCurrentAvailabilityDate,
 } from "./state.js";
 import {
   appointmentActionStatusForBookingResult,
@@ -136,7 +137,7 @@ export class SchedulingWorkflow {
     const resolvedWhen = resolveAvailabilityWhen(
       args.when,
       this.clock,
-      singleCurrentAvailabilityDate(state),
+      currentAvailabilityDate(state),
     );
     const request = buildAvailabilityLookupRequestForState(state, {
       ...args,
@@ -184,6 +185,10 @@ export class SchedulingWorkflow {
       }
     }
     try {
+      setCurrentAvailabilityDate(
+        state,
+        availabilityReferenceDate(request.body, result),
+      );
       const response = storeAvailabilitySlots(state, result, request.routing);
       if (response.cacheable) {
         cacheCompletedAvailabilityRead(
@@ -736,17 +741,6 @@ export class SchedulingWorkflow {
   }
 }
 
-function singleCurrentAvailabilityDate(state: CallState): string | undefined {
-  const dates = [
-    ...new Set(
-      availabilitySlotsForState(state)
-        .map((slot) => slot.date.trim())
-        .filter(Boolean),
-    ),
-  ];
-  return dates.length === 1 ? dates[0] : undefined;
-}
-
 function cancellationRequestForAppointment(
   appointment: CallerAppointment,
   patientId: string,
@@ -812,7 +806,7 @@ function buildAvailabilityLookupRequestForState(
     return { blocked: unsupportedRoutineVisionScheduling };
   const routing = routingForAvailability(state);
   const body: MiddlewareAvailabilityRequest = { date };
-  if (preferences?.length) body.preferences = preferences;
+  body.preferences = preferences ?? [];
   const dob = activePatientDob(state);
   if (dob) body.dob = dob;
   if (routing) body.routing = routing;
@@ -853,6 +847,23 @@ function availabilityBackendKey(
     routing: input.routing,
     preauthRequired: input.body.preauthRequired === true,
   });
+}
+
+function availabilityReferenceDate(
+  request: MiddlewareAvailabilityRequest,
+  result: AvailabilityResult,
+): string | undefined {
+  const dates =
+    result.status === "found"
+      ? result.slots.flatMap((slot) => {
+          const date = slot.date.trim() || slot.datetime.split("T")[0]?.trim();
+          return date ? [date] : [];
+        })
+      : (request.preferences ?? []).flatMap((preference) =>
+          preference.date?.trim() ? [preference.date.trim()] : [],
+        );
+  const distinctDates = [...new Set(dates)];
+  return distinctDates.length === 1 ? distinctDates[0] : undefined;
 }
 
 function ensureNewAppointmentBookingContext(state: CallState): void {

@@ -65,6 +65,7 @@ export function createSchedulingState(input: {
     },
     availability: {
       slots,
+      currentDate: singleAvailabilityDate(slots),
       latestRouting: input.lastAvailabilityRouting,
       bookingTokensBySlotId: {},
       nextSlotIndex: nextAvailabilitySlotIndexAfter(slots),
@@ -178,6 +179,7 @@ export function clearAvailabilitySelection(
 ): void {
   if (options.invalidateReads) {
     invalidateAvailabilityReads(state, options.invalidateReads);
+    state.availability.currentDate = undefined;
   }
   state.availability.slots = [];
   state.availability.latestRouting = null;
@@ -224,6 +226,17 @@ export function latestAvailabilityRouting(state: CallState): string | null {
   return (
     state.availability.latestRouting ?? state.workflow.routing.routing ?? null
   );
+}
+
+export function currentAvailabilityDate(state: CallState): string | undefined {
+  return state.availability.currentDate?.trim() || undefined;
+}
+
+export function setCurrentAvailabilityDate(
+  state: CallState,
+  date: string | undefined,
+): void {
+  state.availability.currentDate = date?.trim() || undefined;
 }
 
 export function availabilitySlotsForState(
@@ -341,6 +354,15 @@ function nextAvailabilitySlotIndexAfter(
     const index = availabilitySlotIndex(slot.slotId);
     return index === null ? nextIndex : Math.max(nextIndex, index + 1);
   }, 0);
+}
+
+function singleAvailabilityDate(
+  slots: readonly StoredAvailabilitySlot[],
+): string | undefined {
+  const dates = [
+    ...new Set(slots.map((slot) => slot.date.trim()).filter(Boolean)),
+  ];
+  return dates.length === 1 ? dates[0] : undefined;
 }
 
 function availabilitySlotIndex(slotId: string): number | null {

@@ -214,6 +214,159 @@ describe("Scheduling Workflow caller-language availability", () => {
     expect(response).toContain("June 16 at 10:00 AM");
   });
 
+  it("keeps the searched date after no availability when the caller says that day", async () => {
+    const state = createState();
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        noAvailability("2026-06-16"),
+        foundAvailability("2026-06-16", [{ time: "10:00 AM" }]),
+      ],
+    });
+    const { get_availability } = createSchedulingTools(
+      middleware,
+      fixedClock("2026-06-09T14:42:00.000Z"),
+    );
+    const ctx = createToolContext(state);
+
+    await get_availability.execute(
+      { when: "next Tuesday", appointmentLane: "medical_md" },
+      { ctx: ctx as never, toolCallId: "availability-1" } as never,
+    );
+    await get_availability.execute(
+      { when: "how about 10 for that day", appointmentLane: "medical_md" },
+      { ctx: ctx as never, toolCallId: "availability-2" } as never,
+    );
+
+    expect(middleware.operations[1]).toMatchObject({
+      kind: "availability",
+      request: {
+        date: "2026-06-16",
+        preferences: [
+          {
+            date: "2026-06-16",
+            time: { minuteOfDay: 600 },
+          },
+        ],
+      },
+    });
+  });
+
+  it("uses the offered date when availability shifts beyond the search start", async () => {
+    const state = createState();
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        {
+          ...foundAvailability("2026-06-15", [{ time: "3:00 PM" }]),
+          requestedDate: "2026-06-10",
+          searchedFrom: "2026-06-10",
+          dateShifted: true,
+        },
+        foundAvailability("2026-06-15", [{ time: "10:00 AM" }]),
+      ],
+    });
+    const { get_availability } = createSchedulingTools(
+      middleware,
+      fixedClock("2026-06-09T14:42:00.000Z"),
+    );
+    const ctx = createToolContext(state);
+
+    await get_availability.execute(
+      { when: "whenever you can get me in", appointmentLane: "medical_md" },
+      { ctx: ctx as never, toolCallId: "availability-1" } as never,
+    );
+    await get_availability.execute(
+      { when: "how about 10 for that day", appointmentLane: "medical_md" },
+      { ctx: ctx as never, toolCallId: "availability-2" } as never,
+    );
+
+    expect(middleware.operations[1]).toMatchObject({
+      kind: "availability",
+      request: {
+        date: "2026-06-15",
+        preferences: [
+          {
+            date: "2026-06-15",
+            time: { minuteOfDay: 600 },
+          },
+        ],
+      },
+    });
+  });
+
+  it("does not reuse a stale offered date after a newer failed search", async () => {
+    const state = createState();
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        foundAvailability("2026-06-16", [{ time: "3:00 PM" }]),
+        { status: "error", reason: "network_error" },
+        foundAvailability("2026-06-18", [{ time: "10:00 AM" }]),
+      ],
+    });
+    const { get_availability } = createSchedulingTools(
+      middleware,
+      fixedClock("2026-06-09T14:42:00.000Z"),
+    );
+    const ctx = createToolContext(state);
+
+    await get_availability.execute(
+      { when: "next Tuesday", appointmentLane: "medical_md" },
+      { ctx: ctx as never, toolCallId: "availability-1" } as never,
+    );
+    await get_availability.execute(
+      { when: "June 18", appointmentLane: "medical_md" },
+      { ctx: ctx as never, toolCallId: "availability-2" } as never,
+    );
+    await get_availability.execute(
+      { when: "how about 10 for that day", appointmentLane: "medical_md" },
+      { ctx: ctx as never, toolCallId: "availability-3" } as never,
+    );
+
+    expect(middleware.operations[2]).toMatchObject({
+      kind: "availability",
+      request: {
+        date: "2026-06-18",
+        preferences: [
+          {
+            date: "2026-06-18",
+            time: { minuteOfDay: 600 },
+          },
+        ],
+      },
+    });
+  });
+
+  it("uses the first option as that day after an or phrase", async () => {
+    const state = createState();
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        noAvailability("2026-06-15"),
+        noAvailability("2026-06-15"),
+      ],
+    });
+    const { get_availability } = createSchedulingTools(
+      middleware,
+      fixedClock("2026-06-09T14:42:00.000Z"),
+    );
+    const ctx = createToolContext(state);
+
+    await get_availability.execute(
+      { when: "Monday or Thursday", appointmentLane: "medical_md" },
+      { ctx: ctx as never, toolCallId: "availability-1" } as never,
+    );
+    await get_availability.execute(
+      { when: "how about 10 for that day", appointmentLane: "medical_md" },
+      { ctx: ctx as never, toolCallId: "availability-2" } as never,
+    );
+
+    expect(middleware.operations[1]).toMatchObject({
+      kind: "availability",
+      request: {
+        date: "2026-06-15",
+        preferences: [{ date: "2026-06-15", time: { minuteOfDay: 600 } }],
+      },
+    });
+  });
+
   it("does not reuse a prior date without a same-day reference", async () => {
     const state = createState();
     const middleware = new InMemorySchedulingMiddleware({
@@ -262,7 +415,7 @@ describe("Scheduling Workflow caller-language availability", () => {
         },
       },
     ]);
-    expect(middleware.operations[0]).not.toHaveProperty("request.preferences");
+    expect(middleware.operations[0]).toHaveProperty("request.preferences", []);
     expect(response).toContain("June 10 at 9:00 AM");
   });
 
@@ -282,55 +435,41 @@ describe("Scheduling Workflow caller-language availability", () => {
     ]);
   });
 
-  it("represents multiple date alternatives without asking a follow-up", async () => {
+  it("uses the first parsed option in an or phrase", async () => {
     const { middleware } = await checkAvailability({
       when: "Monday or Thursday afternoon",
-      result: noAvailability("2026-06-11"),
+      result: noAvailability("2026-06-15"),
     });
 
     expect(middleware.operations).toMatchObject([
       {
         kind: "availability",
         request: {
-          date: "2026-06-11",
-          preferences: [
-            { date: "2026-06-15" },
-            {
-              date: "2026-06-11",
-              time: { kind: "afternoon" },
-            },
-          ],
+          date: "2026-06-15",
+          preferences: [{ date: "2026-06-15" }],
         },
       },
     ]);
     expect(middleware.operations[0]).toHaveProperty("request.preferences", [
       { date: "2026-06-15" },
-      {
-        date: "2026-06-11",
-        time: { kind: "afternoon" },
-      },
     ]);
   });
 
-  it("preserves the date and time pairing of each alternative", async () => {
+  it("keeps the date and time from the first parsed option", async () => {
     const { middleware } = await checkAvailability({
       when: "Monday at 3 PM or Thursday morning",
-      result: noAvailability("2026-06-11"),
+      result: noAvailability("2026-06-15"),
     });
 
     expect(middleware.operations).toMatchObject([
       {
         kind: "availability",
         request: {
-          date: "2026-06-11",
+          date: "2026-06-15",
           preferences: [
             {
               date: "2026-06-15",
               time: { minuteOfDay: 900 },
-            },
-            {
-              date: "2026-06-11",
-              time: { kind: "morning" },
             },
           ],
         },
@@ -364,10 +503,10 @@ describe("Scheduling Workflow caller-language availability", () => {
     ]);
   });
 
-  it("preserves the parsed clock of each alternative", async () => {
+  it("uses only the first parsed clock option", async () => {
     const { middleware } = await checkAvailability({
       when: "Monday before 3 PM or Thursday after 4 PM",
-      result: noAvailability("2026-06-11"),
+      result: noAvailability("2026-06-15"),
     });
 
     expect(middleware.operations[0]).toHaveProperty("request.preferences", [
@@ -375,14 +514,10 @@ describe("Scheduling Workflow caller-language availability", () => {
         date: "2026-06-15",
         time: { minuteOfDay: 900 },
       },
-      {
-        date: "2026-06-11",
-        time: { minuteOfDay: 960 },
-      },
     ]);
   });
 
-  it("keeps a preceding date on a later daypart alternative", async () => {
+  it("uses the first daypart in an or phrase", async () => {
     const { middleware } = await checkAvailability({
       when: "Tuesday morning or afternoon",
       result: noAvailability("2026-06-16"),
@@ -392,10 +527,6 @@ describe("Scheduling Workflow caller-language availability", () => {
       {
         date: "2026-06-16",
         time: { kind: "morning" },
-      },
-      {
-        date: "2026-06-16",
-        time: { kind: "afternoon" },
       },
     ]);
   });
