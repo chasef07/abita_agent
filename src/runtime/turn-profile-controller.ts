@@ -1,5 +1,4 @@
 import { AgentSessionEventTypes, type AgentSession } from "@livekit/agents";
-import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import {
   snapshotSttProfileTransition,
   type SttProfileTransitionAnalytics,
@@ -7,14 +6,20 @@ import {
 import { voiceEndpointingProfiles } from "../session-options.js";
 import type { CallState } from "../state/call-state.js";
 import {
+  type AssemblyAIInferenceModelOptions,
   type SttProfile,
   getAssemblyAIAgentContext,
-  getAssemblyAISttProfileOptions,
+  getAssemblyAIInferenceSttProfileOptions,
   selectSttProfileForAssistantText,
 } from "../stt-config.js";
 
 type EndpointingProfile = keyof typeof voiceEndpointingProfiles;
 type EndpointingOptions = (typeof voiceEndpointingProfiles)[EndpointingProfile];
+type InferenceStt = {
+  updateOptions: (options: {
+    modelOptions: AssemblyAIInferenceModelOptions;
+  }) => void;
+};
 
 export type TurnProfileController = {
   applySttProfile: (
@@ -25,7 +30,7 @@ export type TurnProfileController = {
       callerText?: string;
       createdAt?: number;
     },
-    extraOptions?: Partial<assemblyai.STTOptions>,
+    extraOptions?: AssemblyAIInferenceModelOptions,
   ) => void;
   commitUserTurn: () => void;
   observeAssistantText: (assistantText: string, complete: boolean) => void;
@@ -34,7 +39,7 @@ export type TurnProfileController = {
 };
 
 export function createTurnProfileController(
-  stt: assemblyai.STT,
+  stt: InferenceStt,
   options: {
     startedAt: Date;
     updateEndpointing: (options: EndpointingOptions) => void;
@@ -60,7 +65,7 @@ export function createTurnProfileController(
       callerText?: string;
       createdAt?: number;
     } = {},
-    extraOptions: Partial<assemblyai.STTOptions> = {},
+    extraOptions: AssemblyAIInferenceModelOptions = {},
   ) => {
     if (
       profile === activeSttProfile &&
@@ -71,8 +76,10 @@ export function createTurnProfileController(
 
     const previousProfile = activeSttProfile;
     stt.updateOptions({
-      ...getAssemblyAISttProfileOptions(profile),
-      ...extraOptions,
+      modelOptions: {
+        ...getAssemblyAIInferenceSttProfileOptions(profile),
+        ...extraOptions,
+      },
     });
     if (profile === activeSttProfile) return;
 
@@ -86,7 +93,9 @@ export function createTurnProfileController(
         to: profile,
       }),
     );
-    console.log(`[stt] AssemblyAI profile=${profile} reason=${reason}`);
+    console.log(
+      `[stt] AssemblyAI inference profile=${profile} reason=${reason}`,
+    );
   };
 
   const applyEndpointingProfile = (profile: EndpointingProfile) => {
@@ -109,7 +118,7 @@ export function createTurnProfileController(
       profile,
       "assistant_prompt",
       { assistantText },
-      agentContext ? { agentContext } : {},
+      agentContext ? { agent_context: agentContext } : {},
     );
     if (profile !== "default") {
       applyEndpointingProfile("deliberate");

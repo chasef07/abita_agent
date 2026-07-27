@@ -103,12 +103,18 @@ export function normalizeVoiceLanguage(
 export function readAssemblyAiLanguageConfidence(
   alternative?: SpeechAlternative,
 ): number | null {
-  const assemblyai = alternative?.metadata?.assemblyai;
-  if (!isRecord(assemblyai)) return null;
+  const metadata = alternative?.metadata;
+  if (!isRecord(metadata)) return null;
+
+  const assemblyai = metadata.assemblyai;
 
   return (
-    toFiniteNumber(assemblyai.languageConfidence) ??
-    toFiniteNumber(assemblyai.language_confidence)
+    (isRecord(assemblyai)
+      ? (toFiniteNumber(assemblyai.languageConfidence) ??
+        toFiniteNumber(assemblyai.language_confidence))
+      : null) ??
+    toFiniteNumber(metadata.languageConfidence) ??
+    toFiniteNumber(metadata.language_confidence)
   );
 }
 

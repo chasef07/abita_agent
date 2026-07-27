@@ -1,5 +1,4 @@
 import { AgentSessionEventTypes, type AgentSession } from "@livekit/agents";
-import type * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import { describe, expect, it, vi } from "vitest";
 import { observeAssistantText } from "../agent.js";
 import {
@@ -7,6 +6,8 @@ import {
   createTurnProfileController,
 } from "../runtime/turn-profile-controller.js";
 import type { CallState } from "../state/call-state.js";
+
+type TurnProfileStt = Parameters<typeof createTurnProfileController>[0];
 
 class TestSession {
   readonly listeners = new Map<string, (event: never) => void>();
@@ -21,11 +22,69 @@ class TestSession {
 }
 
 describe("turn profile controller", () => {
+  it("applies profile and latest assistant context through Inference model options", () => {
+    const updateOptions = vi.fn();
+    const stt = {
+      updateOptions,
+    } as TurnProfileStt;
+    const controller = createTurnProfileController(stt, {
+      startedAt: new Date("2026-07-23T10:00:00.000Z"),
+      updateEndpointing: vi.fn(),
+    });
+
+    controller.observeAssistantText(
+      "Can I get the member ID from your insurance card?",
+      true,
+    );
+    expect(updateOptions).toHaveBeenLastCalledWith({
+      modelOptions: {
+        agent_context: "Can I get the member ID from your insurance card?",
+        keyterms_prompt: [],
+        max_turn_silence: 3000,
+        min_turn_silence: 450,
+        vad_threshold: 0.3,
+      },
+    });
+
+    controller.observeAssistantText("Go ahead, spell that.", true);
+    expect(controller.activeSttProfile).toBe("memberId");
+    expect(updateOptions).toHaveBeenLastCalledWith({
+      modelOptions: {
+        agent_context: "Go ahead, spell that.",
+        keyterms_prompt: [],
+        max_turn_silence: 3000,
+        min_turn_silence: 450,
+        vad_threshold: 0.3,
+      },
+    });
+  });
+
+  it("caps completed assistant context at the latest 1,500 characters", () => {
+    const updateOptions = vi.fn();
+    const stt = {
+      updateOptions,
+    } as TurnProfileStt;
+    const controller = createTurnProfileController(stt, {
+      startedAt: new Date("2026-07-23T10:00:00.000Z"),
+      updateEndpointing: vi.fn(),
+    });
+    const assistantText = `start-${"x".repeat(1_500)}-end`;
+
+    controller.observeAssistantText(assistantText, true);
+
+    const lastUpdate = updateOptions.mock.lastCall?.[0] as {
+      modelOptions: { agent_context: string };
+    };
+    expect(lastUpdate.modelOptions.agent_context).toHaveLength(1_500);
+    expect(lastUpdate.modelOptions.agent_context).not.toContain("start-");
+    expect(lastUpdate.modelOptions.agent_context).toContain("-end");
+  });
+
   it("arms deliberate endpointing while the assistant prompt enters TTS", async () => {
     const updateEndpointing = vi.fn();
     const stt = {
       updateOptions: vi.fn(),
-    } as unknown as assemblyai.STT;
+    } as TurnProfileStt;
     const controller = createTurnProfileController(stt, {
       startedAt: new Date("2026-07-23T10:00:00.000Z"),
       updateEndpointing,
@@ -46,9 +105,10 @@ describe("turn profile controller", () => {
 
   it("keeps deliberate endpointing until LiveKit commits the user turn", () => {
     const updateEndpointing = vi.fn();
+    const updateOptions = vi.fn();
     const stt = {
-      updateOptions: vi.fn(),
-    } as unknown as assemblyai.STT;
+      updateOptions,
+    } as TurnProfileStt;
     const controller = createTurnProfileController(stt, {
       startedAt: new Date("2026-07-23T10:00:00.000Z"),
       updateEndpointing,
@@ -70,6 +130,26 @@ describe("turn profile controller", () => {
     });
 
     expect(updateEndpointing).toHaveBeenCalledTimes(1);
+    expect(controller.activeSttProfile).toBe("default");
+    expect(updateOptions).toHaveBeenLastCalledWith({
+      modelOptions: {
+        keyterms_prompt: [
+          "Abita Eye Group",
+          "Eye Radiance",
+          "Spring Hill",
+          "Crystal River",
+          "Dr. Bach",
+          "Dr. Noel",
+          "Dr. Licht",
+          "Austin Bach",
+          "iCare",
+          "Ambetter",
+        ],
+        max_turn_silence: 2000,
+        min_turn_silence: 275,
+        vad_threshold: 0.3,
+      },
+    });
 
     session.emit(AgentSessionEventTypes.ConversationItemAdded, {
       createdAt: Date.parse("2026-07-23T10:00:11.000Z"),

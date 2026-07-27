@@ -1,10 +1,10 @@
 # AssemblyAI Universal-3.5 Pro STT — Design Decisions
 
-Switched STT from Deepgram Nova-3 to AssemblyAI Universal-3 Pro Streaming on 2026-04-06, then to AssemblyAI Universal-3.5 Pro Streaming on 2026-06-20. The active runtime now uses the direct `@livekit/agents-plugin-assemblyai` plugin with `ASSEMBLYAI_API_KEY`.
+Switched STT from Deepgram Nova-3 to AssemblyAI Universal-3 Pro Streaming on 2026-04-06, then to AssemblyAI Universal-3.5 Pro Streaming on 2026-06-20. The active runtime now reaches AssemblyAI through LiveKit Inference using the existing LiveKit Cloud credentials.
 
 ## Key decisions
 
-**Direct AssemblyAI plugin:** Using `new assemblyai.STT(getAssemblyAISttOptions())` from `@livekit/agents-plugin-assemblyai`. This keeps STT on AssemblyAI Universal-3.5 Pro while preserving direct AssemblyAI runtime options and profile updates.
+**LiveKit Inference transport:** Using `new inference.STT(getAssemblyAIInferenceSttOptions())` from `@livekit/agents`. The model remains `assemblyai/universal-3-5-pro`; provider options are passed in snake case through `modelOptions`.
 
 **LiveKit audio turn detection:** The session uses `inference.TurnDetector()` as the primary turn-boundary owner. AssemblyAI's silence settings still control transcription timing and entity-dictation quality, but its end-of-speech events do not commit turns in this mode.
 
@@ -18,7 +18,7 @@ Switched STT from Deepgram Nova-3 to AssemblyAI Universal-3 Pro Streaming on 202
 
 **Conservative keyterms enabled at startup:** The agent passes a short `keytermsPrompt` list for hard-to-hear practice terms, locations, provider names, and only a couple of distinctive always-on payer terms. This targets observed STT misses without loading the full insurance list.
 
-**Dynamic profiles for high-risk turns:** When an assistant message asks for insurance, member ID, DOB/intake details, or email, the session calls `stt.updateOptions(...)` before the next caller turn. This updates the active direct AssemblyAI STT stream, bumps silence for entity dictation, and swaps to the most relevant keyterms. Member ID, intake, and email profiles intentionally send an empty keyterm list so those turns get extra silence without carrying stale payer bias. After the caller's final transcript, the session resets to the default profile.
+**Dynamic profiles for high-risk turns:** When an assistant message asks for insurance, member ID, DOB/intake details, or email, the session calls `stt.updateOptions({ modelOptions })` before the next caller turn. LiveKit sends the update through the active Inference stream as `session.update`, so the AssemblyAI stream is updated without reconnecting. This bumps silence for entity dictation and swaps to the most relevant keyterms. Member ID, intake, and email profiles intentionally send an empty keyterm list so those turns get extra silence without carrying stale payer bias. After the caller's final transcript, the session resets to the default profile.
 
 ## Parameters
 

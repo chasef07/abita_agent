@@ -10,7 +10,6 @@ import {
   cli,
   defineAgent,
 } from "@livekit/agents";
-import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as rime from "@livekit/agents-plugin-rime";
 import { fileURLToPath } from "node:url";
 import { createVoiceAgent } from "./agent.js";
@@ -40,7 +39,7 @@ import {
   type SttLanguageDecision,
   type VoiceLanguage,
 } from "./stt-language-detector.js";
-import { getAssemblyAISttOptions } from "./stt-config.js";
+import { getAssemblyAIInferenceSttOptions } from "./stt-config.js";
 import {
   configureVoiceVad,
   voiceMaxToolSteps,
@@ -123,7 +122,7 @@ function createTtsRuntime(input: { trunkPhone: string }): TtsRuntime {
 export default defineAgent({
   entry: async (ctx: JobContext) => {
     try {
-      const stt = new assemblyai.STT(getAssemblyAISttOptions());
+      const stt = new inference.STT(getAssemblyAIInferenceSttOptions());
 
       // Connect and wait for the SIP participant
       await ctx.connect();

@@ -1,5 +1,3 @@
-import type { STTOptions as AssemblyAIPluginSttOptions } from "@livekit/agents-plugin-assemblyai";
-
 export const ASSEMBLYAI_BASE_TIMING = {
   minTurnSilence: 275,
   maxTurnSilence: 2000,
@@ -8,6 +6,8 @@ export const ASSEMBLYAI_BASE_TIMING = {
 
 export const ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS = 30;
 export const ASSEMBLYAI_AGENT_CONTEXT_MAX_CHARS = 1500;
+export const ASSEMBLYAI_INFERENCE_MODEL =
+  "assemblyai/universal-3-5-pro" as const;
 
 export const ASSEMBLYAI_DEFAULT_KEYTERMS = [
   "Abita Eye Group",
@@ -21,6 +21,13 @@ export const ASSEMBLYAI_DEFAULT_KEYTERMS = [
   "iCare",
   "Ambetter",
 ] as const;
+
+type AssemblyAISttProfileDefinition = {
+  keytermsPrompt: string[];
+  maxTurnSilence: number;
+  minTurnSilence: number;
+  vadThreshold: number;
+};
 
 export const ASSEMBLYAI_STT_PROFILES = {
   default: {
@@ -68,29 +75,44 @@ export const ASSEMBLYAI_STT_PROFILES = {
     maxTurnSilence: 4000,
     vadThreshold: 0.3,
   },
-} satisfies Record<string, Partial<AssemblyAIPluginSttOptions>>;
+} satisfies Record<string, AssemblyAISttProfileDefinition>;
 
 export type AssemblyAISttProfile = keyof typeof ASSEMBLYAI_STT_PROFILES;
 export type SttProfile = AssemblyAISttProfile;
 
-export function getAssemblyAISttOptions(): Partial<AssemblyAIPluginSttOptions> {
+export type AssemblyAIInferenceModelOptions = {
+  agent_context?: string;
+  inactivity_timeout?: number;
+  keyterms_prompt?: string[];
+  language_detection?: boolean;
+  max_turn_silence?: number;
+  min_turn_silence?: number;
+  vad_threshold?: number;
+};
+
+export function getAssemblyAIInferenceSttOptions() {
   return {
-    speechModel: "universal-3-5-pro",
-    languageDetection: true,
-    inactivityTimeout: ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
-    ...ASSEMBLYAI_STT_PROFILES.default,
+    model: ASSEMBLYAI_INFERENCE_MODEL,
+    modelOptions: {
+      inactivity_timeout: ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
+      keyterms_prompt: [...ASSEMBLYAI_DEFAULT_KEYTERMS],
+      language_detection: true,
+      max_turn_silence: ASSEMBLYAI_BASE_TIMING.maxTurnSilence,
+      min_turn_silence: ASSEMBLYAI_BASE_TIMING.minTurnSilence,
+      vad_threshold: ASSEMBLYAI_BASE_TIMING.vadThreshold,
+    } satisfies AssemblyAIInferenceModelOptions,
   };
 }
 
-export function getAssemblyAISttProfileOptions(
+export function getAssemblyAIInferenceSttProfileOptions(
   profile: AssemblyAISttProfile,
-): Partial<AssemblyAIPluginSttOptions> {
+): AssemblyAIInferenceModelOptions {
   const options = ASSEMBLYAI_STT_PROFILES[profile];
   return {
-    ...options,
-    keytermsPrompt: options.keytermsPrompt
-      ? [...options.keytermsPrompt]
-      : undefined,
+    keyterms_prompt: [...options.keytermsPrompt],
+    max_turn_silence: options.maxTurnSilence,
+    min_turn_silence: options.minTurnSilence,
+    vad_threshold: options.vadThreshold,
   };
 }
 

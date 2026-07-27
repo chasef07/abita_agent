@@ -30,6 +30,26 @@ function speechEvent(
 }
 
 describe("SttLanguageDetector", () => {
+  it("reads flat AssemblyAI language confidence from Inference metadata", () => {
+    const detector = new SttLanguageDetector();
+    const event = speechEvent(
+      stt.SpeechEventType.FINAL_TRANSCRIPT,
+      "es-MX",
+      null,
+    );
+    event.alternatives![0].metadata = {
+      language_confidence: 0.95,
+    };
+
+    expect(detector.updateFromSpeechEvent(event)).toMatchObject({
+      action: "switch",
+      confidence: 0.95,
+      from: "en",
+      providerCode: "es-MX",
+      to: "es",
+    });
+  });
+
   it("ignores interim and preflight language codes", () => {
     const detector = new SttLanguageDetector();
 
