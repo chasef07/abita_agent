@@ -1176,6 +1176,9 @@ describe("model-facing tool definitions", () => {
       "firstName, lastName, and DOB",
     );
     expect(resolve_patient.description).toContain(
+      "use this tool as the last resort for existing-patient lookup",
+    );
+    expect(resolve_patient.description).toContain(
       "Use this tool to switch to a different patient using caller-provided identity details",
     );
     expect(resolve_patient.description).toContain(

@@ -774,7 +774,6 @@ describe("Voice Agent identity promotion", () => {
       {
         state,
         transcript: "Maria",
-        lastAssistantText: "Who is the appointment for?",
       },
       lookup,
     );
@@ -871,7 +870,6 @@ describe("Voice Agent identity promotion", () => {
     const confirmation = {
       state,
       transcript: "Maria",
-      lastAssistantText: "Who is the appointment for?",
     };
     const first = confirmIdentityFromTranscript(confirmation, lookup);
     const second = confirmIdentityFromTranscript(confirmation, lookup);
@@ -930,7 +928,6 @@ describe("Voice Agent identity promotion", () => {
         {
           state,
           transcript: "Maria",
-          lastAssistantText: "Who is the appointment for?",
         },
         async () =>
           verifiedPatient({
@@ -1064,7 +1061,6 @@ describe("Voice Agent identity promotion", () => {
         {
           state,
           transcript: "Jane",
-          lastAssistantText: "Who is the appointment for?",
         },
         lookup,
       ),
@@ -1133,7 +1129,6 @@ describe("Voice Agent identity promotion", () => {
       {
         state,
         transcript: "Jane",
-        lastAssistantText: "Who is the appointment for?",
       },
       lookup,
     );
@@ -1141,7 +1136,6 @@ describe("Voice Agent identity promotion", () => {
       {
         state,
         transcript: "Maria",
-        lastAssistantText: "Who is the appointment for?",
       },
       lookup,
     );

@@ -124,7 +124,7 @@ describe("completed user turn context", () => {
     );
   });
 
-  it("activates a matching pre-call patient before the model turn without resolve_patient", async () => {
+  it("activates a matching pre-call patient from the first caller turn without resolve_patient", async () => {
     const state = createTestCallState({
       officeKey: "spring-hill",
       amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
@@ -167,11 +167,6 @@ describe("completed user turn context", () => {
     });
 
     const turnContext = ChatContext.empty();
-    turnContext.addMessage({
-      role: "assistant",
-      content:
-        "To help with the appointment, could you spell the patient's first name?",
-    });
     await session.currentAgent.onUserTurnCompleted(
       turnContext,
       ChatMessage.create({ role: "user", content: "L-A-R-R-Y" }),

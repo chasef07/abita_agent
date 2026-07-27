@@ -225,18 +225,15 @@ export async function confirmIdentityFromTranscript(
   {
     state,
     transcript,
-    lastAssistantText,
   }: {
     state: CallState;
     transcript: string;
-    lastAssistantText: string | null | undefined;
   },
   lookup: PatientResolveLookup,
 ): Promise<TranscriptIdentityConfirmation | null> {
   const preCall = state.identity.preCall;
   if (!preCall || state.identity.patient.identityConfirmed) return null;
   if (state.identity.patient.status === "new") return null;
-  if (!isFirstNamePrompt(lastAssistantText)) return null;
 
   const selection =
     preCall.status === "single_match_pending_confirmation"
@@ -975,26 +972,6 @@ const transcriptMatchOptions = {
   allowEditDistance: true,
   includeFullInput: false,
 };
-
-function isFirstNamePrompt(text: string | null | undefined): boolean {
-  const normalized = text?.toLowerCase() ?? "";
-  if (!normalized) return false;
-  if (
-    normalized.includes("last name") ||
-    normalized.includes("date of birth") ||
-    normalized.includes("dob") ||
-    normalized.includes("apellido") ||
-    normalized.includes("fecha de nacimiento")
-  ) {
-    return false;
-  }
-  return (
-    normalized.includes("first name") ||
-    (normalized.includes("who") && normalized.includes("for")) ||
-    (normalized.includes("primer nombre") &&
-      (normalized.includes("paciente") || normalized.includes("deletrear")))
-  );
-}
 
 function confirmedPatientSystemMessage(
   state: CallState,

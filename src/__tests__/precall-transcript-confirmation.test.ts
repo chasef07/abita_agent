@@ -69,8 +69,6 @@ describe("pre-call transcript confirmation", () => {
     const confirmation = await confirmTranscript({
       state,
       transcript: "L-A-R-R-Y.",
-      lastAssistantText:
-        "To help with the appointment, could you spell the patient's first name?",
     });
 
     expect(confirmation?.candidateRef).toBe("precall:2");
@@ -144,8 +142,6 @@ describe("pre-call transcript confirmation", () => {
     const confirmation = await confirmTranscript({
       state,
       transcript: "Brandon and Monique, Brandon Anderson and Monique Hamilton.",
-      lastAssistantText:
-        "I see a few patient records on file for this number, who's the appointment for?",
     });
 
     expect(confirmation?.candidateRef).toBe("precall:2");
@@ -233,7 +229,6 @@ describe("pre-call transcript confirmation", () => {
     const confirmation = await confirmTranscript({
       state,
       transcript: "Chase",
-      lastAssistantText: "Who is the appointment for?",
     });
     expect(confirmation).not.toBeNull();
 
@@ -256,7 +251,7 @@ describe("pre-call transcript confirmation", () => {
     expect(modelContext).not.toContain("private-provider-reference");
   });
 
-  it("does not confirm a first-name candidate while collecting last name", async () => {
+  it("promotes a unique matching first name on any caller turn", async () => {
     const state = createState();
     state.identity.preCall = {
       status: "multiple_matches_pending_selection",
@@ -284,14 +279,12 @@ describe("pre-call transcript confirmation", () => {
     const confirmation = await confirmTranscript({
       state,
       transcript: "T-E-S-T.",
-      lastAssistantText: "Thank you. And what is your last name?",
     });
 
-    expect(confirmation).toBeNull();
-    expect(state.identity.preCall.status).toBe(
-      "multiple_matches_pending_selection",
-    );
-    expect(state.identity.patient.identityConfirmed).toBe(false);
+    expect(confirmation?.candidateRef).toBe("precall:2");
+    expect(state.identity.preCall.status).toBe("multiple_match_confirmed");
+    expect(state.identity.patient.identityConfirmed).toBe(true);
+    expect(state.identity.patient.patientId).toBe("patient-test");
   });
 
   it("does not confirm when multiple candidates share the same first-name signal", async () => {
@@ -322,7 +315,6 @@ describe("pre-call transcript confirmation", () => {
     const confirmation = await confirmTranscript({
       state,
       transcript: "Kyle",
-      lastAssistantText: "Who is the appointment for?",
     });
 
     expect(confirmation).toBeNull();
@@ -357,7 +349,6 @@ describe("pre-call transcript confirmation", () => {
     const confirmation = await confirmTranscript({
       state,
       transcript: "Can I schedule Jane?",
-      lastAssistantText: "Who is the appointment for?",
     });
 
     expect(confirmation?.candidateRef).toBe("precall:2");
@@ -386,8 +377,6 @@ describe("pre-call transcript confirmation", () => {
     const confirmation = await confirmTranscript({
       state,
       transcript: "Jayne",
-      lastAssistantText:
-        "I see a patient record associated with this phone number. Could you please spell the first name for me?",
     });
 
     expect(confirmation?.candidateRef).toBe(CALLER_CANDIDATE_REF);
@@ -417,8 +406,6 @@ describe("pre-call transcript confirmation", () => {
     const confirmation = await confirmTranscript({
       state,
       transcript: "I am calling for my son.",
-      lastAssistantText:
-        "I see a patient record associated with this phone number. Could you please spell the first name for me?",
     });
 
     expect(confirmation).toBeNull();
@@ -456,7 +443,6 @@ describe("pre-call transcript confirmation", () => {
     const confirmation = await confirmTranscript({
       state,
       transcript: "Jane",
-      lastAssistantText: "What is the patient's first name for the new chart?",
     });
 
     expect(confirmation).toBeNull();
@@ -464,42 +450,4 @@ describe("pre-call transcript confirmation", () => {
     expect(state.identity.patient.identityConfirmed).toBe(false);
     expect(state.identity.patient.patientId).toBeNull();
   });
-
-  it.each([
-    "To help with the appointment, could you spell the patient's first name?",
-    "Para ayudar con la cita, ¿podría deletrear el primer nombre del paciente?",
-  ])(
-    "confirms a single pre-call candidate after %s",
-    async (lastAssistantText) => {
-      const state = createState();
-      state.identity.preCall = {
-        status: "single_match_pending_confirmation",
-        source: "phone_lookup",
-        callerPhone: "+19546097250",
-        selectedCandidateRef: CALLER_CANDIDATE_REF,
-        candidates: [
-          {
-            ref: CALLER_CANDIDATE_REF,
-            firstName: "JANE",
-            lastName: "DOE",
-            patientId: "patient-jane",
-            appointments: [],
-            appointmentsStatus: "none",
-          },
-        ],
-        identityPromotion: "none",
-      };
-
-      const confirmation = await confirmTranscript({
-        state,
-        transcript: "Jane",
-        lastAssistantText,
-      });
-
-      expect(confirmation?.candidateRef).toBe(CALLER_CANDIDATE_REF);
-      expect(state.identity.preCall.status).toBe("single_match_confirmed");
-      expect(state.identity.patient.identityConfirmed).toBe(true);
-      expect(state.identity.patient.patientId).toBe("patient-jane");
-    },
-  );
 });

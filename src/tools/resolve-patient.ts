@@ -54,9 +54,9 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
     description:
       "Resolve who the patient is when an existing patient is not already active. " +
       "Use only identity details the caller has provided. " +
-      "Runtime activates the initial matching preloaded patient; do not call this tool for that patient. " +
+      "Runtime first tries to activate a matching preloaded patient from every caller turn; do not call this tool when runtime confirmed that patient. " +
+      "If runtime cannot confirm from the supplied first name, collect firstName, lastName, and DOB and use this tool as the last resort for existing-patient lookup. " +
       "To switch to another preloaded patient, pass the caller-provided firstName. " +
-      "For existing patients not resolved from phone lookup, collect firstName, lastName, and DOB before calling. " +
       "If the correct patient is already active, do not call this tool again. Use this tool to switch to a different patient using caller-provided identity details. " +
       "Do not use this tool to mark a patient as new; add_patient owns explicit new-patient confirmation and chart creation.",
     parameters: resolvePatientParameters,
