@@ -10,7 +10,6 @@ import {
   cli,
   defineAgent,
 } from "@livekit/agents";
-import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as rime from "@livekit/agents-plugin-rime";
 import { fileURLToPath } from "node:url";
 import { createVoiceAgent } from "./agent.js";
@@ -35,7 +34,7 @@ import {
   createRimeVoiceLanguageState,
   VoiceLanguageRuntime,
 } from "./runtime/voice-language.js";
-import { getAssemblyAISttOptions } from "./stt-config.js";
+import { getAssemblyAIInferenceSttOptions } from "./stt-config.js";
 import {
   configureVoiceVad,
   voiceMaxToolSteps,
@@ -59,7 +58,7 @@ import { coordinateSessionStartup } from "./runtime/session-startup.js";
 export default defineAgent({
   entry: async (ctx: JobContext) => {
     try {
-      const stt = new assemblyai.STT(getAssemblyAISttOptions());
+      const stt = new inference.STT(getAssemblyAIInferenceSttOptions());
 
       // Connect and wait for the SIP participant
       await ctx.connect();

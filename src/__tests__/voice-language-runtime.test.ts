@@ -66,6 +66,19 @@ async function observe(
 }
 
 describe("VoiceLanguageRuntime", () => {
+  it("reads flat AssemblyAI language confidence from Inference metadata", async () => {
+    const { runtime, state, updateOptions } = createRuntime();
+    const event = speechEvent("es-MX", null);
+    event.alternatives![0].metadata = {
+      language_confidence: 0.95,
+    };
+
+    await observe(runtime, [event]);
+
+    expect(updateOptions).toHaveBeenCalledWith(OPTIONS_BY_LANGUAGE.es);
+    expect(state.current).toBe("es");
+  });
+
   it("keeps STT passthrough and switches TTS from English to Spanish and back", async () => {
     const { runtime, state, updateOptions } = createRuntime();
     const events = [speechEvent("es-MX"), "passthrough", speechEvent("en-US")];

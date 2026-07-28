@@ -114,15 +114,18 @@ function normalizeVoiceLanguage(
 function readLanguageConfidence(
   alternative?: SpeechAlternative,
 ): number | null {
-  const assemblyai = alternative?.metadata?.assemblyai;
-  if (!assemblyai || typeof assemblyai !== "object") return null;
-  const metadata = assemblyai as Record<string, unknown>;
-  for (const key of ["languageConfidence", "language_confidence"]) {
-    const value = metadata[key];
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string" && value.trim()) {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed)) return parsed;
+  const metadata = alternative?.metadata;
+  if (!metadata || typeof metadata !== "object") return null;
+
+  for (const source of [metadata.assemblyai, metadata]) {
+    if (!source || typeof source !== "object") continue;
+    for (const key of ["languageConfidence", "language_confidence"]) {
+      const value = (source as Record<string, unknown>)[key];
+      if (typeof value === "number" && Number.isFinite(value)) return value;
+      if (typeof value === "string" && value.trim()) {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+      }
     }
   }
   return null;
