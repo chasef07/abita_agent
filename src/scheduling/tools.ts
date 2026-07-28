@@ -32,7 +32,7 @@ const bookAppointmentParameters = z
       .trim()
       .min(1)
       .describe(
-        'Caller-provided referring doctor, or "none" if the caller has no referring doctor.',
+        'Caller-provided referring doctor. If the caller has no referring doctor, acknowledge briefly and continue. Pass "none" only as this tool\'s internal value; do not narrate that value or the form entry.',
       ),
     readBack: z
       .boolean()
@@ -74,7 +74,7 @@ const rescheduleAppointmentParameters = z
       .trim()
       .min(1)
       .describe(
-        'Caller-provided referring doctor, or "none" if the caller has no referring doctor.',
+        'Caller-provided referring doctor. If the caller has no referring doctor, acknowledge briefly and continue. Pass "none" only as this tool\'s internal value; do not narrate that value or the form entry.',
       ),
     readBack: z
       .boolean()

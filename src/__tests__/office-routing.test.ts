@@ -1169,6 +1169,18 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
   });
 
+  it("keeps the no-referring-doctor marker internal to scheduling tools", () => {
+    for (const schedulingTool of [book_appointment, reschedule_appointment]) {
+      const parameters = schedulingTool.parameters as {
+        shape: Record<string, { description?: string }>;
+      };
+
+      expect(parameters.shape.referringDoctor.description).toContain(
+        'Pass "none" only as this tool\'s internal value; do not narrate that value or the form entry.',
+      );
+    }
+  });
+
   it("keeps resolve_patient scoped to patient identity loading", () => {
     expect(resolve_patient.description).toContain("Resolve who the patient is");
     expect(resolve_patient.description).toContain(
