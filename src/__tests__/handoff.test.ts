@@ -204,6 +204,9 @@ describe("call-center handoff", () => {
       "sip-caller",
       PRODUCT_RESPONSE.sipDestination,
       {
+        headers: {
+          "X-Acuity-Handoff-Token": DIRECT_TOKEN,
+        },
         playDialtone: true,
         ringingTimeout: 20,
       },
@@ -359,6 +362,13 @@ describe("call-center handoff", () => {
         ...PRODUCT_RESPONSE,
         sipDestination:
           "sip:patient-name~ah1~token@acuity-product.sip.telnyx.com",
+      },
+    },
+    {
+      name: "wrong-length token",
+      response: {
+        ...PRODUCT_RESPONSE,
+        sipDestination: `sip:${"a".repeat(42)}@acuity-product.sip.telnyx.com`,
       },
     },
     {
