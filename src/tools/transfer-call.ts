@@ -11,12 +11,12 @@ import { getState } from "./session.js";
 export const transfer_call = tool({
   name: "transfer_call",
   description:
-    "Transfer the caller to office staff only when their request truly needs a live human or is outside the agent's front-desk scope. " +
-    "If they ask for a human, representative, staff, or the office without saying why, ask what they are calling about before calling this tool. " +
-    "Before calling this tool, briefly tell the caller you're transferring them now. " +
-    "Call this for emergency or urgent symptoms, suspected medication reactions, dosage or medication instructions, clinical advice, medical decisions, returned missed calls or received calls from this number, or when the caller still insists after you try to help. " +
-    "Do not call this tool for safe non-live office follow-up that another available tool can capture. " +
-    "Do not call for scheduling, insurance checks, availability, patient verification, cancellations, or office facts. ",
+    "Use for emergency, urgent, or clinical concerns, suspected medication reactions or medication instructions, returned calls from this number, or a caller who still wants live staff after one attempt to help. " +
+    "Ask what they need first when the request is vague. " +
+    "For safe, non-urgent work, offer create_staff_task first; transfer only if the tool is unavailable, fails, or the caller declines. " +
+    "Do not transfer a request captured by create_staff_task unless a new urgent concern arises. " +
+    "Tell the caller before starting the transfer. " +
+    "Do not use solely for scheduling, insurance, availability, patient verification, cancellations, or office facts.",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
