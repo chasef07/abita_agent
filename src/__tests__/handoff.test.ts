@@ -28,6 +28,13 @@ const DIRECT_RESPONSE = {
   sipUri: `sip:one-time-route~ah1~${DIRECT_TOKEN}@handoff.example`,
   expiresAt: "2099-07-13T12:00:30.000Z",
 };
+const PRODUCT_RESPONSE = {
+  id: "930926a1-986e-4a9c-8f49-2adbc90def9d",
+  sipDestination: `sip:${DIRECT_TOKEN}@acuity-product.sip.telnyx.com`,
+  expiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
+};
+const PRODUCT_PRACTICE_ID = "861dd557-eb44-4754-bbd6-40d58a624419";
+const PRODUCT_LOCATION_ID = "d7a98226-c2a1-4127-ac7b-4f1abb2494ae";
 
 function createState() {
   return createTestCallState();
@@ -41,10 +48,24 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as Response;
 }
 
+function configureProductHandoff() {
+  vi.stubEnv(
+    "DEV_ACUITY_HANDOFF_URL",
+    "https://acuity-product.example/v1/handoffs",
+  );
+  vi.stubEnv("DEV_ACUITY_HANDOFF_SECRET", "product-secret");
+  vi.stubEnv("DEV_ACUITY_HANDOFF_PRACTICE_ID", PRODUCT_PRACTICE_ID);
+  vi.stubEnv("DEV_ACUITY_HANDOFF_LOCATION_ID", PRODUCT_LOCATION_ID);
+}
+
 describe("call-center handoff", () => {
   beforeEach(() => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "");
+    vi.stubEnv("DEV_ACUITY_HANDOFF_LOCATION_ID", "");
+    vi.stubEnv("DEV_ACUITY_HANDOFF_PRACTICE_ID", "");
+    vi.stubEnv("DEV_ACUITY_HANDOFF_SECRET", "");
+    vi.stubEnv("DEV_ACUITY_HANDOFF_URL", "");
     vi.stubEnv("DEV_HANDOFF_TARGET", "");
     transferSipParticipantMock.mockReset();
     transferSipParticipantMock.mockResolvedValue(undefined);
@@ -131,6 +152,242 @@ describe("call-center handoff", () => {
         ringingTimeout: 20,
       }),
     );
+  });
+
+  it("routes only the demo through the Acuity Product handoff contract", async () => {
+    vi.stubEnv("ACUITY_HANDOFF_URL", "https://legacy.example/internal");
+    vi.stubEnv("ACUITY_HANDOFF_SECRET", "legacy-secret");
+    configureProductHandoff();
+    const fetchMock = vi.fn(async () => jsonResponse(PRODUCT_RESPONSE, 201));
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createTestCallState({ patientName: "Maria Alvarez" });
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    const contact = {
+      phone: "+17275551212",
+      phoneSource: "livekit.sip.callerPhoneNumber",
+      displayName: "Maria Alvarez",
+      nameSource: "abita.patient-context",
+    };
+    const identity = {
+      practiceId: PRODUCT_PRACTICE_ID,
+      locationId: PRODUCT_LOCATION_ID,
+      sourceCallId: "call-test",
+    };
+    const payload = {
+      ...identity,
+      contact,
+      idempotencyKey: createHash("sha256")
+        .update(JSON.stringify(identity))
+        .digest("hex"),
+    };
+
+    const result = await transferCallerToOffice(state);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://acuity-product.example/v1/handoffs",
+      expect.objectContaining({
+        body: JSON.stringify(payload),
+        headers: {
+          Authorization: "Bearer product-secret",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    expect(result).toEqual({
+      handoffOfficeKey: "dev",
+      handoffTarget: PRODUCT_RESPONSE.sipDestination,
+    });
+    expect(transferSipParticipantMock).toHaveBeenCalledWith(
+      "test-room",
+      "sip-caller",
+      PRODUCT_RESPONSE.sipDestination,
+      {
+        playDialtone: true,
+        ringingTimeout: 20,
+      },
+    );
+  });
+
+  it("fails closed when any demo handoff configuration is present but incomplete", async () => {
+    vi.stubEnv("DEV_ACUITY_HANDOFF_SECRET", "product-secret");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createState();
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+
+    await expect(transferCallerToOffice(state)).rejects.toThrow(
+      "Acuity Product demo handoff configuration is incomplete.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unstable demo source call identity", async () => {
+    configureProductHandoff();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createState();
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.callId = "unknown";
+
+    await expect(transferCallerToOffice(state)).rejects.toThrow(
+      "Acuity Product demo handoff requires a stable source call ID.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an insecure demo handoff URL before sending data", async () => {
+    configureProductHandoff();
+    vi.stubEnv(
+      "DEV_ACUITY_HANDOFF_URL",
+      "http://acuity-product.example/v1/handoffs",
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createState();
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+
+    await expect(transferCallerToOffice(state)).rejects.toThrow(
+      "Acuity handoff API URL must use HTTPS.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the demo handoff request has no definitive response", async () => {
+    configureProductHandoff();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("request failed");
+      }),
+    );
+    const state = createState();
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+
+    await expect(transferCallerToOffice(state)).rejects.toThrow(
+      "Acuity Product handoff API request failed.",
+    );
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
+  });
+
+  it("reuses the exact demo request after an ambiguous API response", async () => {
+    configureProductHandoff();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce(jsonResponse(PRODUCT_RESPONSE, 201));
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createTestCallState({ patientName: "Maria Alvarez" });
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+
+    await expect(transferCallerToOffice(state)).rejects.toThrow(
+      "Acuity Product handoff API request failed.",
+    );
+    state.identity.patient.name = "Changed after first attempt";
+
+    await expect(transferCallerToOffice(state)).resolves.toEqual({
+      handoffOfficeKey: "dev",
+      handoffTarget: PRODUCT_RESPONSE.sipDestination,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(
+      fetchMock.mock.calls[0]?.[1]?.body,
+    );
+  });
+
+  it("fails closed when the demo handoff conflicts", async () => {
+    configureProductHandoff();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({}, 409)),
+    );
+    const state = createState();
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+
+    await expect(transferCallerToOffice(state)).rejects.toThrow(
+      "Acuity Product handoff conflicts with an existing transfer.",
+    );
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the demo handoff endpoint is unavailable", async () => {
+    configureProductHandoff();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({}, 503)),
+    );
+    const state = createState();
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+
+    await expect(transferCallerToOffice(state)).rejects.toThrow(
+      "Acuity Product handoff API returned 503.",
+    );
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the demo handoff response is not JSON", async () => {
+    configureProductHandoff();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 201,
+        json: async () => {
+          throw new Error("invalid JSON");
+        },
+      })),
+    );
+    const state = createState();
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+
+    await expect(transferCallerToOffice(state)).rejects.toThrow(
+      "Acuity Product handoff API returned an invalid response.",
+    );
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      name: "invalid id",
+      response: { ...PRODUCT_RESPONSE, id: "not-a-uuid" },
+    },
+    {
+      name: "non-opaque SIP user",
+      response: {
+        ...PRODUCT_RESPONSE,
+        sipDestination:
+          "sip:patient-name~ah1~token@acuity-product.sip.telnyx.com",
+      },
+    },
+    {
+      name: "expired destination",
+      response: {
+        ...PRODUCT_RESPONSE,
+        expiresAt: new Date(Date.now() - 1_000).toISOString(),
+      },
+    },
+    {
+      name: "long-lived destination",
+      response: {
+        ...PRODUCT_RESPONSE,
+        expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      },
+    },
+  ])("rejects a demo response with $name", async ({ response }) => {
+    configureProductHandoff();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(response, 201)),
+    );
+    const state = createState();
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+
+    await expect(transferCallerToOffice(state)).rejects.toThrow(
+      "Acuity Product handoff API returned an invalid response.",
+    );
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 
   it("reserves and transfers once to the direct SIP target", async () => {
