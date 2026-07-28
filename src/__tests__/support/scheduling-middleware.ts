@@ -6,7 +6,7 @@ import type {
   CancellationRequest,
   CancellationResult,
   SchedulingMiddleware,
-} from "./middleware.js";
+} from "../../scheduling/middleware.js";
 
 type SchedulingResult<T> = T | Error | Promise<T>;
 

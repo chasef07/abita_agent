@@ -4,7 +4,7 @@ import {
   createCanonicalCallState,
   type CallState,
 } from "../state/call-state.js";
-import type { RuntimeVoiceLanguageState } from "../tts-config.js";
+import type { RuntimeVoiceLanguageState } from "./voice-language.js";
 import {
   buildPreCallContextState,
   preCallLookupTelemetry,
@@ -53,9 +53,6 @@ export function createInitialCallState(
     checkedInsurancePlan: verified?.insuranceCarrier ?? null,
     checkedInsuranceCoverageType: null,
     routing: verified?.routing ?? null,
-    lastAvailabilityRouting: null,
-    lastAvailabilitySlots: [],
-    bookableAvailabilitySlots: [],
     allowedProviders: verified?.allowedProviders ?? [],
     routingAmbiguous: verified?.routingAmbiguous ?? false,
     preauthRequired: verified?.preauthRequired ?? false,

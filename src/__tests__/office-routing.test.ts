@@ -73,11 +73,10 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("exposes staff task capture on every production office and not the demo", () => {
+  it("exposes staff task capture on supported production offices only", () => {
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
       SPRING_HILL_813_TRUNK_PHONE,
-      CRYSTAL_RIVER_OFFICE_PHONE,
       HOLLYWOOD_OFFICE_PHONE,
       NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
@@ -85,9 +84,9 @@ describe("office routing helpers", () => {
       expect(toolNamesForTrunk(phone)).toContain("create_staff_task");
     }
 
-    expect(toolNamesForTrunk(DEV_OFFICE_PHONE)).not.toContain(
-      "create_staff_task",
-    );
+    for (const phone of [CRYSTAL_RIVER_OFFICE_PHONE, DEV_OFFICE_PHONE]) {
+      expect(toolNamesForTrunk(phone)).not.toContain("create_staff_task");
+    }
   });
 });
 
@@ -1052,7 +1051,7 @@ describe("model-facing tool definitions", () => {
     ]);
     expect(
       parameters.safeParse({
-        appointmentSlotRef: "A",
+        appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
@@ -1060,7 +1059,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
     expect(
       parameters.safeParse({
-        appointmentSlotRef: "A",
+        appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         oldAppointmentRef: "old-appointment-2-abc123",
@@ -1068,7 +1067,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
     expect(
       parameters.safeParse({
-        appointmentSlotRef: "A",
+        appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         oldAppointmentDate: "June 2",
@@ -1077,7 +1076,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        slotId: "A",
+        slotId: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentDate: "June 2",
@@ -1087,7 +1086,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        newSlotId: "A",
+        newSlotId: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentDate: "June 2",
@@ -1097,14 +1096,14 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        newAppointmentSlotRef: "A",
+        newAppointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        appointmentSlotRef: "A",
+        appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         appointmentId: 123,
@@ -1118,7 +1117,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        appointmentSlotRef: "A",
+        appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
       }).success,
     ).toBe(false);
@@ -1163,7 +1162,7 @@ describe("model-facing tool definitions", () => {
     expect(parameters.safeParse({}).success).toBe(false);
     expect(
       parameters.safeParse({
-        appointmentSlotRef: "A",
+        appointmentSlotRef: "S1",
         appointmentReason: "eye pain",
         referringDoctor: "none",
       }).success,

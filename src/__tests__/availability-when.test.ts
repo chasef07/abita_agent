@@ -1,34 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { AvailabilityResult } from "../scheduling/middleware.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
-import { InMemorySchedulingMiddleware } from "../scheduling/testing.js";
 import type { SchedulingAppointmentLane } from "../state/call-state.js";
-import { createTestCallState } from "./support/call-state.js";
+import { createConfirmedPatientState } from "./support/call-state.js";
+import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
+import { createToolContext } from "./support/tool-context.js";
 
 function createState() {
-  const state = createTestCallState({
-    patientId: "patient-1",
-    patientName: "Jane Doe",
-    dob: "01/01/1980",
-    insuranceCarrier: "self pay",
-    checkedInsurancePlan: "self pay",
-    checkedInsuranceCoverageType: "medical",
-    routing: "all_three",
-    lastAvailabilityRouting: "all_three",
-  });
-  state.identity.patient.identityConfirmed = true;
-  return state;
-}
-
-function createToolContext(state: ReturnType<typeof createState>) {
-  const speechHandle = { allowInterruptions: true };
-  return {
-    session: { userData: state },
-    speechHandle,
-    disallowInterruptions: vi.fn(() => {
-      speechHandle.allowInterruptions = false;
-    }),
-  };
+  return createConfirmedPatientState();
 }
 
 function fixedClock(instant: string) {

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { tool } from "@livekit/agents";
 import { z } from "zod";
-import { getAnalyticsSecret } from "../runtime/portal-auth.js";
+import { getPortalSecret } from "../runtime/portal-auth.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
 import {
   activePatientDob,
@@ -89,7 +89,7 @@ export const create_staff_task = tool({
     if (existing) return TASK_DUPLICATE_REPLY;
 
     const url = getStaffTasksUrl();
-    const secret = getAnalyticsSecret();
+    const secret = getPortalSecret();
     if (!url || !secret) return TASK_FAILED_REPLY;
 
     try {
@@ -117,9 +117,6 @@ export const create_staff_task = tool({
 export function getStaffTasksUrl(
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  const explicit = env.STAFF_TASKS_URL?.trim();
-  if (explicit) return explicit;
-
   const analyticsUrl = env.ANALYTICS_URL?.trim();
   if (!analyticsUrl) return undefined;
 

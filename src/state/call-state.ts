@@ -1,6 +1,6 @@
 import type { OfficeKey } from "../customers/abita/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
-import type { RuntimeVoiceLanguageState } from "../tts-config.js";
+import type { RuntimeVoiceLanguageState } from "../runtime/voice-language.js";
 import type { LightweightPatientCandidate } from "../identity/candidate.js";
 import { createSchedulingState } from "../scheduling/state.js";
 import type { TransferState } from "./call-lifecycle.js";
@@ -506,9 +506,6 @@ export interface InitialCallStateInput {
   checkedInsurancePlan: string | null;
   checkedInsuranceCoverageType: InsuranceCoverageType | null;
   routing: string | null;
-  lastAvailabilityRouting: string | null;
-  lastAvailabilitySlots: StoredAvailabilitySlot[];
-  bookableAvailabilitySlots?: StoredAvailabilitySlot[];
   allowedProviders: string[];
   routingAmbiguous: boolean;
   preauthRequired: boolean;

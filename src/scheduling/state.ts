@@ -26,9 +26,6 @@ export function createSchedulingState(input: {
   checkedInsurancePlan: string | null;
   checkedInsuranceCoverageType: InsuranceCoverageType | null;
   routing: string | null;
-  lastAvailabilityRouting: string | null;
-  lastAvailabilitySlots: StoredAvailabilitySlot[];
-  bookableAvailabilitySlots?: StoredAvailabilitySlot[];
   allowedProviders: string[];
   routingAmbiguous: boolean;
   preauthRequired: boolean;
@@ -46,10 +43,6 @@ export function createSchedulingState(input: {
         currentCarrier: input.insuranceCarrier ?? checkedPlan,
       })
     : null;
-  const slots = input.bookableAvailabilitySlots?.length
-    ? input.bookableAvailabilitySlots
-    : input.lastAvailabilitySlots;
-
   return {
     insurance: {
       onFile,
@@ -64,11 +57,11 @@ export function createSchedulingState(input: {
       },
     },
     availability: {
-      slots,
-      currentDate: singleAvailabilityDate(slots),
-      latestRouting: input.lastAvailabilityRouting,
+      slots: [],
+      currentDate: undefined,
+      latestRouting: null,
       bookingTokensBySlotId: {},
-      nextSlotIndex: nextAvailabilitySlotIndexAfter(slots),
+      nextSlotIndex: 0,
     },
   };
 }
@@ -356,28 +349,11 @@ function nextAvailabilitySlotIndexAfter(
   }, 0);
 }
 
-function singleAvailabilityDate(
-  slots: readonly StoredAvailabilitySlot[],
-): string | undefined {
-  const dates = [
-    ...new Set(slots.map((slot) => slot.date.trim()).filter(Boolean)),
-  ];
-  return dates.length === 1 ? dates[0] : undefined;
-}
-
 function availabilitySlotIndex(slotId: string): number | null {
   const normalized = slotId.trim().toUpperCase();
   const stableMatch = normalized.match(/^S(\d+)$/);
-  if (stableMatch) {
-    const index = Number(stableMatch[1]) - 1;
-    return Number.isSafeInteger(index) && index >= 0 ? index : null;
-  }
-  if (/^[A-Z]$/.test(normalized)) {
-    return normalized.charCodeAt(0) - "A".charCodeAt(0);
-  }
-  const slotMatch = normalized.match(/^SLOT_(\d+)$/);
-  if (!slotMatch) return null;
-  const index = Number(slotMatch[1]) - 1;
+  if (!stableMatch) return null;
+  const index = Number(stableMatch[1]) - 1;
   return Number.isSafeInteger(index) && index >= 0 ? index : null;
 }
 
