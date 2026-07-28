@@ -16,10 +16,12 @@ import {
 const HANDOFF_TIMEOUT_MS = 2_000;
 const HANDOFF_TOKEN_MARKER = "~ah1~";
 const HANDOFF_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-const PRODUCT_TOKEN_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
+const PRODUCT_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_PRODUCT_HANDOFF_LIFETIME_MS = 5 * 60_000;
+const PRODUCT_HANDOFF_TOKEN_HEADER = "X-Acuity-Handoff-Token";
 
 type HandoffTarget = {
+  headers?: Record<string, string>;
   mode: "DIRECT" | "PHONE";
   target: string;
 };
@@ -307,7 +309,12 @@ function parseProductHandoff(value: unknown): HandoffTarget {
     throw new Error("Acuity Product handoff API returned an invalid response.");
   }
 
-  return { mode: "DIRECT", target: sipDestination };
+  const token = sipDestination.slice(4, sipDestination.indexOf("@"));
+  return {
+    headers: { [PRODUCT_HANDOFF_TOKEN_HEADER]: token },
+    mode: "DIRECT",
+    target: sipDestination,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -358,7 +365,10 @@ export async function transferCallerToOffice(
   state: CallState,
 ): Promise<{ handoffOfficeKey: OfficeKey; handoffTarget: string }> {
   const handoffOfficeKey = getHandoffOfficeKey(state);
-  const { mode, target } = await resolveHandoffTarget(state, handoffOfficeKey);
+  const { headers, mode, target } = await resolveHandoffTarget(
+    state,
+    handoffOfficeKey,
+  );
   beginTransfer(state);
   try {
     await getSipClient(mode).transferSipParticipant(
@@ -366,15 +376,17 @@ export async function transferCallerToOffice(
       state.runtime.sipParticipantIdentity,
       target,
       {
-        ...(mode === "PHONE"
-          ? {
-              headers: buildCallCenterHandoffHeaders(
-                state,
-                target,
-                handoffOfficeKey,
-              ),
-            }
-          : {}),
+        ...(headers
+          ? { headers }
+          : mode === "PHONE"
+            ? {
+                headers: buildCallCenterHandoffHeaders(
+                  state,
+                  target,
+                  handoffOfficeKey,
+                ),
+              }
+            : {}),
         playDialtone: true,
         ringingTimeout: 20,
       },
