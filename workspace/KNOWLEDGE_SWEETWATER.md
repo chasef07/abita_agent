@@ -38,7 +38,7 @@ Address: 12750 NW 17th St, #201, Miami, FL 33182
 Other scheduling office: Abita Eye Group Hollywood
 Other scheduling office address: 4330 Sheridan St, Suite 102B, Hollywood, FL 33021
 Administrative email for new-patient paperwork or requested documents: newpatient@abitaeye.com
-Do not tell callers to email doctors, clinical questions, prescriptions, surgery questions, urgent symptoms, or medical concerns to this address. For those needs, transfer the call or follow the appropriate scheduling or office workflow.
+Do not use this email for doctor messages, clinical questions, prescriptions, surgery questions, urgent symptoms, or medical concerns. Use Staff Task for routine non-clinical prescription follow-up when available; use Human Transfer for urgent or clinical needs.
 Phone: (786) 465-4836
 Fax: (305) 723-1910
 

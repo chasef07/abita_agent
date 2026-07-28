@@ -165,6 +165,17 @@ describe("tool-first prompt gating", () => {
     expect(prompt).not.toContain("middleware_error");
     expect(prompt).not.toContain("+17275551212");
   });
+
+  it("offers one available staff follow-up before an avoidable transfer", () => {
+    const prompt = buildPrompt(HOLLYWOOD_OFFICE_PHONE);
+
+    expect(prompt).toContain(
+      "offer one available staff follow-up before transfer unless the caller already insists on a person",
+    );
+    expect(prompt).toContain(
+      "If none is available, the caller declines, or it fails, transfer without further pushback.",
+    );
+  });
 });
 
 describe("dermatology demo", () => {
@@ -403,6 +414,11 @@ describe("Crystal River prompt guidance", () => {
     expect(sweetwaterKnowledge).toContain("Betty is the licensed optician");
     expect(sweetwaterKnowledge).toContain("@abitaeyegroup");
     expect(sweetwaterKnowledge).toContain("Dr. Maria Casas");
+    for (const knowledge of [hollywoodKnowledge, sweetwaterKnowledge]) {
+      expect(knowledge).toContain(
+        "Use Staff Task for routine non-clinical prescription follow-up when available; use Human Transfer for urgent or clinical needs.",
+      );
+    }
   });
 
   it("answers either office with both Hollywood and Sweetwater scheduling addresses", () => {
@@ -458,7 +474,7 @@ describe("Crystal River prompt guidance", () => {
     }
 
     expect(create_staff_task.description).toContain(
-      "Do not use for a simple glasses-readiness check",
+      "Never use for simple glasses readiness",
     );
   });
 
@@ -829,7 +845,7 @@ describe("model-facing tool definitions", () => {
       "outside the agent's front-desk scope",
     );
     expect(transfer_call.description).toContain(
-      "ask what they are calling about before calling this tool",
+      "Ask the reason once for a vague human, representative, staff, or office request",
     );
     expect(transfer_call.description).toContain(
       "suspected medication reactions",
@@ -838,15 +854,26 @@ describe("model-facing tool definitions", () => {
       "dosage or medication instructions",
     );
     expect(transfer_call.description).toContain(
-      "returned missed calls or received calls from this number",
+      "returned missed or received calls from this number",
     );
     expect(transfer_call.description).toContain(
-      "safe non-live office follow-up that another available tool can capture",
+      "For other safe non-live work, offer one available follow-up",
+    );
+    expect(transfer_call.description).toContain(
+      "transfer only if unavailable, failed, or declined",
+    );
+    expect(transfer_call.description).toContain(
+      "Never transfer a request another tool completed unless the caller raises a new urgent concern",
+    );
+    expect(transfer_call.description).toContain(
+      "caller choosing live staff instead of follow-up",
     );
     expect(transfer_call.description).not.toContain("create_staff_task");
     expect(transfer_call.description).not.toContain("staff task");
     expect(transfer_call.description).not.toContain("tool speaks");
-    expect(transfer_call.description).toContain("Do not call for scheduling");
+    expect(transfer_call.description).toContain(
+      "Do not transfer solely for scheduling",
+    );
     expect(transfer_call.description).not.toContain("Spring Hill routing");
   });
 
@@ -854,6 +881,15 @@ describe("model-facing tool definitions", () => {
     expect(create_staff_task.description).not.toContain("Spring Hill");
     expect(create_staff_task.description).toContain(
       "safe asynchronous office work",
+    );
+    expect(create_staff_task.description).toContain(
+      "Offer once; call only after agreement",
+    );
+    expect(create_staff_task.description).toContain(
+      "A created or duplicate result completes the request; do not transfer it afterward unless the caller raises a new urgent concern",
+    );
+    expect(create_staff_task.description).toContain(
+      "caller choosing live staff instead",
     );
     expect(create_staff_task.description).toContain("returned calls");
     expect(create_staff_task.description).toContain(
