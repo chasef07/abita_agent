@@ -6,7 +6,6 @@ import {
 } from "../customers/abita/profile.js";
 import {
   HttpOwnedMiddleware,
-  InMemoryOwnedMiddleware,
   type AvailabilityResult,
   type BookAppointmentResult,
   type CancelAppointmentResult,
@@ -16,6 +15,10 @@ import {
   type PatientResolveVerified,
   type UpdateInsuranceResult,
 } from "../clients/owned-middleware.js";
+import {
+  InMemoryOwnedMiddleware,
+  type InMemoryOwnedMiddlewareResponses,
+} from "./support/owned-middleware.js";
 
 afterEach(() => {
   vi.restoreAllMocks();

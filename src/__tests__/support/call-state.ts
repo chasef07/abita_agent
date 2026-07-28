@@ -21,8 +21,6 @@ const DEFAULT_CALL_STATE_INPUT: InitialCallStateInput = {
   checkedInsurancePlan: null,
   checkedInsuranceCoverageType: null,
   routing: null,
-  lastAvailabilityRouting: null,
-  lastAvailabilitySlots: [],
   allowedProviders: [],
   routingAmbiguous: false,
   preauthRequired: false,
@@ -38,4 +36,21 @@ export function createTestCallState(
     ...DEFAULT_CALL_STATE_INPUT,
     ...overrides,
   });
+}
+
+export function createConfirmedPatientState(
+  overrides: Partial<InitialCallStateInput> = {},
+) {
+  const state = createTestCallState({
+    patientId: "patient-1",
+    patientName: "Jane Doe",
+    dob: "01/01/1980",
+    insuranceCarrier: "self pay",
+    checkedInsurancePlan: "self pay",
+    checkedInsuranceCoverageType: "medical",
+    routing: "all_three",
+    ...overrides,
+  });
+  state.identity.patient.identityConfirmed = true;
+  return state;
 }

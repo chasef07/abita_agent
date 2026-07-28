@@ -1,10 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  InMemoryOwnedMiddleware,
   setOwnedMiddleware,
   type CreatePatientResult,
-  type InMemoryOwnedMiddlewareResponses,
   type PatientResolveResult,
   type UpdateInsuranceResult,
 } from "../clients/owned-middleware.js";
@@ -21,27 +19,22 @@ import {
   resolve_patient,
   update_insurance,
 } from "../tools/index.js";
-import { createTestCallState } from "./support/call-state.js";
+import { createConfirmedPatientState } from "./support/call-state.js";
+import { deferredResult } from "./support/deferred-result.js";
+import {
+  InMemoryOwnedMiddleware,
+  type InMemoryOwnedMiddlewareResponses,
+} from "./support/owned-middleware.js";
 
-type TestCallState = ReturnType<typeof createTestCallState>;
+type TestCallState = ReturnType<typeof createConfirmedPatientState>;
 type PreCallCandidate = PreCallContextState["candidates"][number];
 let testMiddleware: InMemoryOwnedMiddleware;
 
 function createState(): TestCallState {
-  const state = createTestCallState({
-    patientId: "patient-1",
-    patientName: "Jane Doe",
-    dob: "01/01/1980",
-    insuranceCarrier: "self pay",
-    checkedInsurancePlan: "self pay",
-    checkedInsuranceCoverageType: "medical",
-    routing: "all_three",
-    lastAvailabilityRouting: "all_three",
-  });
-  state.identity.patient.identityConfirmed = true;
+  const state = createConfirmedPatientState();
   state.availability.slots = [
     {
-      slotId: "A",
+      slotId: "S1",
       spoken: "2026-06-01 9:00 AM with Doctor Smith",
       provider: "Doctor Smith",
       date: "2026-06-01",
@@ -298,14 +291,6 @@ function createdPatientResult(
   };
 }
 
-function deferredResult<T>() {
-  let resolve: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((value) => {
-    resolve = value;
-  });
-  return { promise, resolve };
-}
-
 describe("stateful call tools", () => {
   beforeEach(() => {
     useMiddleware({});
@@ -552,7 +537,7 @@ describe("stateful call tools", () => {
     markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
-    storeAvailabilityBookingToken(state, "A", "private-token");
+    storeAvailabilityBookingToken(state, "S1", "private-token");
     const middleware = useMiddleware({ createPatient: [creation.promise] });
 
     const pendingCreation = add_patient.execute(
@@ -1227,7 +1212,7 @@ describe("stateful call tools", () => {
     };
     markSchedulingTriaged(state, "routine_od");
     state.availability.latestRouting = "optical_only";
-    storeAvailabilityBookingToken(state, "A", "stale-token");
+    storeAvailabilityBookingToken(state, "S1", "stale-token");
     state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
       plan: "Aetna",
@@ -1517,7 +1502,7 @@ describe("stateful call tools", () => {
         identityPromotion: "confirmed_by_identity_tool",
       },
     );
-    storeAvailabilityBookingToken(state, "A", "token-a");
+    storeAvailabilityBookingToken(state, "S1", "token-a");
     state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
       plan: "Aetna",
@@ -1536,9 +1521,9 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "BRANDON ANDERSON is already the active patient. Continue with loaded patient state.",
     );
-    expect(state.availability.slots.map((slot) => slot.slotId)).toEqual(["A"]);
+    expect(state.availability.slots.map((slot) => slot.slotId)).toEqual(["S1"]);
     expect(state.availability.bookingTokensBySlotId).toEqual({
-      A: "token-a",
+      S1: "token-a",
     });
     expect(state.identity.latestBookedAppointmentId).toBe(123);
     expect(state.insurance.lastEligibilityCheck).toEqual({
@@ -1603,7 +1588,7 @@ describe("stateful call tools", () => {
     state.identity.patient.patientId = null;
     state.identity.patient.name = null;
     state.identity.patient.identityConfirmed = false;
-    storeAvailabilityBookingToken(state, "A", "stale-token");
+    storeAvailabilityBookingToken(state, "S1", "stale-token");
     state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
       plan: "Aetna",
@@ -1730,7 +1715,7 @@ describe("stateful call tools", () => {
 
   it("clears patient-scoped state when add_patient starts a different patient", async () => {
     const state = createState();
-    storeAvailabilityBookingToken(state, "A", "private-token");
+    storeAvailabilityBookingToken(state, "S1", "private-token");
     state.identity.latestBookedAppointmentId = 123;
     state.workflow.current = {
       intent: "schedule",

@@ -506,9 +506,6 @@ export interface InitialCallStateInput {
   checkedInsurancePlan: string | null;
   checkedInsuranceCoverageType: InsuranceCoverageType | null;
   routing: string | null;
-  lastAvailabilityRouting: string | null;
-  lastAvailabilitySlots: StoredAvailabilitySlot[];
-  bookableAvailabilitySlots?: StoredAvailabilitySlot[];
   allowedProviders: string[];
   routingAmbiguous: boolean;
   preauthRequired: boolean;

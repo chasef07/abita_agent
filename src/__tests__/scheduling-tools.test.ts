@@ -12,7 +12,6 @@ import {
 import type { AvailabilityResult } from "../scheduling/middleware.js";
 import { productionSchedulingMiddleware } from "../scheduling/middleware.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
-import { InMemorySchedulingMiddleware } from "../scheduling/testing.js";
 import {
   appointmentActions,
   availabilityReadEvents,
@@ -24,21 +23,13 @@ import type {
   CallerAppointment,
   StoredAvailabilitySlot,
 } from "../state/call-state.js";
-import { createTestCallState } from "./support/call-state.js";
+import { createConfirmedPatientState } from "./support/call-state.js";
+import { deferredResult } from "./support/deferred-result.js";
+import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
+import { createToolContext } from "./support/tool-context.js";
 
 function createState() {
-  const state = createTestCallState({
-    patientId: "patient-1",
-    patientName: "Jane Doe",
-    dob: "01/01/1980",
-    insuranceCarrier: "self pay",
-    checkedInsurancePlan: "self pay",
-    checkedInsuranceCoverageType: "medical",
-    routing: "all_three",
-    lastAvailabilityRouting: "all_three",
-  });
-  state.identity.patient.identityConfirmed = true;
-  return state;
+  return createConfirmedPatientState();
 }
 
 function createHollywoodSweetwaterState(office: "hollywood" | "sweetwater") {
@@ -49,17 +40,6 @@ function createHollywoodSweetwaterState(office: "hollywood" | "sweetwater") {
   state.office.phoneOverrides[office] = officePhone;
   state.runtime.trunkPhone = officePhone;
   return state;
-}
-
-function createToolContext(state: ReturnType<typeof createState>) {
-  const speechHandle = { allowInterruptions: true };
-  return {
-    session: { userData: state },
-    speechHandle,
-    disallowInterruptions: vi.fn(() => {
-      speechHandle.allowInterruptions = false;
-    }),
-  };
 }
 
 function availabilitySlot(
@@ -171,14 +151,6 @@ function returnedSlot(
     bookingToken: "private-token",
     ...overrides,
   };
-}
-
-function deferredResult<T>() {
-  let resolve: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((value) => {
-    resolve = value;
-  });
-  return { promise, resolve };
 }
 
 function switchActivePatient(

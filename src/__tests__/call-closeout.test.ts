@@ -10,7 +10,7 @@ import {
   type CallCloseoutResult,
 } from "../runtime/call-closeout.js";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
-import { getAnalyticsSecret } from "../runtime/portal-auth.js";
+import { getPortalSecret } from "../runtime/portal-auth.js";
 import {
   recordPatientIdentityTransition,
   type CallState,
@@ -214,11 +214,10 @@ describe("call closeout", () => {
     ]);
   });
 
-  it("prefers the LiveKit portal secret over the legacy webhook secret", () => {
+  it("returns the configured LiveKit portal secret", () => {
     expect(
-      getAnalyticsSecret({
+      getPortalSecret({
         LIVEKIT_FORWARD_SYNC_SECRET: "livekit-secret",
-        WEBHOOK_SECRET: "legacy-secret",
       }),
     ).toBe("livekit-secret");
   });
@@ -564,11 +563,9 @@ describe("call closeout", () => {
       functionCallOutputs: [
         {
           callId: "tool-call-1",
-          output: JSON.stringify({
-            appointmentId: "appointment-1",
-            patientName: "Private Patient",
-            status: "booked",
-          }),
+          output: JSON.stringify(
+            "Booked July 21 at 9:00 AM with Doctor Smith.",
+          ),
         },
       ],
     });
