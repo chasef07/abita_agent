@@ -541,6 +541,43 @@ describe("Office Knowledge Resolver", () => {
     },
   );
 
+  it("recognizes a caller asking where the office building is", () => {
+    expect(
+      resolveOfficeKnowledge(
+        "sweetwater",
+        "Can you remind me where it is, your building?",
+      ),
+    ).toMatchObject({
+      outcome: "matched",
+      topic: "location_contact",
+    });
+  });
+
+  it("does not treat an unrelated building question as a location request", () => {
+    expect(
+      resolveOfficeKnowledge(
+        "sweetwater",
+        "Is your building wheelchair accessible?",
+      ),
+    ).toMatchObject({
+      outcome: "skipped",
+      topic: null,
+    });
+  });
+
+  it.each([
+    "Can you tell me where your office located?",
+    "Where is your office located?",
+  ])(
+    "recognizes a caller asking where the office is located: %s",
+    (transcript) => {
+      expect(resolveOfficeKnowledge("sweetwater", transcript)).toMatchObject({
+        outcome: "matched",
+        topic: "location_contact",
+      });
+    },
+  );
+
   it.each([
     ["¿A qué hora abren?", "hours"],
     ["¿Están abiertos el sábado?", "hours"],
