@@ -73,11 +73,10 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("exposes staff task capture on every production office and not the demo", () => {
+  it("exposes staff task capture on supported production offices only", () => {
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
       SPRING_HILL_813_TRUNK_PHONE,
-      CRYSTAL_RIVER_OFFICE_PHONE,
       HOLLYWOOD_OFFICE_PHONE,
       NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
@@ -85,9 +84,9 @@ describe("office routing helpers", () => {
       expect(toolNamesForTrunk(phone)).toContain("create_staff_task");
     }
 
-    expect(toolNamesForTrunk(DEV_OFFICE_PHONE)).not.toContain(
-      "create_staff_task",
-    );
+    for (const phone of [CRYSTAL_RIVER_OFFICE_PHONE, DEV_OFFICE_PHONE]) {
+      expect(toolNamesForTrunk(phone)).not.toContain("create_staff_task");
+    }
   });
 });
 

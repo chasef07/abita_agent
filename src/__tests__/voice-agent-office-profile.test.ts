@@ -168,7 +168,7 @@ const officeBehaviors: OfficeBehavior[] = [
           "Eye Radiance handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
       },
     },
-    staffTaskCapture: true,
+    staffTaskCapture: false,
     trunks: [CRYSTAL_RIVER_OFFICE_PHONE],
   },
   {
