@@ -139,11 +139,73 @@ describe("VoiceLanguageRuntime", () => {
     await observe(runtime, [
       speechEvent("en-US", 0.95, "I prefer not to speak Spanish"),
       speechEvent("en-US", 0.95, "Could you not speak Spanish?"),
+      speechEvent("en-US", 0.95, "I do not want to switch to Spanish"),
+      speechEvent("en-US", 0.95, "Don't, please, switch to Spanish"),
     ]);
 
     expect(updateOptions).not.toHaveBeenCalled();
     expect(state.current).toBe("en");
     expect(runtime.snapshot().language.switchEvents).toEqual([]);
+  });
+
+  it("scopes negation to the language request", async () => {
+    const { runtime, state, updateOptions } = createRuntime();
+
+    await observe(runtime, [
+      speechEvent(
+        "en-US",
+        0.95,
+        "I am not sure the last answer helped; could you continue in Spanish?",
+      ),
+    ]);
+
+    expect(updateOptions).toHaveBeenCalledWith(OPTIONS_BY_LANGUAGE.es);
+    expect(state.current).toBe("es");
+  });
+
+  it("evaluates separate request clauses independently", async () => {
+    const { runtime, state, updateOptions } = createRuntime();
+
+    await observe(runtime, [
+      speechEvent(
+        "en-US",
+        0.95,
+        "Could you not repeat that; could you speak Spanish?",
+      ),
+    ]);
+
+    expect(updateOptions).toHaveBeenCalledWith(OPTIONS_BY_LANGUAGE.es);
+    expect(state.current).toBe("es");
+  });
+
+  it("recognizes a coordinated request as a new clause", async () => {
+    const { runtime, state, updateOptions } = createRuntime();
+
+    await observe(runtime, [
+      speechEvent(
+        "en-US",
+        0.95,
+        "Could you not repeat that and could you switch to Spanish?",
+      ),
+    ]);
+
+    expect(updateOptions).toHaveBeenCalledWith(OPTIONS_BY_LANGUAGE.es);
+    expect(state.current).toBe("es");
+  });
+
+  it("recognizes a coordinated language preference as a new clause", async () => {
+    const { runtime, state, updateOptions } = createRuntime();
+
+    await observe(runtime, [
+      speechEvent(
+        "en-US",
+        0.95,
+        "I am not sure and I would like to speak Spanish",
+      ),
+    ]);
+
+    expect(updateOptions).toHaveBeenCalledWith(OPTIONS_BY_LANGUAGE.es);
+    expect(state.current).toBe("es");
   });
 
   it("recognizes conversational requests to speak another language", async () => {

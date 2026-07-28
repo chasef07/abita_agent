@@ -77,6 +77,17 @@ const LANGUAGE_TERMS: Record<VoiceLanguage, string> = {
   en: "english|ingles",
   es: "spanish|espanol|castellano",
 };
+const REQUEST_DIRECT_ACTIONS = "switch|change|continue|respond|answer|reply";
+const REQUEST_MODAL_TERMS = "can|could|would|do|will";
+const REQUEST_NEGATION = /\b(?:do not|does not|cannot|will not|not|never|no)\b/;
+const REQUEST_PREFERENCE_ACTIONS = "speak|talk|use|continue|in|en";
+const REQUEST_PREFERENCE_TERMS = "want|need|prefer|would like";
+const REQUEST_SPANISH_ACTIONS = "habla|hablar|hable|hablemos";
+const REQUEST_SPEECH_ACTIONS = "speak|talk|continue|respond|answer|reply";
+const REQUEST_CLAUSE_ACTIONS = `${REQUEST_DIRECT_ACTIONS}|speak|talk|${REQUEST_SPANISH_ACTIONS}`;
+const TRANSCRIPT_CLAUSE_SEPARATOR = new RegExp(
+  `[.!?;:]+|\\b(?:but|however|pero)\\b|\\b(?:and|then|y)\\s+(?=(?:(?:${REQUEST_MODAL_TERMS})\\s+(?:(?:i|we|you)\\s+)?(?:${REQUEST_CLAUSE_ACTIONS})\\b|(?:i|we)\\s+(?:${REQUEST_PREFERENCE_TERMS})\\b|(?:please\\s+)?(?:${REQUEST_CLAUSE_ACTIONS})\\b))`,
+);
 
 export function createRimeVoiceLanguageState(
   language: VoiceLanguage,
@@ -117,7 +128,7 @@ function readLanguageConfidence(
   return null;
 }
 
-function normalizeTranscriptText(text?: string): string {
+function normalizeTranscriptClauses(text?: string): string[] {
   return (text ?? "")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -126,50 +137,52 @@ function normalizeTranscriptText(text?: string): string {
     .replace(/\bcan['’]?t\b/g, "cannot")
     .replace(/\bdoesn['’]?t\b/g, "does not")
     .replace(/\bwon['’]?t\b/g, "will not")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .split(TRANSCRIPT_CLAUSE_SEPARATOR)
+    .map((clause) =>
+      clause
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
+    .filter(Boolean);
 }
 
 function requestedVoiceLanguage(text?: string): VoiceLanguage | null {
-  const normalized = normalizeTranscriptText(text);
-  if (
-    /\b(?:i|we) (?:do not|cannot) (?:speak|understand) (?:english|ingles)\b/.test(
-      normalized,
-    ) ||
-    /\bno hablo (?:english|ingles)\b/.test(normalized)
-  ) {
-    return "es";
-  }
-  if (
-    /\b(?:i|we) (?:do not|cannot) (?:speak|understand) (?:spanish|espanol|castellano)\b/.test(
-      normalized,
-    ) ||
-    /\bno hablo (?:spanish|espanol|castellano)\b/.test(normalized)
-  ) {
-    return "en";
+  const requested = new Set<VoiceLanguage>();
+  for (const clause of normalizeTranscriptClauses(text)) {
+    if (
+      /\b(?:i|we) (?:do not|cannot) (?:speak|understand) (?:english|ingles)\b/.test(
+        clause,
+      ) ||
+      /\bno hablo (?:english|ingles)\b/.test(clause)
+    ) {
+      requested.add("es");
+    }
+    if (
+      /\b(?:i|we) (?:do not|cannot) (?:speak|understand) (?:spanish|espanol|castellano)\b/.test(
+        clause,
+      ) ||
+      /\bno hablo (?:spanish|espanol|castellano)\b/.test(clause)
+    ) {
+      requested.add("en");
+    }
+    if (REQUEST_NEGATION.test(clause)) continue;
+
+    for (const language of SUPPORTED_VOICE_LANGUAGES) {
+      const terms = LANGUAGE_TERMS[language];
+      const matchesRequest = [
+        `^(?:${terms})(?: please| por favor)?$`,
+        `\\b(?:${terms})\\s+(?:please|por favor)\\b`,
+        `\\b(?:${REQUEST_DIRECT_ACTIONS})\\b.{0,80}\\b(?:in|en)?\\s*(?:${terms})\\b`,
+        `\\b(?:${REQUEST_MODAL_TERMS})\\b.{0,80}\\b(?:${REQUEST_SPEECH_ACTIONS})\\b.{0,80}\\b(?:${terms})\\b`,
+        `\\b(?:i|we)\\s+(?:${REQUEST_PREFERENCE_TERMS})\\b.{0,80}\\b(?:${REQUEST_PREFERENCE_ACTIONS})?\\b.{0,40}\\b(?:${terms})\\b`,
+        `\\b(?:${REQUEST_SPANISH_ACTIONS})\\b.{0,80}\\b(?:${terms})\\b`,
+      ].some((pattern) => new RegExp(pattern).test(clause));
+      if (matchesRequest) requested.add(language);
+    }
   }
 
-  const requested = SUPPORTED_VOICE_LANGUAGES.filter((language) => {
-    const terms = LANGUAGE_TERMS[language];
-    const negated = new RegExp(
-      `\\b(?:do not|does not|cannot|will not|not|never|no)\\b.{0,80}\\b(?:${terms})\\b`,
-    ).test(normalized);
-    if (negated) return false;
-
-    return [
-      `^(?:${terms})(?: please| por favor)?$`,
-      `\\b(?:${terms})\\s+(?:please|por favor)\\b`,
-      `\\b(?:switch|change|continue|respond|answer|reply)\\b.{0,80}\\b(?:in|en)?\\s*(?:${terms})\\b`,
-      `\\b(?:can|could|would|do|will)\\b.{0,80}\\b(?:speak|talk|continue|respond|answer|reply)\\b.{0,80}\\b(?:${terms})\\b`,
-      `\\b(?:i|we)\\s+(?:want|need|prefer|would like)\\b.{0,80}\\b(?:speak|talk|use|continue|in|en)?\\b.{0,40}\\b(?:${terms})\\b`,
-      `\\b(?:habla|hablar|hable|hablemos)\\b.{0,80}\\b(?:${terms})\\b`,
-    ].some((pattern) => new RegExp(pattern).test(normalized));
-  });
-  if (requested.length === 1) {
-    return requested[0];
-  }
-  return null;
+  return requested.size === 1 ? [...requested][0] : null;
 }
 
 export class VoiceLanguageRuntime {
