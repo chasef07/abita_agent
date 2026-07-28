@@ -1,8 +1,8 @@
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import type {
-  SttLanguageDecision,
+  RimeVoiceLanguageOptions,
   VoiceLanguage,
-} from "./stt-language-detector.js";
+} from "./runtime/voice-language.js";
 
 export const RIME_TTS_MODEL = "coda";
 export const RIME_TTS_LANGUAGE = "eng";
@@ -14,42 +14,7 @@ export const RIME_TTS_SEGMENT = "never";
 export type RimeTtsLanguageCode =
   typeof RIME_TTS_LANGUAGE | typeof SPANISH_RIME_TTS_LANGUAGE;
 
-export type RimeTtsLanguageOptions = {
-  lang: RimeTtsLanguageCode;
-  speaker: string;
-};
-
-export interface RuntimeVoiceLanguageState {
-  current: VoiceLanguage;
-  ttsProvider: "rime";
-  ttsLanguage: RimeTtsLanguageCode;
-  speaker: string;
-  confidence?: number;
-  providerCode?: string;
-  updatedAt?: string;
-}
-
-export function createRimeVoiceLanguageState(input: {
-  decision?: Extract<SttLanguageDecision, { action: "switch" }>;
-  language: VoiceLanguage;
-  options: RimeTtsLanguageOptions;
-}): RuntimeVoiceLanguageState {
-  return {
-    current: input.language,
-    speaker: input.options.speaker,
-    ttsLanguage: input.options.lang,
-    ttsProvider: "rime",
-    ...(input.decision
-      ? {
-          providerCode: input.decision.providerCode,
-          updatedAt: new Date().toISOString(),
-          ...(input.decision.confidence !== undefined
-            ? { confidence: input.decision.confidence }
-            : {}),
-        }
-      : {}),
-  };
-}
+export type RimeTtsLanguageOptions = RimeVoiceLanguageOptions;
 
 export function getRimeTtsLanguageOptions(input: {
   language: VoiceLanguage;

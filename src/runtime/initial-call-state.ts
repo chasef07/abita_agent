@@ -4,7 +4,7 @@ import {
   createCanonicalCallState,
   type CallState,
 } from "../state/call-state.js";
-import type { RuntimeVoiceLanguageState } from "../tts-config.js";
+import type { RuntimeVoiceLanguageState } from "./voice-language.js";
 import {
   buildPreCallContextState,
   preCallLookupTelemetry,

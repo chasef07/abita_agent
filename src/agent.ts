@@ -14,11 +14,7 @@ import { buildPrompt } from "./prompt.js";
 import { resolvePatientWithOwnedMiddleware } from "./clients/owned-middleware.js";
 import type { CallState } from "./state/call-state.js";
 import { recordLatestUserTranscript } from "./state/call-lifecycle.js";
-import {
-  observeSttLanguage,
-  type SttLanguageDecision,
-  type SttLanguageDetector,
-} from "./stt-language-detector.js";
+import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcript-confirmation.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
@@ -46,10 +42,9 @@ type VoiceAgentOptions = {
   identityLookup?: PatientResolveLookup;
   officeKnowledgeResolver?: typeof resolveOfficeKnowledge;
   onAssistantText?: (text: string, complete: boolean) => void;
-  onLanguageDecision?: (decision: SttLanguageDecision) => void;
   suppressGreeting?: boolean;
-  sttLanguageDetector?: SttLanguageDetector;
   turnClock?: SchedulingClock;
+  voiceLanguageRuntime?: VoiceLanguageRuntime;
 };
 
 const PATIENT_CONTEXT_MESSAGE_ID_PREFIX = "call_state_patient_context:";
@@ -160,13 +155,8 @@ export function createVoiceAgent(
         audio,
         modelSettings,
       );
-      if (!events || !options.sttLanguageDetector) return events;
-
-      return observeSttLanguage(
-        events,
-        options.sttLanguageDetector,
-        options.onLanguageDecision,
-      );
+      if (!events || !options.voiceLanguageRuntime) return events;
+      return options.voiceLanguageRuntime.observe(events);
     },
 
     async ttsNode(ctx, text, modelSettings) {

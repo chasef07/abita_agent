@@ -38,11 +38,7 @@ import {
   medicalSchedulingUnavailable,
   routineVisionSchedulingUnavailable,
 } from "../scheduling/routing.js";
-import {
-  createRimeVoiceLanguageState,
-  getRimeTtsLanguageOptions,
-  getRimeTtsOptions,
-} from "../tts-config.js";
+import { getRimeTtsOptions } from "../tts-config.js";
 import { createTestCallState } from "./support/call-state.js";
 
 const transferSipParticipantMock = vi.hoisted(() => vi.fn());
@@ -406,15 +402,6 @@ describe("Voice Agent office profile", () => {
           officeKey: office.key,
           trunkPhone,
         });
-        const voiceLanguageState = createTestCallState({
-          voiceLanguage: createRimeVoiceLanguageState({
-            language: "en",
-            options: getRimeTtsLanguageOptions({
-              language: "en",
-              trunkPhone,
-            }),
-          }),
-        }).runtime.voiceLanguage;
         routineVisionState.workflow.current = {
           appointmentLane: "routine_od",
           intent: "schedule",
@@ -462,7 +449,6 @@ describe("Voice Agent office profile", () => {
           },
           staffTaskCapture: tools.includes("create_staff_task"),
           tools: tools.sort(),
-          voiceLanguageState,
         }).toEqual({
           amdOfficePhone: expected.amdOfficePhone,
           displayName: expected.displayName,
@@ -514,12 +500,6 @@ describe("Voice Agent office profile", () => {
             ...COMMON_TOOL_NAMES,
             ...(expected.staffTaskCapture ? ["create_staff_task"] : []),
           ].sort(),
-          voiceLanguageState: {
-            current: "en",
-            speaker: expected.englishSpeaker,
-            ttsLanguage: "eng",
-            ttsProvider: "rime",
-          },
         });
       });
     }
