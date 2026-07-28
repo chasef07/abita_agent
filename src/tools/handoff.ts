@@ -5,7 +5,7 @@ import {
   getOfficeProfileByPhone,
   type OfficeKey,
 } from "../customers/abita/profile.js";
-import type { CallState } from "../state/call-state.js";
+import { activePatientName, type CallState } from "../state/call-state.js";
 import {
   activeOfficeKey,
   acceptTransfer,
@@ -16,14 +16,37 @@ import {
 const HANDOFF_TIMEOUT_MS = 2_000;
 const HANDOFF_TOKEN_MARKER = "~ah1~";
 const HANDOFF_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const PRODUCT_TOKEN_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
+const MAX_PRODUCT_HANDOFF_LIFETIME_MS = 5 * 60_000;
 
 type HandoffTarget = {
   mode: "DIRECT" | "PHONE";
   target: string;
 };
 
+type ProductHandoffConfig = {
+  locationId: string;
+  practiceId: string;
+  secret: string;
+  url: string;
+};
+
+type ProductHandoffPayload = {
+  contact: {
+    displayName?: string;
+    nameSource?: string;
+    phone: string;
+    phoneSource: string;
+  };
+  idempotencyKey: string;
+  locationId: string;
+  practiceId: string;
+  sourceCallId: string;
+};
+
 let _sipClient: SipClient | undefined;
 let _singleReferSipClient: SipClient | undefined;
+const _productHandoffPayloads = new WeakMap<CallState, ProductHandoffPayload>();
 
 function getSipClient(mode: HandoffTarget["mode"]): SipClient {
   if (mode === "DIRECT") {
@@ -75,6 +98,11 @@ async function resolveHandoffTarget(
   state: CallState,
   handoffOfficeKey: OfficeKey,
 ): Promise<HandoffTarget> {
+  const productConfig = productHandoffConfig(handoffOfficeKey);
+  if (productConfig) {
+    return requestProductHandoff(state, productConfig);
+  }
+
   const policy = getOfficeProfile(handoffOfficeKey).handoff();
   if (policy.mode === "phone") {
     return { mode: "PHONE", target: policy.target };
@@ -88,13 +116,34 @@ async function resolveHandoffTarget(
   return requestDirectHandoff(state, url, secret);
 }
 
+function productHandoffConfig(
+  handoffOfficeKey: OfficeKey,
+): ProductHandoffConfig | null {
+  if (handoffOfficeKey !== "dev") return null;
+
+  const config = {
+    locationId: process.env.DEV_ACUITY_HANDOFF_LOCATION_ID?.trim() ?? "",
+    practiceId: process.env.DEV_ACUITY_HANDOFF_PRACTICE_ID?.trim() ?? "",
+    secret: process.env.DEV_ACUITY_HANDOFF_SECRET?.trim() ?? "",
+    url: process.env.DEV_ACUITY_HANDOFF_URL?.trim() ?? "",
+  };
+  if (Object.values(config).every((value) => value === "")) return null;
+  if (
+    !config.url ||
+    !config.secret ||
+    !isUuid(config.practiceId) ||
+    !isUuid(config.locationId)
+  ) {
+    throw new Error("Acuity Product demo handoff configuration is incomplete.");
+  }
+  return config;
+}
+
 async function requestDirectHandoff(
   state: CallState,
   url: string,
   secret: string,
 ): Promise<HandoffTarget> {
-  requireSecureHandoffUrl(url);
-
   const payload = {
     sourceCallId: state.runtime.callId,
     routePhoneNumber: state.runtime.trunkPhone,
@@ -103,38 +152,111 @@ async function requestDirectHandoff(
   const idempotencyKey = createHash("sha256")
     .update(JSON.stringify(payload))
     .digest("hex");
+  const body = await postHandoff({
+    errorPrefix: "Acuity",
+    headers: { "Idempotency-Key": idempotencyKey },
+    payload,
+    secret,
+    url,
+  });
+  return parseDirectHandoff(body);
+}
 
+async function requestProductHandoff(
+  state: CallState,
+  config: ProductHandoffConfig,
+): Promise<HandoffTarget> {
+  const payload = productHandoffPayload(state, config);
+  const body = await postHandoff({
+    errorPrefix: "Acuity Product",
+    payload,
+    secret: config.secret,
+    url: config.url,
+  });
+  return parseProductHandoff(body);
+}
+
+function productHandoffPayload(
+  state: CallState,
+  config: ProductHandoffConfig,
+): ProductHandoffPayload {
+  const existing = _productHandoffPayloads.get(state);
+  if (existing) return existing;
+
+  const sourceCallId = state.runtime.callId.trim();
+  if (!isSafeValue(sourceCallId) || sourceCallId === "unknown") {
+    throw new Error(
+      "Acuity Product demo handoff requires a stable source call ID.",
+    );
+  }
+  const displayName = activePatientName(state);
+  const identity = {
+    practiceId: config.practiceId,
+    locationId: config.locationId,
+    sourceCallId,
+  };
+  const payload = {
+    ...identity,
+    contact: {
+      phone: state.runtime.callerPhone,
+      phoneSource: "livekit.sip.callerPhoneNumber",
+      ...(displayName
+        ? {
+            displayName,
+            nameSource: "abita.patient-context",
+          }
+        : {}),
+    },
+    idempotencyKey: createHash("sha256")
+      .update(JSON.stringify(identity))
+      .digest("hex"),
+  };
+  _productHandoffPayloads.set(state, payload);
+  return payload;
+}
+
+async function postHandoff(input: {
+  errorPrefix: "Acuity" | "Acuity Product";
+  headers?: Record<string, string>;
+  payload: unknown;
+  secret: string;
+  url: string;
+}): Promise<unknown> {
+  requireSecureHandoffUrl(input.url);
   let response: Response;
   try {
-    response = await fetch(url, {
-      body: JSON.stringify(payload),
+    response = await fetch(input.url, {
+      body: JSON.stringify(input.payload),
       headers: {
-        Authorization: `Bearer ${secret}`,
+        Authorization: `Bearer ${input.secret}`,
         "Content-Type": "application/json",
-        "Idempotency-Key": idempotencyKey,
+        ...input.headers,
       },
       method: "POST",
       signal: AbortSignal.timeout(HANDOFF_TIMEOUT_MS),
     });
   } catch {
-    throw new Error("Acuity handoff API request failed.");
+    throw new Error(`${input.errorPrefix} handoff API request failed.`);
   }
 
   if (!response.ok) {
     if (response.status === 409) {
-      throw new Error("Acuity handoff conflicts with an existing transfer.");
+      throw new Error(
+        `${input.errorPrefix} handoff conflicts with an existing transfer.`,
+      );
     }
-    throw new Error(`Acuity handoff API returned ${response.status}.`);
+    throw new Error(
+      `${input.errorPrefix} handoff API returned ${response.status}.`,
+    );
   }
 
-  let body: unknown;
   try {
-    body = await response.json();
+    return await response.json();
   } catch {
-    throw new Error("Acuity handoff API returned an invalid response.");
+    throw new Error(
+      `${input.errorPrefix} handoff API returned an invalid response.`,
+    );
   }
-
-  return parseDirectHandoff(body);
 }
 
 function requireSecureHandoffUrl(value: string): void {
@@ -166,6 +288,28 @@ function parseDirectHandoff(value: unknown): HandoffTarget {
   return { mode: "DIRECT", target: sipUri };
 }
 
+function parseProductHandoff(value: unknown): HandoffTarget {
+  if (!isRecord(value)) {
+    throw new Error("Acuity Product handoff API returned an invalid response.");
+  }
+
+  const { expiresAt, id, sipDestination } = value;
+  const expiration =
+    typeof expiresAt === "string" ? Date.parse(expiresAt) : NaN;
+  const now = Date.now();
+  if (
+    !isUuid(id) ||
+    !isProductSipUri(sipDestination) ||
+    !Number.isFinite(expiration) ||
+    expiration <= now ||
+    expiration > now + MAX_PRODUCT_HANDOFF_LIFETIME_MS
+  ) {
+    throw new Error("Acuity Product handoff API returned an invalid response.");
+  }
+
+  return { mode: "DIRECT", target: sipDestination };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -175,6 +319,15 @@ function isSafeValue(value: unknown): value is string {
     typeof value === "string" &&
     value.trim().length > 0 &&
     !/[\r\n]/.test(value)
+  );
+}
+
+function isUuid(value: unknown): value is string {
+  return (
+    isSafeValue(value) &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
   );
 }
 
@@ -194,6 +347,11 @@ function isDirectSipUri(value: unknown): value is string {
     marker === user.indexOf(HANDOFF_TOKEN_MARKER) &&
     HANDOFF_TOKEN_PATTERN.test(user.slice(marker + HANDOFF_TOKEN_MARKER.length))
   );
+}
+
+function isProductSipUri(value: unknown): value is string {
+  if (!isSipUri(value)) return false;
+  return PRODUCT_TOKEN_PATTERN.test(value.slice(4, value.indexOf("@")));
 }
 
 export async function transferCallerToOffice(
