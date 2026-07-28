@@ -217,7 +217,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       routine_vision: { supported: false },
     },
     amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
-    staffTaskCapture: true,
+    staffTaskCapture: false,
     handoff: () => ({
       mode: "phone",
       target: `tel:${CRYSTAL_RIVER_TRANSFER_NUMBER}`,
