@@ -166,14 +166,17 @@ describe("tool-first prompt gating", () => {
     expect(prompt).not.toContain("+17275551212");
   });
 
-  it("offers one available staff follow-up before an avoidable transfer", () => {
+  it("offers create_staff_task once before an avoidable transfer", () => {
     const prompt = buildPrompt(HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).toContain(
-      "offer one available staff follow-up before transfer unless the caller already insists on a person",
+      "If safe, non-urgent work cannot be completed and create_staff_task is available, offer once to send the request.",
     );
     expect(prompt).toContain(
-      "If none is available, the caller declines, or it fails, transfer without further pushback.",
+      "If the caller declines or asks for a person, transfer them.",
+    );
+    expect(prompt).toContain(
+      "Never call create_staff_task and transfer the same issue unless a new urgent concern arises.",
     );
   });
 });
@@ -414,11 +417,6 @@ describe("Crystal River prompt guidance", () => {
     expect(sweetwaterKnowledge).toContain("Betty is the licensed optician");
     expect(sweetwaterKnowledge).toContain("@abitaeyegroup");
     expect(sweetwaterKnowledge).toContain("Dr. Maria Casas");
-    for (const knowledge of [hollywoodKnowledge, sweetwaterKnowledge]) {
-      expect(knowledge).toContain(
-        "Use Staff Task for routine non-clinical prescription follow-up when available; use Human Transfer for urgent or clinical needs.",
-      );
-    }
   });
 
   it("answers either office with both Hollywood and Sweetwater scheduling addresses", () => {
@@ -474,7 +472,7 @@ describe("Crystal River prompt guidance", () => {
     }
 
     expect(create_staff_task.description).toContain(
-      "Never use for simple glasses readiness",
+      "Never use for glasses readiness",
     );
   });
 
@@ -524,27 +522,28 @@ describe("Crystal River prompt guidance", () => {
     expect(transfer_call.description).toContain(
       "suspected medication reactions",
     );
-    expect(prompt).not.toContain("create_staff_task");
+    expect(prompt).toContain("create_staff_task");
     expect(prompt).not.toContain("<office_policy>");
   });
 
-  it("keeps staff-task tool policy out of static system prompts", () => {
+  it("keeps create_staff_task policy capability-aware in static prompts", () => {
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
       SPRING_HILL_813_TRUNK_PHONE,
       CRYSTAL_RIVER_OFFICE_PHONE,
-      DEV_OFFICE_PHONE,
       HOLLYWOOD_OFFICE_PHONE,
       NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
     ]) {
       const prompt = buildPrompt(phone);
 
-      expect(prompt).not.toContain("create_staff_task");
+      expect(prompt).toContain("create_staff_task is available");
       expect(prompt.toLowerCase()).not.toContain("staff task");
       expect(prompt).not.toContain("# Staff Tasks");
       expect(prompt).not.toContain("<office_policy>");
     }
+
+    expect(buildPrompt(DEV_OFFICE_PHONE)).not.toContain("create_staff_task");
   });
 
   it("keeps concise voice guidance in the base voice prompt", () => {
@@ -842,37 +841,37 @@ describe("model-facing tool definitions", () => {
 
   it("keeps transfer_call scoped to human-only work", () => {
     expect(transfer_call.description).toContain(
-      "outside the agent's front-desk scope",
+      "caller who still wants live staff after one attempt to help",
     );
     expect(transfer_call.description).toContain(
-      "Ask the reason once for a vague human, representative, staff, or office request",
+      "emergency, urgent, or clinical concerns",
     );
     expect(transfer_call.description).toContain(
-      "suspected medication reactions",
+      "Ask what they need first when the request is vague",
     );
     expect(transfer_call.description).toContain(
-      "dosage or medication instructions",
+      "suspected medication reactions or medication instructions",
     );
     expect(transfer_call.description).toContain(
-      "returned missed or received calls from this number",
+      "returned calls from this number",
     );
     expect(transfer_call.description).toContain(
-      "For other safe non-live work, offer one available follow-up",
+      "For safe, non-urgent work, offer create_staff_task first",
     );
     expect(transfer_call.description).toContain(
-      "transfer only if unavailable, failed, or declined",
+      "transfer only if the tool is unavailable, fails, or the caller declines",
     );
     expect(transfer_call.description).toContain(
-      "Never transfer a request another tool completed unless the caller raises a new urgent concern",
+      "Do not transfer a request captured by create_staff_task unless a new urgent concern arises",
     );
-    expect(transfer_call.description).toContain(
-      "caller choosing live staff instead of follow-up",
-    );
-    expect(transfer_call.description).not.toContain("create_staff_task");
+    expect(transfer_call.description).toContain("create_staff_task");
     expect(transfer_call.description).not.toContain("staff task");
     expect(transfer_call.description).not.toContain("tool speaks");
     expect(transfer_call.description).toContain(
-      "Do not transfer solely for scheduling",
+      "Do not use solely for scheduling",
+    );
+    expect(transfer_call.description).toContain(
+      "Tell the caller before starting the transfer",
     );
     expect(transfer_call.description).not.toContain("Spring Hill routing");
   });
@@ -880,22 +879,26 @@ describe("model-facing tool definitions", () => {
   it("keeps staff task capture scoped to safe non-live work", () => {
     expect(create_staff_task.description).not.toContain("Spring Hill");
     expect(create_staff_task.description).toContain(
-      "safe asynchronous office work",
+      "safe, non-urgent office work",
     );
     expect(create_staff_task.description).toContain(
-      "Offer once; call only after agreement",
+      "After the caller agrees, collect the details staff needs, then call create_staff_task",
     );
     expect(create_staff_task.description).toContain(
-      "A created or duplicate result completes the request; do not transfer it afterward unless the caller raises a new urgent concern",
+      "Success or duplicate ends the request; do not transfer it unless a new urgent concern arises",
     );
-    expect(create_staff_task.description).toContain(
-      "caller choosing live staff instead",
-    );
+    expect(create_staff_task.description).toContain("requests for a person");
     expect(create_staff_task.description).toContain("returned calls");
     expect(create_staff_task.description).toContain(
-      "suspected medication reactions",
+      "medication reactions or instructions",
+    );
+    expect(create_staff_task.description).toContain(
+      "urgent or clinical concerns",
     );
     expect(create_staff_task.description).toContain("transfer instead");
+    expect(create_staff_task.description).toContain(
+      "Do not promise approval, completion, a refill, or timing",
+    );
     const taskParameters = create_staff_task.parameters as {
       shape: {
         category: { description?: string };

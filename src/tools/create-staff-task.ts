@@ -75,11 +75,11 @@ type PortalTaskResponse = {
 export const create_staff_task = tool({
   name: "create_staff_task",
   description:
-    "Create a Staff Task for safe asynchronous office work the agent cannot complete. " +
-    "Offer once; call only after agreement, then gather the exact request and necessary details. " +
-    "A created or duplicate result completes the request; do not transfer it afterward unless the caller raises a new urgent concern. " +
-    "Never use for simple glasses readiness, emergency or urgent symptoms, suspected medication reactions, new or worsening medical concerns, dosage or medication instructions, clinical advice, medical decisions, returned calls, or a caller choosing live staff instead; transfer instead. " +
-    "Never promise approval, a refill, completion, or timing.",
+    "Use for safe, non-urgent office work the agent cannot complete. " +
+    "Offer to send the request. After the caller agrees, collect the details staff needs, then call create_staff_task. " +
+    "Success or duplicate ends the request; do not transfer it unless a new urgent concern arises. " +
+    "Never use for glasses readiness, urgent or clinical concerns, medication reactions or instructions, returned calls, or requests for a person; transfer instead. " +
+    "Do not promise approval, completion, a refill, or timing.",
   parameters: taskParameters,
   execute: async (input, { ctx }) => {
     const state = getState(ctx);
