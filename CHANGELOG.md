@@ -1,5 +1,25 @@
 # Changelog
 
+## [4.4.0](https://github.com/chasef07/abita_agent/compare/4.3.0...4.4.0) (2026-07-28)
+
+
+### Features
+
+* **handoff:** route demo transfers to Acuity Product ([41f889a](https://github.com/chasef07/abita_agent/commit/41f889a99df77a3298317bffc59a67a0bc472689))
+* **scheduling:** resolve caller availability and speak weekdays ([#299](https://github.com/chasef07/abita_agent/issues/299)) ([3591f19](https://github.com/chasef07/abita_agent/commit/3591f19e1eb755f6f3e77983210a9fa7876697ca))
+* **stt:** route AssemblyAI through LiveKit Inference ([#303](https://github.com/chasef07/abita_agent/issues/303)) ([8d2be46](https://github.com/chasef07/abita_agent/commit/8d2be46b0ea5ac493937084b5c11631402633fab))
+* **transfers:** offer create_staff_task before transfer ([#306](https://github.com/chasef07/abita_agent/issues/306)) ([5385bb0](https://github.com/chasef07/abita_agent/commit/5385bb060788af50a0dc908e3963396cef40013a))
+
+
+### Bug Fixes
+
+* **handoff:** forward Acuity transfer token ([#309](https://github.com/chasef07/abita_agent/issues/309)) ([cf80eef](https://github.com/chasef07/abita_agent/commit/cf80eef5c4cbeff3030404831d2086af423077a8))
+* harden office knowledge hook and upgrade LiveKit ([#300](https://github.com/chasef07/abita_agent/issues/300)) ([87bc0ae](https://github.com/chasef07/abita_agent/commit/87bc0aedb3430115a5524552c1647bbe0b374d66))
+* **identity:** clarify patient identity ownership ([#297](https://github.com/chasef07/abita_agent/issues/297)) ([e83f02e](https://github.com/chasef07/abita_agent/commit/e83f02e3665c31c02955c14b07ff187eccdc3663))
+* keep no-referrer marker internal and refresh README ([#305](https://github.com/chasef07/abita_agent/issues/305)) ([edb4f8f](https://github.com/chasef07/abita_agent/commit/edb4f8fca53134c49439bf5d68e82b38ac40be01))
+* **knowledge:** recognize office location variants ([#308](https://github.com/chasef07/abita_agent/issues/308)) ([835524a](https://github.com/chasef07/abita_agent/commit/835524a388da6eae4dfd301b5bdf892734fe68d3))
+* **runtime:** simplify voice language switching ([#301](https://github.com/chasef07/abita_agent/issues/301)) ([b2e4bab](https://github.com/chasef07/abita_agent/commit/b2e4bab3b1ee590110f38a9fe09e33ebfba48ecd))
+
 ## [4.3.0](https://github.com/chasef07/abita_agent/compare/4.2.1...4.3.0) (2026-07-26)
 
 
