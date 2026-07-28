@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HttpOwnedMiddleware,
-  InMemoryOwnedMiddleware,
   setOwnedMiddleware,
   type PatientResolveResult,
 } from "../clients/owned-middleware.js";
@@ -13,6 +12,7 @@ import {
   lookupByPhone,
   preCallLookupTelemetry,
 } from "../runtime/precall-bootstrap.js";
+import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 
 function usePatientResult(result: PatientResolveResult) {
   const middleware = new InMemoryOwnedMiddleware({

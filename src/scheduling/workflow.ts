@@ -4,7 +4,10 @@ import {
   normalizePhoneNumber,
   type AvailabilityOfficeKey,
 } from "../customers/abita/profile.js";
-import { restoreConfirmedPreCallPatient } from "../identity/promotion.js";
+import {
+  incompletePatientRegistrationMessage,
+  restoreConfirmedPreCallPatient,
+} from "../identity/promotion.js";
 import {
   completedBookingForPatient,
   completedRescheduleForPatient,
@@ -903,12 +906,6 @@ function ensureNewAppointmentBookingContext(state: CallState): void {
 function hasCompletedBookingForActivePatient(state: CallState): boolean {
   const patientId = activePatientId(state);
   return Boolean(patientId && completedBookingForPatient(state, patientId));
-}
-
-function incompletePatientRegistrationMessage(state: CallState): string | null {
-  return state.identity.patient.status === "created" && !state.insurance.onFile
-    ? "The patient chart exists, but insurance is not attached. Connect the caller to office staff to finish registration before scheduling."
-    : null;
 }
 
 function completedCancellationReplayMessage(

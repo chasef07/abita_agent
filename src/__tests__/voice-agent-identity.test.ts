@@ -25,6 +25,7 @@ import {
   storeAvailabilityBookingToken,
 } from "../scheduling/state.js";
 import { createTestCallState } from "./support/call-state.js";
+import { deferredResult } from "./support/deferred-result.js";
 
 const createAgent = (...args: Parameters<typeof createVoiceAgent>) =>
   createVoiceAgent(...args).agent;
@@ -1896,12 +1897,4 @@ function verifiedPatient(
     message: null,
     ...overrides,
   };
-}
-
-function deferredResult<T>() {
-  let resolve: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((value) => {
-    resolve = value;
-  });
-  return { promise, resolve };
 }

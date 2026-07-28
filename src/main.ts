@@ -57,7 +57,7 @@ import {
   attachStartupCallCloseout,
   createLiveKitCallCloseoutEventAdapter,
 } from "./runtime/call-closeout.js";
-import { getAnalyticsSecret } from "./runtime/portal-auth.js";
+import { getPortalSecret } from "./runtime/portal-auth.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { coordinateSessionStartup } from "./runtime/session-startup.js";
 
@@ -149,7 +149,7 @@ export default defineAgent({
         `[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`,
       );
       const portal = new HttpCallPortal({
-        secret: getAnalyticsSecret(),
+        secret: getPortalSecret(),
         url: process.env.ANALYTICS_URL,
       });
       await coordinateSessionStartup({

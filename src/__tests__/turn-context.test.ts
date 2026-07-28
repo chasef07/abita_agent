@@ -12,10 +12,10 @@ function createState() {
 
 function seedAvailability(state: ReturnType<typeof createState>) {
   state.availability.latestRouting = "all_three";
-  state.availability.bookingTokensBySlotId = { A: "private-token" };
+  state.availability.bookingTokensBySlotId = { S1: "private-token" };
   state.availability.slots = [
     {
-      slotId: "A",
+      slotId: "S1",
       spoken: "June 1 at 9:00 AM with Dr. Bach",
       provider: "Dr. Bach",
       date: "2026-06-01",
@@ -88,7 +88,7 @@ describe("turn context state", () => {
     const state = createState();
     seedAvailability(state);
 
-    const remaining = removeAvailabilitySlot(state, "A");
+    const remaining = removeAvailabilitySlot(state, "S1");
 
     expect(remaining).toEqual([]);
     expect(state.availability.bookingTokensBySlotId).toEqual({});

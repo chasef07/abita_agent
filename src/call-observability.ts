@@ -29,14 +29,11 @@ type FunctionToolsExecutedLike = {
 const TOOL_EXECUTION_STATUS_BY_OUTPUT_CLASS = {
   appointment_booked: "success",
   appointment_cancelled: "success",
-  appointment_lookup_returned: "success",
   appointment_not_booked: "error",
   appointment_not_cancelled: "error",
   appointment_not_rescheduled: "error",
   appointment_reschedule_partial: "error",
   appointment_rescheduled: "success",
-  appointments_found: "success",
-  appointments_not_found: "success",
   availability_blocked: "error",
   availability_returned: "success",
   duplicate_tool_call: "success",
@@ -55,10 +52,8 @@ const TOOL_EXECUTION_STATUS_BY_OUTPUT_CLASS = {
   staff_task_created: "success",
   staff_task_duplicate: "success",
   staff_task_failed: "error",
-  tool_error: "error",
   transfer_ambiguous: "success",
   transfer_failed: "error",
-  transfer_not_started: "error",
   transfer_started: "success",
   unknown: "success",
 } as const;
@@ -184,39 +179,15 @@ function asNumber(value: unknown): number {
   return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
-function parseJsonObject(value: unknown): Record<string, unknown> | null {
-  if (isRecord(value)) return value;
-  if (typeof value !== "string" || !value.trim()) return null;
-
-  try {
-    const parsed = JSON.parse(value);
-    return isRecord(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function normalizedStatus(
-  output: Record<string, unknown> | null,
-): string | null {
-  return asString(output?.status)?.toLowerCase() ?? null;
-}
-
-function normalizedOutcome(
-  output: Record<string, unknown> | null,
-): string | null {
-  return asString(output?.outcome)?.toLowerCase() ?? null;
-}
-
 function normalizedOutputText(output: string | undefined): string {
   if (typeof output !== "string") return "";
   try {
     const parsed = JSON.parse(output) as unknown;
-    if (typeof parsed === "string") return parsed.toLowerCase();
+    return typeof parsed === "string" ? parsed.toLowerCase() : "";
   } catch {
     // Some tests and provider adapters pass the already-decoded tool string.
+    return output.toLowerCase();
   }
-  return output.toLowerCase();
 }
 
 export function classifyToolOutput(
@@ -227,15 +198,10 @@ export function classifyToolOutput(
 ): ToolOutputClass {
   if (isError) return "middleware_error";
 
-  const parsed = parseJsonObject(output);
-  const status = normalizedStatus(parsed);
-  const outcome = normalizedOutcome(parsed);
-  if (status === "error") return "tool_error";
   const outputText = normalizedOutputText(output);
   if (duplicateToolWasRejected(outputText)) return "duplicate_tool_rejected";
 
   switch (toolName) {
-    case "book_appt":
     case "book_appointment":
       if (
         /\bnot booked\b/.test(outputText) ||
@@ -245,29 +211,17 @@ export function classifyToolOutput(
       ) {
         return "appointment_not_booked";
       }
-      if (
-        status === "booked" ||
-        status === "ok" ||
-        /\bbooked\b/.test(outputText) ||
-        asString(parsed?.appointmentId) ||
-        (isRecord(parsed?.facts) && asString(parsed.facts.appointmentId)) ||
-        asString(parsed?.id) ||
-        parsed?.ok === true
-      ) {
+      if (/\bbooked\b/.test(outputText)) {
         return "appointment_booked";
       }
       return "appointment_not_booked";
-    case "cancel_appt":
     case "cancel_appointment":
       if (
         /\bnot cancelled\b/.test(outputText) ||
         /\bnot canceled\b/.test(outputText) ||
         /\bfailed to cancel\b/.test(outputText) ||
         /\bload appointments\b/.test(outputText) ||
-        /\bverify the patient\b/.test(outputText) ||
-        status === "not_found" ||
-        outcome === "not_found" ||
-        outcome === "error"
+        /\bverify the patient\b/.test(outputText)
       ) {
         return "appointment_not_cancelled";
       }
@@ -275,16 +229,11 @@ export function classifyToolOutput(
         /\bcancelled the appointment\b/.test(outputText) ||
         /\bcanceled the appointment\b/.test(outputText) ||
         /\bappointment cancelled\b/.test(outputText) ||
-        /\bappointment canceled\b/.test(outputText) ||
-        status === "cancelled" ||
-        status === "ok" ||
-        status === "success" ||
-        parsed?.ok === true
+        /\bappointment canceled\b/.test(outputText)
       ) {
         return "appointment_cancelled";
       }
       return "appointment_not_cancelled";
-    case "reschedule_appt":
     case "reschedule_appointment":
       if (
         /\bdid not cancel the existing appointment\b/.test(outputText) ||
@@ -292,10 +241,7 @@ export function classifyToolOutput(
         /\bno longer available\b/.test(outputText) ||
         /\bcheck availability again\b/.test(outputText) ||
         /\bverify the patient\b/.test(outputText) ||
-        /\bload appointments\b/.test(outputText) ||
-        status === "not_found" ||
-        outcome === "not_found" ||
-        outcome === "error"
+        /\bload appointments\b/.test(outputText)
       ) {
         return "appointment_not_rescheduled";
       }
@@ -303,28 +249,12 @@ export function classifyToolOutput(
         return "appointment_reschedule_partial";
       }
       if (
-        status === "rescheduled" ||
         /\bappointment is already rescheduled\b/.test(outputText) ||
         /\brescheduled the appointment\b/.test(outputText)
       ) {
         return "appointment_rescheduled";
       }
       return "appointment_not_rescheduled";
-    case "confirm_appt":
-      if (
-        status === "no_appointments" ||
-        parsed?.appointmentsStatus === "none"
-      ) {
-        return "appointments_not_found";
-      }
-      if (
-        status === "found" ||
-        parsed?.appointmentsStatus === "found" ||
-        Array.isArray(parsed?.appointments)
-      ) {
-        return "appointments_found";
-      }
-      return "appointment_lookup_returned";
     case "transfer_call":
       if (/\btransfer already (?:in progress|started)\b/.test(outputText)) {
         return "duplicate_tool_call";
@@ -340,13 +270,6 @@ export function classifyToolOutput(
       ) {
         return "transfer_failed";
       }
-      if (
-        outcome === "not_allowed" ||
-        outcome === "needs_clarification" ||
-        parsed?.retryable === true
-      ) {
-        return "transfer_not_started";
-      }
       return "transfer_started";
     case "create_staff_task":
       if (/\bcould not send the staff task\b/.test(outputText)) {
@@ -361,8 +284,6 @@ export function classifyToolOutput(
       return "staff_task_created";
     case "get_availability":
       if (
-        parsed?.result === "missing_patient" ||
-        parsed?.result === "missing_availability_context" ||
         /\bverify or create the patient before checking availability\b/.test(
           outputText,
         ) ||
@@ -372,7 +293,6 @@ export function classifyToolOutput(
       }
       return "availability_returned";
     case "resolve_patient":
-    case "verify_patient":
       return patientIdentityOutputClass(patientIdentityOutcome);
     case "add_patient":
       return "patient_created";
@@ -411,9 +331,7 @@ export function snapshotToolExecutions(
       normalizedOutputText(output?.output),
     );
     const patientIdentityOutcome =
-      !isError &&
-      !duplicateRejected &&
-      (toolName === "resolve_patient" || toolName === "verify_patient")
+      !isError && !duplicateRejected && toolName === "resolve_patient"
         ? takePatientIdentityOutcome()
         : undefined;
     const outputClass = classifyToolOutput(

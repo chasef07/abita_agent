@@ -7,23 +7,13 @@ import type { InitialCallStateInput } from "../state/call-state.js";
 import { staffTaskReceipts } from "../state/observability.js";
 import { create_staff_task } from "../tools/index.js";
 import { getStaffTasksUrl } from "../tools/create-staff-task.js";
-import { createTestCallState } from "./support/call-state.js";
+import { createConfirmedPatientState } from "./support/call-state.js";
 
 function createState(overrides: Partial<InitialCallStateInput> = {}) {
-  const state = createTestCallState({
+  return createConfirmedPatientState({
     trunkPhone: "+18135484830",
-    patientId: "patient-1",
-    patientName: "Jane Doe",
-    dob: "01/01/1980",
-    insuranceCarrier: "self pay",
-    checkedInsurancePlan: "self pay",
-    checkedInsuranceCoverageType: "medical",
-    routing: "all_three",
-    lastAvailabilityRouting: "all_three",
     ...overrides,
   });
-  state.identity.patient.identityConfirmed = true;
-  return state;
 }
 
 function createToolContext(state: ReturnType<typeof createState>) {
@@ -51,16 +41,10 @@ describe("create_staff_task", () => {
         ANALYTICS_URL: "https://portal.example/api/livekit/calls/",
       }),
     ).toBe("https://portal.example/api/livekit/tasks");
-    expect(
-      getStaffTasksUrl({
-        ANALYTICS_URL: "https://portal.example/api/livekit/calls",
-        STAFF_TASKS_URL: "https://tasks.example/custom",
-      }),
-    ).toBe("https://tasks.example/custom");
   });
 
   it("posts a non-Spring Hill task with bearer auth and backend-owned office state", async () => {
-    vi.stubEnv("STAFF_TASKS_URL", "https://portal.example/api/livekit/tasks");
+    vi.stubEnv("ANALYTICS_URL", "https://portal.example/api/livekit/calls");
     vi.stubEnv("LIVEKIT_FORWARD_SYNC_SECRET", "task-secret");
     const fetchMock = vi.fn(async () =>
       Response.json({
@@ -140,7 +124,7 @@ describe("create_staff_task", () => {
   });
 
   it("returns the existing receipt for a duplicate task in one call", async () => {
-    vi.stubEnv("STAFF_TASKS_URL", "https://portal.example/api/livekit/tasks");
+    vi.stubEnv("ANALYTICS_URL", "https://portal.example/api/livekit/calls");
     vi.stubEnv("LIVEKIT_FORWARD_SYNC_SECRET", "task-secret");
     const fetchMock = vi.fn(async () =>
       Response.json({ status: "created", taskId: "task-1" }),
@@ -170,9 +154,8 @@ describe("create_staff_task", () => {
   });
 
   it("fails honestly and stores no receipt when posting is unavailable", async () => {
-    vi.stubEnv("STAFF_TASKS_URL", "https://portal.example/api/livekit/tasks");
+    vi.stubEnv("ANALYTICS_URL", "https://portal.example/api/livekit/calls");
     vi.stubEnv("LIVEKIT_FORWARD_SYNC_SECRET", "");
-    vi.stubEnv("WEBHOOK_SECRET", "");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();

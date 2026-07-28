@@ -102,8 +102,7 @@ pnpm dev
 See [`.env.example`](.env.example) for the supported variables. The main groups
 are LiveKit and LiveKit Inference, AssemblyAI, Rime, owned middleware, portal
 delivery, call-center handoff, and prompt workspace configuration.
-`LIVEKIT_FORWARD_SYNC_SECRET` is the preferred portal-delivery secret;
-`WEBHOOK_SECRET` remains a legacy fallback.
+`LIVEKIT_FORWARD_SYNC_SECRET` authenticates portal delivery.
 
 Real call testing requires LiveKit Cloud credentials and a configured SIP
 trunk. See [`docs/ops/telnyx-setup.md`](docs/ops/telnyx-setup.md).
