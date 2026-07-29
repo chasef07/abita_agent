@@ -224,7 +224,7 @@ describe("call observability", () => {
     expect(
       classifyToolOutput(
         "get_availability",
-        "Before checking availability for a new appointment, call get_availability again with appointmentLane medical_md or routine_od.",
+        "Before checking availability for a new appointment, call get_availability again with visitType medical or routine_vision.",
         false,
       ),
     ).toBe("availability_blocked");

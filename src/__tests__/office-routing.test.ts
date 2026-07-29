@@ -145,6 +145,38 @@ describe("tool-first prompt gating", () => {
     }
   });
 
+  it("makes purpose-based appointment triage a core responsibility", () => {
+    for (const phone of [
+      SPRING_HILL_OFFICE_PHONE,
+      SPRING_HILL_813_TRUNK_PHONE,
+      CRYSTAL_RIVER_OFFICE_PHONE,
+      HOLLYWOOD_OFFICE_PHONE,
+      NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+      ...SWEETWATER_TRUNK_PHONES,
+    ]) {
+      const prompt = buildPrompt(phone);
+
+      expect(prompt).toContain("# Appointment Triage");
+      expect(prompt).toContain(
+        "Before checking availability for a new appointment, understand why the patient is coming in",
+      );
+      expect(prompt).toContain(
+        "Use medical when the patient needs medical eye care from an ophthalmologist, including a current eye problem, symptom, condition, post-operative concern, or medical evaluation.",
+      );
+      expect(prompt).toContain(
+        "Use routine_vision when the patient needs routine vision care from an optometrist for glasses, contacts, prescription updates, fittings, or a routine vision exam, and has no current eye problem.",
+      );
+      expect(prompt).not.toContain("alone do not determine the visit type");
+      expect(prompt).toContain(
+        'ask exactly: "Is this for an eye problem or symptom that needs an ophthalmologist, or for routine vision care with an optometrist for glasses or contacts?"',
+      );
+      expect(prompt).not.toContain("referral");
+      expect(prompt).toContain(
+        "Do not diagnose; classify only the scheduling purpose.",
+      );
+    }
+  });
+
   it("keeps identity and privacy policy in the static prompt", () => {
     const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
 
@@ -188,7 +220,7 @@ describe("dermatology demo", () => {
     expect(prompt).toContain("You are Julia");
     expect(prompt).toContain("fictional dermatology practice");
     expect(prompt).toContain("Medical dermatology includes");
-    expect(prompt).toContain("appointmentLane medical_md");
+    expect(prompt).toContain("visitType medical");
     expect(prompt).toContain(
       "The current demo does not book cosmetic or med-spa services",
     );
@@ -398,7 +430,16 @@ describe("Crystal River prompt guidance", () => {
     expect(hollywoodKnowledge).toContain(
       "12750 NW 17th St, #201, Miami, FL 33182",
     );
-    expect(hollywoodKnowledge).toContain("Route to ophthalmology");
+    expect(hollywoodKnowledge).not.toContain("Use the medical visit type");
+    expect(hollywoodKnowledge).not.toContain(
+      "Use the routine vision visit type",
+    );
+    expect(hollywoodKnowledge).not.toContain("Route to ophthalmology");
+    expect(hollywoodKnowledge).not.toContain("Route to optometry");
+    expect(hollywoodKnowledge).toContain(
+      "Routine-vision appointments cover routine eye exams",
+    );
+    expect(hollywoodKnowledge).not.toContain("optometry lane");
     expect(hollywoodKnowledge).toContain(
       "does not perform retina surgical care",
     );
@@ -410,7 +451,16 @@ describe("Crystal River prompt guidance", () => {
     expect(sweetwaterKnowledge).toContain(
       "4330 Sheridan St, Suite 102B, Hollywood, FL 33021",
     );
-    expect(sweetwaterKnowledge).toContain("Route to ophthalmology");
+    expect(sweetwaterKnowledge).not.toContain("Use the medical visit type");
+    expect(sweetwaterKnowledge).not.toContain(
+      "Use the routine vision visit type",
+    );
+    expect(sweetwaterKnowledge).not.toContain("Route to ophthalmology");
+    expect(sweetwaterKnowledge).not.toContain("Route to optometry");
+    expect(sweetwaterKnowledge).toContain(
+      "Routine-vision appointments cover routine eye exams",
+    );
+    expect(sweetwaterKnowledge).not.toContain("optometry lane");
     expect(sweetwaterKnowledge).toContain(
       "does not perform retina surgical care",
     );
@@ -683,7 +733,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
   });
 
-  it("keeps availability from exposing Bach-only routing internals", () => {
+  it("keeps availability execution tied to core appointment triage", () => {
     expect(get_availability.description).toContain(
       "caller's own date and time words",
     );
@@ -694,14 +744,12 @@ describe("model-facing tool definitions", () => {
       "search from the earliest allowed date",
     );
     expect(get_availability.description).toContain(
-      "routine exam caller also mentions an eye problem or symptom",
-    );
-    expect(get_availability.description).toContain(
-      "ask whether the appointment is mainly for glasses or contacts or for the eye problem",
+      "appointment triage has established the visit type",
     );
     expect(get_availability.description).toContain(
       "Offer only the returned slots",
     );
+    expect(get_availability.description).not.toContain("appointmentLane");
     expect(get_availability.description).not.toContain("bach_only routing");
     expect(get_availability.description).not.toContain(
       "Under 18 medical visits = Dr. Bach only",
@@ -710,16 +758,13 @@ describe("model-facing tool definitions", () => {
     const parameters = get_availability.parameters as {
       safeParse: (value: unknown) => { success: boolean };
       shape: {
-        appointmentLane: { description?: string };
         office: { description?: string };
+        visitType: { description?: string };
         when: { description?: string };
       };
     };
-    expect(parameters.shape.appointmentLane.description).toContain(
-      "medical_md",
-    );
-    expect(parameters.shape.appointmentLane.description).toContain(
-      "routine_od",
+    expect(parameters.shape.visitType.description).toContain(
+      "Visit type established by appointment triage",
     );
     expect(parameters.shape.office.description).toContain(
       "Hollywood and Sweetwater calls",
@@ -736,60 +781,66 @@ describe("model-facing tool definitions", () => {
     expect(
       parameters.safeParse({
         when: "next Tuesday around 3 PM",
-        appointmentLane: "medical_md",
+        visitType: "medical",
         office: "hollywood",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
         when: "tomorrow morning",
-        appointmentLane: "medical_md",
+        visitType: "medical",
         office: "sweetwater",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
         when: "tomorrow",
-        appointmentLane: "medical_md",
+        visitType: "medical",
         office: "spring-hill",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
         when: "tomorrow",
-        appointmentLane: "medical_md",
+        visitType: "medical",
         timePreference: "evening",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
         date: "2026-06-01",
-        appointmentLane: "medical_md",
+        visitType: "medical",
         timePreference: "none",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
         when: "June 1",
-        appointmentLane: "routine_od",
+        visitType: "routine_vision",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
         when: "June 1",
-        appointmentLane: "unknown",
+        visitType: "unknown",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
         date: "2026-06-01",
-        appointmentLane: "medical_md",
+        visitType: "medical",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
         when: "next Wednesday",
         date: "2026-06-01",
+        visitType: "medical",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        when: "next Wednesday",
         appointmentLane: "medical_md",
       }).success,
     ).toBe(false);
@@ -803,7 +854,7 @@ describe("model-facing tool definitions", () => {
       "before adding a new patient",
     );
     expect(check_insurance.description).toContain(
-      "whether the visit is medical or glasses/contacts routine vision",
+      "after you know the plan name and visit type",
     );
     expect(check_insurance.description).toContain(
       "quick insurance acceptance questions",
@@ -819,7 +870,13 @@ describe("model-facing tool definitions", () => {
 
     const parameters = check_insurance.parameters as {
       safeParse: (value: unknown) => { success: boolean };
+      shape: {
+        coverageType: { description?: string };
+      };
     };
+    expect(parameters.shape.coverageType.description).toContain(
+      "Visit type established by appointment triage",
+    );
     expect(
       parameters.safeParse({
         plan: "Blue Cross",
