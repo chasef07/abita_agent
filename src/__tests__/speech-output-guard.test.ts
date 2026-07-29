@@ -138,7 +138,7 @@ describe("assistant speech output", () => {
   });
 
   it.each(["lk_agents_cancel_task", "lk_agents_get_running_tasks"])(
-    "blocks the split SDK tool name %s",
+    "blocks the split SDK-internal output marker %s",
     async (toolName) => {
       const midpoint = Math.floor(toolName.length / 2);
       await expect(

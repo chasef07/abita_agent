@@ -36,10 +36,18 @@ const TOOL_MARKERS = [
   "transfer_call",
   "end_call",
   "create_staff_task",
+];
+// Filter-only vocabulary from LiveKit's internal task prompts.
+// These strings do not register or invoke tools.
+const SDK_INTERNAL_OUTPUT_MARKERS = [
   "lk_agents_cancel_task",
   "lk_agents_get_running_tasks",
 ];
-const BLOCKED_MARKERS = [...PROMPT_MARKERS, ...TOOL_MARKERS];
+const BLOCKED_MARKERS = [
+  ...PROMPT_MARKERS,
+  ...TOOL_MARKERS,
+  ...SDK_INTERNAL_OUTPUT_MARKERS,
+];
 const SAFE_RECOVERY: Record<VoiceLanguage, string> = {
   en: "Sorry, let me rephrase that. How can I help?",
   es: "Perdón, déjeme decirlo de otra manera. ¿Cómo puedo ayudarle?",
