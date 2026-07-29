@@ -74,12 +74,10 @@ function isRoutineVisionSchedulingOrChange(state: CallState): boolean {
   const turn = state.workflow.current;
   if (turn && turn.intent !== "change_appointment") return false;
 
-  return (
-    activeRoutingContext(state).routing === "optical_only" ||
-    hasRoutineVisionAppointmentTypeId(
-      existingAppointmentForChangeContext(state),
-    )
-  );
+  const appointment = existingAppointmentForChangeContext(state);
+  if (appointment) return defaultsToRoutineVision(appointment);
+
+  return activeRoutingContext(state).routing === "optical_only";
 }
 
 function existingAppointmentForChangeContext(
@@ -92,13 +90,13 @@ function existingAppointmentForChangeContext(
   );
 }
 
-function hasRoutineVisionAppointmentTypeId(
-  appointment: CallerAppointment | null,
-): boolean {
+function defaultsToRoutineVision(appointment: CallerAppointment): boolean {
   return (
-    appointment?.appointmentTypeId !== undefined &&
-    ROUTINE_VISION_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
+    appointment.appointmentTypeId === undefined ||
+    !KNOWN_MEDICAL_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
   );
 }
 
-const ROUTINE_VISION_APPOINTMENT_TYPE_IDS = new Set([1010, 3364, 4244, 4245]);
+const KNOWN_MEDICAL_APPOINTMENT_TYPE_IDS = new Set([
+  1004, 1005, 1006, 1007, 1008, 6167, 6168, 6169,
+]);

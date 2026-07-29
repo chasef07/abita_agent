@@ -1210,7 +1210,7 @@ describe("scheduling tools", () => {
     expect(state.workflow.current?.intent).toBe("change_appointment");
   });
 
-  it("does not infer visit type from loaded appointment text", async () => {
+  it("defaults a loaded appointment without a type ID to routine vision", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [availabilityFound([returnedSlot()])],
     });
@@ -1219,6 +1219,58 @@ describe("scheduling tools", () => {
     state.identity.patient.appointments = [
       loadedAppointment({
         appointmentTypeId: undefined,
+        type: "Optometry",
+      }),
+    ];
+
+    await get_availability.execute({ when: "2026-06-01" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
+
+    expect(middleware.operations).toEqual([
+      expect.objectContaining({
+        kind: "availability",
+        request: expect.objectContaining({ routing: "optical_only" }),
+      }),
+    ]);
+  });
+
+  it("defaults an unrecognized loaded appointment type ID to routine vision", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [availabilityFound([returnedSlot()])],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    state.identity.patient.appointments = [
+      loadedAppointment({
+        appointmentTypeId: 9999,
+        type: "Medical visit",
+      }),
+    ];
+
+    await get_availability.execute({ when: "2026-06-01" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
+
+    expect(middleware.operations).toEqual([
+      expect.objectContaining({
+        kind: "availability",
+        request: expect.objectContaining({ routing: "optical_only" }),
+      }),
+    ]);
+  });
+
+  it("keeps a known medical appointment type on medical routing", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [availabilityFound([returnedSlot()])],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    state.identity.patient.appointments = [
+      loadedAppointment({
+        appointmentTypeId: 1005,
         type: "Optometry",
       }),
     ];
