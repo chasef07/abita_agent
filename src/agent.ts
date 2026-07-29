@@ -37,6 +37,7 @@ import {
   systemSchedulingClock,
   type SchedulingClock,
 } from "./scheduling/availability-when.js";
+import { guardAssistantSpeech } from "./runtime/speech-output-guard.js";
 
 type VoiceAgentOptions = {
   identityLookup?: PatientResolveLookup;
@@ -160,11 +161,33 @@ export function createVoiceAgent(
     },
 
     async ttsNode(ctx, text, modelSettings) {
+      const safeText = guardAssistantSpeech(text, {
+        language:
+          ctx.session.userData.runtime.voiceLanguage?.current ?? undefined,
+        onBlocked: (marker) => {
+          reportBlockedSpeech("tts", marker);
+        },
+      });
       return LiveKitAgent.default.ttsNode(
         ctx.agent,
         options.onAssistantText
-          ? observeAssistantText(text, options.onAssistantText)
-          : text,
+          ? observeAssistantText(safeText, options.onAssistantText)
+          : safeText,
+        modelSettings,
+      );
+    },
+
+    async transcriptionNode(ctx, text, modelSettings) {
+      const safeText = guardAssistantSpeech(text, {
+        language:
+          ctx.session.userData.runtime.voiceLanguage?.current ?? undefined,
+        onBlocked: (marker) => {
+          reportBlockedSpeech("transcription", marker);
+        },
+      });
+      return LiveKitAgent.default.transcriptionNode(
+        ctx.agent,
+        safeText,
         modelSettings,
       );
     },
@@ -248,4 +271,13 @@ function recentNaturalLanguageConversation(chatCtx: ChatContext): string[] {
 
 function elapsedMilliseconds(startedAt: number): number {
   return Math.round((performance.now() - startedAt) * 100) / 100;
+}
+
+function reportBlockedSpeech(
+  output: "transcription" | "tts",
+  marker: string,
+): void {
+  console.warn(
+    `[speech_guard] blocked internal model output output=${output} marker=${marker}`,
+  );
 }
