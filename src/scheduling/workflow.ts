@@ -109,6 +109,7 @@ import {
 export interface AvailabilityLookupArgs {
   when: string;
   appointmentLane?: SchedulingAppointmentLane;
+  oldAppointmentRef?: string;
   office?: AvailabilityOfficeKey;
 }
 
@@ -509,10 +510,39 @@ export class SchedulingWorkflow {
       }
     }
 
+    if (
+      !completedReschedule &&
+      state.workflow.current?.intent !== "change_appointment"
+    ) {
+      clearAvailabilitySelection(state, {
+        invalidateReads: "scheduling_context_changed",
+      });
+      return "Check availability again for the loaded appointment the caller wants to reschedule before moving it.";
+    }
+
+    const availabilityOldAppointmentRef =
+      !completedReschedule &&
+      state.workflow.current?.intent === "change_appointment"
+        ? state.workflow.current.oldAppointmentRef
+        : undefined;
+    const requestedOldAppointmentRef = oldAppointmentRef?.trim();
+    if (
+      availabilityOldAppointmentRef &&
+      requestedOldAppointmentRef &&
+      requestedOldAppointmentRef !== availabilityOldAppointmentRef
+    ) {
+      clearAvailabilitySelection(state, {
+        invalidateReads: "scheduling_context_changed",
+      });
+      return "The appointment selected to reschedule changed. Check availability again for the exact appointment the caller wants to move.";
+    }
+
     const selectedSlot = selectedSlotForBooking(state, appointmentSlotRef);
     const selection = rescheduleAppointmentForState(
       state,
-      completedReschedule ? undefined : oldAppointmentRef,
+      completedReschedule
+        ? undefined
+        : (availabilityOldAppointmentRef ?? requestedOldAppointmentRef),
       { preferLatestBooked: Boolean(completedReschedule) },
     );
     if (selection.status === "ambiguous") {
@@ -801,7 +831,11 @@ function buildAvailabilityLookupRequestForState(
   const officeSelection = selectAvailabilityOffice(state, args.office);
   if (officeSelection) return { blocked: officeSelection };
 
-  prepareAvailabilityLookupContext(state, args.appointmentLane);
+  prepareAvailabilityLookupContext(
+    state,
+    args.appointmentLane,
+    args.oldAppointmentRef,
+  );
   const contextRecovery = availabilityContextRecovery(state);
   if (contextRecovery) return { blocked: contextRecovery };
   ensureAvailabilityContext(state, "checking availability");
@@ -851,6 +885,7 @@ function availabilityBackendKey(
     providerOffice: normalizePhoneNumber(getAmdOfficeForToolCall(state)),
     intent: turn?.intent ?? null,
     appointmentLane: turn?.appointmentLane ?? null,
+    oldAppointmentRef: turn?.oldAppointmentRef ?? null,
     cacheDay: input.cacheDay,
     requestedDate: input.body.requestedDate?.trim() || null,
     preferredTime: input.body.preferredTime ?? null,

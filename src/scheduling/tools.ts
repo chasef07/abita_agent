@@ -110,7 +110,7 @@ export function createSchedulingTools(
       "Search appointment availability using the caller's own date and time words. " +
       "Pass those words unchanged in when, such as tomorrow morning or next Tuesday around 3 PM; do not calculate or convert them to a date or time. " +
       "If the caller asks for the soonest, next available, any day, or only gives a time preference, pass those words unchanged so the workflow can search from the earliest allowed date. " +
-      "For new appointments, call after appointment triage has established the visit type; for reschedules, call only after the existing appointment to move is identified. " +
+      "For new appointments, call after appointment triage has established the visit type. For reschedules, call only after the existing appointment to move is identified, pass its oldAppointmentRef when multiple appointments are loaded, and omit visitType because the loaded appointment supplies it. " +
       "On Hollywood or Sweetwater calls, ask which office the caller wants; never infer it from the number called. " +
       "Offer only the returned slots. This tool does not book; only claim success after book_appointment succeeds.",
     parameters: z
@@ -128,6 +128,14 @@ export function createSchedulingTools(
           .describe(
             "Visit type established by appointment triage. Required for new appointment searches; pass medical or routine_vision. " +
               "Omit only for reschedules when the loaded appointment supplies the visit type.",
+          ),
+        oldAppointmentRef: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe(
+            "For reschedules, pass the appointmentRef for the exact loaded appointment the caller confirmed they want to move. The sole loaded appointment is used when this is omitted. Omit for new appointments.",
           ),
         office: z
           .enum(["hollywood", "sweetwater"])

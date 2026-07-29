@@ -13,23 +13,46 @@ import {
   applySchedulingLaneToState,
   applyTurnContextToState,
 } from "./state.js";
+import {
+  appointmentForChangeContext,
+  rescheduleAppointmentForState,
+} from "./appointments.js";
 
 export function prepareAvailabilityLookupContext(
   state: CallState,
   appointmentLane: SchedulingAppointmentLane | undefined,
+  oldAppointmentRef: string | undefined,
 ): void {
-  if (appointmentLane) {
-    applySchedulingLaneToState(state, appointmentLane);
-    return;
-  }
-
-  if (
-    hasExistingAppointmentChangeContext(state, { ignoreCurrentIntent: true })
-  ) {
+  if (oldAppointmentRef) {
+    const selection = rescheduleAppointmentForState(state, oldAppointmentRef);
+    if (selection.status !== "selected") {
+      throw new ToolError(selection.message);
+    }
     applyTurnContextToState(state, {
       intent: "change_appointment",
       appointmentLane: "not_applicable",
+      oldAppointmentRef: selection.appointment.appointmentRef,
     });
+    return;
+  }
+
+  const appointment = appointmentForChangeContext(state);
+  if (appointment) {
+    applyTurnContextToState(state, {
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+      ...(appointment.appointmentRef
+        ? { oldAppointmentRef: appointment.appointmentRef }
+        : {}),
+    });
+    return;
+  }
+
+  if (activeAppointments(state).length > 0) return;
+
+  if (appointmentLane) {
+    applySchedulingLaneToState(state, appointmentLane);
+    return;
   }
 }
 
@@ -48,7 +71,7 @@ export function availabilityContextRecovery(state: CallState): string | null {
 
   const appointments = activeAppointments(state);
   if (appointments.length > 0) {
-    return "Before checking availability, ask which loaded appointment the caller wants to move. If this is a new appointment instead, call get_availability again with visitType medical or routine_vision.";
+    return "Before checking availability, ask which loaded appointment the caller wants to move.";
   }
 
   if (
@@ -78,33 +101,17 @@ function hasRecordedSchedulingContext(state: CallState): boolean {
   );
 }
 
-function hasExistingAppointmentChangeContext(
-  state: CallState,
-  options: { ignoreCurrentIntent?: boolean } = {},
-): boolean {
+function hasExistingAppointmentChangeContext(state: CallState): boolean {
   const turn = state.workflow.current;
-  if (
-    !options.ignoreCurrentIntent &&
-    turn &&
-    turn.intent !== "change_appointment"
-  )
-    return false;
+  if (turn && turn.intent !== "change_appointment") return false;
   if (!activePatientId(state)) return false;
 
-  const selectedAppointment = existingAppointmentForChangeContext(state);
+  const selectedAppointment = appointmentForChangeContext(state);
   if (!selectedAppointment) return false;
 
   return Boolean(
     activeRoutingContext(state).routing ||
     selectedAppointment.provider?.trim() ||
     selectedAppointment.type?.trim(),
-  );
-}
-
-function existingAppointmentForChangeContext(state: CallState) {
-  const appointments = activeAppointments(state);
-  return (
-    appointments.find((appointment) => appointment.confirmed) ??
-    (appointments.length === 1 ? appointments[0] : null)
   );
 }

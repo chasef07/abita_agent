@@ -771,6 +771,7 @@ describe("model-facing tool definitions", () => {
     const parameters = get_availability.parameters as {
       safeParse: (value: unknown) => { success: boolean };
       shape: {
+        oldAppointmentRef: { description?: string };
         office: { description?: string };
         visitType: { description?: string };
         when: { description?: string };
@@ -778,6 +779,9 @@ describe("model-facing tool definitions", () => {
     };
     expect(parameters.shape.visitType.description).toContain(
       "Visit type established by appointment triage",
+    );
+    expect(parameters.shape.oldAppointmentRef.description).toContain(
+      "exact loaded appointment",
     );
     expect(parameters.shape.office.description).toContain(
       "Hollywood and Sweetwater calls",
@@ -791,10 +795,23 @@ describe("model-facing tool definitions", () => {
     expect(parameters.shape.when.description).toContain(
       "without converting it",
     );
+    expect(Object.keys(parameters.shape)).toEqual([
+      "when",
+      "visitType",
+      "oldAppointmentRef",
+      "office",
+    ]);
     expect(
       parameters.safeParse({
         when: "next Tuesday around 3 PM",
         visitType: "medical",
+        office: "hollywood",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        when: "next Tuesday around 3 PM",
+        oldAppointmentRef: "appointment-loaded",
         office: "hollywood",
       }).success,
     ).toBe(true);

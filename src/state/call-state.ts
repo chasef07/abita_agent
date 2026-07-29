@@ -174,6 +174,7 @@ export type SchedulingAppointmentLane = Exclude<
 export interface WorkflowTurnContext {
   intent: TurnIntent;
   appointmentLane: AppointmentLane;
+  oldAppointmentRef?: string;
 }
 
 export interface CompletedRescheduleState {
