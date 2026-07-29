@@ -37,6 +37,7 @@ import {
   systemSchedulingClock,
   type SchedulingClock,
 } from "./scheduling/availability-when.js";
+import { guardAssistantSpeech } from "./runtime/speech-output-guard.js";
 
 type VoiceAgentOptions = {
   identityLookup?: PatientResolveLookup;
@@ -160,11 +161,20 @@ export function createVoiceAgent(
     },
 
     async ttsNode(ctx, text, modelSettings) {
+      const safeText = guardAssistantSpeech(text, {
+        language:
+          ctx.session.userData.runtime.voiceLanguage?.current ?? undefined,
+        onBlocked: (marker) => {
+          console.warn(
+            `[speech_guard] blocked internal model output marker=${marker}`,
+          );
+        },
+      });
       return LiveKitAgent.default.ttsNode(
         ctx.agent,
         options.onAssistantText
-          ? observeAssistantText(text, options.onAssistantText)
-          : text,
+          ? observeAssistantText(safeText, options.onAssistantText)
+          : safeText,
         modelSettings,
       );
     },
