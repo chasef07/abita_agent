@@ -22,6 +22,7 @@ export type OfficeInsurancePolicy =
   { supported: true; source: string } | { supported: false };
 export type OfficeHandoffPolicy =
   { mode: "call-center" } | { mode: "phone"; target: string };
+export type StaffTaskDelivery = "disabled" | "acuity-site" | "acuity-product";
 export type OfficePromptSource = {
   file: string;
   tag: "role" | "voice";
@@ -50,7 +51,7 @@ export interface OfficeProfile {
   greeting: string;
   amdOfficePhone: string;
   knowledgeSource: string;
-  staffTaskCapture: boolean;
+  staffTaskDelivery: StaffTaskDelivery;
   availabilityOfficeFor(
     requestedOffice?: AvailabilityOfficeKey,
   ): AvailabilityOfficeSelection;
@@ -79,7 +80,7 @@ type OfficeProfileInput = {
   knowledgeSource: string;
   middlewareBaseUrl?: string;
   roleFile?: string;
-  staffTaskCapture: boolean;
+  staffTaskDelivery: StaffTaskDelivery;
   trunkPhones: string[];
 };
 
@@ -95,7 +96,7 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
     knowledgeSource,
     middlewareBaseUrl,
     roleFile,
-    staffTaskCapture,
+    staffTaskDelivery,
     trunkPhones,
   } = input;
 
@@ -118,7 +119,7 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
     greeting,
     key,
     knowledgeSource,
-    staffTaskCapture,
+    staffTaskDelivery,
     trunkPhones,
     availabilityOfficeFor(requestedOffice) {
       if (!AVAILABILITY_OFFICE_KEYS.some((officeKey) => officeKey === key)) {
@@ -191,7 +192,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       },
     },
     amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
-    staffTaskCapture: true,
+    staffTaskDelivery: "acuity-site",
   }),
   "crystal-river": defineOffice({
     key: "crystal-river",
@@ -208,7 +209,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       routine_vision: { supported: false },
     },
     amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
-    staffTaskCapture: false,
+    staffTaskDelivery: "disabled",
     handoff: () => ({
       mode: "phone",
       target: `tel:${CRYSTAL_RIVER_TRANSFER_NUMBER}`,
@@ -231,7 +232,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       },
     },
     amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
-    staffTaskCapture: true,
+    staffTaskDelivery: "acuity-site",
   }),
   sweetwater: defineOffice({
     key: "sweetwater",
@@ -251,7 +252,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     },
     amdOfficePhone: SWEETWATER_OFFICE_PHONE,
     englishSpeaker: "luz",
-    staffTaskCapture: true,
+    staffTaskDelivery: "acuity-site",
   }),
   "north-miami-beach-optical": defineOffice({
     key: "north-miami-beach-optical",
@@ -268,7 +269,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     },
     amdOfficePhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
     englishSpeaker: "luz",
-    staffTaskCapture: true,
+    staffTaskDelivery: "acuity-site",
   }),
   dev: defineOffice({
     key: "dev",
@@ -290,7 +291,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       },
     },
     amdOfficePhone: DEV_OFFICE_PHONE,
-    staffTaskCapture: false,
+    staffTaskDelivery: "acuity-product",
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
     handoff: devHandoff,
   }),

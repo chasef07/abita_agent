@@ -489,7 +489,7 @@ Use [`.env.example`](.env.example) as the canonical variable list.
 | `ACUITY_HANDOFF_URL`, `ACUITY_HANDOFF_SECRET` | Direct call-center handoff acquisition | Required for call-center Office Profiles |
 | `PROMPT_WORKSPACE` | Alternate prompt and knowledge root | Optional; defaults to `workspace` |
 | `DEV_HANDOFF_TARGET` | Development profile transfer override | Optional; never a production routing source |
-| `DEV_ACUITY_HANDOFF_URL`, `DEV_ACUITY_HANDOFF_SECRET`, `DEV_ACUITY_HANDOFF_PRACTICE_ID`, `DEV_ACUITY_HANDOFF_LOCATION_ID` | Isolated Acuity Product handoff for the development trunk | Optional as a complete set; takes precedence over `DEV_HANDOFF_TARGET` and never changes production Office Profiles |
+| `DEV_ACUITY_HANDOFF_URL`, `DEV_ACUITY_HANDOFF_SECRET`, `DEV_ACUITY_HANDOFF_PRACTICE_ID`, `DEV_ACUITY_HANDOFF_LOCATION_ID` | Isolated Acuity Product Staff Tasks and handoff for the development trunk | URL and secret enable Tasks; add both IDs to enable handoffs. The task endpoint is derived as `/v1/tasks`; production Office Profiles stay unchanged |
 
 Never commit credentials or bake them into the container image.
 

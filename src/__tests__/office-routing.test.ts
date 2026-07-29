@@ -74,7 +74,7 @@ describe("office routing helpers", () => {
     );
   });
 
-  it("exposes staff task capture on supported production offices only", () => {
+  it("selects staff task delivery from the inbound Office Profile", () => {
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
       SPRING_HILL_813_TRUNK_PHONE,
@@ -85,9 +85,17 @@ describe("office routing helpers", () => {
       expect(toolNamesForTrunk(phone)).toContain("create_staff_task");
     }
 
-    for (const phone of [CRYSTAL_RIVER_OFFICE_PHONE, DEV_OFFICE_PHONE]) {
-      expect(toolNamesForTrunk(phone)).not.toContain("create_staff_task");
-    }
+    expect(toolNamesForTrunk(DEV_OFFICE_PHONE)).toContain("create_staff_task");
+    expect(toolNamesForTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).not.toContain(
+      "create_staff_task",
+    );
+    expect(getOfficeProfile("spring-hill").staffTaskDelivery).toBe(
+      "acuity-site",
+    );
+    expect(getOfficeProfile("dev").staffTaskDelivery).toBe("acuity-product");
+    expect(getOfficeProfile("crystal-river").staffTaskDelivery).toBe(
+      "disabled",
+    );
   });
 });
 
@@ -290,7 +298,7 @@ describe("dermatology demo", () => {
     expect(prompt).not.toContain("contact lenses");
   });
 
-  it("exposes the demo transfer without exposing staff-task tools", () => {
+  it("exposes the demo transfer and staff-task tools", () => {
     const names = toolNamesForTrunk(DEV_OFFICE_PHONE);
 
     expect(names).toContain("check_insurance");
@@ -298,7 +306,7 @@ describe("dermatology demo", () => {
     expect(names).toContain("book_appointment");
     expect(names).toContain("end_call");
     expect(names).toContain("transfer_call");
-    expect(names).not.toContain("create_staff_task");
+    expect(names).toContain("create_staff_task");
   });
 
   it("honors the isolated demo handoff override", () => {
