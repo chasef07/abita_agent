@@ -74,10 +74,10 @@ function isRoutineVisionSchedulingOrChange(state: CallState): boolean {
   const turn = state.workflow.current;
   if (turn && turn.intent !== "change_appointment") return false;
 
-  return (
-    activeRoutingContext(state).routing === "optical_only" ||
-    isRoutineVisionAppointment(existingAppointmentForChangeContext(state))
-  );
+  const appointment = existingAppointmentForChangeContext(state);
+  if (appointment) return defaultsToRoutineVision(appointment);
+
+  return activeRoutingContext(state).routing === "optical_only";
 }
 
 function existingAppointmentForChangeContext(
@@ -90,31 +90,13 @@ function existingAppointmentForChangeContext(
   );
 }
 
-function isRoutineVisionAppointment(
-  appointment: CallerAppointment | null,
-): boolean {
-  if (
-    appointment?.appointmentTypeId !== undefined &&
-    ROUTINE_VISION_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
-  ) {
-    return true;
-  }
-
-  const normalizedType = normalizeAppointmentType(appointment?.type);
-  if (!normalizedType) return false;
-
-  return /\b(routine vision|routine eye|vision exam|eye exam|glasses|contacts?|contact lens|optical|optometry|optometrist|(?:new|established) (?:adult|pediatric) vision)\b/.test(
-    normalizedType,
-  );
-}
-
-const ROUTINE_VISION_APPOINTMENT_TYPE_IDS = new Set([1010, 3364, 4244, 4245]);
-
-function normalizeAppointmentType(value: string | undefined): string {
+function defaultsToRoutineVision(appointment: CallerAppointment): boolean {
   return (
-    value
-      ?.trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ") ?? ""
+    appointment.appointmentTypeId === undefined ||
+    !KNOWN_MEDICAL_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
   );
 }
+
+const KNOWN_MEDICAL_APPOINTMENT_TYPE_IDS = new Set([
+  1004, 1005, 1006, 1007, 1008, 6167, 6168, 6169,
+]);

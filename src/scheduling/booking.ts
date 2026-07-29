@@ -24,7 +24,6 @@ import { routingForAvailability } from "./routing.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
 import type { BookingSuccess } from "./middleware.js";
 
-type AppointmentKind = "medical" | "routine_vision" | "post_op";
 export type AppointmentPatientStatus = "new" | "established";
 
 type BookingRequestInput = {
@@ -244,44 +243,29 @@ function normalizeReferringDoctor(referringDoctor: string | undefined): string {
 function appointmentIntentForBooking(
   state: CallState,
   routing: string | null,
-  appointmentReason?: string,
+  appointmentReason: string,
   patientStatusOverride?: AppointmentPatientStatus | null,
 ): Pick<
   BookAppointmentInput,
-  "visitCategory" | "visitKind" | "patientStatus" | "isPostOp" | "visitReason"
+  "visitCategory" | "patientStatus" | "visitReason"
 > {
-  const visitKind = inferAppointmentKindForBooking(
-    state,
-    routing,
-    appointmentReason,
-  );
-  const visitCategory =
-    visitKind === "routine_vision" ? "routine_vision" : "medical";
-  const visitReason = appointmentReason?.trim();
-
   return {
-    visitCategory,
-    visitKind,
+    visitCategory: visitCategoryForBooking(state, routing),
     patientStatus:
       patientStatusOverride ?? patientStatusForAppointmentIntent(state),
-    ...(visitKind === "post_op" ? { isPostOp: true } : {}),
-    ...(visitReason ? { visitReason } : {}),
+    visitReason: appointmentReason,
   };
 }
 
-function inferAppointmentKindForBooking(
+function visitCategoryForBooking(
   state: CallState,
   routing: string | null,
-  appointmentReason?: string,
-): AppointmentKind {
+): BookAppointmentInput["visitCategory"] {
   if (
     routing === "optical_only" ||
     currentWorkflowVisitType(state) === "routine_vision"
   ) {
     return "routine_vision";
-  }
-  if (looksLikePostOpVisit(appointmentReason)) {
-    return "post_op";
   }
   return "medical";
 }
@@ -293,13 +277,6 @@ function patientStatusForAppointmentIntent(
     state.identity.patient.status === "new"
     ? "new"
     : "established";
-}
-
-function looksLikePostOpVisit(visitReason: string | undefined): boolean {
-  const normalized = visitReason?.trim().toLowerCase() ?? "";
-  return /\bpost\s*-?\s*op\b|\bpost\s+operative\b|\bpostoperative\b|\bsurgery\s+follow\s*-?\s*up\b|\brecent\s+surgery\b/.test(
-    normalized,
-  );
 }
 
 function isGenericBookingReason(value: string): boolean {

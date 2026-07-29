@@ -13,7 +13,7 @@ export const check_insurance = tool({
   name: "check_insurance",
   description:
     "Check whether the active office accepts the caller's insurance. " +
-    "Call this before adding a new patient, after you know the plan name and whether the visit is medical or glasses/contacts routine vision. " +
+    "Call this before adding a new patient, after you know the plan name and visit type. " +
     "Also call for quick insurance acceptance questions. " +
     "If the result says needs_clarification, ask the caller for the requested detail and do not call check_insurance again until the caller gives a more specific plan or coverage type. " +
     "If the result says needs_transfer, transfer the caller to staff before scheduling.",
@@ -26,7 +26,7 @@ export const check_insurance = tool({
     coverageType: z
       .enum(["medical", "routine_vision"])
       .describe(
-        "medical for symptom-driven eye care, ophthalmology visits, or any eye problem; routine_vision only for glasses, contacts, prescription updates, contact lens fittings, or routine eye exams with no active eye problem.",
+        "Visit type established by appointment triage; pass medical or routine_vision.",
       ),
   }),
   execute: async ({ plan, coverageType }, { ctx }) => {

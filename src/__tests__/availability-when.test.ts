@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AvailabilityResult } from "../scheduling/middleware.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
-import type { SchedulingAppointmentLane } from "../state/call-state.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
 import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
 import { createToolContext } from "./support/tool-context.js";
@@ -52,7 +51,7 @@ function foundAvailability(
 async function checkAvailability(input: {
   when: string;
   now?: string;
-  appointmentLane?: SchedulingAppointmentLane;
+  visitType?: "medical" | "routine_vision";
   result?: AvailabilityResult;
 }) {
   const state = createState();
@@ -66,7 +65,7 @@ async function checkAvailability(input: {
   const response = await get_availability.execute(
     {
       when: input.when,
-      appointmentLane: input.appointmentLane ?? "medical_md",
+      visitType: input.visitType ?? "medical",
     },
     {
       ctx: createToolContext(state) as never,
@@ -162,13 +161,13 @@ describe("Scheduling Workflow caller-language availability", () => {
     const ctx = createToolContext(state);
 
     await get_availability.execute(
-      { when: "next Tuesday at 3", appointmentLane: "medical_md" },
+      { when: "next Tuesday at 3", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-1" } as never,
     );
     const response = await get_availability.execute(
       {
         when: "how about 10 for that day",
-        appointmentLane: "medical_md",
+        visitType: "medical",
       },
       { ctx: ctx as never, toolCallId: "availability-2" } as never,
     );
@@ -198,11 +197,11 @@ describe("Scheduling Workflow caller-language availability", () => {
     const ctx = createToolContext(state);
 
     await get_availability.execute(
-      { when: "next Tuesday", appointmentLane: "medical_md" },
+      { when: "next Tuesday", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-1" } as never,
     );
     await get_availability.execute(
-      { when: "how about 10 for that day", appointmentLane: "medical_md" },
+      { when: "how about 10 for that day", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-2" } as never,
     );
 
@@ -235,11 +234,11 @@ describe("Scheduling Workflow caller-language availability", () => {
     const ctx = createToolContext(state);
 
     await get_availability.execute(
-      { when: "whenever you can get me in", appointmentLane: "medical_md" },
+      { when: "whenever you can get me in", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-1" } as never,
     );
     await get_availability.execute(
-      { when: "how about 10 for that day", appointmentLane: "medical_md" },
+      { when: "how about 10 for that day", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-2" } as never,
     );
 
@@ -268,15 +267,15 @@ describe("Scheduling Workflow caller-language availability", () => {
     const ctx = createToolContext(state);
 
     await get_availability.execute(
-      { when: "next Tuesday", appointmentLane: "medical_md" },
+      { when: "next Tuesday", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-1" } as never,
     );
+    await get_availability.execute({ when: "June 18", visitType: "medical" }, {
+      ctx: ctx as never,
+      toolCallId: "availability-2",
+    } as never);
     await get_availability.execute(
-      { when: "June 18", appointmentLane: "medical_md" },
-      { ctx: ctx as never, toolCallId: "availability-2" } as never,
-    );
-    await get_availability.execute(
-      { when: "how about 10 for that day", appointmentLane: "medical_md" },
+      { when: "how about 10 for that day", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-3" } as never,
     );
 
@@ -304,11 +303,11 @@ describe("Scheduling Workflow caller-language availability", () => {
     const ctx = createToolContext(state);
 
     await get_availability.execute(
-      { when: "Monday or Thursday", appointmentLane: "medical_md" },
+      { when: "Monday or Thursday", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-1" } as never,
     );
     await get_availability.execute(
-      { when: "how about 10 for that day", appointmentLane: "medical_md" },
+      { when: "how about 10 for that day", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-2" } as never,
     );
 
@@ -336,11 +335,11 @@ describe("Scheduling Workflow caller-language availability", () => {
     const ctx = createToolContext(state);
 
     await get_availability.execute(
-      { when: "next Tuesday at 3", appointmentLane: "medical_md" },
+      { when: "next Tuesday at 3", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-1" } as never,
     );
     await get_availability.execute(
-      { when: "next available in the morning", appointmentLane: "medical_md" },
+      { when: "next available in the morning", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-2" } as never,
     );
 
@@ -555,7 +554,7 @@ describe("Scheduling Workflow caller-language availability", () => {
     const ctx = createToolContext(state);
 
     await get_availability.execute(
-      { when: "tomorrow at 3 PM", appointmentLane: "medical_md" },
+      { when: "tomorrow at 3 PM", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-1" } as never,
     );
     const booking = await book_appointment.execute(

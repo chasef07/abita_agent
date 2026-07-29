@@ -60,6 +60,15 @@ The Voice Agent-owned sequence for availability, booking, cancellation, and
 rescheduling. It owns private booking-token use, appointment selection, write
 ordering, replay protection, state transitions, and speech-ready outcomes.
 
+**Visit Type**
+
+The model-facing purpose of a new appointment: `medical` when the patient needs
+medical eye care from an ophthalmologist for an eye problem or evaluation, and
+`routine_vision` when the patient needs routine vision care from an optometrist
+for glasses, contacts, or prescription care and has no active eye problem. The
+Voice Agent chooses it after understanding why the patient is coming in. The
+Scheduling Workflow translates it to the existing internal appointment lane.
+
 **Appointment Outcome**
 
 A committed booking, cancellation, or rescheduling result derived from executed

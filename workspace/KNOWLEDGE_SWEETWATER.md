@@ -6,28 +6,6 @@ Status: available
 
 If this is a medical emergency, please hang up and dial 911 or go to the nearest emergency room immediately.
 
-To determine the right scheduling lane, ask what the visit is for.
-
-Route to ophthalmology if the caller reports any current vision issue or medical eye concern, including:
-
-- Sudden loss of vision or major vision change
-- Flashes
-- New floaters
-- Redness or infected eye
-- Eye injury
-- Eye pain
-- Cataract, glaucoma, retina injections, diabetic eye care, or thyroid eye disease
-- Surgery consult or post-op issue
-- Referral from another provider
-- Ongoing medical eye condition
-
-Route to optometry if the caller wants:
-
-- Routine eye exam for glasses
-- Contact lens exam
-- Updating a glasses or contact lens prescription
-- Help with glasses or contact lenses that were already ordered
-
 Sweetwater does not perform retina surgical care. Retina surgical care needs to be redirected to a retina surgeon. If the caller does not have a retina surgeon, tell them to contact their primary care provider or insurance company so they can be referred to the appropriate physician or practice.
 
 ## Location and Contact
@@ -57,7 +35,7 @@ No after-hours contact information is supplied for this office. Do not guess.
 ## Scope of Services
 Status: available
 
-Sweetwater sees medical eye conditions and ophthalmology visits through the medical lane. Sweetwater also has an optometry lane for routine eye exams, eyeglass prescriptions, contact lens fittings, and insertion training.
+Sweetwater schedules medical eye care and routine vision. Medical appointments cover current eye problems, symptoms, conditions, and ophthalmology care. Routine-vision appointments cover routine eye exams, eyeglass prescriptions, contact lens fittings, and insertion training when there is no active eye problem.
 
 Routine-vision age minimums follow the scheduler provider rules: Dr. Maria Casas sees routine-vision patients age 7 and older, Dr. Kyler Farnan sees routine-vision patients age 5 and older, and Dr. Gisselle Calero sees routine-vision patients age 4 and older. If no routine-vision provider is age-eligible, route the patient to Dr. Bach, who is a pediatric ophthalmologist.
 

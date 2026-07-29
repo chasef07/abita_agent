@@ -226,6 +226,31 @@ describe("scheduling tools", () => {
     expect(tools.reschedule_appointment.onDuplicate).toBe("reject");
   });
 
+  it.each([
+    ["medical", "medical_md"],
+    ["routine_vision", "routine_od"],
+  ] as const)(
+    "maps the model-facing %s visit type to the internal scheduling lane",
+    async (visitType, appointmentLane) => {
+      const middleware = new InMemorySchedulingMiddleware({
+        availability: [availabilityFound([returnedSlot()])],
+      });
+      const { get_availability } = createSchedulingTools(middleware);
+      const state = createState();
+
+      await get_availability.execute({ when: "2026-06-01", visitType }, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never);
+
+      expect(state.workflow.current).toEqual({
+        intent: "schedule",
+        appointmentLane,
+      });
+      expect(middleware.operations).toHaveLength(1);
+    },
+  );
+
   it("blocks availability and booking for a partially registered patient", async () => {
     const middleware = new InMemorySchedulingMiddleware();
     const { book_appointment, get_availability } =
@@ -238,7 +263,7 @@ describe("scheduling tools", () => {
       "The patient chart exists, but insurance is not attached. Connect the caller to office staff to finish registration before scheduling.";
 
     const availabilityResult = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: "2026-06-01", visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -272,7 +297,7 @@ describe("scheduling tools", () => {
       const result = await get_availability.execute(
         {
           when: "2026-06-01",
-          appointmentLane: "medical_md",
+          visitType: "medical",
         },
         {
           ctx: createToolContext(state) as never,
@@ -297,7 +322,7 @@ describe("scheduling tools", () => {
     await get_availability.execute(
       {
         when: "2026-06-01",
-        appointmentLane: "medical_md",
+        visitType: "medical",
         office: "hollywood",
       },
       {
@@ -350,7 +375,7 @@ describe("scheduling tools", () => {
     const result = await get_availability.execute(
       {
         when: "2026-06-01",
-        appointmentLane: "medical_md",
+        visitType: "medical",
       },
       {
         ctx: createToolContext(state) as never,
@@ -394,7 +419,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
 
     const availability = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: "2026-06-01", visitType: "medical" },
       {
         ctx: ctx as never,
         toolCallId: "availability-1",
@@ -432,7 +457,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const args = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
     const ctx = createToolContext(state);
 
@@ -468,7 +493,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const args = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
     let lateOverlap: Promise<string> | undefined;
     Object.defineProperty(result, "status", {
@@ -512,7 +537,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const args = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
     const ctx = createToolContext(state);
 
@@ -578,7 +603,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const request = {
       when: "soonest",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
 
     await get_availability.execute(request, {
@@ -634,7 +659,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const request = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
 
     const first = await get_availability.execute(request, {
@@ -707,7 +732,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const initialArgs = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
 
     const initial = await get_availability.execute(initialArgs, {
@@ -778,7 +803,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const args = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
 
     const initial = await get_availability.execute(args, {
@@ -825,7 +850,7 @@ describe("scheduling tools", () => {
     const { get_availability } = createSchedulingTools(middleware);
     const state = createState();
     const availability = get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: "2026-06-01", visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -882,10 +907,10 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const lookup = (toolCallId: string) =>
-      get_availability.execute(
-        { when: "2026-06-01", appointmentLane: "medical_md" },
-        { ctx: ctx as never, toolCallId } as never,
-      );
+      get_availability.execute({ when: "2026-06-01", visitType: "medical" }, {
+        ctx: ctx as never,
+        toolCallId,
+      } as never);
 
     const first = lookup("availability-1");
     const second = lookup("availability-2");
@@ -927,7 +952,7 @@ describe("scheduling tools", () => {
 
     vi.setSystemTime(new Date("2026-05-30T16:15:00.000Z"));
     const response = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: "2026-06-01", visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -1010,7 +1035,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const lookup = (when: string, toolCallId: string) =>
-      get_availability.execute({ when, appointmentLane: "medical_md" }, {
+      get_availability.execute({ when, visitType: "medical" }, {
         ctx: ctx as never,
         toolCallId,
       } as never);
@@ -1045,7 +1070,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
 
     await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: "2026-06-01", visitType: "medical" },
       {
         ctx: ctx as never,
         toolCallId: "availability-1",
@@ -1124,8 +1149,8 @@ describe("scheduling tools", () => {
       },
     },
     {
-      name: "appointment lane",
-      change: () => ({ appointmentLane: "routine_od" as const }),
+      name: "visit type",
+      change: () => ({ visitType: "routine_vision" as const }),
     },
   ])(
     "performs a fresh availability read after a $name change",
@@ -1141,7 +1166,7 @@ describe("scheduling tools", () => {
       const ctx = createToolContext(state);
       const args = {
         when: "2026-06-01",
-        appointmentLane: "medical_md" as const,
+        visitType: "medical" as const,
       };
 
       await get_availability.execute(args, {
@@ -1170,7 +1195,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
 
     await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: "2026-06-01", visitType: "medical" },
       {
         ctx: ctx as never,
         toolCallId: "availability-1",
@@ -1183,6 +1208,110 @@ describe("scheduling tools", () => {
 
     expect(middleware.operations).toHaveLength(2);
     expect(state.workflow.current?.intent).toBe("change_appointment");
+  });
+
+  it("defaults a loaded appointment without a type ID to routine vision", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [availabilityFound([returnedSlot()])],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    state.identity.patient.appointments = [
+      loadedAppointment({
+        appointmentTypeId: undefined,
+        type: "Optometry",
+      }),
+    ];
+
+    await get_availability.execute({ when: "2026-06-01" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
+
+    expect(middleware.operations).toEqual([
+      expect.objectContaining({
+        kind: "availability",
+        request: expect.objectContaining({ routing: "optical_only" }),
+      }),
+    ]);
+  });
+
+  it("defaults an unrecognized loaded appointment type ID to routine vision", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [availabilityFound([returnedSlot()])],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    state.identity.patient.appointments = [
+      loadedAppointment({
+        appointmentTypeId: 9999,
+        type: "Medical visit",
+      }),
+    ];
+
+    await get_availability.execute({ when: "2026-06-01" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
+
+    expect(middleware.operations).toEqual([
+      expect.objectContaining({
+        kind: "availability",
+        request: expect.objectContaining({ routing: "optical_only" }),
+      }),
+    ]);
+  });
+
+  it("keeps a known medical appointment type on medical routing", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [availabilityFound([returnedSlot()])],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    state.identity.patient.appointments = [
+      loadedAppointment({
+        appointmentTypeId: 1005,
+        type: "Optometry",
+      }),
+    ];
+
+    await get_availability.execute({ when: "2026-06-01" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
+
+    expect(middleware.operations).toEqual([
+      expect.objectContaining({
+        kind: "availability",
+        request: expect.not.objectContaining({ routing: "optical_only" }),
+      }),
+    ]);
+  });
+
+  it("uses a structured routine appointment type when rescheduling", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [availabilityFound([returnedSlot()])],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    state.identity.patient.appointments = [
+      loadedAppointment({
+        appointmentTypeId: 1010,
+        type: "Medical visit",
+      }),
+    ];
+
+    await get_availability.execute({ when: "2026-06-01" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
+
+    expect(middleware.operations).toEqual([
+      expect.objectContaining({
+        kind: "availability",
+        request: expect.objectContaining({ routing: "optical_only" }),
+      }),
+    ]);
   });
 
   it("performs a fresh availability read after the Office Profile changes", async () => {
@@ -1199,7 +1328,7 @@ describe("scheduling tools", () => {
     await get_availability.execute(
       {
         when: "2026-06-01",
-        appointmentLane: "medical_md",
+        visitType: "medical",
         office: "hollywood",
       },
       {
@@ -1210,7 +1339,7 @@ describe("scheduling tools", () => {
     await get_availability.execute(
       {
         when: "2026-06-01",
-        appointmentLane: "medical_md",
+        visitType: "medical",
         office: "sweetwater",
       },
       {
@@ -1237,7 +1366,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
 
     const first = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: "2026-06-01", visitType: "medical" },
       {
         ctx: ctx as never,
         toolCallId: "availability-1",
@@ -1246,7 +1375,7 @@ describe("scheduling tools", () => {
     state.identity.patient.patientId = "patient-1";
     state.identity.patient.dob = "01/01/1980";
     const second = await get_availability.execute(
-      { when: " 2026-06-01 ", appointmentLane: "medical_md" },
+      { when: " 2026-06-01 ", visitType: "medical" },
       {
         ctx: ctx as never,
         toolCallId: "availability-2",
@@ -1275,7 +1404,7 @@ describe("scheduling tools", () => {
     const secondState = createState();
     const args = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
 
     const first = await get_availability.execute(args, {
@@ -1340,7 +1469,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const args = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
 
     const initial = await get_availability.execute(args, {
@@ -1415,7 +1544,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const args = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
 
     await get_availability.execute(args, {
@@ -1452,7 +1581,7 @@ describe("scheduling tools", () => {
       const ctx = createToolContext(state);
       const args = {
         when: "2026-06-01",
-        appointmentLane: "medical_md" as const,
+        visitType: "medical" as const,
       };
 
       await expect(
@@ -1492,7 +1621,7 @@ describe("scheduling tools", () => {
     const controller = new AbortController();
     const args = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
 
     const abandoned = get_availability.execute(args, {
@@ -1529,7 +1658,7 @@ describe("scheduling tools", () => {
     const waiterController = new AbortController();
     const args = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
 
     const owner = get_availability.execute(args, {
@@ -1571,7 +1700,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const args = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
     const ctx = createToolContext(state);
 
@@ -1604,7 +1733,7 @@ describe("scheduling tools", () => {
     const state = createState();
 
     const result = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: "2026-06-01", visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -1639,7 +1768,7 @@ describe("scheduling tools", () => {
     const result = await get_availability.execute(
       {
         when: "2026-06-01 afternoon",
-        appointmentLane: "medical_md",
+        visitType: "medical",
       },
       {
         ctx: createToolContext(state) as never,
@@ -1678,7 +1807,7 @@ describe("scheduling tools", () => {
     const pending = get_availability.execute(
       {
         when: "2026-06-01",
-        appointmentLane: "medical_md",
+        visitType: "medical",
       },
       {
         ctx: createToolContext(state) as never,
@@ -1722,7 +1851,7 @@ describe("scheduling tools", () => {
     const pending = get_availability.execute(
       {
         when: "2026-06-01",
-        appointmentLane: "medical_md",
+        visitType: "medical",
       },
       {
         ctx: createToolContext(state) as never,
@@ -1750,7 +1879,7 @@ describe("scheduling tools", () => {
       "north-miami-beach-optical": "+13055550100",
     };
     const medicalResult = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "medical_md" },
+      { when: "2026-06-01", visitType: "medical" },
       {
         ctx: createToolContext(opticalState) as never,
         toolCallId: "medical-1",
@@ -1762,7 +1891,7 @@ describe("scheduling tools", () => {
       "crystal-river": "+13523202007",
     };
     const routineResult = await get_availability.execute(
-      { when: "2026-06-01", appointmentLane: "routine_od" },
+      { when: "2026-06-01", visitType: "routine_vision" },
       {
         ctx: createToolContext(medicalState) as never,
         toolCallId: "routine-1",
@@ -1853,6 +1982,40 @@ describe("scheduling tools", () => {
     ]);
   });
 
+  it("leaves the final appointment kind to middleware", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      bookings: [bookingReceipt()],
+    });
+    const { book_appointment } = createSchedulingTools(middleware);
+    const state = createState();
+    prepareBooking(state);
+    const appointmentReason = "post-op check after cataract surgery";
+
+    await book_appointment.execute(
+      {
+        appointmentSlotRef: "S1",
+        appointmentReason,
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "booking-1",
+      } as never,
+    );
+
+    const operation = middleware.operations[0];
+    expect(operation).toMatchObject({
+      kind: "book",
+      request: {
+        visitCategory: "medical",
+        visitReason: appointmentReason,
+      },
+    });
+    expect(operation).not.toHaveProperty("request.visitKind");
+    expect(operation).not.toHaveProperty("request.isPostOp");
+  });
+
   it("cancels a newly booked appointment by its returned appointment reference", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       bookings: [bookingReceipt()],
@@ -1928,7 +2091,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const availabilityArgs = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
 
     await get_availability.execute(availabilityArgs, {
@@ -2200,7 +2363,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const args = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
 
     await get_availability.execute(args, {
@@ -2438,7 +2601,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const args = {
       when: "2026-06-01",
-      appointmentLane: "medical_md" as const,
+      visitType: "medical" as const,
     };
 
     await get_availability.execute(args, {

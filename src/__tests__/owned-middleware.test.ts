@@ -288,7 +288,6 @@ describe.each([
       booking: {
         bookingToken: "booking-token",
         visitCategory: "medical",
-        visitKind: "medical",
         patientStatus: "established",
         visitReason: "blurred vision in left eye",
         patientId: "patient-1",
@@ -428,7 +427,6 @@ describe("HTTP owned middleware transport", () => {
       booking: {
         bookingToken: "booking-token",
         visitCategory: "medical",
-        visitKind: "medical",
         patientStatus: "established",
         patientId: "patient-1",
         appointmentReason: "blurred vision in left eye",
@@ -501,7 +499,6 @@ describe("HTTP owned middleware transport", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[3]?.[1]?.body))).toEqual({
       bookingToken: "booking-token",
       visitCategory: "medical",
-      visitKind: "medical",
       patientStatus: "established",
       patientId: "patient-1",
       appointmentReason: "blurred vision in left eye",
@@ -1199,7 +1196,6 @@ describe("HTTP owned middleware transport", () => {
           booking: {
             bookingToken: "booking-token",
             visitCategory: "medical",
-            visitKind: "medical",
             patientStatus: "established",
             patientId: "patient-1",
             appointmentReason: "blurred vision",
@@ -1376,7 +1372,6 @@ describe("HTTP owned middleware transport", () => {
       booking: {
         bookingToken: "booking-token",
         visitCategory: "medical" as const,
-        visitKind: "medical" as const,
         patientStatus: "established" as const,
         patientId: "patient-1",
         appointmentReason: "blurred vision",
@@ -1416,7 +1411,6 @@ describe("HTTP owned middleware transport", () => {
       booking: {
         bookingToken: "booking-token",
         visitCategory: "medical",
-        visitKind: "medical",
         patientStatus: "established",
         patientId: "patient-1",
         appointmentReason: "blurred vision",
@@ -1449,7 +1443,6 @@ describe("HTTP owned middleware transport", () => {
         booking: {
           bookingToken: "booking-token",
           visitCategory: "medical",
-          visitKind: "medical",
           patientStatus: "established",
           patientId: "patient-1",
           appointmentReason: "blurred vision",
@@ -1594,7 +1587,6 @@ const bookAppointment = (middleware: OwnedMiddleware) =>
     booking: {
       bookingToken: "booking-token",
       visitCategory: "medical",
-      visitKind: "medical",
       patientStatus: "established",
       patientId: "patient-1",
       appointmentReason: "blurred vision",
@@ -1972,7 +1964,6 @@ describe("in-memory owned middleware", () => {
         booking: {
           bookingToken: "booking-token",
           visitCategory: "medical",
-          visitKind: "medical",
           patientStatus: "established",
           patientId: "patient-1",
           appointmentReason: "blurred vision",

@@ -100,10 +100,8 @@ export type CreatePatientResult =
 export type BookAppointmentInput = {
   bookingToken: string;
   visitCategory: "medical" | "routine_vision";
-  visitKind: "medical" | "routine_vision" | "post_op";
   patientStatus: "new" | "established";
   visitReason?: string;
-  isPostOp?: true;
   patientId: string;
   appointmentReason: string;
   referringDoctor: string;

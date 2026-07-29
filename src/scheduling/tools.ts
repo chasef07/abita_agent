@@ -11,6 +11,11 @@ import {
 } from "./availability-when.js";
 import { SchedulingWorkflow } from "./workflow.js";
 
+const APPOINTMENT_LANE_BY_VISIT_TYPE = {
+  medical: "medical_md",
+  routine_vision: "routine_od",
+} as const;
+
 const bookAppointmentParameters = z
   .object({
     appointmentSlotRef: z
@@ -105,8 +110,7 @@ export function createSchedulingTools(
       "Search appointment availability using the caller's own date and time words. " +
       "Pass those words unchanged in when, such as tomorrow morning or next Tuesday around 3 PM; do not calculate or convert them to a date or time. " +
       "If the caller asks for the soonest, next available, any day, or only gives a time preference, pass those words unchanged so the workflow can search from the earliest allowed date. " +
-      "For new appointments, call after the visit reason and lane are clear; for reschedules, call only after the existing appointment to move is identified. " +
-      "If a routine exam caller also mentions an eye problem or symptom, ask whether the appointment is mainly for glasses or contacts or for the eye problem before choosing appointmentLane. " +
+      "For new appointments, call after appointment triage has established the visit type; for reschedules, call only after the existing appointment to move is identified. " +
       "On Hollywood or Sweetwater calls, ask which office the caller wants; never infer it from the number called. " +
       "Offer only the returned slots. This tool does not book; only claim success after book_appointment succeeds.",
     parameters: z
@@ -118,11 +122,12 @@ export function createSchedulingTools(
           .describe(
             "The caller's own date and time phrase, forwarded without converting it, such as tomorrow, next Tuesday around 3 PM, June 16 in the morning, or next available.",
           ),
-        appointmentLane: z
-          .enum(["medical_md", "routine_od"])
+        visitType: z
+          .enum(["medical", "routine_vision"])
           .optional()
           .describe(
-            "Required for new appointment searches. Use medical_md for medical or eye-problem visits, routine_od for routine vision. Omit only for reschedules when the loaded appointment supplies the lane.",
+            "Visit type established by appointment triage. Required for new appointment searches; pass medical or routine_vision. " +
+              "Omit only for reschedules when the loaded appointment supplies the visit type.",
           ),
         office: z
           .enum(["hollywood", "sweetwater"])
@@ -134,7 +139,17 @@ export function createSchedulingTools(
       .strict(),
     execute: async (args, { ctx, abortSignal }) => {
       ctx.disallowInterruptions();
-      return workflow.getAvailability(getState(ctx), args, abortSignal);
+      const { visitType, ...lookup } = args;
+      return workflow.getAvailability(
+        getState(ctx),
+        {
+          ...lookup,
+          appointmentLane: visitType
+            ? APPOINTMENT_LANE_BY_VISIT_TYPE[visitType]
+            : undefined,
+        },
+        abortSignal,
+      );
     },
   });
 

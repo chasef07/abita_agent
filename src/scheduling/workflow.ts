@@ -899,7 +899,7 @@ function ensureNewAppointmentBookingContext(state: CallState): void {
     return;
   }
   throw new ToolError(
-    "Search availability again with appointmentLane medical_md or routine_od before booking a new appointment.",
+    "Search availability again with visitType medical or routine_vision before booking a new appointment.",
   );
 }
 
