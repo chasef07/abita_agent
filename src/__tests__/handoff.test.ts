@@ -30,7 +30,7 @@ const DIRECT_RESPONSE = {
 };
 const PRODUCT_RESPONSE = {
   id: "930926a1-986e-4a9c-8f49-2adbc90def9d",
-  sipDestination: `sip:${DIRECT_TOKEN}@acuity-product.sip.telnyx.com`,
+  sipDestination: "sip:acuity-handoff@acuity-product.sip.telnyx.com",
   expiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
 };
 const PRODUCT_PRACTICE_ID = "861dd557-eb44-4754-bbd6-40d58a624419";
@@ -204,9 +204,6 @@ describe("call-center handoff", () => {
       "sip-caller",
       PRODUCT_RESPONSE.sipDestination,
       {
-        headers: {
-          "X-Acuity-Handoff-Token": DIRECT_TOKEN,
-        },
         playDialtone: true,
         ringingTimeout: 20,
       },
@@ -357,18 +354,18 @@ describe("call-center handoff", () => {
       response: { ...PRODUCT_RESPONSE, id: "not-a-uuid" },
     },
     {
-      name: "non-opaque SIP user",
+      name: "unexpected SIP user",
       response: {
         ...PRODUCT_RESPONSE,
-        sipDestination:
-          "sip:patient-name~ah1~token@acuity-product.sip.telnyx.com",
+        sipDestination: "sip:patient-name@acuity-product.sip.telnyx.com",
       },
     },
     {
-      name: "wrong-length token",
+      name: "SIP credentials",
       response: {
         ...PRODUCT_RESPONSE,
-        sipDestination: `sip:${"a".repeat(42)}@acuity-product.sip.telnyx.com`,
+        sipDestination:
+          "sip:acuity-handoff:password@acuity-product.sip.telnyx.com",
       },
     },
     {
