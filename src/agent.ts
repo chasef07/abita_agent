@@ -5,6 +5,7 @@ import {
   Agent as LiveKitAgent,
   ChatContext,
   ChatMessage,
+  ToolContext,
   type ModelSettings,
   type stt,
 } from "@livekit/agents";
@@ -143,24 +144,25 @@ export function createVoiceAgent(
 
     async llmNode(ctx, chatCtx, toolCtx, modelSettings) {
       refreshPatientModelContext(chatCtx, ctx.session.userData);
-      const effectiveModelSettings = shouldForceDemoTransferToolChoice(
+      const forceTransferToolChoice = shouldForceDemoTransferToolChoice(
         office.key,
         ctx.session.userData,
         chatCtx,
         modelSettings,
-      )
+      );
+      const effectiveModelSettings = forceTransferToolChoice
         ? {
             ...modelSettings,
-            toolChoice: {
-              type: "function" as const,
-              function: { name: "transfer_call" },
-            },
+            toolChoice: "required" as const,
           }
         : modelSettings;
+      const effectiveToolCtx = forceTransferToolChoice
+        ? transferOnlyToolContext(toolCtx)
+        : toolCtx;
       return LiveKitAgent.default.llmNode(
         ctx.agent,
         chatCtx,
-        toolCtx as unknown as Parameters<
+        effectiveToolCtx as unknown as Parameters<
           typeof LiveKitAgent.default.llmNode
         >[2],
         effectiveModelSettings,
@@ -316,6 +318,16 @@ const DIRECT_TRANSFER_DECLINE_PATTERNS = [
   /\bno\s+me\s+(?:transfiera|conecte|pase|comunique)\b/i,
   /\bno\s+(?:quiero|necesito)\s+que\s+me\s+(?:transfiera|conecte|pase|comunique)\b/i,
 ];
+
+function transferOnlyToolContext(
+  toolCtx: ToolContext<CallState>,
+): ToolContext<CallState> {
+  const transferTool = toolCtx.getFunctionTool("transfer_call");
+  if (!transferTool) {
+    throw new Error("transfer_call is missing from the agent tool context");
+  }
+  return new ToolContext<CallState>([transferTool]);
+}
 
 function shouldForceDemoTransferToolChoice(
   officeKey: OfficeKey,

@@ -19,10 +19,7 @@ import type { CallState } from "../state/call-state.js";
 import { createTestCallState } from "./support/call-state.js";
 
 const FORCED_TRANSFER_SETTINGS = {
-  toolChoice: {
-    type: "function",
-    function: { name: "transfer_call" },
-  },
+  toolChoice: "required",
 } as const satisfies ModelSettings;
 
 describe("demo transfer trigger", () => {
@@ -43,12 +40,15 @@ describe("demo transfer trigger", () => {
     const result = await runTurn(transcript);
 
     expect(result.forwarded).toEqual(FORCED_TRANSFER_SETTINGS);
+    expect(result.forwardedTools).toEqual(["transfer_call"]);
   });
 
   it("leaves ordinary demo turns on automatic tool selection", async () => {
     const result = await runTurn("What time does the office close?");
 
     expect(result.forwarded).toBe(result.original);
+    expect(result.forwardedTools).toContain("transfer_call");
+    expect(result.forwardedTools.length).toBeGreaterThan(1);
   });
 
   it.each([
@@ -93,7 +93,11 @@ async function runTurn(
     toolAlreadyRan?: boolean;
     trunkPhone?: string;
   } = {},
-): Promise<{ forwarded: ModelSettings | undefined; original: ModelSettings }> {
+): Promise<{
+  forwarded: ModelSettings | undefined;
+  forwardedTools: string[];
+  original: ModelSettings;
+}> {
   const officeKey = options.officeKey ?? "dev";
   const trunkPhone = options.trunkPhone ?? DEV_OFFICE_PHONE;
   const state = createTestCallState({ officeKey, trunkPhone });
@@ -119,6 +123,9 @@ async function runTurn(
     await agent.llmNode(chatCtx, agent.toolCtx, modelSettings);
     return {
       forwarded: llmNode.mock.calls.at(-1)?.[3],
+      forwardedTools: Object.keys(
+        llmNode.mock.calls.at(-1)?.[2].functionTools ?? {},
+      ),
       original: modelSettings,
     };
   } finally {
