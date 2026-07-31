@@ -132,6 +132,13 @@ describe("tool-first prompt gating", () => {
     expect(prompt).toContain(
       "For insurance acceptance questions, never answer yes or no without check_insurance.",
     );
+    expect(prompt).toContain("<human_transfer_policy>");
+    expect(prompt).toContain(
+      "A human transfer starts only when transfer_call succeeds.",
+    );
+    expect(prompt).toContain(
+      "Invoke transfer_call without first claiming that a transfer or connection is starting.",
+    );
     expect(prompt).not.toContain(
       "Use resolve_patient for patient-specific work when internal state has not already confirmed the patient.",
     );
@@ -936,12 +943,11 @@ describe("model-facing tool definitions", () => {
     );
     expect(transfer_call.description).toContain("create_staff_task");
     expect(transfer_call.description).not.toContain("staff task");
-    expect(transfer_call.description).not.toContain("tool speaks");
     expect(transfer_call.description).toContain(
       "Do not use solely for scheduling",
     );
     expect(transfer_call.description).toContain(
-      "Tell the caller before starting the transfer",
+      "Invoke this tool without first claiming that a transfer or connection is starting",
     );
     expect(transfer_call.description).not.toContain("Spring Hill routing");
   });

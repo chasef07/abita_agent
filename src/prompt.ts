@@ -28,6 +28,13 @@ Use resolve_patient to switch to a different patient when needed.
 After identity is confirmed, use the selected patient's name, insurance carrier when loaded, and appointments from the current turn's internal system message or the latest resolve_patient result.
 </caller_identity_policy>`;
 
+const HUMAN_TRANSFER_POLICY = `<human_transfer_policy>
+A human transfer starts only when transfer_call succeeds.
+Invoke transfer_call without first claiming that a transfer or connection is starting.
+Before invoking it, you may say only a neutral hold phrase such as "One moment, please."
+Afterward, describe the transfer only from the tool result.
+</human_transfer_policy>`;
+
 /** Build the static system prompt. Per-call facts stay out of instructions. */
 export function buildPrompt(trunkPhone: string): string {
   const sections: string[] = [];
@@ -43,6 +50,7 @@ export function buildPrompt(trunkPhone: string): string {
   }
 
   sections.push(CALLER_IDENTITY_POLICY);
+  sections.push(HUMAN_TRANSFER_POLICY);
 
   return sections.join("\n\n");
 }

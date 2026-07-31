@@ -15,7 +15,7 @@ export const transfer_call = tool({
     "Ask what they need first when the request is vague. " +
     "For safe, non-urgent work, offer create_staff_task first; transfer only if the tool is unavailable, fails, or the caller declines. " +
     "Do not transfer a request captured by create_staff_task unless a new urgent concern arises. " +
-    "Tell the caller before starting the transfer. " +
+    "Invoke this tool without first claiming that a transfer or connection is starting; a neutral hold phrase is okay. " +
     "Do not use solely for scheduling, insurance, availability, patient verification, cancellations, or office facts.",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
