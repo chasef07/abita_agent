@@ -16,6 +16,8 @@ const PROMPT_MARKERS = [
   "</voice",
   "<caller_identity_policy",
   "</caller_identity_policy",
+  "<human_transfer_policy",
+  "</human_transfer_policy",
   "internal state:",
   "[system]",
   "system message:",
@@ -48,14 +50,27 @@ const BLOCKED_MARKERS = [
   ...TOOL_MARKERS,
   ...SDK_INTERNAL_OUTPUT_MARKERS,
 ];
+const UNVERIFIED_TRANSFER_MARKER = "unverified_transfer";
+const TRANSFER_COMMITMENT_PATTERNS = [
+  /\b(?:i(?:'ll| will)|we(?:'ll| will))\s+(?:(?:be\s+)?(?:transfer(?:ring)?|connect(?:ing)?)\s+you|put\s+you\s+(?:right\s+)?through|get\s+you\s+(?:transferred|connected))\b/i,
+  /\b(?:i(?:'m| am)|we(?:'re| are))\s+(?:(?:going to\s+)?(?:(?:transfer|connect)\s+you|put\s+you\s+(?:right\s+)?through|get\s+you\s+(?:transferred|connected))|(?:transferring|connecting)\s+you|getting\s+you\s+connected|putting\s+you\s+(?:right\s+)?through)\b/i,
+  /\blet me\s+(?:(?:transfer|connect)\s+you|put\s+you\s+(?:right\s+)?through|get\s+you\s+(?:transferred|connected))\b/i,
+  /\b(?:voy|vamos)\s+a\s+(?:transferir|conectar)(?:le|lo|la)?\b/i,
+  /\b(?:le|lo|la)\s+(?:voy|vamos)\s+a\s+(?:transferir|conectar)\b/i,
+];
 const SAFE_RECOVERY: Record<VoiceLanguage, string> = {
   en: "Sorry, let me rephrase that. How can I help?",
   es: "Perdón, déjeme decirlo de otra manera. ¿Cómo puedo ayudarle?",
+};
+const SAFE_TRANSFER_RECOVERY: Record<VoiceLanguage, string> = {
+  en: "One moment, please.",
+  es: "Un momento, por favor.",
 };
 
 type AssistantTextChunk = string | { text: string };
 
 type SpeechOutputGuardOptions = {
+  transferIsAccepted?: () => boolean;
   language?: VoiceLanguage;
   onBlocked?: (marker: string) => void;
 };
@@ -70,10 +85,13 @@ export async function* guardAssistantSpeech<T extends AssistantTextChunk>(
   for await (const chunk of chunks) {
     pending.push(chunk);
     pendingText += textFromChunk(chunk);
-    const marker = blockedMarker(pendingText);
+    const marker = blockedMarker(pendingText, options);
     if (marker) {
       options.onBlocked?.(marker);
-      yield SAFE_RECOVERY[options.language ?? DEFAULT_VOICE_LANGUAGE];
+      const language = options.language ?? DEFAULT_VOICE_LANGUAGE;
+      yield marker === UNVERIFIED_TRANSFER_MARKER
+        ? SAFE_TRANSFER_RECOVERY[language]
+        : SAFE_RECOVERY[language];
       return;
     }
 
@@ -117,9 +135,27 @@ function completeSentencePrefixLength(text: string): number {
   return readyLength;
 }
 
-function blockedMarker(text: string): string | undefined {
-  const normalized = text.toLowerCase();
-  return BLOCKED_MARKERS.find((marker) => normalized.includes(marker));
+function blockedMarker(
+  text: string,
+  options: SpeechOutputGuardOptions,
+): string | undefined {
+  const normalized = normalizeForPolicy(text);
+  const marker = BLOCKED_MARKERS.find((candidate) =>
+    normalized.includes(candidate),
+  );
+  if (marker) return marker;
+  if (
+    options.transferIsAccepted &&
+    !options.transferIsAccepted() &&
+    TRANSFER_COMMITMENT_PATTERNS.some((pattern) => pattern.test(normalized))
+  ) {
+    return UNVERIFIED_TRANSFER_MARKER;
+  }
+  return undefined;
+}
+
+function normalizeForPolicy(text: string): string {
+  return text.normalize("NFKC").replace(/[‘’]/g, "'").toLowerCase();
 }
 
 function possibleMarkerPrefixLength(text: string): number {
