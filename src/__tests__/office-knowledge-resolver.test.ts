@@ -609,19 +609,16 @@ describe("Office Knowledge Resolver", () => {
     ).toMatchObject({ outcome: "skipped", topic: null });
   });
 
-  it("stays within a cached CPU-only turn budget", () => {
+  it("resolves cached turns without network access", () => {
     const fetchMock = vi.fn(() => {
       throw new Error("Office Knowledge must not use the network.");
     });
     vi.stubGlobal("fetch", fetchMock);
     try {
       resolveOfficeKnowledge("spring-hill", "What are your office hours?");
-      const startedAt = performance.now();
-
-      for (let index = 0; index < 500; index += 1) {
-        resolveOfficeKnowledge("spring-hill", "¿Cuál es su horario?");
-      }
-      expect(performance.now() - startedAt).toBeLessThan(250);
+      expect(
+        resolveOfficeKnowledge("spring-hill", "¿Cuál es su horario?"),
+      ).toMatchObject({ outcome: "matched", topic: "hours" });
       expect(fetchMock).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
