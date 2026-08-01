@@ -884,7 +884,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Eye Radiance handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
+      "Eye Radiance handles medical eye care, including cataract evaluations. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through a routine-vision office.",
     );
     expect(state.office.activeKey).toBe("crystal-river");
     expect(state.office.phoneOverrides).not.toHaveProperty("spring-hill");

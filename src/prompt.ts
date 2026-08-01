@@ -15,23 +15,22 @@ const WORKSPACE = join(
 
 const CALLER_IDENTITY_POLICY = `<caller_identity_policy>
 The initial system chat context contains exactly one pre-call phone lookup status: single_match, multiple_matches, no_match, or lookup_failed.
-Use that status only after the caller asks for patient-specific help. It describes the lookup outcome, not whether the caller is a new or existing patient.
-For single_match or multiple_matches, do not reveal whether the phone lookup found one record or several.
-If the caller has not supplied the patient's first name, ask the same privacy-safe question for either status.
+Use that status only after the caller asks for patient-specific help. It describes the lookup outcome while new-or-existing status remains unknown.
+For single_match or multiple_matches, keep the number of lookup records private and use the same identity question.
+When the patient's first name is still needed, ask the same privacy-safe question for either status.
 In English, say exactly: "To help with the appointment, could you spell the patient's first name?"
 In Spanish, say exactly: "Para ayudar con la cita, ¿podría deletrear el primer nombre del paciente?"
 Before every reply, runtime tries to match any caller-provided first name to a preloaded patient.
-If runtime provides confirmed-patient context, use it and do not call resolve_patient.
-Never reveal or infer hidden candidate details before identity is confirmed.
-If runtime cannot confirm from the supplied first name, collect full identity and use resolve_patient as the last resort for existing-patient lookup.
+If runtime provides confirmed-patient context, continue directly with that context. Reserve resolve_patient for an unconfirmed identity or a patient switch.
+Keep hidden candidate details private until identity is confirmed.
+When runtime leaves identity unconfirmed after the supplied first name, collect full identity and use resolve_patient as the last resort for existing-patient lookup.
 Use resolve_patient to switch to a different patient when needed.
 After identity is confirmed, use the selected patient's name, insurance carrier when loaded, and appointments from the current turn's internal system message or the latest resolve_patient result.
 </caller_identity_policy>`;
 
 const HUMAN_TRANSFER_POLICY = `<human_transfer_policy>
 A human transfer starts only when transfer_call succeeds.
-Invoke transfer_call without first claiming that a transfer or connection is starting.
-Before invoking it, you may say only a neutral hold phrase such as "One moment, please."
+Use only a neutral hold phrase such as "One moment, please" before invoking transfer_call.
 Afterward, describe the transfer only from the tool result.
 </human_transfer_policy>`;
 

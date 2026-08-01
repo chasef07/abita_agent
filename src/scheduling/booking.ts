@@ -224,7 +224,7 @@ function normalizeAppointmentReason(appointmentReason: string): string {
   const trimmedReason = appointmentReason.trim();
   if (!trimmedReason || isGenericBookingReason(trimmedReason)) {
     throw new ToolError(
-      "Ask for a useful appointment reason before booking: the routine purpose, or the eye symptom or concern plus one caller-provided detail. If the caller cannot add detail, say that in the reason.",
+      "Ask for a useful appointment reason before booking: the routine purpose, or the eye symptom or concern plus one caller-provided detail. When the caller has only a generic reason, record that limitation in the reason.",
     );
   }
   return trimmedReason;

@@ -1899,9 +1899,11 @@ describe("scheduling tools", () => {
     );
 
     expect(medicalResult).toContain(
-      "supports routine vision and optical scheduling only",
+      "supports routine vision and optical scheduling",
     );
-    expect(routineResult).toContain("does not schedule routine eye exams");
+    expect(routineResult).toContain(
+      "Route routine eye exams, glasses prescriptions, and contact lens prescriptions through a routine-vision office",
+    );
     expect(middleware.operations).toEqual([]);
   });
 
@@ -1950,7 +1952,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toMatch(
-      /^Booked Monday, July 27 at 9:00 AM with Dr\. Bach\. Internal context: appointmentRef appointment-[a-z0-9]+\. Use this exact appointmentRef if the caller asks to cancel this appointment during this call\. Do not read this opaque reference aloud\.$/,
+      /^Booked Monday, July 27 at 9:00 AM with Dr\. Bach\. Internal context: appointmentRef appointment-[a-z0-9]+\. Use this exact appointmentRef if the caller asks to cancel this appointment during this call\. Keep this opaque reference internal\.$/,
     );
     expect(middleware.operations).toMatchObject([
       {
@@ -2044,7 +2046,7 @@ describe("scheduling tools", () => {
     )?.[1];
 
     expect(appointmentRef).toBeDefined();
-    expect(bookingResult).toContain("Do not read this opaque reference aloud.");
+    expect(bookingResult).toContain("Keep this opaque reference internal.");
 
     await cancel_appointment.execute(
       { appointmentRef: appointmentRef as string },

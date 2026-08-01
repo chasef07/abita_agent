@@ -415,7 +415,9 @@ describe("Office Knowledge Resolver", () => {
     expect(reference).toContain(
       "active office has no supplied information for social_follow_up",
     );
-    expect(reference).toContain("do not guess");
+    expect(reference).toContain(
+      "keep the answer limited to supplied office facts",
+    );
   });
 
   it("validates a sectioned knowledge source for every Office Profile", () => {
@@ -433,6 +435,19 @@ describe("Office Knowledge Resolver", () => {
       ].sort(),
     );
     expect(sources.every(({ sectionCount }) => sectionCount > 0)).toBe(true);
+  });
+
+  it("states injected knowledge directives as positive actions", () => {
+    for (const { source } of validateOfficeKnowledgeSources()) {
+      const content = readFileSync(
+        join(import.meta.dirname, "..", "..", "workspace", source),
+        "utf8",
+      );
+
+      expect(content).not.toMatch(
+        /(?:^|[.!?]\s+)(?:(?:the )?voice agent\s+)?(?:cannot|do not|never|must not)\b/im,
+      );
+    }
   });
 
   it("rejects missing and noncanonical Office Knowledge sources", () => {
@@ -541,6 +556,70 @@ describe("Office Knowledge Resolver", () => {
     },
   );
 
+  it.each([
+    ["spring-hill", "¿Hasta qué hora trabajan?", "hours", "matched"],
+    ["spring-hill", "What is your ZIP code?", "location_contact", "matched"],
+    ["spring-hill", "Where are you guys?", "location_contact", "matched"],
+    ["spring-hill", "Which office is this?", "location_contact", "matched"],
+    [
+      "spring-hill",
+      "What cross street are you near?",
+      "location_contact",
+      "unavailable",
+    ],
+    ["spring-hill", "Do you offer eye exams?", "services", "matched"],
+    ["spring-hill", "Do you offer vision exams?", "services", "matched"],
+    ["spring-hill", "Do you see children?", "services", "matched"],
+    [
+      "spring-hill",
+      "Do you offer comprehensive eye exams?",
+      "services",
+      "unavailable",
+    ],
+    [
+      "spring-hill",
+      "Do you offer diabetic eye exams?",
+      "services",
+      "unavailable",
+    ],
+    ["spring-hill", "Do you offer LASIK?", "services", "unavailable"],
+  ] as const)(
+    "recognizes production-derived office fact wording: %s: %s",
+    (officeKey, transcript, topic, outcome) => {
+      expect(resolveOfficeKnowledge(officeKey, transcript)).toMatchObject({
+        outcome,
+        topic,
+      });
+    },
+  );
+
+  it("keeps personal insurance ZIP questions out of office knowledge", () => {
+    expect(
+      resolveOfficeKnowledge(
+        "spring-hill",
+        "What is the ZIP code on my insurance card?",
+      ),
+    ).toMatchObject({ outcome: "skipped", topic: null });
+  });
+
+  it.each([
+    "What is my ZIP code?",
+    "What ZIP code is on this form?",
+    "What is the ZIP code?",
+    "¿Qué días tienen citas?",
+    "¿Qué días atienden niños?",
+    "¿Hasta qué hora dan citas?",
+    "¿Qué días ven niños?",
+  ])(
+    "keeps personal and scheduling facts with their owner: %s",
+    (transcript) => {
+      expect(resolveOfficeKnowledge("spring-hill", transcript)).toMatchObject({
+        outcome: "skipped",
+        topic: null,
+      });
+    },
+  );
+
   it("recognizes a caller asking where the office building is", () => {
     expect(
       resolveOfficeKnowledge(
@@ -548,6 +627,38 @@ describe("Office Knowledge Resolver", () => {
         "Can you remind me where it is, your building?",
       ),
     ).toMatchObject({
+      outcome: "matched",
+      topic: "location_contact",
+    });
+  });
+
+  it.each(["And the ZIP code?", "What's the ZIP code?"])(
+    "uses ZIP wording only as a location follow-up: %s",
+    (transcript) => {
+      expect(
+        resolveOfficeKnowledge("spring-hill", transcript, [
+          "What is your address?",
+        ]),
+      ).toMatchObject({
+        outcome: "matched",
+        topic: "location_contact",
+      });
+    },
+  );
+
+  it("keeps ZIP follow-ups bound to location context", () => {
+    expect(
+      resolveOfficeKnowledge("spring-hill", "What is the ZIP code?", [
+        "What are your office hours?",
+      ]),
+    ).toMatchObject({ outcome: "skipped", topic: null });
+  });
+
+  it.each([
+    "Can I have your address for my GPS?",
+    "What is your phone number for my notes?",
+  ])("keeps office contact questions available: %s", (transcript) => {
+    expect(resolveOfficeKnowledge("spring-hill", transcript)).toMatchObject({
       outcome: "matched",
       topic: "location_contact",
     });

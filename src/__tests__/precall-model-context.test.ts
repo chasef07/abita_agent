@@ -95,7 +95,7 @@ describe("pre-call model context", () => {
     });
 
     expect(agent.instructions).toContain(
-      "do not reveal whether the phone lookup found one record or several",
+      "keep the number of lookup records private and use the same identity question",
     );
     expect(agent.instructions).toContain(
       "ask the same privacy-safe question for either status",
@@ -110,7 +110,7 @@ describe("pre-call model context", () => {
       "Before every reply, runtime tries to match any caller-provided first name to a preloaded patient.",
     );
     expect(agent.instructions).toContain(
-      "If runtime provides confirmed-patient context, use it and do not call resolve_patient.",
+      "If runtime provides confirmed-patient context, continue directly with that context. Reserve resolve_patient for an unconfirmed identity or a patient switch.",
     );
     expect(agent.instructions).toContain(
       "use resolve_patient as the last resort for existing-patient lookup",

@@ -83,7 +83,7 @@ describe("pre-call transcript confirmation", () => {
       "No upcoming appointments are loaded.",
     );
     expect(confirmation?.systemMessage).toContain(
-      "Do not ask for last name or date of birth again for this active patient.",
+      "Continue using the loaded patient state for appointment questions, booking, or cancellation.",
     );
     expect(confirmation?.systemMessage).toContain(
       "appointment questions, booking, or cancellation",

@@ -52,13 +52,13 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
     name: "resolve_patient",
     onDuplicate: "reject" as const,
     description:
-      "Resolve who the patient is when an existing patient is not already active. " +
+      "Resolve who the patient is when an existing patient still needs activation. " +
       "Use only identity details the caller has provided. " +
-      "Runtime first tries to activate a matching preloaded patient from every caller turn; do not call this tool when runtime confirmed that patient. " +
-      "If runtime cannot confirm from the supplied first name, collect firstName, lastName, and DOB and use this tool as the last resort for existing-patient lookup. " +
+      "Runtime first tries to activate a matching preloaded patient from every caller turn; continue with active patient state when runtime confirms that patient. " +
+      "When runtime leaves identity unconfirmed after the supplied first name, collect firstName, lastName, and DOB and use this tool as the last resort for existing-patient lookup. " +
       "To switch to another preloaded patient, pass the caller-provided firstName. " +
-      "If the correct patient is already active, do not call this tool again. Use this tool to switch to a different patient using caller-provided identity details. " +
-      "Do not use this tool to mark a patient as new; add_patient owns explicit new-patient confirmation and chart creation.",
+      "When the correct patient is already active, continue with that state. Use this tool to switch to a different patient using caller-provided identity details. " +
+      "Use add_patient for explicit new-patient confirmation and chart creation.",
     parameters: resolvePatientParameters,
     execute: async (identity: ResolvePatientArgs, { ctx }: ToolOptions) => {
       const state = getState(ctx);

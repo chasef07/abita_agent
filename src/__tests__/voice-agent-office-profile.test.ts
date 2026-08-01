@@ -165,7 +165,7 @@ const officeBehaviors: OfficeBehavior[] = [
       routineVision: {
         supported: false,
         message:
-          "Eye Radiance handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
+          "Eye Radiance handles medical eye care, including cataract evaluations. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through a routine-vision office.",
       },
     },
     staffTaskCapture: false,
@@ -258,7 +258,7 @@ const officeBehaviors: OfficeBehavior[] = [
       medical: {
         supported: false,
         message:
-          "North Miami Beach Optical supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.",
+          "North Miami Beach Optical supports routine vision and optical scheduling. Route medical eye care through a medical office or live staff.",
       },
       routineVision: { supported: true },
     },
@@ -294,7 +294,7 @@ const officeBehaviors: OfficeBehavior[] = [
       routineVision: {
         supported: false,
         message:
-          "Harborleaf Dermatology & Aesthetics does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
+          "Harborleaf Dermatology & Aesthetics schedules dermatology care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
       },
     },
     staffTaskCapture: false,
@@ -558,7 +558,7 @@ describe("Voice Agent office profile", () => {
       rejected: {
         status: "blocked",
         message:
-          "Abita Eye Group calls cannot search Hollywood or Sweetwater. Check availability again without office.",
+          "Abita Eye Group calls use their current office. Check availability again with office omitted.",
       },
     });
   });

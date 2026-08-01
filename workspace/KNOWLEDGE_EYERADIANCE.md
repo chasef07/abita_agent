@@ -20,7 +20,7 @@ Status: available
 Practice Name: Eye Radiance
 Address: 1100 N Lyle Avenue Crystal River, FL 34429
 Administrative email for new-patient paperwork or requested documents: newpatient@abitaeye.com
-Do not tell callers to email doctors, clinical questions, prescriptions, surgery questions, urgent symptoms, or medical concerns to this address. For those needs, transfer the call or follow the appropriate scheduling or office workflow.
+Use this address only for new-patient paperwork or requested documents. For clinical questions, prescriptions, surgery questions, urgent symptoms, and medical concerns, transfer the call or follow the appropriate scheduling or office workflow.
 Fax: (352)-228-4315
 
 **Other Location:** We also have an office in Spring Hill — Abita Eye Group, 10495 SpringHill Drive, Springhill, FL 34608. That location also sees Dr. Bach, Dr. Noel, and Dr. Licht. Dr. Licht practices at both locations.
@@ -42,7 +42,7 @@ If a caller needs to reach the after-hours doctor, provide this number: 727-379-
 ## Scope of Services
 Status: available
 
-Crystal River is a medical-only office. It sees medical eye conditions such as cataract evaluations with Dr. Licht, glaucoma, eyelid concerns, and flashes or floaters. For cataract evaluations and other medical visits, Crystal River can schedule the in-office evaluation when appropriate. Do not promise that every test, procedure, or specialty service is available at Crystal River.
+Crystal River is a medical-only office. It sees medical eye conditions such as cataract evaluations with Dr. Licht, glaucoma, eyelid concerns, and flashes or floaters. For cataract evaluations and other medical visits, Crystal River can schedule the in-office evaluation when appropriate. Present only the tests, procedures, and specialty services explicitly listed here; route other availability questions to staff.
 
 Crystal River does not see pediatric ophthalmology and does not schedule routine-vision exams, glasses prescriptions, or contact lens prescriptions.
 
@@ -75,7 +75,7 @@ Patients with broken glasses or warranty questions should bring their glasses to
 ## Insurance and Referrals
 Status: available
 
-Do not use this document to answer whether an insurance plan is accepted. Run `check_insurance` with the caller's exact plan name before answering. Plan acceptance does not prove coverage for a specific visit or procedure.
+Answer insurance acceptance only from `check_insurance` using the caller's exact plan name. Treat plan acceptance as separate from coverage for a specific visit or procedure.
 
 Referral and authorization requirements depend on the patient's insurance policy. Insurance verification may be required before appointment confirmation.
 
@@ -87,7 +87,7 @@ Visit costs vary based on insurance and appointment type. Coverage details are d
 ## Billing
 Status: available
 
-For any billing-related question, do not transfer the caller. Tell them to reach the billing department at (786) 446-8333.
+Give the caller the billing department number, (786) 446-8333, and direct them to call it for every billing-related question.
 
 ## Self-Pay Pricing
 Status: available
@@ -107,7 +107,7 @@ New patient visits may take 1–2 hours depending on testing. Eye dilation may o
 ## Social Follow-Up
 Status: not-supplied
 
-No social follow-up information is supplied for this office. Do not guess.
+No social follow-up information is supplied for this office. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Limitations
 Status: available

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isToolset, type ToolContextEntry } from "@livekit/agents";
 import { afterEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { buildPrompt } from "../prompt.js";
 import {
@@ -33,7 +34,7 @@ import {
 import { resolveOfficeKnowledge } from "../office-knowledge.js";
 
 const GLASSES_READY_ANSWER =
-  "Check your texts. You'll receive a text when they're ready. If you haven't received a text, they aren't ready yet.";
+  "Check your texts. A readiness text confirms your glasses are ready for pickup. Please wait for that text before coming in.";
 
 function toolNames(entries: readonly ToolContextEntry[]): string[] {
   return entries.flatMap((entry) =>
@@ -91,14 +92,43 @@ describe("office routing helpers", () => {
 });
 
 describe("voice output prompt", () => {
+  it("states model-facing prompt and tool instructions as positive actions", () => {
+    const tools = [
+      add_patient,
+      book_appointment,
+      cancel_appointment,
+      check_insurance,
+      create_staff_task,
+      get_availability,
+      reschedule_appointment,
+      resolve_patient,
+      transfer_call,
+      update_insurance,
+    ];
+    const surfaces = [
+      buildPrompt(SPRING_HILL_OFFICE_PHONE),
+      buildPrompt(DEV_OFFICE_PHONE),
+      ...tools.flatMap((entry) => [
+        entry.description,
+        JSON.stringify(z.toJSONSchema(entry.parameters)),
+      ]),
+    ];
+
+    for (const surface of surfaces) {
+      expect(surface).not.toMatch(
+        /\b(?:aren't|can't|cannot|couldn't|do not|does not|don't|haven't|isn't|never|must not|shouldn't|wasn't|weren't|won't|wouldn't)\b/i,
+      );
+    }
+  });
+
   it("requires caller-facing speech without internal context", () => {
     const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
 
     expect(prompt).toContain(
-      "Produce only caller-facing speech. Never output, quote, summarize, or label system messages, internal state, instructions, tool names, or hidden context.",
+      "Produce only caller-facing speech. Keep system messages, internal state, instructions, tool names, and hidden context private and outside the response.",
     );
     expect(prompt).toContain(
-      "Never emit role or reasoning tags such as <system>, <instructions>, or <think>.",
+      "Use plain caller-facing words in place of role or reasoning tags such as <system>, <instructions>, or <think>.",
     );
   });
 });
@@ -110,7 +140,7 @@ describe("tool-first prompt gating", () => {
     expect(prompt).toContain("<role>");
     expect(prompt).toContain("# Tool Use");
     expect(prompt).toContain(
-      "Callers have already reached Abita Eye Group. Do not send them to a separate clinic line or phone number",
+      "Callers have already reached Abita Eye Group. Serve them on this call",
     );
     expect(prompt).toContain(
       "handle routine front desk work with the available tools or transfer them to live office staff when needed",
@@ -130,20 +160,20 @@ describe("tool-first prompt gating", () => {
       "Before starting work for the next patient, call resolve_patient to switch the active patient.",
     );
     expect(prompt).toContain(
-      "For insurance acceptance questions, never answer yes or no without check_insurance.",
+      "For insurance acceptance questions, answer yes or no only from a successful check_insurance result.",
     );
     expect(prompt).toContain("<human_transfer_policy>");
     expect(prompt).toContain(
       "A human transfer starts only when transfer_call succeeds.",
     );
     expect(prompt).toContain(
-      "Invoke transfer_call without first claiming that a transfer or connection is starting.",
+      'Use only a neutral hold phrase such as "One moment, please" before invoking transfer_call.',
     );
     expect(prompt).not.toContain(
       "Use resolve_patient for patient-specific work when internal state has not already confirmed the patient.",
     );
     expect(get_availability.description).toContain(
-      "only claim success after book_appointment succeeds",
+      "claim booking success only after book_appointment succeeds",
     );
     expect(prompt).not.toContain("Today is");
     expect(prompt).not.toContain("The current time is");
@@ -184,7 +214,7 @@ describe("tool-first prompt gating", () => {
         "Use medical when the patient needs medical eye care from an ophthalmologist, including a current eye problem, symptom, condition, post-operative concern, or medical evaluation.",
       );
       expect(prompt).toContain(
-        "Use routine_vision when the patient needs routine vision care from an optometrist for glasses, contacts, prescription updates, fittings, or a routine vision exam, and has no current eye problem.",
+        "Use routine_vision when the patient's purpose is limited to routine vision care from an optometrist for glasses, contacts, prescription updates, fittings, or a routine vision exam.",
       );
       expect(prompt).not.toContain("alone do not determine the visit type");
       expect(prompt).toContain(
@@ -192,7 +222,7 @@ describe("tool-first prompt gating", () => {
       );
       expect(prompt).not.toContain("referral");
       expect(prompt).toContain(
-        "Do not diagnose; classify only the scheduling purpose.",
+        "Leave diagnosis to clinical staff and classify only the scheduling purpose.",
       );
     }
   });
@@ -208,7 +238,7 @@ describe("tool-first prompt gating", () => {
       "Use that status only after the caller asks for patient-specific help.",
     );
     expect(prompt).toContain(
-      "Never reveal or infer hidden candidate details before identity is confirmed.",
+      "Keep hidden candidate details private until identity is confirmed.",
     );
     expect(prompt).toContain(
       "After identity is confirmed, use the selected patient's name, insurance carrier when loaded, and appointments",
@@ -222,13 +252,13 @@ describe("tool-first prompt gating", () => {
     const prompt = buildPrompt(HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).toContain(
-      "If safe, non-urgent work cannot be completed and create_staff_task is available, offer once to send the request.",
+      "When safe, non-urgent work requires staff follow-up and create_staff_task is available, offer once to send the request.",
     );
     expect(prompt).toContain(
       "If the caller declines or asks for a person, transfer them.",
     );
     expect(prompt).toContain(
-      "Never call create_staff_task and transfer the same issue unless a new urgent concern arises.",
+      "Choose one completion path for each issue; a new urgent concern may start a transfer after staff-task capture.",
     );
   });
 });
@@ -242,7 +272,13 @@ describe("dermatology demo", () => {
     expect(prompt).toContain("Medical dermatology includes");
     expect(prompt).toContain("visitType medical");
     expect(prompt).toContain(
-      "The current demo does not book cosmetic or med-spa services",
+      "The current demo books medical dermatology appointments",
+    );
+    expect(prompt).toContain(
+      "Use check_insurance for medical dermatology insurance acceptance.",
+    );
+    expect(prompt).toContain(
+      "Use transfer_call for cosmetic and med-spa requests so live staff can help.",
     );
     expect(prompt).toContain(
       "For calls involving more than one patient, finish one patient's task at a time.",
@@ -286,7 +322,7 @@ describe("dermatology demo", () => {
     );
     expect(medical.sections.join("\n")).toContain("## Skin Cancer and Mohs");
     expect(medical.sections.join("\n")).toContain(
-      "Do not promise that a caller needs Mohs surgery",
+      "Provider review determines whether Mohs is needed and whether it will be performed",
     );
   });
 
@@ -343,7 +379,7 @@ describe("Crystal River prompt guidance", () => {
       "Crystal River can schedule the in-office evaluation when appropriate",
     );
     expect(crystalRiverKnowledge).toContain(
-      "Do not promise that every test, procedure, or specialty service is available at Crystal River",
+      "Present only the tests, procedures, and specialty services explicitly listed here; route other availability questions to staff",
     );
     expect(crystalRiverKnowledge).not.toContain(
       "does **not** schedule cataract evaluations",
@@ -526,7 +562,7 @@ describe("Crystal River prompt guidance", () => {
     expect(knowledge).toContain("Gucci, Montblanc, YSL");
     expect(knowledge).toContain("Dr. Miriam Bach");
     expect(knowledge).toContain("less than 10 business days");
-    expect(knowledge).toContain("Do not invent");
+    expect(knowledge).toContain("Name only the providers listed here");
     expect(knowledge).toContain("Medical insurance checks are not supported");
   });
 
@@ -542,7 +578,7 @@ describe("Crystal River prompt guidance", () => {
     }
 
     expect(create_staff_task.description).toContain(
-      "Never use for glasses readiness",
+      "Use the glasses-readiness text policy for glasses status",
     );
   });
 
@@ -587,7 +623,9 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "callers returning a missed or received call from this number",
     );
-    expect(prompt).toContain("Do not promise a callback time or outcome");
+    expect(prompt).toContain(
+      "Describe callbacks as staff follow-up requests with timing and outcomes left open",
+    );
     expect(prompt).not.toContain("suspected medication reactions");
     expect(transfer_call.description).toContain(
       "suspected medication reactions",
@@ -652,7 +690,7 @@ describe("Crystal River prompt guidance", () => {
 describe("model-facing tool definitions", () => {
   it("keeps add_patient focused on new-patient chart creation", () => {
     expect(add_patient.description).toContain(
-      "Create a chart for a confirmed new patient",
+      "Create a chart after the caller explicitly confirms this is the patient's first registration",
     );
     expect(add_patient.description).toContain(
       "an accepted check_insurance result",
@@ -661,10 +699,7 @@ describe("model-facing tool definitions", () => {
       "Read back the registration details and get caller confirmation",
     );
     expect(add_patient.description).toContain(
-      "caller explicitly confirms the patient has never registered with or been added to the practice",
-    );
-    expect(add_patient.description).toContain(
-      "do not call resolve_patient first",
+      "call add_patient directly with newPatientConfirmed true",
     );
     expect(add_patient.description).toContain(
       "For routine-vision registration, collect only the patient's SSN last four",
@@ -675,7 +710,9 @@ describe("model-facing tool definitions", () => {
     expect(add_patient.description).toContain(
       "set inboundPhoneConfirmed to true",
     );
-    expect(add_patient.description).toContain("Never offer self pay");
+    expect(add_patient.description).toContain(
+      'Use "self pay" as insuranceMemberId only when the patient asks for self pay',
+    );
 
     const parameters = add_patient.parameters as {
       safeParse: (value: unknown) => { success: boolean };
@@ -697,7 +734,7 @@ describe("model-facing tool definitions", () => {
         (parameters.shape.ssnLast4 as { description?: string }).description,
       ),
     ).toBe(
-      "Last 4 digits of the patient's Social Security number. Collect for routine-vision registration; do not ask for the full SSN.",
+      "Exactly the last 4 digits of the patient's Social Security number, collected for routine-vision registration.",
     );
     expect(
       String(
@@ -758,7 +795,7 @@ describe("model-facing tool definitions", () => {
       "caller's own date and time words",
     );
     expect(get_availability.description).toContain(
-      "Pass those words unchanged in when",
+      "Pass those words verbatim in when",
     );
     expect(get_availability.description).toContain(
       "search from the earliest allowed date",
@@ -790,14 +827,12 @@ describe("model-facing tool definitions", () => {
       "Hollywood and Sweetwater calls",
     );
     expect(parameters.shape.office.description).toContain(
-      "Do not infer it from the number called",
+      "Use the caller's answer as the office value",
     );
     expect(parameters.shape.when.description).toContain(
       "caller's own date and time phrase",
     );
-    expect(parameters.shape.when.description).toContain(
-      "without converting it",
-    );
+    expect(parameters.shape.when.description).toContain("forwarded verbatim");
     expect(
       parameters.safeParse({
         when: "next Tuesday around 3 PM",
@@ -880,7 +915,7 @@ describe("model-facing tool definitions", () => {
       "quick insurance acceptance questions",
     );
     expect(check_insurance.description).toContain(
-      "do not call check_insurance again until the caller gives a more specific plan or coverage type",
+      "wait for a more specific plan or coverage type before the next check_insurance call",
     );
     expect(check_insurance.description).toContain(
       "If the result says needs_transfer, transfer the caller to staff before scheduling.",
@@ -918,6 +953,12 @@ describe("model-facing tool definitions", () => {
 
   it("keeps transfer_call scoped to human-only work", () => {
     expect(transfer_call.description).toContain(
+      "Call this tool whenever office policy selects a human transfer",
+    );
+    expect(transfer_call.description).toContain(
+      "Handle scheduling, insurance, availability, patient verification, cancellations, and office facts with their dedicated tools",
+    );
+    expect(transfer_call.description).toContain(
       "caller who still wants live staff after one attempt to help",
     );
     expect(transfer_call.description).toContain(
@@ -939,15 +980,12 @@ describe("model-facing tool definitions", () => {
       "transfer only if the tool is unavailable, fails, or the caller declines",
     );
     expect(transfer_call.description).toContain(
-      "Do not transfer a request captured by create_staff_task unless a new urgent concern arises",
+      "A successful create_staff_task completes that request; reserve a later transfer for a new urgent concern",
     );
     expect(transfer_call.description).toContain("create_staff_task");
     expect(transfer_call.description).not.toContain("staff task");
     expect(transfer_call.description).toContain(
-      "Do not use solely for scheduling",
-    );
-    expect(transfer_call.description).toContain(
-      "Invoke this tool without first claiming that a transfer or connection is starting",
+      "Use a neutral hold phrase, invoke this tool, then describe the transfer from its result",
     );
     expect(transfer_call.description).not.toContain("Spring Hill routing");
   });
@@ -961,7 +999,7 @@ describe("model-facing tool definitions", () => {
       "After the caller agrees, collect the details staff needs, then call create_staff_task",
     );
     expect(create_staff_task.description).toContain(
-      "Success or duplicate ends the request; do not transfer it unless a new urgent concern arises",
+      "Success or duplicate completes the request; reserve a later transfer for a new urgent concern",
     );
     expect(create_staff_task.description).toContain("requests for a person");
     expect(create_staff_task.description).toContain("returned calls");
@@ -971,9 +1009,8 @@ describe("model-facing tool definitions", () => {
     expect(create_staff_task.description).toContain(
       "urgent or clinical concerns",
     );
-    expect(create_staff_task.description).toContain("transfer instead");
     expect(create_staff_task.description).toContain(
-      "Do not promise approval, completion, a refill, or timing",
+      "approval, completion, refill, and timing left open",
     );
     const taskParameters = create_staff_task.parameters as {
       shape: {
@@ -1051,7 +1088,7 @@ describe("model-facing tool definitions", () => {
       "explicitly says they want to update the insurance on file",
     );
     expect(update_insurance.description).toContain(
-      "Do not call for new patients or registration flows",
+      "Use add_patient for new-patient registration flows",
     );
     expect(update_insurance.description).toContain(
       "correct medical or routine-vision coverage type",
@@ -1097,13 +1134,7 @@ describe("model-facing tool definitions", () => {
       "caller confirms the exact appointment",
     );
     expect(cancel_appointment.description).toContain(
-      "Pass the matching appointmentRef",
-    );
-    expect(cancel_appointment.description).toContain(
-      "Do not pass backend patient IDs or appointment IDs",
-    );
-    expect(cancel_appointment.description).toContain(
-      "Do not pass appointment dates or times",
+      "Pass only the matching call-scoped appointmentRef",
     );
     expect(cancel_appointment.description).not.toContain(
       "For reschedules, book the new appointment",
@@ -1143,11 +1174,11 @@ describe("model-facing tool definitions", () => {
       "read back the selected new appointment date, time, and provider",
     );
     expect(reschedule_appointment.description).toContain(
-      "Do not pass backend patient IDs or appointment IDs",
+      "use call-scoped references from loaded appointment state",
     );
     expect(reschedule_appointment.description).toContain("oldAppointmentRef");
     expect(reschedule_appointment.description).toContain(
-      "do not call this tool again until you can pass the matching oldAppointmentRef",
+      "make the next call after you can pass the matching oldAppointmentRef",
     );
     expect(reschedule_appointment.description).toContain(
       "cancels the old appointment only after booking succeeds",
@@ -1243,7 +1274,7 @@ describe("model-facing tool definitions", () => {
       "Book a caller-confirmed new appointment",
     );
     expect(book_appointment.description).toContain(
-      "do not use for reschedules",
+      "Use reschedule_appointment for appointment changes",
     );
     expect(book_appointment.description).toContain(
       "provides a referring doctor or says they have none",
@@ -1291,7 +1322,7 @@ describe("model-facing tool definitions", () => {
       };
 
       expect(parameters.shape.referringDoctor.description).toContain(
-        'Pass "none" only as this tool\'s internal value; do not narrate that value or the form entry.',
+        'Pass "none" only as this tool\'s internal value and use natural caller-facing wording.',
       );
     }
   });
@@ -1308,7 +1339,7 @@ describe("model-facing tool definitions", () => {
       "Use this tool to switch to a different patient using caller-provided identity details",
     );
     expect(resolve_patient.description).toContain(
-      "Do not use this tool to mark a patient as new",
+      "Use add_patient for explicit new-patient confirmation and chart creation",
     );
     expect(resolve_patient.description).not.toContain("insurance updates");
     expect(resolve_patient.description).not.toContain("private account");

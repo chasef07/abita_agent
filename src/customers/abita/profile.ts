@@ -16,10 +16,10 @@ export const AVAILABILITY_OFFICE_TOOL_POLICY = {
   keys: AVAILABILITY_OFFICE_KEYS,
   instruction:
     `On ${AVAILABILITY_OFFICE_NAMES} calls, ask which of those two offices the caller wants and pass office; ` +
-    "never infer the scheduling office from the number they called. ",
+    "use the caller's answer as the scheduling office. ",
   parameterDescription:
     "Required on Hollywood and Sweetwater calls after asking which office the caller wants. " +
-    "Do not infer it from the number called. Omit for every other office.",
+    "Use the caller's answer as the office value. Omit for every other office.",
 } as const;
 export type AvailabilityOfficeSelection =
   | { status: "current" }
@@ -116,8 +116,8 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
       message:
         care[careType].message ??
         (careType === "medical"
-          ? `${displayName} supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.`
-          : `${displayName} handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.`),
+          ? `${displayName} supports routine vision and optical scheduling. Route medical eye care through a medical office or live staff.`
+          : `${displayName} handles medical eye care, including cataract evaluations. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through a routine-vision office.`),
     };
   }
 
@@ -134,7 +134,7 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
         return requestedOffice
           ? {
               status: "blocked",
-              message: `${displayName} calls cannot search ${AVAILABILITY_OFFICE_NAMES}. Check availability again without office.`,
+              message: `${displayName} calls use their current office. Check availability again with office omitted.`,
             }
           : { status: "current" };
       }
@@ -295,7 +295,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       routine_vision: {
         supported: false,
         message:
-          "Harborleaf Dermatology & Aesthetics does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
+          "Harborleaf Dermatology & Aesthetics schedules dermatology care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
       },
     },
     amdOfficePhone: DEV_OFFICE_PHONE,
