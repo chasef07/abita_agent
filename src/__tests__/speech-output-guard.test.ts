@@ -7,10 +7,7 @@ import {
 } from "@livekit/agents";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
-import {
-  DEV_OFFICE_PHONE,
-  SPRING_HILL_OFFICE_PHONE,
-} from "../customers/abita/profile.js";
+import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import { buildPrompt } from "../prompt.js";
 import { guardAssistantSpeech } from "../runtime/speech-output-guard.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
@@ -221,106 +218,6 @@ describe("assistant speech output", () => {
       await session.close();
       warning.mockRestore();
     }
-  });
-
-  it("does not publish a transfer promise before transfer_call succeeds", async () => {
-    const { agent } = createVoiceAgent("no_match", DEV_OFFICE_PHONE, {
-      suppressGreeting: true,
-    });
-    const session = new AgentSession<CallState>({
-      userData: createTestCallState(),
-      vad: null,
-    });
-    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    try {
-      await session.start({ agent, record: false });
-      const output = await agent.transcriptionNode(
-        chunks("Sure thing. I'm transferring you now."),
-        {} as ModelSettings,
-      );
-
-      expect(output).not.toBeNull();
-      await expect(collect(output!)).resolves.toBe("One moment, please.");
-      expect(warning).toHaveBeenCalledWith(
-        "[speech_guard] blocked internal model output output=transcription marker=unverified_transfer",
-      );
-    } finally {
-      await session.close();
-      warning.mockRestore();
-    }
-  });
-
-  it("blocks the repeated live transfer promise without a tool result", async () => {
-    await expect(
-      collect(
-        guardAssistantSpeech(
-          chunks("Yeah, no problem. I'm transferring you now."),
-          {
-            transferIsAccepted: () => false,
-          },
-        ),
-      ),
-    ).resolves.toBe("One moment, please.");
-  });
-
-  it.each([
-    ["I'm connecting you to the office now."],
-    ["Let me put you through to the office."],
-    ["We are getting you connected now."],
-    ["I’ll put you through to the office."],
-    ["I am going to put you through to the office."],
-    ["I'll get you transferred to the office."],
-  ])("blocks the unverified transfer commitment %s", async (text) => {
-    await expect(
-      collect(
-        guardAssistantSpeech(chunks(text), {
-          transferIsAccepted: () => false,
-        }),
-      ),
-    ).resolves.toBe("One moment, please.");
-  });
-
-  it.each([
-    ["Voy a transferirle con la oficina."],
-    ["Le voy a conectar con la oficina ahora."],
-  ])("blocks the unverified Spanish transfer commitment %s", async (text) => {
-    await expect(
-      collect(
-        guardAssistantSpeech(chunks(text), {
-          language: "es",
-          transferIsAccepted: () => false,
-        }),
-      ),
-    ).resolves.toBe("Un momento, por favor.");
-  });
-
-  it.each([
-    ["Would you like me to transfer you to the office?"],
-    ["I can transfer you if you'd like."],
-  ])(
-    "allows a transfer offer without claiming it started: %s",
-    async (text) => {
-      await expect(
-        collect(
-          guardAssistantSpeech(chunks(text), {
-            transferIsAccepted: () => false,
-          }),
-        ),
-      ).resolves.toBe(text);
-    },
-  );
-
-  it("allows a transfer confirmation after transfer_call succeeds", async () => {
-    const text = "I'll transfer you to the office now.";
-
-    await expect(
-      collect(
-        guardAssistantSpeech(chunks(text), {
-          transferIsAccepted: () => true,
-        }),
-      ),
-    ).resolves.toBe(text);
   });
 });
 

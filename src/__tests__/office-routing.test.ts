@@ -981,6 +981,7 @@ describe("model-facing tool definitions", () => {
     );
     expect(transfer_call.description).toContain("create_staff_task");
     expect(transfer_call.description).not.toContain("staff task");
+    expect(transfer_call.description).not.toContain("tool speaks");
     expect(transfer_call.description).toContain(
       "Use a neutral hold phrase, invoke this tool, then describe the transfer from its result",
     );

@@ -5,7 +5,6 @@ import {
   Agent as LiveKitAgent,
   ChatContext,
   ChatMessage,
-  ToolContext,
   type ModelSettings,
   type stt,
 } from "@livekit/agents";
@@ -14,17 +13,9 @@ import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
 import { resolvePatientWithOwnedMiddleware } from "./clients/owned-middleware.js";
 import type { CallState } from "./state/call-state.js";
-import {
-  activeOfficeKey,
-  recordLatestUserTranscript,
-  transferIsAccepted,
-  transferStatus,
-} from "./state/call-lifecycle.js";
+import { recordLatestUserTranscript } from "./state/call-lifecycle.js";
 import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
-import {
-  getOfficeProfileByPhone,
-  type OfficeKey,
-} from "./customers/abita/profile.js";
+import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcript-confirmation.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
 import {
@@ -35,6 +26,7 @@ import {
   officeKnowledgeReference,
   resolveOfficeKnowledge,
 } from "./office-knowledge.js";
+import { activeOfficeKey } from "./state/call-lifecycle.js";
 import { recordOfficeKnowledgeRetrieval } from "./state/observability.js";
 import {
   createInitialLookupChatContext,
@@ -144,28 +136,13 @@ export function createVoiceAgent(
 
     async llmNode(ctx, chatCtx, toolCtx, modelSettings) {
       refreshPatientModelContext(chatCtx, ctx.session.userData);
-      const forceTransferToolChoice = shouldForceDemoTransferToolChoice(
-        office.key,
-        ctx.session.userData,
-        chatCtx,
-        modelSettings,
-      );
-      const effectiveModelSettings = forceTransferToolChoice
-        ? {
-            ...modelSettings,
-            toolChoice: "required" as const,
-          }
-        : modelSettings;
-      const effectiveToolCtx = forceTransferToolChoice
-        ? transferOnlyToolContext(toolCtx)
-        : toolCtx;
       return LiveKitAgent.default.llmNode(
         ctx.agent,
         chatCtx,
-        effectiveToolCtx as unknown as Parameters<
+        toolCtx as unknown as Parameters<
           typeof LiveKitAgent.default.llmNode
         >[2],
-        effectiveModelSettings,
+        modelSettings,
       );
     },
 
@@ -187,7 +164,6 @@ export function createVoiceAgent(
       const safeText = guardAssistantSpeech(text, {
         language:
           ctx.session.userData.runtime.voiceLanguage?.current ?? undefined,
-        transferIsAccepted: () => transferIsAccepted(ctx.session.userData),
         onBlocked: (marker) => {
           reportBlockedSpeech("tts", marker);
         },
@@ -205,7 +181,6 @@ export function createVoiceAgent(
       const safeText = guardAssistantSpeech(text, {
         language:
           ctx.session.userData.runtime.voiceLanguage?.current ?? undefined,
-        transferIsAccepted: () => transferIsAccepted(ctx.session.userData),
         onBlocked: (marker) => {
           reportBlockedSpeech("transcription", marker);
         },
@@ -305,98 +280,4 @@ function reportBlockedSpeech(
   console.warn(
     `[speech_guard] blocked internal model output output=${output} marker=${marker}`,
   );
-}
-
-const DIRECT_TRANSFER_REQUEST_PATTERNS = [
-  /\b(?:please\s+)?(?:transfer|connect)\s+me\b/i,
-  /\b(?:please\s+)?put\s+me\s+(?:right\s+)?through\b/i,
-  /\b(?:por favor\s+)?(?:transfi[eé]rame|con[eé]cteme|p[aá]seme|comun[ií]queme)\b/i,
-];
-const DIRECT_TRANSFER_DECLINE_PATTERNS = [
-  /\b(?:do not|don't|dont|never)\s+(?:(?:want|need)\s+(?:you\s+)?to\s+)?(?:transfer|connect)\s+me\b/i,
-  /\b(?:do not|don't|dont|never)\s+(?:(?:want|need)\s+(?:you\s+)?to\s+)?put\s+me\s+(?:right\s+)?through\b/i,
-  /\bno\s+me\s+(?:transfiera|conecte|pase|comunique)\b/i,
-  /\bno\s+(?:quiero|necesito)\s+que\s+me\s+(?:transfiera|conecte|pase|comunique)\b/i,
-];
-
-function transferOnlyToolContext(
-  toolCtx: ToolContext<CallState>,
-): ToolContext<CallState> {
-  const transferTool = toolCtx.getFunctionTool("transfer_call");
-  if (!transferTool) {
-    throw new Error("transfer_call is missing from the agent tool context");
-  }
-  return new ToolContext<CallState>([transferTool]);
-}
-
-function shouldForceDemoTransferToolChoice(
-  officeKey: OfficeKey,
-  state: CallState,
-  chatCtx: ChatContext,
-  modelSettings: ModelSettings,
-): boolean {
-  if (
-    officeKey !== "dev" ||
-    transferStatus(state) !== "idle" ||
-    modelSettings.toolChoice === "none" ||
-    !state.runtime.latestUserTranscript ||
-    toolAlreadyRanForLatestUserTurn(chatCtx)
-  ) {
-    return false;
-  }
-  const transcript = normalizeTransferRequest(
-    state.runtime.latestUserTranscript,
-  );
-  const declines = matchesForPatterns(
-    DIRECT_TRANSFER_DECLINE_PATTERNS,
-    transcript,
-  );
-  const requests = matchesForPatterns(
-    DIRECT_TRANSFER_REQUEST_PATTERNS,
-    transcript,
-  ).filter(
-    (request) =>
-      !declines.some(
-        (decline) =>
-          request.index >= decline.index && request.index < decline.end,
-      ),
-  );
-  return (requests.at(-1)?.index ?? -1) > (declines.at(-1)?.index ?? -1);
-}
-
-function normalizeTransferRequest(transcript: string): string {
-  return transcript.normalize("NFKC").replace(/[‘’]/g, "'").toLowerCase();
-}
-
-function matchesForPatterns(
-  patterns: RegExp[],
-  transcript: string,
-): Array<{ end: number; index: number }> {
-  return patterns
-    .flatMap((pattern) => {
-      const matches: Array<{ end: number; index: number }> = [];
-      const matcher = new RegExp(pattern.source, `${pattern.flags}g`);
-      for (const match of transcript.matchAll(matcher)) {
-        const index = match.index;
-        matches.push({ end: index + match[0].length, index });
-      }
-      return matches;
-    })
-    .sort((left, right) => left.index - right.index);
-}
-
-function toolAlreadyRanForLatestUserTurn(chatCtx: ChatContext): boolean {
-  let latestUserIndex = chatCtx.items.length - 1;
-  while (latestUserIndex >= 0) {
-    const item = chatCtx.items[latestUserIndex];
-    if (item.type === "message" && item.role === "user") break;
-    latestUserIndex -= 1;
-  }
-  if (latestUserIndex < 0) return false;
-  return chatCtx.items
-    .slice(latestUserIndex + 1)
-    .some(
-      (item) =>
-        item.type === "function_call" || item.type === "function_call_output",
-    );
 }
