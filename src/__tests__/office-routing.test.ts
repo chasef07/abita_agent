@@ -162,12 +162,9 @@ describe("tool-first prompt gating", () => {
     expect(prompt).toContain(
       "For insurance acceptance questions, answer yes or no only from a successful check_insurance result.",
     );
-    expect(prompt).toContain("<human_transfer_policy>");
-    expect(prompt).toContain(
-      "A human transfer starts only when transfer_call succeeds.",
-    );
-    expect(prompt).toContain(
-      'Use only a neutral hold phrase such as "One moment, please" before invoking transfer_call.',
+    expect(prompt).not.toContain("<human_transfer_policy>");
+    expect(transfer_call.description).toContain(
+      "Treat a successful tool result as the start of the human transfer",
     );
     expect(prompt).not.toContain(
       "Use resolve_patient for patient-specific work when internal state has not already confirmed the patient.",

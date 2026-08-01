@@ -12,15 +12,6 @@ export type OfficeSpeechLanguage = "en" | "es";
 export const AVAILABILITY_OFFICE_KEYS = ["hollywood", "sweetwater"] as const;
 export type AvailabilityOfficeKey = (typeof AVAILABILITY_OFFICE_KEYS)[number];
 const AVAILABILITY_OFFICE_NAMES = "Hollywood or Sweetwater";
-export const AVAILABILITY_OFFICE_TOOL_POLICY = {
-  keys: AVAILABILITY_OFFICE_KEYS,
-  instruction:
-    `On ${AVAILABILITY_OFFICE_NAMES} calls, ask which of those two offices the caller wants and pass office; ` +
-    "use the caller's answer as the scheduling office. ",
-  parameterDescription:
-    "Required on Hollywood and Sweetwater calls after asking which office the caller wants. " +
-    "Use the caller's answer as the office value. Omit for every other office.",
-} as const;
 export type AvailabilityOfficeSelection =
   | { status: "current" }
   | { status: "blocked"; message: string }

@@ -16,8 +16,6 @@ const PROMPT_MARKERS = [
   "</voice",
   "<caller_identity_policy",
   "</caller_identity_policy",
-  "<human_transfer_policy",
-  "</human_transfer_policy",
   "internal state:",
   "[system]",
   "system message:",

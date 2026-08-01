@@ -12,6 +12,7 @@ export const transfer_call = tool({
   name: "transfer_call",
   description:
     "Call this tool whenever office policy selects a human transfer. " +
+    "Treat a successful tool result as the start of the human transfer. " +
     "Handle scheduling, insurance, availability, patient verification, cancellations, and office facts with their dedicated tools. " +
     "Use for emergency, urgent, or clinical concerns, suspected medication reactions or medication instructions, returned calls from this number, or a caller who still wants live staff after one attempt to help. " +
     "Ask what they need first when the request is vague. " +
