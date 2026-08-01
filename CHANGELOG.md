@@ -1,5 +1,21 @@
 # Changelog
 
+## [4.5.0](https://github.com/chasef07/abita_agent/compare/4.4.0...4.5.0) (2026-08-01)
+
+
+### Features
+
+* improve transfer and office knowledge guidance ([#319](https://github.com/chasef07/abita_agent/issues/319)) ([82b1f2e](https://github.com/chasef07/abita_agent/commit/82b1f2e76a2fd2e33a2ab1d35eb22d1eadd9e277))
+* **scheduling:** clarify medical and routine visit types ([#311](https://github.com/chasef07/abita_agent/issues/311)) ([a6d19a3](https://github.com/chasef07/abita_agent/commit/a6d19a3b55cb9a68dc58aebec37d180bf091906f))
+
+
+### Bug Fixes
+
+* guard internal model context from speech ([#313](https://github.com/chasef07/abita_agent/issues/313)) ([698db46](https://github.com/chasef07/abita_agent/commit/698db469fb66c80c6ade6425714c88ea195eb0db))
+* **handoff:** simplify dev REFER transfer ([#315](https://github.com/chasef07/abita_agent/issues/315)) ([9a9a875](https://github.com/chasef07/abita_agent/commit/9a9a8753b2eb811eeded3ef30d7c3b21665fff29))
+* **transfer:** force demo transfer tool ([#316](https://github.com/chasef07/abita_agent/issues/316)) ([bfe97c7](https://github.com/chasef07/abita_agent/commit/bfe97c778a26f6f250285d0edab77f51536fe887))
+* **transfer:** use fallback-safe tool choice ([#317](https://github.com/chasef07/abita_agent/issues/317)) ([ea86fc4](https://github.com/chasef07/abita_agent/commit/ea86fc48009164e8a41381e50e1d2799b2a52a3d))
+
 ## [4.4.0](https://github.com/chasef07/abita_agent/compare/4.3.0...4.4.0) (2026-07-28)
 
 
