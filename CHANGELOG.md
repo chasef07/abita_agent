@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.5.1](https://github.com/chasef07/abita_agent/compare/4.5.0...4.5.1) (2026-08-01)
+
+
+### Reverts
+
+* remove forced demo transfer fixes ([#320](https://github.com/chasef07/abita_agent/issues/320)) ([2f8502a](https://github.com/chasef07/abita_agent/commit/2f8502acd09c5dd8b73638987cf1a2302f139e7f))
+
 ## [4.5.0](https://github.com/chasef07/abita_agent/compare/4.4.0...4.5.0) (2026-08-01)
 
 
