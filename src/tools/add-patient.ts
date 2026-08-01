@@ -72,13 +72,13 @@ const addPatientParameters = z
       .regex(/^\d{4}$/)
       .optional()
       .describe(
-        "Last 4 digits of the patient's Social Security number. Collect for routine-vision registration; do not ask for the full SSN.",
+        "Exactly the last 4 digits of the patient's Social Security number, collected for routine-vision registration.",
       ),
     newPatientConfirmed: z
       .boolean()
       .optional()
       .describe(
-        "Set to true only after the caller explicitly confirms the patient has never registered with or been added to the practice.",
+        "Set to true only after the caller explicitly confirms this is the patient's first registration with the practice.",
       ),
     readBack: z
       .boolean()
@@ -93,12 +93,12 @@ export const add_patient = tool({
   name: "add_patient",
   onDuplicate: "reject",
   description:
-    "Create a chart for a confirmed new patient after the caller explicitly confirms the patient has never registered with or been added to the practice, visit triage, and an accepted check_insurance result. " +
-    "If the caller already clearly confirmed that, call add_patient once with newPatientConfirmed true; do not call resolve_patient first. " +
+    "Create a chart after the caller explicitly confirms this is the patient's first registration with the practice, visit triage, and an accepted check_insurance result. " +
+    "After that confirmation, call add_patient directly with newPatientConfirmed true. " +
     "Read back the registration details and get caller confirmation first. " +
     "For routine-vision registration, collect only the patient's SSN last four. " +
     "Before using the inbound caller number, confirm it is a good callback number; if yes, omit phone and set inboundPhoneConfirmed to true. " +
-    'Never offer self pay; if the patient asks for it, use "self pay" as insuranceMemberId.',
+    'Use "self pay" as insuranceMemberId only when the patient asks for self pay.',
   parameters: addPatientParameters,
   execute: async (params, { ctx }) => {
     const state = getState(ctx);

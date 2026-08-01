@@ -136,6 +136,7 @@ const TOPICS: TopicDefinition[] = [
       ["cuando abren", 5],
       ["a que hora abren", 5],
       ["cuando cierran", 5],
+      ["hasta que hora trabajan", 5],
       ["estan abiertos", 5],
       ["abierto", 3],
       ["abiertos", 3],
@@ -150,6 +151,8 @@ const TOPICS: TopicDefinition[] = [
     ["Location and Contact"],
     [
       ["where are you located", 6],
+      ["where are you guys", 5],
+      ["which office is this", 5],
       ["donde estan ubicados", 6],
       ["donde se encuentran", 6],
       ["your building", 2],
@@ -162,6 +165,10 @@ const TOPICS: TopicDefinition[] = [
       ["office addresses", 5],
       ["direccion", 4],
       ["directions", 3],
+      ["your zip code", 5],
+      ["office zip code", 5],
+      ["zip code for the office", 5],
+      ["cross street", 5, ["cross street"]],
       ["phone number", 4],
       ["numero de telefono", 4],
       ["telefono", 3],
@@ -255,6 +262,15 @@ const TOPICS: TopicDefinition[] = [
       ["glaucoma", 4, ["glaucoma"]],
       ["retina", 4, ["retina"]],
       ["routine eye exam", 5, ["routine eye exam", "eye exam"]],
+      ["eye exams", 5, ["eye exam", "vision exam"]],
+      ["vision exam", 5, ["vision exam", "eye exam"]],
+      ["vision exams", 5, ["vision exam", "eye exam"]],
+      ["comprehensive eye exam", 6, ["comprehensive eye exam"]],
+      ["comprehensive eye exams", 6, ["comprehensive eye exam"]],
+      ["diabetic eye exam", 6, ["diabetic eye exam", "diabetic eye care"]],
+      ["diabetic eye exams", 6, ["diabetic eye exam", "diabetic eye care"]],
+      ["do you see children", 5, ["pediatric", "children"]],
+      ["lasik", 6, ["lasik"]],
       ["examen de la vista", 5, ["routine eye exam", "eye exam"]],
       ["ophthalmology", 4, ["ophthalmology"]],
       ["oftalmologia", 4, ["ophthalmology"]],
@@ -487,15 +503,24 @@ export function resolveOfficeKnowledge(
   const currentScores = rankTopics(normalized, index);
   let selected = selectConfidentTopic(currentScores);
 
+  const locationFollowUp = isLocationFollowUp(normalized);
   if (
     !selected &&
     currentScores.every(({ score }) => score === 0) &&
-    isContextualFollowUp(normalized)
+    (locationFollowUp || isContextualFollowUp(normalized))
   ) {
     const recentText = recentConversation.slice(-2).join(" ");
     const normalizedRecentText = normalize(recentText);
     if (!isBusinessOwnedTurn(normalizedRecentText)) {
-      selected = selectConfidentTopic(rankTopics(normalizedRecentText, index));
+      const contextualTopic = selectConfidentTopic(
+        rankTopics(normalizedRecentText, index),
+      );
+      if (
+        !locationFollowUp ||
+        contextualTopic?.definition.topic === "location_contact"
+      ) {
+        selected = contextualTopic;
+      }
     }
   }
 
@@ -559,13 +584,13 @@ export function officeKnowledgeReference(
     resolution.outcome === "matched"
       ? resolution.sections
       : [
-          `The active office has no supplied information for ${resolution.topic}. Tell the caller the information is unavailable and do not guess.`,
+          `The active office has no supplied information for ${resolution.topic}. Tell the caller the information is unavailable and keep the answer limited to supplied office facts.`,
         ];
   return [
     "=== OFFICE KNOWLEDGE FOR THIS REPLY ===",
     `active office: ${office.displayName}`,
     "This exact office-owned content is authoritative only for the current reply.",
-    "Do not invent or infer details beyond this reference.",
+    "Keep every office detail grounded in this reference.",
     "",
     ...content,
     "=== END OFFICE KNOWLEDGE FOR THIS REPLY ===",
@@ -764,6 +789,14 @@ function isContextualFollowUp(normalizedTranscript: string): boolean {
   );
 }
 
+function isLocationFollowUp(normalizedTranscript: string): boolean {
+  return [
+    "and the zip code",
+    "what is the zip code",
+    "what s the zip code",
+  ].includes(normalizedTranscript);
+}
+
 function isBusinessOwnedTurn(normalizedTranscript: string): boolean {
   const schedulingAction = [
     "agendar",
@@ -873,6 +906,17 @@ function isBusinessOwnedTurn(normalizedTranscript: string): boolean {
   const personalReference = ["my", "mi", "mis"].some((phrase) =>
     hasPhrase(normalizedTranscript, phrase),
   );
+  const personalContact = [
+    "my address",
+    "my email",
+    "my phone number",
+    "my zip code",
+    "mi direccion",
+    "mi email",
+    "mi numero de telefono",
+    "mi telefono",
+    "mi codigo postal",
+  ].some((phrase) => hasPhrase(normalizedTranscript, phrase));
   const patientRecordSubject = [
     "patient record",
     "patient records",
@@ -880,7 +924,11 @@ function isBusinessOwnedTurn(normalizedTranscript: string): boolean {
     "medical records",
     "expediente",
   ].some((phrase) => hasPhrase(normalizedTranscript, phrase));
-  if (personalAccountState || (personalReference && patientRecordSubject)) {
+  if (
+    personalAccountState ||
+    personalContact ||
+    (personalReference && patientRecordSubject)
+  ) {
     return true;
   }
 

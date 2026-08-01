@@ -987,7 +987,7 @@ function confirmedPatientSystemMessage(
       : "",
     knownInsuranceOnFileSummary(state),
     appointmentSummary(state),
-    "Do not ask for last name or date of birth again for this active patient. Continue using the loaded patient state for appointment questions, booking, or cancellation. If the caller needs help for a different non-preloaded patient, collect the identity details required by resolve_patient.",
+    "Continue using the loaded patient state for appointment questions, booking, or cancellation. Ask for identity details only when the caller needs help for a different non-preloaded patient, then use resolve_patient.",
   ]
     .filter(Boolean)
     .join(" ");

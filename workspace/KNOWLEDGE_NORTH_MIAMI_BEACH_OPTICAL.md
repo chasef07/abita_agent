@@ -6,7 +6,7 @@ Status: available
 
 If this is a medical emergency, please hang up and dial 911 or go to the nearest emergency room immediately.
 
-North Miami Beach Optical is an optical-only office. Do not schedule medical eye care, ophthalmology visits, surgery questions, urgent symptoms, or eye-problem care through this office.
+North Miami Beach Optical is an optical-only office. Route medical eye care, ophthalmology visits, surgery questions, urgent symptoms, and eye-problem care to live staff or an appropriate medical office.
 
 ## Location and Contact
 Status: available
@@ -15,17 +15,17 @@ Practice Name: North Miami Beach Optical
 Address: 633 NE 167th Street, North Miami Beach, FL 33162
 Phone: (305) 509-5333
 
-Fax number, email, and directions are not supplied. Do not guess.
+Fax number, email, and directions are not supplied. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Hours
 Status: not-supplied
 
-Office hours are not supplied. Do not guess.
+Office hours are not supplied. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## After Hours
 Status: not-supplied
 
-No after-hours contact information is supplied for this office. Do not guess.
+No after-hours contact information is supplied for this office. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Scope of Services
 Status: available
@@ -43,7 +43,7 @@ Doctor at this location:
 
 - Dr. Miriam Bach
 
-Do not invent additional provider names.
+Name only the providers listed here.
 
 ## Optical and Glasses
 Status: available
@@ -85,7 +85,7 @@ For every routine-vision patient, explain that some insurances do not cover reti
 
 Medical insurance checks are not supported for this office.
 
-Referral information is not supplied. Do not guess.
+Referral information is not supplied. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Payments
 Status: available
@@ -95,12 +95,12 @@ The office can take payments over the phone.
 ## Billing
 Status: not-supplied
 
-Billing contact and account-resolution information are not supplied. Do not guess.
+Billing contact and account-resolution information are not supplied. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Self-Pay Pricing
 Status: not-supplied
 
-Self-pay prices are not supplied. Do not guess.
+Self-pay prices are not supplied. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## What to Bring
 Status: available
@@ -110,12 +110,12 @@ If the patient has an outside glasses or contact lens prescription, they should 
 ## Appointment Expectations
 Status: not-supplied
 
-Detailed appointment duration, dilation, arrival, and paperwork expectations are not supplied. Do not guess.
+Detailed appointment duration, dilation, arrival, and paperwork expectations are not supplied. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Social Follow-Up
 Status: not-supplied
 
-No social follow-up information is supplied for this office. Do not guess.
+No social follow-up information is supplied for this office. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Limitations
 Status: available

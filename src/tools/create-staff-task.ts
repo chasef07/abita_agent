@@ -45,7 +45,7 @@ const taskParameters = z.object({
   urgency: z
     .enum(["high_priority", "normal", "non_urgent"])
     .describe(
-      "high_priority for time-sensitive non-clinical work staff should review before normal work; normal for standard follow-up; non_urgent for work with no time sensitivity. Never use urgency to represent clinical acuity.",
+      "Use high_priority for time-sensitive non-clinical work staff should review before normal work, normal for standard follow-up, and non_urgent for work with no time sensitivity. Route clinical acuity through transfer_call.",
     ),
   summary: z
     .string()
@@ -75,11 +75,11 @@ type PortalTaskResponse = {
 export const create_staff_task = tool({
   name: "create_staff_task",
   description:
-    "Use for safe, non-urgent office work the agent cannot complete. " +
+    "Use for safe, non-urgent office work that requires staff follow-up. " +
     "Offer to send the request. After the caller agrees, collect the details staff needs, then call create_staff_task. " +
-    "Success or duplicate ends the request; do not transfer it unless a new urgent concern arises. " +
-    "Never use for glasses readiness, urgent or clinical concerns, medication reactions or instructions, returned calls, or requests for a person; transfer instead. " +
-    "Do not promise approval, completion, a refill, or timing.",
+    "Success or duplicate completes the request; reserve a later transfer for a new urgent concern. " +
+    "Use the glasses-readiness text policy for glasses status. Route urgent or clinical concerns, medication reactions or instructions, returned calls, and requests for a person through transfer_call. " +
+    "Describe the result as a request sent for staff review, with approval, completion, refill, and timing left open.",
   parameters: taskParameters,
   execute: async (input, { ctx }) => {
     const state = getState(ctx);

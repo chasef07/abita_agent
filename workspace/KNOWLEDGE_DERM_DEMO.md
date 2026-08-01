@@ -8,7 +8,7 @@ Trouble breathing or swallowing, or swelling of the lips, face, or eyes, require
 
 Prompt medical attention is appropriate for a rapidly spreading, painful, blistering, or widespread rash; fever with a rash; a rash involving the eyes, lips, mouth, or genital skin; pus, warmth, swelling, worsening pain, or other infection signs; or significant bleeding after a procedure.
 
-A new, changing, bleeding, painful, or non-healing spot should be evaluated by a dermatology clinician. The Voice Agent cannot diagnose skin cancer.
+A new, changing, bleeding, painful, or non-healing spot should be evaluated by a dermatology clinician. Leave skin-cancer diagnosis to a dermatology clinician.
 
 ## Location and Contact
 Status: available
@@ -29,7 +29,7 @@ Monday through Friday, 8:00 AM to 5:00 PM. Closed Saturday and Sunday.
 ## After Hours
 Status: not-supplied
 
-No after-hours contact information is supplied for this demo office. Do not guess.
+No after-hours contact information is supplied for this demo office. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Scope of Services
 Status: available
@@ -58,7 +58,7 @@ Hair loss is medical by default. Scar pain, restriction, or a post-surgical conc
 
 Harborleaf provides skin checks, suspicious-lesion evaluation, biopsies when ordered by a clinician, and Mohs surgery consultations.
 
-Mohs scheduling requires clinical review and, when applicable, a pathology report or referral. Do not promise that a caller needs Mohs surgery or that it will be performed before provider review.
+Mohs scheduling requires clinical review and, when applicable, a pathology report or referral. Provider review determines whether Mohs is needed and whether it will be performed.
 
 ## Providers
 Status: available
@@ -100,17 +100,17 @@ Cosmetic consultations and med-spa services are self-pay and are not billed to m
 ## Payments
 Status: not-supplied
 
-Accepted payment methods are not supplied. Do not guess.
+Accepted payment methods are not supplied. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Billing
 Status: not-supplied
 
-Billing contact and account-resolution information are not supplied. Do not guess.
+Billing contact and account-resolution information are not supplied. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Self-Pay Pricing
 Status: not-supplied
 
-Cosmetic consultations and med-spa services are self-pay, but prices are not supplied. Do not guess.
+Cosmetic consultations and med-spa services are self-pay, but prices are not supplied. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## What to Bring
 Status: available
@@ -124,14 +124,14 @@ Status: available
 
 A consultation does not guarantee same-day treatment or removal. The provider may recommend examination, photography, testing, biopsy, treatment, or a separate procedure visit.
 
-Specific procedure preparation and wound-care instructions must come from clinical staff. Do not invent instructions, medication changes, recovery times, prices, or treatment results.
+Use clinical staff as the source for specific procedure preparation and wound-care instructions. Keep instructions, medication changes, recovery times, prices, and treatment results limited to clinical staff's supplied facts.
 
 ## Social Follow-Up
 Status: not-supplied
 
-No social follow-up information is supplied for this demo office. Do not guess.
+No social follow-up information is supplied for this demo office. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Limitations
 Status: available
 
-Harborleaf Dermatology & Aesthetics is a fictional practice created for product demonstrations. Do not present any practice fact not listed here as real. This knowledge document does not prove insurance acceptance, appointment availability, patient state, or a completed operation; use the owning tool for those outcomes.
+Harborleaf Dermatology & Aesthetics is a fictional practice created for product demonstrations. Present only the practice facts listed here as fictional demo facts. This knowledge document does not prove insurance acceptance, appointment availability, patient state, or a completed operation; use the owning tool for those outcomes.
