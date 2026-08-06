@@ -26,6 +26,7 @@ import {
   SWEETWATER_TRUNK_PHONES,
   type OfficeKey,
   type OfficeSchedulingPolicy,
+  type StaffTaskDelivery,
 } from "../customers/abita/profile.js";
 import {
   buildInsuranceToolResponse,
@@ -78,7 +79,7 @@ type OfficeBehavior = {
     medical: OfficeSchedulingPolicy;
     routineVision: OfficeSchedulingPolicy;
   };
-  staffTaskCapture: boolean;
+  staffTaskDelivery: StaffTaskDelivery;
   trunks: readonly string[];
 };
 
@@ -136,7 +137,7 @@ const officeBehaviors: OfficeBehavior[] = [
       medical: { supported: true },
       routineVision: { supported: true },
     },
-    staffTaskCapture: true,
+    staffTaskDelivery: "acuity-site",
     trunks: [SPRING_HILL_OFFICE_PHONE, SPRING_HILL_813_TRUNK_PHONE],
   },
   {
@@ -168,7 +169,7 @@ const officeBehaviors: OfficeBehavior[] = [
           "Eye Radiance handles medical eye care, including cataract evaluations. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through a routine-vision office.",
       },
     },
-    staffTaskCapture: false,
+    staffTaskDelivery: "disabled",
     trunks: [CRYSTAL_RIVER_OFFICE_PHONE],
   },
   {
@@ -198,7 +199,7 @@ const officeBehaviors: OfficeBehavior[] = [
       medical: { supported: true },
       routineVision: { supported: true },
     },
-    staffTaskCapture: true,
+    staffTaskDelivery: "acuity-site",
     trunks: [HOLLYWOOD_OFFICE_PHONE],
   },
   {
@@ -228,7 +229,7 @@ const officeBehaviors: OfficeBehavior[] = [
       medical: { supported: true },
       routineVision: { supported: true },
     },
-    staffTaskCapture: true,
+    staffTaskDelivery: "acuity-site",
     trunks: SWEETWATER_TRUNK_PHONES,
   },
   {
@@ -262,7 +263,7 @@ const officeBehaviors: OfficeBehavior[] = [
       },
       routineVision: { supported: true },
     },
-    staffTaskCapture: true,
+    staffTaskDelivery: "acuity-site",
     trunks: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
   },
   {
@@ -297,7 +298,7 @@ const officeBehaviors: OfficeBehavior[] = [
           "Harborleaf Dermatology & Aesthetics schedules dermatology care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
       },
     },
-    staffTaskCapture: false,
+    staffTaskDelivery: "acuity-product",
     trunks: [DEV_OFFICE_PHONE],
   },
 ];
@@ -447,7 +448,7 @@ describe("Voice Agent office profile", () => {
               trunkPhone,
             }),
           },
-          staffTaskCapture: tools.includes("create_staff_task"),
+          staffTaskDelivery: office.staffTaskDelivery,
           tools: tools.sort(),
         }).toEqual({
           amdOfficePhone: expected.amdOfficePhone,
@@ -495,10 +496,12 @@ describe("Voice Agent office profile", () => {
               useWebsocket: true,
             },
           },
-          staffTaskCapture: expected.staffTaskCapture,
+          staffTaskDelivery: expected.staffTaskDelivery,
           tools: [
             ...COMMON_TOOL_NAMES,
-            ...(expected.staffTaskCapture ? ["create_staff_task"] : []),
+            ...(expected.staffTaskDelivery === "disabled"
+              ? []
+              : ["create_staff_task"]),
           ].sort(),
         });
       });
