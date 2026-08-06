@@ -64,6 +64,10 @@
       "status": "accepted",
       "canonicalPlan": "iCare",
       "displayName": "iCare",
+      "requiredWordAliases": [
+        "Aetna Medicaid",
+        "Aetna Medicare"
+      ],
       "aliases": [
         "Eye Care",
         "Eye Care Health",
