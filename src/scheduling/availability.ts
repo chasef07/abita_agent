@@ -1,3 +1,4 @@
+import { ToolError } from "@livekit/agents";
 import type { CallState, StoredAvailabilitySlot } from "../state/call-state.js";
 import type {
   AvailabilityResult,
@@ -43,11 +44,9 @@ export function storeAvailabilitySlots(
   if (result.status === "error") {
     recordOwnedMiddlewareFailure(state, "getAvailability", result);
     clearAvailabilitySelection(state);
-    return {
-      message:
-        "I'm having trouble checking availability. Please try the search once more.",
-      cacheable: false,
-    };
+    throw new ToolError(
+      "I couldn't check availability. I can try once more or connect you with the office.",
+    );
   }
 
   const offeredSlots = distinctAvailabilitySlots(result.slots).slice(

@@ -1091,7 +1091,7 @@ describe("scheduling tools", () => {
           toolCallId: "booking-1",
         } as never,
       ),
-    ).rejects.toThrow(
+    ).resolves.toBe(
       "Search availability again before booking because the selected slot expired.",
     );
     expect(middleware.operations).toEqual([
@@ -1732,16 +1732,13 @@ describe("scheduling tools", () => {
     const { get_availability } = createSchedulingTools(middleware);
     const state = createState();
 
-    const result = await get_availability.execute(
-      { when: "2026-06-01", visitType: "medical" },
-      {
+    await expect(
+      get_availability.execute({ when: "2026-06-01", visitType: "medical" }, {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
-      } as never,
-    );
-
-    expect(result).toBe(
-      "I'm having trouble checking availability. Please try the search once more.",
+      } as never),
+    ).rejects.toThrow(
+      "I couldn't check availability. I can try once more or connect you with the office.",
     );
     expect(ownedMiddlewareFailures(state)).toMatchObject([
       { operation: "getAvailability", reason: "middleware_error" },
@@ -2175,7 +2172,7 @@ describe("scheduling tools", () => {
           toolCallId: "booking-1",
         } as never,
       ),
-    ).rejects.toThrow(
+    ).resolves.toBe(
       "Search availability again before booking because the selected slot expired.",
     );
     expect(middleware.operations).toEqual([]);
@@ -2196,21 +2193,21 @@ describe("scheduling tools", () => {
     const state = createState();
     prepareBooking(state);
 
-    const result = await book_appointment.execute(
-      {
-        appointmentSlotRef: "S1",
-        appointmentReason: "left eye pain since yesterday",
-        referringDoctor: "none",
-        readBack: true,
-      },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "booking-1",
-      } as never,
-    );
-
-    expect(result).toBe(
-      "I could not confirm the booking because the appointment ID was missing. Check availability again before booking.",
+    await expect(
+      book_appointment.execute(
+        {
+          appointmentSlotRef: "S1",
+          appointmentReason: "left eye pain since yesterday",
+          referringDoctor: "none",
+          readBack: true,
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "booking-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "I couldn't book the appointment. I can try once more or connect you with the office.",
     );
     expect(state.identity.patient.appointments).toEqual([]);
     expect(appointmentActions(state)).toMatchObject([
@@ -2747,12 +2744,14 @@ describe("scheduling tools", () => {
     restoreFirstPatient(state, [loadedAppointment()]);
     const appointmentRef = loadedAppointmentRef(state);
 
-    const result = await cancel_appointment.execute({ appointmentRef }, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "cancel-1",
-    } as never);
-
-    expect(result).toBe("The appointment was not cancelled.");
+    await expect(
+      cancel_appointment.execute({ appointmentRef }, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "cancel-1",
+      } as never),
+    ).rejects.toThrow(
+      "I couldn't cancel the appointment. I can try once more or connect you with the office.",
+    );
     expect(state.identity.patient.appointments).toEqual([
       expect.objectContaining(loadedAppointment()),
     ]);
@@ -2813,7 +2812,7 @@ describe("scheduling tools", () => {
         ctx: ctx as never,
         toolCallId: "cancel-2",
       } as never),
-    ).rejects.toThrow(
+    ).resolves.toBe(
       "No loaded appointment matches that appointmentRef. Use the appointmentRef shown with the current loaded appointment.",
     );
     expect(middleware.operations).toHaveLength(1);
@@ -2850,7 +2849,7 @@ describe("scheduling tools", () => {
         ctx: createToolContext(state) as never,
         toolCallId: "cancel-1",
       } as never),
-    ).rejects.toThrow(
+    ).resolves.toBe(
       "No loaded appointment matches that appointmentRef. Use the appointmentRef shown with the current loaded appointment.",
     );
     expect(middleware.operations).toEqual([]);
@@ -2873,7 +2872,7 @@ describe("scheduling tools", () => {
           toolCallId: "cancel-1",
         } as never,
       ),
-    ).rejects.toThrow(
+    ).resolves.toBe(
       "Pass the appointmentRef shown with the caller-confirmed loaded appointment before cancelling.",
     );
     expect(middleware.operations).toEqual([]);
@@ -2901,7 +2900,7 @@ describe("scheduling tools", () => {
           toolCallId: "cancel-2",
         } as never,
       ),
-    ).rejects.toThrow(
+    ).resolves.toBe(
       "Pass the appointmentRef shown with the caller-confirmed loaded appointment before cancelling.",
     );
     expect(middleware.operations.map(({ kind }) => kind)).toEqual(["cancel"]);
@@ -2925,7 +2924,7 @@ describe("scheduling tools", () => {
         ctx: createToolContext(state) as never,
         toolCallId: "cancel-1",
       } as never),
-    ).rejects.toThrow(
+    ).resolves.toBe(
       "No loaded appointment matches that appointmentRef. Use the appointmentRef shown with the current loaded appointment.",
     );
     expect(middleware.operations).toEqual([]);
@@ -3497,6 +3496,36 @@ describe("scheduling tools", () => {
 
     expect(result).toBe(
       "That time is no longer available. Check availability again before booking. I did not cancel the existing appointment.",
+    );
+    expect(middleware.operations.map((operation) => operation.kind)).toEqual([
+      "book",
+    ]);
+    expect(state.identity.patient.appointments).toEqual([loadedAppointment()]);
+  });
+
+  it("surfaces a replacement booking backend failure as a tool error", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      bookings: [{ status: "error", reason: "middleware_error" }],
+    });
+    const { reschedule_appointment } = createSchedulingTools(middleware);
+    const state = createState();
+    prepareReschedule(state);
+
+    await expect(
+      reschedule_appointment.execute(
+        {
+          appointmentSlotRef: "S1",
+          appointmentReason: "move my follow-up",
+          referringDoctor: "none",
+          readBack: true,
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "reschedule-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "I couldn't book the new appointment. I did not cancel the existing appointment.",
     );
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
       "book",

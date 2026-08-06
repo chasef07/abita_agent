@@ -76,6 +76,11 @@ type IdentityResolution = {
   reply: string;
 };
 
+export type PatientIdentityResolution = {
+  outcome: PatientIdentityOutcome | "superseded";
+  reply: string;
+};
+
 const pendingCandidateHydrations = new WeakMap<
   CallState,
   Map<string, Promise<IdentityResolution>>
@@ -290,6 +295,14 @@ export async function resolvePatientIdentity(
   input: ResolvePatientIdentityInput,
   lookup: PatientResolveLookup,
 ): Promise<string> {
+  return (await resolvePatientIdentityResult(state, input, lookup)).reply;
+}
+
+export async function resolvePatientIdentityResult(
+  state: CallState,
+  input: ResolvePatientIdentityInput,
+  lookup: PatientResolveLookup,
+): Promise<PatientIdentityResolution> {
   const identity = normalizeResolvePatientInput(input);
 
   const preCallResolution = await resolveFromPreCallState(
@@ -334,7 +347,11 @@ export async function resolvePatientIdentity(
   const operationVersion = beginPatientIdentityOperation(state);
   const result = await lookup(officePhone, identity);
   if (!patientIdentityOperationIsCurrent(state, operationVersion)) {
-    return "Patient lookup was superseded by a newer identity change. Continue with the current patient's state.";
+    return {
+      outcome: "superseded",
+      reply:
+        "Patient lookup was superseded by a newer identity change. Continue with the current patient's state.",
+    };
   }
   if (result.status === "verified") {
     if (!completeVerifiedIdentity(result)) {
@@ -376,14 +393,14 @@ export async function resolvePatientIdentity(
 function recordIdentityResolution(
   state: CallState,
   resolution: IdentityResolution,
-): string {
+): IdentityResolution {
   recordPatientIdentityOutcome(state, resolution.outcome);
   recordPatientIdentityTransition(state, {
     outcome:
       resolution.outcome === "verified" ? "confirmed" : resolution.outcome,
     source: "resolve_patient",
   });
-  return resolution.reply;
+  return resolution;
 }
 
 function activatePatient(

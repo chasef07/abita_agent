@@ -90,6 +90,7 @@ import {
   ensureAvailabilityContext,
   prepareAvailabilityLookupContext,
 } from "./context.js";
+import { SchedulingInputRequired } from "./input-required.js";
 import type {
   AvailabilityRequest as MiddlewareAvailabilityRequest,
   AvailabilityResult,
@@ -234,7 +235,9 @@ export class SchedulingWorkflow {
     ensureNewAppointmentBookingContext(state);
 
     if (!patientId) {
-      throw new ToolError("Verify or create the patient before booking.");
+      throw new SchedulingInputRequired(
+        "Verify or create the patient before booking.",
+      );
     }
     const patientName = activePatientName(state);
 
@@ -289,6 +292,11 @@ export class SchedulingWorkflow {
           result,
         ),
       });
+      if (result.status === "error") {
+        throw new ToolError(
+          "I couldn't book the appointment, and the active patient changed. Continue with the current patient and do not retry this request.",
+        );
+      }
       return `${message} The active patient changed before the booking result returned. Continue with the current patient's state.`;
     }
 
@@ -335,6 +343,11 @@ export class SchedulingWorkflow {
           result,
         ),
       });
+      if (result.status === "error") {
+        throw new ToolError(
+          "I couldn't book the appointment. I can try once more or connect you with the office.",
+        );
+      }
       return message;
     }
 
@@ -369,6 +382,11 @@ export class SchedulingWorkflow {
       message,
       appointment: bookedSlotAppointmentAnalytics(state, selectedSlot, result),
     });
+    if (result.status === "error") {
+      throw new ToolError(
+        "I couldn't book the appointment. I can try once more or connect you with the office.",
+      );
+    }
     return message;
   }
 
@@ -379,7 +397,9 @@ export class SchedulingWorkflow {
     restoreConfirmedPreCallPatient(state);
     const patientId = activePatientId(state);
     if (!patientId) {
-      throw new ToolError("Verify the patient before cancelling.");
+      throw new SchedulingInputRequired(
+        "Verify the patient before cancelling.",
+      );
     }
 
     const selector = { appointmentRef };
@@ -395,7 +415,7 @@ export class SchedulingWorkflow {
       if (cancelledAppointment) {
         return completedCancellationReplayMessage(cancelledAppointment);
       }
-      throw new ToolError(selection.message);
+      throw new SchedulingInputRequired(selection.message);
     }
     const appointment = selection.appointment;
     const completedCancellation = completedCancellationForState(state, {
@@ -434,6 +454,11 @@ export class SchedulingWorkflow {
           patientName,
         ),
       });
+      if (result.status === "error") {
+        throw new ToolError(
+          "I couldn't cancel the appointment, and the active patient changed. Continue with the current patient and do not retry this request.",
+        );
+      }
       return `${message} The active patient changed before the cancellation result returned. Continue with the current patient's state.`;
     }
 
@@ -463,7 +488,9 @@ export class SchedulingWorkflow {
         message,
         cancelledAppointment: cancelledAppointmentAnalytics(state, appointment),
       });
-      return message;
+      throw new ToolError(
+        "I couldn't cancel the appointment. I can try once more or connect you with the office.",
+      );
     }
 
     removeActiveAppointment(state, appointment.id);
@@ -494,7 +521,9 @@ export class SchedulingWorkflow {
     restoreConfirmedPreCallPatient(state);
     const patientId = activePatientId(state);
     if (!patientId) {
-      throw new ToolError("Verify the patient before rescheduling.");
+      throw new SchedulingInputRequired(
+        "Verify the patient before rescheduling.",
+      );
     }
     const patientName = activePatientName(state);
     const completedReschedule = completedRescheduleForPatient(state, patientId);
@@ -519,7 +548,7 @@ export class SchedulingWorkflow {
       return selection.message;
     }
     if (selection.status === "not_found") {
-      throw new ToolError(selection.message);
+      throw new SchedulingInputRequired(selection.message);
     }
     const oldAppointment = selection.appointment;
     const cancellationOffice = getAmdOfficeForCancellationAppointment(
@@ -887,7 +916,7 @@ function availabilityReferenceDate(
 function ensureNewAppointmentBookingContext(state: CallState): void {
   const turn = state.workflow.current;
   if (turn?.intent === "change_appointment") {
-    throw new ToolError(
+    throw new SchedulingInputRequired(
       "Use reschedule_appointment for appointment changes so the old appointment is cancelled after the new booking succeeds.",
     );
   }
@@ -898,7 +927,7 @@ function ensureNewAppointmentBookingContext(state: CallState): void {
   ) {
     return;
   }
-  throw new ToolError(
+  throw new SchedulingInputRequired(
     "Search availability again with visitType medical or routine_vision before booking a new appointment.",
   );
 }
@@ -1017,6 +1046,11 @@ function handleRescheduleBookingFailure(
       bookingResult,
       oldAppointment,
     });
+    if (bookingResult.status === "error") {
+      throw new ToolError(
+        "I couldn't book the new appointment. I did not cancel the existing appointment.",
+      );
+    }
     return message;
   }
 
@@ -1047,6 +1081,11 @@ function handleRescheduleBookingFailure(
     bookingResult,
     oldAppointment,
   });
+  if (bookingResult.status === "error") {
+    throw new ToolError(
+      "I couldn't book the new appointment. I did not cancel the existing appointment.",
+    );
+  }
   return message;
 }
 

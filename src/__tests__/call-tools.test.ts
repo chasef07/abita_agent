@@ -382,6 +382,49 @@ describe("stateful call tools", () => {
     ]);
   });
 
+  it("surfaces a failed chart creation as a recoverable tool error", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    state.identity.preCall = {
+      status: "no_match",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [],
+    };
+    markSchedulingTriaged(state);
+    markAcceptedInsurance(state);
+    stubCreatePatient({ status: "error", reason: "middleware_error" });
+
+    await expect(
+      add_patient.execute(
+        {
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          street: "123 Main St",
+          city: "Spring Hill",
+          state: "FL",
+          zip: "34606",
+          sex: "female",
+          subscriberName: "Jane Doe",
+          insuranceMemberId: "self pay",
+          inboundPhoneConfirmed: true,
+          newPatientConfirmed: true,
+          readBack: true,
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow(
+      "I couldn't create the patient chart. I can try once more or connect you with the office.",
+    );
+    expect(ownedMiddlewareFailures(state)).toMatchObject([
+      { operation: "createPatient", reason: "middleware_error" },
+    ]);
+  });
+
   it.each(["resolve_first", "creation_first"] as const)(
     "does not let chart creation replace a newer resolved patient when %s completes",
     async (completionOrder) => {
@@ -499,7 +542,7 @@ describe("stateful call tools", () => {
       ctx: createToolContext(state) as never,
       toolCallId: "tool-1",
     } as never);
-    const resolution = await resolve_patient.execute(
+    const resolution = resolve_patient.execute(
       { firstName: "John", lastName: "Doe", dob: "02/02/1982" },
       {
         ctx: createToolContext(state) as never,
@@ -508,7 +551,9 @@ describe("stateful call tools", () => {
     );
     deferred.resolve(createdPatientResult());
 
-    expect(resolution).toBe("Patient lookup failed. Try again.");
+    await expect(resolution).rejects.toThrow(
+      "Patient lookup failed. Try again.",
+    );
     await expect(pendingCreation).resolves.toBe(
       "Created a patient chart for Jane Doe. Continue with scheduling.",
     );
@@ -926,7 +971,7 @@ describe("stateful call tools", () => {
         ctx: createToolContext(routineState) as never,
         toolCallId: "tool-1",
       } as never),
-    ).rejects.toThrow(
+    ).resolves.toBe(
       "Collect the patient's SSN last four before creating a routine-vision chart.",
     );
 
@@ -1336,16 +1381,19 @@ describe("stateful call tools", () => {
       reason: "middleware_error",
     });
 
-    const result = await resolve_patient.execute(
-      {
-        firstName: "Lisa",
-        lastName: "Arshed",
-        dob: "10/03/2020",
-      },
-      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
-    );
-
-    expect(result).toBe("Patient lookup failed. Try again.");
+    await expect(
+      resolve_patient.execute(
+        {
+          firstName: "Lisa",
+          lastName: "Arshed",
+          dob: "10/03/2020",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow("Patient lookup failed. Try again.");
     expect(state.identity.preCall.status).toBe(
       "single_match_pending_confirmation",
     );
@@ -1835,7 +1883,7 @@ describe("stateful call tools", () => {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-2",
       } as never),
-    ).rejects.toThrow("Verify the patient before cancelling.");
+    ).resolves.toBe("Verify the patient before cancelling.");
     expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.patient.status).toBe("new");
   });
@@ -2415,6 +2463,29 @@ describe("stateful call tools", () => {
     expect(state.availability.slots).toEqual([]);
   });
 
+  it("returns update-insurance prerequisites without a tool error", async () => {
+    const state = createState();
+    state.identity.patient.patientId = null;
+
+    await expect(
+      update_insurance.execute({ insuranceMemberId: "ABC123" }, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never),
+    ).resolves.toBe("Verify the patient before updating insurance.");
+
+    state.identity.patient.patientId = "patient-1";
+    state.insurance.lastEligibilityCheck = null;
+    await expect(
+      update_insurance.execute({ insuranceMemberId: "ABC123" }, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-2",
+      } as never),
+    ).resolves.toBe(
+      "Run check_insurance for accepted coverage before updating insurance.",
+    );
+  });
+
   it("updates routine vision insurance with the canonical checked plan", async () => {
     const state = createState();
     state.office.activeKey = "hollywood";
@@ -2497,7 +2568,9 @@ describe("stateful call tools", () => {
           toolCallId: "tool-1",
         } as never,
       ),
-    ).rejects.toThrow("Insurance was not updated.");
+    ).rejects.toThrow(
+      "I couldn't update the insurance. I can try once more or connect you with the office.",
+    );
     expect(state.insurance.onFile).toBeNull();
     expect(ownedMiddlewareFailures(state)).toMatchObject([
       { operation: "updateInsurance", reason: "middleware_error" },

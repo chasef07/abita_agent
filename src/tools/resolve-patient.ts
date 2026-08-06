@@ -1,8 +1,8 @@
-import { tool, type ToolOptions } from "@livekit/agents";
+import { ToolError, tool, type ToolOptions } from "@livekit/agents";
 import { z } from "zod";
 import { resolvePatientWithOwnedMiddleware } from "../clients/owned-middleware.js";
 import {
-  resolvePatientIdentity,
+  resolvePatientIdentityResult,
   type PatientResolveLookup,
 } from "../identity/promotion.js";
 import { getState } from "./session.js";
@@ -63,7 +63,15 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
     execute: async (identity: ResolvePatientArgs, { ctx }: ToolOptions) => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
-      return resolvePatientIdentity(state, identity, lookup);
+      const resolution = await resolvePatientIdentityResult(
+        state,
+        identity,
+        lookup,
+      );
+      if (resolution.outcome === "lookup_failed") {
+        throw new ToolError(resolution.reply);
+      }
+      return resolution.reply;
     },
   };
 }

@@ -1,11 +1,16 @@
-import { tool } from "@livekit/agents";
+import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
 import {
+  markTransferAmbiguous,
   transferIsAccepted,
   transferIsAmbiguous,
   transferStatus,
 } from "../state/call-lifecycle.js";
-import { transferCallerToOffice } from "./handoff.js";
+import {
+  HandoffConflictError,
+  HandoffError,
+  transferCallerToOffice,
+} from "./handoff.js";
 import { getState } from "./session.js";
 
 export const transfer_call = tool({
@@ -34,21 +39,30 @@ export const transfer_call = tool({
       return "Transfer already started.";
     }
     if (!state.runtime.sipRoomName || !state.runtime.sipParticipantIdentity) {
-      return "Could not transfer because there is no active SIP session.";
+      return "I couldn't transfer because the call is no longer active.";
     }
 
     try {
       await ctx.waitForPlayout();
       const { handoffOfficeKey } = await transferCallerToOffice(state);
       return `Transfer started to the ${handoffOfficeKey} office.`;
-    } catch {
+    } catch (error) {
       console.error(
         `[tools] Transfer failed (state=${transferStatus(state)}).`,
       );
       if (transferIsAmbiguous(state)) {
         return "The transfer may already be in progress. Do not try again.";
       }
-      return "Could not transfer the call.";
+      if (error instanceof HandoffConflictError) {
+        markTransferAmbiguous(state);
+        return "The transfer may already be in progress. Do not try again.";
+      }
+      if (error instanceof HandoffError) {
+        throw new ToolError(
+          "I couldn't transfer the call. I can try once more.",
+        );
+      }
+      throw error;
     }
   },
 });

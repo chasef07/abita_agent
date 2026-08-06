@@ -18,6 +18,9 @@ const HANDOFF_TOKEN_MARKER = "~ah1~";
 const HANDOFF_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_PRODUCT_HANDOFF_LIFETIME_MS = 5 * 60_000;
 
+export class HandoffError extends Error {}
+export class HandoffConflictError extends Error {}
+
 type HandoffTarget = {
   headers?: Record<string, string>;
   mode: "DIRECT" | "PHONE";
@@ -236,18 +239,24 @@ async function postHandoff(input: {
       signal: AbortSignal.timeout(HANDOFF_TIMEOUT_MS),
     });
   } catch {
-    throw new Error(`${input.errorPrefix} handoff API request failed.`);
+    throw new HandoffError(`${input.errorPrefix} handoff API request failed.`);
   }
 
   if (!response.ok) {
     if (response.status === 409) {
-      throw new Error(
+      throw new HandoffConflictError(
         `${input.errorPrefix} handoff conflicts with an existing transfer.`,
       );
     }
-    throw new Error(
-      `${input.errorPrefix} handoff API returned ${response.status}.`,
-    );
+    const message = `${input.errorPrefix} handoff API returned ${response.status}.`;
+    if (
+      response.status === 408 ||
+      response.status === 429 ||
+      response.status >= 500
+    ) {
+      throw new HandoffError(message);
+    }
+    throw new Error(message);
   }
 
   try {
@@ -386,7 +395,7 @@ export async function transferCallerToOffice(
     );
   } catch {
     markTransferAmbiguous(state);
-    throw new Error("SIP transfer outcome is unknown.");
+    throw new HandoffError("SIP transfer outcome is unknown.");
   }
   acceptTransfer(state);
   return { handoffOfficeKey, handoffTarget: target };

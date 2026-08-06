@@ -1,8 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const transferCallerToOfficeMock = vi.hoisted(() => vi.fn());
+const {
+  HandoffConflictErrorMock,
+  HandoffErrorMock,
+  transferCallerToOfficeMock,
+} = vi.hoisted(() => ({
+  HandoffConflictErrorMock: class HandoffConflictError extends Error {},
+  HandoffErrorMock: class HandoffError extends Error {},
+  transferCallerToOfficeMock: vi.fn(),
+}));
 
 vi.mock("../tools/handoff.js", () => ({
+  HandoffConflictError: HandoffConflictErrorMock,
+  HandoffError: HandoffErrorMock,
   transferCallerToOffice: transferCallerToOfficeMock,
 }));
 
@@ -74,15 +84,52 @@ describe("transfer call", () => {
   it("does not mark the call transferred when handoff fails", async () => {
     const { state, ctx } = createToolContext();
     transferCallerToOfficeMock.mockRejectedValueOnce(
-      new Error("handoff failed"),
+      new HandoffErrorMock("handoff failed"),
     );
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    const result = await executeTransfer(ctx, "tool-1");
-
-    expect(result).toBe("Could not transfer the call.");
+    await expect(executeTransfer(ctx, "tool-1")).rejects.toThrow(
+      "I couldn't transfer the call. I can try once more.",
+    );
     expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
     expect(transferIsAccepted(state)).toBe(false);
+  });
+
+  it("leaves unexpected implementation errors masked by LiveKit", async () => {
+    const { ctx } = createToolContext();
+    const internalError = new Error("internal implementation detail");
+    transferCallerToOfficeMock.mockRejectedValueOnce(internalError);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(executeTransfer(ctx, "tool-1")).rejects.toBe(internalError);
+  });
+
+  it("returns normally when the SIP call is no longer active", async () => {
+    const { state, ctx } = createToolContext();
+    state.runtime.sipRoomName = "";
+
+    await expect(executeTransfer(ctx, "tool-1")).resolves.toBe(
+      "I couldn't transfer because the call is no longer active.",
+    );
+    expect(transferCallerToOfficeMock).not.toHaveBeenCalled();
+  });
+
+  it("does not retry an existing-handoff conflict", async () => {
+    const { state, ctx } = createToolContext();
+    transferCallerToOfficeMock.mockRejectedValueOnce(
+      new HandoffConflictErrorMock("handoff conflict"),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const first = await executeTransfer(ctx, "tool-1");
+    const second = await executeTransfer(ctx, "tool-2");
+
+    expect(first).toBe(
+      "The transfer may already be in progress. Do not try again.",
+    );
+    expect(second).toBe(first);
+    expect(transferCallerToOfficeMock).toHaveBeenCalledTimes(1);
+    expect(transferStatus(state)).toBe("ambiguous");
   });
 
   it("does not retry after an ambiguous REFER result", async () => {

@@ -9,12 +9,19 @@ import {
   systemSchedulingClock,
   type SchedulingClock,
 } from "./availability-when.js";
+import { returnSchedulingInputRequired } from "./input-required.js";
 import { SchedulingWorkflow } from "./workflow.js";
 
 const APPOINTMENT_LANE_BY_VISIT_TYPE = {
   medical: "medical_md",
   routine_vision: "routine_od",
 } as const;
+
+type AvailabilityOfficeMode = "omitted" | "optional" | "required";
+
+type SchedulingToolOptions = {
+  availabilityOfficeMode?: AvailabilityOfficeMode;
+};
 
 const bookAppointmentParameters = z
   .object({
@@ -101,8 +108,52 @@ const rescheduleAppointmentParameters = z
 export function createSchedulingTools(
   middleware: SchedulingMiddleware,
   clock: SchedulingClock = systemSchedulingClock,
+  options: SchedulingToolOptions = {},
 ) {
   const workflow = new SchedulingWorkflow(middleware, clock);
+  const availabilityOfficeMode = options.availabilityOfficeMode ?? "optional";
+
+  const availabilityFields = {
+    when: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        "The caller's own date and time phrase, forwarded verbatim, such as tomorrow, next Tuesday around 3 PM, June 16 in the morning, or next available.",
+      ),
+    visitType: z
+      .enum(["medical", "routine_vision"])
+      .optional()
+      .describe(
+        "Visit type established by appointment triage. Required for new appointment searches; pass medical or routine_vision. " +
+          "Omit only for reschedules when the loaded appointment supplies the visit type.",
+      ),
+  };
+  const officeField = z
+    .enum(["hollywood", "sweetwater"])
+    .describe(
+      "Office selected by the caller after choosing Hollywood or Sweetwater.",
+    );
+  const optionalOfficeField = officeField
+    .optional()
+    .describe(
+      "Required on Hollywood and Sweetwater calls after asking which office the caller wants. Use the caller's answer as the office value. Omit for every other office.",
+    );
+  const availabilityParameters = z
+    .object(
+      availabilityOfficeMode === "required"
+        ? { ...availabilityFields, office: officeField }
+        : availabilityOfficeMode === "optional"
+          ? { ...availabilityFields, office: optionalOfficeField }
+          : availabilityFields,
+    )
+    .strict();
+  const availabilityOfficeInstructions =
+    availabilityOfficeMode === "required"
+      ? "Ask whether the caller wants Hollywood or Sweetwater, then pass that selection in office. "
+      : availabilityOfficeMode === "omitted"
+        ? "Use the office selected by the inbound call. "
+        : "On Hollywood or Sweetwater calls, ask which office the caller wants and pass that selection in office. ";
 
   const get_availability = tool({
     name: "get_availability",
@@ -111,44 +162,24 @@ export function createSchedulingTools(
       "Pass those words verbatim in when, such as tomorrow morning or next Tuesday around 3 PM. " +
       "If the caller asks for the soonest, next available, any day, or only gives a time preference, pass those words unchanged so the workflow can search from the earliest allowed date. " +
       "For new appointments, call after appointment triage has established the visit type; for reschedules, call only after the existing appointment to move is identified. " +
-      "On Hollywood or Sweetwater calls, ask which office the caller wants and use that answer as the office selection. " +
+      availabilityOfficeInstructions +
       "Offer only the returned slots. Treat this tool as a search and claim booking success only after book_appointment succeeds.",
-    parameters: z
-      .object({
-        when: z
-          .string()
-          .trim()
-          .min(1)
-          .describe(
-            "The caller's own date and time phrase, forwarded verbatim, such as tomorrow, next Tuesday around 3 PM, June 16 in the morning, or next available.",
-          ),
-        visitType: z
-          .enum(["medical", "routine_vision"])
-          .optional()
-          .describe(
-            "Visit type established by appointment triage. Required for new appointment searches; pass medical or routine_vision. " +
-              "Omit only for reschedules when the loaded appointment supplies the visit type.",
-          ),
-        office: z
-          .enum(["hollywood", "sweetwater"])
-          .optional()
-          .describe(
-            "Required on Hollywood and Sweetwater calls after asking which office the caller wants. Use the caller's answer as the office value. Omit for every other office.",
-          ),
-      })
-      .strict(),
+    parameters: availabilityParameters,
     execute: async (args, { ctx, abortSignal }) => {
       ctx.disallowInterruptions();
-      const { visitType, ...lookup } = args;
-      return workflow.getAvailability(
-        getState(ctx),
-        {
-          ...lookup,
-          appointmentLane: visitType
-            ? APPOINTMENT_LANE_BY_VISIT_TYPE[visitType]
-            : undefined,
-        },
-        abortSignal,
+      const office = "office" in args ? args.office : undefined;
+      return returnSchedulingInputRequired(() =>
+        workflow.getAvailability(
+          getState(ctx),
+          {
+            when: args.when,
+            ...(office ? { office } : {}),
+            appointmentLane: args.visitType
+              ? APPOINTMENT_LANE_BY_VISIT_TYPE[args.visitType]
+              : undefined,
+          },
+          abortSignal,
+        ),
       );
     },
   });
@@ -164,7 +195,9 @@ export function createSchedulingTools(
     parameters: bookAppointmentParameters,
     execute: async (args, { ctx }) => {
       ctx.disallowInterruptions();
-      return workflow.bookAppointment(getState(ctx), args);
+      return returnSchedulingInputRequired(() =>
+        workflow.bookAppointment(getState(ctx), args),
+      );
     },
   });
 
@@ -178,7 +211,9 @@ export function createSchedulingTools(
     parameters: cancelAppointmentParameters,
     execute: async (args, { ctx }) => {
       ctx.disallowInterruptions();
-      return workflow.cancelAppointment(getState(ctx), args);
+      return returnSchedulingInputRequired(() =>
+        workflow.cancelAppointment(getState(ctx), args),
+      );
     },
   });
 
@@ -195,7 +230,9 @@ export function createSchedulingTools(
     parameters: rescheduleAppointmentParameters,
     execute: async (args, { ctx }) => {
       ctx.disallowInterruptions();
-      return workflow.rescheduleAppointment(getState(ctx), args);
+      return returnSchedulingInputRequired(() =>
+        workflow.rescheduleAppointment(getState(ctx), args),
+      );
     },
   });
 

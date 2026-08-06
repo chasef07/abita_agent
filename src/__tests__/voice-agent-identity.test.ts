@@ -482,7 +482,7 @@ describe("Voice Agent identity promotion", () => {
         ],
       },
       {
-        input: JSON.stringify("Patient lookup failed. Try again."),
+        input: "Patient lookup failed. Try again.",
         content: "I couldn't verify John's record yet.",
       },
     ]);
@@ -518,8 +518,8 @@ describe("Voice Agent identity promotion", () => {
     await run.wait();
 
     run.expect.containsFunctionCallOutput({
-      output: JSON.stringify("Patient lookup failed. Try again."),
-      isError: false,
+      output: "Patient lookup failed. Try again.",
+      isError: true,
     });
     expect(session.userData.identity.patient).toMatchObject({
       identityConfirmed: true,
@@ -1454,7 +1454,7 @@ describe("Voice Agent identity promotion", () => {
         ],
       },
       {
-        input: JSON.stringify(toolReply),
+        input: toolReply,
         content: "I couldn't verify that record yet.",
       },
     ]);
@@ -1478,8 +1478,8 @@ describe("Voice Agent identity promotion", () => {
     await run.wait();
 
     run.expect.containsFunctionCallOutput({
-      output: JSON.stringify(toolReply),
-      isError: false,
+      output: toolReply,
+      isError: true,
     });
     expect(session.userData.identity.patient).toMatchObject({
       status: "unknown",
@@ -1674,6 +1674,8 @@ describe("Voice Agent identity promotion", () => {
   ])(
     "preserves identity gates for normalized $label lookup outcomes",
     async ({ result, reply, outcome }) => {
+      const isLookupFailure = outcome === "lookup_failed";
+      const toolOutput = isLookupFailure ? reply : JSON.stringify(reply);
       const llm = new voice.testing.FakeLLM([
         resolveTurn(
           "Find Jane Doe, January 2, 1980.",
@@ -1681,7 +1683,7 @@ describe("Voice Agent identity promotion", () => {
           "Doe",
           "01/02/1980",
         ),
-        { input: JSON.stringify(reply), content: "I could not verify Jane." },
+        { input: toolOutput, content: "I could not verify Jane." },
       ]);
       const session = new AgentSession({ llm });
       sessions.push(session);
@@ -1703,8 +1705,8 @@ describe("Voice Agent identity promotion", () => {
       await run.wait();
 
       run.expect.containsFunctionCallOutput({
-        output: JSON.stringify(reply),
-        isError: false,
+        output: toolOutput,
+        isError: isLookupFailure,
       });
       expect(session.userData.identity.patient).toMatchObject({
         status: "unknown",
@@ -1721,8 +1723,8 @@ describe("Voice Agent identity promotion", () => {
     let lookupCalls = 0;
     const existingReply =
       "Verified existing patient Jane Doe. No upcoming appointments are loaded.";
-    const duplicateReply =
-      "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.";
+    const unavailableToolReply =
+      "Unknown function: add_patient - available tools: check_insurance, create_staff_task, end_call, get_availability, resolve_patient, transfer_call";
     const llm = new voice.testing.FakeLLM([
       resolveTurn(
         "Find Jane Doe, January 2, 1980.",
@@ -1755,7 +1757,7 @@ describe("Voice Agent identity promotion", () => {
         ],
       },
       {
-        input: JSON.stringify(duplicateReply),
+        input: unavailableToolReply,
         content: "I will use Jane's existing chart.",
       },
     ]);
@@ -1787,8 +1789,8 @@ describe("Voice Agent identity promotion", () => {
     await duplicateRun.wait();
 
     duplicateRun.expect.containsFunctionCallOutput({
-      output: JSON.stringify(duplicateReply),
-      isError: false,
+      output: unavailableToolReply,
+      isError: true,
     });
     expect(lookupCalls).toBe(1);
     expect(session.userData.identity.patient).toMatchObject({
