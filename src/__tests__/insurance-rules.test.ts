@@ -344,6 +344,42 @@ describe("insurance matcher", () => {
     }
   });
 
+  it("maps every Aetna Medicaid or Medicare routine vision variant to iCare", () => {
+    for (const input of [
+      "Aetna Medicaid",
+      "Aetna Medicare",
+      "Aetna Better Health (Medicaid)",
+      "Aetna Dual Eligible Medicare Advantage",
+      "Medicare Advantage by Aetna",
+      "Aetna Medicare WellCare Medicare HMO (Vision)",
+    ]) {
+      const result = matchInsurancePlanForOffice(
+        "spring-hill",
+        input,
+        "routine_vision",
+      );
+
+      expect(result.status, input).toBe("accepted");
+      expect(canonicalInsurancePlan(result), input).toBe("iCare");
+    }
+  });
+
+  it("keeps the Aetna government rule scoped to routine vision", () => {
+    const commercialVision = matchInsurancePlanForOffice(
+      "spring-hill",
+      "Aetna",
+      "routine_vision",
+    );
+    const medical = matchInsurancePlanForOffice(
+      "spring-hill",
+      "Aetna Medicare",
+      "medical",
+    );
+
+    expect(canonicalInsurancePlan(commercialVision)).toBe("EyeMed");
+    expect(canonicalInsurancePlan(medical)).toBe("Florida Medicare");
+  });
+
   it("does not proceed on pending CarePlus routine vision", () => {
     for (const input of [
       "CarePlus",
