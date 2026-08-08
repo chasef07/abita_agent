@@ -485,7 +485,8 @@ Use [`.env.example`](.env.example) as the canonical variable list.
 | `ASSEMBLYAI_API_KEY` | Speech-to-text | Required |
 | `RIME_API_KEY` | Text-to-speech | Required |
 | `AMD_API_URL`, `AMD_API_TOKEN` | Owned middleware base URL and authentication | Required for patient and scheduling workflows |
-| `ANALYTICS_URL`, `LIVEKIT_FORWARD_SYNC_SECRET` | Portal call evidence and derived Staff Task delivery | Required in production |
+| `ACUITY_PRODUCT_INTERACTION_URL`, `ACUITY_PRODUCT_SERVICE_SECRET` | Product-owned AI interaction lifecycle and outcome delivery | Required in production |
+| `ANALYTICS_URL`, `LIVEKIT_FORWARD_SYNC_SECRET` | Existing Acuity portal Staff Task delivery only | Required for portal-routed Staff Tasks |
 | `ACUITY_HANDOFF_URL`, `ACUITY_HANDOFF_SECRET` | Direct call-center handoff acquisition | Required for call-center Office Profiles |
 | `PROMPT_WORKSPACE` | Alternate prompt and knowledge root | Optional; defaults to `workspace` |
 | `DEV_HANDOFF_TARGET` | Development profile transfer override | Optional; never a production routing source |

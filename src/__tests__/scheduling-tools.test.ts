@@ -2065,6 +2065,12 @@ describe("scheduling tools", () => {
         action: "booked",
         status: "success",
         toolName: "book_appointment",
+        externalPatientId: "patient-1",
+        newAppointmentId: "456",
+        bookingResult: expect.objectContaining({
+          status: "booked",
+          appointmentId: 456,
+        }),
         appointment: { patientName: "Jane Doe" },
       },
     ]);
@@ -3092,6 +3098,9 @@ describe("scheduling tools", () => {
       {
         action: "cancelled",
         status: "success",
+        externalPatientId: "patient-1",
+        oldAppointmentId: "123",
+        cancellationResult: { status: "cancelled" },
         cancelledAppointment: {
           patientName: "Jane Doe",
         },
@@ -3803,6 +3812,14 @@ describe("scheduling tools", () => {
       {
         action: "rescheduled",
         status: "success",
+        externalPatientId: "patient-1",
+        oldAppointmentId: "123",
+        newAppointmentId: "456",
+        bookingResult: expect.objectContaining({
+          status: "booked",
+          appointmentId: 456,
+        }),
+        cancellationResult: { status: "cancelled" },
         appointment: { patientName: "Jane Doe" },
       },
     ]);

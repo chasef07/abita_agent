@@ -249,6 +249,11 @@ export interface AppointmentActionAnalytics {
   toolName?: string;
   createdAt?: string;
   message?: string;
+  externalPatientId?: string;
+  oldAppointmentId?: string;
+  newAppointmentId?: string;
+  bookingResult?: Record<string, unknown>;
+  cancellationResult?: Record<string, unknown>;
   appointment?: AppointmentAnalytics;
   cancelledAppointment?: AppointmentAnalytics;
 }

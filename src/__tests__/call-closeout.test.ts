@@ -17,7 +17,7 @@ import {
   type CallCloseoutResult,
 } from "../runtime/call-closeout.js";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
-import { getPortalSecret } from "../runtime/portal-auth.js";
+import { getProductInteractionConfig } from "../runtime/portal-auth.js";
 import {
   recordPatientIdentityTransition,
   type CallState,
@@ -221,12 +221,70 @@ describe("call closeout", () => {
     ]);
   });
 
-  it("returns the configured LiveKit portal secret", () => {
-    expect(
-      getPortalSecret({
-        LIVEKIT_FORWARD_SYNC_SECRET: "livekit-secret",
+  it("routes call evidence only to Product when the legacy Site task lane is configured", async () => {
+    const fetchImpl = vi.fn(
+      async () => new Response(null, { status: 200 }),
+    ) as unknown as typeof fetch;
+    const config = getProductInteractionConfig({
+      ACUITY_PRODUCT_INTERACTION_URL:
+        " https://product.example/v1/ai/interactions ",
+      ACUITY_PRODUCT_SERVICE_SECRET: " product-secret ",
+      ANALYTICS_URL: "https://site.example/api/livekit/calls",
+      LIVEKIT_FORWARD_SYNC_SECRET: "site-secret",
+    });
+    expect(config).toEqual({
+      secret: "product-secret",
+      url: "https://product.example/v1/ai/interactions",
+    });
+    const portal = new HttpCallPortal({ ...config, fetchImpl });
+
+    await portal.deliver({
+      phase: "call-start",
+      timeoutMs: 2_000,
+      payload: {
+        callId: "call-cutover-63",
+        callerPhone: "+17275550199",
+        officePhone: "+17275919997",
+        startedAt: "2026-08-08T09:30:00.000Z",
+        status: "IN_PROGRESS",
+      },
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fetchImpl).mock.calls[0]?.[0]).toBe(
+      "https://product.example/v1/ai/interactions",
+    );
+  });
+
+  it("requires Product delivery configuration in production", () => {
+    expect(() =>
+      getProductInteractionConfig({
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_INTERACTION_URL:
+          "https://product.example/v1/ai/interactions",
       }),
-    ).toBe("livekit-secret");
+    ).toThrow(
+      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_PRODUCT_SERVICE_SECRET are required in production",
+    );
+    expect(() =>
+      getProductInteractionConfig({
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_SERVICE_SECRET: "product-secret",
+      }),
+    ).toThrow(
+      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_PRODUCT_SERVICE_SECRET are required in production",
+    );
+    expect(
+      getProductInteractionConfig({
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_INTERACTION_URL:
+          "https://product.example/v1/ai/interactions",
+        ACUITY_PRODUCT_SERVICE_SECRET: "product-secret",
+      }),
+    ).toEqual({
+      secret: "product-secret",
+      url: "https://product.example/v1/ai/interactions",
+    });
   });
 
   it("delivers call start, compact completion, and rich completion in order", async () => {
@@ -600,6 +658,53 @@ describe("call closeout", () => {
     ).not.toContain("Private Patient");
   });
 
+  it("checkpoints each receipt-backed appointment outcome once after tool execution", async () => {
+    const state = createTestCallState();
+    const { events, portal } = await setupCloseout({
+      call: { officeKey: "abita-main" },
+      state,
+    });
+    recordAppointmentAction(state, {
+      action: "booked",
+      status: "success",
+      toolName: "book_appointment",
+      externalPatientId: "patient-63",
+      newAppointmentId: "appointment-63",
+      bookingResult: { status: "booked", appointmentId: 63 },
+    });
+    const toolEvent = {
+      createdAt: Date.parse("2026-07-20T10:00:30.000Z"),
+      functionCalls: [{ callId: "tool-call-63", name: "book_appointment" }],
+      functionCallOutputs: [
+        { callId: "tool-call-63", output: JSON.stringify("Booked") },
+      ],
+    };
+
+    events.emit("toolsExecuted", toolEvent);
+    events.emit("toolsExecuted", toolEvent);
+    await events.close();
+
+    expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
+      "call-start",
+      "outcome-checkpoint",
+      "shutdown-summary",
+      "shutdown",
+    ]);
+    expect(portal.deliveries[1]?.payload).toMatchObject({
+      callId: "call-test",
+      callerPhone: "+17275551212",
+      officeKey: "abita-main",
+      officePhone: "+17275919997",
+      status: "IN_PROGRESS",
+      appointmentOutcome: {
+        action: "booked",
+        externalPatientId: "patient-63",
+        newAppointmentId: "appointment-63",
+        bookingResult: { status: "booked", appointmentId: 63 },
+      },
+    });
+  });
+
   it("collects diagnostic events into one sanitized lifecycle record", async () => {
     const state = createTestCallState();
     state.runtime.voiceLanguage = {
@@ -909,9 +1014,105 @@ describe("call closeout", () => {
     );
   });
 
+  it("sends Product Interaction envelopes with receipt-backed appointment evidence", async () => {
+    const fetchImpl = vi.fn(
+      async () => new Response(null, { status: 200 }),
+    ) as unknown as typeof fetch;
+    const portal = new HttpCallPortal({
+      fetchImpl,
+      secret: "product-secret",
+      url: "https://product.example/v1/ai/interactions",
+    });
+    const lifecycle = {
+      callId: "call-product-63",
+      callerPhone: "+17275550199",
+      officePhone: "+17275919997",
+      startedAt: "2026-08-08T09:30:00.000Z",
+    };
+
+    await portal.deliver({
+      phase: "call-start",
+      timeoutMs: 2_000,
+      payload: { ...lifecycle, status: "IN_PROGRESS" },
+    });
+    await portal.deliver({
+      phase: "shutdown-summary",
+      timeoutMs: 3_000,
+      payload: {
+        ...lifecycle,
+        endedAt: "2026-08-08T09:35:00.000Z",
+        status: "COMPLETED",
+      },
+    });
+    await portal.deliver({
+      phase: "shutdown",
+      timeoutMs: 10_000,
+      payload: {
+        ...lifecycle,
+        endedAt: "2026-08-08T09:35:00.000Z",
+        status: "COMPLETED",
+        sessionReport: { chat_history: { items: [{ role: "user" }] } },
+        appointmentActions: [
+          {
+            action: "rescheduled",
+            status: "success",
+            createdAt: "2026-08-08T09:33:00.000Z",
+            externalPatientId: "patient-63",
+            oldAppointmentId: "appointment-old",
+            newAppointmentId: "appointment-new",
+            bookingResult: { status: "booked", appointmentId: 6302 },
+            cancellationResult: { status: "cancelled" },
+          },
+        ],
+      },
+    });
+
+    const bodies = vi
+      .mocked(fetchImpl)
+      .mock.calls.map(
+        ([, request]) =>
+          JSON.parse(String(request?.body)) as Record<string, unknown>,
+      );
+    expect(bodies[0]).toEqual({
+      kind: "START",
+      sourceCallId: "call-product-63",
+      callerPhone: "+17275550199",
+      officePhone: "+17275919997",
+      startedAt: "2026-08-08T09:30:00.000Z",
+      status: "IN_PROGRESS",
+    });
+    expect(bodies[1]).toMatchObject({
+      kind: "SUMMARY",
+      sourceCallId: "call-product-63",
+      summaryPayload: { callId: "call-product-63" },
+    });
+    expect(bodies[2]).toMatchObject({
+      kind: "CLOSEOUT",
+      sourceCallId: "call-product-63",
+      transcript: { chat_history: { items: [{ role: "user" }] } },
+      appointmentOutcome: {
+        action: "RESCHEDULED",
+        occurredAt: "2026-08-08T09:33:00.000Z",
+        externalPatientId: "patient-63",
+        oldAppointmentId: "appointment-old",
+        newAppointmentId: "appointment-new",
+        bookingResult: { status: "booked", appointmentId: 6302 },
+        cancellationResult: { status: "cancelled" },
+      },
+      closeoutPayload: {
+        callId: "call-product-63",
+        appointmentActions: [
+          expect.objectContaining({ action: "rescheduled" }),
+        ],
+      },
+    });
+    expect(bodies[2]).not.toHaveProperty("callId");
+    expect(bodies[2]).not.toHaveProperty("appointmentActions");
+  });
+
   it("skips a missing HTTP URL and omits absent authorization", async () => {
     const fetchImpl = vi.fn(
-      async () => new Response("private portal response", { status: 503 }),
+      async () => new Response("private Product response", { status: 503 }),
     ) as unknown as typeof fetch;
     const logger = { log: vi.fn(), warn: vi.fn() };
     const missingUrlPortal = new HttpCallPortal({ fetchImpl, logger });
@@ -928,23 +1129,31 @@ describe("call closeout", () => {
     const portal = new HttpCallPortal({
       fetchImpl,
       logger,
-      url: "https://portal.example/api/livekit/calls",
+      url: "https://product.example/v1/ai/interactions",
     });
     await portal.deliver({
-      payload: { transcript: "private transcript" },
+      payload: {
+        callId: "private-call-id",
+        callerPhone: "+17275550199",
+        officePhone: "+17275919997",
+        startedAt: "2026-08-08T09:30:00.000Z",
+        endedAt: "2026-08-08T09:35:00.000Z",
+        status: "COMPLETED",
+        sessionReport: { transcript: "private transcript" },
+      },
       phase: "shutdown",
       timeoutMs: 10_000,
     });
 
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://portal.example/api/livekit/calls",
+      "https://product.example/v1/ai/interactions",
       expect.objectContaining({
         headers: { "Content-Type": "application/json" },
       }),
     );
     const warnings = logger.warn.mock.calls.flat().join(" ");
-    expect(warnings).not.toContain("private portal response");
+    expect(warnings).not.toContain("private Product response");
     expect(warnings).not.toContain("private transcript");
-    expect(warnings).not.toContain("portal.example");
+    expect(warnings).not.toContain("product.example");
   });
 });

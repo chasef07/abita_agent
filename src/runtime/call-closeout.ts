@@ -86,7 +86,8 @@ export interface CallCloseoutEventAdapter {
   onClose(closeout: () => Promise<CallCloseoutResult>): void;
 }
 
-export type CallPortalPhase = "call-start" | "shutdown-summary" | "shutdown";
+export type CallPortalPhase =
+  "call-start" | "outcome-checkpoint" | "shutdown-summary" | "shutdown";
 
 export type CallPortalDelivery = {
   payload: Record<string, unknown>;
@@ -113,6 +114,38 @@ export interface CallPortal {
   deliver(delivery: CallPortalDelivery): Promise<CallPortalResult>;
   wait(ms: number): Promise<void>;
 }
+
+type ProductInteractionMessageKind =
+  "START" | "SUMMARY" | "CLOSEOUT" | "OUTCOME_CHECKPOINT";
+type ProductInteractionCallStatus =
+  "IN_PROGRESS" | "COMPLETED" | "ESCALATED" | "FAILED";
+type ProductAppointmentAction = "BOOKED" | "CANCELLED" | "RESCHEDULED";
+
+type ProductAppointmentEvidence = {
+  action: ProductAppointmentAction;
+  occurredAt: string;
+  externalPatientId?: string;
+  oldAppointmentId?: string;
+  newAppointmentId?: string;
+  bookingResult?: Record<string, unknown>;
+  cancellationResult?: Record<string, unknown>;
+};
+
+type ProductInteractionRequest = {
+  kind: ProductInteractionMessageKind;
+  sourceCallId: string;
+  callerPhone: string;
+  officePhone: string;
+  startedAt: string;
+  status: ProductInteractionCallStatus;
+  officeKey?: string;
+  endedAt?: string;
+  summary?: string;
+  transcript?: Record<string, unknown>;
+  appointmentOutcome?: ProductAppointmentEvidence;
+  summaryPayload?: Record<string, unknown>;
+  closeoutPayload?: Record<string, unknown>;
+};
 
 export class HttpCallPortal implements CallPortal {
   private readonly fetchImpl: typeof fetch;
@@ -142,7 +175,7 @@ export class HttpCallPortal implements CallPortal {
 
     try {
       const response = await this.fetchImpl(this.url, {
-        body: JSON.stringify(delivery.payload),
+        body: JSON.stringify(productInteractionPayload(delivery)),
         headers,
         method: "POST",
         signal:
@@ -152,17 +185,17 @@ export class HttpCallPortal implements CallPortal {
       });
       if (response.ok) {
         this.logger.log(
-          `[${delivery.phase}] Analytics POST succeeded status=${response.status}`,
+          `[${delivery.phase}] Product Interaction POST succeeded status=${response.status}`,
         );
         return { ok: true, status: response.status };
       }
 
       this.logger.warn(
-        `[${delivery.phase}] Analytics POST returned status=${response.status}`,
+        `[${delivery.phase}] Product Interaction POST returned status=${response.status}`,
       );
       return { ok: false, status: response.status };
     } catch {
-      this.logger.warn(`[${delivery.phase}] Analytics POST failed`);
+      this.logger.warn(`[${delivery.phase}] Product Interaction POST failed`);
       return { ok: false };
     }
   }
@@ -171,6 +204,146 @@ export class HttpCallPortal implements CallPortal {
     if (ms <= 0) return;
     await new Promise((resolve) => setTimeout(resolve, ms));
   }
+}
+
+function productInteractionPayload(
+  delivery: CallPortalDelivery,
+): ProductInteractionRequest {
+  const payload = delivery.payload;
+  const officeKey = stringValue(payload.officeKey);
+  const endedAt = stringValue(payload.endedAt);
+  const summary = stringValue(payload.summary);
+  const transcript =
+    delivery.phase === "shutdown" && isRecord(payload.sessionReport)
+      ? payload.sessionReport
+      : undefined;
+  const appointmentOutcome = productAppointmentOutcome(payload);
+  return {
+    kind: productMessageKind(delivery.phase),
+    sourceCallId: requiredString(payload.callId, "callId"),
+    callerPhone: requiredString(payload.callerPhone, "callerPhone"),
+    officePhone: requiredString(payload.officePhone, "officePhone"),
+    startedAt: requiredString(payload.startedAt, "startedAt"),
+    status: productCallStatus(payload.status),
+    ...(officeKey ? { officeKey } : {}),
+    ...(endedAt ? { endedAt } : {}),
+    ...(summary ? { summary } : {}),
+    ...(transcript ? { transcript } : {}),
+    ...(appointmentOutcome ? { appointmentOutcome } : {}),
+    ...(delivery.phase === "shutdown-summary"
+      ? { summaryPayload: payload }
+      : {}),
+    ...(delivery.phase === "shutdown" ? { closeoutPayload: payload } : {}),
+  };
+}
+
+function productMessageKind(
+  phase: CallPortalPhase,
+): ProductInteractionMessageKind {
+  switch (phase) {
+    case "call-start":
+      return "START";
+    case "outcome-checkpoint":
+      return "OUTCOME_CHECKPOINT";
+    case "shutdown-summary":
+      return "SUMMARY";
+    case "shutdown":
+      return "CLOSEOUT";
+  }
+}
+
+function productAppointmentOutcome(
+  payload: Record<string, unknown>,
+): ProductAppointmentEvidence | undefined {
+  const explicit = isRecord(payload.appointmentOutcome)
+    ? payload.appointmentOutcome
+    : undefined;
+  const actions = Array.isArray(payload.appointmentActions)
+    ? payload.appointmentActions.filter(isRecord)
+    : [];
+  const action = explicit ?? actions.at(-1);
+  if (!action) return undefined;
+
+  const actionName = productAppointmentAction(action.action);
+  const bookingResult = isRecord(action.bookingResult)
+    ? action.bookingResult
+    : undefined;
+  const cancellationResult = isRecord(action.cancellationResult)
+    ? action.cancellationResult
+    : undefined;
+  if (
+    !actionName ||
+    (actionName === "BOOKED" && !bookingResult) ||
+    (actionName === "CANCELLED" && !cancellationResult) ||
+    (actionName === "RESCHEDULED" && (!bookingResult || !cancellationResult))
+  ) {
+    return undefined;
+  }
+
+  const occurredAt =
+    stringValue(action.occurredAt) ??
+    stringValue(action.createdAt) ??
+    stringValue(payload.endedAt) ??
+    stringValue(payload.startedAt);
+  if (!occurredAt) return undefined;
+
+  const externalPatientId = stringValue(action.externalPatientId);
+  const oldAppointmentId = stringValue(action.oldAppointmentId);
+  const newAppointmentId = stringValue(action.newAppointmentId);
+  return {
+    action: actionName,
+    occurredAt,
+    ...(externalPatientId ? { externalPatientId } : {}),
+    ...(oldAppointmentId ? { oldAppointmentId } : {}),
+    ...(newAppointmentId ? { newAppointmentId } : {}),
+    ...(bookingResult ? { bookingResult } : {}),
+    ...(cancellationResult ? { cancellationResult } : {}),
+  };
+}
+
+function productAppointmentAction(
+  value: unknown,
+): ProductAppointmentAction | undefined {
+  switch (stringValue(value)?.toLowerCase()) {
+    case "booked":
+      return "BOOKED";
+    case "cancelled":
+      return "CANCELLED";
+    case "rescheduled":
+      return "RESCHEDULED";
+    default:
+      return undefined;
+  }
+}
+
+function productCallStatus(value: unknown): ProductInteractionCallStatus {
+  switch (value) {
+    case "IN_PROGRESS":
+    case "COMPLETED":
+    case "ESCALATED":
+    case "FAILED":
+      return value;
+    default:
+      throw new Error("Product Interaction status is required");
+  }
+}
+
+function requiredString(value: unknown, name: string): string {
+  const normalized = stringValue(value);
+  if (!normalized) {
+    throw new Error(`Product Interaction ${name} is required`);
+  }
+  return normalized;
+}
+
+function stringValue(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim();
+  return normalized || undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 export class InMemoryCallPortal implements CallPortal {
@@ -205,6 +378,7 @@ export type CallStartContext = {
   callId: string;
   callerPhone: string;
   livekitContext: Record<string, unknown>;
+  officeKey?: string;
   officePhone: string;
   startedAt: Date;
 };
@@ -286,6 +460,8 @@ export async function attachCallCloseout(input: {
   let latestUsage: Record<string, unknown> | undefined;
   const llmMetrics: Record<string, unknown>[] = [];
   const observedToolExecutions: ToolExecutionAnalytics[] = [];
+  let checkpointedAppointmentActions = 0;
+  let checkpointDeliveries = Promise.resolve();
   const sessionEvents: SessionEventAnalytics =
     createEmptySessionEventAnalytics();
   const turnMetrics: TurnMetricSnapshot[] = [];
@@ -341,12 +517,36 @@ export async function attachCallCloseout(input: {
           callState ? takePatientIdentityOutcome(callState) : undefined,
         ),
       );
+      if (!callState) return;
+      const actions = appointmentActions(callState);
+      const pendingActions = actions.slice(checkpointedAppointmentActions);
+      checkpointedAppointmentActions = actions.length;
+      for (const action of pendingActions) {
+        const payload = {
+          ...callIdentityPayload(input.call),
+          appointmentOutcome: action,
+          status: "IN_PROGRESS",
+        };
+        if (!productAppointmentOutcome(payload)) continue;
+        checkpointDeliveries = checkpointDeliveries.then(async () => {
+          await deliverWithRetries(
+            input.portal,
+            {
+              payload,
+              phase: "outcome-checkpoint",
+              timeoutMs: 3_000,
+            },
+            { maxAttempts: 2, retryDelayMs: 1_000 },
+          );
+        });
+      }
     },
     usageUpdated(usage) {
       latestUsage = usage;
     },
   });
   input.events.onClose(async () => {
+    await checkpointDeliveries;
     const endedAt = now();
     const callState = input.getCallState();
     const capture = await input.events.capture();
@@ -462,10 +662,7 @@ async function deliverCallStart(
     portal,
     {
       payload: {
-        callId: call.callId,
-        callerPhone: call.callerPhone,
-        officePhone: call.officePhone,
-        startedAt: call.startedAt.toISOString(),
+        ...callIdentityPayload(call),
         status: "IN_PROGRESS",
         ...call.livekitContext,
       },
@@ -521,14 +718,21 @@ async function deliverFailedStartup(
 
 function callTimingPayload(call: CallStartContext, endedAt: Date) {
   return {
-    callId: call.callId,
-    callerPhone: call.callerPhone,
-    officePhone: call.officePhone,
-    startedAt: call.startedAt.toISOString(),
+    ...callIdentityPayload(call),
     endedAt: endedAt.toISOString(),
     durationSec: Math.round(
       (endedAt.getTime() - call.startedAt.getTime()) / 1000,
     ),
+  };
+}
+
+function callIdentityPayload(call: CallStartContext) {
+  return {
+    callId: call.callId,
+    callerPhone: call.callerPhone,
+    ...(call.officeKey ? { officeKey: call.officeKey } : {}),
+    officePhone: call.officePhone,
+    startedAt: call.startedAt.toISOString(),
   };
 }
 
