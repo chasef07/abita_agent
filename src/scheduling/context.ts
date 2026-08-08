@@ -36,6 +36,11 @@ export function prepareAvailabilityLookupContext(
     return;
   }
 
+  if (appointmentLane) {
+    applySchedulingLaneToState(state, appointmentLane);
+    return;
+  }
+
   const appointment = appointmentForChangeContext(state);
   if (appointment) {
     applyTurnContextToState(state, {
@@ -49,11 +54,6 @@ export function prepareAvailabilityLookupContext(
   }
 
   if (activeAppointments(state).length > 0) return;
-
-  if (appointmentLane) {
-    applySchedulingLaneToState(state, appointmentLane);
-    return;
-  }
 }
 
 export function ensureAvailabilityContext(

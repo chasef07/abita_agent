@@ -29,6 +29,7 @@ export interface CallerAppointment {
   id: number;
   appointmentRef?: string;
   cancellationToken?: string;
+  rescheduleToken?: string;
   date: string;
   time: string;
   provider: string;

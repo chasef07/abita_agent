@@ -296,6 +296,7 @@ describe("call closeout", () => {
       id: 987654321,
       appointmentRef: "appointment-safe-reference",
       cancellationToken: "private-cancellation-token",
+      rescheduleToken: "private-reschedule-token",
       date: "Monday, June 1, 2026",
       time: "9:00 AM",
       provider: "Dr. Bach",
@@ -356,6 +357,7 @@ describe("call closeout", () => {
     );
     expect(callStatePayload).toContain("appointment-safe-reference");
     expect(callStatePayload).not.toContain("private-cancellation-token");
+    expect(callStatePayload).not.toContain("private-reschedule-token");
     expect(callStatePayload).not.toContain("private-booking-token");
     expect(callStatePayload).not.toContain("private-patient-backend-id");
     expect(callStatePayload).not.toContain("987654321");
@@ -366,6 +368,9 @@ describe("call closeout", () => {
     expect(callStatePayload).not.toContain("01/02/1980");
     expect(state.identity.patient.appointments[0]?.cancellationToken).toBe(
       "private-cancellation-token",
+    );
+    expect(state.identity.patient.appointments[0]?.rescheduleToken).toBe(
+      "private-reschedule-token",
     );
   });
 

@@ -46,6 +46,7 @@ const bootstrap = {
       {
         id: 123,
         cancellationToken: "private-cancellation-token",
+        rescheduleToken: "private-reschedule-token",
         date: "June 1",
         time: "9:00 AM",
         provider: "Dr. Bach",
@@ -99,6 +100,7 @@ describe("initial call state", () => {
           appointments: [
             expect.objectContaining({
               cancellationToken: "private-cancellation-token",
+              rescheduleToken: "private-reschedule-token",
             }),
           ],
         },

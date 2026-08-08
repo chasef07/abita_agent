@@ -153,6 +153,7 @@ function normalizeStoredCallerAppointments(
       !isOptionalString(appointment.type) ||
       !isOptionalString(appointment.facility) ||
       !isOptionalString(appointment.cancellationToken) ||
+      !isOptionalString(appointment.rescheduleToken) ||
       (appointment.confirmed !== undefined &&
         typeof appointment.confirmed !== "boolean") ||
       (appointment.appointmentTypeId !== undefined &&
@@ -165,6 +166,7 @@ function normalizeStoredCallerAppointments(
     const cancellationToken = stringValue(
       appointment.cancellationToken,
     )?.trim();
+    const rescheduleToken = stringValue(appointment.rescheduleToken)?.trim();
     appointments.push({
       id: appointment.id,
       date: appointment.date,
@@ -177,6 +179,7 @@ function normalizeStoredCallerAppointments(
       facility: appointment.facility ?? "",
       confirmed: appointment.confirmed ?? false,
       ...(cancellationToken ? { cancellationToken } : {}),
+      ...(rescheduleToken ? { rescheduleToken } : {}),
     });
   }
   return appointments;

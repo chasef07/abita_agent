@@ -57,7 +57,7 @@ export function appointmentForChangeContext(
     const selected = appointments.find(
       (appointment) => appointment.appointmentRef === selectedRef,
     );
-    if (selected) return selected;
+    return selected ?? null;
   }
   return appointments.length === 1 ? appointments[0] : null;
 }
@@ -82,6 +82,9 @@ export function recordBookedAppointmentInState(
     provider,
     type,
     ...(appointmentTypeId !== undefined ? { appointmentTypeId } : {}),
+    ...(result.rescheduleToken
+      ? { rescheduleToken: result.rescheduleToken }
+      : {}),
     facility,
     confirmed: true,
   };
