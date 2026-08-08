@@ -884,7 +884,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Eye Radiance handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
+      "Eye Radiance handles medical eye care, including cataract evaluations. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through a routine-vision office.",
     );
     expect(state.office.activeKey).toBe("crystal-river");
     expect(state.office.phoneOverrides).not.toHaveProperty("spring-hill");
@@ -2237,6 +2237,30 @@ describe("stateful call tools", () => {
       canonicalPlan: "iCare",
       coverageType: "routine_vision",
       currentCarrier: "Simply Healthcare Medicaid",
+      accepted: true,
+    });
+  });
+
+  it("stores iCare for any Aetna government routine vision variant", async () => {
+    const state = createState();
+
+    const result = (await check_insurance.execute(
+      {
+        plan: "Aetna Dual Eligible Medicare Advantage",
+        coverageType: "routine_vision",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    )) as Record<string, unknown>;
+
+    expect(result).toEqual({
+      status: "accepted",
+      plan: "Aetna Dual Eligible Medicare Advantage",
+    });
+    expect(state.insurance.lastEligibilityCheck).toEqual({
+      plan: "Aetna Dual Eligible Medicare Advantage",
+      canonicalPlan: "iCare",
+      coverageType: "routine_vision",
+      currentCarrier: "Aetna Dual Eligible Medicare Advantage",
       accepted: true,
     });
   });

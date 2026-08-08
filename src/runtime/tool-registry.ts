@@ -42,6 +42,8 @@ export function buildToolsForTrunk(
   ] as const satisfies readonly ToolContextEntry<CallState>[];
   const commonTools = [...coreTools, transfer_call, end_call] as const;
   const office = getOfficeProfileByPhone(trunkPhone ?? "");
-  if (office.staffTaskCapture) return [...commonTools, create_staff_task];
+  if (office.staffTaskDelivery !== "disabled") {
+    return [...commonTools, create_staff_task];
+  }
   return commonTools;
 }

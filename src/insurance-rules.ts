@@ -15,6 +15,7 @@ export interface InsurancePlanRule {
   canonicalPlan?: string | null;
   displayName?: string | null;
   aliases?: string[];
+  requiredWordAliases?: string[];
   clarificationNeeded?: string;
   preauthRequired?: boolean;
   canProceed: boolean;
@@ -132,7 +133,7 @@ export function matchInsurancePlan(
 ): InsuranceLookupResult {
   const normalizedQuery = normalizeInsuranceText(query);
   const selected = selectInsuranceCandidate(
-    collectInsuranceCandidates(reference.plans, normalizedQuery),
+    collectInsuranceCandidates(reference.plans, query, normalizedQuery),
   );
   if (!selected) return buildUnknownInsuranceResult(query);
   return buildPlanMatchResult(query, selected);
@@ -151,7 +152,7 @@ export function matchInsurancePlanForOffice(
   return matchInsurancePlan(reference, query);
 }
 
-type MatchTermSource = "display" | "alias";
+type MatchTermSource = "display" | "alias" | "required_word_alias";
 
 interface InsuranceCandidate {
   rule: InsurancePlanRule;
@@ -176,7 +177,15 @@ function normalizePlanRule(rule: InsurancePlanRule): InsurancePlanRule | null {
   const canonicalPlan = rule.canonicalPlan?.trim() || null;
   const displayName = rule.displayName?.trim() || canonicalPlan;
   const aliases = uniqueStrings(rule.aliases ?? []);
-  if (!canonicalPlan && !displayName && aliases.length === 0) return null;
+  const requiredWordAliases = uniqueStrings(rule.requiredWordAliases ?? []);
+  if (
+    !canonicalPlan &&
+    !displayName &&
+    aliases.length === 0 &&
+    requiredWordAliases.length === 0
+  ) {
+    return null;
+  }
 
   return {
     ...rule,
@@ -186,6 +195,7 @@ function normalizePlanRule(rule: InsurancePlanRule): InsurancePlanRule | null {
     canonicalPlan,
     displayName,
     aliases,
+    requiredWordAliases,
     preauthRequired: rule.preauthRequired === true,
     canProceed: rule.canProceed,
     needsExactPlanName: rule.needsExactPlanName,
@@ -215,11 +225,13 @@ function slugInsuranceId(value: string): string {
 
 function collectInsuranceCandidates(
   plans: InsurancePlanRule[],
+  query: string,
   normalizedQuery: string,
 ): InsuranceCandidate[] {
   if (!normalizedQuery) return [];
 
   const candidates: InsuranceCandidate[] = [];
+  const queryWords = new Set(normalizedQuery.split(" "));
   for (const rule of plans) {
     for (const term of matchTermsForRule(rule)) {
       const normalizedTerm = normalizeInsuranceText(term.value);
@@ -235,6 +247,24 @@ function collectInsuranceCandidates(
         normalizedTerm,
         source: term.source,
         exactQuery: normalizedQuery === normalizedTerm,
+      });
+    }
+
+    for (const alias of rule.requiredWordAliases ?? []) {
+      const normalizedAlias = normalizeInsuranceText(alias);
+      const requiredWords = normalizedAlias.split(" ");
+      if (
+        !normalizedAlias ||
+        !requiredWords.every((word) => queryWords.has(word))
+      ) {
+        continue;
+      }
+      candidates.push({
+        rule,
+        term: query,
+        normalizedTerm: normalizedAlias,
+        source: "required_word_alias",
+        exactQuery: normalizedQuery === normalizedAlias,
       });
     }
   }
@@ -268,6 +298,13 @@ function selectInsuranceCandidate(
   candidates: InsuranceCandidate[],
 ): InsuranceCandidate | null {
   if (candidates.length === 0) return null;
+
+  const requiredWordCandidate = bestInsuranceCandidate(
+    candidates.filter(
+      (candidate) => candidate.source === "required_word_alias",
+    ),
+  );
+  if (requiredWordCandidate) return requiredWordCandidate;
 
   const exactCandidates = candidates.filter(
     (candidate) => candidate.exactQuery,
@@ -409,7 +446,7 @@ function callerFacingPlanForCandidate(candidate: InsuranceCandidate): string {
   const canonicalPlan = candidate.rule.canonicalPlan?.trim();
   const displayName = candidate.rule.displayName?.trim();
   if (
-    candidate.source === "alias" &&
+    candidate.source !== "display" &&
     (!displayName ||
       (canonicalPlan &&
         normalizeInsuranceText(displayName) ===

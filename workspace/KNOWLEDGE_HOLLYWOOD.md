@@ -16,7 +16,7 @@ Address: 4330 Sheridan St, Suite 102B, Hollywood, FL 33021
 Other scheduling office: Abita Eye Group Sweetwater
 Other scheduling office address: 12750 NW 17th St, #201, Miami, FL 33182
 Administrative email for new-patient paperwork or requested documents: newpatient@abitaeye.com
-Do not tell callers to email doctors, clinical questions, prescriptions, surgery questions, urgent symptoms, or medical concerns to this address. For those needs, transfer the call or follow the appropriate scheduling or office workflow.
+Use this address only for new-patient paperwork or requested documents. For clinical questions, prescriptions, surgery questions, urgent symptoms, and medical concerns, transfer the call or follow the appropriate scheduling or office workflow.
 Phone: (954) 287-2010
 Fax: (305) 723-1910
 
@@ -30,7 +30,7 @@ Holiday closure: Closed on Memorial Day, Monday, May 25, 2026.
 ## After Hours
 Status: not-supplied
 
-No after-hours contact information is supplied for this office. Do not guess.
+No after-hours contact information is supplied for this office. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Scope of Services
 Status: available
@@ -112,7 +112,7 @@ Payment handling is owned by the billing department. Follow the Billing section.
 ## Billing
 Status: available
 
-For any billing-related question, do not transfer the caller. Tell them to reach the billing department at (786) 446-8333.
+Give the caller the billing department number, (786) 446-8333, and direct them to call it for every billing-related question.
 
 ## Self-Pay Pricing
 Status: available

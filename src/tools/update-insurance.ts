@@ -28,7 +28,7 @@ export const update_insurance = tool({
   description:
     "Update insurance for a verified existing patient. " +
     "Use when the verified patient explicitly says they want to update the insurance on file. " +
-    "Do not call for new patients or registration flows. " +
+    "Use add_patient for new-patient registration flows. " +
     "Call this only after check_insurance accepts the new plan for the correct medical or routine-vision coverage type.",
   parameters: z
     .object({

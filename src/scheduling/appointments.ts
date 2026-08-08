@@ -255,7 +255,7 @@ function rescheduleAppointmentClarificationMessage(
         `${appointment.appointmentRef}: ${spokenAppointment(appointment)}`,
     )
     .join("; ");
-  return `Which loaded appointment should I reschedule? Ask the caller to choose one, then call reschedule_appointment again only with the matching oldAppointmentRef from: ${choices}. Do not call reschedule_appointment again without oldAppointmentRef.`;
+  return `Which loaded appointment should I reschedule? Ask the caller to choose one, then call reschedule_appointment again only with the matching oldAppointmentRef from: ${choices}. The next reschedule_appointment call requires oldAppointmentRef.`;
 }
 
 function spokenAppointment(appointment: CallerAppointment): string {

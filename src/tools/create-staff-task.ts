@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { tool } from "@livekit/agents";
 import { z } from "zod";
 import { getPortalSecret } from "../runtime/portal-auth.js";
-import { activeOfficeKey } from "../state/call-lifecycle.js";
 import {
   activePatientDob,
   activePatientId,
@@ -16,8 +15,10 @@ import {
   recordStaffTaskReceipt,
 } from "../state/observability.js";
 import {
-  getOfficeProfile,
+  getOfficeProfileByPhone,
   normalizePhoneNumber,
+  type OfficeProfile,
+  type StaffTaskDelivery,
 } from "../customers/abita/profile.js";
 import { getState } from "./session.js";
 
@@ -45,7 +46,7 @@ const taskParameters = z.object({
   urgency: z
     .enum(["high_priority", "normal", "non_urgent"])
     .describe(
-      "high_priority for time-sensitive non-clinical work staff should review before normal work; normal for standard follow-up; non_urgent for work with no time sensitivity. Never use urgency to represent clinical acuity.",
+      "Use high_priority for time-sensitive non-clinical work staff should review before normal work, normal for standard follow-up, and non_urgent for work with no time sensitivity. Route clinical acuity through transfer_call.",
     ),
   summary: z
     .string()
@@ -75,26 +76,30 @@ type PortalTaskResponse = {
 export const create_staff_task = tool({
   name: "create_staff_task",
   description:
-    "Use for safe, non-urgent office work the agent cannot complete. " +
+    "Use for safe, non-urgent office work that requires staff follow-up. " +
     "Offer to send the request. After the caller agrees, collect the details staff needs, then call create_staff_task. " +
-    "Success or duplicate ends the request; do not transfer it unless a new urgent concern arises. " +
-    "Never use for glasses readiness, urgent or clinical concerns, medication reactions or instructions, returned calls, or requests for a person; transfer instead. " +
-    "Do not promise approval, completion, a refill, or timing.",
+    "Success or duplicate completes the request; reserve a later transfer for a new urgent concern. " +
+    "Use the glasses-readiness text policy for glasses status. Route urgent or clinical concerns, medication reactions or instructions, returned calls, and requests for a person through transfer_call. " +
+    "Describe the result as a request sent for staff review, with approval, completion, refill, and timing left open.",
   parameters: taskParameters,
   execute: async (input, { ctx }) => {
     const state = getState(ctx);
     ctx.disallowInterruptions();
 
-    const payload = buildStaffTaskPayload(state, input);
+    const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
+    const payload = buildStaffTaskPayload(state, office, input);
     const existing = findStaffTaskReceipt(state, payload.idempotencyKey);
     if (existing) return TASK_DUPLICATE_REPLY;
 
-    const url = getStaffTasksUrl();
-    const secret = getPortalSecret();
-    if (!url || !secret) return TASK_FAILED_REPLY;
+    const destination = getStaffTaskDestination(office.staffTaskDelivery);
+    if (!destination) return TASK_FAILED_REPLY;
 
     try {
-      const response = await postStaffTask(url, secret, payload);
+      const response = await postStaffTask(
+        destination.url,
+        destination.secret,
+        payload,
+      );
       recordStaffTaskReceipt(state, {
         category: response.category ?? input.category,
         createdAt: new Date().toISOString(),
@@ -124,9 +129,42 @@ export function getStaffTasksUrl(
   return analyticsUrl.replace(/\/calls\/?$/, "/tasks");
 }
 
-function buildStaffTaskPayload(state: CallState, input: TaskParameters) {
-  const officeKey = activeOfficeKey(state);
-  const office = getOfficeProfile(officeKey);
+export function getAcuityProductStaffTasksUrl(
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const handoffUrl = env.DEV_ACUITY_HANDOFF_URL?.trim();
+  if (!handoffUrl) return undefined;
+
+  const tasksUrl = handoffUrl.replace(/\/v1\/handoffs\/?$/, "/v1/tasks");
+  return tasksUrl === handoffUrl ? undefined : tasksUrl;
+}
+
+function getStaffTaskDestination(
+  delivery: StaffTaskDelivery,
+  env: NodeJS.ProcessEnv = process.env,
+): { secret: string; url: string } | null {
+  switch (delivery) {
+    case "disabled":
+      return null;
+    case "acuity-site": {
+      const url = getStaffTasksUrl(env);
+      const secret = getPortalSecret(env)?.trim();
+      return url && secret ? { secret, url } : null;
+    }
+    case "acuity-product": {
+      const url = getAcuityProductStaffTasksUrl(env);
+      const secret = env.DEV_ACUITY_HANDOFF_SECRET?.trim();
+      return url && secret ? { secret, url } : null;
+    }
+  }
+}
+
+function buildStaffTaskPayload(
+  state: CallState,
+  office: OfficeProfile,
+  input: TaskParameters,
+) {
+  const officeKey = office.key;
   const officePhone =
     state.office.phoneOverrides[officeKey] ?? office.amdOfficePhone;
   const patientId = activePatientId(state);
@@ -152,7 +190,7 @@ function buildStaffTaskPayload(state: CallState, input: TaskParameters) {
 
   return {
     callId: state.runtime.callId,
-    callerPhone: state.runtime.callerPhone,
+    callerPhone: normalizePhoneNumber(state.runtime.callerPhone),
     category: input.category,
     idempotencyKey,
     ...(normalizePhoneNumber(state.runtime.trunkPhone) !==

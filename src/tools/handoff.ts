@@ -16,9 +16,7 @@ import {
 const HANDOFF_TIMEOUT_MS = 2_000;
 const HANDOFF_TOKEN_MARKER = "~ah1~";
 const HANDOFF_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-const PRODUCT_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_PRODUCT_HANDOFF_LIFETIME_MS = 5 * 60_000;
-const PRODUCT_HANDOFF_TOKEN_HEADER = "X-Acuity-Handoff-Token";
 
 type HandoffTarget = {
   headers?: Record<string, string>;
@@ -309,12 +307,7 @@ function parseProductHandoff(value: unknown): HandoffTarget {
     throw new Error("Acuity Product handoff API returned an invalid response.");
   }
 
-  const token = sipDestination.slice(4, sipDestination.indexOf("@"));
-  return {
-    headers: { [PRODUCT_HANDOFF_TOKEN_HEADER]: token },
-    mode: "DIRECT",
-    target: sipDestination,
-  };
+  return { mode: "DIRECT", target: sipDestination };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -358,7 +351,7 @@ function isDirectSipUri(value: unknown): value is string {
 
 function isProductSipUri(value: unknown): value is string {
   if (!isSipUri(value)) return false;
-  return PRODUCT_TOKEN_PATTERN.test(value.slice(4, value.indexOf("@")));
+  return value.slice(4, value.indexOf("@")) === "acuity-handoff";
 }
 
 export async function transferCallerToOffice(

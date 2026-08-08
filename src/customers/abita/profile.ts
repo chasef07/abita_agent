@@ -12,15 +12,6 @@ export type OfficeSpeechLanguage = "en" | "es";
 export const AVAILABILITY_OFFICE_KEYS = ["hollywood", "sweetwater"] as const;
 export type AvailabilityOfficeKey = (typeof AVAILABILITY_OFFICE_KEYS)[number];
 const AVAILABILITY_OFFICE_NAMES = "Hollywood or Sweetwater";
-export const AVAILABILITY_OFFICE_TOOL_POLICY = {
-  keys: AVAILABILITY_OFFICE_KEYS,
-  instruction:
-    `On ${AVAILABILITY_OFFICE_NAMES} calls, ask which of those two offices the caller wants and pass office; ` +
-    "never infer the scheduling office from the number they called. ",
-  parameterDescription:
-    "Required on Hollywood and Sweetwater calls after asking which office the caller wants. " +
-    "Do not infer it from the number called. Omit for every other office.",
-} as const;
 export type AvailabilityOfficeSelection =
   | { status: "current" }
   | { status: "blocked"; message: string }
@@ -31,6 +22,7 @@ export type OfficeInsurancePolicy =
   { supported: true; source: string } | { supported: false };
 export type OfficeHandoffPolicy =
   { mode: "call-center" } | { mode: "phone"; target: string };
+export type StaffTaskDelivery = "disabled" | "acuity-site" | "acuity-product";
 export type OfficePromptSource = {
   file: string;
   tag: "role" | "voice";
@@ -59,7 +51,7 @@ export interface OfficeProfile {
   greeting: string;
   amdOfficePhone: string;
   knowledgeSource: string;
-  staffTaskCapture: boolean;
+  staffTaskDelivery: StaffTaskDelivery;
   availabilityOfficeFor(
     requestedOffice?: AvailabilityOfficeKey,
   ): AvailabilityOfficeSelection;
@@ -88,7 +80,7 @@ type OfficeProfileInput = {
   knowledgeSource: string;
   middlewareBaseUrl?: string;
   roleFile?: string;
-  staffTaskCapture: boolean;
+  staffTaskDelivery: StaffTaskDelivery;
   trunkPhones: string[];
 };
 
@@ -104,7 +96,7 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
     knowledgeSource,
     middlewareBaseUrl,
     roleFile,
-    staffTaskCapture,
+    staffTaskDelivery,
     trunkPhones,
   } = input;
 
@@ -116,8 +108,8 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
       message:
         care[careType].message ??
         (careType === "medical"
-          ? `${displayName} supports routine vision and optical scheduling only. Do not schedule medical eye care through this office.`
-          : `${displayName} handles medical eye care, including cataract evaluations, but does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.`),
+          ? `${displayName} supports routine vision and optical scheduling. Route medical eye care through a medical office or live staff.`
+          : `${displayName} handles medical eye care, including cataract evaluations. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through a routine-vision office.`),
     };
   }
 
@@ -127,14 +119,14 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
     greeting,
     key,
     knowledgeSource,
-    staffTaskCapture,
+    staffTaskDelivery,
     trunkPhones,
     availabilityOfficeFor(requestedOffice) {
       if (!AVAILABILITY_OFFICE_KEYS.some((officeKey) => officeKey === key)) {
         return requestedOffice
           ? {
               status: "blocked",
-              message: `${displayName} calls cannot search ${AVAILABILITY_OFFICE_NAMES}. Check availability again without office.`,
+              message: `${displayName} calls use their current office. Check availability again with office omitted.`,
             }
           : { status: "current" };
       }
@@ -200,7 +192,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       },
     },
     amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
-    staffTaskCapture: true,
+    staffTaskDelivery: "acuity-site",
   }),
   "crystal-river": defineOffice({
     key: "crystal-river",
@@ -217,7 +209,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       routine_vision: { supported: false },
     },
     amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
-    staffTaskCapture: false,
+    staffTaskDelivery: "disabled",
     handoff: () => ({
       mode: "phone",
       target: `tel:${CRYSTAL_RIVER_TRANSFER_NUMBER}`,
@@ -240,7 +232,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       },
     },
     amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
-    staffTaskCapture: true,
+    staffTaskDelivery: "acuity-site",
   }),
   sweetwater: defineOffice({
     key: "sweetwater",
@@ -260,7 +252,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     },
     amdOfficePhone: SWEETWATER_OFFICE_PHONE,
     englishSpeaker: "luz",
-    staffTaskCapture: true,
+    staffTaskDelivery: "acuity-site",
   }),
   "north-miami-beach-optical": defineOffice({
     key: "north-miami-beach-optical",
@@ -277,7 +269,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     },
     amdOfficePhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
     englishSpeaker: "luz",
-    staffTaskCapture: true,
+    staffTaskDelivery: "acuity-site",
   }),
   dev: defineOffice({
     key: "dev",
@@ -295,11 +287,11 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       routine_vision: {
         supported: false,
         message:
-          "Harborleaf Dermatology & Aesthetics does not schedule routine eye exams, glasses prescriptions, or contact lens prescriptions. Do not schedule routine vision through this office.",
+          "Harborleaf Dermatology & Aesthetics schedules dermatology care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
       },
     },
     amdOfficePhone: DEV_OFFICE_PHONE,
-    staffTaskCapture: false,
+    staffTaskDelivery: "acuity-product",
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
     handoff: devHandoff,
   }),

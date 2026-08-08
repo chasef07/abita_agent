@@ -318,7 +318,7 @@ export class SchedulingWorkflow {
           result,
         ),
       });
-      return `${message} Internal context: appointmentRef ${appointmentRef}. Use this exact appointmentRef if the caller asks to cancel this appointment during this call. Do not read this opaque reference aloud.`;
+      return `${message} Internal context: appointmentRef ${appointmentRef}. Use this exact appointmentRef if the caller asks to cancel this appointment during this call. Keep this opaque reference internal.`;
     }
     if (bookingHadPositiveStatusWithoutAppointmentId(result)) {
       clearAvailabilitySelection(state, {
