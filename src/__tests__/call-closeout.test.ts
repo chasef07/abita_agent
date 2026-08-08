@@ -249,6 +249,37 @@ describe("call closeout", () => {
     );
   });
 
+  it("requires Product delivery configuration in production", () => {
+    expect(() =>
+      getProductInteractionConfig({
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_INTERACTION_URL:
+          "https://product.example/v1/ai/interactions",
+      }),
+    ).toThrow(
+      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_PRODUCT_SERVICE_SECRET are required in production",
+    );
+    expect(() =>
+      getProductInteractionConfig({
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_SERVICE_SECRET: "product-secret",
+      }),
+    ).toThrow(
+      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_PRODUCT_SERVICE_SECRET are required in production",
+    );
+    expect(
+      getProductInteractionConfig({
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_INTERACTION_URL:
+          "https://product.example/v1/ai/interactions",
+        ACUITY_PRODUCT_SERVICE_SECRET: "product-secret",
+      }),
+    ).toEqual({
+      secret: "product-secret",
+      url: "https://product.example/v1/ai/interactions",
+    });
+  });
+
   it("delivers call start, compact completion, and rich completion in order", async () => {
     const { events, portal, state } = await setupCloseout();
     await events.close();

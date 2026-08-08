@@ -7,10 +7,16 @@ export function getPortalSecret(
 export function getProductInteractionConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): { secret?: string; url?: string } {
-  return {
+  const config = {
     secret: trimmed(env.ACUITY_PRODUCT_SERVICE_SECRET),
     url: trimmed(env.ACUITY_PRODUCT_INTERACTION_URL),
   };
+  if (env.NODE_ENV === "production" && (!config.url || !config.secret)) {
+    throw new Error(
+      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_PRODUCT_SERVICE_SECRET are required in production",
+    );
+  }
+  return config;
 }
 
 function trimmed(value: string | undefined): string | undefined {

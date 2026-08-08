@@ -55,6 +55,8 @@ import { getProductInteractionConfig } from "./runtime/portal-auth.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { coordinateSessionStartup } from "./runtime/session-startup.js";
 
+const productInteractionConfig = getProductInteractionConfig();
+
 export default defineAgent({
   entry: async (ctx: JobContext) => {
     try {
@@ -84,7 +86,7 @@ export default defineAgent({
       console.log(
         `[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`,
       );
-      const portal = new HttpCallPortal(getProductInteractionConfig());
+      const portal = new HttpCallPortal(productInteractionConfig);
       await coordinateSessionStartup({
         lookup: (signal) =>
           loadPreCallBootstrap({ callerPhone, trunkPhone, signal }),
