@@ -1153,6 +1153,11 @@ function handleRescheduleBookingFailure(
       selectedSlot,
       bookingResult,
       oldAppointment,
+      patientId,
+      cancellationResult: {
+        status: "not_attempted",
+        reason: "booking_authorization_invalidated",
+      },
     });
     return message;
   }
