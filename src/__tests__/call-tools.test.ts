@@ -1155,6 +1155,7 @@ describe("stateful call tools", () => {
             facility: "Spring Hill",
             confirmed: false,
             cancellationToken: "private-cancellation-token",
+            rescheduleToken: "private-reschedule-token",
           },
         ],
       }),
@@ -1174,11 +1175,13 @@ describe("stateful call tools", () => {
     );
     expect(result).not.toContain("123");
     expect(result).not.toContain("private-cancellation-token");
+    expect(result).not.toContain("private-reschedule-token");
     expect(state.identity.patient.patientId).toBe("patient-1");
     expect(state.identity.patient.appointments).toEqual([
       expect.objectContaining({
         appointmentRef: expect.stringMatching(/^appointment-[a-z0-9]+$/),
         cancellationToken: "private-cancellation-token",
+        rescheduleToken: "private-reschedule-token",
       }),
     ]);
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
@@ -1211,6 +1214,7 @@ describe("stateful call tools", () => {
             facility: "Spring Hill",
             confirmed: false,
             cancellationToken: "private-token-one",
+            rescheduleToken: "private-reschedule-token-one",
           },
           {
             id: 456,
@@ -1221,6 +1225,7 @@ describe("stateful call tools", () => {
             facility: "Spring Hill",
             confirmed: false,
             cancellationToken: "private-token-two",
+            rescheduleToken: "private-reschedule-token-two",
           },
         ],
       }),
@@ -1246,10 +1251,12 @@ describe("stateful call tools", () => {
       expect.objectContaining({
         appointmentRef: expect.stringMatching(/^appointment-[a-z0-9]+$/),
         cancellationToken: "private-token-one",
+        rescheduleToken: "private-reschedule-token-one",
       }),
       expect.objectContaining({
         appointmentRef: expect.stringMatching(/^appointment-[a-z0-9]+$/),
         cancellationToken: "private-token-two",
+        rescheduleToken: "private-reschedule-token-two",
       }),
     ]);
     expect(middleware.requests.resolvePatient).toHaveLength(1);

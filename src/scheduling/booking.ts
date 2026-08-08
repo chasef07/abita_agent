@@ -34,6 +34,7 @@ type BookingRequestInput = {
   now: Date;
   appointmentTypeIdOverride?: number | null;
   patientStatusOverride?: AppointmentPatientStatus | null;
+  rescheduleToken?: string;
 };
 
 const NEW_PATIENT_APPOINTMENT_TYPE_IDS = new Set([
@@ -95,6 +96,9 @@ export function bookingRequestBodyForSlot(
     patientId: input.patientId,
     appointmentReason: normalizedReason,
     referringDoctor: normalizedReferrer,
+    ...(input.rescheduleToken
+      ? { rescheduleToken: input.rescheduleToken }
+      : {}),
     ...(input.appointmentTypeIdOverride != null
       ? { appointmentTypeId: input.appointmentTypeIdOverride }
       : {}),

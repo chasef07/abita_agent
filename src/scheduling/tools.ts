@@ -128,6 +128,14 @@ export function createSchedulingTools(
         "Visit type established by appointment triage. Required for new appointment searches; pass medical or routine_vision. " +
           "Omit only for reschedules when the loaded appointment supplies the visit type.",
       ),
+    oldAppointmentRef: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe(
+        "For reschedules, pass the appointmentRef for the exact loaded appointment the caller confirmed they want to move. The sole loaded appointment is used when this is omitted. Omit for new appointments.",
+      ),
   };
   const officeField = z
     .enum(["hollywood", "sweetwater"])
@@ -161,7 +169,7 @@ export function createSchedulingTools(
       "Search appointment availability using the caller's own date and time words. " +
       "Pass those words verbatim in when, such as tomorrow morning or next Tuesday around 3 PM. " +
       "If the caller asks for the soonest, next available, any day, or only gives a time preference, pass those words unchanged so the workflow can search from the earliest allowed date. " +
-      "For new appointments, call after appointment triage has established the visit type; for reschedules, call only after the existing appointment to move is identified. " +
+      "For new appointments, call after appointment triage has established the visit type and pass visitType even when appointments are loaded. For reschedules, identify the existing appointment to move, pass its oldAppointmentRef when multiple appointments are loaded, and omit visitType. " +
       availabilityOfficeInstructions +
       "Offer only the returned slots. Treat this tool as a search and claim booking success only after book_appointment succeeds.",
     parameters: availabilityParameters,
@@ -174,6 +182,9 @@ export function createSchedulingTools(
           {
             when: args.when,
             ...(office ? { office } : {}),
+            ...(args.oldAppointmentRef
+              ? { oldAppointmentRef: args.oldAppointmentRef }
+              : {}),
             appointmentLane: args.visitType
               ? APPOINTMENT_LANE_BY_VISIT_TYPE[args.visitType]
               : undefined,

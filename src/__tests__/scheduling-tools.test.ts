@@ -1183,32 +1183,99 @@ describe("scheduling tools", () => {
     },
   );
 
-  it("performs a fresh availability read after the scheduling intent changes", async () => {
+  it("lets an explicit visit type start new scheduling after a reschedule context", async () => {
     const middleware = new InMemorySchedulingMiddleware({
-      availability: [
-        availabilityFound([returnedSlot()]),
-        availabilityFound([returnedSlot()]),
-      ],
+      availability: [availabilityFound([returnedSlot()])],
     });
     const { get_availability } = createSchedulingTools(middleware);
     const state = createState();
-    state.identity.patient.appointments = [loadedAppointment()];
-    const ctx = createToolContext(state);
+    restoreFirstPatient(state, [
+      loadedAppointment({
+        type: "Established adult vision",
+        appointmentTypeId: 4245,
+      }),
+    ]);
+    const oldAppointmentRef = loadedAppointmentRef(state);
+    state.workflow.current = {
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+      oldAppointmentRef,
+    };
 
     await get_availability.execute(
       { when: "2026-06-01", visitType: "medical" },
       {
-        ctx: ctx as never,
+        ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
       } as never,
     );
-    await get_availability.execute({ when: "2026-06-01" }, {
-      ctx: ctx as never,
-      toolCallId: "availability-2",
-    } as never);
 
-    expect(middleware.operations).toHaveLength(2);
-    expect(state.workflow.current?.intent).toBe("change_appointment");
+    expect(state.workflow.current).toEqual({
+      intent: "schedule",
+      appointmentLane: "medical_md",
+    });
+    expect(middleware.operations).toMatchObject([
+      {
+        kind: "availability",
+        request: expect.not.objectContaining({ routing: "optical_only" }),
+      },
+    ]);
+  });
+
+  it("keeps explicit new scheduling available when an appointment is already loaded", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [availabilityFound([returnedSlot()])],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    restoreFirstPatient(state, [loadedAppointment()]);
+
+    await get_availability.execute(
+      { when: "2026-06-01", visitType: "medical" },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
+
+    expect(state.workflow.current).toEqual({
+      intent: "schedule",
+      appointmentLane: "medical_md",
+    });
+    expect(middleware.operations).toMatchObject([
+      {
+        kind: "availability",
+        request: expect.not.objectContaining({ routing: "optical_only" }),
+      },
+    ]);
+  });
+
+  it("requires an exact reschedule target when multiple appointments are loaded", async () => {
+    const middleware = new InMemorySchedulingMiddleware();
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    restoreFirstPatient(state, [
+      loadedAppointment(),
+      loadedAppointment({
+        id: 222,
+        date: "Tuesday, June 2, 2026",
+      }),
+    ]);
+
+    const result = await get_availability.execute(
+      {
+        when: "2026-06-01",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
+
+    expect(result).toContain(
+      "ask which loaded appointment the caller wants to move",
+    );
+    expect(middleware.operations).toEqual([]);
   });
 
   it("defaults a loaded appointment without a type ID to routine vision", async () => {
@@ -3080,6 +3147,121 @@ describe("scheduling tools", () => {
     ]);
   });
 
+  it("rejects a different old appointment after availability was checked for a reschedule", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [availabilityFound([returnedSlot()])],
+      bookings: [bookingReceipt()],
+      cancellations: [{ status: "cancelled" }],
+    });
+    const { get_availability, reschedule_appointment } =
+      createSchedulingTools(middleware);
+    const state = createState();
+    restoreFirstPatient(state, [
+      loadedAppointment({
+        type: "Established adult vision",
+        appointmentTypeId: 4245,
+      }),
+      loadedAppointment({
+        id: 222,
+        date: "Tuesday, June 2, 2026",
+        type: "Follow-up",
+        appointmentTypeId: 1005,
+      }),
+    ]);
+    const availabilityAppointmentRef = loadedAppointmentRef(state, 0);
+    const differentAppointmentRef = loadedAppointmentRef(state, 1);
+    const ctx = createToolContext(state);
+
+    await get_availability.execute(
+      {
+        when: "2026-06-01",
+        oldAppointmentRef: availabilityAppointmentRef,
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
+    const result = await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "S1",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+        oldAppointmentRef: differentAppointmentRef,
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "reschedule-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "The appointment selected to reschedule changed. Check availability again for the exact appointment the caller wants to move.",
+    );
+    expect(middleware.operations.map(({ kind }) => kind)).toEqual([
+      "availability",
+    ]);
+  });
+
+  it("reschedules the appointment selected during availability without repeating its ref", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [availabilityFound([returnedSlot()])],
+      bookings: [bookingReceipt()],
+      cancellations: [{ status: "cancelled" }],
+    });
+    const { get_availability, reschedule_appointment } =
+      createSchedulingTools(middleware);
+    const state = createState();
+    restoreFirstPatient(state, [
+      loadedAppointment({
+        cancellationToken: "selected-appointment-token",
+      }),
+      loadedAppointment({
+        id: 222,
+        date: "Tuesday, June 2, 2026",
+        cancellationToken: "other-appointment-token",
+      }),
+    ]);
+    const selectedAppointmentRef = loadedAppointmentRef(state, 0);
+    const ctx = createToolContext(state);
+
+    await get_availability.execute(
+      {
+        when: "2026-06-01",
+        oldAppointmentRef: selectedAppointmentRef,
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
+    await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "S1",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: ctx as never,
+        toolCallId: "reschedule-1",
+      } as never,
+    );
+
+    expect(middleware.operations.map(({ kind }) => kind)).toEqual([
+      "availability",
+      "book",
+      "cancel",
+    ]);
+    expect(middleware.operations[2]).toMatchObject({
+      kind: "cancel",
+      request: {
+        cancellationToken: "selected-appointment-token",
+      },
+    });
+  });
+
   it("reschedules by booking before cancellation and commits one final outcome", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       bookings: [
@@ -3103,6 +3285,7 @@ describe("scheduling tools", () => {
       {
         id: 123,
         cancellationToken: "private-reschedule-cancellation-token",
+        rescheduleToken: "private-reschedule-token",
         date: "Monday, June 1, 2026",
         time: "9:00 AM",
         provider: "Dr. Licht",
@@ -3145,6 +3328,13 @@ describe("scheduling tools", () => {
       "book",
       "cancel",
     ]);
+    expect(middleware.operations[0]).toMatchObject({
+      kind: "book",
+      request: {
+        appointmentTypeId: 1005,
+        rescheduleToken: "private-reschedule-token",
+      },
+    });
     expect(middleware.operations[1]).toMatchObject({
       kind: "cancel",
       request: {
@@ -3169,6 +3359,133 @@ describe("scheduling tools", () => {
         appointment: { patientName: "Jane Doe" },
         cancelledAppointment: { patientName: "Jane Doe" },
       },
+    ]);
+  });
+
+  it("sends a signed reschedule type through booking even when the type is not recognized", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      bookings: [bookingReceipt()],
+      cancellations: [{ status: "cancelled" }],
+    });
+    const { reschedule_appointment } = createSchedulingTools(middleware);
+    const state = createState();
+    prepareReschedule(state, {
+      appointment: loadedAppointment({
+        appointmentTypeId: 9999,
+        cancellationToken: "private-cancellation-token",
+        rescheduleToken: "signed-unknown-type-appointment",
+      }),
+      slot: availabilitySlot({ routing: "optical_only" }),
+    });
+
+    await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "S1",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "reschedule-1",
+      } as never,
+    );
+
+    expect(middleware.operations[0]).toMatchObject({
+      kind: "book",
+      request: {
+        appointmentTypeId: 9999,
+        rescheduleToken: "signed-unknown-type-appointment",
+        routing: "optical_only",
+      },
+    });
+  });
+
+  it("reloads appointments when the reschedule authorization expires", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      bookings: [
+        {
+          status: "rejected",
+          reason: "invalid_reschedule_token",
+        },
+      ],
+    });
+    const { reschedule_appointment } = createSchedulingTools(middleware);
+    const state = createState();
+    prepareReschedule(state, {
+      appointment: loadedAppointment({
+        cancellationToken: "private-cancellation-token",
+        rescheduleToken: "expired-reschedule-token",
+      }),
+    });
+
+    const result = await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "S1",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "reschedule-1",
+      } as never,
+    );
+
+    expect(result).toBe(
+      "The appointment was not booked because the reschedule authorization expired. Load appointments again, reselect the exact appointment, and check availability again. I did not cancel the existing appointment.",
+    );
+    expect(middleware.operations.map(({ kind }) => kind)).toEqual(["book"]);
+    expect(state.identity.patient.appointments).toEqual([]);
+    expect(state.identity.patient.appointmentsStatus).toBe("error");
+    expect(state.availability.slots).toEqual([]);
+  });
+
+  it("invalidates a selected reschedule when the loaded appointment type changes", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [availabilityFound([returnedSlot()])],
+    });
+    const { get_availability, reschedule_appointment } =
+      createSchedulingTools(middleware);
+    const state = createState();
+    restoreFirstPatient(state, [
+      loadedAppointment({
+        appointmentTypeId: 4245,
+        cancellationToken: "private-cancellation-token",
+        rescheduleToken: "private-reschedule-token",
+      }),
+    ]);
+    const oldAppointmentRef = loadedAppointmentRef(state);
+
+    await get_availability.execute({ when: "2026-06-01", oldAppointmentRef }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
+    restoreFirstPatient(state, [
+      loadedAppointment({
+        appointmentTypeId: 9999,
+        cancellationToken: "refreshed-cancellation-token",
+        rescheduleToken: "refreshed-reschedule-token",
+      }),
+    ]);
+
+    const result = await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "S1",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "reschedule-1",
+      } as never,
+    );
+    expect(result).toBe(
+      "No loaded appointment matches that oldAppointmentRef. Ask which loaded appointment to reschedule.",
+    );
+    expect(middleware.operations.map(({ kind }) => kind)).toEqual([
+      "availability",
     ]);
   });
 
@@ -3742,14 +4059,28 @@ describe("scheduling tools", () => {
   it("allows a corrected alternate slot after a completed reschedule", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       bookings: [
-        bookingReceipt(),
-        bookingReceipt({ appointmentId: 789, startDatetime: "2026-06-03" }),
+        bookingReceipt({
+          appointmentTypeId: 9999,
+          rescheduleToken: "replacement-reschedule-token",
+        }),
+        bookingReceipt({
+          appointmentId: 789,
+          appointmentTypeId: 9999,
+          rescheduleToken: "corrected-reschedule-token",
+          startDatetime: "2026-06-03",
+        }),
       ],
       cancellations: [{ status: "cancelled" }, { status: "cancelled" }],
     });
     const { reschedule_appointment } = createSchedulingTools(middleware);
     const state = createState();
-    prepareReschedule(state);
+    prepareReschedule(state, {
+      appointment: loadedAppointment({
+        appointmentTypeId: 9999,
+        cancellationToken: "original-cancellation-token",
+        rescheduleToken: "original-reschedule-token",
+      }),
+    });
     const ctx = createToolContext(state);
     await reschedule_appointment.execute(
       {
@@ -3788,6 +4119,13 @@ describe("scheduling tools", () => {
       "book",
       "cancel",
     ]);
+    expect(middleware.operations[2]).toMatchObject({
+      kind: "book",
+      request: {
+        appointmentTypeId: 9999,
+        rescheduleToken: "replacement-reschedule-token",
+      },
+    });
     expect(middleware.operations[3]).toMatchObject({
       kind: "cancel",
       request: { appointmentId: 456, patientId: "patient-1" },

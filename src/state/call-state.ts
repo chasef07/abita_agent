@@ -29,6 +29,7 @@ export interface CallerAppointment {
   id: number;
   appointmentRef?: string;
   cancellationToken?: string;
+  rescheduleToken?: string;
   date: string;
   time: string;
   provider: string;
@@ -175,6 +176,7 @@ export type SchedulingAppointmentLane = Exclude<
 export interface WorkflowTurnContext {
   intent: TurnIntent;
   appointmentLane: AppointmentLane;
+  oldAppointmentRef?: string;
 }
 
 export interface CompletedRescheduleState {

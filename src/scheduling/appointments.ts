@@ -48,6 +48,20 @@ export function activeAppointmentById(
   );
 }
 
+export function appointmentForChangeContext(
+  state: CallState,
+): CallerAppointment | null {
+  const appointments = activeAppointments(state);
+  const selectedRef = state.workflow.current?.oldAppointmentRef;
+  if (selectedRef) {
+    const selected = appointments.find(
+      (appointment) => appointment.appointmentRef === selectedRef,
+    );
+    return selected ?? null;
+  }
+  return appointments.length === 1 ? appointments[0] : null;
+}
+
 export function recordBookedAppointmentInState(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
@@ -68,6 +82,9 @@ export function recordBookedAppointmentInState(
     provider,
     type,
     ...(appointmentTypeId !== undefined ? { appointmentTypeId } : {}),
+    ...(result.rescheduleToken
+      ? { rescheduleToken: result.rescheduleToken }
+      : {}),
     facility,
     confirmed: true,
   };

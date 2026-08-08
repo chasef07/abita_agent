@@ -107,6 +107,7 @@ export type CreatePatientResult =
 
 export type BookAppointmentInput = {
   bookingToken: string;
+  rescheduleToken?: string;
   visitCategory: "medical" | "routine_vision";
   patientStatus: "new" | "established";
   visitReason?: string;
@@ -132,6 +133,7 @@ export type BookAppointmentResult =
       status: "booked" | "partial";
       appointmentId: number;
       appointmentTypeId?: number;
+      rescheduleToken?: string;
       providerName: string | null;
       locationName: string | null;
       appointmentTypeName: string | null;
@@ -143,7 +145,10 @@ export type BookAppointmentResult =
     }
   | {
       status: "rejected";
-      reason: "invalid_booking_token" | "booking_token_required";
+      reason:
+        | "invalid_booking_token"
+        | "booking_token_required"
+        | "invalid_reschedule_token";
     }
   | {
       status: "needs_input";
@@ -642,7 +647,8 @@ function normalizeBookedAppointment(raw: unknown): BookAppointmentResult {
   }
   if (
     outcome === "invalid_booking_token" ||
-    outcome === "booking_token_required"
+    outcome === "booking_token_required" ||
+    outcome === "invalid_reschedule_token"
   ) {
     return {
       status: "rejected",
@@ -655,10 +661,12 @@ function normalizeBookedAppointment(raw: unknown): BookAppointmentResult {
     (status === "booked" || status === "partial" || status === "success")
   ) {
     const appointmentTypeId = positiveInteger(raw.appointmentTypeId);
+    const rescheduleToken = stringValue(raw.rescheduleToken)?.trim();
     return {
       status: status === "partial" ? "partial" : "booked",
       appointmentId,
       ...(appointmentTypeId !== null ? { appointmentTypeId } : {}),
+      ...(rescheduleToken ? { rescheduleToken } : {}),
       providerName: stringValue(raw.providerName),
       locationName: stringValue(raw.locationName),
       appointmentTypeName: stringValue(raw.appointmentTypeName),

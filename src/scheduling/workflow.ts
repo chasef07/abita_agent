@@ -35,9 +35,9 @@ import {
   activeRoutingContext,
   clearAvailabilitySelection,
   currentAvailabilityDate,
-  latestAvailabilityRouting,
   removeAvailabilitySlot,
   setCurrentAvailabilityDate,
+  applyTurnContextToState,
 } from "./state.js";
 import {
   appointmentActionStatusForBookingResult,
@@ -110,6 +110,7 @@ import {
 export interface AvailabilityLookupArgs {
   when: string;
   appointmentLane?: SchedulingAppointmentLane;
+  oldAppointmentRef?: string;
   office?: AvailabilityOfficeKey;
 }
 
@@ -537,10 +538,39 @@ export class SchedulingWorkflow {
       }
     }
 
+    if (
+      !completedReschedule &&
+      state.workflow.current?.intent !== "change_appointment"
+    ) {
+      clearAvailabilitySelection(state, {
+        invalidateReads: "scheduling_context_changed",
+      });
+      return "Check availability again for the loaded appointment the caller wants to reschedule before moving it.";
+    }
+
+    const availabilityOldAppointmentRef =
+      !completedReschedule &&
+      state.workflow.current?.intent === "change_appointment"
+        ? state.workflow.current.oldAppointmentRef
+        : undefined;
+    const requestedOldAppointmentRef = oldAppointmentRef?.trim();
+    if (
+      availabilityOldAppointmentRef &&
+      requestedOldAppointmentRef &&
+      requestedOldAppointmentRef !== availabilityOldAppointmentRef
+    ) {
+      clearAvailabilitySelection(state, {
+        invalidateReads: "scheduling_context_changed",
+      });
+      return "The appointment selected to reschedule changed. Check availability again for the exact appointment the caller wants to move.";
+    }
+
     const selectedSlot = selectedSlotForBooking(state, appointmentSlotRef);
     const selection = rescheduleAppointmentForState(
       state,
-      completedReschedule ? undefined : oldAppointmentRef,
+      completedReschedule
+        ? undefined
+        : (availabilityOldAppointmentRef ?? requestedOldAppointmentRef),
       { preferLatestBooked: Boolean(completedReschedule) },
     );
     if (selection.status === "ambiguous") {
@@ -567,22 +597,15 @@ export class SchedulingWorkflow {
     if (unsupportedRoutineVisionScheduling)
       return unsupportedRoutineVisionScheduling;
     const bookingOffice = getAmdOfficeForToolCall(state);
-    const bookingRouting =
-      selectedSlot.routing ??
-      latestAvailabilityRouting(state) ??
-      routingForAvailability(state);
     const bookingBody = bookingRequestBodyForSlot(state, {
       selectedSlot,
       patientId,
       appointmentReason,
       referringDoctor,
       now: this.clock.now(),
-      appointmentTypeIdOverride: appointmentTypeIdForRescheduleBooking(
-        oldAppointment,
-        cancellationOffice,
-        bookingOffice,
-        bookingRouting,
-      ),
+      appointmentTypeIdOverride:
+        appointmentTypeIdForRescheduleBooking(oldAppointment),
+      rescheduleToken: oldAppointment.rescheduleToken,
       patientStatusOverride:
         appointmentPatientStatusForLoadedAppointment(oldAppointment),
     });
@@ -630,8 +653,13 @@ export class SchedulingWorkflow {
       return message;
     }
 
+    let replacementAppointmentRef: string;
     if (bookingSucceeded(bookingResult)) {
-      recordBookedAppointmentInState(state, selectedSlot, bookingResult);
+      replacementAppointmentRef = recordBookedAppointmentInState(
+        state,
+        selectedSlot,
+        bookingResult,
+      );
       clearAvailabilitySelection(state, {
         invalidateReads: "reschedule_succeeded",
       });
@@ -758,6 +786,11 @@ export class SchedulingWorkflow {
     }
 
     removeActiveAppointment(state, oldAppointment.id);
+    applyTurnContextToState(state, {
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+      oldAppointmentRef: replacementAppointmentRef,
+    });
     recordCompletedReschedule(state, patientId, selectedSlot, "rescheduled");
     const message = rescheduledAppointmentMessage(
       selectedSlot,
@@ -829,7 +862,11 @@ function buildAvailabilityLookupRequestForState(
   const officeSelection = selectAvailabilityOffice(state, args.office);
   if (officeSelection) return { blocked: officeSelection };
 
-  prepareAvailabilityLookupContext(state, args.appointmentLane);
+  prepareAvailabilityLookupContext(
+    state,
+    args.appointmentLane,
+    args.oldAppointmentRef,
+  );
   const contextRecovery = availabilityContextRecovery(state);
   if (contextRecovery) return { blocked: contextRecovery };
   ensureAvailabilityContext(state, "checking availability");
@@ -879,6 +916,7 @@ function availabilityBackendKey(
     providerOffice: normalizePhoneNumber(getAmdOfficeForToolCall(state)),
     intent: turn?.intent ?? null,
     appointmentLane: turn?.appointmentLane ?? null,
+    oldAppointmentRef: turn?.oldAppointmentRef ?? null,
     cacheDay: input.cacheDay,
     requestedDate: input.body.requestedDate?.trim() || null,
     preferredTime: input.body.preferredTime ?? null,
@@ -993,23 +1031,13 @@ function recordCompletedReschedule(
 
 function appointmentTypeIdForRescheduleBooking(
   appointment: CallerAppointment,
-  cancellationOffice: string,
-  bookingOffice: string,
-  bookingRouting: string | null,
 ): number | null {
   if (appointment.appointmentTypeId === undefined) return null;
-  if (bookingRouting === "optical_only") return null;
   if (
+    !appointment.rescheduleToken &&
     !RESCHEDULE_BOOKING_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
-  ) {
+  )
     return null;
-  }
-  if (
-    normalizePhoneNumber(cancellationOffice) !==
-    normalizePhoneNumber(bookingOffice)
-  ) {
-    return null;
-  }
   return appointment.appointmentTypeId;
 }
 
@@ -1058,6 +1086,25 @@ function handleRescheduleBookingFailure(
     invalidateAvailabilityReads(state, "booking_authorization_invalidated");
     const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
     const message = `${slotUnavailableMessage(remainingSlots)} I did not cancel the existing appointment.`;
+    recordRescheduleAction(state, {
+      status: "error",
+      message,
+      selectedSlot,
+      bookingResult,
+      oldAppointment,
+    });
+    return message;
+  }
+  if (
+    bookingResult.status === "rejected" &&
+    bookingResult.reason === "invalid_reschedule_token"
+  ) {
+    clearAvailabilitySelection(state, {
+      invalidateReads: "booking_authorization_invalidated",
+    });
+    replaceActiveAppointments(state, [], "error");
+    const message =
+      "The appointment was not booked because the reschedule authorization expired. Load appointments again, reselect the exact appointment, and check availability again. I did not cancel the existing appointment.";
     recordRescheduleAction(state, {
       status: "error",
       message,

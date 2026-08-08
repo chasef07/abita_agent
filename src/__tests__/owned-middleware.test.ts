@@ -705,7 +705,7 @@ describe("HTTP owned middleware transport", () => {
     });
   });
 
-  it("normalizes and privately retains cancellation tokens on resolved appointments", async () => {
+  it("normalizes and privately retains appointment authorization tokens", async () => {
     const middleware = new HttpOwnedMiddleware({
       fetch: vi.fn(async () =>
         Response.json({
@@ -721,6 +721,7 @@ describe("HTTP owned middleware transport", () => {
               facility: "Spring Hill",
               confirmed: true,
               cancellationToken: "  private-cancellation-token  ",
+              rescheduleToken: "  private-reschedule-token  ",
             },
           ],
         }),
@@ -739,8 +740,39 @@ describe("HTTP owned middleware transport", () => {
         {
           id: 12345,
           cancellationToken: "private-cancellation-token",
+          rescheduleToken: "private-reschedule-token",
         },
       ],
+    });
+  });
+
+  it("preserves an invalid reschedule token as a semantic outcome", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "error",
+          outcome: "invalid_reschedule_token",
+        }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.bookAppointment({
+      office: SPRING_HILL_OFFICE_PHONE,
+      booking: {
+        bookingToken: "booking-token",
+        rescheduleToken: "expired-reschedule-token",
+        visitCategory: "medical",
+        patientStatus: "established",
+        patientId: "patient-1",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+      },
+    });
+
+    expect(result).toEqual({
+      status: "rejected",
+      reason: "invalid_reschedule_token",
     });
   });
 
@@ -1450,6 +1482,7 @@ describe("HTTP owned middleware transport", () => {
         Response.json({
           status: "partial",
           appointmentId: 12345,
+          rescheduleToken: " private-reschedule-token ",
         }),
       )
       .mockResolvedValueOnce(
@@ -1479,6 +1512,7 @@ describe("HTTP owned middleware transport", () => {
     await expect(middleware.bookAppointment(request)).resolves.toMatchObject({
       status: "partial",
       appointmentId: 12345,
+      rescheduleToken: "private-reschedule-token",
     });
     await expect(middleware.bookAppointment(request)).resolves.toEqual({
       status: "unavailable",
