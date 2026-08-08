@@ -21,6 +21,7 @@ import {
   activePatientDob,
   activePatientId,
   activePatientName,
+  type AppointmentActionAnalytics,
   type AppointmentAnalytics,
   type CallState,
   type CallerAppointment,
@@ -278,6 +279,7 @@ export class SchedulingWorkflow {
       }
       recordAppointmentAction(state, {
         action: "booked",
+        ...bookingActionEvidence(patientId, result),
         status: bookingSucceeded(result)
           ? appointmentActionStatusForBookingResult(result)
           : "error",
@@ -308,6 +310,7 @@ export class SchedulingWorkflow {
       const message = bookedAppointmentMessage(selectedSlot, result);
       recordAppointmentAction(state, {
         action: "booked",
+        ...bookingActionEvidence(patientId, result),
         status: appointmentActionStatusForBookingResult(result),
         toolName: "book_appointment",
         message,
@@ -326,6 +329,7 @@ export class SchedulingWorkflow {
       const message = bookingFailureMessage(result);
       recordAppointmentAction(state, {
         action: "booked",
+        ...bookingActionEvidence(patientId, result),
         status: "error",
         toolName: "book_appointment",
         message,
@@ -344,6 +348,7 @@ export class SchedulingWorkflow {
       const message = slotUnavailableMessage(remainingSlots);
       recordAppointmentAction(state, {
         action: "booked",
+        ...bookingActionEvidence(patientId, result),
         status: "error",
         toolName: "book_appointment",
         message,
@@ -364,6 +369,7 @@ export class SchedulingWorkflow {
     const message = bookingFailureMessage(result);
     recordAppointmentAction(state, {
       action: "booked",
+      ...bookingActionEvidence(patientId, result),
       status: "error",
       toolName: "book_appointment",
       message,
@@ -425,6 +431,7 @@ export class SchedulingWorkflow {
       }
       recordAppointmentAction(state, {
         action: "cancelled",
+        ...cancellationActionEvidence(patientId, appointment, result),
         status: result.status === "cancelled" ? "success" : "error",
         toolName: "cancel_appointment",
         message,
@@ -446,6 +453,7 @@ export class SchedulingWorkflow {
         "That loaded appointment authorization is no longer valid. Load appointments again, confirm the exact appointment with the caller, then use its new appointmentRef to cancel.";
       recordAppointmentAction(state, {
         action: "cancelled",
+        ...cancellationActionEvidence(patientId, appointment, result),
         status: "error",
         toolName: "cancel_appointment",
         message,
@@ -458,6 +466,7 @@ export class SchedulingWorkflow {
       const message = "The appointment was not cancelled.";
       recordAppointmentAction(state, {
         action: "cancelled",
+        ...cancellationActionEvidence(patientId, appointment, result),
         status: "error",
         toolName: "cancel_appointment",
         message,
@@ -473,6 +482,7 @@ export class SchedulingWorkflow {
     const message = `Cancelled the appointment on ${appointment.date} at ${appointment.time}.`;
     recordAppointmentAction(state, {
       action: "cancelled",
+      ...cancellationActionEvidence(patientId, appointment, result),
       status: "success",
       toolName: "cancel_appointment",
       message,
@@ -587,6 +597,11 @@ export class SchedulingWorkflow {
           selectedSlot,
           bookingResult,
           oldAppointment,
+          patientId,
+          cancellationResult: {
+            status: "not_attempted",
+            reason: "patient_changed",
+          },
         });
         return message;
       }
@@ -598,6 +613,11 @@ export class SchedulingWorkflow {
         selectedSlot,
         bookingResult,
         oldAppointment,
+        patientId,
+        cancellationResult: {
+          status: "not_attempted",
+          reason: "booking_failed",
+        },
       });
       return message;
     }
@@ -610,6 +630,7 @@ export class SchedulingWorkflow {
     } else {
       return handleRescheduleBookingFailure(
         state,
+        patientId,
         selectedSlot,
         oldAppointment,
         bookingResult,
@@ -651,6 +672,8 @@ export class SchedulingWorkflow {
           selectedSlot,
           bookingResult,
           oldAppointment,
+          patientId,
+          cancellationResult: { status: "error", reason: "network_error" },
         });
         return message;
       }
@@ -670,6 +693,8 @@ export class SchedulingWorkflow {
         selectedSlot,
         bookingResult,
         oldAppointment,
+        patientId,
+        cancellationResult: { status: "error", reason: "network_error" },
       });
       return message;
     }
@@ -704,6 +729,8 @@ export class SchedulingWorkflow {
         selectedSlot,
         bookingResult,
         oldAppointment,
+        patientId,
+        cancellationResult: { ...cancelResult },
       });
       return message;
     }
@@ -725,6 +752,8 @@ export class SchedulingWorkflow {
         selectedSlot,
         bookingResult,
         oldAppointment,
+        patientId,
+        cancellationResult: { ...cancelResult },
       });
       return message;
     }
@@ -742,6 +771,8 @@ export class SchedulingWorkflow {
       selectedSlot,
       bookingResult,
       oldAppointment,
+      patientId,
+      cancellationResult: { ...cancelResult },
     });
     return message;
   }
@@ -1000,6 +1031,7 @@ function getAmdOfficeForCancellationAppointment(
 
 function handleRescheduleBookingFailure(
   state: CallState,
+  patientId: string,
   selectedSlot: StoredAvailabilitySlot,
   oldAppointment: CallerAppointment,
   bookingResult: BookingResult,
@@ -1016,6 +1048,11 @@ function handleRescheduleBookingFailure(
       selectedSlot,
       bookingResult,
       oldAppointment,
+      patientId,
+      cancellationResult: {
+        status: "not_attempted",
+        reason: "booking_failed",
+      },
     });
     return message;
   }
@@ -1030,6 +1067,11 @@ function handleRescheduleBookingFailure(
       selectedSlot,
       bookingResult,
       oldAppointment,
+      patientId,
+      cancellationResult: {
+        status: "not_attempted",
+        reason: "booking_failed",
+      },
     });
     return message;
   }
@@ -1046,6 +1088,11 @@ function handleRescheduleBookingFailure(
     selectedSlot,
     bookingResult,
     oldAppointment,
+    patientId,
+    cancellationResult: {
+      status: "not_attempted",
+      reason: "booking_failed",
+    },
   });
   return message;
 }
@@ -1081,6 +1128,8 @@ function recordRescheduleAction(
     selectedSlot: StoredAvailabilitySlot;
     bookingResult: BookingResult;
     oldAppointment: CallerAppointment;
+    patientId: string;
+    cancellationResult: Record<string, unknown>;
   },
 ): void {
   recordAppointmentAction(state, {
@@ -1097,6 +1146,12 @@ function recordRescheduleAction(
       state,
       input.oldAppointment,
     ),
+    ...rescheduleActionEvidence(
+      input.patientId,
+      input.oldAppointment,
+      input.bookingResult,
+      input.cancellationResult,
+    ),
   });
 }
 
@@ -1109,6 +1164,8 @@ function recordCapturedRescheduleAction(
     selectedSlot: StoredAvailabilitySlot;
     bookingResult: BookingResult;
     oldAppointment: CallerAppointment;
+    patientId: string;
+    cancellationResult: Record<string, unknown>;
   },
 ): void {
   recordAppointmentAction(state, {
@@ -1126,5 +1183,64 @@ function recordCapturedRescheduleAction(
       input.oldAppointment,
       input.patientName,
     ),
+    ...rescheduleActionEvidence(
+      input.patientId,
+      input.oldAppointment,
+      input.bookingResult,
+      input.cancellationResult,
+    ),
   });
+}
+
+function rescheduleActionEvidence(
+  patientId: string,
+  oldAppointment: CallerAppointment,
+  bookingResult: BookingResult,
+  cancellationResult: Record<string, unknown>,
+): Pick<
+  AppointmentActionAnalytics,
+  | "externalPatientId"
+  | "oldAppointmentId"
+  | "newAppointmentId"
+  | "bookingResult"
+  | "cancellationResult"
+> {
+  return {
+    ...bookingActionEvidence(patientId, bookingResult),
+    oldAppointmentId: String(oldAppointment.id),
+    cancellationResult,
+  };
+}
+
+function bookingActionEvidence(
+  patientId: string,
+  result: BookingResult,
+): Pick<
+  AppointmentActionAnalytics,
+  "externalPatientId" | "newAppointmentId" | "bookingResult"
+> {
+  const appointmentId =
+    "appointmentId" in result && typeof result.appointmentId === "number"
+      ? String(result.appointmentId)
+      : undefined;
+  return {
+    externalPatientId: patientId,
+    ...(appointmentId ? { newAppointmentId: appointmentId } : {}),
+    bookingResult: { ...result },
+  };
+}
+
+function cancellationActionEvidence(
+  patientId: string,
+  appointment: CallerAppointment,
+  result: CancellationResult,
+): Pick<
+  AppointmentActionAnalytics,
+  "externalPatientId" | "oldAppointmentId" | "cancellationResult"
+> {
+  return {
+    externalPatientId: patientId,
+    oldAppointmentId: String(appointment.id),
+    cancellationResult: { ...result },
+  };
 }
