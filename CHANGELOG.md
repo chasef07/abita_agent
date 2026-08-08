@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.6.1](https://github.com/chasef07/abita_agent/compare/4.6.0...4.6.1) (2026-08-08)
+
+
+### Bug Fixes
+
+* **analytics:** stop sending call audio ([#327](https://github.com/chasef07/abita_agent/issues/327)) ([cab9039](https://github.com/chasef07/abita_agent/commit/cab9039a7e735ad5ec615e918540b18566aaf919))
+* **scheduling:** preserve exact reschedule appointment types ([#310](https://github.com/chasef07/abita_agent/issues/310)) ([e12c875](https://github.com/chasef07/abita_agent/commit/e12c87553384f97e22f19cc870af56038a906e3f))
+
 ## [4.6.0](https://github.com/chasef07/abita_agent/compare/4.5.1...4.6.0) (2026-08-08)
 
 
