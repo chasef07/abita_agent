@@ -18,7 +18,11 @@ import {
   DEV_DEMO_TRANSFER_NUMBER,
   DEV_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
-import { transferCallerToOffice } from "../tools/handoff.js";
+import {
+  HandoffConflictError,
+  HandoffError,
+  transferCallerToOffice,
+} from "../tools/handoff.js";
 import { createTestCallState } from "./support/call-state.js";
 
 const DIRECT_TOKEN = "a".repeat(43);
@@ -306,9 +310,11 @@ describe("call-center handoff", () => {
     const state = createState();
     state.runtime.trunkPhone = DEV_OFFICE_PHONE;
 
-    await expect(transferCallerToOffice(state)).rejects.toThrow(
+    const failure = transferCallerToOffice(state);
+    await expect(failure).rejects.toThrow(
       "Acuity Product handoff conflicts with an existing transfer.",
     );
+    await expect(failure).rejects.toBeInstanceOf(HandoffConflictError);
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 
@@ -324,6 +330,24 @@ describe("call-center handoff", () => {
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff API returned 503.",
     );
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps a permanent handoff rejection as an internal error", async () => {
+    configureProductHandoff();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({}, 400)),
+    );
+    const state = createState();
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+
+    const failure = transferCallerToOffice(state);
+    await expect(failure).rejects.toThrow(
+      "Acuity Product handoff API returned 400.",
+    );
+    await expect(failure).rejects.not.toBeInstanceOf(HandoffError);
+    await expect(failure).rejects.not.toBeInstanceOf(HandoffConflictError);
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 
@@ -527,9 +551,11 @@ describe("call-center handoff", () => {
       vi.fn(async () => jsonResponse({}, 409)),
     );
 
-    await expect(transferCallerToOffice(createState())).rejects.toThrow(
+    const failure = transferCallerToOffice(createState());
+    await expect(failure).rejects.toThrow(
       "Acuity handoff conflicts with an existing transfer.",
     );
+    await expect(failure).rejects.toBeInstanceOf(HandoffConflictError);
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 

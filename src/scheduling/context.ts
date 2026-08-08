@@ -1,4 +1,3 @@
-import { ToolError } from "@livekit/agents";
 import {
   activeAppointments,
   activeAppointmentsStatus,
@@ -13,6 +12,7 @@ import {
   applySchedulingLaneToState,
   applyTurnContextToState,
 } from "./state.js";
+import { SchedulingInputRequired } from "./input-required.js";
 
 export function prepareAvailabilityLookupContext(
   state: CallState,
@@ -38,7 +38,7 @@ export function ensureAvailabilityContext(
   action: string,
 ): void {
   if (availabilityContextReady(state)) return;
-  throw new ToolError(
+  throw new SchedulingInputRequired(
     `Pass visitType medical or routine_vision, or identify the existing appointment to move, before ${action}.`,
   );
 }

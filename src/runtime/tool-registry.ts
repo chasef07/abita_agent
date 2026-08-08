@@ -1,15 +1,15 @@
-import { beta, type ToolContextEntry } from "@livekit/agents";
+import { beta, ToolContext, type ToolContextEntry } from "@livekit/agents";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
-import type { CallState } from "../state/call-state.js";
+import { activePatientId, type CallState } from "../state/call-state.js";
+import { productionSchedulingMiddleware } from "../scheduling/middleware.js";
+import { lastInsuranceEligibilityCheck } from "../scheduling/state.js";
+import { schedulingToolIdsForState } from "../scheduling/tool-availability.js";
+import { createSchedulingTools } from "../scheduling/tools.js";
 import {
   add_patient,
-  book_appointment,
-  cancel_appointment,
   check_insurance,
   create_staff_task,
-  get_availability,
   resolve_patient,
-  reschedule_appointment,
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
@@ -24,10 +24,58 @@ const end_call = beta.createEndCallTool<CallState>({
 
 export type AgentTools = readonly ToolContextEntry<CallState>[];
 
+const ALWAYS_AVAILABLE_TOOLS = new Set([
+  "check_insurance",
+  "create_staff_task",
+  "end_call",
+  "resolve_patient",
+  "transfer_call",
+]);
+
+export function toolsForCallState(
+  registeredTools: AgentTools,
+  state: CallState,
+): ToolContext<CallState> {
+  const available = new Set([
+    ...ALWAYS_AVAILABLE_TOOLS,
+    ...schedulingToolIdsForState(state),
+  ]);
+  const patientIsActive = activePatientId(state) !== null;
+  const acceptedInsurance =
+    lastInsuranceEligibilityCheck(state)?.accepted === true;
+
+  if (patientIsActive) {
+    if (acceptedInsurance) {
+      available.add("update_insurance");
+    }
+  } else if (acceptedInsurance) {
+    available.add("add_patient");
+  }
+
+  return new ToolContext(
+    registeredTools.filter((registeredTool) =>
+      available.has(registeredTool.id),
+    ),
+  );
+}
+
 export function buildToolsForTrunk(
   trunkPhone?: string,
   options: { identityLookup?: PatientResolveLookup } = {},
 ): AgentTools {
+  const office = getOfficeProfileByPhone(trunkPhone ?? "");
+  const availabilityOfficeMode =
+    office.availabilityOfficeFor().status === "blocked"
+      ? "required"
+      : "omitted";
+  const {
+    book_appointment,
+    cancel_appointment,
+    get_availability,
+    reschedule_appointment,
+  } = createSchedulingTools(productionSchedulingMiddleware, undefined, {
+    availabilityOfficeMode,
+  });
   const coreTools = [
     options.identityLookup
       ? createResolvePatientTool(options.identityLookup)
@@ -41,7 +89,6 @@ export function buildToolsForTrunk(
     check_insurance,
   ] as const satisfies readonly ToolContextEntry<CallState>[];
   const commonTools = [...coreTools, transfer_call, end_call] as const;
-  const office = getOfficeProfileByPhone(trunkPhone ?? "");
   if (office.staffTaskDelivery !== "disabled") {
     return [...commonTools, create_staff_task];
   }

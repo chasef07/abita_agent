@@ -36,7 +36,7 @@ interface PatientResolveNotFound {
 
 interface PatientResolveError {
   status: "error";
-  reason: "middleware_error" | "invalid_response";
+  reason: "invalid_response" | "middleware_error" | "request_rejected";
 }
 
 export type PatientResolveResult =
