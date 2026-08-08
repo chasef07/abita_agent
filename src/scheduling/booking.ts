@@ -1,4 +1,3 @@
-import { ToolError } from "@livekit/agents";
 import type {
   BookAppointmentInput,
   BookAppointmentResult,
@@ -23,6 +22,7 @@ import {
 import { routingForAvailability } from "./routing.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
 import type { BookingSuccess } from "./middleware.js";
+import { SchedulingInputRequired } from "./input-required.js";
 
 export type AppointmentPatientStatus = "new" | "established";
 
@@ -34,6 +34,7 @@ type BookingRequestInput = {
   now: Date;
   appointmentTypeIdOverride?: number | null;
   patientStatusOverride?: AppointmentPatientStatus | null;
+  rescheduleToken?: string;
 };
 
 const NEW_PATIENT_APPOINTMENT_TYPE_IDS = new Set([
@@ -49,7 +50,7 @@ export function selectedSlotForBooking(
 ): StoredAvailabilitySlot {
   const selectedSlot = selectedAvailabilitySlot(state, slotId);
   if (!selectedSlot) {
-    throw new ToolError(
+    throw new SchedulingInputRequired(
       "Search availability again and choose one of the returned slots before booking.",
     );
   }
@@ -76,7 +77,7 @@ export function bookingRequestBodyForSlot(
     clearAvailabilitySelection(state, {
       invalidateReads: "booking_authorization_invalidated",
     });
-    throw new ToolError(
+    throw new SchedulingInputRequired(
       "Search availability again before booking because the selected slot expired.",
     );
   }
@@ -95,6 +96,9 @@ export function bookingRequestBodyForSlot(
     patientId: input.patientId,
     appointmentReason: normalizedReason,
     referringDoctor: normalizedReferrer,
+    ...(input.rescheduleToken
+      ? { rescheduleToken: input.rescheduleToken }
+      : {}),
     ...(input.appointmentTypeIdOverride != null
       ? { appointmentTypeId: input.appointmentTypeIdOverride }
       : {}),
@@ -223,7 +227,7 @@ export function spokenSlot(slot: StoredAvailabilitySlot): string {
 function normalizeAppointmentReason(appointmentReason: string): string {
   const trimmedReason = appointmentReason.trim();
   if (!trimmedReason || isGenericBookingReason(trimmedReason)) {
-    throw new ToolError(
+    throw new SchedulingInputRequired(
       "Ask for a useful appointment reason before booking: the routine purpose, or the eye symptom or concern plus one caller-provided detail. When the caller has only a generic reason, record that limitation in the reason.",
     );
   }
@@ -233,7 +237,7 @@ function normalizeAppointmentReason(appointmentReason: string): string {
 function normalizeReferringDoctor(referringDoctor: string | undefined): string {
   const trimmedReferrer = referringDoctor?.trim();
   if (!trimmedReferrer) {
-    throw new ToolError(
+    throw new SchedulingInputRequired(
       'Ask whether the caller has a referring doctor before booking. If they have none, pass "none".',
     );
   }

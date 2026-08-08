@@ -46,6 +46,12 @@ function toolNamesForTrunk(trunkPhone: string): string[] {
   return toolNames(buildToolsForTrunk(trunkPhone));
 }
 
+function toolForTrunk(trunkPhone: string, name: string) {
+  return buildToolsForTrunk(trunkPhone)
+    .flatMap((entry) => (isToolset(entry) ? entry.tools : [entry]))
+    .find((entry) => entry.id === name);
+}
+
 afterEach(() => {
   delete process.env.DEV_HANDOFF_TARGET;
 });
@@ -96,6 +102,19 @@ describe("office routing helpers", () => {
     expect(getOfficeProfile("crystal-river").staffTaskDelivery).toBe(
       "disabled",
     );
+  });
+
+  it("makes availability office selection match the inbound trunk", () => {
+    const hollywood = toolForTrunk(HOLLYWOOD_OFFICE_PHONE, "get_availability");
+    const springHill = toolForTrunk(
+      SPRING_HILL_OFFICE_PHONE,
+      "get_availability",
+    );
+    const hollywoodSchema = z.toJSONSchema(hollywood!.parameters);
+    const springHillSchema = z.toJSONSchema(springHill!.parameters);
+
+    expect(hollywoodSchema.required).toContain("office");
+    expect(springHillSchema.properties).not.toHaveProperty("office");
   });
 });
 
@@ -820,6 +839,7 @@ describe("model-facing tool definitions", () => {
     const parameters = get_availability.parameters as {
       safeParse: (value: unknown) => { success: boolean };
       shape: {
+        oldAppointmentRef: { description?: string };
         office: { description?: string };
         visitType: { description?: string };
         when: { description?: string };
@@ -827,6 +847,9 @@ describe("model-facing tool definitions", () => {
     };
     expect(parameters.shape.visitType.description).toContain(
       "Visit type established by appointment triage",
+    );
+    expect(parameters.shape.oldAppointmentRef.description).toContain(
+      "exact loaded appointment",
     );
     expect(parameters.shape.office.description).toContain(
       "Hollywood and Sweetwater calls",
@@ -838,10 +861,23 @@ describe("model-facing tool definitions", () => {
       "caller's own date and time phrase",
     );
     expect(parameters.shape.when.description).toContain("forwarded verbatim");
+    expect(Object.keys(parameters.shape)).toEqual([
+      "when",
+      "visitType",
+      "oldAppointmentRef",
+      "office",
+    ]);
     expect(
       parameters.safeParse({
         when: "next Tuesday around 3 PM",
         visitType: "medical",
+        office: "hollywood",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        when: "next Tuesday around 3 PM",
+        oldAppointmentRef: "appointment-loaded",
         office: "hollywood",
       }).success,
     ).toBe(true);

@@ -25,6 +25,7 @@ export function normalizeCallerAppointments(
       facility,
       confirmed,
       cancellationToken,
+      rescheduleToken,
     }) => {
       const appointment = {
         id,
@@ -37,6 +38,9 @@ export function normalizeCallerAppointments(
         confirmed,
         ...(cancellationToken?.trim()
           ? { cancellationToken: cancellationToken.trim() }
+          : {}),
+        ...(rescheduleToken?.trim()
+          ? { rescheduleToken: rescheduleToken.trim() }
           : {}),
       };
       const owner = patientId?.trim();
@@ -173,7 +177,13 @@ export function appointmentRefForPatient(
   patientId: string,
   appointment: Pick<
     CallerAppointment,
-    "id" | "date" | "time" | "provider" | "type" | "facility"
+    | "id"
+    | "date"
+    | "time"
+    | "provider"
+    | "type"
+    | "appointmentTypeId"
+    | "facility"
   >,
 ): string {
   const source = JSON.stringify([
@@ -183,6 +193,7 @@ export function appointmentRefForPatient(
     appointment.time,
     appointment.provider,
     appointment.type,
+    appointment.appointmentTypeId ?? null,
     appointment.facility,
   ]);
   const digest = createHash("sha256").update(source).digest("hex").slice(0, 24);

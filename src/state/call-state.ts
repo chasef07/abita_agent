@@ -29,6 +29,7 @@ export interface CallerAppointment {
   id: number;
   appointmentRef?: string;
   cancellationToken?: string;
+  rescheduleToken?: string;
   date: string;
   time: string;
   provider: string;
@@ -82,6 +83,7 @@ export interface CallerLookupFailed {
     | "middleware_error"
     | "network_error"
     | "invalid_response"
+    | "request_rejected"
     | "unsupported_trunk";
   retryable: boolean;
   lookupDurationMs?: number;
@@ -174,6 +176,7 @@ export type SchedulingAppointmentLane = Exclude<
 export interface WorkflowTurnContext {
   intent: TurnIntent;
   appointmentLane: AppointmentLane;
+  oldAppointmentRef?: string;
 }
 
 export interface CompletedRescheduleState {
@@ -210,6 +213,7 @@ export type OwnedMiddlewareFailureReason =
   | "middleware_error"
   | "network_error"
   | "invalid_response"
+  | "request_rejected"
   | "unsupported_office"
   | "cancelled";
 

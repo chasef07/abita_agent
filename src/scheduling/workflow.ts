@@ -1,4 +1,3 @@
-import { ToolError } from "@livekit/agents";
 import {
   getOfficeProfileByFacility,
   normalizePhoneNumber,
@@ -37,9 +36,9 @@ import {
   activeRoutingContext,
   clearAvailabilitySelection,
   currentAvailabilityDate,
-  latestAvailabilityRouting,
   removeAvailabilitySlot,
   setCurrentAvailabilityDate,
+  applyTurnContextToState,
 } from "./state.js";
 import {
   appointmentActionStatusForBookingResult,
@@ -91,6 +90,8 @@ import {
   ensureAvailabilityContext,
   prepareAvailabilityLookupContext,
 } from "./context.js";
+import { SchedulingInputRequired } from "./input-required.js";
+import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 import type {
   AvailabilityRequest as MiddlewareAvailabilityRequest,
   AvailabilityResult,
@@ -110,6 +111,7 @@ import {
 export interface AvailabilityLookupArgs {
   when: string;
   appointmentLane?: SchedulingAppointmentLane;
+  oldAppointmentRef?: string;
   office?: AvailabilityOfficeKey;
 }
 
@@ -235,7 +237,9 @@ export class SchedulingWorkflow {
     ensureNewAppointmentBookingContext(state);
 
     if (!patientId) {
-      throw new ToolError("Verify or create the patient before booking.");
+      throw new SchedulingInputRequired(
+        "Verify or create the patient before booking.",
+      );
     }
     const patientName = activePatientName(state);
 
@@ -291,6 +295,9 @@ export class SchedulingWorkflow {
           result,
         ),
       });
+      if (result.status === "error") {
+        return "I couldn't book the appointment, and the active patient changed. Continue with the current patient and do not retry this request.";
+      }
       return `${message} The active patient changed before the booking result returned. Continue with the current patient's state.`;
     }
 
@@ -339,6 +346,12 @@ export class SchedulingWorkflow {
           result,
         ),
       });
+      if (result.status === "error") {
+        throwOwnedMiddlewareFailure(
+          result,
+          "I couldn't book the appointment. I can try once more or connect you with the office.",
+        );
+      }
       return message;
     }
 
@@ -375,6 +388,12 @@ export class SchedulingWorkflow {
       message,
       appointment: bookedSlotAppointmentAnalytics(state, selectedSlot, result),
     });
+    if (result.status === "error") {
+      throwOwnedMiddlewareFailure(
+        result,
+        "I couldn't book the appointment. I can try once more or connect you with the office.",
+      );
+    }
     return message;
   }
 
@@ -385,7 +404,9 @@ export class SchedulingWorkflow {
     restoreConfirmedPreCallPatient(state);
     const patientId = activePatientId(state);
     if (!patientId) {
-      throw new ToolError("Verify the patient before cancelling.");
+      throw new SchedulingInputRequired(
+        "Verify the patient before cancelling.",
+      );
     }
 
     const selector = { appointmentRef };
@@ -401,7 +422,7 @@ export class SchedulingWorkflow {
       if (cancelledAppointment) {
         return completedCancellationReplayMessage(cancelledAppointment);
       }
-      throw new ToolError(selection.message);
+      throw new SchedulingInputRequired(selection.message);
     }
     const appointment = selection.appointment;
     const completedCancellation = completedCancellationForState(state, {
@@ -441,6 +462,9 @@ export class SchedulingWorkflow {
           patientName,
         ),
       });
+      if (result.status === "error") {
+        return "I couldn't cancel the appointment, and the active patient changed. Continue with the current patient and do not retry this request.";
+      }
       return `${message} The active patient changed before the cancellation result returned. Continue with the current patient's state.`;
     }
 
@@ -472,7 +496,10 @@ export class SchedulingWorkflow {
         message,
         cancelledAppointment: cancelledAppointmentAnalytics(state, appointment),
       });
-      return message;
+      throwOwnedMiddlewareFailure(
+        result,
+        "I couldn't cancel the appointment. I can try once more or connect you with the office.",
+      );
     }
 
     removeActiveAppointment(state, appointment.id);
@@ -504,7 +531,9 @@ export class SchedulingWorkflow {
     restoreConfirmedPreCallPatient(state);
     const patientId = activePatientId(state);
     if (!patientId) {
-      throw new ToolError("Verify the patient before rescheduling.");
+      throw new SchedulingInputRequired(
+        "Verify the patient before rescheduling.",
+      );
     }
     const patientName = activePatientName(state);
     const completedReschedule = completedRescheduleForPatient(state, patientId);
@@ -519,17 +548,46 @@ export class SchedulingWorkflow {
       }
     }
 
+    if (
+      !completedReschedule &&
+      state.workflow.current?.intent !== "change_appointment"
+    ) {
+      clearAvailabilitySelection(state, {
+        invalidateReads: "scheduling_context_changed",
+      });
+      return "Check availability again for the loaded appointment the caller wants to reschedule before moving it.";
+    }
+
+    const availabilityOldAppointmentRef =
+      !completedReschedule &&
+      state.workflow.current?.intent === "change_appointment"
+        ? state.workflow.current.oldAppointmentRef
+        : undefined;
+    const requestedOldAppointmentRef = oldAppointmentRef?.trim();
+    if (
+      availabilityOldAppointmentRef &&
+      requestedOldAppointmentRef &&
+      requestedOldAppointmentRef !== availabilityOldAppointmentRef
+    ) {
+      clearAvailabilitySelection(state, {
+        invalidateReads: "scheduling_context_changed",
+      });
+      return "The appointment selected to reschedule changed. Check availability again for the exact appointment the caller wants to move.";
+    }
+
     const selectedSlot = selectedSlotForBooking(state, appointmentSlotRef);
     const selection = rescheduleAppointmentForState(
       state,
-      completedReschedule ? undefined : oldAppointmentRef,
+      completedReschedule
+        ? undefined
+        : (availabilityOldAppointmentRef ?? requestedOldAppointmentRef),
       { preferLatestBooked: Boolean(completedReschedule) },
     );
     if (selection.status === "ambiguous") {
       return selection.message;
     }
     if (selection.status === "not_found") {
-      throw new ToolError(selection.message);
+      throw new SchedulingInputRequired(selection.message);
     }
     const oldAppointment = selection.appointment;
     const cancellationOffice = getAmdOfficeForCancellationAppointment(
@@ -549,22 +607,15 @@ export class SchedulingWorkflow {
     if (unsupportedRoutineVisionScheduling)
       return unsupportedRoutineVisionScheduling;
     const bookingOffice = getAmdOfficeForToolCall(state);
-    const bookingRouting =
-      selectedSlot.routing ??
-      latestAvailabilityRouting(state) ??
-      routingForAvailability(state);
     const bookingBody = bookingRequestBodyForSlot(state, {
       selectedSlot,
       patientId,
       appointmentReason,
       referringDoctor,
       now: this.clock.now(),
-      appointmentTypeIdOverride: appointmentTypeIdForRescheduleBooking(
-        oldAppointment,
-        cancellationOffice,
-        bookingOffice,
-        bookingRouting,
-      ),
+      appointmentTypeIdOverride:
+        appointmentTypeIdForRescheduleBooking(oldAppointment),
+      rescheduleToken: oldAppointment.rescheduleToken,
       patientStatusOverride:
         appointmentPatientStatusForLoadedAppointment(oldAppointment),
     });
@@ -622,8 +673,13 @@ export class SchedulingWorkflow {
       return message;
     }
 
+    let replacementAppointmentRef: string;
     if (bookingSucceeded(bookingResult)) {
-      recordBookedAppointmentInState(state, selectedSlot, bookingResult);
+      replacementAppointmentRef = recordBookedAppointmentInState(
+        state,
+        selectedSlot,
+        bookingResult,
+      );
       clearAvailabilitySelection(state, {
         invalidateReads: "reschedule_succeeded",
       });
@@ -759,6 +815,11 @@ export class SchedulingWorkflow {
     }
 
     removeActiveAppointment(state, oldAppointment.id);
+    applyTurnContextToState(state, {
+      intent: "change_appointment",
+      appointmentLane: "not_applicable",
+      oldAppointmentRef: replacementAppointmentRef,
+    });
     recordCompletedReschedule(state, patientId, selectedSlot, "rescheduled");
     const message = rescheduledAppointmentMessage(
       selectedSlot,
@@ -832,7 +893,11 @@ function buildAvailabilityLookupRequestForState(
   const officeSelection = selectAvailabilityOffice(state, args.office);
   if (officeSelection) return { blocked: officeSelection };
 
-  prepareAvailabilityLookupContext(state, args.appointmentLane);
+  prepareAvailabilityLookupContext(
+    state,
+    args.appointmentLane,
+    args.oldAppointmentRef,
+  );
   const contextRecovery = availabilityContextRecovery(state);
   if (contextRecovery) return { blocked: contextRecovery };
   ensureAvailabilityContext(state, "checking availability");
@@ -882,6 +947,7 @@ function availabilityBackendKey(
     providerOffice: normalizePhoneNumber(getAmdOfficeForToolCall(state)),
     intent: turn?.intent ?? null,
     appointmentLane: turn?.appointmentLane ?? null,
+    oldAppointmentRef: turn?.oldAppointmentRef ?? null,
     cacheDay: input.cacheDay,
     requestedDate: input.body.requestedDate?.trim() || null,
     preferredTime: input.body.preferredTime ?? null,
@@ -918,7 +984,7 @@ function availabilityReferenceDate(
 function ensureNewAppointmentBookingContext(state: CallState): void {
   const turn = state.workflow.current;
   if (turn?.intent === "change_appointment") {
-    throw new ToolError(
+    throw new SchedulingInputRequired(
       "Use reschedule_appointment for appointment changes so the old appointment is cancelled after the new booking succeeds.",
     );
   }
@@ -929,7 +995,7 @@ function ensureNewAppointmentBookingContext(state: CallState): void {
   ) {
     return;
   }
-  throw new ToolError(
+  throw new SchedulingInputRequired(
     "Search availability again with visitType medical or routine_vision before booking a new appointment.",
   );
 }
@@ -996,23 +1062,13 @@ function recordCompletedReschedule(
 
 function appointmentTypeIdForRescheduleBooking(
   appointment: CallerAppointment,
-  cancellationOffice: string,
-  bookingOffice: string,
-  bookingRouting: string | null,
 ): number | null {
   if (appointment.appointmentTypeId === undefined) return null;
-  if (bookingRouting === "optical_only") return null;
   if (
+    !appointment.rescheduleToken &&
     !RESCHEDULE_BOOKING_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
-  ) {
+  )
     return null;
-  }
-  if (
-    normalizePhoneNumber(cancellationOffice) !==
-    normalizePhoneNumber(bookingOffice)
-  ) {
-    return null;
-  }
   return appointment.appointmentTypeId;
 }
 
@@ -1054,6 +1110,12 @@ function handleRescheduleBookingFailure(
         reason: "booking_failed",
       },
     });
+    if (bookingResult.status === "error") {
+      throwOwnedMiddlewareFailure(
+        bookingResult,
+        "I couldn't book the new appointment. I did not cancel the existing appointment.",
+      );
+    }
     return message;
   }
 
@@ -1072,6 +1134,25 @@ function handleRescheduleBookingFailure(
         status: "not_attempted",
         reason: "booking_failed",
       },
+    });
+    return message;
+  }
+  if (
+    bookingResult.status === "rejected" &&
+    bookingResult.reason === "invalid_reschedule_token"
+  ) {
+    clearAvailabilitySelection(state, {
+      invalidateReads: "booking_authorization_invalidated",
+    });
+    replaceActiveAppointments(state, [], "error");
+    const message =
+      "The appointment was not booked because the reschedule authorization expired. Load appointments again, reselect the exact appointment, and check availability again. I did not cancel the existing appointment.";
+    recordRescheduleAction(state, {
+      status: "error",
+      message,
+      selectedSlot,
+      bookingResult,
+      oldAppointment,
     });
     return message;
   }
@@ -1094,6 +1175,12 @@ function handleRescheduleBookingFailure(
       reason: "booking_failed",
     },
   });
+  if (bookingResult.status === "error") {
+    throwOwnedMiddlewareFailure(
+      bookingResult,
+      "I couldn't book the new appointment. I did not cancel the existing appointment.",
+    );
+  }
   return message;
 }
 

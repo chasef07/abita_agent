@@ -99,7 +99,14 @@ export function applyTurnContextToState(
   state.workflow.current = turn;
   const visitType = visitTypeFromAppointmentLane(turn);
   const intentChanged = previousTurn?.intent !== turn.intent;
-  if (!intentChanged && (!visitType || previousVisitType === visitType)) return;
+  const appointmentChanged =
+    previousTurn?.oldAppointmentRef !== turn.oldAppointmentRef;
+  if (
+    !intentChanged &&
+    !appointmentChanged &&
+    (!visitType || previousVisitType === visitType)
+  )
+    return;
 
   clearAvailabilitySelection(state, {
     invalidateReads: "scheduling_context_changed",

@@ -1,4 +1,4 @@
-import { ToolError, tool } from "@livekit/agents";
+import { tool } from "@livekit/agents";
 import { z } from "zod";
 import {
   ownedMiddleware,
@@ -22,6 +22,7 @@ import {
 } from "../scheduling/state.js";
 import { getAmdOfficeForToolCall } from "../scheduling/routing.js";
 import { getState } from "./session.js";
+import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 
 export const update_insurance = tool({
   name: "update_insurance",
@@ -47,14 +48,12 @@ export const update_insurance = tool({
 
     const patientId = activePatientId(state);
     if (!patientId) {
-      throw new ToolError("Verify the patient before updating insurance.");
+      return "Verify the patient before updating insurance.";
     }
 
     const checkedInsurance = state.insurance.lastEligibilityCheck;
     if (!checkedInsurance?.accepted) {
-      throw new ToolError(
-        "Run check_insurance for accepted coverage before updating insurance.",
-      );
+      return "Run check_insurance for accepted coverage before updating insurance.";
     }
     const insurance =
       checkedInsurance.canonicalPlan?.trim() ||
@@ -63,9 +62,7 @@ export const update_insurance = tool({
     const canonicalInsurance = checkedInsurance.canonicalPlan?.trim() || null;
     const coverageType = checkedInsurance.coverageType;
     if (!insurance || !coverageType) {
-      throw new ToolError(
-        "Run check_insurance for accepted coverage before updating insurance.",
-      );
+      return "Run check_insurance for accepted coverage before updating insurance.";
     }
 
     const selfPay =
@@ -73,7 +70,7 @@ export const update_insurance = tool({
       normalizeInsuranceText(canonicalInsurance ?? "") === "self pay";
     const memberId = selfPay ? "self pay" : insuranceMemberId.trim();
     if (!memberId) {
-      throw new ToolError("Collect the member ID before updating insurance.");
+      return "Collect the member ID before updating insurance.";
     }
 
     const backendRefs = patientBackendRefs(state);
@@ -101,7 +98,10 @@ export const update_insurance = tool({
 
     if (result.status !== "updated") {
       recordOwnedMiddlewareFailure(state, "updateInsurance", result);
-      throw new ToolError("Insurance was not updated.");
+      throwOwnedMiddlewareFailure(
+        result,
+        "I couldn't update the insurance. I can try once more or connect you with the office.",
+      );
     }
 
     const newInsurance = result.newInsurance?.trim() || insurance;

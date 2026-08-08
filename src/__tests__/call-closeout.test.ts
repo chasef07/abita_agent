@@ -1,9 +1,16 @@
+import {
+  ChatContext,
+  createSessionReport,
+  type AgentSession,
+  type JobContext,
+} from "@livekit/agents";
 import { describe, expect, it, vi } from "vitest";
 import {
   HttpCallPortal,
   InMemoryCallPortal,
   attachCallCloseout,
   attachStartupCallCloseout,
+  createLiveKitCallCloseoutEventAdapter,
   type CallCloseoutCapture,
   type CallCloseoutEventAdapter,
   type CallCloseoutObserver,
@@ -354,6 +361,7 @@ describe("call closeout", () => {
       id: 987654321,
       appointmentRef: "appointment-safe-reference",
       cancellationToken: "private-cancellation-token",
+      rescheduleToken: "private-reschedule-token",
       date: "Monday, June 1, 2026",
       time: "9:00 AM",
       provider: "Dr. Bach",
@@ -414,6 +422,7 @@ describe("call closeout", () => {
     );
     expect(callStatePayload).toContain("appointment-safe-reference");
     expect(callStatePayload).not.toContain("private-cancellation-token");
+    expect(callStatePayload).not.toContain("private-reschedule-token");
     expect(callStatePayload).not.toContain("private-booking-token");
     expect(callStatePayload).not.toContain("private-patient-backend-id");
     expect(callStatePayload).not.toContain("987654321");
@@ -424,6 +433,9 @@ describe("call closeout", () => {
     expect(callStatePayload).not.toContain("01/02/1980");
     expect(state.identity.patient.appointments[0]?.cancellationToken).toBe(
       "private-cancellation-token",
+    );
+    expect(state.identity.patient.appointments[0]?.rescheduleToken).toBe(
+      "private-reschedule-token",
     );
   });
 
@@ -905,56 +917,64 @@ describe("call closeout", () => {
     expect(portal.deliveries).toHaveLength(3);
   });
 
-  it("includes readable call audio in the authorized rich payload", async () => {
+  it("ignores captured audio when building closeout payloads", async () => {
     const events = new TestLiveKitEvents();
-    events.capture = async () => ({
-      audio: Uint8Array.from([1, 2, 3]),
-      language: { currentLanguage: "en" },
-      sessionUsage: {},
-      sttProfiles: [],
-    });
+    events.capture = async () =>
+      ({
+        audio: Uint8Array.from([1, 2, 3]),
+        language: { currentLanguage: "en" },
+        sessionUsage: {},
+        sttProfiles: [],
+      }) as CallCloseoutCapture & { audio: Uint8Array };
     const { portal } = await setupCloseout({ events });
     await events.close();
 
-    expect(portal.deliveries[2]?.payload.audioBase64).toBe("AQID");
     expect(portal.deliveries[1]?.payload).not.toHaveProperty("audioBase64");
+    expect(portal.deliveries[2]?.payload).not.toHaveProperty("audioBase64");
   });
 
-  it("omits oversized audio with a content-free warning", async () => {
-    const events = new TestLiveKitEvents();
-    events.capture = async () => ({
-      audio: new Uint8Array(3 * 1024 * 1024),
-      language: { currentLanguage: "en" },
-      sessionUsage: {},
-      sttProfiles: [],
+  it("removes LiveKit audio recording metadata from the captured report", async () => {
+    const report = createSessionReport({
+      audioRecordingPath: "/tmp/private-call.ogg",
+      audioRecordingStartedAt: 1_234,
+      chatHistory: ChatContext.empty(),
+      enableRecording: true,
+      events: [],
+      jobId: "job-test",
+      options: {
+        maxToolSteps: 3,
+        turnHandling: { preemptiveGeneration: { enabled: false } },
+        useTtsAlignedTranscript: true,
+        userAwayTimeout: 15,
+      },
+      room: "room-test",
+      roomId: "room-id-test",
     });
-    const logger = { warn: vi.fn() };
-    const { portal } = await setupCloseout({ events, logger });
-    await events.close();
-
-    expect(portal.deliveries[2]?.payload).not.toHaveProperty("audioBase64");
-    expect(logger.warn).toHaveBeenCalledWith(
-      "[closeout] Call audio exceeded 4 MiB payload limit; omitted",
+    const adapter = createLiveKitCallCloseoutEventAdapter(
+      { makeSessionReport: () => report } as unknown as JobContext,
+      { usage: {} } as unknown as AgentSession<CallState>,
+      {
+        callId: "call-test",
+        llm: { on: vi.fn() },
+        maxCallDurationMs: 60_000,
+        roomName: "room-test",
+        shutdownSession: vi.fn(),
+        sttProfiles: [],
+        voiceLanguageRuntime: {
+          snapshot: () => ({
+            language: {},
+            voiceLanguage: DEFAULT_CALL.initialVoiceLanguage,
+          }),
+        },
+      },
     );
-  });
 
-  it("continues rich delivery when recorded audio is unreadable", async () => {
-    const events = new TestLiveKitEvents();
-    events.capture = async () => ({
-      audioUnreadable: true,
-      language: { currentLanguage: "en" },
-      sessionReport: { chat_history: { items: [] } },
-      sessionUsage: {},
-      sttProfiles: [],
-    });
-    const logger = { warn: vi.fn() };
-    const { portal } = await setupCloseout({ events, logger });
-    const result = await events.close();
+    const capture = await adapter.capture();
 
-    expect(result).toMatchObject({ richResult: { ok: true } });
-    expect(portal.deliveries[2]?.payload).not.toHaveProperty("audioBase64");
-    expect(logger.warn).toHaveBeenCalledWith(
-      "[closeout] Recorded call audio could not be read; omitted",
+    expect(capture).not.toHaveProperty("audio");
+    expect(capture.sessionReport).not.toHaveProperty("audio_recording_path");
+    expect(capture.sessionReport).not.toHaveProperty(
+      "audio_recording_started_at",
     );
   });
 

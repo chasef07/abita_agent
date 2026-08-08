@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { tool } from "@livekit/agents";
+import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
 import { getPortalSecret } from "../runtime/portal-auth.js";
 import {
@@ -27,7 +27,7 @@ const TASK_CREATED_REPLY =
 const TASK_DUPLICATE_REPLY =
   "Task already sent to staff. Tell the caller: I already sent that to the team. They'll review it and follow up.";
 const TASK_FAILED_REPLY =
-  "Could not send the staff task. Tell the caller: I couldn't send that message, but I can transfer you to the office.";
+  "I couldn't send the message. I can transfer you to the office.";
 
 const taskParameters = z.object({
   category: z
@@ -73,6 +73,8 @@ type PortalTaskResponse = {
   urgency?: StaffTaskUrgency;
 };
 
+class StaffTaskDeliveryError extends Error {}
+
 export const create_staff_task = tool({
   name: "create_staff_task",
   description:
@@ -92,31 +94,37 @@ export const create_staff_task = tool({
     if (existing) return TASK_DUPLICATE_REPLY;
 
     const destination = getStaffTaskDestination(office.staffTaskDelivery);
-    if (!destination) return TASK_FAILED_REPLY;
+    if (!destination) {
+      throw new Error("Staff task delivery is not configured.");
+    }
 
+    let response: PortalTaskResponse;
     try {
-      const response = await postStaffTask(
+      response = await postStaffTask(
         destination.url,
         destination.secret,
         payload,
       );
-      recordStaffTaskReceipt(state, {
-        category: response.category ?? input.category,
-        createdAt: new Date().toISOString(),
-        idempotencyKey: payload.idempotencyKey,
-        message: input.message,
-        status: response.status,
-        summary: input.summary,
-        taskId: response.taskId,
-        urgency: response.urgency ?? input.urgency,
-      });
-      return response.status === "duplicate"
-        ? TASK_DUPLICATE_REPLY
-        : TASK_CREATED_REPLY;
     } catch (error) {
       console.error("[tools] Staff task POST failed:", error);
-      return TASK_FAILED_REPLY;
+      if (error instanceof StaffTaskDeliveryError) {
+        throw new ToolError(TASK_FAILED_REPLY);
+      }
+      throw error;
     }
+    recordStaffTaskReceipt(state, {
+      category: response.category ?? input.category,
+      createdAt: new Date().toISOString(),
+      idempotencyKey: payload.idempotencyKey,
+      message: input.message,
+      status: response.status,
+      summary: input.summary,
+      taskId: response.taskId,
+      urgency: response.urgency ?? input.urgency,
+    });
+    return response.status === "duplicate"
+      ? TASK_DUPLICATE_REPLY
+      : TASK_CREATED_REPLY;
   },
 });
 
@@ -235,24 +243,42 @@ async function postStaffTask(
   secret: string,
   payload: ReturnType<typeof buildStaffTaskPayload>,
 ): Promise<PortalTaskResponse> {
-  const response = await fetch(url, {
-    body: JSON.stringify(payload),
-    headers: {
-      Authorization: `Bearer ${secret}`,
-      "Content-Type": "application/json",
-    },
-    method: "POST",
-    signal:
-      typeof AbortSignal.timeout === "function"
-        ? AbortSignal.timeout(10_000)
-        : undefined,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Staff task POST returned ${response.status}`);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      body: JSON.stringify(payload),
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      signal:
+        typeof AbortSignal.timeout === "function"
+          ? AbortSignal.timeout(10_000)
+          : undefined,
+    });
+  } catch {
+    throw new StaffTaskDeliveryError("Staff task POST failed");
   }
 
-  const body = (await response.json()) as Partial<PortalTaskResponse>;
+  if (!response.ok) {
+    const message = `Staff task POST returned ${response.status}`;
+    if (
+      response.status === 408 ||
+      response.status === 429 ||
+      response.status >= 500
+    ) {
+      throw new StaffTaskDeliveryError(message);
+    }
+    throw new Error(message);
+  }
+
+  let body: Partial<PortalTaskResponse>;
+  try {
+    body = (await response.json()) as Partial<PortalTaskResponse>;
+  } catch {
+    throw new Error("Staff task POST returned an invalid response");
+  }
   if (
     (body.status !== "created" && body.status !== "duplicate") ||
     !body.taskId

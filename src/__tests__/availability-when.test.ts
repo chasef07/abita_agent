@@ -270,10 +270,14 @@ describe("Scheduling Workflow caller-language availability", () => {
       { when: "next Tuesday", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-1" } as never,
     );
-    await get_availability.execute({ when: "June 18", visitType: "medical" }, {
-      ctx: ctx as never,
-      toolCallId: "availability-2",
-    } as never);
+    await expect(
+      get_availability.execute({ when: "June 18", visitType: "medical" }, {
+        ctx: ctx as never,
+        toolCallId: "availability-2",
+      } as never),
+    ).rejects.toThrow(
+      "I couldn't check availability. I can try once more or connect you with the office.",
+    );
     await get_availability.execute(
       { when: "how about 10 for that day", visitType: "medical" },
       { ctx: ctx as never, toolCallId: "availability-3" } as never,

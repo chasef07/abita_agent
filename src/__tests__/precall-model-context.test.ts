@@ -49,6 +49,7 @@ describe("pre-call model context", () => {
           id: 123,
           appointmentRef: "private-appointment-reference",
           cancellationToken: "private-cancellation-token",
+          rescheduleToken: "private-reschedule-token",
           date: "2099-01-01",
           time: "9:30 AM",
           provider: "Dr. Private",
@@ -82,6 +83,7 @@ describe("pre-call model context", () => {
       "private-provider-reference",
       "private-appointment-reference",
       "private-cancellation-token",
+      "private-reschedule-token",
       "2099-01-01",
       "Dr. Private",
     ]) {

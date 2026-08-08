@@ -3,9 +3,9 @@ import {
   getOfficeProfileByPhone,
   type AvailabilityOfficeKey,
 } from "../customers/abita/profile.js";
-import { activeAppointments } from "../state/appointments.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
-import { type CallerAppointment, type CallState } from "../state/call-state.js";
+import { type CallState } from "../state/call-state.js";
+import { appointmentForChangeContext } from "./appointments.js";
 import {
   activeRoutingContext,
   clearAvailabilitySelection,
@@ -74,23 +74,15 @@ function isRoutineVisionSchedulingOrChange(state: CallState): boolean {
   const turn = state.workflow.current;
   if (turn && turn.intent !== "change_appointment") return false;
 
-  const appointment = existingAppointmentForChangeContext(state);
+  const appointment = appointmentForChangeContext(state);
   if (appointment) return defaultsToRoutineVision(appointment);
 
   return activeRoutingContext(state).routing === "optical_only";
 }
 
-function existingAppointmentForChangeContext(
-  state: CallState,
-): CallerAppointment | null {
-  const appointments = activeAppointments(state);
-  return (
-    appointments.find((appointment) => appointment.confirmed) ??
-    (appointments.length === 1 ? appointments[0] : null)
-  );
-}
-
-function defaultsToRoutineVision(appointment: CallerAppointment): boolean {
+function defaultsToRoutineVision(
+  appointment: NonNullable<ReturnType<typeof appointmentForChangeContext>>,
+): boolean {
   return (
     appointment.appointmentTypeId === undefined ||
     !KNOWN_MEDICAL_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)

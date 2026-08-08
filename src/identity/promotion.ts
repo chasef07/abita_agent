@@ -1,6 +1,7 @@
-import type {
-  PatientResolveResult,
-  PatientResolveVerified,
+import {
+  type MiddlewareFailure,
+  type PatientResolveResult,
+  type PatientResolveVerified,
 } from "../clients/owned-middleware.js";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import { normalizeCallerAppointments } from "../state/appointments.js";
@@ -74,6 +75,13 @@ type ActivationReason =
 type IdentityResolution = {
   outcome: PatientIdentityOutcome;
   reply: string;
+  failure?: MiddlewareFailure;
+};
+
+export type PatientIdentityResolution = {
+  outcome: PatientIdentityOutcome | "superseded";
+  reply: string;
+  failure?: MiddlewareFailure;
 };
 
 const pendingCandidateHydrations = new WeakMap<
@@ -290,6 +298,14 @@ export async function resolvePatientIdentity(
   input: ResolvePatientIdentityInput,
   lookup: PatientResolveLookup,
 ): Promise<string> {
+  return (await resolvePatientIdentityResult(state, input, lookup)).reply;
+}
+
+export async function resolvePatientIdentityResult(
+  state: CallState,
+  input: ResolvePatientIdentityInput,
+  lookup: PatientResolveLookup,
+): Promise<PatientIdentityResolution> {
   const identity = normalizeResolvePatientInput(input);
 
   const preCallResolution = await resolveFromPreCallState(
@@ -334,13 +350,18 @@ export async function resolvePatientIdentity(
   const operationVersion = beginPatientIdentityOperation(state);
   const result = await lookup(officePhone, identity);
   if (!patientIdentityOperationIsCurrent(state, operationVersion)) {
-    return "Patient lookup was superseded by a newer identity change. Continue with the current patient's state.";
+    return {
+      outcome: "superseded",
+      reply:
+        "Patient lookup was superseded by a newer identity change. Continue with the current patient's state.",
+    };
   }
   if (result.status === "verified") {
     if (!completeVerifiedIdentity(result)) {
       return recordIdentityResolution(state, {
         outcome: "lookup_failed",
         reply: "Patient lookup returned an incomplete identity. Try again.",
+        failure: { status: "error", reason: "invalid_response" },
       });
     }
     const patientChanged = activateResolvedPatient(state, result);
@@ -370,20 +391,21 @@ export async function resolvePatientIdentity(
           ? "multiple_matches"
           : "lookup_failed",
     reply: patientLookupReply(result),
+    ...(result.status === "error" ? { failure: result } : {}),
   });
 }
 
 function recordIdentityResolution(
   state: CallState,
   resolution: IdentityResolution,
-): string {
+): IdentityResolution {
   recordPatientIdentityOutcome(state, resolution.outcome);
   recordPatientIdentityTransition(state, {
     outcome:
       resolution.outcome === "verified" ? "confirmed" : resolution.outcome,
     source: "resolve_patient",
   });
-  return resolution.reply;
+  return resolution;
 }
 
 function activatePatient(
@@ -763,6 +785,7 @@ async function performCandidateHydration(
     return {
       outcome: "lookup_failed",
       reply: "Patient lookup failed. Try again.",
+      failure: { status: "error", reason: "invalid_response" },
     };
   }
 
@@ -825,6 +848,16 @@ async function performCandidateHydration(
         result.status === "verified"
           ? "Patient lookup returned an incomplete identity. Try again."
           : patientLookupReply(result),
+      ...(result.status === "error"
+        ? { failure: result }
+        : result.status === "verified"
+          ? {
+              failure: {
+                status: "error" as const,
+                reason: "invalid_response" as const,
+              },
+            }
+          : {}),
     };
   }
 

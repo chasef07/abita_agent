@@ -28,21 +28,32 @@ type FunctionToolsExecutedLike = {
 
 const TOOL_EXECUTION_STATUS_BY_OUTPUT_CLASS = {
   appointment_booked: "success",
+  appointment_booking_failed: "error",
   appointment_cancelled: "success",
+  appointment_cancellation_failed: "error",
+  appointment_needs_input: "success",
   appointment_not_booked: "error",
   appointment_not_cancelled: "error",
   appointment_not_rescheduled: "error",
   appointment_reschedule_partial: "error",
+  appointment_reschedule_failed: "error",
   appointment_rescheduled: "success",
-  availability_blocked: "error",
+  availability_failed: "error",
+  availability_needs_input: "success",
   availability_returned: "success",
   duplicate_tool_call: "success",
   duplicate_tool_rejected: "error",
   insurance_checked: "success",
+  insurance_update_failed: "error",
+  insurance_update_needs_input: "success",
   insurance_updated: "success",
+  internal_tool_error: "error",
+  invalid_tool_arguments: "error",
   middleware_error: "error",
   multiple_patient_matches: "success",
   patient_created: "success",
+  patient_creation_failed: "error",
+  patient_creation_needs_input: "success",
   patient_lookup_failed: "error",
   patient_lookup_returned: "success",
   patient_new: "success",
@@ -56,6 +67,7 @@ const TOOL_EXECUTION_STATUS_BY_OUTPUT_CLASS = {
   transfer_failed: "error",
   transfer_started: "success",
   unknown: "success",
+  unknown_tool: "error",
 } as const;
 
 export type ToolOutputClass =
@@ -196,15 +208,31 @@ export function classifyToolOutput(
   isError: boolean,
   patientIdentityOutcome?: PatientIdentityOutcome,
 ): ToolOutputClass {
-  if (isError) return "middleware_error";
-
   const outputText = normalizedOutputText(output);
+  const platformError = platformToolErrorClass(outputText, isError);
+  if (platformError) return platformError;
+
   if (duplicateToolWasRejected(outputText)) return "duplicate_tool_rejected";
 
   switch (toolName) {
     case "book_appointment":
+      if (/\bcouldn't book the appointment\b/.test(outputText)) {
+        return "appointment_booking_failed";
+      }
+      if (
+        !isError &&
+        (/\bread back\b/.test(outputText) ||
+          /\bsearch availability again\b/.test(outputText) ||
+          /\bverify or create the patient\b/.test(outputText) ||
+          /\buse reschedule_appointment\b/.test(outputText) ||
+          /\bask for a useful appointment reason\b/.test(outputText) ||
+          /\bask whether the caller has a referring doctor\b/.test(outputText))
+      ) {
+        return "appointment_needs_input";
+      }
       if (
         /\bnot booked\b/.test(outputText) ||
+        /\bslot unavailable\b/.test(outputText) ||
         /\bno longer available\b/.test(outputText) ||
         /\bcheck availability again\b/.test(outputText) ||
         /\bverify or create the patient\b/.test(outputText)
@@ -214,8 +242,19 @@ export function classifyToolOutput(
       if (/\bbooked\b/.test(outputText)) {
         return "appointment_booked";
       }
-      return "appointment_not_booked";
+      return isError ? "middleware_error" : "appointment_not_booked";
     case "cancel_appointment":
+      if (/\bcouldn't cancel the appointment\b/.test(outputText)) {
+        return "appointment_cancellation_failed";
+      }
+      if (
+        !isError &&
+        (/\bload appointments\b/.test(outputText) ||
+          /\bverify the patient\b/.test(outputText) ||
+          /\bappointmentref\b/.test(outputText))
+      ) {
+        return "appointment_needs_input";
+      }
       if (
         /\bnot cancelled\b/.test(outputText) ||
         /\bnot canceled\b/.test(outputText) ||
@@ -233,8 +272,26 @@ export function classifyToolOutput(
       ) {
         return "appointment_cancelled";
       }
-      return "appointment_not_cancelled";
+      return isError ? "middleware_error" : "appointment_not_cancelled";
     case "reschedule_appointment":
+      if (/\bcouldn't book the new appointment\b/.test(outputText)) {
+        return "appointment_reschedule_failed";
+      }
+      if (/\bcould not cancel the old appointment\b/.test(outputText)) {
+        return "appointment_reschedule_partial";
+      }
+      if (
+        !isError &&
+        (/\bread back\b/.test(outputText) ||
+          /\bverify the patient\b/.test(outputText) ||
+          /\bload appointments\b/.test(outputText) ||
+          /\bappointmentref\b/.test(outputText) ||
+          /\bsearch availability again\b/.test(outputText) ||
+          /\bask for a useful appointment reason\b/.test(outputText) ||
+          /\bask whether the caller has a referring doctor\b/.test(outputText))
+      ) {
+        return "appointment_needs_input";
+      }
       if (
         /\bdid not cancel the existing appointment\b/.test(outputText) ||
         /\bnot booked\b/.test(outputText) ||
@@ -245,16 +302,13 @@ export function classifyToolOutput(
       ) {
         return "appointment_not_rescheduled";
       }
-      if (/\bcould not cancel the old appointment\b/.test(outputText)) {
-        return "appointment_reschedule_partial";
-      }
       if (
         /\bappointment is already rescheduled\b/.test(outputText) ||
         /\brescheduled the appointment\b/.test(outputText)
       ) {
         return "appointment_rescheduled";
       }
-      return "appointment_not_rescheduled";
+      return isError ? "middleware_error" : "appointment_not_rescheduled";
     case "transfer_call":
       if (/\btransfer already (?:in progress|started)\b/.test(outputText)) {
         return "duplicate_tool_call";
@@ -264,15 +318,20 @@ export function classifyToolOutput(
       }
       if (
         /\bcould not transfer\b/.test(outputText) ||
+        /\bcouldn't transfer\b/.test(outputText) ||
+        /\bcall is no longer active\b/.test(outputText) ||
         /\btransfer was interrupted\b/.test(outputText) ||
         /\bno active sip session\b/.test(outputText) ||
         /\btransfer failed\b/.test(outputText)
       ) {
         return "transfer_failed";
       }
-      return "transfer_started";
+      return isError ? "middleware_error" : "transfer_started";
     case "create_staff_task":
-      if (/\bcould not send the staff task\b/.test(outputText)) {
+      if (
+        /\bcould not send the staff task\b/.test(outputText) ||
+        /\bcouldn't send the message\b/.test(outputText)
+      ) {
         return "staff_task_failed";
       }
       if (/\btask already sent to staff\b/.test(outputText)) {
@@ -281,28 +340,87 @@ export function classifyToolOutput(
       if (/\btask sent to staff\b/.test(outputText)) {
         return "staff_task_created";
       }
-      return "staff_task_created";
+      return isError ? "middleware_error" : "staff_task_created";
     case "get_availability":
+      if (/\bcouldn't check availability\b/.test(outputText)) {
+        return "availability_failed";
+      }
       if (
         /\bverify or create the patient before checking availability\b/.test(
           outputText,
         ) ||
         /\bbefore checking availability\b/.test(outputText)
       ) {
-        return "availability_blocked";
+        return "availability_needs_input";
       }
-      return "availability_returned";
+      return isError ? "middleware_error" : "availability_returned";
     case "resolve_patient":
+      if (patientIdentityOutcome) {
+        return patientIdentityOutputClass(patientIdentityOutcome);
+      }
+      if (
+        /\bcouldn't look up the patient\b/.test(outputText) ||
+        /\bpatient lookup failed\b/.test(outputText)
+      ) {
+        return "patient_lookup_failed";
+      }
+      if (isError) return "middleware_error";
       return patientIdentityOutputClass(patientIdentityOutcome);
     case "add_patient":
+      if (/\bcouldn't create the patient chart\b/.test(outputText)) {
+        return "patient_creation_failed";
+      }
+      if (
+        /\bbefore creating a new chart\b/.test(outputText) ||
+        /\brun check_insurance\b/.test(outputText) ||
+        /\bcollect the patient's ssn\b/.test(outputText) ||
+        /\bcallback phone number is required\b/.test(outputText) ||
+        /\bask the caller\b/.test(outputText) ||
+        /\bread back\b/.test(outputText)
+      ) {
+        return "patient_creation_needs_input";
+      }
+      if (isError) return "middleware_error";
       return "patient_created";
     case "update_insurance":
+      if (
+        /\bcouldn't update the insurance\b/.test(outputText) ||
+        /\binsurance was not updated\b/.test(outputText)
+      ) {
+        return "insurance_update_failed";
+      }
+      if (
+        /\bverify the patient\b/.test(outputText) ||
+        /\brun check_insurance\b/.test(outputText) ||
+        /\bcollect the member id\b/.test(outputText)
+      ) {
+        return "insurance_update_needs_input";
+      }
+      if (isError) return "middleware_error";
       return "insurance_updated";
     case "check_insurance":
-      return "insurance_checked";
+      return isError ? "middleware_error" : "insurance_checked";
     default:
-      return "unknown";
+      return isError ? "middleware_error" : "unknown";
   }
+}
+
+function platformToolErrorClass(
+  outputText: string,
+  isError: boolean,
+): ToolOutputClass | null {
+  if (!isError) return null;
+  if (
+    /^invalid arguments for\b/.test(outputText) ||
+    /^invalid tool arguments\b/.test(outputText)
+  ) {
+    return "invalid_tool_arguments";
+  }
+  if (/^unknown function:/.test(outputText)) return "unknown_tool";
+  if (/\ban internal error occurred\b/.test(outputText)) {
+    return "internal_tool_error";
+  }
+  return null;
 }
 
 function toolExecutionStatus(
@@ -330,8 +448,15 @@ export function snapshotToolExecutions(
     const duplicateRejected = duplicateToolWasRejected(
       normalizedOutputText(output?.output),
     );
+    const platformError = platformToolErrorClass(
+      normalizedOutputText(output?.output),
+      isError,
+    );
     const patientIdentityOutcome =
-      !isError && !duplicateRejected && toolName === "resolve_patient"
+      !duplicateRejected &&
+      toolName === "resolve_patient" &&
+      platformError !== "invalid_tool_arguments" &&
+      platformError !== "unknown_tool"
         ? takePatientIdentityOutcome()
         : undefined;
     const outputClass = classifyToolOutput(

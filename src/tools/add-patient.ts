@@ -1,4 +1,4 @@
-import { ToolError, tool } from "@livekit/agents";
+import { tool } from "@livekit/agents";
 import { z } from "zod";
 import {
   ownedMiddleware,
@@ -29,6 +29,7 @@ import {
   routineVisionSchedulingUnavailable,
 } from "../scheduling/routing.js";
 import { getState } from "./session.js";
+import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 
 const addPatientParameters = z
   .object({
@@ -157,9 +158,7 @@ export const add_patient = tool({
       (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
 
     if (coverageType === "routine_vision" && !params.ssnLast4) {
-      throw new ToolError(
-        "Collect the patient's SSN last four before creating a routine-vision chart.",
-      );
+      return "Collect the patient's SSN last four before creating a routine-vision chart.";
     }
 
     if (!explicitPhone && !params.inboundPhoneConfirmed) {
@@ -179,9 +178,7 @@ export const add_patient = tool({
     }
 
     if (!phone) {
-      throw new ToolError(
-        "A callback phone number is required before creating a chart. Ask whether the inbound number is best, or collect a callback number.",
-      );
+      return "A callback phone number is required before creating a chart. Ask whether the inbound number is best, or collect a callback number.";
     }
 
     const payload: CreatePatientInput = {
@@ -223,7 +220,7 @@ export const add_patient = tool({
       !patientIdentityTransitionIsCurrent(state, transitionVersion)
     ) {
       if (result.status === "error") {
-        return "The patient chart was not created. The active patient changed before the result returned. Continue with the current patient's state.";
+        return "I couldn't create the patient chart, and the active patient changed. Continue with the current patient and do not retry this request.";
       }
       const patientName =
         result.name?.trim() || `${params.firstName} ${params.lastName}`;
@@ -233,7 +230,10 @@ export const add_patient = tool({
       return `Created a patient chart for ${patientName}, but the active patient changed before the result returned. Do not create another chart. Continue with the current patient's state.`;
     }
     if (result.status === "error") {
-      return "The patient chart was not created.";
+      throwOwnedMiddlewareFailure(
+        result,
+        "I couldn't create the patient chart. I can try once more or connect you with the office.",
+      );
     }
 
     applyPatientResult(state, result);

@@ -13,6 +13,7 @@ import {
 } from "./state.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
+import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 
 type AvailabilityToolResponse = {
   message: string;
@@ -43,11 +44,10 @@ export function storeAvailabilitySlots(
   if (result.status === "error") {
     recordOwnedMiddlewareFailure(state, "getAvailability", result);
     clearAvailabilitySelection(state);
-    return {
-      message:
-        "I'm having trouble checking availability. Please try the search once more.",
-      cacheable: false,
-    };
+    throwOwnedMiddlewareFailure(
+      result,
+      "I couldn't check availability. I can try once more or connect you with the office.",
+    );
   }
 
   const offeredSlots = distinctAvailabilitySlots(result.slots).slice(

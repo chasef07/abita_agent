@@ -2,9 +2,12 @@ import { tool, type ToolOptions } from "@livekit/agents";
 import { z } from "zod";
 import { resolvePatientWithOwnedMiddleware } from "../clients/owned-middleware.js";
 import {
-  resolvePatientIdentity,
+  resolvePatientIdentityResult,
+  type PatientIdentityResolution,
   type PatientResolveLookup,
 } from "../identity/promotion.js";
+import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
+import { recordPatientIdentityOutcome } from "../state/call-state.js";
 import { getState } from "./session.js";
 
 const resolvePatientParameters = z
@@ -63,7 +66,24 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
     execute: async (identity: ResolvePatientArgs, { ctx }: ToolOptions) => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
-      return resolvePatientIdentity(state, identity, lookup);
+      const outcomeCount = state.runtime.patientIdentityOutcomes.length;
+      let resolution: PatientIdentityResolution;
+      try {
+        resolution = await resolvePatientIdentityResult(
+          state,
+          identity,
+          lookup,
+        );
+      } catch (error) {
+        if (state.runtime.patientIdentityOutcomes.length === outcomeCount) {
+          recordPatientIdentityOutcome(state, "lookup_failed");
+        }
+        throw error;
+      }
+      if (resolution.outcome === "lookup_failed" && resolution.failure) {
+        throwOwnedMiddlewareFailure(resolution.failure, resolution.reply);
+      }
+      return resolution.reply;
     },
   };
 }
