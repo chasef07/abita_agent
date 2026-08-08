@@ -439,6 +439,37 @@ describe("call observability", () => {
     expect(outcomes).toEqual([]);
   });
 
+  it("consumes a masked identity outcome before the next successful lookup", () => {
+    const outcomes = ["lookup_failed" as const, "verified" as const];
+    const executions = snapshotToolExecutions(
+      {
+        functionCalls: [
+          { callId: "call_1", name: "resolve_patient" },
+          { callId: "call_2", name: "resolve_patient" },
+        ],
+        functionCallOutputs: [
+          {
+            callId: "call_1",
+            isError: true,
+            output: "An internal error occurred while executing the tool.",
+          },
+          {
+            callId: "call_2",
+            isError: false,
+            output: "Verified existing patient. Patient record is loaded.",
+          },
+        ],
+      },
+      () => outcomes.shift(),
+    );
+
+    expect(executions).toMatchObject([
+      { outputClass: "internal_tool_error", status: "error" },
+      { outputClass: "patient_verified", status: "success" },
+    ]);
+    expect(outcomes).toEqual([]);
+  });
+
   it.each([true, false])(
     "classifies rejected duplicate identity tools without consuming outcomes (duplicate first: %s)",
     (duplicateFirst) => {

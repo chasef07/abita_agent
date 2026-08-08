@@ -1,4 +1,4 @@
-import { ToolError, tool } from "@livekit/agents";
+import { tool } from "@livekit/agents";
 import { z } from "zod";
 import {
   ownedMiddleware,
@@ -22,6 +22,7 @@ import {
 } from "../scheduling/state.js";
 import { getAmdOfficeForToolCall } from "../scheduling/routing.js";
 import { getState } from "./session.js";
+import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 
 export const update_insurance = tool({
   name: "update_insurance",
@@ -97,7 +98,8 @@ export const update_insurance = tool({
 
     if (result.status !== "updated") {
       recordOwnedMiddlewareFailure(state, "updateInsurance", result);
-      throw new ToolError(
+      throwOwnedMiddlewareFailure(
+        result,
         "I couldn't update the insurance. I can try once more or connect you with the office.",
       );
     }

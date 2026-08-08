@@ -25,6 +25,14 @@ export type MiddlewareFailure = {
   detail?: "missing_appointment_id";
 };
 
+export function middlewareFailureIsRetryable(
+  failure: MiddlewareFailure,
+): boolean {
+  return (
+    failure.reason === "middleware_error" || failure.reason === "network_error"
+  );
+}
+
 export type PatientResolveResult =
   Exclude<LegacyPatientResolveResult, { status: "error" }> | MiddlewareFailure;
 
@@ -268,16 +276,30 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     fallbackPhone?: string | null;
     signal?: AbortSignal;
   }): Promise<PatientResolveResult> {
-    const transport = await this.#post(
+    let transport = await this.#post(
       "/api/patient/resolve",
       request.office,
       request.identity,
       { signal: request.signal },
     );
     if (!transport.ok) return transport.failure;
-    return normalizePatientResolveResponse(transport.value, {
+    let result = normalizePatientResolveResponse(transport.value, {
       fallbackPhone: request.fallbackPhone,
     }) as PatientResolveResult;
+    if (isUnclassifiedReadFailure(result)) {
+      transport = await this.#post(
+        "/api/patient/resolve",
+        request.office,
+        request.identity,
+        { signal: request.signal },
+      );
+      if (!transport.ok) return transport.failure;
+      result = normalizePatientResolveResponse(transport.value, {
+        fallbackPhone: request.fallbackPhone,
+      }) as PatientResolveResult;
+      if (isUnclassifiedReadFailure(result)) return requestRejectedFailure();
+    }
+    return result;
   }
 
   async getAvailability(request: {
@@ -289,24 +311,37 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     preauthRequired?: boolean;
     signal?: AbortSignal;
   }): Promise<AvailabilityResult> {
-    const transport = await this.#post(
+    const body = {
+      ...(request.requestedDate
+        ? { requestedDate: request.requestedDate }
+        : {}),
+      ...(request.preferredTime
+        ? { preferredTime: request.preferredTime }
+        : {}),
+      ...(request.dob ? { dob: request.dob } : {}),
+      ...(request.routing ? { routing: request.routing } : {}),
+      ...(request.preauthRequired ? { preauthRequired: true } : {}),
+    };
+    let transport = await this.#post(
       "/api/scheduler/availability",
       request.office,
-      {
-        ...(request.requestedDate
-          ? { requestedDate: request.requestedDate }
-          : {}),
-        ...(request.preferredTime
-          ? { preferredTime: request.preferredTime }
-          : {}),
-        ...(request.dob ? { dob: request.dob } : {}),
-        ...(request.routing ? { routing: request.routing } : {}),
-        ...(request.preauthRequired ? { preauthRequired: true } : {}),
-      },
+      body,
       { signal: request.signal },
     );
     if (!transport.ok) return transport.failure;
-    return normalizeAvailability(transport.value);
+    let result = normalizeAvailability(transport.value);
+    if (isUnclassifiedReadFailure(result)) {
+      transport = await this.#post(
+        "/api/scheduler/availability",
+        request.office,
+        body,
+        { signal: request.signal },
+      );
+      if (!transport.ok) return transport.failure;
+      result = normalizeAvailability(transport.value);
+      if (isUnclassifiedReadFailure(result)) return requestRejectedFailure();
+    }
+    return result;
   }
 
   async createPatient(request: {
@@ -420,22 +455,29 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
         signal: this.#requestSignal(options.signal),
       });
       if (!response.ok) {
+        const retryable =
+          response.status === 408 ||
+          response.status === 429 ||
+          response.status >= 500;
         return {
           ok: false,
           failure: {
             status: "error",
-            reason: "middleware_error",
+            reason: retryable ? "middleware_error" : "request_rejected",
           },
         };
       }
       try {
         return { ok: true, value: await response.json() };
-      } catch {
+      } catch (error) {
         return {
           ok: false,
           failure: {
             status: "error",
-            reason: "invalid_response",
+            reason:
+              error instanceof SyntaxError
+                ? "invalid_response"
+                : "network_error",
           },
         };
       }
@@ -461,7 +503,7 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
   if (hasFailureStatus(raw) && outcome !== "availability_search_incomplete") {
     return {
       status: "error",
-      reason: "middleware_error",
+      reason: outcome === null ? "middleware_error" : "request_rejected",
     };
   }
   const status = availabilityStatus(outcome);
@@ -541,10 +583,7 @@ function normalizeCreatedPatient(
   fallback: { dob: string; phone: string },
 ): CreatePatientResult {
   if (hasFailureStatus(raw)) {
-    return {
-      status: "error",
-      reason: "middleware_error",
-    };
+    return mutationFailure(raw, patientMutationCanRetry);
   }
   const status = isRecord(raw)
     ? (stringValue(raw.status)?.toLowerCase() ?? "")
@@ -634,10 +673,7 @@ function normalizeBookedAppointment(raw: unknown): BookAppointmentResult {
     };
   }
   return hasFailureStatus(raw)
-    ? {
-        status: "error",
-        reason: "middleware_error",
-      }
+    ? mutationFailure(raw, schedulingMutationCanRetry)
     : invalidBookingResult();
 }
 
@@ -661,10 +697,9 @@ function normalizeCancelledAppointment(raw: unknown): CancelAppointmentResult {
       message: stringValue(response?.message),
     };
   }
-  return {
-    status: "error",
-    reason: hasFailureStatus(raw) ? "middleware_error" : "invalid_response",
-  };
+  return hasFailureStatus(raw)
+    ? mutationFailure(raw, schedulingMutationCanRetry)
+    : { status: "error", reason: "invalid_response" };
 }
 
 function normalizeUpdatedInsurance(raw: unknown): UpdateInsuranceResult {
@@ -682,10 +717,40 @@ function normalizeUpdatedInsurance(raw: unknown): UpdateInsuranceResult {
       preauthRequired: raw.preauthRequired === true,
     };
   }
+  return hasFailureStatus(raw)
+    ? mutationFailure(raw, patientMutationCanRetry)
+    : { status: "error", reason: "invalid_response" };
+}
+
+function mutationFailure(
+  raw: unknown,
+  canRetry: (outcome: string | null) => boolean,
+): MiddlewareFailure {
+  const outcome = isRecord(raw)
+    ? (stringValue(raw.outcome)?.toLowerCase() ?? null)
+    : null;
   return {
     status: "error",
-    reason: hasFailureStatus(raw) ? "middleware_error" : "invalid_response",
+    reason: canRetry(outcome) ? "middleware_error" : "request_rejected",
   };
+}
+
+function patientMutationCanRetry(outcome: string | null): boolean {
+  return outcome === "unavailable" || outcome === "reconciled_failure";
+}
+
+function schedulingMutationCanRetry(outcome: string | null): boolean {
+  return outcome === "write_failed";
+}
+
+function isUnclassifiedReadFailure(
+  result: PatientResolveResult | AvailabilityResult,
+): boolean {
+  return result.status === "error" && result.reason === "middleware_error";
+}
+
+function requestRejectedFailure(): MiddlewareFailure {
+  return { status: "error", reason: "request_rejected" };
 }
 
 function invalidBookingResult(): BookAppointmentResult {

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToolError } from "@livekit/agents";
 
 import {
   HOLLYWOOD_OFFICE_PHONE,
@@ -1745,6 +1746,27 @@ describe("scheduling tools", () => {
     ]);
   });
 
+  it("leaves an invalid availability response as an internal error", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [{ status: "error", reason: "invalid_response" }],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+
+    const failure = get_availability.execute(
+      { when: "2026-06-01", visitType: "medical" },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
+
+    await expect(failure).rejects.toThrow(
+      "Owned Middleware returned a non-retryable failure.",
+    );
+    await expect(failure).rejects.not.toBeInstanceOf(ToolError);
+  });
+
   it("forwards the caller's time preference and trusts middleware ranking", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [
@@ -2193,22 +2215,23 @@ describe("scheduling tools", () => {
     const state = createState();
     prepareBooking(state);
 
-    await expect(
-      book_appointment.execute(
-        {
-          appointmentSlotRef: "S1",
-          appointmentReason: "left eye pain since yesterday",
-          referringDoctor: "none",
-          readBack: true,
-        },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "booking-1",
-        } as never,
-      ),
-    ).rejects.toThrow(
-      "I couldn't book the appointment. I can try once more or connect you with the office.",
+    const failure = book_appointment.execute(
+      {
+        appointmentSlotRef: "S1",
+        appointmentReason: "left eye pain since yesterday",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "booking-1",
+      } as never,
     );
+
+    await expect(failure).rejects.toThrow(
+      "Owned Middleware returned a non-retryable failure.",
+    );
+    await expect(failure).rejects.not.toBeInstanceOf(ToolError);
     expect(state.identity.patient.appointments).toEqual([]);
     expect(appointmentActions(state)).toMatchObject([
       { action: "booked", status: "error" },

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToolError } from "@livekit/agents";
 
 import {
   setOwnedMiddleware,
@@ -19,6 +20,7 @@ import {
   resolve_patient,
   update_insurance,
 } from "../tools/index.js";
+import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
 import { deferredResult } from "./support/deferred-result.js";
 import {
@@ -423,6 +425,47 @@ describe("stateful call tools", () => {
     expect(ownedMiddlewareFailures(state)).toMatchObject([
       { operation: "createPatient", reason: "middleware_error" },
     ]);
+  });
+
+  it("leaves a malformed chart-creation response as an internal error", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    state.identity.preCall = {
+      status: "no_match",
+      source: "phone_lookup",
+      callerPhone: "+17275551212",
+      candidates: [],
+    };
+    markSchedulingTriaged(state);
+    markAcceptedInsurance(state);
+    stubCreatePatient({ status: "error", reason: "invalid_response" });
+
+    const failure = add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "self pay",
+        inboundPhoneConfirmed: true,
+        newPatientConfirmed: true,
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    await expect(failure).rejects.toThrow(
+      "Owned Middleware returned a non-retryable failure.",
+    );
+    await expect(failure).rejects.not.toBeInstanceOf(ToolError);
   });
 
   it.each(["resolve_first", "creation_first"] as const)(
@@ -1401,6 +1444,51 @@ describe("stateful call tools", () => {
     expect(ownedMiddlewareFailures(state)).toMatchObject([
       { operation: "resolvePatient", reason: "middleware_error" },
     ]);
+  });
+
+  it("leaves an invalid patient response as an internal error", async () => {
+    const state = createState();
+    setSingleArshedPreCallCandidate(state);
+    stubPatient({ status: "error", reason: "invalid_response" });
+
+    const failure = resolve_patient.execute(
+      {
+        firstName: "Lisa",
+        lastName: "Arshed",
+        dob: "10/03/2020",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    await expect(failure).rejects.toThrow(
+      "Owned Middleware returned a non-retryable failure.",
+    );
+    await expect(failure).rejects.not.toBeInstanceOf(ToolError);
+  });
+
+  it("records a lookup outcome when identity resolution throws early", async () => {
+    const state = createState();
+    const tool = createResolvePatientTool(async () => {
+      throw new Error("unexpected lookup failure");
+    });
+
+    await expect(
+      tool.execute(
+        {
+          firstName: "Different",
+          lastName: "Patient",
+          dob: "01/01/1980",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).rejects.toThrow("unexpected lookup failure");
+    expect(state.runtime.patientIdentityOutcomes).toEqual(["lookup_failed"]);
   });
 
   it("verifies a backend patient before spelling fallback when a pre-call single match shares last name and DOB", async () => {
@@ -2575,6 +2663,31 @@ describe("stateful call tools", () => {
     expect(ownedMiddlewareFailures(state)).toMatchObject([
       { operation: "updateInsurance", reason: "middleware_error" },
     ]);
+  });
+
+  it("leaves an invalid insurance-update response as an internal error", async () => {
+    const state = createState();
+    state.insurance.lastEligibilityCheck = {
+      plan: "Sunshine Health",
+      canonicalPlan: "Envolve",
+      coverageType: "routine_vision",
+      currentCarrier: "Sunshine",
+      accepted: true,
+    };
+    stubInsuranceUpdate({ status: "error", reason: "invalid_response" });
+
+    const failure = update_insurance.execute(
+      { insuranceMemberId: "946-327-2674" },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    await expect(failure).rejects.toThrow(
+      "Owned Middleware returned a non-retryable failure.",
+    );
+    await expect(failure).rejects.not.toBeInstanceOf(ToolError);
   });
 
   it("uses explicit self pay as the member ID sentinel", async () => {

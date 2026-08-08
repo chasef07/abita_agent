@@ -1,4 +1,3 @@
-import { ToolError } from "@livekit/agents";
 import {
   getOfficeProfileByFacility,
   normalizePhoneNumber,
@@ -91,6 +90,7 @@ import {
   prepareAvailabilityLookupContext,
 } from "./context.js";
 import { SchedulingInputRequired } from "./input-required.js";
+import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 import type {
   AvailabilityRequest as MiddlewareAvailabilityRequest,
   AvailabilityResult,
@@ -293,9 +293,7 @@ export class SchedulingWorkflow {
         ),
       });
       if (result.status === "error") {
-        throw new ToolError(
-          "I couldn't book the appointment, and the active patient changed. Continue with the current patient and do not retry this request.",
-        );
+        return "I couldn't book the appointment, and the active patient changed. Continue with the current patient and do not retry this request.";
       }
       return `${message} The active patient changed before the booking result returned. Continue with the current patient's state.`;
     }
@@ -344,7 +342,8 @@ export class SchedulingWorkflow {
         ),
       });
       if (result.status === "error") {
-        throw new ToolError(
+        throwOwnedMiddlewareFailure(
+          result,
           "I couldn't book the appointment. I can try once more or connect you with the office.",
         );
       }
@@ -383,7 +382,8 @@ export class SchedulingWorkflow {
       appointment: bookedSlotAppointmentAnalytics(state, selectedSlot, result),
     });
     if (result.status === "error") {
-      throw new ToolError(
+      throwOwnedMiddlewareFailure(
+        result,
         "I couldn't book the appointment. I can try once more or connect you with the office.",
       );
     }
@@ -455,9 +455,7 @@ export class SchedulingWorkflow {
         ),
       });
       if (result.status === "error") {
-        throw new ToolError(
-          "I couldn't cancel the appointment, and the active patient changed. Continue with the current patient and do not retry this request.",
-        );
+        return "I couldn't cancel the appointment, and the active patient changed. Continue with the current patient and do not retry this request.";
       }
       return `${message} The active patient changed before the cancellation result returned. Continue with the current patient's state.`;
     }
@@ -488,7 +486,8 @@ export class SchedulingWorkflow {
         message,
         cancelledAppointment: cancelledAppointmentAnalytics(state, appointment),
       });
-      throw new ToolError(
+      throwOwnedMiddlewareFailure(
+        result,
         "I couldn't cancel the appointment. I can try once more or connect you with the office.",
       );
     }
@@ -1047,7 +1046,8 @@ function handleRescheduleBookingFailure(
       oldAppointment,
     });
     if (bookingResult.status === "error") {
-      throw new ToolError(
+      throwOwnedMiddlewareFailure(
+        bookingResult,
         "I couldn't book the new appointment. I did not cancel the existing appointment.",
       );
     }
@@ -1082,7 +1082,8 @@ function handleRescheduleBookingFailure(
     oldAppointment,
   });
   if (bookingResult.status === "error") {
-    throw new ToolError(
+    throwOwnedMiddlewareFailure(
+      bookingResult,
       "I couldn't book the new appointment. I did not cancel the existing appointment.",
     );
   }

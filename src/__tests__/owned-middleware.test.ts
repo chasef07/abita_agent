@@ -6,6 +6,7 @@ import {
 } from "../customers/abita/profile.js";
 import {
   HttpOwnedMiddleware,
+  middlewareFailureIsRetryable,
   type AvailabilityResult,
   type BookAppointmentResult,
   type CancelAppointmentResult,
@@ -548,12 +549,34 @@ describe("HTTP owned middleware transport", () => {
 
   it.each([
     {
-      name: "middleware failure",
+      name: "server failure",
       fetch: vi.fn(
         async () => new Response("private backend detail", { status: 503 }),
       ),
       office: SPRING_HILL_OFFICE_PHONE,
       expectedReason: "middleware_error",
+      expectedRetryable: true,
+    },
+    {
+      name: "request timeout",
+      fetch: vi.fn(async () => new Response(null, { status: 408 })),
+      office: SPRING_HILL_OFFICE_PHONE,
+      expectedReason: "middleware_error",
+      expectedRetryable: true,
+    },
+    {
+      name: "rate limit",
+      fetch: vi.fn(async () => new Response(null, { status: 429 })),
+      office: SPRING_HILL_OFFICE_PHONE,
+      expectedReason: "middleware_error",
+      expectedRetryable: true,
+    },
+    {
+      name: "permanent request rejection",
+      fetch: vi.fn(async () => new Response(null, { status: 401 })),
+      office: SPRING_HILL_OFFICE_PHONE,
+      expectedReason: "request_rejected",
+      expectedRetryable: false,
     },
     {
       name: "network failure",
@@ -562,18 +585,34 @@ describe("HTTP owned middleware transport", () => {
       }),
       office: SPRING_HILL_OFFICE_PHONE,
       expectedReason: "network_error",
+      expectedRetryable: true,
     },
     {
       name: "invalid response",
       fetch: vi.fn(async () => new Response("{", { status: 200 })),
       office: SPRING_HILL_OFFICE_PHONE,
       expectedReason: "invalid_response",
+      expectedRetryable: false,
+    },
+    {
+      name: "interrupted response body",
+      fetch: vi.fn(async () => {
+        const response = Response.json({});
+        vi.spyOn(response, "json").mockRejectedValue(
+          new TypeError("private body stream failure"),
+        );
+        return response;
+      }),
+      office: SPRING_HILL_OFFICE_PHONE,
+      expectedReason: "network_error",
+      expectedRetryable: true,
     },
     {
       name: "unsupported office",
       fetch: vi.fn(),
       office: "+19999999999",
       expectedReason: "unsupported_office",
+      expectedRetryable: false,
     },
   ])("normalizes $name without exposing transport detail", async (testCase) => {
     const middleware = new HttpOwnedMiddleware({
@@ -590,6 +629,11 @@ describe("HTTP owned middleware transport", () => {
       status: "error",
       reason: testCase.expectedReason,
     });
+    if (result.status !== "error")
+      throw new Error("Expected middleware failure");
+    expect(middlewareFailureIsRetryable(result)).toBe(
+      testCase.expectedRetryable,
+    );
     expect(result).not.toHaveProperty("message");
   });
 
@@ -867,7 +911,7 @@ describe("HTTP owned middleware transport", () => {
 
     expect(result).toEqual({
       status: "error",
-      reason: "middleware_error",
+      reason: "request_rejected",
     });
   });
 
@@ -1152,6 +1196,7 @@ describe("HTTP owned middleware transport", () => {
   it.each([
     {
       name: "patient lookup",
+      expectedReason: "request_rejected",
       call: (middleware: HttpOwnedMiddleware) =>
         middleware.resolvePatient({
           office: SPRING_HILL_OFFICE_PHONE,
@@ -1160,6 +1205,7 @@ describe("HTTP owned middleware transport", () => {
     },
     {
       name: "availability",
+      expectedReason: "request_rejected",
       call: (middleware: HttpOwnedMiddleware) =>
         middleware.getAvailability({
           office: SPRING_HILL_OFFICE_PHONE,
@@ -1168,6 +1214,7 @@ describe("HTTP owned middleware transport", () => {
     },
     {
       name: "chart creation",
+      expectedReason: "request_rejected",
       call: (middleware: HttpOwnedMiddleware) =>
         middleware.createPatient({
           office: SPRING_HILL_OFFICE_PHONE,
@@ -1190,6 +1237,7 @@ describe("HTTP owned middleware transport", () => {
     },
     {
       name: "booking",
+      expectedReason: "request_rejected",
       call: (middleware: HttpOwnedMiddleware) =>
         middleware.bookAppointment({
           office: SPRING_HILL_OFFICE_PHONE,
@@ -1205,6 +1253,7 @@ describe("HTTP owned middleware transport", () => {
     },
     {
       name: "cancellation",
+      expectedReason: "request_rejected",
       call: (middleware: HttpOwnedMiddleware) =>
         middleware.cancelAppointment({
           office: SPRING_HILL_OFFICE_PHONE,
@@ -1214,6 +1263,7 @@ describe("HTTP owned middleware transport", () => {
     },
     {
       name: "insurance update",
+      expectedReason: "request_rejected",
       call: (middleware: HttpOwnedMiddleware) =>
         middleware.updateInsurance({
           office: SPRING_HILL_OFFICE_PHONE,
@@ -1228,23 +1278,70 @@ describe("HTTP owned middleware transport", () => {
           },
         }),
     },
-  ])("sanitizes semantic $name failure bodies", async ({ call }) => {
+  ])(
+    "sanitizes semantic $name failure bodies",
+    async ({ call, expectedReason }) => {
+      const middleware = new HttpOwnedMiddleware({
+        fetch: vi.fn(async () =>
+          Response.json({
+            status: "error",
+            message: "private patient and backend detail",
+          }),
+        ),
+        productionBaseUrl: "https://middleware.test",
+      });
+
+      const result = await call(middleware);
+
+      expect(result).toEqual({
+        status: "error",
+        reason: expectedReason,
+      });
+    },
+  );
+
+  it("retries one unclassified patient read before returning success", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ status: "error", message: "private detail" }),
+      )
+      .mockResolvedValueOnce(Response.json(verifiedPatient));
     const middleware = new HttpOwnedMiddleware({
-      fetch: vi.fn(async () =>
-        Response.json({
-          status: "error",
-          message: "private patient and backend detail",
-        }),
-      ),
+      fetch: fetchMock,
       productionBaseUrl: "https://middleware.test",
     });
 
-    const result = await call(middleware);
+    await expect(
+      middleware.resolvePatient({
+        office: SPRING_HILL_OFFICE_PHONE,
+        identity: { phone: "+17275551212" },
+      }),
+    ).resolves.toMatchObject({ status: "verified", patientId: "patient-1" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 
-    expect(result).toEqual({
-      status: "error",
-      reason: "middleware_error",
+  it("retries one unclassified availability read before returning success", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ status: "error", message: "private detail" }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ ...availabilityFound, outcome: "availability_found" }),
+      );
+    const middleware = new HttpOwnedMiddleware({
+      fetch: fetchMock,
+      productionBaseUrl: "https://middleware.test",
     });
+
+    await expect(
+      middleware.getAvailability({
+        office: SPRING_HILL_OFFICE_PHONE,
+        requestedDate: "2026-08-01",
+      }),
+    ).resolves.toMatchObject({ status: "found" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it.each([
@@ -1620,6 +1717,7 @@ const semanticFailure = (
     | "middleware_error"
     | "network_error"
     | "invalid_response"
+    | "request_rejected"
     | "unsupported_office"
     | "cancelled",
   detail?: "missing_appointment_id",
@@ -1666,10 +1764,10 @@ const semanticContractCases: SemanticContractCase[] = [
     name: "patient middleware failure",
     http: httpResult({ status: "error", message: "private detail" }),
     memory: memoryResult({
-      resolvePatient: [semanticFailure("middleware_error")],
+      resolvePatient: [semanticFailure("request_rejected")],
     }),
     invoke: patientLookup,
-    expected: semanticFailure("middleware_error"),
+    expected: semanticFailure("request_rejected"),
   },
   {
     name: "patient network failure",
@@ -1788,10 +1886,36 @@ const semanticContractCases: SemanticContractCase[] = [
     name: "chart creation failure",
     http: httpResult({ status: "error", message: "private detail" }),
     memory: memoryResult({
+      createPatient: [semanticFailure("request_rejected")],
+    }),
+    invoke: createPatient,
+    expected: semanticFailure("request_rejected"),
+  },
+  {
+    name: "retryable chart creation failure",
+    http: httpResult({
+      status: "error",
+      outcome: "unavailable",
+      message: "private detail",
+    }),
+    memory: memoryResult({
       createPatient: [semanticFailure("middleware_error")],
     }),
     invoke: createPatient,
     expected: semanticFailure("middleware_error"),
+  },
+  {
+    name: "unclassified chart creation failure",
+    http: httpResult({
+      status: "error",
+      outcome: "failed",
+      message: "private detail",
+    }),
+    memory: memoryResult({
+      createPatient: [semanticFailure("request_rejected")],
+    }),
+    invoke: createPatient,
+    expected: semanticFailure("request_rejected"),
   },
   {
     name: "invalid chart response",
@@ -1850,14 +1974,53 @@ const semanticContractCases: SemanticContractCase[] = [
     name: "booking middleware failure",
     http: httpResult({ status: "error", message: "private detail" }),
     memory: memoryResult({
+      bookAppointment: [semanticFailure("request_rejected")],
+    }),
+    invoke: bookAppointment,
+    expected: semanticFailure("request_rejected"),
+  },
+  {
+    name: "retryable booking failure",
+    http: httpResult({
+      status: "error",
+      outcome: "write_failed",
+      message: "private detail",
+    }),
+    memory: memoryResult({
       bookAppointment: [semanticFailure("middleware_error")],
     }),
     invoke: bookAppointment,
     expected: semanticFailure("middleware_error"),
   },
   {
+    name: "indeterminate booking failure",
+    http: httpResult({
+      status: "error",
+      outcome: "indeterminate_write",
+      message: "private detail",
+    }),
+    memory: memoryResult({
+      bookAppointment: [semanticFailure("request_rejected")],
+    }),
+    invoke: bookAppointment,
+    expected: semanticFailure("request_rejected"),
+  },
+  {
     name: "cancellation failure",
     http: httpResult({ status: "error", message: "private detail" }),
+    memory: memoryResult({
+      cancelAppointment: [semanticFailure("request_rejected")],
+    }),
+    invoke: cancelAppointment,
+    expected: semanticFailure("request_rejected"),
+  },
+  {
+    name: "retryable cancellation failure",
+    http: httpResult({
+      status: "error",
+      outcome: "write_failed",
+      message: "private detail",
+    }),
     memory: memoryResult({
       cancelAppointment: [semanticFailure("middleware_error")],
     }),
@@ -1877,10 +2040,36 @@ const semanticContractCases: SemanticContractCase[] = [
     name: "insurance update failure",
     http: httpResult({ status: "error", message: "private detail" }),
     memory: memoryResult({
+      updateInsurance: [semanticFailure("request_rejected")],
+    }),
+    invoke: updateInsurance,
+    expected: semanticFailure("request_rejected"),
+  },
+  {
+    name: "retryable insurance update failure",
+    http: httpResult({
+      status: "error",
+      outcome: "reconciled_failure",
+      message: "private detail",
+    }),
+    memory: memoryResult({
       updateInsurance: [semanticFailure("middleware_error")],
     }),
     invoke: updateInsurance,
     expected: semanticFailure("middleware_error"),
+  },
+  {
+    name: "unclassified insurance update failure",
+    http: httpResult({
+      status: "error",
+      outcome: "failed",
+      message: "private detail",
+    }),
+    memory: memoryResult({
+      updateInsurance: [semanticFailure("request_rejected")],
+    }),
+    invoke: updateInsurance,
+    expected: semanticFailure("request_rejected"),
   },
   {
     name: "invalid insurance update response",

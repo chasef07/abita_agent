@@ -448,10 +448,15 @@ export function snapshotToolExecutions(
     const duplicateRejected = duplicateToolWasRejected(
       normalizedOutputText(output?.output),
     );
+    const platformError = platformToolErrorClass(
+      normalizedOutputText(output?.output),
+      isError,
+    );
     const patientIdentityOutcome =
       !duplicateRejected &&
       toolName === "resolve_patient" &&
-      !platformToolErrorClass(normalizedOutputText(output?.output), isError)
+      platformError !== "invalid_tool_arguments" &&
+      platformError !== "unknown_tool"
         ? takePatientIdentityOutcome()
         : undefined;
     const outputClass = classifyToolOutput(

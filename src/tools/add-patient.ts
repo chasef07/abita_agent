@@ -1,4 +1,4 @@
-import { ToolError, tool } from "@livekit/agents";
+import { tool } from "@livekit/agents";
 import { z } from "zod";
 import {
   ownedMiddleware,
@@ -29,6 +29,7 @@ import {
   routineVisionSchedulingUnavailable,
 } from "../scheduling/routing.js";
 import { getState } from "./session.js";
+import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 
 const addPatientParameters = z
   .object({
@@ -219,9 +220,7 @@ export const add_patient = tool({
       !patientIdentityTransitionIsCurrent(state, transitionVersion)
     ) {
       if (result.status === "error") {
-        throw new ToolError(
-          "I couldn't create the patient chart, and the active patient changed. Continue with the current patient and do not retry this request.",
-        );
+        return "I couldn't create the patient chart, and the active patient changed. Continue with the current patient and do not retry this request.";
       }
       const patientName =
         result.name?.trim() || `${params.firstName} ${params.lastName}`;
@@ -231,7 +230,8 @@ export const add_patient = tool({
       return `Created a patient chart for ${patientName}, but the active patient changed before the result returned. Do not create another chart. Continue with the current patient's state.`;
     }
     if (result.status === "error") {
-      throw new ToolError(
+      throwOwnedMiddlewareFailure(
+        result,
         "I couldn't create the patient chart. I can try once more or connect you with the office.",
       );
     }

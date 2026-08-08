@@ -1,4 +1,3 @@
-import { ToolError } from "@livekit/agents";
 import type { CallState, StoredAvailabilitySlot } from "../state/call-state.js";
 import type {
   AvailabilityResult,
@@ -14,6 +13,7 @@ import {
 } from "./state.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
+import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 
 type AvailabilityToolResponse = {
   message: string;
@@ -44,7 +44,8 @@ export function storeAvailabilitySlots(
   if (result.status === "error") {
     recordOwnedMiddlewareFailure(state, "getAvailability", result);
     clearAvailabilitySelection(state);
-    throw new ToolError(
+    throwOwnedMiddlewareFailure(
+      result,
       "I couldn't check availability. I can try once more or connect you with the office.",
     );
   }

@@ -1437,8 +1437,7 @@ describe("Voice Agent identity promotion", () => {
       appointments: [],
       message: null,
     });
-    const toolReply =
-      "Patient lookup returned an incomplete identity. Try again.";
+    const maskedError = "An internal error occurred";
     const llm = new voice.testing.FakeLLM([
       {
         input: "The patient is Jane Doe, born January 2, 1980.",
@@ -1454,7 +1453,7 @@ describe("Voice Agent identity promotion", () => {
         ],
       },
       {
-        input: toolReply,
+        input: maskedError,
         content: "I couldn't verify that record yet.",
       },
     ]);
@@ -1478,7 +1477,7 @@ describe("Voice Agent identity promotion", () => {
     await run.wait();
 
     run.expect.containsFunctionCallOutput({
-      output: toolReply,
+      output: maskedError,
       isError: true,
     });
     expect(session.userData.identity.patient).toMatchObject({
@@ -1675,7 +1674,9 @@ describe("Voice Agent identity promotion", () => {
     "preserves identity gates for normalized $label lookup outcomes",
     async ({ result, reply, outcome }) => {
       const isLookupFailure = outcome === "lookup_failed";
-      const toolOutput = isLookupFailure ? reply : JSON.stringify(reply);
+      const toolOutput = isLookupFailure
+        ? "An internal error occurred"
+        : JSON.stringify(reply);
       const llm = new voice.testing.FakeLLM([
         resolveTurn(
           "Find Jane Doe, January 2, 1980.",
