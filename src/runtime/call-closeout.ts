@@ -4,7 +4,6 @@ import {
   type AgentSession,
   type JobContext,
 } from "@livekit/agents";
-import { readFile } from "node:fs/promises";
 import {
   patientIdentityTransitions,
   takePatientIdentityOutcome,
@@ -73,8 +72,6 @@ export type CallCloseoutObserver = {
 };
 
 export type CallCloseoutCapture = {
-  audio?: Uint8Array;
-  audioUnreadable?: boolean;
   language: Record<string, unknown>;
   reportUnavailable?: boolean;
   sessionReport?: Record<string, unknown>;
@@ -372,21 +369,6 @@ export async function attachCallCloseout(input: {
       observedToolExecutions,
       recordedAppointmentActions,
     );
-    const capturedAudioBase64 = capture.audio
-      ? Buffer.from(capture.audio).toString("base64")
-      : undefined;
-    const audioBase64 =
-      capturedAudioBase64 && capturedAudioBase64.length < 4 * 1024 * 1024
-        ? capturedAudioBase64
-        : undefined;
-    if (capturedAudioBase64 && !audioBase64) {
-      logger.warn(
-        "[closeout] Call audio exceeded 4 MiB payload limit; omitted",
-      );
-    }
-    if (capture.audioUnreadable) {
-      logger.warn("[closeout] Recorded call audio could not be read; omitted");
-    }
     if (capture.reportUnavailable) {
       logger.warn("[closeout] LiveKit session report was unavailable");
     }
@@ -443,7 +425,6 @@ export async function attachCallCloseout(input: {
         ? { preCallLookup: callState.runtime.preCallLookup }
         : {}),
       sessionReport: capture.sessionReport,
-      ...(audioBase64 ? { audioBase64 } : {}),
     };
 
     const summaryResult = await deliverWithRetries(
@@ -608,28 +589,19 @@ export function createLiveKitCallCloseoutEventAdapter(
   return {
     async capture() {
       const voiceLanguage = options.voiceLanguageRuntime.snapshot();
-      let audio: Uint8Array | undefined;
-      let audioUnreadable = false;
       let reportUnavailable = false;
       let sessionReport: Record<string, unknown> | undefined;
 
       try {
         const report = ctx.makeSessionReport();
         sessionReport = sessionReportToJSON(report);
-        if (report.audioRecordingPath) {
-          try {
-            audio = await readFile(report.audioRecordingPath);
-          } catch {
-            audioUnreadable = true;
-          }
-        }
+        delete sessionReport.audio_recording_path;
+        delete sessionReport.audio_recording_started_at;
       } catch {
         reportUnavailable = true;
       }
 
       return {
-        ...(audio ? { audio } : {}),
-        ...(audioUnreadable ? { audioUnreadable } : {}),
         language: voiceLanguage.language,
         ...(reportUnavailable ? { reportUnavailable } : {}),
         sessionReport,
