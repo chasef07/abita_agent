@@ -113,7 +113,7 @@ function lookupFailure(
     status: "lookup_failed",
     phone,
     reason,
-    retryable: reason !== "unsupported_trunk",
+    retryable: reason === "middleware_error" || reason === "network_error",
     lookupDurationMs,
   };
 }

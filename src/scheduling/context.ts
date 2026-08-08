@@ -1,4 +1,3 @@
-import { ToolError } from "@livekit/agents";
 import {
   activeAppointments,
   activeAppointmentsStatus,
@@ -17,6 +16,7 @@ import {
   appointmentForChangeContext,
   rescheduleAppointmentForState,
 } from "./appointments.js";
+import { SchedulingInputRequired } from "./input-required.js";
 
 export function prepareAvailabilityLookupContext(
   state: CallState,
@@ -26,7 +26,7 @@ export function prepareAvailabilityLookupContext(
   if (oldAppointmentRef) {
     const selection = rescheduleAppointmentForState(state, oldAppointmentRef);
     if (selection.status !== "selected") {
-      throw new ToolError(selection.message);
+      throw new SchedulingInputRequired(selection.message);
     }
     applyTurnContextToState(state, {
       intent: "change_appointment",
@@ -61,7 +61,7 @@ export function ensureAvailabilityContext(
   action: string,
 ): void {
   if (availabilityContextReady(state)) return;
-  throw new ToolError(
+  throw new SchedulingInputRequired(
     `Pass visitType medical or routine_vision, or identify the existing appointment to move, before ${action}.`,
   );
 }

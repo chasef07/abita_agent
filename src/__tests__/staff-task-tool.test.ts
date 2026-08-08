@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ToolError } from "@livekit/agents";
 import {
   DEV_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
@@ -266,15 +267,14 @@ describe("create_staff_task", () => {
     expect(staffTaskReceipts(state)).toHaveLength(1);
   });
 
-  it("fails honestly and stores no receipt when posting is unavailable", async () => {
+  it("leaves missing delivery configuration as an internal error", async () => {
     vi.stubEnv("ANALYTICS_URL", "https://portal.example/api/livekit/calls");
     vi.stubEnv("LIVEKIT_FORWARD_SYNC_SECRET", "");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
-    const ctx = createToolContext(state);
 
-    const result = await create_staff_task.execute(
+    const failure = create_staff_task.execute(
       {
         category: "other",
         urgency: "normal",
@@ -282,14 +282,72 @@ describe("create_staff_task", () => {
         message: "Caller wants Debbie to call them back about their glasses.",
       },
       {
-        ctx: ctx as never,
+        ctx: createToolContext(state) as never,
         toolCallId: "tool-1",
       } as never,
     );
 
-    expect(result).toContain("Could not send the staff task");
-    expect(result).toContain("transfer you to the office");
+    await expect(failure).rejects.toThrow(
+      "Staff task delivery is not configured.",
+    );
+    await expect(failure).rejects.not.toBeInstanceOf(ToolError);
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(staffTaskReceipts(state)).toEqual([]);
+  });
+
+  it("returns a safe ToolError when configured delivery fails", async () => {
+    vi.stubEnv("ANALYTICS_URL", "https://portal.example/api/livekit/calls");
+    vi.stubEnv("LIVEKIT_FORWARD_SYNC_SECRET", "task-secret");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 503 })),
+    );
+    const state = createState();
+
+    const failure = create_staff_task.execute(
+      {
+        category: "other",
+        urgency: "normal",
+        summary: "Caller wants a message sent.",
+        message: "Caller wants Debbie to call them back about their glasses.",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    await expect(failure).rejects.toThrow(
+      "I couldn't send the message. I can transfer you to the office.",
+    );
+    await expect(failure).rejects.toBeInstanceOf(ToolError);
+    expect(staffTaskReceipts(state)).toEqual([]);
+  });
+
+  it("leaves permanent delivery rejection as an internal error", async () => {
+    vi.stubEnv("ANALYTICS_URL", "https://portal.example/api/livekit/calls");
+    vi.stubEnv("LIVEKIT_FORWARD_SYNC_SECRET", "task-secret");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 401 })),
+    );
+    const state = createState();
+
+    const failure = create_staff_task.execute(
+      {
+        category: "other",
+        urgency: "normal",
+        summary: "Caller wants a message sent.",
+        message: "Caller wants Debbie to call them back about their glasses.",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    await expect(failure).rejects.toThrow("Staff task POST returned 401");
+    await expect(failure).rejects.not.toBeInstanceOf(ToolError);
     expect(staffTaskReceipts(state)).toEqual([]);
   });
 });

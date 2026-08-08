@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.6.0](https://github.com/chasef07/abita_agent/compare/4.5.1...4.6.0) (2026-08-08)
+
+
+### Features
+
+* **tasks:** route demo tasks to Acuity Product ([#312](https://github.com/chasef07/abita_agent/issues/312)) ([bd60b6b](https://github.com/chasef07/abita_agent/commit/bd60b6b321718e346e5f4fc053a7586529195175))
+
+
+### Bug Fixes
+
+* **agent:** use native dynamic tool exposure ([#325](https://github.com/chasef07/abita_agent/issues/325)) ([dabcc45](https://github.com/chasef07/abita_agent/commit/dabcc454aa234e93dc4fdb52b6cf8753e46adc61))
+* **insurance:** map Aetna government vision plans to iCare ([#323](https://github.com/chasef07/abita_agent/issues/323)) ([5c9763e](https://github.com/chasef07/abita_agent/commit/5c9763e45b6bee1f28529d3f6984657257eb3dce))
+
 ## [4.5.1](https://github.com/chasef07/abita_agent/compare/4.5.0...4.5.1) (2026-08-01)
 
 

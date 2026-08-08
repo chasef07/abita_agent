@@ -5,6 +5,7 @@ import {
   Agent as LiveKitAgent,
   ChatContext,
   ChatMessage,
+  ToolContext,
   type ModelSettings,
   type stt,
 } from "@livekit/agents";
@@ -17,7 +18,10 @@ import { recordLatestUserTranscript } from "./state/call-lifecycle.js";
 import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcript-confirmation.js";
-import { buildToolsForTrunk } from "./runtime/tool-registry.js";
+import {
+  buildToolsForTrunk,
+  toolsForCallState,
+} from "./runtime/tool-registry.js";
 import {
   confirmedPatientModelContext,
   type PatientResolveLookup,
@@ -59,19 +63,29 @@ export function createVoiceAgent(
   const greeting = options.suppressGreeting ? "" : office.greeting;
   const identityLookup: PatientResolveLookup =
     options.identityLookup ?? resolvePatientWithOwnedMiddleware;
+  const registeredTools = buildToolsForTrunk(trunkPhone, {
+    identityLookup,
+  });
 
   const agent = LiveKitAgent.create<CallState>({
     instructions: buildPrompt(trunkPhone),
     chatCtx: createInitialLookupChatContext(lookupStatus),
-    tools: buildToolsForTrunk(trunkPhone, {
-      identityLookup,
-    }),
+    tools: registeredTools,
 
     async onEnter(ctx): Promise<void> {
-      if (!greeting) return;
-      // Brief delay so the SIP audio path is fully established before speaking
-      await new Promise((r) => setTimeout(r, 500));
-      await ctx.session.say(greeting);
+      if (greeting) {
+        // Brief delay so the SIP audio path is fully established before speaking
+        await new Promise((r) => setTimeout(r, 500));
+        await ctx.session.say(greeting);
+      }
+
+      const availableTools = toolsForCallState(
+        registeredTools,
+        ctx.session.userData,
+      );
+      if (!sameToolIds(ctx.agent.toolCtx, availableTools)) {
+        await ctx.agent.updateTools(availableTools);
+      }
     },
 
     async onUserTurnCompleted(
@@ -135,13 +149,22 @@ export function createVoiceAgent(
     },
 
     async llmNode(ctx, chatCtx, toolCtx, modelSettings) {
-      refreshPatientModelContext(chatCtx, ctx.session.userData);
+      const state = ctx.session.userData;
+      refreshPatientModelContext(chatCtx, state);
+      const availableTools = toolsForCallState(registeredTools, state);
+
+      if (!sameToolIds(ctx.agent.toolCtx, availableTools)) {
+        await ctx.agent.updateTools(availableTools);
+      }
+      // The pipeline executor keeps the turn's ToolContext while a reply is
+      // in flight. Keep it aligned with the agent's native tool update so a
+      // stale model call cannot execute a tool removed during this turn.
+      toolCtx.updateTools(availableTools.tools);
+
       return LiveKitAgent.default.llmNode(
         ctx.agent,
         chatCtx,
-        toolCtx as unknown as Parameters<
-          typeof LiveKitAgent.default.llmNode
-        >[2],
+        toolCtx as ToolContext<CallState>,
         modelSettings,
       );
     },
@@ -194,6 +217,18 @@ export function createVoiceAgent(
   });
 
   return { agent, office };
+}
+
+function sameToolIds(
+  current: ToolContext<CallState>,
+  next: ToolContext<CallState>,
+): boolean {
+  const currentIds = Object.keys(current.functionTools).sort();
+  const nextIds = Object.keys(next.functionTools).sort();
+  return (
+    currentIds.length === nextIds.length &&
+    currentIds.every((id, index) => id === nextIds[index])
+  );
 }
 
 function setPatientModelContext(

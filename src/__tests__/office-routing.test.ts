@@ -46,6 +46,12 @@ function toolNamesForTrunk(trunkPhone: string): string[] {
   return toolNames(buildToolsForTrunk(trunkPhone));
 }
 
+function toolForTrunk(trunkPhone: string, name: string) {
+  return buildToolsForTrunk(trunkPhone)
+    .flatMap((entry) => (isToolset(entry) ? entry.tools : [entry]))
+    .find((entry) => entry.id === name);
+}
+
 afterEach(() => {
   delete process.env.DEV_HANDOFF_TARGET;
 });
@@ -96,6 +102,19 @@ describe("office routing helpers", () => {
     expect(getOfficeProfile("crystal-river").staffTaskDelivery).toBe(
       "disabled",
     );
+  });
+
+  it("makes availability office selection match the inbound trunk", () => {
+    const hollywood = toolForTrunk(HOLLYWOOD_OFFICE_PHONE, "get_availability");
+    const springHill = toolForTrunk(
+      SPRING_HILL_OFFICE_PHONE,
+      "get_availability",
+    );
+    const hollywoodSchema = z.toJSONSchema(hollywood!.parameters);
+    const springHillSchema = z.toJSONSchema(springHill!.parameters);
+
+    expect(hollywoodSchema.required).toContain("office");
+    expect(springHillSchema.properties).not.toHaveProperty("office");
   });
 });
 

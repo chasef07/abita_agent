@@ -174,11 +174,18 @@ describe("call observability", () => {
     ).toBe("appointment_not_booked");
     expect(
       classifyToolOutput(
+        "book_appointment",
+        "Search availability again before booking because the selected slot expired.",
+        false,
+      ),
+    ).toBe("appointment_needs_input");
+    expect(
+      classifyToolOutput(
         "cancel_appointment",
         "Load appointments and confirm the exact appointment before cancelling.",
         false,
       ),
-    ).toBe("appointment_not_cancelled");
+    ).toBe("appointment_needs_input");
     expect(
       classifyToolOutput(
         "cancel_appointment",
@@ -223,11 +230,46 @@ describe("call observability", () => {
     ).toBe("appointment_reschedule_partial");
     expect(
       classifyToolOutput(
+        "transfer_call",
+        "I couldn't transfer because the call is no longer active.",
+        false,
+      ),
+    ).toBe("transfer_failed");
+    expect(
+      classifyToolOutput(
         "get_availability",
         "Before checking availability for a new appointment, call get_availability again with visitType medical or routine_vision.",
         false,
       ),
-    ).toBe("availability_blocked");
+    ).toBe("availability_needs_input");
+    expect(
+      classifyToolOutput(
+        "get_availability",
+        'Invalid arguments for get_availability: expected one of "hollywood"|"sweetwater" at office',
+        true,
+      ),
+    ).toBe("invalid_tool_arguments");
+    expect(
+      classifyToolOutput(
+        "get_availability",
+        "I couldn't check availability. I can try once more or connect you with the office.",
+        true,
+      ),
+    ).toBe("availability_failed");
+    expect(
+      classifyToolOutput(
+        "book_appointment",
+        "Unknown function: book_appointment - available tools: resolve_patient",
+        true,
+      ),
+    ).toBe("unknown_tool");
+    expect(
+      classifyToolOutput(
+        "create_staff_task",
+        "An internal error occurred while executing the tool.",
+        true,
+      ),
+    ).toBe("internal_tool_error");
     expect(classifyToolOutput("book_appointment", "timeout", true)).toBe(
       "middleware_error",
     );
@@ -246,7 +288,7 @@ describe("call observability", () => {
         ],
       })[0],
     ).toMatchObject({
-      outputClass: "middleware_error",
+      outputClass: "appointment_not_booked",
       status: "error",
     });
 
@@ -279,8 +321,8 @@ describe("call observability", () => {
         ],
       })[0],
     ).toMatchObject({
-      outputClass: "availability_blocked",
-      status: "error",
+      outputClass: "availability_needs_input",
+      status: "success",
     });
 
     expect(
@@ -345,7 +387,7 @@ describe("call observability", () => {
     });
   });
 
-  it("does not consume an identity outcome for an errored tool call", () => {
+  it("does not consume an identity outcome for invalid tool arguments", () => {
     const outcomes = ["verified" as const];
     const executions = snapshotToolExecutions(
       {
@@ -370,9 +412,62 @@ describe("call observability", () => {
     );
 
     expect(executions).toMatchObject([
-      { outputClass: "middleware_error", status: "error" },
+      { outputClass: "invalid_tool_arguments", status: "error" },
       { outputClass: "patient_verified", status: "success" },
     ]);
+  });
+
+  it("consumes a failed identity outcome for an executed lookup", () => {
+    const outcomes = ["lookup_failed" as const];
+    const executions = snapshotToolExecutions(
+      {
+        functionCalls: [{ callId: "call_1", name: "resolve_patient" }],
+        functionCallOutputs: [
+          {
+            callId: "call_1",
+            isError: true,
+            output: "Patient lookup failed. Try again.",
+          },
+        ],
+      },
+      () => outcomes.shift(),
+    );
+
+    expect(executions).toMatchObject([
+      { outputClass: "patient_lookup_failed", status: "error" },
+    ]);
+    expect(outcomes).toEqual([]);
+  });
+
+  it("consumes a masked identity outcome before the next successful lookup", () => {
+    const outcomes = ["lookup_failed" as const, "verified" as const];
+    const executions = snapshotToolExecutions(
+      {
+        functionCalls: [
+          { callId: "call_1", name: "resolve_patient" },
+          { callId: "call_2", name: "resolve_patient" },
+        ],
+        functionCallOutputs: [
+          {
+            callId: "call_1",
+            isError: true,
+            output: "An internal error occurred while executing the tool.",
+          },
+          {
+            callId: "call_2",
+            isError: false,
+            output: "Verified existing patient. Patient record is loaded.",
+          },
+        ],
+      },
+      () => outcomes.shift(),
+    );
+
+    expect(executions).toMatchObject([
+      { outputClass: "internal_tool_error", status: "error" },
+      { outputClass: "patient_verified", status: "success" },
+    ]);
+    expect(outcomes).toEqual([]);
   });
 
   it.each([true, false])(

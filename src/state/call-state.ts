@@ -83,6 +83,7 @@ export interface CallerLookupFailed {
     | "middleware_error"
     | "network_error"
     | "invalid_response"
+    | "request_rejected"
     | "unsupported_trunk";
   retryable: boolean;
   lookupDurationMs?: number;
@@ -212,6 +213,7 @@ export type OwnedMiddlewareFailureReason =
   | "middleware_error"
   | "network_error"
   | "invalid_response"
+  | "request_rejected"
   | "unsupported_office"
   | "cancelled";
 
