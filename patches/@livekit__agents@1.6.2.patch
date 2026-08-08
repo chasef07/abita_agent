@@ -1,0 +1,43 @@
+diff --git a/dist/voice/agent_activity.cjs b/dist/voice/agent_activity.cjs
+index 93cb2282e16126f9f500e15f94f219593b1479dc..02cf7c89dd6028b5eb76413053d686369555bb25 100644
+--- a/dist/voice/agent_activity.cjs
++++ b/dist/voice/agent_activity.cjs
+@@ -680,9 +680,8 @@ class AgentActivity {
+     if (this.realtimeSession) {
+       await this.realtimeSession.updateTools(this.tools);
+     }
+-    if (this.llm instanceof import_llm2.LLM) {
+-      await this.updateChatCtx(this.agent._chatCtx.copy({ toolCtx: newToolCtx }));
+-    }
++    // Pipeline LLM requests receive the current tool context per generation. Keep historical
++    // function calls and outputs intact when changing which tools are currently available.
+   }
+   updateOptions(options) {
+     const { endpointing, toolChoice, turnDetection } = options;
+diff --git a/dist/voice/agent_activity.js b/dist/voice/agent_activity.js
+index 6c553cd5ccf1d1f87647dbe7ba766a8462228776..3fa73eaaa6d643c223997b6fcb81ea65337bc9fa 100644
+--- a/dist/voice/agent_activity.js
++++ b/dist/voice/agent_activity.js
+@@ -714,9 +714,8 @@ class AgentActivity {
+     if (this.realtimeSession) {
+       await this.realtimeSession.updateTools(this.tools);
+     }
+-    if (this.llm instanceof LLM) {
+-      await this.updateChatCtx(this.agent._chatCtx.copy({ toolCtx: newToolCtx }));
+-    }
++    // Pipeline LLM requests receive the current tool context per generation. Keep historical
++    // function calls and outputs intact when changing which tools are currently available.
+   }
+   updateOptions(options) {
+     const { endpointing, toolChoice, turnDetection } = options;
+diff --git a/src/voice/agent_activity.ts b/src/voice/agent_activity.ts
+index 3a1ff84cf509b96b677ad9383ec156e922a48f70..001aea338b4473c5a7254e414548f6d7ead5514b 100644
+--- a/src/voice/agent_activity.ts
++++ b/src/voice/agent_activity.ts
+@@ -1056,4 +1056,2 @@ export class AgentActivity implements RecognitionHooks {
+-    if (this.llm instanceof LLM) {
+-      // for realtime LLM, we assume the server will remove unvalid tool messages
+-      await this.updateChatCtx(this.agent._chatCtx.copy({ toolCtx: newToolCtx }));
+-    }
++    // Pipeline LLM requests receive the current tool context per generation. Keep historical
++    // function calls and outputs intact when changing which tools are currently available.

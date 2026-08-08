@@ -6,16 +6,16 @@ import { describe, expect, it } from "vitest";
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const blockingToolFiles = [
-  ["add_patient", "src/tools/add-patient.ts"],
-  ["book_appointment", "src/scheduling/tools.ts"],
-  ["cancel_appointment", "src/scheduling/tools.ts"],
-  ["check_insurance", "src/tools/check-insurance.ts"],
-  ["create_staff_task", "src/tools/create-staff-task.ts"],
-  ["get_availability", "src/scheduling/tools.ts"],
-  ["resolve_patient", "src/tools/resolve-patient.ts"],
-  ["reschedule_appointment", "src/scheduling/tools.ts"],
-  ["transfer_call", "src/tools/transfer-call.ts"],
-  ["update_insurance", "src/tools/update-insurance.ts"],
+  ["add_patient", "src/tools/add-patient.ts", "blocking"],
+  ["book_appointment", "src/scheduling/tools.ts", "scoped-write"],
+  ["cancel_appointment", "src/scheduling/tools.ts", "scoped-write"],
+  ["check_insurance", "src/tools/check-insurance.ts", "blocking"],
+  ["create_staff_task", "src/tools/create-staff-task.ts", "blocking"],
+  ["get_availability", "src/scheduling/tools.ts", "blocking"],
+  ["resolve_patient", "src/tools/resolve-patient.ts", "blocking"],
+  ["reschedule_appointment", "src/scheduling/tools.ts", "scoped-write"],
+  ["transfer_call", "src/tools/transfer-call.ts", "blocking"],
+  ["update_insurance", "src/tools/update-insurance.ts", "blocking"],
 ] as const;
 
 describe("tool interruption policy", () => {
@@ -46,14 +46,28 @@ describe("tool interruption policy", () => {
 
   it.each(blockingToolFiles)(
     "%s disables interruptions before returning or awaiting tool work",
-    (toolName, filePath) => {
+    (toolName, filePath, interruptionMode) => {
       const source = readFileSync(resolve(rootDir, filePath), "utf8");
       const toolIndex = source.indexOf(`name: "${toolName}"`);
       const executeIndex = source.indexOf("execute: async", toolIndex);
       expect(toolIndex).toBeGreaterThanOrEqual(0);
       expect(executeIndex).toBeGreaterThanOrEqual(0);
 
-      const body = source.slice(executeIndex);
+      const nextExecuteIndex = source.indexOf(
+        "execute: async",
+        executeIndex + 1,
+      );
+      const body = source.slice(
+        executeIndex,
+        nextExecuteIndex < 0 ? source.length : nextExecuteIndex,
+      );
+      if (interruptionMode === "scoped-write") {
+        expect(body).toMatch(
+          /^execute: async[^]*?return runProtectedSchedulingWrite\(ctx,/,
+        );
+        return;
+      }
+
       const disallowIndex = body.indexOf("ctx.disallowInterruptions()");
       expect(disallowIndex).toBeGreaterThanOrEqual(0);
 
@@ -70,6 +84,22 @@ describe("tool interruption policy", () => {
       expect(disallowIndex).toBeLessThan(firstOrphanableStep);
     },
   );
+
+  it("restores scheduling write interruptions after the operation settles", () => {
+    const source = readFileSync(
+      resolve(rootDir, "src/scheduling/tools.ts"),
+      "utf8",
+    );
+    const helper = source.slice(
+      source.indexOf("async function runProtectedSchedulingWrite"),
+    );
+
+    expect(helper.indexOf("ctx.disallowInterruptions()")).toBeLessThan(
+      helper.indexOf("await operation()"),
+    );
+    expect(helper).toContain("finally");
+    expect(helper).toContain("speechHandle.allowInterruptions =");
+  });
 });
 
 function firstIndexOf(source: string, tokens: readonly string[]): number {

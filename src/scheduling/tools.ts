@@ -205,9 +205,10 @@ export function createSchedulingTools(
       "After a successful booking, if the caller asks whether they will receive confirmation, say yes, a confirmation email will be sent.",
     parameters: bookAppointmentParameters,
     execute: async (args, { ctx }) => {
-      ctx.disallowInterruptions();
-      return returnSchedulingInputRequired(() =>
-        workflow.bookAppointment(getState(ctx), args),
+      return runProtectedSchedulingWrite(ctx, () =>
+        returnSchedulingInputRequired(() =>
+          workflow.bookAppointment(getState(ctx), args),
+        ),
       );
     },
   });
@@ -221,9 +222,10 @@ export function createSchedulingTools(
       "Pass only the matching call-scoped appointmentRef shown with that loaded appointment. The tool resolves it against current loaded appointment state.",
     parameters: cancelAppointmentParameters,
     execute: async (args, { ctx }) => {
-      ctx.disallowInterruptions();
-      return returnSchedulingInputRequired(() =>
-        workflow.cancelAppointment(getState(ctx), args),
+      return runProtectedSchedulingWrite(ctx, () =>
+        returnSchedulingInputRequired(() =>
+          workflow.cancelAppointment(getState(ctx), args),
+        ),
       );
     },
   });
@@ -240,9 +242,10 @@ export function createSchedulingTools(
       "This tool books the new appointment first and cancels the old appointment only after booking succeeds.",
     parameters: rescheduleAppointmentParameters,
     execute: async (args, { ctx }) => {
-      ctx.disallowInterruptions();
-      return returnSchedulingInputRequired(() =>
-        workflow.rescheduleAppointment(getState(ctx), args),
+      return runProtectedSchedulingWrite(ctx, () =>
+        returnSchedulingInputRequired(() =>
+          workflow.rescheduleAppointment(getState(ctx), args),
+        ),
       );
     },
   });
@@ -261,3 +264,43 @@ export const {
   cancel_appointment,
   reschedule_appointment,
 } = createSchedulingTools(productionSchedulingMiddleware);
+
+type SchedulingToolContext = {
+  disallowInterruptions(): void;
+  speechHandle: { allowInterruptions: boolean };
+};
+
+const activeWriteProtections = new WeakMap<
+  SchedulingToolContext["speechHandle"],
+  { count: number; restoreInterruptions: boolean }
+>();
+
+async function runProtectedSchedulingWrite<T>(
+  ctx: SchedulingToolContext,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const speechHandle = ctx.speechHandle;
+  let protection = activeWriteProtections.get(speechHandle);
+  if (protection) {
+    protection.count += 1;
+  } else {
+    protection = {
+      count: 1,
+      restoreInterruptions: speechHandle.allowInterruptions,
+    };
+    ctx.disallowInterruptions();
+    activeWriteProtections.set(speechHandle, protection);
+  }
+
+  try {
+    return await operation();
+  } finally {
+    protection.count -= 1;
+    if (protection.count === 0) {
+      activeWriteProtections.delete(speechHandle);
+      if (speechHandle.allowInterruptions !== protection.restoreInterruptions) {
+        speechHandle.allowInterruptions = protection.restoreInterruptions;
+      }
+    }
+  }
+}

@@ -227,6 +227,131 @@ describe("scheduling tools", () => {
     expect(tools.reschedule_appointment.onDuplicate).toBe("reject");
   });
 
+  it("protects a scheduling write without making its result speech uninterruptible", async () => {
+    const deferred = deferredResult<{ status: "cancelled" }>();
+    const middleware = new InMemorySchedulingMiddleware({
+      cancellations: [deferred.promise],
+    });
+    const { cancel_appointment } = createSchedulingTools(middleware);
+    const state = createState();
+    restoreFirstPatient(state, [loadedAppointment()]);
+    const ctx = createToolContext(state);
+
+    const pending = cancel_appointment.execute(
+      { appointmentRef: loadedAppointmentRef(state) },
+      { ctx: ctx as never, toolCallId: "cancel-1" } as never,
+    );
+
+    expect(ctx.speechHandle.allowInterruptions).toBe(false);
+
+    deferred.resolve({ status: "cancelled" });
+    await pending;
+
+    expect(ctx.speechHandle.allowInterruptions).toBe(true);
+  });
+
+  it("preserves an interrupted handle that began non-interruptible", async () => {
+    const cancellation = deferredResult<{ status: "cancelled" }>();
+    const middleware = new InMemorySchedulingMiddleware({
+      cancellations: [cancellation.promise],
+    });
+    const { cancel_appointment } = createSchedulingTools(middleware);
+    const state = createState();
+    restoreFirstPatient(state, [loadedAppointment()]);
+    let allowInterruptions = false;
+    let interrupted = false;
+    const speechHandle = {
+      get allowInterruptions() {
+        return allowInterruptions;
+      },
+      set allowInterruptions(value: boolean) {
+        if (interrupted && !value) {
+          throw new Error("cannot disable an interrupted handle");
+        }
+        allowInterruptions = value;
+      },
+    };
+    const ctx = {
+      session: { userData: state },
+      speechHandle,
+      disallowInterruptions: vi.fn(() => {
+        speechHandle.allowInterruptions = false;
+      }),
+    };
+
+    const pending = cancel_appointment.execute(
+      { appointmentRef: loadedAppointmentRef(state) },
+      { ctx: ctx as never, toolCallId: "cancel-1" } as never,
+    );
+    interrupted = true;
+    cancellation.resolve({ status: "cancelled" });
+
+    await expect(pending).resolves.toBeDefined();
+    expect(ctx.speechHandle.allowInterruptions).toBe(false);
+  });
+
+  it("does not retain protection state when LiveKit rejects the guard", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      cancellations: [{ status: "cancelled" }],
+    });
+    const { cancel_appointment } = createSchedulingTools(middleware);
+    const state = createState();
+    restoreFirstPatient(state, [loadedAppointment()]);
+    const ctx = createToolContext(state);
+    ctx.disallowInterruptions.mockImplementationOnce(() => {
+      throw new Error("speech already interrupted");
+    });
+
+    await expect(
+      cancel_appointment.execute(
+        { appointmentRef: loadedAppointmentRef(state) },
+        { ctx: ctx as never, toolCallId: "cancel-1" } as never,
+      ),
+    ).rejects.toThrow("speech already interrupted");
+
+    await cancel_appointment.execute(
+      { appointmentRef: loadedAppointmentRef(state) },
+      { ctx: ctx as never, toolCallId: "cancel-2" } as never,
+    );
+
+    expect(ctx.disallowInterruptions).toHaveBeenCalledTimes(2);
+    expect(ctx.speechHandle.allowInterruptions).toBe(true);
+  });
+
+  it("keeps a shared speech handle protected until every scheduling write settles", async () => {
+    const firstCancellation = deferredResult<{ status: "cancelled" }>();
+    const secondCancellation = deferredResult<{ status: "cancelled" }>();
+    const middleware = new InMemorySchedulingMiddleware({
+      cancellations: [firstCancellation.promise, secondCancellation.promise],
+    });
+    const { cancel_appointment } = createSchedulingTools(middleware);
+    const state = createState();
+    restoreFirstPatient(state, [
+      loadedAppointment({ id: 123 }),
+      loadedAppointment({ id: 456, time: "10:00 AM" }),
+    ]);
+    const ctx = createToolContext(state);
+
+    const firstPending = cancel_appointment.execute(
+      { appointmentRef: loadedAppointmentRef(state, 0) },
+      { ctx: ctx as never, toolCallId: "cancel-1" } as never,
+    );
+    const secondPending = cancel_appointment.execute(
+      { appointmentRef: loadedAppointmentRef(state, 1) },
+      { ctx: ctx as never, toolCallId: "cancel-2" } as never,
+    );
+
+    expect(ctx.speechHandle.allowInterruptions).toBe(false);
+
+    firstCancellation.resolve({ status: "cancelled" });
+    await firstPending;
+    expect(ctx.speechHandle.allowInterruptions).toBe(false);
+
+    secondCancellation.resolve({ status: "cancelled" });
+    await secondPending;
+    expect(ctx.speechHandle.allowInterruptions).toBe(true);
+  });
+
   it.each([
     ["medical", "medical_md"],
     ["routine_vision", "routine_od"],

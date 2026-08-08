@@ -4,16 +4,21 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@livekit/agents@1.6.2':
+    hash: 835d4d2d91801fb264703a27bc0f4a92d524a863fa8be7c62a8c683432d163f4
+    path: patches/@livekit__agents@1.6.2.patch
+
 importers:
 
   .:
     dependencies:
       '@livekit/agents':
         specifier: 1.6.2
-        version: 1.6.2(@livekit/rtc-node@0.13.33)(@types/node@26.1.2)(@typescript/typescript6@6.0.2)(zod@4.4.3)
+        version: 1.6.2(patch_hash=835d4d2d91801fb264703a27bc0f4a92d524a863fa8be7c62a8c683432d163f4)(@livekit/rtc-node@0.13.33)(@types/node@26.1.2)(@typescript/typescript6@6.0.2)(zod@4.4.3)
       '@livekit/agents-plugin-rime':
         specifier: 1.6.2
-        version: 1.6.2(@livekit/agents@1.6.2(@livekit/rtc-node@0.13.33)(@types/node@26.1.2)(@typescript/typescript6@6.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)
+        version: 1.6.2(@livekit/agents@1.6.2(patch_hash=835d4d2d91801fb264703a27bc0f4a92d524a863fa8be7c62a8c683432d163f4)(@livekit/rtc-node@0.13.33)(@types/node@26.1.2)(@typescript/typescript6@6.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)
       '@livekit/rtc-node':
         specifier: ^0.13.33
         version: 0.13.33
@@ -2688,16 +2693,16 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@livekit/agents-plugin-rime@1.6.2(@livekit/agents@1.6.2(@livekit/rtc-node@0.13.33)(@types/node@26.1.2)(@typescript/typescript6@6.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)':
+  '@livekit/agents-plugin-rime@1.6.2(@livekit/agents@1.6.2(patch_hash=835d4d2d91801fb264703a27bc0f4a92d524a863fa8be7c62a8c683432d163f4)(@livekit/rtc-node@0.13.33)(@types/node@26.1.2)(@typescript/typescript6@6.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)':
     dependencies:
-      '@livekit/agents': 1.6.2(@livekit/rtc-node@0.13.33)(@types/node@26.1.2)(@typescript/typescript6@6.0.2)(zod@4.4.3)
+      '@livekit/agents': 1.6.2(patch_hash=835d4d2d91801fb264703a27bc0f4a92d524a863fa8be7c62a8c683432d163f4)(@livekit/rtc-node@0.13.33)(@types/node@26.1.2)(@typescript/typescript6@6.0.2)(zod@4.4.3)
       '@livekit/rtc-node': 0.13.33
       ws: 8.21.2
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@livekit/agents@1.6.2(@livekit/rtc-node@0.13.33)(@types/node@26.1.2)(@typescript/typescript6@6.0.2)(zod@4.4.3)':
+  '@livekit/agents@1.6.2(patch_hash=835d4d2d91801fb264703a27bc0f4a92d524a863fa8be7c62a8c683432d163f4)(@livekit/rtc-node@0.13.33)(@types/node@26.1.2)(@typescript/typescript6@6.0.2)(zod@4.4.3)':
     dependencies:
       '@bufbuild/protobuf': 1.10.1
       '@livekit/av': 10.0.0

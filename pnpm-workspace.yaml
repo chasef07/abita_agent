@@ -6,3 +6,5 @@ allowBuilds:
   onnxruntime-node: true
   protobufjs: true
   sharp: true
+patchedDependencies:
+  "@livekit/agents@1.6.2": patches/@livekit__agents@1.6.2.patch
