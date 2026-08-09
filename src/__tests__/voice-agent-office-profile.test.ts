@@ -16,7 +16,6 @@ import {
 import { createVoiceAgent } from "../agent.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
-  DEV_DEMO_TRANSFER_NUMBER,
   DEV_OFFICE_PHONE,
   HOLLYWOOD_OFFICE_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
@@ -95,6 +94,11 @@ const DIRECT_HANDOFF_RESPONSE = {
   handoffId: "handoff-test",
   sipUri: `sip:one-time-route~ah1~${"a".repeat(43)}@handoff.example`,
   expiresAt: "2099-07-13T12:00:30.000Z",
+};
+const PRODUCT_HANDOFF_RESPONSE = {
+  id: "930926a1-986e-4a9c-8f49-2adbc90def9d",
+  sipDestination: "sip:acuity-handoff@acuity-product.sip.telnyx.com",
+  expiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
 };
 const COMMON_TOOL_NAMES = [
   "add_patient",
@@ -273,8 +277,8 @@ const officeBehaviors: OfficeBehavior[] = [
     greeting:
       "Hi, this is Julia, the virtual assistant at Harborleaf Dermatology and Aesthetics. How can I help you today?",
     handoff: {
-      mode: "phone",
-      target: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+      mode: "call-center",
+      target: PRODUCT_HANDOFF_RESPONSE.sipDestination,
     },
     insurance: {
       medical: {
@@ -337,7 +341,11 @@ function jsonResponse(body: unknown): Response {
 }
 
 async function selectedHandoff(trunkPhone: string, officeKey: OfficeKey) {
-  const fetchMock = vi.fn(async () => jsonResponse(DIRECT_HANDOFF_RESPONSE));
+  const fetchMock = vi.fn(async () =>
+    jsonResponse(
+      officeKey === "dev" ? PRODUCT_HANDOFF_RESPONSE : DIRECT_HANDOFF_RESPONSE,
+    ),
+  );
   vi.stubGlobal("fetch", fetchMock);
   const state = createTestCallState({ officeKey, trunkPhone });
   const result = await transferCallerToOffice(state);
@@ -371,7 +379,15 @@ describe("Voice Agent office profile", () => {
   beforeEach(() => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
-    vi.stubEnv("DEV_HANDOFF_TARGET", "");
+    vi.stubEnv(
+      "DEV_ACUITY_HANDOFF_URL",
+      "https://acuity-demo.example/v1/handoffs",
+    );
+    vi.stubEnv("DEV_ACUITY_HANDOFF_SECRET", "demo-product-secret");
+    vi.stubEnv(
+      "DEV_ACUITY_HANDOFF_PRACTICE_ID",
+      "0ec19625-c3c3-4639-a738-4054b3d6e534",
+    );
     transferSipParticipantMock.mockReset();
     transferSipParticipantMock.mockResolvedValue(undefined);
   });

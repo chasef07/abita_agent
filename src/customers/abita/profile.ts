@@ -44,7 +44,6 @@ export const SWEETWATER_TRUNK_PHONES = [
   "+17864654882",
 ] as const;
 export const DEV_OFFICE_PHONE = "+14843989071";
-export const DEV_DEMO_TRANSFER_NUMBER = "+17277092035";
 
 export interface OfficeProfile {
   key: OfficeKey;
@@ -163,16 +162,6 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
         ? { lang: "spa", speaker: "luz" }
         : { lang: "eng", speaker: englishSpeaker };
     },
-  };
-}
-
-function devHandoff(): OfficeHandoffPolicy {
-  const override = process.env.DEV_HANDOFF_TARGET?.trim();
-  return {
-    mode: "phone",
-    target: override
-      ? normalizeHandoffTarget(override)
-      : `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
   };
 }
 
@@ -295,7 +284,6 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     amdOfficePhone: DEV_OFFICE_PHONE,
     staffTaskDelivery: "acuity-product",
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
-    handoff: devHandoff,
   }),
 };
 
@@ -374,12 +362,6 @@ export function getOfficeProfileByFacility(
   }
 
   return null;
-}
-
-export function normalizeHandoffTarget(target: string): string {
-  const trimmed = target.trim();
-  if (/^(tel|sip):/i.test(trimmed)) return trimmed;
-  return `tel:${normalizePhoneNumber(trimmed)}`;
 }
 
 function normalizeFacilityName(value: string | undefined): string {

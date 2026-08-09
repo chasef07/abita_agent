@@ -490,8 +490,7 @@ Use [`.env.example`](.env.example) as the canonical variable list.
 | `ANALYTICS_URL`, `LIVEKIT_FORWARD_SYNC_SECRET` | Existing Acuity portal Staff Task delivery only | Required for portal-routed Staff Tasks |
 | `ACUITY_HANDOFF_URL`, `ACUITY_HANDOFF_SECRET` | Legacy direct call-center handoff acquisition | Required for production Office Profiles when Product handoff is unset |
 | `PROMPT_WORKSPACE` | Alternate prompt and knowledge root | Optional; defaults to `workspace` |
-| `DEV_HANDOFF_TARGET` | Development profile transfer override | Optional; never a production routing source |
-| `DEV_ACUITY_HANDOFF_URL`, `DEV_ACUITY_HANDOFF_SECRET` | Isolated Acuity Product Staff Task delivery for the development trunk | Optional; the task endpoint is derived as `/v1/tasks` |
+| `DEV_ACUITY_HANDOFF_URL`, `DEV_ACUITY_HANDOFF_PRACTICE_ID`, `DEV_ACUITY_HANDOFF_SECRET` | Isolated Acuity Product human handoff and Staff Task delivery for the development trunk | Required together for demo call-center transfers; Product resolves `officeKey=dev` to Location and the task endpoint is derived as `/v1/tasks` |
 
 Never commit credentials or bake them into the container image.
 
