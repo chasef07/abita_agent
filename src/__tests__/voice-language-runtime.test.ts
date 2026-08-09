@@ -2,14 +2,14 @@ import { stt } from "@livekit/agents";
 import { describe, expect, it, vi } from "vitest";
 import {
   VoiceLanguageRuntime,
-  type RimeVoiceLanguageOptions,
+  type VoiceLanguageStateOptions,
   type RuntimeVoiceLanguageState,
 } from "../runtime/voice-language.js";
 
 const OPTIONS_BY_LANGUAGE = {
-  en: { lang: "eng", speaker: "wawona" },
-  es: { lang: "spa", speaker: "luz" },
-} as const satisfies Record<"en" | "es", RimeVoiceLanguageOptions>;
+  en: { speaker: "wawona", ttsLanguage: "eng" },
+  es: { speaker: "luz", ttsLanguage: "spa" },
+} as const satisfies Record<"en" | "es", VoiceLanguageStateOptions>;
 
 function speechEvent(
   language: string,
@@ -45,7 +45,7 @@ function createRuntime() {
   const runtime = new VoiceLanguageRuntime({
     optionsByLanguage: OPTIONS_BY_LANGUAGE,
     state,
-    tts: { updateOptions },
+    tts: { updateLanguage: updateOptions },
   });
   return { runtime, state, updateOptions };
 }
@@ -75,7 +75,7 @@ describe("VoiceLanguageRuntime", () => {
 
     await observe(runtime, [event]);
 
-    expect(updateOptions).toHaveBeenCalledWith(OPTIONS_BY_LANGUAGE.es);
+    expect(updateOptions).toHaveBeenCalledWith("es");
     expect(state.current).toBe("es");
   });
 
@@ -85,10 +85,7 @@ describe("VoiceLanguageRuntime", () => {
 
     await expect(observe(runtime, events)).resolves.toEqual(events);
 
-    expect(updateOptions.mock.calls).toEqual([
-      [OPTIONS_BY_LANGUAGE.es],
-      [OPTIONS_BY_LANGUAGE.en],
-    ]);
+    expect(updateOptions.mock.calls).toEqual([["es"], ["en"]]);
     expect(state).toMatchObject({
       current: "en",
       speaker: "wawona",
@@ -119,10 +116,7 @@ describe("VoiceLanguageRuntime", () => {
       speechEvent("es", 0.95, "English please"),
     ]);
 
-    expect(updateOptions.mock.calls).toEqual([
-      [OPTIONS_BY_LANGUAGE.es],
-      [OPTIONS_BY_LANGUAGE.en],
-    ]);
+    expect(updateOptions.mock.calls).toEqual([["es"], ["en"]]);
     expect(state.current).toBe("en");
     expect(runtime.snapshot().language.switchEvents).toMatchObject([
       { from: "en", reason: "explicit_request", to: "es" },
@@ -139,7 +133,7 @@ describe("VoiceLanguageRuntime", () => {
       speechEvent("en-US", 0.95, "I don't speak English"),
     ]);
 
-    expect(updateOptions.mock.calls).toEqual([[OPTIONS_BY_LANGUAGE.es]]);
+    expect(updateOptions.mock.calls).toEqual([["es"]]);
     expect(state.current).toBe("es");
     expect(runtime.snapshot().language.switchEvents).toMatchObject([
       { from: "en", reason: "explicit_request", to: "es" },
@@ -172,7 +166,7 @@ describe("VoiceLanguageRuntime", () => {
       ),
     ]);
 
-    expect(updateOptions).toHaveBeenCalledWith(OPTIONS_BY_LANGUAGE.es);
+    expect(updateOptions).toHaveBeenCalledWith("es");
     expect(state.current).toBe("es");
   });
 
@@ -187,7 +181,7 @@ describe("VoiceLanguageRuntime", () => {
       ),
     ]);
 
-    expect(updateOptions).toHaveBeenCalledWith(OPTIONS_BY_LANGUAGE.es);
+    expect(updateOptions).toHaveBeenCalledWith("es");
     expect(state.current).toBe("es");
   });
 
@@ -202,7 +196,7 @@ describe("VoiceLanguageRuntime", () => {
       ),
     ]);
 
-    expect(updateOptions).toHaveBeenCalledWith(OPTIONS_BY_LANGUAGE.es);
+    expect(updateOptions).toHaveBeenCalledWith("es");
     expect(state.current).toBe("es");
   });
 
@@ -217,7 +211,7 @@ describe("VoiceLanguageRuntime", () => {
       ),
     ]);
 
-    expect(updateOptions).toHaveBeenCalledWith(OPTIONS_BY_LANGUAGE.es);
+    expect(updateOptions).toHaveBeenCalledWith("es");
     expect(state.current).toBe("es");
   });
 
@@ -229,10 +223,7 @@ describe("VoiceLanguageRuntime", () => {
       speechEvent("es", 0.95, "Can we continue in English?"),
     ]);
 
-    expect(updateOptions.mock.calls).toEqual([
-      [OPTIONS_BY_LANGUAGE.es],
-      [OPTIONS_BY_LANGUAGE.en],
-    ]);
+    expect(updateOptions.mock.calls).toEqual([["es"], ["en"]]);
     expect(state.current).toBe("en");
   });
 
@@ -245,10 +236,7 @@ describe("VoiceLanguageRuntime", () => {
 
     await expect(observe(runtime, events)).resolves.toEqual(events);
 
-    expect(updateOptions.mock.calls).toEqual([
-      [OPTIONS_BY_LANGUAGE.es],
-      [OPTIONS_BY_LANGUAGE.es],
-    ]);
+    expect(updateOptions.mock.calls).toEqual([["es"], ["es"]]);
     expect(state.current).toBe("es");
     expect(runtime.snapshot().language).toMatchObject({
       acceptedLanguages: ["en", "es"],
