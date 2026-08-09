@@ -17,6 +17,15 @@ import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   DEV_DEMO_TRANSFER_NUMBER,
   DEV_OFFICE_PHONE,
+  getHandoffOfficeKeyByPhone,
+  getOfficeProfileByPhone,
+  HOLLYWOOD_OFFICE_PHONE,
+  NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+  SPRING_HILL_OFFICE_PHONE,
+  SPRING_HILL_813_TRUNK_PHONE,
+  SWEETWATER_OFFICE_PHONE,
+  SWEETWATER_OPTICAL_TRUNK_PHONE,
+  SWEETWATER_TRUNK_PHONES,
 } from "../customers/abita/profile.js";
 import {
   HandoffConflictError,
@@ -38,7 +47,6 @@ const PRODUCT_RESPONSE = {
   expiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
 };
 const PRODUCT_PRACTICE_ID = "861dd557-eb44-4754-bbd6-40d58a624419";
-const PRODUCT_LOCATION_ID = "d7a98226-c2a1-4127-ac7b-4f1abb2494ae";
 
 function createState() {
   return createTestCallState();
@@ -54,22 +62,20 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function configureProductHandoff() {
   vi.stubEnv(
-    "DEV_ACUITY_HANDOFF_URL",
+    "ACUITY_PRODUCT_HANDOFF_URL",
     "https://acuity-product.example/v1/handoffs",
   );
-  vi.stubEnv("DEV_ACUITY_HANDOFF_SECRET", "product-secret");
-  vi.stubEnv("DEV_ACUITY_HANDOFF_PRACTICE_ID", PRODUCT_PRACTICE_ID);
-  vi.stubEnv("DEV_ACUITY_HANDOFF_LOCATION_ID", PRODUCT_LOCATION_ID);
+  vi.stubEnv("ACUITY_PRODUCT_SERVICE_SECRET", "product-secret");
+  vi.stubEnv("ACUITY_PRODUCT_HANDOFF_PRACTICE_ID", PRODUCT_PRACTICE_ID);
 }
 
 describe("call-center handoff", () => {
   beforeEach(() => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "");
-    vi.stubEnv("DEV_ACUITY_HANDOFF_LOCATION_ID", "");
-    vi.stubEnv("DEV_ACUITY_HANDOFF_PRACTICE_ID", "");
-    vi.stubEnv("DEV_ACUITY_HANDOFF_SECRET", "");
-    vi.stubEnv("DEV_ACUITY_HANDOFF_URL", "");
+    vi.stubEnv("ACUITY_PRODUCT_HANDOFF_PRACTICE_ID", "");
+    vi.stubEnv("ACUITY_PRODUCT_HANDOFF_URL", "");
+    vi.stubEnv("ACUITY_PRODUCT_SERVICE_SECRET", "");
     vi.stubEnv("DEV_HANDOFF_TARGET", "");
     transferSipParticipantMock.mockReset();
     transferSipParticipantMock.mockResolvedValue(undefined);
@@ -158,100 +164,185 @@ describe("call-center handoff", () => {
     );
   });
 
-  it("routes only the demo through the Acuity Product handoff contract", async () => {
-    vi.stubEnv("ACUITY_HANDOFF_URL", "https://legacy.example/internal");
-    vi.stubEnv("ACUITY_HANDOFF_SECRET", "legacy-secret");
+  it.each([
+    ["spring-hill", SPRING_HILL_OFFICE_PHONE],
+    ["crystal-river", CRYSTAL_RIVER_OFFICE_PHONE],
+    ["hollywood", HOLLYWOOD_OFFICE_PHONE],
+    ["sweetwater", SWEETWATER_OFFICE_PHONE],
+    ["north-miami-beach-optical", NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
+  ] as const)(
+    "routes the %s office through the Acuity Product handoff contract",
+    async (officeKey, trunkPhone) => {
+      vi.stubEnv("ACUITY_HANDOFF_URL", "https://legacy.example/internal");
+      vi.stubEnv("ACUITY_HANDOFF_SECRET", "legacy-secret");
+      configureProductHandoff();
+      const fetchMock = vi.fn(async () => jsonResponse(PRODUCT_RESPONSE, 201));
+      vi.stubGlobal("fetch", fetchMock);
+      const state = createTestCallState({ patientName: "Maria Alvarez" });
+      state.runtime.trunkPhone = trunkPhone;
+      const contact = {
+        phone: "+17275551212",
+        phoneSource: "livekit.sip.callerPhoneNumber",
+        displayName: "Maria Alvarez",
+        nameSource: "abita.patient-context",
+      };
+      const identity = {
+        practiceId: PRODUCT_PRACTICE_ID,
+        officeKey,
+        sourceCallId: "call-test",
+      };
+      const payload = {
+        ...identity,
+        contact,
+        idempotencyKey: createHash("sha256")
+          .update(JSON.stringify(identity))
+          .digest("hex"),
+      };
+
+      const result = await transferCallerToOffice(state);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://acuity-product.example/v1/handoffs",
+        expect.objectContaining({
+          body: JSON.stringify(payload),
+          headers: {
+            Authorization: "Bearer product-secret",
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+        }),
+      );
+      expect(result).toEqual({
+        handoffOfficeKey: officeKey,
+        handoffTarget: PRODUCT_RESPONSE.sipDestination,
+      });
+      expect(transferSipParticipantMock).toHaveBeenCalledWith(
+        "test-room",
+        "sip-caller",
+        PRODUCT_RESPONSE.sipDestination,
+        {
+          playDialtone: true,
+          ringingTimeout: 20,
+        },
+      );
+    },
+  );
+
+  it.each([
+    [SPRING_HILL_OFFICE_PHONE, "spring-hill"],
+    [SPRING_HILL_813_TRUNK_PHONE, "spring-hill"],
+    [CRYSTAL_RIVER_OFFICE_PHONE, "crystal-river"],
+    [HOLLYWOOD_OFFICE_PHONE, "hollywood"],
+    ...SWEETWATER_TRUNK_PHONES.map(
+      (phone) =>
+        [
+          phone,
+          phone === SWEETWATER_OPTICAL_TRUNK_PHONE
+            ? "sweetwater-optical"
+            : "sweetwater",
+        ] as const,
+    ),
+    [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE, "north-miami-beach-optical"],
+  ] as const)("maps handoff trunk %s to %s", (trunkPhone, officeKey) => {
+    expect(getHandoffOfficeKeyByPhone(trunkPhone)).toBe(officeKey);
+  });
+
+  it("routes the Sweetwater optical trunk without changing its office profile", async () => {
     configureProductHandoff();
     const fetchMock = vi.fn(async () => jsonResponse(PRODUCT_RESPONSE, 201));
     vi.stubGlobal("fetch", fetchMock);
-    const state = createTestCallState({ patientName: "Maria Alvarez" });
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
-    const contact = {
-      phone: "+17275551212",
-      phoneSource: "livekit.sip.callerPhoneNumber",
-      displayName: "Maria Alvarez",
-      nameSource: "abita.patient-context",
-    };
-    const identity = {
-      practiceId: PRODUCT_PRACTICE_ID,
-      locationId: PRODUCT_LOCATION_ID,
-      sourceCallId: "call-test",
-    };
-    const payload = {
-      ...identity,
-      contact,
-      idempotencyKey: createHash("sha256")
-        .update(JSON.stringify(identity))
-        .digest("hex"),
-    };
+    const state = createState();
+    state.runtime.trunkPhone = SWEETWATER_OPTICAL_TRUNK_PHONE;
 
     const result = await transferCallerToOffice(state);
+    const request = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://acuity-product.example/v1/handoffs",
-      expect.objectContaining({
-        body: JSON.stringify(payload),
-        headers: {
-          Authorization: "Bearer product-secret",
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-      }),
+    expect(getOfficeProfileByPhone(SWEETWATER_OPTICAL_TRUNK_PHONE).key).toBe(
+      "sweetwater",
     );
-    expect(result).toEqual({
-      handoffOfficeKey: "dev",
-      handoffTarget: PRODUCT_RESPONSE.sipDestination,
-    });
+    expect(request.officeKey).toBe("sweetwater-optical");
+    expect(result.handoffOfficeKey).toBe("sweetwater");
     expect(transferSipParticipantMock).toHaveBeenCalledWith(
       "test-room",
       "sip-caller",
       PRODUCT_RESPONSE.sipDestination,
-      {
-        playDialtone: true,
-        ringingTimeout: 20,
-      },
+      { playDialtone: true, ringingTimeout: 20 },
     );
   });
 
-  it("fails closed when any demo handoff configuration is present but incomplete", async () => {
-    vi.stubEnv("DEV_ACUITY_HANDOFF_SECRET", "product-secret");
+  it("keeps the dev office on its isolated phone route", async () => {
+    configureProductHandoff();
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
     state.runtime.trunkPhone = DEV_OFFICE_PHONE;
 
+    await expect(transferCallerToOffice(state)).resolves.toEqual({
+      handoffOfficeKey: "dev",
+      handoffTarget: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps dev isolated when production handoff configuration is incomplete", async () => {
+    vi.stubEnv(
+      "ACUITY_PRODUCT_HANDOFF_URL",
+      "https://acuity-product.example/v1/handoffs",
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createState();
+    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+
+    await expect(transferCallerToOffice(state)).resolves.toEqual({
+      handoffOfficeKey: "dev",
+      handoffTarget: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when any Product handoff route is present but incomplete", async () => {
+    vi.stubEnv(
+      "ACUITY_PRODUCT_HANDOFF_URL",
+      "https://acuity-product.example/v1/handoffs",
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createState();
+    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
+
     await expect(transferCallerToOffice(state)).rejects.toThrow(
-      "Acuity Product demo handoff configuration is incomplete.",
+      "Acuity Product handoff configuration is incomplete.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 
-  it("rejects an unstable demo source call identity", async () => {
+  it("rejects an unstable Product source call identity", async () => {
     configureProductHandoff();
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
     state.runtime.callId = "unknown";
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
-      "Acuity Product demo handoff requires a stable source call ID.",
+      "Acuity Product handoff requires a stable source call ID.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("rejects an insecure demo handoff URL before sending data", async () => {
+  it("rejects an insecure Product handoff URL before sending data", async () => {
     configureProductHandoff();
     vi.stubEnv(
-      "DEV_ACUITY_HANDOFF_URL",
+      "ACUITY_PRODUCT_HANDOFF_URL",
       "http://acuity-product.example/v1/handoffs",
     );
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity handoff API URL must use HTTPS.",
@@ -259,7 +350,7 @@ describe("call-center handoff", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("fails closed when the demo handoff request has no definitive response", async () => {
+  it("fails closed when the Product handoff request has no definitive response", async () => {
     configureProductHandoff();
     vi.stubGlobal(
       "fetch",
@@ -268,7 +359,7 @@ describe("call-center handoff", () => {
       }),
     );
     const state = createState();
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff API request failed.",
@@ -276,7 +367,7 @@ describe("call-center handoff", () => {
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 
-  it("reuses the exact demo request after an ambiguous API response", async () => {
+  it("reuses the exact Product request after an ambiguous API response", async () => {
     configureProductHandoff();
     const fetchMock = vi
       .fn()
@@ -284,7 +375,7 @@ describe("call-center handoff", () => {
       .mockResolvedValueOnce(jsonResponse(PRODUCT_RESPONSE, 201));
     vi.stubGlobal("fetch", fetchMock);
     const state = createTestCallState({ patientName: "Maria Alvarez" });
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff API request failed.",
@@ -292,7 +383,7 @@ describe("call-center handoff", () => {
     state.identity.patient.name = "Changed after first attempt";
 
     await expect(transferCallerToOffice(state)).resolves.toEqual({
-      handoffOfficeKey: "dev",
+      handoffOfficeKey: "crystal-river",
       handoffTarget: PRODUCT_RESPONSE.sipDestination,
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -301,14 +392,14 @@ describe("call-center handoff", () => {
     );
   });
 
-  it("fails closed when the demo handoff conflicts", async () => {
+  it("fails closed when the Product handoff conflicts", async () => {
     configureProductHandoff();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => jsonResponse({}, 409)),
     );
     const state = createState();
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
 
     const failure = transferCallerToOffice(state);
     await expect(failure).rejects.toThrow(
@@ -318,14 +409,14 @@ describe("call-center handoff", () => {
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 
-  it("fails closed when the demo handoff endpoint is unavailable", async () => {
+  it("fails closed when the Product handoff endpoint is unavailable", async () => {
     configureProductHandoff();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => jsonResponse({}, 503)),
     );
     const state = createState();
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff API returned 503.",
@@ -340,7 +431,7 @@ describe("call-center handoff", () => {
       vi.fn(async () => jsonResponse({}, 400)),
     );
     const state = createState();
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
 
     const failure = transferCallerToOffice(state);
     await expect(failure).rejects.toThrow(
@@ -351,7 +442,7 @@ describe("call-center handoff", () => {
     expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 
-  it("fails closed when the demo handoff response is not JSON", async () => {
+  it("fails closed when the Product handoff response is not JSON", async () => {
     configureProductHandoff();
     vi.stubGlobal(
       "fetch",
@@ -364,7 +455,7 @@ describe("call-center handoff", () => {
       })),
     );
     const state = createState();
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff API returned an invalid response.",
@@ -406,14 +497,14 @@ describe("call-center handoff", () => {
         expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
       },
     },
-  ])("rejects a demo response with $name", async ({ response }) => {
+  ])("rejects a Product response with $name", async ({ response }) => {
     configureProductHandoff();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => jsonResponse(response, 201)),
     );
     const state = createState();
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff API returned an invalid response.",
