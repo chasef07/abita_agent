@@ -486,11 +486,12 @@ Use [`.env.example`](.env.example) as the canonical variable list.
 | `RIME_API_KEY` | Text-to-speech | Required |
 | `AMD_API_URL`, `AMD_API_TOKEN` | Owned middleware base URL and authentication | Required for patient and scheduling workflows |
 | `ACUITY_PRODUCT_INTERACTION_URL`, `ACUITY_PRODUCT_SERVICE_SECRET` | Product-owned AI interaction lifecycle and outcome delivery | Required in production |
+| `ACUITY_PRODUCT_HANDOFF_URL`, `ACUITY_PRODUCT_HANDOFF_PRACTICE_ID` | Product-owned human handoff for every production Office Profile; sends `officeKey` for Product-owned Location resolution and reuses `ACUITY_PRODUCT_SERVICE_SECRET` | Required together to route production transfers through Product |
 | `ANALYTICS_URL`, `LIVEKIT_FORWARD_SYNC_SECRET` | Existing Acuity portal Staff Task delivery only | Required for portal-routed Staff Tasks |
-| `ACUITY_HANDOFF_URL`, `ACUITY_HANDOFF_SECRET` | Direct call-center handoff acquisition | Required for call-center Office Profiles |
+| `ACUITY_HANDOFF_URL`, `ACUITY_HANDOFF_SECRET` | Legacy direct call-center handoff acquisition | Required for production Office Profiles when Product handoff is unset |
 | `PROMPT_WORKSPACE` | Alternate prompt and knowledge root | Optional; defaults to `workspace` |
 | `DEV_HANDOFF_TARGET` | Development profile transfer override | Optional; never a production routing source |
-| `DEV_ACUITY_HANDOFF_URL`, `DEV_ACUITY_HANDOFF_SECRET`, `DEV_ACUITY_HANDOFF_PRACTICE_ID`, `DEV_ACUITY_HANDOFF_LOCATION_ID` | Isolated Acuity Product Staff Tasks and handoff for the development trunk | URL and secret enable Tasks; add both IDs to enable handoffs. The task endpoint is derived as `/v1/tasks`; production Office Profiles stay unchanged |
+| `DEV_ACUITY_HANDOFF_URL`, `DEV_ACUITY_HANDOFF_SECRET` | Isolated Acuity Product Staff Task delivery for the development trunk | Optional; the task endpoint is derived as `/v1/tasks` |
 
 Never commit credentials or bake them into the container image.
 

@@ -7,6 +7,7 @@ export type OfficeKey =
   | "sweetwater"
   | "north-miami-beach-optical"
   | "dev";
+export type HandoffOfficeKey = OfficeKey | "sweetwater-optical";
 export type OfficeCare = "medical" | "routine_vision";
 export type OfficeSpeechLanguage = "en" | "es";
 export const AVAILABILITY_OFFICE_KEYS = ["hollywood", "sweetwater"] as const;
@@ -33,11 +34,12 @@ export const CRYSTAL_RIVER_OFFICE_PHONE = "+13523202007";
 export const HOLLYWOOD_OFFICE_PHONE = "+19542872010";
 export const SWEETWATER_OFFICE_PHONE = "+17864657475";
 export const NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE = "+13055095333";
+export const SWEETWATER_OPTICAL_TRUNK_PHONE = "+17864657479";
 export const SWEETWATER_TRUNK_PHONES = [
   SWEETWATER_OFFICE_PHONE,
   "+17864654845",
   "+17866134310",
-  "+17864657479",
+  SWEETWATER_OPTICAL_TRUNK_PHONE,
   "+17864654836",
   "+17864654882",
 ] as const;
@@ -318,6 +320,12 @@ export function getOfficeKeyByPhone(phone: string): OfficeKey {
     throw new Error(`Unsupported trunk phone number: ${phone || "(empty)"}`);
   }
   return officeKey;
+}
+
+export function getHandoffOfficeKeyByPhone(phone: string): HandoffOfficeKey {
+  return normalizePhoneNumber(phone) === SWEETWATER_OPTICAL_TRUNK_PHONE
+    ? "sweetwater-optical"
+    : getOfficeKeyByPhone(phone);
 }
 
 export function getOfficeProfile(key: OfficeKey): OfficeProfile {

@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 import { SipClient } from "livekit-server-sdk";
 import {
+  getHandoffOfficeKeyByPhone,
   getOfficeProfile,
   getOfficeProfileByPhone,
+  type HandoffOfficeKey,
   type OfficeKey,
 } from "../customers/abita/profile.js";
 import { activePatientName, type CallState } from "../state/call-state.js";
@@ -28,7 +30,6 @@ type HandoffTarget = {
 };
 
 type ProductHandoffConfig = {
-  locationId: string;
   practiceId: string;
   secret: string;
   url: string;
@@ -42,7 +43,7 @@ type ProductHandoffPayload = {
     phoneSource: string;
   };
   idempotencyKey: string;
-  locationId: string;
+  officeKey: HandoffOfficeKey;
   practiceId: string;
   sourceCallId: string;
 };
@@ -97,16 +98,31 @@ function getHandoffOfficeKey(state: CallState): OfficeKey {
   }
 }
 
+function getHandoffRouteOfficeKey(
+  state: CallState,
+  fallback: OfficeKey,
+): HandoffOfficeKey {
+  if (!state.runtime.trunkPhone) return fallback;
+  try {
+    return getHandoffOfficeKeyByPhone(state.runtime.trunkPhone);
+  } catch {
+    return fallback;
+  }
+}
+
 async function resolveHandoffTarget(
   state: CallState,
-  handoffOfficeKey: OfficeKey,
+  profileOfficeKey: OfficeKey,
+  handoffOfficeKey: HandoffOfficeKey,
 ): Promise<HandoffTarget> {
-  const productConfig = productHandoffConfig(handoffOfficeKey);
-  if (productConfig) {
-    return requestProductHandoff(state, productConfig);
+  if (profileOfficeKey !== "dev") {
+    const productConfig = productHandoffConfig();
+    if (productConfig) {
+      return requestProductHandoff(state, handoffOfficeKey, productConfig);
+    }
   }
 
-  const policy = getOfficeProfile(handoffOfficeKey).handoff();
+  const policy = getOfficeProfile(profileOfficeKey).handoff();
   if (policy.mode === "phone") {
     return { mode: "PHONE", target: policy.target };
   }
@@ -119,25 +135,19 @@ async function resolveHandoffTarget(
   return requestDirectHandoff(state, url, secret);
 }
 
-function productHandoffConfig(
-  handoffOfficeKey: OfficeKey,
-): ProductHandoffConfig | null {
-  if (handoffOfficeKey !== "dev") return null;
+function productHandoffConfig(): ProductHandoffConfig | null {
+  const route = {
+    practiceId: process.env.ACUITY_PRODUCT_HANDOFF_PRACTICE_ID?.trim() ?? "",
+    url: process.env.ACUITY_PRODUCT_HANDOFF_URL?.trim() ?? "",
+  };
+  if (Object.values(route).every((value) => value === "")) return null;
 
   const config = {
-    locationId: process.env.DEV_ACUITY_HANDOFF_LOCATION_ID?.trim() ?? "",
-    practiceId: process.env.DEV_ACUITY_HANDOFF_PRACTICE_ID?.trim() ?? "",
-    secret: process.env.DEV_ACUITY_HANDOFF_SECRET?.trim() ?? "",
-    url: process.env.DEV_ACUITY_HANDOFF_URL?.trim() ?? "",
+    ...route,
+    secret: process.env.ACUITY_PRODUCT_SERVICE_SECRET?.trim() ?? "",
   };
-  if (Object.values(config).every((value) => value === "")) return null;
-  if (
-    !config.url ||
-    !config.secret ||
-    !isUuid(config.practiceId) ||
-    !isUuid(config.locationId)
-  ) {
-    throw new Error("Acuity Product demo handoff configuration is incomplete.");
+  if (!config.url || !config.secret || !isUuid(config.practiceId)) {
+    throw new Error("Acuity Product handoff configuration is incomplete.");
   }
   return config;
 }
@@ -167,9 +177,10 @@ async function requestDirectHandoff(
 
 async function requestProductHandoff(
   state: CallState,
+  officeKey: HandoffOfficeKey,
   config: ProductHandoffConfig,
 ): Promise<HandoffTarget> {
-  const payload = productHandoffPayload(state, config);
+  const payload = productHandoffPayload(state, officeKey, config);
   const body = await postHandoff({
     errorPrefix: "Acuity Product",
     payload,
@@ -181,6 +192,7 @@ async function requestProductHandoff(
 
 function productHandoffPayload(
   state: CallState,
+  officeKey: HandoffOfficeKey,
   config: ProductHandoffConfig,
 ): ProductHandoffPayload {
   const existing = _productHandoffPayloads.get(state);
@@ -188,14 +200,12 @@ function productHandoffPayload(
 
   const sourceCallId = state.runtime.callId.trim();
   if (!isSafeValue(sourceCallId) || sourceCallId === "unknown") {
-    throw new Error(
-      "Acuity Product demo handoff requires a stable source call ID.",
-    );
+    throw new Error("Acuity Product handoff requires a stable source call ID.");
   }
   const displayName = activePatientName(state);
   const identity = {
     practiceId: config.practiceId,
-    locationId: config.locationId,
+    officeKey,
     sourceCallId,
   };
   const payload = {
@@ -366,9 +376,11 @@ function isProductSipUri(value: unknown): value is string {
 export async function transferCallerToOffice(
   state: CallState,
 ): Promise<{ handoffOfficeKey: OfficeKey; handoffTarget: string }> {
-  const handoffOfficeKey = getHandoffOfficeKey(state);
+  const profileOfficeKey = getHandoffOfficeKey(state);
+  const handoffOfficeKey = getHandoffRouteOfficeKey(state, profileOfficeKey);
   const { headers, mode, target } = await resolveHandoffTarget(
     state,
+    profileOfficeKey,
     handoffOfficeKey,
   );
   beginTransfer(state);
@@ -385,7 +397,7 @@ export async function transferCallerToOffice(
                 headers: buildCallCenterHandoffHeaders(
                   state,
                   target,
-                  handoffOfficeKey,
+                  profileOfficeKey,
                 ),
               }
             : {}),
@@ -398,5 +410,5 @@ export async function transferCallerToOffice(
     throw new HandoffError("SIP transfer outcome is unknown.");
   }
   acceptTransfer(state);
-  return { handoffOfficeKey, handoffTarget: target };
+  return { handoffOfficeKey: profileOfficeKey, handoffTarget: target };
 }
