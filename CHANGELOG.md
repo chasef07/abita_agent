@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.7.0](https://github.com/chasef07/abita_agent/compare/4.6.1...4.7.0) (2026-08-09)
+
+
+### Features
+
+* **closeout:** route AI call evidence to Product ([#326](https://github.com/chasef07/abita_agent/issues/326)) ([819095b](https://github.com/chasef07/abita_agent/commit/819095bc2b3ed4548c130bc9902149fe95496d15))
+* **handoff:** route production offices through Product ([#332](https://github.com/chasef07/abita_agent/issues/332)) ([94eba96](https://github.com/chasef07/abita_agent/commit/94eba96879c5e62c449a0782e73c31b5b98004cc))
+* **tts:** use Fish Audio on demo trunk ([#331](https://github.com/chasef07/abita_agent/issues/331)) ([d7b0d4e](https://github.com/chasef07/abita_agent/commit/d7b0d4e35d88cdcaa6d275912d337e7d594cd176))
+
+
+### Bug Fixes
+
+* **auth:** select Product credentials by tenant ([#333](https://github.com/chasef07/abita_agent/issues/333)) ([972ec21](https://github.com/chasef07/abita_agent/commit/972ec2126fb8541360eb9684ccd5e8becf37fa2a))
+
 ## [4.6.1](https://github.com/chasef07/abita_agent/compare/4.6.0...4.6.1) (2026-08-08)
 
 
