@@ -10,7 +10,6 @@ import {
   cli,
   defineAgent,
 } from "@livekit/agents";
-import * as rime from "@livekit/agents-plugin-rime";
 import { fileURLToPath } from "node:url";
 import { createVoiceAgent } from "./agent.js";
 import type { CallState } from "./state/call-state.js";
@@ -27,13 +26,10 @@ import { modelFacingLookupStatus } from "./runtime/precall-model-context.js";
 import { MAX_CALL_DURATION_MS } from "./runtime/call-duration-deadline.js";
 import { createLlmPair } from "./model-config.js";
 import {
-  getRimeTtsOptions,
-  getRimeTtsOptionsByLanguage,
-} from "./tts-config.js";
-import {
-  createRimeVoiceLanguageState,
+  createVoiceLanguageState,
   VoiceLanguageRuntime,
 } from "./runtime/voice-language.js";
+import { createTtsRuntime } from "./tts-runtime.js";
 import { getAssemblyAIInferenceSttOptions } from "./stt-config.js";
 import {
   configureVoiceVad,
@@ -112,17 +108,17 @@ export default defineAgent({
           const llmWithFallback = new FallbackAdapter({
             llms: [primaryLLM, fallbackLLM],
           });
-          const optionsByLanguage = getRimeTtsOptionsByLanguage(trunkPhone);
+          const ttsRuntime = createTtsRuntime(trunkPhone);
+          const optionsByLanguage = ttsRuntime.optionsByLanguage;
           const initialOptions = optionsByLanguage.en;
-          const initialVoiceLanguage = createRimeVoiceLanguageState(
+          const initialVoiceLanguage = createVoiceLanguageState(
             "en",
             initialOptions,
+            ttsRuntime.provider,
           );
-          const tts = new rime.TTS(
-            getRimeTtsOptions({ language: "en", trunkPhone }),
-          );
+          const tts = ttsRuntime.tts;
           console.log(
-            `[tts] provider=rime trunk=${trunkPhone} voice_language=${initialVoiceLanguage.current} tts_language=${initialVoiceLanguage.ttsLanguage} speaker=${initialVoiceLanguage.speaker}`,
+            `[tts] provider=${ttsRuntime.provider} trunk=${trunkPhone} voice_language=${initialVoiceLanguage.current} tts_language=${initialVoiceLanguage.ttsLanguage} speaker=${initialVoiceLanguage.speaker}`,
           );
 
           const initialCall = {
@@ -143,7 +139,7 @@ export default defineAgent({
           const voiceLanguageRuntime = new VoiceLanguageRuntime({
             optionsByLanguage,
             state: callState.runtime.voiceLanguage,
-            tts,
+            tts: ttsRuntime,
           });
           let callStateReady = false;
           const session = new AgentSession<CallState>({

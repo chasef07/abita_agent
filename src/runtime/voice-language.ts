@@ -11,15 +11,17 @@ const MAX_LANGUAGE_KEEP_EVENTS = 50;
 
 export type VoiceLanguage = (typeof SUPPORTED_VOICE_LANGUAGES)[number];
 
-export type RimeVoiceLanguageOptions = {
-  lang: "eng" | "spa";
+export type VoiceLanguageStateOptions = {
   speaker: string;
+  ttsLanguage: string;
 };
+
+export type VoiceTtsProvider = "fishaudio" | "rime";
 
 export interface RuntimeVoiceLanguageState {
   current: VoiceLanguage;
-  ttsProvider: "rime";
-  ttsLanguage: RimeVoiceLanguageOptions["lang"];
+  ttsProvider: VoiceTtsProvider;
+  ttsLanguage: string;
   speaker: string;
   confidence?: number;
   providerCode?: string;
@@ -68,7 +70,7 @@ export type VoiceLanguageSnapshot = {
 };
 
 type TtsLanguageUpdater = {
-  updateOptions(options: RimeVoiceLanguageOptions): void;
+  updateLanguage(language: VoiceLanguage): void;
 };
 
 type SpeechAlternative = NonNullable<stt.SpeechEvent["alternatives"]>[number];
@@ -89,15 +91,16 @@ const TRANSCRIPT_CLAUSE_SEPARATOR = new RegExp(
   `[.!?;:]+|\\b(?:but|however|pero)\\b|\\b(?:and|then|y)\\s+(?=(?:(?:${REQUEST_MODAL_TERMS})\\s+(?:(?:i|we|you)\\s+)?(?:${REQUEST_CLAUSE_ACTIONS})\\b|(?:i|we)\\s+(?:${REQUEST_PREFERENCE_TERMS})\\b|(?:please\\s+)?(?:${REQUEST_CLAUSE_ACTIONS})\\b))`,
 );
 
-export function createRimeVoiceLanguageState(
+export function createVoiceLanguageState(
   language: VoiceLanguage,
-  options: RimeVoiceLanguageOptions,
+  options: VoiceLanguageStateOptions,
+  provider: VoiceTtsProvider,
 ): RuntimeVoiceLanguageState {
   return {
     current: language,
     speaker: options.speaker,
-    ttsLanguage: options.lang,
-    ttsProvider: "rime",
+    ttsLanguage: options.ttsLanguage,
+    ttsProvider: provider,
   };
 }
 
@@ -196,14 +199,14 @@ export class VoiceLanguageRuntime {
   private readonly observedLanguages = new Set<VoiceLanguage>();
   private readonly optionsByLanguage: Record<
     VoiceLanguage,
-    RimeVoiceLanguageOptions
+    VoiceLanguageStateOptions
   >;
   private readonly state: RuntimeVoiceLanguageState;
   private readonly switchEvents: VoiceLanguageSwitchEvent[] = [];
   private readonly tts: TtsLanguageUpdater;
 
   constructor(input: {
-    optionsByLanguage: Record<VoiceLanguage, RimeVoiceLanguageOptions>;
+    optionsByLanguage: Record<VoiceLanguage, VoiceLanguageStateOptions>;
     state: RuntimeVoiceLanguageState;
     tts: TtsLanguageUpdater;
   }) {
@@ -324,7 +327,7 @@ export class VoiceLanguageRuntime {
     const previousLanguage = this.state.current;
     const options = this.optionsByLanguage[language];
     try {
-      this.tts.updateOptions(options);
+      this.tts.updateLanguage(language);
     } catch {
       this.keep("apply_failed", {
         ...(confidence !== null ? { confidence } : {}),
@@ -335,7 +338,7 @@ export class VoiceLanguageRuntime {
       return;
     }
     Object.assign(this.state, {
-      ...createRimeVoiceLanguageState(language, options),
+      ...createVoiceLanguageState(language, options, this.state.ttsProvider),
       providerCode,
       updatedAt: new Date().toISOString(),
     });
@@ -356,7 +359,7 @@ export class VoiceLanguageRuntime {
     if (confidence !== null) switchEvent.confidence = confidence;
     this.switchEvents.push(switchEvent);
     console.log(
-      `[language] applied_tts_options provider=rime voice_language=${language} tts_language=${options.lang} speaker=${options.speaker}`,
+      `[language] applied_tts_options provider=${this.state.ttsProvider} voice_language=${language} tts_language=${options.ttsLanguage} speaker=${options.speaker}`,
     );
   }
 
