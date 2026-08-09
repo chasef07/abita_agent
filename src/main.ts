@@ -47,14 +47,11 @@ import {
   attachStartupCallCloseout,
   createLiveKitCallCloseoutEventAdapter,
 } from "./runtime/call-closeout.js";
-import {
-  getProductInteractionConfig,
-  validateProductInteractionConfig,
-} from "./runtime/portal-auth.js";
+import { getProductInteractionConfig } from "./runtime/portal-auth.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { coordinateSessionStartup } from "./runtime/session-startup.js";
 
-validateProductInteractionConfig();
+const productInteractionConfig = getProductInteractionConfig();
 
 export default defineAgent({
   entry: async (ctx: JobContext) => {
@@ -80,14 +77,12 @@ export default defineAgent({
         sipCallId,
         sipParticipantIdentity: participant.identity ?? "",
       };
-      const office = getOfficeProfileByPhone(trunkPhone);
+      const callStartOffice = optionalOfficeProfile(trunkPhone);
       let startupActive = true;
       console.log(
         `[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`,
       );
-      const portal = new HttpCallPortal(
-        getProductInteractionConfig(office.key),
-      );
+      const portal = new HttpCallPortal(productInteractionConfig);
       await coordinateSessionStartup({
         lookup: (signal) =>
           loadPreCallBootstrap({ callerPhone, trunkPhone, signal }),
@@ -98,7 +93,7 @@ export default defineAgent({
               callId,
               callerPhone,
               livekitContext,
-              officeKey: office.key,
+              officeKey: callStartOffice?.key,
               officePhone: trunkPhone,
               startedAt,
             },
@@ -107,6 +102,7 @@ export default defineAgent({
               ctx.addShutdownCallback(closeout);
             },
           });
+          const office = callStartOffice ?? getOfficeProfileByPhone(trunkPhone);
           const { primary: primaryLLM, fallback: fallbackLLM } =
             createLlmPair();
           const llmWithFallback = new FallbackAdapter({
@@ -260,6 +256,16 @@ export default defineAgent({
     }
   },
 });
+
+function optionalOfficeProfile(
+  phone: string,
+): ReturnType<typeof getOfficeProfileByPhone> | undefined {
+  try {
+    return getOfficeProfileByPhone(phone);
+  } catch {
+    return undefined;
+  }
+}
 
 cli.runApp(
   new ServerOptions({

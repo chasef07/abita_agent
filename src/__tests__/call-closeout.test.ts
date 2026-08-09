@@ -17,10 +17,7 @@ import {
   type CallCloseoutResult,
 } from "../runtime/call-closeout.js";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
-import {
-  getProductInteractionConfig,
-  validateProductInteractionConfig,
-} from "../runtime/portal-auth.js";
+import { getProductInteractionConfig } from "../runtime/portal-auth.js";
 import {
   recordPatientIdentityTransition,
   type CallState,
@@ -228,10 +225,10 @@ describe("call closeout", () => {
     const fetchImpl = vi.fn(
       async () => new Response(null, { status: 200 }),
     ) as unknown as typeof fetch;
-    const config = getProductInteractionConfig("spring-hill", {
-      ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: " product-secret ",
+    const config = getProductInteractionConfig({
       ACUITY_PRODUCT_INTERACTION_URL:
         " https://product.example/v1/ai/interactions ",
+      ACUITY_PRODUCT_SERVICE_SECRET: " product-secret ",
       ANALYTICS_URL: "https://site.example/api/livekit/calls",
       LIVEKIT_FORWARD_SYNC_SECRET: "site-secret",
     });
@@ -261,64 +258,31 @@ describe("call closeout", () => {
 
   it("requires Product delivery configuration in production", () => {
     expect(() =>
-      validateProductInteractionConfig({
+      getProductInteractionConfig({
         NODE_ENV: "production",
         ACUITY_PRODUCT_INTERACTION_URL:
           "https://product.example/v1/ai/interactions",
-        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
       }),
     ).toThrow(
-      "ACUITY_PRODUCT_INTERACTION_URL, ACUITY_DEMO_PRODUCT_SERVICE_SECRET, and ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET are required in production",
+      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_PRODUCT_SERVICE_SECRET are required in production",
     );
     expect(() =>
-      validateProductInteractionConfig({
+      getProductInteractionConfig({
         NODE_ENV: "production",
-        ACUITY_PRODUCT_INTERACTION_URL:
-          "https://product.example/v1/ai/interactions",
-        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
-        ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
-      }),
-    ).not.toThrow();
-    expect(() =>
-      getProductInteractionConfig("spring-hill", {
-        NODE_ENV: "production",
-        ACUITY_PRODUCT_INTERACTION_URL:
-          "https://product.example/v1/ai/interactions",
+        ACUITY_PRODUCT_SERVICE_SECRET: "product-secret",
       }),
     ).toThrow(
-      "ACUITY_PRODUCT_INTERACTION_URL and ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET are required for spring-hill Product interactions",
-    );
-    expect(() =>
-      getProductInteractionConfig("dev", {
-        NODE_ENV: "production",
-        ACUITY_PRODUCT_INTERACTION_URL:
-          "https://product.example/v1/ai/interactions",
-      }),
-    ).toThrow(
-      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_DEMO_PRODUCT_SERVICE_SECRET are required for dev Product interactions",
+      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_PRODUCT_SERVICE_SECRET are required in production",
     );
     expect(
-      getProductInteractionConfig("dev", {
+      getProductInteractionConfig({
         NODE_ENV: "production",
         ACUITY_PRODUCT_INTERACTION_URL:
           "https://product.example/v1/ai/interactions",
-        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
-        ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+        ACUITY_PRODUCT_SERVICE_SECRET: "product-secret",
       }),
     ).toEqual({
-      secret: "demo-secret",
-      url: "https://product.example/v1/ai/interactions",
-    });
-    expect(
-      getProductInteractionConfig("spring-hill", {
-        NODE_ENV: "production",
-        ACUITY_PRODUCT_INTERACTION_URL:
-          "https://product.example/v1/ai/interactions",
-        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
-        ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
-      }),
-    ).toEqual({
-      secret: "production-secret",
+      secret: "product-secret",
       url: "https://product.example/v1/ai/interactions",
     });
   });
@@ -1020,53 +984,33 @@ describe("call closeout", () => {
       async () => new Response(null, { status: 200 }),
     ) as unknown as typeof fetch;
     const logger = { log: vi.fn(), warn: vi.fn() };
-    const config = getProductInteractionConfig("spring-hill", {
-      NODE_ENV: "production",
-      ACUITY_PRODUCT_INTERACTION_URL:
-        "https://product.example/v1/ai/interactions",
-      ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
-    });
     const portal = new HttpCallPortal({
-      ...config,
       fetchImpl,
       logger,
+      secret: "private-secret",
+      url: "https://portal.example/api/livekit/calls",
     });
-    const state = createTestCallState();
 
     await attachCallCloseout({
       call: DEFAULT_CALL,
       events,
-      getCallState: () => state,
+      getCallState: createTestCallState,
       portal,
-    });
-    recordAppointmentAction(state, {
-      action: "booked",
-      status: "success",
-      toolName: "book_appointment",
-      newAppointmentId: "appointment-auth-proof",
-      bookingResult: { status: "booked", appointmentId: 63 },
-    });
-    events.emit("toolsExecuted", {
-      createdAt: Date.parse("2026-07-20T10:00:30.000Z"),
-      functionCalls: [{ callId: "tool-call-auth", name: "book_appointment" }],
-      functionCallOutputs: [
-        { callId: "tool-call-auth", output: JSON.stringify("Booked") },
-      ],
     });
     await events.close();
 
-    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
     for (const [, request] of vi.mocked(fetchImpl).mock.calls) {
       expect(request?.headers).toEqual({
-        Authorization: "Bearer production-secret",
+        Authorization: "Bearer private-secret",
         "Content-Type": "application/json",
       });
     }
     expect(logger.log.mock.calls.flat().join(" ")).not.toContain(
-      "production-secret",
+      "private-secret",
     );
     expect(logger.warn.mock.calls.flat().join(" ")).not.toContain(
-      "production-secret",
+      "private-secret",
     );
   });
 
