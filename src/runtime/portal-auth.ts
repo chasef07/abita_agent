@@ -1,3 +1,14 @@
+import type { OfficeKey } from "../customers/abita/profile.js";
+
+const PRODUCT_CONFIGURATION = [
+  "ACUITY_PRODUCT_INTERACTION_URL",
+  "ACUITY_PRODUCT_HANDOFF_URL",
+  "ACUITY_DEMO_PRODUCT_SERVICE_SECRET",
+  "ACUITY_DEMO_PRODUCT_PRACTICE_ID",
+  "ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET",
+  "ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID",
+] as const;
+
 export function getPortalSecret(
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
@@ -5,18 +16,60 @@ export function getPortalSecret(
 }
 
 export function getProductInteractionConfig(
+  officeKey: OfficeKey,
   env: NodeJS.ProcessEnv = process.env,
 ): { secret?: string; url?: string } {
+  const tenant = getProductTenantConfig(officeKey, env);
   const config = {
-    secret: trimmed(env.ACUITY_PRODUCT_SERVICE_SECRET),
+    secret: tenant.secret,
     url: trimmed(env.ACUITY_PRODUCT_INTERACTION_URL),
   };
   if (env.NODE_ENV === "production" && (!config.url || !config.secret)) {
     throw new Error(
-      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_PRODUCT_SERVICE_SECRET are required in production",
+      `ACUITY_PRODUCT_INTERACTION_URL and ${tenant.secretName} are required for ${officeKey} Product interactions`,
     );
   }
   return config;
+}
+
+export function getProductTenantConfig(
+  officeKey: OfficeKey,
+  env: NodeJS.ProcessEnv = process.env,
+): {
+  practiceId?: string;
+  practiceIdName:
+    "ACUITY_DEMO_PRODUCT_PRACTICE_ID" | "ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID";
+  secretName:
+    | "ACUITY_DEMO_PRODUCT_SERVICE_SECRET"
+    | "ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET";
+  secret?: string;
+} {
+  const isDemo = officeKey === "dev";
+  const practiceIdName = isDemo
+    ? "ACUITY_DEMO_PRODUCT_PRACTICE_ID"
+    : "ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID";
+  const secretName = isDemo
+    ? "ACUITY_DEMO_PRODUCT_SERVICE_SECRET"
+    : "ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET";
+  return {
+    practiceId: trimmed(env[practiceIdName]),
+    practiceIdName,
+    secret: trimmed(env[secretName]),
+    secretName,
+  };
+}
+
+export function validateProductConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  if (
+    env.NODE_ENV === "production" &&
+    PRODUCT_CONFIGURATION.some((name) => !trimmed(env[name]))
+  ) {
+    throw new Error(
+      `${PRODUCT_CONFIGURATION.join(", ")} are required in production`,
+    );
+  }
 }
 
 function trimmed(value: string | undefined): string | undefined {

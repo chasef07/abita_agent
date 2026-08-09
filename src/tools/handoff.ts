@@ -14,6 +14,7 @@ import {
   beginTransfer,
   markTransferAmbiguous,
 } from "../state/call-lifecycle.js";
+import { getProductTenantConfig } from "../runtime/portal-auth.js";
 
 const HANDOFF_TIMEOUT_MS = 2_000;
 const HANDOFF_TOKEN_MARKER = "~ah1~";
@@ -30,7 +31,6 @@ type HandoffTarget = {
 };
 
 type ProductHandoffConfig = {
-  officeKey: HandoffOfficeKey;
   practiceId: string;
   secret: string;
   url: string;
@@ -44,6 +44,7 @@ type ProductHandoffPayload = {
     phoneSource: string;
   };
   idempotencyKey: string;
+  officeKey: HandoffOfficeKey;
   practiceId: string;
   sourceCallId: string;
 };
@@ -115,12 +116,9 @@ async function resolveHandoffTarget(
   profileOfficeKey: OfficeKey,
   handoffOfficeKey: HandoffOfficeKey,
 ): Promise<HandoffTarget> {
-  const productConfig = productHandoffConfig(
-    profileOfficeKey,
-    handoffOfficeKey,
-  );
+  const productConfig = productHandoffConfig(profileOfficeKey);
   if (productConfig) {
-    return requestProductHandoff(state, productConfig);
+    return requestProductHandoff(state, handoffOfficeKey, productConfig);
   }
 
   const policy = getOfficeProfile(profileOfficeKey).handoff();
@@ -137,34 +135,18 @@ async function resolveHandoffTarget(
 }
 
 function productHandoffConfig(
-  profileOfficeKey: OfficeKey,
-  handoffOfficeKey: HandoffOfficeKey,
+  officeKey: OfficeKey,
 ): ProductHandoffConfig | null {
-  if (profileOfficeKey === "dev") {
-    const config = {
-      officeKey: handoffOfficeKey,
-      practiceId: process.env.DEV_ACUITY_HANDOFF_PRACTICE_ID?.trim() ?? "",
-      secret: process.env.DEV_ACUITY_HANDOFF_SECRET?.trim() ?? "",
-      url: process.env.DEV_ACUITY_HANDOFF_URL?.trim() ?? "",
-    };
-    if (!config.url || !config.secret || !isUuid(config.practiceId)) {
-      throw new Error(
-        "Acuity Product demo handoff configuration is incomplete.",
-      );
-    }
-    return config;
-  }
-
+  const tenant = getProductTenantConfig(officeKey);
   const route = {
-    practiceId: process.env.ACUITY_PRODUCT_HANDOFF_PRACTICE_ID?.trim() ?? "",
+    practiceId: tenant.practiceId ?? "",
     url: process.env.ACUITY_PRODUCT_HANDOFF_URL?.trim() ?? "",
   };
   if (Object.values(route).every((value) => value === "")) return null;
 
   const config = {
     ...route,
-    officeKey: handoffOfficeKey,
-    secret: process.env.ACUITY_PRODUCT_SERVICE_SECRET?.trim() ?? "",
+    secret: tenant.secret ?? "",
   };
   if (!config.url || !config.secret || !isUuid(config.practiceId)) {
     throw new Error("Acuity Product handoff configuration is incomplete.");
@@ -197,9 +179,10 @@ async function requestDirectHandoff(
 
 async function requestProductHandoff(
   state: CallState,
+  officeKey: HandoffOfficeKey,
   config: ProductHandoffConfig,
 ): Promise<HandoffTarget> {
-  const payload = productHandoffPayload(state, config);
+  const payload = productHandoffPayload(state, officeKey, config);
   const body = await postHandoff({
     errorPrefix: "Acuity Product",
     payload,
@@ -211,6 +194,7 @@ async function requestProductHandoff(
 
 function productHandoffPayload(
   state: CallState,
+  officeKey: HandoffOfficeKey,
   config: ProductHandoffConfig,
 ): ProductHandoffPayload {
   const existing = _productHandoffPayloads.get(state);
@@ -223,7 +207,7 @@ function productHandoffPayload(
   const displayName = activePatientName(state);
   const identity = {
     practiceId: config.practiceId,
-    officeKey: config.officeKey,
+    officeKey,
     sourceCallId,
   };
   const payload = {

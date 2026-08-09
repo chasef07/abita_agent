@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isToolset, type ToolContextEntry } from "@livekit/agents";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { buildPrompt } from "../prompt.js";
@@ -12,6 +12,7 @@ import {
   getOfficeKeyByPhone,
   HOLLYWOOD_OFFICE_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+  normalizeHandoffTarget,
   normalizePhoneNumber,
   SPRING_HILL_813_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
@@ -51,10 +52,23 @@ function toolForTrunk(trunkPhone: string, name: string) {
     .find((entry) => entry.id === name);
 }
 
+afterEach(() => {
+  delete process.env.DEV_HANDOFF_TARGET;
+});
+
 describe("office routing helpers", () => {
   it("normalizes LiveKit phone attributes without a plus prefix", () => {
     expect(normalizePhoneNumber("14843989071")).toBe(DEV_OFFICE_PHONE);
     expect(getOfficeKeyByPhone("14843989071")).toBe("dev");
+  });
+
+  it("normalizes handoff targets while allowing SIP URIs directly", () => {
+    expect(normalizeHandoffTarget("+12025550123")).toBe("tel:+12025550123");
+    expect(normalizeHandoffTarget("12025550123")).toBe("tel:+12025550123");
+    expect(normalizeHandoffTarget("tel:+12025550123")).toBe("tel:+12025550123");
+    expect(normalizeHandoffTarget("sip:office@sip.telnyx.com")).toBe(
+      "sip:office@sip.telnyx.com",
+    );
   });
 
   it("always exposes one patient resolution tool without a separate switch tool", () => {
@@ -312,6 +326,14 @@ describe("dermatology demo", () => {
     expect(names).toContain("end_call");
     expect(names).toContain("transfer_call");
     expect(names).toContain("create_staff_task");
+  });
+
+  it("honors the isolated demo handoff override", () => {
+    process.env.DEV_HANDOFF_TARGET = "sip:demo@example.test";
+    expect(getOfficeProfile("dev").handoff()).toEqual({
+      mode: "phone",
+      target: "sip:demo@example.test",
+    });
   });
 
   it("retrieves dermatology knowledge for medical and cosmetic questions", () => {
