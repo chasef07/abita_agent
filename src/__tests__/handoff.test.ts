@@ -65,7 +65,8 @@ function configureProductHandoff() {
     "ACUITY_PRODUCT_HANDOFF_URL",
     "https://acuity-product.example/v1/handoffs",
   );
-  vi.stubEnv("ACUITY_PRODUCT_SERVICE_SECRET", "product-secret");
+  vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET", "production-secret");
+  vi.stubEnv("ACUITY_PRODUCT_SERVICE_SECRET", "legacy-wrong-secret");
   vi.stubEnv("ACUITY_PRODUCT_HANDOFF_PRACTICE_ID", PRODUCT_PRACTICE_ID);
 }
 
@@ -75,6 +76,7 @@ describe("call-center handoff", () => {
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "");
     vi.stubEnv("ACUITY_PRODUCT_HANDOFF_PRACTICE_ID", "");
     vi.stubEnv("ACUITY_PRODUCT_HANDOFF_URL", "");
+    vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET", "");
     vi.stubEnv("ACUITY_PRODUCT_SERVICE_SECRET", "");
     vi.stubEnv("DEV_HANDOFF_TARGET", "");
     transferSipParticipantMock.mockReset();
@@ -207,7 +209,7 @@ describe("call-center handoff", () => {
         expect.objectContaining({
           body: JSON.stringify(payload),
           headers: {
-            Authorization: "Bearer product-secret",
+            Authorization: "Bearer production-secret",
             "Content-Type": "application/json",
           },
           method: "POST",

@@ -144,7 +144,7 @@ function productHandoffConfig(): ProductHandoffConfig | null {
 
   const config = {
     ...route,
-    secret: process.env.ACUITY_PRODUCT_SERVICE_SECRET?.trim() ?? "",
+    secret: process.env.ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET?.trim() ?? "",
   };
   if (!config.url || !config.secret || !isUuid(config.practiceId)) {
     throw new Error("Acuity Product handoff configuration is incomplete.");
