@@ -47,6 +47,7 @@ const PRODUCT_RESPONSE = {
   expiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
 };
 const PRODUCT_PRACTICE_ID = "861dd557-eb44-4754-bbd6-40d58a624419";
+const DEMO_PRODUCT_PRACTICE_ID = "f84079ac-df10-491b-8196-9c670c1bc78f";
 
 function createState() {
   return createTestCallState();
@@ -65,16 +66,29 @@ function configureProductHandoff() {
     "ACUITY_PRODUCT_HANDOFF_URL",
     "https://acuity-product.example/v1/handoffs",
   );
-  vi.stubEnv("ACUITY_PRODUCT_SERVICE_SECRET", "product-secret");
-  vi.stubEnv("ACUITY_PRODUCT_HANDOFF_PRACTICE_ID", PRODUCT_PRACTICE_ID);
+  vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET", "production-secret");
+  vi.stubEnv("ACUITY_PRODUCT_SERVICE_SECRET", "legacy-wrong-secret");
+  vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID", PRODUCT_PRACTICE_ID);
+}
+
+function configureDemoProductHandoff() {
+  vi.stubEnv(
+    "ACUITY_PRODUCT_HANDOFF_URL",
+    "https://acuity-product.example/v1/handoffs",
+  );
+  vi.stubEnv("ACUITY_DEMO_PRODUCT_SERVICE_SECRET", "demo-secret");
+  vi.stubEnv("ACUITY_DEMO_PRODUCT_PRACTICE_ID", DEMO_PRODUCT_PRACTICE_ID);
 }
 
 describe("call-center handoff", () => {
   beforeEach(() => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "");
-    vi.stubEnv("ACUITY_PRODUCT_HANDOFF_PRACTICE_ID", "");
+    vi.stubEnv("ACUITY_DEMO_PRODUCT_PRACTICE_ID", "");
+    vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID", "");
     vi.stubEnv("ACUITY_PRODUCT_HANDOFF_URL", "");
+    vi.stubEnv("ACUITY_DEMO_PRODUCT_SERVICE_SECRET", "");
+    vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET", "");
     vi.stubEnv("ACUITY_PRODUCT_SERVICE_SECRET", "");
     vi.stubEnv("DEV_HANDOFF_TARGET", "");
     transferSipParticipantMock.mockReset();
@@ -207,7 +221,7 @@ describe("call-center handoff", () => {
         expect.objectContaining({
           body: JSON.stringify(payload),
           headers: {
-            Authorization: "Bearer product-secret",
+            Authorization: "Bearer production-secret",
             "Content-Type": "application/json",
           },
           method: "POST",
@@ -271,21 +285,32 @@ describe("call-center handoff", () => {
     );
   });
 
-  it("keeps the dev office on its isolated phone route", async () => {
-    configureProductHandoff();
-    const fetchMock = vi.fn();
+  it("routes the demo through Product with the Demo tenant credential", async () => {
+    configureDemoProductHandoff();
+    const fetchMock = vi.fn(async () => jsonResponse(PRODUCT_RESPONSE, 201));
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
     state.runtime.trunkPhone = DEV_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).resolves.toEqual({
       handoffOfficeKey: "dev",
-      handoffTarget: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+      handoffTarget: PRODUCT_RESPONSE.sipDestination,
     });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://acuity-product.example/v1/handoffs",
+      expect.objectContaining({
+        body: expect.stringContaining(
+          `"practiceId":"${DEMO_PRODUCT_PRACTICE_ID}"`,
+        ),
+        headers: {
+          Authorization: "Bearer demo-secret",
+          "Content-Type": "application/json",
+        },
+      }),
+    );
   });
 
-  it("keeps dev isolated when production handoff configuration is incomplete", async () => {
+  it("fails closed when the Demo Product handoff configuration is incomplete", async () => {
     vi.stubEnv(
       "ACUITY_PRODUCT_HANDOFF_URL",
       "https://acuity-product.example/v1/handoffs",
@@ -295,10 +320,9 @@ describe("call-center handoff", () => {
     const state = createState();
     state.runtime.trunkPhone = DEV_OFFICE_PHONE;
 
-    await expect(transferCallerToOffice(state)).resolves.toEqual({
-      handoffOfficeKey: "dev",
-      handoffTarget: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
-    });
+    await expect(transferCallerToOffice(state)).rejects.toThrow(
+      "Acuity Product handoff configuration is incomplete.",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

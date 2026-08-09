@@ -17,7 +17,10 @@ import {
   type CallCloseoutResult,
 } from "../runtime/call-closeout.js";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
-import { getProductInteractionConfig } from "../runtime/portal-auth.js";
+import {
+  getProductInteractionConfig,
+  validateProductConfig,
+} from "../runtime/portal-auth.js";
 import {
   recordPatientIdentityTransition,
   type CallState,
@@ -225,10 +228,10 @@ describe("call closeout", () => {
     const fetchImpl = vi.fn(
       async () => new Response(null, { status: 200 }),
     ) as unknown as typeof fetch;
-    const config = getProductInteractionConfig({
+    const config = getProductInteractionConfig("spring-hill", {
+      ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: " product-secret ",
       ACUITY_PRODUCT_INTERACTION_URL:
         " https://product.example/v1/ai/interactions ",
-      ACUITY_PRODUCT_SERVICE_SECRET: " product-secret ",
       ANALYTICS_URL: "https://site.example/api/livekit/calls",
       LIVEKIT_FORWARD_SYNC_SECRET: "site-secret",
     });
@@ -258,31 +261,68 @@ describe("call closeout", () => {
 
   it("requires Product delivery configuration in production", () => {
     expect(() =>
-      getProductInteractionConfig({
+      validateProductConfig({
         NODE_ENV: "production",
         ACUITY_PRODUCT_INTERACTION_URL:
           "https://product.example/v1/ai/interactions",
+        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
       }),
     ).toThrow(
-      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_PRODUCT_SERVICE_SECRET are required in production",
+      "ACUITY_PRODUCT_INTERACTION_URL, ACUITY_PRODUCT_HANDOFF_URL, ACUITY_DEMO_PRODUCT_SERVICE_SECRET, ACUITY_DEMO_PRODUCT_PRACTICE_ID, ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET, ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID are required in production",
     );
     expect(() =>
-      getProductInteractionConfig({
-        NODE_ENV: "production",
-        ACUITY_PRODUCT_SERVICE_SECRET: "product-secret",
-      }),
-    ).toThrow(
-      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_PRODUCT_SERVICE_SECRET are required in production",
-    );
-    expect(
-      getProductInteractionConfig({
+      validateProductConfig({
         NODE_ENV: "production",
         ACUITY_PRODUCT_INTERACTION_URL:
           "https://product.example/v1/ai/interactions",
-        ACUITY_PRODUCT_SERVICE_SECRET: "product-secret",
+        ACUITY_PRODUCT_HANDOFF_URL: "https://product.example/v1/handoffs",
+        ACUITY_DEMO_PRODUCT_PRACTICE_ID: "00000000-0000-0000-0000-000000000001",
+        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
+        ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID:
+          "00000000-0000-0000-0000-000000000002",
+        ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      getProductInteractionConfig("spring-hill", {
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_INTERACTION_URL:
+          "https://product.example/v1/ai/interactions",
+      }),
+    ).toThrow(
+      "ACUITY_PRODUCT_INTERACTION_URL and ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET are required for spring-hill Product interactions",
+    );
+    expect(() =>
+      getProductInteractionConfig("dev", {
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_INTERACTION_URL:
+          "https://product.example/v1/ai/interactions",
+      }),
+    ).toThrow(
+      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_DEMO_PRODUCT_SERVICE_SECRET are required for dev Product interactions",
+    );
+    expect(
+      getProductInteractionConfig("dev", {
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_INTERACTION_URL:
+          "https://product.example/v1/ai/interactions",
+        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
+        ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
       }),
     ).toEqual({
-      secret: "product-secret",
+      secret: "demo-secret",
+      url: "https://product.example/v1/ai/interactions",
+    });
+    expect(
+      getProductInteractionConfig("spring-hill", {
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_INTERACTION_URL:
+          "https://product.example/v1/ai/interactions",
+        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
+        ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+      }),
+    ).toEqual({
+      secret: "production-secret",
       url: "https://product.example/v1/ai/interactions",
     });
   });
@@ -978,41 +1018,71 @@ describe("call closeout", () => {
     );
   });
 
-  it("delivers the lifecycle through HTTP with bearer authorization", async () => {
-    const events = new TestLiveKitEvents();
-    const fetchImpl = vi.fn(
-      async () => new Response(null, { status: 200 }),
-    ) as unknown as typeof fetch;
-    const logger = { log: vi.fn(), warn: vi.fn() };
-    const portal = new HttpCallPortal({
-      fetchImpl,
-      logger,
-      secret: "private-secret",
-      url: "https://portal.example/api/livekit/calls",
-    });
-
-    await attachCallCloseout({
-      call: DEFAULT_CALL,
-      events,
-      getCallState: createTestCallState,
-      portal,
-    });
-    await events.close();
-
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
-    for (const [, request] of vi.mocked(fetchImpl).mock.calls) {
-      expect(request?.headers).toEqual({
-        Authorization: "Bearer private-secret",
-        "Content-Type": "application/json",
+  it.each([
+    {
+      officeKey: "spring-hill" as const,
+      secret: "production-secret",
+      secretName: "ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET" as const,
+    },
+    {
+      officeKey: "dev" as const,
+      secret: "demo-secret",
+      secretName: "ACUITY_DEMO_PRODUCT_SERVICE_SECRET" as const,
+    },
+  ])(
+    "delivers the $officeKey lifecycle with the tenant bearer",
+    async ({ officeKey, secret, secretName }) => {
+      const events = new TestLiveKitEvents();
+      const fetchImpl = vi.fn(
+        async () => new Response(null, { status: 200 }),
+      ) as unknown as typeof fetch;
+      const logger = { log: vi.fn(), warn: vi.fn() };
+      const config = getProductInteractionConfig(officeKey, {
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_INTERACTION_URL:
+          "https://product.example/v1/ai/interactions",
+        [secretName]: secret,
       });
-    }
-    expect(logger.log.mock.calls.flat().join(" ")).not.toContain(
-      "private-secret",
-    );
-    expect(logger.warn.mock.calls.flat().join(" ")).not.toContain(
-      "private-secret",
-    );
-  });
+      const portal = new HttpCallPortal({
+        ...config,
+        fetchImpl,
+        logger,
+      });
+      const state = createTestCallState();
+
+      await attachCallCloseout({
+        call: { ...DEFAULT_CALL, officeKey },
+        events,
+        getCallState: () => state,
+        portal,
+      });
+      recordAppointmentAction(state, {
+        action: "booked",
+        status: "success",
+        toolName: "book_appointment",
+        newAppointmentId: "appointment-auth-proof",
+        bookingResult: { status: "booked", appointmentId: 63 },
+      });
+      events.emit("toolsExecuted", {
+        createdAt: Date.parse("2026-07-20T10:00:30.000Z"),
+        functionCalls: [{ callId: "tool-call-auth", name: "book_appointment" }],
+        functionCallOutputs: [
+          { callId: "tool-call-auth", output: JSON.stringify("Booked") },
+        ],
+      });
+      await events.close();
+
+      expect(fetchImpl).toHaveBeenCalledTimes(4);
+      for (const [, request] of vi.mocked(fetchImpl).mock.calls) {
+        expect(request?.headers).toEqual({
+          Authorization: `Bearer ${secret}`,
+          "Content-Type": "application/json",
+        });
+      }
+      expect(logger.log.mock.calls.flat().join(" ")).not.toContain(secret);
+      expect(logger.warn.mock.calls.flat().join(" ")).not.toContain(secret);
+    },
+  );
 
   it("sends Product Interaction envelopes with receipt-backed appointment evidence", async () => {
     const fetchImpl = vi.fn(
