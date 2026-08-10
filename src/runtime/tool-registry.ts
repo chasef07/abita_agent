@@ -89,7 +89,7 @@ export function buildToolsForTrunk(
     check_insurance,
   ] as const satisfies readonly ToolContextEntry<CallState>[];
   const commonTools = [...coreTools, transfer_call, end_call] as const;
-  if (office.staffTaskDelivery !== "disabled") {
+  if (office.staffTaskEnabled) {
     return [...commonTools, create_staff_task];
   }
   return commonTools;

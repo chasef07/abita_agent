@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
-import { getPortalSecret } from "../runtime/portal-auth.js";
+import { getProductTenantConfig } from "../runtime/portal-auth.js";
 import {
   activePatientDob,
   activePatientId,
@@ -15,10 +15,10 @@ import {
   recordStaffTaskReceipt,
 } from "../state/observability.js";
 import {
+  getHandoffOfficeKeyByPhone,
   getOfficeProfileByPhone,
   normalizePhoneNumber,
   type OfficeProfile,
-  type StaffTaskDelivery,
 } from "../customers/abita/profile.js";
 import { getState } from "./session.js";
 
@@ -93,7 +93,7 @@ export const create_staff_task = tool({
     const existing = findStaffTaskReceipt(state, payload.idempotencyKey);
     if (existing) return TASK_DUPLICATE_REPLY;
 
-    const destination = getStaffTaskDestination(office.staffTaskDelivery);
+    const destination = getStaffTaskDestination(office.key);
     if (!destination) {
       throw new Error("Staff task delivery is not configured.");
     }
@@ -128,19 +128,10 @@ export const create_staff_task = tool({
   },
 });
 
-export function getStaffTasksUrl(
-  env: NodeJS.ProcessEnv = process.env,
-): string | undefined {
-  const analyticsUrl = env.ANALYTICS_URL?.trim();
-  if (!analyticsUrl) return undefined;
-
-  return analyticsUrl.replace(/\/calls\/?$/, "/tasks");
-}
-
 export function getAcuityProductStaffTasksUrl(
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  const handoffUrl = env.DEV_ACUITY_HANDOFF_URL?.trim();
+  const handoffUrl = env.ACUITY_PRODUCT_HANDOFF_URL?.trim();
   if (!handoffUrl) return undefined;
 
   const tasksUrl = handoffUrl.replace(/\/v1\/handoffs\/?$/, "/v1/tasks");
@@ -148,23 +139,12 @@ export function getAcuityProductStaffTasksUrl(
 }
 
 function getStaffTaskDestination(
-  delivery: StaffTaskDelivery,
+  officeKey: OfficeProfile["key"],
   env: NodeJS.ProcessEnv = process.env,
 ): { secret: string; url: string } | null {
-  switch (delivery) {
-    case "disabled":
-      return null;
-    case "acuity-site": {
-      const url = getStaffTasksUrl(env);
-      const secret = getPortalSecret(env)?.trim();
-      return url && secret ? { secret, url } : null;
-    }
-    case "acuity-product": {
-      const url = getAcuityProductStaffTasksUrl(env);
-      const secret = env.DEV_ACUITY_HANDOFF_SECRET?.trim();
-      return url && secret ? { secret, url } : null;
-    }
-  }
+  const url = getAcuityProductStaffTasksUrl(env);
+  const secret = getProductTenantConfig(officeKey, env).secret;
+  return url && secret ? { secret, url } : null;
 }
 
 function buildStaffTaskPayload(
@@ -172,9 +152,9 @@ function buildStaffTaskPayload(
   office: OfficeProfile,
   input: TaskParameters,
 ) {
-  const officeKey = office.key;
+  const officeKey = getHandoffOfficeKeyByPhone(state.runtime.trunkPhone);
   const officePhone =
-    state.office.phoneOverrides[officeKey] ?? office.amdOfficePhone;
+    state.office.phoneOverrides[office.key] ?? office.amdOfficePhone;
   const patientId = activePatientId(state);
   const patientName = activePatientName(state);
   const patientDob = activePatientDob(state);
@@ -243,10 +223,29 @@ async function postStaffTask(
   secret: string,
   payload: ReturnType<typeof buildStaffTaskPayload>,
 ): Promise<PortalTaskResponse> {
+  const body = JSON.stringify(payload);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await postStaffTaskOnce(url, secret, body);
+    } catch (error) {
+      if (!(error instanceof StaffTaskDeliveryError) || attempt === 1) {
+        throw error;
+      }
+    }
+  }
+
+  throw new StaffTaskDeliveryError("Staff task POST failed");
+}
+
+async function postStaffTaskOnce(
+  url: string,
+  secret: string,
+  body: string,
+): Promise<PortalTaskResponse> {
   let response: Response;
   try {
     response = await fetch(url, {
-      body: JSON.stringify(payload),
+      body,
       headers: {
         Authorization: `Bearer ${secret}`,
         "Content-Type": "application/json",
@@ -266,30 +265,32 @@ async function postStaffTask(
     if (
       response.status === 408 ||
       response.status === 429 ||
-      response.status >= 500
+      (response.status >= 500 && response.status <= 599)
     ) {
       throw new StaffTaskDeliveryError(message);
     }
     throw new Error(message);
   }
 
-  let body: Partial<PortalTaskResponse>;
+  let parsedBody: Partial<PortalTaskResponse>;
   try {
-    body = (await response.json()) as Partial<PortalTaskResponse>;
+    parsedBody = (await response.json()) as Partial<PortalTaskResponse>;
   } catch {
-    throw new Error("Staff task POST returned an invalid response");
+    throw new StaffTaskDeliveryError(
+      "Staff task POST response could not be read",
+    );
   }
   if (
-    (body.status !== "created" && body.status !== "duplicate") ||
-    !body.taskId
+    (parsedBody.status !== "created" && parsedBody.status !== "duplicate") ||
+    !parsedBody.taskId
   ) {
     throw new Error("Staff task POST returned an invalid response");
   }
 
   return {
-    status: body.status,
-    taskId: body.taskId,
-    category: body.category,
-    urgency: body.urgency,
+    status: parsedBody.status,
+    taskId: parsedBody.taskId,
+    category: parsedBody.category,
+    urgency: parsedBody.urgency,
   };
 }

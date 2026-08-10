@@ -9,12 +9,6 @@ const PRODUCT_CONFIGURATION = [
   "ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID",
 ] as const;
 
-export function getPortalSecret(
-  env: NodeJS.ProcessEnv = process.env,
-): string | undefined {
-  return env.LIVEKIT_FORWARD_SYNC_SECRET;
-}
-
 export function getProductInteractionConfig(
   officeKey: OfficeKey,
   env: NodeJS.ProcessEnv = process.env,

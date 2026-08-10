@@ -283,8 +283,11 @@ describe("dynamic tool exposure", () => {
   });
 
   it("sends a recoverable operation failure to the model as a ToolError", async () => {
-    vi.stubEnv("ANALYTICS_URL", "https://portal.example/api/livekit/calls");
-    vi.stubEnv("LIVEKIT_FORWARD_SYNC_SECRET", "task-secret");
+    vi.stubEnv(
+      "ACUITY_PRODUCT_HANDOFF_URL",
+      "https://product.example/v1/handoffs",
+    );
+    vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET", "production-secret");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(null, { status: 503 })),
@@ -327,8 +330,6 @@ describe("dynamic tool exposure", () => {
   });
 
   it("lets LiveKit mask deterministic internal tool errors", async () => {
-    vi.stubEnv("ANALYTICS_URL", "");
-    vi.stubEnv("LIVEKIT_FORWARD_SYNC_SECRET", "");
     const maskedError = "An internal error occurred";
     const llm = new ToolCapturingFakeLLM([
       {
