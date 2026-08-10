@@ -327,7 +327,7 @@ describe("dermatology demo", () => {
   it("honors the isolated demo handoff override", () => {
     process.env.DEV_HANDOFF_TARGET = "sip:demo@example.test";
     expect(getOfficeProfile("dev").handoff()).toEqual({
-      mode: "phone",
+      mode: "product-with-phone-fallback",
       target: "sip:demo@example.test",
     });
   });
