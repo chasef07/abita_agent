@@ -119,6 +119,7 @@ describe("call-center handoff", () => {
   it("routes Crystal River directly to its configured phone target", async () => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
+    configureProductHandoff();
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
@@ -180,7 +181,6 @@ describe("call-center handoff", () => {
 
   it.each([
     ["spring-hill", SPRING_HILL_OFFICE_PHONE],
-    ["crystal-river", CRYSTAL_RIVER_OFFICE_PHONE],
     ["hollywood", HOLLYWOOD_OFFICE_PHONE],
     ["sweetwater", SWEETWATER_OFFICE_PHONE],
     ["north-miami-beach-optical", NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
@@ -334,7 +334,7 @@ describe("call-center handoff", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
-    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
+    state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff configuration is incomplete.",
@@ -348,7 +348,7 @@ describe("call-center handoff", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
-    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
+    state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
     state.runtime.callId = "unknown";
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
@@ -366,7 +366,7 @@ describe("call-center handoff", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
-    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
+    state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity handoff API URL must use HTTPS.",
@@ -383,7 +383,7 @@ describe("call-center handoff", () => {
       }),
     );
     const state = createState();
-    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
+    state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff API request failed.",
@@ -399,7 +399,7 @@ describe("call-center handoff", () => {
       .mockResolvedValueOnce(jsonResponse(PRODUCT_RESPONSE, 201));
     vi.stubGlobal("fetch", fetchMock);
     const state = createTestCallState({ patientName: "Maria Alvarez" });
-    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
+    state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff API request failed.",
@@ -407,7 +407,7 @@ describe("call-center handoff", () => {
     state.identity.patient.name = "Changed after first attempt";
 
     await expect(transferCallerToOffice(state)).resolves.toEqual({
-      handoffOfficeKey: "crystal-river",
+      handoffOfficeKey: "hollywood",
       handoffTarget: PRODUCT_RESPONSE.sipDestination,
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -423,7 +423,7 @@ describe("call-center handoff", () => {
       vi.fn(async () => jsonResponse({}, 409)),
     );
     const state = createState();
-    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
+    state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
 
     const failure = transferCallerToOffice(state);
     await expect(failure).rejects.toThrow(
@@ -440,7 +440,7 @@ describe("call-center handoff", () => {
       vi.fn(async () => jsonResponse({}, 503)),
     );
     const state = createState();
-    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
+    state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff API returned 503.",
@@ -455,7 +455,7 @@ describe("call-center handoff", () => {
       vi.fn(async () => jsonResponse({}, 400)),
     );
     const state = createState();
-    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
+    state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
 
     const failure = transferCallerToOffice(state);
     await expect(failure).rejects.toThrow(
@@ -479,7 +479,7 @@ describe("call-center handoff", () => {
       })),
     );
     const state = createState();
-    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
+    state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff API returned an invalid response.",
@@ -528,7 +528,7 @@ describe("call-center handoff", () => {
       vi.fn(async () => jsonResponse(response, 201)),
     );
     const state = createState();
-    state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
+    state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff API returned an invalid response.",

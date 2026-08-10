@@ -22,7 +22,9 @@ export type OfficeSchedulingPolicy =
 export type OfficeInsurancePolicy =
   { supported: true; source: string } | { supported: false };
 export type OfficeHandoffPolicy =
-  { mode: "call-center" } | { mode: "phone"; target: string };
+  | { mode: "call-center" }
+  | { mode: "phone"; target: string }
+  | { mode: "product-with-phone-fallback"; target: string };
 export type StaffTaskDelivery = "disabled" | "acuity-site" | "acuity-product";
 export type OfficePromptSource = {
   file: string;
@@ -169,7 +171,7 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
 function devHandoff(): OfficeHandoffPolicy {
   const override = process.env.DEV_HANDOFF_TARGET?.trim();
   return {
-    mode: "phone",
+    mode: "product-with-phone-fallback",
     target: override
       ? normalizeHandoffTarget(override)
       : `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
