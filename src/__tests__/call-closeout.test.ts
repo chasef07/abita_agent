@@ -224,7 +224,7 @@ describe("call closeout", () => {
     ]);
   });
 
-  it("routes call evidence only to Product when the legacy Site task lane is configured", async () => {
+  it("routes call evidence to Product with the selected tenant secret", async () => {
     const fetchImpl = vi.fn(
       async () => new Response(null, { status: 200 }),
     ) as unknown as typeof fetch;
@@ -232,8 +232,6 @@ describe("call closeout", () => {
       ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: " product-secret ",
       ACUITY_PRODUCT_INTERACTION_URL:
         " https://product.example/v1/ai/interactions ",
-      ANALYTICS_URL: "https://site.example/api/livekit/calls",
-      LIVEKIT_FORWARD_SYNC_SECRET: "site-secret",
     });
     expect(config).toEqual({
       secret: "product-secret",

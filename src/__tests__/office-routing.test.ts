@@ -92,16 +92,12 @@ describe("office routing helpers", () => {
     }
 
     expect(toolNamesForTrunk(DEV_OFFICE_PHONE)).toContain("create_staff_task");
-    expect(toolNamesForTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).not.toContain(
+    expect(toolNamesForTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).toContain(
       "create_staff_task",
     );
-    expect(getOfficeProfile("spring-hill").staffTaskDelivery).toBe(
-      "acuity-site",
-    );
-    expect(getOfficeProfile("dev").staffTaskDelivery).toBe("acuity-product");
-    expect(getOfficeProfile("crystal-river").staffTaskDelivery).toBe(
-      "disabled",
-    );
+    expect(getOfficeProfile("spring-hill").staffTaskEnabled).toBe(true);
+    expect(getOfficeProfile("dev").staffTaskEnabled).toBe(true);
+    expect(getOfficeProfile("crystal-river").staffTaskEnabled).toBe(true);
   });
 
   it("makes availability office selection match the inbound trunk", () => {
