@@ -116,13 +116,17 @@ async function resolveHandoffTarget(
   profileOfficeKey: OfficeKey,
   handoffOfficeKey: HandoffOfficeKey,
 ): Promise<HandoffTarget> {
+  const policy = getOfficeProfile(profileOfficeKey).handoff();
+  if (policy.mode === "phone") {
+    return { mode: "PHONE", target: policy.target };
+  }
+
   const productConfig = productHandoffConfig(profileOfficeKey);
   if (productConfig) {
     return requestProductHandoff(state, handoffOfficeKey, productConfig);
   }
 
-  const policy = getOfficeProfile(profileOfficeKey).handoff();
-  if (policy.mode === "phone") {
+  if (policy.mode === "product-with-phone-fallback") {
     return { mode: "PHONE", target: policy.target };
   }
 
