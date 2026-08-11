@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.8.0](https://github.com/chasef07/abita_agent/compare/4.7.0...4.8.0) (2026-08-11)
+
+
+### Features
+
+* **tasks:** route staff tasks to Product ([#336](https://github.com/chasef07/abita_agent/issues/336)) ([a3c5748](https://github.com/chasef07/abita_agent/commit/a3c574859537f0baadff2d69dcef00d222377846))
+* **tts:** use Rime inference on dev trunk ([#337](https://github.com/chasef07/abita_agent/issues/337)) ([348cdab](https://github.com/chasef07/abita_agent/commit/348cdabdd87b363573d71d27b8f29a4e78cc2c10))
+
+
+### Bug Fixes
+
+* **handoff:** restore Crystal River cell transfer ([#334](https://github.com/chasef07/abita_agent/issues/334)) ([2b97ea8](https://github.com/chasef07/abita_agent/commit/2b97ea882b3a2029dbc984140634d4fe2275c8a4))
+* **transfer:** require tool-first human transfers ([#338](https://github.com/chasef07/abita_agent/issues/338)) ([9a47d20](https://github.com/chasef07/abita_agent/commit/9a47d20ad7a2282272ff1fd91ef7b9ffd11cf66d))
+
 ## [4.7.0](https://github.com/chasef07/abita_agent/compare/4.6.1...4.7.0) (2026-08-09)
 
 
