@@ -11,8 +11,7 @@ import type {
   VoiceTtsProvider,
 } from "./runtime/voice-language.js";
 import {
-  FISH_AUDIO_TTS_BY_LANGUAGE,
-  getFishAudioTtsOptions,
+  getRimeInferenceTtsOptions,
   getRimeTtsOptions,
   getRimeTtsOptionsByLanguage,
 } from "./tts-config.js";
@@ -26,16 +25,20 @@ export type TtsRuntime = {
 
 export function createTtsRuntime(trunkPhone: string): TtsRuntime {
   if (getOfficeProfileByPhone(trunkPhone).key === "dev") {
-    const tts = new inference.TTS(getFishAudioTtsOptions());
+    const optionsByLanguage = {
+      en: getRimeInferenceTtsOptions({ language: "en", trunkPhone }),
+      es: getRimeInferenceTtsOptions({ language: "es", trunkPhone }),
+    } as const;
+    const tts = new inference.TTS(optionsByLanguage.en);
     return {
       optionsByLanguage: {
-        en: fishAudioLanguageState("en"),
-        es: fishAudioLanguageState("es"),
+        en: inferenceLanguageState(optionsByLanguage.en),
+        es: inferenceLanguageState(optionsByLanguage.es),
       },
-      provider: "fishaudio",
+      provider: "rime-inference",
       tts,
       updateLanguage(language) {
-        const options = FISH_AUDIO_TTS_BY_LANGUAGE[language];
+        const options = optionsByLanguage[language];
         tts.updateOptions({
           language: normalizeLanguage(options.language),
           voice: options.voice,
@@ -59,10 +62,10 @@ export function createTtsRuntime(trunkPhone: string): TtsRuntime {
   };
 }
 
-function fishAudioLanguageState(
-  language: VoiceLanguage,
-): VoiceLanguageStateOptions {
-  const options = FISH_AUDIO_TTS_BY_LANGUAGE[language];
+function inferenceLanguageState(options: {
+  language: string;
+  voice: string;
+}): VoiceLanguageStateOptions {
   return { speaker: options.voice, ttsLanguage: options.language };
 }
 

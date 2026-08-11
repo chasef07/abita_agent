@@ -5,9 +5,8 @@ import {
   DEV_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
 import {
-  FISH_AUDIO_HANNAH_VOICE,
-  FISH_AUDIO_TTS_MODEL,
-  FISH_AUDIO_TTS_SAMPLE_RATE,
+  RIME_INFERENCE_TTS_MODEL,
+  RIME_TTS_SAMPLE_RATE,
 } from "../tts-config.js";
 
 beforeAll(() => {
@@ -20,7 +19,7 @@ afterEach(() => {
 });
 
 describe("TTS runtime", () => {
-  it("constructs Fish Audio through LiveKit Inference only for the demo trunk", async () => {
+  it("constructs Rime through LiveKit Inference only for the demo trunk", async () => {
     vi.stubEnv("LIVEKIT_API_KEY", "test-key");
     vi.stubEnv("LIVEKIT_API_SECRET", "test-secret");
     vi.stubEnv("RIME_API_KEY", "test-key");
@@ -29,13 +28,13 @@ describe("TTS runtime", () => {
 
     const runtime = createTtsRuntime(DEV_OFFICE_PHONE);
 
-    expect(runtime.provider).toBe("fishaudio");
+    expect(runtime.provider).toBe("rime-inference");
     expect(runtime.tts.label).toBe("inference.TTS");
-    expect(runtime.tts.model).toBe(FISH_AUDIO_TTS_MODEL);
-    expect(runtime.tts.sampleRate).toBe(FISH_AUDIO_TTS_SAMPLE_RATE);
+    expect(runtime.tts.model).toBe(RIME_INFERENCE_TTS_MODEL);
+    expect(runtime.tts.sampleRate).toBe(RIME_TTS_SAMPLE_RATE);
     expect(runtime.optionsByLanguage).toEqual({
-      en: { speaker: FISH_AUDIO_HANNAH_VOICE, ttsLanguage: "en" },
-      es: { speaker: FISH_AUDIO_HANNAH_VOICE, ttsLanguage: "es" },
+      en: { speaker: "wawona", ttsLanguage: "en" },
+      es: { speaker: "luz", ttsLanguage: "es" },
     });
 
     const updateOptions = vi.spyOn(
@@ -45,7 +44,7 @@ describe("TTS runtime", () => {
     runtime.updateLanguage("es");
     expect(updateOptions).toHaveBeenCalledWith({
       language: "es",
-      voice: FISH_AUDIO_HANNAH_VOICE,
+      voice: "luz",
     });
   });
 
