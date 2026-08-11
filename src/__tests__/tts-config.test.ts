@@ -3,23 +3,20 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  FISH_AUDIO_HANNAH_VOICE,
-  FISH_AUDIO_TELEPHONY_OPTIONS,
-  FISH_AUDIO_TTS_BY_LANGUAGE,
-  FISH_AUDIO_TTS_MODEL,
-  FISH_AUDIO_TTS_SAMPLE_RATE,
+  RIME_INFERENCE_TTS_MODEL,
   RIME_TTS_BASE_URL,
   RIME_TTS_LANGUAGE,
   RIME_TTS_MODEL,
   RIME_TTS_SAMPLE_RATE,
   RIME_TTS_SEGMENT,
   SPANISH_RIME_TTS_LANGUAGE,
-  getFishAudioTtsOptions,
+  getRimeInferenceTtsOptions,
   getRimeTtsOptions,
   getRimeTtsOptionsByLanguage,
 } from "../tts-config.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
+  DEV_OFFICE_PHONE,
   HOLLYWOOD_OFFICE_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
   SPRING_HILL_OFFICE_PHONE,
@@ -83,24 +80,25 @@ describe("TTS config", () => {
     });
   });
 
-  it("uses low-buffer, normalized Fish Audio settings for telephony", () => {
-    expect(getFishAudioTtsOptions()).toEqual({
+  it("maps the dev office Rime configuration to LiveKit Inference", () => {
+    expect(
+      getRimeInferenceTtsOptions({ trunkPhone: DEV_OFFICE_PHONE }),
+    ).toEqual({
       language: "en",
-      model: FISH_AUDIO_TTS_MODEL,
-      modelOptions: FISH_AUDIO_TELEPHONY_OPTIONS,
-      sampleRate: FISH_AUDIO_TTS_SAMPLE_RATE,
-      voice: FISH_AUDIO_HANNAH_VOICE,
+      model: RIME_INFERENCE_TTS_MODEL,
+      sampleRate: RIME_TTS_SAMPLE_RATE,
+      voice: "wawona",
     });
-    expect(FISH_AUDIO_TELEPHONY_OPTIONS).toEqual({
-      chunk_length: 100,
-      condition_on_previous_chunks: true,
-      latency: "balanced",
-      normalize: true,
-      normalize_loudness: true,
-    });
-    expect(FISH_AUDIO_TTS_BY_LANGUAGE).toEqual({
-      en: { language: "en", voice: FISH_AUDIO_HANNAH_VOICE },
-      es: { language: "es", voice: FISH_AUDIO_HANNAH_VOICE },
+    expect(
+      getRimeInferenceTtsOptions({
+        language: "es",
+        trunkPhone: DEV_OFFICE_PHONE,
+      }),
+    ).toEqual({
+      language: "es",
+      model: RIME_INFERENCE_TTS_MODEL,
+      sampleRate: RIME_TTS_SAMPLE_RATE,
+      voice: "luz",
     });
   });
 

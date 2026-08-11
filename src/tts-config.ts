@@ -1,21 +1,8 @@
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import type { VoiceLanguage } from "./runtime/voice-language.js";
 
-export const FISH_AUDIO_TTS_MODEL = "fishaudio/s2.1-pro-free";
-export const FISH_AUDIO_HANNAH_VOICE = "9a9cf47702da476aa4629e2506d4a857";
-export const FISH_AUDIO_TTS_SAMPLE_RATE = 16000;
-export const FISH_AUDIO_TELEPHONY_OPTIONS = {
-  chunk_length: 100,
-  condition_on_previous_chunks: true,
-  latency: "balanced",
-  normalize: true,
-  normalize_loudness: true,
-} as const;
-export const FISH_AUDIO_TTS_BY_LANGUAGE = {
-  en: { language: "en", voice: FISH_AUDIO_HANNAH_VOICE },
-  es: { language: "es", voice: FISH_AUDIO_HANNAH_VOICE },
-} as const;
 export const RIME_TTS_MODEL = "coda";
+export const RIME_INFERENCE_TTS_MODEL = `rime/${RIME_TTS_MODEL}` as const;
 export const RIME_TTS_LANGUAGE = "eng";
 export const SPANISH_RIME_TTS_LANGUAGE = "spa";
 export const RIME_TTS_SAMPLE_RATE = 16000;
@@ -30,12 +17,21 @@ export type RimeTtsLanguageOptions = {
   speaker: string;
 };
 
-export function getFishAudioTtsOptions(language: VoiceLanguage = "en") {
+export function getRimeInferenceTtsOptions(input: {
+  language?: VoiceLanguage;
+  trunkPhone: string;
+}) {
+  const language = input.language ?? "en";
+  const options = getRimeTtsLanguageOptions({
+    language,
+    trunkPhone: input.trunkPhone,
+  });
+
   return {
-    ...FISH_AUDIO_TTS_BY_LANGUAGE[language],
-    model: FISH_AUDIO_TTS_MODEL,
-    modelOptions: FISH_AUDIO_TELEPHONY_OPTIONS,
-    sampleRate: FISH_AUDIO_TTS_SAMPLE_RATE,
+    language,
+    model: RIME_INFERENCE_TTS_MODEL,
+    sampleRate: RIME_TTS_SAMPLE_RATE,
+    voice: options.speaker,
   } as const;
 }
 
