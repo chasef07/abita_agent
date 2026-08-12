@@ -1,0 +1,16 @@
+name = "voice_ai_observability_judge"
+description = "Judges Voice AI calls from transcripts, tool calls, outcomes, and sentiment."
+
+model = "gpt-5.6"
+model_reasoning_effort = "medium"
+sandbox_mode = "danger-full-access"
+approval_policy = "never"
+
+developer_instructions = """
+Use the voice-ai-observability skill to judge supplied Voice AI call evidence.
+Separate observed facts from inference, cite evidence, and protect sensitive data.
+"""
+
+[[skills.config]]
+path = ".agents/skills/voice-ai-observability/SKILL.md"
+enabled = true

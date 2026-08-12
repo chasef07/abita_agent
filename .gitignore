@@ -9,10 +9,13 @@ package-lock.json
 
 # AI tooling
 .claude/
-.agents/
+.agents/*
 .pi/
 skills/
 skills-lock.json
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/voice-ai-observability/
 
 # Local eval artifacts
 evals/cases/extracted/*.json
