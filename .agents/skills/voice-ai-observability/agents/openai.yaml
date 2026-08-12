@@ -1,4 +1,4 @@
 interface:
   display_name: "Voice AI Observability"
-  short_description: "Judge Voice AI call evidence"
-  default_prompt: "Use $voice-ai-observability to judge this Voice AI call evidence."
+  short_description: "Create a cited Voice AI anomaly report"
+  default_prompt: "Use $voice-ai-observability to create today's cited Voice AI anomaly report."
