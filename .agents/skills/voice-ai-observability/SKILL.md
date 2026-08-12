@@ -10,6 +10,7 @@ Review every call in a frozen daily window. Judge calls one at a time, rank the 
 ## 1. Establish the dataset
 
 - Use available database tools with read-only access.
+- For PostgreSQL on Google Cloud SQL, read [references/cloud-sql-postgres.md](references/cloud-sql-postgres.md) completely before connecting or querying.
 - Inspect the live schema; do not assume provider, table, or field names.
 - Freeze the requested time window and timezone before querying.
 - Load all calls in scope. Do not sample or pre-filter the review set.
