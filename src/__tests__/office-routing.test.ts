@@ -92,12 +92,18 @@ describe("office routing helpers", () => {
     }
 
     expect(toolNamesForTrunk(DEV_OFFICE_PHONE)).toContain("create_staff_task");
-    expect(toolNamesForTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).toContain(
-      "create_staff_task",
-    );
     expect(getOfficeProfile("spring-hill").staffTaskEnabled).toBe(true);
     expect(getOfficeProfile("dev").staffTaskEnabled).toBe(true);
-    expect(getOfficeProfile("crystal-river").staffTaskEnabled).toBe(true);
+  });
+
+  it("keeps Crystal River transfer-only", () => {
+    expect(toolNamesForTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).not.toContain(
+      "create_staff_task",
+    );
+    expect(toolNamesForTrunk(CRYSTAL_RIVER_OFFICE_PHONE)).toContain(
+      "transfer_call",
+    );
+    expect(getOfficeProfile("crystal-river").staffTaskEnabled).toBe(false);
   });
 
   it("makes availability office selection match the inbound trunk", () => {
