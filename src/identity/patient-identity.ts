@@ -508,6 +508,12 @@ async function performCandidateHydration(
     !completeVerifiedIdentity(result) ||
     result.patientId !== candidate.patientId
   ) {
+    const failure: MiddlewareFailure | undefined =
+      result.status === "verified"
+        ? { status: "error", reason: "invalid_response" }
+        : result.status === "error"
+          ? result
+          : undefined;
     if (result.status === "error") {
       recordOwnedMiddlewareFailure(state, "resolvePatient", result);
     }
@@ -530,7 +536,7 @@ async function performCandidateHydration(
         result.status === "verified"
           ? "Patient lookup returned an incomplete identity. Try again."
           : patientLookupReply(result),
-      ...(result.status === "error" ? { failure: result } : {}),
+      ...(failure ? { failure } : {}),
     };
   }
 

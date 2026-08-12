@@ -45,6 +45,35 @@ describe("patient identity", () => {
     expect(state.identity.activePatient).toBeNull();
   });
 
+  it("rejects an invalid verified receipt while hydrating a private candidate", async () => {
+    const state = createTestCallState({
+      preCallCandidates: [
+        {
+          status: "candidate",
+          ref: "one",
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          patientId: "patient-1",
+          appointments: [],
+        },
+      ],
+    });
+
+    const result = await resolveExistingPatient(
+      state,
+      { firstName: "Jane" },
+      async () => verifiedResult("different-patient", "", "01/01/1980"),
+    );
+
+    expect(result).toMatchObject({
+      outcome: "lookup_failed",
+      failure: { status: "error", reason: "invalid_response" },
+    });
+    expect(state.identity.activePatient).toBeNull();
+    expect(state.runtime.preCallLookup.hydrationOutcome).toBe("incomplete");
+  });
+
   it("preserves the active patient and scoped work when a switch fails", async () => {
     const state = createConfirmedPatientState();
     state.availability.slots = [
