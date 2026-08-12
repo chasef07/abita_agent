@@ -22,7 +22,6 @@ import {
   applyPreCallBootstrap,
   createInitialCallState,
 } from "./runtime/initial-call-state.js";
-import { modelFacingLookupStatus } from "./runtime/precall-model-context.js";
 import { MAX_CALL_DURATION_MS } from "./runtime/call-duration-deadline.js";
 import { createLlmPair } from "./model-config.js";
 import {
@@ -231,15 +230,10 @@ export default defineAgent({
           runtime.callState.runtime.preCallLookup.startupOverlap =
             startupOverlap;
 
-          const { agent } = createVoiceAgent(
-            modelFacingLookupStatus(phoneLookup),
-            trunkPhone,
-            {
-              onAssistantText:
-                runtime.turnProfileController.observeAssistantText,
-              voiceLanguageRuntime: runtime.voiceLanguageRuntime,
-            },
-          );
+          const { agent } = createVoiceAgent(trunkPhone, {
+            onAssistantText: runtime.turnProfileController.observeAssistantText,
+            voiceLanguageRuntime: runtime.voiceLanguageRuntime,
+          });
           runtime.markCallStateReady();
           return { agent, callState: runtime.callState };
         },

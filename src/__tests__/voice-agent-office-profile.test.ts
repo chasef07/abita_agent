@@ -352,10 +352,8 @@ function availabilityOfficeSelection(
   trunkPhone: string,
   requestedOffice?: "hollywood" | "sweetwater",
 ) {
-  const selection = createVoiceAgent(
-    "no_match",
-    trunkPhone,
-  ).office.availabilityOfficeFor(requestedOffice);
+  const selection =
+    createVoiceAgent(trunkPhone).office.availabilityOfficeFor(requestedOffice);
 
   return selection.status === "selected"
     ? { status: selection.status, officeKey: selection.office.key }
@@ -384,7 +382,7 @@ describe("Voice Agent office profile", () => {
   for (const expected of officeBehaviors) {
     for (const [trunkIndex, trunkPhone] of expected.trunks.entries()) {
       it(`creates ${expected.key} behavior for configured trunk ${trunkIndex + 1}`, async () => {
-        const voiceAgent = createVoiceAgent("no_match", trunkPhone);
+        const voiceAgent = createVoiceAgent(trunkPhone);
         const { office } = voiceAgent;
         const instructions = String(voiceAgent.agent.instructions);
         const tools = toolNames(voiceAgent.agent.toolCtx.tools);
@@ -509,7 +507,7 @@ describe("Voice Agent office profile", () => {
     const errors = ["+19999999999", "not-a-phone-number", ""].map(
       (trunkPhone) => {
         try {
-          createVoiceAgent("no_match", trunkPhone);
+          createVoiceAgent(trunkPhone);
           return null;
         } catch (error) {
           return error instanceof Error ? error.message : String(error);

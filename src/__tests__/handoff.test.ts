@@ -32,7 +32,10 @@ import {
   HandoffError,
   transferCallerToOffice,
 } from "../tools/handoff.js";
-import { createTestCallState } from "./support/call-state.js";
+import {
+  confirmedActivePatient,
+  createTestCallState,
+} from "./support/call-state.js";
 
 const DIRECT_TOKEN = "a".repeat(43);
 const DIRECT_RESPONSE = {
@@ -192,7 +195,9 @@ describe("call-center handoff", () => {
       configureProductHandoff();
       const fetchMock = vi.fn(async () => jsonResponse(PRODUCT_RESPONSE, 201));
       vi.stubGlobal("fetch", fetchMock);
-      const state = createTestCallState({ patientName: "Maria Alvarez" });
+      const state = createTestCallState({
+        activePatient: confirmedActivePatient({ name: "Maria Alvarez" }),
+      });
       state.runtime.trunkPhone = trunkPhone;
       const contact = {
         phone: "+17275551212",
@@ -398,13 +403,18 @@ describe("call-center handoff", () => {
       .mockRejectedValueOnce(new Error("response lost"))
       .mockResolvedValueOnce(jsonResponse(PRODUCT_RESPONSE, 201));
     vi.stubGlobal("fetch", fetchMock);
-    const state = createTestCallState({ patientName: "Maria Alvarez" });
+    const state = createTestCallState({
+      activePatient: confirmedActivePatient({
+        patientId: "patient-maria",
+        name: "Maria Alvarez",
+      }),
+    });
     state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff API request failed.",
     );
-    state.identity.patient.name = "Changed after first attempt";
+    state.identity.activePatient!.name = "Changed after first attempt";
 
     await expect(transferCallerToOffice(state)).resolves.toEqual({
       handoffOfficeKey: "hollywood",

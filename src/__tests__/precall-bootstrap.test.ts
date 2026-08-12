@@ -6,7 +6,7 @@ import {
 } from "../clients/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import {
-  buildPreCallContextState,
+  buildPreCallCandidates,
   formatPhoneLookupLogLine,
   loadPreCallBootstrap,
   lookupByPhone,
@@ -157,7 +157,7 @@ describe("pre-call bootstrap", () => {
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );
-    const preCall = buildPreCallContextState(result, "+17275551212");
+    const candidates = buildPreCallCandidates(result);
 
     expect(result).toMatchObject({
       status: "verified",
@@ -170,7 +170,7 @@ describe("pre-call bootstrap", () => {
         }),
       ],
     });
-    expect(preCall.candidates[0]?.appointments).toEqual([
+    expect(candidates[0]?.appointments).toEqual([
       expect.objectContaining({
         appointmentRef: expect.stringMatching(/^appointment-[a-z0-9]+$/),
         cancellationToken: "private-cancellation-token",
@@ -233,113 +233,92 @@ describe("pre-call bootstrap", () => {
   });
 
   it("maps lookup outcomes into session pre-call state", () => {
-    const single = buildPreCallContextState(
+    const single = buildPreCallCandidates({
+      status: "verified",
+      patientId: "patient-1",
+      name: "Doe, Jane",
+      dob: "01/01/1980",
+      phone: "+17275551212",
+      insuranceCarrier: "Aetna",
+      insPlanId: "plan-1",
+      respPartyId: "resp-1",
+      routing: "all_three",
+      allowedProviders: ["Dr. Bach"],
+      routingAmbiguous: false,
+      appointmentsStatus: "found",
+      appointmentsMessage: null,
+      appointments: [
+        {
+          id: 12345,
+          date: "2026-06-01",
+          time: "9:00 AM",
+          provider: "Dr. Bach",
+          type: "Follow-up",
+          facility: "Spring Hill",
+          confirmed: true,
+        },
+      ],
+    });
+
+    expect(single).toMatchObject([
       {
-        status: "verified",
+        ref: "caller",
+        firstName: "Jane",
+        lastName: "Doe",
         patientId: "patient-1",
-        name: "Doe, Jane",
-        dob: "01/01/1980",
-        phone: "+17275551212",
+        relationshipToCaller: "self",
         insuranceCarrier: "Aetna",
         insPlanId: "plan-1",
         respPartyId: "resp-1",
         routing: "all_three",
         allowedProviders: ["Dr. Bach"],
-        routingAmbiguous: false,
-        appointmentsStatus: "found",
-        appointmentsMessage: null,
-        appointments: [
-          {
-            id: 12345,
-            date: "2026-06-01",
-            time: "9:00 AM",
-            provider: "Dr. Bach",
-            type: "Follow-up",
-            facility: "Spring Hill",
-            confirmed: true,
-          },
-        ],
       },
-      "+17275551212",
-    );
+    ]);
 
-    expect(single).toMatchObject({
-      status: "single_match_pending_confirmation",
-      selectedCandidateRef: "caller",
-      appointmentLoadStatus: "found",
-      candidates: [
+    const multiple = buildPreCallCandidates({
+      status: "multiple_matches",
+      message: "multiple",
+      matches: [
         {
-          ref: "caller",
+          status: "candidate",
+          patientId: "patient-1",
           firstName: "Jane",
           lastName: "Doe",
-          patientId: "patient-1",
-          relationshipToCaller: "self",
-          insuranceCarrier: "Aetna",
-          insPlanId: "plan-1",
-          respPartyId: "resp-1",
-          routing: "all_three",
-          allowedProviders: ["Dr. Bach"],
-        },
-      ],
-    });
-
-    const multiple = buildPreCallContextState(
-      {
-        status: "multiple_matches",
-        message: "multiple",
-        matches: [
-          {
-            status: "candidate",
-            patientId: "patient-1",
-            firstName: "Jane",
-            lastName: "Doe",
-            dob: "01/01/1980",
-          },
-          {
-            status: "candidate",
-            patientId: "patient-2",
-            firstName: "Maria",
-            lastName: "Doe",
-            dob: "02/02/1985",
-          },
-        ],
-      },
-      "+17275551212",
-    );
-
-    expect(multiple).toMatchObject({
-      status: "multiple_matches_pending_selection",
-      candidates: [
-        {
-          status: "candidate",
-          ref: "precall:1",
-          patientId: "patient-1",
-          firstName: "Jane",
+          dob: "01/01/1980",
         },
         {
           status: "candidate",
-          ref: "precall:2",
           patientId: "patient-2",
           firstName: "Maria",
+          lastName: "Doe",
+          dob: "02/02/1985",
         },
       ],
     });
 
+    expect(multiple).toMatchObject([
+      {
+        status: "candidate",
+        ref: "precall:1",
+        patientId: "patient-1",
+        firstName: "Jane",
+      },
+      {
+        status: "candidate",
+        ref: "precall:2",
+        patientId: "patient-2",
+        firstName: "Maria",
+      },
+    ]);
+
     expect(
-      buildPreCallContextState(
-        {
-          status: "lookup_failed",
-          phone: "+17275551212",
-          reason: "network_error",
-          retryable: true,
-        },
-        "+17275551212",
-      ),
-    ).toMatchObject({
-      status: "lookup_failed",
-      failureReason: "network_error",
-      retryable: true,
-    });
+      buildPreCallCandidates({
+        status: "lookup_failed",
+        phone: "+17275551212",
+        reason: "network_error",
+        retryable: true,
+      }),
+    ).toEqual([]);
   });
 
   it("stores full multiple-match patient details in pre-call candidates", async () => {
@@ -378,7 +357,7 @@ describe("pre-call bootstrap", () => {
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );
-    const preCall = buildPreCallContextState(result, "+17275551212");
+    const candidates = buildPreCallCandidates(result);
 
     expect(result).toMatchObject({
       status: "multiple_matches",
@@ -395,34 +374,31 @@ describe("pre-call bootstrap", () => {
         },
       ],
     });
-    expect(preCall).toMatchObject({
-      status: "multiple_matches_pending_selection",
-      candidates: [
-        {
-          ref: "precall:1",
-          status: "verified",
-          firstName: "Jane",
-          lastName: "Doe",
-          patientId: "patient-1",
-          appointmentsStatus: "found",
-          insuranceCarrier: "Aetna",
-          routing: "all_three",
-          allowedProviders: ["Dr. Bach"],
-          preauthRequired: false,
-        },
-        {
-          ref: "precall:2",
-          status: "verified",
-          firstName: "Maria",
-          lastName: "Doe",
-          patientId: "patient-2",
-          appointmentsStatus: "none",
-          insuranceCarrier: "Humana",
-          routing: "bach_only",
-          preauthRequired: true,
-        },
-      ],
-    });
+    expect(candidates).toMatchObject([
+      {
+        ref: "precall:1",
+        status: "verified",
+        firstName: "Jane",
+        lastName: "Doe",
+        patientId: "patient-1",
+        appointmentsStatus: "found",
+        insuranceCarrier: "Aetna",
+        routing: "all_three",
+        allowedProviders: ["Dr. Bach"],
+        preauthRequired: false,
+      },
+      {
+        ref: "precall:2",
+        status: "verified",
+        firstName: "Maria",
+        lastName: "Doe",
+        patientId: "patient-2",
+        appointmentsStatus: "none",
+        insuranceCarrier: "Humana",
+        routing: "bach_only",
+        preauthRequired: true,
+      },
+    ]);
   });
 
   it("stores lightweight candidates as unresolved private pre-call state", async () => {
@@ -450,7 +426,7 @@ describe("pre-call bootstrap", () => {
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );
-    const preCall = buildPreCallContextState(result, "+17275551212");
+    const candidates = buildPreCallCandidates(result);
 
     expect(result).toEqual({
       status: "multiple_matches",
@@ -473,29 +449,26 @@ describe("pre-call bootstrap", () => {
       ],
       lookupDurationMs: expect.any(Number),
     });
-    expect(preCall).toMatchObject({
-      status: "multiple_matches_pending_selection",
-      candidates: [
-        {
-          status: "candidate",
-          ref: "precall:1",
-          patientId: "private-patient-1",
-          firstName: "Jane",
-          lastName: "Doe",
-          dob: "01/02/1980",
-          appointments: [],
-        },
-        {
-          status: "candidate",
-          ref: "precall:2",
-          patientId: "private-patient-2",
-          firstName: "Maria",
-          lastName: "Doe",
-          dob: "02/03/1982",
-          appointments: [],
-        },
-      ],
-    });
+    expect(candidates).toMatchObject([
+      {
+        status: "candidate",
+        ref: "precall:1",
+        patientId: "private-patient-1",
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/02/1980",
+        appointments: [],
+      },
+      {
+        status: "candidate",
+        ref: "precall:2",
+        patientId: "private-patient-2",
+        firstName: "Maria",
+        lastName: "Doe",
+        dob: "02/03/1982",
+        appointments: [],
+      },
+    ]);
   });
 
   it("keeps verified caller context when insurance is missing", async () => {

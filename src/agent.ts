@@ -17,25 +17,21 @@ import type { CallState } from "./state/call-state.js";
 import { recordLatestUserTranscript } from "./state/call-lifecycle.js";
 import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
-import { confirmPreCallIdentityFromTranscript } from "./runtime/precall-transcript-confirmation.js";
 import {
   buildToolsForTrunk,
   toolsForCallState,
 } from "./runtime/tool-registry.js";
 import {
-  confirmedPatientModelContext,
+  confirmCandidateFromTranscript,
+  patientModelProjection,
   type PatientResolveLookup,
-} from "./identity/promotion.js";
+} from "./identity/patient-identity.js";
 import {
   officeKnowledgeReference,
   resolveOfficeKnowledge,
 } from "./office-knowledge.js";
 import { activeOfficeKey } from "./state/call-lifecycle.js";
 import { recordOfficeKnowledgeRetrieval } from "./state/observability.js";
-import {
-  createInitialLookupChatContext,
-  type ModelFacingLookupStatus,
-} from "./runtime/precall-model-context.js";
 import {
   clinicTimestampMessage,
   systemSchedulingClock,
@@ -52,10 +48,7 @@ type VoiceAgentOptions = {
   voiceLanguageRuntime?: VoiceLanguageRuntime;
 };
 
-const PATIENT_CONTEXT_MESSAGE_ID_PREFIX = "call_state_patient_context:";
-
 export function createVoiceAgent(
-  lookupStatus: ModelFacingLookupStatus,
   trunkPhone: string,
   options: VoiceAgentOptions = {},
 ) {
@@ -69,7 +62,6 @@ export function createVoiceAgent(
 
   const agent = LiveKitAgent.create<CallState>({
     instructions: buildPrompt(trunkPhone),
-    chatCtx: createInitialLookupChatContext(lookupStatus),
     tools: registeredTools,
 
     async onEnter(ctx): Promise<void> {
@@ -105,16 +97,7 @@ export function createVoiceAgent(
       if (!transcript) return;
 
       recordLatestUserTranscript(state, transcript);
-      const confirmation = await confirmPreCallIdentityFromTranscript(
-        {
-          state,
-          transcript,
-        },
-        identityLookup,
-      );
-      const patientContext =
-        confirmation?.systemMessage ?? confirmedPatientModelContext(state);
-      setPatientModelContext(chatCtx, state, patientContext);
+      await confirmCandidateFromTranscript(state, transcript, identityLookup);
 
       const officeKey = activeOfficeKey(state);
       const startedAt = performance.now();
@@ -150,7 +133,6 @@ export function createVoiceAgent(
 
     async llmNode(ctx, chatCtx, toolCtx, modelSettings) {
       const state = ctx.session.userData;
-      refreshPatientModelContext(chatCtx, state);
       const availableTools = toolsForCallState(registeredTools, state);
 
       if (!sameToolIds(ctx.agent.toolCtx, availableTools)) {
@@ -161,9 +143,26 @@ export function createVoiceAgent(
       // stale model call cannot execute a tool removed during this turn.
       toolCtx.updateTools(availableTools.tools);
 
+      const modelChatCtx = chatCtx.copy();
+      let latestUserIndex = -1;
+      for (let index = modelChatCtx.items.length - 1; index >= 0; index -= 1) {
+        const item = modelChatCtx.items[index];
+        if (item?.type === "message" && item.role === "user") {
+          latestUserIndex = index;
+          break;
+        }
+      }
+      modelChatCtx.items.splice(
+        latestUserIndex < 0 ? modelChatCtx.items.length : latestUserIndex,
+        0,
+        ChatMessage.create({
+          role: "system",
+          content: patientModelProjection(state),
+        }),
+      );
       return LiveKitAgent.default.llmNode(
         ctx.agent,
-        chatCtx,
+        modelChatCtx,
         toolCtx as ToolContext<CallState>,
         modelSettings,
       );
@@ -229,52 +228,6 @@ function sameToolIds(
     currentIds.length === nextIds.length &&
     currentIds.every((id, index) => id === nextIds[index])
   );
-}
-
-function setPatientModelContext(
-  chatCtx: ChatContext,
-  state: CallState,
-  content: string | null,
-): void {
-  let insertionIndex = chatCtx.items.findIndex((item) =>
-    item.id.startsWith(PATIENT_CONTEXT_MESSAGE_ID_PREFIX),
-  );
-  chatCtx.items = chatCtx.items.filter(
-    (item) => !item.id.startsWith(PATIENT_CONTEXT_MESSAGE_ID_PREFIX),
-  );
-  if (!content) return;
-
-  if (insertionIndex < 0) {
-    insertionIndex = chatCtx.items.length - 1;
-    while (insertionIndex >= 0) {
-      const item = chatCtx.items[insertionIndex];
-      if (item.type === "message" && item.role === "user") break;
-      insertionIndex -= 1;
-    }
-  }
-  if (insertionIndex < 0) insertionIndex = chatCtx.items.length;
-
-  chatCtx.items.splice(
-    insertionIndex,
-    0,
-    ChatMessage.create({
-      id: patientContextMessageId(state),
-      role: "system",
-      content,
-    }),
-  );
-}
-
-function refreshPatientModelContext(
-  chatCtx: ChatContext,
-  state: CallState,
-): void {
-  if (chatCtx.getById(patientContextMessageId(state))) return;
-  setPatientModelContext(chatCtx, state, confirmedPatientModelContext(state));
-}
-
-function patientContextMessageId(state: CallState): string {
-  return `${PATIENT_CONTEXT_MESSAGE_ID_PREFIX}${state.identity.transitionVersion}`;
 }
 
 export async function* observeAssistantText(

@@ -6,14 +6,14 @@ import {
 } from "../clients/owned-middleware.js";
 import { normalizeInsuranceText } from "../insurance-rules.js";
 import {
-  applyPatientResult,
+  activatePatientFromReceipt,
   beginNewPatientRegistration,
   beginPatientIdentityOperation,
   currentPatientIdentityTransitionVersion,
   patientRegistrationConflict,
   patientIdentityOperationIsCurrent,
   patientIdentityTransitionIsCurrent,
-} from "../identity/promotion.js";
+} from "../identity/patient-identity.js";
 import { runtimeCallerPhone } from "../state/call-lifecycle.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import {
@@ -108,7 +108,7 @@ export const add_patient = tool({
     const registrationConflict = patientRegistrationConflict(state, params);
     if (registrationConflict === "created_patient") {
       const patientName =
-        state.identity.patient.name?.trim() ||
+        state.identity.activePatient?.name?.trim() ||
         `${params.firstName} ${params.lastName}`;
       if (!state.insurance.onFile) {
         return `Patient chart is already created for ${patientName}, but insurance is not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
@@ -236,7 +236,11 @@ export const add_patient = tool({
       );
     }
 
-    applyPatientResult(state, result);
+    if (!activatePatientFromReceipt(state, result)) {
+      throw new Error(
+        "Owned Middleware returned an invalid patient creation receipt.",
+      );
+    }
     const patientName =
       result.name?.trim() || `${params.firstName} ${params.lastName}`;
     if (result.status === "partial") {

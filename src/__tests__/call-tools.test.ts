@@ -9,7 +9,7 @@ import {
 } from "../clients/owned-middleware.js";
 import {
   CALLER_CANDIDATE_REF,
-  type PreCallContextState,
+  type PreCallPatientCandidate,
 } from "../state/call-state.js";
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
 import { ownedMiddlewareFailures } from "../state/observability.js";
@@ -29,7 +29,7 @@ import {
 } from "./support/owned-middleware.js";
 
 type TestCallState = ReturnType<typeof createConfirmedPatientState>;
-type PreCallCandidate = PreCallContextState["candidates"][number];
+type PreCallCandidate = PreCallPatientCandidate;
 let testMiddleware: InMemoryOwnedMiddleware;
 
 function createState(): TestCallState {
@@ -95,16 +95,8 @@ function markSchedulingTriaged(
 }
 
 function markNewPatientPathConfirmed(state: TestCallState) {
-  state.identity.patient = {
-    ...state.identity.patient,
-    status: "new",
-    identityConfirmed: false,
-    patientId: null,
-    name: null,
-    dob: null,
-    appointments: [],
-    appointmentsStatus: null,
-  };
+  state.identity.activePatient = null;
+  state.identity.registration = {};
 }
 
 function clearSchedulingContext(state: TestCallState) {
@@ -136,23 +128,15 @@ function markAcceptedInsurance(
 }
 
 function setPatientUnknown(state: TestCallState) {
-  state.identity.patient = {
-    ...state.identity.patient,
-    status: "unknown",
-    identityConfirmed: false,
-    patientId: null,
-    name: null,
-    dob: null,
-    phone: null,
-    appointments: [],
-    appointmentsStatus: null,
-  };
+  state.identity.activePatient = null;
+  state.identity.registration = null;
 }
 
 function preCallCandidate(
   overrides: Partial<PreCallCandidate> = {},
 ): PreCallCandidate {
   return {
+    status: "verified",
     ref: CALLER_CANDIDATE_REF,
     firstName: "ESA",
     lastName: "ARSHED",
@@ -172,36 +156,14 @@ function preCallCandidate(
 
 function setSingleArshedPreCallCandidate(state: TestCallState) {
   setPatientUnknown(state);
-  state.identity.preCall = {
-    status: "single_match_pending_confirmation",
-    source: "phone_lookup",
-    callerPhone: "+17275551212",
-    candidates: [preCallCandidate()],
-    selectedCandidateRef: CALLER_CANDIDATE_REF,
-    identityPromotion: "none",
-  };
+  state.identity.privateCandidates = [preCallCandidate()];
 }
 
 function setMultiplePreCallCandidates(
   state: TestCallState,
   candidates: PreCallCandidate[],
-  options: {
-    status?: PreCallContextState["status"];
-    callerPhone?: string;
-    selectedCandidateRef?: string;
-    identityPromotion?: string;
-  } = {},
 ) {
-  state.identity.preCall = {
-    status: options.status ?? "multiple_matches_pending_selection",
-    source: "phone_lookup",
-    callerPhone: options.callerPhone ?? "+19546097250",
-    candidates,
-    ...(options.selectedCandidateRef
-      ? { selectedCandidateRef: options.selectedCandidateRef }
-      : {}),
-    identityPromotion: options.identityPromotion ?? "none",
-  };
+  state.identity.privateCandidates = candidates;
 }
 
 function useMiddleware(
@@ -322,12 +284,6 @@ describe("stateful call tools", () => {
   it("creates directly from explicit new-patient confirmation", async () => {
     const state = createState();
     setPatientUnknown(state);
-    state.identity.preCall = {
-      status: "no_match",
-      source: "phone_lookup",
-      callerPhone: "+17275551212",
-      candidates: [],
-    };
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
     const ctx = createToolContext(state);
@@ -357,10 +313,10 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Created a patient chart for Jane Doe. Continue with scheduling.",
     );
-    expect(state.identity.patient.patientId).toBe("patient-new");
-    expect(state.identity.patient.status).toBe("created");
-    expect(state.identity.patient.dob).toBe("01/01/1980");
-    expect(state.identity.patient.phone).toBe("+17275551212");
+    expect(state.identity.activePatient!.patientId).toBe("patient-new");
+    expect(state.identity.activePatient!.kind).toBe("created");
+    expect(state.identity.activePatient!.dob).toBe("01/01/1980");
+    expect(state.identity.activePatient!.phone).toBe("+17275551212");
     expect(state.insurance.onFile).toEqual({
       plan: "self pay",
       canonicalPlan: "self pay",
@@ -368,10 +324,7 @@ describe("stateful call tools", () => {
       currentCarrier: "self pay",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
-    expect(state.workflow.current).toEqual({
-      intent: "schedule",
-      appointmentLane: "medical_md",
-    });
+    expect(state.workflow.current).toBeUndefined();
     expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
       firstName: "Jane",
       lastName: "Doe",
@@ -387,12 +340,6 @@ describe("stateful call tools", () => {
   it("surfaces a failed chart creation as a recoverable tool error", async () => {
     const state = createState();
     setPatientUnknown(state);
-    state.identity.preCall = {
-      status: "no_match",
-      source: "phone_lookup",
-      callerPhone: "+17275551212",
-      candidates: [],
-    };
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
     stubCreatePatient({ status: "error", reason: "middleware_error" });
@@ -430,12 +377,6 @@ describe("stateful call tools", () => {
   it("leaves a malformed chart-creation response as an internal error", async () => {
     const state = createState();
     setPatientUnknown(state);
-    state.identity.preCall = {
-      status: "no_match",
-      source: "phone_lookup",
-      callerPhone: "+17275551212",
-      candidates: [],
-    };
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
     stubCreatePatient({ status: "error", reason: "invalid_response" });
@@ -539,9 +480,8 @@ describe("stateful call tools", () => {
       await expect(pendingCreation).resolves.toContain(
         "Created a patient chart for Jane Doe, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration.",
       );
-      expect(state.identity.patient).toMatchObject({
-        status: "verified",
-        identityConfirmed: true,
+      expect(state.identity.activePatient!).toMatchObject({
+        kind: "existing",
         patientId: "patient-john",
         name: "John Doe",
         dob: "02/02/1982",
@@ -600,13 +540,12 @@ describe("stateful call tools", () => {
     await expect(pendingCreation).resolves.toBe(
       "Created a patient chart for Jane Doe. Continue with scheduling.",
     );
-    expect(state.identity.patient).toMatchObject({
-      status: "created",
-      identityConfirmed: true,
+    expect(state.identity.activePatient!).toMatchObject({
+      kind: "created",
       patientId: "patient-new",
       name: "Jane Doe",
     });
-    expect(state.identity.pendingRegistration).toBeUndefined();
+    expect(state.identity.registration).toBeNull();
     await expect(
       add_patient.execute(params, {
         ctx: createToolContext(state) as never,
@@ -679,13 +618,8 @@ describe("stateful call tools", () => {
     await expect(pendingCreation).resolves.toBe(
       "Created a patient chart for Jane Doe, but the active patient changed before the result returned. Do not create another chart. Continue with the current patient's state.",
     );
-    expect(state.identity.patient).toMatchObject({
-      status: "new",
-      identityConfirmed: false,
-      patientId: null,
-      name: null,
-    });
-    expect(state.identity.pendingRegistration).toEqual({
+    expect(state.identity.activePatient).toBeNull();
+    expect(state.identity.registration).toEqual({
       firstName: "John",
       lastName: "Doe",
       dob: "02/02/1982",
@@ -700,9 +634,6 @@ describe("stateful call tools", () => {
 
   it("keeps a partially created chart active without claiming insurance was attached", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
@@ -752,8 +683,8 @@ describe("stateful call tools", () => {
     expect(secondResult).toBe(
       "Patient chart is already created for Jane Doe, but insurance is not attached. Do not create another chart. Connect the caller to office staff to finish registration.",
     );
-    expect(state.identity.patient).toMatchObject({
-      status: "created",
+    expect(state.identity.activePatient!).toMatchObject({
+      kind: "created",
       patientId: "patient-new",
       dob: "01/01/1980",
       phone: "+17275551212",
@@ -765,12 +696,6 @@ describe("stateful call tools", () => {
   it("requires explicit new-patient confirmation before creating a chart", async () => {
     const state = createState();
     setPatientUnknown(state);
-    state.identity.preCall = {
-      status: "no_match",
-      source: "phone_lookup",
-      callerPhone: "+17275551212",
-      candidates: [],
-    };
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
     const ctx = createToolContext(state);
@@ -803,15 +728,12 @@ describe("stateful call tools", () => {
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(ctx.disallowInterruptions).toHaveBeenCalledOnce();
     expect(testMiddleware.operations).toHaveLength(0);
-    expect(state.identity.preCall.status).toBe("no_match");
-    expect(state.identity.patient.status).toBe("unknown");
+    expect(state.identity.activePatient).toBeNull();
+    expect(state.identity.registration).toBeNull();
   });
 
   it("marks a created chart as new-patient state when middleware omits status", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
@@ -840,7 +762,7 @@ describe("stateful call tools", () => {
       } as never,
     );
 
-    expect(state.identity.patient.status).toBe("created");
+    expect(state.identity.activePatient!.kind).toBe("created");
     expect(state.insurance.onFile).toEqual({
       plan: "self pay",
       canonicalPlan: "self pay",
@@ -850,10 +772,14 @@ describe("stateful call tools", () => {
     expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 
-  it("blocks new chart creation when a pending pre-call candidate matches last name and DOB", async () => {
+  it("does not reactivate a private candidate after explicit new registration", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
-    state.identity.patient.status = "new";
+    state.identity.registration = {
+      firstName: "Lisa",
+      lastName: "Arshed",
+      dob: "10/03/2020",
+    };
     markSchedulingTriaged(state);
     state.insurance.lastEligibilityCheck = {
       plan: "Florida Blue Shield",
@@ -887,19 +813,15 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Do not create a new chart yet. Ask the privacy-safe first-name question, then use the runtime-confirmed patient state or continue an existing-patient lookup.",
+      "Collect the patient's SSN last four before creating a routine-vision chart.",
     );
-    expect(result).not.toMatch(
-      /record|matches that identity|Arshed|10\/03\/2020/,
-    );
+    expect(state.identity.activePatient).toBeNull();
+    expect(state.identity.registration?.firstName).toBe("Lisa");
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("requires an accepted insurance check before creating a patient", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     markNewPatientPathConfirmed(state);
     clearSchedulingContext(state);
 
@@ -937,9 +859,6 @@ describe("stateful call tools", () => {
     state.office.phoneOverrides = {
       "crystal-river": "+13523202007",
     };
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     markNewPatientPathConfirmed(state);
     clearSchedulingContext(state);
     markAcceptedInsurance(state, {
@@ -998,9 +917,6 @@ describe("stateful call tools", () => {
     };
 
     const routineState = createState();
-    routineState.identity.patient.patientId = null;
-    routineState.identity.patient.name = null;
-    routineState.identity.patient.identityConfirmed = false;
     markNewPatientPathConfirmed(routineState);
     clearSchedulingContext(routineState);
     markAcceptedInsurance(routineState, {
@@ -1027,9 +943,6 @@ describe("stateful call tools", () => {
 
   it("requires read-back confirmation before creating a patient", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
@@ -1063,9 +976,6 @@ describe("stateful call tools", () => {
 
   it("asks before using the inbound caller phone for a new patient chart", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
@@ -1100,9 +1010,6 @@ describe("stateful call tools", () => {
 
   it("uses the inbound caller phone after explicit confirmation", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
@@ -1139,9 +1046,7 @@ describe("stateful call tools", () => {
 
   it("returns a speech-ready result after confirming identity by lookup", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
+    setPatientUnknown(state);
     const middleware = stubPatient(
       verifiedPatientResult({
         appointmentsStatus: "found",
@@ -1176,8 +1081,8 @@ describe("stateful call tools", () => {
     expect(result).not.toContain("123");
     expect(result).not.toContain("private-cancellation-token");
     expect(result).not.toContain("private-reschedule-token");
-    expect(state.identity.patient.patientId).toBe("patient-1");
-    expect(state.identity.patient.appointments).toEqual([
+    expect(state.identity.activePatient!.patientId).toBe("patient-1");
+    expect(state.identity.activePatient!.appointments).toEqual([
       expect.objectContaining({
         appointmentRef: expect.stringMatching(/^appointment-[a-z0-9]+$/),
         cancellationToken: "private-cancellation-token",
@@ -1198,9 +1103,7 @@ describe("stateful call tools", () => {
 
   it("presents a distinct safe reference with every loaded appointment choice", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
+    setPatientUnknown(state);
     const middleware = stubPatient(
       verifiedPatientResult({
         appointmentsStatus: "found",
@@ -1247,7 +1150,7 @@ describe("stateful call tools", () => {
     expect(result).not.toContain("123");
     expect(result).not.toContain("456");
     expect(result).not.toContain("private-token");
-    expect(state.identity.patient.appointments).toEqual([
+    expect(state.identity.activePatient!.appointments).toEqual([
       expect.objectContaining({
         appointmentRef: expect.stringMatching(/^appointment-[a-z0-9]+$/),
         cancellationToken: "private-token-one",
@@ -1264,9 +1167,7 @@ describe("stateful call tools", () => {
 
   it("presents all loaded appointment references instead of hiding extra choices", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
+    setPatientUnknown(state);
     stubPatient(
       verifiedPatientResult({
         appointmentsStatus: "found",
@@ -1337,7 +1238,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Verified existing patient John Doe. Insurance on file: Aetna. No upcoming appointments are loaded.",
+      "Switched active patient to John Doe. Insurance on file: Aetna. No upcoming appointments are loaded. Check availability again before booking.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
@@ -1347,7 +1248,7 @@ describe("stateful call tools", () => {
       },
       office: "+13523202007",
     });
-    expect(state.identity.patient.patientId).toBe("patient-2");
+    expect(state.identity.activePatient!.patientId).toBe("patient-2");
     expect(state.workflow.current).toBeUndefined();
     expect(state.office.activeKey).toBe("crystal-river");
     expect(state.availability.slots).toEqual([]);
@@ -1358,9 +1259,6 @@ describe("stateful call tools", () => {
 
   it("clearly reports verified existing patients without insurance on file", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     stubPatient(
       verifiedPatientResult({
         name: "TEST,CHASE",
@@ -1384,13 +1282,13 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Verified existing patient TEST,CHASE. No upcoming appointments are loaded.",
     );
-    expect(state.identity.patient.patientId).toBe("patient-1");
-    expect(state.identity.patient.identityConfirmed).toBe(true);
+    expect(state.identity.activePatient!.patientId).toBe("patient-1");
+    expect(state.identity.activePatient!.kind).toBe("existing");
     expect(state.insurance.onFile).toBeNull();
     expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 
-  it("asks for first-name spelling after lookup fails for a pre-call single match with matching last name and DOB", async () => {
+  it("keeps a private candidate inactive after a full lookup finds no patient", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
     const middleware = stubPatient({
@@ -1408,7 +1306,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "I found a record with that last name and date of birth, but the first name does not match what I heard. Could you spell the patient's first name?",
+      "No matching patient was found. Confirm the spelling and date of birth, or ask whether the patient is already registered with us.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
@@ -1417,10 +1315,8 @@ describe("stateful call tools", () => {
         dob: "10/03/2020",
       },
     });
-    expect(state.identity.preCall.status).toBe(
-      "single_match_pending_confirmation",
-    );
-    expect(state.identity.patient.identityConfirmed).toBe(false);
+    expect(state.identity.privateCandidates).toHaveLength(1);
+    expect(state.identity.activePatient).toBeNull();
   });
 
   it("preserves lookup failures instead of using the pre-call spelling fallback", async () => {
@@ -1444,10 +1340,8 @@ describe("stateful call tools", () => {
         } as never,
       ),
     ).rejects.toThrow("Patient lookup failed. Try again.");
-    expect(state.identity.preCall.status).toBe(
-      "single_match_pending_confirmation",
-    );
-    expect(state.identity.patient.identityConfirmed).toBe(false);
+    expect(state.identity.privateCandidates).toHaveLength(1);
+    expect(state.identity.activePatient).toBeNull();
     expect(ownedMiddlewareFailures(state)).toMatchObject([
       { operation: "resolvePatient", reason: "middleware_error" },
     ]);
@@ -1539,16 +1433,15 @@ describe("stateful call tools", () => {
         dob: "10/03/2020",
       },
     });
-    expect(state.identity.patient.identityConfirmed).toBe(true);
-    expect(state.identity.patient.patientId).toBe("patient-ella");
+    expect(state.identity.activePatient!.kind).toBe("existing");
+    expect(state.identity.activePatient!.patientId).toBe("patient-ella");
   });
 
   it("switches an active pre-call patient when another preloaded patient is resolved", async () => {
     const state = createState();
-    state.identity.patient = {
-      ...state.identity.patient,
-      status: "verified",
-      identityConfirmed: true,
+    state.identity.activePatient! = {
+      ...state.identity.activePatient!,
+      kind: "existing",
       patientId: "patient-brandon",
       name: "BRANDON ANDERSON",
       dob: "04/05/2012",
@@ -1556,37 +1449,28 @@ describe("stateful call tools", () => {
       appointments: [],
       appointmentsStatus: "none",
     };
-    setMultiplePreCallCandidates(
-      state,
-      [
-        preCallCandidate({
-          ref: "precall:1",
-          firstName: "BRANDON",
-          lastName: "ANDERSON",
-          dob: "04/05/2012",
-          patientId: "patient-brandon",
-          insuranceCarrier: undefined,
-          routing: undefined,
-          allowedProviders: undefined,
-        }),
-        preCallCandidate({
-          ref: "precall:2",
-          firstName: "MONIQUE",
-          lastName: "HAMILTON",
-          dob: "12/21/2016",
-          patientId: "patient-monique",
-          insuranceCarrier: "HUMANA",
-          routing: undefined,
-          allowedProviders: undefined,
-        }),
-      ],
-      {
-        status: "multiple_match_confirmed",
-        callerPhone: "+17863488102",
-        selectedCandidateRef: "precall:1",
-        identityPromotion: "confirmed_by_transcript",
-      },
-    );
+    setMultiplePreCallCandidates(state, [
+      preCallCandidate({
+        ref: "precall:1",
+        firstName: "BRANDON",
+        lastName: "ANDERSON",
+        dob: "04/05/2012",
+        patientId: "patient-brandon",
+        insuranceCarrier: undefined,
+        routing: undefined,
+        allowedProviders: undefined,
+      }),
+      preCallCandidate({
+        ref: "precall:2",
+        firstName: "MONIQUE",
+        lastName: "HAMILTON",
+        dob: "12/21/2016",
+        patientId: "patient-monique",
+        insuranceCarrier: "HUMANA",
+        routing: undefined,
+        allowedProviders: undefined,
+      }),
+    ]);
 
     const result = await resolve_patient.execute(
       {
@@ -1601,22 +1485,16 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Switched active patient to MONIQUE HAMILTON. Insurance on file: HUMANA. No upcoming appointments are loaded. Check availability again before booking.",
     );
-    expect(state.identity.preCall.selectedCandidateRef).toBe("precall:2");
-    expect(state.identity.preCall.identityPromotion).toBe(
-      "switched_by_identity_tool",
-    );
-    expect(state.identity.patient.identityConfirmed).toBe(true);
-    expect(state.identity.patient.patientId).toBe("patient-monique");
-    expect(state.identity.patient.name).toBe("MONIQUE HAMILTON");
-    expect(state.identity.patient.phone).toBe("+17863488102");
+    expect(state.identity.activePatient!.patientId).toBe("patient-monique");
+    expect(state.identity.activePatient!.name).toBe("MONIQUE HAMILTON");
+    expect(state.identity.activePatient!.phone).toBeNull();
   });
 
   it("does not clear booking state when resolving the already active pre-call patient", async () => {
     const state = createState();
-    state.identity.patient = {
-      ...state.identity.patient,
-      status: "verified",
-      identityConfirmed: true,
+    state.identity.activePatient! = {
+      ...state.identity.activePatient!,
+      kind: "existing",
       patientId: "patient-brandon",
       name: "BRANDON ANDERSON",
       dob: "04/05/2012",
@@ -1624,27 +1502,18 @@ describe("stateful call tools", () => {
       appointments: [],
       appointmentsStatus: "none",
     };
-    setMultiplePreCallCandidates(
-      state,
-      [
-        preCallCandidate({
-          ref: "precall:1",
-          firstName: "BRANDON",
-          lastName: "ANDERSON",
-          dob: "04/05/2012",
-          patientId: "patient-brandon",
-          insuranceCarrier: undefined,
-          routing: undefined,
-          allowedProviders: undefined,
-        }),
-      ],
-      {
-        status: "multiple_match_confirmed",
-        callerPhone: "+17863488102",
-        selectedCandidateRef: "precall:1",
-        identityPromotion: "confirmed_by_identity_tool",
-      },
-    );
+    setMultiplePreCallCandidates(state, [
+      preCallCandidate({
+        ref: "precall:1",
+        firstName: "BRANDON",
+        lastName: "ANDERSON",
+        dob: "04/05/2012",
+        patientId: "patient-brandon",
+        insuranceCarrier: undefined,
+        routing: undefined,
+        allowedProviders: undefined,
+      }),
+    ]);
     storeAvailabilityBookingToken(state, "S1", "token-a");
     state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
@@ -1678,7 +1547,7 @@ describe("stateful call tools", () => {
     });
   });
 
-  it("does not activate an initial pre-call patient through resolve_patient", async () => {
+  it("activates a unique pre-call patient through resolve_patient", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
 
@@ -1689,27 +1558,13 @@ describe("stateful call tools", () => {
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "Collect the patient's last name and date of birth, then call resolve_patient again.",
+      "Verified existing patient ESA ARSHED. Insurance on file: Florida Blue Shield. No upcoming appointments are loaded.",
     );
-    expect(state.identity.preCall.status).toBe(
-      "single_match_pending_confirmation",
-    );
-    expect(state.identity.patient.identityConfirmed).toBe(false);
-    expect(state.identity.patient.patientId).toBeNull();
+    expect(state.identity.activePatient!.patientId).toBe("patient-esa");
   });
 
   it("does not call middleware until full identity is provided", async () => {
     const state = createState();
-    state.identity.preCall = {
-      status: "no_match",
-      source: "phone_lookup",
-      callerPhone: "+17275551212",
-      candidates: [],
-      identityPromotion: "none",
-    };
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
 
     const result = await resolve_patient.execute(
       {
@@ -1728,9 +1583,6 @@ describe("stateful call tools", () => {
 
   it("establishes new-patient state while preserving its accepted insurance check", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     storeAvailabilityBookingToken(state, "S1", "stale-token");
     state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
@@ -1762,9 +1614,12 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, member ID, and patient SSN last 4 for routine vision. Call add_patient again only after the caller confirms the details are correct.",
     );
-    expect(state.identity.patient.status).toBe("new");
-    expect(state.identity.patient.identityConfirmed).toBe(false);
-    expect(state.identity.patient.patientId).toBeNull();
+    expect(state.identity.activePatient).toBeNull();
+    expect(state.identity.registration).toEqual({
+      firstName: "Maria",
+      lastName: "Santos",
+      dob: "01/01/1980",
+    });
     expect(state.availability.slots).toEqual([]);
     expect(state.identity.latestBookedAppointmentId).toBeUndefined();
     expect(state.insurance.lastEligibilityCheck).toEqual({
@@ -1804,9 +1659,8 @@ describe("stateful call tools", () => {
       "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
-    expect(state.identity.patient).toMatchObject({
-      status: "matched",
-      identityConfirmed: true,
+    expect(state.identity.activePatient!).toMatchObject({
+      kind: "existing",
       patientId: "patient-1",
       name: "Jane Doe",
       dob: "01/01/1980",
@@ -1821,8 +1675,8 @@ describe("stateful call tools", () => {
 
   it("does not demote a comma-formatted active patient name to the new-chart path", async () => {
     const state = createState();
-    state.identity.patient.name = "TEST,CHASE";
-    state.identity.patient.dob = "01/01/1980";
+    state.identity.activePatient!.name = "TEST,CHASE";
+    state.identity.activePatient!.dob = "01/01/1980";
 
     const result = await add_patient.execute(
       {
@@ -1847,9 +1701,8 @@ describe("stateful call tools", () => {
       "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
-    expect(state.identity.patient).toMatchObject({
-      status: "matched",
-      identityConfirmed: true,
+    expect(state.identity.activePatient!).toMatchObject({
+      kind: "existing",
       patientId: "patient-1",
       name: "TEST,CHASE",
       dob: "01/01/1980",
@@ -1889,12 +1742,11 @@ describe("stateful call tools", () => {
       "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
-    expect(state.identity.patient).toMatchObject({
-      status: "new",
-      identityConfirmed: false,
-      patientId: null,
-      name: null,
-      dob: null,
+    expect(state.identity.activePatient).toBeNull();
+    expect(state.identity.registration).toEqual({
+      firstName: "John",
+      lastName: "Doe",
+      dob: "02/02/1982",
     });
     expect(state.insurance.onFile).toBeNull();
     expect(state.insurance.lastEligibilityCheck).toBeNull();
@@ -1913,34 +1765,26 @@ describe("stateful call tools", () => {
 
   it("keeps the prior pre-call patient inactive after add_patient switches to a new patient", async () => {
     const state = createState();
-    state.identity.preCall = {
-      status: "single_match_confirmed",
-      source: "phone_lookup",
-      callerPhone: "+17275551212",
-      selectedCandidateRef: CALLER_CANDIDATE_REF,
-      candidates: [
-        {
-          ref: CALLER_CANDIDATE_REF,
-          firstName: "JANE",
-          lastName: "DOE",
-          dob: "01/01/1980",
-          patientId: "patient-jane",
-          appointments: [
-            {
-              id: 123,
-              date: "2026-06-01",
-              time: "9:00 AM",
-              provider: "Doctor Smith",
-              type: "Medical",
-              facility: "Spring Hill",
-              confirmed: true,
-            },
-          ],
-          appointmentsStatus: "found",
-        },
-      ],
-      identityPromotion: "confirmed_by_identity_tool",
-    };
+    state.identity.privateCandidates = [
+      preCallCandidate({
+        firstName: "JANE",
+        lastName: "DOE",
+        dob: "01/01/1980",
+        patientId: "patient-jane",
+        appointments: [
+          {
+            id: 123,
+            date: "2026-06-01",
+            time: "9:00 AM",
+            provider: "Doctor Smith",
+            type: "Medical",
+            facility: "Spring Hill",
+            confirmed: true,
+          },
+        ],
+        appointmentsStatus: "found",
+      }),
+    ];
 
     const result = await add_patient.execute(
       {
@@ -1964,14 +1808,11 @@ describe("stateful call tools", () => {
     expect(result).toBe(
       "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
     );
-    expect(state.identity.patient).toMatchObject({
-      status: "new",
-      identityConfirmed: false,
-      patientId: null,
-      name: null,
-      dob: null,
-      phone: null,
-      appointments: [],
+    expect(state.identity.activePatient).toBeNull();
+    expect(state.identity.registration).toEqual({
+      firstName: "John",
+      lastName: "Doe",
+      dob: "02/02/1982",
     });
     await expect(
       cancel_appointment.execute({}, {
@@ -1980,7 +1821,7 @@ describe("stateful call tools", () => {
       } as never),
     ).resolves.toBe("Verify the patient before cancelling.");
     expect(testMiddleware.operations).toHaveLength(0);
-    expect(state.identity.patient.status).toBe("new");
+    expect(state.identity.activePatient).toBeNull();
   });
 
   it("blocks new chart creation when a confirmed pre-call candidate has the same last name and DOB", async () => {
@@ -1992,24 +1833,16 @@ describe("stateful call tools", () => {
       canonicalPlan: "Aetna",
       coverageType: "medical",
     });
-    state.identity.preCall = {
-      status: "single_match_confirmed",
-      source: "phone_lookup",
-      callerPhone: "+17275551212",
-      selectedCandidateRef: CALLER_CANDIDATE_REF,
-      candidates: [
-        {
-          ref: CALLER_CANDIDATE_REF,
-          firstName: "JANE",
-          lastName: "DOE",
-          dob: "01/01/1980",
-          patientId: "patient-jane",
-          appointments: [],
-          appointmentsStatus: "none",
-        },
-      ],
-      identityPromotion: "confirmed_by_identity_tool",
-    };
+    state.identity.privateCandidates = [
+      preCallCandidate({
+        firstName: "JANE",
+        lastName: "DOE",
+        dob: "01/01/1980",
+        patientId: "patient-jane",
+        appointments: [],
+        appointmentsStatus: "none",
+      }),
+    ];
 
     const result = await add_patient.execute(
       {
@@ -2102,9 +1935,6 @@ describe("stateful call tools", () => {
 
   it("passes the checked canonical insurance plan to new patient creation", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     markNewPatientPathConfirmed(state);
     state.insurance.onFile = null;
     markSchedulingTriaged(state);
@@ -2157,17 +1987,11 @@ describe("stateful call tools", () => {
       currentCarrier: "Florida Blue",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
-    expect(state.workflow.current).toEqual({
-      intent: "schedule",
-      appointmentLane: "medical_md",
-    });
+    expect(state.workflow.current).toBeUndefined();
   });
 
   it("passes patient SSN last 4 to new patient creation for routine vision", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     markNewPatientPathConfirmed(state);
     state.insurance.onFile = null;
     markSchedulingTriaged(state, "routine_od");
@@ -2220,18 +2044,12 @@ describe("stateful call tools", () => {
       currentCarrier: "VSP",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
-    expect(state.workflow.current).toEqual({
-      intent: "schedule",
-      appointmentLane: "routine_od",
-    });
+    expect(state.workflow.current).toBeUndefined();
   });
 
   it("creates a chart directly after explicit new-patient confirmation", async () => {
     const state = createState();
     state.office.activeKey = "hollywood";
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     state.insurance.onFile = null;
     markSchedulingTriaged(state);
     const middleware = stubCreatePatient(
@@ -2292,9 +2110,6 @@ describe("stateful call tools", () => {
 
   it("treats duplicate add_patient after successful chart creation as already done", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
-    state.identity.patient.name = null;
-    state.identity.patient.identityConfirmed = false;
     markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
@@ -2505,7 +2320,7 @@ describe("stateful call tools", () => {
       currentCarrier: "UnitedHealthcare",
       accepted: true,
     };
-    state.identity.patientBackend = {
+    state.identity.activePatient!.backend = {
       insPlanId: "ins-old",
       respPartyId: "resp-1",
     };
@@ -2548,7 +2363,7 @@ describe("stateful call tools", () => {
       currentCarrier: "United Healthcare",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
-    expect(state.identity.patientBackend).toEqual({
+    expect(state.identity.activePatient!.backend).toEqual({
       insPlanId: null,
       respPartyId: "resp-1",
     });
@@ -2560,7 +2375,7 @@ describe("stateful call tools", () => {
 
   it("returns update-insurance prerequisites without a tool error", async () => {
     const state = createState();
-    state.identity.patient.patientId = null;
+    state.identity.activePatient!.patientId = null;
 
     await expect(
       update_insurance.execute({ insuranceMemberId: "ABC123" }, {
@@ -2569,7 +2384,7 @@ describe("stateful call tools", () => {
       } as never),
     ).resolves.toBe("Verify the patient before updating insurance.");
 
-    state.identity.patient.patientId = "patient-1";
+    state.identity.activePatient!.patientId = "patient-1";
     state.insurance.lastEligibilityCheck = null;
     await expect(
       update_insurance.execute({ insuranceMemberId: "ABC123" }, {
@@ -2592,7 +2407,7 @@ describe("stateful call tools", () => {
       currentCarrier: "Sunshine",
       accepted: true,
     };
-    state.identity.patientBackend = {
+    state.identity.activePatient!.backend = {
       insPlanId: null,
       respPartyId: "resp-1",
     };
@@ -2628,7 +2443,7 @@ describe("stateful call tools", () => {
       currentCarrier: "Envolve",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
-    expect(state.identity.patientBackend).toEqual({
+    expect(state.identity.activePatient!.backend).toEqual({
       insPlanId: null,
       respPartyId: "resp-1",
     });

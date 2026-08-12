@@ -36,7 +36,10 @@ import {
   recordOfficeKnowledgeRetrieval,
   recordOwnedMiddlewareFailure,
 } from "../state/observability.js";
-import { createTestCallState } from "./support/call-state.js";
+import {
+  confirmedActivePatient,
+  createTestCallState,
+} from "./support/call-state.js";
 
 class TestLiveKitEvents implements CallCloseoutEventAdapter {
   private closeout: (() => Promise<CallCloseoutResult>) | undefined;
@@ -359,7 +362,11 @@ describe("call closeout", () => {
   });
 
   it("delivers PHI-free availability read telemetry", async () => {
-    const state = createTestCallState({ patientId: "private-patient-id" });
+    const state = createTestCallState({
+      activePatient: confirmedActivePatient({
+        patientId: "private-patient-id",
+      }),
+    });
     recordAvailabilityReadEvent(state, {
       operation: "middleware_call",
       durationMs: 125,
@@ -393,7 +400,9 @@ describe("call closeout", () => {
 
   it("redacts private appointment selectors from the rich call-state snapshot", async () => {
     const state = createTestCallState({
-      patientId: "private-patient-backend-id",
+      activePatient: confirmedActivePatient({
+        patientId: "private-patient-backend-id",
+      }),
     });
     const appointment = {
       id: 987654321,
@@ -408,27 +417,22 @@ describe("call closeout", () => {
       facility: "Spring Hill",
       confirmed: true,
     };
-    state.identity.patient.appointments = [appointment];
-    state.identity.patientBackend = {
+    state.identity.activePatient!.appointments = [appointment];
+    state.identity.activePatient!.backend = {
       insPlanId: "private-ins-plan-id",
       respPartyId: "private-party-id",
     };
-    state.identity.preCall = {
-      status: "single_match_confirmed",
-      source: "phone_lookup",
-      callerPhone: "+17275551212",
-      candidates: [
-        {
-          status: "candidate",
-          ref: "precall:1",
-          patientId: "private-patient-backend-id",
-          firstName: "Private",
-          lastName: "Candidate",
-          dob: "01/02/1980",
-          appointments: [],
-        },
-      ],
-    };
+    state.identity.privateCandidates = [
+      {
+        status: "candidate",
+        ref: "precall:1",
+        patientId: "private-patient-backend-id",
+        firstName: "Private",
+        lastName: "Candidate",
+        dob: "01/02/1980",
+        appointments: [],
+      },
+    ];
     state.identity.latestBookedAppointmentId = appointment.id;
     state.identity.completedBookingsByPatientId = {
       "private-patient-backend-id": {
@@ -469,10 +473,10 @@ describe("call closeout", () => {
     expect(callStatePayload).not.toContain("Private");
     expect(callStatePayload).not.toContain("Candidate");
     expect(callStatePayload).not.toContain("01/02/1980");
-    expect(state.identity.patient.appointments[0]?.cancellationToken).toBe(
-      "private-cancellation-token",
-    );
-    expect(state.identity.patient.appointments[0]?.rescheduleToken).toBe(
+    expect(
+      state.identity.activePatient!.appointments[0]?.cancellationToken,
+    ).toBe("private-cancellation-token");
+    expect(state.identity.activePatient!.appointments[0]?.rescheduleToken).toBe(
       "private-reschedule-token",
     );
   });

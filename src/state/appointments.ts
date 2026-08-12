@@ -56,7 +56,7 @@ export function normalizeCallerAppointments(
 
 export function activeAppointments(state: CallState): CallerAppointment[] {
   return normalizeCallerAppointments(
-    state.identity.patient.appointments,
+    state.identity.activePatient?.appointments,
     activePatientId(state),
   );
 }
@@ -64,7 +64,7 @@ export function activeAppointments(state: CallState): CallerAppointment[] {
 export function activeAppointmentsStatus(
   state: CallState,
 ): AppointmentLoadStatus | null {
-  return state.identity.patient.appointmentsStatus ?? null;
+  return state.identity.activePatient?.appointmentsStatus ?? null;
 }
 
 export function replaceActiveAppointments(
@@ -72,11 +72,13 @@ export function replaceActiveAppointments(
   appointments: CallerAppointment[],
   status: AppointmentLoadStatus | null,
 ): void {
-  state.identity.patient.appointments = normalizeCallerAppointments(
+  const patient = state.identity.activePatient;
+  if (!patient) return;
+  patient.appointments = normalizeCallerAppointments(
     appointments,
     activePatientId(state),
   );
-  state.identity.patient.appointmentsStatus = status;
+  patient.appointmentsStatus = status;
 }
 
 export function removeActiveAppointment(
@@ -91,10 +93,11 @@ export function removeActiveAppointment(
     recordCompletedCancellationForPatient(state, patientId, appointment);
   }
   removeBookedAppointmentReference(state, appointmentId);
-  state.identity.patient.appointments =
-    state.identity.patient.appointments.filter(
-      (item) => item.id !== appointmentId,
-    );
+  const patient = state.identity.activePatient;
+  if (!patient) return;
+  patient.appointments = patient.appointments.filter(
+    (item) => item.id !== appointmentId,
+  );
 }
 
 function removeBookedAppointmentReference(

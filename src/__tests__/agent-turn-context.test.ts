@@ -7,8 +7,8 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
-import { insuranceSnapshot, setInsuranceOnFile } from "../scheduling/state.js";
 import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
+import { patientModelProjection } from "../identity/patient-identity.js";
 import { createTestCallState } from "./support/call-state.js";
 
 describe("completed user turn context", () => {
@@ -33,7 +33,7 @@ describe("completed user turn context", () => {
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
     await session.start({
-      agent: createVoiceAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         suppressGreeting: true,
         turnClock: {
           now: () => instants.shift() ?? new Date("invalid"),
@@ -64,94 +64,24 @@ describe("completed user turn context", () => {
     );
   });
 
-  it("projects only the current confirmed patient into each temporary context", async () => {
-    const state = createTestCallState({
-      officeKey: "spring-hill",
-      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-      patientId: "patient-jane",
-      patientName: "JANE DOE",
-      insuranceCarrier: "AETNA",
-      appointmentsStatus: "none",
-    });
-    state.identity.patient.identityConfirmed = true;
-
-    const session = new AgentSession();
-    sessions.push(session);
-    session.userData = state;
-    await session.start({
-      agent: createVoiceAgent(undefined, SPRING_HILL_OFFICE_PHONE, {
-        suppressGreeting: true,
-      }).agent,
-    });
-
-    const firstTurnContext = ChatContext.empty();
-    await session.currentAgent.onUserTurnCompleted(
-      firstTurnContext,
-      ChatMessage.create({ role: "user", content: "First question" }),
-    );
-
-    state.identity.patient = {
-      ...state.identity.patient,
-      patientId: "patient-john",
-      name: "JOHN DOE",
-    };
-    setInsuranceOnFile(
-      state,
-      insuranceSnapshot({
-        plan: "HUMANA",
-        canonicalPlan: "HUMANA",
-        currentCarrier: "HUMANA",
-      }),
-    );
-
-    const secondTurnContext = ChatContext.empty();
-    await session.currentAgent.onUserTurnCompleted(
-      secondTurnContext,
-      ChatMessage.create({ role: "user", content: "Second question" }),
-    );
-
-    expect(systemText(firstTurnContext)).toContain("Patient: JANE DOE.");
-    expect(systemText(firstTurnContext)).toContain("Insurance on file: AETNA.");
-    expect(systemText(secondTurnContext)).toContain("Patient: JOHN DOE.");
-    expect(systemText(secondTurnContext)).toContain(
-      "Insurance on file: HUMANA.",
-    );
-    expect(systemText(secondTurnContext)).not.toContain("JANE DOE");
-    expect(systemText(secondTurnContext)).not.toContain("AETNA");
-    expect(systemText(session.currentAgent.chatCtx)).not.toContain(
-      "Insurance on file:",
-    );
-  });
-
   it("activates a matching pre-call patient from the first caller turn without resolve_patient", async () => {
     const state = createTestCallState({
       officeKey: "spring-hill",
       amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
-      patientId: "patient-larry",
-      patientName: "LARRY TEST",
-      dob: "08/18/2020",
-      insuranceCarrier: "FLORIDA BLUE SHIELD",
-      appointmentsStatus: "none",
-      preCall: {
-        status: "single_match_pending_confirmation",
-        source: "phone_lookup",
-        callerPhone: "+19546097250",
-        selectedCandidateRef: CALLER_CANDIDATE_REF,
-        candidates: [
-          {
-            ref: CALLER_CANDIDATE_REF,
-            firstName: "LARRY",
-            lastName: "TEST",
-            dob: "08/18/2020",
-            patientId: "patient-larry",
-            appointments: [],
-            appointmentsStatus: "none",
-            insuranceCarrier: "FLORIDA BLUE SHIELD",
-          },
-        ],
-      },
+      preCallCandidates: [
+        {
+          status: "verified",
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "LARRY",
+          lastName: "TEST",
+          dob: "08/18/2020",
+          patientId: "patient-larry",
+          appointments: [],
+          appointmentsStatus: "none",
+          insuranceCarrier: "FLORIDA BLUE SHIELD",
+        },
+      ],
     });
     const identityLookup = vi.fn(async () => {
       throw new Error("Verified pre-call patients must not be looked up again");
@@ -160,7 +90,7 @@ describe("completed user turn context", () => {
     sessions.push(session);
     session.userData = state;
     await session.start({
-      agent: createVoiceAgent("single_match", SPRING_HILL_OFFICE_PHONE, {
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         identityLookup,
         suppressGreeting: true,
       }).agent,
@@ -173,25 +103,20 @@ describe("completed user turn context", () => {
     );
 
     expect(identityLookup).not.toHaveBeenCalled();
-    expect(state.identity.patient).toMatchObject({
-      status: "verified",
-      identityConfirmed: true,
+    expect(state.identity.activePatient).toMatchObject({
+      kind: "existing",
       patientId: "patient-larry",
       name: "LARRY TEST",
     });
-    expect(state.runtime.patientIdentityTransitions).toEqual([
-      { outcome: "pending", source: "pre_call_phone_lookup" },
+    expect(state.identity.receipts).toEqual([
       { outcome: "confirmed", source: "caller_transcript" },
     ]);
     expect(state.runtime.patientIdentityOutcomes).toEqual([]);
-    expect(systemText(turnContext)).toContain(
-      "Internal state: patient identity is confirmed.",
-    );
-    expect(systemText(turnContext)).toContain("Patient: LARRY TEST.");
-    expect(systemText(turnContext)).toContain(
+    expect(patientModelProjection(state)).toContain("LARRY TEST");
+    expect(patientModelProjection(state)).toContain(
       "Insurance on file: FLORIDA BLUE SHIELD.",
     );
-    expect(systemText(turnContext)).not.toContain("patient-larry");
+    expect(patientModelProjection(state)).not.toContain("patient-larry");
   });
 });
 

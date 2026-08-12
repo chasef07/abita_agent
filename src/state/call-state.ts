@@ -107,15 +107,6 @@ export interface PreCallLookupTelemetry {
   startupOverlap?: StartupOverlapTelemetry;
 }
 
-type PreCallIdentityStatus =
-  | "not_attempted"
-  | "single_match_pending_confirmation"
-  | "single_match_confirmed"
-  | "multiple_matches_pending_selection"
-  | "multiple_match_confirmed"
-  | "no_match"
-  | "lookup_failed";
-
 interface PreCallCandidateReference {
   ref: string;
   relationshipToCaller?: string;
@@ -146,21 +137,16 @@ export interface PreCallVerifiedPatientCandidate extends PreCallCandidateReferen
 export type PreCallPatientCandidate =
   PreCallLightweightPatientCandidate | PreCallVerifiedPatientCandidate;
 
-export interface PreCallContextState {
-  status: PreCallIdentityStatus;
-  source: "phone_lookup";
-  callerPhone: string;
-  lookupDurationMs?: number;
-  failureReason?: string;
-  retryable?: boolean;
-  candidates: PreCallPatientCandidate[];
-  selectedCandidateRef?: string;
-  appointmentLoadStatus?: AppointmentLoadStatus;
-  appointmentMessage?: string;
-  identityPromotion?: string;
+export interface ActivePatient {
+  kind: "existing" | "created";
+  patientId: string;
+  name: string | null;
+  dob: string | null;
+  phone: string | null;
+  appointments: CallerAppointment[];
+  appointmentsStatus: AppointmentLoadStatus | null;
+  backend: PatientBackendRefs;
 }
-
-type PatientStatus = "unknown" | "matched" | "verified" | "new" | "created";
 
 type SchedulingRouting =
   "bach_only" | "bach_licht" | "all_three" | "optical_only";
@@ -309,7 +295,7 @@ export interface PatientBackendRefs {
   respPartyId?: string | null;
 }
 
-export interface PendingPatientRegistrationIdentity {
+export interface RegistrationDraft {
   firstName?: string;
   lastName?: string;
   dob?: string;
@@ -329,7 +315,7 @@ export type PatientIdentityTransitionOutcome =
 
 export interface PatientIdentityTransitionAnalytics {
   outcome: PatientIdentityTransitionOutcome;
-  source: "pre_call_phone_lookup" | "caller_transcript" | "resolve_patient";
+  source: "caller_transcript" | "resolve_patient" | "create_patient";
 }
 
 export interface OfficeKnowledgeRetrievalAnalytics {
@@ -359,24 +345,12 @@ interface RuntimeCallState {
   ownedMiddlewareFailures: OwnedMiddlewareFailureAnalytics[];
   staffTasks: StaffTaskReceipt[];
   patientIdentityOutcomes: PatientIdentityOutcome[];
-  patientIdentityTransitions: PatientIdentityTransitionAnalytics[];
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
 
 interface OfficeSessionState {
   activeKey: OfficeKey;
   phoneOverrides: Partial<Record<OfficeKey, string>>;
-}
-
-interface PatientSessionState {
-  status: PatientStatus;
-  identityConfirmed: boolean;
-  patientId?: string | null;
-  name?: string | null;
-  dob?: string | null;
-  phone?: string | null;
-  appointments: CallerAppointment[];
-  appointmentsStatus?: AppointmentLoadStatus | null;
 }
 
 export interface InsuranceSnapshot {
@@ -396,12 +370,12 @@ interface InsuranceSessionState {
 }
 
 interface IdentitySessionState {
-  preCall?: PreCallContextState;
-  pendingRegistration?: PendingPatientRegistrationIdentity;
-  patient: PatientSessionState;
-  patientBackend: PatientBackendRefs;
+  privateCandidates: PreCallPatientCandidate[];
+  activePatient: ActivePatient | null;
+  registration: RegistrationDraft | null;
   operationVersion: number;
   transitionVersion: number;
+  receipts: PatientIdentityTransitionAnalytics[];
   latestBookedAppointmentId?: number;
   completedBookingsByPatientId: Record<string, CompletedBookingState>;
   completedCancellations: CompletedCancellationState[];
@@ -438,35 +412,28 @@ export interface CallState {
 }
 
 export function activePatientId(state: CallState): string | null {
-  if (
-    !state.identity.patient.identityConfirmed &&
-    state.identity.patient.status !== "created"
-  ) {
-    return null;
-  }
-  return state.identity.patient.patientId ?? null;
+  return state.identity.activePatient?.patientId ?? null;
 }
 
 export function activePatientName(state: CallState): string | null {
-  return state.identity.patient.name?.trim() || null;
+  return state.identity.activePatient?.name?.trim() || null;
 }
 
 export function activePatientDob(state: CallState): string | null {
-  return state.identity.patient.dob?.trim() || null;
+  return state.identity.activePatient?.dob?.trim() || null;
 }
 
 export function patientBackendRefs(state: CallState): PatientBackendRefs {
-  return state.identity.patientBackend;
+  return state.identity.activePatient?.backend ?? {};
 }
 
-export function setPatientBackendRefs(
+export function setActivePatientBackendRefs(
   state: CallState,
   refs: PatientBackendRefs,
 ): void {
-  state.identity.patientBackend = {
-    ...state.identity.patientBackend,
-    ...refs,
-  };
+  const patient = state.identity.activePatient;
+  if (!patient) return;
+  patient.backend = { ...patient.backend, ...refs };
 }
 
 export function recordPatientIdentityOutcome(
@@ -480,13 +447,13 @@ export function recordPatientIdentityTransition(
   state: CallState,
   transition: PatientIdentityTransitionAnalytics,
 ): void {
-  state.runtime.patientIdentityTransitions.push(transition);
+  state.identity.receipts.push(transition);
 }
 
 export function patientIdentityTransitions(
   state: CallState,
 ): PatientIdentityTransitionAnalytics[] {
-  return [...state.runtime.patientIdentityTransitions];
+  return [...state.identity.receipts];
 }
 
 export function takePatientIdentityOutcome(
@@ -496,7 +463,8 @@ export function takePatientIdentityOutcome(
 }
 
 export interface InitialCallStateInput {
-  preCall?: PreCallContextState | null;
+  preCallCandidates?: PreCallPatientCandidate[];
+  activePatient?: ActivePatient | null;
   preCallLookup: PreCallLookupTelemetry;
   officeKey: OfficeKey;
   amdOfficePhone: string;
@@ -505,28 +473,19 @@ export interface InitialCallStateInput {
   callId: string;
   callerPhone: string;
   trunkPhone: string;
-  patientId: string | null;
-  patientName: string | null;
-  dob: string | null;
-  phone?: string | null;
   insuranceCarrier: string | null;
-  insPlanId: string | null;
-  respPartyId: string | null;
   checkedInsurancePlan: string | null;
   checkedInsuranceCoverageType: InsuranceCoverageType | null;
   routing: string | null;
   allowedProviders: string[];
   routingAmbiguous: boolean;
   preauthRequired: boolean;
-  appointmentsStatus: AppointmentLoadStatus | null;
-  appointments: CallerAppointment[];
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
 
 export function createCanonicalCallState(
   input: InitialCallStateInput,
 ): CallState {
-  const patientStatus: PatientStatus = input.patientId ? "matched" : "unknown";
   const state: CallState = {
     office: {
       activeKey: input.officeKey,
@@ -535,21 +494,13 @@ export function createCanonicalCallState(
       },
     },
     identity: {
-      preCall: input.preCall ?? undefined,
-      patient: {
-        status: patientStatus,
-        identityConfirmed: false,
-        patientId: input.patientId,
-        name: input.patientName,
-        dob: input.dob,
-        phone: input.phone ?? input.callerPhone,
-        appointments: input.appointments,
-        appointmentsStatus: input.appointmentsStatus,
-      },
-      patientBackend: {},
+      privateCandidates: input.preCallCandidates ?? [],
+      activePatient: input.activePatient ?? null,
+      registration: null,
       completedBookingsByPatientId: {},
       operationVersion: 0,
       transitionVersion: 0,
+      receipts: [],
       completedCancellations: [],
       completedReschedulesByPatientId: {},
     },
@@ -569,45 +520,8 @@ export function createCanonicalCallState(
       ownedMiddlewareFailures: [],
       staffTasks: [],
       patientIdentityOutcomes: [],
-      patientIdentityTransitions: initialPatientIdentityTransitions(
-        input.preCall,
-      ),
       voiceLanguage: input.voiceLanguage ?? null,
     },
   };
-
-  setPatientBackendRefs(state, {
-    insPlanId: input.insPlanId,
-    respPartyId: input.respPartyId,
-  });
   return state;
-}
-
-function initialPatientIdentityTransitions(
-  preCall: PreCallContextState | null | undefined,
-): PatientIdentityTransitionAnalytics[] {
-  if (!preCall) return [];
-
-  switch (preCall.status) {
-    case "single_match_pending_confirmation":
-    case "multiple_matches_pending_selection":
-      return [{ outcome: "pending", source: "pre_call_phone_lookup" }];
-    case "lookup_failed":
-      return [{ outcome: "lookup_failed", source: "pre_call_phone_lookup" }];
-    case "no_match":
-      return [{ outcome: "not_found", source: "pre_call_phone_lookup" }];
-    case "single_match_confirmed":
-    case "multiple_match_confirmed":
-      return [
-        {
-          outcome: "confirmed",
-          source:
-            preCall.identityPromotion === "confirmed_by_transcript"
-              ? "caller_transcript"
-              : "resolve_patient",
-        },
-      ];
-    case "not_attempted":
-      return [];
-  }
 }

@@ -13,7 +13,7 @@ import type {
   CallerMatch,
   PhoneLookupResult,
   PreCallLookupTelemetry,
-  PreCallContextState,
+  PreCallPatientCandidate,
 } from "../state/call-state.js";
 import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
 import { normalizeCallerAppointments } from "../state/appointments.js";
@@ -188,19 +188,10 @@ export function preCallLookupTelemetry(
   };
 }
 
-export function buildPreCallContextState(
+export function buildPreCallCandidates(
   lookup: PhoneLookupResult,
-  callerPhone: string,
-): PreCallContextState {
-  if (!lookup) {
-    return {
-      status: "not_attempted",
-      source: "phone_lookup",
-      callerPhone,
-      candidates: [],
-      identityPromotion: "none",
-    };
-  }
+): PreCallPatientCandidate[] {
+  if (!lookup) return [];
 
   if (lookup.status === "verified") {
     const name = splitPatientName(lookup.name);
@@ -208,72 +199,34 @@ export function buildPreCallContextState(
       lookup.appointments,
       lookup.patientId,
     );
-    return {
-      status: "single_match_pending_confirmation",
-      source: "phone_lookup",
-      callerPhone,
-      lookupDurationMs: lookup.lookupDurationMs,
-      candidates: [
-        {
-          status: "verified",
-          ref: CALLER_CANDIDATE_REF,
-          firstName: name.firstName,
-          lastName: name.lastName,
-          dob: lookup.dob,
-          patientId: lookup.patientId,
-          relationshipToCaller: "self",
-          appointments,
-          appointmentsStatus: lookup.appointmentsStatus ?? undefined,
-          insuranceCarrier: lookup.insuranceCarrier,
-          insPlanId: lookup.insPlanId,
-          respPartyId: lookup.respPartyId,
-          routing: lookup.routing,
-          allowedProviders: lookup.allowedProviders,
-          routingAmbiguous: lookup.routingAmbiguous,
-          preauthRequired: lookup.preauthRequired,
-        },
-      ],
-      selectedCandidateRef: CALLER_CANDIDATE_REF,
-      appointmentLoadStatus: lookup.appointmentsStatus ?? undefined,
-      appointmentMessage: lookup.appointmentsMessage ?? undefined,
-      identityPromotion: "none",
-    };
+    return [
+      {
+        status: "verified",
+        ref: CALLER_CANDIDATE_REF,
+        firstName: name.firstName,
+        lastName: name.lastName,
+        dob: lookup.dob,
+        patientId: lookup.patientId,
+        relationshipToCaller: "self",
+        appointments,
+        appointmentsStatus: lookup.appointmentsStatus ?? undefined,
+        insuranceCarrier: lookup.insuranceCarrier,
+        insPlanId: lookup.insPlanId,
+        respPartyId: lookup.respPartyId,
+        routing: lookup.routing,
+        allowedProviders: lookup.allowedProviders,
+        routingAmbiguous: lookup.routingAmbiguous,
+        preauthRequired: lookup.preauthRequired,
+      },
+    ];
   }
 
   if (lookup.status === "multiple_matches") {
-    return {
-      status: "multiple_matches_pending_selection",
-      source: "phone_lookup",
-      callerPhone,
-      lookupDurationMs: lookup.lookupDurationMs,
-      candidates: lookup.matches.map((match, index) =>
-        preCallCandidateFromMatch(match, index),
-      ),
-      identityPromotion: "none",
-    };
+    return lookup.matches.map((match, index) =>
+      preCallCandidateFromMatch(match, index),
+    );
   }
-
-  if (lookup.status === "lookup_failed") {
-    return {
-      status: "lookup_failed",
-      source: "phone_lookup",
-      callerPhone,
-      lookupDurationMs: lookup.lookupDurationMs,
-      failureReason: lookup.reason,
-      retryable: lookup.retryable,
-      candidates: [],
-      identityPromotion: "none",
-    };
-  }
-
-  return {
-    status: "no_match",
-    source: "phone_lookup",
-    callerPhone,
-    lookupDurationMs: lookup.lookupDurationMs,
-    candidates: [],
-    identityPromotion: "none",
-  };
+  return [];
 }
 
 function preCallCandidateFromMatch(

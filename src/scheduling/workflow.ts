@@ -3,10 +3,7 @@ import {
   normalizePhoneNumber,
   type AvailabilityOfficeKey,
 } from "../customers/abita/profile.js";
-import {
-  incompletePatientRegistrationMessage,
-  restoreConfirmedPreCallPatient,
-} from "../identity/promotion.js";
+import { incompletePatientRegistrationMessage } from "../identity/patient-identity.js";
 import {
   completedBookingForPatient,
   completedRescheduleForPatient,
@@ -225,7 +222,6 @@ export class SchedulingWorkflow {
       readBack,
     }: BookAppointmentArgs,
   ): Promise<string> {
-    restoreConfirmedPreCallPatient(state);
     const incompleteRegistration = incompletePatientRegistrationMessage(state);
     if (incompleteRegistration) return incompleteRegistration;
     const patientId = activePatientId(state);
@@ -401,7 +397,6 @@ export class SchedulingWorkflow {
     state: CallState,
     { appointmentRef }: CancelAppointmentArgs,
   ): Promise<string> {
-    restoreConfirmedPreCallPatient(state);
     const patientId = activePatientId(state);
     if (!patientId) {
       throw new SchedulingInputRequired(
@@ -528,7 +523,6 @@ export class SchedulingWorkflow {
       oldAppointmentRef,
     }: RescheduleAppointmentArgs,
   ): Promise<string> {
-    restoreConfirmedPreCallPatient(state);
     const patientId = activePatientId(state);
     if (!patientId) {
       throw new SchedulingInputRequired(

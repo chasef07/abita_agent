@@ -742,6 +742,7 @@ const PRIVATE_CALL_STATE_ANALYTICS_FIELDS = new Set([
   "bookingToken",
   "bookingTokensBySlotId",
   "candidates",
+  "privateCandidates",
   "cancellationToken",
   "rescheduleToken",
   "completedBookingsByPatientId",
