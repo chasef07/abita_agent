@@ -168,7 +168,7 @@ const officeBehaviors: OfficeBehavior[] = [
           "Eye Radiance handles medical eye care, including cataract evaluations. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through a routine-vision office.",
       },
     },
-    staffTaskEnabled: true,
+    staffTaskEnabled: false,
     trunks: [CRYSTAL_RIVER_OFFICE_PHONE],
   },
   {
