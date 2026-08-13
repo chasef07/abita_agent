@@ -16,6 +16,7 @@ import { getState } from "./session.js";
 
 export const transfer_call = tool({
   name: "transfer_call",
+  onDuplicate: "reject",
   description:
     "Transfer the caller to human office staff when the transfer policy requires it. Call this tool immediately without announcing the transfer first; the tool speaks the transfer announcement.",
   parameters: z.object({}),

@@ -72,6 +72,10 @@ describe("transfer call", () => {
     vi.restoreAllMocks();
   });
 
+  it("rejects concurrent duplicate transfer calls", () => {
+    expect(transfer_call.onDuplicate).toBe("reject");
+  });
+
   it("announces the transfer after existing speech and before transferring", async () => {
     const { state, ctx } = createToolContext();
 
