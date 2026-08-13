@@ -118,6 +118,42 @@ describe("completed user turn context", () => {
     );
     expect(patientModelProjection(state)).not.toContain("patient-larry");
   });
+
+  it("contains a rejected lightweight-candidate hydration on the caller turn", async () => {
+    const state = createTestCallState({
+      officeKey: "spring-hill",
+      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+      preCallCandidates: [
+        {
+          status: "candidate",
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "LARRY",
+          patientId: "patient-larry",
+        },
+      ],
+    });
+    const identityLookup = vi.fn(async () => {
+      throw new Error("Patient lookup failed");
+    });
+    const session = new AgentSession();
+    sessions.push(session);
+    session.userData = state;
+    await session.start({
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        identityLookup,
+        suppressGreeting: true,
+      }).agent,
+    });
+
+    await expect(
+      session.currentAgent.onUserTurnCompleted(
+        ChatContext.empty(),
+        ChatMessage.create({ role: "user", content: "L-A-R-R-Y" }),
+      ),
+    ).rejects.toThrow("Patient lookup failed");
+    expect(state.identity.activePatient).toBeNull();
+  });
 });
 
 function systemText(chatCtx: ChatContext): string {

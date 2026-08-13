@@ -321,6 +321,28 @@ describe("pre-call bootstrap", () => {
     ).toEqual([]);
   });
 
+  it("rejects malformed verified patients nested in multiple matches", async () => {
+    usePatientResult({
+      status: "multiple_matches",
+      matches: [
+        verifiedPatient({ dob: null }),
+        verifiedPatient({
+          patientId: "patient-2",
+          name: "Doe, Maria",
+          dob: "02/02/1985",
+        }),
+      ],
+    });
+
+    await expect(
+      lookupByPhone("+17275551212", SPRING_HILL_OFFICE_PHONE),
+    ).resolves.toMatchObject({
+      status: "lookup_failed",
+      reason: "invalid_response",
+      retryable: false,
+    });
+  });
+
   it("stores full multiple-match patient details in pre-call candidates", async () => {
     usePatientResult({
       status: "multiple_matches",

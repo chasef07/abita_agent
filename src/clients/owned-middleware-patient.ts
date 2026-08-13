@@ -25,6 +25,19 @@ export interface PatientResolveVerified {
   message: string | null;
 }
 
+export type CompletePatientResolveVerified = PatientResolveVerified & {
+  name: string;
+  dob: string;
+};
+
+export function patientResolveReceiptIsComplete(
+  receipt: PatientResolveVerified,
+): receipt is CompletePatientResolveVerified {
+  return Boolean(
+    receipt.patientId.trim() && receipt.name?.trim() && receipt.dob?.trim(),
+  );
+}
+
 interface PatientResolveMultipleMatches {
   status: "multiple_matches";
   matches: Array<PatientResolveVerified | PatientResolveCandidate>;

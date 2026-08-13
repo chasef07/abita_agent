@@ -409,6 +409,92 @@ describe("stateful call tools", () => {
     await expect(failure).rejects.not.toBeInstanceOf(ToolError);
   });
 
+  it("does not activate a chart creation receipt for a different patient", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    markSchedulingTriaged(state);
+    markAcceptedInsurance(state);
+    stubCreatePatient(
+      createdPatientResult({
+        patientId: "patient-wrong",
+        name: "Anna Doe",
+        dob: "01/01/1980",
+      }),
+    );
+
+    const failure = add_patient.execute(
+      {
+        firstName: "Ana",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        subscriberName: "Ana Doe",
+        insuranceMemberId: "self pay",
+        inboundPhoneConfirmed: true,
+        newPatientConfirmed: true,
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    await expect(failure).resolves.toBe(
+      "A patient chart was created, but its identity receipt did not match the current registration. Do not create another chart. Connect the caller to office staff to verify the chart.",
+    );
+    expect(state.identity.activePatient).toBeNull();
+    expect(state.identity.registration).toEqual({
+      firstName: "Ana",
+      lastName: "Doe",
+      dob: "01/01/1980",
+    });
+  });
+
+  it("does not retry a created chart when identity evidence is missing", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    markSchedulingTriaged(state);
+    markAcceptedInsurance(state);
+    stubCreatePatient(
+      createdPatientResult({
+        name: null,
+        dob: null,
+      }),
+    );
+
+    await expect(
+      add_patient.execute(
+        {
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          street: "123 Main St",
+          city: "Spring Hill",
+          state: "FL",
+          zip: "34606",
+          sex: "female",
+          subscriberName: "Jane Doe",
+          insuranceMemberId: "self pay",
+          inboundPhoneConfirmed: true,
+          newPatientConfirmed: true,
+          readBack: true,
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).resolves.toBe(
+      "A patient chart was created, but its identity receipt did not match the current registration. Do not create another chart. Connect the caller to office staff to verify the chart.",
+    );
+    expect(state.identity.activePatient).toBeNull();
+  });
+
   it.each(["resolve_first", "creation_first"] as const)(
     "does not let chart creation replace a newer resolved patient when %s completes",
     async (completionOrder) => {
@@ -558,7 +644,7 @@ describe("stateful call tools", () => {
     ]);
   });
 
-  it("invalidates pending chart creation when a different new patient is named", async () => {
+  it("invalidates pending chart creation when a prefix-related new patient is named", async () => {
     const creation = deferredResult<CreatePatientResult>();
     const state = createState();
     markNewPatientPathConfirmed(state);
@@ -591,15 +677,15 @@ describe("stateful call tools", () => {
     );
     const newPatient = await add_patient.execute(
       {
-        firstName: "John",
+        firstName: "Janet",
         lastName: "Doe",
-        dob: "02/02/1982",
+        dob: "01/01/1980",
         street: "123 Main St",
         city: "Spring Hill",
         state: "FL",
         zip: "34606",
-        sex: "male",
-        subscriberName: "John Doe",
+        sex: "female",
+        subscriberName: "Janet Doe",
         insuranceMemberId: "self pay",
         phone: "7275551212",
         newPatientConfirmed: true,
@@ -620,9 +706,9 @@ describe("stateful call tools", () => {
     );
     expect(state.identity.activePatient).toBeNull();
     expect(state.identity.registration).toEqual({
-      firstName: "John",
+      firstName: "Janet",
       lastName: "Doe",
-      dob: "02/02/1982",
+      dob: "01/01/1980",
     });
     expect(state.workflow.current).toBeUndefined();
     expect(state.availability.bookingTokensBySlotId).toEqual({});
@@ -1288,6 +1374,33 @@ describe("stateful call tools", () => {
     expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 
+  it("does not activate a verified lookup receipt for a different identity", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    stubPatient(
+      verifiedPatientResult({
+        patientId: "patient-wrong",
+        name: "ANNA,DOE",
+        dob: "01/01/1980",
+      }),
+    );
+
+    const result = resolve_patient.execute(
+      {
+        firstName: "Ana",
+        lastName: "Doe",
+        dob: "01/01/1980",
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    await expect(result).rejects.toThrow(
+      "Owned Middleware returned a non-retryable failure.",
+    );
+    expect(state.identity.activePatient).toBeNull();
+    expect(state.runtime.patientIdentityOutcomes).toEqual(["lookup_failed"]);
+  });
+
   it("keeps a private candidate inactive after a full lookup finds no patient", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
@@ -1389,6 +1502,34 @@ describe("stateful call tools", () => {
         } as never,
       ),
     ).rejects.toThrow("unexpected lookup failure");
+    expect(state.runtime.patientIdentityOutcomes).toEqual(["lookup_failed"]);
+  });
+
+  it("contains a rejected private-candidate hydration within resolve_patient", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    state.identity.privateCandidates = [
+      {
+        status: "candidate",
+        ref: "precall:1",
+        patientId: "patient-private",
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        appointments: [],
+      },
+    ];
+    const tool = createResolvePatientTool(async () => {
+      throw new Error("candidate hydration failed");
+    });
+
+    await expect(
+      tool.execute({ firstName: "Jane" }, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never),
+    ).rejects.toThrow("candidate hydration failed");
+    expect(state.identity.activePatient).toBeNull();
     expect(state.runtime.patientIdentityOutcomes).toEqual(["lookup_failed"]);
   });
 
@@ -1581,8 +1722,49 @@ describe("stateful call tools", () => {
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
+  it("does not carry an active patient's insurance check into new-patient registration", async () => {
+    const state = createState();
+    markSchedulingTriaged(state);
+    markAcceptedInsurance(state, {
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
+    });
+
+    const result = await add_patient.execute(
+      {
+        firstName: "Maria",
+        lastName: "Santos",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        subscriberName: "Maria Santos",
+        insuranceMemberId: "ABC123",
+        phone: "7275551212",
+        newPatientConfirmed: true,
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
+    );
+    expect(state.identity.activePatient).toBeNull();
+    expect(state.identity.registration).toEqual({
+      firstName: "Maria",
+      lastName: "Santos",
+      dob: "01/01/1980",
+    });
+    expect(state.insurance.lastEligibilityCheck).toBeNull();
+    expect(testMiddleware.operations).toHaveLength(0);
+  });
+
   it("establishes new-patient state while preserving its accepted insurance check", async () => {
     const state = createState();
+    setPatientUnknown(state);
     storeAvailabilityBookingToken(state, "S1", "stale-token");
     state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
@@ -2049,6 +2231,7 @@ describe("stateful call tools", () => {
 
   it("creates a chart directly after explicit new-patient confirmation", async () => {
     const state = createState();
+    setPatientUnknown(state);
     state.office.activeKey = "hollywood";
     state.insurance.onFile = null;
     markSchedulingTriaged(state);

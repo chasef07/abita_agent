@@ -3,6 +3,7 @@ import type { OwnedMiddlewareFailureReason } from "../state/call-state.js";
 import {
   isRecord,
   normalizePatientResolveResponse,
+  patientResolveReceiptIsComplete,
   stringValue,
   type PatientResolveResult as LegacyPatientResolveResult,
   type PatientResolveCandidate,
@@ -12,6 +13,7 @@ import {
 const DEFAULT_PRODUCTION_BASE_URL =
   "https://advancedmd-token-management-production.up.railway.app";
 
+export { patientResolveReceiptIsComplete };
 export type { PatientResolveCandidate, PatientResolveVerified };
 
 export type MiddlewareFailureReason = Exclude<
@@ -89,7 +91,7 @@ export type CreatePatientInput = {
 type PatientCreationEvidence = {
   patientId: string;
   name: string | null;
-  dob: string;
+  dob: string | null;
   phone: string;
   insuranceCarrier: string | null;
   insPlanId: string | null;
@@ -360,7 +362,6 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     );
     return transport.ok
       ? normalizeCreatedPatient(transport.value, {
-          dob: request.patient.dob,
           phone: request.patient.phone,
         })
       : transport.failure;
@@ -585,7 +586,7 @@ function availabilityStatus(outcome: string | null) {
 
 function normalizeCreatedPatient(
   raw: unknown,
-  fallback: { dob: string; phone: string },
+  fallback: { phone: string },
 ): CreatePatientResult {
   if (hasFailureStatus(raw)) {
     return mutationFailure(raw, patientMutationCanRetry);
@@ -610,7 +611,7 @@ function normalizeCreatedPatient(
     status: status === "partial" ? "partial" : "created",
     patientId: stringValue(raw.patientId) ?? "",
     name: stringValue(raw.name),
-    dob: stringValue(raw.dob) ?? fallback.dob,
+    dob: stringValue(raw.dob),
     phone: stringValue(raw.phone) ?? fallback.phone,
     insuranceCarrier: stringValue(raw.insuranceCarrier),
     insPlanId: stringValue(raw.insPlanId),

@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  activatePatientFromReceipt,
+  beginPatientCreation,
   beginNewPatientRegistration,
+  commitPatientCreation,
   confirmCandidateFromTranscript,
   resolveExistingPatient,
 } from "../identity/patient-identity.js";
-import { insuranceSnapshot } from "../scheduling/state.js";
+import {
+  insuranceSnapshot,
+  setLastInsuranceEligibilityCheck,
+} from "../scheduling/state.js";
 import {
   createConfirmedPatientState,
   createTestCallState,
@@ -149,16 +153,20 @@ describe("patient identity", () => {
     ).resolves.toBe("unmatched");
     expect(state.identity.activePatient).toBeNull();
 
+    const creation = beginPatientCreation(state);
+    expect(creation).not.toBeNull();
     expect(
-      activatePatientFromReceipt(state, {
+      commitPatientCreation(state, creation!, {
         status: "error",
         patientId: "must-not-activate",
       } as never),
-    ).toBe(false);
+    ).toMatchObject({ outcome: "failed" });
     expect(state.identity.registration).not.toBeNull();
 
+    const retry = beginPatientCreation(state);
+    expect(retry).not.toBeNull();
     expect(
-      activatePatientFromReceipt(state, {
+      commitPatientCreation(state, retry!, {
         status: "created",
         patientId: "patient-new",
         name: "New Patient",
@@ -172,12 +180,100 @@ describe("patient identity", () => {
         routingAmbiguous: false,
         preauthRequired: false,
       }),
-    ).toBe(true);
+    ).toMatchObject({ outcome: "activated" });
     expect(state.identity.activePatient).toMatchObject({
       kind: "created",
       patientId: "patient-new",
     });
     expect(state.identity.registration).toBeNull();
+  });
+
+  it("keeps a patient creation operation scoped to its originating call", () => {
+    const original = createTestCallState();
+    const otherCall = createTestCallState();
+    const registration = {
+      firstName: "New",
+      lastName: "Patient",
+      dob: "03/03/1990",
+    };
+    beginNewPatientRegistration(original, registration);
+    beginNewPatientRegistration(otherCall, registration);
+    const creation = beginPatientCreation(original);
+    expect(creation).not.toBeNull();
+
+    const receipt = {
+      status: "created" as const,
+      patientId: "patient-new",
+      name: "New Patient",
+      dob: "03/03/1990",
+      phone: "+17275551212",
+      insuranceCarrier: null,
+      insPlanId: null,
+      respPartyId: null,
+      routing: null,
+      allowedProviders: [],
+      routingAmbiguous: false,
+      preauthRequired: false,
+    };
+    expect(commitPatientCreation(otherCall, creation!, receipt)).toMatchObject({
+      outcome: "invalid_receipt",
+    });
+    expect(otherCall.identity.activePatient).toBeNull();
+    expect(commitPatientCreation(original, creation!, receipt)).toMatchObject({
+      outcome: "activated",
+    });
+    expect(original.identity.activePatient).toMatchObject({
+      patientId: "patient-new",
+    });
+  });
+
+  it("commits the insurance check captured when patient creation began", () => {
+    const state = createTestCallState();
+    beginNewPatientRegistration(state, {
+      firstName: "New",
+      lastName: "Patient",
+      dob: "03/03/1990",
+    });
+    setLastInsuranceEligibilityCheck(state, {
+      accepted: true,
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
+      currentCarrier: "Aetna",
+    });
+    const creation = beginPatientCreation(state);
+    expect(creation).not.toBeNull();
+    setLastInsuranceEligibilityCheck(state, {
+      accepted: true,
+      plan: "VSP",
+      canonicalPlan: "VSP",
+      coverageType: "routine_vision",
+      currentCarrier: "VSP",
+    });
+
+    expect(
+      commitPatientCreation(state, creation!, {
+        status: "created",
+        patientId: "patient-new",
+        name: "New Patient",
+        dob: "03/03/1990",
+        phone: "+17275551212",
+        insuranceCarrier: null,
+        insPlanId: null,
+        respPartyId: null,
+        routing: null,
+        allowedProviders: [],
+        routingAmbiguous: false,
+        preauthRequired: false,
+      }),
+    ).toMatchObject({ outcome: "activated" });
+    expect(state.insurance.onFile).toEqual({
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
+      currentCarrier: "Aetna",
+    });
+    expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 });
 

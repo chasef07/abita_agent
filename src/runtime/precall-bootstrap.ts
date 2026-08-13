@@ -4,6 +4,7 @@ import {
 } from "../customers/abita/profile.js";
 import {
   ownedMiddleware,
+  patientResolveReceiptIsComplete,
   type PatientResolveCandidate,
   type PatientResolveVerified,
 } from "../clients/owned-middleware.js";
@@ -49,11 +50,7 @@ export async function lookupByPhone(
   });
   const lookupDurationMs = Date.now() - startedAt;
   if (result.status === "verified") {
-    if (
-      !result.patientId.trim() ||
-      !result.name?.trim() ||
-      !result.dob?.trim()
-    ) {
+    if (!patientResolveReceiptIsComplete(result)) {
       return lookupFailure(phone, "invalid_response", lookupDurationMs);
     }
     return {
@@ -76,6 +73,15 @@ export async function lookupByPhone(
     };
   }
   if (result.status === "multiple_matches") {
+    if (
+      result.matches.some(
+        (match) =>
+          match.status === "verified" &&
+          !patientResolveReceiptIsComplete(match),
+      )
+    ) {
+      return lookupFailure(phone, "invalid_response", lookupDurationMs);
+    }
     return {
       status: "multiple_matches",
       message: "Multiple patient matches found.",

@@ -1,8 +1,9 @@
-import type {
-  CreatePatientResult,
-  MiddlewareFailure,
-  PatientResolveResult,
-  PatientResolveVerified,
+import {
+  patientResolveReceiptIsComplete,
+  type CreatePatientResult,
+  type MiddlewareFailure,
+  type PatientResolveResult,
+  type PatientResolveVerified,
 } from "../clients/owned-middleware.js";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import { normalizeCallerAppointments } from "../state/appointments.js";
@@ -12,6 +13,7 @@ import {
   type AppointmentLoadStatus,
   type CallState,
   type CallerAppointment,
+  type InsuranceEligibilityCheck,
   type PatientIdentityOutcome,
   type PreCallPatientCandidate,
   recordPatientIdentityOutcome,
@@ -23,8 +25,10 @@ import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import {
   insuranceOnFile,
   insuranceSnapshot,
+  lastInsuranceEligibilityCheck,
   resetPatientSchedulingState,
   setInsuranceOnFile,
+  setLastInsuranceEligibilityCheck,
   setRoutingContext,
 } from "../scheduling/state.js";
 import {
@@ -78,9 +82,46 @@ type SuccessfulPatientCreationReceipt = Extract<
   { status: "created" | "partial" }
 >;
 
+declare const patientCreationOperationBrand: unique symbol;
+
+export type PatientCreationOperation = {
+  readonly [patientCreationOperationBrand]: true;
+};
+
+type PatientCreationOperationState = {
+  callState: CallState;
+  eligibilityCheck: InsuranceEligibilityCheck | null;
+  operationVersion: number;
+  registration: PatientLookupIdentity;
+  transitionVersion: number;
+};
+
+export type PatientCreationCommit =
+  | {
+      outcome: "activated";
+      receipt: SuccessfulPatientCreationReceipt;
+    }
+  | {
+      outcome: "failed";
+      failure: MiddlewareFailure;
+    }
+  | {
+      outcome: "invalid_receipt";
+      result?: SuccessfulPatientCreationReceipt;
+    }
+  | {
+      outcome: "superseded";
+      result: CreatePatientResult;
+    };
+
 const pendingCandidateHydrations = new WeakMap<
   CallState,
   Map<string, Promise<PatientIdentityResolution>>
+>();
+
+const patientCreationOperations = new WeakMap<
+  PatientCreationOperation,
+  PatientCreationOperationState
 >();
 
 export async function confirmCandidateFromTranscript(
@@ -158,10 +199,14 @@ export async function resolveExistingPatient(
   }
 
   if (result.status === "verified") {
-    if (!completeVerifiedIdentity(result)) {
+    if (
+      !patientResolveReceiptIsComplete(result) ||
+      !resolvedPatientMatchesIdentity(result, identity)
+    ) {
       return recordResolutionOutcome(state, {
         outcome: "lookup_failed",
-        reply: "Patient lookup returned an incomplete identity. Try again.",
+        reply:
+          "Patient lookup returned an invalid identity receipt. Try again.",
         failure: { status: "error", reason: "invalid_response" },
       });
     }
@@ -212,9 +257,11 @@ export function beginNewPatientRegistration(
   }
 
   const replacingRegistration = state.identity.registration !== null;
+  const suspendingActivePatient = state.identity.activePatient !== null;
   advanceTransition(state, "synchronous");
   resetPatientScopedWork(state, {
-    preserveEligibilityCheck: !replacingRegistration,
+    preserveEligibilityCheck:
+      !replacingRegistration && !suspendingActivePatient,
   });
   setInsuranceOnFile(state, null);
   state.identity.activePatient = null;
@@ -225,14 +272,75 @@ export function beginNewPatientRegistration(
   });
 }
 
-export function activatePatientFromReceipt(
+export function beginPatientCreation(
   state: CallState,
+): PatientCreationOperation | null {
+  const registration = state.identity.registration;
+  if (!registration || !hasFullIdentity(registration)) return null;
+  const operation = {} as PatientCreationOperation;
+  patientCreationOperations.set(operation, {
+    callState: state,
+    eligibilityCheck: cloneEligibilityCheck(
+      lastInsuranceEligibilityCheck(state),
+    ),
+    operationVersion: beginPatientIdentityOperation(state),
+    registration: { ...registration },
+    transitionVersion: state.identity.transitionVersion,
+  });
+  return operation;
+}
+
+export function commitPatientCreation(
+  state: CallState,
+  operation: PatientCreationOperation,
+  result: CreatePatientResult,
+): PatientCreationCommit {
+  const operationState = patientCreationOperations.get(operation);
+  if (!operationState || operationState.callState !== state) {
+    return { outcome: "invalid_receipt" };
+  }
+  patientCreationOperations.delete(operation);
+  if (
+    !patientIdentityOperationIsCurrent(
+      state,
+      operationState.operationVersion,
+    ) &&
+    !patientIdentityTransitionIsCurrent(state, operationState.transitionVersion)
+  ) {
+    return { outcome: "superseded", result };
+  }
+  if (result.status === "error") {
+    return { outcome: "failed", failure: result };
+  }
+  if (
+    !activatePatientFromReceipt(
+      state,
+      operationState.registration,
+      operationState.eligibilityCheck,
+      result,
+    )
+  ) {
+    return { outcome: "invalid_receipt", result };
+  }
+  return { outcome: "activated", receipt: result };
+}
+
+function activatePatientFromReceipt(
+  state: CallState,
+  registration: PatientLookupIdentity,
+  checkedInsurance: InsuranceEligibilityCheck | null,
   receipt: SuccessfulPatientCreationReceipt,
 ): boolean {
   if (receipt.status !== "created" && receipt.status !== "partial")
     return false;
   const patientId = receipt.patientId?.trim();
-  if (!patientId) return false;
+  if (
+    !patientId ||
+    !currentRegistrationMatches(state, registration) ||
+    !creationReceiptMatchesRegistration(receipt, registration)
+  ) {
+    return false;
+  }
   const appointments = extractAppointments(receipt);
   promotePatient(
     state,
@@ -257,7 +365,28 @@ export function activatePatientFromReceipt(
     "create_patient",
     "operation",
   );
+  if (receipt.status === "partial") {
+    setInsuranceOnFile(state, null);
+  } else if (checkedInsurance) {
+    setInsuranceOnFile(
+      state,
+      insuranceSnapshot({
+        plan: receipt.insuranceCarrier ?? checkedInsurance.currentCarrier,
+        canonicalPlan: checkedInsurance.canonicalPlan,
+        coverageType: checkedInsurance.coverageType,
+        currentCarrier:
+          receipt.insuranceCarrier ?? checkedInsurance.currentCarrier,
+      }),
+    );
+  }
+  setLastInsuranceEligibilityCheck(state, null);
   return true;
+}
+
+function cloneEligibilityCheck(
+  check: InsuranceEligibilityCheck | null,
+): InsuranceEligibilityCheck | null {
+  return check ? { ...check } : null;
 }
 
 export function patientRegistrationConflict(
@@ -275,25 +404,19 @@ export function patientRegistrationConflict(
     : null;
 }
 
-export function beginPatientIdentityOperation(state: CallState): number {
+function beginPatientIdentityOperation(state: CallState): number {
   state.identity.operationVersion += 1;
   return state.identity.operationVersion;
 }
 
-export function patientIdentityOperationIsCurrent(
+function patientIdentityOperationIsCurrent(
   state: CallState,
   operationVersion: number,
 ): boolean {
   return state.identity.operationVersion === operationVersion;
 }
 
-export function currentPatientIdentityTransitionVersion(
-  state: CallState,
-): number {
-  return state.identity.transitionVersion;
-}
-
-export function patientIdentityTransitionIsCurrent(
+function patientIdentityTransitionIsCurrent(
   state: CallState,
   transitionVersion: number,
 ): boolean {
@@ -477,11 +600,12 @@ async function hydrateCandidate(
 
   const hydration = performCandidateHydration(state, candidate, lookup, source);
   pending.set(candidate.patientId, hydration);
-  void hydration.finally(() => {
+  const clearPending = () => {
     if (pending?.get(candidate.patientId) === hydration) {
       pending.delete(candidate.patientId);
     }
-  });
+  };
+  void hydration.then(clearPending, clearPending);
   return hydration;
 }
 
@@ -505,7 +629,7 @@ async function performCandidateHydration(
   }
   if (
     result.status !== "verified" ||
-    !completeVerifiedIdentity(result) ||
+    !patientResolveReceiptIsComplete(result) ||
     result.patientId !== candidate.patientId
   ) {
     const failure: MiddlewareFailure | undefined =
@@ -654,10 +778,10 @@ function registrationTargetsDifferentPatient(
   return Boolean(
     (current.firstName &&
       next.firstName &&
-      !namesMatch(current.firstName, next.firstName)) ||
+      !exactNamesMatch(current.firstName, next.firstName)) ||
     (current.lastName &&
       next.lastName &&
-      !namesMatch(current.lastName, next.lastName)) ||
+      !exactNamesMatch(current.lastName, next.lastName)) ||
     (current.dob && next.dob && !dobMatches(current.dob, next.dob)),
   );
 }
@@ -674,6 +798,71 @@ function registrationDraft(
       : {}),
     ...(identity.dob?.trim() ? { dob: identity.dob.trim() } : {}),
   };
+}
+
+function creationReceiptMatchesRegistration(
+  receipt: SuccessfulPatientCreationReceipt,
+  registration: RegistrationDraft,
+): boolean {
+  if (!hasFullIdentity(registration) || !receipt.name?.trim()) return false;
+  if (!receipt.dob?.trim() || !dobMatches(registration.dob, receipt.dob)) {
+    return false;
+  }
+  const receiptName = activePatientNameParts(receipt.name);
+  if (!receiptName) return false;
+  return (
+    receiptName.firstNames.some((name) =>
+      exactNamesMatch(registration.firstName, name),
+    ) &&
+    receiptName.lastNames.some((name) =>
+      exactNamesMatch(registration.lastName, name),
+    )
+  );
+}
+
+function resolvedPatientMatchesIdentity(
+  receipt: PatientResolveVerified,
+  identity: PatientLookupIdentity,
+): boolean {
+  if (!receipt.name?.trim() || !receipt.dob?.trim()) return false;
+  const receiptName = activePatientNameParts(receipt.name);
+  if (!receiptName || !dobMatches(identity.dob, receipt.dob)) return false;
+  return (
+    receiptName.firstNames.some((name) =>
+      exactNamesMatch(identity.firstName, name),
+    ) &&
+    receiptName.lastNames.some((name) =>
+      exactNamesMatch(identity.lastName, name),
+    )
+  );
+}
+
+function currentRegistrationMatches(
+  state: CallState,
+  expected: PatientLookupIdentity,
+): boolean {
+  const current = state.identity.registration;
+  return Boolean(
+    current &&
+    hasFullIdentity(current) &&
+    exactNamesMatch(current.firstName, expected.firstName) &&
+    exactNamesMatch(current.lastName, expected.lastName) &&
+    dobMatches(current.dob, expected.dob),
+  );
+}
+
+function exactNamesMatch(left: string, right: string): boolean {
+  const normalizedLeft = normalizeExactName(left);
+  const normalizedRight = normalizeExactName(right);
+  return Boolean(normalizedLeft && normalizedLeft === normalizedRight);
+}
+
+function normalizeExactName(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
 }
 
 function candidateMatchesIdentity(
@@ -765,12 +954,6 @@ function hasFullIdentity(
   identity: ResolvePatientIdentityInput,
 ): identity is PatientLookupIdentity {
   return Boolean(identity.firstName && identity.lastName && identity.dob);
-}
-
-function completeVerifiedIdentity(result: PatientResolveVerified): boolean {
-  return Boolean(
-    result.patientId.trim() && result.name?.trim() && result.dob?.trim(),
-  );
 }
 
 function candidateDisplayName(candidate: PreCallPatientCandidate): string {
