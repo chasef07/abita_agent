@@ -7,8 +7,8 @@ import {
 } from "../runtime/voice-language.js";
 
 const OPTIONS_BY_LANGUAGE = {
-  en: { speaker: "wawona", ttsLanguage: "eng" },
-  es: { speaker: "luz", ttsLanguage: "spa" },
+  en: { speaker: "wawona", ttsLanguage: "en" },
+  es: { speaker: "luz", ttsLanguage: "es" },
 } as const satisfies Record<"en" | "es", VoiceLanguageStateOptions>;
 
 function speechEvent(
@@ -38,8 +38,8 @@ function createRuntime() {
   const state: RuntimeVoiceLanguageState = {
     current: "en",
     speaker: "wawona",
-    ttsLanguage: "eng",
-    ttsProvider: "rime",
+    ttsLanguage: "en",
+    ttsProvider: "rime-inference",
   };
   const updateOptions = vi.fn();
   const runtime = new VoiceLanguageRuntime({
@@ -89,8 +89,8 @@ describe("VoiceLanguageRuntime", () => {
     expect(state).toMatchObject({
       current: "en",
       speaker: "wawona",
-      ttsLanguage: "eng",
-      ttsProvider: "rime",
+      ttsLanguage: "en",
+      ttsProvider: "rime-inference",
     });
     expect(runtime.snapshot()).toMatchObject({
       language: {
@@ -103,7 +103,7 @@ describe("VoiceLanguageRuntime", () => {
       voiceLanguage: {
         current: "en",
         speaker: "wawona",
-        ttsLanguage: "eng",
+        ttsLanguage: "en",
       },
     });
   });

@@ -86,8 +86,8 @@ const DEFAULT_CALL: CallContext = {
   initialVoiceLanguage: {
     current: "en",
     speaker: "wawona",
-    ttsLanguage: "eng",
-    ttsProvider: "rime",
+    ttsLanguage: "en",
+    ttsProvider: "rime-inference",
   },
   livekitContext: {},
   officePhone: "+17275919997",
@@ -752,8 +752,8 @@ describe("call closeout", () => {
     state.runtime.voiceLanguage = {
       current: "es",
       speaker: "luz",
-      ttsLanguage: "spa",
-      ttsProvider: "rime",
+      ttsLanguage: "es",
+      ttsProvider: "rime-inference",
     };
     const events = new TestLiveKitEvents();
     events.capture = async () => ({
@@ -865,7 +865,7 @@ describe("call closeout", () => {
       voiceLanguage: {
         current: "es",
         speaker: "luz",
-        ttsLanguage: "spa",
+        ttsLanguage: "es",
       },
     });
     expect(richPayload?.sttProfiles).toHaveLength(1);

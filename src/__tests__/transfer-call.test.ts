@@ -126,8 +126,8 @@ describe("transfer call", () => {
     state.runtime.voiceLanguage = {
       current: "es",
       speaker: "luz",
-      ttsLanguage: "spa",
-      ttsProvider: "rime",
+      ttsLanguage: "es",
+      ttsProvider: "rime-inference",
     };
 
     await executeTransfer(ctx, "tool-1");

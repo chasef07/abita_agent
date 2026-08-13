@@ -3,18 +3,12 @@ import {
   normalizeLanguage,
   tts as ttsModule,
 } from "@livekit/agents";
-import * as rime from "@livekit/agents-plugin-rime";
-import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import type {
   VoiceLanguage,
   VoiceLanguageStateOptions,
   VoiceTtsProvider,
 } from "./runtime/voice-language.js";
-import {
-  getRimeInferenceTtsOptions,
-  getRimeTtsOptions,
-  getRimeTtsOptionsByLanguage,
-} from "./tts-config.js";
+import { getRimeTtsOptions } from "./tts-config.js";
 
 export type TtsRuntime = {
   optionsByLanguage: Record<VoiceLanguage, VoiceLanguageStateOptions>;
@@ -24,54 +18,31 @@ export type TtsRuntime = {
 };
 
 export function createTtsRuntime(trunkPhone: string): TtsRuntime {
-  if (getOfficeProfileByPhone(trunkPhone).key === "dev") {
-    const optionsByLanguage = {
-      en: getRimeInferenceTtsOptions({ language: "en", trunkPhone }),
-      es: getRimeInferenceTtsOptions({ language: "es", trunkPhone }),
-    } as const;
-    const tts = new inference.TTS(optionsByLanguage.en);
-    return {
-      optionsByLanguage: {
-        en: inferenceLanguageState(optionsByLanguage.en),
-        es: inferenceLanguageState(optionsByLanguage.es),
-      },
-      provider: "rime-inference",
-      tts,
-      updateLanguage(language) {
-        const options = optionsByLanguage[language];
-        tts.updateOptions({
-          language: normalizeLanguage(options.language),
-          voice: options.voice,
-        });
-      },
-    };
-  }
-
-  const optionsByLanguage = getRimeTtsOptionsByLanguage(trunkPhone);
-  const tts = new rime.TTS(getRimeTtsOptions({ language: "en", trunkPhone }));
+  const optionsByLanguage = {
+    en: getRimeTtsOptions({ language: "en", trunkPhone }),
+    es: getRimeTtsOptions({ language: "es", trunkPhone }),
+  } as const;
+  const tts = new inference.TTS(optionsByLanguage.en);
   return {
     optionsByLanguage: {
-      en: rimeLanguageState(optionsByLanguage.en),
-      es: rimeLanguageState(optionsByLanguage.es),
+      en: inferenceLanguageState(optionsByLanguage.en),
+      es: inferenceLanguageState(optionsByLanguage.es),
     },
-    provider: "rime",
+    provider: "rime-inference",
     tts,
     updateLanguage(language) {
-      tts.updateOptions(optionsByLanguage[language]);
+      const options = optionsByLanguage[language];
+      tts.updateOptions({
+        language: normalizeLanguage(options.language),
+        voice: options.voice,
+      });
     },
   };
 }
 
 function inferenceLanguageState(options: {
-  language: string;
+  language: VoiceLanguage;
   voice: string;
 }): VoiceLanguageStateOptions {
   return { speaker: options.voice, ttsLanguage: options.language };
-}
-
-function rimeLanguageState(options: {
-  lang: string;
-  speaker: string;
-}): VoiceLanguageStateOptions {
-  return { speaker: options.speaker, ttsLanguage: options.lang };
 }

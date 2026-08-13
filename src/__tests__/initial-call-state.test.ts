@@ -21,8 +21,8 @@ const call = {
   voiceLanguage: {
     current: "en",
     speaker: "test-speaker",
-    ttsLanguage: "eng",
-    ttsProvider: "rime",
+    ttsLanguage: "en",
+    ttsProvider: "rime-inference",
   },
 } satisfies InitialCallInput;
 

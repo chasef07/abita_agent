@@ -481,15 +481,18 @@ Use [`.env.example`](.env.example) as the canonical variable list.
 
 | Variables | Purpose | Requirement |
 | --- | --- | --- |
-| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | Worker connection and SIP transfer | Required for connected calls |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | Worker connection, LiveKit Inference, and SIP transfer | Required for connected calls |
 | `ASSEMBLYAI_API_KEY` | Speech-to-text | Required |
-| `RIME_API_KEY` | Text-to-speech | Required |
 | `AMD_API_URL`, `AMD_API_TOKEN` | Owned middleware base URL and authentication | Required for patient and scheduling workflows |
 | `ACUITY_PRODUCT_INTERACTION_URL`, `ACUITY_DEMO_PRODUCT_SERVICE_SECRET`, `ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET` | Product-owned AI interaction lifecycle and outcome delivery, selected after inbound Office Profile resolution | All three are required at production startup |
 | `ACUITY_PRODUCT_HANDOFF_URL`, `ACUITY_DEMO_PRODUCT_PRACTICE_ID`, `ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID` | Product-owned human handoff and Staff Task delivery for Demo and Abita Eye Group; Staff Tasks derive `/v1/tasks`, reuse the matching tenant secret, and send the inbound `officeKey` for Product-owned Location resolution | Required at production startup |
 | `ACUITY_HANDOFF_URL`, `ACUITY_HANDOFF_SECRET` | Legacy direct call-center handoff fallback | Retain through deployment rollback window; not selected when Product handoff is configured |
 | `PROMPT_WORKSPACE` | Alternate prompt and knowledge root | Optional; defaults to `workspace` |
 | `DEV_HANDOFF_TARGET` | Demo phone-transfer fallback | Optional; not selected when Product handoff is configured |
+
+TTS uses each Office Profile's configured voice with `rime/coda` at 16 kHz
+through LiveKit Inference. LiveKit Inference owns sentence chunking, so the
+legacy direct-plugin `segment: "never"` websocket option does not apply.
 
 Never commit credentials or bake them into the container image.
 

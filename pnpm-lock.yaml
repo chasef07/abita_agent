@@ -15,9 +15,6 @@ importers:
       '@livekit/agents':
         specifier: 1.6.3
         version: 1.6.3(@livekit/rtc-node@0.13.33)(@types/node@26.2.0)(@typescript/typescript6@6.0.2)(zod@4.4.3)
-      '@livekit/agents-plugin-rime':
-        specifier: 1.6.3
-        version: 1.6.3(@livekit/agents@1.6.3(@livekit/rtc-node@0.13.33)(@types/node@26.2.0)(@typescript/typescript6@6.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)
       '@livekit/rtc-node':
         specifier: ^0.13.33
         version: 0.13.33
@@ -519,12 +516,6 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
-
-  '@livekit/agents-plugin-rime@1.6.3':
-    resolution: {integrity: sha512-EnkZ3w1i0AZbXuUeLTx4fvu3lOAFjZY9uarQOMVK5PBXg248rdQJ7y3fJXnOZRaRc8kO1m7A2zwgP6ALZbc9Xw==}
-    peerDependencies:
-      '@livekit/agents': 1.6.3
-      '@livekit/rtc-node': ^0.13.33
 
   '@livekit/agents@1.6.3':
     resolution: {integrity: sha512-15PTtmyP+fuUe3i83E2VOFW3pfeI/A+R7USqDVV83tc7O7Rd8XGizWob3zjUQ4cfhqrmR1ApYsDJjUgA/AIj4g==}
@@ -2420,15 +2411,6 @@ snapshots:
     optional: true
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
-
-  '@livekit/agents-plugin-rime@1.6.3(@livekit/agents@1.6.3(@livekit/rtc-node@0.13.33)(@types/node@26.2.0)(@typescript/typescript6@6.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)':
-    dependencies:
-      '@livekit/agents': 1.6.3(@livekit/rtc-node@0.13.33)(@types/node@26.2.0)(@typescript/typescript6@6.0.2)(zod@4.4.3)
-      '@livekit/rtc-node': 0.13.33
-      ws: 8.21.2
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   '@livekit/agents@1.6.3(@livekit/rtc-node@0.13.33)(@types/node@26.2.0)(@typescript/typescript6@6.0.2)(zod@4.4.3)':
     dependencies:

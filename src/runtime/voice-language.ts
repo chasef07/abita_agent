@@ -13,15 +13,15 @@ export type VoiceLanguage = (typeof SUPPORTED_VOICE_LANGUAGES)[number];
 
 export type VoiceLanguageStateOptions = {
   speaker: string;
-  ttsLanguage: string;
+  ttsLanguage: VoiceLanguage;
 };
 
-export type VoiceTtsProvider = "rime" | "rime-inference";
+export type VoiceTtsProvider = "rime-inference";
 
 export interface RuntimeVoiceLanguageState {
   current: VoiceLanguage;
   ttsProvider: VoiceTtsProvider;
-  ttsLanguage: string;
+  ttsLanguage: VoiceLanguage;
   speaker: string;
   confidence?: number;
   providerCode?: string;
