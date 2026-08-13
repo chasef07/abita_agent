@@ -91,28 +91,21 @@ describe("initial call state", () => {
       status: "verified",
       candidateCount: 1,
     });
-    expect(session.userData.identity.preCall).toMatchObject({
-      status: "single_match_pending_confirmation",
-      candidates: [
-        {
-          patientId: "private-patient-id",
-          allowedProviders: ["private-provider-reference"],
-          appointments: [
-            expect.objectContaining({
-              cancellationToken: "private-cancellation-token",
-              rescheduleToken: "private-reschedule-token",
-            }),
-          ],
-        },
-      ],
-    });
-    expect(session.userData.identity.preCall?.candidates[0]).not.toHaveProperty(
+    expect(session.userData.identity.privateCandidates).toMatchObject([
+      {
+        patientId: "private-patient-id",
+        allowedProviders: ["private-provider-reference"],
+        appointments: [
+          expect.objectContaining({
+            cancellationToken: "private-cancellation-token",
+            rescheduleToken: "private-reschedule-token",
+          }),
+        ],
+      },
+    ]);
+    expect(session.userData.identity.privateCandidates[0]).not.toHaveProperty(
       "cancellationToken",
     );
-    expect(session.userData.identity.patient).toMatchObject({
-      identityConfirmed: false,
-      patientId: "private-patient-id",
-      name: "Doe, Jane",
-    });
+    expect(session.userData.identity.activePatient).toBeNull();
   });
 });

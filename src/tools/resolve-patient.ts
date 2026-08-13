@@ -2,10 +2,10 @@ import { tool, type ToolOptions } from "@livekit/agents";
 import { z } from "zod";
 import { resolvePatientWithOwnedMiddleware } from "../clients/owned-middleware.js";
 import {
-  resolvePatientIdentityResult,
+  resolveExistingPatient,
   type PatientIdentityResolution,
   type PatientResolveLookup,
-} from "../identity/promotion.js";
+} from "../identity/patient-identity.js";
 import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 import { recordPatientIdentityOutcome } from "../state/call-state.js";
 import { getState } from "./session.js";
@@ -69,11 +69,7 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
       const outcomeCount = state.runtime.patientIdentityOutcomes.length;
       let resolution: PatientIdentityResolution;
       try {
-        resolution = await resolvePatientIdentityResult(
-          state,
-          identity,
-          lookup,
-        );
+        resolution = await resolveExistingPatient(state, identity, lookup);
       } catch (error) {
         if (state.runtime.patientIdentityOutcomes.length === outcomeCount) {
           recordPatientIdentityOutcome(state, "lookup_failed");

@@ -43,7 +43,7 @@ export function activeAppointmentById(
   state: CallState,
   appointmentId: number,
 ): CallerAppointment | undefined {
-  return state.identity.patient.appointments.find(
+  return state.identity.activePatient?.appointments.find(
     (appointment) => appointment.id === appointmentId,
   );
 }

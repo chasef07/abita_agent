@@ -277,8 +277,8 @@ function visitCategoryForBooking(
 function patientStatusForAppointmentIntent(
   state: CallState,
 ): AppointmentPatientStatus {
-  return state.identity.patient.status === "created" ||
-    state.identity.patient.status === "new"
+  return state.identity.activePatient?.kind === "created" ||
+    state.identity.registration !== null
     ? "new"
     : "established";
 }

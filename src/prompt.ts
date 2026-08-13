@@ -3,7 +3,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
-import { CALLER_IDENTITY_INSTRUCTIONS } from "./runtime/precall-model-context.js";
 
 const WORKSPACE = join(
   import.meta.dirname,
@@ -24,8 +23,6 @@ export function buildPrompt(trunkPhone: string): string {
     const content = readFileSync(join(WORKSPACE, file), "utf-8").trim();
     sections.push(`<${tag}>\n${content}\n</${tag}>`);
   }
-
-  sections.push(CALLER_IDENTITY_INSTRUCTIONS);
 
   return sections.join("\n\n");
 }

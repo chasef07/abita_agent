@@ -265,18 +265,15 @@ describe("tool-first prompt gating", () => {
   it("keeps identity and privacy policy in the static prompt", () => {
     const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
 
-    expect(prompt).toContain("<caller_identity_policy>");
+    expect(prompt).toContain("# Patient Identity");
     expect(prompt).toContain(
-      "single_match, multiple_matches, no_match, or lookup_failed",
+      "Ask for patient identity only when the caller requests patient-specific work and no patient is active.",
     );
     expect(prompt).toContain(
-      "Use that status only after the caller asks for patient-specific help.",
+      'Ask once: "To help with that, could you spell the patient\'s first name?"',
     );
     expect(prompt).toContain(
-      "Keep hidden candidate details private until identity is confirmed.",
-    );
-    expect(prompt).toContain(
-      "After identity is confirmed, use the selected patient's name, insurance carrier when loaded, and appointments",
+      "If no patient becomes active, collect the patient's full name and date of birth, then call resolve_patient.",
     );
     expect(prompt).not.toContain("<caller_identity_hint>");
     expect(prompt).not.toContain("middleware_error");

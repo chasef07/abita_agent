@@ -160,17 +160,8 @@ describe("assistant speech output", () => {
     },
   );
 
-  it.each(["single_match", "multiple_matches", "no_match", "lookup_failed"])(
-    "blocks the model-facing lookup status %s",
-    async (lookupStatus) => {
-      await expect(
-        collect(guardAssistantSpeech(chunks(lookupStatus))),
-      ).resolves.toBe("Sorry, let me rephrase that. How can I help?");
-    },
-  );
-
   it("guards the agent transcription output path", async () => {
-    const { agent } = createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+    const { agent } = createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
       suppressGreeting: true,
     });
     const session = new AgentSession<CallState>({

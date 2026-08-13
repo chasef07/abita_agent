@@ -9,7 +9,7 @@ import {
   activePatientDob,
   activePatientId,
   patientBackendRefs,
-  setPatientBackendRefs,
+  setActivePatientBackendRefs,
 } from "../state/call-state.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import {
@@ -105,7 +105,7 @@ export const update_insurance = tool({
     }
 
     const newInsurance = result.newInsurance?.trim() || insurance;
-    setPatientBackendRefs(state, {
+    setActivePatientBackendRefs(state, {
       insPlanId: null,
       respPartyId: backendRefs.respPartyId ?? null,
     });

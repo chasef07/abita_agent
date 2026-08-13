@@ -6,22 +6,16 @@ import {
 } from "../clients/owned-middleware.js";
 import { normalizeInsuranceText } from "../insurance-rules.js";
 import {
-  applyPatientResult,
+  beginPatientCreation,
   beginNewPatientRegistration,
-  beginPatientIdentityOperation,
-  currentPatientIdentityTransitionVersion,
+  commitPatientCreation,
   patientRegistrationConflict,
-  patientIdentityOperationIsCurrent,
-  patientIdentityTransitionIsCurrent,
-} from "../identity/promotion.js";
+} from "../identity/patient-identity.js";
 import { runtimeCallerPhone } from "../state/call-lifecycle.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import {
   applySchedulingLaneToState,
-  insuranceSnapshot,
   lastInsuranceEligibilityCheck,
-  setInsuranceOnFile,
-  setLastInsuranceEligibilityCheck,
 } from "../scheduling/state.js";
 import {
   getAmdOfficeForToolCall,
@@ -108,7 +102,7 @@ export const add_patient = tool({
     const registrationConflict = patientRegistrationConflict(state, params);
     if (registrationConflict === "created_patient") {
       const patientName =
-        state.identity.patient.name?.trim() ||
+        state.identity.activePatient?.name?.trim() ||
         `${params.firstName} ${params.lastName}`;
       if (!state.insurance.onFile) {
         return `Patient chart is already created for ${patientName}, but insurance is not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
@@ -206,8 +200,10 @@ export const add_patient = tool({
       ...(params.email?.trim() ? { email: params.email.trim() } : {}),
     };
 
-    const transitionVersion = currentPatientIdentityTransitionVersion(state);
-    const operationVersion = beginPatientIdentityOperation(state);
+    const creation = beginPatientCreation(state);
+    if (!creation) {
+      throw new Error("Patient registration is incomplete before creation.");
+    }
     const result = await ownedMiddleware().createPatient({
       office: getAmdOfficeForToolCall(state),
       patient: payload,
@@ -215,46 +211,38 @@ export const add_patient = tool({
     if (result.status === "error") {
       recordOwnedMiddlewareFailure(state, "createPatient", result);
     }
-    if (
-      !patientIdentityOperationIsCurrent(state, operationVersion) &&
-      !patientIdentityTransitionIsCurrent(state, transitionVersion)
-    ) {
-      if (result.status === "error") {
+    const commit = commitPatientCreation(state, creation, result);
+    if (commit.outcome === "superseded") {
+      if (commit.result.status === "error") {
         return "I couldn't create the patient chart, and the active patient changed. Continue with the current patient and do not retry this request.";
       }
       const patientName =
-        result.name?.trim() || `${params.firstName} ${params.lastName}`;
-      if (result.status === "partial") {
+        commit.result.name?.trim() || `${params.firstName} ${params.lastName}`;
+      if (commit.result.status === "partial") {
         return `Created a patient chart for ${patientName}, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration. The active patient changed before the result returned. Continue with the current patient's state.`;
       }
       return `Created a patient chart for ${patientName}, but the active patient changed before the result returned. Do not create another chart. Continue with the current patient's state.`;
     }
-    if (result.status === "error") {
+    if (commit.outcome === "failed") {
       throwOwnedMiddlewareFailure(
-        result,
+        commit.failure,
         "I couldn't create the patient chart. I can try once more or connect you with the office.",
       );
     }
-
-    applyPatientResult(state, result);
+    if (commit.outcome === "invalid_receipt") {
+      if (commit.result) {
+        return "A patient chart was created, but its identity receipt did not match the current registration. Do not create another chart. Connect the caller to office staff to verify the chart.";
+      }
+      throw new Error(
+        "Owned Middleware returned an invalid patient creation receipt.",
+      );
+    }
+    const receipt = commit.receipt;
     const patientName =
-      result.name?.trim() || `${params.firstName} ${params.lastName}`;
-    if (result.status === "partial") {
-      setInsuranceOnFile(state, null);
-      setLastInsuranceEligibilityCheck(state, null);
+      receipt.name?.trim() || `${params.firstName} ${params.lastName}`;
+    if (receipt.status === "partial") {
       return `Created a patient chart for ${patientName}, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
     }
-    setInsuranceOnFile(
-      state,
-      insuranceSnapshot({
-        plan: result.insuranceCarrier ?? checkedInsurance.currentCarrier,
-        canonicalPlan: checkedInsurance.canonicalPlan,
-        coverageType,
-        currentCarrier:
-          result.insuranceCarrier ?? checkedInsurance.currentCarrier,
-      }),
-    );
-    setLastInsuranceEligibilityCheck(state, null);
     return `Created a patient chart for ${patientName}. Continue with scheduling.`;
   },
 });

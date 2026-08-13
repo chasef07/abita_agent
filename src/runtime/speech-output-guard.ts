@@ -19,10 +19,6 @@ const PROMPT_MARKERS = [
   "internal state:",
   "[system]",
   "system message:",
-  "single_match",
-  "multiple_matches",
-  "no_match",
-  "lookup_failed",
 ];
 const TOOL_MARKERS = [
   "resolve_patient",

@@ -1,12 +1,11 @@
 import type { OfficeKey } from "../customers/abita/profile.js";
-import { normalizeCallerAppointments } from "../state/appointments.js";
 import {
   createCanonicalCallState,
   type CallState,
 } from "../state/call-state.js";
 import type { RuntimeVoiceLanguageState } from "./voice-language.js";
 import {
-  buildPreCallContextState,
+  buildPreCallCandidates,
   preCallLookupTelemetry,
   type PreCallBootstrap,
 } from "./precall-bootstrap.js";
@@ -28,9 +27,8 @@ export function createInitialCallState(
   bootstrap?: PreCallBootstrap,
 ): CallState {
   const phoneLookup = bootstrap?.phoneLookup ?? null;
-  const verified = phoneLookup?.status === "verified" ? phoneLookup : null;
   const state = createCanonicalCallState({
-    preCall: buildPreCallContextState(phoneLookup, call.callerPhone),
+    preCallCandidates: buildPreCallCandidates(phoneLookup),
     preCallLookup: bootstrap
       ? preCallLookupTelemetry(phoneLookup)
       : {
@@ -44,23 +42,13 @@ export function createInitialCallState(
     callId: call.callId,
     callerPhone: call.callerPhone,
     trunkPhone: call.trunkPhone,
-    patientId: verified?.patientId ?? null,
-    patientName: verified?.name ?? null,
-    dob: verified?.dob ?? null,
-    insuranceCarrier: verified?.insuranceCarrier ?? null,
-    insPlanId: verified?.insPlanId ?? null,
-    respPartyId: verified?.respPartyId ?? null,
-    checkedInsurancePlan: verified?.insuranceCarrier ?? null,
+    insuranceCarrier: null,
+    checkedInsurancePlan: null,
     checkedInsuranceCoverageType: null,
-    routing: verified?.routing ?? null,
-    allowedProviders: verified?.allowedProviders ?? [],
-    routingAmbiguous: verified?.routingAmbiguous ?? false,
-    preauthRequired: verified?.preauthRequired ?? false,
-    appointmentsStatus: verified?.appointmentsStatus ?? null,
-    appointments: normalizeCallerAppointments(
-      verified?.appointments,
-      verified?.patientId,
-    ),
+    routing: null,
+    allowedProviders: [],
+    routingAmbiguous: false,
+    preauthRequired: false,
     voiceLanguage: call.voiceLanguage,
   });
   state.runtime.maxCallDurationMs = call.maxDurationMs;

@@ -1185,6 +1185,41 @@ describe("HTTP owned middleware transport", () => {
     });
   });
 
+  it("does not synthesize missing chart-creation identity evidence", async () => {
+    const middleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({ status: "created", patientId: "patient-2" }),
+      ),
+      productionBaseUrl: "https://middleware.test",
+    });
+
+    const result = await middleware.createPatient({
+      office: SPRING_HILL_OFFICE_PHONE,
+      patient: {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "1 Main Street",
+        aptSuite: "",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34609",
+        sex: "female",
+        insurance: "Aetna",
+        phone: "+17275551212",
+        subscriberName: "Jane Doe",
+        subscriberNum: "member-1",
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "created",
+      patientId: "patient-2",
+      name: null,
+      dob: null,
+    });
+  });
+
   it("preserves a committed chart when Railway reports partial creation", async () => {
     const middleware = new HttpOwnedMiddleware({
       fetch: vi.fn(async () =>

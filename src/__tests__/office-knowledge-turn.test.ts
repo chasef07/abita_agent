@@ -95,7 +95,7 @@ describe("Office Knowledge turn enrichment", () => {
       amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
-    const { agent } = createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+    const { agent } = createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
       suppressGreeting: true,
     });
 
@@ -132,7 +132,7 @@ describe("Office Knowledge turn enrichment", () => {
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
     await unrelatedSession.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         suppressGreeting: true,
       }).agent,
     });
@@ -159,7 +159,7 @@ describe("Office Knowledge turn enrichment", () => {
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
     await groundedSession.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         suppressGreeting: true,
       }).agent,
     });
@@ -182,7 +182,7 @@ describe("Office Knowledge turn enrichment", () => {
       officeKey: "spring-hill",
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
-    const { agent } = createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+    const { agent } = createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
       suppressGreeting: true,
     });
     await session.start({ agent });
@@ -227,7 +227,7 @@ describe("Office Knowledge turn enrichment", () => {
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
     await unrelatedSession.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         suppressGreeting: true,
       }).agent,
     });
@@ -259,7 +259,7 @@ describe("Office Knowledge turn enrichment", () => {
       trunkPhone: DEV_OFFICE_PHONE,
     });
     await unavailableSession.start({
-      agent: createVoiceAgent("no_match", DEV_OFFICE_PHONE, {
+      agent: createVoiceAgent(DEV_OFFICE_PHONE, {
         suppressGreeting: true,
       }).agent,
     });
@@ -298,7 +298,7 @@ describe("Office Knowledge turn enrichment", () => {
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
     await session.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         officeKnowledgeResolver: () => {
           throw new Error("raw caller content and office document");
         },

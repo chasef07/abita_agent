@@ -14,7 +14,7 @@ import {
   update_insurance,
 } from "../tools/index.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
-import type { PatientResolveLookup } from "../identity/promotion.js";
+import type { PatientResolveLookup } from "../identity/patient-identity.js";
 
 const end_call = beta.createEndCallTool<CallState>({
   // RoomIO owns room cleanup through deleteRoomOnClose for every session close.
@@ -44,12 +44,9 @@ export function toolsForCallState(
   const acceptedInsurance =
     lastInsuranceEligibilityCheck(state)?.accepted === true;
 
-  if (patientIsActive) {
-    if (acceptedInsurance) {
-      available.add("update_insurance");
-    }
-  } else if (acceptedInsurance) {
+  if (acceptedInsurance) {
     available.add("add_patient");
+    if (patientIsActive) available.add("update_insurance");
   }
 
   return new ToolContext(

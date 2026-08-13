@@ -1,5 +1,6 @@
 import {
   AgentSession,
+  type ChatContext,
   initializeLogger,
   ToolContext,
   voice,
@@ -20,10 +21,12 @@ import {
 
 class ToolCapturingFakeLLM extends voice.testing.FakeLLM {
   readonly toolRequests: string[][] = [];
+  readonly contexts: ChatContext[] = [];
 
   override chat(options: Parameters<voice.testing.FakeLLM["chat"]>[0]) {
     const toolCtx = options.toolCtx as ToolContext<CallState> | undefined;
     this.toolRequests.push(Object.keys(toolCtx?.functionTools ?? {}).sort());
+    this.contexts.push(options.chatCtx.copy());
     return super.chat(options);
   }
 }
@@ -39,6 +42,16 @@ const BASE_TOOLS = [
 function visibleTools(state: CallState): string[] {
   const registered = buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE);
   return Object.keys(toolsForCallState(registered, state).functionTools).sort();
+}
+
+function patientProjections(chatCtx: ChatContext): string[] {
+  return chatCtx.items.flatMap((item) =>
+    item.type === "message" &&
+    item.role === "system" &&
+    item.textContent?.startsWith("Patient situation:")
+      ? [item.textContent]
+      : [],
+  );
 }
 
 describe("dynamic tool exposure", () => {
@@ -65,7 +78,7 @@ describe("dynamic tool exposure", () => {
     sessions.push(session);
     session.userData = createTestCallState();
 
-    const { agent } = createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+    const { agent } = createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
       suppressGreeting: true,
     });
     const updateTools = vi.spyOn(agent, "updateTools");
@@ -105,7 +118,7 @@ describe("dynamic tool exposure", () => {
     session.userData = createConfirmedPatientState();
 
     await session.start({
-      agent: createVoiceAgent("verified", SPRING_HILL_OFFICE_PHONE, {
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         suppressGreeting: true,
       }).agent,
     });
@@ -143,7 +156,7 @@ describe("dynamic tool exposure", () => {
     session.userData = createTestCallState();
 
     await session.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         identityLookup: async () => ({
           status: "verified",
           patientId: "patient-1",
@@ -173,6 +186,21 @@ describe("dynamic tool exposure", () => {
       BASE_TOOLS,
       [...BASE_TOOLS, "get_availability"].sort(),
     ]);
+    expect(patientProjections(llm.contexts[0]!)).toEqual([
+      "Patient situation: no patient is active.",
+    ]);
+    expect(patientProjections(llm.contexts[1]!)).toEqual([
+      expect.stringContaining("Jane Doe is the active existing patient."),
+    ]);
+    expect(
+      session.history.items
+        .filter(
+          (item) =>
+            item.type === "function_call" ||
+            item.type === "function_call_output",
+        )
+        .map((item) => item.type),
+    ).toEqual(["function_call", "function_call_output"]);
     expect(session.history.items).toContainEqual(
       expect.objectContaining({
         type: "agent_config_update",
@@ -208,7 +236,7 @@ describe("dynamic tool exposure", () => {
     session.userData = createTestCallState();
 
     await session.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         suppressGreeting: true,
       }).agent,
     });
@@ -269,7 +297,7 @@ describe("dynamic tool exposure", () => {
     session.userData = state;
 
     await session.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         suppressGreeting: true,
       }).agent,
     });
@@ -316,7 +344,7 @@ describe("dynamic tool exposure", () => {
     session.userData = createTestCallState();
 
     await session.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         suppressGreeting: true,
       }).agent,
     });
@@ -353,7 +381,7 @@ describe("dynamic tool exposure", () => {
     session.userData = createTestCallState();
 
     await session.start({
-      agent: createVoiceAgent("no_match", SPRING_HILL_OFFICE_PHONE, {
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         suppressGreeting: true,
       }).agent,
     });
@@ -381,7 +409,9 @@ describe("dynamic tool exposure", () => {
       [...BASE_TOOLS, "add_patient"].sort(),
     );
 
-    const activePatient = createConfirmedPatientState({
+    const activePatient = createConfirmedPatientState();
+    activePatient.identity.activePatient = {
+      ...activePatient.identity.activePatient!,
       appointmentsStatus: "found",
       appointments: [
         {
@@ -394,7 +424,7 @@ describe("dynamic tool exposure", () => {
           confirmed: false,
         },
       ],
-    });
+    };
     setLastInsuranceEligibilityCheck(activePatient, {
       accepted: true,
       canonicalPlan: "Self Pay",
@@ -405,6 +435,7 @@ describe("dynamic tool exposure", () => {
     expect(visibleTools(activePatient)).toEqual(
       [
         ...BASE_TOOLS,
+        "add_patient",
         "cancel_appointment",
         "get_availability",
         "update_insurance",
@@ -429,6 +460,7 @@ describe("dynamic tool exposure", () => {
     expect(visibleTools(activePatient)).toEqual(
       [
         ...BASE_TOOLS,
+        "add_patient",
         "book_appointment",
         "cancel_appointment",
         "get_availability",
@@ -440,6 +472,7 @@ describe("dynamic tool exposure", () => {
     expect(visibleTools(activePatient)).toEqual(
       [
         ...BASE_TOOLS,
+        "add_patient",
         "cancel_appointment",
         "get_availability",
         "reschedule_appointment",
