@@ -49,6 +49,29 @@ describe("patient identity", () => {
     expect(state.identity.activePatient).toBeNull();
   });
 
+  it("refreshes a matching active pre-call patient after appointment loading failed", async () => {
+    const candidate = verifiedCandidate("one", "Jane", "patient-1");
+    const state = createConfirmedPatientState({
+      preCallCandidates: [candidate],
+      activePatient: {
+        ...createConfirmedPatientState().identity.activePatient!,
+        appointmentsStatus: "error",
+      },
+    });
+    const lookup = vi.fn(async () =>
+      verifiedResult("patient-1", "Jane Doe", "01/01/1980"),
+    );
+
+    await expect(
+      resolveExistingPatient(state, { firstName: "Jane" }, lookup),
+    ).resolves.toMatchObject({ outcome: "verified" });
+
+    expect(lookup).toHaveBeenCalledWith(expect.any(String), {
+      patientId: "patient-1",
+    });
+    expect(state.identity.activePatient?.appointmentsStatus).toBe("none");
+  });
+
   it("rejects an invalid verified receipt while hydrating a private candidate", async () => {
     const state = createTestCallState({
       preCallCandidates: [

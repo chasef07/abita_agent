@@ -555,16 +555,21 @@ async function activateCandidate(
   source: "caller_transcript" | "resolve_patient",
 ): Promise<PatientIdentityResolution> {
   if (candidate.status === "verified") {
+    const isActiveCandidate = samePatient(
+      state.identity.activePatient,
+      activationFromCandidate(candidate),
+    );
     if (
-      samePatient(
-        state.identity.activePatient,
-        activationFromCandidate(candidate),
-      )
+      isActiveCandidate &&
+      state.identity.activePatient?.appointmentsStatus !== "error"
     ) {
       return {
         outcome: "verified",
         reply: `${state.identity.activePatient?.name?.trim() || "The active patient"} is already the active patient. Continue with loaded patient state.`,
       };
+    }
+    if (isActiveCandidate) {
+      return hydrateCandidate(state, candidate, lookup, source);
     }
     const hadActivePatient = state.identity.activePatient !== null;
     const changed = promotePatient(
@@ -586,7 +591,7 @@ async function activateCandidate(
 
 async function hydrateCandidate(
   state: CallState,
-  candidate: Extract<PreCallPatientCandidate, { status: "candidate" }>,
+  candidate: PreCallPatientCandidate,
   lookup: PatientResolveLookup,
   source: "caller_transcript" | "resolve_patient",
 ): Promise<PatientIdentityResolution> {
@@ -611,7 +616,7 @@ async function hydrateCandidate(
 
 async function performCandidateHydration(
   state: CallState,
-  candidate: Extract<PreCallPatientCandidate, { status: "candidate" }>,
+  candidate: PreCallPatientCandidate,
   lookup: PatientResolveLookup,
   source: "caller_transcript" | "resolve_patient",
 ): Promise<PatientIdentityResolution> {
