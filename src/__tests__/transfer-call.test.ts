@@ -29,11 +29,18 @@ import { createTestCallState } from "./support/call-state.js";
 function createToolContext() {
   const state = createTestCallState();
   const speechHandle = { allowInterruptions: true };
+  const announcementHandle = {
+    waitForPlayout: vi.fn(async () => undefined),
+  };
   return {
     state,
     ctx: {
-      session: { userData: state },
+      session: {
+        userData: state,
+        say: vi.fn(() => announcementHandle),
+      },
       speechHandle,
+      announcementHandle,
       disallowInterruptions: vi.fn(() => {
         speechHandle.allowInterruptions = false;
       }),
@@ -65,7 +72,11 @@ describe("transfer call", () => {
     vi.restoreAllMocks();
   });
 
-  it("waits for existing speech before transferring the caller", async () => {
+  it("rejects concurrent duplicate transfer calls", () => {
+    expect(transfer_call.onDuplicate).toBe("reject");
+  });
+
+  it("announces the transfer after existing speech and before transferring", async () => {
     const { state, ctx } = createToolContext();
 
     const result = await executeTransfer(ctx, "tool-1");
@@ -73,8 +84,16 @@ describe("transfer call", () => {
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(ctx.waitForPlayout).toHaveBeenCalledTimes(1);
     expect(ctx.waitForPlayout.mock.invocationCallOrder[0]).toBeLessThan(
-      transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0,
+      ctx.session.say.mock.invocationCallOrder[0] ?? 0,
     );
+    expect(ctx.session.say).toHaveBeenCalledWith(
+      "One moment while I transfer you to the office.",
+      { allowInterruptions: false },
+    );
+    expect(ctx.announcementHandle.waitForPlayout).toHaveBeenCalledTimes(1);
+    expect(
+      ctx.announcementHandle.waitForPlayout.mock.invocationCallOrder[0],
+    ).toBeLessThan(transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0);
     expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
     expect(result).toBe("Transfer started to the spring-hill office.");
     expect(transferStatus(state)).toBe("accepted");
@@ -91,8 +110,32 @@ describe("transfer call", () => {
     await expect(executeTransfer(ctx, "tool-1")).rejects.toThrow(
       "I couldn't transfer the call. I can try once more.",
     );
+    expect(ctx.session.say).toHaveBeenCalledWith(
+      "One moment while I transfer you to the office.",
+      { allowInterruptions: false },
+    );
+    expect(
+      ctx.announcementHandle.waitForPlayout.mock.invocationCallOrder[0],
+    ).toBeLessThan(transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0);
     expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
     expect(transferIsAccepted(state)).toBe(false);
+  });
+
+  it("announces a transfer in the active Spanish call language", async () => {
+    const { state, ctx } = createToolContext();
+    state.runtime.voiceLanguage = {
+      current: "es",
+      speaker: "luz",
+      ttsLanguage: "spa",
+      ttsProvider: "rime",
+    };
+
+    await executeTransfer(ctx, "tool-1");
+
+    expect(ctx.session.say).toHaveBeenCalledWith(
+      "Un momento mientras le transfiero a la oficina.",
+      { allowInterruptions: false },
+    );
   });
 
   it("leaves unexpected implementation errors masked by LiveKit", async () => {
@@ -111,6 +154,7 @@ describe("transfer call", () => {
     await expect(executeTransfer(ctx, "tool-1")).resolves.toBe(
       "I couldn't transfer because the call is no longer active.",
     );
+    expect(ctx.session.say).not.toHaveBeenCalled();
     expect(transferCallerToOfficeMock).not.toHaveBeenCalled();
   });
 

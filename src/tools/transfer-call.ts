@@ -1,5 +1,6 @@
 import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
+import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import {
   markTransferAmbiguous,
   transferIsAccepted,
@@ -15,8 +16,9 @@ import { getState } from "./session.js";
 
 export const transfer_call = tool({
   name: "transfer_call",
+  onDuplicate: "reject",
   description:
-    "Transfer the caller to human office staff when the transfer policy requires it.",
+    "Transfer the caller to human office staff when the transfer policy requires it. Call this tool immediately without announcing the transfer first; the tool speaks the transfer announcement.",
   parameters: z.object({}),
   execute: async (_, { ctx }) => {
     const state = getState(ctx);
@@ -37,6 +39,13 @@ export const transfer_call = tool({
 
     try {
       await ctx.waitForPlayout();
+      const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
+      const language = state.runtime.voiceLanguage?.current ?? "en";
+      const announcement = ctx.session.say(
+        office.humanTransferAnnouncement(language),
+        { allowInterruptions: false },
+      );
+      await announcement.waitForPlayout();
       const { handoffOfficeKey } = await transferCallerToOffice(state);
       return `Transfer started to the ${handoffOfficeKey} office.`;
     } catch (error) {

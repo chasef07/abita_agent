@@ -202,7 +202,7 @@ describe("tool-first prompt gating", () => {
       "Describe a transfer only from the transfer_call result.",
     );
     expect(transfer_call.description).toBe(
-      "Transfer the caller to human office staff when the transfer policy requires it.",
+      "Transfer the caller to human office staff when the transfer policy requires it. Call this tool immediately without announcing the transfer first; the tool speaks the transfer announcement.",
     );
     expect(prompt).not.toContain(
       "Use resolve_patient for patient-specific work when internal state has not already confirmed the patient.",
@@ -1012,7 +1012,7 @@ describe("model-facing tool definitions", () => {
 
   it("keeps transfer_call scoped to human-only work", () => {
     expect(transfer_call.description).toBe(
-      "Transfer the caller to human office staff when the transfer policy requires it.",
+      "Transfer the caller to human office staff when the transfer policy requires it. Call this tool immediately without announcing the transfer first; the tool speaks the transfer announcement.",
     );
   });
 

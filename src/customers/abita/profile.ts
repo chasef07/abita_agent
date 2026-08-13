@@ -63,6 +63,7 @@ export interface OfficeProfile {
   middlewareBaseUrl(defaultBaseUrl: string): string;
   promptSources(): OfficePromptSource[];
   schedulingFor(care: OfficeCare): OfficeSchedulingPolicy;
+  humanTransferAnnouncement(language: OfficeSpeechLanguage): string;
   speechFor(language: OfficeSpeechLanguage): {
     lang: "eng" | "spa";
     speaker: string;
@@ -159,6 +160,11 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
       ];
     },
     schedulingFor,
+    humanTransferAnnouncement(language) {
+      return language === "es"
+        ? "Un momento mientras le transfiero a la oficina."
+        : "One moment while I transfer you to the office.";
+    },
     speechFor(language) {
       return language === "es"
         ? { lang: "spa", speaker: "luz" }
