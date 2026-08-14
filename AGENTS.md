@@ -2,6 +2,7 @@
 
 Telegraph style. Root rules only. Skills own workflows.
 Use repo-relative refs in replies.
+Read `VISION.md` before product, prompt, tool, workflow, or behavior decisions.
 
 ## Start
 
