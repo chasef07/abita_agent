@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.8.1](https://github.com/chasef07/abita_agent/compare/4.8.0...4.8.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* announce office transfers before handoff ([#345](https://github.com/chasef07/abita_agent/issues/345)) ([c4b7cd1](https://github.com/chasef07/abita_agent/commit/c4b7cd1daf0aa31220598d1d60f22a1e8bb9dadd))
+
 ## [4.8.0](https://github.com/chasef07/abita_agent/compare/4.7.0...4.8.0) (2026-08-11)
 
 
