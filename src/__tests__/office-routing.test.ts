@@ -749,7 +749,7 @@ describe("model-facing tool definitions", () => {
       "For insured routine-vision registration, ask once for the patient's SSN last four",
     );
     expect(add_patient.description).toContain(
-      "continue with ssnLast4Unavailable set to true",
+      "Continue without it if declined or unavailable",
     );
     expect(add_patient.description).toContain(
       "Request only the last four digits",
@@ -776,7 +776,7 @@ describe("model-facing tool definitions", () => {
     expect(Object.keys(parameters.shape)).toContain("insuranceMemberId");
     expect(Object.keys(parameters.shape)).toContain("newPatientConfirmed");
     expect(Object.keys(parameters.shape)).toContain("ssnLast4");
-    expect(Object.keys(parameters.shape)).toContain("ssnLast4Unavailable");
+    expect(Object.keys(parameters.shape)).not.toContain("ssnLast4Unavailable");
     expect(
       String(
         (parameters.shape.insuranceMemberId as { description?: string })
@@ -855,23 +855,6 @@ describe("model-facing tool definitions", () => {
         subscriberName: "Jane Doe",
         insuranceMemberId: "ABC123",
         ssnLast4: "12345",
-      }).success,
-    ).toBe(false);
-    expect(
-      parameters.safeParse({
-        firstName: "Jane",
-        lastName: "Doe",
-        dob: "01/01/1980",
-        inboundPhoneConfirmed: true,
-        street: "1 Main St",
-        city: "Spring Hill",
-        state: "FL",
-        zip: "34609",
-        sex: "female",
-        subscriberName: "Jane Doe",
-        insuranceMemberId: "ABC123",
-        ssnLast4: "1234",
-        ssnLast4Unavailable: true,
       }).success,
     ).toBe(false);
   });

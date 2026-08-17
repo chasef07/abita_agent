@@ -896,7 +896,6 @@ describe("stateful call tools", () => {
         sex: "male",
         subscriberName: "Adam Arshed",
         insuranceMemberId: "FWZ975W06612",
-        ssnLast4Unavailable: true,
         inboundPhoneConfirmed: true,
         newPatientConfirmed: true,
         readBack: true,
@@ -998,7 +997,7 @@ describe("stateful call tools", () => {
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
-  it("creates a self-pay routine-vision chart without requesting SSN", async () => {
+  it("omits SSN from self-pay routine-vision creation", async () => {
     const baseParams = {
       firstName: "Jane",
       lastName: "Doe",
@@ -1011,6 +1010,7 @@ describe("stateful call tools", () => {
       sex: "female" as const,
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
+      ssnLast4: "1234",
       phone: "7275551212",
       newPatientConfirmed: true,
       readBack: true,
@@ -1045,16 +1045,15 @@ describe("stateful call tools", () => {
     );
   });
 
-  it("asks an insured routine-vision caller once when SSN status is unknown", async () => {
+  it("keeps SSN out of self-pay registration read-back", async () => {
     const state = createState();
     markNewPatientPathConfirmed(state);
     clearSchedulingContext(state);
     markAcceptedInsurance(state, {
-      plan: "VSP",
-      canonicalPlan: "VSP",
+      plan: "self pay",
+      canonicalPlan: "self pay",
       coverageType: "routine_vision",
     });
-    stubCreatePatient(createdPatientResult({ routing: "optical_only" }));
 
     const result = await add_patient.execute(
       {
@@ -1067,21 +1066,20 @@ describe("stateful call tools", () => {
         zip: "34606",
         sex: "female",
         subscriberName: "Jane Doe",
-        insuranceMemberId: "VSP123",
+        insuranceMemberId: "self pay",
+        ssnLast4: "1234",
         phone: "7275551212",
         newPatientConfirmed: true,
-        readBack: true,
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe(
-      "Ask the caller once for the patient's SSN last four. If they decline or are unsure, call add_patient again with ssnLast4Unavailable set to true. Request only the last four digits.",
-    );
+    expect(result).not.toContain("SSN");
+    expect(result).not.toContain("1234");
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
-  it("creates an insured routine-vision chart after SSN is declined", async () => {
+  it("creates an insured routine-vision chart without SSN last four", async () => {
     const state = createState();
     markNewPatientPathConfirmed(state);
     clearSchedulingContext(state);
@@ -1106,7 +1104,6 @@ describe("stateful call tools", () => {
         sex: "female",
         subscriberName: "Jane Doe",
         insuranceMemberId: "VSP123",
-        ssnLast4Unavailable: true,
         phone: "7275551212",
         newPatientConfirmed: true,
         readBack: true,

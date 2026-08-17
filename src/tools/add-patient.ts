@@ -69,12 +69,6 @@ const addPatientParameters = z
       .describe(
         "Optional. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits.",
       ),
-    ssnLast4Unavailable: z
-      .boolean()
-      .optional()
-      .describe(
-        "Set to true only after an insured routine-vision caller declines to provide the patient's SSN last four or is unsure. Omit when SSN last four is provided.",
-      ),
     newPatientConfirmed: z
       .boolean()
       .optional()
@@ -88,14 +82,7 @@ const addPatientParameters = z
         "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID; confirming any provided SSN last four was captured without repeating the digits; and the caller confirms the details are correct.",
       ),
   })
-  .strict()
-  .refine(
-    ({ ssnLast4, ssnLast4Unavailable }) => !(ssnLast4 && ssnLast4Unavailable),
-    {
-      message: "Choose either ssnLast4 or ssnLast4Unavailable.",
-      path: ["ssnLast4Unavailable"],
-    },
-  );
+  .strict();
 
 export const add_patient = tool({
   name: "add_patient",
@@ -104,7 +91,7 @@ export const add_patient = tool({
     "Create a chart after the caller explicitly confirms this is the patient's first registration with the practice, visit triage, and an accepted check_insurance result. " +
     "After that confirmation, call add_patient directly with newPatientConfirmed true. " +
     "Read back the registration details and get caller confirmation first. " +
-    "For insured routine-vision registration, ask once for the patient's SSN last four. If the caller declines or is unsure, continue with ssnLast4Unavailable set to true. Request only the last four digits. Skip SSN collection for self pay. " +
+    "For insured routine-vision registration, ask once for the patient's SSN last four. Continue without it if declined or unavailable. Request only the last four digits. Skip SSN collection for self pay. " +
     "Before using the inbound caller number, confirm it is a good callback number; if yes, omit phone and set inboundPhoneConfirmed to true. " +
     'Use "self pay" as insuranceMemberId only when the patient asks for self pay.',
   parameters: addPatientParameters,
@@ -164,15 +151,6 @@ export const add_patient = tool({
       explicitPhone ||
       (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
 
-    if (
-      coverageType === "routine_vision" &&
-      !selfPay &&
-      !params.ssnLast4 &&
-      !params.ssnLast4Unavailable
-    ) {
-      return "Ask the caller once for the patient's SSN last four. If they decline or are unsure, call add_patient again with ssnLast4Unavailable set to true. Request only the last four digits.";
-    }
-
     if (!explicitPhone && !params.inboundPhoneConfirmed) {
       return (
         "Ask the caller: Is the number you are calling from a good callback number to put on file? " +
@@ -182,9 +160,10 @@ export const add_patient = tool({
     }
 
     if (!params.readBack) {
-      const ssnConfirmation = params.ssnLast4
-        ? " Confirm that the SSN last four was captured without repeating the digits."
-        : "";
+      const ssnConfirmation =
+        !selfPay && params.ssnLast4
+          ? " Confirm that the SSN last four was captured without repeating the digits."
+          : "";
       return (
         "Read back the new patient details first: patient name, date of birth, sex, address, " +
         "callback phone, email if provided, insurance plan, policyholder name, and member ID." +

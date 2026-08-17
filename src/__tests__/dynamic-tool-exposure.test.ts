@@ -252,9 +252,9 @@ describe("dynamic tool exposure", () => {
     expect(session.userData.runtime.appointmentActions).toEqual([]);
   });
 
-  it("returns the insured routine SSN choice without a LiveKit error", async () => {
+  it("returns the routine read-back prerequisite without a LiveKit error", async () => {
     const reminder =
-      "Ask the caller once for the patient's SSN last four. If they decline or are unsure, call add_patient again with ssnLast4Unavailable set to true. Request only the last four digits.";
+      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID. Call add_patient again only after the caller confirms the details are correct.";
     const llm = new ToolCapturingFakeLLM([
       {
         input: "Register Jane.",
@@ -269,7 +269,6 @@ describe("dynamic tool exposure", () => {
               lastName: "Doe",
               newPatientConfirmed: true,
               phone: "7275551212",
-              readBack: true,
               sex: "female",
               state: "FL",
               street: "123 Main St",
@@ -281,7 +280,7 @@ describe("dynamic tool exposure", () => {
       },
       {
         input: JSON.stringify(reminder),
-        content: "What are the patient's SSN last four? You can decline.",
+        content: "Let me read those details back for you.",
       },
     ]);
     const session = new AgentSession<CallState>({ llm });
