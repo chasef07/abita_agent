@@ -66,9 +66,7 @@ const addPatientParameters = z
       .trim()
       .regex(/^\d{4}$/)
       .optional()
-      .describe(
-        "Optional. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits.",
-      ),
+      .describe("Optional SSN last 4 for insured routine vision."),
     newPatientConfirmed: z
       .boolean()
       .optional()
@@ -79,7 +77,7 @@ const addPatientParameters = z
       .boolean()
       .optional()
       .describe(
-        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID; confirming any provided SSN last four was captured without repeating the digits; and the caller confirms the details are correct.",
+        "True after the caller confirms the registration read-back; omit SSN digits.",
       ),
   })
   .strict();

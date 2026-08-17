@@ -787,9 +787,7 @@ describe("model-facing tool definitions", () => {
       String(
         (parameters.shape.ssnLast4 as { description?: string }).description,
       ),
-    ).toBe(
-      "Optional. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits.",
-    );
+    ).toBe("Optional SSN last 4 for insured routine vision.");
     expect(
       String(
         (parameters.shape.ssnLast4 as { description?: string }).description,
