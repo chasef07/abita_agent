@@ -160,15 +160,9 @@ export const add_patient = tool({
     }
 
     if (!params.readBack) {
-      const ssnConfirmation =
-        !selfPay && params.ssnLast4
-          ? " Confirm that the SSN last four was captured without repeating the digits."
-          : "";
       return (
         "Read back the new patient details first: patient name, date of birth, sex, address, " +
-        "callback phone, email if provided, insurance plan, policyholder name, and member ID." +
-        ssnConfirmation +
-        " " +
+        "callback phone, email if provided, insurance plan, policyholder name, and member ID. " +
         "Call add_patient again only after the caller confirms the details are correct."
       );
     }

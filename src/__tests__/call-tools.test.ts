@@ -1155,7 +1155,7 @@ describe("stateful call tools", () => {
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
   });
 
-  it("confirms a provided SSN last four without repeating the digits", async () => {
+  it("keeps a provided SSN last four out of the read-back", async () => {
     const state = createState();
     markNewPatientPathConfirmed(state);
     markSchedulingTriaged(state, "routine_od");
@@ -1185,8 +1185,9 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID. Confirm that the SSN last four was captured without repeating the digits. Call add_patient again only after the caller confirms the details are correct.",
+      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID. Call add_patient again only after the caller confirms the details are correct.",
     );
+    expect(result).not.toContain("SSN");
     expect(result).not.toContain("1234");
     expect(testMiddleware.operations).toHaveLength(0);
   });
