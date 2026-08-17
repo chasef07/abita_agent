@@ -100,7 +100,7 @@ Hollywood has its own medical insurance list in the agent insurance rules. Use `
 
 Hollywood also supports routine vision. For routine eye exams, glasses prescriptions, or contact lens prescriptions using accepted vision coverage or self-pay, use `check_insurance` with coverageType `routine_vision`, then schedule with routing `optical_only`.
 
-For every routine-vision patient, explain that some insurances do not cover retinal photos and there is a $39 charge. Collect the last 4 of the patient's Social Security number for routine-vision insurance because some plans, including VSP, use it as the patient's policy number.
+For every routine-vision patient, explain that some insurances do not cover retinal photos and there is a $39 charge.
 
 Retina surgical care needs referral to a retina surgeon. If the caller does not have one, tell them to contact their primary care provider or insurance company for an appropriate referral.
 

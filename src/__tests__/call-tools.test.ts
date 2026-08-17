@@ -874,6 +874,14 @@ describe("stateful call tools", () => {
       currentCarrier: "Florida Blue Shield",
       accepted: true,
     };
+    const middleware = stubCreatePatient(
+      createdPatientResult({
+        name: "Lisa Arshed",
+        dob: "10/03/2020",
+        insuranceCarrier: "Florida Blue Shield",
+        routing: "optical_only",
+      }),
+    );
 
     const result = await add_patient.execute(
       {
@@ -899,11 +907,16 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Collect the patient's SSN last four before creating a routine-vision chart.",
+      "Created a patient chart for Lisa Arshed. Continue with scheduling.",
     );
-    expect(state.identity.activePatient).toBeNull();
-    expect(state.identity.registration?.firstName).toBe("Lisa");
-    expect(testMiddleware.operations).toHaveLength(0);
+    expect(state.identity.activePatient).toMatchObject({
+      kind: "created",
+      name: "Lisa Arshed",
+    });
+    expect(state.identity.registration).toBeNull();
+    expect(middleware.requests.createPatient[0]?.patient).not.toHaveProperty(
+      "ssn",
+    );
   });
 
   it("requires an accepted insurance check before creating a patient", async () => {
@@ -984,7 +997,7 @@ describe("stateful call tools", () => {
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
-  it("derives routine vision from accepted coverage and requires SSN last four", async () => {
+  it("omits SSN from self-pay routine-vision creation", async () => {
     const baseParams = {
       firstName: "Jane",
       lastName: "Doe",
@@ -997,6 +1010,7 @@ describe("stateful call tools", () => {
       sex: "female" as const,
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
+      ssnLast4: "1234",
       phone: "7275551212",
       newPatientConfirmed: true,
       readBack: true,
@@ -1010,6 +1024,9 @@ describe("stateful call tools", () => {
       canonicalPlan: "self pay",
       coverageType: "routine_vision",
     });
+    const middleware = stubCreatePatient(
+      createdPatientResult({ routing: "optical_only" }),
+    );
 
     await expect(
       add_patient.execute(baseParams, {
@@ -1017,14 +1034,92 @@ describe("stateful call tools", () => {
         toolCallId: "tool-1",
       } as never),
     ).resolves.toBe(
-      "Collect the patient's SSN last four before creating a routine-vision chart.",
+      "Created a patient chart for Jane Doe. Continue with scheduling.",
     );
 
-    expect(routineState.workflow.current).toEqual({
-      intent: "schedule",
-      appointmentLane: "routine_od",
+    expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
+      coverageType: "routine_vision",
     });
+    expect(middleware.requests.createPatient[0]?.patient).not.toHaveProperty(
+      "ssn",
+    );
+  });
+
+  it("keeps SSN out of self-pay registration read-back", async () => {
+    const state = createState();
+    markNewPatientPathConfirmed(state);
+    clearSchedulingContext(state);
+    markAcceptedInsurance(state, {
+      plan: "self pay",
+      canonicalPlan: "self pay",
+      coverageType: "routine_vision",
+    });
+
+    const result = await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "self pay",
+        ssnLast4: "1234",
+        phone: "7275551212",
+        newPatientConfirmed: true,
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).not.toContain("SSN");
+    expect(result).not.toContain("1234");
     expect(testMiddleware.operations).toHaveLength(0);
+  });
+
+  it("creates an insured routine-vision chart without SSN last four", async () => {
+    const state = createState();
+    markNewPatientPathConfirmed(state);
+    clearSchedulingContext(state);
+    markAcceptedInsurance(state, {
+      plan: "VSP",
+      canonicalPlan: "VSP",
+      coverageType: "routine_vision",
+    });
+    const middleware = stubCreatePatient(
+      createdPatientResult({ routing: "optical_only" }),
+    );
+
+    const result = await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "VSP123",
+        phone: "7275551212",
+        newPatientConfirmed: true,
+        readBack: true,
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-2" } as never,
+    );
+
+    expect(result).toBe(
+      "Created a patient chart for Jane Doe. Continue with scheduling.",
+    );
+    expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
+      coverageType: "routine_vision",
+    });
+    expect(middleware.requests.createPatient[0]?.patient).not.toHaveProperty(
+      "ssn",
+    );
   });
 
   it("requires read-back confirmation before creating a patient", async () => {
@@ -1054,10 +1149,47 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, member ID, and patient SSN last 4 for routine vision. Call add_patient again only after the caller confirms the details are correct.",
+      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID. Call add_patient again only after the caller confirms the details are correct.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
+  });
+
+  it("keeps a provided SSN last four out of the read-back", async () => {
+    const state = createState();
+    markNewPatientPathConfirmed(state);
+    markSchedulingTriaged(state, "routine_od");
+    markAcceptedInsurance(state, {
+      plan: "VSP",
+      canonicalPlan: "VSP",
+      coverageType: "routine_vision",
+    });
+
+    const result = await add_patient.execute(
+      {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        street: "123 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "VSP123",
+        ssnLast4: "1234",
+        phone: "7275551212",
+        newPatientConfirmed: true,
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID. Call add_patient again only after the caller confirms the details are correct.",
+    );
+    expect(result).not.toContain("SSN");
+    expect(result).not.toContain("1234");
+    expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("asks before using the inbound caller phone for a new patient chart", async () => {
@@ -1794,7 +1926,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, member ID, and patient SSN last 4 for routine vision. Call add_patient again only after the caller confirms the details are correct.",
+      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID. Call add_patient again only after the caller confirms the details are correct.",
     );
     expect(state.identity.activePatient).toBeNull();
     expect(state.identity.registration).toEqual({

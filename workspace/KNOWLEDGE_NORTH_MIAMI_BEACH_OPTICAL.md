@@ -81,7 +81,7 @@ North Miami Beach Optical uses the same routine vision insurance source as Holly
 
 For routine eye exams, glasses prescriptions, or contact lens prescriptions using accepted vision coverage, use `check_insurance` with coverageType `routine_vision`, then schedule with routing `optical_only`.
 
-For every routine-vision patient, explain that some insurances do not cover retinal photos and there is a $39 charge. Collect the last 4 of the patient's Social Security number for routine-vision insurance because some plans, including VSP, use it as the patient's policy number.
+For every routine-vision patient, explain that some insurances do not cover retinal photos and there is a $39 charge.
 
 Medical insurance checks are not supported for this office.
 

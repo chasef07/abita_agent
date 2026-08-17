@@ -466,11 +466,8 @@ describe("Crystal River prompt guidance", () => {
     );
     expect(springHillKnowledge).toContain("retinal photos");
     expect(springHillKnowledge).toContain("$39 charge");
-    expect(springHillKnowledge).toContain(
-      "Collect the last 4 of the patient's Social Security number for routine-vision insurance",
-    );
-    expect(springHillKnowledge).toContain("patient's policy number");
-    expect(springHillKnowledge).not.toContain("insured person's SSN");
+    expect(springHillKnowledge).not.toContain("Social Security");
+    expect(springHillKnowledge).not.toContain("SSN");
     expect(springHillKnowledge).toContain("Retina care is available");
     expect(springHillKnowledge).toContain("YSL, Ferragamo, Gucci");
     expect(springHillKnowledge).toContain("Sherry is the licensed optician");
@@ -754,7 +751,16 @@ describe("model-facing tool definitions", () => {
       "call add_patient directly with newPatientConfirmed true",
     );
     expect(add_patient.description).toContain(
-      "For routine-vision registration, collect only the patient's SSN last four",
+      "For insured routine-vision registration, ask once for the patient's SSN last four",
+    );
+    expect(add_patient.description).toContain(
+      "Continue without it if declined or unavailable",
+    );
+    expect(add_patient.description).toContain(
+      "Request only the last four digits",
+    );
+    expect(add_patient.description).toContain(
+      "Skip SSN collection for self pay",
     );
     expect(add_patient.description).toContain(
       "confirm it is a good callback number",
@@ -775,6 +781,7 @@ describe("model-facing tool definitions", () => {
     expect(Object.keys(parameters.shape)).toContain("insuranceMemberId");
     expect(Object.keys(parameters.shape)).toContain("newPatientConfirmed");
     expect(Object.keys(parameters.shape)).toContain("ssnLast4");
+    expect(Object.keys(parameters.shape)).not.toContain("ssnLast4Unavailable");
     expect(
       String(
         (parameters.shape.insuranceMemberId as { description?: string })
@@ -786,13 +793,13 @@ describe("model-facing tool definitions", () => {
         (parameters.shape.ssnLast4 as { description?: string }).description,
       ),
     ).toBe(
-      "Exactly the last 4 digits of the patient's Social Security number, collected for routine-vision registration.",
+      "Optional. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits.",
     );
     expect(
       String(
         (parameters.shape.ssnLast4 as { description?: string }).description,
       ),
-    ).not.toContain("Optional");
+    ).toContain("Optional");
     expect(Object.keys(parameters.shape)).not.toContain("subscriberNum");
     expect(
       parameters.safeParse({
@@ -822,6 +829,21 @@ describe("model-facing tool definitions", () => {
         subscriberName: "Jane Doe",
         insuranceMemberId: "ABC123",
         ssnLast4: "1234",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+        inboundPhoneConfirmed: true,
+        street: "1 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34609",
+        sex: "female",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "ABC123",
       }).success,
     ).toBe(true);
     expect(
