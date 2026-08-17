@@ -193,11 +193,9 @@ describe("tool-first prompt gating", () => {
     );
     expect(prompt).toContain("# Human Transfer");
     expect(prompt).toContain(
-      "Immediately call transfer_call when the caller asks for a person",
+      "Immediately call transfer_call only for an eye emergency or a caller returning a call for a named staff member.",
     );
-    expect(prompt).toContain(
-      "The response is incorrect unless it contains transfer_call; words promising staff alone are incomplete.",
-    );
+    expect(prompt).toContain("Redness alone is not an eye emergency.");
     expect(prompt).toContain(
       "Describe a transfer only from the transfer_call result.",
     );
@@ -280,17 +278,23 @@ describe("tool-first prompt gating", () => {
     expect(prompt).not.toContain("+17275551212");
   });
 
-  it("offers create_staff_task once before an avoidable transfer", () => {
+  it("requires a reason and supported help before an avoidable transfer", () => {
     const prompt = buildPrompt(HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).toContain(
-      "For safe, non-urgent staff follow-up without a person request, offer create_staff_task once.",
+      "For any other request for a person, the front desk, or a transfer, require a reason.",
     );
     expect(prompt).toContain(
-      "Call transfer_call if it is unavailable, fails, or the caller declines.",
+      'Ask: "What do you need help with? I may be able to handle it here or send it to the team."',
     );
     expect(prompt).toContain(
-      "A successful create_staff_task completes that issue; use transfer_call later only for a new urgent concern.",
+      'If the caller repeats the request without a reason, say: "I need a brief reason to route this correctly.',
+    );
+    expect(prompt).toContain(
+      "If the caller refuses both reason questions, or declines the supported path, and still explicitly insists, call transfer_call.",
+    );
+    expect(prompt).toContain(
+      "A successful create_staff_task completes that issue.",
     );
   });
 });
@@ -656,16 +660,25 @@ describe("Crystal River prompt guidance", () => {
     const prompt = buildPrompt(HOLLYWOOD_OFFICE_PHONE);
 
     expect(prompt).toContain("# Human Transfer");
-    expect(prompt).toContain("urgent symptoms");
+    expect(prompt).toContain("sudden vision loss or a sudden change in vision");
     expect(prompt).toContain(
-      "is returning a missed or received call from this number",
+      "a known or suspected retinal detachment, including new flashes or floaters or a curtain, veil, or shadow in vision",
     );
+    expect(prompt).toContain("eye trauma or chemical exposure");
+    expect(prompt).toContain(
+      "severe eye pain with sudden blurred vision, halos, nausea, or vomiting",
+    );
+    expect(prompt).toContain("Redness alone is not an eye emergency");
+    expect(prompt).toContain("returning a call for a named staff member");
     expect(prompt).toContain(
       "Describe callbacks as staff follow-up requests with timing and outcomes left open",
     );
-    expect(prompt).toContain("suspected medication reactions");
-    expect(transfer_call.description).not.toContain(
-      "suspected medication reactions",
+    expect(prompt).not.toContain(
+      "is returning a missed or received call from this number",
+    );
+    expect(prompt).not.toContain("reports emergency or urgent symptoms");
+    expect(prompt).not.toContain(
+      "supported workflow or Staff Task that failed",
     );
     expect(prompt).toContain("create_staff_task");
     expect(prompt).not.toContain("<office_policy>");
@@ -683,7 +696,7 @@ describe("Crystal River prompt guidance", () => {
       const prompt = buildPrompt(phone);
 
       expect(prompt).toContain(
-        "Call transfer_call if it is unavailable, fails, or the caller declines.",
+        "Once the reason is known, use the available tools or offer create_staff_task for safe, non-urgent follow-up.",
       );
       expect(prompt.toLowerCase()).not.toContain("staff task");
       expect(prompt).not.toContain("# Staff Tasks");
