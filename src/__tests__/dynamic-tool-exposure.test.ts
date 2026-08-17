@@ -252,9 +252,9 @@ describe("dynamic tool exposure", () => {
     expect(session.userData.runtime.appointmentActions).toEqual([]);
   });
 
-  it("returns routine caller-data prerequisites without a LiveKit error", async () => {
+  it("returns the insured routine SSN choice without a LiveKit error", async () => {
     const reminder =
-      "Collect the patient's SSN last four before creating a routine-vision chart.";
+      "Ask the caller once for the patient's SSN last four. If they decline or are unsure, call add_patient again with ssnLast4Unavailable set to true. Request only the last four digits.";
     const llm = new ToolCapturingFakeLLM([
       {
         input: "Register Jane.",
@@ -281,7 +281,7 @@ describe("dynamic tool exposure", () => {
       },
       {
         input: JSON.stringify(reminder),
-        content: "What are the last four digits?",
+        content: "What are the patient's SSN last four? You can decline.",
       },
     ]);
     const session = new AgentSession<CallState>({ llm });
@@ -289,10 +289,10 @@ describe("dynamic tool exposure", () => {
     const state = createTestCallState();
     setLastInsuranceEligibilityCheck(state, {
       accepted: true,
-      canonicalPlan: "Self Pay",
+      canonicalPlan: "VSP",
       coverageType: "routine_vision",
-      currentCarrier: "Self Pay",
-      plan: "Self Pay",
+      currentCarrier: "VSP",
+      plan: "VSP",
     });
     session.userData = state;
 

@@ -67,7 +67,13 @@ const addPatientParameters = z
       .regex(/^\d{4}$/)
       .optional()
       .describe(
-        "Exactly the last 4 digits of the patient's Social Security number, collected for routine-vision registration.",
+        "Optional. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits.",
+      ),
+    ssnLast4Unavailable: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set to true only after an insured routine-vision caller declines to provide the patient's SSN last four or is unsure. Omit when SSN last four is provided.",
       ),
     newPatientConfirmed: z
       .boolean()
@@ -79,10 +85,17 @@ const addPatientParameters = z
       .boolean()
       .optional()
       .describe(
-        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, member ID, and SSN last 4 for routine vision, and the caller confirms they are correct.",
+        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID; confirming any provided SSN last four was captured without repeating the digits; and the caller confirms the details are correct.",
       ),
   })
-  .strict();
+  .strict()
+  .refine(
+    ({ ssnLast4, ssnLast4Unavailable }) => !(ssnLast4 && ssnLast4Unavailable),
+    {
+      message: "Choose either ssnLast4 or ssnLast4Unavailable.",
+      path: ["ssnLast4Unavailable"],
+    },
+  );
 
 export const add_patient = tool({
   name: "add_patient",
@@ -91,7 +104,7 @@ export const add_patient = tool({
     "Create a chart after the caller explicitly confirms this is the patient's first registration with the practice, visit triage, and an accepted check_insurance result. " +
     "After that confirmation, call add_patient directly with newPatientConfirmed true. " +
     "Read back the registration details and get caller confirmation first. " +
-    "For routine-vision registration, collect only the patient's SSN last four. " +
+    "For insured routine-vision registration, ask once for the patient's SSN last four. If the caller declines or is unsure, continue with ssnLast4Unavailable set to true. Request only the last four digits. Skip SSN collection for self pay. " +
     "Before using the inbound caller number, confirm it is a good callback number; if yes, omit phone and set inboundPhoneConfirmed to true. " +
     'Use "self pay" as insuranceMemberId only when the patient asks for self pay.',
   parameters: addPatientParameters,
@@ -151,8 +164,13 @@ export const add_patient = tool({
       explicitPhone ||
       (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
 
-    if (coverageType === "routine_vision" && !params.ssnLast4) {
-      return "Collect the patient's SSN last four before creating a routine-vision chart.";
+    if (
+      coverageType === "routine_vision" &&
+      !selfPay &&
+      !params.ssnLast4 &&
+      !params.ssnLast4Unavailable
+    ) {
+      return "Ask the caller once for the patient's SSN last four. If they decline or are unsure, call add_patient again with ssnLast4Unavailable set to true. Request only the last four digits.";
     }
 
     if (!explicitPhone && !params.inboundPhoneConfirmed) {
@@ -164,9 +182,14 @@ export const add_patient = tool({
     }
 
     if (!params.readBack) {
+      const ssnConfirmation = params.ssnLast4
+        ? " Confirm that the SSN last four was captured without repeating the digits."
+        : "";
       return (
         "Read back the new patient details first: patient name, date of birth, sex, address, " +
-        "callback phone, email if provided, insurance plan, policyholder name, member ID, and patient SSN last 4 for routine vision. " +
+        "callback phone, email if provided, insurance plan, policyholder name, and member ID." +
+        ssnConfirmation +
+        " " +
         "Call add_patient again only after the caller confirms the details are correct."
       );
     }
@@ -194,7 +217,7 @@ export const add_patient = tool({
       ...(coverageType === "routine_vision"
         ? {
             coverageType: "routine_vision",
-            ssn: params.ssnLast4,
+            ...(!selfPay && params.ssnLast4 ? { ssn: params.ssnLast4 } : {}),
           }
         : {}),
       ...(params.email?.trim() ? { email: params.email.trim() } : {}),

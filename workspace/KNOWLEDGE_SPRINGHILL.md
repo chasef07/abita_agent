@@ -88,7 +88,7 @@ Patients should bring their glasses into the Spring Hill location. Staff will re
 ## Insurance and Referrals
 Status: available
 
-For every routine-vision patient, explain that some insurances do not cover retinal photos and there is a $39 charge. Collect the last 4 of the patient's Social Security number for routine-vision insurance because some plans, including VSP, use it as the patient's policy number.
+For every routine-vision patient, explain that some insurances do not cover retinal photos and there is a $39 charge. When the caller uses vision insurance, ask once for the last 4 of the patient's Social Security number because some plans, including VSP, use it as the patient's policy number. If the caller declines or does not know it, continue registration without it. Request only the last four digits. For self-pay, skip SSN collection.
 
 Referral requirements are not supplied. Say this information is unavailable and keep the answer limited to supplied facts.
 
