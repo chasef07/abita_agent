@@ -462,16 +462,8 @@ describe("Crystal River prompt guidance", () => {
     );
     expect(springHillKnowledge).toContain("retinal photos");
     expect(springHillKnowledge).toContain("$39 charge");
-    expect(springHillKnowledge).toContain(
-      "When the caller uses vision insurance, ask once for the last 4 of the patient's Social Security number",
-    );
-    expect(springHillKnowledge).toContain(
-      "If the caller declines or does not know it, continue registration without it",
-    );
-    expect(springHillKnowledge).toContain("Request only the last four digits");
-    expect(springHillKnowledge).toContain("For self-pay, skip SSN collection");
-    expect(springHillKnowledge).toContain("patient's policy number");
-    expect(springHillKnowledge).not.toContain("insured person's SSN");
+    expect(springHillKnowledge).not.toContain("Social Security");
+    expect(springHillKnowledge).not.toContain("SSN");
     expect(springHillKnowledge).toContain("Retina care is available");
     expect(springHillKnowledge).toContain("YSL, Ferragamo, Gucci");
     expect(springHillKnowledge).toContain("Sherry is the licensed optician");
