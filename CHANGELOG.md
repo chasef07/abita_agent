@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.9.0](https://github.com/chasef07/abita_agent/compare/4.8.1...4.9.0) (2026-08-18)
+
+
+### Features
+
+* **demo:** add rheumatology medication workflow ([#354](https://github.com/chasef07/abita_agent/issues/354)) ([8729b09](https://github.com/chasef07/abita_agent/commit/8729b098e2bf672d488f2fd6d26218132d3a2b63))
+* **registration:** make routine vision SSN optional ([#351](https://github.com/chasef07/abita_agent/issues/351)) ([95bf144](https://github.com/chasef07/abita_agent/commit/95bf14412c644c3d14f67566b1c4ba5753a02066))
+* **workflows:** refine staff task routing ([#353](https://github.com/chasef07/abita_agent/issues/353)) ([a7632c9](https://github.com/chasef07/abita_agent/commit/a7632c979b878e4bef87f3c860cc8e0c458040ab))
+
+
+### Bug Fixes
+
+* **prompt:** tighten human transfer policy ([#350](https://github.com/chasef07/abita_agent/issues/350)) ([87e9954](https://github.com/chasef07/abita_agent/commit/87e995495c983ce25260af1e5e19d0d2362ee684))
+
 ## [4.8.1](https://github.com/chasef07/abita_agent/compare/4.8.0...4.8.1) (2026-08-15)
 
 
