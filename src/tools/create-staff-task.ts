@@ -29,42 +29,67 @@ const TASK_DUPLICATE_REPLY =
 const TASK_FAILED_REPLY =
   "I couldn't send the message. I can transfer you to the office.";
 
-const taskParameters = z.object({
-  category: z
-    .enum([
-      "billing",
-      "appointments",
-      "documentation",
-      "optical",
-      "medication",
-      "referrals",
-      "other",
-    ])
-    .describe(
-      "billing for bills or payments; appointments only for separate appointment-specific work staff still needs to perform, while successful bookings, cancellations, and reschedules are complete; documentation for records or forms; optical for glasses, contacts, lab jobs, or optical orders; medication for routine prescription work; referrals for referral coordination or insurance prior authorization; other for named-person messages or work that fits none of these.",
-    ),
-  urgency: z
-    .enum(["high_priority", "normal", "non_urgent"])
-    .describe(
-      "Use high_priority for time-sensitive non-clinical work staff should review before normal work, normal for standard follow-up, and non_urgent for work with no time sensitivity. Route clinical acuity through transfer_call.",
-    ),
-  summary: z
-    .string()
-    .trim()
-    .min(1)
-    .max(240)
-    .describe("Short staff inbox title naming the caller's request."),
-  message: z
-    .string()
-    .trim()
-    .min(1)
-    .max(2500)
-    .describe(
-      "Complete caller-provided request and details staff needs. For medication include the name, requested action, and pharmacy when known; for referrals include the destination or status requested; for insurance prior authorization include the patient, plan, visit type, and authorization request.",
-    ),
-});
+const STAFF_TASK_CATEGORIES = [
+  "billing",
+  "appointments",
+  "documentation",
+  "optical",
+  "medication",
+  "referrals",
+  "other",
+] as const satisfies readonly StaffTaskCategory[];
 
-type TaskParameters = z.infer<typeof taskParameters>;
+const RHEUMATOLOGY_STAFF_TASK_CATEGORIES = [
+  "billing",
+  "appointments",
+  "documentation",
+  "medication",
+  "referrals",
+  "other",
+] as const satisfies readonly StaffTaskCategory[];
+
+const GENERAL_CATEGORY_DESCRIPTION =
+  "billing for bills or payments; appointments only for separate appointment-specific work staff still needs to perform, while successful bookings, cancellations, and reschedules are complete; documentation for records or forms; optical for glasses, contacts, lab jobs, or optical orders; medication for routine prescription work; referrals for referral coordination or insurance prior authorization; other for named-person messages or work that fits none of these.";
+
+const RHEUMATOLOGY_CATEGORY_DESCRIPTION =
+  "billing for bills or payments; appointments only for separate appointment-specific work staff still needs to perform, while successful bookings, cancellations, and reschedules are complete; documentation for records or forms; medication for refills, pharmacy changes, prescription status, medication prior authorization, or non-urgent clinician follow-up after a failed transfer; referrals for referral coordination or visit and service insurance prior authorization; other for named-person messages or work that fits none of these.";
+
+const GENERAL_MESSAGE_DESCRIPTION =
+  "Complete caller-provided request and details staff needs. For medication include the name, requested action, and pharmacy when known; for referrals include the destination or status requested; for insurance prior authorization include the patient, plan, visit type, and authorization request.";
+
+const RHEUMATOLOGY_MESSAGE_DESCRIPTION =
+  "Complete caller-provided request and details staff needs. For medication include the name, strength and directions exactly as stated, requested action, pharmacy, remaining supply or next dose, and access problem when known; for referrals include the destination or status requested; for visit or service insurance prior authorization include the patient, plan, visit type or service, and authorization request.";
+
+function taskParametersFor<
+  const Categories extends readonly [StaffTaskCategory, ...StaffTaskCategory[]],
+>(
+  categories: Categories,
+  categoryDescription: string,
+  messageDescription: string,
+) {
+  return z.object({
+    category: z.enum(categories).describe(categoryDescription),
+    urgency: z
+      .enum(["high_priority", "normal", "non_urgent"])
+      .describe(
+        "Use high_priority for time-sensitive non-clinical work staff should review before normal work, normal for standard follow-up, and non_urgent for work with no time sensitivity. Route clinical acuity through transfer_call.",
+      ),
+    summary: z
+      .string()
+      .trim()
+      .min(1)
+      .max(240)
+      .describe("Short staff inbox title naming the caller's request."),
+    message: z.string().trim().min(1).max(2500).describe(messageDescription),
+  });
+}
+
+type TaskParameters = {
+  category: StaffTaskCategory;
+  message: string;
+  summary: string;
+  urgency: StaffTaskUrgency;
+};
 
 type PortalTaskResponse = {
   status: "created" | "duplicate";
@@ -75,59 +100,101 @@ type PortalTaskResponse = {
 
 class StaffTaskDeliveryError extends Error {}
 
-export const create_staff_task = tool({
-  name: "create_staff_task",
-  description:
-    "Use for safe, non-urgent office work that requires staff follow-up. " +
-    "Offer to send the request. After the caller agrees, collect the details staff needs, then call create_staff_task. " +
-    "Success or duplicate completes the request; reserve a later transfer for a new urgent concern. " +
-    "Treat a successful booking, cancellation, or reschedule as complete; use appointments only for separate appointment-specific work staff still needs to perform. " +
-    "Use the glasses-readiness text policy for glasses status. Route urgent or clinical concerns, medication reactions or instructions, returned calls, and requests for a person through transfer_call. " +
-    "Describe the result as a request sent for staff review, with approval, completion, refill, and timing left open.",
-  parameters: taskParameters,
-  execute: async (input, { ctx }) => {
-    const state = getState(ctx);
-    ctx.disallowInterruptions();
-
-    const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
-    const payload = buildStaffTaskPayload(state, office, input);
-    const existing = findStaffTaskReceipt(state, payload.idempotencyKey);
-    if (existing) return TASK_DUPLICATE_REPLY;
-
-    const destination = getStaffTaskDestination(office.key);
-    if (!destination) {
-      throw new Error("Staff task delivery is not configured.");
-    }
-
-    let response: PortalTaskResponse;
-    try {
-      response = await postStaffTask(
-        destination.url,
-        destination.secret,
-        payload,
-      );
-    } catch (error) {
-      console.error("[tools] Staff task POST failed:", error);
-      if (error instanceof StaffTaskDeliveryError) {
-        throw new ToolError(TASK_FAILED_REPLY);
-      }
-      throw error;
-    }
-    recordStaffTaskReceipt(state, {
-      category: response.category ?? input.category,
-      createdAt: new Date().toISOString(),
-      idempotencyKey: payload.idempotencyKey,
-      message: input.message,
-      status: response.status,
-      summary: input.summary,
-      taskId: response.taskId,
-      urgency: response.urgency ?? input.urgency,
-    });
-    return response.status === "duplicate"
-      ? TASK_DUPLICATE_REPLY
-      : TASK_CREATED_REPLY;
+function createStaffTaskTool<
+  const Categories extends readonly [StaffTaskCategory, ...StaffTaskCategory[]],
+>(
+  categories: Categories,
+  categoryDescription: string,
+  options: {
+    failedTransferMedicationFollowUp?: boolean;
+    glassesReadiness?: boolean;
+    messageDescription: string;
   },
-});
+) {
+  return tool({
+    name: "create_staff_task",
+    description:
+      "Use for safe, non-urgent office work that requires staff follow-up. " +
+      "Offer to send the request. After the caller agrees, collect the details staff needs, then call create_staff_task. " +
+      "Success or duplicate completes the request; reserve a later transfer for a new urgent concern. " +
+      "Treat a successful booking, cancellation, or reschedule as complete; use appointments only for separate appointment-specific work staff still needs to perform. " +
+      (options.glassesReadiness
+        ? "Use the glasses-readiness text policy for glasses status. "
+        : "") +
+      "Route urgent or clinical concerns, medication reactions or instructions, returned calls, and requests for a person through transfer_call. " +
+      (options.failedTransferMedicationFollowUp
+        ? "After the supported transfer retry fails for a safe, non-urgent clinical medication question, offer a medication task for clinician follow-up. "
+        : "") +
+      "Describe the result as a request sent for staff review, with approval, completion, refill, and timing left open.",
+    parameters: taskParametersFor(
+      categories,
+      categoryDescription,
+      options.messageDescription,
+    ),
+    execute: async (input, { ctx }) => {
+      const state = getState(ctx);
+      ctx.disallowInterruptions();
+
+      const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
+      const payload = buildStaffTaskPayload(state, office, input);
+      const existing = findStaffTaskReceipt(state, payload.idempotencyKey);
+      if (existing) return TASK_DUPLICATE_REPLY;
+
+      const destination = getStaffTaskDestination(office.key);
+      if (!destination) {
+        throw new Error("Staff task delivery is not configured.");
+      }
+
+      let response: PortalTaskResponse;
+      try {
+        response = await postStaffTask(
+          destination.url,
+          destination.secret,
+          payload,
+        );
+      } catch (error) {
+        console.error("[tools] Staff task POST failed:", error);
+        if (error instanceof StaffTaskDeliveryError) {
+          throw new ToolError(TASK_FAILED_REPLY);
+        }
+        throw error;
+      }
+      recordStaffTaskReceipt(state, {
+        category: response.category ?? input.category,
+        createdAt: new Date().toISOString(),
+        idempotencyKey: payload.idempotencyKey,
+        message: input.message,
+        status: response.status,
+        summary: input.summary,
+        taskId: response.taskId,
+        urgency: response.urgency ?? input.urgency,
+      });
+      return response.status === "duplicate"
+        ? TASK_DUPLICATE_REPLY
+        : TASK_CREATED_REPLY;
+    },
+  });
+}
+
+export const create_staff_task = createStaffTaskTool(
+  STAFF_TASK_CATEGORIES,
+  GENERAL_CATEGORY_DESCRIPTION,
+  {
+    glassesReadiness: true,
+    messageDescription: GENERAL_MESSAGE_DESCRIPTION,
+  },
+);
+
+export function createRheumatologyStaffTask() {
+  return createStaffTaskTool(
+    RHEUMATOLOGY_STAFF_TASK_CATEGORIES,
+    RHEUMATOLOGY_CATEGORY_DESCRIPTION,
+    {
+      failedTransferMedicationFollowUp: true,
+      messageDescription: RHEUMATOLOGY_MESSAGE_DESCRIPTION,
+    },
+  );
+}
 
 export function getAcuityProductStaffTasksUrl(
   env: NodeJS.ProcessEnv = process.env,

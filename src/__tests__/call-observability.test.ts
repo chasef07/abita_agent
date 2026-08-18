@@ -238,7 +238,7 @@ describe("call observability", () => {
     expect(
       classifyToolOutput(
         "get_availability",
-        "Before checking availability for a new appointment, call get_availability again with visitType medical or routine_vision.",
+        "Before checking availability for a new appointment, call get_availability again with the supported visitType.",
         false,
       ),
     ).toBe("availability_needs_input");

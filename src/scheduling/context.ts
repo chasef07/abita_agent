@@ -62,7 +62,7 @@ export function ensureAvailabilityContext(
 ): void {
   if (availabilityContextReady(state)) return;
   throw new SchedulingInputRequired(
-    `Pass visitType medical or routine_vision, or identify the existing appointment to move, before ${action}.`,
+    `Pass the supported visitType, or identify the existing appointment to move, before ${action}.`,
   );
 }
 
@@ -78,10 +78,10 @@ export function availabilityContextRecovery(state: CallState): string | null {
     activeAppointmentsStatus(state) === null ||
     activeAppointmentsStatus(state) === "error"
   ) {
-    return "Before checking availability for a reschedule, load appointments by resolving the patient. If this is a new appointment instead, call get_availability again with visitType medical or routine_vision.";
+    return "Before checking availability for a reschedule, load appointments by resolving the patient. If this is a new appointment instead, call get_availability again with the supported visitType.";
   }
 
-  return "Before checking availability for a new appointment, call get_availability again with visitType medical or routine_vision.";
+  return "Before checking availability for a new appointment, call get_availability again with the supported visitType.";
 }
 
 function availabilityContextReady(state: CallState): boolean {

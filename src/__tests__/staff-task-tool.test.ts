@@ -10,7 +10,10 @@ import {
 import type { InitialCallStateInput } from "../state/call-state.js";
 import { staffTaskReceipts } from "../state/observability.js";
 import { check_insurance, create_staff_task } from "../tools/index.js";
-import { getAcuityProductStaffTasksUrl } from "../tools/create-staff-task.js";
+import {
+  createRheumatologyStaffTask,
+  getAcuityProductStaffTasksUrl,
+} from "../tools/create-staff-task.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
 
 const PRODUCT_TASK_URL = "https://acuity-product.example/v1/tasks";
@@ -257,7 +260,8 @@ describe("create_staff_task", () => {
         category: "other",
         urgency: "normal",
         summary: "Caller has a follow-up request.",
-        message: "Caller wants the Harborleaf team to review their question.",
+        message:
+          "Caller wants the Juniper Ridge team to review their question.",
       },
       {
         ctx: createToolContext(state) as never,
@@ -284,7 +288,7 @@ describe("create_staff_task", () => {
       callId: "call-test",
       callerPhone: "+17275551212",
       category: "other",
-      message: "Caller wants the Harborleaf team to review their question.",
+      message: "Caller wants the Juniper Ridge team to review their question.",
       officeKey: "dev",
       officePhone: DEV_OFFICE_PHONE,
       patient: {
@@ -305,6 +309,52 @@ describe("create_staff_task", () => {
         taskId: PRODUCT_TASK_ID,
       },
     ]);
+  });
+
+  it("allows rheumatology medication tasks without an active patient", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json(
+        {
+          status: "created",
+          taskId: PRODUCT_TASK_ID,
+          category: "medication",
+          urgency: "normal",
+        },
+        { status: 201 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createDevState();
+    state.identity.activePatient = null;
+    const medicationTask = createRheumatologyStaffTask();
+
+    const result = await medicationTask.execute(
+      {
+        category: "medication",
+        urgency: "normal",
+        summary: "Methotrexate refill request.",
+        message:
+          "Alex requests a methotrexate refill at their usual pharmacy and confirms the inbound number is best.",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
+
+    expect(result).toContain("Task sent to staff");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(
+      fetchMock.mock.calls[0]?.[1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      callerPhone: "+17275551212",
+      category: "medication",
+      message:
+        "Alex requests a methotrexate refill at their usual pharmacy and confirms the inbound number is best.",
+      officeKey: "dev",
+    });
+    expect(body).not.toHaveProperty("patient");
   });
 
   it("preserves the sweetwater-optical Product route from the inbound trunk", async () => {

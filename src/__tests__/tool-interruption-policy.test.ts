@@ -30,9 +30,11 @@ describe("tool interruption policy", () => {
     const toolNames = toolFiles
       .flatMap((filePath) => {
         const source = readFileSync(filePath, "utf8");
-        return [...source.matchAll(/export const (\w+) = tool\(/g)].map(
-          ([, toolName]) => toolName,
-        );
+        return [
+          ...source.matchAll(
+            /export const (\w+) = (?:tool|createAddPatientTool|createCheckInsuranceTool|createStaffTaskTool|createUpdateInsuranceTool)\(/g,
+          ),
+        ].map(([, toolName]) => toolName);
       })
       .concat([
         "get_availability",

@@ -6,8 +6,12 @@ import {
   voice,
 } from "@livekit/agents";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { createVoiceAgent } from "../agent.js";
-import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
+import {
+  DEV_OFFICE_PHONE,
+  SPRING_HILL_OFFICE_PHONE,
+} from "../customers/abita/profile.js";
 import {
   buildToolsForTrunk,
   toolsForCallState,
@@ -42,6 +46,12 @@ const BASE_TOOLS = [
 function visibleTools(state: CallState): string[] {
   const registered = buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE);
   return Object.keys(toolsForCallState(registered, state).functionTools).sort();
+}
+
+function visibleTool(state: CallState, trunkPhone: string, name: string) {
+  return toolsForCallState(buildToolsForTrunk(trunkPhone), state).functionTools[
+    name
+  ];
 }
 
 function patientProjections(chatCtx: ChatContext): string[] {
@@ -478,5 +488,49 @@ describe("dynamic tool exposure", () => {
         "update_insurance",
       ].sort(),
     );
+  });
+
+  it("keeps dynamically exposed rheumatology registration tools medical-only", () => {
+    const unknownPatient = createTestCallState();
+    setLastInsuranceEligibilityCheck(unknownPatient, {
+      accepted: true,
+      canonicalPlan: "Self Pay",
+      coverageType: "medical",
+      currentCarrier: "Self Pay",
+      plan: "Self Pay",
+    });
+    const addPatient = visibleTool(
+      unknownPatient,
+      DEV_OFFICE_PHONE,
+      "add_patient",
+    );
+    const addPatientSchema = z.toJSONSchema(addPatient!.parameters) as {
+      properties: Record<string, { description?: string }>;
+    };
+
+    expect(addPatientSchema.properties).not.toHaveProperty("ssnLast4");
+    expect(addPatient!.description).not.toMatch(/routine.?vision|SSN/i);
+    expect(
+      Object.values(addPatientSchema.properties)
+        .map(({ description }) => description ?? "")
+        .join(" "),
+    ).not.toMatch(/routine.?vision|SSN/i);
+
+    const activePatient = createConfirmedPatientState();
+    setLastInsuranceEligibilityCheck(activePatient, {
+      accepted: true,
+      canonicalPlan: "Self Pay",
+      coverageType: "medical",
+      currentCarrier: "Self Pay",
+      plan: "Self Pay",
+    });
+    const updateInsurance = visibleTool(
+      activePatient,
+      DEV_OFFICE_PHONE,
+      "update_insurance",
+    );
+
+    expect(updateInsurance!.description).toContain("medical coverage");
+    expect(updateInsurance!.description).not.toMatch(/routine.?vision/i);
   });
 });

@@ -1,0 +1,61 @@
+{
+  "version": 2,
+  "officeLabel": "Juniper Ridge Rheumatology Demo",
+  "coverageType": "medical",
+  "plans": [
+    {
+      "id": "accepted-aetna-ppo",
+      "status": "accepted",
+      "canonicalPlan": "Aetna PPO",
+      "displayName": "Aetna PPO",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-blue-cross-blue-shield-ppo",
+      "status": "accepted",
+      "canonicalPlan": "Blue Cross Blue Shield PPO",
+      "displayName": "Blue Cross Blue Shield PPO",
+      "aliases": ["BCBS PPO"],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-cigna-ppo",
+      "status": "accepted",
+      "canonicalPlan": "Cigna PPO",
+      "displayName": "Cigna PPO",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-unitedhealthcare-ppo",
+      "status": "accepted",
+      "canonicalPlan": "UnitedHealthcare PPO",
+      "displayName": "UnitedHealthcare PPO",
+      "aliases": ["United Health Care PPO", "UHC PPO"],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-medicare",
+      "status": "accepted",
+      "canonicalPlan": "Medicare",
+      "displayName": "Medicare",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-tricare",
+      "status": "accepted",
+      "canonicalPlan": "Tricare",
+      "displayName": "Tricare",
+      "aliases": [],
+      "canProceed": true,
+      "needsExactPlanName": false
+    }
+  ]
+}

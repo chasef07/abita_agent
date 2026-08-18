@@ -302,22 +302,43 @@ describe("tool-first prompt gating", () => {
   });
 });
 
-describe("dermatology demo", () => {
-  it("uses a fictional dermatology identity and short role prompt", () => {
+describe("rheumatology demo", () => {
+  it("uses a fictional rheumatology identity and safe medication workflow", () => {
     const prompt = buildPrompt(DEV_OFFICE_PHONE);
 
     expect(prompt).toContain("You are Julia");
-    expect(prompt).toContain("fictional dermatology practice");
-    expect(prompt).toContain("Medical dermatology includes");
+    expect(prompt).toContain("fictional rheumatology practice");
+    expect(prompt).toContain("Rheumatology includes");
     expect(prompt).toContain("visitType medical");
     expect(prompt).toContain(
-      "The current demo books medical dermatology appointments",
+      "Help callers book returned medical appointment slots for rheumatology care",
     );
     expect(prompt).toContain(
-      "Use check_insurance for medical dermatology insurance acceptance.",
+      "Use check_insurance for rheumatology insurance acceptance.",
     );
     expect(prompt).toContain(
-      "Immediately call transfer_call for cosmetic or med-spa requests",
+      "For a routine refill, pharmacy change, medication prior authorization, or prescription-status request",
+    );
+    expect(prompt).toContain(
+      "If the caller asks what they personally should start, stop, hold, combine, or change",
+    );
+    expect(prompt).toContain(
+      "Immediately call transfer_call for clinical medication guidance",
+    );
+    expect(prompt).toContain(
+      "Answer general medication education only from the current office knowledge supplied for that reply",
+    );
+    expect(prompt).toContain(
+      "A caller describing symptoms only as the reason for an appointment stays in the scheduling workflow",
+    );
+    expect(prompt).toContain(
+      "Medication requests and caller-reported list corrections can be sent with no active patient in this demo",
+    );
+    expect(prompt).toContain(
+      "Call create_staff_task directly; skip resolve_patient for this demo workflow",
+    );
+    expect(prompt).toContain(
+      "After the supported transfer retry fails for a safe, non-urgent clinical medication question",
     );
     expect(prompt).toContain("# Human Transfer");
     expect(prompt).toContain(
@@ -332,8 +353,55 @@ describe("dermatology demo", () => {
     expect(prompt).toContain("You speak English and Spanish");
     expect(prompt).not.toContain("Abita Eye Group");
     expect(prompt).not.toContain("an ophthalmology clinic");
+    expect(prompt).not.toContain("dermatology");
     expect(prompt).not.toContain("glasses");
     expect(prompt).not.toContain("contact lenses");
+  });
+
+  it("keeps the complete demo tool surface specialty-neutral", () => {
+    const availability = toolForTrunk(DEV_OFFICE_PHONE, "get_availability");
+    const booking = toolForTrunk(DEV_OFFICE_PHONE, "book_appointment");
+    const insurance = toolForTrunk(DEV_OFFICE_PHONE, "check_insurance");
+    const staffTask = toolForTrunk(DEV_OFFICE_PHONE, "create_staff_task");
+    const availabilitySchema = z.toJSONSchema(availability!.parameters) as {
+      properties: { visitType: { enum?: string[]; description?: string } };
+    };
+    const bookingSchema = z.toJSONSchema(booking!.parameters) as {
+      properties: { appointmentReason: { description?: string } };
+    };
+    const insuranceSchema = z.toJSONSchema(insurance!.parameters) as {
+      properties: { coverageType: { enum?: string[]; description?: string } };
+    };
+    const staffTaskSchema = z.toJSONSchema(staffTask!.parameters) as {
+      properties: {
+        category: { enum?: string[]; description?: string };
+        message: { description?: string };
+      };
+    };
+
+    expect(bookingSchema.properties.appointmentReason.description).not.toMatch(
+      /eye|vision|glasses|optical/i,
+    );
+    expect(availabilitySchema.properties.visitType.enum).toEqual(["medical"]);
+    expect(availabilitySchema.properties.visitType.description).not.toContain(
+      "routine_vision",
+    );
+    expect(availability!.description).not.toContain("routine_vision");
+    expect(insuranceSchema.properties.coverageType.enum).toEqual(["medical"]);
+    expect(insuranceSchema.properties.coverageType.description).not.toContain(
+      "routine_vision",
+    );
+    expect(staffTask!.description).not.toMatch(/glasses|optical/i);
+    expect(staffTask!.description).toContain(
+      "After the supported transfer retry fails for a safe, non-urgent clinical medication question",
+    );
+    expect(staffTaskSchema.properties.category.enum).not.toContain("optical");
+    expect(staffTaskSchema.properties.category.description).toContain(
+      "medication for refills, pharmacy changes, prescription status, medication prior authorization",
+    );
+    expect(staffTaskSchema.properties.message.description).toContain(
+      "strength and directions exactly as stated",
+    );
   });
 
   it("exposes the demo transfer and staff-task tools", () => {
@@ -355,22 +423,71 @@ describe("dermatology demo", () => {
     });
   });
 
-  it("retrieves dermatology knowledge for medical and cosmetic questions", () => {
-    const cosmetic = resolveOfficeKnowledge("dev", "Do you offer Botox?");
-    const medical = resolveOfficeKnowledge("dev", "Do you perform Mohs?");
+  it("retrieves rheumatology knowledge for conditions and infusions", () => {
+    const condition = resolveOfficeKnowledge("dev", "Do you treat lupus?");
+    const infusion = resolveOfficeKnowledge("dev", "Do you offer infusions?");
 
-    expect(cosmetic.sections.join("\n")).toContain("## Medical or Cosmetic");
-    expect(cosmetic.sections.join("\n")).toContain(
-      "Botox and Dysport consultations",
+    expect(condition.sections.join("\n")).toContain("## Scope of Services");
+    expect(condition.sections.join("\n")).toContain(
+      "rheumatoid arthritis, osteoarthritis, lupus",
     );
-    expect(medical.sections.join("\n")).toContain("## Skin Cancer and Mohs");
-    expect(medical.sections.join("\n")).toContain(
-      "Provider review determines whether Mohs is needed and whether it will be performed",
+    expect(infusion.sections.join("\n")).toContain("## Scope of Services");
+    expect(infusion.sections.join("\n")).toContain(
+      "Infusions, injections, and procedure visits require clinical review",
     );
   });
 
-  it("keeps the knowledge base fictional and free of eye-practice identity", () => {
+  it("retrieves approved general medication education", () => {
+    const medication = resolveOfficeKnowledge(
+      "dev",
+      "What is methotrexate and why are labs needed?",
+    );
+
+    expect(medication).toMatchObject({
+      outcome: "matched",
+      topic: "medications",
+    });
+    expect(medication.sections.join("\n")).toContain(
+      "Methotrexate is a conventional disease-modifying antirheumatic drug",
+    );
+    expect(medication.sections.join("\n")).toContain(
+      "general education rather than personal medication advice",
+    );
+
+    const combination = resolveOfficeKnowledge(
+      "dev",
+      "Can rheumatology medications be combined?",
+    );
+    expect(combination).toMatchObject({
+      outcome: "matched",
+      topic: "medications",
+    });
+    expect(combination.sections.join("\n")).toContain(
+      "Some rheumatology treatment plans combine medicines",
+    );
+    expect(combination.sections.join("\n")).toContain(
+      "A clinician may consider holding a medication",
+    );
+    expect(
+      resolveOfficeKnowledge(
+        "spring-hill",
+        "What is methotrexate and why are labs needed?",
+      ),
+    ).toMatchObject({ outcome: "skipped", topic: null });
+  });
+
+  it("keeps the active knowledge base fictional and preserves dermatology", () => {
     const knowledge = readFileSync(
+      join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "workspace",
+        "KNOWLEDGE_RHEUM_DEMO.md",
+      ),
+      "utf-8",
+    );
+    const preservedDermatology = readFileSync(
       join(
         import.meta.dirname,
         "..",
@@ -380,17 +497,25 @@ describe("dermatology demo", () => {
       ),
       "utf-8",
     );
+    const preservedDermatologyRole = readFileSync(
+      join(import.meta.dirname, "..", "..", "workspace", "SOUL_DERM_DEMO.md"),
+      "utf-8",
+    );
 
     expect(knowledge).toContain(
       "fictional practice created for product demonstrations",
     );
-    expect(knowledge).toContain("medical dermatology");
+    expect(knowledge).toContain("rheumatoid arthritis");
     expect(knowledge).toContain(
-      "Cosmetic consultations and med-spa services are self-pay",
+      "Clinical staff maintains and verifies each patient's current medication list",
     );
     expect(knowledge).not.toContain("Abita");
-    expect(knowledge).not.toContain("Clear Skin");
-    expect(knowledge).not.toContain("Spring Hill");
+    expect(knowledge).not.toContain("acrmed.com");
+    expect(preservedDermatology).toContain(
+      "Harborleaf Dermatology & Aesthetics is a fictional practice created for product demonstrations",
+    );
+    expect(preservedDermatology).toContain("medical dermatology");
+    expect(preservedDermatologyRole).toContain("# Harborleaf Dermatology Demo");
   });
 });
 
@@ -703,7 +828,7 @@ describe("Crystal River prompt guidance", () => {
       expect(prompt).not.toContain("<office_policy>");
     }
 
-    expect(buildPrompt(DEV_OFFICE_PHONE)).not.toContain("create_staff_task");
+    expect(buildPrompt(DEV_OFFICE_PHONE)).toContain("create_staff_task");
   });
 
   it("keeps concise voice guidance in the base voice prompt", () => {
@@ -1097,7 +1222,7 @@ describe("model-facing tool definitions", () => {
       "optical for glasses, contacts, lab jobs, or optical orders",
     );
     expect(taskParameters.shape.category.description).toContain(
-      "referrals for referral coordination",
+      "referrals for referral coordination or insurance prior authorization",
     );
     expect(taskParameters.shape.category.description).toContain(
       "insurance prior authorization",
