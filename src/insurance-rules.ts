@@ -7,7 +7,7 @@ const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 export type InsuranceCoverageType = "medical" | "routine_vision";
 
 export type InsuranceMatchStatus =
-  "accepted" | "not_accepted" | "needs_clarification" | "needs_transfer";
+  "accepted" | "not_accepted" | "needs_clarification" | "needs_staff_task";
 
 export interface InsurancePlanRule {
   id?: string;
@@ -56,7 +56,7 @@ export type InsuranceToolResponse =
       clarificationNeeded: string;
     }
   | {
-      status: "needs_transfer";
+      status: "needs_staff_task";
       plan: string;
       preauthRequired: true;
       message: string;
@@ -108,14 +108,14 @@ export function buildInsuranceToolResponse(
     };
   }
 
-  if (result.status === "needs_transfer") {
+  if (result.status === "needs_staff_task") {
     const plan =
       result.callerFacingPlan ?? result.matchedFamily ?? result.query;
     return {
-      status: "needs_transfer",
+      status: "needs_staff_task",
       plan,
       preauthRequired: true,
-      message: `Prior authorization is required for ${plan}. Transfer the caller to staff before scheduling.`,
+      message: `Prior authorization is required for ${plan}. Tell the caller: "This plan requires prior authorization before we can schedule. I need to create a task for our staff to follow up with your insurance company. Is that okay?" If the caller agrees, call create_staff_task with category referrals and urgency normal. Include the patient, plan, visit type, and authorization request staff needs. Transfer only if task creation is unavailable, fails, or the caller declines.`,
     };
   }
 
@@ -403,7 +403,7 @@ function buildPlanMatchResult(
 
   if (preauthRequired) {
     return {
-      status: "needs_transfer",
+      status: "needs_staff_task",
       query,
       matchedPlan,
       matchedAlias: matchedPlan ? null : candidate.term,

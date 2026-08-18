@@ -9,7 +9,7 @@ import {
 } from "../customers/abita/profile.js";
 import type { InitialCallStateInput } from "../state/call-state.js";
 import { staffTaskReceipts } from "../state/observability.js";
-import { create_staff_task } from "../tools/index.js";
+import { check_insurance, create_staff_task } from "../tools/index.js";
 import { getAcuityProductStaffTasksUrl } from "../tools/create-staff-task.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
 
@@ -158,6 +158,78 @@ describe("create_staff_task", () => {
         summary: "Caller has a billing question.",
         taskId: "task-1",
         urgency: "high_priority",
+      },
+    ]);
+  });
+
+  it("records a prior-authorization task after the insurance check requires staff follow-up", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        status: "created",
+        taskId: "prior-auth-task-1",
+        category: "referrals",
+        urgency: "normal",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createState({
+      amdOfficePhone: SWEETWATER_OFFICE_PHONE,
+      officeKey: "sweetwater",
+      trunkPhone: SWEETWATER_TRUNK_PHONES[1],
+    });
+    state.office.activeKey = "sweetwater";
+    const ctx = createToolContext(state);
+
+    const insuranceResult = await check_insurance.execute(
+      {
+        plan: "United Healthcare Individual Exchange Network (Medical)",
+        coverageType: "medical",
+      },
+      { ctx: ctx as never, toolCallId: "insurance-tool-1" } as never,
+    );
+
+    expect(insuranceResult).toMatchObject({
+      status: "needs_staff_task",
+      plan: "United Healthcare Individual Exchange Network (Medical)",
+      preauthRequired: true,
+    });
+
+    const taskResult = await create_staff_task.execute(
+      {
+        category: "referrals",
+        urgency: "normal",
+        summary:
+          "Prior authorization for United Healthcare Individual Exchange Network.",
+        message:
+          "Jane Doe needs prior authorization from United Healthcare Individual Exchange Network for a medical eye visit before scheduling.",
+      },
+      { ctx: ctx as never, toolCallId: "task-tool-1" } as never,
+    );
+
+    expect(taskResult).toContain("Task sent to staff");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(
+      fetchMock.mock.calls[0]?.[1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      category: "referrals",
+      message:
+        "Jane Doe needs prior authorization from United Healthcare Individual Exchange Network for a medical eye visit before scheduling.",
+      patient: {
+        dob: "01/01/1980",
+        id: "patient-1",
+        name: "Jane Doe",
+      },
+      summary:
+        "Prior authorization for United Healthcare Individual Exchange Network.",
+      urgency: "normal",
+    });
+    expect(staffTaskReceipts(state)).toMatchObject([
+      {
+        category: "referrals",
+        status: "created",
+        taskId: "prior-auth-task-1",
+        urgency: "normal",
       },
     ]);
   });

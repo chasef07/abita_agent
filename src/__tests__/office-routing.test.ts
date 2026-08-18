@@ -180,8 +180,9 @@ describe("tool-first prompt gating", () => {
       "When asking for a patient's first or last name, ask them to spell it",
     );
     expect(prompt).toContain(
-      "Always call book_appointment before saying an appointment is booked.",
+      "Only confirm a booking, cancellation, rescheduling, insurance update, or patient creation after the matching currently available action succeeds. Complete any prerequisite requested by the available tools first.",
     );
+    expect(prompt).not.toContain("book_appointment");
     expect(prompt).toContain(
       "For calls involving more than one patient, finish one patient's task at a time.",
     );
@@ -212,8 +213,10 @@ describe("tool-first prompt gating", () => {
     expect(prompt).not.toContain("The current time is");
 
     const crystalRiverPrompt = buildPrompt(CRYSTAL_RIVER_OFFICE_PHONE);
+    const devPrompt = buildPrompt(DEV_OFFICE_PHONE);
 
     expect(crystalRiverPrompt).toContain("# Tool Use");
+    expect(devPrompt).not.toContain("book_appointment");
 
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
@@ -1009,7 +1012,10 @@ describe("model-facing tool definitions", () => {
       "wait for a more specific plan or coverage type before the next check_insurance call",
     );
     expect(check_insurance.description).toContain(
-      "If the result says needs_transfer, transfer the caller to staff before scheduling.",
+      "If the result says needs_staff_task, follow its instructions to create a staff task for prior authorization instead of transferring",
+    );
+    expect(check_insurance.description).not.toContain(
+      "If the result says needs_transfer",
     );
     expect(check_insurance.description).not.toContain("speech-ready");
     expect(check_insurance.description).not.toContain("routeTool");
@@ -1059,6 +1065,12 @@ describe("model-facing tool definitions", () => {
     expect(create_staff_task.description).toContain(
       "Success or duplicate completes the request; reserve a later transfer for a new urgent concern",
     );
+    expect(create_staff_task.description).toContain(
+      "Treat a successful booking, cancellation, or reschedule as complete",
+    );
+    expect(create_staff_task.description).toContain(
+      "appointments only for separate appointment-specific work staff still needs to perform",
+    );
     expect(create_staff_task.description).toContain("requests for a person");
     expect(create_staff_task.description).toContain("returned calls");
     expect(create_staff_task.description).toContain(
@@ -1086,6 +1098,15 @@ describe("model-facing tool definitions", () => {
     );
     expect(taskParameters.shape.category.description).toContain(
       "referrals for referral coordination",
+    );
+    expect(taskParameters.shape.category.description).toContain(
+      "insurance prior authorization",
+    );
+    expect(taskParameters.shape.category.description).toContain(
+      "successful bookings, cancellations, and reschedules are complete",
+    );
+    expect(taskParameters.shape.message.description).toContain(
+      "insurance prior authorization include the patient, plan, visit type, and authorization request",
     );
     expect(taskParameters.shape.urgency.description).toContain(
       "high_priority for time-sensitive non-clinical work",

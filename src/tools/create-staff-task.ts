@@ -41,7 +41,7 @@ const taskParameters = z.object({
       "other",
     ])
     .describe(
-      "billing for bills or payments; appointments for existing appointment issues; documentation for records or forms; optical for glasses, contacts, lab jobs, or optical orders; medication for routine prescription work; referrals for referral coordination; other for named-person messages or work that fits none of these.",
+      "billing for bills or payments; appointments only for separate appointment-specific work staff still needs to perform, while successful bookings, cancellations, and reschedules are complete; documentation for records or forms; optical for glasses, contacts, lab jobs, or optical orders; medication for routine prescription work; referrals for referral coordination or insurance prior authorization; other for named-person messages or work that fits none of these.",
     ),
   urgency: z
     .enum(["high_priority", "normal", "non_urgent"])
@@ -60,7 +60,7 @@ const taskParameters = z.object({
     .min(1)
     .max(2500)
     .describe(
-      "Complete caller-provided request and details staff needs. For medication include the name, requested action, and pharmacy when known; for referrals include the destination or status requested.",
+      "Complete caller-provided request and details staff needs. For medication include the name, requested action, and pharmacy when known; for referrals include the destination or status requested; for insurance prior authorization include the patient, plan, visit type, and authorization request.",
     ),
 });
 
@@ -81,6 +81,7 @@ export const create_staff_task = tool({
     "Use for safe, non-urgent office work that requires staff follow-up. " +
     "Offer to send the request. After the caller agrees, collect the details staff needs, then call create_staff_task. " +
     "Success or duplicate completes the request; reserve a later transfer for a new urgent concern. " +
+    "Treat a successful booking, cancellation, or reschedule as complete; use appointments only for separate appointment-specific work staff still needs to perform. " +
     "Use the glasses-readiness text policy for glasses status. Route urgent or clinical concerns, medication reactions or instructions, returned calls, and requests for a person through transfer_call. " +
     "Describe the result as a request sent for staff review, with approval, completion, refill, and timing left open.",
   parameters: taskParameters,
