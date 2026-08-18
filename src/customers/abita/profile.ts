@@ -282,12 +282,12 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
   }),
   dev: defineOffice({
     key: "dev",
-    displayName: "Harborleaf Dermatology & Aesthetics",
+    displayName: "Juniper Ridge Rheumatology & Arthritis Care",
     trunkPhones: [DEV_OFFICE_PHONE],
     greeting:
-      "Hi, this is Julia, the virtual assistant at Harborleaf Dermatology and Aesthetics. How can I help you today?",
-    roleFile: "SOUL_DERM_DEMO.md",
-    knowledgeSource: "KNOWLEDGE_DERM_DEMO.md",
+      "Hi, this is Julia, the virtual assistant at Juniper Ridge Rheumatology and Arthritis Care. How can I help you today?",
+    roleFile: "SOUL_RHEUM_DEMO.md",
+    knowledgeSource: "KNOWLEDGE_RHEUM_DEMO.md",
     care: {
       medical: {
         supported: true,
@@ -296,7 +296,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       routine_vision: {
         supported: false,
         message:
-          "Harborleaf Dermatology & Aesthetics schedules dermatology care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
+          "Juniper Ridge Rheumatology & Arthritis Care schedules rheumatology care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
       },
     },
     amdOfficePhone: DEV_OFFICE_PHONE,

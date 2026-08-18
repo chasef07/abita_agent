@@ -48,15 +48,22 @@ const topicFixtures: TopicFixture[] = [
   },
   {
     officeKey: "dev",
-    transcript: "¿Es un servicio médico o cosmético?",
-    topic: "medical_cosmetic",
+    transcript: "¿Tratan artritis reumatoide?",
+    topic: "services",
     expectedHeading: "## Scope of Services",
     language: "es",
   },
   {
     officeKey: "dev",
-    transcript: "Do you perform Mohs surgery?",
-    topic: "skin_cancer",
+    transcript: "Do you offer infusion therapy?",
+    topic: "services",
+    expectedHeading: "## Scope of Services",
+    language: "en",
+  },
+  {
+    officeKey: "dev",
+    transcript: "What is methotrexate?",
+    topic: "medications",
     expectedHeading: "## Scope of Services",
     language: "en",
   },
@@ -466,7 +473,7 @@ describe("Office Knowledge Resolver", () => {
 
   it.each([
     ["spring-hill", "Is Bach there?"],
-    ["dev", "¿Está Bennett allí?"],
+    ["dev", "¿Está Shah allí?"],
   ] as const)(
     "recognizes provider names owned by the active office source",
     (officeKey, transcript) => {
@@ -483,7 +490,7 @@ describe("Office Knowledge Resolver", () => {
     ["hollywood", "Abita Eye Group Hollywood"],
     ["sweetwater", "Abita Eye Group Sweetwater"],
     ["north-miami-beach-optical", "North Miami Beach Optical"],
-    ["dev", "Harborleaf Dermatology & Aesthetics"],
+    ["dev", "Juniper Ridge Rheumatology & Arthritis Care"],
   ] as const)(
     "reads office facts only from the active %s Office Profile",
     (officeKey, practiceName) => {
@@ -545,7 +552,7 @@ describe("Office Knowledge Resolver", () => {
     ["spring-hill", "I have new floaters.", "emergency_urgency"],
     ["spring-hill", "Do you provide eyelid surgery?", "services"],
     ["spring-hill", "Do you treat uveitis?", "services"],
-    ["dev", "Do you treat hair loss?", "services"],
+    ["dev", "Do you treat gout?", "services"],
   ] as const)(
     "recognizes office-authored caller wording: %s",
     (officeKey, transcript, topic) => {

@@ -302,22 +302,22 @@ describe("tool-first prompt gating", () => {
   });
 });
 
-describe("dermatology demo", () => {
-  it("uses a fictional dermatology identity and short role prompt", () => {
+describe("rheumatology demo", () => {
+  it("uses a fictional rheumatology identity and medication prompt", () => {
     const prompt = buildPrompt(DEV_OFFICE_PHONE);
 
     expect(prompt).toContain("You are Julia");
-    expect(prompt).toContain("fictional dermatology practice");
-    expect(prompt).toContain("Medical dermatology includes");
+    expect(prompt).toContain("fictional rheumatology practice");
+    expect(prompt).toContain("Rheumatology includes");
     expect(prompt).toContain("visitType medical");
     expect(prompt).toContain(
-      "The current demo books medical dermatology appointments",
+      "Answer general medication education only from the current office knowledge",
     );
     expect(prompt).toContain(
-      "Use check_insurance for medical dermatology insurance acceptance.",
+      "For a routine refill, pharmacy change, medication prior authorization, or prescription-status request",
     );
     expect(prompt).toContain(
-      "Immediately call transfer_call for cosmetic or med-spa requests",
+      "Immediately call transfer_call for clinical medication guidance",
     );
     expect(prompt).toContain("# Human Transfer");
     expect(prompt).toContain(
@@ -332,6 +332,7 @@ describe("dermatology demo", () => {
     expect(prompt).toContain("You speak English and Spanish");
     expect(prompt).not.toContain("Abita Eye Group");
     expect(prompt).not.toContain("an ophthalmology clinic");
+    expect(prompt).not.toContain("dermatology");
     expect(prompt).not.toContain("glasses");
     expect(prompt).not.toContain("contact lenses");
   });
@@ -355,22 +356,31 @@ describe("dermatology demo", () => {
     });
   });
 
-  it("retrieves dermatology knowledge for medical and cosmetic questions", () => {
-    const cosmetic = resolveOfficeKnowledge("dev", "Do you offer Botox?");
-    const medical = resolveOfficeKnowledge("dev", "Do you perform Mohs?");
+  it("retrieves rheumatology and medication knowledge", () => {
+    const condition = resolveOfficeKnowledge("dev", "Do you treat lupus?");
+    const medication = resolveOfficeKnowledge("dev", "What is methotrexate?");
 
-    expect(cosmetic.sections.join("\n")).toContain("## Medical or Cosmetic");
-    expect(cosmetic.sections.join("\n")).toContain(
-      "Botox and Dysport consultations",
+    expect(condition.sections.join("\n")).toContain("## Scope of Services");
+    expect(condition.sections.join("\n")).toContain(
+      "rheumatoid arthritis, osteoarthritis, lupus",
     );
-    expect(medical.sections.join("\n")).toContain("## Skin Cancer and Mohs");
-    expect(medical.sections.join("\n")).toContain(
-      "Provider review determines whether Mohs is needed and whether it will be performed",
+    expect(medication.sections.join("\n")).toContain(
+      "Methotrexate is a conventional disease-modifying antirheumatic drug",
     );
   });
 
-  it("keeps the knowledge base fictional and free of eye-practice identity", () => {
+  it("keeps rheumatology fictional and preserves the dermatology files", () => {
     const knowledge = readFileSync(
+      join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "workspace",
+        "KNOWLEDGE_RHEUM_DEMO.md",
+      ),
+      "utf-8",
+    );
+    const dermatology = readFileSync(
       join(
         import.meta.dirname,
         "..",
@@ -384,13 +394,10 @@ describe("dermatology demo", () => {
     expect(knowledge).toContain(
       "fictional practice created for product demonstrations",
     );
-    expect(knowledge).toContain("medical dermatology");
-    expect(knowledge).toContain(
-      "Cosmetic consultations and med-spa services are self-pay",
-    );
+    expect(knowledge).toContain("rheumatoid arthritis");
     expect(knowledge).not.toContain("Abita");
-    expect(knowledge).not.toContain("Clear Skin");
-    expect(knowledge).not.toContain("Spring Hill");
+    expect(knowledge).not.toContain("acrmed.com");
+    expect(dermatology).toContain("medical dermatology");
   });
 });
 
@@ -703,7 +710,7 @@ describe("Crystal River prompt guidance", () => {
       expect(prompt).not.toContain("<office_policy>");
     }
 
-    expect(buildPrompt(DEV_OFFICE_PHONE)).not.toContain("create_staff_task");
+    expect(buildPrompt(DEV_OFFICE_PHONE)).toContain("create_staff_task");
   });
 
   it("keeps concise voice guidance in the base voice prompt", () => {

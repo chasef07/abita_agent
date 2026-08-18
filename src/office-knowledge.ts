@@ -47,6 +47,7 @@ export type OfficeKnowledgeTopic =
   | "hours"
   | "insurance_referrals"
   | "location_contact"
+  | "medications"
   | "medical_cosmetic"
   | "optical"
   | "optical_repairs"
@@ -73,6 +74,7 @@ type TopicDefinition = {
   aliases: Array<
     readonly [phrase: string, weight: number, sourceTerms?: readonly string[]]
   >;
+  officeKeys?: readonly OfficeKey[];
   sectionTitles: string[];
   topic: OfficeKnowledgeTopic;
 };
@@ -202,6 +204,10 @@ const TOPICS: TopicDefinition[] = [
       ["oftalmologo", 3],
       ["dermatologist", 3],
       ["dermatologo", 3],
+      ["rheumatologist", 3],
+      ["rheumatologists", 3],
+      ["reumatologo", 3],
+      ["reumatologos", 3],
     ],
   ),
   topic(
@@ -246,6 +252,34 @@ const TOPICS: TopicDefinition[] = [
       ["skincare", 4, ["skincare"]],
       ["med spa", 5, ["med spa"]],
     ],
+  ),
+  topic(
+    "medications",
+    ["Scope of Services"],
+    [
+      ["medication", 4, ["medication education"]],
+      ["medications", 4, ["medication education"]],
+      ["medicine", 4, ["medication education"]],
+      ["methotrexate", 6, ["methotrexate"]],
+      ["dmard", 6, ["disease modifying antirheumatic drug"]],
+      ["dmards", 6, ["disease modifying antirheumatic drug"]],
+      ["biologic", 5, ["biologics"]],
+      ["biologics", 5, ["biologics"]],
+      ["prednisone", 5, ["prednisone"]],
+      ["hydroxychloroquine", 6, ["hydroxychloroquine"]],
+      ["plaquenil", 6, ["hydroxychloroquine"]],
+      ["lab monitoring", 6, ["laboratory monitoring"]],
+      ["blood tests", 5, ["blood-test monitoring"]],
+      ["stop medication", 6, ["holding a medication"]],
+      ["stop my medication", 6, ["holding a medication"]],
+      ["hold medication", 6, ["holding a medication"]],
+      ["hold my medication", 6, ["holding a medication"]],
+      ["combine medications", 6, ["combine medicines"]],
+      ["combine my medications", 6, ["combine medicines"]],
+      ["medications be combined", 6, ["combine medicines"]],
+      ["take together", 6, ["combine medicines"]],
+    ],
+    ["dev"],
   ),
   topic(
     "services",
@@ -312,6 +346,31 @@ const TOPICS: TopicDefinition[] = [
       ["skin tags", 5, ["skin tags"]],
       ["mole evaluation", 5, ["mole evaluation"]],
       ["full body skin exam", 5, ["full body skin examinations"]],
+      ["rheumatology", 4, ["rheumatology"]],
+      ["reumatologia", 4, ["rheumatology"]],
+      ["rheumatoid arthritis", 6, ["rheumatoid arthritis"]],
+      ["artritis reumatoide", 6, ["rheumatoid arthritis"]],
+      ["osteoarthritis", 5, ["osteoarthritis"]],
+      ["osteoartritis", 5, ["osteoarthritis"]],
+      ["lupus", 5, ["lupus"]],
+      ["psoriatic arthritis", 6, ["psoriatic arthritis"]],
+      ["artritis psoriasica", 6, ["psoriatic arthritis"]],
+      ["ankylosing spondylitis", 6, ["ankylosing spondylitis"]],
+      ["espondilitis anquilosante", 6, ["ankylosing spondylitis"]],
+      ["gout", 5, ["gout"]],
+      ["gota", 5, ["gout"]],
+      ["osteoporosis", 5, ["osteoporosis"]],
+      ["vasculitis", 5, ["vasculitis"]],
+      ["myositis", 5, ["myositis"]],
+      ["scleroderma", 5, ["scleroderma"]],
+      ["sjogren", 5, ["sjogren"]],
+      ["fibromyalgia", 5, ["fibromyalgia"]],
+      ["infusion", 5, ["infusions"]],
+      ["infusions", 5, ["infusions"]],
+      ["infusion therapy", 6, ["infusions"]],
+      ["joint injection", 6, ["injections"]],
+      ["joint injections", 6, ["injections"]],
+      ["diagnostic ultrasound", 6, ["diagnostic ultrasound"]],
     ],
   ),
   topic(
@@ -500,7 +559,7 @@ export function resolveOfficeKnowledge(
   }
   const index = knowledgeIndex(officeKey);
   const { sections } = index;
-  const currentScores = rankTopics(normalized, index);
+  const currentScores = rankTopics(normalized, index, officeKey);
   let selected = selectConfidentTopic(currentScores);
 
   const locationFollowUp = isLocationFollowUp(normalized);
@@ -513,7 +572,7 @@ export function resolveOfficeKnowledge(
     const normalizedRecentText = normalize(recentText);
     if (!isBusinessOwnedTurn(normalizedRecentText)) {
       const contextualTopic = selectConfidentTopic(
-        rankTopics(normalizedRecentText, index),
+        rankTopics(normalizedRecentText, index, officeKey),
       );
       if (
         !locationFollowUp ||
@@ -685,8 +744,9 @@ function topic(
   name: OfficeKnowledgeTopic,
   sectionTitles: string[],
   aliases: TopicDefinition["aliases"],
+  officeKeys?: readonly OfficeKey[],
 ): TopicDefinition {
-  return { aliases, sectionTitles, topic: name };
+  return { aliases, officeKeys, sectionTitles, topic: name };
 }
 
 function topicScore(
@@ -720,23 +780,32 @@ function topicScore(
 function rankTopics(
   normalizedTranscript: string,
   index: OfficeKnowledgeIndex,
+  officeKey: OfficeKey,
 ): RankedTopic[] {
-  return TOPICS.map((definition) => {
-    const match = topicScore(normalizedTranscript, definition, index.sections);
-    const providerScore =
-      definition.topic === "providers" &&
-      index.providerNames.some((alias) =>
-        hasPhrase(normalizedTranscript, alias),
-      )
-        ? 6
-        : 0;
-    return {
-      definition,
-      score: match.score + providerScore,
-      sourceSections: match.sourceSections,
-      sourceSupported: match.sourceSupported,
-    };
-  }).sort((left, right) => right.score - left.score);
+  return TOPICS.filter(
+    ({ officeKeys }) => !officeKeys || officeKeys.includes(officeKey),
+  )
+    .map((definition) => {
+      const match = topicScore(
+        normalizedTranscript,
+        definition,
+        index.sections,
+      );
+      const providerScore =
+        definition.topic === "providers" &&
+        index.providerNames.some((alias) =>
+          hasPhrase(normalizedTranscript, alias),
+        )
+          ? 6
+          : 0;
+      return {
+        definition,
+        score: match.score + providerScore,
+        sourceSections: match.sourceSections,
+        sourceSupported: match.sourceSupported,
+      };
+    })
+    .sort((left, right) => right.score - left.score);
 }
 
 function selectConfidentTopic(
@@ -1145,6 +1214,7 @@ const SPANISH_LANGUAGE_MARKERS = new Set([
   "mis",
   "tengo",
   "traer",
+  "tratan",
   "ubicados",
 ]);
 

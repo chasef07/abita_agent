@@ -267,10 +267,10 @@ const officeBehaviors: OfficeBehavior[] = [
   },
   {
     amdOfficePhone: DEV_OFFICE_PHONE,
-    displayName: "Harborleaf Dermatology & Aesthetics",
+    displayName: "Juniper Ridge Rheumatology & Arthritis Care",
     englishSpeaker: "wawona",
     greeting:
-      "Hi, this is Julia, the virtual assistant at Harborleaf Dermatology and Aesthetics. How can I help you today?",
+      "Hi, this is Julia, the virtual assistant at Juniper Ridge Rheumatology and Arthritis Care. How can I help you today?",
     handoff: {
       mode: "phone",
       target: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
@@ -286,15 +286,15 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "dev",
-    knowledgeSource: "KNOWLEDGE_DERM_DEMO.md",
+    knowledgeSource: "KNOWLEDGE_RHEUM_DEMO.md",
     middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
-    promptMarker: "a fictional dermatology practice",
+    promptMarker: "a fictional rheumatology practice",
     scheduling: {
       medical: { supported: true },
       routineVision: {
         supported: false,
         message:
-          "Harborleaf Dermatology & Aesthetics schedules dermatology care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
+          "Juniper Ridge Rheumatology & Arthritis Care schedules rheumatology care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
       },
     },
     staffTaskEnabled: true,
