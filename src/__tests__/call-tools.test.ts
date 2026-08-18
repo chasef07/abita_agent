@@ -2219,7 +2219,7 @@ describe("stateful call tools", () => {
     expect(state.workflow.current).toBeUndefined();
   });
 
-  it("returns a staff-transfer result for preauth-required insurance checks", async () => {
+  it("returns a staff-task result for preauth-required insurance checks", async () => {
     const state = createState();
     state.office.activeKey = "hollywood";
 
@@ -2231,13 +2231,15 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     )) as Record<string, unknown>;
 
-    expect(result).toEqual({
-      status: "needs_transfer",
+    expect(result).toMatchObject({
+      status: "needs_staff_task",
       plan: "United Healthcare Individual Exchange Network (Medical)",
       preauthRequired: true,
-      message:
-        "Prior authorization is required for United Healthcare Individual Exchange Network (Medical). Transfer the caller to staff before scheduling.",
     });
+    expect(result.message).toContain("call create_staff_task");
+    expect(result.message).toContain(
+      "Transfer only if task creation is unavailable, fails, or the caller declines",
+    );
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "United Healthcare Individual Exchange Network (Medical)",
       canonicalPlan: null,

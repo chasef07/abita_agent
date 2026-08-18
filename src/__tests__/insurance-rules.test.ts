@@ -419,23 +419,23 @@ describe("insurance matcher", () => {
     expect(toolResponse).not.toHaveProperty("callerFacingPlan");
   });
 
-  it("returns a transfer response for preauth-required medical plans", () => {
+  it("returns a staff-task response for preauth-required medical plans", () => {
     const result = matchInsurancePlanForOffice(
       "hollywood",
       "United Healthcare Individual Exchange Network (Medical)",
     );
     const toolResponse = buildInsuranceToolResponse(result);
 
-    expect(result.status).toBe("needs_transfer");
+    expect(result.status).toBe("needs_staff_task");
     expect(result.preauthRequired).toBe(true);
     expect(result.canProceed).toBe(false);
     expect(canonicalInsurancePlan(result)).toBeNull();
     expect(toolResponse).toEqual({
-      status: "needs_transfer",
+      status: "needs_staff_task",
       plan: "United Healthcare Individual Exchange Network (Medical)",
       preauthRequired: true,
       message:
-        "Prior authorization is required for United Healthcare Individual Exchange Network (Medical). Transfer the caller to staff before scheduling.",
+        'Prior authorization is required for United Healthcare Individual Exchange Network (Medical). Tell the caller: "This plan requires prior authorization before we can schedule. I need to create a task for our staff to follow up with your insurance company. Is that okay?" If the caller agrees, call create_staff_task with category referrals and urgency normal. Include the patient, plan, visit type, and authorization request staff needs. Transfer only if task creation is unavailable, fails, or the caller declines.',
     });
   });
 
@@ -614,7 +614,7 @@ describe("insurance matcher", () => {
       "sweetwater",
       "Care Plus",
     );
-    expect(sweetwaterCarePlus.status).toBe("needs_transfer");
+    expect(sweetwaterCarePlus.status).toBe("needs_staff_task");
     expect(sweetwaterCarePlus.preauthRequired).toBe(true);
     expect(canonicalInsurancePlan(sweetwaterCarePlus)).toBeNull();
 
@@ -688,7 +688,7 @@ describe("insurance matcher", () => {
       "Wellcare Medicare LPPO Medical",
     ]) {
       const result = matchInsurancePlanForOffice("hollywood", input);
-      expect(result.status, input).toBe("needs_transfer");
+      expect(result.status, input).toBe("needs_staff_task");
       expect(result.preauthRequired, input).toBe(true);
       expect(canonicalInsurancePlan(result), input).toBeNull();
     }
