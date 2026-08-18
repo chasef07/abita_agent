@@ -10,7 +10,6 @@ export type OfficeKey =
 export type HandoffOfficeKey = OfficeKey | "sweetwater-optical";
 export type OfficeCare = "medical" | "routine_vision";
 export type OfficeSpeechLanguage = "en" | "es";
-export type OfficeClinicalSpecialty = "eye-care" | "rheumatology";
 export const AVAILABILITY_OFFICE_KEYS = ["hollywood", "sweetwater"] as const;
 export type AvailabilityOfficeKey = (typeof AVAILABILITY_OFFICE_KEYS)[number];
 const AVAILABILITY_OFFICE_NAMES = "Hollywood or Sweetwater";
@@ -55,7 +54,6 @@ export interface OfficeProfile {
   greeting: string;
   amdOfficePhone: string;
   knowledgeSource: string;
-  clinicalSpecialty: OfficeClinicalSpecialty;
   staffTaskEnabled: boolean;
   availabilityOfficeFor(
     requestedOffice?: AvailabilityOfficeKey,
@@ -78,7 +76,6 @@ type OfficeCareInput =
 type OfficeProfileInput = {
   amdOfficePhone: string;
   care: Record<OfficeCare, OfficeCareInput>;
-  clinicalSpecialty?: OfficeClinicalSpecialty;
   displayName: string;
   englishSpeaker?: string;
   greeting: string;
@@ -95,7 +92,6 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
   const {
     amdOfficePhone,
     care,
-    clinicalSpecialty = "eye-care",
     displayName,
     englishSpeaker = "wawona",
     greeting,
@@ -123,7 +119,6 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
 
   return {
     amdOfficePhone,
-    clinicalSpecialty,
     displayName,
     greeting,
     key,
@@ -288,7 +283,6 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
   dev: defineOffice({
     key: "dev",
     displayName: "Juniper Ridge Rheumatology & Arthritis Care",
-    clinicalSpecialty: "rheumatology",
     trunkPhones: [DEV_OFFICE_PHONE],
     greeting:
       "Hi, this is Julia, the virtual assistant at Juniper Ridge Rheumatology and Arthritis Care. How can I help you today?",
@@ -297,7 +291,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     care: {
       medical: {
         supported: true,
-        insuranceSource: "INSURANCE_RHEUM_DEMO.json",
+        insuranceSource: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
       },
       routine_vision: {
         supported: false,

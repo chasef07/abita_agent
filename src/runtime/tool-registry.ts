@@ -6,21 +6,13 @@ import { lastInsuranceEligibilityCheck } from "../scheduling/state.js";
 import { schedulingToolIdsForState } from "../scheduling/tool-availability.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
+  add_patient,
   check_insurance,
   create_staff_task,
   resolve_patient,
   transfer_call,
-} from "../tools/index.js";
-import {
-  add_patient,
-  createMedicalOnlyAddPatientTool,
-} from "../tools/add-patient.js";
-import { createRheumatologyStaffTask } from "../tools/create-staff-task.js";
-import { createRheumatologyInsuranceTool } from "../tools/check-insurance.js";
-import {
-  createMedicalOnlyUpdateInsuranceTool,
   update_insurance,
-} from "../tools/update-insurance.js";
+} from "../tools/index.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import type { PatientResolveLookup } from "../identity/patient-identity.js";
 
@@ -69,7 +61,6 @@ export function buildToolsForTrunk(
   options: { identityLookup?: PatientResolveLookup } = {},
 ): AgentTools {
   const office = getOfficeProfileByPhone(trunkPhone ?? "");
-  const isRheumatology = office.clinicalSpecialty === "rheumatology";
   const availabilityOfficeMode =
     office.availabilityOfficeFor().status === "blocked"
       ? "required"
@@ -81,32 +72,22 @@ export function buildToolsForTrunk(
     reschedule_appointment,
   } = createSchedulingTools(productionSchedulingMiddleware, undefined, {
     availabilityOfficeMode,
-    ...(isRheumatology
-      ? {
-          appointmentReasonDescription:
-            "Concise caller-provided rheumatology appointment reason. For a current symptom or concern, include one caller-provided detail, such as the affected joint or body area or when it started. Leave diagnosis and urgency assessment to clinical staff and use caller-provided details only.",
-          visitTypes: ["medical"] as const,
-        }
-      : {}),
   });
   const coreTools = [
     options.identityLookup
       ? createResolvePatientTool(options.identityLookup)
       : resolve_patient,
-    isRheumatology ? createMedicalOnlyAddPatientTool() : add_patient,
-    isRheumatology ? createMedicalOnlyUpdateInsuranceTool() : update_insurance,
+    add_patient,
+    update_insurance,
     get_availability,
     cancel_appointment,
     book_appointment,
     reschedule_appointment,
-    isRheumatology ? createRheumatologyInsuranceTool() : check_insurance,
+    check_insurance,
   ] as const satisfies readonly ToolContextEntry<CallState>[];
   const commonTools = [...coreTools, transfer_call, end_call] as const;
   if (office.staffTaskEnabled) {
-    return [
-      ...commonTools,
-      isRheumatology ? createRheumatologyStaffTask() : create_staff_task,
-    ];
+    return [...commonTools, create_staff_task];
   }
   return commonTools;
 }

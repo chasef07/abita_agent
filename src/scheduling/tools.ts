@@ -20,48 +20,40 @@ const APPOINTMENT_LANE_BY_VISIT_TYPE = {
 type AvailabilityOfficeMode = "omitted" | "optional" | "required";
 
 type SchedulingToolOptions = {
-  appointmentReasonDescription?: string;
   availabilityOfficeMode?: AvailabilityOfficeMode;
-  visitTypes?:
-    | readonly ["medical"]
-    | readonly ["routine_vision"]
-    | readonly ["medical", "routine_vision"];
 };
 
-const DEFAULT_APPOINTMENT_REASON_DESCRIPTION =
-  "Concise caller-provided reason with enough detail for staff to prepare appropriate diagnostic testing. For an eye problem, include the symptom or concern plus one caller-provided detail, such as which eye or when it started. For routine care, state the routine purpose. Leave diagnosis to clinical staff and use caller-provided details only.";
-
-function bookAppointmentParameters(appointmentReasonDescription: string) {
-  return z
-    .object({
-      appointmentSlotRef: z
-        .string()
-        .trim()
-        .min(1)
-        .describe(
-          "Opaque slot reference from get_availability for the caller-confirmed slot.",
-        ),
-      appointmentReason: z
-        .string()
-        .trim()
-        .min(1)
-        .describe(appointmentReasonDescription),
-      referringDoctor: z
-        .string()
-        .trim()
-        .min(1)
-        .describe(
-          'Caller-provided referring doctor. When the caller reports no referring doctor, acknowledge briefly and continue. Pass "none" only as this tool\'s internal value and use natural caller-facing wording.',
-        ),
-      readBack: z
-        .boolean()
-        .optional()
-        .describe(
-          "Set to true only after reading back the selected appointment date, time, and provider and the caller confirms the appointment details are correct.",
-        ),
-    })
-    .strict();
-}
+const bookAppointmentParameters = z
+  .object({
+    appointmentSlotRef: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        "Opaque slot reference from get_availability for the caller-confirmed slot.",
+      ),
+    appointmentReason: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        "Concise caller-provided reason with enough detail for staff to prepare appropriate diagnostic testing. For an eye problem, include the symptom or concern plus one caller-provided detail, such as which eye or when it started. For routine care, state the routine purpose. Leave diagnosis to clinical staff and use caller-provided details only.",
+      ),
+    referringDoctor: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        'Caller-provided referring doctor. When the caller reports no referring doctor, acknowledge briefly and continue. Pass "none" only as this tool\'s internal value and use natural caller-facing wording.',
+      ),
+    readBack: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set to true only after reading back the selected appointment date, time, and provider and the caller confirms the appointment details are correct.",
+      ),
+  })
+  .strict();
 
 const cancelAppointmentParameters = z
   .object({
@@ -120,15 +112,6 @@ export function createSchedulingTools(
 ) {
   const workflow = new SchedulingWorkflow(middleware, clock);
   const availabilityOfficeMode = options.availabilityOfficeMode ?? "optional";
-  const visitTypes = options.visitTypes ?? ["medical", "routine_vision"];
-  const visitTypeInstruction =
-    visitTypes.length === 1
-      ? `pass ${visitTypes[0]}. `
-      : "pass medical or routine_vision. ";
-  const bookingParameters = bookAppointmentParameters(
-    options.appointmentReasonDescription ??
-      DEFAULT_APPOINTMENT_REASON_DESCRIPTION,
-  );
 
   const availabilityFields = {
     when: z
@@ -139,11 +122,10 @@ export function createSchedulingTools(
         "The caller's own date and time phrase, forwarded verbatim, such as tomorrow, next Tuesday around 3 PM, June 16 in the morning, or next available.",
       ),
     visitType: z
-      .enum(visitTypes)
+      .enum(["medical", "routine_vision"])
       .optional()
       .describe(
-        "Visit type established by appointment triage. Required for new appointment searches; " +
-          visitTypeInstruction +
+        "Visit type established by appointment triage. Required for new appointment searches; pass medical or routine_vision. " +
           "Omit only for reschedules when the loaded appointment supplies the visit type.",
       ),
     oldAppointmentRef: z
@@ -221,7 +203,7 @@ export function createSchedulingTools(
       "Call only after the caller confirms the exact offered slot and provides a referring doctor or says they have none. " +
       "Only after this tool returns a successful booking may you tell the caller they are booked, scheduled, or all set. " +
       "After a successful booking, if the caller asks whether they will receive confirmation, say yes, a confirmation email will be sent.",
-    parameters: bookingParameters,
+    parameters: bookAppointmentParameters,
     execute: async (args, { ctx }) => {
       ctx.disallowInterruptions();
       return returnSchedulingInputRequired(() =>

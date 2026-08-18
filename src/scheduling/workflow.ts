@@ -990,7 +990,7 @@ function ensureNewAppointmentBookingContext(state: CallState): void {
     return;
   }
   throw new SchedulingInputRequired(
-    "Search availability again with the supported visitType before booking a new appointment.",
+    "Search availability again with visitType medical or routine_vision before booking a new appointment.",
   );
 }
 

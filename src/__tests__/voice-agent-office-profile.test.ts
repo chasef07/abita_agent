@@ -277,8 +277,8 @@ const officeBehaviors: OfficeBehavior[] = [
     },
     insurance: {
       medical: {
-        query: "Aetna PPO",
-        response: { status: "accepted", plan: "Aetna PPO" },
+        query: "Ambetter Premier",
+        response: { status: "accepted", plan: "Ambetter Premier" },
       },
       routineVision: {
         query: "VSP",
