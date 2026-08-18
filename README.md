@@ -482,7 +482,6 @@ Use [`.env.example`](.env.example) as the canonical variable list.
 | Variables | Purpose | Requirement |
 | --- | --- | --- |
 | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | Worker connection and SIP transfer | Required for connected calls |
-| `ASSEMBLYAI_API_KEY` | Speech-to-text | Required |
 | `RIME_API_KEY` | Text-to-speech | Required |
 | `AMD_API_URL`, `AMD_API_TOKEN` | Owned middleware base URL and authentication | Required for patient and scheduling workflows |
 | `ACUITY_PRODUCT_INTERACTION_URL`, `ACUITY_DEMO_PRODUCT_SERVICE_SECRET`, `ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET` | Product-owned AI interaction lifecycle and outcome delivery, selected after inbound Office Profile resolution | All three are required at production startup |

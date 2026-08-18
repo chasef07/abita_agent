@@ -1,7 +1,7 @@
 # Documentation
 
 Runtime code and interface-level tests are the source of truth. Use this folder
-only for agent workflow, provider operations, and sanitized incident history.
+only for agent workflow and provider operations.
 
 ## Agent Workflow
 
@@ -18,12 +18,6 @@ only for agent workflow, provider operations, and sanitized incident history.
   production LiveKit deployment contract.
 - [`ops/telnyx-setup.md`](ops/telnyx-setup.md) — Telnyx-to-LiveKit SIP setup and
   troubleshooting. Recheck provider-console values before applying changes.
-
-## History
-
-- [`history/incident-2026-04-09-concurrent-dispatch.md`](history/incident-2026-04-09-concurrent-dispatch.md)
-  — sanitized concurrency incident retained for operational context, not current
-  runtime guidance.
 
 Feature specifications and architecture decisions live in
 [GitHub Issues](https://github.com/chasef07/abita_agent/issues). Runtime prompt,
