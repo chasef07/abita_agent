@@ -502,31 +502,33 @@ route.
 ```mermaid
 flowchart TD
     pr["Pull request"]
-    ci["GitHub CI<br/>format · lint · typecheck · test"]
+    prci["Pull request CI<br/>format · lint · typecheck · test"]
     main["Squash merge to main<br/>Conventional Commit title"]
-    verify["Production verify job<br/>repeat all repository checks"]
-    deploy["LiveKit CLI<br/>deploy exact commit"]
+    mainci["Main CI<br/>verify exact commit"]
+    release{"Release Please<br/>release created?"}
+    wait["Release PR<br/>opened or updated"]
+    verify["Verify exact release SHA<br/>repeat all repository checks"]
+    deploy["LiveKit CLI<br/>deploy exact release"]
     health{"New version healthy<br/>within five minutes?"}
     live["Production<br/>Running or Sleeping"]
     fail["Deployment failed<br/>terminal status or timeout"]
-    release["Release Please<br/>version · changelog · tag"]
 
-    pr --> ci --> main
-    main --> verify --> deploy --> health
+    pr --> prci --> main
+    main --> mainci --> release
+    release -->|No| wait
+    release -->|Yes| verify --> deploy --> health
     health -->|Yes| live
     health -->|No| fail
-    main --> release
 ```
 
 The container build is multi-stage, pins Node and pnpm, pre-downloads required
 LiveKit model assets, prunes development dependencies, and runs as a
-non-privileged user. Every successfully verified `main` commit is deployed with
-`lk agent deploy --yes`; the workflow accepts only a new LiveKit version in
-`Running` or `Sleeping` state.
-
-Release Please is independent of deployment. A release pull request updates the
-semantic version, changelog, tag, and GitHub Release; it does not select a
-different production artifact.
+non-privileged user. Successful CI on `main` lets Release Please open or update
+the release pull request, but does not deploy. Merging that release pull request
+creates the semantic version, changelog, tag, and GitHub Release. Only that
+newly created release is re-verified and deployed with `lk agent deploy --yes`;
+the workflow accepts only a new LiveKit version in `Running` or `Sleeping`
+state.
 
 See [the release and production automation contract](docs/ops/release-automation.md)
 for the exact workflow.
@@ -542,7 +544,7 @@ Keep these claims distinct:
 | Type interfaces compose | `pnpm typecheck` |
 | Module behavior passes locally | `pnpm test` |
 | Pull request checks pass | GitHub CI jobs for the exact commit |
-| Production deploy completed | GitHub production deployment for the exact `main` commit |
+| Production deploy completed | GitHub production deployment for the exact Release Please SHA |
 | Production worker is healthy | The new LiveKit agent version reports `Running` or `Sleeping` |
 | A caller workflow works end to end | A controlled call plus portal evidence and downstream effect |
 
