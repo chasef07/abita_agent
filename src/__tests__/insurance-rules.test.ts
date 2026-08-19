@@ -284,6 +284,23 @@ describe("insurance matcher", () => {
     }
   });
 
+  it("includes the new-patient coverage notice in the routine-vision Oscar response", () => {
+    for (const plan of ["Oscar", "Oscar Health"]) {
+      const result = matchInsurancePlanForOffice(
+        "spring-hill",
+        plan,
+        "routine_vision",
+      );
+
+      expect(buildInsuranceToolResponse(result)).toEqual({
+        status: "accepted",
+        plan,
+        callerNotice:
+          "For new patients with Oscar, Davis Vision coverage is automatic through age 18. For patients 19 and older, Davis Vision is included only if they selected Oscar's additional vision option. Without that option, the visit would be self-pay.",
+      });
+    }
+  });
+
   it("exposes a canonical middleware plan for accepted family aliases", () => {
     const result = matchInsurancePlan(reference, "Oscar");
 

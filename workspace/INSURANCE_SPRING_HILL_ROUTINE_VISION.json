@@ -141,15 +141,6 @@
       "needsExactPlanName": false
     },
     {
-      "id": "accepted-oscar",
-      "status": "accepted",
-      "canonicalPlan": "Oscar",
-      "displayName": "Oscar",
-      "aliases": [],
-      "canProceed": true,
-      "needsExactPlanName": false
-    },
-    {
       "id": "accepted-self-pay",
       "status": "accepted",
       "canonicalPlan": "Self Pay",
@@ -366,14 +357,12 @@
       "needsExactPlanName": true
     },
     {
-      "id": "accepted-oscar-2",
+      "id": "accepted-oscar",
       "status": "accepted",
       "canonicalPlan": "Oscar",
       "displayName": "Oscar",
-      "aliases": [
-        "Oscar",
-        "Oscar Health"
-      ],
+      "aliases": ["Oscar Health"],
+      "callerNotice": "For new patients with Oscar, Davis Vision coverage is automatic through age 18. For patients 19 and older, Davis Vision is included only if they selected Oscar's additional vision option. Without that option, the visit would be self-pay.",
       "canProceed": true,
       "needsExactPlanName": false
     },
