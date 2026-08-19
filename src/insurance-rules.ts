@@ -17,6 +17,7 @@ export interface InsurancePlanRule {
   aliases?: string[];
   requiredWordAliases?: string[];
   clarificationNeeded?: string;
+  callerNotice?: string;
   preauthRequired?: boolean;
   canProceed: boolean;
   needsExactPlanName: boolean;
@@ -39,6 +40,7 @@ export interface InsuranceLookupResult {
   canProceed: boolean;
   needsExactPlanName: boolean;
   clarificationNeeded: string | null;
+  callerNotice: string | null;
   preauthRequired: boolean;
 }
 
@@ -46,6 +48,7 @@ export type InsuranceToolResponse =
   | {
       status: "accepted";
       plan: string;
+      callerNotice?: string;
     }
   | {
       status: "not_accepted";
@@ -98,6 +101,7 @@ export function buildInsuranceToolResponse(
     return {
       status: "accepted",
       plan: result.callerFacingPlan ?? result.matchedFamily ?? result.query,
+      ...(result.callerNotice ? { callerNotice: result.callerNotice } : {}),
     };
   }
 
@@ -389,6 +393,7 @@ function buildPlanMatchResult(
       canProceed: rule.canProceed,
       needsExactPlanName: rule.needsExactPlanName,
       clarificationNeeded,
+      callerNotice: null,
       preauthRequired: rule.preauthRequired === true,
     };
   }
@@ -412,6 +417,7 @@ function buildPlanMatchResult(
       canProceed: false,
       needsExactPlanName: rule.needsExactPlanName,
       clarificationNeeded: null,
+      callerNotice: rule.callerNotice?.trim() || null,
       preauthRequired,
     };
   }
@@ -426,6 +432,7 @@ function buildPlanMatchResult(
     canProceed: rule.canProceed,
     needsExactPlanName: rule.needsExactPlanName,
     clarificationNeeded: null,
+    callerNotice: rule.callerNotice?.trim() || null,
     preauthRequired,
   };
 }
@@ -468,6 +475,7 @@ function buildUnknownInsuranceResult(query: string): InsuranceLookupResult {
     canProceed: false,
     needsExactPlanName: false,
     clarificationNeeded: "the exact plan name from the insurance card",
+    callerNotice: null,
     preauthRequired: false,
   };
 }
@@ -483,6 +491,7 @@ function buildUnsupportedInsuranceResult(query: string): InsuranceLookupResult {
     canProceed: false,
     needsExactPlanName: false,
     clarificationNeeded: null,
+    callerNotice: null,
     preauthRequired: false,
   };
 }
