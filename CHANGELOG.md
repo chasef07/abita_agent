@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.10.0](https://github.com/chasef07/abita_agent/compare/4.9.0...4.10.0) (2026-08-19)
+
+
+### Features
+
+* add Oscar routine vision notice ([#357](https://github.com/chasef07/abita_agent/issues/357)) ([b22eaa4](https://github.com/chasef07/abita_agent/commit/b22eaa49f9a9feaf2c05b2c9cd4a04648a242a2f))
+
 ## [4.9.0](https://github.com/chasef07/abita_agent/compare/4.8.1...4.9.0) (2026-08-18)
 
 
