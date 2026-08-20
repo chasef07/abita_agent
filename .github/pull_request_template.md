@@ -1,10 +1,8 @@
 <!--
 PR title: <type>(optional-scope): <summary>
 
-Add the appropriate visible issue reference below, then delete its placeholder:
-- GitHub closing link: `Fixes #___`
-- Linear closing link: `Fixes ACU-___`
-- Non-closing GitHub link: `Related to #___`
+Abita Agent tracks committed product work in Linear. Add the visible closing
+reference `Fixes ACU-___` below, then replace the placeholder with the issue ID.
 
 Do not include PHI, credentials, private URLs, or raw transcripts.
 Delete comments and unused prompts before requesting review.
@@ -12,7 +10,7 @@ Delete comments and unused prompts before requesting review.
 
 ## Issue
 
-<!-- Add the appropriate closing or related issue reference. -->
+Fixes ACU-___
 
 ## Problem
 
