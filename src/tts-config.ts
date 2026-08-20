@@ -2,7 +2,6 @@ import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import type { VoiceLanguage } from "./runtime/voice-language.js";
 
 export const RIME_TTS_MODEL = "coda";
-export const RIME_INFERENCE_TTS_MODEL = `rime/${RIME_TTS_MODEL}` as const;
 export const RIME_TTS_LANGUAGE = "eng";
 export const SPANISH_RIME_TTS_LANGUAGE = "spa";
 export const RIME_TTS_SAMPLE_RATE = 16000;
@@ -16,24 +15,6 @@ export type RimeTtsLanguageOptions = {
   lang: RimeTtsLanguageCode;
   speaker: string;
 };
-
-export function getRimeInferenceTtsOptions(input: {
-  language?: VoiceLanguage;
-  trunkPhone: string;
-}) {
-  const language = input.language ?? "en";
-  const options = getRimeTtsLanguageOptions({
-    language,
-    trunkPhone: input.trunkPhone,
-  });
-
-  return {
-    language,
-    model: RIME_INFERENCE_TTS_MODEL,
-    sampleRate: RIME_TTS_SAMPLE_RATE,
-    voice: options.speaker,
-  } as const;
-}
 
 export function getRimeTtsLanguageOptions(input: {
   language: VoiceLanguage;
