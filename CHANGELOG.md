@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.10.2](https://github.com/chasef07/abita_agent/compare/4.10.1...4.10.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* **deps:** update all outdated packages ([#362](https://github.com/chasef07/abita_agent/issues/362)) ([bfd39cb](https://github.com/chasef07/abita_agent/commit/bfd39cb7db7e64058e27f4175379e668502eb328))
+
 ## [4.10.1](https://github.com/chasef07/abita_agent/compare/4.10.0...4.10.1) (2026-08-20)
 
 
