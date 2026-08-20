@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.10.1](https://github.com/chasef07/abita_agent/compare/4.10.0...4.10.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* use production TTS path for demo ([#360](https://github.com/chasef07/abita_agent/issues/360)) ([dc0a0dd](https://github.com/chasef07/abita_agent/commit/dc0a0ddab7bd976b3b99a984915e761849d9d133))
+
 ## [4.10.0](https://github.com/chasef07/abita_agent/compare/4.9.0...4.10.0) (2026-08-19)
 
 
