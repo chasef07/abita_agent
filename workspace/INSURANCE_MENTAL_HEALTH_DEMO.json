@@ -1,0 +1,205 @@
+{
+  "version": 2,
+  "officeLabel": "Willowmere Behavioral Health Demo",
+  "coverageType": "medical",
+  "plans": [
+    {
+      "id": "accepted-aetna-commercial",
+      "status": "accepted",
+      "canonicalPlan": "Aetna Commercial",
+      "displayName": "Aetna Commercial",
+      "aliases": ["Aetna PPO", "Aetna Open Choice", "Aetna Choice POS II"],
+      "callerNotice": "This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "verify-aetna-family",
+      "status": "needs_clarification",
+      "canonicalPlan": null,
+      "displayName": "Aetna",
+      "aliases": ["Aetna insurance"],
+      "clarificationNeeded": "the exact Aetna plan name from the insurance card",
+      "canProceed": false,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "accepted-blue-cross-commercial",
+      "status": "accepted",
+      "canonicalPlan": "Blue Cross Blue Shield Commercial",
+      "displayName": "Blue Cross Blue Shield Commercial",
+      "aliases": ["BCBS Commercial", "Blue Cross PPO", "Blue Shield PPO"],
+      "callerNotice": "This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "verify-blue-cross-family",
+      "status": "needs_clarification",
+      "canonicalPlan": null,
+      "displayName": "Blue Cross Blue Shield",
+      "aliases": ["BCBS", "Blue Cross", "Blue Shield"],
+      "clarificationNeeded": "the exact Blue Cross Blue Shield plan name from the insurance card",
+      "canProceed": false,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "accepted-cigna-commercial",
+      "status": "accepted",
+      "canonicalPlan": "Cigna Healthcare Commercial",
+      "displayName": "Cigna Healthcare Commercial",
+      "aliases": ["Cigna PPO", "Cigna Open Access Plus", "Cigna OAP"],
+      "callerNotice": "This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "verify-cigna-family",
+      "status": "needs_clarification",
+      "canonicalPlan": null,
+      "displayName": "Cigna",
+      "aliases": ["Cigna Healthcare"],
+      "clarificationNeeded": "the exact Cigna plan name from the insurance card",
+      "canProceed": false,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "accepted-healthpartners-commercial",
+      "status": "accepted",
+      "canonicalPlan": "HealthPartners Commercial",
+      "displayName": "HealthPartners Commercial",
+      "aliases": ["Health Partners PPO", "HealthPartners PPO"],
+      "callerNotice": "This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "verify-healthpartners-family",
+      "status": "needs_clarification",
+      "canonicalPlan": null,
+      "displayName": "HealthPartners",
+      "aliases": ["Health Partners"],
+      "clarificationNeeded": "the exact HealthPartners plan name from the insurance card",
+      "canProceed": false,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "accepted-medica-commercial",
+      "status": "accepted",
+      "canonicalPlan": "Medica Commercial",
+      "displayName": "Medica Commercial",
+      "aliases": ["Medica PPO", "Medica Choice"],
+      "callerNotice": "This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "verify-medica-family",
+      "status": "needs_clarification",
+      "canonicalPlan": null,
+      "displayName": "Medica",
+      "aliases": ["Medica insurance"],
+      "clarificationNeeded": "the exact Medica plan name from the insurance card",
+      "canProceed": false,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "accepted-uhc-commercial",
+      "status": "accepted",
+      "canonicalPlan": "UnitedHealthcare Commercial",
+      "displayName": "UnitedHealthcare Commercial",
+      "aliases": ["UnitedHealthcare PPO", "United Health Care PPO", "UHC PPO", "UHC Choice Plus"],
+      "callerNotice": "This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
+      "canProceed": true,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "verify-uhc-family",
+      "status": "needs_clarification",
+      "canonicalPlan": null,
+      "displayName": "UnitedHealthcare",
+      "aliases": ["United Health Care", "UHC", "Optum behavioral health", "United Behavioral Health"],
+      "clarificationNeeded": "the exact UnitedHealthcare or Optum plan name from the insurance card",
+      "canProceed": false,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "accepted-original-medicare",
+      "status": "accepted",
+      "canonicalPlan": "Original Medicare",
+      "displayName": "Original Medicare",
+      "aliases": ["Traditional Medicare", "Medicare Part B"],
+      "callerNotice": "This is a fictional demo participation match. Eligibility, benefits, provider enrollment, service coverage, secondary coverage, and cost sharing still need verification.",
+      "canProceed": true,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "verify-medicare-advantage",
+      "status": "needs_clarification",
+      "canonicalPlan": null,
+      "displayName": "Medicare Advantage",
+      "aliases": ["Medicare HMO", "Medicare PPO", "Medicare replacement"],
+      "clarificationNeeded": "the carrier and exact Medicare Advantage plan name from the insurance card",
+      "canProceed": false,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "verify-medicaid",
+      "status": "needs_clarification",
+      "canonicalPlan": null,
+      "displayName": "Medicaid",
+      "aliases": ["Medical Assistance", "Minnesota Health Care Programs", "MHCP"],
+      "clarificationNeeded": "the exact Medicaid managed-care plan name from the insurance card",
+      "canProceed": false,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "verify-tricare",
+      "status": "needs_clarification",
+      "canonicalPlan": null,
+      "displayName": "TRICARE",
+      "aliases": ["Tricare East", "Tricare West", "Tricare Prime", "Tricare Select"],
+      "clarificationNeeded": "the exact TRICARE plan and region from the insurance card",
+      "canProceed": false,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "verify-eap",
+      "status": "needs_clarification",
+      "canonicalPlan": null,
+      "displayName": "Employee Assistance Program",
+      "aliases": ["EAP", "employee assistance", "work counseling benefit"],
+      "clarificationNeeded": "the EAP vendor, authorization or case number, and approved visit details",
+      "canProceed": false,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "not-accepted-auto-liability",
+      "status": "not_accepted",
+      "canonicalPlan": "Auto or Liability Insurance",
+      "displayName": "Auto or Liability Insurance",
+      "aliases": ["car accident insurance", "auto insurance", "liability claim"],
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "not-accepted-workers-compensation",
+      "status": "not_accepted",
+      "canonicalPlan": "Workers' Compensation",
+      "displayName": "Workers' Compensation",
+      "aliases": ["workers comp", "work comp", "work injury insurance"],
+      "canProceed": false,
+      "needsExactPlanName": false
+    },
+    {
+      "id": "accepted-self-pay",
+      "status": "accepted",
+      "canonicalPlan": "Self Pay",
+      "displayName": "Self Pay",
+      "aliases": ["cash pay", "private pay", "pay out of pocket"],
+      "callerNotice": "Self-pay is available in this fictional demo. Current rates and payment terms require staff confirmation.",
+      "canProceed": true,
+      "needsExactPlanName": false
+    }
+  ]
+}
