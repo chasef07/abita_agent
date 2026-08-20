@@ -3,14 +3,12 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  RIME_INFERENCE_TTS_MODEL,
   RIME_TTS_BASE_URL,
   RIME_TTS_LANGUAGE,
   RIME_TTS_MODEL,
   RIME_TTS_SAMPLE_RATE,
   RIME_TTS_SEGMENT,
   SPANISH_RIME_TTS_LANGUAGE,
-  getRimeInferenceTtsOptions,
   getRimeTtsOptions,
   getRimeTtsOptionsByLanguage,
 } from "../tts-config.js";
@@ -33,6 +31,7 @@ describe("TTS config", () => {
       HOLLYWOOD_OFFICE_PHONE,
       SWEETWATER_OFFICE_PHONE,
       NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+      DEV_OFFICE_PHONE,
     ];
 
     expect(RIME_TTS_SEGMENT).toBe("never");
@@ -40,7 +39,7 @@ describe("TTS config", () => {
       trunkPhones.map(
         (trunkPhone) => getRimeTtsOptions({ trunkPhone }).segment,
       ),
-    ).toEqual(["never", "never", "never", "never", "never"]);
+    ).toEqual(["never", "never", "never", "never", "never", "never"]);
   });
 
   it("builds the Rime websocket config with documented language option names", () => {
@@ -80,26 +79,22 @@ describe("TTS config", () => {
     });
   });
 
-  it("maps the dev office Rime configuration to LiveKit Inference", () => {
-    expect(
-      getRimeInferenceTtsOptions({ trunkPhone: DEV_OFFICE_PHONE }),
-    ).toEqual({
-      language: "en",
-      model: RIME_INFERENCE_TTS_MODEL,
-      sampleRate: RIME_TTS_SAMPLE_RATE,
-      voice: "wawona",
+  it("uses the production Rime websocket configuration for the demo office", () => {
+    expect(getRimeTtsOptions({ trunkPhone: DEV_OFFICE_PHONE })).toEqual({
+      modelId: RIME_TTS_MODEL,
+      speaker: "wawona",
+      lang: RIME_TTS_LANGUAGE,
+      useWebsocket: true,
+      segment: RIME_TTS_SEGMENT,
+      baseURL: RIME_TTS_BASE_URL,
+      samplingRate: RIME_TTS_SAMPLE_RATE,
     });
     expect(
-      getRimeInferenceTtsOptions({
+      getRimeTtsOptions({
         language: "es",
         trunkPhone: DEV_OFFICE_PHONE,
       }),
-    ).toEqual({
-      language: "es",
-      model: RIME_INFERENCE_TTS_MODEL,
-      sampleRate: RIME_TTS_SAMPLE_RATE,
-      voice: "luz",
-    });
+    ).toMatchObject({ lang: SPANISH_RIME_TTS_LANGUAGE, speaker: "luz" });
   });
 
   it("forwards Rime language through the documented websocket query parameter", () => {

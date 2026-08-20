@@ -16,7 +16,7 @@ export type VoiceLanguageStateOptions = {
   ttsLanguage: string;
 };
 
-export type VoiceTtsProvider = "rime" | "rime-inference";
+export type VoiceTtsProvider = "rime";
 
 export interface RuntimeVoiceLanguageState {
   current: VoiceLanguage;
