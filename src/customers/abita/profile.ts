@@ -11,7 +11,7 @@ export type OfficeKey =
   | "ophthalmology-demo"
   | "mental-health-demo"
   | "rheumatology-demo";
-export type HandoffOfficeKey = OfficeKey | "sweetwater-optical" | "dev";
+export type HandoffOfficeKey = OfficeKey | "sweetwater-optical";
 export type OfficeCare = "medical" | "routine_vision";
 export type OfficeSpeechLanguage = "en" | "es";
 export const AVAILABILITY_OFFICE_KEYS = ["hollywood", "sweetwater"] as const;
@@ -384,8 +384,7 @@ export function getProductOfficeKeyByPhone(phone: string): HandoffOfficeKey {
   if (normalizePhoneNumber(phone) === SWEETWATER_OPTICAL_TRUNK_PHONE) {
     return "sweetwater-optical";
   }
-  const officeKey = getOfficeKeyByPhone(phone);
-  return isDemoOfficeKey(officeKey) ? "dev" : officeKey;
+  return getOfficeKeyByPhone(phone);
 }
 
 export function isDemoOfficeKey(officeKey: OfficeKey): boolean {

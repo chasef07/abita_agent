@@ -265,9 +265,9 @@ describe("call-center handoff", () => {
         ] as const,
     ),
     [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE, "north-miami-beach-optical"],
-    [RHEUMATOLOGY_DEMO_TRUNK_PHONE, "dev"],
-    [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "dev"],
-    [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "dev"],
+    [RHEUMATOLOGY_DEMO_TRUNK_PHONE, "rheumatology-demo"],
+    [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "ophthalmology-demo"],
+    [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "mental-health-demo"],
   ] as const)("maps handoff trunk %s to %s", (trunkPhone, officeKey) => {
     expect(getProductOfficeKeyByPhone(trunkPhone)).toBe(officeKey);
   });
@@ -306,6 +306,13 @@ describe("call-center handoff", () => {
       handoffOfficeKey: "rheumatology-demo",
       handoffTarget: PRODUCT_RESPONSE.sipDestination,
     });
+    const request = JSON.parse(
+      fetchMock.mock.calls[0]?.[1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(request).toMatchObject({
+      officeKey: "rheumatology-demo",
+      practiceId: DEMO_PRODUCT_PRACTICE_ID,
+    });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://acuity-product.example/v1/handoffs",
       expect.objectContaining({
@@ -324,7 +331,7 @@ describe("call-center handoff", () => {
     [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "ophthalmology-demo"],
     [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "mental-health-demo"],
   ] as const)(
-    "routes the %s demo profile through the existing Product dev office",
+    "routes the %s demo profile through its matching Product office",
     async (trunkPhone, profileOfficeKey) => {
       configureDemoProductHandoff();
       const fetchMock = vi.fn(async () => jsonResponse(PRODUCT_RESPONSE, 201));
@@ -340,7 +347,7 @@ describe("call-center handoff", () => {
         fetchMock.mock.calls[0]?.[1]?.body as string,
       ) as Record<string, unknown>;
       expect(request).toMatchObject({
-        officeKey: "dev",
+        officeKey: profileOfficeKey,
         practiceId: DEMO_PRODUCT_PRACTICE_ID,
       });
     },

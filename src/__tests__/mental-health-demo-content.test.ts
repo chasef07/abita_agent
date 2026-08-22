@@ -158,7 +158,7 @@ describe("mental-health demo content", () => {
     });
     expect(office.schedulingFor("medical")).toEqual({ supported: true });
     expect(getProductOfficeKeyByPhone(MENTAL_HEALTH_DEMO_TRUNK_PHONE)).toBe(
-      "dev",
+      "mental-health-demo",
     );
   });
 

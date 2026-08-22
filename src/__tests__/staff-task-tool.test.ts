@@ -286,7 +286,7 @@ describe("create_staff_task", () => {
       callerPhone: "+17275551212",
       category: "other",
       message: "Caller wants the Harborleaf team to review their question.",
-      officeKey: "dev",
+      officeKey: "rheumatology-demo",
       officePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
       patient: {
         dob: "01/01/1980",
@@ -308,7 +308,7 @@ describe("create_staff_task", () => {
     ]);
   });
 
-  it("routes a dedicated demo trunk through the existing Product dev office", async () => {
+  it("routes a dedicated demo trunk through its matching Product office", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json(
         {
@@ -349,7 +349,7 @@ describe("create_staff_task", () => {
     });
     expect(body).toMatchObject({
       inboundOfficePhone: MENTAL_HEALTH_DEMO_TRUNK_PHONE,
-      officeKey: "dev",
+      officeKey: "mental-health-demo",
       officePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     });
   });

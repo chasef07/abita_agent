@@ -10,7 +10,9 @@ import {
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
   MENTAL_HEALTH_DEMO_TRUNK_PHONE,
   getOfficeProfile,
+  getOfficeProfileByPhone,
   getOfficeKeyByPhone,
+  getProductOfficeKeyByPhone,
   HOLLYWOOD_OFFICE_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
   OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
@@ -67,6 +69,18 @@ describe("office routing helpers", () => {
     expect(getOfficeKeyByPhone("18027878312")).toBe("ophthalmology-demo");
     expect(getOfficeKeyByPhone("13207388132")).toBe("mental-health-demo");
   });
+
+  it.each([
+    [RHEUMATOLOGY_DEMO_TRUNK_PHONE, "rheumatology-demo"],
+    [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "ophthalmology-demo"],
+    [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "mental-health-demo"],
+  ] as const)(
+    "maps specialty demo trunk %s through its matching Office Profile and Product route",
+    (trunkPhone, officeKey) => {
+      expect(getOfficeProfileByPhone(trunkPhone).key).toBe(officeKey);
+      expect(getProductOfficeKeyByPhone(trunkPhone)).toBe(officeKey);
+    },
+  );
 
   it("normalizes handoff targets while allowing SIP URIs directly", () => {
     expect(normalizeHandoffTarget("+12025550123")).toBe("tel:+12025550123");
