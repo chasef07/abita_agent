@@ -422,12 +422,13 @@ describe("dedicated demo trunks", () => {
 
     expect(office.trunkPhones).toEqual([OPHTHALMOLOGY_DEMO_TRUNK_PHONE]);
     expect(office.amdOfficePhone).toBe(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
-    expect(office.knowledgeSource).toBe("KNOWLEDGE_SPRINGHILL.md");
+    expect(office.knowledgeSource).toBe("KNOWLEDGE_OPHTHALMOLOGY_DEMO.md");
     expect(office.schedulingFor("medical")).toEqual({ supported: true });
     expect(office.schedulingFor("routine_vision")).toEqual({
       supported: true,
     });
-    expect(prompt).toContain("an ophthalmology clinic");
+    expect(prompt).toContain("a fictional ophthalmology clinic");
+    expect(prompt).not.toContain("Abita Eye Group");
     expect(prompt).toContain("# Appointment Triage");
   });
 

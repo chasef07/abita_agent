@@ -294,15 +294,16 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     trunkPhones: [OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
     greeting:
       "Hey this is Maya at Clearbrook Eye Center. How are you doing today?",
-    knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
+    roleFile: "SOUL_OPHTHALMOLOGY_DEMO.md",
+    knowledgeSource: "KNOWLEDGE_OPHTHALMOLOGY_DEMO.md",
     care: {
       medical: {
         supported: true,
-        insuranceSource: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+        insuranceSource: "INSURANCE_OPHTHALMOLOGY_DEMO_MEDICAL.json",
       },
       routine_vision: {
         supported: true,
-        insuranceSource: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
+        insuranceSource: "INSURANCE_OPHTHALMOLOGY_DEMO_ROUTINE_VISION.json",
       },
     },
     amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,

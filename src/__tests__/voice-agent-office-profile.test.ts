@@ -280,8 +280,8 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "ophthalmology-demo",
-    knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
-    promptMarker: "an ophthalmology clinic",
+    knowledgeSource: "KNOWLEDGE_OPHTHALMOLOGY_DEMO.md",
+    promptMarker: "a fictional ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
       routineVision: { supported: true },
