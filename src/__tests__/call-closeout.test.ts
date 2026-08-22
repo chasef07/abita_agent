@@ -1057,6 +1057,16 @@ describe("call closeout", () => {
       secret: "demo-secret",
       secretName: "ACUITY_DEMO_PRODUCT_SERVICE_SECRET" as const,
     },
+    {
+      officeKey: "ophthalmology-demo" as const,
+      secret: "demo-secret",
+      secretName: "ACUITY_DEMO_PRODUCT_SERVICE_SECRET" as const,
+    },
+    {
+      officeKey: "mental-health-demo" as const,
+      secret: "demo-secret",
+      secretName: "ACUITY_DEMO_PRODUCT_SERVICE_SECRET" as const,
+    },
   ])(
     "delivers the $officeKey lifecycle with the tenant bearer",
     async ({ officeKey, secret, secretName }) => {
