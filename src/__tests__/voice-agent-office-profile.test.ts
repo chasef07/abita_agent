@@ -261,10 +261,10 @@ const officeBehaviors: OfficeBehavior[] = [
   },
   {
     amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-    displayName: "Abita Eye Group Demo",
+    displayName: "Clearbrook Eye Center",
     englishSpeaker: "wawona",
     greeting:
-      "Hi, this is Julia, the virtual assistant at Abita Eye Group. How can I help you today?",
+      "Hey this is Maya at Clearbrook Eye Center. How are you doing today?",
     handoff: {
       mode: "phone",
       target: `tel:${DEMO_TRANSFER_NUMBER}`,

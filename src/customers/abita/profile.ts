@@ -290,10 +290,10 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
   }),
   "ophthalmology-demo": defineOffice({
     key: "ophthalmology-demo",
-    displayName: "Abita Eye Group Demo",
+    displayName: "Clearbrook Eye Center",
     trunkPhones: [OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
     greeting:
-      "Hi, this is Julia, the virtual assistant at Abita Eye Group. How can I help you today?",
+      "Hey this is Maya at Clearbrook Eye Center. How are you doing today?",
     knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
     care: {
       medical: {
