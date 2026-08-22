@@ -29,7 +29,7 @@ describe("mental-health demo content", () => {
     const role = readWorkspaceFile(MENTAL_HEALTH_DEMO_CONTENT.roleFile);
 
     expect(MENTAL_HEALTH_DEMO_CONTENT.greeting).toBe(
-      "Hi, you've reached Willowmere Behavioral Health. I'm Maya, the virtual receptionist. What would feel most helpful today?",
+      "Hey this is Maya at Willowmere Behavioral Health. How are you doing today?",
     );
     expect(role).toContain(
       `Use this exact introduction: "${MENTAL_HEALTH_DEMO_CONTENT.greeting}"`,

@@ -294,7 +294,7 @@ const officeBehaviors: OfficeBehavior[] = [
     displayName: "Willowmere Behavioral Health",
     englishSpeaker: "wawona",
     greeting:
-      "Hi, you've reached Willowmere Behavioral Health. I'm Maya, the virtual receptionist. What would feel most helpful today?",
+      "Hey this is Maya at Willowmere Behavioral Health. How are you doing today?",
     handoff: {
       mode: "phone",
       target: `tel:${DEMO_TRANSFER_NUMBER}`,
