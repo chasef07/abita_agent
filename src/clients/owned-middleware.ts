@@ -10,9 +10,6 @@ import {
   type PatientResolveVerified,
 } from "./owned-middleware-patient.js";
 
-const DEFAULT_PRODUCTION_BASE_URL =
-  "https://advancedmd-token-management-production.up.railway.app";
-
 export { patientResolveReceiptIsComplete };
 export type { PatientResolveCandidate, PatientResolveVerified };
 
@@ -257,23 +254,21 @@ export function setOwnedMiddleware(
 type HttpOwnedMiddlewareOptions = {
   authToken?: string;
   fetch?: typeof fetch;
-  productionBaseUrl?: string;
+  middlewareBaseUrl?: string;
   timeoutMs?: number;
 };
 
 export class HttpOwnedMiddleware implements OwnedMiddleware {
   readonly #authToken: string;
   readonly #fetch: typeof fetch;
-  readonly #productionBaseUrl: string;
+  readonly #middlewareBaseUrl: string;
   readonly #timeoutMs: number;
 
   constructor(options: HttpOwnedMiddlewareOptions = {}) {
     this.#authToken = options.authToken ?? process.env.AMD_API_TOKEN ?? "";
     this.#fetch = options.fetch ?? fetch;
-    this.#productionBaseUrl =
-      options.productionBaseUrl ??
-      process.env.AMD_API_URL ??
-      DEFAULT_PRODUCTION_BASE_URL;
+    this.#middlewareBaseUrl =
+      options.middlewareBaseUrl ?? process.env.AMD_API_URL ?? "";
     this.#timeoutMs = options.timeoutMs ?? 10_000;
   }
 
@@ -418,13 +413,6 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       : transport.failure;
   }
 
-  #baseUrl(officePhone: string): string {
-    const office = getOfficeProfileByPhone(officePhone);
-    return office
-      .middlewareBaseUrl(this.#productionBaseUrl)
-      .replace(/\/+$/, "");
-  }
-
   async #post(
     path: string,
     office: string,
@@ -438,9 +426,8 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
   > {
     const payload =
       options.includeOffice === false ? body : { ...body, office };
-    let baseUrl: string;
     try {
-      baseUrl = this.#baseUrl(office);
+      getOfficeProfileByPhone(office);
     } catch {
       return {
         ok: false,
@@ -450,6 +437,16 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
         },
       };
     }
+    if (!this.#middlewareBaseUrl) {
+      return {
+        ok: false,
+        failure: {
+          status: "error",
+          reason: "middleware_error",
+        },
+      };
+    }
+    const baseUrl = this.#middlewareBaseUrl.replace(/\/+$/, "");
     try {
       const response = await this.#fetch(`${baseUrl}${path}`, {
         method: "POST",

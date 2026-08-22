@@ -15,10 +15,12 @@ vi.mock("livekit-server-sdk", () => ({
 import { transferIsAccepted, transferStatus } from "../state/call-lifecycle.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
-  DEV_DEMO_TRANSFER_NUMBER,
-  DEV_OFFICE_PHONE,
-  getHandoffOfficeKeyByPhone,
+  DEMO_TRANSFER_NUMBER,
+  RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
   getOfficeProfileByPhone,
+  getProductOfficeKeyByPhone,
   HOLLYWOOD_OFFICE_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
   SPRING_HILL_OFFICE_PHONE,
@@ -158,23 +160,23 @@ describe("call-center handoff", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.trunkPhone = RHEUMATOLOGY_DEMO_TRUNK_PHONE;
 
     const result = await transferCallerToOffice(state);
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toEqual({
-      handoffOfficeKey: "dev",
-      handoffTarget: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+      handoffOfficeKey: "rheumatology-demo",
+      handoffTarget: `tel:${DEMO_TRANSFER_NUMBER}`,
     });
     expect(transferSipParticipantMock).toHaveBeenCalledWith(
       "test-room",
       "sip-caller",
-      `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+      `tel:${DEMO_TRANSFER_NUMBER}`,
       expect.objectContaining({
         headers: expect.objectContaining({
-          "X-Acuity-Handoff-Target": `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
-          "X-Acuity-Office-Key": "dev",
+          "X-Acuity-Handoff-Target": `tel:${DEMO_TRANSFER_NUMBER}`,
+          "X-Acuity-Office-Key": "rheumatology-demo",
         }),
         playDialtone: true,
         ringingTimeout: 20,
@@ -263,8 +265,11 @@ describe("call-center handoff", () => {
         ] as const,
     ),
     [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE, "north-miami-beach-optical"],
+    [RHEUMATOLOGY_DEMO_TRUNK_PHONE, "dev"],
+    [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "dev"],
+    [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "dev"],
   ] as const)("maps handoff trunk %s to %s", (trunkPhone, officeKey) => {
-    expect(getHandoffOfficeKeyByPhone(trunkPhone)).toBe(officeKey);
+    expect(getProductOfficeKeyByPhone(trunkPhone)).toBe(officeKey);
   });
 
   it("routes the Sweetwater optical trunk without changing its office profile", async () => {
@@ -295,10 +300,10 @@ describe("call-center handoff", () => {
     const fetchMock = vi.fn(async () => jsonResponse(PRODUCT_RESPONSE, 201));
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.trunkPhone = RHEUMATOLOGY_DEMO_TRUNK_PHONE;
 
     await expect(transferCallerToOffice(state)).resolves.toEqual({
-      handoffOfficeKey: "dev",
+      handoffOfficeKey: "rheumatology-demo",
       handoffTarget: PRODUCT_RESPONSE.sipDestination,
     });
     expect(fetchMock).toHaveBeenCalledWith(
@@ -315,6 +320,32 @@ describe("call-center handoff", () => {
     );
   });
 
+  it.each([
+    [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "ophthalmology-demo"],
+    [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "mental-health-demo"],
+  ] as const)(
+    "routes the %s demo profile through the existing Product dev office",
+    async (trunkPhone, profileOfficeKey) => {
+      configureDemoProductHandoff();
+      const fetchMock = vi.fn(async () => jsonResponse(PRODUCT_RESPONSE, 201));
+      vi.stubGlobal("fetch", fetchMock);
+      const state = createState();
+      state.runtime.trunkPhone = trunkPhone;
+
+      await expect(transferCallerToOffice(state)).resolves.toEqual({
+        handoffOfficeKey: profileOfficeKey,
+        handoffTarget: PRODUCT_RESPONSE.sipDestination,
+      });
+      const request = JSON.parse(
+        fetchMock.mock.calls[0]?.[1]?.body as string,
+      ) as Record<string, unknown>;
+      expect(request).toMatchObject({
+        officeKey: "dev",
+        practiceId: DEMO_PRODUCT_PRACTICE_ID,
+      });
+    },
+  );
+
   it("fails closed when the Demo Product handoff configuration is incomplete", async () => {
     vi.stubEnv(
       "ACUITY_PRODUCT_HANDOFF_URL",
@@ -323,7 +354,7 @@ describe("call-center handoff", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
-    state.runtime.trunkPhone = DEV_OFFICE_PHONE;
+    state.runtime.trunkPhone = RHEUMATOLOGY_DEMO_TRUNK_PHONE;
 
     await expect(transferCallerToOffice(state)).rejects.toThrow(
       "Acuity Product handoff configuration is incomplete.",

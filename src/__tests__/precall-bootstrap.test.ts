@@ -187,7 +187,7 @@ describe("pre-call bootstrap", () => {
     );
   });
 
-  it("preloads Railway appointments without confirmation metadata", async () => {
+  it("preloads middleware appointments without confirmation metadata", async () => {
     setOwnedMiddleware(
       new HttpOwnedMiddleware({
         fetch: vi.fn(async () =>
@@ -207,7 +207,7 @@ describe("pre-call bootstrap", () => {
             ],
           }),
         ),
-        productionBaseUrl: "https://middleware.test",
+        middlewareBaseUrl: "https://middleware.test",
       }),
     );
 

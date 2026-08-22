@@ -47,21 +47,21 @@ const topicFixtures: TopicFixture[] = [
     language: "en",
   },
   {
-    officeKey: "dev",
+    officeKey: "rheumatology-demo",
     transcript: "¿Tratan artritis reumatoide?",
     topic: "services",
     expectedHeading: "## Scope of Services",
     language: "es",
   },
   {
-    officeKey: "dev",
+    officeKey: "rheumatology-demo",
     transcript: "Do you offer infusion therapy?",
     topic: "services",
     expectedHeading: "## Scope of Services",
     language: "en",
   },
   {
-    officeKey: "dev",
+    officeKey: "rheumatology-demo",
     transcript: "What is methotrexate?",
     topic: "medications",
     expectedHeading: "## Scope of Services",
@@ -393,8 +393,8 @@ describe("Office Knowledge Resolver", () => {
 
   it.each([
     ["spring-hill", "Do you treat hair loss?", "services"],
-    ["dev", "Do you treat uveitis?", "services"],
-    ["dev", "I started seeing flashes.", "emergency_urgency"],
+    ["rheumatology-demo", "Do you treat uveitis?", "services"],
+    ["rheumatology-demo", "I started seeing flashes.", "emergency_urgency"],
   ] as const)(
     "does not borrow $topic facts from another office: %s",
     (officeKey, transcript, topic) => {
@@ -408,7 +408,10 @@ describe("Office Knowledge Resolver", () => {
   );
 
   it("distinguishes a supported topic whose active-office fact is unavailable", () => {
-    const result = resolveOfficeKnowledge("dev", "What is your Instagram?");
+    const result = resolveOfficeKnowledge(
+      "rheumatology-demo",
+      "What is your Instagram?",
+    );
 
     expect(result).toMatchObject({
       outcome: "unavailable",
@@ -418,7 +421,7 @@ describe("Office Knowledge Resolver", () => {
     if (result.outcome === "skipped") {
       throw new Error("Expected a recognized knowledge topic.");
     }
-    const reference = officeKnowledgeReference("dev", result);
+    const reference = officeKnowledgeReference("rheumatology-demo", result);
     expect(reference).toContain(
       "active office has no supplied information for social_follow_up",
     );
@@ -430,13 +433,15 @@ describe("Office Knowledge Resolver", () => {
   it("validates a sectioned knowledge source for every Office Profile", () => {
     const sources = validateOfficeKnowledgeSources();
 
-    expect(sources).toHaveLength(6);
+    expect(sources).toHaveLength(8);
     expect(sources.map(({ officeKey }) => officeKey).sort()).toEqual(
       [
         "crystal-river",
-        "dev",
         "hollywood",
+        "mental-health-demo",
         "north-miami-beach-optical",
+        "ophthalmology-demo",
+        "rheumatology-demo",
         "spring-hill",
         "sweetwater",
       ].sort(),
@@ -473,7 +478,7 @@ describe("Office Knowledge Resolver", () => {
 
   it.each([
     ["spring-hill", "Is Bach there?"],
-    ["dev", "¿Está Shah allí?"],
+    ["rheumatology-demo", "¿Está Shah allí?"],
   ] as const)(
     "recognizes provider names owned by the active office source",
     (officeKey, transcript) => {
@@ -490,7 +495,7 @@ describe("Office Knowledge Resolver", () => {
     ["hollywood", "Abita Eye Group Hollywood"],
     ["sweetwater", "Abita Eye Group Sweetwater"],
     ["north-miami-beach-optical", "North Miami Beach Optical"],
-    ["dev", "Juniper Ridge Rheumatology & Arthritis Care"],
+    ["rheumatology-demo", "Juniper Ridge Rheumatology & Arthritis Care"],
   ] as const)(
     "reads office facts only from the active %s Office Profile",
     (officeKey, practiceName) => {
@@ -552,7 +557,7 @@ describe("Office Knowledge Resolver", () => {
     ["spring-hill", "I have new floaters.", "emergency_urgency"],
     ["spring-hill", "Do you provide eyelid surgery?", "services"],
     ["spring-hill", "Do you treat uveitis?", "services"],
-    ["dev", "Do you treat gout?", "services"],
+    ["rheumatology-demo", "Do you treat gout?", "services"],
   ] as const)(
     "recognizes office-authored caller wording: %s",
     (officeKey, transcript, topic) => {
