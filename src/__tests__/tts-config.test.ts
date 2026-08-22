@@ -14,9 +14,11 @@ import {
 } from "../tts-config.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
-  DEV_OFFICE_PHONE,
+  RHEUMATOLOGY_DEMO_TRUNK_PHONE,
   HOLLYWOOD_OFFICE_PHONE,
+  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+  OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
@@ -31,7 +33,9 @@ describe("TTS config", () => {
       HOLLYWOOD_OFFICE_PHONE,
       SWEETWATER_OFFICE_PHONE,
       NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
-      DEV_OFFICE_PHONE,
+      OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
+      MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+      RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     ];
 
     expect(RIME_TTS_SEGMENT).toBe("never");
@@ -39,7 +43,16 @@ describe("TTS config", () => {
       trunkPhones.map(
         (trunkPhone) => getRimeTtsOptions({ trunkPhone }).segment,
       ),
-    ).toEqual(["never", "never", "never", "never", "never", "never"]);
+    ).toEqual([
+      "never",
+      "never",
+      "never",
+      "never",
+      "never",
+      "never",
+      "never",
+      "never",
+    ]);
   });
 
   it("builds the Rime websocket config with documented language option names", () => {
@@ -80,7 +93,9 @@ describe("TTS config", () => {
   });
 
   it("uses the production Rime websocket configuration for the demo office", () => {
-    expect(getRimeTtsOptions({ trunkPhone: DEV_OFFICE_PHONE })).toEqual({
+    expect(
+      getRimeTtsOptions({ trunkPhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE }),
+    ).toEqual({
       modelId: RIME_TTS_MODEL,
       speaker: "wawona",
       lang: RIME_TTS_LANGUAGE,
@@ -92,7 +107,7 @@ describe("TTS config", () => {
     expect(
       getRimeTtsOptions({
         language: "es",
-        trunkPhone: DEV_OFFICE_PHONE,
+        trunkPhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
       }),
     ).toMatchObject({ lang: SPANISH_RIME_TTS_LANGUAGE, speaker: "luz" });
   });

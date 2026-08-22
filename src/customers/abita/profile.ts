@@ -1,13 +1,17 @@
 // Abita customer profile: office registry for trunk routing, prompts, and tool behavior.
 
+import { MENTAL_HEALTH_DEMO_CONTENT } from "./mental-health-demo.js";
+
 export type OfficeKey =
   | "spring-hill"
   | "crystal-river"
   | "hollywood"
   | "sweetwater"
   | "north-miami-beach-optical"
-  | "dev";
-export type HandoffOfficeKey = OfficeKey | "sweetwater-optical";
+  | "ophthalmology-demo"
+  | "mental-health-demo"
+  | "rheumatology-demo";
+export type HandoffOfficeKey = OfficeKey | "sweetwater-optical" | "dev";
 export type OfficeCare = "medical" | "routine_vision";
 export type OfficeSpeechLanguage = "en" | "es";
 export const AVAILABILITY_OFFICE_KEYS = ["hollywood", "sweetwater"] as const;
@@ -44,8 +48,16 @@ export const SWEETWATER_TRUNK_PHONES = [
   "+17864654836",
   "+17864654882",
 ] as const;
-export const DEV_OFFICE_PHONE = "+14843989071";
-export const DEV_DEMO_TRANSFER_NUMBER = "+17277092035";
+export const RHEUMATOLOGY_DEMO_TRUNK_PHONE = "+14843989071";
+export const DEMO_BOOKING_OFFICE_PHONE = RHEUMATOLOGY_DEMO_TRUNK_PHONE;
+export const OPHTHALMOLOGY_DEMO_TRUNK_PHONE = "+18027878312";
+export const MENTAL_HEALTH_DEMO_TRUNK_PHONE = "+13207388132";
+export const DEMO_TRANSFER_NUMBER = "+17277092035";
+export const DEMO_OFFICE_KEYS = [
+  "rheumatology-demo",
+  "ophthalmology-demo",
+  "mental-health-demo",
+] as const satisfies readonly OfficeKey[];
 
 export interface OfficeProfile {
   key: OfficeKey;
@@ -60,7 +72,6 @@ export interface OfficeProfile {
   ): AvailabilityOfficeSelection;
   handoff(): OfficeHandoffPolicy;
   insuranceFor(coverageType: OfficeCare): OfficeInsurancePolicy;
-  middlewareBaseUrl(defaultBaseUrl: string): string;
   promptSources(): OfficePromptSource[];
   schedulingFor(care: OfficeCare): OfficeSchedulingPolicy;
   humanTransferAnnouncement(language: OfficeSpeechLanguage): string;
@@ -82,7 +93,6 @@ type OfficeProfileInput = {
   handoff?: () => OfficeHandoffPolicy;
   key: OfficeKey;
   knowledgeSource: string;
-  middlewareBaseUrl?: string;
   roleFile?: string;
   staffTaskEnabled: boolean;
   trunkPhones: string[];
@@ -98,7 +108,6 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
     handoff = () => ({ mode: "call-center" }),
     key,
     knowledgeSource,
-    middlewareBaseUrl,
     roleFile,
     staffTaskEnabled,
     trunkPhones,
@@ -152,7 +161,6 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
         source: policy.insuranceSource,
       };
     },
-    middlewareBaseUrl: (defaultBaseUrl) => middlewareBaseUrl ?? defaultBaseUrl,
     promptSources() {
       return [
         { file: roleFile ?? "SOUL.md", tag: "role" },
@@ -173,13 +181,13 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
   };
 }
 
-function devHandoff(): OfficeHandoffPolicy {
+function demoHandoff(): OfficeHandoffPolicy {
   const override = process.env.DEV_HANDOFF_TARGET?.trim();
   return {
     mode: "product-with-phone-fallback",
     target: override
       ? normalizeHandoffTarget(override)
-      : `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+      : `tel:${DEMO_TRANSFER_NUMBER}`,
   };
 }
 
@@ -280,10 +288,53 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     englishSpeaker: "luz",
     staffTaskEnabled: true,
   }),
-  dev: defineOffice({
-    key: "dev",
+  "ophthalmology-demo": defineOffice({
+    key: "ophthalmology-demo",
+    displayName: "Abita Eye Group Demo",
+    trunkPhones: [OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
+    greeting:
+      "Hi, this is Julia, the virtual assistant at Abita Eye Group. How can I help you today?",
+    knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
+    care: {
+      medical: {
+        supported: true,
+        insuranceSource: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+      },
+      routine_vision: {
+        supported: true,
+        insuranceSource: "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
+      },
+    },
+    amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
+    staffTaskEnabled: true,
+    handoff: demoHandoff,
+  }),
+  "mental-health-demo": defineOffice({
+    key: "mental-health-demo",
+    displayName: MENTAL_HEALTH_DEMO_CONTENT.displayName,
+    trunkPhones: [MENTAL_HEALTH_DEMO_TRUNK_PHONE],
+    greeting: MENTAL_HEALTH_DEMO_CONTENT.greeting,
+    roleFile: MENTAL_HEALTH_DEMO_CONTENT.roleFile,
+    knowledgeSource: MENTAL_HEALTH_DEMO_CONTENT.knowledgeSource,
+    care: {
+      medical: {
+        supported: true,
+        insuranceSource: MENTAL_HEALTH_DEMO_CONTENT.insuranceSource,
+      },
+      routine_vision: {
+        supported: false,
+        message:
+          "Willowmere Behavioral Health schedules behavioral-health care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
+      },
+    },
+    amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
+    staffTaskEnabled: true,
+    handoff: demoHandoff,
+  }),
+  "rheumatology-demo": defineOffice({
+    key: "rheumatology-demo",
     displayName: "Juniper Ridge Rheumatology & Arthritis Care",
-    trunkPhones: [DEV_OFFICE_PHONE],
+    trunkPhones: [RHEUMATOLOGY_DEMO_TRUNK_PHONE],
     greeting:
       "Hi, this is Julia, the virtual assistant at Juniper Ridge Rheumatology and Arthritis Care. How can I help you today?",
     roleFile: "SOUL_RHEUM_DEMO.md",
@@ -299,10 +350,9 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
           "Juniper Ridge Rheumatology & Arthritis Care schedules rheumatology care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
       },
     },
-    amdOfficePhone: DEV_OFFICE_PHONE,
+    amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
     staffTaskEnabled: true,
-    middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
-    handoff: devHandoff,
+    handoff: demoHandoff,
   }),
 };
 
@@ -329,10 +379,16 @@ export function getOfficeKeyByPhone(phone: string): OfficeKey {
   return officeKey;
 }
 
-export function getHandoffOfficeKeyByPhone(phone: string): HandoffOfficeKey {
-  return normalizePhoneNumber(phone) === SWEETWATER_OPTICAL_TRUNK_PHONE
-    ? "sweetwater-optical"
-    : getOfficeKeyByPhone(phone);
+export function getProductOfficeKeyByPhone(phone: string): HandoffOfficeKey {
+  if (normalizePhoneNumber(phone) === SWEETWATER_OPTICAL_TRUNK_PHONE) {
+    return "sweetwater-optical";
+  }
+  const officeKey = getOfficeKeyByPhone(phone);
+  return isDemoOfficeKey(officeKey) ? "dev" : officeKey;
+}
+
+export function isDemoOfficeKey(officeKey: OfficeKey): boolean {
+  return DEMO_OFFICE_KEYS.some((demoOfficeKey) => demoOfficeKey === officeKey);
 }
 
 export function getOfficeProfile(key: OfficeKey): OfficeProfile {
@@ -370,7 +426,9 @@ export function getOfficeProfileByFacility(
     "crystal-river",
     "hollywood",
     "sweetwater",
-    "dev",
+    "ophthalmology-demo",
+    "mental-health-demo",
+    "rheumatology-demo",
   ] satisfies OfficeKey[]) {
     const displayName = normalizeFacilityName(
       getOfficeProfile(key).displayName,

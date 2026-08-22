@@ -19,7 +19,7 @@ import {
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import {
   getProductInteractionConfig,
-  validateProductConfig,
+  validateRuntimeConfig,
 } from "../runtime/portal-auth.js";
 import {
   recordPatientIdentityTransition,
@@ -262,18 +262,20 @@ describe("call closeout", () => {
 
   it("requires Product delivery configuration in production", () => {
     expect(() =>
-      validateProductConfig({
+      validateRuntimeConfig({
         NODE_ENV: "production",
         ACUITY_PRODUCT_INTERACTION_URL:
           "https://product.example/v1/ai/interactions",
         ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
       }),
     ).toThrow(
-      "ACUITY_PRODUCT_INTERACTION_URL, ACUITY_PRODUCT_HANDOFF_URL, ACUITY_DEMO_PRODUCT_SERVICE_SECRET, ACUITY_DEMO_PRODUCT_PRACTICE_ID, ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET, ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID are required in production",
+      "AMD_API_URL, AMD_API_TOKEN, ACUITY_PRODUCT_INTERACTION_URL, ACUITY_PRODUCT_HANDOFF_URL, ACUITY_DEMO_PRODUCT_SERVICE_SECRET, ACUITY_DEMO_PRODUCT_PRACTICE_ID, ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET, ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID are required in production",
     );
     expect(() =>
-      validateProductConfig({
+      validateRuntimeConfig({
         NODE_ENV: "production",
+        AMD_API_URL: "https://middleware.example",
+        AMD_API_TOKEN: "middleware-secret",
         ACUITY_PRODUCT_INTERACTION_URL:
           "https://product.example/v1/ai/interactions",
         ACUITY_PRODUCT_HANDOFF_URL: "https://product.example/v1/handoffs",
@@ -294,16 +296,40 @@ describe("call closeout", () => {
       "ACUITY_PRODUCT_INTERACTION_URL and ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET are required for spring-hill Product interactions",
     );
     expect(() =>
-      getProductInteractionConfig("dev", {
+      getProductInteractionConfig("rheumatology-demo", {
         NODE_ENV: "production",
         ACUITY_PRODUCT_INTERACTION_URL:
           "https://product.example/v1/ai/interactions",
       }),
     ).toThrow(
-      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_DEMO_PRODUCT_SERVICE_SECRET are required for dev Product interactions",
+      "ACUITY_PRODUCT_INTERACTION_URL and ACUITY_DEMO_PRODUCT_SERVICE_SECRET are required for rheumatology-demo Product interactions",
     );
     expect(
-      getProductInteractionConfig("dev", {
+      getProductInteractionConfig("rheumatology-demo", {
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_INTERACTION_URL:
+          "https://product.example/v1/ai/interactions",
+        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
+        ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+      }),
+    ).toEqual({
+      secret: "demo-secret",
+      url: "https://product.example/v1/ai/interactions",
+    });
+    expect(
+      getProductInteractionConfig("mental-health-demo", {
+        NODE_ENV: "production",
+        ACUITY_PRODUCT_INTERACTION_URL:
+          "https://product.example/v1/ai/interactions",
+        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
+        ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+      }),
+    ).toEqual({
+      secret: "demo-secret",
+      url: "https://product.example/v1/ai/interactions",
+    });
+    expect(
+      getProductInteractionConfig("ophthalmology-demo", {
         NODE_ENV: "production",
         ACUITY_PRODUCT_INTERACTION_URL:
           "https://product.example/v1/ai/interactions",
@@ -1027,7 +1053,7 @@ describe("call closeout", () => {
       secretName: "ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET" as const,
     },
     {
-      officeKey: "dev" as const,
+      officeKey: "rheumatology-demo" as const,
       secret: "demo-secret",
       secretName: "ACUITY_DEMO_PRODUCT_SERVICE_SECRET" as const,
     },

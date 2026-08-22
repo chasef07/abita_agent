@@ -1,10 +1,4 @@
-/**
- * Dormant content configuration for the fictional behavioral-health demo.
- *
- * Deliberately excludes trunk, middleware-office, and handoff configuration.
- * Add those at the Office Profile boundary only after a dedicated demo number
- * is supplied.
- */
+/** Canonical content configuration for the fictional behavioral-health demo. */
 export const MENTAL_HEALTH_DEMO_CONTENT = {
   displayName: "Willowmere Behavioral Health",
   greeting:

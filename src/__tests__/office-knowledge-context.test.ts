@@ -30,7 +30,7 @@ describe("Office Knowledge Context", () => {
   it("validates the same canonical document contract for every office", () => {
     const sources = validateOfficeKnowledgeSources(readKnowledgeSource);
 
-    expect(sources).toHaveLength(6);
+    expect(sources).toHaveLength(8);
     expect(sources.every(({ sectionCount }) => sectionCount === 17)).toBe(true);
     for (const { source } of sources) {
       const content = readKnowledgeSource(source);

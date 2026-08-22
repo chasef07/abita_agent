@@ -211,6 +211,19 @@ const TOPICS: TopicDefinition[] = [
     ],
   ),
   topic(
+    "providers",
+    ["Providers"],
+    [
+      ["psychiatrist", 3],
+      ["psychiatrists", 3],
+      ["therapist", 3],
+      ["therapists", 3],
+      ["psychologist", 3],
+      ["counselor", 3],
+    ],
+    ["mental-health-demo"],
+  ),
+  topic(
     "skin_cancer",
     ["Scope of Services"],
     [
@@ -279,7 +292,7 @@ const TOPICS: TopicDefinition[] = [
       ["medications be combined", 6, ["combine medicines"]],
       ["take together", 6, ["combine medicines"]],
     ],
-    ["dev"],
+    ["rheumatology-demo"],
   ),
   topic(
     "services",
@@ -372,6 +385,23 @@ const TOPICS: TopicDefinition[] = [
       ["joint injections", 6, ["injections"]],
       ["diagnostic ultrasound", 6, ["diagnostic ultrasound"]],
     ],
+  ),
+  topic(
+    "services",
+    ["Scope of Services"],
+    [
+      ["therapy", 4, ["therapy"]],
+      ["behavioral health", 5, ["behavioral-health"]],
+      ["mental health", 5, ["behavioral-health"]],
+      ["psychiatry", 5, ["psychiatry"]],
+      ["ptsd", 6, ["ptsd"]],
+      ["post traumatic stress", 6, ["ptsd"]],
+      ["trauma therapy", 6, ["trauma"]],
+      ["emdr", 6, ["emdr"]],
+      ["medication management", 6, ["medication management"]],
+      ["telehealth therapy", 6, ["telehealth"]],
+    ],
+    ["mental-health-demo"],
   ),
   topic(
     "optical_repairs",
@@ -534,6 +564,21 @@ const TOPICS: TopicDefinition[] = [
       ["urgent", 4],
       ["urgente", 4],
     ],
+  ),
+  topic(
+    "emergency_urgency",
+    ["Emergency and Urgency"],
+    [
+      ["suicide", 6, ["suicide"]],
+      ["suicidal", 6, ["suicide"]],
+      ["self harm", 6, ["harming"]],
+      ["harm myself", 6, ["harming"]],
+      ["harm someone", 6, ["harming"]],
+      ["overdose", 6, ["overdose"]],
+      ["crisis", 5, ["crisis"]],
+      ["988", 6, ["988"]],
+    ],
+    ["mental-health-demo"],
   ),
   topic(
     "social_follow_up",
@@ -812,7 +857,9 @@ function selectConfidentTopic(
   ranked: ReturnType<typeof rankTopics>,
 ): RankedTopic | null {
   const best = ranked[0];
-  const next = ranked[1];
+  const next = ranked.find(
+    (candidate) => candidate.definition.topic !== best?.definition.topic,
+  );
   if (
     !best ||
     best.score < MIN_TOPIC_SCORE ||

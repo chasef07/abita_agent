@@ -2,13 +2,21 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MENTAL_HEALTH_DEMO_CONTENT } from "../customers/abita/mental-health-demo.js";
-import { getOfficeProfiles } from "../customers/abita/profile.js";
+import {
+  RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  getOfficeProfileByPhone,
+  getProductOfficeKeyByPhone,
+} from "../customers/abita/profile.js";
 import {
   loadInsuranceReference,
   matchInsurancePlan,
   normalizeInsuranceText,
 } from "../insurance-rules.js";
-import { validateOfficeKnowledgeDocument } from "../office-knowledge.js";
+import {
+  resolveOfficeKnowledge,
+  validateOfficeKnowledgeDocument,
+} from "../office-knowledge.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "..", "workspace");
 
@@ -30,6 +38,9 @@ describe("mental-health demo content", () => {
       "Leave the caller's trauma history and event details for a clinician.",
     );
     expect(role).toContain("Avoid asking for a diagnosis or trauma narrative.");
+    expect(role).toContain(
+      "use visitType medical and help the caller book returned demo-account medical slots",
+    );
   });
 
   it("covers the requested administrative, clinical-boundary, and crisis domains", () => {
@@ -126,14 +137,62 @@ describe("mental-health demo content", () => {
     }
   });
 
-  it("remains dormant until a dedicated trunk is added to the Office Profile", () => {
+  it("routes its dedicated trunk through the shared demo runtime and Product office", () => {
+    const office = getOfficeProfileByPhone(MENTAL_HEALTH_DEMO_TRUNK_PHONE);
+
+    expect(office).toMatchObject({
+      amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+      displayName: MENTAL_HEALTH_DEMO_CONTENT.displayName,
+      greeting: MENTAL_HEALTH_DEMO_CONTENT.greeting,
+      key: "mental-health-demo",
+      knowledgeSource: MENTAL_HEALTH_DEMO_CONTENT.knowledgeSource,
+      trunkPhones: [MENTAL_HEALTH_DEMO_TRUNK_PHONE],
+    });
+    expect(office.promptSources()).toContainEqual({
+      file: MENTAL_HEALTH_DEMO_CONTENT.roleFile,
+      tag: "role",
+    });
+    expect(office.insuranceFor("medical")).toEqual({
+      supported: true,
+      source: MENTAL_HEALTH_DEMO_CONTENT.insuranceSource,
+    });
+    expect(office.schedulingFor("medical")).toEqual({ supported: true });
+    expect(getProductOfficeKeyByPhone(MENTAL_HEALTH_DEMO_TRUNK_PHONE)).toBe(
+      "dev",
+    );
+  });
+
+  it("keeps behavioral-health retrieval vocabulary isolated from eye offices", () => {
     expect(
-      getOfficeProfiles().some(
-        ({ knowledgeSource }) =>
-          knowledgeSource === MENTAL_HEALTH_DEMO_CONTENT.knowledgeSource,
+      resolveOfficeKnowledge("mental-health-demo", "Do you have a therapist?"),
+    ).toMatchObject({ outcome: "matched", topic: "providers" });
+    expect(
+      resolveOfficeKnowledge("mental-health-demo", "Do you offer EMDR?"),
+    ).toMatchObject({ outcome: "matched", topic: "services" });
+    expect(
+      resolveOfficeKnowledge(
+        "mental-health-demo",
+        "I am in crisis and might harm myself",
       ),
-    ).toBe(false);
-    expect(MENTAL_HEALTH_DEMO_CONTENT).not.toHaveProperty("trunkPhones");
-    expect(MENTAL_HEALTH_DEMO_CONTENT).not.toHaveProperty("amdOfficePhone");
+    ).toMatchObject({ outcome: "matched", topic: "emergency_urgency" });
+    for (const [transcript, topic] of [
+      ["Which providers are therapists?", "providers"],
+      ["Do you offer therapy services?", "services"],
+      ["I have an emergency crisis", "emergency_urgency"],
+    ] as const) {
+      expect(
+        resolveOfficeKnowledge("mental-health-demo", transcript),
+      ).toMatchObject({ outcome: "matched", topic });
+    }
+
+    for (const transcript of [
+      "Do you have a therapist?",
+      "Do you offer EMDR?",
+      "I am in crisis and might harm myself",
+    ]) {
+      expect(resolveOfficeKnowledge("spring-hill", transcript)).toMatchObject({
+        outcome: "skipped",
+      });
+    }
   });
 });

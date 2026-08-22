@@ -7,11 +7,13 @@ import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { buildPrompt } from "../prompt.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
-  DEV_OFFICE_PHONE,
+  RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
   getOfficeProfile,
   getOfficeKeyByPhone,
   HOLLYWOOD_OFFICE_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+  OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
   normalizeHandoffTarget,
   normalizePhoneNumber,
   SPRING_HILL_813_TRUNK_PHONE,
@@ -58,8 +60,12 @@ afterEach(() => {
 
 describe("office routing helpers", () => {
   it("normalizes LiveKit phone attributes without a plus prefix", () => {
-    expect(normalizePhoneNumber("14843989071")).toBe(DEV_OFFICE_PHONE);
-    expect(getOfficeKeyByPhone("14843989071")).toBe("dev");
+    expect(normalizePhoneNumber("14843989071")).toBe(
+      RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+    );
+    expect(getOfficeKeyByPhone("14843989071")).toBe("rheumatology-demo");
+    expect(getOfficeKeyByPhone("18027878312")).toBe("ophthalmology-demo");
+    expect(getOfficeKeyByPhone("13207388132")).toBe("mental-health-demo");
   });
 
   it("normalizes handoff targets while allowing SIP URIs directly", () => {
@@ -91,9 +97,11 @@ describe("office routing helpers", () => {
       expect(toolNamesForTrunk(phone)).toContain("create_staff_task");
     }
 
-    expect(toolNamesForTrunk(DEV_OFFICE_PHONE)).toContain("create_staff_task");
+    expect(toolNamesForTrunk(RHEUMATOLOGY_DEMO_TRUNK_PHONE)).toContain(
+      "create_staff_task",
+    );
     expect(getOfficeProfile("spring-hill").staffTaskEnabled).toBe(true);
-    expect(getOfficeProfile("dev").staffTaskEnabled).toBe(true);
+    expect(getOfficeProfile("rheumatology-demo").staffTaskEnabled).toBe(true);
   });
 
   it("keeps Crystal River transfer-only", () => {
@@ -136,7 +144,7 @@ describe("voice output prompt", () => {
     ];
     const surfaces = [
       buildPrompt(SPRING_HILL_OFFICE_PHONE),
-      buildPrompt(DEV_OFFICE_PHONE),
+      buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE),
       ...tools.flatMap((entry) => [
         entry.description,
         JSON.stringify(z.toJSONSchema(entry.parameters)),
@@ -213,7 +221,7 @@ describe("tool-first prompt gating", () => {
     expect(prompt).not.toContain("The current time is");
 
     const crystalRiverPrompt = buildPrompt(CRYSTAL_RIVER_OFFICE_PHONE);
-    const devPrompt = buildPrompt(DEV_OFFICE_PHONE);
+    const devPrompt = buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
 
     expect(crystalRiverPrompt).toContain("# Tool Use");
     expect(devPrompt).not.toContain("book_appointment");
@@ -304,7 +312,7 @@ describe("tool-first prompt gating", () => {
 
 describe("rheumatology demo", () => {
   it("uses a fictional rheumatology identity and medication prompt", () => {
-    const prompt = buildPrompt(DEV_OFFICE_PHONE);
+    const prompt = buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
 
     expect(prompt).toContain("You are Julia");
     expect(prompt).toContain("fictional rheumatology practice");
@@ -338,7 +346,7 @@ describe("rheumatology demo", () => {
   });
 
   it("exposes the demo transfer and staff-task tools", () => {
-    const names = toolNamesForTrunk(DEV_OFFICE_PHONE);
+    const names = toolNamesForTrunk(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
 
     expect(names).toContain("check_insurance");
     expect(names).toContain("get_availability");
@@ -350,15 +358,21 @@ describe("rheumatology demo", () => {
 
   it("honors the isolated demo handoff override", () => {
     process.env.DEV_HANDOFF_TARGET = "sip:demo@example.test";
-    expect(getOfficeProfile("dev").handoff()).toEqual({
+    expect(getOfficeProfile("rheumatology-demo").handoff()).toEqual({
       mode: "product-with-phone-fallback",
       target: "sip:demo@example.test",
     });
   });
 
   it("retrieves rheumatology and medication knowledge", () => {
-    const condition = resolveOfficeKnowledge("dev", "Do you treat lupus?");
-    const medication = resolveOfficeKnowledge("dev", "What is methotrexate?");
+    const condition = resolveOfficeKnowledge(
+      "rheumatology-demo",
+      "Do you treat lupus?",
+    );
+    const medication = resolveOfficeKnowledge(
+      "rheumatology-demo",
+      "What is methotrexate?",
+    );
 
     expect(condition.sections.join("\n")).toContain("## Scope of Services");
     expect(condition.sections.join("\n")).toContain(
@@ -398,6 +412,52 @@ describe("rheumatology demo", () => {
     expect(knowledge).not.toContain("Abita");
     expect(knowledge).not.toContain("acrmed.com");
     expect(dermatology).toContain("medical dermatology");
+  });
+});
+
+describe("dedicated demo trunks", () => {
+  it("restores the ophthalmology demo on its own number", () => {
+    const office = getOfficeProfile("ophthalmology-demo");
+    const prompt = buildPrompt(OPHTHALMOLOGY_DEMO_TRUNK_PHONE);
+
+    expect(office.trunkPhones).toEqual([OPHTHALMOLOGY_DEMO_TRUNK_PHONE]);
+    expect(office.amdOfficePhone).toBe(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
+    expect(office.knowledgeSource).toBe("KNOWLEDGE_SPRINGHILL.md");
+    expect(office.schedulingFor("medical")).toEqual({ supported: true });
+    expect(office.schedulingFor("routine_vision")).toEqual({
+      supported: true,
+    });
+    expect(prompt).toContain("an ophthalmology clinic");
+    expect(prompt).toContain("# Appointment Triage");
+  });
+
+  it("activates the behavioral-health demo with booking and safe knowledge retrieval", () => {
+    const office = getOfficeProfile("mental-health-demo");
+    const prompt = buildPrompt(MENTAL_HEALTH_DEMO_TRUNK_PHONE);
+    const service = resolveOfficeKnowledge(
+      "mental-health-demo",
+      "Do you offer PTSD therapy with EMDR?",
+    );
+    const crisis = resolveOfficeKnowledge(
+      "mental-health-demo",
+      "I am in crisis and might harm myself",
+    );
+
+    expect(office.trunkPhones).toEqual([MENTAL_HEALTH_DEMO_TRUNK_PHONE]);
+    expect(office.amdOfficePhone).toBe(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
+    expect(office.schedulingFor("medical")).toEqual({ supported: true });
+    expect(prompt).toContain("Willowmere Behavioral Health");
+    expect(prompt).toContain(
+      "Immediate danger exits the routine front-desk workflow",
+    );
+    expect(service).toMatchObject({ outcome: "matched", topic: "services" });
+    expect(service.sections.join("\n")).toContain("Trauma and PTSD Care");
+    expect(crisis).toMatchObject({
+      outcome: "matched",
+      topic: "emergency_urgency",
+    });
+    expect(crisis.sections.join("\n")).toContain("call 911");
+    expect(crisis.sections.join("\n")).toContain("988");
   });
 });
 
@@ -643,7 +703,7 @@ describe("Crystal River prompt guidance", () => {
     }
 
     expect(
-      resolveOfficeKnowledge("dev", "Are my glasses ready?"),
+      resolveOfficeKnowledge("rheumatology-demo", "Are my glasses ready?"),
     ).toMatchObject({ outcome: "skipped" });
   });
 
@@ -710,7 +770,9 @@ describe("Crystal River prompt guidance", () => {
       expect(prompt).not.toContain("<office_policy>");
     }
 
-    expect(buildPrompt(DEV_OFFICE_PHONE)).toContain("create_staff_task");
+    expect(buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE)).toContain(
+      "create_staff_task",
+    );
   });
 
   it("keeps concise voice guidance in the base voice prompt", () => {

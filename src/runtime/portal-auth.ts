@@ -1,6 +1,8 @@
-import type { OfficeKey } from "../customers/abita/profile.js";
+import { isDemoOfficeKey, type OfficeKey } from "../customers/abita/profile.js";
 
-const PRODUCT_CONFIGURATION = [
+const PRODUCTION_CONFIGURATION = [
+  "AMD_API_URL",
+  "AMD_API_TOKEN",
   "ACUITY_PRODUCT_INTERACTION_URL",
   "ACUITY_PRODUCT_HANDOFF_URL",
   "ACUITY_DEMO_PRODUCT_SERVICE_SECRET",
@@ -38,7 +40,7 @@ export function getProductTenantConfig(
     | "ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET";
   secret?: string;
 } {
-  const isDemo = officeKey === "dev";
+  const isDemo = isDemoOfficeKey(officeKey);
   const practiceIdName = isDemo
     ? "ACUITY_DEMO_PRODUCT_PRACTICE_ID"
     : "ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID";
@@ -53,15 +55,15 @@ export function getProductTenantConfig(
   };
 }
 
-export function validateProductConfig(
+export function validateRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): void {
   if (
     env.NODE_ENV === "production" &&
-    PRODUCT_CONFIGURATION.some((name) => !trimmed(env[name]))
+    PRODUCTION_CONFIGURATION.some((name) => !trimmed(env[name]))
   ) {
     throw new Error(
-      `${PRODUCT_CONFIGURATION.join(", ")} are required in production`,
+      `${PRODUCTION_CONFIGURATION.join(", ")} are required in production`,
     );
   }
 }

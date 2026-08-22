@@ -10,7 +10,7 @@ import {
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
 import {
-  DEV_OFFICE_PHONE,
+  RHEUMATOLOGY_DEMO_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
 import { createTestCallState } from "./support/call-state.js";
@@ -255,11 +255,11 @@ describe("Office Knowledge turn enrichment", () => {
     const unavailableSession = new AgentSession();
     sessions.push(unavailableSession);
     unavailableSession.userData = createTestCallState({
-      officeKey: "dev",
-      trunkPhone: DEV_OFFICE_PHONE,
+      officeKey: "rheumatology-demo",
+      trunkPhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     });
     await unavailableSession.start({
-      agent: createVoiceAgent(DEV_OFFICE_PHONE, {
+      agent: createVoiceAgent(RHEUMATOLOGY_DEMO_TRUNK_PHONE, {
         suppressGreeting: true,
       }).agent,
     });
@@ -281,7 +281,7 @@ describe("Office Knowledge turn enrichment", () => {
     expect(unavailableSession.userData.runtime).toMatchObject({
       knowledgeRetrievals: [
         {
-          officeKey: "dev",
+          officeKey: "rheumatology-demo",
           outcome: "unavailable",
           sectionCount: 0,
           topic: "social_follow_up",

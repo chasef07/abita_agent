@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  DEV_OFFICE_PHONE,
-  getOfficeProfileByPhone,
+  RHEUMATOLOGY_DEMO_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
 import {
@@ -62,7 +61,7 @@ function patientContractAdapters(): Array<{
       create: () =>
         new HttpOwnedMiddleware({
           fetch: vi.fn(async () => Response.json(verifiedPatient)),
-          productionBaseUrl: "https://middleware.test",
+          middlewareBaseUrl: "https://middleware.test",
         }),
     },
     {
@@ -135,7 +134,7 @@ describe.each([
             shouldRetrySameSearch: false,
           }),
         ),
-        productionBaseUrl: "https://middleware.test",
+        middlewareBaseUrl: "https://middleware.test",
       }),
   },
   {
@@ -179,7 +178,7 @@ describe.each([
             allowedProviders: ["Dr. Bach"],
           }),
         ),
-        productionBaseUrl: "https://middleware.test",
+        middlewareBaseUrl: "https://middleware.test",
       }),
   },
   {
@@ -225,7 +224,7 @@ describe.each([
             message: "Appointment cancelled successfully",
           }),
         ),
-        productionBaseUrl: "https://middleware.test",
+        middlewareBaseUrl: "https://middleware.test",
       }),
   },
   {
@@ -272,7 +271,7 @@ describe.each([
             appointmentTypeName: "Follow-up",
           }),
         ),
-        productionBaseUrl: "https://middleware.test",
+        middlewareBaseUrl: "https://middleware.test",
       }),
   },
   {
@@ -332,7 +331,7 @@ describe.each([
             routing: "all_three",
           }),
         ),
-        productionBaseUrl: "https://middleware.test",
+        middlewareBaseUrl: "https://middleware.test",
       }),
   },
   {
@@ -388,7 +387,7 @@ describe("HTTP owned middleware transport", () => {
     const middleware = new HttpOwnedMiddleware({
       authToken: "test-token",
       fetch: fetchMock,
-      productionBaseUrl: "https://middleware.test/",
+      middlewareBaseUrl: "https://middleware.test/",
       timeoutMs: 10_000,
     });
 
@@ -525,11 +524,11 @@ describe("HTTP owned middleware transport", () => {
     expect(timeoutSpy).toHaveBeenCalledWith(10_000);
   });
 
-  it("selects the configured development URL without changing production routing", async () => {
+  it("uses the configured middleware URL for production and demo offices", async () => {
     const fetchMock = vi.fn(async () => Response.json(verifiedPatient));
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     await middleware.resolvePatient({
@@ -537,13 +536,13 @@ describe("HTTP owned middleware transport", () => {
       identity: { phone: "+17275551212" },
     });
     await middleware.resolvePatient({
-      office: DEV_OFFICE_PHONE,
+      office: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
       identity: { phone: "+17275551212" },
     });
 
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "https://middleware.test/api/patient/resolve",
-      `${getOfficeProfileByPhone(DEV_OFFICE_PHONE).middlewareBaseUrl("https://middleware.test")}/api/patient/resolve`,
+      "https://middleware.test/api/patient/resolve",
     ]);
   });
 
@@ -617,7 +616,7 @@ describe("HTTP owned middleware transport", () => {
   ])("normalizes $name without exposing transport detail", async (testCase) => {
     const middleware = new HttpOwnedMiddleware({
       fetch: testCase.fetch,
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.getAvailability({
@@ -637,6 +636,22 @@ describe("HTTP owned middleware transport", () => {
     expect(result).not.toHaveProperty("message");
   });
 
+  it("reports missing middleware configuration as a middleware failure", async () => {
+    const fetchMock = vi.fn();
+    const middleware = new HttpOwnedMiddleware({
+      fetch: fetchMock,
+      middlewareBaseUrl: "",
+    });
+
+    await expect(
+      middleware.getAvailability({
+        office: SPRING_HILL_OFFICE_PHONE,
+        requestedDate: "2026-08-01",
+      }),
+    ).resolves.toEqual({ status: "error", reason: "middleware_error" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("distinguishes caller cancellation from transport failure", async () => {
     const controller = new AbortController();
     controller.abort();
@@ -645,7 +660,7 @@ describe("HTTP owned middleware transport", () => {
         if (init?.signal?.aborted) throw init.signal.reason;
         return Response.json({});
       }),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.getAvailability({
@@ -668,7 +683,7 @@ describe("HTTP owned middleware transport", () => {
           slots: [{ date: "2026-08-01", time: "9:00 AM" }],
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.getAvailability({
@@ -691,7 +706,7 @@ describe("HTTP owned middleware transport", () => {
           slots: availabilityFound.slots,
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.getAvailability({
@@ -726,7 +741,7 @@ describe("HTTP owned middleware transport", () => {
           ],
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.resolvePatient({
@@ -754,7 +769,7 @@ describe("HTTP owned middleware transport", () => {
           outcome: "invalid_reschedule_token",
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.bookAppointment({
@@ -780,7 +795,7 @@ describe("HTTP owned middleware transport", () => {
     const fetchMock = vi.fn(async () => Response.json(verifiedPatient));
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     await middleware.resolvePatient({
@@ -798,7 +813,7 @@ describe("HTTP owned middleware transport", () => {
     const fetchMock = vi.fn(async () => Response.json(cancelledAppointment));
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     await middleware.cancelAppointment({
@@ -821,7 +836,7 @@ describe("HTTP owned middleware transport", () => {
             "cancellationToken is invalid or expired. Please load appointments again and choose the appointment to cancel.",
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.cancelAppointment({
@@ -856,7 +871,7 @@ describe("HTTP owned middleware transport", () => {
           ],
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.getAvailability({
@@ -889,7 +904,7 @@ describe("HTTP owned middleware transport", () => {
           slots: [],
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.getAvailability({
@@ -910,7 +925,7 @@ describe("HTTP owned middleware transport", () => {
       fetch: vi.fn(async () =>
         Response.json({ outcome: "schema_drift", slots: [] }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     await expect(
@@ -933,7 +948,7 @@ describe("HTTP owned middleware transport", () => {
           message: "private detail",
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.resolvePatient({
@@ -947,7 +962,7 @@ describe("HTTP owned middleware transport", () => {
     });
   });
 
-  it("normalizes Railway appointments without agent-owned confirmation state", async () => {
+  it("normalizes middleware appointments without agent-owned confirmation state", async () => {
     const middleware = new HttpOwnedMiddleware({
       fetch: vi.fn(async () =>
         Response.json({
@@ -963,7 +978,7 @@ describe("HTTP owned middleware transport", () => {
           ],
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.resolvePatient({
@@ -1007,7 +1022,7 @@ describe("HTTP owned middleware transport", () => {
           ],
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.resolvePatient({
@@ -1044,7 +1059,7 @@ describe("HTTP owned middleware transport", () => {
           ],
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.resolvePatient({
@@ -1090,7 +1105,7 @@ describe("HTTP owned middleware transport", () => {
           ],
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     await expect(
@@ -1119,7 +1134,7 @@ describe("HTTP owned middleware transport", () => {
           ],
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     await expect(
@@ -1138,7 +1153,7 @@ describe("HTTP owned middleware transport", () => {
       fetch: vi.fn(async () =>
         Response.json({ status: "multiple_matches", matches: null }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     await expect(
@@ -1157,7 +1172,7 @@ describe("HTTP owned middleware transport", () => {
       fetch: vi.fn(async () =>
         Response.json({ status: "schema_drift", patientId: "patient-2" }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     await expect(
@@ -1190,7 +1205,7 @@ describe("HTTP owned middleware transport", () => {
       fetch: vi.fn(async () =>
         Response.json({ status: "created", patientId: "patient-2" }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.createPatient({
@@ -1220,7 +1235,7 @@ describe("HTTP owned middleware transport", () => {
     });
   });
 
-  it("preserves a committed chart when Railway reports partial creation", async () => {
+  it("preserves a committed chart when middleware reports partial creation", async () => {
     const middleware = new HttpOwnedMiddleware({
       fetch: vi.fn(async () =>
         Response.json({
@@ -1230,7 +1245,7 @@ describe("HTTP owned middleware transport", () => {
           dob: "01/01/1980",
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.createPatient({
@@ -1355,7 +1370,7 @@ describe("HTTP owned middleware transport", () => {
             message: "private patient and backend detail",
           }),
         ),
-        productionBaseUrl: "https://middleware.test",
+        middlewareBaseUrl: "https://middleware.test",
       });
 
       const result = await call(middleware);
@@ -1376,7 +1391,7 @@ describe("HTTP owned middleware transport", () => {
       .mockResolvedValueOnce(Response.json(verifiedPatient));
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     await expect(
@@ -1399,7 +1414,7 @@ describe("HTTP owned middleware transport", () => {
       );
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     await expect(
@@ -1431,7 +1446,7 @@ describe("HTTP owned middleware transport", () => {
           shouldRetrySameSearch: testCase.expectedStatus === "incomplete",
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.getAvailability({
@@ -1458,7 +1473,7 @@ describe("HTTP owned middleware transport", () => {
       .mockResolvedValueOnce(Response.json({ unexpected: true }));
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
     const request = {
       office: SPRING_HILL_OFFICE_PHONE,
@@ -1496,7 +1511,7 @@ describe("HTTP owned middleware transport", () => {
   ])("normalizes patient $name", async (testCase) => {
     const middleware = new HttpOwnedMiddleware({
       fetch: testCase.fetch,
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.resolvePatient({
@@ -1530,7 +1545,7 @@ describe("HTTP owned middleware transport", () => {
       .mockResolvedValueOnce(Response.json({ status: "booked" }));
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
     const request = {
       office: SPRING_HILL_OFFICE_PHONE,
@@ -1560,7 +1575,7 @@ describe("HTTP owned middleware transport", () => {
     });
   });
 
-  it("preserves Railway appointment-type recovery guidance", async () => {
+  it("preserves middleware appointment-type recovery guidance", async () => {
     const middleware = new HttpOwnedMiddleware({
       fetch: vi.fn(async () =>
         Response.json({
@@ -1569,7 +1584,7 @@ describe("HTTP owned middleware transport", () => {
           missing: ["patientStatus", "dob"],
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     const result = await middleware.bookAppointment({
@@ -1600,7 +1615,7 @@ describe("HTTP owned middleware transport", () => {
           missing: ["schemaDrift"],
         }),
       ),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     await expect(
@@ -1624,7 +1639,7 @@ describe("HTTP owned middleware transport", () => {
   it("rejects unexpected chart, cancellation, and insurance records", async () => {
     const middleware = new HttpOwnedMiddleware({
       fetch: vi.fn(async () => Response.json({ unexpected: true })),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 
     await expect(
@@ -1692,7 +1707,7 @@ function httpResult(raw: unknown): () => OwnedMiddleware {
   return () =>
     new HttpOwnedMiddleware({
       fetch: vi.fn(async () => Response.json(raw)),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 }
 
@@ -1702,7 +1717,7 @@ function httpFailure(error: Error): () => OwnedMiddleware {
       fetch: vi.fn(async () => {
         throw error;
       }),
-      productionBaseUrl: "https://middleware.test",
+      middlewareBaseUrl: "https://middleware.test",
     });
 }
 
@@ -1919,7 +1934,7 @@ const semanticContractCases: SemanticContractCase[] = [
     http: () =>
       new HttpOwnedMiddleware({
         fetch: vi.fn(async () => new Response(null, { status: 503 })),
-        productionBaseUrl: "https://middleware.test",
+        middlewareBaseUrl: "https://middleware.test",
       }),
     memory: memoryResult({
       getAvailability: [semanticFailure("middleware_error")],
@@ -1935,7 +1950,7 @@ const semanticContractCases: SemanticContractCase[] = [
           if (init?.signal?.aborted) throw init.signal.reason;
           return Response.json({});
         }),
-        productionBaseUrl: "https://middleware.test",
+        middlewareBaseUrl: "https://middleware.test",
       }),
     memory: memoryResult({
       getAvailability: [semanticFailure("cancelled")],

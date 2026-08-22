@@ -1,9 +1,11 @@
 import {
   getOfficeProfileByFacility,
+  isDemoOfficeKey,
   normalizePhoneNumber,
   type AvailabilityOfficeKey,
 } from "../customers/abita/profile.js";
 import { incompletePatientRegistrationMessage } from "../identity/patient-identity.js";
+import { activeOfficeKey } from "../state/call-lifecycle.js";
 import {
   completedBookingForPatient,
   completedRescheduleForPatient,
@@ -1074,6 +1076,9 @@ function getAmdOfficeForCancellationAppointment(
   state: CallState,
   appointment: CallerAppointment,
 ): string {
+  if (isDemoOfficeKey(activeOfficeKey(state))) {
+    return getAmdOfficeForToolCall(state);
+  }
   const office = getOfficeProfileByFacility(appointment.facility);
   if (!office) return getAmdOfficeForToolCall(state);
   return state.office.phoneOverrides?.[office.key] ?? office.amdOfficePhone;

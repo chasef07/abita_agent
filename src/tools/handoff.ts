@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { SipClient } from "livekit-server-sdk";
 import {
-  getHandoffOfficeKeyByPhone,
   getOfficeProfile,
   getOfficeProfileByPhone,
+  getProductOfficeKeyByPhone,
   type HandoffOfficeKey,
   type OfficeKey,
 } from "../customers/abita/profile.js";
@@ -105,7 +105,7 @@ function getHandoffRouteOfficeKey(
 ): HandoffOfficeKey {
   if (!state.runtime.trunkPhone) return fallback;
   try {
-    return getHandoffOfficeKeyByPhone(state.runtime.trunkPhone);
+    return getProductOfficeKeyByPhone(state.runtime.trunkPhone);
   } catch {
     return fallback;
   }

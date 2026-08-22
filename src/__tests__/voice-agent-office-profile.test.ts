@@ -16,10 +16,12 @@ import {
 import { createVoiceAgent } from "../agent.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
-  DEV_DEMO_TRANSFER_NUMBER,
-  DEV_OFFICE_PHONE,
+  DEMO_TRANSFER_NUMBER,
+  RHEUMATOLOGY_DEMO_TRUNK_PHONE,
   HOLLYWOOD_OFFICE_PHONE,
+  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
+  OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
   SPRING_HILL_813_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
@@ -72,7 +74,6 @@ type OfficeBehavior = {
   };
   key: OfficeKey;
   knowledgeSource: string;
-  middlewareBaseUrl: string;
   promptMarker: string;
   scheduling: {
     medical: OfficeSchedulingPolicy;
@@ -87,8 +88,6 @@ type InsuranceBehavior = {
   response: InsuranceToolResponse;
 };
 
-const PRODUCTION_MIDDLEWARE =
-  "https://advancedmd-token-management-production.up.railway.app";
 const DIRECT_HANDOFF_RESPONSE = {
   type: "DIRECT",
   handoffId: "handoff-test",
@@ -130,7 +129,6 @@ const officeBehaviors: OfficeBehavior[] = [
     },
     key: "spring-hill",
     knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
-    middlewareBaseUrl: PRODUCTION_MIDDLEWARE,
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -158,7 +156,6 @@ const officeBehaviors: OfficeBehavior[] = [
     },
     key: "crystal-river",
     knowledgeSource: "KNOWLEDGE_EYERADIANCE.md",
-    middlewareBaseUrl: PRODUCTION_MIDDLEWARE,
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -192,7 +189,6 @@ const officeBehaviors: OfficeBehavior[] = [
     },
     key: "hollywood",
     knowledgeSource: "KNOWLEDGE_HOLLYWOOD.md",
-    middlewareBaseUrl: PRODUCTION_MIDDLEWARE,
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -222,7 +218,6 @@ const officeBehaviors: OfficeBehavior[] = [
     },
     key: "sweetwater",
     knowledgeSource: "KNOWLEDGE_SWEETWATER.md",
-    middlewareBaseUrl: PRODUCTION_MIDDLEWARE,
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -252,7 +247,6 @@ const officeBehaviors: OfficeBehavior[] = [
     },
     key: "north-miami-beach-optical",
     knowledgeSource: "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
-    middlewareBaseUrl: PRODUCTION_MIDDLEWARE,
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: {
@@ -266,14 +260,84 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
   },
   {
-    amdOfficePhone: DEV_OFFICE_PHONE,
+    amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+    displayName: "Abita Eye Group Demo",
+    englishSpeaker: "wawona",
+    greeting:
+      "Hi, this is Julia, the virtual assistant at Abita Eye Group. How can I help you today?",
+    handoff: {
+      mode: "phone",
+      target: `tel:${DEMO_TRANSFER_NUMBER}`,
+    },
+    insurance: {
+      medical: {
+        query: "Ambetter Premier",
+        response: { status: "accepted", plan: "Ambetter Premier" },
+      },
+      routineVision: {
+        query: "VSP",
+        response: { status: "accepted", plan: "VSP" },
+      },
+    },
+    key: "ophthalmology-demo",
+    knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
+    promptMarker: "an ophthalmology clinic",
+    scheduling: {
+      medical: { supported: true },
+      routineVision: { supported: true },
+    },
+    staffTaskEnabled: true,
+    trunks: [OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
+  },
+  {
+    amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+    displayName: "Willowmere Behavioral Health",
+    englishSpeaker: "wawona",
+    greeting:
+      "Hi, you've reached Willowmere Behavioral Health. I'm Maya, the virtual receptionist. What would feel most helpful today?",
+    handoff: {
+      mode: "phone",
+      target: `tel:${DEMO_TRANSFER_NUMBER}`,
+    },
+    insurance: {
+      medical: {
+        query: "Aetna Choice POS II",
+        response: {
+          status: "accepted",
+          plan: "Aetna Choice POS II",
+          callerNotice:
+            "This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
+        },
+      },
+      routineVision: {
+        query: "VSP",
+        response: { status: "not_accepted", plan: "VSP" },
+      },
+    },
+    key: "mental-health-demo",
+    knowledgeSource: "KNOWLEDGE_MENTAL_HEALTH_DEMO.md",
+    promptMarker:
+      "a clearly fictional multi-location outpatient behavioral-health clinic",
+    scheduling: {
+      medical: { supported: true },
+      routineVision: {
+        supported: false,
+        message:
+          "Willowmere Behavioral Health schedules behavioral-health care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
+      },
+    },
+    staffTaskEnabled: true,
+    trunks: [MENTAL_HEALTH_DEMO_TRUNK_PHONE],
+  },
+  {
+    amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     displayName: "Juniper Ridge Rheumatology & Arthritis Care",
     englishSpeaker: "wawona",
     greeting:
       "Hi, this is Julia, the virtual assistant at Juniper Ridge Rheumatology and Arthritis Care. How can I help you today?",
     handoff: {
       mode: "phone",
-      target: `tel:${DEV_DEMO_TRANSFER_NUMBER}`,
+      target: `tel:${DEMO_TRANSFER_NUMBER}`,
     },
     insurance: {
       medical: {
@@ -285,9 +349,8 @@ const officeBehaviors: OfficeBehavior[] = [
         response: { status: "not_accepted", plan: "VSP" },
       },
     },
-    key: "dev",
+    key: "rheumatology-demo",
     knowledgeSource: "KNOWLEDGE_RHEUM_DEMO.md",
-    middlewareBaseUrl: "https://advancedmd-token-management-dev.up.railway.app",
     promptMarker: "a fictional rheumatology practice",
     scheduling: {
       medical: { supported: true },
@@ -298,7 +361,7 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     staffTaskEnabled: true,
-    trunks: [DEV_OFFICE_PHONE],
+    trunks: [RHEUMATOLOGY_DEMO_TRUNK_PHONE],
   },
 ];
 
@@ -424,7 +487,6 @@ describe("Voice Agent office profile", () => {
           },
           key: office.key,
           knowledgeSource: office.knowledgeSource,
-          middlewareBaseUrl: office.middlewareBaseUrl(PRODUCTION_MIDDLEWARE),
           promptHasConfiguredRole: instructions.includes(expected.promptMarker),
           scheduling: {
             medical: office.schedulingFor("medical"),
@@ -462,7 +524,6 @@ describe("Voice Agent office profile", () => {
           },
           key: expected.key,
           knowledgeSource: expected.knowledgeSource,
-          middlewareBaseUrl: expected.middlewareBaseUrl,
           promptHasConfiguredRole: true,
           scheduling: expected.scheduling,
           schedulingBehavior: {

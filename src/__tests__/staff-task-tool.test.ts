@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolError } from "@livekit/agents";
 import {
-  DEV_OFFICE_PHONE,
+  RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
   SWEETWATER_OPTICAL_TRUNK_PHONE,
@@ -32,9 +33,9 @@ function createToolContext(state: ReturnType<typeof createState>) {
 
 function createDevState(overrides: Partial<InitialCallStateInput> = {}) {
   return createState({
-    amdOfficePhone: DEV_OFFICE_PHONE,
-    officeKey: "dev",
-    trunkPhone: DEV_OFFICE_PHONE,
+    amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+    officeKey: "rheumatology-demo",
+    trunkPhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     ...overrides,
   });
 }
@@ -234,7 +235,7 @@ describe("create_staff_task", () => {
     ]);
   });
 
-  it("routes the dev Office Profile to Acuity Product with the shared demo credential", async () => {
+  it("routes the rheumatology demo profile to Acuity Product with the shared demo credential", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json(
         {
@@ -286,7 +287,7 @@ describe("create_staff_task", () => {
       category: "other",
       message: "Caller wants the Harborleaf team to review their question.",
       officeKey: "dev",
-      officePhone: DEV_OFFICE_PHONE,
+      officePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
       patient: {
         dob: "01/01/1980",
         id: "patient-1",
@@ -305,6 +306,52 @@ describe("create_staff_task", () => {
         taskId: PRODUCT_TASK_ID,
       },
     ]);
+  });
+
+  it("routes a dedicated demo trunk through the existing Product dev office", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json(
+        {
+          status: "created",
+          taskId: PRODUCT_TASK_ID,
+          category: "appointments",
+          urgency: "normal",
+        },
+        { status: 201 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createDevState({
+      officeKey: "mental-health-demo",
+      trunkPhone: MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+    });
+
+    await create_staff_task.execute(
+      {
+        category: "appointments",
+        urgency: "normal",
+        summary: "Caller needs scheduling help.",
+        message:
+          "Caller wants the Willowmere team to review a scheduling question.",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-mental-health-demo",
+      } as never,
+    );
+
+    const body = JSON.parse(
+      fetchMock.mock.calls[0]?.[1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual({
+      Authorization: "Bearer demo-secret",
+      "Content-Type": "application/json",
+    });
+    expect(body).toMatchObject({
+      inboundOfficePhone: MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+      officeKey: "dev",
+      officePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+    });
   });
 
   it("preserves the sweetwater-optical Product route from the inbound trunk", async () => {

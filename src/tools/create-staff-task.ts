@@ -15,8 +15,8 @@ import {
   recordStaffTaskReceipt,
 } from "../state/observability.js";
 import {
-  getHandoffOfficeKeyByPhone,
   getOfficeProfileByPhone,
+  getProductOfficeKeyByPhone,
   normalizePhoneNumber,
   type OfficeProfile,
 } from "../customers/abita/profile.js";
@@ -153,7 +153,7 @@ function buildStaffTaskPayload(
   office: OfficeProfile,
   input: TaskParameters,
 ) {
-  const officeKey = getHandoffOfficeKeyByPhone(state.runtime.trunkPhone);
+  const officeKey = getProductOfficeKeyByPhone(state.runtime.trunkPhone);
   const officePhone =
     state.office.phoneOverrides[office.key] ?? office.amdOfficePhone;
   const patientId = activePatientId(state);

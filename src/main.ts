@@ -48,12 +48,15 @@ import {
 } from "./runtime/call-closeout.js";
 import {
   getProductInteractionConfig,
-  validateProductConfig,
+  validateRuntimeConfig,
 } from "./runtime/portal-auth.js";
-import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
+import {
+  getOfficeProfileByPhone,
+  getProductOfficeKeyByPhone,
+} from "./customers/abita/profile.js";
 import { coordinateSessionStartup } from "./runtime/session-startup.js";
 
-validateProductConfig();
+validateRuntimeConfig();
 
 export default defineAgent({
   entry: async (ctx: JobContext) => {
@@ -80,6 +83,7 @@ export default defineAgent({
         sipParticipantIdentity: participant.identity ?? "",
       };
       const office = getOfficeProfileByPhone(trunkPhone);
+      const productOfficeKey = getProductOfficeKeyByPhone(trunkPhone);
       let startupActive = true;
       console.log(
         `[call] Incoming: ${callerPhone} → ${trunkPhone} (${callId})`,
@@ -97,7 +101,7 @@ export default defineAgent({
               callId,
               callerPhone,
               livekitContext,
-              officeKey: office.key,
+              officeKey: productOfficeKey,
               officePhone: trunkPhone,
               startedAt,
             },
@@ -186,7 +190,7 @@ export default defineAgent({
               initialVoiceLanguage,
               livekitContext,
               maxCallDurationMs: MAX_CALL_DURATION_MS,
-              officeKey: office.key,
+              officeKey: productOfficeKey,
               officePhone: trunkPhone,
               startedAt,
             },

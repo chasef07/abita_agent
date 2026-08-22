@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolError } from "@livekit/agents";
 
 import {
+  DEMO_BOOKING_OFFICE_PHONE,
   HOLLYWOOD_OFFICE_PHONE,
+  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
@@ -2811,7 +2813,7 @@ describe("scheduling tools", () => {
     setOwnedMiddleware(
       new HttpOwnedMiddleware({
         fetch: fetchMock,
-        productionBaseUrl: "https://middleware.test",
+        middlewareBaseUrl: "https://middleware.test",
       }),
     );
     const { cancel_appointment } = createSchedulingTools(
@@ -4219,6 +4221,45 @@ describe("scheduling tools", () => {
         office: "+13523202007",
         request: { appointmentId: 123 },
       },
+    ]);
+  });
+
+  it("keeps demo reschedule booking and cancellation on the shared demo account", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      bookings: [bookingReceipt()],
+      cancellations: [{ status: "cancelled" }],
+    });
+    const { reschedule_appointment } = createSchedulingTools(middleware);
+    const state = createState();
+    state.office.activeKey = "mental-health-demo";
+    state.office.phoneOverrides = {
+      "mental-health-demo": DEMO_BOOKING_OFFICE_PHONE,
+    };
+    state.runtime.trunkPhone = MENTAL_HEALTH_DEMO_TRUNK_PHONE;
+    prepareReschedule(state, {
+      appointment: loadedAppointment({
+        facility: "Crystal River",
+        type: "Demo follow-up",
+        appointmentTypeId: 6167,
+      }),
+    });
+
+    await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "S1",
+        appointmentReason: "move my follow-up",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "reschedule-demo",
+      } as never,
+    );
+
+    expect(middleware.operations).toMatchObject([
+      { kind: "book", office: DEMO_BOOKING_OFFICE_PHONE },
+      { kind: "cancel", office: DEMO_BOOKING_OFFICE_PHONE },
     ]);
   });
 });
