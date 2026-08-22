@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.11.0](https://github.com/chasef07/abita_agent/compare/4.10.2...4.11.0) (2026-08-22)
+
+
+### Features
+
+* **demo:** configure specialty demo phone profiles ([#364](https://github.com/chasef07/abita_agent/issues/364)) ([b4f3b4a](https://github.com/chasef07/abita_agent/commit/b4f3b4a308254abcaeb46c9cd1a4f33ab9b3b90a))
+
 ## [4.10.2](https://github.com/chasef07/abita_agent/compare/4.10.1...4.10.2) (2026-08-20)
 
 
