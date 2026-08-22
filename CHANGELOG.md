@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.12.0](https://github.com/chasef07/abita_agent/compare/4.11.0...4.12.0) (2026-08-22)
+
+
+### Features
+
+* route specialty demos to Acuity Product ([#367](https://github.com/chasef07/abita_agent/issues/367)) ([975244c](https://github.com/chasef07/abita_agent/commit/975244c5f1a58f9b1c0d7e8eda88490263ca2c16))
+
 ## [4.11.0](https://github.com/chasef07/abita_agent/compare/4.10.2...4.11.0) (2026-08-22)
 
 
