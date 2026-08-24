@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.13.0](https://github.com/chasef07/abita_agent/compare/4.12.0...4.13.0) (2026-08-24)
+
+
+### Features
+
+* enable strict tool schemas ([#373](https://github.com/chasef07/abita_agent/issues/373)) ([95fa14b](https://github.com/chasef07/abita_agent/commit/95fa14b8bf0eec3712d1dae560c11c3b2bfd3023))
+
+
+### Bug Fixes
+
+* keep office tool catalog stable during calls ([#371](https://github.com/chasef07/abita_agent/issues/371)) ([a4c925d](https://github.com/chasef07/abita_agent/commit/a4c925d5505021499555538aaefb74f2a2959d99))
+
 ## [4.12.0](https://github.com/chasef07/abita_agent/compare/4.11.0...4.12.0) (2026-08-22)
 
 
