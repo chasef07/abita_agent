@@ -14,10 +14,10 @@ const APPOINTMENT_LANE_BY_VISIT_TYPE = {
   routine_vision: "routine_od",
 } as const;
 
-type AvailabilityOfficeMode = "omitted" | "optional" | "required";
+type AvailabilityOfficeMode = "omitted" | "required";
 
 type SchedulingToolOptions = {
-  availabilityOfficeMode?: AvailabilityOfficeMode;
+  availabilityOfficeMode: AvailabilityOfficeMode;
 };
 
 const bookAppointmentParameters = z
@@ -108,10 +108,10 @@ const rescheduleAppointmentParameters = z
 export function createSchedulingTools(
   middleware: SchedulingMiddleware,
   clock: SchedulingClock = systemSchedulingClock,
-  options: SchedulingToolOptions = {},
+  options: SchedulingToolOptions = { availabilityOfficeMode: "omitted" },
 ) {
   const workflow = new SchedulingWorkflow(middleware, clock);
-  const availabilityOfficeMode = options.availabilityOfficeMode ?? "optional";
+  const { availabilityOfficeMode } = options;
 
   const availabilityFields = {
     when: z
@@ -142,29 +142,19 @@ export function createSchedulingTools(
   const officeField = z
     .enum(["hollywood", "sweetwater"])
     .describe(
-      "Office selected by the caller after choosing Hollywood or Sweetwater.",
-    );
-  const optionalOfficeField = officeField
-    .nullable()
-    .optional()
-    .describe(
-      "Required on Hollywood and Sweetwater calls after asking which office the caller wants. Use the caller's answer as the office value. Pass null for every other office.",
+      "Required on Hollywood and Sweetwater calls after asking which office the caller wants. Use the caller's answer as the office value.",
     );
   const availabilityParameters = z
     .object(
       availabilityOfficeMode === "required"
         ? { ...availabilityFields, office: officeField }
-        : availabilityOfficeMode === "optional"
-          ? { ...availabilityFields, office: optionalOfficeField }
-          : availabilityFields,
+        : availabilityFields,
     )
     .strict();
   const availabilityOfficeInstructions =
     availabilityOfficeMode === "required"
       ? "Ask whether the caller wants Hollywood or Sweetwater, then pass that selection in office. "
-      : availabilityOfficeMode === "omitted"
-        ? "Use the office selected by the inbound call. "
-        : "On Hollywood or Sweetwater calls, ask which office the caller wants and pass that selection in office. ";
+      : "Use the office selected by the inbound call. ";
 
   const get_availability = tool({
     name: "get_availability",
@@ -172,7 +162,7 @@ export function createSchedulingTools(
       "Search appointment availability using the caller's own date and time words. " +
       "Pass those words verbatim in when, such as tomorrow morning or next Tuesday around 3 PM. " +
       "If the caller asks for the soonest, next available, any day, or only gives a time preference, pass those words unchanged so the workflow can search from the earliest allowed date. " +
-      "For new appointments, call after appointment triage has established the visit type and pass visitType even when appointments are loaded. For reschedules, identify the existing appointment to move, pass its oldAppointmentRef when multiple appointments are loaded, and omit visitType. " +
+      "For new appointments, call after appointment triage has established the visit type and pass visitType even when appointments are loaded. For reschedules, identify the existing appointment to move, pass its oldAppointmentRef when multiple appointments are loaded, and pass visitType as null. " +
       availabilityOfficeInstructions +
       "Offer only the returned slots. Treat this tool as a search and claim booking success only after book_appointment succeeds.",
     parameters: availabilityParameters,
@@ -241,7 +231,7 @@ export function createSchedulingTools(
       "Reschedule a loaded appointment. " +
       "Call only after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns an appointmentSlotRef, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. " +
       "Pass appointmentSlotRef for the caller-confirmed new slot and use call-scoped references from loaded appointment state. The tool selects the old appointment from that state. " +
-      "If more than one old appointment is loaded, make the first call with oldAppointmentRef omitted, ask the caller which listed appointment to move, then make the next call after you can pass the matching oldAppointmentRef. " +
+      "If more than one old appointment is loaded, make the first call with oldAppointmentRef as null, ask the caller which listed appointment to move, then make the next call after you can pass the matching oldAppointmentRef. " +
       "Before booking the new appointment, read back the selected new appointment date, time, and provider, then get caller confirmation. " +
       "This tool books the new appointment first and cancels the old appointment only after booking succeeds.",
     parameters: rescheduleAppointmentParameters,

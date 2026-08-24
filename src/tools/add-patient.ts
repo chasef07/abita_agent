@@ -37,7 +37,6 @@ const addPatientParameters = z
       .describe("Date of birth in MM/DD/YYYY format"),
     phone: z
       .string()
-      .regex(/^\d{10}$/)
       .nullable()
       .optional()
       .describe(
@@ -52,7 +51,6 @@ const addPatientParameters = z
       ),
     email: z
       .string()
-      .email()
       .nullable()
       .optional()
       .describe(
@@ -108,7 +106,7 @@ export const add_patient = tool({
     "After that confirmation, call add_patient directly with newPatientConfirmed true. " +
     "Read back the registration details and get caller confirmation first. " +
     "For insured routine-vision registration, ask once for the patient's SSN last four. Continue without it if declined or unavailable. Request only the last four digits. Skip SSN collection for self pay. " +
-    "Before using the inbound caller number, confirm it is a good callback number; if yes, omit phone and set inboundPhoneConfirmed to true. " +
+    "Before using the inbound caller number, confirm it is a good callback number; if yes, pass phone as null and set inboundPhoneConfirmed to true. " +
     'Use "self pay" as insuranceMemberId only when the patient asks for self pay.',
   parameters: addPatientParameters,
   execute: async (params, { ctx }) => {

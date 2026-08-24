@@ -11,7 +11,9 @@ import {
   CALLER_CANDIDATE_REF,
   type PreCallPatientCandidate,
 } from "../state/call-state.js";
+import { productionSchedulingMiddleware } from "../scheduling/middleware.js";
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
+import { createSchedulingTools } from "../scheduling/tools.js";
 import { ownedMiddlewareFailures } from "../state/observability.js";
 import {
   add_patient,
@@ -29,6 +31,9 @@ import {
 
 type TestCallState = ReturnType<typeof createConfirmedPatientState>;
 type PreCallCandidate = PreCallPatientCandidate;
+const { cancel_appointment } = createSchedulingTools(
+  productionSchedulingMiddleware,
+);
 let testMiddleware: InMemoryOwnedMiddleware;
 
 function createState(): TestCallState {
@@ -788,14 +793,18 @@ describe("stateful call tools", () => {
         lastName: "Doe",
         dob: "01/01/1980",
         street: "123 Main St",
-        aptSuite: "",
+        aptSuite: null,
         city: "Spring Hill",
         state: "FL",
         zip: "34606",
         sex: "female",
         subscriberName: "Jane Doe",
         insuranceMemberId: "self pay",
+        phone: null,
         inboundPhoneConfirmed: true,
+        email: null,
+        ssnLast4: null,
+        newPatientConfirmed: null,
         readBack: true,
       },
       {
@@ -1838,6 +1847,8 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Jane",
+        lastName: null,
+        dob: null,
       },
       {
         ctx: createToolContext(state) as never,
