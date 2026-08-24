@@ -425,7 +425,11 @@ describe("stable tool catalog", () => {
         toolCalls: [
           {
             name: "get_availability",
-            args: { when: "next available", visitType: "medical" },
+            args: {
+              when: "next available",
+              visitType: "medical",
+              oldAppointmentRef: null,
+            },
           },
         ],
       },
@@ -517,7 +521,11 @@ describe("stable tool catalog", () => {
         toolCalls: [
           {
             name: "get_availability",
-            args: { when: "next available", visitType: "medical" },
+            args: {
+              when: "next available",
+              visitType: "medical",
+              oldAppointmentRef: null,
+            },
           },
         ],
       },
@@ -622,14 +630,18 @@ function completeRegistration() {
     firstName: "Jane",
     lastName: "Doe",
     dob: "01/01/1980",
+    phone: null,
     inboundPhoneConfirmed: true,
+    email: null,
     street: "123 Main St",
+    aptSuite: null,
     city: "Spring Hill",
     state: "FL",
     zip: "34606",
     sex: "female",
     subscriberName: "Jane Doe",
     insuranceMemberId: "VSP-123",
+    ssnLast4: null,
     newPatientConfirmed: true,
     readBack: true,
   };

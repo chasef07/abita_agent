@@ -11,9 +11,7 @@ import {
   CALLER_CANDIDATE_REF,
   type PreCallPatientCandidate,
 } from "../state/call-state.js";
-import { productionSchedulingMiddleware } from "../scheduling/middleware.js";
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
-import { createSchedulingTools } from "../scheduling/tools.js";
 import { ownedMiddlewareFailures } from "../state/observability.js";
 import {
   add_patient,
@@ -31,9 +29,6 @@ import {
 
 type TestCallState = ReturnType<typeof createConfirmedPatientState>;
 type PreCallCandidate = PreCallPatientCandidate;
-const { cancel_appointment } = createSchedulingTools(
-  productionSchedulingMiddleware,
-);
 let testMiddleware: InMemoryOwnedMiddleware;
 
 function createState(): TestCallState {

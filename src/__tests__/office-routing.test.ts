@@ -1039,10 +1039,10 @@ describe("model-facing tool definitions", () => {
       "exact loaded appointment",
     );
     expect(parameters.shape.office.description).toContain(
-      "Office selected by the caller",
+      "Required on Hollywood and Sweetwater calls",
     );
     expect(parameters.shape.office.description).toContain(
-      "Hollywood or Sweetwater",
+      "Use the caller's answer as the office value",
     );
     expect(parameters.shape.when.description).toContain(
       "caller's own date and time phrase",
@@ -1399,6 +1399,9 @@ describe("model-facing tool definitions", () => {
       "use call-scoped references from loaded appointment state",
     );
     expect(reschedule_appointment.description).toContain("oldAppointmentRef");
+    expect(reschedule_appointment.description).toContain(
+      "sole exception to exact old-appointment confirmation",
+    );
     expect(reschedule_appointment.description).toContain(
       "make the next call after you can pass the matching oldAppointmentRef",
     );

@@ -97,7 +97,7 @@ const rescheduleAppointmentParameters = z
       .min(1)
       .nullable()
       .describe(
-        "Loaded appointment reference returned by reschedule_appointment when multiple old appointments are loaded. Pass null until the exact old appointment is selected, including when exactly one old appointment is loaded or before the first clarification call with multiple appointments.",
+        "Loaded appointment reference returned by reschedule_appointment when multiple old appointments are loaded. Pass null when one loaded appointment is unambiguous or on the initial multiple-appointment clarification call before a reference is available.",
       ),
   })
   .strict();
@@ -224,7 +224,7 @@ export function createSchedulingTools(
     onDuplicate: "reject",
     description:
       "Reschedule a loaded appointment. " +
-      "Call only after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns an appointmentSlotRef, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. " +
+      "Call after the patient is verified, the caller confirms the exact old appointment to move, get_availability returns an appointmentSlotRef, the caller confirms the exact new slot, and the caller provides a referring doctor or says they have none. The sole exception to exact old-appointment confirmation is the initial multiple-appointment clarification call described below. " +
       "Pass appointmentSlotRef for the caller-confirmed new slot and use call-scoped references from loaded appointment state. The tool selects the old appointment from that state. " +
       "If more than one old appointment is loaded, make the first call with oldAppointmentRef as null, ask the caller which listed appointment to move, then make the next call after you can pass the matching oldAppointmentRef. " +
       "Before booking the new appointment, read back the selected new appointment date, time, and provider, then get caller confirmation. " +
