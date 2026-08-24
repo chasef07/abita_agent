@@ -123,11 +123,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       routineVision: {
         query: "VSP",
-        response: { status: "accepted", plan: "VSP" },
+        response: "Yes, VSP is accepted.",
       },
       medical: {
         query: "Ambetter Premier",
-        response: { status: "accepted", plan: "Ambetter Premier" },
+        response: "Yes, Ambetter Premier is accepted.",
       },
     },
     key: "spring-hill",
@@ -150,11 +150,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Cigna Open Access",
-        response: { status: "accepted", plan: "Cigna Open Access" },
+        response: "Yes, Cigna Open Access is accepted.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "not_accepted", plan: "VSP" },
+        response: "No, VSP is not accepted.",
       },
     },
     key: "crystal-river",
@@ -183,11 +183,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Aetna EPO North Broward",
-        response: { status: "accepted", plan: "Aetna EPO North Broward" },
+        response: "Yes, Aetna EPO North Broward is accepted.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "accepted", plan: "VSP" },
+        response: "Yes, VSP is accepted.",
       },
     },
     key: "hollywood",
@@ -212,11 +212,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Aetna EPO North Broward",
-        response: { status: "accepted", plan: "Aetna EPO North Broward" },
+        response: "Yes, Aetna EPO North Broward is accepted.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "accepted", plan: "VSP" },
+        response: "Yes, VSP is accepted.",
       },
     },
     key: "sweetwater",
@@ -241,11 +241,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Aetna",
-        response: { status: "not_accepted", plan: "Aetna" },
+        response: "No, Aetna is not accepted.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "accepted", plan: "VSP" },
+        response: "Yes, VSP is accepted.",
       },
     },
     key: "north-miami-beach-optical",
@@ -275,11 +275,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Ambetter Premier",
-        response: { status: "accepted", plan: "Ambetter Premier" },
+        response: "Yes, Ambetter Premier is accepted.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "accepted", plan: "VSP" },
+        response: "Yes, VSP is accepted.",
       },
     },
     key: "ophthalmology-demo",
@@ -305,16 +305,12 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Aetna Choice POS II",
-        response: {
-          status: "accepted",
-          plan: "Aetna Choice POS II",
-          callerNotice:
-            "This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
-        },
+        response:
+          "Yes, Aetna Choice POS II is accepted. This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "not_accepted", plan: "VSP" },
+        response: "No, VSP is not accepted.",
       },
     },
     key: "mental-health-demo",
@@ -345,11 +341,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Ambetter Premier",
-        response: { status: "accepted", plan: "Ambetter Premier" },
+        response: "Yes, Ambetter Premier is accepted.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "not_accepted", plan: "VSP" },
+        response: "No, VSP is not accepted.",
       },
     },
     key: "rheumatology-demo",

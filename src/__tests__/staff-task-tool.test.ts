@@ -192,11 +192,10 @@ describe("create_staff_task", () => {
       { ctx: ctx as never, toolCallId: "insurance-tool-1" } as never,
     );
 
-    expect(insuranceResult).toMatchObject({
-      status: "needs_staff_task",
-      plan: "United Healthcare Individual Exchange Network (Medical)",
-      preauthRequired: true,
-    });
+    expect(insuranceResult).toBe(
+      "This plan requires prior authorization before we can schedule. I can send a task to staff to follow up with the insurance company. Is that okay?",
+    );
+    expect(typeof insuranceResult).toBe("string");
 
     const taskResult = await create_staff_task.execute(
       {

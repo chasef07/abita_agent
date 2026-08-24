@@ -31,10 +31,9 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
   return tool({
     name: "update_insurance",
     description:
-      "Update insurance for a verified existing patient. " +
-      "Use when the verified patient explicitly says they want to update the insurance on file. " +
-      "Use add_patient for new-patient registration flows. " +
-      "Call this only after check_insurance accepts the new plan for the correct medical or routine-vision coverage type.",
+      "Update coverage for the active verified patient only after the caller requests the change and check_insurance accepts the new plan for the correct visit type. " +
+      "Use add_patient for new registrations. " +
+      "Claim success only from this tool's updated receipt; on failure, follow the returned single-retry or transfer instruction.",
     parameters: z
       .object({
         insuranceMemberId: z
@@ -42,11 +41,14 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
           .trim()
           .min(1)
           .describe(
-            'Member ID from the insurance card. Use "self pay" only when check_insurance accepted Self Pay.',
+            'Card member ID; use "self pay" only after Self Pay is accepted.',
           ),
       })
       .strict(),
-    execute: async ({ insuranceMemberId }, { ctx, toolCallId }) => {
+    execute: async (
+      { insuranceMemberId },
+      { ctx, toolCallId },
+    ): Promise<string> => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
       const outcomes = domainOutcomesForTool(

@@ -44,26 +44,7 @@ export interface InsuranceLookupResult {
   preauthRequired: boolean;
 }
 
-export type InsuranceToolResponse =
-  | {
-      status: "accepted";
-      plan: string;
-      callerNotice?: string;
-    }
-  | {
-      status: "not_accepted";
-      plan: string;
-    }
-  | {
-      status: "needs_clarification";
-      clarificationNeeded: string;
-    }
-  | {
-      status: "needs_staff_task";
-      plan: string;
-      preauthRequired: true;
-      message: string;
-    };
+export type InsuranceToolResponse = string;
 
 const referenceCache = new Map<string, InsuranceReference>();
 
@@ -98,37 +79,23 @@ export function buildInsuranceToolResponse(
   result: InsuranceLookupResult,
 ): InsuranceToolResponse {
   if (result.status === "accepted") {
-    return {
-      status: "accepted",
-      plan: result.callerFacingPlan ?? result.matchedFamily ?? result.query,
-      ...(result.callerNotice ? { callerNotice: result.callerNotice } : {}),
-    };
+    const plan =
+      result.callerFacingPlan ?? result.matchedFamily ?? result.query;
+    return `Yes, ${plan} is accepted.${result.callerNotice ? ` ${result.callerNotice}` : ""}`;
   }
 
   if (result.status === "not_accepted") {
-    return {
-      status: "not_accepted",
-      plan: result.callerFacingPlan ?? result.query,
-    };
+    return `No, ${result.callerFacingPlan ?? result.query} is not accepted.`;
   }
 
   if (result.status === "needs_staff_task") {
-    const plan =
-      result.callerFacingPlan ?? result.matchedFamily ?? result.query;
-    return {
-      status: "needs_staff_task",
-      plan,
-      preauthRequired: true,
-      message: `Prior authorization is required for ${plan}. Tell the caller: "This plan requires prior authorization before we can schedule. I need to create a task for our staff to follow up with your insurance company. Is that okay?" If the caller agrees, call create_staff_task with category referrals and urgency normal. Include the patient, plan, visit type, and authorization request staff needs. Transfer only if task creation is unavailable, fails, or the caller declines.`,
-    };
+    return "This plan requires prior authorization before we can schedule. I can send a task to staff to follow up with the insurance company. Is that okay?";
   }
 
-  return {
-    status: "needs_clarification",
-    clarificationNeeded:
-      result.clarificationNeeded ??
-      "the exact plan name from the insurance card",
-  };
+  const clarification = (
+    result.clarificationNeeded ?? "the exact plan name from the insurance card"
+  ).replace(/[.!?]+$/, "");
+  return `I need a little more information before I can confirm coverage: ${clarification}.`;
 }
 
 export function matchInsurancePlan(

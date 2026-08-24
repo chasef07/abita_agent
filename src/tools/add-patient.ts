@@ -43,25 +43,23 @@ const addPatientParameters = z
       .string()
       .nullable()
       .describe(
-        "Best callback number, 10 digits only. Pass null when the inbound caller number is confirmed as best; the tool will use the caller phone from state.",
+        "Different callback number, 10 digits. Pass null when inboundPhoneConfirmed is true.",
       ),
     inboundPhoneConfirmed: z
       .literal(true)
       .nullable()
       .describe(
-        "Set to true only after asking whether the number they are calling from is a good callback number to put on file and the caller says yes. Pass null while confirmation is pending or when a different callback number is supplied.",
+        "True only after the caller confirms the inbound number is a good callback number.",
       ),
     email: z
       .string()
       .nullable()
-      .describe(
-        "Email address if the caller provides one; otherwise pass null",
-      ),
+      .describe("Caller-provided email, or null."),
     street: z.string().describe("Street address"),
     aptSuite: z
       .string()
       .nullable()
-      .describe("Apartment or suite number, or null when there is none"),
+      .describe("Apartment or suite, or null."),
     city: z.string().describe("City"),
     state: z.string().describe("State, 2-letter abbreviation"),
     zip: z.string().describe("Zip code"),
@@ -78,19 +76,19 @@ const addPatientParameters = z
       .regex(/^\d{4}$/)
       .nullable()
       .describe(
-        "Caller-provided value when available. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits. Pass null for self pay or when declined or unavailable.",
+        "Optional SSN last four for insured routine vision. Request only four digits; pass null for self-pay, declined, or unavailable.",
       ),
     newPatientConfirmed: z
       .literal(true)
       .nullable()
       .describe(
-        "Set to true only after the caller explicitly confirms this is the patient's first registration with the practice. Pass null until confirmed.",
+        "True only after the caller confirms this is the patient's first registration; otherwise null.",
       ),
     readBack: z
       .literal(true)
       .nullable()
       .describe(
-        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID; confirming any provided SSN last four was captured without repeating the digits; and the caller confirms the details are correct. Pass null until confirmed.",
+        "True only after the caller confirms the full identity, contact, address, and insurance read-back. Acknowledge captured SSN last four without repeating it; otherwise null.",
       ),
   })
   .strict();
@@ -100,14 +98,11 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
     name: "add_patient",
     onDuplicate: "reject",
     description:
-      "Create a chart after the caller explicitly confirms this is the patient's first registration with the practice, visit triage, and an accepted check_insurance result. " +
-      "After that confirmation, call add_patient directly with newPatientConfirmed true. " +
-      "Read back the registration details and get caller confirmation first. " +
-      "For insured routine-vision registration, ask once for the patient's SSN last four. Continue without it if declined or unavailable. Request only the last four digits. Skip SSN collection for self pay. " +
-      "Before using the inbound caller number, confirm it is a good callback number; if yes, pass phone as null and set inboundPhoneConfirmed to true. " +
-      'Use "self pay" as insuranceMemberId only when the patient asks for self pay.',
+      "Create a new patient chart only after first-registration confirmation, appointment triage, accepted insurance, callback-number confirmation, and a confirmed full read-back. " +
+      "For insured routine vision, request only SSN last four once and continue if unavailable; skip it for self-pay. " +
+      "Success requires this tool's creation receipt; never retry after full or partial chart creation.",
     parameters: addPatientParameters,
-    execute: async (params, { ctx, toolCallId }) => {
+    execute: async (params, { ctx, toolCallId }): Promise<string> => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
       const outcomes = domainOutcomesForTool(state, toolCallId, "add_patient");

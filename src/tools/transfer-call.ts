@@ -21,9 +21,11 @@ export const transfer_call = tool({
   name: "transfer_call",
   onDuplicate: "reject",
   description:
-    "Transfer the caller to human office staff when the transfer policy requires it. Call this tool immediately without announcing the transfer first; the tool speaks the transfer announcement.",
+    "Transfer the caller to human staff only when current office policy requires it. " +
+    "Call immediately without announcing the transfer; the tool speaks the announcement. " +
+    "Retry only when the result explicitly offers one retry.",
   parameters: z.object({}),
-  execute: async (_, { ctx, toolCallId }) => {
+  execute: async (_, { ctx, toolCallId }): Promise<string> => {
     const state = getState(ctx);
     ctx.disallowInterruptions();
     const outcomes = domainOutcomesForTool(state, toolCallId, "transfer_call");

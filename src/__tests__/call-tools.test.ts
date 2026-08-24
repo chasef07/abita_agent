@@ -2366,25 +2366,16 @@ describe("stateful call tools", () => {
   it("stores accepted insurance from check_insurance", async () => {
     const state = createState();
 
-    const result = (await check_insurance.execute(
+    const result = await check_insurance.execute(
       {
         plan: "Blue Cross",
         coverageType: "medical",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
-    )) as Record<string, unknown>;
+    );
 
-    expect(result).toEqual({
-      status: "accepted",
-      plan: "Blue Cross Blue Shield",
-    });
-    expect(result).not.toHaveProperty("callerMessage");
-    expect(result).not.toHaveProperty("canProceed");
-    expect(result).not.toHaveProperty("callerFacingPlan");
-    expect(result).not.toHaveProperty("canonicalPlan");
-    expect(result).not.toHaveProperty("outcome");
-    expect(result).not.toHaveProperty("facts");
-    expect(result).not.toHaveProperty("retryable");
+    expect(result).toBe("Yes, Blue Cross Blue Shield is accepted.");
+    expect(typeof result).toBe("string");
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Blue Cross",
       canonicalPlan: "Florida Blue",
@@ -2399,28 +2390,44 @@ describe("stateful call tools", () => {
     const state = createState();
     state.office.activeKey = "hollywood";
 
-    const result = (await check_insurance.execute(
+    const result = await check_insurance.execute(
       {
         plan: "United Healthcare Individual Exchange Network (Medical)",
         coverageType: "medical",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
-    )) as Record<string, unknown>;
-
-    expect(result).toMatchObject({
-      status: "needs_staff_task",
-      plan: "United Healthcare Individual Exchange Network (Medical)",
-      preauthRequired: true,
-    });
-    expect(result.message).toContain("call create_staff_task");
-    expect(result.message).toContain(
-      "Transfer only if task creation is unavailable, fails, or the caller declines",
     );
+
+    expect(result).toBe(
+      "This plan requires prior authorization before we can schedule. I can send a task to staff to follow up with the insurance company. Is that okay?",
+    );
+    expect(typeof result).toBe("string");
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "United Healthcare Individual Exchange Network (Medical)",
       canonicalPlan: null,
       coverageType: "medical",
       currentCarrier: "United Healthcare Individual Exchange Network (Medical)",
+      accepted: false,
+    });
+  });
+
+  it("returns a plain clarification prompt without changing structured state", async () => {
+    const state = createState();
+
+    const result = await check_insurance.execute(
+      { plan: "Cigna", coverageType: "medical" },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "I need a little more information before I can confirm coverage: which Cigna plan is on the card.",
+    );
+    expect(typeof result).toBe("string");
+    expect(state.insurance.lastEligibilityCheck).toEqual({
+      plan: "Cigna",
+      canonicalPlan: null,
+      coverageType: "medical",
+      currentCarrier: null,
       accepted: false,
     });
   });
@@ -2642,20 +2649,15 @@ describe("stateful call tools", () => {
   it("keeps canonical insurance internal for caller-facing alias responses", async () => {
     const state = createState();
 
-    const result = (await check_insurance.execute(
+    const result = await check_insurance.execute(
       {
         plan: "Ambetter",
         coverageType: "routine_vision",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
-    )) as Record<string, unknown>;
+    );
 
-    expect(result).toEqual({
-      status: "accepted",
-      plan: "Ambetter",
-    });
-    expect(result).not.toHaveProperty("callerMessage");
-    expect(result).not.toHaveProperty("canonicalPlan");
+    expect(result).toBe("Yes, Ambetter is accepted.");
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Ambetter",
       canonicalPlan: "Envolve",
@@ -2669,20 +2671,15 @@ describe("stateful call tools", () => {
     const state = createState();
     state.office.activeKey = "hollywood";
 
-    const result = (await check_insurance.execute(
+    const result = await check_insurance.execute(
       {
         plan: "Simply Healthcare Medicaid",
         coverageType: "routine_vision",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
-    )) as Record<string, unknown>;
+    );
 
-    expect(result).toEqual({
-      status: "accepted",
-      plan: "Simply Healthcare Medicaid",
-    });
-    expect(result).not.toHaveProperty("callerMessage");
-    expect(result).not.toHaveProperty("canonicalPlan");
+    expect(result).toBe("Yes, Simply Healthcare Medicaid is accepted.");
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Simply Healthcare Medicaid",
       canonicalPlan: "iCare",
@@ -2695,18 +2692,17 @@ describe("stateful call tools", () => {
   it("stores iCare for any Aetna government routine vision variant", async () => {
     const state = createState();
 
-    const result = (await check_insurance.execute(
+    const result = await check_insurance.execute(
       {
         plan: "Aetna Dual Eligible Medicare Advantage",
         coverageType: "routine_vision",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
-    )) as Record<string, unknown>;
+    );
 
-    expect(result).toEqual({
-      status: "accepted",
-      plan: "Aetna Dual Eligible Medicare Advantage",
-    });
+    expect(result).toBe(
+      "Yes, Aetna Dual Eligible Medicare Advantage is accepted.",
+    );
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Aetna Dual Eligible Medicare Advantage",
       canonicalPlan: "iCare",
@@ -2720,18 +2716,15 @@ describe("stateful call tools", () => {
     const state = createState();
     state.office.activeKey = "north-miami-beach-optical";
 
-    const result = (await check_insurance.execute(
+    const result = await check_insurance.execute(
       {
         plan: "Humana PPO",
         coverageType: "medical",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
-    )) as Record<string, unknown>;
+    );
 
-    expect(result).toEqual({
-      status: "not_accepted",
-      plan: "Humana PPO",
-    });
+    expect(result).toBe("No, Humana PPO is not accepted.");
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Humana PPO",
       canonicalPlan: null,
@@ -2745,25 +2738,15 @@ describe("stateful call tools", () => {
     const state = createState();
     state.office.activeKey = "crystal-river";
 
-    const result = (await check_insurance.execute(
+    const result = await check_insurance.execute(
       {
         plan: "Humana PPO",
         coverageType: "medical",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
-    )) as Record<string, unknown>;
+    );
 
-    expect(result).toMatchObject({
-      status: "not_accepted",
-      plan: "Humana PPO",
-    });
-    expect(result).not.toHaveProperty("acceptedAtAlternateOffice");
-    expect(result).not.toHaveProperty("alternatePlan");
-    expect(result).not.toHaveProperty("routeTool");
-    expect(result).not.toHaveProperty("canonicalPlan");
-    expect(result).not.toHaveProperty("callerMessage");
-    expect(result).not.toHaveProperty("canProceed");
-    expect(result).not.toHaveProperty("callerFacingPlan");
+    expect(result).toBe("No, Humana PPO is not accepted.");
     expect(state.insurance.lastEligibilityCheck).toMatchObject({
       plan: "Humana PPO",
       canonicalPlan: null,
@@ -2785,10 +2768,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toEqual({
-      status: "not_accepted",
-      plan: "Aetna",
-    });
+    expect(result).toBe("No, Aetna is not accepted.");
     expect(state.insurance.lastEligibilityCheck).toMatchObject({
       plan: "Aetna",
       canonicalPlan: null,
