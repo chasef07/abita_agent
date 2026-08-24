@@ -44,10 +44,11 @@ const bookAppointmentParameters = z
         'Caller-provided referring doctor. When the caller reports no referring doctor, acknowledge briefly and continue. Pass "none" only as this tool\'s internal value and use natural caller-facing wording.',
       ),
     readBack: z
-      .boolean()
+      .literal(true)
+      .nullable()
       .optional()
       .describe(
-        "Set to true only after reading back the selected appointment date, time, and provider and the caller confirms the appointment details are correct.",
+        "Set to true only after reading back the selected appointment date, time, and provider and the caller confirms the appointment details are correct. Pass null until confirmed.",
       ),
   })
   .strict();
@@ -86,18 +87,20 @@ const rescheduleAppointmentParameters = z
         'Caller-provided referring doctor. When the caller reports no referring doctor, acknowledge briefly and continue. Pass "none" only as this tool\'s internal value and use natural caller-facing wording.',
       ),
     readBack: z
-      .boolean()
+      .literal(true)
+      .nullable()
       .optional()
       .describe(
-        "Set to true only after reading back the selected new appointment date, time, and provider and the caller confirms the new appointment details are correct.",
+        "Set to true only after reading back the selected new appointment date, time, and provider and the caller confirms the new appointment details are correct. Pass null until confirmed.",
       ),
     oldAppointmentRef: z
       .string()
       .trim()
       .min(1)
+      .nullable()
       .optional()
       .describe(
-        "Loaded appointment reference returned by reschedule_appointment when multiple old appointments are loaded. Omit when exactly one old appointment is loaded.",
+        "Loaded appointment reference returned by reschedule_appointment when multiple old appointments are loaded. Pass null when exactly one old appointment is loaded.",
       ),
   })
   .strict();
@@ -120,18 +123,20 @@ export function createSchedulingTools(
       ),
     visitType: z
       .enum(["medical", "routine_vision"])
+      .nullable()
       .optional()
       .describe(
         "Visit type established by appointment triage. Required for new appointment searches; pass medical or routine_vision. " +
-          "Omit only for reschedules when the loaded appointment supplies the visit type.",
+          "Pass null only for reschedules when the loaded appointment supplies the visit type.",
       ),
     oldAppointmentRef: z
       .string()
       .trim()
       .min(1)
+      .nullable()
       .optional()
       .describe(
-        "For reschedules, pass the appointmentRef for the exact loaded appointment the caller confirmed they want to move. The sole loaded appointment is used when this is omitted. Omit for new appointments.",
+        "For reschedules, pass the appointmentRef for the exact loaded appointment the caller confirmed they want to move. Pass null when the sole loaded appointment applies or for new appointments.",
       ),
   };
   const officeField = z
@@ -140,9 +145,10 @@ export function createSchedulingTools(
       "Office selected by the caller after choosing Hollywood or Sweetwater.",
     );
   const optionalOfficeField = officeField
+    .nullable()
     .optional()
     .describe(
-      "Required on Hollywood and Sweetwater calls after asking which office the caller wants. Use the caller's answer as the office value. Omit for every other office.",
+      "Required on Hollywood and Sweetwater calls after asking which office the caller wants. Use the caller's answer as the office value. Pass null for every other office.",
     );
   const availabilityParameters = z
     .object(
@@ -204,7 +210,10 @@ export function createSchedulingTools(
     execute: async (args, { ctx }) => {
       ctx.disallowInterruptions();
       return returnSchedulingInputRequired(() =>
-        workflow.bookAppointment(getState(ctx), args),
+        workflow.bookAppointment(getState(ctx), {
+          ...args,
+          readBack: args.readBack ?? undefined,
+        }),
       );
     },
   });
@@ -239,7 +248,11 @@ export function createSchedulingTools(
     execute: async (args, { ctx }) => {
       ctx.disallowInterruptions();
       return returnSchedulingInputRequired(() =>
-        workflow.rescheduleAppointment(getState(ctx), args),
+        workflow.rescheduleAppointment(getState(ctx), {
+          ...args,
+          oldAppointmentRef: args.oldAppointmentRef ?? undefined,
+          readBack: args.readBack ?? undefined,
+        }),
       );
     },
   });

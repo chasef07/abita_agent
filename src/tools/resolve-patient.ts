@@ -16,25 +16,28 @@ const resolvePatientParameters = z
       .string()
       .trim()
       .min(1)
+      .nullable()
       .optional()
       .describe(
-        "Caller-provided patient first name. Use this alone only when switching to another preloaded patient from the phone lookup.",
+        "Caller-provided patient first name. Use this alone only when switching to another preloaded patient from the phone lookup. Pass null when the caller has not supplied it.",
       ),
     lastName: z
       .string()
       .trim()
       .min(1)
+      .nullable()
       .optional()
       .describe(
-        "Caller-provided patient last name. Include with DOB for existing-patient lookup.",
+        "Caller-provided patient last name. Include with DOB for existing-patient lookup. Pass null for first-name-only preloaded-patient activation.",
       ),
     dob: z
       .string()
       .trim()
       .min(1)
+      .nullable()
       .optional()
       .describe(
-        "Caller-provided date of birth in MM/DD/YYYY format. Include with first and last name for existing-patient lookup.",
+        "Caller-provided date of birth in MM/DD/YYYY format. Include with first and last name for existing-patient lookup. Pass null for first-name-only preloaded-patient activation.",
       ),
   })
   .strict();
@@ -66,10 +69,19 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
     execute: async (identity: ResolvePatientArgs, { ctx }: ToolOptions) => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
+      const suppliedIdentity = {
+        firstName: identity.firstName ?? undefined,
+        lastName: identity.lastName ?? undefined,
+        dob: identity.dob ?? undefined,
+      };
       const outcomeCount = state.runtime.patientIdentityOutcomes.length;
       let resolution: PatientIdentityResolution;
       try {
-        resolution = await resolveExistingPatient(state, identity, lookup);
+        resolution = await resolveExistingPatient(
+          state,
+          suppliedIdentity,
+          lookup,
+        );
       } catch (error) {
         if (state.runtime.patientIdentityOutcomes.length === outcomeCount) {
           recordPatientIdentityOutcome(state, "lookup_failed");
