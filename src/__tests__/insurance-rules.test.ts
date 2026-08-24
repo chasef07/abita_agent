@@ -293,7 +293,7 @@ describe("insurance matcher", () => {
       );
 
       expect(buildInsuranceToolResponse(result)).toBe(
-        `Yes, ${plan} is accepted. For new patients with Oscar, Davis Vision coverage is automatic through age 18. For patients 19 and older, Davis Vision is included only if they selected Oscar's additional vision option. Without that option, the visit would be self-pay.`,
+        `Yes, we take ${plan}. For new patients with Oscar, Davis Vision coverage is automatic through age 18. For patients 19 and older, Davis Vision is included only if they selected Oscar's additional vision option. Without that option, the visit would be self-pay.`,
       );
     }
   });
@@ -424,17 +424,17 @@ describe("insurance matcher", () => {
     [
       "accepted",
       matchInsurancePlan(reference, "Blue Cross"),
-      "Yes, Blue Cross Blue Shield is accepted.",
+      "Yes, we take Blue Cross Blue Shield.",
     ],
     [
       "not accepted",
       matchInsurancePlan(reference, "Care Plus"),
-      "No, Care Plus is not accepted.",
+      "No, we don't accept Care Plus.",
     ],
     [
       "clarification needed",
       matchInsurancePlan(reference, "Cigna"),
-      "I need a little more information before I can confirm coverage: which Cigna plan is on the card.",
+      "I can check that, but I need to know which Cigna plan is on the card.",
     ],
     [
       "prior authorization",

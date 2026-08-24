@@ -116,7 +116,7 @@ describe("completed user turn context", () => {
     expect(state.runtime.outcomeReceipts).toEqual([]);
     expect(patientModelProjection(state)).toContain("LARRY TEST");
     expect(patientModelProjection(state)).toContain(
-      "Insurance on file: FLORIDA BLUE SHIELD.",
+      "We have FLORIDA BLUE SHIELD on file.",
     );
     expect(patientModelProjection(state)).not.toContain("patient-larry");
   });

@@ -24,9 +24,9 @@ import {
 import { getState } from "./session.js";
 
 const TASK_CREATED_REPLY =
-  "Task sent to staff. Tell the caller: I wrote that down for the team. They'll review it and follow up.";
+  "I wrote that down for the team. They'll review it and follow up.";
 const TASK_DUPLICATE_REPLY =
-  "Task already sent to staff. Tell the caller: I already sent that to the team. They'll review it and follow up.";
+  "I already sent that to the team. They'll review it and follow up.";
 const TASK_FAILED_REPLY =
   "I couldn't send the message. I can transfer you to the office.";
 

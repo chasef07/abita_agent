@@ -136,13 +136,13 @@ export function rescheduleAppointmentForState(
       return {
         status: "ambiguous",
         message:
-          "More than one loaded appointment has that oldAppointmentRef. Load appointments again and confirm the exact appointment before rescheduling.",
+          "I need to reload the appointments and confirm the exact one before rescheduling.",
       };
     }
     return {
       status: "not_found",
       message:
-        "No loaded appointment matches that oldAppointmentRef. Ask which loaded appointment to reschedule.",
+        "I couldn't match that appointment. Which upcoming appointment would you like to reschedule?",
     };
   }
 
@@ -166,14 +166,13 @@ export function rescheduleAppointmentForState(
   if (appointments.length > 1) {
     return {
       status: "ambiguous",
-      message: rescheduleAppointmentClarificationMessage(appointments),
+      message: "Which upcoming appointment would you like to reschedule?",
     };
   }
 
   return {
     status: "not_found",
-    message:
-      "Load appointments and confirm the exact appointment before rescheduling.",
+    message: "I need to load the upcoming appointments before rescheduling.",
   };
 }
 
@@ -185,8 +184,7 @@ export function cancellationAppointmentForState(
   if (!appointmentRef) {
     return {
       status: "not_found",
-      message:
-        "Pass the appointmentRef shown with the caller-confirmed loaded appointment before cancelling.",
+      message: "Which upcoming appointment would you like to cancel?",
     };
   }
   const matches = activeAppointments(state).filter(
@@ -199,13 +197,13 @@ export function cancellationAppointmentForState(
     return {
       status: "ambiguous",
       message:
-        "More than one loaded appointment has that appointmentRef. Load appointments again and confirm the exact appointment before cancelling.",
+        "I need to reload the appointments and confirm the exact one before cancelling.",
     };
   }
   return {
     status: "not_found",
     message:
-      "No loaded appointment matches that appointmentRef. Use the appointmentRef shown with the current loaded appointment.",
+      "I couldn't match that appointment. Which upcoming appointment would you like to cancel?",
   };
 }
 
@@ -247,26 +245,4 @@ function isNoAppointmentsResult(result: unknown): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function rescheduleAppointmentClarificationMessage(
-  appointments: CallerAppointment[],
-): string {
-  const choices = appointments
-    .map(
-      (appointment) =>
-        `${appointment.appointmentRef}: ${spokenAppointment(appointment)}`,
-    )
-    .join("; ");
-  return `Which loaded appointment should I reschedule? Ask the caller to choose one, then call reschedule_appointment again only with the matching oldAppointmentRef from: ${choices}. The next reschedule_appointment call requires oldAppointmentRef.`;
-}
-
-function spokenAppointment(appointment: CallerAppointment): string {
-  return [
-    appointment.date,
-    appointment.time ? `at ${appointment.time}` : "",
-    appointment.provider ? `with ${appointment.provider}` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
 }

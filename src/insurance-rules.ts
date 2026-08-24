@@ -81,11 +81,11 @@ export function buildInsuranceToolResponse(
   if (result.status === "accepted") {
     const plan =
       result.callerFacingPlan ?? result.matchedFamily ?? result.query;
-    return `Yes, ${plan} is accepted.${result.callerNotice ? ` ${result.callerNotice}` : ""}`;
+    return `Yes, we take ${plan}.${result.callerNotice ? ` ${result.callerNotice}` : ""}`;
   }
 
   if (result.status === "not_accepted") {
-    return `No, ${result.callerFacingPlan ?? result.query} is not accepted.`;
+    return `No, we don't accept ${result.callerFacingPlan ?? result.query}.`;
   }
 
   if (result.status === "needs_staff_task") {
@@ -95,7 +95,7 @@ export function buildInsuranceToolResponse(
   const clarification = (
     result.clarificationNeeded ?? "the exact plan name from the insurance card"
   ).replace(/[.!?]+$/, "");
-  return `I need a little more information before I can confirm coverage: ${clarification}.`;
+  return `I can check that, but I need to know ${clarification}.`;
 }
 
 export function matchInsurancePlan(

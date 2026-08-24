@@ -58,12 +58,12 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
       );
       const patientId = activePatientId(state);
       if (!patientId) {
-        return "Verify the patient before updating insurance.";
+        return "I need to verify the patient before updating insurance.";
       }
 
       const checkedInsurance = state.insurance.lastEligibilityCheck;
       if (!checkedInsurance?.accepted) {
-        return "Run check_insurance for accepted coverage before updating insurance.";
+        return "I need to confirm that we accept the new coverage before updating it.";
       }
       const insurance =
         checkedInsurance.canonicalPlan?.trim() ||
@@ -72,7 +72,7 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
       const canonicalInsurance = checkedInsurance.canonicalPlan?.trim() || null;
       const coverageType = checkedInsurance.coverageType;
       if (!insurance || !coverageType) {
-        return "Run check_insurance for accepted coverage before updating insurance.";
+        return "I need to confirm that we accept the new coverage before updating it.";
       }
 
       const selfPay =
@@ -80,7 +80,7 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
         normalizeInsuranceText(canonicalInsurance ?? "") === "self pay";
       const memberId = selfPay ? "self pay" : insuranceMemberId.trim();
       if (!memberId) {
-        return "Collect the member ID before updating insurance.";
+        return "What is the member ID on the insurance card?";
       }
 
       const backendRefs = patientBackendRefs(state);

@@ -9,8 +9,12 @@ import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import { patientModelProjection } from "../identity/patient-identity.js";
+import { availabilityModelProjection } from "../scheduling/availability.js";
 import type { PreCallPatientCandidate } from "../state/call-state.js";
-import { createTestCallState } from "./support/call-state.js";
+import {
+  createConfirmedPatientState,
+  createTestCallState,
+} from "./support/call-state.js";
 
 const ownedMiddleware = new InMemoryOwnedMiddleware();
 
@@ -100,6 +104,31 @@ describe("patient model projection", () => {
     ]) {
       expect(modelRequest).not.toContain(privateValue);
     }
+  });
+
+  it("keeps availability references in fresh system context", () => {
+    const state = createConfirmedPatientState();
+    state.availability.slots = [
+      {
+        slotId: "S1",
+        spoken: "2026-06-01 9:00 AM with Dr. Bach",
+        provider: "Dr. Bach",
+        date: "2026-06-01",
+        time: "9:00 AM",
+        datetime: "2026-06-01T09:00:00",
+        routing: "all_three",
+      },
+    ];
+
+    const projection = availabilityModelProjection(state);
+
+    expect(projection).toContain(
+      "S1 is Monday, June 1 at 9:00 AM with Dr. Bach",
+    );
+    expect(projection).toContain(
+      "use the matching value as appointmentSlotRef",
+    );
+    expect(projection).not.toContain("bookingToken");
   });
 });
 

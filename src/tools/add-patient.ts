@@ -76,7 +76,7 @@ const addPatientParameters = z
       .regex(/^\d{4}$/)
       .nullable()
       .describe(
-        "Optional SSN last four for insured routine vision. Request only four digits; pass null for self-pay, declined, or unavailable.",
+        "Optional SSN last four for insured routine vision. Request only four digits. Pass null for self-pay, declined, or unavailable.",
       ),
     newPatientConfirmed: z
       .literal(true)
@@ -116,7 +116,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         !patientIdentity.lastName ||
         !patientIdentity.dob
       ) {
-        return "Before creating a new chart, collect the patient's first name, last name, and date of birth, then call add_patient again.";
+        return "What is the patient's full name and date of birth?";
       }
 
       const registrationStatus = patientRegistrationStatus(
@@ -129,26 +129,26 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
           `${params.firstName} ${params.lastName}`;
         if (!state.insurance.onFile) {
           recordPatientCreationOutcome(outcomes, "partial");
-          return `Patient chart is already created for ${patientName}, but insurance is not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
+          return `The patient chart for ${patientName} already exists, but insurance is not attached. Office staff needs to finish the registration.`;
         }
         recordPatientCreationOutcome(outcomes, "success");
-        return `Patient chart is already created for ${patientName}. Continue with scheduling.`;
+        return `The patient chart for ${patientName} already exists. We can continue with scheduling.`;
       }
 
       if (registrationStatus === "active_patient") {
-        return "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.";
+        return "That patient is already active, so I won't create another chart.";
       }
 
       if (registrationStatus === "different_patient") {
-        return "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.";
+        return "I need to check whether this patient already has a chart before creating a new one.";
       }
 
       if (registrationStatus === "pre_call_candidate") {
-        return "Do not create a new chart yet. Ask the privacy-safe first-name question, then use the runtime-confirmed patient state or continue an existing-patient lookup.";
+        return "I need to confirm the patient's first name before creating a new chart. Could you spell it for me?";
       }
 
       if (!params.newPatientConfirmed) {
-        return "Before creating a new chart, ask the caller to confirm that the patient has never registered with or been added to the practice. Call add_patient again with newPatientConfirmed set to true only after the caller confirms.";
+        return "Has the patient ever registered with or been added to the practice?";
       }
 
       const checkedInsurance = lastInsuranceEligibilityCheck(state);
@@ -158,7 +158,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         checkedInsurance?.plan?.trim();
       const coverageType = checkedInsurance?.coverageType;
       if (!checkedInsurance?.accepted || !insurance || !coverageType) {
-        return "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.";
+        return "I need to confirm accepted medical or routine vision coverage before creating the chart.";
       }
 
       const confirmedUnregisteredPatient =
@@ -168,7 +168,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         registrationStatus === "confirmed_new_patient" &&
         !confirmedUnregisteredPatient
       ) {
-        return "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.";
+        return "I need to confirm accepted medical or routine vision coverage before creating the chart.";
       }
       beginNewPatientRegistration(state, patientIdentity, {
         preserveEligibilityCheck: confirmedUnregisteredPatient,
@@ -192,23 +192,15 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
 
       if (!explicitPhone && !params.inboundPhoneConfirmed) {
-        return (
-          "Ask the caller: Is the number you are calling from a good callback number to put on file? " +
-          "If yes, call add_patient again with inboundPhoneConfirmed set to true. " +
-          "If not, collect the callback phone number and pass it as phone."
-        );
+        return "Is the number you're calling from a good callback number to put on file?";
       }
 
       if (!params.readBack) {
-        return (
-          "Read back the new patient details first: patient name, date of birth, sex, address, " +
-          "callback phone, email if provided, insurance plan, policyholder name, and member ID. " +
-          "Call add_patient again only after the caller confirms the details are correct."
-        );
+        return "Let me read the registration details back to make sure I have everything right.";
       }
 
       if (!phone) {
-        return "A callback phone number is required before creating a chart. Ask whether the inbound number is best, or collect a callback number.";
+        return "What is the best callback number for the patient chart?";
       }
 
       const payload: CreatePatientInput = {
@@ -258,17 +250,17 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       if (commit.outcome === "superseded") {
         if (commit.result.status === "error") {
           recordPatientCreationOutcome(outcomes, "failed");
-          return "I couldn't create the patient chart, and the active patient changed. Continue with the current patient and do not retry this request.";
+          return "I couldn't create the patient chart, and the patient changed while I was working.";
         }
         const patientName =
           commit.result.name?.trim() ||
           `${params.firstName} ${params.lastName}`;
         if (commit.result.status === "partial") {
           recordPatientCreationOutcome(outcomes, "partial", true);
-          return `Created a patient chart for ${patientName}, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration. The active patient changed before the result returned. Continue with the current patient's state.`;
+          return `I created a patient chart for ${patientName}, but insurance was not attached. Office staff needs to finish the registration. The patient also changed while I was working.`;
         }
         recordPatientCreationOutcome(outcomes, "success", true);
-        return `Created a patient chart for ${patientName}, but the active patient changed before the result returned. Do not create another chart. Continue with the current patient's state.`;
+        return `I created a patient chart for ${patientName}. The patient changed while I was working.`;
       }
       if (commit.outcome === "failed") {
         recordPatientCreationOutcome(outcomes, "failed");
@@ -280,7 +272,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       if (commit.outcome === "invalid_receipt") {
         if (commit.result) {
           recordPatientCreationOutcome(outcomes, "ambiguous");
-          return "A patient chart was created, but its identity receipt did not match the current registration. Do not create another chart. Connect the caller to office staff to verify the chart.";
+          return "I created a patient chart, but I couldn't verify the registration details. Office staff needs to check it.";
         }
         recordPatientCreationOutcome(outcomes, "failed");
         throw new Error(
@@ -292,10 +284,10 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         receipt.name?.trim() || `${params.firstName} ${params.lastName}`;
       if (receipt.status === "partial") {
         recordPatientCreationOutcome(outcomes, "partial");
-        return `Created a patient chart for ${patientName}, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
+        return `I created a patient chart for ${patientName}, but insurance was not attached. Office staff needs to finish the registration.`;
       }
       recordPatientCreationOutcome(outcomes, "success");
-      return `Created a patient chart for ${patientName}. Continue with scheduling.`;
+      return `I created a patient chart for ${patientName}. We can continue with scheduling.`;
     },
   });
 }

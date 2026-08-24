@@ -118,7 +118,9 @@ describe("create_staff_task", () => {
       } as never,
     );
 
-    expect(result).toContain("Task sent to staff");
+    expect(result).toBe(
+      "I wrote that down for the team. They'll review it and follow up.",
+    );
     expect(ctx.disallowInterruptions).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -209,7 +211,9 @@ describe("create_staff_task", () => {
       { ctx: ctx as never, toolCallId: "task-tool-1" } as never,
     );
 
-    expect(taskResult).toContain("Task sent to staff");
+    expect(taskResult).toBe(
+      "I wrote that down for the team. They'll review it and follow up.",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const body = JSON.parse(
       fetchMock.mock.calls[0]?.[1]?.body as string,
@@ -268,7 +272,9 @@ describe("create_staff_task", () => {
       } as never,
     );
 
-    expect(result).toContain("Task sent to staff");
+    expect(result).toBe(
+      "I wrote that down for the team. They'll review it and follow up.",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
       PRODUCT_TASK_URL,
@@ -424,7 +430,9 @@ describe("create_staff_task", () => {
       toolCallId: "tool-2",
     } as never);
 
-    expect(result).toContain("Task already sent to staff");
+    expect(result).toBe(
+      "I already sent that to the team. They'll review it and follow up.",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(staffTaskReceipts(state)).toHaveLength(1);
     expect(domainOutcomeReceipts(state)).toMatchObject([
@@ -500,7 +508,9 @@ describe("create_staff_task", () => {
         } as never,
       );
 
-      expect(result).toContain("Task sent to staff");
+      expect(result).toBe(
+        "I wrote that down for the team. They'll review it and follow up.",
+      );
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expectIdenticalTaskRequests(fetchMock.mock.calls);
       expect(staffTaskReceipts(state)).toHaveLength(1);
@@ -539,7 +549,9 @@ describe("create_staff_task", () => {
       } as never,
     );
 
-    expect(result).toContain("Task sent to staff");
+    expect(result).toBe(
+      "I wrote that down for the team. They'll review it and follow up.",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expectIdenticalTaskRequests(fetchMock.mock.calls);
     expect(staffTaskReceipts(state)).toHaveLength(1);

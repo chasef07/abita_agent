@@ -10,7 +10,7 @@ import {
   CALLER_CANDIDATE_REF,
   type PreCallPatientCandidate,
 } from "../state/call-state.js";
-import { productionSchedulingMiddleware } from "../scheduling/middleware.js";
+import { patientModelProjection } from "../identity/patient-identity.js";
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
@@ -32,9 +32,6 @@ import {
 
 type TestCallState = ReturnType<typeof createConfirmedPatientState>;
 type PreCallCandidate = PreCallPatientCandidate;
-const { cancel_appointment } = createSchedulingTools(
-  productionSchedulingMiddleware,
-);
 let testMiddleware: InMemoryOwnedMiddleware;
 let add_patient: ReturnType<typeof createAddPatientTool>;
 let resolve_patient: ReturnType<typeof createResolvePatientTool>;
@@ -320,7 +317,7 @@ describe("stateful call tools", () => {
 
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(result).toBe(
-      "Created a patient chart for Jane Doe. Continue with scheduling.",
+      "I created a patient chart for Jane Doe. We can continue with scheduling.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-new");
     expect(state.identity.activePatient!.kind).toBe("created");
@@ -462,7 +459,7 @@ describe("stateful call tools", () => {
     );
 
     await expect(failure).resolves.toBe(
-      "A patient chart was created, but its identity receipt did not match the current registration. Do not create another chart. Connect the caller to office staff to verify the chart.",
+      "I created a patient chart, but I couldn't verify the registration details. Office staff needs to check it.",
     );
     expect(state.identity.activePatient).toBeNull();
     expect(state.identity.registration).toEqual({
@@ -507,7 +504,7 @@ describe("stateful call tools", () => {
         } as never,
       ),
     ).resolves.toBe(
-      "A patient chart was created, but its identity receipt did not match the current registration. Do not create another chart. Connect the caller to office staff to verify the chart.",
+      "I created a patient chart, but I couldn't verify the registration details. Office staff needs to check it.",
     );
     expect(state.identity.activePatient).toBeNull();
   });
@@ -577,11 +574,9 @@ describe("stateful call tools", () => {
         lookup.resolve(lookupResult);
       }
 
-      await expect(pendingResolution).resolves.toContain(
-        "Verified existing patient John Doe",
-      );
+      await expect(pendingResolution).resolves.toContain("I verified John Doe");
       await expect(pendingCreation).resolves.toContain(
-        "Created a patient chart for Jane Doe, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration.",
+        "I created a patient chart for Jane Doe, but insurance was not attached. Office staff needs to finish the registration.",
       );
       expect(state.identity.activePatient!).toMatchObject({
         kind: "existing",
@@ -638,10 +633,10 @@ describe("stateful call tools", () => {
     deferred.resolve(createdPatientResult());
 
     await expect(resolution).rejects.toThrow(
-      "Patient lookup failed. Try again.",
+      "I couldn't look up the patient. Let me try once more.",
     );
     await expect(pendingCreation).resolves.toBe(
-      "Created a patient chart for Jane Doe. Continue with scheduling.",
+      "I created a patient chart for Jane Doe. We can continue with scheduling.",
     );
     expect(state.identity.activePatient!).toMatchObject({
       kind: "created",
@@ -654,7 +649,7 @@ describe("stateful call tools", () => {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-3",
       } as never),
-    ).resolves.toContain("Patient chart is already created for Jane Doe");
+    ).resolves.toContain("The patient chart for Jane Doe already exists");
     expect(middleware.operations.map(({ name }) => name)).toEqual([
       "createPatient",
       "resolvePatient",
@@ -716,10 +711,10 @@ describe("stateful call tools", () => {
     creation.resolve(createdPatientResult());
 
     expect(newPatient).toBe(
-      "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.",
+      "I need to check whether this patient already has a chart before creating a new one.",
     );
     await expect(pendingCreation).resolves.toBe(
-      "Created a patient chart for Jane Doe. Continue with scheduling.",
+      "I created a patient chart for Jane Doe. We can continue with scheduling.",
     );
     expect(state.identity.activePatient).toMatchObject({
       kind: "created",
@@ -778,10 +773,10 @@ describe("stateful call tools", () => {
     } as never);
 
     expect(firstResult).toBe(
-      "Created a patient chart for Jane Doe, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration.",
+      "I created a patient chart for Jane Doe, but insurance was not attached. Office staff needs to finish the registration.",
     );
     expect(secondResult).toBe(
-      "Patient chart is already created for Jane Doe, but insurance is not attached. Do not create another chart. Connect the caller to office staff to finish registration.",
+      "The patient chart for Jane Doe already exists, but insurance is not attached. Office staff needs to finish the registration.",
     );
     expect(state.identity.activePatient!).toMatchObject({
       kind: "created",
@@ -827,7 +822,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Before creating a new chart, ask the caller to confirm that the patient has never registered with or been added to the practice. Call add_patient again with newPatientConfirmed set to true only after the caller confirms.",
+      "Has the patient ever registered with or been added to the practice?",
     );
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
     expect(ctx.disallowInterruptions).toHaveBeenCalledOnce();
@@ -926,7 +921,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Created a patient chart for Lisa Arshed. Continue with scheduling.",
+      "I created a patient chart for Lisa Arshed. We can continue with scheduling.",
     );
     expect(state.identity.activePatient).toMatchObject({
       kind: "created",
@@ -966,7 +961,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
+      "I need to confirm accepted medical or routine vision coverage before creating the chart.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
   });
@@ -1053,7 +1048,7 @@ describe("stateful call tools", () => {
         toolCallId: "tool-1",
       } as never),
     ).resolves.toBe(
-      "Created a patient chart for Jane Doe. Continue with scheduling.",
+      "I created a patient chart for Jane Doe. We can continue with scheduling.",
     );
 
     expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
@@ -1131,7 +1126,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Created a patient chart for Jane Doe. Continue with scheduling.",
+      "I created a patient chart for Jane Doe. We can continue with scheduling.",
     );
     expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
       coverageType: "routine_vision",
@@ -1168,7 +1163,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID. Call add_patient again only after the caller confirms the details are correct.",
+      "Let me read the registration details back to make sure I have everything right.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
@@ -1204,7 +1199,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID. Call add_patient again only after the caller confirms the details are correct.",
+      "Let me read the registration details back to make sure I have everything right.",
     );
     expect(result).not.toContain("SSN");
     expect(result).not.toContain("1234");
@@ -1240,7 +1235,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Ask the caller: Is the number you are calling from a good callback number to put on file? If yes, call add_patient again with inboundPhoneConfirmed set to true. If not, collect the callback phone number and pass it as phone.",
+      "Is the number you're calling from a good callback number to put on file?",
     );
     expect(testMiddleware.operations).toHaveLength(0);
   });
@@ -1312,8 +1307,12 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toMatch(
-      /^Verified existing patient Jane Doe\. Insurance on file: self pay\. Loaded 1 appointment: Monday, July 27 at 9:00 AM with Dr\. Bach \(appointmentRef appointment-[a-z0-9]+\)\.$/,
+    expect(result).toBe(
+      "I verified Jane Doe. We have self pay on file. I found one upcoming appointment, Monday, July 27 at 9:00 AM with Dr. Bach.",
+    );
+    expect(result).not.toContain("appointmentRef");
+    expect(patientModelProjection(state)).toMatch(
+      /appointmentRef appointment-[a-z0-9]+/,
     );
     expect(result).not.toContain("123");
     expect(result).not.toContain("private-cancellation-token");
@@ -1346,7 +1345,7 @@ describe("stateful call tools", () => {
     ]);
   });
 
-  it("presents a distinct safe reference with every loaded appointment choice", async () => {
+  it("keeps distinct loaded appointment references in state instead of the reply", async () => {
     const state = createState();
     setPatientUnknown(state);
     const middleware = stubPatient(
@@ -1388,10 +1387,15 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    const presentedRefs =
-      result.match(/appointmentRef (appointment-[a-z0-9]+)/g) ?? [];
-    expect(presentedRefs).toHaveLength(2);
-    expect(new Set(presentedRefs).size).toBe(2);
+    const storedRefs = state.identity.activePatient!.appointments.flatMap(
+      (appointment) =>
+        appointment.appointmentRef ? [appointment.appointmentRef] : [],
+    );
+    expect(storedRefs).toHaveLength(2);
+    expect(new Set(storedRefs).size).toBe(2);
+    expect(result).not.toContain("appointmentRef");
+    expect(patientModelProjection(state)).toContain(storedRefs[0]);
+    expect(patientModelProjection(state)).toContain(storedRefs[1]);
     expect(result).not.toContain("123");
     expect(result).not.toContain("456");
     expect(result).not.toContain("private-token");
@@ -1410,7 +1414,7 @@ describe("stateful call tools", () => {
     expect(middleware.requests.resolvePatient).toHaveLength(1);
   });
 
-  it("presents all loaded appointment references instead of hiding extra choices", async () => {
+  it("keeps every loaded appointment reference out of the direct reply", async () => {
     const state = createState();
     setPatientUnknown(state);
     stubPatient(
@@ -1437,8 +1441,11 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
+    expect(result).not.toContain("appointmentRef");
     expect(
-      result.match(/appointmentRef appointment-[a-z0-9]+/g) ?? [],
+      patientModelProjection(state).match(
+        /appointmentRef appointment-[a-z0-9]+/g,
+      ) ?? [],
     ).toHaveLength(4);
     expect(result).not.toContain("and 1 more");
   });
@@ -1483,7 +1490,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Switched active patient to John Doe. Insurance on file: Aetna. No upcoming appointments are loaded. Check availability again before booking.",
+      "I verified John Doe. We have Aetna on file. I don't see any upcoming appointments.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
@@ -1525,7 +1532,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Verified existing patient TEST,CHASE. No upcoming appointments are loaded.",
+      "I verified TEST,CHASE. I don't see any upcoming appointments.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-1");
     expect(state.identity.activePatient!.kind).toBe("existing");
@@ -1584,7 +1591,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "No matching patient was found. Confirm the spelling and date of birth, or ask whether the patient is already registered with us.",
+      "I couldn't find a matching patient. Could you confirm the spelling and date of birth, and whether the patient is already registered with us?",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
@@ -1617,7 +1624,7 @@ describe("stateful call tools", () => {
           toolCallId: "tool-1",
         } as never,
       ),
-    ).rejects.toThrow("Patient lookup failed. Try again.");
+    ).rejects.toThrow("I couldn't look up the patient. Let me try once more.");
     expect(state.identity.privateCandidates).toHaveLength(1);
     expect(state.identity.activePatient).toBeNull();
     expect(ownedMiddlewareFailures(state)).toMatchObject([
@@ -1778,7 +1785,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Verified existing patient ELLA ARSHED. Insurance on file: Aetna. No upcoming appointments are loaded.",
+      "I verified ELLA ARSHED. We have Aetna on file. I don't see any upcoming appointments.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
@@ -1837,7 +1844,7 @@ describe("stateful call tools", () => {
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "Switched active patient to MONIQUE HAMILTON. Insurance on file: HUMANA. No upcoming appointments are loaded. Check availability again before booking.",
+      "I verified MONIQUE HAMILTON. We have HUMANA on file. I don't see any upcoming appointments.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-monique");
     expect(state.identity.activePatient!.name).toBe("MONIQUE HAMILTON");
@@ -1884,9 +1891,7 @@ describe("stateful call tools", () => {
     } as never);
 
     expect(testMiddleware.operations).toHaveLength(0);
-    expect(result).toBe(
-      "BRANDON ANDERSON is already the active patient. Continue with loaded patient state.",
-    );
+    expect(result).toBe("BRANDON ANDERSON is already the active patient.");
     expect(state.availability.slots.map((slot) => slot.slotId)).toEqual(["S1"]);
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "token-a",
@@ -1912,7 +1917,7 @@ describe("stateful call tools", () => {
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "Verified existing patient ESA ARSHED. Insurance on file: Florida Blue Shield. No upcoming appointments are loaded.",
+      "I verified ESA ARSHED. We have Florida Blue Shield on file. I don't see any upcoming appointments.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-esa");
   });
@@ -1931,9 +1936,7 @@ describe("stateful call tools", () => {
         toolCallId: "tool-1",
       } as never,
     );
-    expect(result).toBe(
-      "Collect the patient's last name and date of birth, then call resolve_patient again.",
-    );
+    expect(result).toBe("What is the patient's last name and date of birth?");
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
@@ -1973,7 +1976,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.",
+      "I need to check whether this patient already has a chart before creating a new one.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
     expect({
@@ -2027,9 +2030,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe(
-      "Before creating a new chart, collect the patient's first name, last name, and date of birth, then call add_patient again.",
-    );
+    expect(result).toBe("What is the patient's full name and date of birth?");
     expect(testMiddleware.operations).toHaveLength(0);
     expect({
       activePatient: state.identity.activePatient,
@@ -2075,9 +2076,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe(
-      "Before creating a new chart, collect the patient's first name, last name, and date of birth, then call add_patient again.",
-    );
+    expect(result).toBe("What is the patient's full name and date of birth?");
     expect(testMiddleware.operations).toHaveLength(0);
     expect({
       activePatient: state.identity.activePatient,
@@ -2125,7 +2124,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.",
+      "I need to check whether this patient already has a chart before creating a new one.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.registration).toEqual(registrationBefore);
@@ -2164,7 +2163,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Read back the new patient details first: patient name, date of birth, sex, address, callback phone, email if provided, insurance plan, policyholder name, and member ID. Call add_patient again only after the caller confirms the details are correct.",
+      "Let me read the registration details back to make sure I have everything right.",
     );
     expect(state.identity.activePatient).toBeNull();
     expect(state.identity.registration).toEqual({
@@ -2208,7 +2207,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.",
+      "That patient is already active, so I won't create another chart.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.activePatient!).toMatchObject({
@@ -2250,7 +2249,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.",
+      "That patient is already active, so I won't create another chart.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.activePatient!).toMatchObject({
@@ -2300,7 +2299,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.",
+      "I need to check whether this patient already has a chart before creating a new one.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
     expect({
@@ -2355,7 +2354,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Do not create a new chart yet. Ask the privacy-safe first-name question, then use the runtime-confirmed patient state or continue an existing-patient lookup.",
+      "I need to confirm the patient's first name before creating a new chart. Could you spell it for me?",
     );
     expect(result).not.toMatch(
       /record|matches that identity|Jane|01\/01\/1980/,
@@ -2374,7 +2373,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe("Yes, Blue Cross Blue Shield is accepted.");
+    expect(result).toBe("Yes, we take Blue Cross Blue Shield.");
     expect(typeof result).toBe("string");
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Blue Cross",
@@ -2420,7 +2419,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "I need a little more information before I can confirm coverage: which Cigna plan is on the card.",
+      "I can check that, but I need to know which Cigna plan is on the card.",
     );
     expect(typeof result).toBe("string");
     expect(state.insurance.lastEligibilityCheck).toEqual({
@@ -2589,7 +2588,7 @@ describe("stateful call tools", () => {
     } as never);
 
     expect(result).toBe(
-      "Created a patient chart for Maria Santos. Continue with scheduling.",
+      "I created a patient chart for Maria Santos. We can continue with scheduling.",
     );
     expect(middleware.requests.createPatient).toHaveLength(1);
     expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
@@ -2641,7 +2640,7 @@ describe("stateful call tools", () => {
     } as never);
 
     expect(result).toBe(
-      "Patient chart is already created for Jane Doe. Continue with scheduling.",
+      "The patient chart for Jane Doe already exists. We can continue with scheduling.",
     );
     expect(middleware.requests.createPatient).toHaveLength(1);
   });
@@ -2657,7 +2656,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe("Yes, Ambetter is accepted.");
+    expect(result).toBe("Yes, we take Ambetter.");
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Ambetter",
       canonicalPlan: "Envolve",
@@ -2679,7 +2678,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe("Yes, Simply Healthcare Medicaid is accepted.");
+    expect(result).toBe("Yes, we take Simply Healthcare Medicaid.");
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Simply Healthcare Medicaid",
       canonicalPlan: "iCare",
@@ -2700,9 +2699,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe(
-      "Yes, Aetna Dual Eligible Medicare Advantage is accepted.",
-    );
+    expect(result).toBe("Yes, we take Aetna Dual Eligible Medicare Advantage.");
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Aetna Dual Eligible Medicare Advantage",
       canonicalPlan: "iCare",
@@ -2724,7 +2721,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe("No, Humana PPO is not accepted.");
+    expect(result).toBe("No, we don't accept Humana PPO.");
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Humana PPO",
       canonicalPlan: null,
@@ -2746,7 +2743,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe("No, Humana PPO is not accepted.");
+    expect(result).toBe("No, we don't accept Humana PPO.");
     expect(state.insurance.lastEligibilityCheck).toMatchObject({
       plan: "Humana PPO",
       canonicalPlan: null,
@@ -2768,7 +2765,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe("No, Aetna is not accepted.");
+    expect(result).toBe("No, we don't accept Aetna.");
     expect(state.insurance.lastEligibilityCheck).toMatchObject({
       plan: "Aetna",
       canonicalPlan: null,
@@ -2863,7 +2860,7 @@ describe("stateful call tools", () => {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-1",
       } as never),
-    ).resolves.toBe("Verify the patient before updating insurance.");
+    ).resolves.toBe("I need to verify the patient before updating insurance.");
 
     state.identity.activePatient!.patientId = "patient-1";
     state.insurance.lastEligibilityCheck = null;
@@ -2873,7 +2870,7 @@ describe("stateful call tools", () => {
         toolCallId: "tool-2",
       } as never),
     ).resolves.toBe(
-      "Run check_insurance for accepted coverage before updating insurance.",
+      "I need to confirm that we accept the new coverage before updating it.",
     );
   });
 

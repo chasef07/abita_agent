@@ -890,7 +890,7 @@ describe("model-facing tool definitions", () => {
         (parameters.shape.ssnLast4 as { description?: string }).description,
       ),
     ).toBe(
-      "Optional SSN last four for insured routine vision. Request only four digits; pass null for self-pay, declined, or unavailable.",
+      "Optional SSN last four for insured routine vision. Request only four digits. Pass null for self-pay, declined, or unavailable.",
     );
     expect(
       String(

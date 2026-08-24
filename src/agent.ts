@@ -34,6 +34,7 @@ import {
   systemSchedulingClock,
   type SchedulingClock,
 } from "./scheduling/availability-when.js";
+import { availabilityModelProjection } from "./scheduling/availability.js";
 import { guardAssistantSpeech } from "./runtime/speech-output-guard.js";
 
 type VoiceAgentOptions = {
@@ -137,7 +138,12 @@ export function createVoiceAgent(
         0,
         ChatMessage.create({
           role: "system",
-          content: patientModelProjection(state),
+          content: [
+            patientModelProjection(state),
+            availabilityModelProjection(state),
+          ]
+            .filter(Boolean)
+            .join(" "),
         }),
       );
       return LiveKitAgent.default.llmNode(

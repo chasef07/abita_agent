@@ -413,8 +413,9 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "Offer this slot: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "I found Monday, June 1 at 9:00 AM with Dr. Bach. Does that work for you?",
     );
+    expect(result).not.toContain("appointmentSlotRef");
     expect(result).not.toContain("private-token");
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "private-token",
@@ -469,7 +470,7 @@ describe("scheduling tools", () => {
     );
 
     expect(availability).toBe(
-      "Offer this slot: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "I found Monday, June 1 at 9:00 AM with Dr. Bach. Does that work for you?",
     );
     expect(middleware.operations[1]).toMatchObject({
       kind: "book",
@@ -502,8 +503,8 @@ describe("scheduling tools", () => {
     deferred.resolve(availabilityFound([returnedSlot()]));
 
     await expect(Promise.all([first, second])).resolves.toEqual([
-      "Offer this slot: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
-      "Offer this slot: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1). If the caller accepts it, use appointmentSlotRef S1; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "I found Monday, June 1 at 9:00 AM with Dr. Bach. Does that work for you?",
+      "I found Monday, June 1 at 9:00 AM with Dr. Bach. Does that work for you?",
     ]);
     expect(middleware.operations).toHaveLength(1);
     expect(availabilityReadEvents(state)).toMatchObject([
@@ -580,7 +581,7 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(first).toBe(
-      "No openings were found from Monday, June 1 through Monday, June 15. Ask whether the caller has another day or time preference.",
+      "I couldn't find any openings from Monday, June 1 through Monday, June 15. What other day or time works for you?",
     );
     expect(second).toBe(first);
     expect(middleware.operations).toHaveLength(1);
@@ -703,10 +704,11 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(first).toContain("appointmentSlotRef S1");
-    expect(first).toContain("appointmentSlotRef S2");
+    expect(first).toContain("9:00 AM with Dr. Bach");
+    expect(first).toContain("2:00 PM with Dr. Noel");
+    expect(first).not.toContain("appointmentSlotRef");
     expect(afternoon).toBe(
-      "Offer this slot: Monday, June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). If the caller accepts it, use appointmentSlotRef S2; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.",
+      "I found Monday, June 1 at 2:00 PM with Dr. Noel. Does that work for you?",
     );
     expect(middleware.operations).toHaveLength(2);
     expect(middleware.operations[1]).toMatchObject({
@@ -788,11 +790,11 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(initial).toContain("appointmentSlotRef S1");
-    expect(initial).toContain("appointmentSlotRef S2");
-    expect(initial).not.toContain("appointmentSlotRef S3");
+    expect(initial).toContain("8:00 AM");
+    expect(initial).toContain("1:00 PM");
+    expect(initial).not.toContain("appointmentSlotRef");
     expect(exact).toContain("9:00 AM");
-    expect(exact).toContain("appointmentSlotRef S3");
+    expect(exact).not.toContain("appointmentSlotRef");
     expect(
       middleware.operations.filter(
         (operation) => operation.kind === "availability",
@@ -989,7 +991,7 @@ describe("scheduling tools", () => {
     );
 
     expect(response).toBe(
-      "Availability expired before it could be offered. Check availability again.",
+      "Those openings expired before I could offer them. Let me check again.",
     );
     expect(
       middleware.operations.filter(
@@ -1300,9 +1302,7 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toContain(
-      "ask which loaded appointment the caller wants to move",
-    );
+    expect(result).toBe("Which upcoming appointment would you like to move?");
     expect(middleware.operations).toEqual([]);
   });
 
@@ -1594,10 +1594,11 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(initial).toContain("appointmentSlotRef S1");
-    expect(initial).toContain("appointmentSlotRef S2");
-    expect(reranked).toContain("appointmentSlotRef S2");
-    expect(reranked).toContain("appointmentSlotRef S3");
+    expect(initial).toContain("9:00 AM");
+    expect(initial).toContain("2:00 PM");
+    expect(reranked).toContain("2:00 PM");
+    expect(reranked).toContain("3:00 PM");
+    expect(`${initial} ${reranked}`).not.toContain("appointmentSlotRef");
     expect(middleware.operations).toHaveLength(3);
     expect(middleware.operations[2]).toMatchObject({
       kind: "book",
@@ -1693,7 +1694,7 @@ describe("scheduling tools", () => {
           ctx: ctx as never,
           toolCallId: "availability-2",
         } as never),
-      ).resolves.toContain("appointmentSlotRef S1");
+      ).resolves.toContain("I found Monday, June 1");
 
       expect(middleware.operations).toHaveLength(2);
     },
@@ -1737,7 +1738,7 @@ describe("scheduling tools", () => {
     await expect(retry).resolves.toContain("10:00 AM");
     deferred.resolve(availabilityFound([returnedSlot()]));
     await expect(abandoned).resolves.toContain(
-      "Availability search was superseded",
+      "The patient or appointment changed while I was checking.",
     );
     expect(middleware.operations).toHaveLength(2);
     expect(state.availability.slots).toEqual([
@@ -1771,9 +1772,9 @@ describe("scheduling tools", () => {
     waiterController.abort();
     deferred.resolve(availabilityFound([returnedSlot()]));
 
-    await expect(owner).resolves.toContain("appointmentSlotRef S1");
+    await expect(owner).resolves.toContain("I found Monday, June 1");
     await expect(waiter).resolves.toContain(
-      "Availability search was superseded",
+      "The patient or appointment changed while I was checking.",
     );
     expect(middleware.operations).toHaveLength(1);
     expect(state.availability.slots).toEqual([
@@ -1812,7 +1813,7 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(first).toBe(
-      "Availability was not fully checked from Monday, June 1 through Tuesday, June 2. Call get_availability again once with the same when phrase.",
+      "I couldn't finish checking availability from Monday, June 1 through Tuesday, June 2. Let me try once more.",
     );
     expect(second).toBe(first);
     expect(middleware.operations).toHaveLength(2);
@@ -1893,8 +1894,9 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "Offer these options: Monday, June 1 at 9:00 AM with Dr. Bach (appointmentSlotRef S1), or Monday, June 1 at 2:00 PM with Dr. Noel (appointmentSlotRef S2). Ask which one works better. If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another day or time and call get_availability with the caller's new when phrase.",
+      "I found Monday, June 1 at 9:00 AM with Dr. Bach, or Monday, June 1 at 2:00 PM with Dr. Noel. Which works better?",
     );
+    expect(result).not.toContain("appointmentSlotRef");
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "private-token",
       S2: "afternoon-token",
@@ -1949,7 +1951,7 @@ describe("scheduling tools", () => {
     resolveAvailability(availabilityFound([returnedSlot()]));
 
     await expect(pending).resolves.toBe(
-      "Availability search was superseded because the patient or appointment context changed. Check availability again with the current details.",
+      "The patient or appointment changed while I was checking. Let me check again with the current details.",
     );
     expect(state.availability.slots).toEqual([]);
     expect(state.availability.bookingTokensBySlotId).toEqual({});
@@ -1978,7 +1980,7 @@ describe("scheduling tools", () => {
     deferred.resolve(availabilityFound([returnedSlot()]));
 
     await expect(pending).resolves.toContain(
-      "Availability search was superseded",
+      "The patient or appointment changed while I was checking.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-1");
     expect(state.availability.slots).toEqual([]);
@@ -2066,9 +2068,8 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toMatch(
-      /^Booked Monday, July 27 at 9:00 AM with Dr\. Bach\. Internal context: appointmentRef appointment-[a-z0-9]+\. Use this exact appointmentRef if the caller asks to cancel this appointment during this call\. Keep this opaque reference internal\.$/,
-    );
+    expect(result).toBe("Booked Monday, July 27 at 9:00 AM with Dr. Bach.");
+    expect(result).not.toContain("appointmentRef");
     expect(middleware.operations).toMatchObject([
       {
         kind: "book",
@@ -2139,7 +2140,7 @@ describe("scheduling tools", () => {
     expect(operation).not.toHaveProperty("request.isPostOp");
   });
 
-  it("cancels a newly booked appointment by its returned appointment reference", async () => {
+  it("cancels a newly booked appointment by its state-owned appointment reference", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       bookings: [bookingReceipt()],
       cancellations: [{ status: "cancelled" }],
@@ -2162,12 +2163,10 @@ describe("scheduling tools", () => {
         toolCallId: "booking-1",
       } as never,
     );
-    const appointmentRef = bookingResult.match(
-      /appointmentRef (appointment-[a-z0-9]+)/,
-    )?.[1];
+    const appointmentRef = loadedAppointmentRef(state);
 
     expect(appointmentRef).toBeDefined();
-    expect(bookingResult).toContain("Keep this opaque reference internal.");
+    expect(bookingResult).not.toContain("appointmentRef");
 
     await cancel_appointment.execute(
       { appointmentRef: appointmentRef as string },
@@ -2272,7 +2271,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "Read back Monday, June 1 at 9:00 AM with Dr. Bach and ask the caller to confirm it. Call book_appointment again only after the caller confirms the appointment details are correct.",
+      "Let me confirm: Monday, June 1 at 9:00 AM with Dr. Bach. Is that correct?",
     );
     expect(middleware.operations).toEqual([]);
   });
@@ -2353,31 +2352,30 @@ describe("scheduling tools", () => {
       name: "patient status and DOB",
       missing: ["patientStatus", "dob"] as const,
       message:
-        "The appointment was not booked. Confirm whether the patient is new or established and verify the patient's date of birth, then try booking again.",
+        "I couldn't book that yet. Is the patient new or established, and what is their date of birth?",
     },
     {
       name: "Spring Hill routine vision routing",
       missing: ["routeToSpringHill"] as const,
       message:
-        "The appointment was not booked. Check routine vision availability at Spring Hill, then book a returned slot there.",
+        "I couldn't book that here. Let me check routine vision availability at Spring Hill.",
     },
     {
       name: "medical appointment lane",
       missing: ["appointmentLane"] as const,
       message:
-        "The appointment was not booked. Treat the visit as medical and check Spring Hill medical availability before booking.",
+        "I couldn't book that. Let me check Spring Hill medical availability.",
     },
     {
       name: "supported medical routing",
       missing: ["routing"] as const,
       message:
-        "The appointment was not booked. Check availability at an office that supports the required medical scheduling lane before booking.",
+        "I couldn't book that at this office. Let me check an office that supports the visit.",
     },
     {
       name: "scheduling office",
       missing: ["office"] as const,
-      message:
-        "The appointment was not booked. Select the scheduling office and check availability again before booking.",
+      message: "I couldn't book that yet. Which office would you prefer?",
     },
   ])(
     "keeps the selected slot while recovering $name",
@@ -2544,9 +2542,7 @@ describe("scheduling tools", () => {
       toolCallId: "booking-2",
     } as never);
 
-    expect(replay).toBe(
-      "The appointment is already booked. Tell the caller the confirmed appointment details instead of booking again.",
-    );
+    expect(replay).toBe("That appointment is already booked.");
     expect(middleware.operations).toHaveLength(1);
     expect(domainOutcomeReceipts(state)).toMatchObject([
       {
@@ -2640,9 +2636,7 @@ describe("scheduling tools", () => {
 
     const result = await pending;
 
-    expect(result).toContain(
-      "The active patient changed before the booking result returned.",
-    );
+    expect(result).toContain("The patient changed while I was working.");
     expect(state.identity.activePatient!).toMatchObject({
       patientId: "patient-2",
     });
@@ -2664,7 +2658,7 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(replay).toContain("The appointment is already booked.");
+    expect(replay).toContain("That appointment is already booked.");
     expect(middleware.operations.map(({ kind }) => kind)).toEqual(["book"]);
     expect(appointmentActions(state)).toMatchObject([
       {
@@ -2700,7 +2694,7 @@ describe("scheduling tools", () => {
       "Cancelled the appointment on Monday, June 1, 2026 at 9:00 AM.",
     );
     expect(replay).toBe(
-      "That appointment was already cancelled on this call: Monday, June 1, 2026 at 9:00 AM. Continue without calling cancel_appointment again.",
+      "That appointment was already cancelled on this call. It was scheduled for Monday, June 1, 2026 at 9:00 AM.",
     );
     expect(middleware.operations).toEqual([
       {
@@ -2940,7 +2934,7 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(result).toBe(
-      "That loaded appointment authorization is no longer valid. Load appointments again, confirm the exact appointment with the caller, then use its new appointmentRef to cancel.",
+      "The appointment details expired. I need to reload the appointments and confirm which one you want to cancel.",
     );
     expect(middleware.operations).toEqual([
       {
@@ -2966,7 +2960,7 @@ describe("scheduling tools", () => {
         toolCallId: "cancel-2",
       } as never),
     ).resolves.toBe(
-      "No loaded appointment matches that appointmentRef. Use the appointmentRef shown with the current loaded appointment.",
+      "I couldn't match that appointment. Which upcoming appointment would you like to cancel?",
     );
     expect(middleware.operations).toHaveLength(1);
   });
@@ -2984,7 +2978,7 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(result).toBe(
-      "More than one loaded appointment has that appointmentRef. Load appointments again and confirm the exact appointment before cancelling.",
+      "I need to reload the appointments and confirm the exact one before cancelling.",
     );
     expect(middleware.operations).toEqual([]);
   });
@@ -3003,7 +2997,7 @@ describe("scheduling tools", () => {
         toolCallId: "cancel-1",
       } as never),
     ).resolves.toBe(
-      "No loaded appointment matches that appointmentRef. Use the appointmentRef shown with the current loaded appointment.",
+      "I couldn't match that appointment. Which upcoming appointment would you like to cancel?",
     );
     expect(middleware.operations).toEqual([]);
     expect(state.identity.activePatient!.appointments).toHaveLength(1);
@@ -3025,9 +3019,7 @@ describe("scheduling tools", () => {
           toolCallId: "cancel-1",
         } as never,
       ),
-    ).resolves.toBe(
-      "Pass the appointmentRef shown with the caller-confirmed loaded appointment before cancelling.",
-    );
+    ).resolves.toBe("Which upcoming appointment would you like to cancel?");
     expect(middleware.operations).toEqual([]);
   });
 
@@ -3053,9 +3045,7 @@ describe("scheduling tools", () => {
           toolCallId: "cancel-2",
         } as never,
       ),
-    ).resolves.toBe(
-      "Pass the appointmentRef shown with the caller-confirmed loaded appointment before cancelling.",
-    );
+    ).resolves.toBe("Which upcoming appointment would you like to cancel?");
     expect(middleware.operations.map(({ kind }) => kind)).toEqual(["cancel"]);
   });
 
@@ -3078,7 +3068,7 @@ describe("scheduling tools", () => {
         toolCallId: "cancel-1",
       } as never),
     ).resolves.toBe(
-      "No loaded appointment matches that appointmentRef. Use the appointmentRef shown with the current loaded appointment.",
+      "I couldn't match that appointment. Which upcoming appointment would you like to cancel?",
     );
     expect(middleware.operations).toEqual([]);
   });
@@ -3134,7 +3124,7 @@ describe("scheduling tools", () => {
     const result = await pending;
 
     expect(result).toContain(
-      "The active patient changed before the cancellation result returned.",
+      "Cancelled the appointment on Monday, June 1, 2026 at 9:00 AM.",
     );
     expect(state.identity.activePatient!).toMatchObject({
       patientId: "patient-2",
@@ -3262,7 +3252,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "The appointment selected to reschedule changed. Check availability again for the exact appointment the caller wants to move.",
+      "The appointment changed while I was working. I need to check availability again for the correct appointment.",
     );
     expect(middleware.operations.map(({ kind }) => kind)).toEqual([
       "availability",
@@ -3498,7 +3488,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "The appointment was not booked because the reschedule authorization expired. Load appointments again, reselect the exact appointment, and check availability again. I did not cancel the existing appointment.",
+      "I couldn't reschedule because the appointment details expired. Your existing appointment is still scheduled. I need to reload it and check availability again.",
     );
     expect(middleware.operations.map(({ kind }) => kind)).toEqual(["book"]);
     expect(state.identity.activePatient!.appointments).toEqual([]);
@@ -3547,7 +3537,7 @@ describe("scheduling tools", () => {
       } as never,
     );
     expect(result).toBe(
-      "No loaded appointment matches that oldAppointmentRef. Ask which loaded appointment to reschedule.",
+      "I couldn't match that appointment. Which upcoming appointment would you like to reschedule?",
     );
     expect(middleware.operations.map(({ kind }) => kind)).toEqual([
       "availability",
@@ -3675,7 +3665,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "Read back Monday, June 1 at 9:00 AM with Dr. Bach and ask the caller to confirm it as the new appointment. Call reschedule_appointment again only after the caller confirms the new appointment details are correct.",
+      "Let me confirm the new appointment: Monday, June 1 at 9:00 AM with Dr. Bach. Is that correct?",
     );
     expect(middleware.operations).toEqual([]);
   });
@@ -3706,10 +3696,10 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toContain("Which loaded appointment should I reschedule?");
-    expect(result).toContain("oldAppointmentRef");
-    expect(result).toContain("Monday, June 1, 2026 at 9:00 AM");
-    expect(result).toContain("Tuesday, June 2, 2026 at 2:00 PM");
+    expect(result).toBe(
+      "Which upcoming appointment would you like to reschedule?",
+    );
+    expect(result).not.toContain("oldAppointmentRef");
     expect(middleware.operations).toEqual([]);
   });
 
@@ -3739,7 +3729,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "More than one loaded appointment has that oldAppointmentRef. Load appointments again and confirm the exact appointment before rescheduling.",
+      "I need to reload the appointments and confirm the exact one before rescheduling.",
     );
     expect(middleware.operations).toEqual([]);
   });
@@ -3842,7 +3832,7 @@ describe("scheduling tools", () => {
     const result = await pending;
 
     expect(result).toContain(
-      "The active patient changed before the cancellation result returned.",
+      "Rescheduled the appointment to Monday, June 1 at 9:00 AM with Dr. Bach. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
     );
     expect(state.identity.activePatient!).toMatchObject({
       patientId: "patient-2",
@@ -3914,7 +3904,7 @@ describe("scheduling tools", () => {
     );
 
     expect(result).toBe(
-      "That time is no longer available. Check availability again before booking. I did not cancel the existing appointment.",
+      "That time is no longer available. Let me check again. I did not cancel the existing appointment.",
     );
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
       "book",
@@ -3990,7 +3980,7 @@ describe("scheduling tools", () => {
       "Booked the new appointment for Monday, June 1 at 9:00 AM with Dr. Bach, but I could not cancel the old appointment. The old appointment was not cancelled. I need to transfer you so the office can finish the cancellation.",
     );
     expect(replay).toBe(
-      "The new appointment was already booked, but the old appointment still needs office staff to finish cancellation. Transfer the caller instead of rescheduling again.",
+      "The new appointment is booked, but the old appointment still needs office staff to cancel it. Would you like me to transfer you?",
     );
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
       "book",
@@ -4047,7 +4037,7 @@ describe("scheduling tools", () => {
       "Booked the new appointment for Monday, June 1 at 9:00 AM with Dr. Bach, but I could not cancel the old appointment. The old appointment was not cancelled. I need to transfer you so the office can finish the cancellation.",
     );
     expect(replay).toBe(
-      "The new appointment was already booked, but the old appointment still needs office staff to finish cancellation. Transfer the caller instead of rescheduling again.",
+      "The new appointment is booked, but the old appointment still needs office staff to cancel it. Would you like me to transfer you?",
     );
     expect(middleware.operations).toEqual([
       expect.objectContaining({ kind: "book" }),
@@ -4131,7 +4121,7 @@ describe("scheduling tools", () => {
     } as never);
 
     expect(replay).toBe(
-      "The appointment is already rescheduled to Monday, June 1 at 9:00 AM with Dr. Bach. Tell the caller the confirmed appointment details instead of rescheduling again.",
+      "You're already rescheduled for Monday, June 1 at 9:00 AM with Dr. Bach.",
     );
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
       "book",
