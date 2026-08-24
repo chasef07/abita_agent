@@ -37,25 +37,27 @@ const addPatientParameters = z
       .describe("Date of birth in MM/DD/YYYY format"),
     phone: z
       .string()
-      .optional()
+      .nullable()
       .describe(
-        "Best callback number, 10 digits only. Omit when the inbound caller number is confirmed as best; the tool will use the caller phone from state.",
+        "Best callback number, 10 digits only. Pass null when the inbound caller number is confirmed as best; the tool will use the caller phone from state.",
       ),
     inboundPhoneConfirmed: z
-      .boolean()
-      .optional()
+      .literal(true)
+      .nullable()
       .describe(
-        "Set to true only after asking whether the number they are calling from is a good callback number to put on file and the caller says yes.",
+        "Set to true only after asking whether the number they are calling from is a good callback number to put on file and the caller says yes. Pass null while confirmation is pending or when a different callback number is supplied.",
       ),
     email: z
       .string()
-      .optional()
-      .describe("Email address, if the caller provides one"),
+      .nullable()
+      .describe(
+        "Email address if the caller provides one; otherwise pass null",
+      ),
     street: z.string().describe("Street address"),
     aptSuite: z
       .string()
-      .optional()
-      .describe("Apartment or suite number, if any"),
+      .nullable()
+      .describe("Apartment or suite number, or null when there is none"),
     city: z.string().describe("City"),
     state: z.string().describe("State, 2-letter abbreviation"),
     zip: z.string().describe("Zip code"),
@@ -70,21 +72,21 @@ const addPatientParameters = z
       .string()
       .trim()
       .regex(/^\d{4}$/)
-      .optional()
+      .nullable()
       .describe(
-        "Optional. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits.",
+        "Caller-provided value when available. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits. Pass null for self pay or when declined or unavailable.",
       ),
     newPatientConfirmed: z
-      .boolean()
-      .optional()
+      .literal(true)
+      .nullable()
       .describe(
-        "Set to true only after the caller explicitly confirms this is the patient's first registration with the practice.",
+        "Set to true only after the caller explicitly confirms this is the patient's first registration with the practice. Pass null until confirmed.",
       ),
     readBack: z
-      .boolean()
-      .optional()
+      .literal(true)
+      .nullable()
       .describe(
-        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID; confirming any provided SSN last four was captured without repeating the digits; and the caller confirms the details are correct.",
+        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID; confirming any provided SSN last four was captured without repeating the digits; and the caller confirms the details are correct. Pass null until confirmed.",
       ),
   })
   .strict();
@@ -97,13 +99,12 @@ export const add_patient = tool({
     "After that confirmation, call add_patient directly with newPatientConfirmed true. " +
     "Read back the registration details and get caller confirmation first. " +
     "For insured routine-vision registration, ask once for the patient's SSN last four. Continue without it if declined or unavailable. Request only the last four digits. Skip SSN collection for self pay. " +
-    "Before using the inbound caller number, confirm it is a good callback number; if yes, omit phone and set inboundPhoneConfirmed to true. " +
+    "Before using the inbound caller number, confirm it is a good callback number; if yes, pass phone as null and set inboundPhoneConfirmed to true. " +
     'Use "self pay" as insuranceMemberId only when the patient asks for self pay.',
   parameters: addPatientParameters,
   execute: async (params, { ctx }) => {
     const state = getState(ctx);
     ctx.disallowInterruptions();
-
     const patientIdentity = {
       firstName: params.firstName.trim(),
       lastName: params.lastName.trim(),

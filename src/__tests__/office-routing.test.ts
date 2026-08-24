@@ -893,26 +893,32 @@ describe("model-facing tool definitions", () => {
         (parameters.shape.ssnLast4 as { description?: string }).description,
       ),
     ).toBe(
-      "Optional. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits.",
+      "Caller-provided value when available. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits. Pass null for self pay or when declined or unavailable.",
     );
     expect(
       String(
         (parameters.shape.ssnLast4 as { description?: string }).description,
       ),
-    ).toContain("Optional");
+    ).toContain("Pass null");
     expect(Object.keys(parameters.shape)).not.toContain("subscriberNum");
     expect(
       parameters.safeParse({
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
+        phone: null,
         inboundPhoneConfirmed: true,
+        email: null,
         street: "1 Main St",
+        aptSuite: null,
         city: "Spring Hill",
         state: "FL",
         zip: "34609",
         sex: "female",
         subscriberName: "Jane Doe",
+        ssnLast4: null,
+        newPatientConfirmed: null,
+        readBack: null,
       }).success,
     ).toBe(false);
     expect(
@@ -920,8 +926,11 @@ describe("model-facing tool definitions", () => {
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
+        phone: null,
         inboundPhoneConfirmed: true,
+        email: null,
         street: "1 Main St",
+        aptSuite: null,
         city: "Spring Hill",
         state: "FL",
         zip: "34609",
@@ -929,6 +938,8 @@ describe("model-facing tool definitions", () => {
         subscriberName: "Jane Doe",
         insuranceMemberId: "ABC123",
         ssnLast4: "1234",
+        newPatientConfirmed: null,
+        readBack: null,
       }).success,
     ).toBe(true);
     expect(
@@ -951,14 +962,20 @@ describe("model-facing tool definitions", () => {
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
+        phone: null,
         inboundPhoneConfirmed: true,
+        email: null,
         street: "1 Main St",
+        aptSuite: null,
         city: "Spring Hill",
         state: "FL",
         zip: "34609",
         sex: "female",
         subscriberName: "Jane Doe",
         insuranceMemberId: "ABC123",
+        ssnLast4: null,
+        newPatientConfirmed: null,
+        readBack: null,
       }).success,
     ).toBe(true);
     expect(
@@ -966,8 +983,11 @@ describe("model-facing tool definitions", () => {
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
+        phone: null,
         inboundPhoneConfirmed: true,
+        email: null,
         street: "1 Main St",
+        aptSuite: null,
         city: "Spring Hill",
         state: "FL",
         zip: "34609",
@@ -975,6 +995,8 @@ describe("model-facing tool definitions", () => {
         subscriberName: "Jane Doe",
         insuranceMemberId: "ABC123",
         ssnLast4: "12345",
+        newPatientConfirmed: null,
+        readBack: null,
       }).success,
     ).toBe(false);
   });
@@ -1017,10 +1039,10 @@ describe("model-facing tool definitions", () => {
       "exact loaded appointment",
     );
     expect(parameters.shape.office.description).toContain(
-      "Office selected by the caller",
+      "Required on Hollywood and Sweetwater calls",
     );
     expect(parameters.shape.office.description).toContain(
-      "Hollywood or Sweetwater",
+      "Use the caller's answer as the office value",
     );
     expect(parameters.shape.when.description).toContain(
       "caller's own date and time phrase",
@@ -1036,12 +1058,14 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({
         when: "next Tuesday around 3 PM",
         visitType: "medical",
+        oldAppointmentRef: null,
         office: "hollywood",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
         when: "next Tuesday around 3 PM",
+        visitType: null,
         oldAppointmentRef: "appointment-loaded",
         office: "hollywood",
       }).success,
@@ -1050,6 +1074,7 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({
         when: "tomorrow morning",
         visitType: "medical",
+        oldAppointmentRef: null,
         office: "sweetwater",
       }).success,
     ).toBe(true);
@@ -1057,6 +1082,7 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({
         when: "tomorrow",
         visitType: "medical",
+        oldAppointmentRef: null,
         office: "spring-hill",
       }).success,
     ).toBe(false);
@@ -1064,6 +1090,7 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({
         when: "tomorrow",
         visitType: "medical",
+        oldAppointmentRef: null,
         timePreference: "evening",
       }).success,
     ).toBe(false);
@@ -1078,6 +1105,7 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({
         when: "June 1",
         visitType: "routine_vision",
+        oldAppointmentRef: null,
         office: "hollywood",
       }).success,
     ).toBe(true);
@@ -1085,6 +1113,8 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({
         when: "June 1",
         visitType: "unknown",
+        oldAppointmentRef: null,
+        office: "hollywood",
       }).success,
     ).toBe(false);
     expect(
@@ -1370,6 +1400,9 @@ describe("model-facing tool definitions", () => {
     );
     expect(reschedule_appointment.description).toContain("oldAppointmentRef");
     expect(reschedule_appointment.description).toContain(
+      "sole exception to exact old-appointment confirmation",
+    );
+    expect(reschedule_appointment.description).toContain(
       "make the next call after you can pass the matching oldAppointmentRef",
     );
     expect(reschedule_appointment.description).toContain(
@@ -1393,6 +1426,7 @@ describe("model-facing tool definitions", () => {
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
+        oldAppointmentRef: null,
       }).success,
     ).toBe(true);
     expect(
@@ -1400,6 +1434,7 @@ describe("model-facing tool definitions", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
+        readBack: null,
         oldAppointmentRef: "old-appointment-2-abc123",
       }).success,
     ).toBe(true);
@@ -1503,6 +1538,7 @@ describe("model-facing tool definitions", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "eye pain",
         referringDoctor: "none",
+        readBack: null,
       }).success,
     ).toBe(true);
   });
@@ -1549,6 +1585,7 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({
         firstName: "Jane",
         lastName: "Doe",
+        dob: null,
       }).success,
     ).toBe(true);
     expect(
@@ -1558,10 +1595,22 @@ describe("model-facing tool definitions", () => {
         dob: "01/01/1980",
       }).success,
     ).toBe(true);
-    expect(parameters.safeParse({}).success).toBe(true);
     expect(
-      parameters.safeParse({ registrationStatus: "not_registered" }).success,
+      parameters.safeParse({ firstName: null, lastName: null, dob: null })
+        .success,
+    ).toBe(true);
+    expect(parameters.safeParse({}).success).toBe(false);
+    expect(
+      parameters.safeParse({
+        firstName: null,
+        lastName: null,
+        dob: null,
+        registrationStatus: "not_registered",
+      }).success,
     ).toBe(false);
-    expect(parameters.safeParse({ firstName: " " }).success).toBe(false);
+    expect(
+      parameters.safeParse({ firstName: " ", lastName: null, dob: null })
+        .success,
+    ).toBe(false);
   });
 });

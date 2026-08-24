@@ -20,12 +20,22 @@ describe("LLM model config", () => {
     expect(fallback.model).toBe("xai/grok-4.5");
   });
 
-  it("caps spoken response length and disables parallel tool calls", () => {
+  it("caps spoken responses and enables sequential strict tool calls", () => {
     expect(primaryLLMOptions.modelOptions.max_completion_tokens).toBe(512);
     expect(primaryLLMOptions.modelOptions.parallel_tool_calls).toBe(false);
+    expect(primaryLLMOptions.strictToolSchema).toBe(true);
     expect(fallbackLLMOptions.modelOptions.max_completion_tokens).toBe(512);
     expect(fallbackLLMOptions.modelOptions.parallel_tool_calls).toBe(false);
-    expect(Object.keys(primaryLLMOptions)).toEqual(["model", "modelOptions"]);
-    expect(Object.keys(fallbackLLMOptions)).toEqual(["model", "modelOptions"]);
+    expect(fallbackLLMOptions.strictToolSchema).toBe(true);
+    expect(Object.keys(primaryLLMOptions)).toEqual([
+      "model",
+      "modelOptions",
+      "strictToolSchema",
+    ]);
+    expect(Object.keys(fallbackLLMOptions)).toEqual([
+      "model",
+      "modelOptions",
+      "strictToolSchema",
+    ]);
   });
 });

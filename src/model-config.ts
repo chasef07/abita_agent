@@ -8,6 +8,7 @@ export const primaryLLMOptions = {
     max_completion_tokens: 512,
     parallel_tool_calls: false,
   },
+  strictToolSchema: true,
 } as const satisfies InferenceLLMOptions;
 
 export const fallbackLLMOptions = {
@@ -16,6 +17,7 @@ export const fallbackLLMOptions = {
     max_completion_tokens: 512,
     parallel_tool_calls: false,
   },
+  strictToolSchema: true,
 } as const satisfies InferenceLLMOptions;
 
 export function createLlmPair() {

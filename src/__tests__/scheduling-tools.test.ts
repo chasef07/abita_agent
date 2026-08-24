@@ -261,10 +261,13 @@ describe("scheduling tools", () => {
       const { get_availability } = createSchedulingTools(middleware);
       const state = createState();
 
-      await get_availability.execute({ when: "2026-06-01", visitType }, {
-        ctx: createToolContext(state) as never,
-        toolCallId: "availability-1",
-      } as never);
+      await get_availability.execute(
+        { when: "2026-06-01", visitType, oldAppointmentRef: null },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "availability-1",
+        } as never,
+      );
 
       expect(state.workflow.current).toEqual({
         intent: "schedule",
@@ -314,14 +317,18 @@ describe("scheduling tools", () => {
     "asks %s callers which office they want before searching availability",
     async (office) => {
       const middleware = new InMemorySchedulingMiddleware();
-      const { get_availability } = createSchedulingTools(middleware);
+      const { get_availability } = createSchedulingTools(
+        middleware,
+        undefined,
+        { availabilityOfficeMode: "required" },
+      );
       const state = createHollywoodSweetwaterState(office);
 
       const result = await get_availability.execute(
         {
           when: "2026-06-01",
           visitType: "medical",
-        },
+        } as never,
         {
           ctx: createToolContext(state) as never,
           toolCallId: "tool-1",
@@ -339,7 +346,9 @@ describe("scheduling tools", () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [availabilityFound([returnedSlot({ time: "10:00 AM" })])],
     });
-    const { get_availability } = createSchedulingTools(middleware);
+    const { get_availability } = createSchedulingTools(middleware, undefined, {
+      availabilityOfficeMode: "required",
+    });
     const state = createHollywoodSweetwaterState("sweetwater");
 
     await get_availability.execute(
@@ -1411,7 +1420,9 @@ describe("scheduling tools", () => {
         availabilityFound([returnedSlot()]),
       ],
     });
-    const { get_availability } = createSchedulingTools(middleware);
+    const { get_availability } = createSchedulingTools(middleware, undefined, {
+      availabilityOfficeMode: "required",
+    });
     const state = createHollywoodSweetwaterState("sweetwater");
     const ctx = createToolContext(state);
 
@@ -2255,6 +2266,7 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        readBack: null,
       },
       {
         ctx: createToolContext(state) as never,
@@ -3630,6 +3642,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "move my follow-up",
         referringDoctor: "none",
+        oldAppointmentRef: null,
+        readBack: null,
       },
       {
         ctx: createToolContext(state) as never,
