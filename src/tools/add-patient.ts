@@ -38,21 +38,18 @@ const addPatientParameters = z
     phone: z
       .string()
       .nullable()
-      .optional()
       .describe(
         "Best callback number, 10 digits only. Pass null when the inbound caller number is confirmed as best; the tool will use the caller phone from state.",
       ),
     inboundPhoneConfirmed: z
       .literal(true)
       .nullable()
-      .optional()
       .describe(
         "Set to true only after asking whether the number they are calling from is a good callback number to put on file and the caller says yes. Pass null while confirmation is pending or when a different callback number is supplied.",
       ),
     email: z
       .string()
       .nullable()
-      .optional()
       .describe(
         "Email address if the caller provides one; otherwise pass null",
       ),
@@ -60,7 +57,6 @@ const addPatientParameters = z
     aptSuite: z
       .string()
       .nullable()
-      .optional()
       .describe("Apartment or suite number, or null when there is none"),
     city: z.string().describe("City"),
     state: z.string().describe("State, 2-letter abbreviation"),
@@ -77,21 +73,18 @@ const addPatientParameters = z
       .trim()
       .regex(/^\d{4}$/)
       .nullable()
-      .optional()
       .describe(
-        "Optional caller-provided value. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits. Pass null for self pay or when declined or unavailable.",
+        "Caller-provided value when available. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits. Pass null for self pay or when declined or unavailable.",
       ),
     newPatientConfirmed: z
       .literal(true)
       .nullable()
-      .optional()
       .describe(
         "Set to true only after the caller explicitly confirms this is the patient's first registration with the practice. Pass null until confirmed.",
       ),
     readBack: z
       .literal(true)
       .nullable()
-      .optional()
       .describe(
         "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID; confirming any provided SSN last four was captured without repeating the digits; and the caller confirms the details are correct. Pass null until confirmed.",
       ),

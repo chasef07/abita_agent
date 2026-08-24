@@ -17,7 +17,6 @@ const resolvePatientParameters = z
       .trim()
       .min(1)
       .nullable()
-      .optional()
       .describe(
         "Caller-provided patient first name. Use this alone only when switching to another preloaded patient from the phone lookup. Pass null when the caller has not supplied it.",
       ),
@@ -26,7 +25,6 @@ const resolvePatientParameters = z
       .trim()
       .min(1)
       .nullable()
-      .optional()
       .describe(
         "Caller-provided patient last name. Include with DOB for existing-patient lookup. Pass null for first-name-only preloaded-patient activation.",
       ),
@@ -35,7 +33,6 @@ const resolvePatientParameters = z
       .trim()
       .min(1)
       .nullable()
-      .optional()
       .describe(
         "Caller-provided date of birth in MM/DD/YYYY format. Include with first and last name for existing-patient lookup. Pass null for first-name-only preloaded-patient activation.",
       ),

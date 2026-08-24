@@ -46,7 +46,6 @@ const bookAppointmentParameters = z
     readBack: z
       .literal(true)
       .nullable()
-      .optional()
       .describe(
         "Set to true only after reading back the selected appointment date, time, and provider and the caller confirms the appointment details are correct. Pass null until confirmed.",
       ),
@@ -89,7 +88,6 @@ const rescheduleAppointmentParameters = z
     readBack: z
       .literal(true)
       .nullable()
-      .optional()
       .describe(
         "Set to true only after reading back the selected new appointment date, time, and provider and the caller confirms the new appointment details are correct. Pass null until confirmed.",
       ),
@@ -98,9 +96,8 @@ const rescheduleAppointmentParameters = z
       .trim()
       .min(1)
       .nullable()
-      .optional()
       .describe(
-        "Loaded appointment reference returned by reschedule_appointment when multiple old appointments are loaded. Pass null when exactly one old appointment is loaded.",
+        "Loaded appointment reference returned by reschedule_appointment when multiple old appointments are loaded. Pass null until the exact old appointment is selected, including when exactly one old appointment is loaded or before the first clarification call with multiple appointments.",
       ),
   })
   .strict();
@@ -124,7 +121,6 @@ export function createSchedulingTools(
     visitType: z
       .enum(["medical", "routine_vision"])
       .nullable()
-      .optional()
       .describe(
         "Visit type established by appointment triage. Required for new appointment searches; pass medical or routine_vision. " +
           "Pass null only for reschedules when the loaded appointment supplies the visit type.",
@@ -134,7 +130,6 @@ export function createSchedulingTools(
       .trim()
       .min(1)
       .nullable()
-      .optional()
       .describe(
         "For reschedules, pass the appointmentRef for the exact loaded appointment the caller confirmed they want to move. Pass null when the sole loaded appointment applies or for new appointments.",
       ),
