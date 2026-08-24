@@ -163,6 +163,18 @@ export function availabilityReadGeneration(state: CallState): number {
   return availabilityCoordinatorFor(state).generation;
 }
 
+export function completedAvailabilityReadIsReusable(
+  state: CallState,
+  key: string,
+  now: Date,
+): boolean {
+  const completed = availabilityCoordinatorFor(state).completed.get(key);
+  return Boolean(
+    completed &&
+    (completed.expiresAt === null || now.getTime() < completed.expiresAt),
+  );
+}
+
 export function invalidateAvailabilityReads(
   state: CallState,
   reason: AvailabilityInvalidationReason,

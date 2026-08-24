@@ -187,6 +187,7 @@ export interface StoredAvailabilitySlot {
   time: string;
   datetime: string;
   routing: string | null;
+  unmetConstraints?: Array<"date" | "time">;
 }
 
 export type AppointmentActionStatus = "success" | "partial" | "error";

@@ -258,6 +258,10 @@ Availability and appointment mutations are one deep Scheduling Workflow. A
 search result is not a booking, and a model statement is never proof of a
 write.
 
+The model supplies caller-derived date phrases and semantic time operators.
+The workflow resolves clinic-local half-open windows; `around` has one fixed
+meaning of 60 minutes before through 60 minutes after the caller's clock time.
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -283,9 +287,13 @@ sequenceDiagram
         alt Booked
             W->>S: Commit receipt and invalidate availability
             W-->>A: Confirmed appointment outcome
-        else Not booked
+        else Authorization definitively stale or rejected
+            W->>M: Recheck the exact confirmed slot once
+            M-->>W: Identical slot or changed inventory
+            W-->>A: Book identical slot or require confirmation for alternatives
+        else Not booked or outcome ambiguous
             W->>S: Preserve or invalidate state by failure class
-            W-->>A: Recovery instruction without a success claim
+            W-->>A: Recovery instruction without a success claim or blind retry
         end
     end
 ```
@@ -362,7 +370,7 @@ temporarily selected another office.
 | Invalid middleware response | Owned Middleware adapter | Return `invalid_response`; do not mutate state from malformed data |
 | Middleware network failure | Owned Middleware adapter | Return a stable failure; expose no provider payload or raw error to the model |
 | Patient changes while a write is in flight | Identity and Scheduling | Attribute the result to the original patient; do not merge it into the newly active patient |
-| Expired or rejected booking authorization | Scheduling Workflow | Invalidate affected availability and require a fresh search |
+| Expired or rejected booking authorization | Scheduling Workflow | Recheck the exact confirmed slot once; book only an identical refreshed slot, otherwise require confirmation for new alternatives |
 | Invalid cancellation authorization | Scheduling Workflow | Clear loaded appointment authority and require patient and appointment reload |
 | Replacement booked but old appointment not cancelled | Scheduling Workflow | Record a partial reschedule and route the remaining cancellation to staff |
 | Duplicate appointment mutation | Tool interface / Scheduling Workflow | Reject concurrent duplicates or replay the completed per-patient outcome |

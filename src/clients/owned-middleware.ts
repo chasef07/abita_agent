@@ -46,6 +46,13 @@ export type AvailabilitySlot = {
   time: string;
   datetime: string;
   bookingToken?: string;
+  unmetConstraints?: Array<"date" | "time">;
+};
+
+export type AvailabilityWindow = {
+  start: string;
+  end: string;
+  preferredStart?: string;
 };
 
 export type AvailabilityTimePreference =
@@ -60,6 +67,7 @@ export type AvailabilityResult =
       searchedFrom?: string;
       searchedThrough?: string;
       bookingTokenExpiresAt?: string;
+      matchStatus?: "exact" | "alternatives";
       dateShifted: boolean;
       shouldRetrySameSearch: boolean;
       message?: string;
@@ -208,6 +216,8 @@ export interface OwnedMiddleware {
   }): Promise<PatientResolveResult>;
   getAvailability(request: {
     office: string;
+    windows?: AvailabilityWindow[];
+    timeZone?: "America/New_York";
     requestedDate?: string;
     preferredTime?: AvailabilityTimePreference;
     dob?: string;
@@ -287,6 +297,8 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
 
   async getAvailability(request: {
     office: string;
+    windows?: AvailabilityWindow[];
+    timeZone?: "America/New_York";
     requestedDate?: string;
     preferredTime?: AvailabilityTimePreference;
     dob?: string;
@@ -295,6 +307,8 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     signal?: AbortSignal;
   }): Promise<AvailabilityResult> {
     const body = {
+      ...(request.windows ? { windows: request.windows } : {}),
+      ...(request.timeZone ? { timeZone: request.timeZone } : {}),
       ...(request.requestedDate
         ? { requestedDate: request.requestedDate }
         : {}),
@@ -518,6 +532,11 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
     ...(stringValue(slot.bookingToken)
       ? { bookingToken: stringValue(slot.bookingToken) ?? undefined }
       : {}),
+    ...(availabilityUnmetConstraints(slot.unmetConstraints).length > 0
+      ? {
+          unmetConstraints: availabilityUnmetConstraints(slot.unmetConstraints),
+        }
+      : {}),
   }));
   return {
     status,
@@ -540,12 +559,23 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
             stringValue(raw.bookingTokenExpiresAt) ?? undefined,
         }
       : {}),
+    ...(raw.matchStatus === "exact" || raw.matchStatus === "alternatives"
+      ? { matchStatus: raw.matchStatus }
+      : {}),
     dateShifted: raw.dateShifted === true,
     shouldRetrySameSearch: raw.shouldRetrySameSearch === true,
     ...(stringValue(raw.message)
       ? { message: stringValue(raw.message) ?? undefined }
       : {}),
   };
+}
+
+function availabilityUnmetConstraints(value: unknown): Array<"date" | "time"> {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (constraint): constraint is "date" | "time" =>
+      constraint === "date" || constraint === "time",
+  );
 }
 
 function availabilityStatus(outcome: string | null) {

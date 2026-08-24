@@ -1000,7 +1000,7 @@ describe("model-facing tool definitions", () => {
 
   it("keeps availability execution tied to core appointment triage", () => {
     expect(get_availability.description).toContain(
-      "after triage using the caller's date and time words verbatim",
+      "after triage using caller-derived date and time branches",
     );
     expect(get_availability.description).toContain("Offer only returned slots");
     expect(get_availability.description).not.toContain("appointmentLane");
@@ -1015,7 +1015,7 @@ describe("model-facing tool definitions", () => {
         oldAppointmentRef: { description?: string };
         office: { description?: string };
         visitType: { description?: string };
-        when: { description?: string };
+        branches: { description?: string };
       };
     };
     expect(parameters.shape.visitType.description).toContain(
@@ -1027,19 +1027,23 @@ describe("model-facing tool definitions", () => {
     expect(parameters.shape.office.description).toContain(
       "Caller-selected Hollywood or Sweetwater office",
     );
-    expect(parameters.shape.when.description).toContain(
-      "Caller's date and time phrase verbatim",
+    expect(parameters.shape.branches.description).toContain(
+      "OR between branches and AND between each branch's date and time",
     );
-    expect(parameters.shape.when.description).toContain("next available");
     expect(Object.keys(parameters.shape)).toEqual([
-      "when",
+      "branches",
       "visitType",
       "oldAppointmentRef",
       "office",
     ]);
     expect(
       parameters.safeParse({
-        when: "next Tuesday around 3 PM",
+        branches: [
+          {
+            datePhrase: "next Tuesday",
+            time: { operator: "around", clockPhrase: "3 PM" },
+          },
+        ],
         visitType: "medical",
         oldAppointmentRef: null,
         office: "hollywood",
@@ -1047,7 +1051,12 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "next Tuesday around 3 PM",
+        branches: [
+          {
+            datePhrase: "next Tuesday",
+            time: { operator: "around", clockPhrase: "3 PM" },
+          },
+        ],
         visitType: null,
         oldAppointmentRef: "appointment-loaded",
         office: "hollywood",
@@ -1055,7 +1064,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "tomorrow morning",
+        branches: [{ datePhrase: "tomorrow", time: { operator: "morning" } }],
         visitType: "medical",
         oldAppointmentRef: null,
         office: "sweetwater",
@@ -1063,7 +1072,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "tomorrow",
+        branches: [{ datePhrase: "tomorrow", time: { operator: "any" } }],
         visitType: "medical",
         oldAppointmentRef: null,
         office: "spring-hill",
@@ -1071,7 +1080,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "tomorrow",
+        branches: [{ datePhrase: "tomorrow", time: { operator: "any" } }],
         visitType: "medical",
         oldAppointmentRef: null,
         timePreference: "evening",
@@ -1086,7 +1095,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "June 1",
+        branches: [{ datePhrase: "June 1", time: { operator: "any" } }],
         visitType: "routine_vision",
         oldAppointmentRef: null,
         office: "hollywood",
@@ -1094,7 +1103,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "June 1",
+        branches: [{ datePhrase: "June 1", time: { operator: "any" } }],
         visitType: "unknown",
         oldAppointmentRef: null,
         office: "hollywood",
@@ -1108,14 +1117,14 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "next Wednesday",
+        branches: [{ datePhrase: "next Wednesday", time: { operator: "any" } }],
         date: "2026-06-01",
         visitType: "medical",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "next Wednesday",
+        branches: [{ datePhrase: "next Wednesday", time: { operator: "any" } }],
         appointmentLane: "medical_md",
       }).success,
     ).toBe(false);

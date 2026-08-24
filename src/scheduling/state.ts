@@ -16,9 +16,11 @@ type SchedulingRouting =
   "bach_only" | "bach_licht" | "all_three" | "optical_only";
 
 const bookingTokenExpiryKey = Symbol("bookingTokenExpiry");
+const availabilityOfferSetsKey = Symbol("availabilityOfferSets");
 
 type CallStateWithBookingTokenExpiry = CallState & {
   [bookingTokenExpiryKey]?: Map<string, number>;
+  [availabilityOfferSetsKey]?: string[][];
 };
 
 export function createSchedulingState(input: {
@@ -185,6 +187,7 @@ export function clearAvailabilitySelection(
   state.availability.latestRouting = null;
   state.availability.bookingTokensBySlotId = {};
   bookingTokenExpiriesFor(state).clear();
+  availabilityOfferSetsFor(state).splice(0);
 }
 
 export function resetPatientSchedulingState(
@@ -253,6 +256,14 @@ export function removeAvailabilitySlot(
   state.availability.slots = state.availability.slots.filter(
     (slot) => normalizeSlotId(slot.slotId) !== normalized,
   );
+  const offerSets = availabilityOfferSetsFor(state);
+  for (let index = offerSets.length - 1; index >= 0; index -= 1) {
+    offerSets[index] =
+      offerSets[index]?.filter(
+        (storedSlotId) => normalizeSlotId(storedSlotId) !== normalized,
+      ) ?? [];
+    if (offerSets[index]?.length === 0) offerSets.splice(index, 1);
+  }
   for (const storedSlotId of Object.keys(
     state.availability.bookingTokensBySlotId,
   )) {
@@ -269,10 +280,65 @@ export function replaceAvailabilitySlots(
   slots: StoredAvailabilitySlot[],
   routing: string | null,
 ): void {
-  state.availability.slots = [...slots];
+  const existingSlots = state.availability.slots;
+  const offerSets = availabilityOfferSetsFor(state);
+  const nextSet = slots.map((slot) => slot.slotId);
+  const latestSet = offerSets.at(-1) ?? [];
+  if (!sameSlotReferenceSet(latestSet, nextSet)) {
+    offerSets.push(nextSet);
+    while (offerSets.length > 2) offerSets.shift();
+  }
+  const retainedSlotIds = offerSets
+    .flat()
+    .filter(
+      (slotId, index, all) =>
+        all.findIndex(
+          (candidate) => normalizeSlotId(candidate) === normalizeSlotId(slotId),
+        ) === index,
+    );
+  const retainedSlots = new Map(
+    [...existingSlots, ...slots].map((slot) => [
+      normalizeSlotId(slot.slotId),
+      slot,
+    ]),
+  );
+  state.availability.slots = retainedSlotIds.flatMap((slotId) => {
+    const slot = retainedSlots.get(normalizeSlotId(slotId));
+    return slot ? [slot] : [];
+  });
   state.availability.latestRouting = routing;
-  state.availability.bookingTokensBySlotId = {};
-  bookingTokenExpiriesFor(state).clear();
+  const retained = new Set(retainedSlotIds.map(normalizeSlotId));
+  for (const slotId of Object.keys(state.availability.bookingTokensBySlotId)) {
+    if (!retained.has(normalizeSlotId(slotId))) {
+      delete state.availability.bookingTokensBySlotId[slotId];
+      bookingTokenExpiriesFor(state).delete(slotId);
+    }
+  }
+}
+
+function availabilityOfferSetsFor(state: CallState): string[][] {
+  const sessionState = state as CallStateWithBookingTokenExpiry;
+  const existing = sessionState[availabilityOfferSetsKey];
+  if (existing) return existing;
+  const offerSets =
+    state.availability.slots.length > 0
+      ? [state.availability.slots.map((slot) => slot.slotId)]
+      : [];
+  Object.defineProperty(sessionState, availabilityOfferSetsKey, {
+    value: offerSets,
+    enumerable: false,
+  });
+  return offerSets;
+}
+
+function sameSlotReferenceSet(left: string[], right: string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (slotId, index) =>
+        normalizeSlotId(slotId) === normalizeSlotId(right[index] ?? ""),
+    )
+  );
 }
 
 function bookingTokenExpiriesFor(state: CallState): Map<string, number> {

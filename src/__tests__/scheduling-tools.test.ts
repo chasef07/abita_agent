@@ -718,6 +718,7 @@ describe("scheduling tools", () => {
       },
     });
     expect(state.availability.bookingTokensBySlotId).toEqual({
+      S1: "morning-token",
       S2: "afternoon-token",
     });
     expect(availabilityReadEvents(state)).toMatchObject([
@@ -1085,11 +1086,14 @@ describe("scheduling tools", () => {
     ).toHaveLength(4);
   });
 
-  it("rejects direct booking after the selected token validity expires", async () => {
+  it("rechecks and books the confirmed slot after local token expiry", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [
         availabilityFound([returnedSlot()], {
           bookingTokenExpiresAt: "2026-05-30T16:15:00Z",
+        }),
+        availabilityFound([returnedSlot({ bookingToken: "refreshed-token" })], {
+          bookingTokenExpiresAt: "2026-05-30T16:30:00Z",
         }),
       ],
       bookings: [bookingReceipt()],
@@ -1121,11 +1125,11 @@ describe("scheduling tools", () => {
           toolCallId: "booking-1",
         } as never,
       ),
-    ).resolves.toBe(
-      "Search availability again before booking because the selected slot expired.",
-    );
-    expect(middleware.operations).toEqual([
-      expect.objectContaining({ kind: "availability" }),
+    ).resolves.toContain("Booked Monday, June 1 at 9:00 AM");
+    expect(middleware.operations.map(({ kind }) => kind)).toEqual([
+      "availability",
+      "availability",
+      "book",
     ]);
     expect(state.availability.slots).toEqual([]);
     expect(state.availability.bookingTokensBySlotId).toEqual({});
@@ -2275,7 +2279,19 @@ describe("scheduling tools", () => {
   });
 
   it("requires a current private booking token", async () => {
-    const middleware = new InMemorySchedulingMiddleware();
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        {
+          status: "none",
+          slots: [],
+          requestedDate: "2026-06-01",
+          searchedFrom: "2026-06-01",
+          searchedThrough: "2026-06-01",
+          dateShifted: false,
+          shouldRetrySameSearch: false,
+        },
+      ],
+    });
     const { book_appointment } = createSchedulingTools(middleware);
     const state = createState();
     prepareBooking(state);
@@ -2294,10 +2310,10 @@ describe("scheduling tools", () => {
           toolCallId: "booking-1",
         } as never,
       ),
-    ).resolves.toBe(
-      "Search availability again before booking because the selected slot expired.",
-    );
-    expect(middleware.operations).toEqual([]);
+    ).resolves.toContain("confirmed time is no longer available");
+    expect(middleware.operations).toEqual([
+      expect.objectContaining({ kind: "availability" }),
+    ]);
     expect(state.availability.slots).toEqual([]);
   });
 
@@ -2417,6 +2433,15 @@ describe("scheduling tools", () => {
 
   it("removes an unavailable slot while preserving the next real option", async () => {
     const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        availabilityFound([
+          returnedSlot({
+            time: "2:00 PM",
+            datetime: "2026-06-01T14:00:00",
+            bookingToken: "next-token-refreshed",
+          }),
+        ]),
+      ],
       bookings: [
         {
           status: "unavailable",
@@ -2448,16 +2473,18 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe(
-      "That time is no longer available. I can offer Monday, June 1 at 2:00 PM with Dr. Bach instead.",
-    );
-    expect(state.availability.slots).toEqual([nextSlot]);
+    expect(result).toContain("confirmed time is no longer available");
+    expect(result).toContain("2:00 PM");
+    expect(result).toContain("requires new caller confirmation");
+    expect(state.availability.slots).toMatchObject([
+      { slotId: "S2", time: "2:00 PM", datetime: "2026-06-01T14:00:00" },
+    ]);
     expect(state.availability.bookingTokensBySlotId).toEqual({
-      S2: "next-token",
+      S2: "next-token-refreshed",
     });
   });
 
-  it("refetches availability after a cached slot is rejected", async () => {
+  it("rechecks exact inventory after a cached slot is rejected", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [
         availabilityFound([
@@ -2491,7 +2518,7 @@ describe("scheduling tools", () => {
       ctx: ctx as never,
       toolCallId: "availability-1",
     } as never);
-    await book_appointment.execute(
+    const refreshed = await book_appointment.execute(
       {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
@@ -2503,12 +2530,8 @@ describe("scheduling tools", () => {
         toolCallId: "booking-1",
       } as never,
     );
-    const refreshed = await get_availability.execute(args, {
-      ctx: ctx as never,
-      toolCallId: "availability-2",
-    } as never);
-
     expect(refreshed).toContain("3:00 PM");
+    expect(refreshed).toContain("requires new caller confirmation");
     expect(middleware.operations.map(({ kind }) => kind)).toEqual([
       "availability",
       "book",

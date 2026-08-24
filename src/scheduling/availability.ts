@@ -6,7 +6,6 @@ import type {
 } from "../clients/owned-middleware.js";
 import {
   availabilitySlotsForState,
-  clearAvailabilitySelection,
   replaceAvailabilitySlots,
   reserveAvailabilitySlotIds,
   storeAvailabilityBookingToken,
@@ -43,7 +42,6 @@ export function storeAvailabilitySlots(
 ): AvailabilityToolResponse {
   if (result.status === "error") {
     recordOwnedMiddlewareFailure(state, "getAvailability", result);
-    clearAvailabilitySelection(state);
     throwOwnedMiddlewareFailure(
       result,
       "I couldn't check availability. I can try once more or connect you with the office.",
@@ -110,6 +108,10 @@ function availabilityMessage(
     return `I couldn't find a usable opening ${searchedRange}. Let me check once more.`;
   }
   const backupSlot = slots[1];
+  if (result.matchStatus === "alternatives") {
+    const alternatives = slots.map(labeledAlternativeOffer).join(", or ");
+    return `I couldn't find an exact match. I found ${alternatives}. Does either work?`;
+  }
   if (backupSlot) {
     return `I found ${spokenAvailabilitySlot(primarySlot)}, or ${spokenAvailabilitySlot(backupSlot)}. Which works better?`;
   }
@@ -139,6 +141,9 @@ function storedAvailabilitySlot(
     time: slot.time,
     datetime: slot.datetime,
     routing,
+    ...(slot.unmetConstraints?.length
+      ? { unmetConstraints: [...slot.unmetConstraints] }
+      : {}),
   };
 }
 
@@ -216,6 +221,15 @@ function spokenAvailabilitySlot(slot: StoredAvailabilitySlot): string {
     .filter(Boolean)
     .join(" ");
   return spoken;
+}
+
+function labeledAlternativeOffer(slot: StoredAvailabilitySlot): string {
+  const labels = (slot.unmetConstraints ?? []).map(
+    (constraint) => `not the requested ${constraint}`,
+  );
+  return labels.length > 0
+    ? `${spokenAvailabilitySlot(slot)} (${labels.join(" and ")})`
+    : `${spokenAvailabilitySlot(slot)} (alternative)`;
 }
 
 function completeAvailabilityResult(result: AvailableSlotsResult): boolean {

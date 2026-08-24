@@ -367,6 +367,57 @@ describe.each([
 });
 
 describe("HTTP owned middleware transport", () => {
+  it("sends only concrete windows and normalizes labeled alternatives", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        status: "success",
+        outcome: "availability_found",
+        matchStatus: "alternatives",
+        slots: [
+          {
+            provider: "Dr. Bach",
+            date: "2026-06-09",
+            time: "4:00 PM",
+            datetime: "2026-06-09T16:00",
+            bookingToken: "private-token",
+            unmetConstraints: ["time"],
+          },
+        ],
+        requestedDate: "2026-06-09",
+        dateShifted: false,
+        shouldRetrySameSearch: false,
+      }),
+    );
+    const middleware = new HttpOwnedMiddleware({
+      authToken: "test-token",
+      fetch: fetchMock,
+      middlewareBaseUrl: "https://middleware.test",
+    });
+    const windows = [
+      {
+        start: "2026-06-09T00:00:00-04:00",
+        end: "2026-06-09T15:00:00-04:00",
+      },
+    ];
+
+    const result = await middleware.getAvailability({
+      office: SPRING_HILL_OFFICE_PHONE,
+      timeZone: "America/New_York",
+      windows,
+    });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      timeZone: "America/New_York",
+      windows,
+      office: SPRING_HILL_OFFICE_PHONE,
+    });
+    expect(result).toMatchObject({
+      status: "found",
+      matchStatus: "alternatives",
+      slots: [{ unmetConstraints: ["time"] }],
+    });
+  });
+
   it("owns all six endpoints, request serialization, authorization, and timeout", async () => {
     const fetchMock = vi
       .fn()
