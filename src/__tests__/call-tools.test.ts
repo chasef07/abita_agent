@@ -1899,6 +1899,110 @@ describe("stateful call tools", () => {
     }).toEqual(patientScopedStateBefore);
   });
 
+  it("does not consume a new-patient receipt for an incomplete identity", async () => {
+    const state = createState();
+    markAcceptedInsurance(state);
+    state.identity.unregisteredPatientReceipt = {
+      identity: {
+        firstName: "Maria",
+        lastName: "Santos",
+        dob: "01/01/1980",
+      },
+      lookupOperationVersion: state.identity.operationVersion,
+      insuranceCheckVersion: 1,
+    };
+    const patientScopedStateBefore = structuredClone({
+      activePatient: state.identity.activePatient,
+      registration: state.identity.registration,
+      unregisteredPatientReceipt: state.identity.unregisteredPatientReceipt,
+      insurance: state.insurance,
+      availability: state.availability,
+      workflow: state.workflow,
+      office: state.office,
+    });
+
+    const result = await add_patient.execute(
+      {
+        firstName: "Maria",
+        lastName: "Santos",
+        dob: "   ",
+        street: "123 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        subscriberName: "Maria Santos",
+        insuranceMemberId: "self pay",
+        phone: "7275551212",
+        newPatientConfirmed: true,
+        readBack: true,
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "Before creating a new chart, collect the patient's first name, last name, and date of birth, then call add_patient again.",
+    );
+    expect(testMiddleware.operations).toHaveLength(0);
+    expect({
+      activePatient: state.identity.activePatient,
+      registration: state.identity.registration,
+      unregisteredPatientReceipt: state.identity.unregisteredPatientReceipt,
+      insurance: state.insurance,
+      availability: state.availability,
+      workflow: state.workflow,
+      office: state.office,
+    }).toEqual(patientScopedStateBefore);
+  });
+
+  it("does not start unresolved registration with an incomplete identity", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    markAcceptedInsurance(state);
+    const patientScopedStateBefore = structuredClone({
+      activePatient: state.identity.activePatient,
+      registration: state.identity.registration,
+      unregisteredPatientReceipt: state.identity.unregisteredPatientReceipt,
+      insurance: state.insurance,
+      availability: state.availability,
+      workflow: state.workflow,
+      office: state.office,
+    });
+
+    const result = await add_patient.execute(
+      {
+        firstName: "Maria",
+        lastName: "Santos",
+        dob: "   ",
+        street: "123 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "female",
+        subscriberName: "Maria Santos",
+        insuranceMemberId: "self pay",
+        phone: "7275551212",
+        newPatientConfirmed: true,
+        readBack: true,
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "Before creating a new chart, collect the patient's first name, last name, and date of birth, then call add_patient again.",
+    );
+    expect(testMiddleware.operations).toHaveLength(0);
+    expect({
+      activePatient: state.identity.activePatient,
+      registration: state.identity.registration,
+      unregisteredPatientReceipt: state.identity.unregisteredPatientReceipt,
+      insurance: state.insurance,
+      availability: state.availability,
+      workflow: state.workflow,
+      office: state.office,
+    }).toEqual(patientScopedStateBefore);
+  });
+
   it("does not carry accepted insurance into a different registration", async () => {
     const state = createState();
     setPatientUnknown(state);

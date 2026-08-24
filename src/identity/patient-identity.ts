@@ -852,13 +852,12 @@ function confirmedUnregisteredPatientMatches(
   identity: PatientLookupIdentity,
 ): boolean {
   const confirmed = state.identity.unregisteredPatientReceipt;
+  const candidate = registrationDraft(identity);
   return Boolean(
     confirmed &&
     confirmed.lookupOperationVersion === state.identity.operationVersion &&
-    !registrationTargetsDifferentPatient(
-      confirmed.identity,
-      registrationDraft(identity),
-    ),
+    hasFullIdentity(candidate) &&
+    !registrationTargetsDifferentPatient(confirmed.identity, candidate),
   );
 }
 

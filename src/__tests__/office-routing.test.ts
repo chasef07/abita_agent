@@ -935,6 +935,21 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({
         firstName: "Jane",
         lastName: "Doe",
+        dob: "   ",
+        inboundPhoneConfirmed: true,
+        street: "1 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34609",
+        sex: "female",
+        subscriberName: "Jane Doe",
+        insuranceMemberId: "ABC123",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        firstName: "Jane",
+        lastName: "Doe",
         dob: "01/01/1980",
         inboundPhoneConfirmed: true,
         street: "1 Main St",

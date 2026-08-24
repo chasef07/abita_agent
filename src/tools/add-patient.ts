@@ -28,9 +28,13 @@ import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.
 
 const addPatientParameters = z
   .object({
-    firstName: z.string().describe("Patient's first name"),
-    lastName: z.string().describe("Patient's last name"),
-    dob: z.string().describe("Date of birth in MM/DD/YYYY format"),
+    firstName: z.string().trim().min(1).describe("Patient's first name"),
+    lastName: z.string().trim().min(1).describe("Patient's last name"),
+    dob: z
+      .string()
+      .trim()
+      .min(1)
+      .describe("Date of birth in MM/DD/YYYY format"),
     phone: z
       .string()
       .optional()
@@ -100,7 +104,23 @@ export const add_patient = tool({
     const state = getState(ctx);
     ctx.disallowInterruptions();
 
-    const registrationStatus = patientRegistrationStatus(state, params);
+    const patientIdentity = {
+      firstName: params.firstName.trim(),
+      lastName: params.lastName.trim(),
+      dob: params.dob.trim(),
+    };
+    if (
+      !patientIdentity.firstName ||
+      !patientIdentity.lastName ||
+      !patientIdentity.dob
+    ) {
+      return "Before creating a new chart, collect the patient's first name, last name, and date of birth, then call add_patient again.";
+    }
+
+    const registrationStatus = patientRegistrationStatus(
+      state,
+      patientIdentity,
+    );
     if (registrationStatus === "created_patient") {
       const patientName =
         state.identity.activePatient?.name?.trim() ||
@@ -139,14 +159,14 @@ export const add_patient = tool({
 
     const confirmedUnregisteredPatient =
       registrationStatus === "confirmed_new_patient" &&
-      consumeConfirmedUnregisteredPatient(state, params);
+      consumeConfirmedUnregisteredPatient(state, patientIdentity);
     if (
       registrationStatus === "confirmed_new_patient" &&
       !confirmedUnregisteredPatient
     ) {
       return "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.";
     }
-    beginNewPatientRegistration(state, params, {
+    beginNewPatientRegistration(state, patientIdentity, {
       preserveEligibilityCheck: confirmedUnregisteredPatient,
     });
 
