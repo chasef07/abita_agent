@@ -527,6 +527,25 @@ describe("call observability", () => {
     ).toBe("duplicate_tool_rejected");
   });
 
+  it("classifies a different-patient creation guard as needing input", () => {
+    expect(
+      classifyToolOutput(
+        "add_patient",
+        "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth.",
+        false,
+      ),
+    ).toBe("patient_creation_needs_input");
+  });
+
+  it.each([
+    "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.",
+    "Do not create a new chart yet. Ask the privacy-safe first-name question, then use the runtime-confirmed patient state or continue an existing-patient lookup.",
+  ])("classifies a reachable add_patient guard as needing input", (output) => {
+    expect(classifyToolOutput("add_patient", output, false)).toBe(
+      "patient_creation_needs_input",
+    );
+  });
+
   it("adds sanitized appointment action fallbacks for missing tool executions", () => {
     expect(
       withAppointmentActionToolExecutionFallback(

@@ -169,6 +169,8 @@ export async function resolveExistingPatient(
     });
   }
 
+  state.identity.unregisteredPatientReceipt = null;
+
   const active = state.identity.activePatient;
   if (
     active &&
@@ -228,6 +230,13 @@ export async function resolveExistingPatient(
   if (result.status === "error") {
     recordOwnedMiddlewareFailure(state, "resolvePatient", result);
   }
+  if (result.status === "not_found") {
+    state.identity.unregisteredPatientReceipt = {
+      identity,
+      lookupOperationVersion: operationVersion,
+      insuranceCheckVersion: 0,
+    };
+  }
   return recordResolutionOutcome(state, {
     outcome:
       result.status === "not_found"
@@ -243,6 +252,7 @@ export async function resolveExistingPatient(
 export function beginNewPatientRegistration(
   state: CallState,
   identity: ResolvePatientIdentityInput,
+  options: { preserveEligibilityCheck?: boolean } = {},
 ): void {
   const draft = registrationDraft(identity);
   if (
@@ -261,7 +271,8 @@ export function beginNewPatientRegistration(
   advanceTransition(state, "synchronous");
   resetPatientScopedWork(state, {
     preserveEligibilityCheck:
-      !replacingRegistration && !suspendingActivePatient,
+      options.preserveEligibilityCheck === true ||
+      (!replacingRegistration && !suspendingActivePatient),
   });
   setInsuranceOnFile(state, null);
   state.identity.activePatient = null;
@@ -389,22 +400,64 @@ function cloneEligibilityCheck(
   return check ? { ...check } : null;
 }
 
-export function patientRegistrationConflict(
+export function patientRegistrationStatus(
   state: CallState,
   identity: PatientLookupIdentity,
-): "created_patient" | "active_patient" | "pre_call_candidate" | null {
+):
+  | "created_patient"
+  | "active_patient"
+  | "confirmed_new_patient"
+  | "different_patient"
+  | "pre_call_candidate"
+  | null {
   const active = state.identity.activePatient;
-  if (active && !identityTargetsDifferentPatient(active, identity)) {
-    return active.kind === "created" ? "created_patient" : "active_patient";
+  if (active) {
+    return identityTargetsDifferentPatient(active, identity)
+      ? confirmedUnregisteredPatientMatches(state, identity)
+        ? "confirmed_new_patient"
+        : "different_patient"
+      : active.kind === "created"
+        ? "created_patient"
+        : "active_patient";
+  }
+  if (
+    state.identity.registration &&
+    registrationTargetsDifferentPatient(
+      state.identity.registration,
+      registrationDraft(identity),
+    )
+  ) {
+    return confirmedUnregisteredPatientMatches(state, identity)
+      ? "confirmed_new_patient"
+      : "different_patient";
   }
   return state.identity.privateCandidates.some((candidate) =>
     candidateMatchesIdentity(candidate, identity),
   )
     ? "pre_call_candidate"
-    : null;
+    : confirmedUnregisteredPatientMatches(state, identity)
+      ? "confirmed_new_patient"
+      : null;
+}
+
+export function consumeConfirmedUnregisteredPatient(
+  state: CallState,
+  identity: PatientLookupIdentity,
+): boolean {
+  if (!confirmedUnregisteredPatientMatches(state, identity)) return false;
+  const receipt = state.identity.unregisteredPatientReceipt;
+  if (
+    !receipt ||
+    receipt.lookupOperationVersion !== state.identity.operationVersion ||
+    receipt.insuranceCheckVersion === 0
+  )
+    return false;
+  state.identity.unregisteredPatientReceipt = null;
+  return true;
 }
 
 function beginPatientIdentityOperation(state: CallState): number {
+  state.identity.unregisteredPatientReceipt = null;
   state.identity.operationVersion += 1;
   return state.identity.operationVersion;
 }
@@ -755,7 +808,10 @@ function advanceTransition(
   state: CallState,
   source: "operation" | "synchronous",
 ): void {
-  if (source === "synchronous") state.identity.operationVersion += 1;
+  if (source === "synchronous") {
+    state.identity.unregisteredPatientReceipt = null;
+    state.identity.operationVersion += 1;
+  }
   state.identity.transitionVersion += 1;
 }
 
@@ -788,6 +844,20 @@ function registrationTargetsDifferentPatient(
       next.lastName &&
       !exactNamesMatch(current.lastName, next.lastName)) ||
     (current.dob && next.dob && !dobMatches(current.dob, next.dob)),
+  );
+}
+
+function confirmedUnregisteredPatientMatches(
+  state: CallState,
+  identity: PatientLookupIdentity,
+): boolean {
+  const confirmed = state.identity.unregisteredPatientReceipt;
+  const candidate = registrationDraft(identity);
+  return Boolean(
+    confirmed &&
+    confirmed.lookupOperationVersion === state.identity.operationVersion &&
+    hasFullIdentity(candidate) &&
+    !registrationTargetsDifferentPatient(confirmed.identity, candidate),
   );
 }
 

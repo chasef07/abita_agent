@@ -17,10 +17,7 @@ import type { CallState } from "./state/call-state.js";
 import { recordLatestUserTranscript } from "./state/call-lifecycle.js";
 import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
-import {
-  buildToolsForTrunk,
-  toolsForCallState,
-} from "./runtime/tool-registry.js";
+import { buildToolsForTrunk } from "./runtime/tool-registry.js";
 import {
   confirmCandidateFromTranscript,
   patientModelProjection,
@@ -69,14 +66,6 @@ export function createVoiceAgent(
         // Brief delay so the SIP audio path is fully established before speaking
         await new Promise((r) => setTimeout(r, 500));
         await ctx.session.say(greeting);
-      }
-
-      const availableTools = toolsForCallState(
-        registeredTools,
-        ctx.session.userData,
-      );
-      if (!sameToolIds(ctx.agent.toolCtx, availableTools)) {
-        await ctx.agent.updateTools(availableTools);
       }
     },
 
@@ -133,16 +122,6 @@ export function createVoiceAgent(
 
     async llmNode(ctx, chatCtx, toolCtx, modelSettings) {
       const state = ctx.session.userData;
-      const availableTools = toolsForCallState(registeredTools, state);
-
-      if (!sameToolIds(ctx.agent.toolCtx, availableTools)) {
-        await ctx.agent.updateTools(availableTools);
-      }
-      // The pipeline executor keeps the turn's ToolContext while a reply is
-      // in flight. Keep it aligned with the agent's native tool update so a
-      // stale model call cannot execute a tool removed during this turn.
-      toolCtx.updateTools(availableTools.tools);
-
       const modelChatCtx = chatCtx.copy();
       let latestUserIndex = -1;
       for (let index = modelChatCtx.items.length - 1; index >= 0; index -= 1) {
@@ -216,18 +195,6 @@ export function createVoiceAgent(
   });
 
   return { agent, office };
-}
-
-function sameToolIds(
-  current: ToolContext<CallState>,
-  next: ToolContext<CallState>,
-): boolean {
-  const currentIds = Object.keys(current.functionTools).sort();
-  const nextIds = Object.keys(next.functionTools).sort();
-  return (
-    currentIds.length === nextIds.length &&
-    currentIds.every((id, index) => id === nextIds[index])
-  );
 }
 
 export async function* observeAssistantText(

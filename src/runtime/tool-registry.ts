@@ -1,9 +1,7 @@
-import { beta, ToolContext, type ToolContextEntry } from "@livekit/agents";
+import { beta, type ToolContextEntry } from "@livekit/agents";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
-import { activePatientId, type CallState } from "../state/call-state.js";
+import type { CallState } from "../state/call-state.js";
 import { productionSchedulingMiddleware } from "../scheduling/middleware.js";
-import { lastInsuranceEligibilityCheck } from "../scheduling/state.js";
-import { schedulingToolIdsForState } from "../scheduling/tool-availability.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
   add_patient,
@@ -23,38 +21,6 @@ const end_call = beta.createEndCallTool<CallState>({
 });
 
 export type AgentTools = readonly ToolContextEntry<CallState>[];
-
-const ALWAYS_AVAILABLE_TOOLS = new Set([
-  "check_insurance",
-  "create_staff_task",
-  "end_call",
-  "resolve_patient",
-  "transfer_call",
-]);
-
-export function toolsForCallState(
-  registeredTools: AgentTools,
-  state: CallState,
-): ToolContext<CallState> {
-  const available = new Set([
-    ...ALWAYS_AVAILABLE_TOOLS,
-    ...schedulingToolIdsForState(state),
-  ]);
-  const patientIsActive = activePatientId(state) !== null;
-  const acceptedInsurance =
-    lastInsuranceEligibilityCheck(state)?.accepted === true;
-
-  if (acceptedInsurance) {
-    available.add("add_patient");
-    if (patientIsActive) available.add("update_insurance");
-  }
-
-  return new ToolContext(
-    registeredTools.filter((registeredTool) =>
-      available.has(registeredTool.id),
-    ),
-  );
-}
 
 export function buildToolsForTrunk(
   trunkPhone?: string,

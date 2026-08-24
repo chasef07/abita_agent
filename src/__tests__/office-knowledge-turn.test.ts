@@ -112,11 +112,17 @@ describe("Office Knowledge turn enrichment", () => {
     expect(knowledgeMessages(session.currentAgent.chatCtx)).toEqual([]);
     expect(toolNames(session.currentAgent.toolCtx.tools).sort()).toEqual(
       [
+        "add_patient",
+        "book_appointment",
+        "cancel_appointment",
         "check_insurance",
         "create_staff_task",
         "end_call",
+        "get_availability",
+        "reschedule_appointment",
         "resolve_patient",
         "transfer_call",
+        "update_insurance",
       ].sort(),
     );
   });

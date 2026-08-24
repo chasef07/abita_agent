@@ -6,6 +6,7 @@ import {
   matchInsurancePlanForOffice,
 } from "../insurance-rules.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
+import { recordUnregisteredPatientInsuranceCheck } from "../state/call-state.js";
 import { setLastInsuranceEligibilityCheck } from "../scheduling/state.js";
 import { getState } from "./session.js";
 
@@ -48,6 +49,7 @@ export const check_insurance = tool({
       currentCarrier: result.callerFacingPlan ?? checkedInsurancePlan,
       accepted: Boolean(checkedInsurancePlan && result.status === "accepted"),
     });
+    recordUnregisteredPatientInsuranceCheck(state);
     return response;
   },
 });

@@ -128,6 +128,30 @@ describe("patient identity", () => {
     });
   });
 
+  it("invalidates an unregistered-patient receipt when a preloaded patient is activated", async () => {
+    const state = createConfirmedPatientState({
+      preCallCandidates: [verifiedCandidate("two", "John", "patient-2")],
+    });
+
+    await resolveExistingPatient(
+      state,
+      { firstName: "Maria", lastName: "Santos", dob: "03/03/1990" },
+      async () => ({ status: "not_found", message: null }),
+    );
+    expect(state.identity.unregisteredPatientReceipt?.identity).toEqual({
+      firstName: "Maria",
+      lastName: "Santos",
+      dob: "03/03/1990",
+    });
+
+    await resolveExistingPatient(state, { firstName: "John" }, async () => {
+      throw new Error("The verified preloaded candidate should not reload.");
+    });
+
+    expect(state.identity.activePatient?.patientId).toBe("patient-2");
+    expect(state.identity.unregisteredPatientReceipt).toBeNull();
+  });
+
   it("atomically replaces the patient and clears old patient-scoped work", async () => {
     const state = createConfirmedPatientState();
     state.identity.latestBookedAppointmentId = 42;
