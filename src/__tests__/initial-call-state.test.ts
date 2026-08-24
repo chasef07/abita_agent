@@ -74,7 +74,6 @@ describe("initial call state", () => {
       status: "not_attempted",
       durationMs: null,
     });
-    expect(session.userData.runtime.maxCallDurationMs).toBe(900_000);
   });
 
   it("hydrates the same userData object with full private candidate state", () => {

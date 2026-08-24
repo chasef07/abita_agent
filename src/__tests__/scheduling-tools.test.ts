@@ -70,7 +70,6 @@ function availabilitySlot(
 ): StoredAvailabilitySlot {
   return {
     slotId: "S1",
-    spoken: "2026-06-01 9:00 AM with Dr. Bach",
     provider: "Dr. Bach",
     date: "2026-06-01",
     time: "9:00 AM",
@@ -2045,7 +2044,6 @@ describe("scheduling tools", () => {
     state.availability.slots = [
       {
         slotId: "S1",
-        spoken: "2026-07-27 9:00 AM with Dr. Bach",
         provider: "Dr. Bach",
         date: "2026-07-27",
         time: "9:00 AM",
@@ -3353,7 +3351,6 @@ describe("scheduling tools", () => {
     state.availability.slots = [
       {
         slotId: "S1",
-        spoken: "2026-06-03 10:00 AM with Dr. Bach",
         provider: "Dr. Bach",
         date: "2026-06-03",
         time: "10:00 AM",

@@ -106,7 +106,6 @@ describe("patient identity", () => {
     state.availability.slots = [
       {
         slotId: "slot-1",
-        spoken: "tomorrow",
         provider: "Doctor Test",
         date: "2026-08-13",
         time: "9:00 AM",

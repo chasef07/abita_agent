@@ -14,7 +14,6 @@ import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
 import type { OwnedMiddleware } from "./clients/owned-middleware.js";
 import type { CallState } from "./state/call-state.js";
-import { recordLatestUserTranscript } from "./state/call-lifecycle.js";
 import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
@@ -87,7 +86,6 @@ export function createVoiceAgent(
       const transcript = newMessage.textContent ?? "";
       if (!transcript) return;
 
-      recordLatestUserTranscript(state, transcript);
       await confirmCandidateFromTranscript(state, transcript, identityLookup);
 
       const officeKey = activeOfficeKey(state);

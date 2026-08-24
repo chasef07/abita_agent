@@ -42,7 +42,6 @@ function createState(): TestCallState {
   state.availability.slots = [
     {
       slotId: "S1",
-      spoken: "2026-06-01 9:00 AM with Doctor Smith",
       provider: "Doctor Smith",
       date: "2026-06-01",
       time: "9:00 AM",

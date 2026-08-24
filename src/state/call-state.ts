@@ -182,7 +182,6 @@ export interface CompletedCancellationState {
 
 export interface StoredAvailabilitySlot {
   slotId: string;
-  spoken: string;
   provider: string;
   date: string;
   time: string;
@@ -374,8 +373,6 @@ export interface OfficeKnowledgeRetrievalAnalytics {
 interface RuntimeCallState {
   endedReason?: "duration_limit";
   preCallLookup: PreCallLookupTelemetry;
-  latestUserTranscript?: string | null;
-  maxCallDurationMs?: number;
   sipRoomName: string;
   sipParticipantIdentity: string;
   callId: string;
@@ -547,7 +544,6 @@ export function createCanonicalCallState(
     ...createSchedulingState(input),
     runtime: {
       preCallLookup: input.preCallLookup,
-      latestUserTranscript: null,
       sipRoomName: input.sipRoomName,
       sipParticipantIdentity: input.sipParticipantIdentity,
       callId: input.callId,

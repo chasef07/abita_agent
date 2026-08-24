@@ -132,12 +132,8 @@ function storedAvailabilitySlot(
 ): StoredAvailabilitySlot {
   const provider = publicProviderName(slot.provider);
   const date = slot.date || (slot.datetime.split("T")[0] ?? "");
-  const spoken = [date, slot.time, provider ? `with ${provider}` : ""]
-    .filter(Boolean)
-    .join(" ");
   return {
     slotId,
-    spoken,
     provider,
     date,
     time: slot.time,

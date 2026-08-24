@@ -808,7 +808,6 @@ function bookedAppointment() {
 function storedSlot() {
   return {
     slotId: "S1",
-    spoken: "Tuesday, September 1 at 9:00 AM with Dr. Bach",
     provider: "Dr. Bach",
     date: "2026-09-01",
     time: "9:00 AM",
