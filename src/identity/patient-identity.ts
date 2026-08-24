@@ -119,14 +119,6 @@ const pendingCandidateHydrations = new WeakMap<
   Map<string, Promise<PatientIdentityResolution>>
 >();
 
-const confirmedUnregisteredPatients = new WeakMap<
-  CallState,
-  {
-    identity: PatientLookupIdentity;
-    eligibilityCheck: InsuranceEligibilityCheck | null;
-  }
->();
-
 const patientCreationOperations = new WeakMap<
   PatientCreationOperation,
   PatientCreationOperationState
@@ -177,7 +169,7 @@ export async function resolveExistingPatient(
     });
   }
 
-  confirmedUnregisteredPatients.delete(state);
+  state.identity.unregisteredPatientReceipt = null;
 
   const active = state.identity.activePatient;
   if (
@@ -239,10 +231,11 @@ export async function resolveExistingPatient(
     recordOwnedMiddlewareFailure(state, "resolvePatient", result);
   }
   if (result.status === "not_found") {
-    confirmedUnregisteredPatients.set(state, {
+    state.identity.unregisteredPatientReceipt = {
       identity,
-      eligibilityCheck: lastInsuranceEligibilityCheck(state),
-    });
+      lookupOperationVersion: operationVersion,
+      insuranceCheckVersion: 0,
+    };
   }
   return recordResolutionOutcome(state, {
     outcome:
@@ -450,20 +443,21 @@ export function patientRegistrationStatus(
 export function consumeConfirmedUnregisteredPatient(
   state: CallState,
   identity: PatientLookupIdentity,
-  eligibilityCheck: InsuranceEligibilityCheck,
 ): boolean {
   if (!confirmedUnregisteredPatientMatches(state, identity)) return false;
+  const receipt = state.identity.unregisteredPatientReceipt;
   if (
-    confirmedUnregisteredPatients.get(state)?.eligibilityCheck ===
-    eligibilityCheck
-  ) {
+    !receipt ||
+    receipt.lookupOperationVersion !== state.identity.operationVersion ||
+    receipt.insuranceCheckVersion === 0
+  )
     return false;
-  }
-  confirmedUnregisteredPatients.delete(state);
+  state.identity.unregisteredPatientReceipt = null;
   return true;
 }
 
 function beginPatientIdentityOperation(state: CallState): number {
+  state.identity.unregisteredPatientReceipt = null;
   state.identity.operationVersion += 1;
   return state.identity.operationVersion;
 }
@@ -814,7 +808,10 @@ function advanceTransition(
   state: CallState,
   source: "operation" | "synchronous",
 ): void {
-  if (source === "synchronous") state.identity.operationVersion += 1;
+  if (source === "synchronous") {
+    state.identity.unregisteredPatientReceipt = null;
+    state.identity.operationVersion += 1;
+  }
   state.identity.transitionVersion += 1;
 }
 
@@ -854,9 +851,10 @@ function confirmedUnregisteredPatientMatches(
   state: CallState,
   identity: PatientLookupIdentity,
 ): boolean {
-  const confirmed = confirmedUnregisteredPatients.get(state);
+  const confirmed = state.identity.unregisteredPatientReceipt;
   return Boolean(
     confirmed &&
+    confirmed.lookupOperationVersion === state.identity.operationVersion &&
     !registrationTargetsDifferentPatient(
       confirmed.identity,
       registrationDraft(identity),

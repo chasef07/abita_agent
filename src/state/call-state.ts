@@ -301,6 +301,12 @@ export interface RegistrationDraft {
   dob?: string;
 }
 
+export interface UnregisteredPatientReceipt {
+  identity: Required<RegistrationDraft>;
+  lookupOperationVersion: number;
+  insuranceCheckVersion: number;
+}
+
 export type PatientIdentityOutcome =
   | "verified"
   | "switched"
@@ -373,6 +379,7 @@ interface IdentitySessionState {
   privateCandidates: PreCallPatientCandidate[];
   activePatient: ActivePatient | null;
   registration: RegistrationDraft | null;
+  unregisteredPatientReceipt: UnregisteredPatientReceipt | null;
   operationVersion: number;
   transitionVersion: number;
   receipts: PatientIdentityTransitionAnalytics[];
@@ -450,6 +457,15 @@ export function recordPatientIdentityTransition(
   state.identity.receipts.push(transition);
 }
 
+export function recordUnregisteredPatientInsuranceCheck(
+  state: CallState,
+): void {
+  const receipt = state.identity.unregisteredPatientReceipt;
+  if (receipt?.lookupOperationVersion === state.identity.operationVersion) {
+    receipt.insuranceCheckVersion += 1;
+  }
+}
+
 export function patientIdentityTransitions(
   state: CallState,
 ): PatientIdentityTransitionAnalytics[] {
@@ -497,6 +513,7 @@ export function createCanonicalCallState(
       privateCandidates: input.preCallCandidates ?? [],
       activePatient: input.activePatient ?? null,
       registration: null,
+      unregisteredPatientReceipt: null,
       completedBookingsByPatientId: {},
       operationVersion: 0,
       transitionVersion: 0,

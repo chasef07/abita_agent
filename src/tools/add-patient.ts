@@ -139,7 +139,7 @@ export const add_patient = tool({
 
     const confirmedUnregisteredPatient =
       registrationStatus === "confirmed_new_patient" &&
-      consumeConfirmedUnregisteredPatient(state, params, checkedInsurance);
+      consumeConfirmedUnregisteredPatient(state, params);
     if (
       registrationStatus === "confirmed_new_patient" &&
       !confirmedUnregisteredPatient

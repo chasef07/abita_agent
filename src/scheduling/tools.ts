@@ -1,10 +1,7 @@
 import { tool } from "@livekit/agents";
 import { z } from "zod";
 import { getState } from "../tools/session.js";
-import {
-  productionSchedulingMiddleware,
-  type SchedulingMiddleware,
-} from "./middleware.js";
+import type { SchedulingMiddleware } from "./middleware.js";
 import {
   systemSchedulingClock,
   type SchedulingClock,
@@ -254,10 +251,3 @@ export function createSchedulingTools(
     reschedule_appointment,
   };
 }
-
-export const {
-  get_availability,
-  book_appointment,
-  cancel_appointment,
-  reschedule_appointment,
-} = createSchedulingTools(productionSchedulingMiddleware);

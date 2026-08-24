@@ -372,6 +372,9 @@ export function classifyToolOutput(
       }
       if (
         /\bbefore creating a new chart\b/.test(outputText) ||
+        /\bbefore creating a chart for a different patient\b/.test(
+          outputText,
+        ) ||
         /\brun check_insurance\b/.test(outputText) ||
         /\bcallback phone number is required\b/.test(outputText) ||
         /\bask the caller\b/.test(outputText) ||

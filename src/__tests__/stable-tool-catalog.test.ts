@@ -296,6 +296,15 @@ describe("stable tool catalog", () => {
     await session
       .run({ userInput: "Check whether Jane already has a chart." })
       .wait();
+    expect(session.userData.identity.unregisteredPatientReceipt).toEqual({
+      identity: {
+        firstName: "Jane",
+        lastName: "Doe",
+        dob: "01/01/1980",
+      },
+      lookupOperationVersion: session.userData.identity.operationVersion,
+      insuranceCheckVersion: 0,
+    });
     await session
       .run({ userInput: "Try creating Jane before checking insurance." })
       .wait();
@@ -305,9 +314,17 @@ describe("stable tool catalog", () => {
     expect(session.userData.identity.activePatient).toEqual(
       activePatientBefore,
     );
+    expect(
+      session.userData.identity.unregisteredPatientReceipt
+        ?.insuranceCheckVersion,
+    ).toBe(0);
     await session
       .run({ userInput: "Check self pay for the medical visit." })
       .wait();
+    expect(
+      session.userData.identity.unregisteredPatientReceipt
+        ?.insuranceCheckVersion,
+    ).toBe(1);
     await session.run({ userInput: "Create Jane's chart now." }).wait();
 
     expect(middleware.operations.map(({ name }) => name)).toEqual([
@@ -319,6 +336,7 @@ describe("stable tool catalog", () => {
       patientId: "patient-new",
       name: "Jane Doe",
     });
+    expect(session.userData.identity.unregisteredPatientReceipt).toBeNull();
     expect(functionCallNames(session)).toEqual([
       "add_patient",
       "resolve_patient",

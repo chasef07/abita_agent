@@ -25,13 +25,9 @@ import {
 } from "../customers/abita/profile.js";
 import {
   add_patient,
-  book_appointment,
-  cancel_appointment,
   check_insurance,
   create_staff_task,
   resolve_patient,
-  get_availability,
-  reschedule_appointment,
   transfer_call,
   update_insurance,
 } from "../tools/index.js";
@@ -55,6 +51,23 @@ function toolForTrunk(trunkPhone: string, name: string) {
     .flatMap((entry) => (isToolset(entry) ? entry.tools : [entry]))
     .find((entry) => entry.id === name);
 }
+
+const book_appointment = toolForTrunk(
+  SPRING_HILL_OFFICE_PHONE,
+  "book_appointment",
+)!;
+const cancel_appointment = toolForTrunk(
+  SPRING_HILL_OFFICE_PHONE,
+  "cancel_appointment",
+)!;
+const get_availability = toolForTrunk(
+  HOLLYWOOD_OFFICE_PHONE,
+  "get_availability",
+)!;
+const reschedule_appointment = toolForTrunk(
+  SPRING_HILL_OFFICE_PHONE,
+  "reschedule_appointment",
+)!;
 
 afterEach(() => {
   delete process.env.DEV_HANDOFF_TARGET;
@@ -989,10 +1002,10 @@ describe("model-facing tool definitions", () => {
       "exact loaded appointment",
     );
     expect(parameters.shape.office.description).toContain(
-      "Hollywood and Sweetwater calls",
+      "Office selected by the caller",
     );
     expect(parameters.shape.office.description).toContain(
-      "Use the caller's answer as the office value",
+      "Hollywood or Sweetwater",
     );
     expect(parameters.shape.when.description).toContain(
       "caller's own date and time phrase",
@@ -1050,6 +1063,7 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({
         when: "June 1",
         visitType: "routine_vision",
+        office: "hollywood",
       }).success,
     ).toBe(true);
     expect(
