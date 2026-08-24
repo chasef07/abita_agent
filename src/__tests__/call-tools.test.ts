@@ -15,7 +15,6 @@ import { storeAvailabilityBookingToken } from "../scheduling/state.js";
 import { ownedMiddlewareFailures } from "../state/observability.js";
 import {
   add_patient,
-  cancel_appointment,
   check_insurance,
   resolve_patient,
   update_insurance,
@@ -644,7 +643,7 @@ describe("stateful call tools", () => {
     ]);
   });
 
-  it("invalidates pending chart creation when a prefix-related new patient is named", async () => {
+  it("preserves pending chart creation when a different new patient is named", async () => {
     const creation = deferredResult<CreatePatientResult>();
     const state = createState();
     markNewPatientPathConfirmed(state);
@@ -699,20 +698,17 @@ describe("stateful call tools", () => {
     creation.resolve(createdPatientResult());
 
     expect(newPatient).toBe(
-      "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
+      "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.",
     );
     await expect(pendingCreation).resolves.toBe(
-      "Created a patient chart for Jane Doe, but the active patient changed before the result returned. Do not create another chart. Continue with the current patient's state.",
+      "Created a patient chart for Jane Doe. Continue with scheduling.",
     );
-    expect(state.identity.activePatient).toBeNull();
-    expect(state.identity.registration).toEqual({
-      firstName: "Janet",
-      lastName: "Doe",
-      dob: "01/01/1980",
+    expect(state.identity.activePatient).toMatchObject({
+      kind: "created",
+      patientId: "patient-new",
+      name: "Jane Doe",
     });
-    expect(state.workflow.current).toBeUndefined();
-    expect(state.availability.bookingTokensBySlotId).toEqual({});
-    expect(state.insurance.lastEligibilityCheck).toBeNull();
+    expect(state.identity.registration).toBeNull();
     expect(middleware.operations.map(({ name }) => name)).toEqual([
       "createPatient",
     ]);
@@ -1862,6 +1858,14 @@ describe("stateful call tools", () => {
       canonicalPlan: "Aetna",
       coverageType: "medical",
     });
+    const patientScopedStateBefore = structuredClone({
+      activePatient: state.identity.activePatient,
+      registration: state.identity.registration,
+      insurance: state.insurance,
+      availability: state.availability,
+      workflow: state.workflow,
+      office: state.office,
+    });
 
     const result = await add_patient.execute(
       {
@@ -1882,16 +1886,59 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
+      "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.",
     );
-    expect(state.identity.activePatient).toBeNull();
-    expect(state.identity.registration).toEqual({
+    expect(testMiddleware.operations).toHaveLength(0);
+    expect({
+      activePatient: state.identity.activePatient,
+      registration: state.identity.registration,
+      insurance: state.insurance,
+      availability: state.availability,
+      workflow: state.workflow,
+      office: state.office,
+    }).toEqual(patientScopedStateBefore);
+  });
+
+  it("does not carry accepted insurance into a different registration", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    state.identity.registration = {
       firstName: "Maria",
       lastName: "Santos",
       dob: "01/01/1980",
+    };
+    markAcceptedInsurance(state, {
+      plan: "Aetna",
+      canonicalPlan: "Aetna",
+      coverageType: "medical",
     });
-    expect(state.insurance.lastEligibilityCheck).toBeNull();
+    const registrationBefore = structuredClone(state.identity.registration);
+    const insuranceBefore = structuredClone(state.insurance);
+
+    const result = await add_patient.execute(
+      {
+        firstName: "John",
+        lastName: "Doe",
+        dob: "02/02/1982",
+        street: "123 Main St",
+        city: "Spring Hill",
+        state: "FL",
+        zip: "34606",
+        sex: "male",
+        subscriberName: "John Doe",
+        insuranceMemberId: "ABC123",
+        phone: "7275551212",
+        newPatientConfirmed: true,
+      },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.",
+    );
     expect(testMiddleware.operations).toHaveLength(0);
+    expect(state.identity.registration).toEqual(registrationBefore);
+    expect(state.insurance).toEqual(insuranceBefore);
   });
 
   it("establishes new-patient state while preserving its accepted insurance check", async () => {
@@ -2023,7 +2070,7 @@ describe("stateful call tools", () => {
     });
   });
 
-  it("clears patient-scoped state when add_patient starts a different patient", async () => {
+  it("preserves patient-scoped state when add_patient lacks accepted insurance", async () => {
     const state = createState();
     storeAvailabilityBookingToken(state, "S1", "private-token");
     state.identity.latestBookedAppointmentId = 123;
@@ -2032,6 +2079,15 @@ describe("stateful call tools", () => {
       appointmentLane: "medical_md",
     };
     state.office.activeKey = "hollywood";
+    const patientScopedStateBefore = structuredClone({
+      activePatient: state.identity.activePatient,
+      registration: state.identity.registration,
+      insurance: state.insurance,
+      availability: state.availability,
+      latestBookedAppointmentId: state.identity.latestBookedAppointmentId,
+      workflow: state.workflow,
+      office: state.office,
+    });
 
     const result = await add_patient.execute(
       {
@@ -2053,89 +2109,18 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
+      "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.",
     );
     expect(testMiddleware.operations).toHaveLength(0);
-    expect(state.identity.activePatient).toBeNull();
-    expect(state.identity.registration).toEqual({
-      firstName: "John",
-      lastName: "Doe",
-      dob: "02/02/1982",
-    });
-    expect(state.insurance.onFile).toBeNull();
-    expect(state.insurance.lastEligibilityCheck).toBeNull();
-    expect(state.availability.slots).toEqual([]);
-    expect(state.availability.bookingTokensBySlotId).toEqual({});
-    expect(state.identity.latestBookedAppointmentId).toBeUndefined();
-    expect(state.workflow.current).toBeUndefined();
-    expect(state.workflow.routing).toMatchObject({
-      routing: null,
-      allowedProviders: [],
-      routingAmbiguous: false,
-      preauthRequired: false,
-    });
-    expect(state.office.activeKey).toBe("spring-hill");
-  });
-
-  it("keeps the prior pre-call patient inactive after add_patient switches to a new patient", async () => {
-    const state = createState();
-    state.identity.privateCandidates = [
-      preCallCandidate({
-        firstName: "JANE",
-        lastName: "DOE",
-        dob: "01/01/1980",
-        patientId: "patient-jane",
-        appointments: [
-          {
-            id: 123,
-            date: "2026-06-01",
-            time: "9:00 AM",
-            provider: "Doctor Smith",
-            type: "Medical",
-            facility: "Spring Hill",
-            confirmed: true,
-          },
-        ],
-        appointmentsStatus: "found",
-      }),
-    ];
-
-    const result = await add_patient.execute(
-      {
-        firstName: "John",
-        lastName: "Doe",
-        dob: "02/02/1982",
-        street: "123 Main St",
-        city: "Spring Hill",
-        state: "FL",
-        zip: "34606",
-        sex: "male",
-        subscriberName: "John Doe",
-        insuranceMemberId: "self pay",
-        phone: "7275551212",
-        newPatientConfirmed: true,
-        readBack: true,
-      },
-      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
-    );
-
-    expect(result).toBe(
-      "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
-    );
-    expect(state.identity.activePatient).toBeNull();
-    expect(state.identity.registration).toEqual({
-      firstName: "John",
-      lastName: "Doe",
-      dob: "02/02/1982",
-    });
-    await expect(
-      cancel_appointment.execute({}, {
-        ctx: createToolContext(state) as never,
-        toolCallId: "tool-2",
-      } as never),
-    ).resolves.toBe("Verify the patient before cancelling.");
-    expect(testMiddleware.operations).toHaveLength(0);
-    expect(state.identity.activePatient).toBeNull();
+    expect({
+      activePatient: state.identity.activePatient,
+      registration: state.identity.registration,
+      insurance: state.insurance,
+      availability: state.availability,
+      latestBookedAppointmentId: state.identity.latestBookedAppointmentId,
+      workflow: state.workflow,
+      office: state.office,
+    }).toEqual(patientScopedStateBefore);
   });
 
   it("blocks new chart creation when a confirmed pre-call candidate has the same last name and DOB", async () => {

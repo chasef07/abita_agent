@@ -16,6 +16,7 @@ import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { setLastInsuranceEligibilityCheck } from "../scheduling/state.js";
 import type { CallState } from "../state/call-state.js";
 import {
+  confirmedActivePatient,
   createConfirmedPatientState,
   createTestCallState,
 } from "./support/call-state.js";
@@ -183,9 +184,38 @@ describe("stable tool catalog", () => {
     ]);
   });
 
-  it("returns the add_patient insurance guard before middleware mutation", async () => {
-    const middleware = new InMemoryOwnedMiddleware();
+  it("returns the add_patient identity guard before middleware mutation", async () => {
+    const middleware = new InMemoryOwnedMiddleware({
+      resolvePatient: [
+        {
+          status: "not_found",
+          message: "No patient matched that identity.",
+        },
+      ],
+      createPatient: [createdPatient()],
+    });
     setOwnedMiddleware(middleware);
+    const state = createTestCallState({
+      activePatient: confirmedActivePatient({
+        patientId: "patient-existing",
+        name: "John Smith",
+        dob: "02/02/1970",
+        appointmentsStatus: "found",
+        appointments: [
+          {
+            id: 123,
+            date: "Monday, August 31, 2026",
+            time: "9:00 AM",
+            provider: "Dr. Bach",
+            type: "Follow-up",
+            facility: "Spring Hill",
+            confirmed: true,
+          },
+        ],
+      }),
+    });
+    setLastInsuranceEligibilityCheck(state, acceptedInsurance());
+    const activePatientBefore = structuredClone(state.identity.activePatient);
     const llm = new ToolCapturingFakeLLM([
       {
         input: "Register the new patient now.",
@@ -196,10 +226,50 @@ describe("stable tool catalog", () => {
           },
         ],
       },
+      {
+        input: "Check whether Jane already has a chart.",
+        toolCalls: [
+          {
+            name: "resolve_patient",
+            args: {
+              firstName: "Jane",
+              lastName: "Doe",
+              dob: "01/01/1980",
+            },
+          },
+        ],
+      },
+      {
+        input: "Try creating Jane before checking insurance.",
+        toolCalls: [
+          {
+            name: "add_patient",
+            args: completeRegistration(),
+          },
+        ],
+      },
+      {
+        input: "Check self pay for the medical visit.",
+        toolCalls: [
+          {
+            name: "check_insurance",
+            args: { plan: "self pay", coverageType: "medical" },
+          },
+        ],
+      },
+      {
+        input: "Create Jane's chart now.",
+        toolCalls: [
+          {
+            name: "add_patient",
+            args: completeRegistration(),
+          },
+        ],
+      },
     ]);
     const session = new AgentSession<CallState>({ llm });
     sessions.push(session);
-    session.userData = createTestCallState();
+    session.userData = state;
 
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
@@ -211,12 +281,51 @@ describe("stable tool catalog", () => {
     expect(toolOutputs(session)[0]).toMatchObject({
       isError: false,
       output: JSON.stringify(
-        "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
+        "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.",
       ),
     });
     expect(middleware.operations).toEqual([]);
-    expect(session.userData.identity.activePatient).toBeNull();
+    expect(session.userData.identity.activePatient).toEqual(
+      activePatientBefore,
+    );
     expect(functionCallNames(session)).toEqual(["add_patient"]);
+    expect(functionCallNames(session)).not.toContain("create_staff_task");
+    expect(functionCallNames(session)).not.toContain("transfer_call");
+    expectStableToolRequests(llm);
+
+    await session
+      .run({ userInput: "Check whether Jane already has a chart." })
+      .wait();
+    await session
+      .run({ userInput: "Try creating Jane before checking insurance." })
+      .wait();
+    expect(middleware.operations.map(({ name }) => name)).toEqual([
+      "resolvePatient",
+    ]);
+    expect(session.userData.identity.activePatient).toEqual(
+      activePatientBefore,
+    );
+    await session
+      .run({ userInput: "Check self pay for the medical visit." })
+      .wait();
+    await session.run({ userInput: "Create Jane's chart now." }).wait();
+
+    expect(middleware.operations.map(({ name }) => name)).toEqual([
+      "resolvePatient",
+      "createPatient",
+    ]);
+    expect(session.userData.identity.activePatient).toMatchObject({
+      kind: "created",
+      patientId: "patient-new",
+      name: "Jane Doe",
+    });
+    expect(functionCallNames(session)).toEqual([
+      "add_patient",
+      "resolve_patient",
+      "add_patient",
+      "check_insurance",
+      "add_patient",
+    ]);
     expect(functionCallNames(session)).not.toContain("create_staff_task");
     expect(functionCallNames(session)).not.toContain("transfer_call");
     expectStableToolRequests(llm);

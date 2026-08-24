@@ -9,7 +9,8 @@ import {
   beginPatientCreation,
   beginNewPatientRegistration,
   commitPatientCreation,
-  patientRegistrationConflict,
+  consumeConfirmedUnregisteredPatient,
+  patientRegistrationStatus,
 } from "../identity/patient-identity.js";
 import { runtimeCallerPhone } from "../state/call-lifecycle.js";
 import { recordOwnedMiddlewareFailure } from "../state/observability.js";
@@ -99,8 +100,8 @@ export const add_patient = tool({
     const state = getState(ctx);
     ctx.disallowInterruptions();
 
-    const registrationConflict = patientRegistrationConflict(state, params);
-    if (registrationConflict === "created_patient") {
+    const registrationStatus = patientRegistrationStatus(state, params);
+    if (registrationStatus === "created_patient") {
       const patientName =
         state.identity.activePatient?.name?.trim() ||
         `${params.firstName} ${params.lastName}`;
@@ -110,19 +111,21 @@ export const add_patient = tool({
       return `Patient chart is already created for ${patientName}. Continue with scheduling.`;
     }
 
-    if (registrationConflict === "active_patient") {
+    if (registrationStatus === "active_patient") {
       return "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.";
     }
 
-    if (registrationConflict === "pre_call_candidate") {
+    if (registrationStatus === "different_patient") {
+      return "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.";
+    }
+
+    if (registrationStatus === "pre_call_candidate") {
       return "Do not create a new chart yet. Ask the privacy-safe first-name question, then use the runtime-confirmed patient state or continue an existing-patient lookup.";
     }
 
     if (!params.newPatientConfirmed) {
       return "Before creating a new chart, ask the caller to confirm that the patient has never registered with or been added to the practice. Call add_patient again with newPatientConfirmed set to true only after the caller confirms.";
     }
-
-    beginNewPatientRegistration(state, params);
 
     const checkedInsurance = lastInsuranceEligibilityCheck(state);
     const insurance =
@@ -133,6 +136,19 @@ export const add_patient = tool({
     if (!checkedInsurance?.accepted || !insurance || !coverageType) {
       return "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.";
     }
+
+    const confirmedUnregisteredPatient =
+      registrationStatus === "confirmed_new_patient" &&
+      consumeConfirmedUnregisteredPatient(state, params, checkedInsurance);
+    if (
+      registrationStatus === "confirmed_new_patient" &&
+      !confirmedUnregisteredPatient
+    ) {
+      return "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.";
+    }
+    beginNewPatientRegistration(state, params, {
+      preserveEligibilityCheck: confirmedUnregisteredPatient,
+    });
 
     const appointmentLane =
       coverageType === "routine_vision" ? "routine_od" : "medical_md";

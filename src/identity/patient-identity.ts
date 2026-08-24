@@ -119,6 +119,14 @@ const pendingCandidateHydrations = new WeakMap<
   Map<string, Promise<PatientIdentityResolution>>
 >();
 
+const confirmedUnregisteredPatients = new WeakMap<
+  CallState,
+  {
+    identity: PatientLookupIdentity;
+    eligibilityCheck: InsuranceEligibilityCheck | null;
+  }
+>();
+
 const patientCreationOperations = new WeakMap<
   PatientCreationOperation,
   PatientCreationOperationState
@@ -168,6 +176,8 @@ export async function resolveExistingPatient(
         : "Collect the patient's first name, last name, and date of birth, then call resolve_patient.",
     });
   }
+
+  confirmedUnregisteredPatients.delete(state);
 
   const active = state.identity.activePatient;
   if (
@@ -228,6 +238,12 @@ export async function resolveExistingPatient(
   if (result.status === "error") {
     recordOwnedMiddlewareFailure(state, "resolvePatient", result);
   }
+  if (result.status === "not_found") {
+    confirmedUnregisteredPatients.set(state, {
+      identity,
+      eligibilityCheck: lastInsuranceEligibilityCheck(state),
+    });
+  }
   return recordResolutionOutcome(state, {
     outcome:
       result.status === "not_found"
@@ -243,6 +259,7 @@ export async function resolveExistingPatient(
 export function beginNewPatientRegistration(
   state: CallState,
   identity: ResolvePatientIdentityInput,
+  options: { preserveEligibilityCheck?: boolean } = {},
 ): void {
   const draft = registrationDraft(identity);
   if (
@@ -261,7 +278,8 @@ export function beginNewPatientRegistration(
   advanceTransition(state, "synchronous");
   resetPatientScopedWork(state, {
     preserveEligibilityCheck:
-      !replacingRegistration && !suspendingActivePatient,
+      options.preserveEligibilityCheck === true ||
+      (!replacingRegistration && !suspendingActivePatient),
   });
   setInsuranceOnFile(state, null);
   state.identity.activePatient = null;
@@ -389,19 +407,60 @@ function cloneEligibilityCheck(
   return check ? { ...check } : null;
 }
 
-export function patientRegistrationConflict(
+export function patientRegistrationStatus(
   state: CallState,
   identity: PatientLookupIdentity,
-): "created_patient" | "active_patient" | "pre_call_candidate" | null {
+):
+  | "created_patient"
+  | "active_patient"
+  | "confirmed_new_patient"
+  | "different_patient"
+  | "pre_call_candidate"
+  | null {
   const active = state.identity.activePatient;
-  if (active && !identityTargetsDifferentPatient(active, identity)) {
-    return active.kind === "created" ? "created_patient" : "active_patient";
+  if (active) {
+    return identityTargetsDifferentPatient(active, identity)
+      ? confirmedUnregisteredPatientMatches(state, identity)
+        ? "confirmed_new_patient"
+        : "different_patient"
+      : active.kind === "created"
+        ? "created_patient"
+        : "active_patient";
+  }
+  if (
+    state.identity.registration &&
+    registrationTargetsDifferentPatient(
+      state.identity.registration,
+      registrationDraft(identity),
+    )
+  ) {
+    return confirmedUnregisteredPatientMatches(state, identity)
+      ? "confirmed_new_patient"
+      : "different_patient";
   }
   return state.identity.privateCandidates.some((candidate) =>
     candidateMatchesIdentity(candidate, identity),
   )
     ? "pre_call_candidate"
-    : null;
+    : confirmedUnregisteredPatientMatches(state, identity)
+      ? "confirmed_new_patient"
+      : null;
+}
+
+export function consumeConfirmedUnregisteredPatient(
+  state: CallState,
+  identity: PatientLookupIdentity,
+  eligibilityCheck: InsuranceEligibilityCheck,
+): boolean {
+  if (!confirmedUnregisteredPatientMatches(state, identity)) return false;
+  if (
+    confirmedUnregisteredPatients.get(state)?.eligibilityCheck ===
+    eligibilityCheck
+  ) {
+    return false;
+  }
+  confirmedUnregisteredPatients.delete(state);
+  return true;
 }
 
 function beginPatientIdentityOperation(state: CallState): number {
@@ -788,6 +847,20 @@ function registrationTargetsDifferentPatient(
       next.lastName &&
       !exactNamesMatch(current.lastName, next.lastName)) ||
     (current.dob && next.dob && !dobMatches(current.dob, next.dob)),
+  );
+}
+
+function confirmedUnregisteredPatientMatches(
+  state: CallState,
+  identity: PatientLookupIdentity,
+): boolean {
+  const confirmed = confirmedUnregisteredPatients.get(state);
+  return Boolean(
+    confirmed &&
+    !registrationTargetsDifferentPatient(
+      confirmed.identity,
+      registrationDraft(identity),
+    ),
   );
 }
 
