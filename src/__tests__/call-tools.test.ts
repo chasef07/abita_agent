@@ -2432,7 +2432,7 @@ describe("stateful call tools", () => {
     });
   });
 
-  it("returns the required office-transfer path for pending routine vision", async () => {
+  it("returns the Staff Task path for pending routine vision", async () => {
     const state = createState();
     state.office.activeKey = "hollywood";
 
@@ -2442,7 +2442,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "CarePlus Medicare routine vision is pending for these providers. I need to connect you with the office before scheduling.",
+      "CarePlus Medicare routine vision is pending for these providers. I can send a task to staff to confirm coverage before scheduling. Is that okay?",
     );
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "CarePlus",

@@ -219,7 +219,7 @@ describe("tool-first prompt gating", () => {
     );
     expect(prompt).toContain("# Human Transfer");
     expect(prompt).toContain(
-      "Immediately call transfer_call only for an eye emergency, a caller returning a call for a named staff member, or when check_insurance says office transfer is required before scheduling.",
+      "Immediately call transfer_call only for an eye emergency or a caller returning a call for a named staff member.",
     );
     expect(prompt).toContain("Redness alone is not an eye emergency.");
     expect(prompt).toContain(
@@ -1135,7 +1135,7 @@ describe("model-facing tool definitions", () => {
       "for participation questions",
     );
     expect(check_insurance.description).toContain(
-      "A prior-authorization result requires caller permission, then a normal referrals task",
+      "A result requiring staff follow-up needs caller permission, then a normal referrals task",
     );
     expect(check_insurance.description).toContain(
       "transfer only if task creation is unavailable, fails, or the caller declines",

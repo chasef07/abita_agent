@@ -318,7 +318,7 @@
     },
     {
       "id": "pending-careplus-medicare-routine-vision",
-      "status": "needs_transfer",
+      "status": "needs_staff_task",
       "canonicalPlan": null,
       "displayName": "CarePlus",
       "aliases": [

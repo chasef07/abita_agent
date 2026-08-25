@@ -7,11 +7,7 @@ const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 export type InsuranceCoverageType = "medical" | "routine_vision";
 
 export type InsuranceMatchStatus =
-  | "accepted"
-  | "not_accepted"
-  | "needs_clarification"
-  | "needs_staff_task"
-  | "needs_transfer";
+  "accepted" | "not_accepted" | "needs_clarification" | "needs_staff_task";
 
 export interface InsurancePlanRule {
   id?: string;
@@ -93,14 +89,13 @@ export function buildInsuranceToolResponse(
   }
 
   if (result.status === "needs_staff_task") {
-    return "This plan requires prior authorization before we can schedule. I can send a task to staff to follow up with the insurance company. Is that okay?";
-  }
-
-  if (result.status === "needs_transfer") {
+    if (result.preauthRequired) {
+      return "This plan requires prior authorization before we can schedule. I can send a task to staff to follow up with the insurance company. Is that okay?";
+    }
     const notice = (
-      result.callerNotice ?? "This plan needs office confirmation"
+      result.callerNotice ?? "The office needs to confirm this coverage"
     ).replace(/[.!?]+$/, "");
-    return `${notice}. I need to connect you with the office before scheduling.`;
+    return `${notice}. I can send a task to staff to confirm coverage before scheduling. Is that okay?`;
   }
 
   const clarification = (
@@ -304,7 +299,7 @@ function selectInsuranceCandidate(
     candidates.filter(
       (candidate) =>
         candidate.rule.status === "needs_clarification" ||
-        candidate.rule.status === "needs_transfer",
+        candidate.rule.status === "needs_staff_task",
     ),
   );
   const acceptedCandidateContainsRejectedAlias =
