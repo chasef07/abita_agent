@@ -36,9 +36,7 @@ import { resolveOfficeKnowledge } from "../office-knowledge.js";
 
 const middleware = new InMemoryOwnedMiddleware();
 const add_patient = createAddPatientTool(middleware);
-const resolve_patient = createResolvePatientTool((office, identity) =>
-  middleware.resolvePatient({ office, identity }),
-);
+const resolve_patient = createResolvePatientTool(middleware);
 const update_insurance = createUpdateInsuranceTool(middleware);
 
 const GLASSES_READY_ANSWER =

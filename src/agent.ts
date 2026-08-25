@@ -38,7 +38,6 @@ import { guardAssistantSpeech } from "./runtime/speech-output-guard.js";
 
 type VoiceAgentOptions = {
   ownedMiddleware: OwnedMiddleware;
-  identityLookup?: PatientResolveLookup;
   officeKnowledgeResolver?: typeof resolveOfficeKnowledge;
   onAssistantText?: (text: string, complete: boolean) => void;
   suppressGreeting?: boolean;
@@ -52,16 +51,11 @@ export function createVoiceAgent(
 ) {
   const office = getOfficeProfileByPhone(trunkPhone);
   const greeting = options.suppressGreeting ? "" : office.greeting;
-  const identityLookup: PatientResolveLookup =
-    options.identityLookup ??
-    ((office, identity) =>
-      options.ownedMiddleware.resolvePatient({ office, identity }));
+  const identityLookup: PatientResolveLookup = (office, identity) =>
+    options.ownedMiddleware.resolvePatient({ office, identity });
   const registeredTools = buildToolsForTrunk(
     options.ownedMiddleware,
     trunkPhone,
-    {
-      identityLookup,
-    },
   );
 
   const agent = LiveKitAgent.create<CallState>({

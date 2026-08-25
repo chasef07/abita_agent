@@ -12,7 +12,6 @@ import {
   createUpdateInsuranceTool,
 } from "../tools/index.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
-import type { PatientResolveLookup } from "../identity/patient-identity.js";
 
 const end_call = beta.createEndCallTool<CallState>({
   // RoomIO owns room cleanup through deleteRoomOnClose for every session close.
@@ -25,7 +24,6 @@ export type AgentTools = readonly ToolContextEntry<CallState>[];
 export function buildToolsForTrunk(
   middleware: OwnedMiddleware,
   trunkPhone?: string,
-  options: { identityLookup?: PatientResolveLookup } = {},
 ): AgentTools {
   const office = getOfficeProfileByPhone(trunkPhone ?? "");
   const availabilityOfficeMode =
@@ -40,11 +38,8 @@ export function buildToolsForTrunk(
   } = createSchedulingTools(bindSchedulingMiddleware(middleware), undefined, {
     availabilityOfficeMode,
   });
-  const identityLookup =
-    options.identityLookup ??
-    ((office, identity) => middleware.resolvePatient({ office, identity }));
   const coreTools = [
-    createResolvePatientTool(identityLookup),
+    createResolvePatientTool(middleware),
     createAddPatientTool(middleware),
     createUpdateInsuranceTool(middleware),
     get_availability,

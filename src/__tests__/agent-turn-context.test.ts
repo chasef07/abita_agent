@@ -4,7 +4,7 @@ import {
   ChatMessage,
   initializeLogger,
 } from "@livekit/agents";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
@@ -87,16 +87,13 @@ describe("completed user turn context", () => {
         },
       ],
     });
-    const identityLookup = vi.fn(async () => {
-      throw new Error("Verified pre-call patients must not be looked up again");
-    });
+    const middleware = new InMemoryOwnedMiddleware();
     const session = new AgentSession();
     sessions.push(session);
     session.userData = state;
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
-        ownedMiddleware,
-        identityLookup,
+        ownedMiddleware: middleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -107,7 +104,7 @@ describe("completed user turn context", () => {
       ChatMessage.create({ role: "user", content: "L-A-R-R-Y" }),
     );
 
-    expect(identityLookup).not.toHaveBeenCalled();
+    expect(middleware.operations).toEqual([]);
     expect(state.identity.activePatient).toMatchObject({
       kind: "existing",
       patientId: "patient-larry",
@@ -138,16 +135,15 @@ describe("completed user turn context", () => {
         },
       ],
     });
-    const identityLookup = vi.fn(async () => {
-      throw new Error("Patient lookup failed");
+    const middleware = new InMemoryOwnedMiddleware({
+      resolvePatient: [new Error("Patient lookup failed")],
     });
     const session = new AgentSession();
     sessions.push(session);
     session.userData = state;
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
-        ownedMiddleware,
-        identityLookup,
+        ownedMiddleware: middleware,
         suppressGreeting: true,
       }).agent,
     });

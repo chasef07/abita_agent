@@ -1,5 +1,6 @@
 import { tool, type ToolOptions } from "@livekit/agents";
 import { z } from "zod";
+import type { OwnedMiddleware } from "../clients/owned-middleware.js";
 import {
   resolveExistingPatient,
   type PatientIdentityResolution,
@@ -40,7 +41,9 @@ const resolvePatientParameters = z
 
 type ResolvePatientArgs = z.infer<typeof resolvePatientParameters>;
 
-export function createResolvePatientTool(lookup: PatientResolveLookup) {
+export function createResolvePatientTool(middleware: OwnedMiddleware) {
+  const lookup: PatientResolveLookup = (office, identity) =>
+    middleware.resolvePatient({ office, identity });
   return tool(resolvePatientToolOptions(lookup));
 }
 
