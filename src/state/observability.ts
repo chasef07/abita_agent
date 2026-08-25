@@ -6,7 +6,26 @@ import type {
   OwnedMiddlewareFailureAnalytics,
   OwnedMiddlewareOperation,
   StaffTaskReceipt,
+  DomainOutcomeReceipt,
 } from "./call-state.js";
+
+export function recordDomainOutcome(
+  state: CallState,
+  receipt: Omit<DomainOutcomeReceipt, "occurredAt"> & { occurredAt?: string },
+): void {
+  const complete = { occurredAt: new Date().toISOString(), ...receipt };
+  const index = state.runtime.outcomeReceipts.findIndex(
+    (item) => item.callId === complete.callId,
+  );
+  if (index === -1) state.runtime.outcomeReceipts.push(complete);
+  else state.runtime.outcomeReceipts[index] = complete;
+}
+
+export function domainOutcomeReceipts(
+  state: CallState,
+): DomainOutcomeReceipt[] {
+  return [...state.runtime.outcomeReceipts];
+}
 
 const MAX_OFFICE_KNOWLEDGE_RETRIEVALS = 200;
 

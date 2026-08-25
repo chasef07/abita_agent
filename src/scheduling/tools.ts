@@ -8,6 +8,8 @@ import {
 } from "./availability-when.js";
 import { returnSchedulingInputRequired } from "./input-required.js";
 import { SchedulingWorkflow } from "./workflow.js";
+import { recordDomainOutcome } from "../state/observability.js";
+import type { CallState } from "../state/call-state.js";
 
 const APPOINTMENT_LANE_BY_VISIT_TYPE = {
   medical: "medical_md",
@@ -109,6 +111,33 @@ export function createSchedulingTools(
 ) {
   const workflow = new SchedulingWorkflow(middleware, clock);
   const { availabilityOfficeMode } = options;
+  const executeAppointmentTool = async (
+    state: CallState,
+    callId: string,
+    toolName: string,
+    operation: () => Promise<string>,
+  ) => {
+    const actionCount = state.runtime.appointmentActions.length;
+    try {
+      return await operation();
+    } finally {
+      const action = state.runtime.appointmentActions.at(-1);
+      if (action && state.runtime.appointmentActions.length > actionCount) {
+        recordDomainOutcome(state, {
+          callId,
+          toolName,
+          outcome: action.action,
+          status:
+            action.status === "error"
+              ? "failed"
+              : action.status === "partial"
+                ? "partial"
+                : "success",
+          evidence: action as unknown as Record<string, unknown>,
+        });
+      }
+    }
+  };
 
   const availabilityFields = {
     when: z
@@ -192,13 +221,16 @@ export function createSchedulingTools(
       "Only after this tool returns a successful booking may you tell the caller they are booked, scheduled, or all set. " +
       "After a successful booking, if the caller asks whether they will receive confirmation, say yes, a confirmation email will be sent.",
     parameters: bookAppointmentParameters,
-    execute: async (args, { ctx }) => {
+    execute: async (args, { ctx, toolCallId }) => {
       ctx.disallowInterruptions();
-      return returnSchedulingInputRequired(() =>
-        workflow.bookAppointment(getState(ctx), {
-          ...args,
-          readBack: args.readBack ?? undefined,
-        }),
+      const state = getState(ctx);
+      return executeAppointmentTool(state, toolCallId, "book_appointment", () =>
+        returnSchedulingInputRequired(() =>
+          workflow.bookAppointment(state, {
+            ...args,
+            readBack: args.readBack ?? undefined,
+          }),
+        ),
       );
     },
   });
@@ -211,10 +243,17 @@ export function createSchedulingTools(
       "Call this after the patient is verified and the caller confirms the exact appointment to cancel. " +
       "Pass only the matching call-scoped appointmentRef shown with that loaded appointment. The tool resolves it against current loaded appointment state.",
     parameters: cancelAppointmentParameters,
-    execute: async (args, { ctx }) => {
+    execute: async (args, { ctx, toolCallId }) => {
       ctx.disallowInterruptions();
-      return returnSchedulingInputRequired(() =>
-        workflow.cancelAppointment(getState(ctx), args),
+      const state = getState(ctx);
+      return executeAppointmentTool(
+        state,
+        toolCallId,
+        "cancel_appointment",
+        () =>
+          returnSchedulingInputRequired(() =>
+            workflow.cancelAppointment(state, args),
+          ),
       );
     },
   });
@@ -230,14 +269,21 @@ export function createSchedulingTools(
       "Before booking the new appointment, read back the selected new appointment date, time, and provider, then get caller confirmation. " +
       "This tool books the new appointment first and cancels the old appointment only after booking succeeds.",
     parameters: rescheduleAppointmentParameters,
-    execute: async (args, { ctx }) => {
+    execute: async (args, { ctx, toolCallId }) => {
       ctx.disallowInterruptions();
-      return returnSchedulingInputRequired(() =>
-        workflow.rescheduleAppointment(getState(ctx), {
-          ...args,
-          oldAppointmentRef: args.oldAppointmentRef ?? undefined,
-          readBack: args.readBack ?? undefined,
-        }),
+      const state = getState(ctx);
+      return executeAppointmentTool(
+        state,
+        toolCallId,
+        "reschedule_appointment",
+        () =>
+          returnSchedulingInputRequired(() =>
+            workflow.rescheduleAppointment(state, {
+              ...args,
+              oldAppointmentRef: args.oldAppointmentRef ?? undefined,
+              readBack: args.readBack ?? undefined,
+            }),
+          ),
       );
     },
   });

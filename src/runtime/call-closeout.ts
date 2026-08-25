@@ -4,34 +4,21 @@ import {
   type AgentSession,
   type JobContext,
 } from "@livekit/agents";
-import {
-  patientIdentityTransitions,
-  takePatientIdentityOutcome,
-  type CallState,
-} from "../state/call-state.js";
+import { type CallState } from "../state/call-state.js";
 import { transferIsAccepted } from "../state/call-lifecycle.js";
-import {
-  appointmentActions,
-  availabilityReadEvents,
-  officeKnowledgeRetrievals,
-  ownedMiddlewareFailures,
-} from "../state/observability.js";
+import { domainOutcomeReceipts } from "../state/observability.js";
 import type {
   RuntimeVoiceLanguageState,
   VoiceLanguageRuntime,
 } from "./voice-language.js";
 import {
-  buildLlmSummary,
   createEmptySessionEventAnalytics,
   snapshotCloseEvent,
   snapshotErrorEvent,
   snapshotFalseInterruptionEvent,
   snapshotOverlappingSpeechEvent,
   snapshotToolExecutions,
-  withAppointmentActionToolExecutionFallback,
-  type SessionEventAnalytics,
   type SttProfileTransitionAnalytics,
-  type ToolExecutionAnalytics,
 } from "../call-observability.js";
 import { attachCallDurationDeadline } from "./call-duration-deadline.js";
 
@@ -44,15 +31,6 @@ type ConversationItemAdded = {
     role: string;
     type: "message";
   };
-};
-
-type TurnMetricSnapshot = {
-  createdAt: number;
-  interrupted: boolean;
-  itemId: string;
-  metrics: Record<string, unknown>;
-  role: string;
-  type: string;
 };
 
 export type CallCloseoutObserver = {
@@ -457,30 +435,11 @@ export async function attachCallCloseout(input: {
   const logger = input.logger ?? console;
   const now = input.now ?? (() => new Date());
   let durationLimitReached = false;
-  let latestUsage: Record<string, unknown> | undefined;
-  const llmMetrics: Record<string, unknown>[] = [];
-  const observedToolExecutions: ToolExecutionAnalytics[] = [];
-  let checkpointedAppointmentActions = 0;
+  const checkpointedCallIds = new Set<string>();
   let checkpointDeliveries = Promise.resolve();
-  const sessionEvents: SessionEventAnalytics =
-    createEmptySessionEventAnalytics();
-  const turnMetrics: TurnMetricSnapshot[] = [];
   input.events.observe({
     conversationItemAdded(event) {
-      const metrics = Object.fromEntries(
-        Object.entries(event.item.metrics ?? {}).filter(
-          ([, value]) => value !== undefined,
-        ),
-      );
-      if (Object.keys(metrics).length === 0) return;
-      turnMetrics.push({
-        createdAt: event.createdAt,
-        interrupted: event.item.interrupted,
-        itemId: event.item.id,
-        metrics,
-        role: event.item.role,
-        type: event.item.type,
-      });
+      void event;
     },
     durationLimitReached() {
       durationLimitReached = true;
@@ -492,39 +451,38 @@ export async function attachCallCloseout(input: {
       }
     },
     falseInterruption(event) {
-      sessionEvents.falseInterruptions.push(
-        snapshotFalseInterruptionEvent(event),
-      );
+      void event;
     },
     llmMetric(metric) {
-      llmMetrics.push(metric);
+      void metric;
     },
     overlappingSpeech(event) {
-      sessionEvents.overlappingSpeech.push(
-        snapshotOverlappingSpeechEvent(event),
-      );
+      void event;
     },
     sessionClosed(event) {
-      sessionEvents.close = snapshotCloseEvent(event);
+      void event;
     },
     sessionError(event) {
-      sessionEvents.errors.push(snapshotErrorEvent(event));
+      void event;
     },
     toolsExecuted(event) {
       const callState = input.getCallState();
-      observedToolExecutions.push(
-        ...snapshotToolExecutions(event, () =>
-          callState ? takePatientIdentityOutcome(callState) : undefined,
-        ),
-      );
       if (!callState) return;
-      const actions = appointmentActions(callState);
-      const pendingActions = actions.slice(checkpointedAppointmentActions);
-      checkpointedAppointmentActions = actions.length;
-      for (const action of pendingActions) {
+      const callIds = new Set(
+        (event.functionCalls ?? []).map((call) => call.callId).filter(Boolean),
+      );
+      const pendingReceipts = domainOutcomeReceipts(callState).filter(
+        (receipt) =>
+          callIds.has(receipt.callId) &&
+          !checkpointedCallIds.has(receipt.callId) &&
+          ["booked", "cancelled", "rescheduled"].includes(receipt.outcome),
+      );
+      for (const receipt of pendingReceipts) {
+        checkpointedCallIds.add(receipt.callId);
         const payload = {
           ...callIdentityPayload(input.call),
-          appointmentOutcome: action,
+          appointmentOutcome: receipt.evidence,
+          domainOutcomes: [receipt],
           status: "IN_PROGRESS",
         };
         if (!productAppointmentOutcome(payload)) continue;
@@ -542,7 +500,7 @@ export async function attachCallCloseout(input: {
       }
     },
     usageUpdated(usage) {
-      latestUsage = usage;
+      void usage;
     },
   });
   input.events.onClose(async () => {
@@ -550,29 +508,10 @@ export async function attachCallCloseout(input: {
     const endedAt = now();
     const callState = input.getCallState();
     const capture = await input.events.capture();
-    const recordedAppointmentActions = callState
-      ? appointmentActions(callState)
-      : [];
-    const recordedAvailabilityReads = callState
-      ? availabilityReadEvents(callState)
-      : [];
-    const recordedOwnedMiddlewareFailures = callState
-      ? ownedMiddlewareFailures(callState)
-      : [];
-    const recordedIdentityTransitions = callState
-      ? patientIdentityTransitions(callState)
-      : [];
-    const recordedKnowledgeRetrievals = callState
-      ? officeKnowledgeRetrievals(callState)
-      : [];
-    const toolExecutions = withAppointmentActionToolExecutionFallback(
-      observedToolExecutions,
-      recordedAppointmentActions,
-    );
+    const domainOutcomes = callState ? domainOutcomeReceipts(callState) : [];
     if (capture.reportUnavailable) {
       logger.warn("[closeout] LiveKit session report was unavailable");
     }
-    const usage = latestUsage ?? capture.sessionUsage;
     const summaryPayload: Record<string, unknown> = {
       ...callTimingPayload(input.call, endedAt),
       status:
@@ -593,37 +532,18 @@ export async function attachCallCloseout(input: {
           : callState.runtime.endedReason
             ? { endedReason: callState.runtime.endedReason }
             : {}),
-      usage,
-      llmSummary: buildLlmSummary({
-        fallbackModel: input.call.fallbackModel,
-        llmMetrics,
-        usage,
-      }),
-      sessionEvents,
       language: capture.language,
       voiceLanguage:
         capture.voiceLanguage ??
         callState?.runtime.voiceLanguage ??
         input.call.initialVoiceLanguage,
-      toolExecutions,
-      knowledgeRetrievals: recordedKnowledgeRetrievals,
-      identityTransitions: recordedIdentityTransitions,
-      appointmentActions: recordedAppointmentActions,
-      availabilityReads: recordedAvailabilityReads,
-      ownedMiddlewareFailures: recordedOwnedMiddlewareFailures,
+      domainOutcomes,
+      ...(capture.reportUnavailable ? { sessionReportUnavailable: true } : {}),
       ...input.call.livekitContext,
     };
     const richPayload: Record<string, unknown> = {
       ...summaryPayload,
-      llmMetrics,
       sttProfiles: capture.sttProfiles,
-      turnMetrics,
-      ...(callState
-        ? { callState: sanitizeCallStateForAnalytics(callState) }
-        : {}),
-      ...(callState?.runtime.preCallLookup
-        ? { preCallLookup: callState.runtime.preCallLookup }
-        : {}),
       sessionReport: capture.sessionReport,
     };
 
@@ -736,42 +656,6 @@ function callIdentityPayload(call: CallStartContext) {
   };
 }
 
-const PRIVATE_CALL_STATE_ANALYTICS_FIELDS = new Set([
-  "appointmentId",
-  "appointmentTypeId",
-  "bookingToken",
-  "bookingTokensBySlotId",
-  "candidates",
-  "privateCandidates",
-  "cancellationToken",
-  "rescheduleToken",
-  "completedBookingsByPatientId",
-  "completedReschedulesByPatientId",
-  "id",
-  "insPlanId",
-  "latestBookedAppointmentId",
-  "patientId",
-  "respPartyId",
-]);
-
-function sanitizeCallStateForAnalytics(state: CallState): unknown {
-  return sanitizeAnalyticsValue(state);
-}
-
-function sanitizeAnalyticsValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(sanitizeAnalyticsValue);
-  }
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([key]) => !PRIVATE_CALL_STATE_ANALYTICS_FIELDS.has(key))
-      .map(([key, nestedValue]) => [key, sanitizeAnalyticsValue(nestedValue)]),
-  );
-}
-
 type LlmMetricsSource = {
   on(event: "metrics_collected", listener: (metrics: unknown) => void): unknown;
 };
@@ -800,9 +684,7 @@ export function createLiveKitCallCloseoutEventAdapter(
 
       try {
         const report = ctx.makeSessionReport();
-        sessionReport = sessionReportToJSON(report);
-        delete sessionReport.audio_recording_path;
-        delete sessionReport.audio_recording_started_at;
+        sessionReport = sanitizeSessionReport(sessionReportToJSON(report));
       } catch {
         reportUnavailable = true;
       }
@@ -825,27 +707,6 @@ export function createLiveKitCallCloseoutEventAdapter(
         timeoutMs: options.maxCallDurationMs,
       });
 
-      options.llm.on("metrics_collected", (metrics) => {
-        if (metrics && typeof metrics === "object") {
-          observer.llmMetric(metrics as Record<string, unknown>);
-        }
-      });
-
-      session.on(AgentSessionEventTypes.ConversationItemAdded, (event) => {
-        if (event.item.type !== "message") return;
-        observer.conversationItemAdded({
-          createdAt: event.createdAt,
-          item: {
-            id: event.item.id,
-            interrupted: event.item.interrupted,
-            metrics: Object.fromEntries(
-              Object.entries(event.item.metrics ?? {}),
-            ),
-            role: event.item.role,
-            type: event.item.type,
-          },
-        });
-      });
       session.on(AgentSessionEventTypes.SessionUsageUpdated, (event) => {
         observer.usageUpdated(
           event.usage as unknown as Record<string, unknown>,
@@ -854,16 +715,7 @@ export function createLiveKitCallCloseoutEventAdapter(
       session.on(AgentSessionEventTypes.FunctionToolsExecuted, (event) => {
         observer.toolsExecuted(event);
       });
-      session.on(AgentSessionEventTypes.Error, observer.sessionError);
       session.on(AgentSessionEventTypes.Close, observer.sessionClosed);
-      session.on(
-        AgentSessionEventTypes.AgentFalseInterruption,
-        observer.falseInterruption,
-      );
-      session.on(
-        AgentSessionEventTypes.OverlappingSpeech,
-        observer.overlappingSpeech,
-      );
     },
     onClose(callback) {
       closeout = callback;
@@ -873,4 +725,23 @@ export function createLiveKitCallCloseoutEventAdapter(
       });
     },
   };
+}
+
+const PRIVATE_SESSION_REPORT_KEYS =
+  /(?:authorization|credential|password|secret|token|audio_recording_(?:path|started_at)|internal_url|backend_id)/i;
+
+function sanitizeSessionReport(
+  report: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(report)
+      .filter(([key]) => !PRIVATE_SESSION_REPORT_KEYS.test(key))
+      .map(([key, value]) => [key, sanitizeSessionReportValue(value)]),
+  );
+}
+
+function sanitizeSessionReportValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeSessionReportValue);
+  if (!isRecord(value)) return value;
+  return sanitizeSessionReport(value);
 }

@@ -13,6 +13,7 @@ import {
   transferCallerToOffice,
 } from "./handoff.js";
 import { getState } from "./session.js";
+import { recordDomainOutcome } from "../state/observability.js";
 
 export const transfer_call = tool({
   name: "transfer_call",
@@ -20,7 +21,7 @@ export const transfer_call = tool({
   description:
     "Transfer the caller to human office staff when the transfer policy requires it. Call this tool immediately without announcing the transfer first; the tool speaks the transfer announcement.",
   parameters: z.object({}),
-  execute: async (_, { ctx }) => {
+  execute: async (_, { ctx, toolCallId }) => {
     const state = getState(ctx);
     ctx.disallowInterruptions();
 
@@ -47,16 +48,35 @@ export const transfer_call = tool({
       );
       await announcement.waitForPlayout();
       const { handoffOfficeKey } = await transferCallerToOffice(state);
+      recordDomainOutcome(state, {
+        callId: toolCallId,
+        toolName: "transfer_call",
+        outcome: "transfer_started",
+        status: "success",
+        evidence: { officeKey: handoffOfficeKey },
+      });
       return `Transfer started to the ${handoffOfficeKey} office.`;
     } catch (error) {
       console.error(
         `[tools] Transfer failed (state=${transferStatus(state)}).`,
       );
       if (transferIsAmbiguous(state)) {
+        recordDomainOutcome(state, {
+          callId: toolCallId,
+          toolName: "transfer_call",
+          outcome: "transfer_ambiguous",
+          status: "ambiguous",
+        });
         return "The transfer may already be in progress. Do not try again.";
       }
       if (error instanceof HandoffConflictError) {
         markTransferAmbiguous(state);
+        recordDomainOutcome(state, {
+          callId: toolCallId,
+          toolName: "transfer_call",
+          outcome: "transfer_ambiguous",
+          status: "ambiguous",
+        });
         return "The transfer may already be in progress. Do not try again.";
       }
       if (error instanceof HandoffError) {

@@ -244,6 +244,19 @@ export interface AppointmentActionAnalytics {
   cancelledAppointment?: AppointmentAnalytics;
 }
 
+export type DomainOutcomeStatus =
+  "success" | "blocked" | "partial" | "ambiguous" | "failed";
+
+/** An Acuity-owned fact recorded where a tool's domain result becomes known. */
+export interface DomainOutcomeReceipt {
+  callId: string;
+  toolName: string;
+  outcome: string;
+  status: DomainOutcomeStatus;
+  occurredAt: string;
+  evidence?: Record<string, unknown>;
+}
+
 export type AvailabilityInvalidationReason =
   | "booking_authorization_invalidated"
   | "booking_succeeded"
@@ -346,6 +359,7 @@ interface RuntimeCallState {
   trunkPhone: string;
   transferState: TransferState;
   appointmentActions: AppointmentActionAnalytics[];
+  outcomeReceipts: DomainOutcomeReceipt[];
   availabilityReads: AvailabilityReadAnalytics[];
   knowledgeRetrievals: OfficeKnowledgeRetrievalAnalytics[];
   ownedMiddlewareFailures: OwnedMiddlewareFailureAnalytics[];
@@ -532,6 +546,7 @@ export function createCanonicalCallState(
       trunkPhone: input.trunkPhone,
       transferState: "idle",
       appointmentActions: [],
+      outcomeReceipts: [],
       availabilityReads: [],
       knowledgeRetrievals: [],
       ownedMiddlewareFailures: [],

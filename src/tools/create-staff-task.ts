@@ -13,6 +13,7 @@ import {
 import {
   findStaffTaskReceipt,
   recordStaffTaskReceipt,
+  recordDomainOutcome,
 } from "../state/observability.js";
 import {
   getOfficeProfileByPhone,
@@ -85,7 +86,7 @@ export const create_staff_task = tool({
     "Use the glasses-readiness text policy for glasses status. Route urgent or clinical concerns, medication reactions or instructions, returned calls, and requests for a person through transfer_call. " +
     "Describe the result as a request sent for staff review, with approval, completion, refill, and timing left open.",
   parameters: taskParameters,
-  execute: async (input, { ctx }) => {
+  execute: async (input, { ctx, toolCallId }) => {
     const state = getState(ctx);
     ctx.disallowInterruptions();
 
@@ -122,6 +123,19 @@ export const create_staff_task = tool({
       summary: input.summary,
       taskId: response.taskId,
       urgency: response.urgency ?? input.urgency,
+    });
+    recordDomainOutcome(state, {
+      callId: toolCallId,
+      toolName: "create_staff_task",
+      outcome:
+        response.status === "duplicate"
+          ? "staff_task_duplicate"
+          : "staff_task_created",
+      status: "success",
+      evidence: {
+        category: response.category ?? input.category,
+        urgency: response.urgency ?? input.urgency,
+      },
     });
     return response.status === "duplicate"
       ? TASK_DUPLICATE_REPLY
