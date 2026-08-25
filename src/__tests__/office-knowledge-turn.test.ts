@@ -9,6 +9,7 @@ import {
 } from "@livekit/agents";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
+import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import {
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
@@ -70,6 +71,8 @@ async function completeUserTurn(
   await activity.onEndOfTurn(turn);
 }
 
+const ownedMiddleware = new InMemoryOwnedMiddleware();
+
 describe("Office Knowledge turn enrichment", () => {
   beforeAll(() => {
     initializeLogger({ pretty: false, level: "silent" });
@@ -96,6 +99,7 @@ describe("Office Knowledge turn enrichment", () => {
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
     const { agent } = createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+      ownedMiddleware,
       suppressGreeting: true,
     });
 
@@ -139,6 +143,7 @@ describe("Office Knowledge turn enrichment", () => {
     });
     await unrelatedSession.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -166,6 +171,7 @@ describe("Office Knowledge turn enrichment", () => {
     });
     await groundedSession.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -189,6 +195,7 @@ describe("Office Knowledge turn enrichment", () => {
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
     const { agent } = createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+      ownedMiddleware,
       suppressGreeting: true,
     });
     await session.start({ agent });
@@ -234,6 +241,7 @@ describe("Office Knowledge turn enrichment", () => {
     });
     await unrelatedSession.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -266,6 +274,7 @@ describe("Office Knowledge turn enrichment", () => {
     });
     await unavailableSession.start({
       agent: createVoiceAgent(RHEUMATOLOGY_DEMO_TRUNK_PHONE, {
+        ownedMiddleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -305,6 +314,7 @@ describe("Office Knowledge turn enrichment", () => {
     });
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware,
         officeKnowledgeResolver: () => {
           throw new Error("raw caller content and office document");
         },

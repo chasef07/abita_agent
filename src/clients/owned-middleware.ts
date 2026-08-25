@@ -232,25 +232,6 @@ export interface OwnedMiddleware {
   }): Promise<UpdateInsuranceResult>;
 }
 
-let activeOwnedMiddleware: OwnedMiddleware | undefined;
-
-export function ownedMiddleware(): OwnedMiddleware {
-  return activeOwnedMiddleware ?? new HttpOwnedMiddleware();
-}
-
-export function resolvePatientWithOwnedMiddleware(
-  office: string,
-  identity: PatientIdentity,
-): Promise<PatientResolveResult> {
-  return ownedMiddleware().resolvePatient({ office, identity });
-}
-
-export function setOwnedMiddleware(
-  middleware: OwnedMiddleware | undefined,
-): void {
-  activeOwnedMiddleware = middleware;
-}
-
 type HttpOwnedMiddlewareOptions = {
   authToken?: string;
   fetch?: typeof fetch;

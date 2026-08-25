@@ -41,7 +41,10 @@ import {
   routineVisionSchedulingUnavailable,
 } from "../scheduling/routing.js";
 import { getRimeTtsOptions } from "../tts-config.js";
+import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { createTestCallState } from "./support/call-state.js";
+
+const middleware = new InMemoryOwnedMiddleware();
 
 const transferSipParticipantMock = vi.hoisted(() => vi.fn());
 
@@ -415,8 +418,9 @@ function availabilityOfficeSelection(
   trunkPhone: string,
   requestedOffice?: "hollywood" | "sweetwater",
 ) {
-  const selection =
-    createVoiceAgent(trunkPhone).office.availabilityOfficeFor(requestedOffice);
+  const selection = createVoiceAgent(trunkPhone, {
+    ownedMiddleware: middleware,
+  }).office.availabilityOfficeFor(requestedOffice);
 
   return selection.status === "selected"
     ? { status: selection.status, officeKey: selection.office.key }
@@ -445,7 +449,9 @@ describe("Voice Agent office profile", () => {
   for (const expected of officeBehaviors) {
     for (const [trunkIndex, trunkPhone] of expected.trunks.entries()) {
       it(`creates ${expected.key} behavior for configured trunk ${trunkIndex + 1}`, async () => {
-        const voiceAgent = createVoiceAgent(trunkPhone);
+        const voiceAgent = createVoiceAgent(trunkPhone, {
+          ownedMiddleware: middleware,
+        });
         const { office } = voiceAgent;
         const instructions = String(voiceAgent.agent.instructions);
         const tools = toolNames(voiceAgent.agent.toolCtx.tools);
@@ -568,7 +574,7 @@ describe("Voice Agent office profile", () => {
     const errors = ["+19999999999", "not-a-phone-number", ""].map(
       (trunkPhone) => {
         try {
-          createVoiceAgent(trunkPhone);
+          createVoiceAgent(trunkPhone, { ownedMiddleware: middleware });
           return null;
         } catch (error) {
           return error instanceof Error ? error.message : String(error);

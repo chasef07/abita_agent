@@ -55,6 +55,7 @@ import {
   getProductOfficeKeyByPhone,
 } from "./customers/abita/profile.js";
 import { coordinateSessionStartup } from "./runtime/session-startup.js";
+import { HttpOwnedMiddleware } from "./clients/owned-middleware.js";
 
 validateRuntimeConfig();
 
@@ -91,9 +92,15 @@ export default defineAgent({
       const portal = new HttpCallPortal(
         getProductInteractionConfig(office.key),
       );
+      const ownedMiddleware = new HttpOwnedMiddleware();
       await coordinateSessionStartup({
         lookup: (signal) =>
-          loadPreCallBootstrap({ callerPhone, trunkPhone, signal }),
+          loadPreCallBootstrap({
+            middleware: ownedMiddleware,
+            callerPhone,
+            trunkPhone,
+            signal,
+          }),
         startupIsActive: () => startupActive,
         initializeRuntime: async () => {
           const callStart = await attachStartupCallCloseout({
@@ -235,6 +242,7 @@ export default defineAgent({
             startupOverlap;
 
           const { agent } = createVoiceAgent(trunkPhone, {
+            ownedMiddleware,
             onAssistantText: runtime.turnProfileController.observeAssistantText,
             voiceLanguageRuntime: runtime.voiceLanguageRuntime,
           });

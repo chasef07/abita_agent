@@ -1,5 +1,4 @@
 import {
-  ownedMiddleware,
   type AvailabilityResult,
   type BookAppointmentInput,
   type BookAppointmentResult,
@@ -43,11 +42,15 @@ export interface SchedulingMiddleware {
   }): Promise<CancellationResult>;
 }
 
-export const productionSchedulingMiddleware: SchedulingMiddleware = {
-  getAvailability: ({ request, office, signal }) =>
-    ownedMiddleware().getAvailability({ ...request, office, signal }),
-  bookAppointment: ({ request, office }) =>
-    ownedMiddleware().bookAppointment({ booking: request, office }),
-  cancelAppointment: ({ request, office }) =>
-    ownedMiddleware().cancelAppointment({ ...request, office }),
-};
+export function bindSchedulingMiddleware(
+  middleware: OwnedMiddleware,
+): SchedulingMiddleware {
+  return {
+    getAvailability: ({ request, office, signal }) =>
+      middleware.getAvailability({ ...request, office, signal }),
+    bookAppointment: ({ request, office }) =>
+      middleware.bookAppointment({ booking: request, office }),
+    cancelAppointment: ({ request, office }) =>
+      middleware.cancelAppointment({ ...request, office }),
+  };
+}

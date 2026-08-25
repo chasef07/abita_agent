@@ -1,6 +1,5 @@
 import { tool, type ToolOptions } from "@livekit/agents";
 import { z } from "zod";
-import { resolvePatientWithOwnedMiddleware } from "../clients/owned-middleware.js";
 import {
   resolveExistingPatient,
   type PatientIdentityResolution,
@@ -39,14 +38,9 @@ const resolvePatientParameters = z
   })
   .strict();
 
-const defaultPatientResolveLookup: PatientResolveLookup =
-  resolvePatientWithOwnedMiddleware;
-
 type ResolvePatientArgs = z.infer<typeof resolvePatientParameters>;
 
-export function createResolvePatientTool(
-  lookup: PatientResolveLookup = defaultPatientResolveLookup,
-) {
+export function createResolvePatientTool(lookup: PatientResolveLookup) {
   return tool(resolvePatientToolOptions(lookup));
 }
 
@@ -92,7 +86,3 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
     },
   };
 }
-
-export const resolve_patient = tool(
-  resolvePatientToolOptions(defaultPatientResolveLookup),
-);

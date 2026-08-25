@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolError } from "@livekit/agents";
 
 import {
-  setOwnedMiddleware,
   type CreatePatientResult,
   type PatientResolveResult,
   type UpdateInsuranceResult,
@@ -14,10 +13,9 @@ import {
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
 import { ownedMiddlewareFailures } from "../state/observability.js";
 import {
-  add_patient,
   check_insurance,
-  resolve_patient,
-  update_insurance,
+  createAddPatientTool,
+  createUpdateInsuranceTool,
 } from "../tools/index.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
@@ -30,6 +28,9 @@ import {
 type TestCallState = ReturnType<typeof createConfirmedPatientState>;
 type PreCallCandidate = PreCallPatientCandidate;
 let testMiddleware: InMemoryOwnedMiddleware;
+let add_patient: ReturnType<typeof createAddPatientTool>;
+let resolve_patient: ReturnType<typeof createResolvePatientTool>;
+let update_insurance: ReturnType<typeof createUpdateInsuranceTool>;
 
 function createState(): TestCallState {
   const state = createConfirmedPatientState();
@@ -170,7 +171,11 @@ function useMiddleware(
 ): InMemoryOwnedMiddleware {
   const middleware = new InMemoryOwnedMiddleware(responses);
   testMiddleware = middleware;
-  setOwnedMiddleware(middleware);
+  add_patient = createAddPatientTool(middleware);
+  resolve_patient = createResolvePatientTool((office, identity) =>
+    middleware.resolvePatient({ office, identity }),
+  );
+  update_insurance = createUpdateInsuranceTool(middleware);
   return middleware;
 }
 
@@ -262,7 +267,6 @@ describe("stateful call tools", () => {
   });
 
   afterEach(() => {
-    setOwnedMiddleware(undefined);
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });

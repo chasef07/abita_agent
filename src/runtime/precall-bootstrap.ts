@@ -3,8 +3,8 @@ import {
   type OfficeProfile,
 } from "../customers/abita/profile.js";
 import {
-  ownedMiddleware,
   patientResolveReceiptIsComplete,
+  type OwnedMiddleware,
   type PatientResolveCandidate,
   type PatientResolveVerified,
 } from "../clients/owned-middleware.js";
@@ -24,6 +24,7 @@ export interface PreCallBootstrap {
 }
 
 export async function lookupByPhone(
+  middleware: OwnedMiddleware,
   phone: string,
   trunkPhone: string,
   signal?: AbortSignal,
@@ -42,7 +43,7 @@ export async function lookupByPhone(
     };
   }
 
-  const result = await ownedMiddleware().resolvePatient({
+  const result = await middleware.resolvePatient({
     office: office.amdOfficePhone,
     identity: { phone },
     fallbackPhone: phone,
@@ -151,15 +152,22 @@ function patientResolveMatchToCallerMatch(
 }
 
 export async function loadPreCallBootstrap({
+  middleware,
   callerPhone,
   trunkPhone,
   signal,
 }: {
+  middleware: OwnedMiddleware;
   callerPhone: string;
   trunkPhone: string;
   signal?: AbortSignal;
 }): Promise<PreCallBootstrap> {
-  const phoneLookup = await lookupByPhone(callerPhone, trunkPhone, signal);
+  const phoneLookup = await lookupByPhone(
+    middleware,
+    callerPhone,
+    trunkPhone,
+    signal,
+  );
 
   return { phoneLookup };
 }

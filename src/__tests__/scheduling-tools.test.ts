@@ -8,12 +8,9 @@ import {
   SPRING_HILL_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
-import {
-  HttpOwnedMiddleware,
-  setOwnedMiddleware,
-} from "../clients/owned-middleware.js";
+import { HttpOwnedMiddleware } from "../clients/owned-middleware.js";
 import type { AvailabilityResult } from "../scheduling/middleware.js";
-import { productionSchedulingMiddleware } from "../scheduling/middleware.js";
+import { bindSchedulingMiddleware } from "../scheduling/middleware.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
   appointmentActions,
@@ -237,7 +234,6 @@ describe("scheduling tools", () => {
   });
 
   afterEach(() => {
-    setOwnedMiddleware(undefined);
     vi.useRealTimers();
   });
 
@@ -2822,14 +2818,12 @@ describe("scheduling tools", () => {
             },
       );
     });
-    setOwnedMiddleware(
-      new HttpOwnedMiddleware({
-        fetch: fetchMock,
-        middlewareBaseUrl: "https://middleware.test",
-      }),
-    );
+    const ownedMiddleware = new HttpOwnedMiddleware({
+      fetch: fetchMock,
+      middlewareBaseUrl: "https://middleware.test",
+    });
     const { cancel_appointment } = createSchedulingTools(
-      productionSchedulingMiddleware,
+      bindSchedulingMiddleware(ownedMiddleware),
     );
     const state = createState();
     state.office.activeKey = "spring-hill";

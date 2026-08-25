@@ -6,10 +6,13 @@ import {
 } from "@livekit/agents";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
+import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
 import { patientModelProjection } from "../identity/patient-identity.js";
 import { createTestCallState } from "./support/call-state.js";
+
+const ownedMiddleware = new InMemoryOwnedMiddleware();
 
 describe("completed user turn context", () => {
   initializeLogger({ pretty: false, level: "silent" });
@@ -34,6 +37,7 @@ describe("completed user turn context", () => {
     });
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware,
         suppressGreeting: true,
         turnClock: {
           now: () => instants.shift() ?? new Date("invalid"),
@@ -91,6 +95,7 @@ describe("completed user turn context", () => {
     session.userData = state;
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware,
         identityLookup,
         suppressGreeting: true,
       }).agent,
@@ -141,6 +146,7 @@ describe("completed user turn context", () => {
     session.userData = state;
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware,
         identityLookup,
         suppressGreeting: true,
       }).agent,

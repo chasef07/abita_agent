@@ -7,7 +7,6 @@ import {
 } from "@livekit/agents";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
-import { setOwnedMiddleware } from "../clients/owned-middleware.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   SPRING_HILL_OFFICE_PHONE,
@@ -54,10 +53,10 @@ describe("stable tool catalog", () => {
   });
 
   const sessions: AgentSession<CallState>[] = [];
+  const defaultMiddleware = new InMemoryOwnedMiddleware();
 
   afterEach(async () => {
     await Promise.all(sessions.splice(0).map((session) => session.close()));
-    setOwnedMiddleware(undefined);
   });
 
   it("keeps every supported tool visible across Call State changes", async () => {
@@ -98,6 +97,7 @@ describe("stable tool catalog", () => {
       sessions.push(session);
       session.userData = state;
       const { agent } = createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware: defaultMiddleware,
         suppressGreeting: true,
       });
       const updateTools = vi.spyOn(agent, "updateTools");
@@ -150,6 +150,7 @@ describe("stable tool catalog", () => {
 
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware: defaultMiddleware,
         identityLookup: async () => ({
           status: "verified",
           patientId: "patient-1",
@@ -194,7 +195,6 @@ describe("stable tool catalog", () => {
       ],
       createPatient: [createdPatient()],
     });
-    setOwnedMiddleware(middleware);
     const state = createTestCallState({
       activePatient: confirmedActivePatient({
         patientId: "patient-existing",
@@ -273,6 +273,7 @@ describe("stable tool catalog", () => {
 
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware: middleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -351,7 +352,6 @@ describe("stable tool catalog", () => {
 
   it("returns the book_appointment availability guard before middleware mutation", async () => {
     const middleware = new InMemoryOwnedMiddleware();
-    setOwnedMiddleware(middleware);
     const llm = new ToolCapturingFakeLLM([
       {
         input: "Book the appointment now.",
@@ -369,6 +369,7 @@ describe("stable tool catalog", () => {
 
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware: middleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -394,7 +395,6 @@ describe("stable tool catalog", () => {
       getAvailability: [availabilityFound()],
       bookAppointment: [bookedAppointment()],
     });
-    setOwnedMiddleware(middleware);
     const state = createTestCallState();
     setLastInsuranceEligibilityCheck(state, acceptedInsurance());
     const llm = new ToolCapturingFakeLLM([
@@ -449,6 +449,7 @@ describe("stable tool catalog", () => {
 
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware: middleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -500,7 +501,6 @@ describe("stable tool catalog", () => {
       getAvailability: [availabilityFound()],
       bookAppointment: [bookedAppointment()],
     });
-    setOwnedMiddleware(middleware);
     const state = createConfirmedPatientState();
     const llm = new ToolCapturingFakeLLM([
       {
@@ -545,6 +545,7 @@ describe("stable tool catalog", () => {
 
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware: middleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -581,7 +582,7 @@ describe("stable tool catalog", () => {
 });
 
 function toolNamesForTrunk(trunkPhone: string): string[] {
-  return buildToolsForTrunk(trunkPhone)
+  return buildToolsForTrunk(new InMemoryOwnedMiddleware(), trunkPhone)
     .map(({ id }) => id)
     .sort();
 }

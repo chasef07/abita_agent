@@ -6,10 +6,13 @@ import {
 } from "@livekit/agents";
 import { afterEach, describe, expect, it } from "vitest";
 import { createVoiceAgent } from "../agent.js";
+import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import { patientModelProjection } from "../identity/patient-identity.js";
 import type { PreCallPatientCandidate } from "../state/call-state.js";
 import { createTestCallState } from "./support/call-state.js";
+
+const ownedMiddleware = new InMemoryOwnedMiddleware();
 
 describe("patient model projection", () => {
   initializeLogger({ pretty: false, level: "silent" });
@@ -77,6 +80,7 @@ describe("patient model projection", () => {
     });
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware,
         suppressGreeting: true,
       }).agent,
     });

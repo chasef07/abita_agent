@@ -7,6 +7,7 @@ import {
 } from "@livekit/agents";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
+import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import { buildPrompt } from "../prompt.js";
 import { guardAssistantSpeech } from "../runtime/speech-output-guard.js";
@@ -14,6 +15,7 @@ import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import type { CallState } from "../state/call-state.js";
 import { createTestCallState } from "./support/call-state.js";
 
+const ownedMiddleware = new InMemoryOwnedMiddleware();
 const promptTags = [
   ...new Set(
     buildPrompt(SPRING_HILL_OFFICE_PHONE).match(/<\/?[a-z_]+>/gi) ?? [],
@@ -21,8 +23,8 @@ const promptTags = [
 ];
 const toolNames = [
   ...new Set([
-    ...buildToolsForTrunk(SPRING_HILL_OFFICE_PHONE).flatMap((tool) =>
-      tool.name ? [tool.name] : [],
+    ...buildToolsForTrunk(ownedMiddleware, SPRING_HILL_OFFICE_PHONE).flatMap(
+      (tool) => (tool.name ? [tool.name] : []),
     ),
     "end_call",
   ]),
@@ -162,6 +164,7 @@ describe("assistant speech output", () => {
 
   it("guards the agent transcription output path", async () => {
     const { agent } = createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+      ownedMiddleware,
       suppressGreeting: true,
     });
     const session = new AgentSession<CallState>({
