@@ -219,7 +219,7 @@ describe("tool-first prompt gating", () => {
     );
     expect(prompt).toContain("# Human Transfer");
     expect(prompt).toContain(
-      "Immediately call transfer_call only for an eye emergency or a caller returning a call for a named staff member.",
+      "Immediately call transfer_call only for an eye emergency, a caller returning a call for a named staff member, or when check_insurance says office transfer is required before scheduling.",
     );
     expect(prompt).toContain("Redness alone is not an eye emergency.");
     expect(prompt).toContain(

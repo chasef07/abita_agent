@@ -1089,6 +1089,7 @@ describe("stateful call tools", () => {
 
     expect(result).not.toContain("SSN");
     expect(result).not.toContain("1234");
+    expect(result).not.toContain("last four");
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
@@ -1148,7 +1149,7 @@ describe("stateful call tools", () => {
         lastName: "Doe",
         dob: "01/01/1980",
         street: "123 Main St",
-        aptSuite: "",
+        aptSuite: "Apt 2",
         city: "Spring Hill",
         state: "FL",
         zip: "34606",
@@ -1156,13 +1157,14 @@ describe("stateful call tools", () => {
         subscriberName: "Jane Doe",
         insuranceMemberId: "self pay",
         phone: "7275551212",
+        email: "jane@example.com",
         newPatientConfirmed: true,
       },
       { ctx: ctx as never, toolCallId: "tool-1" } as never,
     );
 
     expect(result).toBe(
-      "Let me read the registration details back to make sure I have everything right.",
+      "Let me confirm the registration for Jane Doe, date of birth 01/01/1980, female. The address is 123 Main St, Apt 2, Spring Hill, FL 34606. The callback number is 727-555-1212. The email is jane@example.com. The patient will use self-pay. Is all of that correct?",
     );
     expect(testMiddleware.operations).toHaveLength(0);
     expect(ctx.speechHandle.allowInterruptions).toBe(false);
@@ -1198,7 +1200,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Let me read the registration details back to make sure I have everything right.",
+      "Let me confirm the registration for Jane Doe, date of birth 01/01/1980, female. The address is 123 Main St, Spring Hill, FL 34606. The callback number is 727-555-1212. The insurance is VSP, with Jane Doe as the policyholder and member ID VSP123. I also recorded the requested last four digits without reading them aloud. Is all of that correct?",
     );
     expect(result).not.toContain("SSN");
     expect(result).not.toContain("1234");
@@ -2162,7 +2164,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "Let me read the registration details back to make sure I have everything right.",
+      "Let me confirm the registration for Maria Santos, date of birth 01/01/1980, female. The address is 123 Main St, Spring Hill, FL 34606. The callback number is 727-555-1212. The insurance is Aetna, with Maria Santos as the policyholder and member ID ABC123. Is all of that correct?",
     );
     expect(state.identity.activePatient).toBeNull();
     expect(state.identity.registration).toEqual({
@@ -2426,6 +2428,27 @@ describe("stateful call tools", () => {
       canonicalPlan: null,
       coverageType: "medical",
       currentCarrier: null,
+      accepted: false,
+    });
+  });
+
+  it("returns the required office-transfer path for pending routine vision", async () => {
+    const state = createState();
+    state.office.activeKey = "hollywood";
+
+    const result = await check_insurance.execute(
+      { plan: "CarePlus", coverageType: "routine_vision" },
+      { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
+    );
+
+    expect(result).toBe(
+      "CarePlus Medicare routine vision is pending for these providers. I need to connect you with the office before scheduling.",
+    );
+    expect(state.insurance.lastEligibilityCheck).toEqual({
+      plan: "CarePlus",
+      canonicalPlan: null,
+      coverageType: "routine_vision",
+      currentCarrier: "CarePlus",
       accepted: false,
     });
   });

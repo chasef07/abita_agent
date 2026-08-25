@@ -93,6 +93,8 @@ const addPatientParameters = z
   })
   .strict();
 
+type AddPatientParameters = z.infer<typeof addPatientParameters>;
+
 export function createAddPatientTool(middleware: OwnedMiddleware) {
   return tool({
     name: "add_patient",
@@ -195,12 +197,17 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         return "Is the number you're calling from a good callback number to put on file?";
       }
 
-      if (!params.readBack) {
-        return "Let me read the registration details back to make sure I have everything right.";
-      }
-
       if (!phone) {
         return "What is the best callback number for the patient chart?";
+      }
+
+      if (!params.readBack) {
+        return registrationReadBack(params, {
+          coverageType,
+          insurance,
+          phone,
+          selfPay,
+        });
       }
 
       const payload: CreatePatientInput = {
@@ -309,4 +316,53 @@ function recordPatientCreationOutcome(
     status,
     ...(superseded ? { evidence: { superseded: true } } : {}),
   });
+}
+
+function registrationReadBack(
+  params: AddPatientParameters,
+  input: {
+    coverageType: "medical" | "routine_vision";
+    insurance: string;
+    phone: string;
+    selfPay: boolean;
+  },
+): string {
+  const patientName = `${params.firstName.trim()} ${params.lastName.trim()}`;
+  const region = [params.state?.trim(), params.zip?.trim()]
+    .filter(Boolean)
+    .join(" ");
+  const locality = [params.city?.trim(), region].filter(Boolean).join(", ");
+  const address = [params.street?.trim(), params.aptSuite?.trim(), locality]
+    .filter(Boolean)
+    .join(", ");
+  const email = params.email?.trim();
+  const policyholder = params.subscriberName?.trim();
+  const memberId = params.insuranceMemberId?.trim();
+  const coverage = input.selfPay
+    ? "The patient will use self-pay."
+    : policyholder && memberId
+      ? `The insurance is ${input.insurance}, with ${policyholder} as the policyholder and member ID ${memberId}.`
+      : `The insurance is ${input.insurance}.`;
+
+  return [
+    `Let me confirm the registration for ${patientName}, date of birth ${params.dob.trim()}, ${params.sex}.`,
+    address ? `The address is ${address}.` : "",
+    `The callback number is ${spokenPhoneNumber(input.phone)}.`,
+    email ? `The email is ${email}.` : "",
+    coverage,
+    input.coverageType === "routine_vision" && !input.selfPay && params.ssnLast4
+      ? "I also recorded the requested last four digits without reading them aloud."
+      : "",
+    "Is all of that correct?",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function spokenPhoneNumber(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  const local =
+    digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (local.length !== 10) return phone.trim();
+  return `${local.slice(0, 3)}-${local.slice(3, 6)}-${local.slice(6)}`;
 }

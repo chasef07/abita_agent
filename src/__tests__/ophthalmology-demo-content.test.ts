@@ -47,6 +47,9 @@ describe("ophthalmology demo content", () => {
     });
     expect(prompt).toContain("a fictional ophthalmology clinic");
     expect(prompt).toContain("Clearbrook Eye Center");
+    expect(prompt).toContain(
+      "when check_insurance says office transfer is required before scheduling",
+    );
     expect(prompt).not.toContain("Abita Eye Group");
     validateOfficeKnowledgeDocument(office.knowledgeSource, knowledge);
     expect(knowledge).toContain("Doctor Elena Marlowe");

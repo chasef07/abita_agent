@@ -405,10 +405,14 @@ describe("insurance matcher", () => {
         input,
         "routine_vision",
       );
-      expect(result.status, input).toBe("needs_clarification");
+      expect(result.status, input).toBe("needs_transfer");
       expect(result.canProceed, input).toBe(false);
       expect(canonicalInsurancePlan(result), input).toBeNull();
-      expect(result.clarificationNeeded, input).toContain("pending");
+      expect(result.clarificationNeeded, input).toBeNull();
+      expect(result.callerNotice, input).toContain("pending");
+      expect(buildInsuranceToolResponse(result), input).toBe(
+        "CarePlus Medicare routine vision is pending for these providers. I need to connect you with the office before scheduling.",
+      );
     }
   });
 

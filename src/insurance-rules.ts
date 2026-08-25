@@ -7,7 +7,11 @@ const WORKSPACE = join(import.meta.dirname, "..", "workspace");
 export type InsuranceCoverageType = "medical" | "routine_vision";
 
 export type InsuranceMatchStatus =
-  "accepted" | "not_accepted" | "needs_clarification" | "needs_staff_task";
+  | "accepted"
+  | "not_accepted"
+  | "needs_clarification"
+  | "needs_staff_task"
+  | "needs_transfer";
 
 export interface InsurancePlanRule {
   id?: string;
@@ -90,6 +94,13 @@ export function buildInsuranceToolResponse(
 
   if (result.status === "needs_staff_task") {
     return "This plan requires prior authorization before we can schedule. I can send a task to staff to follow up with the insurance company. Is that okay?";
+  }
+
+  if (result.status === "needs_transfer") {
+    const notice = (
+      result.callerNotice ?? "This plan needs office confirmation"
+    ).replace(/[.!?]+$/, "");
+    return `${notice}. I need to connect you with the office before scheduling.`;
   }
 
   const clarification = (
@@ -289,9 +300,11 @@ function selectInsuranceCandidate(
   const acceptedCandidate = bestInsuranceCandidate(
     candidates.filter((candidate) => candidate.rule.status === "accepted"),
   );
-  const clarificationCandidate = bestInsuranceCandidate(
+  const followupCandidate = bestInsuranceCandidate(
     candidates.filter(
-      (candidate) => candidate.rule.status === "needs_clarification",
+      (candidate) =>
+        candidate.rule.status === "needs_clarification" ||
+        candidate.rule.status === "needs_transfer",
     ),
   );
   const acceptedCandidateContainsRejectedAlias =
@@ -309,13 +322,13 @@ function selectInsuranceCandidate(
 
   if (
     acceptedCandidate &&
-    (!clarificationCandidate ||
-      compareInsuranceCandidates(acceptedCandidate, clarificationCandidate) > 0)
+    (!followupCandidate ||
+      compareInsuranceCandidates(acceptedCandidate, followupCandidate) > 0)
   ) {
     return acceptedCandidate;
   }
 
-  return clarificationCandidate ?? acceptedCandidate ?? null;
+  return followupCandidate ?? acceptedCandidate ?? null;
 }
 
 function bestInsuranceCandidate(
