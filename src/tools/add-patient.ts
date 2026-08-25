@@ -2,6 +2,7 @@ import { tool } from "@livekit/agents";
 import { z } from "zod";
 import type {
   CreatePatientInput,
+  CreatePatientResult,
   OwnedMiddleware,
 } from "../clients/owned-middleware.js";
 import { normalizeInsuranceText } from "../insurance-rules.js";
@@ -13,7 +14,10 @@ import {
   patientRegistrationStatus,
 } from "../identity/patient-identity.js";
 import { runtimeCallerPhone } from "../state/call-lifecycle.js";
-import { recordOwnedMiddlewareFailure } from "../state/observability.js";
+import {
+  recordDomainOutcome,
+  recordOwnedMiddlewareFailure,
+} from "../state/observability.js";
 import {
   applySchedulingLaneToState,
   lastInsuranceEligibilityCheck,
@@ -103,7 +107,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       "Before using the inbound caller number, confirm it is a good callback number; if yes, pass phone as null and set inboundPhoneConfirmed to true. " +
       'Use "self pay" as insuranceMemberId only when the patient asks for self pay.',
     parameters: addPatientParameters,
-    execute: async (params, { ctx }) => {
+    execute: async (params, { ctx, toolCallId }) => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
       const patientIdentity = {
@@ -116,7 +120,11 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         !patientIdentity.lastName ||
         !patientIdentity.dob
       ) {
-        return "Before creating a new chart, collect the patient's first name, last name, and date of birth, then call add_patient again.";
+        return blockedPatientCreation(
+          state,
+          toolCallId,
+          "Before creating a new chart, collect the patient's first name, last name, and date of birth, then call add_patient again.",
+        );
       }
 
       const registrationStatus = patientRegistrationStatus(
@@ -128,25 +136,43 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
           state.identity.activePatient?.name?.trim() ||
           `${params.firstName} ${params.lastName}`;
         if (!state.insurance.onFile) {
+          recordPatientCreationOutcome(state, toolCallId, "partial");
           return `Patient chart is already created for ${patientName}, but insurance is not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
         }
+        recordPatientCreationOutcome(state, toolCallId, "success");
         return `Patient chart is already created for ${patientName}. Continue with scheduling.`;
       }
 
       if (registrationStatus === "active_patient") {
-        return "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.";
+        return blockedPatientCreation(
+          state,
+          toolCallId,
+          "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.",
+        );
       }
 
       if (registrationStatus === "different_patient") {
-        return "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.";
+        return blockedPatientCreation(
+          state,
+          toolCallId,
+          "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.",
+        );
       }
 
       if (registrationStatus === "pre_call_candidate") {
-        return "Do not create a new chart yet. Ask the privacy-safe first-name question, then use the runtime-confirmed patient state or continue an existing-patient lookup.";
+        return blockedPatientCreation(
+          state,
+          toolCallId,
+          "Do not create a new chart yet. Ask the privacy-safe first-name question, then use the runtime-confirmed patient state or continue an existing-patient lookup.",
+        );
       }
 
       if (!params.newPatientConfirmed) {
-        return "Before creating a new chart, ask the caller to confirm that the patient has never registered with or been added to the practice. Call add_patient again with newPatientConfirmed set to true only after the caller confirms.";
+        return blockedPatientCreation(
+          state,
+          toolCallId,
+          "Before creating a new chart, ask the caller to confirm that the patient has never registered with or been added to the practice. Call add_patient again with newPatientConfirmed set to true only after the caller confirms.",
+        );
       }
 
       const checkedInsurance = lastInsuranceEligibilityCheck(state);
@@ -156,7 +182,11 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         checkedInsurance?.plan?.trim();
       const coverageType = checkedInsurance?.coverageType;
       if (!checkedInsurance?.accepted || !insurance || !coverageType) {
-        return "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.";
+        return blockedPatientCreation(
+          state,
+          toolCallId,
+          "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
+        );
       }
 
       const confirmedUnregisteredPatient =
@@ -166,7 +196,11 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         registrationStatus === "confirmed_new_patient" &&
         !confirmedUnregisteredPatient
       ) {
-        return "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.";
+        return blockedPatientCreation(
+          state,
+          toolCallId,
+          "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
+        );
       }
       beginNewPatientRegistration(state, patientIdentity, {
         preserveEligibilityCheck: confirmedUnregisteredPatient,
@@ -176,11 +210,20 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         coverageType === "routine_vision" ? "routine_od" : "medical_md";
       applySchedulingLaneToState(state, appointmentLane);
       const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
-      if (unsupportedMedicalScheduling) return unsupportedMedicalScheduling;
+      if (unsupportedMedicalScheduling)
+        return blockedPatientCreation(
+          state,
+          toolCallId,
+          unsupportedMedicalScheduling,
+        );
       const unsupportedRoutineVisionScheduling =
         routineVisionSchedulingUnavailable(state);
       if (unsupportedRoutineVisionScheduling)
-        return unsupportedRoutineVisionScheduling;
+        return blockedPatientCreation(
+          state,
+          toolCallId,
+          unsupportedRoutineVisionScheduling,
+        );
 
       const selfPay = normalizeInsuranceText(insurance) === "self pay";
       const memberId = selfPay ? "self pay" : params.insuranceMemberId;
@@ -190,23 +233,31 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
 
       if (!explicitPhone && !params.inboundPhoneConfirmed) {
-        return (
+        return blockedPatientCreation(
+          state,
+          toolCallId,
           "Ask the caller: Is the number you are calling from a good callback number to put on file? " +
-          "If yes, call add_patient again with inboundPhoneConfirmed set to true. " +
-          "If not, collect the callback phone number and pass it as phone."
+            "If yes, call add_patient again with inboundPhoneConfirmed set to true. " +
+            "If not, collect the callback phone number and pass it as phone.",
         );
       }
 
       if (!params.readBack) {
-        return (
+        return blockedPatientCreation(
+          state,
+          toolCallId,
           "Read back the new patient details first: patient name, date of birth, sex, address, " +
-          "callback phone, email if provided, insurance plan, policyholder name, and member ID. " +
-          "Call add_patient again only after the caller confirms the details are correct."
+            "callback phone, email if provided, insurance plan, policyholder name, and member ID. " +
+            "Call add_patient again only after the caller confirms the details are correct.",
         );
       }
 
       if (!phone) {
-        return "A callback phone number is required before creating a chart. Ask whether the inbound number is best, or collect a callback number.";
+        return blockedPatientCreation(
+          state,
+          toolCallId,
+          "A callback phone number is required before creating a chart. Ask whether the inbound number is best, or collect a callback number.",
+        );
       }
 
       const payload: CreatePatientInput = {
@@ -236,29 +287,40 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
 
       const creation = beginPatientCreation(state);
       if (!creation) {
+        recordPatientCreationOutcome(state, toolCallId, "failed");
         throw new Error("Patient registration is incomplete before creation.");
       }
-      const result = await middleware.createPatient({
-        office: getAmdOfficeForToolCall(state),
-        patient: payload,
-      });
+      let result: CreatePatientResult;
+      try {
+        result = await middleware.createPatient({
+          office: getAmdOfficeForToolCall(state),
+          patient: payload,
+        });
+      } catch (error) {
+        recordPatientCreationOutcome(state, toolCallId, "failed");
+        throw error;
+      }
       if (result.status === "error") {
         recordOwnedMiddlewareFailure(state, "createPatient", result);
       }
       const commit = commitPatientCreation(state, creation, result);
       if (commit.outcome === "superseded") {
         if (commit.result.status === "error") {
+          recordPatientCreationOutcome(state, toolCallId, "failed");
           return "I couldn't create the patient chart, and the active patient changed. Continue with the current patient and do not retry this request.";
         }
         const patientName =
           commit.result.name?.trim() ||
           `${params.firstName} ${params.lastName}`;
         if (commit.result.status === "partial") {
+          recordPatientCreationOutcome(state, toolCallId, "partial", true);
           return `Created a patient chart for ${patientName}, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration. The active patient changed before the result returned. Continue with the current patient's state.`;
         }
+        recordPatientCreationOutcome(state, toolCallId, "success", true);
         return `Created a patient chart for ${patientName}, but the active patient changed before the result returned. Do not create another chart. Continue with the current patient's state.`;
       }
       if (commit.outcome === "failed") {
+        recordPatientCreationOutcome(state, toolCallId, "failed");
         throwOwnedMiddlewareFailure(
           commit.failure,
           "I couldn't create the patient chart. I can try once more or connect you with the office.",
@@ -266,8 +328,10 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       }
       if (commit.outcome === "invalid_receipt") {
         if (commit.result) {
+          recordPatientCreationOutcome(state, toolCallId, "ambiguous");
           return "A patient chart was created, but its identity receipt did not match the current registration. Do not create another chart. Connect the caller to office staff to verify the chart.";
         }
+        recordPatientCreationOutcome(state, toolCallId, "failed");
         throw new Error(
           "Owned Middleware returned an invalid patient creation receipt.",
         );
@@ -276,9 +340,47 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       const patientName =
         receipt.name?.trim() || `${params.firstName} ${params.lastName}`;
       if (receipt.status === "partial") {
+        recordPatientCreationOutcome(state, toolCallId, "partial");
         return `Created a patient chart for ${patientName}, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
       }
+      recordPatientCreationOutcome(state, toolCallId, "success");
       return `Created a patient chart for ${patientName}. Continue with scheduling.`;
     },
   });
+}
+
+function recordPatientCreationOutcome(
+  state: ReturnType<typeof getState>,
+  callId: string,
+  status: "success" | "partial" | "ambiguous" | "failed",
+  superseded = false,
+): void {
+  recordDomainOutcome(state, {
+    callId,
+    toolName: "add_patient",
+    outcome:
+      status === "success"
+        ? "patient_created"
+        : status === "partial"
+          ? "patient_creation_partial"
+          : status === "ambiguous"
+            ? "patient_creation_ambiguous"
+            : "patient_creation_failed",
+    status,
+    ...(superseded ? { evidence: { superseded: true } } : {}),
+  });
+}
+
+function blockedPatientCreation(
+  state: ReturnType<typeof getState>,
+  callId: string,
+  reply: string,
+): string {
+  recordDomainOutcome(state, {
+    callId,
+    toolName: "add_patient",
+    outcome: "patient_creation_blocked",
+    status: "blocked",
+  });
+  return reply;
 }

@@ -43,7 +43,6 @@ class TestLiveKitEvents implements CallCloseoutEventAdapter {
       languageChanged: false,
     },
     sessionReport: { chat_history: { items: [] } },
-    sessionUsage: { modelUsage: [] },
     sttProfiles: [],
   });
 
@@ -464,6 +463,111 @@ describe("call closeout", () => {
     });
   });
 
+  it("promotes the final appointment receipt without requiring a tool event", async () => {
+    const state = createTestCallState();
+    const { events, portal } = await setupCloseout({ state });
+    recordDomainOutcome(state, {
+      callId: "tool-call-final",
+      toolName: "book_appointment",
+      outcome: "booked",
+      status: "success",
+      occurredAt: "2026-07-20T10:00:30.000Z",
+      evidence: {
+        action: "booked",
+        newAppointmentId: "appointment-final",
+        bookingResult: { status: "booked", appointmentId: 63 },
+      },
+    });
+
+    await events.close();
+
+    expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
+      "call-start",
+      "shutdown-summary",
+      "shutdown",
+    ]);
+    expect(portal.deliveries[2]?.payload.appointmentOutcome).toMatchObject({
+      action: "booked",
+      occurredAt: "2026-07-20T10:00:30.000Z",
+      newAppointmentId: "appointment-final",
+      bookingResult: { status: "booked", appointmentId: 63 },
+    });
+  });
+
+  it("does not promote a failed appointment receipt as a Product outcome", async () => {
+    const state = createTestCallState();
+    const { events, portal } = await setupCloseout({ state });
+    recordDomainOutcome(state, {
+      callId: "tool-call-failed",
+      toolName: "book_appointment",
+      outcome: "booked",
+      status: "failed",
+      evidence: {
+        action: "booked",
+        bookingResult: { status: "error", reason: "middleware_error" },
+      },
+    });
+
+    events.emit("toolsExecuted", {
+      functionCalls: [{ callId: "tool-call-failed", name: "book_appointment" }],
+    });
+    await events.close();
+
+    expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
+      "call-start",
+      "shutdown-summary",
+      "shutdown",
+    ]);
+    expect(portal.deliveries[2]?.payload).not.toHaveProperty(
+      "appointmentOutcome",
+    );
+    expect(portal.deliveries[2]?.payload.domainOutcomes).toMatchObject([
+      { callId: "tool-call-failed", status: "failed" },
+    ]);
+  });
+
+  it("correlates replay calls without duplicating the Product appointment event", async () => {
+    const state = createTestCallState();
+    const { events, portal } = await setupCloseout({ state });
+    const evidence = {
+      action: "booked",
+      newAppointmentId: "appointment-original",
+      bookingResult: { status: "booked", appointmentId: 63 },
+    };
+    recordDomainOutcome(state, {
+      callId: "tool-call-original",
+      toolName: "book_appointment",
+      outcome: "booked",
+      status: "success",
+      occurredAt: "2026-07-20T10:00:30.000Z",
+      evidence,
+    });
+    recordDomainOutcome(state, {
+      callId: "tool-call-replay",
+      toolName: "book_appointment",
+      outcome: "booked",
+      status: "success",
+      occurredAt: "2026-07-20T10:00:45.000Z",
+      evidence: { ...evidence, replayed: true },
+    });
+
+    events.emit("toolsExecuted", {
+      functionCalls: [{ callId: "tool-call-replay", name: "book_appointment" }],
+    });
+    await events.close();
+
+    expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
+      "call-start",
+      "shutdown-summary",
+      "shutdown",
+    ]);
+    expect(portal.deliveries[2]?.payload.appointmentOutcome).toMatchObject({
+      action: "booked",
+      occurredAt: "2026-07-20T10:00:30.000Z",
+      newAppointmentId: "appointment-original",
+    });
+  });
+
   it("retries compact delivery before continuing to rich delivery", async () => {
     const portal = new InMemoryCallPortal({
       "shutdown-summary": [{ ok: false }, { ok: false }],
@@ -552,7 +656,6 @@ describe("call closeout", () => {
       ({
         audio: Uint8Array.from([1, 2, 3]),
         language: { currentLanguage: "en" },
-        sessionUsage: {},
         sttProfiles: [],
       }) as CallCloseoutCapture & { audio: Uint8Array };
     const { portal } = await setupCloseout({ events });
@@ -584,7 +687,6 @@ describe("call closeout", () => {
       { usage: {} } as unknown as AgentSession<CallState>,
       {
         callId: "call-test",
-        llm: { on: vi.fn() },
         maxCallDurationMs: 60_000,
         roomName: "room-test",
         shutdownSession: vi.fn(),
@@ -605,6 +707,67 @@ describe("call closeout", () => {
     expect(capture.sessionReport).not.toHaveProperty(
       "audio_recording_started_at",
     );
+  });
+
+  it("preserves native usage while redacting credentials from report values", async () => {
+    const report = createSessionReport({
+      chatHistory: ChatContext.empty(),
+      events: [],
+      jobId: "job-test",
+      modelUsage: [
+        {
+          type: "llm_usage",
+          provider: "openai",
+          model: "gpt-test",
+          inputTokens: 12,
+          outputTokens: 4,
+        },
+      ],
+      options: {
+        maxToolSteps: 3,
+        turnHandling: { preemptiveGeneration: { enabled: false } },
+        useTtsAlignedTranscript: true,
+        userAwayTimeout: 15,
+      },
+      room: "room-test",
+      roomId: "room-id-test",
+    });
+    const serialized = report as unknown as Record<string, unknown>;
+    serialized.events = [
+      {
+        type: "error",
+        error:
+          "request failed with Authorization: Bearer private-token at http://10.0.0.5/private",
+        clientSecret: "private-client-secret",
+      },
+    ];
+    const adapter = createLiveKitCallCloseoutEventAdapter(
+      { makeSessionReport: () => report } as unknown as JobContext,
+      { usage: {} } as unknown as AgentSession<CallState>,
+      {
+        callId: "call-test",
+        maxCallDurationMs: 60_000,
+        roomName: "room-test",
+        shutdownSession: vi.fn(),
+        sttProfiles: [],
+        voiceLanguageRuntime: {
+          snapshot: () => ({
+            language: {},
+            voiceLanguage: DEFAULT_CALL.initialVoiceLanguage,
+          }),
+        },
+      },
+    );
+
+    const capture = await adapter.capture();
+    const captured = JSON.stringify(capture.sessionReport);
+
+    expect(capture.sessionReport?.usage).toMatchObject([
+      { input_tokens: 12, output_tokens: 4 },
+    ]);
+    expect(captured).not.toContain("private-token");
+    expect(captured).not.toContain("private-client-secret");
+    expect(captured).not.toContain("10.0.0.5");
   });
 
   it.each([
@@ -682,6 +845,24 @@ describe("call closeout", () => {
           "Content-Type": "application/json",
         });
       }
+      const closeoutBody = JSON.parse(
+        String(vi.mocked(fetchImpl).mock.calls.at(-1)?.[1]?.body),
+      ) as Record<string, unknown>;
+      expect(closeoutBody).toMatchObject({
+        kind: "CLOSEOUT",
+        appointmentOutcome: {
+          action: "BOOKED",
+          newAppointmentId: "appointment-auth-proof",
+        },
+        closeoutPayload: {
+          domainOutcomes: [
+            expect.objectContaining({
+              callId: "tool-call-auth",
+              outcome: "booked",
+            }),
+          ],
+        },
+      });
       expect(logger.log.mock.calls.flat().join(" ")).not.toContain(secret);
       expect(logger.warn.mock.calls.flat().join(" ")).not.toContain(secret);
     },
@@ -725,18 +906,16 @@ describe("call closeout", () => {
         endedAt: "2026-08-08T09:35:00.000Z",
         status: "COMPLETED",
         sessionReport: { chat_history: { items: [{ role: "user" }] } },
-        appointmentActions: [
-          {
-            action: "rescheduled",
-            status: "success",
-            createdAt: "2026-08-08T09:33:00.000Z",
-            externalPatientId: "patient-63",
-            oldAppointmentId: "appointment-old",
-            newAppointmentId: "appointment-new",
-            bookingResult: { status: "booked", appointmentId: 6302 },
-            cancellationResult: { status: "cancelled" },
-          },
-        ],
+        appointmentOutcome: {
+          action: "rescheduled",
+          status: "success",
+          createdAt: "2026-08-08T09:33:00.000Z",
+          externalPatientId: "patient-63",
+          oldAppointmentId: "appointment-old",
+          newAppointmentId: "appointment-new",
+          bookingResult: { status: "booked", appointmentId: 6302 },
+          cancellationResult: { status: "cancelled" },
+        },
       },
     });
 
@@ -774,9 +953,7 @@ describe("call closeout", () => {
       },
       closeoutPayload: {
         callId: "call-product-63",
-        appointmentActions: [
-          expect.objectContaining({ action: "rescheduled" }),
-        ],
+        appointmentOutcome: expect.objectContaining({ action: "rescheduled" }),
       },
     });
     expect(bodies[2]).not.toHaveProperty("callId");

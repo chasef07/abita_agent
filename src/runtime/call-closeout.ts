@@ -11,49 +11,18 @@ import type {
   RuntimeVoiceLanguageState,
   VoiceLanguageRuntime,
 } from "./voice-language.js";
-import {
-  createEmptySessionEventAnalytics,
-  snapshotCloseEvent,
-  snapshotErrorEvent,
-  snapshotFalseInterruptionEvent,
-  snapshotOverlappingSpeechEvent,
-  snapshotToolExecutions,
-  type SttProfileTransitionAnalytics,
-} from "../call-observability.js";
+import type { SttProfileTransitionAnalytics } from "./stt-profile-observability.js";
 import { attachCallDurationDeadline } from "./call-duration-deadline.js";
 
-type ConversationItemAdded = {
-  createdAt: number;
-  item: {
-    id: string;
-    interrupted: boolean;
-    metrics?: Record<string, unknown>;
-    role: string;
-    type: "message";
-  };
-};
-
 export type CallCloseoutObserver = {
-  conversationItemAdded(event: ConversationItemAdded): void;
   durationLimitReached(): void;
-  falseInterruption(
-    event: Parameters<typeof snapshotFalseInterruptionEvent>[0],
-  ): void;
-  llmMetric(metric: Record<string, unknown>): void;
-  overlappingSpeech(
-    event: Parameters<typeof snapshotOverlappingSpeechEvent>[0],
-  ): void;
-  sessionClosed(event: Parameters<typeof snapshotCloseEvent>[0]): void;
-  sessionError(event: Parameters<typeof snapshotErrorEvent>[0]): void;
-  toolsExecuted(event: Parameters<typeof snapshotToolExecutions>[0]): void;
-  usageUpdated(usage: Record<string, unknown>): void;
+  toolsExecuted(event: { functionCalls?: Array<{ callId?: string }> }): void;
 };
 
 export type CallCloseoutCapture = {
   language: Record<string, unknown>;
   reportUnavailable?: boolean;
   sessionReport?: Record<string, unknown>;
-  sessionUsage?: Record<string, unknown>;
   sttProfiles: Record<string, unknown>[];
   voiceLanguage?: RuntimeVoiceLanguageState;
 };
@@ -236,10 +205,7 @@ function productAppointmentOutcome(
   const explicit = isRecord(payload.appointmentOutcome)
     ? payload.appointmentOutcome
     : undefined;
-  const actions = Array.isArray(payload.appointmentActions)
-    ? payload.appointmentActions.filter(isRecord)
-    : [];
-  const action = explicit ?? actions.at(-1);
+  const action = explicit;
   if (!action) return undefined;
 
   const actionName = productAppointmentAction(action.action);
@@ -438,9 +404,6 @@ export async function attachCallCloseout(input: {
   const checkpointedCallIds = new Set<string>();
   let checkpointDeliveries = Promise.resolve();
   input.events.observe({
-    conversationItemAdded(event) {
-      void event;
-    },
     durationLimitReached() {
       durationLimitReached = true;
       const callState = input.getCallState();
@@ -449,21 +412,6 @@ export async function attachCallCloseout(input: {
       if (input.call.maxCallDurationMs !== undefined) {
         callState.runtime.maxCallDurationMs = input.call.maxCallDurationMs;
       }
-    },
-    falseInterruption(event) {
-      void event;
-    },
-    llmMetric(metric) {
-      void metric;
-    },
-    overlappingSpeech(event) {
-      void event;
-    },
-    sessionClosed(event) {
-      void event;
-    },
-    sessionError(event) {
-      void event;
     },
     toolsExecuted(event) {
       const callState = input.getCallState();
@@ -475,7 +423,7 @@ export async function attachCallCloseout(input: {
         (receipt) =>
           callIds.has(receipt.callId) &&
           !checkpointedCallIds.has(receipt.callId) &&
-          ["booked", "cancelled", "rescheduled"].includes(receipt.outcome),
+          appointmentReceiptIsPromotable(receipt),
       );
       for (const receipt of pendingReceipts) {
         checkpointedCallIds.add(receipt.callId);
@@ -499,9 +447,6 @@ export async function attachCallCloseout(input: {
         });
       }
     },
-    usageUpdated(usage) {
-      void usage;
-    },
   });
   input.events.onClose(async () => {
     await checkpointDeliveries;
@@ -509,6 +454,15 @@ export async function attachCallCloseout(input: {
     const callState = input.getCallState();
     const capture = await input.events.capture();
     const domainOutcomes = callState ? domainOutcomeReceipts(callState) : [];
+    const appointmentReceipt = [...domainOutcomes]
+      .reverse()
+      .find(appointmentReceiptIsPromotable);
+    const appointmentOutcome = appointmentReceipt?.evidence
+      ? {
+          ...appointmentReceipt.evidence,
+          occurredAt: appointmentReceipt.occurredAt,
+        }
+      : undefined;
     if (capture.reportUnavailable) {
       logger.warn("[closeout] LiveKit session report was unavailable");
     }
@@ -538,6 +492,7 @@ export async function attachCallCloseout(input: {
         callState?.runtime.voiceLanguage ??
         input.call.initialVoiceLanguage,
       domainOutcomes,
+      ...(appointmentOutcome ? { appointmentOutcome } : {}),
       ...(capture.reportUnavailable ? { sessionReportUnavailable: true } : {}),
       ...input.call.livekitContext,
     };
@@ -602,13 +557,7 @@ async function deliverFailedStartup(
     ...callTimingPayload(call, endedAt),
     status: "FAILED",
     endedReason: "call_state_not_initialized",
-    sessionEvents: createEmptySessionEventAnalytics(),
     language: {},
-    toolExecutions: [],
-    knowledgeRetrievals: [],
-    identityTransitions: [],
-    appointmentActions: [],
-    ownedMiddlewareFailures: [],
     ...call.livekitContext,
   };
   await deliverWithRetries(
@@ -623,12 +572,7 @@ async function deliverFailedStartup(
   await deliverWithRetries(
     portal,
     {
-      payload: {
-        ...payload,
-        llmMetrics: [],
-        sttProfiles: [],
-        turnMetrics: [],
-      },
+      payload,
       phase: "shutdown",
       timeoutMs: 10_000,
     },
@@ -656,16 +600,21 @@ function callIdentityPayload(call: CallStartContext) {
   };
 }
 
-type LlmMetricsSource = {
-  on(event: "metrics_collected", listener: (metrics: unknown) => void): unknown;
-};
+function appointmentReceiptIsPromotable(
+  receipt: ReturnType<typeof domainOutcomeReceipts>[number],
+): boolean {
+  return (
+    (receipt.status === "success" || receipt.status === "partial") &&
+    receipt.evidence?.replayed !== true &&
+    ["booked", "cancelled", "rescheduled"].includes(receipt.outcome)
+  );
+}
 
 export function createLiveKitCallCloseoutEventAdapter(
   ctx: JobContext,
   session: AgentSession<CallState>,
   options: {
     callId: string;
-    llm: LlmMetricsSource;
     maxCallDurationMs: number;
     roomName: string;
     shutdownSession: (reason: string) => void;
@@ -693,7 +642,6 @@ export function createLiveKitCallCloseoutEventAdapter(
         language: voiceLanguage.language,
         ...(reportUnavailable ? { reportUnavailable } : {}),
         sessionReport,
-        sessionUsage: session.usage as unknown as Record<string, unknown>,
         sttProfiles: [...options.sttProfiles],
         voiceLanguage: voiceLanguage.voiceLanguage,
       };
@@ -707,15 +655,9 @@ export function createLiveKitCallCloseoutEventAdapter(
         timeoutMs: options.maxCallDurationMs,
       });
 
-      session.on(AgentSessionEventTypes.SessionUsageUpdated, (event) => {
-        observer.usageUpdated(
-          event.usage as unknown as Record<string, unknown>,
-        );
-      });
       session.on(AgentSessionEventTypes.FunctionToolsExecuted, (event) => {
         observer.toolsExecuted(event);
       });
-      session.on(AgentSessionEventTypes.Close, observer.sessionClosed);
     },
     onClose(callback) {
       closeout = callback;
@@ -727,21 +669,61 @@ export function createLiveKitCallCloseoutEventAdapter(
   };
 }
 
-const PRIVATE_SESSION_REPORT_KEYS =
-  /(?:authorization|credential|password|secret|token|audio_recording_(?:path|started_at)|internal_url|backend_id)/i;
+const PRIVATE_SESSION_REPORT_KEYS = new Set([
+  "access_token",
+  "api_key",
+  "audio_recording_path",
+  "audio_recording_started_at",
+  "authorization",
+  "backend_id",
+  "client_secret",
+  "credential",
+  "credentials",
+  "id_token",
+  "internal_url",
+  "password",
+  "private_key",
+  "refresh_token",
+  "secret",
+  "thought_signature",
+  "token",
+]);
 
 function sanitizeSessionReport(
   report: Record<string, unknown>,
 ): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(report)
-      .filter(([key]) => !PRIVATE_SESSION_REPORT_KEYS.test(key))
+      .filter(([key]) => !isPrivateSessionReportKey(key))
       .map(([key, value]) => [key, sanitizeSessionReportValue(value)]),
   );
 }
 
+function isPrivateSessionReportKey(key: string): boolean {
+  const normalized = key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+  return PRIVATE_SESSION_REPORT_KEYS.has(normalized);
+}
+
 function sanitizeSessionReportValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sanitizeSessionReportValue);
+  if (typeof value === "string") return sanitizeSessionReportString(value);
   if (!isRecord(value)) return value;
   return sanitizeSessionReport(value);
+}
+
+function sanitizeSessionReportString(value: string): string {
+  return value
+    .replace(
+      /\bAuthorization\s*:\s*(?:(?:Bearer|Basic)\s+)?[^\s,;]+/gi,
+      "Authorization: [REDACTED]",
+    )
+    .replace(/\bBearer\s+[^\s,;]+/gi, "Bearer [REDACTED]")
+    .replace(
+      /([?&\s](?:access_token|api_key|authorization|client_secret|credential|id_token|password|private_key|refresh_token|secret|token)=)[^&#\s]+/gi,
+      "$1[REDACTED]",
+    )
+    .replace(
+      /https?:\/\/(?:(?:localhost|127(?:\.\d{1,3}){3}|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})(?::\d+)?|[^\s/]+\.(?:internal|local))[^\s]*/gi,
+      "[REDACTED_INTERNAL_URL]",
+    );
 }

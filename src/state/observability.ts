@@ -50,21 +50,51 @@ export function officeKnowledgeRetrievals(
 
 export function recordAppointmentAction(
   state: CallState,
+  callId: string,
   action: AppointmentActionAnalytics,
+  options: { replayed?: boolean } = {},
 ): void {
-  state.runtime.appointmentActions = [
-    ...state.runtime.appointmentActions,
-    {
-      createdAt: new Date().toISOString(),
-      ...action,
-    },
-  ];
+  const stableAction = { ...action };
+  delete stableAction.message;
+  const complete = {
+    ...stableAction,
+    createdAt: new Date().toISOString(),
+    ...(options.replayed ? { replayed: true } : {}),
+  };
+  recordDomainOutcome(state, {
+    callId,
+    toolName:
+      action.toolName ??
+      (action.action === "booked"
+        ? "book_appointment"
+        : action.action === "cancelled"
+          ? "cancel_appointment"
+          : "reschedule_appointment"),
+    outcome: action.action,
+    status:
+      action.status === "error"
+        ? "failed"
+        : action.status === "partial"
+          ? "partial"
+          : "success",
+    evidence: complete as unknown as Record<string, unknown>,
+  });
 }
 
 export function appointmentActions(
   state: CallState,
 ): AppointmentActionAnalytics[] {
-  return [...state.runtime.appointmentActions];
+  return domainOutcomeReceipts(state)
+    .filter(
+      (receipt) =>
+        ["booked", "cancelled", "rescheduled"].includes(receipt.outcome) &&
+        receipt.evidence?.replayed !== true,
+    )
+    .flatMap((receipt) =>
+      receipt.evidence
+        ? [receipt.evidence as unknown as AppointmentActionAnalytics]
+        : [],
+    );
 }
 
 export function recordAvailabilityReadEvent(

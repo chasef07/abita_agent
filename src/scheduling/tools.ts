@@ -8,8 +8,6 @@ import {
 } from "./availability-when.js";
 import { returnSchedulingInputRequired } from "./input-required.js";
 import { SchedulingWorkflow } from "./workflow.js";
-import { recordDomainOutcome } from "../state/observability.js";
-import type { CallState } from "../state/call-state.js";
 
 const APPOINTMENT_LANE_BY_VISIT_TYPE = {
   medical: "medical_md",
@@ -111,33 +109,6 @@ export function createSchedulingTools(
 ) {
   const workflow = new SchedulingWorkflow(middleware, clock);
   const { availabilityOfficeMode } = options;
-  const executeAppointmentTool = async (
-    state: CallState,
-    callId: string,
-    toolName: string,
-    operation: () => Promise<string>,
-  ) => {
-    const actionCount = state.runtime.appointmentActions.length;
-    try {
-      return await operation();
-    } finally {
-      const action = state.runtime.appointmentActions.at(-1);
-      if (action && state.runtime.appointmentActions.length > actionCount) {
-        recordDomainOutcome(state, {
-          callId,
-          toolName,
-          outcome: action.action,
-          status:
-            action.status === "error"
-              ? "failed"
-              : action.status === "partial"
-                ? "partial"
-                : "success",
-          evidence: action as unknown as Record<string, unknown>,
-        });
-      }
-    }
-  };
 
   const availabilityFields = {
     when: z
@@ -224,12 +195,14 @@ export function createSchedulingTools(
     execute: async (args, { ctx, toolCallId }) => {
       ctx.disallowInterruptions();
       const state = getState(ctx);
-      return executeAppointmentTool(state, toolCallId, "book_appointment", () =>
-        returnSchedulingInputRequired(() =>
-          workflow.bookAppointment(state, {
+      return returnSchedulingInputRequired(() =>
+        workflow.bookAppointment(
+          state,
+          {
             ...args,
             readBack: args.readBack ?? undefined,
-          }),
+          },
+          toolCallId,
         ),
       );
     },
@@ -246,14 +219,8 @@ export function createSchedulingTools(
     execute: async (args, { ctx, toolCallId }) => {
       ctx.disallowInterruptions();
       const state = getState(ctx);
-      return executeAppointmentTool(
-        state,
-        toolCallId,
-        "cancel_appointment",
-        () =>
-          returnSchedulingInputRequired(() =>
-            workflow.cancelAppointment(state, args),
-          ),
+      return returnSchedulingInputRequired(() =>
+        workflow.cancelAppointment(state, args, toolCallId),
       );
     },
   });
@@ -272,18 +239,16 @@ export function createSchedulingTools(
     execute: async (args, { ctx, toolCallId }) => {
       ctx.disallowInterruptions();
       const state = getState(ctx);
-      return executeAppointmentTool(
-        state,
-        toolCallId,
-        "reschedule_appointment",
-        () =>
-          returnSchedulingInputRequired(() =>
-            workflow.rescheduleAppointment(state, {
-              ...args,
-              oldAppointmentRef: args.oldAppointmentRef ?? undefined,
-              readBack: args.readBack ?? undefined,
-            }),
-          ),
+      return returnSchedulingInputRequired(() =>
+        workflow.rescheduleAppointment(
+          state,
+          {
+            ...args,
+            oldAppointmentRef: args.oldAppointmentRef ?? undefined,
+            readBack: args.readBack ?? undefined,
+          },
+          toolCallId,
+        ),
       );
     },
   });

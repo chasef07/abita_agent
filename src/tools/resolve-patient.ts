@@ -7,7 +7,7 @@ import {
   type PatientResolveLookup,
 } from "../identity/patient-identity.js";
 import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
-import { recordPatientIdentityOutcome } from "../state/call-state.js";
+import { recordDomainOutcome } from "../state/observability.js";
 import { getState } from "./session.js";
 
 const resolvePatientParameters = z
@@ -60,7 +60,10 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
       "When the correct patient is already active, continue with that state. Use this tool to switch to a different patient using caller-provided identity details. " +
       "Use add_patient for explicit new-patient confirmation and chart creation.",
     parameters: resolvePatientParameters,
-    execute: async (identity: ResolvePatientArgs, { ctx }: ToolOptions) => {
+    execute: async (
+      identity: ResolvePatientArgs,
+      { ctx, toolCallId }: ToolOptions,
+    ) => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
       const suppliedIdentity = {
@@ -68,7 +71,6 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
         lastName: identity.lastName ?? undefined,
         dob: identity.dob ?? undefined,
       };
-      const outcomeCount = state.runtime.patientIdentityOutcomes.length;
       let resolution: PatientIdentityResolution;
       try {
         resolution = await resolveExistingPatient(
@@ -77,15 +79,67 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
           lookup,
         );
       } catch (error) {
-        if (state.runtime.patientIdentityOutcomes.length === outcomeCount) {
-          recordPatientIdentityOutcome(state, "lookup_failed");
-        }
+        recordDomainOutcome(state, {
+          callId: toolCallId,
+          toolName: "resolve_patient",
+          outcome: "patient_lookup_failed",
+          status: "failed",
+        });
         throw error;
       }
+      recordDomainOutcome(state, {
+        callId: toolCallId,
+        toolName: "resolve_patient",
+        ...patientResolutionDomainOutcome(resolution.outcome),
+      });
       if (resolution.outcome === "lookup_failed" && resolution.failure) {
         throwOwnedMiddlewareFailure(resolution.failure, resolution.reply);
       }
       return resolution.reply;
     },
   };
+}
+
+function patientResolutionDomainOutcome(
+  outcome: PatientIdentityResolution["outcome"],
+) {
+  switch (outcome) {
+    case "verified":
+      return {
+        outcome: "patient_verified" as const,
+        status: "success" as const,
+      };
+    case "switched":
+      return {
+        outcome: "patient_switched" as const,
+        status: "success" as const,
+      };
+    case "new":
+      return { outcome: "patient_new" as const, status: "success" as const };
+    case "not_found":
+      return {
+        outcome: "patient_not_found" as const,
+        status: "success" as const,
+      };
+    case "multiple_matches":
+      return {
+        outcome: "patient_lookup_returned_multiple" as const,
+        status: "blocked" as const,
+      };
+    case "needs_identity":
+      return {
+        outcome: "patient_lookup_needs_identity" as const,
+        status: "blocked" as const,
+      };
+    case "lookup_failed":
+      return {
+        outcome: "patient_lookup_failed" as const,
+        status: "failed" as const,
+      };
+    case "superseded":
+      return {
+        outcome: "patient_lookup_ambiguous" as const,
+        status: "ambiguous" as const,
+      };
+  }
 }

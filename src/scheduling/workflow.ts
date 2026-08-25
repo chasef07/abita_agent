@@ -28,6 +28,7 @@ import {
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
 import {
+  appointmentActions,
   recordAppointmentAction,
   recordOwnedMiddlewareFailure,
 } from "../state/observability.js";
@@ -223,12 +224,14 @@ export class SchedulingWorkflow {
       referringDoctor,
       readBack,
     }: BookAppointmentArgs,
+    callId: string,
   ): Promise<string> {
     const incompleteRegistration = incompletePatientRegistrationMessage(state);
     if (incompleteRegistration) return incompleteRegistration;
     const patientId = activePatientId(state);
     if (patientId && hasCompletedBookingForActivePatient(state)) {
       clearAvailabilitySelection(state);
+      replayAppointmentOutcome(state, callId, patientId, "booked");
       return "The appointment is already booked. Tell the caller the confirmed appointment details instead of booking again.";
     }
 
@@ -279,7 +282,7 @@ export class SchedulingWorkflow {
           appointmentDescription: spokenSlot(selectedSlot),
         });
       }
-      recordAppointmentAction(state, {
+      recordAppointmentAction(state, callId, {
         action: "booked",
         ...bookingActionEvidence(patientId, result),
         status: bookingSucceeded(result)
@@ -313,7 +316,7 @@ export class SchedulingWorkflow {
         invalidateReads: "booking_succeeded",
       });
       const message = bookedAppointmentMessage(selectedSlot, result);
-      recordAppointmentAction(state, {
+      recordAppointmentAction(state, callId, {
         action: "booked",
         ...bookingActionEvidence(patientId, result),
         status: appointmentActionStatusForBookingResult(result),
@@ -332,7 +335,7 @@ export class SchedulingWorkflow {
         invalidateReads: "booking_authorization_invalidated",
       });
       const message = bookingFailureMessage(result);
-      recordAppointmentAction(state, {
+      recordAppointmentAction(state, callId, {
         action: "booked",
         ...bookingActionEvidence(patientId, result),
         status: "error",
@@ -357,7 +360,7 @@ export class SchedulingWorkflow {
       invalidateAvailabilityReads(state, "booking_authorization_invalidated");
       const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
       const message = slotUnavailableMessage(remainingSlots);
-      recordAppointmentAction(state, {
+      recordAppointmentAction(state, callId, {
         action: "booked",
         ...bookingActionEvidence(patientId, result),
         status: "error",
@@ -378,7 +381,7 @@ export class SchedulingWorkflow {
     }
 
     const message = bookingFailureMessage(result);
-    recordAppointmentAction(state, {
+    recordAppointmentAction(state, callId, {
       action: "booked",
       ...bookingActionEvidence(patientId, result),
       status: "error",
@@ -398,6 +401,7 @@ export class SchedulingWorkflow {
   async cancelAppointment(
     state: CallState,
     { appointmentRef }: CancelAppointmentArgs,
+    callId: string,
   ): Promise<string> {
     const patientId = activePatientId(state);
     if (!patientId) {
@@ -417,6 +421,13 @@ export class SchedulingWorkflow {
         selector,
       );
       if (cancelledAppointment) {
+        replayAppointmentOutcome(
+          state,
+          callId,
+          patientId,
+          "cancelled",
+          String(cancelledAppointment.id),
+        );
         return completedCancellationReplayMessage(cancelledAppointment);
       }
       throw new SchedulingInputRequired(selection.message);
@@ -426,6 +437,13 @@ export class SchedulingWorkflow {
       appointmentRef,
     });
     if (completedCancellation) {
+      replayAppointmentOutcome(
+        state,
+        callId,
+        patientId,
+        "cancelled",
+        String(completedCancellation.id),
+      );
       return completedCancellationReplayMessage(completedCancellation);
     }
     const patientName = activePatientName(state);
@@ -447,7 +465,7 @@ export class SchedulingWorkflow {
       if (result.status === "cancelled") {
         recordCompletedCancellationForPatient(state, patientId, appointment);
       }
-      recordAppointmentAction(state, {
+      recordAppointmentAction(state, callId, {
         action: "cancelled",
         ...cancellationActionEvidence(patientId, appointment, result),
         status: result.status === "cancelled" ? "success" : "error",
@@ -472,7 +490,7 @@ export class SchedulingWorkflow {
       replaceActiveAppointments(state, [], "error");
       const message =
         "That loaded appointment authorization is no longer valid. Load appointments again, confirm the exact appointment with the caller, then use its new appointmentRef to cancel.";
-      recordAppointmentAction(state, {
+      recordAppointmentAction(state, callId, {
         action: "cancelled",
         ...cancellationActionEvidence(patientId, appointment, result),
         status: "error",
@@ -485,7 +503,7 @@ export class SchedulingWorkflow {
 
     if (result.status !== "cancelled") {
       const message = "The appointment was not cancelled.";
-      recordAppointmentAction(state, {
+      recordAppointmentAction(state, callId, {
         action: "cancelled",
         ...cancellationActionEvidence(patientId, appointment, result),
         status: "error",
@@ -504,7 +522,7 @@ export class SchedulingWorkflow {
       invalidateReads: "cancellation_succeeded",
     });
     const message = `Cancelled the appointment on ${appointment.date} at ${appointment.time}.`;
-    recordAppointmentAction(state, {
+    recordAppointmentAction(state, callId, {
       action: "cancelled",
       ...cancellationActionEvidence(patientId, appointment, result),
       status: "success",
@@ -524,6 +542,7 @@ export class SchedulingWorkflow {
       appointmentSlotRef,
       oldAppointmentRef,
     }: RescheduleAppointmentArgs,
+    callId: string,
   ): Promise<string> {
     const patientId = activePatientId(state);
     if (!patientId) {
@@ -540,6 +559,7 @@ export class SchedulingWorkflow {
         !cachedSlot ||
         completedRescheduleMatchesSlot(completedReschedule, cachedSlot)
       ) {
+        replayAppointmentOutcome(state, callId, patientId, "rescheduled");
         return completedRescheduleReplayMessage(completedReschedule);
       }
     }
@@ -637,7 +657,7 @@ export class SchedulingWorkflow {
           selectedSlot,
           "The active patient changed before the old appointment could be cancelled.",
         );
-        recordCapturedRescheduleAction(state, {
+        recordCapturedRescheduleAction(state, callId, {
           status: "partial",
           message,
           patientName,
@@ -653,7 +673,7 @@ export class SchedulingWorkflow {
         return message;
       }
       const message = `${bookingFailureMessage(bookingResult)} I did not cancel the existing appointment. The active patient changed before the old appointment could be cancelled.`;
-      recordCapturedRescheduleAction(state, {
+      recordCapturedRescheduleAction(state, callId, {
         status: "error",
         message,
         patientName,
@@ -686,6 +706,7 @@ export class SchedulingWorkflow {
         selectedSlot,
         oldAppointment,
         bookingResult,
+        callId,
       );
     }
 
@@ -717,7 +738,7 @@ export class SchedulingWorkflow {
           selectedSlot,
           "The old appointment was not cancelled. The active patient changed before the cancellation result returned. Continue with the current patient's state.",
         );
-        recordCapturedRescheduleAction(state, {
+        recordCapturedRescheduleAction(state, callId, {
           status: "partial",
           message,
           patientName,
@@ -739,7 +760,7 @@ export class SchedulingWorkflow {
         selectedSlot,
         "The old appointment was not cancelled.",
       );
-      recordRescheduleAction(state, {
+      recordRescheduleAction(state, callId, {
         status: "partial",
         message,
         selectedSlot,
@@ -774,7 +795,7 @@ export class SchedulingWorkflow {
             "The old appointment was not cancelled.",
           );
       const message = `${outcomeMessage} The active patient changed before the cancellation result returned. Continue with the current patient's state.`;
-      recordCapturedRescheduleAction(state, {
+      recordCapturedRescheduleAction(state, callId, {
         status: cancelled ? "success" : "partial",
         message,
         patientName,
@@ -798,7 +819,7 @@ export class SchedulingWorkflow {
         selectedSlot,
         "The old appointment was not cancelled.",
       );
-      recordRescheduleAction(state, {
+      recordRescheduleAction(state, callId, {
         status: "partial",
         message,
         selectedSlot,
@@ -822,7 +843,7 @@ export class SchedulingWorkflow {
       bookingResult,
       oldAppointment,
     );
-    recordRescheduleAction(state, {
+    recordRescheduleAction(state, callId, {
       status: "success",
       message,
       selectedSlot,
@@ -1090,6 +1111,7 @@ function handleRescheduleBookingFailure(
   selectedSlot: StoredAvailabilitySlot,
   oldAppointment: CallerAppointment,
   bookingResult: BookingResult,
+  callId: string,
 ): string {
   if (bookingHadPositiveStatusWithoutAppointmentId(bookingResult)) {
     clearAvailabilitySelection(state, {
@@ -1097,7 +1119,7 @@ function handleRescheduleBookingFailure(
     });
     const message =
       "I could not confirm the new booking because the appointment ID was missing, so I did not cancel the existing appointment. Check availability again before booking.";
-    recordRescheduleAction(state, {
+    recordRescheduleAction(state, callId, {
       status: "error",
       message,
       selectedSlot,
@@ -1122,7 +1144,7 @@ function handleRescheduleBookingFailure(
     invalidateAvailabilityReads(state, "booking_authorization_invalidated");
     const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
     const message = `${slotUnavailableMessage(remainingSlots)} I did not cancel the existing appointment.`;
-    recordRescheduleAction(state, {
+    recordRescheduleAction(state, callId, {
       status: "error",
       message,
       selectedSlot,
@@ -1146,7 +1168,7 @@ function handleRescheduleBookingFailure(
     replaceActiveAppointments(state, [], "error");
     const message =
       "The appointment was not booked because the reschedule authorization expired. Load appointments again, reselect the exact appointment, and check availability again. I did not cancel the existing appointment.";
-    recordRescheduleAction(state, {
+    recordRescheduleAction(state, callId, {
       status: "error",
       message,
       selectedSlot,
@@ -1167,7 +1189,7 @@ function handleRescheduleBookingFailure(
   }
 
   const message = `${bookingFailureMessage(bookingResult)} I did not cancel the existing appointment.`;
-  recordRescheduleAction(state, {
+  recordRescheduleAction(state, callId, {
     status: "error",
     message,
     selectedSlot,
@@ -1213,6 +1235,7 @@ function rescheduledAppointmentMessage(
 
 function recordRescheduleAction(
   state: CallState,
+  callId: string,
   input: {
     status: "success" | "partial" | "error";
     message: string;
@@ -1223,7 +1246,7 @@ function recordRescheduleAction(
     cancellationResult: Record<string, unknown>;
   },
 ): void {
-  recordAppointmentAction(state, {
+  recordAppointmentAction(state, callId, {
     action: "rescheduled",
     status: input.status,
     toolName: "reschedule_appointment",
@@ -1248,6 +1271,7 @@ function recordRescheduleAction(
 
 function recordCapturedRescheduleAction(
   state: CallState,
+  callId: string,
   input: {
     status: "success" | "partial" | "error";
     message: string;
@@ -1259,7 +1283,7 @@ function recordCapturedRescheduleAction(
     cancellationResult: Record<string, unknown>;
   },
 ): void {
-  recordAppointmentAction(state, {
+  recordAppointmentAction(state, callId, {
     action: "rescheduled",
     status: input.status,
     toolName: "reschedule_appointment",
@@ -1281,6 +1305,25 @@ function recordCapturedRescheduleAction(
       input.cancellationResult,
     ),
   });
+}
+
+function replayAppointmentOutcome(
+  state: CallState,
+  callId: string,
+  patientId: string,
+  outcome: "booked" | "cancelled" | "rescheduled",
+  appointmentId?: string,
+): void {
+  const action = appointmentActions(state)
+    .reverse()
+    .find(
+      (candidate) =>
+        candidate.action === outcome &&
+        candidate.externalPatientId === patientId &&
+        (!appointmentId || candidate.oldAppointmentId === appointmentId),
+    );
+  if (action)
+    recordAppointmentAction(state, callId, action, { replayed: true });
 }
 
 function rescheduleActionEvidence(

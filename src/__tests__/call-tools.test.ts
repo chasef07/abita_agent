@@ -11,7 +11,10 @@ import {
   type PreCallPatientCandidate,
 } from "../state/call-state.js";
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
-import { ownedMiddlewareFailures } from "../state/observability.js";
+import {
+  domainOutcomeReceipts,
+  ownedMiddlewareFailures,
+} from "../state/observability.js";
 import {
   check_insurance,
   createAddPatientTool,
@@ -335,6 +338,14 @@ describe("stateful call tools", () => {
     });
     expect(middleware.operations.map(({ name }) => name)).toEqual([
       "createPatient",
+    ]);
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "tool-1",
+        outcome: "patient_created",
+        status: "success",
+        toolName: "add_patient",
+      },
     ]);
   });
 
@@ -818,6 +829,14 @@ describe("stateful call tools", () => {
     expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.activePatient).toBeNull();
     expect(state.identity.registration).toBeNull();
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "tool-1",
+        outcome: "patient_creation_blocked",
+        status: "blocked",
+        toolName: "add_patient",
+      },
+    ]);
   });
 
   it("marks a created chart as new-patient state when middleware omits status", async () => {
@@ -1319,6 +1338,14 @@ describe("stateful call tools", () => {
     expect(middleware.requests.resolvePatient[0]?.identity).not.toHaveProperty(
       "phone",
     );
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "tool-1",
+        outcome: "patient_verified",
+        status: "success",
+        toolName: "resolve_patient",
+      },
+    ]);
   });
 
   it("presents a distinct safe reference with every loaded appointment choice", async () => {
@@ -1532,7 +1559,13 @@ describe("stateful call tools", () => {
       "Owned Middleware returned a non-retryable failure.",
     );
     expect(state.identity.activePatient).toBeNull();
-    expect(state.runtime.patientIdentityOutcomes).toEqual(["lookup_failed"]);
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "tool-1",
+        outcome: "patient_lookup_failed",
+        status: "failed",
+      },
+    ]);
   });
 
   it("keeps a private candidate inactive after a full lookup finds no patient", async () => {
@@ -1638,7 +1671,13 @@ describe("stateful call tools", () => {
         } as never,
       ),
     ).rejects.toThrow("unexpected lookup failure");
-    expect(state.runtime.patientIdentityOutcomes).toEqual(["lookup_failed"]);
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "tool-1",
+        outcome: "patient_lookup_failed",
+        status: "failed",
+      },
+    ]);
   });
 
   it("resolves patients through the supplied Owned Middleware", async () => {
@@ -1700,7 +1739,13 @@ describe("stateful call tools", () => {
       } as never),
     ).rejects.toThrow("candidate hydration failed");
     expect(state.identity.activePatient).toBeNull();
-    expect(state.runtime.patientIdentityOutcomes).toEqual(["lookup_failed"]);
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "tool-1",
+        outcome: "patient_lookup_failed",
+        status: "failed",
+      },
+    ]);
   });
 
   it("verifies a backend patient before spelling fallback when a pre-call single match shares last name and DOB", async () => {
@@ -2821,6 +2866,14 @@ describe("stateful call tools", () => {
     expect(state.workflow.routing.allowedProviders).toEqual(["Dr. Bach"]);
     expect(state.workflow.routing.preauthRequired).toBe(true);
     expect(state.availability.slots).toEqual([]);
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "tool-1",
+        outcome: "insurance_updated",
+        status: "success",
+        toolName: "update_insurance",
+      },
+    ]);
   });
 
   it("returns update-insurance prerequisites without a tool error", async () => {

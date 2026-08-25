@@ -23,6 +23,7 @@ import {
   transferIsAccepted,
   transferStatus,
 } from "../state/call-lifecycle.js";
+import { domainOutcomeReceipts } from "../state/observability.js";
 import { transfer_call } from "../tools/transfer-call.js";
 import { createTestCallState } from "./support/call-state.js";
 
@@ -119,6 +120,14 @@ describe("transfer call", () => {
     ).toBeLessThan(transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0);
     expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
     expect(transferIsAccepted(state)).toBe(false);
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "tool-1",
+        outcome: "transfer_failed",
+        status: "failed",
+        toolName: "transfer_call",
+      },
+    ]);
   });
 
   it("announces a transfer in the active Spanish call language", async () => {
@@ -174,6 +183,18 @@ describe("transfer call", () => {
     expect(second).toBe(first);
     expect(transferCallerToOfficeMock).toHaveBeenCalledTimes(1);
     expect(transferStatus(state)).toBe("ambiguous");
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "tool-1",
+        outcome: "transfer_ambiguous",
+        status: "ambiguous",
+      },
+      {
+        callId: "tool-2",
+        outcome: "transfer_ambiguous",
+        status: "ambiguous",
+      },
+    ]);
   });
 
   it("does not retry after an ambiguous REFER result", async () => {

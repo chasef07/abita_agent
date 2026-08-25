@@ -15,6 +15,7 @@ import { createSchedulingTools } from "../scheduling/tools.js";
 import {
   appointmentActions,
   availabilityReadEvents,
+  domainOutcomeReceipts,
   ownedMiddlewareFailures,
 } from "../state/observability.js";
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
@@ -2185,8 +2186,8 @@ describe("scheduling tools", () => {
       },
     ]);
     expect(state.identity.activePatient!.appointments).toEqual([]);
-    expect(appointmentActions(state)[0]?.message).toBe(
-      "Booked Monday, June 1 at 9:00 AM with Dr. Bach.",
+    expect(domainOutcomeReceipts(state)[0]?.evidence).not.toHaveProperty(
+      "message",
     );
     expect(JSON.stringify(appointmentActions(state))).not.toContain(
       appointmentRef,
@@ -2547,6 +2548,20 @@ describe("scheduling tools", () => {
       "The appointment is already booked. Tell the caller the confirmed appointment details instead of booking again.",
     );
     expect(middleware.operations).toHaveLength(1);
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "booking-1",
+        outcome: "booked",
+        status: "success",
+        toolName: "book_appointment",
+      },
+      {
+        callId: "booking-2",
+        outcome: "booked",
+        status: "success",
+        toolName: "book_appointment",
+      },
+    ]);
   });
 
   it("invalidates booking state on patient switch and permits the new patient", async () => {
@@ -2701,6 +2716,20 @@ describe("scheduling tools", () => {
         status: "success",
         toolName: "cancel_appointment",
         cancelledAppointment: { patientName: "Jane Doe" },
+      },
+    ]);
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "cancel-1",
+        outcome: "cancelled",
+        status: "success",
+        toolName: "cancel_appointment",
+      },
+      {
+        callId: "cancel-2",
+        outcome: "cancelled",
+        status: "success",
+        toolName: "cancel_appointment",
       },
     ]);
   });

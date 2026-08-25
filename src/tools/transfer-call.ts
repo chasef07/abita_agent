@@ -26,15 +26,19 @@ export const transfer_call = tool({
     ctx.disallowInterruptions();
 
     if (transferIsAmbiguous(state)) {
+      recordTransferOutcome(state, toolCallId, "ambiguous");
       return "The transfer may already be in progress. Do not try again.";
     }
     if (transferStatus(state) === "pending") {
+      recordTransferOutcome(state, toolCallId, "blocked");
       return "Transfer already in progress.";
     }
     if (transferIsAccepted(state)) {
+      recordTransferOutcome(state, toolCallId, "success");
       return "Transfer already started.";
     }
     if (!state.runtime.sipRoomName || !state.runtime.sipParticipantIdentity) {
+      recordTransferOutcome(state, toolCallId, "failed");
       return "I couldn't transfer because the call is no longer active.";
     }
 
@@ -61,30 +65,42 @@ export const transfer_call = tool({
         `[tools] Transfer failed (state=${transferStatus(state)}).`,
       );
       if (transferIsAmbiguous(state)) {
-        recordDomainOutcome(state, {
-          callId: toolCallId,
-          toolName: "transfer_call",
-          outcome: "transfer_ambiguous",
-          status: "ambiguous",
-        });
+        recordTransferOutcome(state, toolCallId, "ambiguous");
         return "The transfer may already be in progress. Do not try again.";
       }
       if (error instanceof HandoffConflictError) {
         markTransferAmbiguous(state);
-        recordDomainOutcome(state, {
-          callId: toolCallId,
-          toolName: "transfer_call",
-          outcome: "transfer_ambiguous",
-          status: "ambiguous",
-        });
+        recordTransferOutcome(state, toolCallId, "ambiguous");
         return "The transfer may already be in progress. Do not try again.";
       }
       if (error instanceof HandoffError) {
+        recordTransferOutcome(state, toolCallId, "failed");
         throw new ToolError(
           "I couldn't transfer the call. I can try once more.",
         );
       }
+      recordTransferOutcome(state, toolCallId, "failed");
       throw error;
     }
   },
 });
+
+function recordTransferOutcome(
+  state: ReturnType<typeof getState>,
+  callId: string,
+  status: "success" | "blocked" | "ambiguous" | "failed",
+): void {
+  recordDomainOutcome(state, {
+    callId,
+    toolName: "transfer_call",
+    outcome:
+      status === "success"
+        ? "transfer_started"
+        : status === "blocked"
+          ? "transfer_blocked"
+          : status === "ambiguous"
+            ? "transfer_ambiguous"
+            : "transfer_failed",
+    status,
+  });
+}

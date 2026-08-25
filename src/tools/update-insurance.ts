@@ -11,7 +11,10 @@ import {
   patientBackendRefs,
   setActivePatientBackendRefs,
 } from "../state/call-state.js";
-import { recordOwnedMiddlewareFailure } from "../state/observability.js";
+import {
+  recordDomainOutcome,
+  recordOwnedMiddlewareFailure,
+} from "../state/observability.js";
 import {
   clearAvailabilitySelection,
   insuranceOnFile,
@@ -43,17 +46,19 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
           ),
       })
       .strict(),
-    execute: async ({ insuranceMemberId }, { ctx }) => {
+    execute: async ({ insuranceMemberId }, { ctx, toolCallId }) => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
 
       const patientId = activePatientId(state);
       if (!patientId) {
+        recordInsuranceOutcome(state, toolCallId, "blocked");
         return "Verify the patient before updating insurance.";
       }
 
       const checkedInsurance = state.insurance.lastEligibilityCheck;
       if (!checkedInsurance?.accepted) {
+        recordInsuranceOutcome(state, toolCallId, "blocked");
         return "Run check_insurance for accepted coverage before updating insurance.";
       }
       const insurance =
@@ -63,6 +68,7 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
       const canonicalInsurance = checkedInsurance.canonicalPlan?.trim() || null;
       const coverageType = checkedInsurance.coverageType;
       if (!insurance || !coverageType) {
+        recordInsuranceOutcome(state, toolCallId, "blocked");
         return "Run check_insurance for accepted coverage before updating insurance.";
       }
 
@@ -71,6 +77,7 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
         normalizeInsuranceText(canonicalInsurance ?? "") === "self pay";
       const memberId = selfPay ? "self pay" : insuranceMemberId.trim();
       if (!memberId) {
+        recordInsuranceOutcome(state, toolCallId, "blocked");
         return "Collect the member ID before updating insurance.";
       }
 
@@ -99,6 +106,7 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
 
       if (result.status !== "updated") {
         recordOwnedMiddlewareFailure(state, "updateInsurance", result);
+        recordInsuranceOutcome(state, toolCallId, "failed");
         throwOwnedMiddlewareFailure(
           result,
           "I couldn't update the insurance. I can try once more or connect you with the office.",
@@ -128,7 +136,27 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
       });
       clearAvailabilitySelection(state);
 
+      recordInsuranceOutcome(state, toolCallId, "success");
+
       return `Updated insurance to ${newInsurance}.`;
     },
+  });
+}
+
+function recordInsuranceOutcome(
+  state: ReturnType<typeof getState>,
+  callId: string,
+  status: "success" | "blocked" | "failed",
+): void {
+  recordDomainOutcome(state, {
+    callId,
+    toolName: "update_insurance",
+    outcome:
+      status === "success"
+        ? "insurance_updated"
+        : status === "blocked"
+          ? "insurance_update_blocked"
+          : "insurance_update_failed",
+    status,
   });
 }

@@ -2,7 +2,7 @@ import { AgentSessionEventTypes, type AgentSession } from "@livekit/agents";
 import {
   snapshotSttProfileTransition,
   type SttProfileTransitionAnalytics,
-} from "../call-observability.js";
+} from "./stt-profile-observability.js";
 import { voiceEndpointingProfiles } from "../session-options.js";
 import type { CallState } from "../state/call-state.js";
 import {
@@ -26,8 +26,6 @@ export type TurnProfileController = {
     profile: SttProfile,
     reason: string,
     details?: {
-      assistantText?: string;
-      callerText?: string;
       createdAt?: number;
     },
     extraOptions?: AssemblyAIInferenceModelOptions,
@@ -61,8 +59,6 @@ export function createTurnProfileController(
     profile: SttProfile,
     reason: string,
     details: {
-      assistantText?: string;
-      callerText?: string;
       createdAt?: number;
     } = {},
     extraOptions: AssemblyAIInferenceModelOptions = {},
@@ -117,7 +113,7 @@ export function createTurnProfileController(
     applySttProfile(
       profile,
       "assistant_prompt",
-      { assistantText },
+      {},
       agentContext ? { agent_context: agentContext } : {},
     );
     if (profile !== "default") {
@@ -143,7 +139,6 @@ export function attachTurnProfileLifecycle(
   session.on(AgentSessionEventTypes.UserInputTranscribed, (event) => {
     if (!event.isFinal) return;
     controller.applySttProfile("default", "user_final", {
-      callerText: event.transcript,
       createdAt: event.createdAt,
     });
   });

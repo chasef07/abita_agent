@@ -93,10 +93,28 @@ export const create_staff_task = tool({
     const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
     const payload = buildStaffTaskPayload(state, office, input);
     const existing = findStaffTaskReceipt(state, payload.idempotencyKey);
-    if (existing) return TASK_DUPLICATE_REPLY;
+    if (existing) {
+      recordDomainOutcome(state, {
+        callId: toolCallId,
+        toolName: "create_staff_task",
+        outcome: "staff_task_duplicate",
+        status: "success",
+        evidence: {
+          category: existing.category,
+          urgency: existing.urgency,
+        },
+      });
+      return TASK_DUPLICATE_REPLY;
+    }
 
     const destination = getStaffTaskDestination(office.key);
     if (!destination) {
+      recordDomainOutcome(state, {
+        callId: toolCallId,
+        toolName: "create_staff_task",
+        outcome: "staff_task_failed",
+        status: "failed",
+      });
       throw new Error("Staff task delivery is not configured.");
     }
 
@@ -109,6 +127,12 @@ export const create_staff_task = tool({
       );
     } catch (error) {
       console.error("[tools] Staff task POST failed:", error);
+      recordDomainOutcome(state, {
+        callId: toolCallId,
+        toolName: "create_staff_task",
+        outcome: "staff_task_failed",
+        status: "failed",
+      });
       if (error instanceof StaffTaskDeliveryError) {
         throw new ToolError(TASK_FAILED_REPLY);
       }

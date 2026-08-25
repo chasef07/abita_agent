@@ -113,7 +113,7 @@ describe("completed user turn context", () => {
     expect(state.identity.receipts).toEqual([
       { outcome: "confirmed", source: "caller_transcript" },
     ]);
-    expect(state.runtime.patientIdentityOutcomes).toEqual([]);
+    expect(state.runtime.outcomeReceipts).toEqual([]);
     expect(patientModelProjection(state)).toContain("LARRY TEST");
     expect(patientModelProjection(state)).toContain(
       "Insurance on file: FLORIDA BLUE SHIELD.",
