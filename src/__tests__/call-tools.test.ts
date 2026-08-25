@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolError } from "@livekit/agents";
 
 import {
-  setOwnedMiddleware,
   type CreatePatientResult,
   type PatientResolveResult,
   type UpdateInsuranceResult,
@@ -14,10 +13,9 @@ import {
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
 import { ownedMiddlewareFailures } from "../state/observability.js";
 import {
-  add_patient,
   check_insurance,
-  resolve_patient,
-  update_insurance,
+  createAddPatientTool,
+  createUpdateInsuranceTool,
 } from "../tools/index.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
@@ -30,6 +28,9 @@ import {
 type TestCallState = ReturnType<typeof createConfirmedPatientState>;
 type PreCallCandidate = PreCallPatientCandidate;
 let testMiddleware: InMemoryOwnedMiddleware;
+let add_patient: ReturnType<typeof createAddPatientTool>;
+let resolve_patient: ReturnType<typeof createResolvePatientTool>;
+let update_insurance: ReturnType<typeof createUpdateInsuranceTool>;
 
 function createState(): TestCallState {
   const state = createConfirmedPatientState();
@@ -170,7 +171,9 @@ function useMiddleware(
 ): InMemoryOwnedMiddleware {
   const middleware = new InMemoryOwnedMiddleware(responses);
   testMiddleware = middleware;
-  setOwnedMiddleware(middleware);
+  add_patient = createAddPatientTool(middleware);
+  resolve_patient = createResolvePatientTool(middleware);
+  update_insurance = createUpdateInsuranceTool(middleware);
   return middleware;
 }
 
@@ -262,7 +265,6 @@ describe("stateful call tools", () => {
   });
 
   afterEach(() => {
-    setOwnedMiddleware(undefined);
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
@@ -1617,9 +1619,11 @@ describe("stateful call tools", () => {
 
   it("records a lookup outcome when identity resolution throws early", async () => {
     const state = createState();
-    const tool = createResolvePatientTool(async () => {
-      throw new Error("unexpected lookup failure");
-    });
+    const tool = createResolvePatientTool(
+      new InMemoryOwnedMiddleware({
+        resolvePatient: [new Error("unexpected lookup failure")],
+      }),
+    );
 
     await expect(
       tool.execute(
@@ -1637,6 +1641,38 @@ describe("stateful call tools", () => {
     expect(state.runtime.patientIdentityOutcomes).toEqual(["lookup_failed"]);
   });
 
+  it("resolves patients through the supplied Owned Middleware", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    const middleware = new InMemoryOwnedMiddleware({
+      resolvePatient: [verifiedPatientResult()],
+    });
+    const tool = createResolvePatientTool(middleware);
+
+    await expect(
+      tool.execute(
+        {
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
+    ).resolves.toContain("Verified existing patient Jane Doe");
+    expect(middleware.requests.resolvePatient).toEqual([
+      expect.objectContaining({
+        identity: {
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+        },
+      }),
+    ]);
+  });
+
   it("contains a rejected private-candidate hydration within resolve_patient", async () => {
     const state = createState();
     setPatientUnknown(state);
@@ -1651,9 +1687,11 @@ describe("stateful call tools", () => {
         appointments: [],
       },
     ];
-    const tool = createResolvePatientTool(async () => {
-      throw new Error("candidate hydration failed");
-    });
+    const tool = createResolvePatientTool(
+      new InMemoryOwnedMiddleware({
+        resolvePatient: [new Error("candidate hydration failed")],
+      }),
+    );
 
     await expect(
       tool.execute({ firstName: "Jane" }, {

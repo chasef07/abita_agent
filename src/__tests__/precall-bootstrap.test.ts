@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HttpOwnedMiddleware,
-  setOwnedMiddleware,
   type PatientResolveResult,
 } from "../clients/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
@@ -14,11 +13,12 @@ import {
 } from "../runtime/precall-bootstrap.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 
+let middleware: InMemoryOwnedMiddleware;
+
 function usePatientResult(result: PatientResolveResult) {
-  const middleware = new InMemoryOwnedMiddleware({
+  middleware = new InMemoryOwnedMiddleware({
     resolvePatient: [result],
   });
-  setOwnedMiddleware(middleware);
   return middleware;
 }
 
@@ -50,7 +50,6 @@ function verifiedPatient(
 
 describe("pre-call bootstrap", () => {
   afterEach(() => {
-    setOwnedMiddleware(undefined);
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -59,6 +58,7 @@ describe("pre-call bootstrap", () => {
     usePatientResult({ status: "not_found" });
 
     const result = await lookupByPhone(
+      middleware,
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );
@@ -77,6 +77,7 @@ describe("pre-call bootstrap", () => {
     });
 
     const result = await lookupByPhone(
+      middleware,
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );
@@ -96,6 +97,7 @@ describe("pre-call bootstrap", () => {
     });
 
     const result = await lookupByPhone(
+      middleware,
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );
@@ -112,6 +114,7 @@ describe("pre-call bootstrap", () => {
     const middleware = usePatientResult(verifiedPatient());
 
     const bootstrap = await loadPreCallBootstrap({
+      middleware,
       callerPhone: "+17275551212",
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
@@ -131,6 +134,53 @@ describe("pre-call bootstrap", () => {
       durationMs: expect.any(Number),
       candidateCount: 1,
     });
+  });
+
+  it("keeps concurrent call assemblies isolated and forwards cancellation signals", async () => {
+    const first = new InMemoryOwnedMiddleware({
+      resolvePatient: [verifiedPatient({ patientId: "patient-first" })],
+    });
+    const second = new InMemoryOwnedMiddleware({
+      resolvePatient: [verifiedPatient({ patientId: "patient-second" })],
+    });
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+
+    const [firstBootstrap, secondBootstrap] = await Promise.all([
+      loadPreCallBootstrap({
+        middleware: first,
+        callerPhone: "+17275550001",
+        trunkPhone: SPRING_HILL_OFFICE_PHONE,
+        signal: firstController.signal,
+      }),
+      loadPreCallBootstrap({
+        middleware: second,
+        callerPhone: "+17275550002",
+        trunkPhone: SPRING_HILL_OFFICE_PHONE,
+        signal: secondController.signal,
+      }),
+    ]);
+
+    expect(firstBootstrap.phoneLookup).toMatchObject({
+      status: "verified",
+      patientId: "patient-first",
+    });
+    expect(secondBootstrap.phoneLookup).toMatchObject({
+      status: "verified",
+      patientId: "patient-second",
+    });
+    expect(first.requests.resolvePatient).toEqual([
+      expect.objectContaining({
+        identity: { phone: "+17275550001" },
+        signal: firstController.signal,
+      }),
+    ]);
+    expect(second.requests.resolvePatient).toEqual([
+      expect.objectContaining({
+        identity: { phone: "+17275550002" },
+        signal: secondController.signal,
+      }),
+    ]);
   });
 
   it("accepts verified phone lookups when middleware omits echoed phone", async () => {
@@ -154,6 +204,7 @@ describe("pre-call bootstrap", () => {
     );
 
     const result = await lookupByPhone(
+      middleware,
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );
@@ -188,30 +239,29 @@ describe("pre-call bootstrap", () => {
   });
 
   it("preloads middleware appointments without confirmation metadata", async () => {
-    setOwnedMiddleware(
-      new HttpOwnedMiddleware({
-        fetch: vi.fn(async () =>
-          Response.json({
-            status: "verified",
-            patientId: "patient-1",
-            name: "Doe, Jane",
-            dob: "01/01/1980",
-            appointmentsStatus: "found",
-            appointments: [
-              {
-                id: 12345,
-                date: "Friday, August 1, 2026",
-                time: "9:00 AM",
-                provider: "Dr. Bach",
-              },
-            ],
-          }),
-        ),
-        middlewareBaseUrl: "https://middleware.test",
-      }),
-    );
+    const httpMiddleware = new HttpOwnedMiddleware({
+      fetch: vi.fn(async () =>
+        Response.json({
+          status: "verified",
+          patientId: "patient-1",
+          name: "Doe, Jane",
+          dob: "01/01/1980",
+          appointmentsStatus: "found",
+          appointments: [
+            {
+              id: 12345,
+              date: "Friday, August 1, 2026",
+              time: "9:00 AM",
+              provider: "Dr. Bach",
+            },
+          ],
+        }),
+      ),
+      middlewareBaseUrl: "https://middleware.test",
+    });
 
     const result = await lookupByPhone(
+      httpMiddleware,
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );
@@ -335,7 +385,7 @@ describe("pre-call bootstrap", () => {
     });
 
     await expect(
-      lookupByPhone("+17275551212", SPRING_HILL_OFFICE_PHONE),
+      lookupByPhone(middleware, "+17275551212", SPRING_HILL_OFFICE_PHONE),
     ).resolves.toMatchObject({
       status: "lookup_failed",
       reason: "invalid_response",
@@ -376,6 +426,7 @@ describe("pre-call bootstrap", () => {
     });
 
     const result = await lookupByPhone(
+      middleware,
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );
@@ -445,6 +496,7 @@ describe("pre-call bootstrap", () => {
     });
 
     const result = await lookupByPhone(
+      middleware,
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );
@@ -516,6 +568,7 @@ describe("pre-call bootstrap", () => {
     );
 
     const result = await lookupByPhone(
+      middleware,
       "+17275551212",
       SPRING_HILL_OFFICE_PHONE,
     );

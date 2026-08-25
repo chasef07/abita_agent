@@ -24,14 +24,20 @@ import {
   SWEETWATER_TRUNK_PHONES,
 } from "../customers/abita/profile.js";
 import {
-  add_patient,
+  createAddPatientTool,
   check_insurance,
   create_staff_task,
-  resolve_patient,
   transfer_call,
-  update_insurance,
+  createUpdateInsuranceTool,
 } from "../tools/index.js";
+import { createResolvePatientTool } from "../tools/resolve-patient.js";
+import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { resolveOfficeKnowledge } from "../office-knowledge.js";
+
+const middleware = new InMemoryOwnedMiddleware();
+const add_patient = createAddPatientTool(middleware);
+const resolve_patient = createResolvePatientTool(middleware);
+const update_insurance = createUpdateInsuranceTool(middleware);
 
 const GLASSES_READY_ANSWER =
   "Check your texts. A readiness text confirms your glasses are ready for pickup. Please wait for that text before coming in.";
@@ -43,11 +49,11 @@ function toolNames(entries: readonly ToolContextEntry[]): string[] {
 }
 
 function toolNamesForTrunk(trunkPhone: string): string[] {
-  return toolNames(buildToolsForTrunk(trunkPhone));
+  return toolNames(buildToolsForTrunk(middleware, trunkPhone));
 }
 
 function toolForTrunk(trunkPhone: string, name: string) {
-  return buildToolsForTrunk(trunkPhone)
+  return buildToolsForTrunk(middleware, trunkPhone)
     .flatMap((entry) => (isToolset(entry) ? entry.tools : [entry]))
     .find((entry) => entry.id === name);
 }

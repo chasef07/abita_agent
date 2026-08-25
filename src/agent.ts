@@ -12,7 +12,7 @@ import {
 import type { AudioFrame } from "@livekit/rtc-node";
 import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
-import { resolvePatientWithOwnedMiddleware } from "./clients/owned-middleware.js";
+import type { OwnedMiddleware } from "./clients/owned-middleware.js";
 import type { CallState } from "./state/call-state.js";
 import { recordLatestUserTranscript } from "./state/call-lifecycle.js";
 import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
@@ -37,7 +37,7 @@ import {
 import { guardAssistantSpeech } from "./runtime/speech-output-guard.js";
 
 type VoiceAgentOptions = {
-  identityLookup?: PatientResolveLookup;
+  ownedMiddleware: OwnedMiddleware;
   officeKnowledgeResolver?: typeof resolveOfficeKnowledge;
   onAssistantText?: (text: string, complete: boolean) => void;
   suppressGreeting?: boolean;
@@ -47,15 +47,16 @@ type VoiceAgentOptions = {
 
 export function createVoiceAgent(
   trunkPhone: string,
-  options: VoiceAgentOptions = {},
+  options: VoiceAgentOptions,
 ) {
   const office = getOfficeProfileByPhone(trunkPhone);
   const greeting = options.suppressGreeting ? "" : office.greeting;
-  const identityLookup: PatientResolveLookup =
-    options.identityLookup ?? resolvePatientWithOwnedMiddleware;
-  const registeredTools = buildToolsForTrunk(trunkPhone, {
-    identityLookup,
-  });
+  const identityLookup: PatientResolveLookup = (office, identity) =>
+    options.ownedMiddleware.resolvePatient({ office, identity });
+  const registeredTools = buildToolsForTrunk(
+    options.ownedMiddleware,
+    trunkPhone,
+  );
 
   const agent = LiveKitAgent.create<CallState>({
     instructions: buildPrompt(trunkPhone),

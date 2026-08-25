@@ -11,6 +11,7 @@ import {
   SWEETWATER_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
+import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 
 const OFFICE_TRUNKS = [
   SPRING_HILL_OFFICE_PHONE,
@@ -23,11 +24,16 @@ const OFFICE_TRUNKS = [
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
 ] as const;
 
+const ownedMiddleware = new InMemoryOwnedMiddleware();
+
 describe("strict tool schemas", () => {
   it.each(OFFICE_TRUNKS)(
     "emits required strict-compatible schemas for the tools registered on %s",
     (trunkPhone) => {
-      const invalidSchemas = buildToolsForTrunk(trunkPhone).flatMap((entry) =>
+      const invalidSchemas = buildToolsForTrunk(
+        ownedMiddleware,
+        trunkPhone,
+      ).flatMap((entry) =>
         (isToolset(entry) ? entry.tools : [entry]).flatMap((registeredTool) => {
           try {
             const schema = llm.toJsonSchema(

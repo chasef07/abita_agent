@@ -7,11 +7,15 @@ import {
 } from "@livekit/agents";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
-import { setOwnedMiddleware } from "../clients/owned-middleware.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   SPRING_HILL_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
+import {
+  buildPreCallCandidates,
+  loadPreCallBootstrap,
+  preCallLookupTelemetry,
+} from "../runtime/precall-bootstrap.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { setLastInsuranceEligibilityCheck } from "../scheduling/state.js";
 import type { CallState } from "../state/call-state.js";
@@ -54,10 +58,83 @@ describe("stable tool catalog", () => {
   });
 
   const sessions: AgentSession<CallState>[] = [];
+  const defaultMiddleware = new InMemoryOwnedMiddleware();
 
   afterEach(async () => {
     await Promise.all(sessions.splice(0).map((session) => session.close()));
-    setOwnedMiddleware(undefined);
+  });
+
+  it("keeps pre-call, identity, and availability work on one call-scoped middleware", async () => {
+    const middleware = new InMemoryOwnedMiddleware({
+      resolvePatient: [{ status: "not_found" }, verifiedPatient()],
+      getAvailability: [availabilityFound()],
+    });
+    const preCall = await loadPreCallBootstrap({
+      middleware,
+      callerPhone: "+17275551212",
+      trunkPhone: SPRING_HILL_OFFICE_PHONE,
+    });
+    const state = createTestCallState({
+      preCallCandidates: buildPreCallCandidates(preCall.phoneLookup),
+      preCallLookup: preCallLookupTelemetry(preCall.phoneLookup),
+    });
+    state.workflow.current = {
+      intent: "schedule",
+      appointmentLane: "medical_md",
+    };
+    const llm = new ToolCapturingFakeLLM([
+      {
+        input: "This is Jane Doe, January 1, 1980.",
+        toolCalls: [
+          {
+            name: "resolve_patient",
+            args: {
+              firstName: "Jane",
+              lastName: "Doe",
+              dob: "01/01/1980",
+            },
+          },
+        ],
+      },
+      {
+        input: "Find the next medical appointment.",
+        toolCalls: [
+          {
+            name: "get_availability",
+            args: {
+              when: "next available",
+              visitType: "medical",
+              oldAppointmentRef: null,
+            },
+          },
+        ],
+      },
+    ]);
+    const session = new AgentSession<CallState>({ llm });
+    sessions.push(session);
+    session.userData = state;
+
+    await session.start({
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware: middleware,
+        suppressGreeting: true,
+      }).agent,
+    });
+    await session
+      .run({ userInput: "This is Jane Doe, January 1, 1980." })
+      .wait();
+    await session
+      .run({ userInput: "Find the next medical appointment." })
+      .wait();
+
+    expect(middleware.operations.map(({ name }) => name)).toEqual([
+      "resolvePatient",
+      "resolvePatient",
+      "getAvailability",
+    ]);
+    expect(middleware.requests.getAvailability).toEqual([
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    ]);
   });
 
   it("keeps every supported tool visible across Call State changes", async () => {
@@ -98,6 +175,7 @@ describe("stable tool catalog", () => {
       sessions.push(session);
       session.userData = state;
       const { agent } = createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware: defaultMiddleware,
         suppressGreeting: true,
       });
       const updateTools = vi.spyOn(agent, "updateTools");
@@ -147,27 +225,20 @@ describe("stable tool catalog", () => {
     const session = new AgentSession<CallState>({ llm });
     sessions.push(session);
     session.userData = createTestCallState();
+    const middleware = new InMemoryOwnedMiddleware({
+      resolvePatient: [
+        verifiedPatient({
+          dob: "01/02/1980",
+          insuranceCarrier: null,
+          routing: null,
+          allowedProviders: [],
+        }),
+      ],
+    });
 
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
-        identityLookup: async () => ({
-          status: "verified",
-          patientId: "patient-1",
-          name: "Jane Doe",
-          dob: "01/02/1980",
-          phone: "+17275551212",
-          insuranceCarrier: null,
-          insPlanId: null,
-          respPartyId: null,
-          routing: null,
-          allowedProviders: [],
-          routingAmbiguous: false,
-          preauthRequired: false,
-          appointmentsStatus: "none",
-          appointmentsMessage: null,
-          appointments: [],
-          message: null,
-        }),
+        ownedMiddleware: middleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -194,7 +265,6 @@ describe("stable tool catalog", () => {
       ],
       createPatient: [createdPatient()],
     });
-    setOwnedMiddleware(middleware);
     const state = createTestCallState({
       activePatient: confirmedActivePatient({
         patientId: "patient-existing",
@@ -273,6 +343,7 @@ describe("stable tool catalog", () => {
 
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware: middleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -351,7 +422,6 @@ describe("stable tool catalog", () => {
 
   it("returns the book_appointment availability guard before middleware mutation", async () => {
     const middleware = new InMemoryOwnedMiddleware();
-    setOwnedMiddleware(middleware);
     const llm = new ToolCapturingFakeLLM([
       {
         input: "Book the appointment now.",
@@ -369,6 +439,7 @@ describe("stable tool catalog", () => {
 
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware: middleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -394,7 +465,6 @@ describe("stable tool catalog", () => {
       getAvailability: [availabilityFound()],
       bookAppointment: [bookedAppointment()],
     });
-    setOwnedMiddleware(middleware);
     const state = createTestCallState();
     setLastInsuranceEligibilityCheck(state, acceptedInsurance());
     const llm = new ToolCapturingFakeLLM([
@@ -449,6 +519,7 @@ describe("stable tool catalog", () => {
 
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware: middleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -500,7 +571,6 @@ describe("stable tool catalog", () => {
       getAvailability: [availabilityFound()],
       bookAppointment: [bookedAppointment()],
     });
-    setOwnedMiddleware(middleware);
     const state = createConfirmedPatientState();
     const llm = new ToolCapturingFakeLLM([
       {
@@ -545,6 +615,7 @@ describe("stable tool catalog", () => {
 
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware: middleware,
         suppressGreeting: true,
       }).agent,
     });
@@ -581,7 +652,7 @@ describe("stable tool catalog", () => {
 });
 
 function toolNamesForTrunk(trunkPhone: string): string[] {
-  return buildToolsForTrunk(trunkPhone)
+  return buildToolsForTrunk(new InMemoryOwnedMiddleware(), trunkPhone)
     .map(({ id }) => id)
     .sort();
 }
@@ -670,6 +741,33 @@ function createdPatient() {
     allowedProviders: ["Dr. Bach"],
     routingAmbiguous: false,
     preauthRequired: false,
+  };
+}
+
+function verifiedPatient(
+  overrides: Partial<ReturnType<typeof verifiedPatientBase>> = {},
+) {
+  return { ...verifiedPatientBase(), ...overrides };
+}
+
+function verifiedPatientBase() {
+  return {
+    status: "verified" as const,
+    patientId: "patient-1",
+    name: "Jane Doe",
+    dob: "01/01/1980",
+    phone: "+17275551212",
+    insuranceCarrier: "self pay",
+    insPlanId: null,
+    respPartyId: null,
+    routing: "all_three",
+    allowedProviders: ["Dr. Bach"],
+    routingAmbiguous: false,
+    preauthRequired: false,
+    appointmentsStatus: "none" as const,
+    appointmentsMessage: null,
+    appointments: [],
+    message: null,
   };
 }
 

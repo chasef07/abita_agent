@@ -9,7 +9,9 @@ import type {
 } from "../../clients/owned-middleware.js";
 
 export type InMemoryOwnedMiddlewareResponses = {
-  resolvePatient?: Array<PatientResolveResult | Promise<PatientResolveResult>>;
+  resolvePatient?: Array<
+    PatientResolveResult | Error | Promise<PatientResolveResult>
+  >;
   getAvailability?: Array<AvailabilityResult | Promise<AvailabilityResult>>;
   createPatient?: Array<CreatePatientResult | Promise<CreatePatientResult>>;
   bookAppointment?: Array<
@@ -58,6 +60,7 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
     this.requests.resolvePatient.push(request);
     this.operations.push({ name: "resolvePatient", request });
     const result = await this.#responses.resolvePatient?.shift();
+    if (result instanceof Error) throw result;
     if (!result) {
       return {
         status: "error",

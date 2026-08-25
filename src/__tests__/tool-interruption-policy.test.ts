@@ -35,10 +35,13 @@ describe("tool interruption policy", () => {
         );
       })
       .concat([
+        "add_patient",
         "get_availability",
         "book_appointment",
         "cancel_appointment",
+        "resolve_patient",
         "reschedule_appointment",
+        "update_insurance",
       ]);
 
     expect(toolNames.sort()).toEqual([...coveredTools].sort());
