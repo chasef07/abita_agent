@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.13.1](https://github.com/chasef07/abita_agent/compare/4.13.0...4.13.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* **tools:** enforce strict concise model contracts ([5d503ea](https://github.com/chasef07/abita_agent/commit/5d503ea30ddbeb7286013eda24cd4a19dfde03ae))
+
 ## [4.13.0](https://github.com/chasef07/abita_agent/compare/4.12.0...4.13.0) (2026-08-24)
 
 
