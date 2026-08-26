@@ -4,7 +4,7 @@ import {
   type AgentSession,
   type JobContext,
 } from "@livekit/agents";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HttpCallPortal,
   InMemoryCallPortal,
@@ -32,6 +32,13 @@ import {
   recordOfficeKnowledgeRetrieval,
 } from "../state/observability.js";
 import { createTestCallState } from "./support/call-state.js";
+import { createToolContext } from "./support/tool-context.js";
+import { create_staff_task } from "../tools/create-staff-task.js";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
 
 class TestLiveKitEvents implements CallCloseoutEventAdapter {
   private closeout: (() => Promise<CallCloseoutResult>) | undefined;
@@ -460,6 +467,96 @@ describe("call closeout", () => {
         newAppointmentId: "appointment-63",
         bookingResult: { status: "booked", appointmentId: 63 },
       },
+    });
+  });
+
+  it("delivers a real Staff Task result with its durable Product owner", async () => {
+    vi.stubEnv(
+      "ACUITY_PRODUCT_HANDOFF_URL",
+      "https://product.example/v1/handoffs",
+    );
+    vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET", "product-secret");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ status: "created", taskId: "task-follow-up-63" }),
+      ),
+    );
+    const state = createTestCallState();
+    const events = new TestLiveKitEvents();
+    events.capture = async () => ({
+      language: { currentLanguage: "en", languageChanged: false },
+      sessionReport: {
+        chat_history: {
+          items: [
+            {
+              type: "function_call",
+              name: "create_staff_task",
+              call_id: "staff-task-call-63",
+              arguments: "{}",
+              created_at: 1_787_648_401_000,
+            },
+            {
+              type: "function_call_output",
+              name: "create_staff_task",
+              call_id: "staff-task-call-63",
+              output: "Task sent to staff.",
+              is_error: false,
+              created_at: 1_787_648_402_000,
+            },
+          ],
+        },
+      },
+      sttProfiles: [],
+    });
+    const { portal } = await setupCloseout({ events, state });
+
+    await create_staff_task.execute(
+      {
+        category: "other",
+        urgency: "normal",
+        summary: "Caller needs office follow-up.",
+        message: "Caller asked the office to return their call.",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "staff-task-call-63",
+      } as never,
+    );
+    events.emit("toolsExecuted", {
+      functionCalls: [
+        { callId: "staff-task-call-63", name: "create_staff_task" },
+      ],
+      functionCallOutputs: [
+        { callId: "staff-task-call-63", output: "Task sent to staff." },
+      ],
+    });
+    await events.close();
+
+    expect(portal.deliveries.at(-1)?.payload).toMatchObject({
+      sessionReport: {
+        chat_history: {
+          items: [
+            expect.objectContaining({
+              call_id: "staff-task-call-63",
+              type: "function_call",
+            }),
+            expect.objectContaining({
+              call_id: "staff-task-call-63",
+              is_error: false,
+              type: "function_call_output",
+            }),
+          ],
+        },
+      },
+      domainOutcomes: [
+        {
+          callId: "staff-task-call-63",
+          outcome: "staff_task_created",
+          status: "success",
+          evidence: { taskId: "task-follow-up-63" },
+        },
+      ],
     });
   });
 

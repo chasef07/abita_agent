@@ -431,12 +431,14 @@ describe("create_staff_task", () => {
     expect(domainOutcomeReceipts(state)).toMatchObject([
       {
         callId: "tool-1",
+        evidence: { taskId: "task-1" },
         outcome: "staff_task_created",
         status: "success",
         toolName: "create_staff_task",
       },
       {
         callId: "tool-2",
+        evidence: { taskId: "task-1" },
         outcome: "staff_task_duplicate",
         status: "success",
         toolName: "create_staff_task",

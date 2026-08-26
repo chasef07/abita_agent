@@ -54,21 +54,14 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
         toolCallId,
         "update_insurance",
       );
-      const blocked = (reply: string) =>
-        outcomes.reply(
-          { outcome: "insurance_update_blocked", status: "blocked" },
-          reply,
-        );
       const patientId = activePatientId(state);
       if (!patientId) {
-        return blocked("Verify the patient before updating insurance.");
+        return "Verify the patient before updating insurance.";
       }
 
       const checkedInsurance = state.insurance.lastEligibilityCheck;
       if (!checkedInsurance?.accepted) {
-        return blocked(
-          "Run check_insurance for accepted coverage before updating insurance.",
-        );
+        return "Run check_insurance for accepted coverage before updating insurance.";
       }
       const insurance =
         checkedInsurance.canonicalPlan?.trim() ||
@@ -77,9 +70,7 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
       const canonicalInsurance = checkedInsurance.canonicalPlan?.trim() || null;
       const coverageType = checkedInsurance.coverageType;
       if (!insurance || !coverageType) {
-        return blocked(
-          "Run check_insurance for accepted coverage before updating insurance.",
-        );
+        return "Run check_insurance for accepted coverage before updating insurance.";
       }
 
       const selfPay =
@@ -87,7 +78,7 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
         normalizeInsuranceText(canonicalInsurance ?? "") === "self pay";
       const memberId = selfPay ? "self pay" : insuranceMemberId.trim();
       if (!memberId) {
-        return blocked("Collect the member ID before updating insurance.");
+        return "Collect the member ID before updating insurance.";
       }
 
       const backendRefs = patientBackendRefs(state);

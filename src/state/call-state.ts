@@ -249,11 +249,9 @@ export type DomainOutcomeStatus =
 
 export type DomainOutcome =
   | AppointmentActionName
-  | "insurance_update_blocked"
   | "insurance_update_failed"
   | "insurance_updated"
   | "patient_creation_ambiguous"
-  | "patient_creation_blocked"
   | "patient_creation_failed"
   | "patient_creation_partial"
   | "patient_created"

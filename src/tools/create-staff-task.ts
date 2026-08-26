@@ -104,6 +104,7 @@ export const create_staff_task = tool({
           status: "success",
           evidence: {
             category: existing.category,
+            taskId: existing.taskId,
             urgency: existing.urgency,
           },
         },
@@ -151,6 +152,7 @@ export const create_staff_task = tool({
         status: "success",
         evidence: {
           category: response.category ?? input.category,
+          taskId: response.taskId,
           urgency: response.urgency ?? input.urgency,
         },
       },

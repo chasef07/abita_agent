@@ -111,11 +111,6 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       const state = getState(ctx);
       ctx.disallowInterruptions();
       const outcomes = domainOutcomesForTool(state, toolCallId, "add_patient");
-      const blocked = (reply: string) =>
-        outcomes.reply(
-          { outcome: "patient_creation_blocked", status: "blocked" },
-          reply,
-        );
       const patientIdentity = {
         firstName: params.firstName.trim(),
         lastName: params.lastName.trim(),
@@ -126,9 +121,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         !patientIdentity.lastName ||
         !patientIdentity.dob
       ) {
-        return blocked(
-          "Before creating a new chart, collect the patient's first name, last name, and date of birth, then call add_patient again.",
-        );
+        return "Before creating a new chart, collect the patient's first name, last name, and date of birth, then call add_patient again.";
       }
 
       const registrationStatus = patientRegistrationStatus(
@@ -148,27 +141,19 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       }
 
       if (registrationStatus === "active_patient") {
-        return blocked(
-          "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.",
-        );
+        return "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.";
       }
 
       if (registrationStatus === "different_patient") {
-        return blocked(
-          "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.",
-        );
+        return "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.";
       }
 
       if (registrationStatus === "pre_call_candidate") {
-        return blocked(
-          "Do not create a new chart yet. Ask the privacy-safe first-name question, then use the runtime-confirmed patient state or continue an existing-patient lookup.",
-        );
+        return "Do not create a new chart yet. Ask the privacy-safe first-name question, then use the runtime-confirmed patient state or continue an existing-patient lookup.";
       }
 
       if (!params.newPatientConfirmed) {
-        return blocked(
-          "Before creating a new chart, ask the caller to confirm that the patient has never registered with or been added to the practice. Call add_patient again with newPatientConfirmed set to true only after the caller confirms.",
-        );
+        return "Before creating a new chart, ask the caller to confirm that the patient has never registered with or been added to the practice. Call add_patient again with newPatientConfirmed set to true only after the caller confirms.";
       }
 
       const checkedInsurance = lastInsuranceEligibilityCheck(state);
@@ -178,9 +163,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         checkedInsurance?.plan?.trim();
       const coverageType = checkedInsurance?.coverageType;
       if (!checkedInsurance?.accepted || !insurance || !coverageType) {
-        return blocked(
-          "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
-        );
+        return "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.";
       }
 
       const confirmedUnregisteredPatient =
@@ -190,9 +173,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         registrationStatus === "confirmed_new_patient" &&
         !confirmedUnregisteredPatient
       ) {
-        return blocked(
-          "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.",
-        );
+        return "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.";
       }
       beginNewPatientRegistration(state, patientIdentity, {
         preserveEligibilityCheck: confirmedUnregisteredPatient,
@@ -202,12 +183,11 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         coverageType === "routine_vision" ? "routine_od" : "medical_md";
       applySchedulingLaneToState(state, appointmentLane);
       const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
-      if (unsupportedMedicalScheduling)
-        return blocked(unsupportedMedicalScheduling);
+      if (unsupportedMedicalScheduling) return unsupportedMedicalScheduling;
       const unsupportedRoutineVisionScheduling =
         routineVisionSchedulingUnavailable(state);
       if (unsupportedRoutineVisionScheduling)
-        return blocked(unsupportedRoutineVisionScheduling);
+        return unsupportedRoutineVisionScheduling;
 
       const selfPay = normalizeInsuranceText(insurance) === "self pay";
       const memberId = selfPay ? "self pay" : params.insuranceMemberId;
@@ -217,25 +197,23 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
 
       if (!explicitPhone && !params.inboundPhoneConfirmed) {
-        return blocked(
+        return (
           "Ask the caller: Is the number you are calling from a good callback number to put on file? " +
-            "If yes, call add_patient again with inboundPhoneConfirmed set to true. " +
-            "If not, collect the callback phone number and pass it as phone.",
+          "If yes, call add_patient again with inboundPhoneConfirmed set to true. " +
+          "If not, collect the callback phone number and pass it as phone."
         );
       }
 
       if (!params.readBack) {
-        return blocked(
+        return (
           "Read back the new patient details first: patient name, date of birth, sex, address, " +
-            "callback phone, email if provided, insurance plan, policyholder name, and member ID. " +
-            "Call add_patient again only after the caller confirms the details are correct.",
+          "callback phone, email if provided, insurance plan, policyholder name, and member ID. " +
+          "Call add_patient again only after the caller confirms the details are correct."
         );
       }
 
       if (!phone) {
-        return blocked(
-          "A callback phone number is required before creating a chart. Ask whether the inbound number is best, or collect a callback number.",
-        );
+        return "A callback phone number is required before creating a chart. Ask whether the inbound number is best, or collect a callback number.";
       }
 
       const payload: CreatePatientInput = {

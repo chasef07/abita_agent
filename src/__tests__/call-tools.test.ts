@@ -829,14 +829,7 @@ describe("stateful call tools", () => {
     expect(testMiddleware.operations).toHaveLength(0);
     expect(state.identity.activePatient).toBeNull();
     expect(state.identity.registration).toBeNull();
-    expect(domainOutcomeReceipts(state)).toMatchObject([
-      {
-        callId: "tool-1",
-        outcome: "patient_creation_blocked",
-        status: "blocked",
-        toolName: "add_patient",
-      },
-    ]);
+    expect(domainOutcomeReceipts(state)).toEqual([]);
   });
 
   it("marks a created chart as new-patient state when middleware omits status", async () => {
