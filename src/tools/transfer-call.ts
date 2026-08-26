@@ -13,7 +13,9 @@ import {
   transferCallerToOffice,
 } from "./handoff.js";
 import { getState } from "./session.js";
-import { recordDomainOutcome } from "../state/observability.js";
+import { domainOutcomesForTool } from "../state/observability.js";
+
+type TransferOutcomeStatus = "success" | "blocked" | "ambiguous" | "failed";
 
 export const transfer_call = tool({
   name: "transfer_call",
@@ -24,22 +26,37 @@ export const transfer_call = tool({
   execute: async (_, { ctx, toolCallId }) => {
     const state = getState(ctx);
     ctx.disallowInterruptions();
-
+    const outcomes = domainOutcomesForTool(state, toolCallId, "transfer_call");
+    const record = (
+      status: TransferOutcomeStatus,
+      evidence?: Record<string, unknown>,
+    ) =>
+      outcomes.record({
+        outcome: transferDomainOutcome(status),
+        status,
+        ...(evidence ? { evidence } : {}),
+      });
+    const reply = (status: TransferOutcomeStatus, message: string) => {
+      record(status);
+      return message;
+    };
     if (transferIsAmbiguous(state)) {
-      recordTransferOutcome(state, toolCallId, "ambiguous");
-      return "The transfer may already be in progress. Do not try again.";
+      return reply(
+        "ambiguous",
+        "The transfer may already be in progress. Do not try again.",
+      );
     }
     if (transferStatus(state) === "pending") {
-      recordTransferOutcome(state, toolCallId, "blocked");
-      return "Transfer already in progress.";
+      return reply("blocked", "Transfer already in progress.");
     }
     if (transferIsAccepted(state)) {
-      recordTransferOutcome(state, toolCallId, "success");
-      return "Transfer already started.";
+      return reply("success", "Transfer already started.");
     }
     if (!state.runtime.sipRoomName || !state.runtime.sipParticipantIdentity) {
-      recordTransferOutcome(state, toolCallId, "failed");
-      return "I couldn't transfer because the call is no longer active.";
+      return reply(
+        "failed",
+        "I couldn't transfer because the call is no longer active.",
+      );
     }
 
     try {
@@ -52,55 +69,43 @@ export const transfer_call = tool({
       );
       await announcement.waitForPlayout();
       const { handoffOfficeKey } = await transferCallerToOffice(state);
-      recordDomainOutcome(state, {
-        callId: toolCallId,
-        toolName: "transfer_call",
-        outcome: "transfer_started",
-        status: "success",
-        evidence: { officeKey: handoffOfficeKey },
-      });
+      record("success", { officeKey: handoffOfficeKey });
       return `Transfer started to the ${handoffOfficeKey} office.`;
     } catch (error) {
       console.error(
         `[tools] Transfer failed (state=${transferStatus(state)}).`,
       );
       if (transferIsAmbiguous(state)) {
-        recordTransferOutcome(state, toolCallId, "ambiguous");
-        return "The transfer may already be in progress. Do not try again.";
+        return reply(
+          "ambiguous",
+          "The transfer may already be in progress. Do not try again.",
+        );
       }
       if (error instanceof HandoffConflictError) {
         markTransferAmbiguous(state);
-        recordTransferOutcome(state, toolCallId, "ambiguous");
-        return "The transfer may already be in progress. Do not try again.";
+        return reply(
+          "ambiguous",
+          "The transfer may already be in progress. Do not try again.",
+        );
       }
       if (error instanceof HandoffError) {
-        recordTransferOutcome(state, toolCallId, "failed");
+        record("failed");
         throw new ToolError(
           "I couldn't transfer the call. I can try once more.",
         );
       }
-      recordTransferOutcome(state, toolCallId, "failed");
+      record("failed");
       throw error;
     }
   },
 });
 
-function recordTransferOutcome(
-  state: ReturnType<typeof getState>,
-  callId: string,
-  status: "success" | "blocked" | "ambiguous" | "failed",
-): void {
-  recordDomainOutcome(state, {
-    callId,
-    toolName: "transfer_call",
-    outcome:
-      status === "success"
-        ? "transfer_started"
-        : status === "blocked"
-          ? "transfer_blocked"
-          : status === "ambiguous"
-            ? "transfer_ambiguous"
-            : "transfer_failed",
-    status,
-  });
+function transferDomainOutcome(status: TransferOutcomeStatus) {
+  return status === "success"
+    ? ("transfer_started" as const)
+    : status === "blocked"
+      ? ("transfer_blocked" as const)
+      : status === "ambiguous"
+        ? ("transfer_ambiguous" as const)
+        : ("transfer_failed" as const);
 }

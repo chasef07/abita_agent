@@ -11,9 +11,9 @@ import {
   type StaffTaskUrgency,
 } from "../state/call-state.js";
 import {
+  domainOutcomesForTool,
   findStaffTaskReceipt,
   recordStaffTaskReceipt,
-  recordDomainOutcome,
 } from "../state/observability.js";
 import {
   getOfficeProfileByPhone,
@@ -89,32 +89,31 @@ export const create_staff_task = tool({
   execute: async (input, { ctx, toolCallId }) => {
     const state = getState(ctx);
     ctx.disallowInterruptions();
-
+    const outcomes = domainOutcomesForTool(
+      state,
+      toolCallId,
+      "create_staff_task",
+    );
     const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
     const payload = buildStaffTaskPayload(state, office, input);
     const existing = findStaffTaskReceipt(state, payload.idempotencyKey);
     if (existing) {
-      recordDomainOutcome(state, {
-        callId: toolCallId,
-        toolName: "create_staff_task",
-        outcome: "staff_task_duplicate",
-        status: "success",
-        evidence: {
-          category: existing.category,
-          urgency: existing.urgency,
+      return outcomes.reply(
+        {
+          outcome: "staff_task_duplicate",
+          status: "success",
+          evidence: {
+            category: existing.category,
+            urgency: existing.urgency,
+          },
         },
-      });
-      return TASK_DUPLICATE_REPLY;
+        TASK_DUPLICATE_REPLY,
+      );
     }
 
     const destination = getStaffTaskDestination(office.key);
     if (!destination) {
-      recordDomainOutcome(state, {
-        callId: toolCallId,
-        toolName: "create_staff_task",
-        outcome: "staff_task_failed",
-        status: "failed",
-      });
+      outcomes.record({ outcome: "staff_task_failed", status: "failed" });
       throw new Error("Staff task delivery is not configured.");
     }
 
@@ -127,12 +126,7 @@ export const create_staff_task = tool({
       );
     } catch (error) {
       console.error("[tools] Staff task POST failed:", error);
-      recordDomainOutcome(state, {
-        callId: toolCallId,
-        toolName: "create_staff_task",
-        outcome: "staff_task_failed",
-        status: "failed",
-      });
+      outcomes.record({ outcome: "staff_task_failed", status: "failed" });
       if (error instanceof StaffTaskDeliveryError) {
         throw new ToolError(TASK_FAILED_REPLY);
       }
@@ -148,22 +142,22 @@ export const create_staff_task = tool({
       taskId: response.taskId,
       urgency: response.urgency ?? input.urgency,
     });
-    recordDomainOutcome(state, {
-      callId: toolCallId,
-      toolName: "create_staff_task",
-      outcome:
-        response.status === "duplicate"
-          ? "staff_task_duplicate"
-          : "staff_task_created",
-      status: "success",
-      evidence: {
-        category: response.category ?? input.category,
-        urgency: response.urgency ?? input.urgency,
+    return outcomes.reply(
+      {
+        outcome:
+          response.status === "duplicate"
+            ? "staff_task_duplicate"
+            : "staff_task_created",
+        status: "success",
+        evidence: {
+          category: response.category ?? input.category,
+          urgency: response.urgency ?? input.urgency,
+        },
       },
-    });
-    return response.status === "duplicate"
-      ? TASK_DUPLICATE_REPLY
-      : TASK_CREATED_REPLY;
+      response.status === "duplicate"
+        ? TASK_DUPLICATE_REPLY
+        : TASK_CREATED_REPLY,
+    );
   },
 });
 

@@ -21,6 +21,28 @@ export function recordDomainOutcome(
   else state.runtime.outcomeReceipts[index] = complete;
 }
 
+type ToolDomainOutcome = Omit<
+  DomainOutcomeReceipt,
+  "callId" | "toolName" | "occurredAt"
+> & { occurredAt?: string };
+
+/** Bind invariant LiveKit tool identity once, then record only domain facts. */
+export function domainOutcomesForTool(
+  state: CallState,
+  callId: string,
+  toolName: string,
+) {
+  const record = (outcome: ToolDomainOutcome) =>
+    recordDomainOutcome(state, { ...outcome, callId, toolName });
+  return {
+    record,
+    reply(outcome: ToolDomainOutcome, reply: string) {
+      record(outcome);
+      return reply;
+    },
+  };
+}
+
 export function domainOutcomeReceipts(
   state: CallState,
 ): DomainOutcomeReceipt[] {

@@ -7,7 +7,7 @@ import {
   type PatientResolveLookup,
 } from "../identity/patient-identity.js";
 import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
-import { recordDomainOutcome } from "../state/observability.js";
+import { domainOutcomesForTool } from "../state/observability.js";
 import { getState } from "./session.js";
 
 const resolvePatientParameters = z
@@ -66,6 +66,11 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
     ) => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
+      const outcomes = domainOutcomesForTool(
+        state,
+        toolCallId,
+        "resolve_patient",
+      );
       const suppliedIdentity = {
         firstName: identity.firstName ?? undefined,
         lastName: identity.lastName ?? undefined,
@@ -79,19 +84,13 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
           lookup,
         );
       } catch (error) {
-        recordDomainOutcome(state, {
-          callId: toolCallId,
-          toolName: "resolve_patient",
+        outcomes.record({
           outcome: "patient_lookup_failed",
           status: "failed",
         });
         throw error;
       }
-      recordDomainOutcome(state, {
-        callId: toolCallId,
-        toolName: "resolve_patient",
-        ...patientResolutionDomainOutcome(resolution.outcome),
-      });
+      outcomes.record(patientResolutionDomainOutcome(resolution.outcome));
       if (resolution.outcome === "lookup_failed" && resolution.failure) {
         throwOwnedMiddlewareFailure(resolution.failure, resolution.reply);
       }
