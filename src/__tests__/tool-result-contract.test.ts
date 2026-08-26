@@ -1,38 +1,56 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { productionSchedulingMiddleware } from "../scheduling/middleware.js";
+import { bindSchedulingMiddleware } from "../scheduling/middleware.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
-  add_patient,
   check_insurance,
+  createAddPatientTool,
   create_staff_task,
-  resolve_patient,
   transfer_call,
-  update_insurance,
+  createUpdateInsuranceTool,
 } from "../tools/index.js";
+import { createResolvePatientTool } from "../tools/resolve-patient.js";
+import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
+
+const middleware = new InMemoryOwnedMiddleware();
+const add_patient = createAddPatientTool(middleware);
+const resolve_patient = createResolvePatientTool(middleware);
+const update_insurance = createUpdateInsuranceTool(middleware);
 
 const {
   book_appointment,
   cancel_appointment,
   get_availability,
   reschedule_appointment,
-} = createSchedulingTools(productionSchedulingMiddleware);
+} = createSchedulingTools(bindSchedulingMiddleware(middleware));
 
 describe("model-facing tool result contract", () => {
   it("constrains every custom tool return path to plain text", () => {
     expect(
       [
+        resolve_patient,
+        add_patient,
+        update_insurance,
         book_appointment,
         cancel_appointment,
         get_availability,
         reschedule_appointment,
+        check_insurance,
+        transfer_call,
+        create_staff_task,
       ].map((tool) => tool.id),
     ).toEqual([
+      "resolve_patient",
+      "add_patient",
+      "update_insurance",
       "book_appointment",
       "cancel_appointment",
       "get_availability",
       "reschedule_appointment",
+      "check_insurance",
+      "transfer_call",
+      "create_staff_task",
     ]);
 
     expectTypeOf<

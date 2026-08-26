@@ -316,14 +316,10 @@ export type StaffTaskCategory =
 export type StaffTaskUrgency = "high_priority" | "normal" | "non_urgent";
 
 export interface StaffTaskReceipt {
-  category: StaffTaskCategory;
   createdAt: string;
   idempotencyKey: string;
-  message: string;
   status: "created" | "duplicate";
-  summary: string;
   taskId: string;
-  urgency: StaffTaskUrgency;
 }
 
 export interface PatientBackendRefs {

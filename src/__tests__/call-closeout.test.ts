@@ -554,7 +554,12 @@ describe("call closeout", () => {
           callId: "staff-task-call-63",
           outcome: "staff_task_created",
           status: "success",
-          evidence: { taskId: "task-follow-up-63" },
+          evidence: {
+            createdAt: expect.any(String),
+            idempotencyKey: expect.stringMatching(/^staff_task_/),
+            status: "created",
+            taskId: "task-follow-up-63",
+          },
         },
       ],
     });
@@ -1055,6 +1060,7 @@ describe("call closeout", () => {
     });
     expect(bodies[2]).not.toHaveProperty("callId");
     expect(bodies[2]).not.toHaveProperty("appointmentActions");
+    expect(bodies[2]?.closeoutPayload).not.toHaveProperty("sessionReport");
   });
 
   it("skips a missing HTTP URL and omits absent authorization", async () => {

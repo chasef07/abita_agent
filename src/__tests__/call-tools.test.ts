@@ -12,7 +12,6 @@ import {
 } from "../state/call-state.js";
 import { patientModelProjection } from "../identity/patient-identity.js";
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
-import { createSchedulingTools } from "../scheduling/tools.js";
 import {
   domainOutcomeReceipts,
   ownedMiddlewareFailures,
@@ -1706,7 +1705,7 @@ describe("stateful call tools", () => {
           toolCallId: "tool-1",
         } as never,
       ),
-    ).resolves.toContain("Verified existing patient Jane Doe");
+    ).resolves.toContain("I verified Jane Doe.");
     expect(middleware.requests.resolvePatient).toEqual([
       expect.objectContaining({
         identity: {

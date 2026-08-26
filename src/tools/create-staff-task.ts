@@ -8,7 +8,6 @@ import {
   activePatientName,
   type CallState,
   type StaffTaskCategory,
-  type StaffTaskUrgency,
 } from "../state/call-state.js";
 import {
   domainOutcomesForTool,
@@ -70,8 +69,6 @@ type TaskParameters = z.infer<typeof taskParameters>;
 type PortalTaskResponse = {
   status: "created" | "duplicate";
   taskId: string;
-  category?: StaffTaskCategory;
-  urgency?: StaffTaskUrgency;
 };
 
 class StaffTaskDeliveryError extends Error {}
@@ -99,11 +96,7 @@ export const create_staff_task = tool({
         {
           outcome: "staff_task_duplicate",
           status: "success",
-          evidence: {
-            category: existing.category,
-            taskId: existing.taskId,
-            urgency: existing.urgency,
-          },
+          evidence: { ...existing },
         },
         TASK_DUPLICATE_REPLY,
       );
@@ -130,16 +123,13 @@ export const create_staff_task = tool({
       }
       throw error;
     }
-    recordStaffTaskReceipt(state, {
-      category: response.category ?? input.category,
+    const receipt = {
       createdAt: new Date().toISOString(),
       idempotencyKey: payload.idempotencyKey,
-      message: input.message,
       status: response.status,
-      summary: input.summary,
       taskId: response.taskId,
-      urgency: response.urgency ?? input.urgency,
-    });
+    };
+    recordStaffTaskReceipt(state, receipt);
     return outcomes.reply(
       {
         outcome:
@@ -147,11 +137,7 @@ export const create_staff_task = tool({
             ? "staff_task_duplicate"
             : "staff_task_created",
         status: "success",
-        evidence: {
-          category: response.category ?? input.category,
-          taskId: response.taskId,
-          urgency: response.urgency ?? input.urgency,
-        },
+        evidence: receipt,
       },
       response.status === "duplicate"
         ? TASK_DUPLICATE_REPLY
@@ -322,7 +308,5 @@ async function postStaffTaskOnce(
   return {
     status: parsedBody.status,
     taskId: parsedBody.taskId,
-    category: parsedBody.category,
-    urgency: parsedBody.urgency,
   };
 }

@@ -43,10 +43,7 @@ export const transfer_call = tool({
       return message;
     };
     if (transferIsAmbiguous(state)) {
-      return reply(
-        "ambiguous",
-        "The transfer may already be in progress.",
-      );
+      return reply("ambiguous", "The transfer may already be in progress.");
     }
     if (transferStatus(state) === "pending") {
       return reply("blocked", "Transfer already in progress.");
@@ -78,17 +75,11 @@ export const transfer_call = tool({
         `[tools] Transfer failed (state=${transferStatus(state)}).`,
       );
       if (transferIsAmbiguous(state)) {
-        return reply(
-          "ambiguous",
-          "The transfer may already be in progress.",
-        );
+        return reply("ambiguous", "The transfer may already be in progress.");
       }
       if (error instanceof HandoffConflictError) {
         markTransferAmbiguous(state);
-        return reply(
-          "ambiguous",
-          "The transfer may already be in progress.",
-        );
+        return reply("ambiguous", "The transfer may already be in progress.");
       }
       if (error instanceof HandoffError) {
         record("failed");

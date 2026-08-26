@@ -828,7 +828,7 @@ describe("Crystal River prompt guidance", () => {
 
 describe("model-facing tool definitions", () => {
   it("keeps each custom tool description within the concise contract", () => {
-    const customTools = buildToolsForTrunk(HOLLYWOOD_OFFICE_PHONE)
+    const customTools = buildToolsForTrunk(middleware, HOLLYWOOD_OFFICE_PHONE)
       .flatMap((entry) => (isToolset(entry) ? entry.tools : [entry]))
       .filter((entry) => entry.id !== "end_call");
 

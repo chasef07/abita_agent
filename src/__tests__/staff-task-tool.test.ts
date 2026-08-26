@@ -157,15 +157,14 @@ describe("create_staff_task", () => {
     });
     expect(staffTaskReceipts(state)).toMatchObject([
       {
-        category: "billing",
         idempotencyKey: body.idempotencyKey,
-        message: "Caller received a bill and wants the team to review it.",
         status: "created",
-        summary: "Caller has a billing question.",
         taskId: "task-1",
-        urgency: "high_priority",
       },
     ]);
+    expect(JSON.stringify(staffTaskReceipts(state))).not.toContain(
+      "Caller received a bill",
+    );
   });
 
   it("records a prior-authorization task after the insurance check requires staff follow-up", async () => {
@@ -233,10 +232,8 @@ describe("create_staff_task", () => {
     });
     expect(staffTaskReceipts(state)).toMatchObject([
       {
-        category: "referrals",
         status: "created",
         taskId: "prior-auth-task-1",
-        urgency: "normal",
       },
     ]);
   });

@@ -51,15 +51,9 @@ const addPatientParameters = z
       .describe(
         "True only after the caller confirms the inbound number is a good callback number.",
       ),
-    email: z
-      .string()
-      .nullable()
-      .describe("Caller-provided email, or null."),
+    email: z.string().nullable().describe("Caller-provided email, or null."),
     street: z.string().describe("Street address"),
-    aptSuite: z
-      .string()
-      .nullable()
-      .describe("Apartment or suite, or null."),
+    aptSuite: z.string().nullable().describe("Apartment or suite, or null."),
     city: z.string().describe("City"),
     state: z.string().describe("State, 2-letter abbreviation"),
     zip: z.string().describe("Zip code"),
