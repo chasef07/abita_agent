@@ -203,7 +203,6 @@ export default defineAgent({
             },
             events: createLiveKitCallCloseoutEventAdapter(ctx, session, {
               callId,
-              llm: llmWithFallback,
               maxCallDurationMs: MAX_CALL_DURATION_MS,
               roomName,
               shutdownSession: (reason) => {

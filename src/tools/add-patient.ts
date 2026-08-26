@@ -2,6 +2,7 @@ import { tool } from "@livekit/agents";
 import { z } from "zod";
 import type {
   CreatePatientInput,
+  CreatePatientResult,
   OwnedMiddleware,
 } from "../clients/owned-middleware.js";
 import { normalizeInsuranceText } from "../insurance-rules.js";
@@ -13,7 +14,10 @@ import {
   patientRegistrationStatus,
 } from "../identity/patient-identity.js";
 import { runtimeCallerPhone } from "../state/call-lifecycle.js";
-import { recordOwnedMiddlewareFailure } from "../state/observability.js";
+import {
+  domainOutcomesForTool,
+  recordOwnedMiddlewareFailure,
+} from "../state/observability.js";
 import {
   applySchedulingLaneToState,
   lastInsuranceEligibilityCheck,
@@ -103,9 +107,10 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       "Before using the inbound caller number, confirm it is a good callback number; if yes, pass phone as null and set inboundPhoneConfirmed to true. " +
       'Use "self pay" as insuranceMemberId only when the patient asks for self pay.',
     parameters: addPatientParameters,
-    execute: async (params, { ctx }) => {
+    execute: async (params, { ctx, toolCallId }) => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
+      const outcomes = domainOutcomesForTool(state, toolCallId, "add_patient");
       const patientIdentity = {
         firstName: params.firstName.trim(),
         lastName: params.lastName.trim(),
@@ -128,8 +133,10 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
           state.identity.activePatient?.name?.trim() ||
           `${params.firstName} ${params.lastName}`;
         if (!state.insurance.onFile) {
+          recordPatientCreationOutcome(outcomes, "partial");
           return `Patient chart is already created for ${patientName}, but insurance is not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
         }
+        recordPatientCreationOutcome(outcomes, "success");
         return `Patient chart is already created for ${patientName}. Continue with scheduling.`;
       }
 
@@ -236,29 +243,40 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
 
       const creation = beginPatientCreation(state);
       if (!creation) {
+        recordPatientCreationOutcome(outcomes, "failed");
         throw new Error("Patient registration is incomplete before creation.");
       }
-      const result = await middleware.createPatient({
-        office: getAmdOfficeForToolCall(state),
-        patient: payload,
-      });
+      let result: CreatePatientResult;
+      try {
+        result = await middleware.createPatient({
+          office: getAmdOfficeForToolCall(state),
+          patient: payload,
+        });
+      } catch (error) {
+        recordPatientCreationOutcome(outcomes, "failed");
+        throw error;
+      }
       if (result.status === "error") {
         recordOwnedMiddlewareFailure(state, "createPatient", result);
       }
       const commit = commitPatientCreation(state, creation, result);
       if (commit.outcome === "superseded") {
         if (commit.result.status === "error") {
+          recordPatientCreationOutcome(outcomes, "failed");
           return "I couldn't create the patient chart, and the active patient changed. Continue with the current patient and do not retry this request.";
         }
         const patientName =
           commit.result.name?.trim() ||
           `${params.firstName} ${params.lastName}`;
         if (commit.result.status === "partial") {
+          recordPatientCreationOutcome(outcomes, "partial", true);
           return `Created a patient chart for ${patientName}, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration. The active patient changed before the result returned. Continue with the current patient's state.`;
         }
+        recordPatientCreationOutcome(outcomes, "success", true);
         return `Created a patient chart for ${patientName}, but the active patient changed before the result returned. Do not create another chart. Continue with the current patient's state.`;
       }
       if (commit.outcome === "failed") {
+        recordPatientCreationOutcome(outcomes, "failed");
         throwOwnedMiddlewareFailure(
           commit.failure,
           "I couldn't create the patient chart. I can try once more or connect you with the office.",
@@ -266,8 +284,10 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       }
       if (commit.outcome === "invalid_receipt") {
         if (commit.result) {
+          recordPatientCreationOutcome(outcomes, "ambiguous");
           return "A patient chart was created, but its identity receipt did not match the current registration. Do not create another chart. Connect the caller to office staff to verify the chart.";
         }
+        recordPatientCreationOutcome(outcomes, "failed");
         throw new Error(
           "Owned Middleware returned an invalid patient creation receipt.",
         );
@@ -276,9 +296,30 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       const patientName =
         receipt.name?.trim() || `${params.firstName} ${params.lastName}`;
       if (receipt.status === "partial") {
+        recordPatientCreationOutcome(outcomes, "partial");
         return `Created a patient chart for ${patientName}, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
       }
+      recordPatientCreationOutcome(outcomes, "success");
       return `Created a patient chart for ${patientName}. Continue with scheduling.`;
     },
+  });
+}
+
+function recordPatientCreationOutcome(
+  outcomes: ReturnType<typeof domainOutcomesForTool>,
+  status: "success" | "partial" | "ambiguous" | "failed",
+  superseded = false,
+): void {
+  outcomes.record({
+    outcome:
+      status === "success"
+        ? "patient_created"
+        : status === "partial"
+          ? "patient_creation_partial"
+          : status === "ambiguous"
+            ? "patient_creation_ambiguous"
+            : "patient_creation_failed",
+    status,
+    ...(superseded ? { evidence: { superseded: true } } : {}),
   });
 }

@@ -192,13 +192,18 @@ export function createSchedulingTools(
       "Only after this tool returns a successful booking may you tell the caller they are booked, scheduled, or all set. " +
       "After a successful booking, if the caller asks whether they will receive confirmation, say yes, a confirmation email will be sent.",
     parameters: bookAppointmentParameters,
-    execute: async (args, { ctx }) => {
+    execute: async (args, { ctx, toolCallId }) => {
       ctx.disallowInterruptions();
+      const state = getState(ctx);
       return returnSchedulingInputRequired(() =>
-        workflow.bookAppointment(getState(ctx), {
-          ...args,
-          readBack: args.readBack ?? undefined,
-        }),
+        workflow.bookAppointment(
+          state,
+          {
+            ...args,
+            readBack: args.readBack ?? undefined,
+          },
+          toolCallId,
+        ),
       );
     },
   });
@@ -211,10 +216,11 @@ export function createSchedulingTools(
       "Call this after the patient is verified and the caller confirms the exact appointment to cancel. " +
       "Pass only the matching call-scoped appointmentRef shown with that loaded appointment. The tool resolves it against current loaded appointment state.",
     parameters: cancelAppointmentParameters,
-    execute: async (args, { ctx }) => {
+    execute: async (args, { ctx, toolCallId }) => {
       ctx.disallowInterruptions();
+      const state = getState(ctx);
       return returnSchedulingInputRequired(() =>
-        workflow.cancelAppointment(getState(ctx), args),
+        workflow.cancelAppointment(state, args, toolCallId),
       );
     },
   });
@@ -230,14 +236,19 @@ export function createSchedulingTools(
       "Before booking the new appointment, read back the selected new appointment date, time, and provider, then get caller confirmation. " +
       "This tool books the new appointment first and cancels the old appointment only after booking succeeds.",
     parameters: rescheduleAppointmentParameters,
-    execute: async (args, { ctx }) => {
+    execute: async (args, { ctx, toolCallId }) => {
       ctx.disallowInterruptions();
+      const state = getState(ctx);
       return returnSchedulingInputRequired(() =>
-        workflow.rescheduleAppointment(getState(ctx), {
-          ...args,
-          oldAppointmentRef: args.oldAppointmentRef ?? undefined,
-          readBack: args.readBack ?? undefined,
-        }),
+        workflow.rescheduleAppointment(
+          state,
+          {
+            ...args,
+            oldAppointmentRef: args.oldAppointmentRef ?? undefined,
+            readBack: args.readBack ?? undefined,
+          },
+          toolCallId,
+        ),
       );
     },
   });

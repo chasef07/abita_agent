@@ -244,6 +244,43 @@ export interface AppointmentActionAnalytics {
   cancelledAppointment?: AppointmentAnalytics;
 }
 
+export type DomainOutcomeStatus =
+  "success" | "blocked" | "partial" | "ambiguous" | "failed";
+
+export type DomainOutcome =
+  | AppointmentActionName
+  | "insurance_update_failed"
+  | "insurance_updated"
+  | "patient_creation_ambiguous"
+  | "patient_creation_failed"
+  | "patient_creation_partial"
+  | "patient_created"
+  | "patient_lookup_ambiguous"
+  | "patient_lookup_failed"
+  | "patient_lookup_needs_identity"
+  | "patient_lookup_returned_multiple"
+  | "patient_new"
+  | "patient_not_found"
+  | "patient_switched"
+  | "patient_verified"
+  | "staff_task_created"
+  | "staff_task_duplicate"
+  | "staff_task_failed"
+  | "transfer_ambiguous"
+  | "transfer_blocked"
+  | "transfer_failed"
+  | "transfer_started";
+
+/** An Acuity-owned fact recorded where a tool's domain result becomes known. */
+export interface DomainOutcomeReceipt {
+  callId: string;
+  toolName: string;
+  outcome: DomainOutcome;
+  status: DomainOutcomeStatus;
+  occurredAt: string;
+  evidence?: Record<string, unknown>;
+}
+
 export type AvailabilityInvalidationReason =
   | "booking_authorization_invalidated"
   | "booking_succeeded"
@@ -345,12 +382,11 @@ interface RuntimeCallState {
   callerPhone: string;
   trunkPhone: string;
   transferState: TransferState;
-  appointmentActions: AppointmentActionAnalytics[];
+  outcomeReceipts: DomainOutcomeReceipt[];
   availabilityReads: AvailabilityReadAnalytics[];
   knowledgeRetrievals: OfficeKnowledgeRetrievalAnalytics[];
   ownedMiddlewareFailures: OwnedMiddlewareFailureAnalytics[];
   staffTasks: StaffTaskReceipt[];
-  patientIdentityOutcomes: PatientIdentityOutcome[];
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
 
@@ -443,13 +479,6 @@ export function setActivePatientBackendRefs(
   patient.backend = { ...patient.backend, ...refs };
 }
 
-export function recordPatientIdentityOutcome(
-  state: CallState,
-  outcome: PatientIdentityOutcome,
-): void {
-  state.runtime.patientIdentityOutcomes.push(outcome);
-}
-
 export function recordPatientIdentityTransition(
   state: CallState,
   transition: PatientIdentityTransitionAnalytics,
@@ -470,12 +499,6 @@ export function patientIdentityTransitions(
   state: CallState,
 ): PatientIdentityTransitionAnalytics[] {
   return [...state.identity.receipts];
-}
-
-export function takePatientIdentityOutcome(
-  state: CallState,
-): PatientIdentityOutcome | undefined {
-  return state.runtime.patientIdentityOutcomes.shift();
 }
 
 export interface InitialCallStateInput {
@@ -531,12 +554,11 @@ export function createCanonicalCallState(
       callerPhone: input.callerPhone,
       trunkPhone: input.trunkPhone,
       transferState: "idle",
-      appointmentActions: [],
+      outcomeReceipts: [],
       availabilityReads: [],
       knowledgeRetrievals: [],
       ownedMiddlewareFailures: [],
       staffTasks: [],
-      patientIdentityOutcomes: [],
       voiceLanguage: input.voiceLanguage ?? null,
     },
   };

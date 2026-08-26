@@ -19,6 +19,7 @@ import {
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { setLastInsuranceEligibilityCheck } from "../scheduling/state.js";
 import type { CallState } from "../state/call-state.js";
+import { appointmentActions } from "../state/observability.js";
 import {
   confirmedActivePatient,
   createConfirmedPatientState,
@@ -452,7 +453,7 @@ describe("stable tool catalog", () => {
       ),
     });
     expect(middleware.operations).toEqual([]);
-    expect(session.userData.runtime.appointmentActions).toEqual([]);
+    expect(appointmentActions(session.userData)).toEqual([]);
     expect(functionCallNames(session)).toEqual(["book_appointment"]);
     expect(functionCallNames(session)).not.toContain("create_staff_task");
     expect(functionCallNames(session)).not.toContain("transfer_call");
@@ -622,7 +623,7 @@ describe("stable tool catalog", () => {
     await session.run({ userInput: "Book it now." }).wait();
 
     expect(middleware.operations).toEqual([]);
-    expect(state.runtime.appointmentActions).toEqual([]);
+    expect(appointmentActions(state)).toEqual([]);
     expect(toolOutputs(session)[0]).toMatchObject({
       isError: true,
       output: expect.stringContaining("Invalid arguments for book_appointment"),
@@ -637,7 +638,7 @@ describe("stable tool catalog", () => {
       "getAvailability",
       "bookAppointment",
     ]);
-    expect(state.runtime.appointmentActions).toMatchObject([
+    expect(appointmentActions(state)).toMatchObject([
       { action: "booked", status: "success" },
     ]);
     expect(functionCallNames(session)).toEqual([

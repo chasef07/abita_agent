@@ -16,7 +16,6 @@ import {
   type InsuranceEligibilityCheck,
   type PatientIdentityOutcome,
   type PreCallPatientCandidate,
-  recordPatientIdentityOutcome,
   recordPatientIdentityTransition,
   type RegistrationDraft,
 } from "../state/call-state.js";
@@ -794,7 +793,6 @@ function recordResolutionOutcome(
   resolution: PatientIdentityResolution,
 ): PatientIdentityResolution {
   if (resolution.outcome === "superseded") return resolution;
-  recordPatientIdentityOutcome(state, resolution.outcome);
   if (resolution.outcome !== "verified" && resolution.outcome !== "switched") {
     recordPatientIdentityTransition(state, {
       outcome: resolution.outcome,

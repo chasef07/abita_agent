@@ -9,7 +9,10 @@ import {
   SWEETWATER_TRUNK_PHONES,
 } from "../customers/abita/profile.js";
 import type { InitialCallStateInput } from "../state/call-state.js";
-import { staffTaskReceipts } from "../state/observability.js";
+import {
+  domainOutcomeReceipts,
+  staffTaskReceipts,
+} from "../state/observability.js";
 import { check_insurance, create_staff_task } from "../tools/index.js";
 import { getAcuityProductStaffTasksUrl } from "../tools/create-staff-task.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
@@ -425,6 +428,22 @@ describe("create_staff_task", () => {
     expect(result).toContain("Task already sent to staff");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(staffTaskReceipts(state)).toHaveLength(1);
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "tool-1",
+        evidence: { taskId: "task-1" },
+        outcome: "staff_task_created",
+        status: "success",
+        toolName: "create_staff_task",
+      },
+      {
+        callId: "tool-2",
+        evidence: { taskId: "task-1" },
+        outcome: "staff_task_duplicate",
+        status: "success",
+        toolName: "create_staff_task",
+      },
+    ]);
   });
 
   it("leaves missing delivery configuration as an internal error", async () => {
@@ -551,6 +570,14 @@ describe("create_staff_task", () => {
     await expect(failure).rejects.toBeInstanceOf(ToolError);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(staffTaskReceipts(state)).toEqual([]);
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "tool-1",
+        outcome: "staff_task_failed",
+        status: "failed",
+        toolName: "create_staff_task",
+      },
+    ]);
   });
 
   it.each([400, 401, 403, 409])(

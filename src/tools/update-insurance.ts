@@ -11,7 +11,10 @@ import {
   patientBackendRefs,
   setActivePatientBackendRefs,
 } from "../state/call-state.js";
-import { recordOwnedMiddlewareFailure } from "../state/observability.js";
+import {
+  domainOutcomesForTool,
+  recordOwnedMiddlewareFailure,
+} from "../state/observability.js";
 import {
   clearAvailabilitySelection,
   insuranceOnFile,
@@ -43,10 +46,14 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
           ),
       })
       .strict(),
-    execute: async ({ insuranceMemberId }, { ctx }) => {
+    execute: async ({ insuranceMemberId }, { ctx, toolCallId }) => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
-
+      const outcomes = domainOutcomesForTool(
+        state,
+        toolCallId,
+        "update_insurance",
+      );
       const patientId = activePatientId(state);
       if (!patientId) {
         return "Verify the patient before updating insurance.";
@@ -99,6 +106,10 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
 
       if (result.status !== "updated") {
         recordOwnedMiddlewareFailure(state, "updateInsurance", result);
+        outcomes.record({
+          outcome: "insurance_update_failed",
+          status: "failed",
+        });
         throwOwnedMiddlewareFailure(
           result,
           "I couldn't update the insurance. I can try once more or connect you with the office.",
@@ -127,6 +138,8 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
         preauthRequired: result.preauthRequired,
       });
       clearAvailabilitySelection(state);
+
+      outcomes.record({ outcome: "insurance_updated", status: "success" });
 
       return `Updated insurance to ${newInsurance}.`;
     },

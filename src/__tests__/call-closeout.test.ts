@@ -4,7 +4,7 @@ import {
   type AgentSession,
   type JobContext,
 } from "@livekit/agents";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HttpCallPortal,
   InMemoryCallPortal,
@@ -21,25 +21,24 @@ import {
   getProductInteractionConfig,
   validateRuntimeConfig,
 } from "../runtime/portal-auth.js";
-import {
-  recordPatientIdentityTransition,
-  type CallState,
-} from "../state/call-state.js";
+import { type CallState } from "../state/call-state.js";
 import {
   acceptTransfer,
   beginTransfer,
   markTransferAmbiguous,
 } from "../state/call-lifecycle.js";
 import {
-  recordAvailabilityReadEvent,
-  recordAppointmentAction,
+  recordDomainOutcome,
   recordOfficeKnowledgeRetrieval,
-  recordOwnedMiddlewareFailure,
 } from "../state/observability.js";
-import {
-  confirmedActivePatient,
-  createTestCallState,
-} from "./support/call-state.js";
+import { createTestCallState } from "./support/call-state.js";
+import { createToolContext } from "./support/tool-context.js";
+import { create_staff_task } from "../tools/create-staff-task.js";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
 
 class TestLiveKitEvents implements CallCloseoutEventAdapter {
   private closeout: (() => Promise<CallCloseoutResult>) | undefined;
@@ -51,7 +50,6 @@ class TestLiveKitEvents implements CallCloseoutEventAdapter {
       languageChanged: false,
     },
     sessionReport: { chat_history: { items: [] } },
-    sessionUsage: { modelUsage: [] },
     sttProfiles: [],
   });
 
@@ -354,180 +352,6 @@ describe("call closeout", () => {
     });
   });
 
-  it("delivers call start, compact completion, and rich completion in order", async () => {
-    const { events, portal, state } = await setupCloseout();
-    await events.close();
-
-    expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
-      "call-start",
-      "shutdown-summary",
-      "shutdown",
-    ]);
-    expect(portal.deliveries[0]?.payload).toMatchObject({
-      callId: "call-test",
-      startedAt: "2026-07-20T10:00:00.000Z",
-      status: "IN_PROGRESS",
-    });
-    expect(portal.deliveries[1]?.payload).toMatchObject({
-      durationSec: 60,
-      status: "COMPLETED",
-    });
-    expect(portal.deliveries[2]?.payload).toMatchObject({
-      callState: {
-        office: state?.office,
-        insurance: state?.insurance,
-        workflow: state?.workflow,
-      },
-      preCallLookup: state?.runtime.preCallLookup,
-      sessionReport: { chat_history: { items: [] } },
-      status: "COMPLETED",
-      usage: { modelUsage: [] },
-    });
-    expect(portal.deliveries[1]?.payload).not.toHaveProperty("callState");
-    expect(portal.deliveries[1]?.payload).not.toHaveProperty("sessionReport");
-  });
-
-  it("delivers PHI-free availability read telemetry", async () => {
-    const state = createTestCallState({
-      activePatient: confirmedActivePatient({
-        patientId: "private-patient-id",
-      }),
-    });
-    recordAvailabilityReadEvent(state, {
-      operation: "middleware_call",
-      durationMs: 125,
-    });
-    recordAvailabilityReadEvent(state, {
-      operation: "completed_cache_hit",
-      durationMs: 0,
-    });
-    recordAvailabilityReadEvent(state, {
-      operation: "invalidation",
-      reason: "patient_context_changed",
-    });
-    const { events, portal } = await setupCloseout({ state });
-
-    await events.close();
-
-    for (const delivery of portal.deliveries.slice(1)) {
-      expect(delivery.payload.availabilityReads).toMatchObject([
-        { operation: "middleware_call", durationMs: 125 },
-        { operation: "completed_cache_hit", durationMs: 0 },
-        {
-          operation: "invalidation",
-          reason: "patient_context_changed",
-        },
-      ]);
-      expect(JSON.stringify(delivery.payload.availabilityReads)).not.toContain(
-        "private-patient-id",
-      );
-    }
-  });
-
-  it("redacts private appointment selectors from the rich call-state snapshot", async () => {
-    const state = createTestCallState({
-      activePatient: confirmedActivePatient({
-        patientId: "private-patient-backend-id",
-      }),
-    });
-    const appointment = {
-      id: 987654321,
-      appointmentRef: "appointment-safe-reference",
-      cancellationToken: "private-cancellation-token",
-      rescheduleToken: "private-reschedule-token",
-      date: "Monday, June 1, 2026",
-      time: "9:00 AM",
-      provider: "Dr. Bach",
-      type: "Follow-up",
-      appointmentTypeId: 1005,
-      facility: "Spring Hill",
-      confirmed: true,
-    };
-    state.identity.activePatient!.appointments = [appointment];
-    state.identity.activePatient!.backend = {
-      insPlanId: "private-ins-plan-id",
-      respPartyId: "private-party-id",
-    };
-    state.identity.privateCandidates = [
-      {
-        status: "candidate",
-        ref: "precall:1",
-        patientId: "private-patient-backend-id",
-        firstName: "Private",
-        lastName: "Candidate",
-        dob: "01/02/1980",
-        appointments: [],
-      },
-    ];
-    state.identity.latestBookedAppointmentId = appointment.id;
-    state.identity.completedBookingsByPatientId = {
-      "private-patient-backend-id": {
-        appointmentId: appointment.id,
-        appointmentDescription: "private completed booking",
-      },
-    };
-    state.identity.completedCancellations = [
-      {
-        patientId: "private-patient-backend-id",
-        appointment,
-      },
-    ];
-    state.identity.completedReschedulesByPatientId = {
-      "private-patient-backend-id": {
-        status: "rescheduled",
-        appointmentDescription: "private completed reschedule",
-      },
-    };
-    state.availability.bookingTokensBySlotId = {
-      S1: "private-booking-token",
-    };
-    const { events, portal } = await setupCloseout({ state });
-
-    await events.close();
-
-    const callStatePayload = JSON.stringify(
-      portal.deliveries[2]?.payload.callState,
-    );
-    expect(callStatePayload).toContain("appointment-safe-reference");
-    expect(callStatePayload).not.toContain("private-cancellation-token");
-    expect(callStatePayload).not.toContain("private-reschedule-token");
-    expect(callStatePayload).not.toContain("private-booking-token");
-    expect(callStatePayload).not.toContain("private-patient-backend-id");
-    expect(callStatePayload).not.toContain("987654321");
-    expect(callStatePayload).not.toContain("private-ins-plan-id");
-    expect(callStatePayload).not.toContain("private-party-id");
-    expect(callStatePayload).not.toContain("Private");
-    expect(callStatePayload).not.toContain("Candidate");
-    expect(callStatePayload).not.toContain("01/02/1980");
-    expect(
-      state.identity.activePatient!.appointments[0]?.cancellationToken,
-    ).toBe("private-cancellation-token");
-    expect(state.identity.activePatient!.appointments[0]?.rescheduleToken).toBe(
-      "private-reschedule-token",
-    );
-  });
-
-  it("includes identity transitions in compact and rich observation", async () => {
-    const state = createTestCallState();
-    recordPatientIdentityTransition(state, {
-      outcome: "pending",
-      source: "pre_call_phone_lookup",
-    });
-    recordPatientIdentityTransition(state, {
-      outcome: "confirmed",
-      source: "caller_transcript",
-    });
-    const { events, portal } = await setupCloseout({ state });
-    await events.close();
-
-    const expected = [
-      { outcome: "pending", source: "pre_call_phone_lookup" },
-      { outcome: "confirmed", source: "caller_transcript" },
-    ];
-    expect(portal.deliveries[1]?.payload.identityTransitions).toEqual(expected);
-    expect(portal.deliveries[2]?.payload.identityTransitions).toEqual(expected);
-  });
-
   it("classifies only accepted transfer state as escalated", async () => {
     const state = createTestCallState();
     acceptTransfer(state);
@@ -576,97 +400,6 @@ describe("call closeout", () => {
     });
   });
 
-  it("reconciles missing tool events from appointment side effects", async () => {
-    const state = createTestCallState();
-    recordAppointmentAction(state, {
-      action: "booked",
-      appointment: { patientName: "Private Patient" },
-      status: "success",
-      toolName: "book_appointment",
-    });
-    recordAppointmentAction(state, {
-      action: "rescheduled",
-      message: "Private appointment details",
-      status: "partial",
-      toolName: "reschedule_appointment",
-    });
-    recordAppointmentAction(state, {
-      action: "cancelled",
-      message: "Private appointment details",
-      status: "error",
-      toolName: "cancel_appointment",
-    });
-    recordOwnedMiddlewareFailure(state, "bookAppointment", {
-      reason: "invalid_response",
-      detail: "missing_appointment_id",
-    });
-    const { events, portal } = await setupCloseout({ state });
-    await events.close();
-
-    expect(portal.deliveries[2]?.payload.toolExecutions).toMatchObject([
-      {
-        outputClass: "appointment_booked",
-        status: "success",
-        toolName: "book_appointment",
-      },
-      {
-        outputClass: "appointment_reschedule_partial",
-        status: "error",
-        toolName: "reschedule_appointment",
-      },
-      {
-        outputClass: "appointment_not_cancelled",
-        status: "error",
-        toolName: "cancel_appointment",
-      },
-    ]);
-    expect(portal.deliveries[2]?.payload.appointmentActions).toHaveLength(3);
-    expect(portal.deliveries[2]?.payload.ownedMiddlewareFailures).toMatchObject(
-      [
-        {
-          operation: "bookAppointment",
-          reason: "invalid_response",
-          detail: "missing_appointment_id",
-        },
-      ],
-    );
-    expect(
-      JSON.stringify(portal.deliveries[2]?.payload.toolExecutions),
-    ).not.toContain("Private");
-  });
-
-  it("delivers sanitized Office Knowledge hook outcomes in both closeout payloads", async () => {
-    const state = createTestCallState();
-    recordOfficeKnowledgeRetrieval(state, {
-      elapsedMs: 1.25,
-      language: "mixed",
-      officeKey: "sweetwater",
-      outcome: "matched",
-      sectionCount: 1,
-      topic: "pricing",
-    });
-    const { events, portal } = await setupCloseout({ state });
-
-    await events.close();
-
-    const expected = [
-      {
-        elapsedMs: 1.25,
-        language: "mixed",
-        officeKey: "sweetwater",
-        outcome: "matched",
-        sectionCount: 1,
-        topic: "pricing",
-      },
-    ];
-    expect(portal.deliveries[1]?.payload.knowledgeRetrievals).toMatchObject(
-      expected,
-    );
-    expect(portal.deliveries[2]?.payload.knowledgeRetrievals).toMatchObject(
-      expected,
-    );
-  });
-
   it("bounds Office Knowledge observations kept in Call State", () => {
     const state = createTestCallState();
 
@@ -686,59 +419,23 @@ describe("call closeout", () => {
     expect(state.runtime.knowledgeRetrievals.at(-1)?.elapsedMs).toBe(200);
   });
 
-  it("uses captured tool events and latest session usage", async () => {
-    const events = new TestLiveKitEvents();
-    events.capture = async () => ({
-      language: { currentLanguage: "en" },
-      sessionUsage: { source: "session-fallback" },
-      sttProfiles: [],
-    });
-    const { portal } = await setupCloseout({ events });
-    events.emit("usageUpdated", { source: "latest-event" });
-    events.emit("toolsExecuted", {
-      createdAt: Date.parse("2026-07-20T10:00:30.000Z"),
-      functionCalls: [{ callId: "tool-call-1", name: "book_appointment" }],
-      functionCallOutputs: [
-        {
-          callId: "tool-call-1",
-          output: JSON.stringify(
-            "Booked July 21 at 9:00 AM with Doctor Smith.",
-          ),
-        },
-      ],
-    });
-    await events.close();
-
-    expect(portal.deliveries[2]?.payload.usage).toEqual({
-      source: "latest-event",
-    });
-    expect(portal.deliveries[2]?.payload.toolExecutions).toEqual([
-      {
-        callId: "tool-call-1",
-        createdAt: "2026-07-20T10:00:30.000Z",
-        outputClass: "appointment_booked",
-        status: "success",
-        toolName: "book_appointment",
-      },
-    ]);
-    expect(
-      JSON.stringify(portal.deliveries[2]?.payload.toolExecutions),
-    ).not.toContain("Private Patient");
-  });
-
   it("checkpoints each receipt-backed appointment outcome once after tool execution", async () => {
     const state = createTestCallState();
     const { events, portal } = await setupCloseout({
       call: { officeKey: "abita-main" },
       state,
     });
-    recordAppointmentAction(state, {
-      action: "booked",
-      status: "success",
+    recordDomainOutcome(state, {
+      callId: "tool-call-63",
       toolName: "book_appointment",
-      externalPatientId: "patient-63",
-      newAppointmentId: "appointment-63",
-      bookingResult: { status: "booked", appointmentId: 63 },
+      outcome: "booked",
+      status: "success",
+      evidence: {
+        action: "booked",
+        externalPatientId: "patient-63",
+        newAppointmentId: "appointment-63",
+        bookingResult: { status: "booked", appointmentId: 63 },
+      },
     });
     const toolEvent = {
       createdAt: Date.parse("2026-07-20T10:00:30.000Z"),
@@ -773,134 +470,199 @@ describe("call closeout", () => {
     });
   });
 
-  it("collects diagnostic events into one sanitized lifecycle record", async () => {
+  it("delivers a real Staff Task result with its durable Product owner", async () => {
+    vi.stubEnv(
+      "ACUITY_PRODUCT_HANDOFF_URL",
+      "https://product.example/v1/handoffs",
+    );
+    vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET", "product-secret");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ status: "created", taskId: "task-follow-up-63" }),
+      ),
+    );
     const state = createTestCallState();
-    state.runtime.voiceLanguage = {
-      current: "es",
-      speaker: "luz",
-      ttsLanguage: "spa",
-      ttsProvider: "rime",
-    };
     const events = new TestLiveKitEvents();
     events.capture = async () => ({
-      language: {
-        currentLanguage: "es",
-        languageChanged: true,
-        languageSwitches: 1,
-      },
-      sessionUsage: { modelUsage: [] },
-      sttProfiles: [
-        {
-          createdAt: "2026-07-20T10:00:00.000Z",
-          from: null,
-          reason: "startup",
-          to: "default",
+      language: { currentLanguage: "en", languageChanged: false },
+      sessionReport: {
+        chat_history: {
+          items: [
+            {
+              type: "function_call",
+              name: "create_staff_task",
+              call_id: "staff-task-call-63",
+              arguments: "{}",
+              created_at: 1_787_648_401_000,
+            },
+            {
+              type: "function_call_output",
+              name: "create_staff_task",
+              call_id: "staff-task-call-63",
+              output: "Task sent to staff.",
+              is_error: false,
+              created_at: 1_787_648_402_000,
+            },
+          ],
         },
-      ],
+      },
+      sttProfiles: [],
     });
     const { portal } = await setupCloseout({ events, state });
-    events.emit("conversationItemAdded", {
-      createdAt: Date.parse("2026-07-20T10:00:10.000Z"),
-      item: {
-        id: "assistant-turn-1",
-        interrupted: false,
-        metrics: { ttft: 0.42 },
-        role: "assistant",
-        textContent: "Private transcript text",
-        type: "message",
+
+    await create_staff_task.execute(
+      {
+        category: "other",
+        urgency: "normal",
+        summary: "Caller needs office follow-up.",
+        message: "Caller asked the office to return their call.",
       },
-    });
-    events.emit("llmMetric", {
-      completionTokens: 20,
-      metadata: { modelName: "fallback/model" },
-      promptCachedTokens: 40,
-      promptTokens: 100,
-      ttftMs: 500,
-      type: "llm_metrics",
-    });
-    events.emit("sessionError", {
-      createdAt: Date.parse("2026-07-20T10:00:20.000Z"),
-      error: Object.assign(new Error("secret provider response"), {
-        code: "ETIMEDOUT",
-      }),
-      source: { name: "stt" },
-    });
-    events.emit("sessionClosed", {
-      createdAt: Date.parse("2026-07-20T10:00:50.000Z"),
-      reason: "participant_disconnected",
-    });
-    events.emit("falseInterruption", {
-      createdAt: Date.parse("2026-07-20T10:00:30.000Z"),
-      resumed: true,
-    });
-    events.emit("overlappingSpeech", {
-      detectedAt: Date.parse("2026-07-20T10:00:40.000Z"),
-      isInterruption: true,
-      totalDurationInS: 1.25,
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "staff-task-call-63",
+      } as never,
+    );
+    events.emit("toolsExecuted", {
+      functionCalls: [
+        { callId: "staff-task-call-63", name: "create_staff_task" },
+      ],
+      functionCallOutputs: [
+        { callId: "staff-task-call-63", output: "Task sent to staff." },
+      ],
     });
     await events.close();
 
-    const richPayload = portal.deliveries[2]?.payload;
-    expect(richPayload).toMatchObject({
-      language: {
-        currentLanguage: "es",
-        languageChanged: true,
-        languageSwitches: 1,
-      },
-      llmSummary: {
-        avgTtftMs: 500,
-        fallbackUsed: true,
-        modelsUsed: ["fallback/model"],
-      },
-      sessionEvents: {
-        close: {
-          createdAt: "2026-07-20T10:00:50.000Z",
-          reason: "participant_disconnected",
+    expect(portal.deliveries.at(-1)?.payload).toMatchObject({
+      sessionReport: {
+        chat_history: {
+          items: [
+            expect.objectContaining({
+              call_id: "staff-task-call-63",
+              type: "function_call",
+            }),
+            expect.objectContaining({
+              call_id: "staff-task-call-63",
+              is_error: false,
+              type: "function_call_output",
+            }),
+          ],
         },
-        errors: [
-          {
-            code: "ETIMEDOUT",
-            messageClass: "code:ETIMEDOUT",
-            name: "Error",
-          },
-        ],
-        falseInterruptions: [
-          {
-            createdAt: "2026-07-20T10:00:30.000Z",
-            resumed: true,
-          },
-        ],
-        overlappingSpeech: [
-          {
-            createdAt: "2026-07-20T10:00:40.000Z",
-            durationMs: 1250,
-            isInterruption: true,
-          },
-        ],
       },
-      turnMetrics: [
+      domainOutcomes: [
         {
-          createdAt: Date.parse("2026-07-20T10:00:10.000Z"),
-          interrupted: false,
-          itemId: "assistant-turn-1",
-          metrics: { ttft: 0.42 },
-          role: "assistant",
-          type: "message",
+          callId: "staff-task-call-63",
+          outcome: "staff_task_created",
+          status: "success",
+          evidence: { taskId: "task-follow-up-63" },
         },
       ],
-      voiceLanguage: {
-        current: "es",
-        speaker: "luz",
-        ttsLanguage: "spa",
+    });
+  });
+
+  it("promotes the final appointment receipt without requiring a tool event", async () => {
+    const state = createTestCallState();
+    const { events, portal } = await setupCloseout({ state });
+    recordDomainOutcome(state, {
+      callId: "tool-call-final",
+      toolName: "book_appointment",
+      outcome: "booked",
+      status: "success",
+      occurredAt: "2026-07-20T10:00:30.000Z",
+      evidence: {
+        action: "booked",
+        newAppointmentId: "appointment-final",
+        bookingResult: { status: "booked", appointmentId: 63 },
       },
     });
-    expect(richPayload?.sttProfiles).toHaveLength(1);
-    expect(JSON.stringify(richPayload)).not.toContain(
-      "secret provider response",
+
+    await events.close();
+
+    expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
+      "call-start",
+      "shutdown-summary",
+      "shutdown",
+    ]);
+    expect(portal.deliveries[2]?.payload.appointmentOutcome).toMatchObject({
+      action: "booked",
+      occurredAt: "2026-07-20T10:00:30.000Z",
+      newAppointmentId: "appointment-final",
+      bookingResult: { status: "booked", appointmentId: 63 },
+    });
+  });
+
+  it("does not promote a failed appointment receipt as a Product outcome", async () => {
+    const state = createTestCallState();
+    const { events, portal } = await setupCloseout({ state });
+    recordDomainOutcome(state, {
+      callId: "tool-call-failed",
+      toolName: "book_appointment",
+      outcome: "booked",
+      status: "failed",
+      evidence: {
+        action: "booked",
+        bookingResult: { status: "error", reason: "middleware_error" },
+      },
+    });
+
+    events.emit("toolsExecuted", {
+      functionCalls: [{ callId: "tool-call-failed", name: "book_appointment" }],
+    });
+    await events.close();
+
+    expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
+      "call-start",
+      "shutdown-summary",
+      "shutdown",
+    ]);
+    expect(portal.deliveries[2]?.payload).not.toHaveProperty(
+      "appointmentOutcome",
     );
-    expect(JSON.stringify(richPayload?.turnMetrics)).not.toContain(
-      "Private transcript text",
-    );
+    expect(portal.deliveries[2]?.payload.domainOutcomes).toMatchObject([
+      { callId: "tool-call-failed", status: "failed" },
+    ]);
+  });
+
+  it("correlates replay calls without duplicating the Product appointment event", async () => {
+    const state = createTestCallState();
+    const { events, portal } = await setupCloseout({ state });
+    const evidence = {
+      action: "booked",
+      newAppointmentId: "appointment-original",
+      bookingResult: { status: "booked", appointmentId: 63 },
+    };
+    recordDomainOutcome(state, {
+      callId: "tool-call-original",
+      toolName: "book_appointment",
+      outcome: "booked",
+      status: "success",
+      occurredAt: "2026-07-20T10:00:30.000Z",
+      evidence,
+    });
+    recordDomainOutcome(state, {
+      callId: "tool-call-replay",
+      toolName: "book_appointment",
+      outcome: "booked",
+      status: "success",
+      occurredAt: "2026-07-20T10:00:45.000Z",
+      evidence: { ...evidence, replayed: true },
+    });
+
+    events.emit("toolsExecuted", {
+      functionCalls: [{ callId: "tool-call-replay", name: "book_appointment" }],
+    });
+    await events.close();
+
+    expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
+      "call-start",
+      "shutdown-summary",
+      "shutdown",
+    ]);
+    expect(portal.deliveries[2]?.payload.appointmentOutcome).toMatchObject({
+      action: "booked",
+      occurredAt: "2026-07-20T10:00:30.000Z",
+      newAppointmentId: "appointment-original",
+    });
   });
 
   it("retries compact delivery before continuing to rich delivery", async () => {
@@ -991,7 +753,6 @@ describe("call closeout", () => {
       ({
         audio: Uint8Array.from([1, 2, 3]),
         language: { currentLanguage: "en" },
-        sessionUsage: {},
         sttProfiles: [],
       }) as CallCloseoutCapture & { audio: Uint8Array };
     const { portal } = await setupCloseout({ events });
@@ -1023,7 +784,6 @@ describe("call closeout", () => {
       { usage: {} } as unknown as AgentSession<CallState>,
       {
         callId: "call-test",
-        llm: { on: vi.fn() },
         maxCallDurationMs: 60_000,
         roomName: "room-test",
         shutdownSession: vi.fn(),
@@ -1044,6 +804,67 @@ describe("call closeout", () => {
     expect(capture.sessionReport).not.toHaveProperty(
       "audio_recording_started_at",
     );
+  });
+
+  it("preserves native usage while redacting credentials from report values", async () => {
+    const report = createSessionReport({
+      chatHistory: ChatContext.empty(),
+      events: [],
+      jobId: "job-test",
+      modelUsage: [
+        {
+          type: "llm_usage",
+          provider: "openai",
+          model: "gpt-test",
+          inputTokens: 12,
+          outputTokens: 4,
+        },
+      ],
+      options: {
+        maxToolSteps: 3,
+        turnHandling: { preemptiveGeneration: { enabled: false } },
+        useTtsAlignedTranscript: true,
+        userAwayTimeout: 15,
+      },
+      room: "room-test",
+      roomId: "room-id-test",
+    });
+    const serialized = report as unknown as Record<string, unknown>;
+    serialized.events = [
+      {
+        type: "error",
+        error:
+          "request failed with Authorization: Bearer private-token at http://10.0.0.5/private",
+        clientSecret: "private-client-secret",
+      },
+    ];
+    const adapter = createLiveKitCallCloseoutEventAdapter(
+      { makeSessionReport: () => report } as unknown as JobContext,
+      { usage: {} } as unknown as AgentSession<CallState>,
+      {
+        callId: "call-test",
+        maxCallDurationMs: 60_000,
+        roomName: "room-test",
+        shutdownSession: vi.fn(),
+        sttProfiles: [],
+        voiceLanguageRuntime: {
+          snapshot: () => ({
+            language: {},
+            voiceLanguage: DEFAULT_CALL.initialVoiceLanguage,
+          }),
+        },
+      },
+    );
+
+    const capture = await adapter.capture();
+    const captured = JSON.stringify(capture.sessionReport);
+
+    expect(capture.sessionReport?.usage).toMatchObject([
+      { input_tokens: 12, output_tokens: 4 },
+    ]);
+    expect(captured).not.toContain("private-token");
+    expect(captured).not.toContain("private-client-secret");
+    expect(captured).not.toContain("10.0.0.5");
   });
 
   it.each([
@@ -1094,12 +915,16 @@ describe("call closeout", () => {
         getCallState: () => state,
         portal,
       });
-      recordAppointmentAction(state, {
-        action: "booked",
-        status: "success",
+      recordDomainOutcome(state, {
+        callId: "tool-call-auth",
         toolName: "book_appointment",
-        newAppointmentId: "appointment-auth-proof",
-        bookingResult: { status: "booked", appointmentId: 63 },
+        outcome: "booked",
+        status: "success",
+        evidence: {
+          action: "booked",
+          newAppointmentId: "appointment-auth-proof",
+          bookingResult: { status: "booked", appointmentId: 63 },
+        },
       });
       events.emit("toolsExecuted", {
         createdAt: Date.parse("2026-07-20T10:00:30.000Z"),
@@ -1117,6 +942,24 @@ describe("call closeout", () => {
           "Content-Type": "application/json",
         });
       }
+      const closeoutBody = JSON.parse(
+        String(vi.mocked(fetchImpl).mock.calls.at(-1)?.[1]?.body),
+      ) as Record<string, unknown>;
+      expect(closeoutBody).toMatchObject({
+        kind: "CLOSEOUT",
+        appointmentOutcome: {
+          action: "BOOKED",
+          newAppointmentId: "appointment-auth-proof",
+        },
+        closeoutPayload: {
+          domainOutcomes: [
+            expect.objectContaining({
+              callId: "tool-call-auth",
+              outcome: "booked",
+            }),
+          ],
+        },
+      });
       expect(logger.log.mock.calls.flat().join(" ")).not.toContain(secret);
       expect(logger.warn.mock.calls.flat().join(" ")).not.toContain(secret);
     },
@@ -1160,18 +1003,16 @@ describe("call closeout", () => {
         endedAt: "2026-08-08T09:35:00.000Z",
         status: "COMPLETED",
         sessionReport: { chat_history: { items: [{ role: "user" }] } },
-        appointmentActions: [
-          {
-            action: "rescheduled",
-            status: "success",
-            createdAt: "2026-08-08T09:33:00.000Z",
-            externalPatientId: "patient-63",
-            oldAppointmentId: "appointment-old",
-            newAppointmentId: "appointment-new",
-            bookingResult: { status: "booked", appointmentId: 6302 },
-            cancellationResult: { status: "cancelled" },
-          },
-        ],
+        appointmentOutcome: {
+          action: "rescheduled",
+          status: "success",
+          createdAt: "2026-08-08T09:33:00.000Z",
+          externalPatientId: "patient-63",
+          oldAppointmentId: "appointment-old",
+          newAppointmentId: "appointment-new",
+          bookingResult: { status: "booked", appointmentId: 6302 },
+          cancellationResult: { status: "cancelled" },
+        },
       },
     });
 
@@ -1209,9 +1050,7 @@ describe("call closeout", () => {
       },
       closeoutPayload: {
         callId: "call-product-63",
-        appointmentActions: [
-          expect.objectContaining({ action: "rescheduled" }),
-        ],
+        appointmentOutcome: expect.objectContaining({ action: "rescheduled" }),
       },
     });
     expect(bodies[2]).not.toHaveProperty("callId");

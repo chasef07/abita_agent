@@ -13,6 +13,9 @@ import {
   transferCallerToOffice,
 } from "./handoff.js";
 import { getState } from "./session.js";
+import { domainOutcomesForTool } from "../state/observability.js";
+
+type TransferOutcomeStatus = "success" | "blocked" | "ambiguous" | "failed";
 
 export const transfer_call = tool({
   name: "transfer_call",
@@ -20,21 +23,40 @@ export const transfer_call = tool({
   description:
     "Transfer the caller to human office staff when the transfer policy requires it. Call this tool immediately without announcing the transfer first; the tool speaks the transfer announcement.",
   parameters: z.object({}),
-  execute: async (_, { ctx }) => {
+  execute: async (_, { ctx, toolCallId }) => {
     const state = getState(ctx);
     ctx.disallowInterruptions();
-
+    const outcomes = domainOutcomesForTool(state, toolCallId, "transfer_call");
+    const record = (
+      status: TransferOutcomeStatus,
+      evidence?: Record<string, unknown>,
+    ) =>
+      outcomes.record({
+        outcome: transferDomainOutcome(status),
+        status,
+        ...(evidence ? { evidence } : {}),
+      });
+    const reply = (status: TransferOutcomeStatus, message: string) => {
+      record(status);
+      return message;
+    };
     if (transferIsAmbiguous(state)) {
-      return "The transfer may already be in progress. Do not try again.";
+      return reply(
+        "ambiguous",
+        "The transfer may already be in progress. Do not try again.",
+      );
     }
     if (transferStatus(state) === "pending") {
-      return "Transfer already in progress.";
+      return reply("blocked", "Transfer already in progress.");
     }
     if (transferIsAccepted(state)) {
-      return "Transfer already started.";
+      return reply("success", "Transfer already started.");
     }
     if (!state.runtime.sipRoomName || !state.runtime.sipParticipantIdentity) {
-      return "I couldn't transfer because the call is no longer active.";
+      return reply(
+        "failed",
+        "I couldn't transfer because the call is no longer active.",
+      );
     }
 
     try {
@@ -47,24 +69,43 @@ export const transfer_call = tool({
       );
       await announcement.waitForPlayout();
       const { handoffOfficeKey } = await transferCallerToOffice(state);
+      record("success", { officeKey: handoffOfficeKey });
       return `Transfer started to the ${handoffOfficeKey} office.`;
     } catch (error) {
       console.error(
         `[tools] Transfer failed (state=${transferStatus(state)}).`,
       );
       if (transferIsAmbiguous(state)) {
-        return "The transfer may already be in progress. Do not try again.";
+        return reply(
+          "ambiguous",
+          "The transfer may already be in progress. Do not try again.",
+        );
       }
       if (error instanceof HandoffConflictError) {
         markTransferAmbiguous(state);
-        return "The transfer may already be in progress. Do not try again.";
+        return reply(
+          "ambiguous",
+          "The transfer may already be in progress. Do not try again.",
+        );
       }
       if (error instanceof HandoffError) {
+        record("failed");
         throw new ToolError(
           "I couldn't transfer the call. I can try once more.",
         );
       }
+      record("failed");
       throw error;
     }
   },
 });
+
+function transferDomainOutcome(status: TransferOutcomeStatus) {
+  return status === "success"
+    ? ("transfer_started" as const)
+    : status === "blocked"
+      ? ("transfer_blocked" as const)
+      : status === "ambiguous"
+        ? ("transfer_ambiguous" as const)
+        : ("transfer_failed" as const);
+}
