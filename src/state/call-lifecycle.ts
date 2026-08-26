@@ -1,5 +1,6 @@
 import {
   getOfficeProfileByPhone,
+  type OfficeProfile,
   type OfficeKey,
 } from "../customers/abita/profile.js";
 import type { CallState } from "./call-state.js";
@@ -12,19 +13,19 @@ export function activeOfficeKey(state: CallState): OfficeKey {
 
 export function resetActiveOfficeToTrunk(state: CallState): void {
   const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
+  activateOffice(state, office);
+}
+
+export function activateOffice(
+  state: CallState,
+  office: Pick<OfficeProfile, "amdOfficePhone" | "key">,
+): void {
   state.office.activeKey = office.key;
   state.office.phoneOverrides[office.key] ??= office.amdOfficePhone;
 }
 
 export function runtimeCallerPhone(state: CallState): string {
   return state.runtime.callerPhone;
-}
-
-export function recordLatestUserTranscript(
-  state: CallState,
-  transcript: string,
-): void {
-  state.runtime.latestUserTranscript = transcript;
 }
 
 export function transferStatus(state: CallState): TransferState {

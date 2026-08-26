@@ -3,7 +3,7 @@ import {
   getOfficeProfileByPhone,
   type AvailabilityOfficeKey,
 } from "../customers/abita/profile.js";
-import { activeOfficeKey } from "../state/call-lifecycle.js";
+import { activateOffice, activeOfficeKey } from "../state/call-lifecycle.js";
 import { type CallState } from "../state/call-state.js";
 import { appointmentForChangeContext } from "./appointments.js";
 import {
@@ -24,8 +24,7 @@ export function selectAvailabilityOffice(
 
   const { office } = selection;
   clearAvailabilitySelection(state, { invalidateReads: "office_changed" });
-  state.office.activeKey = office.key;
-  state.office.phoneOverrides[office.key] ??= office.amdOfficePhone;
+  activateOffice(state, office);
   return null;
 }
 

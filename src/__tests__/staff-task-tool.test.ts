@@ -118,7 +118,9 @@ describe("create_staff_task", () => {
       } as never,
     );
 
-    expect(result).toContain("Task sent to staff");
+    expect(result).toBe(
+      "I wrote that down for the team. They'll review it and follow up.",
+    );
     expect(ctx.disallowInterruptions).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -155,15 +157,14 @@ describe("create_staff_task", () => {
     });
     expect(staffTaskReceipts(state)).toMatchObject([
       {
-        category: "billing",
         idempotencyKey: body.idempotencyKey,
-        message: "Caller received a bill and wants the team to review it.",
         status: "created",
-        summary: "Caller has a billing question.",
         taskId: "task-1",
-        urgency: "high_priority",
       },
     ]);
+    expect(JSON.stringify(staffTaskReceipts(state))).not.toContain(
+      "Caller received a bill",
+    );
   });
 
   it("records a prior-authorization task after the insurance check requires staff follow-up", async () => {
@@ -192,11 +193,10 @@ describe("create_staff_task", () => {
       { ctx: ctx as never, toolCallId: "insurance-tool-1" } as never,
     );
 
-    expect(insuranceResult).toMatchObject({
-      status: "needs_staff_task",
-      plan: "United Healthcare Individual Exchange Network (Medical)",
-      preauthRequired: true,
-    });
+    expect(insuranceResult).toBe(
+      "This plan requires prior authorization before we can schedule. I can send a task to staff to follow up with the insurance company. Is that okay?",
+    );
+    expect(typeof insuranceResult).toBe("string");
 
     const taskResult = await create_staff_task.execute(
       {
@@ -210,7 +210,9 @@ describe("create_staff_task", () => {
       { ctx: ctx as never, toolCallId: "task-tool-1" } as never,
     );
 
-    expect(taskResult).toContain("Task sent to staff");
+    expect(taskResult).toBe(
+      "I wrote that down for the team. They'll review it and follow up.",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const body = JSON.parse(
       fetchMock.mock.calls[0]?.[1]?.body as string,
@@ -230,10 +232,8 @@ describe("create_staff_task", () => {
     });
     expect(staffTaskReceipts(state)).toMatchObject([
       {
-        category: "referrals",
         status: "created",
         taskId: "prior-auth-task-1",
-        urgency: "normal",
       },
     ]);
   });
@@ -269,7 +269,9 @@ describe("create_staff_task", () => {
       } as never,
     );
 
-    expect(result).toContain("Task sent to staff");
+    expect(result).toBe(
+      "I wrote that down for the team. They'll review it and follow up.",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
       PRODUCT_TASK_URL,
@@ -425,7 +427,9 @@ describe("create_staff_task", () => {
       toolCallId: "tool-2",
     } as never);
 
-    expect(result).toContain("Task already sent to staff");
+    expect(result).toBe(
+      "I already sent that to the team. They'll review it and follow up.",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(staffTaskReceipts(state)).toHaveLength(1);
     expect(domainOutcomeReceipts(state)).toMatchObject([
@@ -501,7 +505,9 @@ describe("create_staff_task", () => {
         } as never,
       );
 
-      expect(result).toContain("Task sent to staff");
+      expect(result).toBe(
+        "I wrote that down for the team. They'll review it and follow up.",
+      );
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expectIdenticalTaskRequests(fetchMock.mock.calls);
       expect(staffTaskReceipts(state)).toHaveLength(1);
@@ -540,7 +546,9 @@ describe("create_staff_task", () => {
       } as never,
     );
 
-    expect(result).toContain("Task sent to staff");
+    expect(result).toBe(
+      "I wrote that down for the team. They'll review it and follow up.",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expectIdenticalTaskRequests(fetchMock.mock.calls);
     expect(staffTaskReceipts(state)).toHaveLength(1);

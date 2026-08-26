@@ -175,7 +175,7 @@ export class SchedulingWorkflow {
       );
       if (signal?.aborted || !availabilityRequestStillCurrent(state, request)) {
         discardAvailabilityRead(state, request.backendKey, result);
-        return "Availability search was superseded because the patient or appointment context changed. Check availability again with the current details.";
+        return "The patient or appointment changed while I was checking. Let me check again with the current details.";
       }
       if (
         !availabilityResultHasExpiredBookingTokens(result, this.clock.now())
@@ -190,7 +190,7 @@ export class SchedulingWorkflow {
         result,
       );
       if (attempt > 0) {
-        return "Availability expired before it could be offered. Check availability again.";
+        return "Those openings expired before I could offer them. Let me check again.";
       }
     }
     try {
@@ -232,14 +232,14 @@ export class SchedulingWorkflow {
     if (patientId && hasCompletedBookingForActivePatient(state)) {
       clearAvailabilitySelection(state);
       replayAppointmentOutcome(state, callId, patientId, "booked");
-      return "The appointment is already booked. Tell the caller the confirmed appointment details instead of booking again.";
+      return "That appointment is already booked.";
     }
 
     ensureNewAppointmentBookingContext(state);
 
     if (!patientId) {
       throw new SchedulingInputRequired(
-        "Verify or create the patient before booking.",
+        "I need to verify or create the patient before booking.",
       );
     }
     const patientName = activePatientName(state);
@@ -257,10 +257,7 @@ export class SchedulingWorkflow {
       now: this.clock.now(),
     });
     if (!readBack) {
-      return (
-        `Read back ${spokenSlot(selectedSlot)} and ask the caller to confirm it. ` +
-        "Call book_appointment again only after the caller confirms the appointment details are correct."
-      );
+      return `Let me confirm: ${spokenSlot(selectedSlot)}. Is that correct?`;
     }
 
     const result = await this.middleware.bookAppointment({
@@ -297,9 +294,9 @@ export class SchedulingWorkflow {
         ),
       });
       if (result.status === "error") {
-        return "I couldn't book the appointment, and the active patient changed. Continue with the current patient and do not retry this request.";
+        return "I couldn't book the appointment, and the patient changed while I was working.";
       }
-      return `${message} The active patient changed before the booking result returned. Continue with the current patient's state.`;
+      return `${message} The patient changed while I was working.`;
     }
 
     if (bookingSucceeded(result)) {
@@ -307,11 +304,7 @@ export class SchedulingWorkflow {
         appointmentId: result.appointmentId,
         appointmentDescription: spokenSlot(selectedSlot),
       });
-      const appointmentRef = recordBookedAppointmentInState(
-        state,
-        selectedSlot,
-        result,
-      );
+      recordBookedAppointmentInState(state, selectedSlot, result);
       clearAvailabilitySelection(state, {
         invalidateReads: "booking_succeeded",
       });
@@ -328,7 +321,7 @@ export class SchedulingWorkflow {
           result,
         ),
       });
-      return `${message} Internal context: appointmentRef ${appointmentRef}. Use this exact appointmentRef if the caller asks to cancel this appointment during this call. Keep this opaque reference internal.`;
+      return message;
     }
     if (bookingHadPositiveStatusWithoutAppointmentId(result)) {
       clearAvailabilitySelection(state, {
@@ -406,7 +399,7 @@ export class SchedulingWorkflow {
     const patientId = activePatientId(state);
     if (!patientId) {
       throw new SchedulingInputRequired(
-        "Verify the patient before cancelling.",
+        "I need to verify the patient before cancelling.",
       );
     }
 
@@ -478,9 +471,9 @@ export class SchedulingWorkflow {
         ),
       });
       if (result.status === "error") {
-        return "I couldn't cancel the appointment, and the active patient changed. Continue with the current patient and do not retry this request.";
+        return "I couldn't cancel that appointment because the patient changed.";
       }
-      return `${message} The active patient changed before the cancellation result returned. Continue with the current patient's state.`;
+      return message;
     }
 
     if (
@@ -489,7 +482,7 @@ export class SchedulingWorkflow {
     ) {
       replaceActiveAppointments(state, [], "error");
       const message =
-        "That loaded appointment authorization is no longer valid. Load appointments again, confirm the exact appointment with the caller, then use its new appointmentRef to cancel.";
+        "The appointment details expired. I need to reload the appointments and confirm which one you want to cancel.";
       recordAppointmentAction(state, callId, {
         action: "cancelled",
         ...cancellationActionEvidence(patientId, appointment, result),
@@ -547,7 +540,7 @@ export class SchedulingWorkflow {
     const patientId = activePatientId(state);
     if (!patientId) {
       throw new SchedulingInputRequired(
-        "Verify the patient before rescheduling.",
+        "I need to verify the patient before rescheduling.",
       );
     }
     const patientName = activePatientName(state);
@@ -571,7 +564,7 @@ export class SchedulingWorkflow {
       clearAvailabilitySelection(state, {
         invalidateReads: "scheduling_context_changed",
       });
-      return "Check availability again for the loaded appointment the caller wants to reschedule before moving it.";
+      return "I need to check availability again for the appointment you want to move.";
     }
 
     const availabilityOldAppointmentRef =
@@ -588,7 +581,7 @@ export class SchedulingWorkflow {
       clearAvailabilitySelection(state, {
         invalidateReads: "scheduling_context_changed",
       });
-      return "The appointment selected to reschedule changed. Check availability again for the exact appointment the caller wants to move.";
+      return "The appointment changed while I was working. I need to check availability again for the correct appointment.";
     }
 
     const selectedSlot = selectedSlotForBooking(state, appointmentSlotRef);
@@ -612,10 +605,7 @@ export class SchedulingWorkflow {
     );
 
     if (!readBack) {
-      return (
-        `Read back ${spokenSlot(selectedSlot)} and ask the caller to confirm it as the new appointment. ` +
-        "Call reschedule_appointment again only after the caller confirms the new appointment details are correct."
-      );
+      return `Let me confirm the new appointment: ${spokenSlot(selectedSlot)}. Is that correct?`;
     }
 
     const unsupportedRoutineVisionScheduling =
@@ -736,7 +726,7 @@ export class SchedulingWorkflow {
         );
         const message = rescheduleCancellationFailureMessage(
           selectedSlot,
-          "The old appointment was not cancelled. The active patient changed before the cancellation result returned. Continue with the current patient's state.",
+          "The old appointment was not cancelled.",
         );
         recordCapturedRescheduleAction(state, callId, {
           status: "partial",
@@ -794,7 +784,7 @@ export class SchedulingWorkflow {
             selectedSlot,
             "The old appointment was not cancelled.",
           );
-      const message = `${outcomeMessage} The active patient changed before the cancellation result returned. Continue with the current patient's state.`;
+      const message = outcomeMessage;
       recordCapturedRescheduleAction(state, callId, {
         status: cancelled ? "success" : "partial",
         message,
@@ -903,7 +893,8 @@ function buildAvailabilityLookupRequestForState(
   const patientId = activePatientId(state);
   if (!patientId) {
     return {
-      blocked: "Verify or create the patient before checking availability.",
+      blocked:
+        "I need to verify or create the patient before checking availability.",
     };
   }
 
@@ -1002,7 +993,7 @@ function ensureNewAppointmentBookingContext(state: CallState): void {
   const turn = state.workflow.current;
   if (turn?.intent === "change_appointment") {
     throw new SchedulingInputRequired(
-      "Use reschedule_appointment for appointment changes so the old appointment is cancelled after the new booking succeeds.",
+      "This is an appointment change, so I need to move the existing appointment instead of booking another one.",
     );
   }
   if (
@@ -1013,7 +1004,7 @@ function ensureNewAppointmentBookingContext(state: CallState): void {
     return;
   }
   throw new SchedulingInputRequired(
-    "Search availability again with visitType medical or routine_vision before booking a new appointment.",
+    "Is this visit for medical care or routine vision?",
   );
 }
 
@@ -1025,7 +1016,7 @@ function hasCompletedBookingForActivePatient(state: CallState): boolean {
 function completedCancellationReplayMessage(
   appointment: CallerAppointment,
 ): string {
-  return `That appointment was already cancelled on this call: ${appointment.date} at ${appointment.time}. Continue without calling cancel_appointment again.`;
+  return `That appointment was already cancelled on this call. It was scheduled for ${appointment.date} at ${appointment.time}.`;
 }
 
 function appointmentAnalyticsForCapturedBooking(
@@ -1051,9 +1042,9 @@ function completedRescheduleReplayMessage(
   completedReschedule: CompletedRescheduleState,
 ): string {
   if (completedReschedule.status === "needs_human_cancellation") {
-    return "The new appointment was already booked, but the old appointment still needs office staff to finish cancellation. Transfer the caller instead of rescheduling again.";
+    return "The new appointment is booked, but the old appointment still needs office staff to cancel it. Would you like me to transfer you?";
   }
-  return `The appointment is already rescheduled to ${completedReschedule.appointmentDescription}. Tell the caller the confirmed appointment details instead of rescheduling again.`;
+  return `You're already rescheduled for ${completedReschedule.appointmentDescription}.`;
 }
 
 function completedRescheduleMatchesSlot(
@@ -1118,7 +1109,7 @@ function handleRescheduleBookingFailure(
       invalidateReads: "booking_authorization_invalidated",
     });
     const message =
-      "I could not confirm the new booking because the appointment ID was missing, so I did not cancel the existing appointment. Check availability again before booking.";
+      "I couldn't confirm the new booking, so your existing appointment is still scheduled. Let me check availability again.";
     recordRescheduleAction(state, callId, {
       status: "error",
       message,
@@ -1167,7 +1158,7 @@ function handleRescheduleBookingFailure(
     });
     replaceActiveAppointments(state, [], "error");
     const message =
-      "The appointment was not booked because the reschedule authorization expired. Load appointments again, reselect the exact appointment, and check availability again. I did not cancel the existing appointment.";
+      "I couldn't reschedule because the appointment details expired. Your existing appointment is still scheduled. I need to reload it and check availability again.";
     recordRescheduleAction(state, callId, {
       status: "error",
       message,

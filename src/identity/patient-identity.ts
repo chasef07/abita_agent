@@ -163,8 +163,8 @@ export async function resolveExistingPatient(
     return recordResolutionOutcome(state, {
       outcome: "needs_identity",
       reply: identity.firstName
-        ? "Collect the patient's last name and date of birth, then call resolve_patient again."
-        : "Collect the patient's first name, last name, and date of birth, then call resolve_patient.",
+        ? "What is the patient's last name and date of birth?"
+        : "What is the patient's full name and date of birth?",
     });
   }
 
@@ -178,7 +178,7 @@ export async function resolveExistingPatient(
   ) {
     return recordResolutionOutcome(state, {
       outcome: "verified",
-      reply: `${active.name?.trim() || "The active patient"} is already the active patient. Continue with loaded patient state.`,
+      reply: `${active.name?.trim() || "The patient"} is already the active patient.`,
     });
   }
 
@@ -194,8 +194,7 @@ export async function resolveExistingPatient(
   if (!patientIdentityOperationIsCurrent(state, operationVersion)) {
     return {
       outcome: "superseded",
-      reply:
-        "Patient lookup was superseded by a newer identity change. Continue with the current patient situation.",
+      reply: "The patient changed while I was looking up the record.",
     };
   }
 
@@ -206,8 +205,7 @@ export async function resolveExistingPatient(
     ) {
       return recordResolutionOutcome(state, {
         outcome: "lookup_failed",
-        reply:
-          "Patient lookup returned an invalid identity receipt. Try again.",
+        reply: "I couldn't verify that patient. Let me try once more.",
         failure: { status: "error", reason: "invalid_response" },
       });
     }
@@ -569,7 +567,7 @@ async function resolvePrivateCandidate(
     return {
       outcome: "multiple_matches",
       reply:
-        "More than one preloaded patient matched that first name. Collect the patient's full name and date of birth, then call resolve_patient again.",
+        "I found more than one patient with that first name. What is the patient's full name and date of birth?",
     };
   }
   if (!candidate) return null;
@@ -617,7 +615,7 @@ async function activateCandidate(
     ) {
       return {
         outcome: "verified",
-        reply: `${state.identity.activePatient?.name?.trim() || "The active patient"} is already the active patient. Continue with loaded patient state.`,
+        reply: `${state.identity.activePatient?.name?.trim() || "The patient"} is already the active patient.`,
       };
     }
     if (isActiveCandidate) {
@@ -680,8 +678,7 @@ async function performCandidateHydration(
   if (!patientIdentityOperationIsCurrent(state, operationVersion)) {
     return {
       outcome: "superseded",
-      reply:
-        "Patient lookup was superseded by a newer identity change. Continue with the current patient situation.",
+      reply: "The patient changed while I was looking up the record.",
     };
   }
   if (
@@ -715,7 +712,7 @@ async function performCandidateHydration(
             : "lookup_failed",
       reply:
         result.status === "verified"
-          ? "Patient lookup returned an incomplete identity. Try again."
+          ? "I couldn't verify that patient. Let me try once more."
           : patientLookupReply(result),
       ...(failure ? { failure } : {}),
     };
@@ -1041,7 +1038,7 @@ function confirmedPatientReply(state: CallState): string {
   const patient = state.identity.activePatient;
   return appointmentReply(
     [
-      `Verified existing patient ${activePatientName(state) ?? "the patient"}.`,
+      `I verified ${activePatientName(state) ?? "the patient"}.`,
       knownInsuranceOnFileSummary(state),
     ]
       .filter(Boolean)
@@ -1053,16 +1050,16 @@ function confirmedPatientReply(state: CallState): string {
 
 function switchedPatientReply(state: CallState): string {
   const patient = state.identity.activePatient;
-  return `${appointmentReply(
+  return appointmentReply(
     [
-      `Switched active patient to ${activePatientName(state) ?? "the selected patient"}.`,
+      `I verified ${activePatientName(state) ?? "the patient"}.`,
       knownInsuranceOnFileSummary(state),
     ]
       .filter(Boolean)
       .join(" "),
     patient?.appointmentsStatus ?? null,
     patient?.appointments ?? [],
-  )} Check availability again before booking.`;
+  );
 }
 
 function knownInsuranceOnFileSummary(state: CallState): string {
@@ -1072,7 +1069,7 @@ function knownInsuranceOnFileSummary(state: CallState): string {
     insurance?.canonicalPlan ??
     insurance?.plan
   )?.trim();
-  return carrier ? `Insurance on file: ${carrier}.` : "";
+  return carrier ? `We have ${carrier} on file.` : "";
 }
 
 function appointmentReply(
@@ -1081,14 +1078,14 @@ function appointmentReply(
   appointments: CallerAppointment[],
 ): string {
   if (status === "found" && appointments.length > 0) {
-    return `${prefix} Loaded ${appointments.length} appointment${appointments.length === 1 ? "" : "s"}: ${appointments.map(spokenAppointment).join("; ")}.`;
+    return `${prefix} I found ${appointments.length === 1 ? "one upcoming appointment" : `${appointments.length} upcoming appointments`}, ${appointments.map(spokenCallerAppointment).join("; ")}.`;
   }
   if (status === "none")
-    return `${prefix} No upcoming appointments are loaded.`;
+    return `${prefix} I don't see any upcoming appointments.`;
   if (status === "error") {
-    return `${prefix} Appointments could not be loaded. Try confirming identity again before confirming or cancelling.`;
+    return `${prefix} I couldn't load the upcoming appointments. Let me confirm the patient's identity again.`;
   }
-  return `${prefix} Patient record is loaded.`;
+  return `${prefix} I found the patient record.`;
 }
 
 function appointmentProjection(
@@ -1096,14 +1093,14 @@ function appointmentProjection(
   appointments: CallerAppointment[],
 ): string {
   if (status === "found" && appointments.length > 0) {
-    return `Upcoming appointments: ${appointments.map(spokenAppointment).join("; ")}.`;
+    return `Upcoming appointments: ${appointments.map(spokenInternalAppointment).join("; ")}.`;
   }
   if (status === "none") return "No upcoming appointments are loaded.";
   if (status === "error") return "Upcoming appointments could not be loaded.";
   return "Patient record is loaded.";
 }
 
-function spokenAppointment(appointment: CallerAppointment): string {
+function spokenCallerAppointment(appointment: CallerAppointment): string {
   const spoken = [
     spokenAppointmentDate(appointment.date),
     appointment.time ? `at ${appointment.time}` : "",
@@ -1111,6 +1108,11 @@ function spokenAppointment(appointment: CallerAppointment): string {
   ]
     .filter(Boolean)
     .join(" ");
+  return spoken;
+}
+
+function spokenInternalAppointment(appointment: CallerAppointment): string {
+  const spoken = spokenCallerAppointment(appointment);
   return appointment.appointmentRef
     ? `${spoken} (appointmentRef ${appointment.appointmentRef})`
     : spoken;
@@ -1118,10 +1120,10 @@ function spokenAppointment(appointment: CallerAppointment): string {
 
 function patientLookupReply(result: PatientResolveResult): string {
   if (result.status === "not_found") {
-    return "No matching patient was found. Confirm the spelling and date of birth, or ask whether the patient is already registered with us.";
+    return "I couldn't find a matching patient. Could you confirm the spelling and date of birth, and whether the patient is already registered with us?";
   }
   if (result.status === "multiple_matches") {
-    return "Multiple matching patients were found. Confirm the spelling and date of birth, then try again.";
+    return "I found more than one matching patient. Could you confirm the spelling and date of birth?";
   }
-  return "Patient lookup failed. Try again.";
+  return "I couldn't look up the patient. Let me try once more.";
 }

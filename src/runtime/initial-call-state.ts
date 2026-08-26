@@ -51,7 +51,6 @@ export function createInitialCallState(
     preauthRequired: false,
     voiceLanguage: call.voiceLanguage,
   });
-  state.runtime.maxCallDurationMs = call.maxDurationMs;
   return state;
 }
 

@@ -18,24 +18,20 @@ const resolvePatientParameters = z
       .min(1)
       .nullable()
       .describe(
-        "Caller-provided patient first name. Use this alone only when switching to another preloaded patient from the phone lookup. Pass null when the caller has not supplied it.",
+        "Caller-provided first name; may activate or switch to a preloaded patient.",
       ),
     lastName: z
       .string()
       .trim()
       .min(1)
       .nullable()
-      .describe(
-        "Caller-provided patient last name. Include with DOB for existing-patient lookup. Pass null for first-name-only preloaded-patient activation.",
-      ),
+      .describe("Caller-provided last name for full existing-patient lookup."),
     dob: z
       .string()
       .trim()
       .min(1)
       .nullable()
-      .describe(
-        "Caller-provided date of birth in MM/DD/YYYY format. Include with first and last name for existing-patient lookup. Pass null for first-name-only preloaded-patient activation.",
-      ),
+      .describe("Caller-provided date of birth in MM/DD/YYYY for full lookup."),
   })
   .strict();
 
@@ -52,18 +48,14 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
     name: "resolve_patient",
     onDuplicate: "reject" as const,
     description:
-      "Resolve who the patient is when an existing patient still needs activation. " +
-      "Use only identity details the caller has provided. " +
-      "Runtime first tries to activate a matching preloaded patient from every caller turn; continue with active patient state when runtime confirms that patient. " +
-      "When runtime leaves identity unconfirmed after the supplied first name, collect firstName, lastName, and DOB and use this tool as the last resort for existing-patient lookup. " +
-      "To switch to another preloaded patient, pass the caller-provided firstName. " +
-      "When the correct patient is already active, continue with that state. Use this tool to switch to a different patient using caller-provided identity details. " +
-      "Use add_patient for explicit new-patient confirmation and chart creation.",
+      "Activate or look up an existing patient when no correct patient is active, or switch to another patient. " +
+      "Use only caller-provided identity: a first name can activate a preloaded patient; otherwise collect full name and date of birth. " +
+      "Do not use for new-patient chart creation.",
     parameters: resolvePatientParameters,
     execute: async (
       identity: ResolvePatientArgs,
       { ctx, toolCallId }: ToolOptions,
-    ) => {
+    ): Promise<string> => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
       const outcomes = domainOutcomesForTool(

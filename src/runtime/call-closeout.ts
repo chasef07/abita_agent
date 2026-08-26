@@ -164,6 +164,9 @@ function productInteractionPayload(
     delivery.phase === "shutdown" && isRecord(payload.sessionReport)
       ? payload.sessionReport
       : undefined;
+  const closeoutPayload =
+    delivery.phase === "shutdown" ? { ...payload } : undefined;
+  if (closeoutPayload) delete closeoutPayload.sessionReport;
   const appointmentOutcome = productAppointmentOutcome(payload);
   return {
     kind: productMessageKind(delivery.phase),
@@ -180,7 +183,7 @@ function productInteractionPayload(
     ...(delivery.phase === "shutdown-summary"
       ? { summaryPayload: payload }
       : {}),
-    ...(delivery.phase === "shutdown" ? { closeoutPayload: payload } : {}),
+    ...(closeoutPayload ? { closeoutPayload } : {}),
   };
 }
 
@@ -409,9 +412,6 @@ export async function attachCallCloseout(input: {
       const callState = input.getCallState();
       if (!callState) return;
       callState.runtime.endedReason = "duration_limit";
-      if (input.call.maxCallDurationMs !== undefined) {
-        callState.runtime.maxCallDurationMs = input.call.maxCallDurationMs;
-      }
     },
     toolsExecuted(event) {
       const callState = input.getCallState();

@@ -14,7 +14,6 @@ import type { ReadableStream } from "node:stream/web";
 import { buildPrompt } from "./prompt.js";
 import type { OwnedMiddleware } from "./clients/owned-middleware.js";
 import type { CallState } from "./state/call-state.js";
-import { recordLatestUserTranscript } from "./state/call-lifecycle.js";
 import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
@@ -34,6 +33,7 @@ import {
   systemSchedulingClock,
   type SchedulingClock,
 } from "./scheduling/availability-when.js";
+import { availabilityModelProjection } from "./scheduling/availability.js";
 import { guardAssistantSpeech } from "./runtime/speech-output-guard.js";
 
 type VoiceAgentOptions = {
@@ -86,7 +86,6 @@ export function createVoiceAgent(
       const transcript = newMessage.textContent ?? "";
       if (!transcript) return;
 
-      recordLatestUserTranscript(state, transcript);
       await confirmCandidateFromTranscript(state, transcript, identityLookup);
 
       const officeKey = activeOfficeKey(state);
@@ -137,7 +136,12 @@ export function createVoiceAgent(
         0,
         ChatMessage.create({
           role: "system",
-          content: patientModelProjection(state),
+          content: [
+            patientModelProjection(state),
+            availabilityModelProjection(state),
+          ]
+            .filter(Boolean)
+            .join(" "),
         }),
       );
       return LiveKitAgent.default.llmNode(

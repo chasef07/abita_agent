@@ -353,7 +353,7 @@ describe("stable tool catalog", () => {
     expect(toolOutputs(session)[0]).toMatchObject({
       isError: false,
       output: JSON.stringify(
-        "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.",
+        "I need to check whether this patient already has a chart before creating a new one.",
       ),
     });
     expect(middleware.operations).toEqual([]);
@@ -449,7 +449,7 @@ describe("stable tool catalog", () => {
     expect(toolOutputs(session)[0]).toMatchObject({
       isError: false,
       output: JSON.stringify(
-        "Search availability again with visitType medical or routine_vision before booking a new appointment.",
+        "Is this visit for medical care or routine vision?",
       ),
     });
     expect(middleware.operations).toEqual([]);
@@ -808,7 +808,6 @@ function bookedAppointment() {
 function storedSlot() {
   return {
     slotId: "S1",
-    spoken: "Tuesday, September 1 at 9:00 AM with Dr. Bach",
     provider: "Dr. Bach",
     date: "2026-09-01",
     time: "9:00 AM",

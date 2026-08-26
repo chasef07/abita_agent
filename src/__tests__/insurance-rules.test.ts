@@ -292,12 +292,9 @@ describe("insurance matcher", () => {
         "routine_vision",
       );
 
-      expect(buildInsuranceToolResponse(result)).toEqual({
-        status: "accepted",
-        plan,
-        callerNotice:
-          "For new patients with Oscar, Davis Vision coverage is automatic through age 18. For patients 19 and older, Davis Vision is included only if they selected Oscar's additional vision option. Without that option, the visit would be self-pay.",
-      });
+      expect(buildInsuranceToolResponse(result)).toBe(
+        `Yes, we take ${plan}. For new patients with Oscar, Davis Vision coverage is automatic through age 18. For patients 19 and older, Davis Vision is included only if they selected Oscar's additional vision option. Without that option, the visit would be self-pay.`,
+      );
     }
   });
 
@@ -408,10 +405,14 @@ describe("insurance matcher", () => {
         input,
         "routine_vision",
       );
-      expect(result.status, input).toBe("needs_clarification");
+      expect(result.status, input).toBe("needs_staff_task");
       expect(result.canProceed, input).toBe(false);
       expect(canonicalInsurancePlan(result), input).toBeNull();
-      expect(result.clarificationNeeded, input).toContain("pending");
+      expect(result.clarificationNeeded, input).toBeNull();
+      expect(result.callerNotice, input).toContain("pending");
+      expect(buildInsuranceToolResponse(result), input).toBe(
+        "CarePlus Medicare routine vision is pending for these providers. I can send a task to staff to confirm coverage before scheduling. Is that okay?",
+      );
     }
   });
 
@@ -423,18 +424,39 @@ describe("insurance matcher", () => {
     expect(canonicalInsurancePlan(result)).toBe("Self Pay");
   });
 
-  it("builds a trimmed tool response for the model", () => {
-    const result = matchInsurancePlan(reference, "Blue Cross");
-    const toolResponse = buildInsuranceToolResponse(result);
+  it.each([
+    [
+      "accepted",
+      matchInsurancePlan(reference, "Blue Cross"),
+      "Yes, we take Blue Cross Blue Shield.",
+    ],
+    [
+      "not accepted",
+      matchInsurancePlan(reference, "Care Plus"),
+      "No, we don't accept Care Plus.",
+    ],
+    [
+      "clarification needed",
+      matchInsurancePlan(reference, "Cigna"),
+      "I can check that, but I need to know which Cigna plan is on the card.",
+    ],
+    [
+      "prior authorization",
+      matchInsurancePlanForOffice(
+        "hollywood",
+        "United Healthcare Individual Exchange Network (Medical)",
+      ),
+      "This plan requires prior authorization before we can schedule. I can send a task to staff to follow up with the insurance company. Is that okay?",
+    ],
+  ])(
+    "builds a plain speech-ready string when %s",
+    (_name, result, expected) => {
+      const toolResponse = buildInsuranceToolResponse(result);
 
-    expect(toolResponse).toEqual({
-      status: "accepted",
-      plan: "Blue Cross Blue Shield",
-    });
-    expect(toolResponse).not.toHaveProperty("callerMessage");
-    expect(toolResponse).not.toHaveProperty("canProceed");
-    expect(toolResponse).not.toHaveProperty("callerFacingPlan");
-  });
+      expect(toolResponse).toBe(expected);
+      expect(typeof toolResponse).toBe("string");
+    },
+  );
 
   it("returns a staff-task response for preauth-required medical plans", () => {
     const result = matchInsurancePlanForOffice(
@@ -447,13 +469,9 @@ describe("insurance matcher", () => {
     expect(result.preauthRequired).toBe(true);
     expect(result.canProceed).toBe(false);
     expect(canonicalInsurancePlan(result)).toBeNull();
-    expect(toolResponse).toEqual({
-      status: "needs_staff_task",
-      plan: "United Healthcare Individual Exchange Network (Medical)",
-      preauthRequired: true,
-      message:
-        'Prior authorization is required for United Healthcare Individual Exchange Network (Medical). Tell the caller: "This plan requires prior authorization before we can schedule. I need to create a task for our staff to follow up with your insurance company. Is that okay?" If the caller agrees, call create_staff_task with category referrals and urgency normal. Include the patient, plan, visit type, and authorization request staff needs. Transfer only if task creation is unavailable, fails, or the caller declines.',
-    });
+    expect(toolResponse).toBe(
+      "This plan requires prior authorization before we can schedule. I can send a task to staff to follow up with the insurance company. Is that okay?",
+    );
   });
 
   it("uses Crystal River's office-specific insurance map", () => {

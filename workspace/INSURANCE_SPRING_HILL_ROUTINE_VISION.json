@@ -318,7 +318,7 @@
     },
     {
       "id": "pending-careplus-medicare-routine-vision",
-      "status": "needs_clarification",
+      "status": "needs_staff_task",
       "canonicalPlan": null,
       "displayName": "CarePlus",
       "aliases": [
@@ -327,7 +327,7 @@
         "CarePlus Medicare Vision",
         "CarePlus Medicare Routine Vision"
       ],
-      "clarificationNeeded": "CarePlus Medicare routine vision is pending for these providers; transfer to the office before scheduling.",
+      "callerNotice": "CarePlus Medicare routine vision is pending for these providers.",
       "canProceed": false,
       "needsExactPlanName": false
     },

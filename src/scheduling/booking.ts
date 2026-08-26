@@ -178,41 +178,41 @@ export function slotUnavailableMessage(
   if (nextSlot) {
     return `That time is no longer available. I can offer ${spokenSlot(nextSlot)} instead.`;
   }
-  return "That time is no longer available. Check availability again before booking.";
+  return "That time is no longer available. Let me check again.";
 }
 
 export function bookingFailureMessage(result: BookAppointmentResult): string {
   if (result.status === "error" && result.detail === "missing_appointment_id") {
-    return "I could not confirm the booking because the appointment ID was missing. Check availability again before booking.";
+    return "I couldn't confirm that booking. Let me check availability again.";
   }
   if (result.status === "needs_input") {
     if (result.missing.includes("routeToSpringHill")) {
-      return "The appointment was not booked. Check routine vision availability at Spring Hill, then book a returned slot there.";
+      return "I couldn't book that here. Let me check routine vision availability at Spring Hill.";
     }
     if (result.missing.includes("appointmentLane")) {
-      return "The appointment was not booked. Treat the visit as medical and check Spring Hill medical availability before booking.";
+      return "I couldn't book that. Let me check Spring Hill medical availability.";
     }
     if (result.missing.includes("routing")) {
-      return "The appointment was not booked. Check availability at an office that supports the required medical scheduling lane before booking.";
+      return "I couldn't book that at this office. Let me check an office that supports the visit.";
     }
     if (result.missing.includes("office")) {
-      return "The appointment was not booked. Select the scheduling office and check availability again before booking.";
+      return "I couldn't book that yet. Which office would you prefer?";
     }
     const needsPatientStatus = result.missing.includes("patientStatus");
     const needsDob = result.missing.includes("dob");
     if (needsPatientStatus && needsDob) {
-      return "The appointment was not booked. Confirm whether the patient is new or established and verify the patient's date of birth, then try booking again.";
+      return "I couldn't book that yet. Is the patient new or established, and what is their date of birth?";
     }
     if (needsPatientStatus) {
-      return "The appointment was not booked. Confirm whether the patient is new or established, then try booking again.";
+      return "I couldn't book that yet. Is the patient new or established?";
     }
     if (needsDob) {
-      return "The appointment was not booked. Verify the patient's date of birth, then try booking again.";
+      return "I couldn't book that yet. What is the patient's date of birth?";
     }
-    return "The appointment was not booked. Verify the patient details, then try booking again.";
+    return "I couldn't book that yet. I need to verify the patient details.";
   }
   if (result.status === "rejected") {
-    return "Check availability again before booking.";
+    return "I couldn't book that slot. Let me check availability again.";
   }
   return "The appointment was not booked.";
 }

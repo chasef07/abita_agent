@@ -123,11 +123,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       routineVision: {
         query: "VSP",
-        response: { status: "accepted", plan: "VSP" },
+        response: "Yes, we take VSP.",
       },
       medical: {
         query: "Ambetter Premier",
-        response: { status: "accepted", plan: "Ambetter Premier" },
+        response: "Yes, we take Ambetter Premier.",
       },
     },
     key: "spring-hill",
@@ -150,11 +150,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Cigna Open Access",
-        response: { status: "accepted", plan: "Cigna Open Access" },
+        response: "Yes, we take Cigna Open Access.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "not_accepted", plan: "VSP" },
+        response: "No, we don't accept VSP.",
       },
     },
     key: "crystal-river",
@@ -183,11 +183,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Aetna EPO North Broward",
-        response: { status: "accepted", plan: "Aetna EPO North Broward" },
+        response: "Yes, we take Aetna EPO North Broward.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "accepted", plan: "VSP" },
+        response: "Yes, we take VSP.",
       },
     },
     key: "hollywood",
@@ -212,11 +212,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Aetna EPO North Broward",
-        response: { status: "accepted", plan: "Aetna EPO North Broward" },
+        response: "Yes, we take Aetna EPO North Broward.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "accepted", plan: "VSP" },
+        response: "Yes, we take VSP.",
       },
     },
     key: "sweetwater",
@@ -241,11 +241,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Aetna",
-        response: { status: "not_accepted", plan: "Aetna" },
+        response: "No, we don't accept Aetna.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "accepted", plan: "VSP" },
+        response: "Yes, we take VSP.",
       },
     },
     key: "north-miami-beach-optical",
@@ -275,11 +275,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Ambetter Premier",
-        response: { status: "accepted", plan: "Ambetter Premier" },
+        response: "Yes, we take Ambetter Premier.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "accepted", plan: "VSP" },
+        response: "Yes, we take VSP.",
       },
     },
     key: "ophthalmology-demo",
@@ -305,16 +305,12 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Aetna Choice POS II",
-        response: {
-          status: "accepted",
-          plan: "Aetna Choice POS II",
-          callerNotice:
-            "This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
-        },
+        response:
+          "Yes, we take Aetna Choice POS II. This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "not_accepted", plan: "VSP" },
+        response: "No, we don't accept VSP.",
       },
     },
     key: "mental-health-demo",
@@ -345,11 +341,11 @@ const officeBehaviors: OfficeBehavior[] = [
     insurance: {
       medical: {
         query: "Ambetter Premier",
-        response: { status: "accepted", plan: "Ambetter Premier" },
+        response: "Yes, we take Ambetter Premier.",
       },
       routineVision: {
         query: "VSP",
-        response: { status: "not_accepted", plan: "VSP" },
+        response: "No, we don't accept VSP.",
       },
     },
     key: "rheumatology-demo",

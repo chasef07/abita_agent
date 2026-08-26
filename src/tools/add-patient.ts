@@ -43,25 +43,17 @@ const addPatientParameters = z
       .string()
       .nullable()
       .describe(
-        "Best callback number, 10 digits only. Pass null when the inbound caller number is confirmed as best; the tool will use the caller phone from state.",
+        "Different callback number, 10 digits. Pass null when inboundPhoneConfirmed is true.",
       ),
     inboundPhoneConfirmed: z
       .literal(true)
       .nullable()
       .describe(
-        "Set to true only after asking whether the number they are calling from is a good callback number to put on file and the caller says yes. Pass null while confirmation is pending or when a different callback number is supplied.",
+        "True only after the caller confirms the inbound number is a good callback number.",
       ),
-    email: z
-      .string()
-      .nullable()
-      .describe(
-        "Email address if the caller provides one; otherwise pass null",
-      ),
+    email: z.string().nullable().describe("Caller-provided email, or null."),
     street: z.string().describe("Street address"),
-    aptSuite: z
-      .string()
-      .nullable()
-      .describe("Apartment or suite number, or null when there is none"),
+    aptSuite: z.string().nullable().describe("Apartment or suite, or null."),
     city: z.string().describe("City"),
     state: z.string().describe("State, 2-letter abbreviation"),
     zip: z.string().describe("Zip code"),
@@ -78,36 +70,35 @@ const addPatientParameters = z
       .regex(/^\d{4}$/)
       .nullable()
       .describe(
-        "Caller-provided value when available. Exactly the last 4 digits of the patient's Social Security number for insured routine-vision registration. Request only the last four digits. Pass null for self pay or when declined or unavailable.",
+        "Optional SSN last four for insured routine vision. Request only four digits. Pass null for self-pay, declined, or unavailable.",
       ),
     newPatientConfirmed: z
       .literal(true)
       .nullable()
       .describe(
-        "Set to true only after the caller explicitly confirms this is the patient's first registration with the practice. Pass null until confirmed.",
+        "True only after the caller confirms this is the patient's first registration; otherwise null.",
       ),
     readBack: z
       .literal(true)
       .nullable()
       .describe(
-        "Set to true only after reading back the patient's name, date of birth, sex, address, callback phone or inbound caller number, email if provided, insurance, policyholder name, and member ID; confirming any provided SSN last four was captured without repeating the digits; and the caller confirms the details are correct. Pass null until confirmed.",
+        "True only after the caller confirms the full identity, contact, address, and insurance read-back. Acknowledge captured SSN last four without repeating it; otherwise null.",
       ),
   })
   .strict();
+
+type AddPatientParameters = z.infer<typeof addPatientParameters>;
 
 export function createAddPatientTool(middleware: OwnedMiddleware) {
   return tool({
     name: "add_patient",
     onDuplicate: "reject",
     description:
-      "Create a chart after the caller explicitly confirms this is the patient's first registration with the practice, visit triage, and an accepted check_insurance result. " +
-      "After that confirmation, call add_patient directly with newPatientConfirmed true. " +
-      "Read back the registration details and get caller confirmation first. " +
-      "For insured routine-vision registration, ask once for the patient's SSN last four. Continue without it if declined or unavailable. Request only the last four digits. Skip SSN collection for self pay. " +
-      "Before using the inbound caller number, confirm it is a good callback number; if yes, pass phone as null and set inboundPhoneConfirmed to true. " +
-      'Use "self pay" as insuranceMemberId only when the patient asks for self pay.',
+      "Create a new patient chart only after first-registration confirmation, appointment triage, accepted insurance, callback-number confirmation, and a confirmed full read-back. " +
+      "For insured routine vision, request only SSN last four once and continue if unavailable; skip it for self-pay. " +
+      "Success requires this tool's creation receipt; never retry after full or partial chart creation.",
     parameters: addPatientParameters,
-    execute: async (params, { ctx, toolCallId }) => {
+    execute: async (params, { ctx, toolCallId }): Promise<string> => {
       const state = getState(ctx);
       ctx.disallowInterruptions();
       const outcomes = domainOutcomesForTool(state, toolCallId, "add_patient");
@@ -121,7 +112,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         !patientIdentity.lastName ||
         !patientIdentity.dob
       ) {
-        return "Before creating a new chart, collect the patient's first name, last name, and date of birth, then call add_patient again.";
+        return "What is the patient's full name and date of birth?";
       }
 
       const registrationStatus = patientRegistrationStatus(
@@ -134,26 +125,26 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
           `${params.firstName} ${params.lastName}`;
         if (!state.insurance.onFile) {
           recordPatientCreationOutcome(outcomes, "partial");
-          return `Patient chart is already created for ${patientName}, but insurance is not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
+          return `The patient chart for ${patientName} already exists, but insurance is not attached. Office staff needs to finish the registration.`;
         }
         recordPatientCreationOutcome(outcomes, "success");
-        return `Patient chart is already created for ${patientName}. Continue with scheduling.`;
+        return `The patient chart for ${patientName} already exists. We can continue with scheduling.`;
       }
 
       if (registrationStatus === "active_patient") {
-        return "The active patient already matches that identity. Continue with the loaded patient instead of creating a new chart.";
+        return "That patient is already active, so I won't create another chart.";
       }
 
       if (registrationStatus === "different_patient") {
-        return "Before creating a chart for a different patient, call resolve_patient with that patient's full name and date of birth. Continue new-patient registration only after the lookup confirms no existing chart.";
+        return "I need to check whether this patient already has a chart before creating a new one.";
       }
 
       if (registrationStatus === "pre_call_candidate") {
-        return "Do not create a new chart yet. Ask the privacy-safe first-name question, then use the runtime-confirmed patient state or continue an existing-patient lookup.";
+        return "I need to confirm the patient's first name before creating a new chart. Could you spell it for me?";
       }
 
       if (!params.newPatientConfirmed) {
-        return "Before creating a new chart, ask the caller to confirm that the patient has never registered with or been added to the practice. Call add_patient again with newPatientConfirmed set to true only after the caller confirms.";
+        return "Has the patient ever registered with or been added to the practice?";
       }
 
       const checkedInsurance = lastInsuranceEligibilityCheck(state);
@@ -163,7 +154,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         checkedInsurance?.plan?.trim();
       const coverageType = checkedInsurance?.coverageType;
       if (!checkedInsurance?.accepted || !insurance || !coverageType) {
-        return "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.";
+        return "I need to confirm accepted medical or routine vision coverage before creating the chart.";
       }
 
       const confirmedUnregisteredPatient =
@@ -173,7 +164,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         registrationStatus === "confirmed_new_patient" &&
         !confirmedUnregisteredPatient
       ) {
-        return "Run check_insurance for accepted medical or routine-vision coverage before creating a patient chart.";
+        return "I need to confirm accepted medical or routine vision coverage before creating the chart.";
       }
       beginNewPatientRegistration(state, patientIdentity, {
         preserveEligibilityCheck: confirmedUnregisteredPatient,
@@ -197,23 +188,20 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         (params.inboundPhoneConfirmed ? runtimeCallerPhone(state).trim() : "");
 
       if (!explicitPhone && !params.inboundPhoneConfirmed) {
-        return (
-          "Ask the caller: Is the number you are calling from a good callback number to put on file? " +
-          "If yes, call add_patient again with inboundPhoneConfirmed set to true. " +
-          "If not, collect the callback phone number and pass it as phone."
-        );
-      }
-
-      if (!params.readBack) {
-        return (
-          "Read back the new patient details first: patient name, date of birth, sex, address, " +
-          "callback phone, email if provided, insurance plan, policyholder name, and member ID. " +
-          "Call add_patient again only after the caller confirms the details are correct."
-        );
+        return "Is the number you're calling from a good callback number to put on file?";
       }
 
       if (!phone) {
-        return "A callback phone number is required before creating a chart. Ask whether the inbound number is best, or collect a callback number.";
+        return "What is the best callback number for the patient chart?";
+      }
+
+      if (!params.readBack) {
+        return registrationReadBack(params, {
+          coverageType,
+          insurance,
+          phone,
+          selfPay,
+        });
       }
 
       const payload: CreatePatientInput = {
@@ -263,17 +251,17 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       if (commit.outcome === "superseded") {
         if (commit.result.status === "error") {
           recordPatientCreationOutcome(outcomes, "failed");
-          return "I couldn't create the patient chart, and the active patient changed. Continue with the current patient and do not retry this request.";
+          return "I couldn't create the patient chart, and the patient changed while I was working.";
         }
         const patientName =
           commit.result.name?.trim() ||
           `${params.firstName} ${params.lastName}`;
         if (commit.result.status === "partial") {
           recordPatientCreationOutcome(outcomes, "partial", true);
-          return `Created a patient chart for ${patientName}, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration. The active patient changed before the result returned. Continue with the current patient's state.`;
+          return `I created a patient chart for ${patientName}, but insurance was not attached. Office staff needs to finish the registration. The patient also changed while I was working.`;
         }
         recordPatientCreationOutcome(outcomes, "success", true);
-        return `Created a patient chart for ${patientName}, but the active patient changed before the result returned. Do not create another chart. Continue with the current patient's state.`;
+        return `I created a patient chart for ${patientName}. The patient changed while I was working.`;
       }
       if (commit.outcome === "failed") {
         recordPatientCreationOutcome(outcomes, "failed");
@@ -285,7 +273,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       if (commit.outcome === "invalid_receipt") {
         if (commit.result) {
           recordPatientCreationOutcome(outcomes, "ambiguous");
-          return "A patient chart was created, but its identity receipt did not match the current registration. Do not create another chart. Connect the caller to office staff to verify the chart.";
+          return "I created a patient chart, but I couldn't verify the registration details. Office staff needs to check it.";
         }
         recordPatientCreationOutcome(outcomes, "failed");
         throw new Error(
@@ -297,10 +285,10 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         receipt.name?.trim() || `${params.firstName} ${params.lastName}`;
       if (receipt.status === "partial") {
         recordPatientCreationOutcome(outcomes, "partial");
-        return `Created a patient chart for ${patientName}, but insurance was not attached. Do not create another chart. Connect the caller to office staff to finish registration.`;
+        return `I created a patient chart for ${patientName}, but insurance was not attached. Office staff needs to finish the registration.`;
       }
       recordPatientCreationOutcome(outcomes, "success");
-      return `Created a patient chart for ${patientName}. Continue with scheduling.`;
+      return `I created a patient chart for ${patientName}. We can continue with scheduling.`;
     },
   });
 }
@@ -322,4 +310,53 @@ function recordPatientCreationOutcome(
     status,
     ...(superseded ? { evidence: { superseded: true } } : {}),
   });
+}
+
+function registrationReadBack(
+  params: AddPatientParameters,
+  input: {
+    coverageType: "medical" | "routine_vision";
+    insurance: string;
+    phone: string;
+    selfPay: boolean;
+  },
+): string {
+  const patientName = `${params.firstName.trim()} ${params.lastName.trim()}`;
+  const region = [params.state?.trim(), params.zip?.trim()]
+    .filter(Boolean)
+    .join(" ");
+  const locality = [params.city?.trim(), region].filter(Boolean).join(", ");
+  const address = [params.street?.trim(), params.aptSuite?.trim(), locality]
+    .filter(Boolean)
+    .join(", ");
+  const email = params.email?.trim();
+  const policyholder = params.subscriberName?.trim();
+  const memberId = params.insuranceMemberId?.trim();
+  const coverage = input.selfPay
+    ? "The patient will use self-pay."
+    : policyholder && memberId
+      ? `The insurance is ${input.insurance}, with ${policyholder} as the policyholder and member ID ${memberId}.`
+      : `The insurance is ${input.insurance}.`;
+
+  return [
+    `Let me confirm the registration for ${patientName}, date of birth ${params.dob.trim()}, ${params.sex}.`,
+    address ? `The address is ${address}.` : "",
+    `The callback number is ${spokenPhoneNumber(input.phone)}.`,
+    email ? `The email is ${email}.` : "",
+    coverage,
+    input.coverageType === "routine_vision" && !input.selfPay && params.ssnLast4
+      ? "I also recorded the requested last four digits without reading them aloud."
+      : "",
+    "Is all of that correct?",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function spokenPhoneNumber(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  const local =
+    digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (local.length !== 10) return phone.trim();
+  return `${local.slice(0, 3)}-${local.slice(3, 6)}-${local.slice(6)}`;
 }

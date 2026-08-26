@@ -8,7 +8,6 @@ import {
   activePatientName,
   type CallState,
   type StaffTaskCategory,
-  type StaffTaskUrgency,
 } from "../state/call-state.js";
 import {
   domainOutcomesForTool,
@@ -24,9 +23,9 @@ import {
 import { getState } from "./session.js";
 
 const TASK_CREATED_REPLY =
-  "Task sent to staff. Tell the caller: I wrote that down for the team. They'll review it and follow up.";
+  "I wrote that down for the team. They'll review it and follow up.";
 const TASK_DUPLICATE_REPLY =
-  "Task already sent to staff. Tell the caller: I already sent that to the team. They'll review it and follow up.";
+  "I already sent that to the team. They'll review it and follow up.";
 const TASK_FAILED_REPLY =
   "I couldn't send the message. I can transfer you to the office.";
 
@@ -42,12 +41,12 @@ const taskParameters = z.object({
       "other",
     ])
     .describe(
-      "billing for bills or payments; appointments only for separate appointment-specific work staff still needs to perform, while successful bookings, cancellations, and reschedules are complete; documentation for records or forms; optical for glasses, contacts, lab jobs, or optical orders; medication for routine prescription work; referrals for referral coordination or insurance prior authorization; other for named-person messages or work that fits none of these.",
+      "billing, separate unfinished appointment work, documentation, optical, medication, referrals including insurance prior authorization, or other.",
     ),
   urgency: z
     .enum(["high_priority", "normal", "non_urgent"])
     .describe(
-      "Use high_priority for time-sensitive non-clinical work staff should review before normal work, normal for standard follow-up, and non_urgent for work with no time sensitivity. Route clinical acuity through transfer_call.",
+      "high_priority for time-sensitive non-clinical work; normal for standard follow-up; non_urgent with no time sensitivity. Transfer clinical acuity.",
     ),
   summary: z
     .string()
@@ -61,7 +60,7 @@ const taskParameters = z.object({
     .min(1)
     .max(2500)
     .describe(
-      "Complete caller-provided request and details staff needs. For medication include the name, requested action, and pharmacy when known; for referrals include the destination or status requested; for insurance prior authorization include the patient, plan, visit type, and authorization request.",
+      "Caller-provided details staff needs. Include medication and pharmacy when known; for prior authorization include patient, plan, visit type, and request.",
     ),
 });
 
@@ -70,8 +69,6 @@ type TaskParameters = z.infer<typeof taskParameters>;
 type PortalTaskResponse = {
   status: "created" | "duplicate";
   taskId: string;
-  category?: StaffTaskCategory;
-  urgency?: StaffTaskUrgency;
 };
 
 class StaffTaskDeliveryError extends Error {}
@@ -79,14 +76,11 @@ class StaffTaskDeliveryError extends Error {}
 export const create_staff_task = tool({
   name: "create_staff_task",
   description:
-    "Use for safe, non-urgent office work that requires staff follow-up. " +
-    "Offer to send the request. After the caller agrees, collect the details staff needs, then call create_staff_task. " +
-    "Success or duplicate completes the request; reserve a later transfer for a new urgent concern. " +
-    "Treat a successful booking, cancellation, or reschedule as complete; use appointments only for separate appointment-specific work staff still needs to perform. " +
-    "Use the glasses-readiness text policy for glasses status. Route urgent or clinical concerns, medication reactions or instructions, returned calls, and requests for a person through transfer_call. " +
-    "Describe the result as a request sent for staff review, with approval, completion, refill, and timing left open.",
+    "Send safe, non-urgent caller-approved work to staff after collecting the needed details. " +
+    "Do not use for completed appointment actions, urgent or clinical concerns, medication guidance or reactions, returned calls, or live-person requests; transfer those when policy requires. " +
+    "A created or duplicate result completes the request; describe it only as sent for staff review, without promising approval, completion, refill, or timing.",
   parameters: taskParameters,
-  execute: async (input, { ctx, toolCallId }) => {
+  execute: async (input, { ctx, toolCallId }): Promise<string> => {
     const state = getState(ctx);
     ctx.disallowInterruptions();
     const outcomes = domainOutcomesForTool(
@@ -102,11 +96,7 @@ export const create_staff_task = tool({
         {
           outcome: "staff_task_duplicate",
           status: "success",
-          evidence: {
-            category: existing.category,
-            taskId: existing.taskId,
-            urgency: existing.urgency,
-          },
+          evidence: { ...existing },
         },
         TASK_DUPLICATE_REPLY,
       );
@@ -133,16 +123,13 @@ export const create_staff_task = tool({
       }
       throw error;
     }
-    recordStaffTaskReceipt(state, {
-      category: response.category ?? input.category,
+    const receipt = {
       createdAt: new Date().toISOString(),
       idempotencyKey: payload.idempotencyKey,
-      message: input.message,
       status: response.status,
-      summary: input.summary,
       taskId: response.taskId,
-      urgency: response.urgency ?? input.urgency,
-    });
+    };
+    recordStaffTaskReceipt(state, receipt);
     return outcomes.reply(
       {
         outcome:
@@ -150,11 +137,7 @@ export const create_staff_task = tool({
             ? "staff_task_duplicate"
             : "staff_task_created",
         status: "success",
-        evidence: {
-          category: response.category ?? input.category,
-          taskId: response.taskId,
-          urgency: response.urgency ?? input.urgency,
-        },
+        evidence: receipt,
       },
       response.status === "duplicate"
         ? TASK_DUPLICATE_REPLY
@@ -325,7 +308,5 @@ async function postStaffTaskOnce(
   return {
     status: parsedBody.status,
     taskId: parsedBody.taskId,
-    category: parsedBody.category,
-    urgency: parsedBody.urgency,
   };
 }

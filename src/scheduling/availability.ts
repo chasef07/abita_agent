@@ -99,28 +99,21 @@ function availabilityMessage(
 ): string {
   const searchedRange = spokenSearchRange(result);
   if (result.status === "none") {
-    return `No openings were found ${searchedRange}. Ask whether the caller has another day or time preference.`;
+    return `I couldn't find any openings ${searchedRange}. What other day or time works for you?`;
   }
   if (result.status === "incomplete") {
-    return `Availability was not fully checked ${searchedRange}. Call get_availability again once with the same when phrase.`;
+    return `I couldn't finish checking availability ${searchedRange}. Let me try once more.`;
   }
 
   const primarySlot = slots[0];
   if (!primarySlot) {
-    return `No usable openings were returned ${searchedRange}. Try the availability search once more.`;
+    return `I couldn't find a usable opening ${searchedRange}. Let me check once more.`;
   }
   const backupSlot = slots[1];
   if (backupSlot) {
-    return (
-      `Offer these options: ${slotOffer(primarySlot)}, or ${slotOffer(backupSlot)}. ` +
-      "Ask which one works better. " +
-      "If the caller accepts a listed slot, use its appointmentSlotRef; if neither works, ask for another day or time and call get_availability with the caller's new when phrase."
-    );
+    return `I found ${spokenAvailabilitySlot(primarySlot)}, or ${spokenAvailabilitySlot(backupSlot)}. Which works better?`;
   }
-  return (
-    `Offer this slot: ${slotOffer(primarySlot)}. ` +
-    `If the caller accepts it, use appointmentSlotRef ${primarySlot.slotId}; if they want a different day or time, ask for another preference and call get_availability with the caller's new when phrase.`
-  );
+  return `I found ${spokenAvailabilitySlot(primarySlot)}. Does that work for you?`;
 }
 
 function spokenSearchRange(result: AvailableSlotsResult): string {
@@ -139,12 +132,8 @@ function storedAvailabilitySlot(
 ): StoredAvailabilitySlot {
   const provider = publicProviderName(slot.provider);
   const date = slot.date || (slot.datetime.split("T")[0] ?? "");
-  const spoken = [date, slot.time, provider ? `with ${provider}` : ""]
-    .filter(Boolean)
-    .join(" ");
   return {
     slotId,
-    spoken,
     provider,
     date,
     time: slot.time,
@@ -210,14 +199,23 @@ export function publicProviderName(provider: string): string {
     .replace("Dr. D. Noel", "Dr. Noel");
 }
 
-function slotOffer(slot: StoredAvailabilitySlot): string {
+export function availabilityModelProjection(state: CallState): string {
+  const slots = availabilitySlotsForState(state);
+  if (slots.length === 0) return "";
+  const options = slots
+    .map((slot) => `${slot.slotId} is ${spokenAvailabilitySlot(slot)}`)
+    .join("; ");
+  return `Available appointment slots: ${options}. Keep the references private and use the matching value as appointmentSlotRef only after the caller confirms a slot.`;
+}
+
+function spokenAvailabilitySlot(slot: StoredAvailabilitySlot): string {
   const dateTime = [spokenAppointmentDate(slot.date), slot.time]
     .filter(Boolean)
     .join(" at ");
   const spoken = [dateTime, slot.provider ? `with ${slot.provider}` : ""]
     .filter(Boolean)
     .join(" ");
-  return `${spoken} (appointmentSlotRef ${slot.slotId})`;
+  return spoken;
 }
 
 function completeAvailabilityResult(result: AvailableSlotsResult): boolean {

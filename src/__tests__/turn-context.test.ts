@@ -16,7 +16,6 @@ function seedAvailability(state: ReturnType<typeof createState>) {
   state.availability.slots = [
     {
       slotId: "S1",
-      spoken: "June 1 at 9:00 AM with Dr. Bach",
       provider: "Dr. Bach",
       date: "2026-06-01",
       time: "9:00 AM",

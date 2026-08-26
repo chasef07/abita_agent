@@ -334,9 +334,6 @@ describe("Office Knowledge turn enrichment", () => {
     ).resolves.toBeUndefined();
 
     expect(knowledgeMessages(turnContext)).toEqual([]);
-    expect(session.userData.runtime.latestUserTranscript).toBe(
-      "What are your hours?",
-    );
     expect(session.userData.runtime).toMatchObject({
       knowledgeRetrievals: [
         {

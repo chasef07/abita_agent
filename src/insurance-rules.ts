@@ -44,26 +44,7 @@ export interface InsuranceLookupResult {
   preauthRequired: boolean;
 }
 
-export type InsuranceToolResponse =
-  | {
-      status: "accepted";
-      plan: string;
-      callerNotice?: string;
-    }
-  | {
-      status: "not_accepted";
-      plan: string;
-    }
-  | {
-      status: "needs_clarification";
-      clarificationNeeded: string;
-    }
-  | {
-      status: "needs_staff_task";
-      plan: string;
-      preauthRequired: true;
-      message: string;
-    };
+export type InsuranceToolResponse = string;
 
 const referenceCache = new Map<string, InsuranceReference>();
 
@@ -98,37 +79,29 @@ export function buildInsuranceToolResponse(
   result: InsuranceLookupResult,
 ): InsuranceToolResponse {
   if (result.status === "accepted") {
-    return {
-      status: "accepted",
-      plan: result.callerFacingPlan ?? result.matchedFamily ?? result.query,
-      ...(result.callerNotice ? { callerNotice: result.callerNotice } : {}),
-    };
+    const plan =
+      result.callerFacingPlan ?? result.matchedFamily ?? result.query;
+    return `Yes, we take ${plan}.${result.callerNotice ? ` ${result.callerNotice}` : ""}`;
   }
 
   if (result.status === "not_accepted") {
-    return {
-      status: "not_accepted",
-      plan: result.callerFacingPlan ?? result.query,
-    };
+    return `No, we don't accept ${result.callerFacingPlan ?? result.query}.`;
   }
 
   if (result.status === "needs_staff_task") {
-    const plan =
-      result.callerFacingPlan ?? result.matchedFamily ?? result.query;
-    return {
-      status: "needs_staff_task",
-      plan,
-      preauthRequired: true,
-      message: `Prior authorization is required for ${plan}. Tell the caller: "This plan requires prior authorization before we can schedule. I need to create a task for our staff to follow up with your insurance company. Is that okay?" If the caller agrees, call create_staff_task with category referrals and urgency normal. Include the patient, plan, visit type, and authorization request staff needs. Transfer only if task creation is unavailable, fails, or the caller declines.`,
-    };
+    if (result.preauthRequired) {
+      return "This plan requires prior authorization before we can schedule. I can send a task to staff to follow up with the insurance company. Is that okay?";
+    }
+    const notice = (
+      result.callerNotice ?? "The office needs to confirm this coverage"
+    ).replace(/[.!?]+$/, "");
+    return `${notice}. I can send a task to staff to confirm coverage before scheduling. Is that okay?`;
   }
 
-  return {
-    status: "needs_clarification",
-    clarificationNeeded:
-      result.clarificationNeeded ??
-      "the exact plan name from the insurance card",
-  };
+  const clarification = (
+    result.clarificationNeeded ?? "the exact plan name from the insurance card"
+  ).replace(/[.!?]+$/, "");
+  return `I can check that, but I need to know ${clarification}.`;
 }
 
 export function matchInsurancePlan(
@@ -322,9 +295,11 @@ function selectInsuranceCandidate(
   const acceptedCandidate = bestInsuranceCandidate(
     candidates.filter((candidate) => candidate.rule.status === "accepted"),
   );
-  const clarificationCandidate = bestInsuranceCandidate(
+  const followupCandidate = bestInsuranceCandidate(
     candidates.filter(
-      (candidate) => candidate.rule.status === "needs_clarification",
+      (candidate) =>
+        candidate.rule.status === "needs_clarification" ||
+        candidate.rule.status === "needs_staff_task",
     ),
   );
   const acceptedCandidateContainsRejectedAlias =
@@ -342,13 +317,13 @@ function selectInsuranceCandidate(
 
   if (
     acceptedCandidate &&
-    (!clarificationCandidate ||
-      compareInsuranceCandidates(acceptedCandidate, clarificationCandidate) > 0)
+    (!followupCandidate ||
+      compareInsuranceCandidates(acceptedCandidate, followupCandidate) > 0)
   ) {
     return acceptedCandidate;
   }
 
-  return clarificationCandidate ?? acceptedCandidate ?? null;
+  return followupCandidate ?? acceptedCandidate ?? null;
 }
 
 function bestInsuranceCandidate(

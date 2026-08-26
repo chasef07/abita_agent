@@ -177,9 +177,7 @@ describe("transfer call", () => {
     const first = await executeTransfer(ctx, "tool-1");
     const second = await executeTransfer(ctx, "tool-2");
 
-    expect(first).toBe(
-      "The transfer may already be in progress. Do not try again.",
-    );
+    expect(first).toBe("The transfer may already be in progress.");
     expect(second).toBe(first);
     expect(transferCallerToOfficeMock).toHaveBeenCalledTimes(1);
     expect(transferStatus(state)).toBe("ambiguous");
@@ -208,12 +206,8 @@ describe("transfer call", () => {
     const first = await executeTransfer(ctx, "tool-1");
     const second = await executeTransfer(ctx, "tool-2");
 
-    expect(first).toBe(
-      "The transfer may already be in progress. Do not try again.",
-    );
-    expect(second).toBe(
-      "The transfer may already be in progress. Do not try again.",
-    );
+    expect(first).toBe("The transfer may already be in progress.");
+    expect(second).toBe("The transfer may already be in progress.");
     expect(transferCallerToOfficeMock).toHaveBeenCalledTimes(1);
     expect(transferIsAccepted(state)).toBe(false);
   });
@@ -262,9 +256,7 @@ describe("transfer call", () => {
 
     const result = await executeTransfer(ctx, "tool-1");
 
-    expect(result).toBe(
-      "The transfer may already be in progress. Do not try again.",
-    );
+    expect(result).toBe("The transfer may already be in progress.");
     expect(transferStatus(state)).toBe("ambiguous");
     expect(transferIsAccepted(state)).toBe(false);
   });
