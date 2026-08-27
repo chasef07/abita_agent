@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.13.2](https://github.com/chasef07/abita_agent/compare/4.13.1...4.13.2) (2026-08-27)
+
+
+### Miscellaneous Chores
+
+* release 4.13.2 ([41e61b3](https://github.com/chasef07/abita_agent/commit/41e61b333e8f7dfa593b0b688dd7d45146193ab6))
+
 ## [4.13.1](https://github.com/chasef07/abita_agent/compare/4.13.0...4.13.1) (2026-08-26)
 
 
