@@ -162,6 +162,42 @@ describe("office routing helpers", () => {
 });
 
 describe("voice output prompt", () => {
+  it("includes shared related-detail batching guidance in every live prompt", () => {
+    for (const phone of [
+      SPRING_HILL_OFFICE_PHONE,
+      OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
+      RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+      MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+    ]) {
+      const prompt = buildPrompt(phone);
+
+      expect(prompt).toContain(
+        "Ask one topic at a time, combining closely related details into one natural question. Keep confirmation of a consequential action as its own question.",
+      );
+      expect(prompt).not.toContain(
+        "Keep responses to one to three sentences. Ask one question at a time.",
+      );
+      expect(prompt).not.toContain(
+        "Use one to three sentences and ask one question at a time.",
+      );
+    }
+
+    const focusedTriageRule =
+      "Ask one question at a time until the scheduling purpose is clear.";
+    for (const phone of [
+      SPRING_HILL_OFFICE_PHONE,
+      OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
+    ]) {
+      expect(buildPrompt(phone)).toContain(focusedTriageRule);
+    }
+    for (const phone of [
+      RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+      MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+    ]) {
+      expect(buildPrompt(phone)).not.toContain(focusedTriageRule);
+    }
+  });
+
   it("states model-facing prompt instructions as positive actions", () => {
     const prompts = [
       buildPrompt(SPRING_HILL_OFFICE_PHONE),
