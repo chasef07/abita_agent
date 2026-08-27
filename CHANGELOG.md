@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.13.3](https://github.com/chasef07/abita_agent/compare/4.13.2...4.13.3) (2026-08-27)
+
+
+### Bug Fixes
+
+* **prompt:** batch related booking details ([#384](https://github.com/chasef07/abita_agent/issues/384)) ([28d2231](https://github.com/chasef07/abita_agent/commit/28d223166ed7829145f8bb03eb153a67b6337982))
+
 ## [4.13.2](https://github.com/chasef07/abita_agent/compare/4.13.1...4.13.2) (2026-08-27)
 
 
