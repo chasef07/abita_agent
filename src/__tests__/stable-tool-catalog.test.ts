@@ -103,7 +103,9 @@ describe("stable tool catalog", () => {
           {
             name: "get_availability",
             args: {
-              when: "next available",
+              branches: [
+                { datePhrase: "next available", time: { operator: "any" } },
+              ],
               visitType: "medical",
               oldAppointmentRef: null,
             },
@@ -497,7 +499,9 @@ describe("stable tool catalog", () => {
           {
             name: "get_availability",
             args: {
-              when: "next available",
+              branches: [
+                { datePhrase: "next available", time: { operator: "any" } },
+              ],
               visitType: "medical",
               oldAppointmentRef: null,
             },
@@ -593,7 +597,9 @@ describe("stable tool catalog", () => {
           {
             name: "get_availability",
             args: {
-              when: "next available",
+              branches: [
+                { datePhrase: "next available", time: { operator: "any" } },
+              ],
               visitType: "medical",
               oldAppointmentRef: null,
             },

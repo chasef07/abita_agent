@@ -12,6 +12,9 @@ function createState() {
 
 function seedAvailability(state: ReturnType<typeof createState>) {
   state.availability.latestRouting = "all_three";
+  state.availability.preferenceBranches = [
+    { dates: ["2026-06-02"], time: { operator: "afternoon" } },
+  ];
   state.availability.bookingTokensBySlotId = { S1: "private-token" };
   state.availability.slots = [
     {
@@ -46,6 +49,7 @@ describe("turn context state", () => {
 
     expect(state.workflow.current?.appointmentLane).toBe("routine_od");
     expect(state.availability.slots).toEqual([]);
+    expect(state.availability.preferenceBranches).toEqual([]);
     expect(state.availability.latestRouting).toBeNull();
     expect(state.availability.bookingTokensBySlotId).toEqual({});
   });
@@ -65,6 +69,7 @@ describe("turn context state", () => {
       appointmentLane: "not_applicable",
     });
     expect(state.availability.slots).toEqual([]);
+    expect(state.availability.preferenceBranches).toEqual([]);
     expect(state.availability.latestRouting).toBeNull();
     expect(state.availability.bookingTokensBySlotId).toEqual({});
   });

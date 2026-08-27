@@ -1,21 +1,19 @@
 import * as chrono from "chrono-node";
+import type { AvailabilityWindow } from "../clients/owned-middleware.js";
 import type {
-  AvailabilityTimePreference,
-  AvailabilityWindow,
-} from "../clients/owned-middleware.js";
+  AvailabilityPreferenceBranch,
+  AvailabilityTimeConstraint,
+} from "../state/call-state.js";
 
 const CLINIC_TIME_ZONE = "America/New_York";
 const SEARCH_DATE_COUNT = 15;
 const AROUND_RADIUS_MINUTES = 60;
 
-export type AvailabilitySemanticBranch = {
-  datePhrase: string;
-  time:
-    | { operator: "any" | "morning" | "afternoon" }
-    | {
-        operator: "exact" | "around" | "before" | "after";
-        clockPhrase: string;
-      };
+export type NormalizedAvailabilityBranch = AvailabilityPreferenceBranch;
+
+export type AvailabilitySemanticBranchInput = {
+  datePhrase: string | null;
+  time: AvailabilityTimeConstraint | null;
 };
 
 export type ConcreteAvailabilityQuery = {
@@ -29,25 +27,74 @@ export interface SchedulingClock {
   now(): Date;
 }
 
-export type AvailabilityWhenResolution = {
-  requestedDate?: string;
-  preferredTime?: AvailabilityTimePreference;
-};
-
 export const systemSchedulingClock: SchedulingClock = {
   now: () => new Date(),
 };
 
+export function mergeAvailabilityBranches(
+  input: AvailabilitySemanticBranchInput[],
+  previous: NormalizedAvailabilityBranch[],
+  clock: SchedulingClock,
+): NormalizedAvailabilityBranch[] {
+  if (input.length === 0) {
+    throw new Error("At least one availability branch is required.");
+  }
+  const now = clock.now();
+  const earliestDate = addIsoDays(clinicIsoDate(now), 1);
+  const previousTimes = distinctValues(
+    previous.map((branch) => branch.time),
+    (value) => JSON.stringify(value),
+  );
+  const branches = input.flatMap((branch) => {
+    const datePhrase = branch.datePhrase?.trim();
+    if (!datePhrase) {
+      const inherited =
+        previous.length > 0
+          ? previous
+          : [
+              {
+                dates: datesForPhrase("next available", now, earliestDate),
+                time: { operator: "any" as const },
+              },
+            ];
+      return inherited.map((previousBranch) => ({
+        dates: [...previousBranch.dates],
+        time: branch.time ?? previousBranch.time,
+      }));
+    }
+    const times = branch.time
+      ? [branch.time]
+      : previousTimes.length <= 1
+        ? [previousTimes[0] ?? { operator: "any" as const }]
+        : [];
+    if (times.length === 0) {
+      throw new AvailabilityClarificationNeeded(
+        "Ask which prior time preference the caller wants to keep, then check availability again.",
+      );
+    }
+    const dates = datesForPhrase(datePhrase, now, earliestDate);
+    return times.map((time) => ({ dates, time }));
+  });
+  const distinct = distinctValues(branches, (branch) => JSON.stringify(branch));
+  if (distinct.length > 15) {
+    throw new AvailabilityClarificationNeeded(
+      "Ask the caller to narrow the acceptable dates or times, then check availability again.",
+    );
+  }
+  return distinct;
+}
+
+function distinctValues<T>(values: T[], keyFor: (value: T) => string): T[] {
+  return [...new Map(values.map((value) => [keyFor(value), value])).values()];
+}
+
 export function resolveAvailabilityBranches(
-  branches: AvailabilitySemanticBranch[],
+  branches: NormalizedAvailabilityBranch[],
   clock: SchedulingClock,
 ): ConcreteAvailabilityQuery {
   const now = clock.now();
-  const earliestDate = addIsoDays(clinicIsoDate(now), 1);
   const windows = branches.flatMap((branch) =>
-    datesForPhrase(branch.datePhrase, now, earliestDate).map((date) =>
-      concreteWindow(date, branch.time, now),
-    ),
+    branch.dates.map((date) => concreteWindow(date, branch.time, now)),
   );
   if (windows.length === 0) {
     throw new Error("At least one availability branch is required.");
@@ -59,9 +106,9 @@ export function resolveAvailabilityBranches(
   }
   return {
     timeZone: CLINIC_TIME_ZONE,
-    windows: [...distinct.values()]
-      .sort((left, right) => left.start.localeCompare(right.start))
-      .slice(0, SEARCH_DATE_COUNT),
+    windows: [...distinct.values()].sort((left, right) =>
+      left.start.localeCompare(right.start),
+    ),
   };
 }
 
@@ -108,8 +155,11 @@ function datesForPhrase(
       addIsoDays(earliestDate, index),
     );
   }
-  const start = futureDate(parsed, earliestDate);
-  const end = parsed.end ? componentIsoDateFromComponents(parsed.end) : start;
+  const monthRange = parsedMonthRange(parsed, earliestDate);
+  const start = monthRange?.start ?? futureDate(parsed, earliestDate);
+  const end = parsed.end
+    ? componentIsoDateFromComponents(parsed.end)
+    : (monthRange?.end ?? impliedRangeEnd(phrase, start) ?? start);
   const last = end < start ? start : end;
   const dates: string[] = [];
   for (
@@ -120,6 +170,31 @@ function datesForPhrase(
     dates.push(date);
   }
   return dates;
+}
+
+function parsedMonthRange(
+  parsed: chrono.ParsedResult,
+  earliestDate: string,
+): { start: string; end: string } | undefined {
+  if (
+    !parsed.start.isCertain("month") ||
+    parsed.start.isCertain("day") ||
+    parsed.end
+  ) {
+    return undefined;
+  }
+  const year = requiredParsedComponent(parsed.start, "year");
+  const month = requiredParsedComponent(parsed.start, "month");
+  const start = clampDate(isoDate(year, month, 1), earliestDate);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return { start, end: isoDate(year, month, lastDay) };
+}
+
+function impliedRangeEnd(phrase: string, start: string): string | undefined {
+  const normalized = phrase.trim().toLocaleLowerCase("en-US");
+  return /\b(?:next week|pr[oó]xima semana)\b/.test(normalized)
+    ? addIsoDays(start, 6)
+    : undefined;
 }
 
 function isBroadDatePhrase(phrase: string): boolean {
@@ -133,7 +208,7 @@ function isBroadDatePhrase(phrase: string): boolean {
 
 function concreteWindow(
   date: string,
-  time: AvailabilitySemanticBranch["time"],
+  time: AvailabilityTimeConstraint,
   now: Date,
 ): AvailabilityWindow {
   let startMinute = 0;
@@ -185,10 +260,13 @@ function concreteWindow(
 function clockMinuteOfDay(phrase: string, now: Date): number {
   const reference = { instant: clinicReferenceDate(now), timezone: 0 };
   const options = { forwardDate: true };
+  const parseablePhrase = explicitSpanishMeridiem(phrase) ?? phrase;
   const parsed = [
-    ...chrono.en.parse(`at ${phrase}`, reference, options),
-    ...chrono.es.parse(`a las ${phrase}`, reference, options),
-  ].find(hasTime);
+    ...chrono.en.parse(`at ${parseablePhrase}`, reference, options),
+    ...chrono.es.parse(`a las ${parseablePhrase}`, reference, options),
+  ]
+    .filter(hasTime)
+    .sort((left, right) => right.text.length - left.text.length)[0];
   if (!parsed) {
     throw new AvailabilityClarificationNeeded(
       "Ask the caller for a specific clock time, then call get_availability with the clarified clock phrase.",
@@ -207,13 +285,22 @@ function clockMinuteOfDay(phrase: string, now: Date): number {
       `Ask whether the caller means ${parsedHour} AM or ${parsedHour} PM, then call get_availability with the clarified clock phrase.`,
     );
   }
-  const preference = clockTimePreference(parsed);
-  if (!preference || !("minuteOfDay" in preference)) {
+  if (parsedHour === null) {
     throw new AvailabilityClarificationNeeded(
       "Ask the caller for a specific clock time, then call get_availability with the clarified clock phrase.",
     );
   }
-  return preference.minuteOfDay;
+  return normalizedMinuteOfDay(parsedHour, parsed.start.get("minute") ?? 0);
+}
+
+function explicitSpanishMeridiem(phrase: string): string | undefined {
+  const meridiem = /\b(?:de la\s+)?(ma[nñ]ana|tarde|noche)\b/i.exec(
+    phrase,
+  )?.[1];
+  const clock = /\b(\d{1,2})(?::(\d{2}))?\b/.exec(phrase);
+  if (!meridiem || !clock) return undefined;
+  const suffix = /tarde|noche/i.test(meridiem) ? "PM" : "AM";
+  return `${clock[1]}:${clock[2] ?? "00"} ${suffix}`;
 }
 
 function clinicLocalTimestamp(date: string, minuteOfDay: number): string {
@@ -268,36 +355,6 @@ function clinicLocalInstant(date: string, hour: number, minute: number): Date {
   return new Date(instant);
 }
 
-export function resolveAvailabilityWhen(
-  when: string,
-  clock: SchedulingClock,
-  currentAvailabilityDate?: string,
-): AvailabilityWhenResolution {
-  const now = clock.now();
-  const earliestDate = addIsoDays(clinicIsoDate(now), 1);
-  const parsed = parseCallerPhrase(when, now);
-  let preference = callerPreference(parsed, earliestDate);
-  const currentDateReference = refersToCurrentAvailabilityDate(when);
-  if (currentDateReference && currentAvailabilityDate && !preference?.date) {
-    const date = clampDate(currentAvailabilityDate, earliestDate);
-    preference = preference ? { ...preference, date } : { date };
-  }
-
-  return {
-    ...(preference?.date ? { requestedDate: preference.date } : {}),
-    ...(preference?.time ? { preferredTime: preference.time } : {}),
-  };
-}
-
-function refersToCurrentAvailabilityDate(when: string): boolean {
-  const normalized = when.toLocaleLowerCase("en-US");
-  return (
-    normalized.includes("that day") ||
-    normalized.includes("same day") ||
-    normalized.includes("ese día")
-  );
-}
-
 export function clinicTimestampMessage(now: Date): string {
   const date = clinicIsoDate(now);
   const time = new Intl.DateTimeFormat("en-US", {
@@ -309,61 +366,6 @@ export function clinicTimestampMessage(now: Date): string {
   return (
     `Current clinic-local date and time for this turn: ${spokenClinicDate(date)} at ${time} Eastern time. ` +
     "Scheduling tools resolve caller date language independently when called."
-  );
-}
-
-function parseCallerPhrase(when: string, now: Date): chrono.ParsedResult[] {
-  // Give Chrono the clinic wall clock at UTC so parsing is independent of the
-  // container timezone while keeping relative calendar components intact.
-  const reference = { instant: clinicReferenceDate(now), timezone: 0 };
-  const options = { forwardDate: true };
-  const original = [
-    ...chrono.en.parse(when, reference, options),
-    ...chrono.es.parse(when, reference, options),
-  ].sort((left, right) => left.index - right.index)[0];
-  if (!original) {
-    const clock = parseTrailingClock(when, 0, reference, options);
-    return clock ? [clock] : [];
-  }
-
-  const parsedThrough = original.index + original.text.length;
-  const trailing = when.slice(parsedThrough);
-  const clock = startsWithClockConnector(trailing)
-    ? parseTrailingClock(trailing, parsedThrough, reference, options)
-    : undefined;
-  return clock ? [original, clock] : [original];
-}
-
-function parseTrailingClock(
-  when: string,
-  offset: number,
-  reference: chrono.ParsingReference,
-  options: chrono.ParsingOption,
-): chrono.ParsedResult | undefined {
-  const words = when.trim().split(" ").filter(Boolean);
-  for (let index = 0; index < words.length; index += 1) {
-    const candidate = `${" ".repeat(offset)}at ${words.slice(index).join(" ")}`;
-    const parsed = [
-      ...chrono.en.parse(candidate, reference, options),
-      ...chrono.es.parse(candidate, reference, options),
-    ].filter(hasTime);
-    if (parsed[0]) return parsed[0];
-  }
-  return undefined;
-}
-
-function startsWithClockConnector(value: string): boolean {
-  const firstWord = value.trim().split(" ").find(Boolean)?.toLowerCase();
-  return (
-    firstWord === "at" ||
-    firstWord === "around" ||
-    firstWord === "near" ||
-    firstWord === "before" ||
-    firstWord === "after" ||
-    firstWord === "a" ||
-    firstWord === "antes" ||
-    firstWord === "después" ||
-    firstWord === "alrededor"
   );
 }
 
@@ -403,57 +405,6 @@ function requiredParsedComponent(
     throw new Error(`Chrono omitted ${component} from a parsed calendar date.`);
   }
   return value;
-}
-
-function daypartPreference(
-  result: chrono.ParsedResult,
-): AvailabilityTimePreference | undefined {
-  const tags = result.tags();
-  if (tags.has("casualReference/morning")) return { kind: "morning" };
-  if (tags.has("casualReference/afternoon")) return { kind: "afternoon" };
-  return undefined;
-}
-
-function clockTimePreference(
-  result: chrono.ParsedResult,
-): AvailabilityTimePreference | undefined {
-  const hour = result.start.get("hour");
-  if (hour === null) return undefined;
-  const minute = result.start.get("minute") ?? 0;
-  if (
-    result.start.isCertain("meridiem") ||
-    hour > 12 ||
-    result.tags().has("casualReference/noon") ||
-    result.tags().has("casualReference/midnight")
-  ) {
-    return { minuteOfDay: normalizedMinuteOfDay(hour, minute) };
-  }
-
-  return {
-    minuteOfDay: normalizedMinuteOfDay(businessHoursHour(hour), minute),
-  };
-}
-
-function businessHoursHour(hour: number): number {
-  if (hour >= 1 && hour <= 6) return hour + 12;
-  return hour === 12 ? 12 : hour;
-}
-
-function callerPreference(
-  results: chrono.ParsedResult[],
-  earliestDate: string,
-): { date?: string; time?: AvailabilityTimePreference } | undefined {
-  const primary = results[0];
-  if (!primary) return undefined;
-
-  const date = hasDate(primary) ? futureDate(primary, earliestDate) : undefined;
-  const timeResult =
-    daypartPreference(primary) || hasTime(primary) ? primary : results[1];
-  const time = timeResult
-    ? (daypartPreference(timeResult) ?? clockTimePreference(timeResult))
-    : undefined;
-  if (!date && !time) return undefined;
-  return { ...(date ? { date } : {}), ...(time ? { time } : {}) };
 }
 
 function clinicReferenceDate(instant: Date): Date {

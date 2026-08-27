@@ -190,6 +190,18 @@ export interface StoredAvailabilitySlot {
   unmetConstraints?: Array<"date" | "time">;
 }
 
+export type AvailabilityTimeConstraint =
+  | { operator: "any" | "morning" | "afternoon" }
+  | {
+      operator: "exact" | "around" | "before" | "after";
+      clockPhrase: string;
+    };
+
+export interface AvailabilityPreferenceBranch {
+  dates: string[];
+  time: AvailabilityTimeConstraint;
+}
+
 export type AppointmentActionStatus = "success" | "partial" | "error";
 
 export type AppointmentActionName = "booked" | "rescheduled" | "cancelled";
@@ -286,6 +298,7 @@ export type AvailabilityInvalidationReason =
   | "booking_succeeded"
   | "booking_token_expired"
   | "cancellation_succeeded"
+  | "caller_reset"
   | "office_changed"
   | "patient_context_changed"
   | "request_cancelled"
@@ -433,7 +446,8 @@ interface WorkflowSessionState {
 
 interface AvailabilitySessionState {
   slots: StoredAvailabilitySlot[];
-  currentDate?: string;
+  offerSetSlotIds: string[][];
+  preferenceBranches: AvailabilityPreferenceBranch[];
   latestRouting?: string | null;
   bookingTokensBySlotId: Record<string, string>;
   nextSlotIndex: number;

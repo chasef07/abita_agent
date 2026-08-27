@@ -1072,6 +1072,22 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
     expect(
       parameters.safeParse({
+        branches: [{ datePhrase: "Thursday", time: null }],
+        visitType: "medical",
+        oldAppointmentRef: null,
+        office: "sweetwater",
+      }).success,
+    ).toBe(true);
+    expect(
+      parameters.safeParse({
+        when: "Thursday afternoon",
+        visitType: "medical",
+        oldAppointmentRef: null,
+        office: "sweetwater",
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
         branches: [{ datePhrase: "tomorrow", time: { operator: "any" } }],
         visitType: "medical",
         oldAppointmentRef: null,

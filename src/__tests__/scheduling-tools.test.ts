@@ -12,6 +12,7 @@ import { HttpOwnedMiddleware } from "../clients/owned-middleware.js";
 import type { AvailabilityResult } from "../scheduling/middleware.js";
 import { bindSchedulingMiddleware } from "../scheduling/middleware.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
+import type { AvailabilitySemanticBranchInput } from "../scheduling/availability-when.js";
 import {
   appointmentActions,
   availabilityReadEvents,
@@ -34,6 +35,41 @@ import { createToolContext } from "./support/tool-context.js";
 
 function createState() {
   return createConfirmedPatientState();
+}
+
+function availabilityBranches(
+  phrase: string,
+): AvailabilitySemanticBranchInput[] {
+  const normalized = phrase.trim();
+  if (normalized === "soonest") {
+    return [{ datePhrase: "next available", time: { operator: "any" } }];
+  }
+  if (normalized === "10 for that day") {
+    return [
+      {
+        datePhrase: null,
+        time: { operator: "exact", clockPhrase: "10 AM" },
+      },
+    ];
+  }
+  if (normalized.endsWith(" afternoon")) {
+    return [
+      {
+        datePhrase: normalized.replace(/ afternoon$/, ""),
+        time: { operator: "afternoon" },
+      },
+    ];
+  }
+  const exact = /^(.*?) at (.+)$/.exec(normalized);
+  if (exact) {
+    return [
+      {
+        datePhrase: exact[1] ?? null,
+        time: { operator: "exact", clockPhrase: exact[2] ?? "" },
+      },
+    ];
+  }
+  return [{ datePhrase: normalized, time: { operator: "any" } }];
 }
 
 function activateExistingPatient(
@@ -258,7 +294,11 @@ describe("scheduling tools", () => {
       const state = createState();
 
       await get_availability.execute(
-        { when: "2026-06-01", visitType, oldAppointmentRef: null },
+        {
+          branches: availabilityBranches("2026-06-01"),
+          visitType,
+          oldAppointmentRef: null,
+        },
         {
           ctx: createToolContext(state) as never,
           toolCallId: "availability-1",
@@ -285,7 +325,7 @@ describe("scheduling tools", () => {
       "The patient chart exists, but insurance is not attached. Connect the caller to office staff to finish registration before scheduling.";
 
     const availabilityResult = await get_availability.execute(
-      { when: "2026-06-01", visitType: "medical" },
+      { branches: availabilityBranches("2026-06-01"), visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -322,7 +362,7 @@ describe("scheduling tools", () => {
 
       const result = await get_availability.execute(
         {
-          when: "2026-06-01",
+          branches: availabilityBranches("2026-06-01"),
           visitType: "medical",
         } as never,
         {
@@ -349,7 +389,7 @@ describe("scheduling tools", () => {
 
     await get_availability.execute(
       {
-        when: "2026-06-01",
+        branches: availabilityBranches("2026-06-01"),
         visitType: "medical",
         office: "hollywood",
       },
@@ -402,7 +442,7 @@ describe("scheduling tools", () => {
 
     const result = await get_availability.execute(
       {
-        when: "2026-06-01",
+        branches: availabilityBranches("2026-06-01"),
         visitType: "medical",
       },
       {
@@ -425,8 +465,14 @@ describe("scheduling tools", () => {
         office: "+17275919997",
         request: {
           dob: "01/01/1980",
-          requestedDate: "2026-06-01",
           routing: "all_three",
+          timeZone: "America/New_York",
+          windows: [
+            {
+              start: "2026-06-01T00:00:00-04:00",
+              end: "2026-06-02T00:00:00-04:00",
+            },
+          ],
         },
       },
     ]);
@@ -448,7 +494,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
 
     const availability = await get_availability.execute(
-      { when: "2026-06-01", visitType: "medical" },
+      { branches: availabilityBranches("2026-06-01"), visitType: "medical" },
       {
         ctx: ctx as never,
         toolCallId: "availability-1",
@@ -485,7 +531,7 @@ describe("scheduling tools", () => {
     const { get_availability } = createSchedulingTools(middleware);
     const state = createState();
     const args = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
     const ctx = createToolContext(state);
@@ -521,7 +567,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
     let lateOverlap: Promise<string> | undefined;
@@ -565,7 +611,7 @@ describe("scheduling tools", () => {
     const { get_availability } = createSchedulingTools(middleware);
     const state = createState();
     const args = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
     const ctx = createToolContext(state);
@@ -582,11 +628,13 @@ describe("scheduling tools", () => {
     expect(first).toBe(
       "I couldn't find any openings from Monday, June 1 through Monday, June 15. What other day or time works for you?",
     );
-    expect(second).toBe(first);
+    expect(second).toBe(
+      "I got the same availability result. What date or time would you like to change?",
+    );
     expect(middleware.operations).toHaveLength(1);
   });
 
-  it("refreshes an implicit search after clinic midnight and retains the derived date", async () => {
+  it("refreshes a broad search after clinic midnight and preserves its follow-up time", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [
         {
@@ -631,7 +679,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const request = {
-      when: "soonest",
+      branches: availabilityBranches("soonest"),
       visitType: "medical" as const,
     };
 
@@ -639,26 +687,35 @@ describe("scheduling tools", () => {
       ctx: ctx as never,
       toolCallId: "availability-before-midnight",
     } as never);
-    expect(state.availability.currentDate).toBe("2026-05-31");
+    expect(middleware.operations[0]).toHaveProperty(
+      "request.windows.0.start",
+      "2026-05-31T00:00:00-04:00",
+    );
 
     await get_availability.execute(request, {
       ctx: ctx as never,
       toolCallId: "availability-after-midnight",
     } as never);
     expect(middleware.operations).toHaveLength(2);
-    expect(state.availability.currentDate).toBe("2026-06-01");
+    expect(middleware.operations[1]).toHaveProperty(
+      "request.windows.0.start",
+      "2026-06-01T00:00:00-04:00",
+    );
 
-    await get_availability.execute({ ...request, when: "10 for that day" }, {
-      ctx: ctx as never,
-      toolCallId: "availability-that-day",
-    } as never);
-    expect(middleware.operations[2]).toMatchObject({
-      kind: "availability",
-      request: {
-        requestedDate: "2026-06-01",
-        preferredTime: { minuteOfDay: 600 },
-      },
-    });
+    await get_availability.execute(
+      { ...request, branches: availabilityBranches("10 for that day") },
+      {
+        ctx: ctx as never,
+        toolCallId: "availability-that-day",
+      } as never,
+    );
+    expect(middleware.operations[2]).toHaveProperty(
+      "request.windows.0",
+      expect.objectContaining({
+        start: "2026-06-01T10:00:00-04:00",
+        end: "2026-06-01T10:01:00-04:00",
+      }),
+    );
   });
 
   it("asks middleware to rank a changed availability preference", async () => {
@@ -687,7 +744,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const request = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
 
@@ -696,7 +753,7 @@ describe("scheduling tools", () => {
       toolCallId: "availability-1",
     } as never);
     const afternoon = await get_availability.execute(
-      { ...request, when: "2026-06-01 afternoon" },
+      { ...request, branches: availabilityBranches("2026-06-01 afternoon") },
       {
         ctx: ctx as never,
         toolCallId: "availability-2",
@@ -713,8 +770,12 @@ describe("scheduling tools", () => {
     expect(middleware.operations[1]).toMatchObject({
       kind: "availability",
       request: {
-        requestedDate: "2026-06-01",
-        preferredTime: { kind: "afternoon" },
+        windows: [
+          {
+            start: "2026-06-01T12:00:00-04:00",
+            end: "2026-06-02T00:00:00-04:00",
+          },
+        ],
       },
     });
     expect(state.availability.bookingTokensBySlotId).toEqual({
@@ -762,7 +823,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const initialArgs = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
 
@@ -771,7 +832,10 @@ describe("scheduling tools", () => {
       toolCallId: "availability-1",
     } as never);
     const exact = await get_availability.execute(
-      { ...initialArgs, when: "2026-06-01 at 9:00 AM" },
+      {
+        ...initialArgs,
+        branches: availabilityBranches("2026-06-01 at 9:00 AM"),
+      },
       {
         ctx: ctx as never,
         toolCallId: "availability-2",
@@ -833,7 +897,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
 
@@ -881,7 +945,7 @@ describe("scheduling tools", () => {
     const { get_availability } = createSchedulingTools(middleware);
     const state = createState();
     const availability = get_availability.execute(
-      { when: "2026-06-01", visitType: "medical" },
+      { branches: availabilityBranches("2026-06-01"), visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -938,10 +1002,13 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const lookup = (toolCallId: string) =>
-      get_availability.execute({ when: "2026-06-01", visitType: "medical" }, {
-        ctx: ctx as never,
-        toolCallId,
-      } as never);
+      get_availability.execute(
+        { branches: availabilityBranches("2026-06-01"), visitType: "medical" },
+        {
+          ctx: ctx as never,
+          toolCallId,
+        } as never,
+      );
 
     const first = lookup("availability-1");
     const second = lookup("availability-2");
@@ -983,7 +1050,7 @@ describe("scheduling tools", () => {
 
     vi.setSystemTime(new Date("2026-05-30T16:15:00.000Z"));
     const response = await get_availability.execute(
-      { when: "2026-06-01", visitType: "medical" },
+      { branches: availabilityBranches("2026-06-01"), visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -1066,10 +1133,16 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const lookup = (when: string, toolCallId: string) =>
-      get_availability.execute({ when, visitType: "medical" }, {
-        ctx: ctx as never,
-        toolCallId,
-      } as never);
+      get_availability.execute(
+        {
+          branches: availabilityBranches(when),
+          visitType: "medical",
+        },
+        {
+          ctx: ctx as never,
+          toolCallId,
+        } as never,
+      );
 
     await lookup("2026-06-01", "availability-1");
     await lookup("2026-06-02", "availability-2");
@@ -1104,7 +1177,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
 
     await get_availability.execute(
-      { when: "2026-06-01", visitType: "medical" },
+      { branches: availabilityBranches("2026-06-01"), visitType: "medical" },
       {
         ctx: ctx as never,
         toolCallId: "availability-1",
@@ -1152,7 +1225,7 @@ describe("scheduling tools", () => {
     },
     {
       name: "requested date",
-      change: () => ({ when: "2026-06-02" }),
+      change: () => ({ branches: availabilityBranches("2026-06-02") }),
     },
     {
       name: "date of birth",
@@ -1199,7 +1272,7 @@ describe("scheduling tools", () => {
       const state = createState();
       const ctx = createToolContext(state);
       const args = {
-        when: "2026-06-01",
+        branches: availabilityBranches("2026-06-01"),
         visitType: "medical" as const,
       };
 
@@ -1236,7 +1309,7 @@ describe("scheduling tools", () => {
     };
 
     await get_availability.execute(
-      { when: "2026-06-01", visitType: "medical" },
+      { branches: availabilityBranches("2026-06-01"), visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -1264,7 +1337,7 @@ describe("scheduling tools", () => {
     restoreFirstPatient(state, [loadedAppointment()]);
 
     await get_availability.execute(
-      { when: "2026-06-01", visitType: "medical" },
+      { branches: availabilityBranches("2026-06-01"), visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -1297,7 +1370,7 @@ describe("scheduling tools", () => {
 
     const result = await get_availability.execute(
       {
-        when: "2026-06-01",
+        branches: availabilityBranches("2026-06-01"),
       },
       {
         ctx: createToolContext(state) as never,
@@ -1322,10 +1395,13 @@ describe("scheduling tools", () => {
       }),
     ];
 
-    await get_availability.execute({ when: "2026-06-01" }, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "availability-1",
-    } as never);
+    await get_availability.execute(
+      { branches: availabilityBranches("2026-06-01") },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
 
     expect(middleware.operations).toEqual([
       expect.objectContaining({
@@ -1348,10 +1424,13 @@ describe("scheduling tools", () => {
       }),
     ];
 
-    await get_availability.execute({ when: "2026-06-01" }, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "availability-1",
-    } as never);
+    await get_availability.execute(
+      { branches: availabilityBranches("2026-06-01") },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
 
     expect(middleware.operations).toEqual([
       expect.objectContaining({
@@ -1374,10 +1453,13 @@ describe("scheduling tools", () => {
       }),
     ];
 
-    await get_availability.execute({ when: "2026-06-01" }, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "availability-1",
-    } as never);
+    await get_availability.execute(
+      { branches: availabilityBranches("2026-06-01") },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
 
     expect(middleware.operations).toEqual([
       expect.objectContaining({
@@ -1400,10 +1482,13 @@ describe("scheduling tools", () => {
       }),
     ];
 
-    await get_availability.execute({ when: "2026-06-01" }, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "availability-1",
-    } as never);
+    await get_availability.execute(
+      { branches: availabilityBranches("2026-06-01") },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
 
     expect(middleware.operations).toEqual([
       expect.objectContaining({
@@ -1428,7 +1513,7 @@ describe("scheduling tools", () => {
 
     await get_availability.execute(
       {
-        when: "2026-06-01",
+        branches: availabilityBranches("2026-06-01"),
         visitType: "medical",
         office: "hollywood",
       },
@@ -1439,7 +1524,7 @@ describe("scheduling tools", () => {
     );
     await get_availability.execute(
       {
-        when: "2026-06-01",
+        branches: availabilityBranches("2026-06-01"),
         visitType: "medical",
         office: "sweetwater",
       },
@@ -1466,8 +1551,8 @@ describe("scheduling tools", () => {
     state.identity.activePatient!.dob = " 01/01/1980 ";
     const ctx = createToolContext(state);
 
-    const first = await get_availability.execute(
-      { when: "2026-06-01", visitType: "medical" },
+    await get_availability.execute(
+      { branches: availabilityBranches("2026-06-01"), visitType: "medical" },
       {
         ctx: ctx as never,
         toolCallId: "availability-1",
@@ -1476,14 +1561,16 @@ describe("scheduling tools", () => {
     state.identity.activePatient!.patientId = "patient-1";
     state.identity.activePatient!.dob = "01/01/1980";
     const second = await get_availability.execute(
-      { when: " 2026-06-01 ", visitType: "medical" },
+      { branches: availabilityBranches(" 2026-06-01 "), visitType: "medical" },
       {
         ctx: ctx as never,
         toolCallId: "availability-2",
       } as never,
     );
 
-    expect(second).toBe(first);
+    expect(second).toBe(
+      "I got the same availability result. What date or time would you like to change?",
+    );
     expect(middleware.operations).toHaveLength(1);
   });
 
@@ -1504,11 +1591,11 @@ describe("scheduling tools", () => {
     const firstState = createState();
     const secondState = createState();
     const args = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
 
-    const first = await get_availability.execute(args, {
+    await get_availability.execute(args, {
       ctx: createToolContext(firstState) as never,
       toolCallId: "first-call-1",
     } as never);
@@ -1521,7 +1608,9 @@ describe("scheduling tools", () => {
       toolCallId: "second-call-1",
     } as never);
 
-    expect(firstReplay).toBe(first);
+    expect(firstReplay).toBe(
+      "I got the same availability result. What date or time would you like to change?",
+    );
     expect(second).toContain("10:00 AM");
     expect(middleware.operations).toHaveLength(2);
     expect(secondState.availability.bookingTokensBySlotId).toEqual({
@@ -1569,7 +1658,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
 
@@ -1578,7 +1667,7 @@ describe("scheduling tools", () => {
       toolCallId: "availability-1",
     } as never);
     const reranked = await get_availability.execute(
-      { ...args, when: "2026-06-01 afternoon" },
+      { ...args, branches: availabilityBranches("2026-06-01 afternoon") },
       {
         ctx: ctx as never,
         toolCallId: "availability-2",
@@ -1645,7 +1734,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
 
@@ -1682,7 +1771,7 @@ describe("scheduling tools", () => {
       const state = createState();
       const ctx = createToolContext(state);
       const args = {
-        when: "2026-06-01",
+        branches: availabilityBranches("2026-06-01"),
         visitType: "medical" as const,
       };
 
@@ -1722,7 +1811,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const controller = new AbortController();
     const args = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
 
@@ -1759,7 +1848,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const waiterController = new AbortController();
     const args = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
 
@@ -1801,7 +1890,7 @@ describe("scheduling tools", () => {
     const { get_availability } = createSchedulingTools(middleware);
     const state = createState();
     const args = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
     const ctx = createToolContext(state);
@@ -1835,10 +1924,13 @@ describe("scheduling tools", () => {
     const state = createState();
 
     await expect(
-      get_availability.execute({ when: "2026-06-01", visitType: "medical" }, {
-        ctx: createToolContext(state) as never,
-        toolCallId: "availability-1",
-      } as never),
+      get_availability.execute(
+        { branches: availabilityBranches("2026-06-01"), visitType: "medical" },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "availability-1",
+        } as never,
+      ),
     ).rejects.toThrow(
       "I couldn't check availability. I can try once more or connect you with the office.",
     );
@@ -1855,7 +1947,7 @@ describe("scheduling tools", () => {
     const state = createState();
 
     const failure = get_availability.execute(
-      { when: "2026-06-01", visitType: "medical" },
+      { branches: availabilityBranches("2026-06-01"), visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -1887,7 +1979,7 @@ describe("scheduling tools", () => {
 
     const result = await get_availability.execute(
       {
-        when: "2026-06-01 afternoon",
+        branches: availabilityBranches("2026-06-01 afternoon"),
         visitType: "medical",
       },
       {
@@ -1908,8 +2000,12 @@ describe("scheduling tools", () => {
       {
         kind: "availability",
         request: {
-          requestedDate: "2026-06-01",
-          preferredTime: { kind: "afternoon" },
+          windows: [
+            {
+              start: "2026-06-01T12:00:00-04:00",
+              end: "2026-06-02T00:00:00-04:00",
+            },
+          ],
         },
       },
     ]);
@@ -1927,7 +2023,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const pending = get_availability.execute(
       {
-        when: "2026-06-01",
+        branches: availabilityBranches("2026-06-01"),
         visitType: "medical",
       },
       {
@@ -1970,7 +2066,7 @@ describe("scheduling tools", () => {
 
     const pending = get_availability.execute(
       {
-        when: "2026-06-01",
+        branches: availabilityBranches("2026-06-01"),
         visitType: "medical",
       },
       {
@@ -1999,7 +2095,7 @@ describe("scheduling tools", () => {
       "north-miami-beach-optical": "+13055550100",
     };
     const medicalResult = await get_availability.execute(
-      { when: "2026-06-01", visitType: "medical" },
+      { branches: availabilityBranches("2026-06-01"), visitType: "medical" },
       {
         ctx: createToolContext(opticalState) as never,
         toolCallId: "medical-1",
@@ -2011,7 +2107,10 @@ describe("scheduling tools", () => {
       "crystal-river": "+13523202007",
     };
     const routineResult = await get_availability.execute(
-      { when: "2026-06-01", visitType: "routine_vision" },
+      {
+        branches: availabilityBranches("2026-06-01"),
+        visitType: "routine_vision",
+      },
       {
         ctx: createToolContext(medicalState) as never,
         toolCallId: "routine-1",
@@ -2214,7 +2313,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const availabilityArgs = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
 
@@ -2475,7 +2574,8 @@ describe("scheduling tools", () => {
 
     expect(result).toContain("confirmed time is no longer available");
     expect(result).toContain("2:00 PM");
-    expect(result).toContain("requires new caller confirmation");
+    expect(result).toContain("confirm one of the new times");
+    expect(result).not.toContain("appointmentSlotRef");
     expect(state.availability.slots).toMatchObject([
       { slotId: "S2", time: "2:00 PM", datetime: "2026-06-01T14:00:00" },
     ]);
@@ -2510,7 +2610,7 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
 
@@ -2531,7 +2631,8 @@ describe("scheduling tools", () => {
       } as never,
     );
     expect(refreshed).toContain("3:00 PM");
-    expect(refreshed).toContain("requires new caller confirmation");
+    expect(refreshed).toContain("confirm one of the new times");
+    expect(refreshed).not.toContain("appointmentSlotRef");
     expect(middleware.operations.map(({ kind }) => kind)).toEqual([
       "availability",
       "book",
@@ -2769,7 +2870,7 @@ describe("scheduling tools", () => {
     restoreFirstPatient(state, [loadedAppointment()]);
     const ctx = createToolContext(state);
     const args = {
-      when: "2026-06-01",
+      branches: availabilityBranches("2026-06-01"),
       visitType: "medical" as const,
     };
 
@@ -3250,7 +3351,7 @@ describe("scheduling tools", () => {
 
     await get_availability.execute(
       {
-        when: "2026-06-01",
+        branches: availabilityBranches("2026-06-01"),
         oldAppointmentRef: availabilityAppointmentRef,
       },
       {
@@ -3304,7 +3405,7 @@ describe("scheduling tools", () => {
 
     await get_availability.execute(
       {
-        when: "2026-06-01",
+        branches: availabilityBranches("2026-06-01"),
         oldAppointmentRef: selectedAppointmentRef,
       },
       {
@@ -3516,6 +3617,51 @@ describe("scheduling tools", () => {
     expect(state.availability.slots).toEqual([]);
   });
 
+  it("rechecks an identical replacement slot before completing a reschedule", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        availabilityFound(
+          [returnedSlot({ bookingToken: "refreshed-booking-token" })],
+          { matchStatus: "exact" },
+        ),
+      ],
+      bookings: [
+        { status: "rejected", reason: "invalid_booking_token" },
+        bookingReceipt(),
+      ],
+      cancellations: [{ status: "cancelled" }],
+    });
+    const { reschedule_appointment } = createSchedulingTools(middleware);
+    const state = createState();
+    prepareReschedule(state);
+
+    const result = await reschedule_appointment.execute(
+      {
+        appointmentSlotRef: "S1",
+        appointmentReason: "move my appointment",
+        referringDoctor: "none",
+        oldAppointmentRef: null,
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "reschedule-recovered-slot",
+      } as never,
+    );
+
+    expect(result).toContain("Rescheduled the appointment");
+    expect(middleware.operations.map(({ kind }) => kind)).toEqual([
+      "book",
+      "availability",
+      "book",
+      "cancel",
+    ]);
+    expect(middleware.operations[2]).toMatchObject({
+      kind: "book",
+      request: { bookingToken: "refreshed-booking-token" },
+    });
+  });
+
   it("invalidates a selected reschedule when the loaded appointment type changes", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [availabilityFound([returnedSlot()])],
@@ -3532,10 +3678,13 @@ describe("scheduling tools", () => {
     ]);
     const oldAppointmentRef = loadedAppointmentRef(state);
 
-    await get_availability.execute({ when: "2026-06-01", oldAppointmentRef }, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "availability-1",
-    } as never);
+    await get_availability.execute(
+      { branches: availabilityBranches("2026-06-01"), oldAppointmentRef },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never,
+    );
     restoreFirstPatient(state, [
       loadedAppointment({
         appointmentTypeId: 9999,
@@ -3590,7 +3739,7 @@ describe("scheduling tools", () => {
     const state = createState();
     restoreFirstPatient(state, [loadedAppointment()]);
     const ctx = createToolContext(state);
-    const args = { when: "2026-06-01" };
+    const args = { branches: availabilityBranches("2026-06-01") };
 
     await get_availability.execute(args, {
       ctx: ctx as never,
@@ -3899,6 +4048,17 @@ describe("scheduling tools", () => {
 
   it("does not cancel when the replacement booking fails", async () => {
     const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        {
+          status: "none",
+          slots: [],
+          requestedDate: "2026-06-01",
+          searchedFrom: "2026-06-01",
+          searchedThrough: "2026-06-01",
+          dateShifted: false,
+          shouldRetrySameSearch: false,
+        },
+      ],
       bookings: [
         {
           status: "unavailable",
@@ -3923,11 +4083,11 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe(
-      "That time is no longer available. Let me check again. I did not cancel the existing appointment.",
-    );
+    expect(result).toContain("confirmed time is no longer available");
+    expect(result).toContain("existing appointment is still scheduled");
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
       "book",
+      "availability",
     ]);
     expect(state.identity.activePatient!.appointments).toEqual([
       loadedAppointment(),

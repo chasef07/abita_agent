@@ -404,11 +404,13 @@ describe("HTTP owned middleware transport", () => {
       office: SPRING_HILL_OFFICE_PHONE,
       timeZone: "America/New_York",
       windows,
+      provider: "Dr. Bach",
     });
 
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
       timeZone: "America/New_York",
       windows,
+      provider: "Dr. Bach",
       office: SPRING_HILL_OFFICE_PHONE,
     });
     expect(result).toMatchObject({

@@ -119,27 +119,32 @@ export function createSchedulingTools(
               .string()
               .trim()
               .min(1)
+              .nullable()
               .describe(
-                "Caller-derived calendar wording for this acceptable branch, such as tomorrow, Tuesday, June 16, or next available. Leave ISO-date calculation to the Scheduling Workflow.",
+                "Caller-derived calendar wording, or null when a follow-up keeps the prior dates.",
               ),
-            time: z.discriminatedUnion("operator", [
-              z.object({ operator: z.literal("any") }).strict(),
-              z.object({ operator: z.literal("morning") }).strict(),
-              z.object({ operator: z.literal("afternoon") }).strict(),
-              z
-                .object({
-                  operator: z.enum(["exact", "around", "before", "after"]),
-                  clockPhrase: z.string().trim().min(1),
-                })
-                .strict(),
-            ]),
+            time: z
+              .discriminatedUnion("operator", [
+                z.object({ operator: z.literal("any") }).strict(),
+                z.object({ operator: z.literal("morning") }).strict(),
+                z.object({ operator: z.literal("afternoon") }).strict(),
+                z
+                  .object({
+                    operator: z.enum(["exact", "around", "before", "after"]),
+                    clockPhrase: z.string().trim().min(1),
+                  })
+                  .strict(),
+              ])
+              .nullable()
+              .describe(
+                "Caller-derived time constraint, or null when a follow-up keeps the prior time.",
+              ),
           })
           .strict(),
       )
-      .min(1)
       .max(15)
       .describe(
-        "Caller-derived alternatives using OR between branches and AND between each branch's date and time.",
+        "Caller-derived alternatives using OR between branches and AND between each branch's date and time; pass an empty array only when the caller explicitly asks to forget prior choices and start over.",
       ),
     visitType: z
       .enum(["medical", "routine_vision"])
@@ -178,18 +183,11 @@ export function createSchedulingTools(
     execute: async (args, { ctx, abortSignal }): Promise<string> => {
       ctx.disallowInterruptions();
       const office = "office" in args ? args.office : undefined;
-      // Direct test invocations bypass LiveKit's strict schema validation.
-      // Keep those existing seam tests usable without exposing `when` to the
-      // model-visible contract.
-      const legacyWhen = (args as unknown as { when?: unknown }).when;
       return returnSchedulingInputRequired(() =>
         workflow.getAvailability(
           getState(ctx),
           {
             branches: args.branches,
-            ...(typeof legacyWhen === "string"
-              ? { legacyWhenForDirectInvocation: legacyWhen }
-              : {}),
             ...(office ? { office } : {}),
             ...(args.oldAppointmentRef
               ? { oldAppointmentRef: args.oldAppointmentRef }

@@ -16,11 +16,9 @@ type SchedulingRouting =
   "bach_only" | "bach_licht" | "all_three" | "optical_only";
 
 const bookingTokenExpiryKey = Symbol("bookingTokenExpiry");
-const availabilityOfferSetsKey = Symbol("availabilityOfferSets");
 
-type CallStateWithBookingTokenExpiry = CallState & {
+type CallStateWithBookingTokenExpiries = CallState & {
   [bookingTokenExpiryKey]?: Map<string, number>;
-  [availabilityOfferSetsKey]?: string[][];
 };
 
 export function createSchedulingState(input: {
@@ -60,7 +58,8 @@ export function createSchedulingState(input: {
     },
     availability: {
       slots: [],
-      currentDate: undefined,
+      offerSetSlotIds: [],
+      preferenceBranches: [],
       latestRouting: null,
       bookingTokensBySlotId: {},
       nextSlotIndex: 0,
@@ -175,19 +174,34 @@ export function availabilityBookingToken(
   return bookingToken;
 }
 
+export function clearAvailabilityBookingToken(
+  state: CallState,
+  slotId: string,
+): void {
+  const normalized = normalizeSlotId(slotId);
+  for (const storedSlotId of Object.keys(
+    state.availability.bookingTokensBySlotId,
+  )) {
+    if (normalizeSlotId(storedSlotId) === normalized) {
+      delete state.availability.bookingTokensBySlotId[storedSlotId];
+      bookingTokenExpiriesFor(state).delete(storedSlotId);
+    }
+  }
+}
+
 export function clearAvailabilitySelection(
   state: CallState,
   options: { invalidateReads?: AvailabilityInvalidationReason } = {},
 ): void {
   if (options.invalidateReads) {
     invalidateAvailabilityReads(state, options.invalidateReads);
-    state.availability.currentDate = undefined;
+    state.availability.preferenceBranches = [];
   }
   state.availability.slots = [];
+  state.availability.offerSetSlotIds = [];
   state.availability.latestRouting = null;
   state.availability.bookingTokensBySlotId = {};
   bookingTokenExpiriesFor(state).clear();
-  availabilityOfferSetsFor(state).splice(0);
 }
 
 export function resetPatientSchedulingState(
@@ -231,17 +245,6 @@ export function latestAvailabilityRouting(state: CallState): string | null {
   );
 }
 
-export function currentAvailabilityDate(state: CallState): string | undefined {
-  return state.availability.currentDate?.trim() || undefined;
-}
-
-export function setCurrentAvailabilityDate(
-  state: CallState,
-  date: string | undefined,
-): void {
-  state.availability.currentDate = date?.trim() || undefined;
-}
-
 export function availabilitySlotsForState(
   state: CallState,
 ): StoredAvailabilitySlot[] {
@@ -256,7 +259,7 @@ export function removeAvailabilitySlot(
   state.availability.slots = state.availability.slots.filter(
     (slot) => normalizeSlotId(slot.slotId) !== normalized,
   );
-  const offerSets = availabilityOfferSetsFor(state);
+  const offerSets = state.availability.offerSetSlotIds;
   for (let index = offerSets.length - 1; index >= 0; index -= 1) {
     offerSets[index] =
       offerSets[index]?.filter(
@@ -280,8 +283,9 @@ export function replaceAvailabilitySlots(
   slots: StoredAvailabilitySlot[],
   routing: string | null,
 ): void {
+  if (slots.length === 0) return;
   const existingSlots = state.availability.slots;
-  const offerSets = availabilityOfferSetsFor(state);
+  const offerSets = state.availability.offerSetSlotIds;
   const nextSet = slots.map((slot) => slot.slotId);
   const latestSet = offerSets.at(-1) ?? [];
   if (!sameSlotReferenceSet(latestSet, nextSet)) {
@@ -316,21 +320,6 @@ export function replaceAvailabilitySlots(
   }
 }
 
-function availabilityOfferSetsFor(state: CallState): string[][] {
-  const sessionState = state as CallStateWithBookingTokenExpiry;
-  const existing = sessionState[availabilityOfferSetsKey];
-  if (existing) return existing;
-  const offerSets =
-    state.availability.slots.length > 0
-      ? [state.availability.slots.map((slot) => slot.slotId)]
-      : [];
-  Object.defineProperty(sessionState, availabilityOfferSetsKey, {
-    value: offerSets,
-    enumerable: false,
-  });
-  return offerSets;
-}
-
 function sameSlotReferenceSet(left: string[], right: string[]): boolean {
   return (
     left.length === right.length &&
@@ -342,7 +331,7 @@ function sameSlotReferenceSet(left: string[], right: string[]): boolean {
 }
 
 function bookingTokenExpiriesFor(state: CallState): Map<string, number> {
-  const sessionState = state as CallStateWithBookingTokenExpiry;
+  const sessionState = state as CallStateWithBookingTokenExpiries;
   const existing = sessionState[bookingTokenExpiryKey];
   if (existing) return existing;
 

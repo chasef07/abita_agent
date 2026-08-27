@@ -218,6 +218,7 @@ export interface OwnedMiddleware {
     office: string;
     windows?: AvailabilityWindow[];
     timeZone?: "America/New_York";
+    provider?: string;
     requestedDate?: string;
     preferredTime?: AvailabilityTimePreference;
     dob?: string;
@@ -299,6 +300,7 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     office: string;
     windows?: AvailabilityWindow[];
     timeZone?: "America/New_York";
+    provider?: string;
     requestedDate?: string;
     preferredTime?: AvailabilityTimePreference;
     dob?: string;
@@ -309,6 +311,7 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     const body = {
       ...(request.windows ? { windows: request.windows } : {}),
       ...(request.timeZone ? { timeZone: request.timeZone } : {}),
+      ...(request.provider ? { provider: request.provider } : {}),
       ...(request.requestedDate
         ? { requestedDate: request.requestedDate }
         : {}),
