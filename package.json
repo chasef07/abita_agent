@@ -16,8 +16,8 @@
     "format:check": "prettier --check . --ignore-unknown"
   },
   "dependencies": {
-    "@livekit/agents": "1.7.0",
-    "@livekit/agents-plugin-rime": "1.7.0",
+    "@livekit/agents": "1.7.1",
+    "@livekit/agents-plugin-rime": "1.7.1",
     "@livekit/rtc-node": "^0.13.34",
     "chrono-node": "2.10.1",
     "livekit-server-sdk": "^2.18.0",
@@ -25,15 +25,15 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.4.0",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "eslint": "^10.8.1",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.11.0",
     "prettier": "^3.9.6",
     "tsx": "^4.23.12",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-eslint": "^8.67.0",
+    "typescript-eslint": "^8.68.0",
     "vitest": "^4.1.11",
     "yaml": "2.9.0"
   },
