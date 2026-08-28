@@ -30,11 +30,10 @@ export type CallCloseoutCapture = {
 export interface CallCloseoutEventAdapter {
   capture(): Promise<CallCloseoutCapture>;
   observe(observer: CallCloseoutObserver): void;
-  onClose(closeout: () => Promise<CallCloseoutResult>): void;
+  onClose(closeout: () => Promise<CallPortalResult>): void;
 }
 
-export type CallPortalPhase =
-  "call-start" | "outcome-checkpoint" | "shutdown-summary" | "shutdown";
+export type CallPortalPhase = "call-start" | "outcome-checkpoint" | "shutdown";
 
 export type CallPortalDelivery = {
   payload: Record<string, unknown>;
@@ -48,11 +47,6 @@ export type CallPortalResult = {
   status?: number;
 };
 
-export type CallCloseoutResult = {
-  richResult: CallPortalResult;
-  summaryResult: CallPortalResult;
-};
-
 export type CallCloseoutAttachment = {
   startResult: CallPortalResult;
 };
@@ -63,7 +57,7 @@ export interface CallPortal {
 }
 
 type ProductInteractionMessageKind =
-  "START" | "SUMMARY" | "CLOSEOUT" | "OUTCOME_CHECKPOINT";
+  "START" | "CLOSEOUT" | "OUTCOME_CHECKPOINT";
 type ProductInteractionCallStatus =
   "IN_PROGRESS" | "COMPLETED" | "ESCALATED" | "FAILED";
 type ProductAppointmentAction = "BOOKED" | "CANCELLED" | "RESCHEDULED";
@@ -87,10 +81,8 @@ type ProductInteractionRequest = {
   status: ProductInteractionCallStatus;
   officeKey?: string;
   endedAt?: string;
-  summary?: string;
   transcript?: Record<string, unknown>;
   appointmentOutcome?: ProductAppointmentEvidence;
-  summaryPayload?: Record<string, unknown>;
   closeoutPayload?: Record<string, unknown>;
 };
 
@@ -159,7 +151,6 @@ function productInteractionPayload(
   const payload = delivery.payload;
   const officeKey = stringValue(payload.officeKey);
   const endedAt = stringValue(payload.endedAt);
-  const summary = stringValue(payload.summary);
   const transcript =
     delivery.phase === "shutdown" && isRecord(payload.sessionReport)
       ? payload.sessionReport
@@ -177,12 +168,8 @@ function productInteractionPayload(
     status: productCallStatus(payload.status),
     ...(officeKey ? { officeKey } : {}),
     ...(endedAt ? { endedAt } : {}),
-    ...(summary ? { summary } : {}),
     ...(transcript ? { transcript } : {}),
     ...(appointmentOutcome ? { appointmentOutcome } : {}),
-    ...(delivery.phase === "shutdown-summary"
-      ? { summaryPayload: payload }
-      : {}),
     ...(closeoutPayload ? { closeoutPayload } : {}),
   };
 }
@@ -195,8 +182,6 @@ function productMessageKind(
       return "START";
     case "outcome-checkpoint":
       return "OUTCOME_CHECKPOINT";
-    case "shutdown-summary":
-      return "SUMMARY";
     case "shutdown":
       return "CLOSEOUT";
   }
@@ -329,6 +314,29 @@ export type CallStartContext = {
   officePhone: string;
   startedAt: Date;
 };
+
+export function resolveLiveKitCallStart(
+  input: {
+    participantIdentity: string;
+    roomCreationTime: Date;
+    roomName: string;
+    sipCallId: string;
+  },
+  fallbackStartedAt: () => Date = () => new Date(),
+): Pick<CallStartContext, "callId" | "startedAt"> {
+  const roomCreationTimeMs = input.roomCreationTime.getTime();
+  return {
+    callId:
+      input.sipCallId ||
+      input.roomName ||
+      input.participantIdentity ||
+      "unknown",
+    startedAt:
+      Number.isFinite(roomCreationTimeMs) && roomCreationTimeMs > 0
+        ? input.roomCreationTime
+        : fallbackStartedAt(),
+  };
+}
 
 type CallContext = CallStartContext & {
   fallbackModel: string;
@@ -466,7 +474,7 @@ export async function attachCallCloseout(input: {
     if (capture.reportUnavailable) {
       logger.warn("[closeout] LiveKit session report was unavailable");
     }
-    const summaryPayload: Record<string, unknown> = {
+    const closeoutPayload: Record<string, unknown> = {
       ...callTimingPayload(input.call, endedAt),
       status:
         callState && transferIsAccepted(callState)
@@ -495,32 +503,19 @@ export async function attachCallCloseout(input: {
       ...(appointmentOutcome ? { appointmentOutcome } : {}),
       ...(capture.reportUnavailable ? { sessionReportUnavailable: true } : {}),
       ...input.call.livekitContext,
-    };
-    const richPayload: Record<string, unknown> = {
-      ...summaryPayload,
       sttProfiles: capture.sttProfiles,
       sessionReport: capture.sessionReport,
     };
 
-    const summaryResult = await deliverWithRetries(
+    return deliverWithRetries(
       input.portal,
       {
-        payload: summaryPayload,
-        phase: "shutdown-summary",
-        timeoutMs: 3_000,
-      },
-      { maxAttempts: 2, retryDelayMs: 1_000 },
-    );
-    const richResult = await deliverWithRetries(
-      input.portal,
-      {
-        payload: richPayload,
+        payload: closeoutPayload,
         phase: "shutdown",
         timeoutMs: 10_000,
       },
       { maxAttempts: 4, retryDelayMs: 2_000 },
     );
-    return { richResult, summaryResult };
   });
   input.onCloseoutAttached?.();
 
@@ -560,15 +555,6 @@ async function deliverFailedStartup(
     language: {},
     ...call.livekitContext,
   };
-  await deliverWithRetries(
-    portal,
-    {
-      payload,
-      phase: "shutdown-summary",
-      timeoutMs: 3_000,
-    },
-    { maxAttempts: 2, retryDelayMs: 1_000 },
-  );
   await deliverWithRetries(
     portal,
     {
@@ -622,7 +608,7 @@ export function createLiveKitCallCloseoutEventAdapter(
     voiceLanguageRuntime: Pick<VoiceLanguageRuntime, "snapshot">;
   },
 ): CallCloseoutEventAdapter {
-  let closeout: (() => Promise<CallCloseoutResult>) | undefined;
+  let closeout: (() => Promise<CallPortalResult>) | undefined;
   let deadline: ReturnType<typeof attachCallDurationDeadline> | undefined;
 
   return {

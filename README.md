@@ -191,8 +191,7 @@ sequenceDiagram
     end
 
     L->>R: Session shutdown
-    R->>P: Compact shutdown summary
-    R->>P: Rich call evidence
+    R->>P: Terminal CLOSEOUT with rich call evidence
 ```
 
 A failed pre-call lookup becomes typed `lookup_failed` state; it does not
@@ -370,15 +369,27 @@ temporarily selected another office.
 | SIP transfer outcome unknown | Human Transfer | Enter `ambiguous`; do not retry automatically |
 | Call exceeds duration limit | Call Closeout | Set `duration_limit`, stop the session, and close out available evidence |
 | Portal delivery failure | Call Closeout | Retry with bounded attempts; never block forever |
-| Startup fails after call registration | Call Closeout | Deliver a failed-startup summary and rich terminal record |
+| Startup fails after call registration | Call Closeout | Deliver one failed CLOSEOUT with the available terminal facts |
 
 ## Observability and privacy
 
-Closeout sends three ordered portal phases:
+The Product interaction lifecycle has three message kinds:
 
-1. `call-start` registers the live call.
-2. `shutdown-summary` sends a compact terminal record and retries at most twice.
-3. `shutdown` sends richer evidence and retries at most four times.
+1. `START` registers the live call for the worker attempt.
+2. `OUTCOME_CHECKPOINT` is optional and is sent only for a receipt-backed
+   appointment outcome. Each checkpoint is correlated to its executed tool call,
+   scheduled once per worker attempt, and retried at most once.
+3. `CLOSEOUT` is the single terminal message. It contains terminal status and
+   timing, lifecycle facts, the sanitized LiveKit session report/transcript,
+   speech profiles, and receipt-backed domain outcomes. Delivery retries are
+   bounded at four attempts and reuse the same payload.
+
+If startup fails after `START`, shutdown sends one failed `CLOSEOUT`; it does not
+send a separate summary message. Every message uses LiveKit `sip.callID` as the
+primary source call ID, followed by room name, SIP participant identity, and
+`unknown`. `startedAt` comes from the validated LiveKit room creation time, so a
+new worker attempt in the same room keeps the same call timing. Worker time is
+used only when LiveKit exposes no valid room timestamp.
 
 Evidence can include timing, usage, model summaries, session event classes,
 language transitions, tool outcome classes, identity transitions, appointment
