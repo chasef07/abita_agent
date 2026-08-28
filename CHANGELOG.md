@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.13.4](https://github.com/chasef07/abita_agent/compare/4.13.3...4.13.4) (2026-08-28)
+
+
+### Bug Fixes
+
+* **closeout:** stabilize Product call lifecycle ([#386](https://github.com/chasef07/abita_agent/issues/386)) ([3a660d4](https://github.com/chasef07/abita_agent/commit/3a660d42ac30a44498964aa8a5954b1e04385507))
+
 ## [4.13.3](https://github.com/chasef07/abita_agent/compare/4.13.2...4.13.3) (2026-08-27)
 
 
