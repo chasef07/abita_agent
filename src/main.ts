@@ -45,6 +45,7 @@ import {
   attachCallCloseout,
   attachStartupCallCloseout,
   createLiveKitCallCloseoutEventAdapter,
+  resolveLiveKitCallStart,
 } from "./runtime/call-closeout.js";
 import {
   getProductInteractionConfig,
@@ -74,8 +75,12 @@ export default defineAgent({
       const sipCallId = participant.attributes["sip.callID"] ?? "";
       const roomName = ctx.room.name ?? "";
       const roomSid = ctx.job.room?.sid ?? "";
-      const callId = sipCallId || roomName || participant.identity || "unknown";
-      const startedAt = new Date();
+      const { callId, startedAt } = resolveLiveKitCallStart({
+        participantIdentity: participant.identity ?? "",
+        roomCreationTime: ctx.room.creationTime,
+        roomName,
+        sipCallId,
+      });
       const livekitContext = {
         agentJobId: ctx.job.id,
         roomName,

@@ -11,10 +11,11 @@ import {
   attachCallCloseout,
   attachStartupCallCloseout,
   createLiveKitCallCloseoutEventAdapter,
+  resolveLiveKitCallStart,
   type CallCloseoutCapture,
   type CallCloseoutEventAdapter,
   type CallCloseoutObserver,
-  type CallCloseoutResult,
+  type CallPortalResult,
 } from "../runtime/call-closeout.js";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import {
@@ -41,7 +42,7 @@ afterEach(() => {
 });
 
 class TestLiveKitEvents implements CallCloseoutEventAdapter {
-  private closeout: (() => Promise<CallCloseoutResult>) | undefined;
+  private closeout: (() => Promise<CallPortalResult>) | undefined;
   private observer: CallCloseoutObserver | undefined;
 
   capture = async (): Promise<CallCloseoutCapture> => ({
@@ -57,11 +58,11 @@ class TestLiveKitEvents implements CallCloseoutEventAdapter {
     this.observer = observer;
   }
 
-  onClose(closeout: () => Promise<CallCloseoutResult>): void {
+  onClose(closeout: () => Promise<CallPortalResult>): void {
     this.closeout = closeout;
   }
 
-  async close(): Promise<CallCloseoutResult | undefined> {
+  async close(): Promise<CallPortalResult | undefined> {
     return this.closeout?.();
   }
 
@@ -119,6 +120,96 @@ async function setupCloseout(
 }
 
 describe("call closeout", () => {
+  it("keeps LiveKit-owned call identity and timing stable across worker attempts", () => {
+    const roomCreationTime = new Date("2026-08-28T13:45:06.000Z");
+    const firstWorkerStartedAt = vi.fn(
+      () => new Date("2026-08-28T13:45:05.000Z"),
+    );
+    const secondWorkerStartedAt = vi.fn(
+      () => new Date("2026-08-28T13:45:10.000Z"),
+    );
+    const liveKitCall = {
+      participantIdentity: "sip-participant",
+      roomCreationTime,
+      roomName: "room-call-63",
+      sipCallId: "sip-call-63",
+    };
+
+    const firstAttempt = resolveLiveKitCallStart(
+      liveKitCall,
+      firstWorkerStartedAt,
+    );
+    const secondAttempt = resolveLiveKitCallStart(
+      { ...liveKitCall, roomCreationTime: new Date(roomCreationTime) },
+      secondWorkerStartedAt,
+    );
+
+    expect(firstAttempt).toEqual({
+      callId: "sip-call-63",
+      startedAt: roomCreationTime,
+    });
+    expect(secondAttempt).toEqual(firstAttempt);
+    expect(firstWorkerStartedAt).toHaveBeenCalledOnce();
+    expect(secondWorkerStartedAt).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["", "room-call-63", "sip-participant", "room-call-63"],
+    ["", "", "sip-participant", "sip-participant"],
+    ["", "", "", "unknown"],
+  ])(
+    "keeps the existing call ID fallbacks for sip=%j room=%j participant=%j",
+    (sipCallId, roomName, participantIdentity, expectedCallId) => {
+      expect(
+        resolveLiveKitCallStart({
+          participantIdentity,
+          roomCreationTime: new Date("2026-08-28T13:45:00.000Z"),
+          roomName,
+          sipCallId,
+        }).callId,
+      ).toBe(expectedCallId);
+    },
+  );
+
+  it.each([new Date(0), new Date(Number.NaN)])(
+    "uses one explicit worker-time fallback for invalid room timestamp %j",
+    (roomCreationTime) => {
+      const fallbackStartedAt = new Date("2026-08-28T13:45:05.000Z");
+      const fallback = vi.fn(() => fallbackStartedAt);
+
+      expect(
+        resolveLiveKitCallStart(
+          {
+            participantIdentity: "sip-participant",
+            roomCreationTime,
+            roomName: "room-call-63",
+            sipCallId: "sip-call-63",
+          },
+          fallback,
+        ),
+      ).toEqual({ callId: "sip-call-63", startedAt: fallbackStartedAt });
+      expect(fallback).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("rejects a room creation timestamp beyond the clock-skew tolerance", () => {
+    const workerStartedAt = new Date("2026-08-28T13:45:05.000Z");
+    const fallback = vi.fn(() => workerStartedAt);
+
+    expect(
+      resolveLiveKitCallStart(
+        {
+          participantIdentity: "sip-participant",
+          roomCreationTime: new Date("2026-08-28T13:45:11.000Z"),
+          roomName: "room-call-63",
+          sipCallId: "sip-call-63",
+        },
+        fallback,
+      ),
+    ).toEqual({ callId: "sip-call-63", startedAt: workerStartedAt });
+    expect(fallback).toHaveBeenCalledOnce();
+  });
+
   it.each([
     ["+19999999999", "Unsupported trunk phone number: +19999999999"],
     [
@@ -161,7 +252,6 @@ describe("call closeout", () => {
       await startupShutdown?.();
       expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
         "call-start",
-        "shutdown-summary",
         "shutdown",
       ]);
       expect(portal.deliveries[1]?.payload).toMatchObject({
@@ -196,7 +286,6 @@ describe("call closeout", () => {
 
     expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
       "call-start",
-      "shutdown-summary",
       "shutdown",
     ]);
   });
@@ -220,7 +309,6 @@ describe("call closeout", () => {
     expect(startSession).not.toHaveBeenCalled();
     expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
       "call-start",
-      "shutdown-summary",
       "shutdown",
     ]);
   });
@@ -359,7 +447,6 @@ describe("call closeout", () => {
     await events.close();
 
     expect(portal.deliveries[1]?.payload.status).toBe("ESCALATED");
-    expect(portal.deliveries[2]?.payload.status).toBe("ESCALATED");
   });
 
   it.each([
@@ -382,7 +469,7 @@ describe("call closeout", () => {
       endedReason: "call_state_not_initialized",
       status: "FAILED",
     });
-    expect(portal.deliveries[2]?.payload).not.toHaveProperty("callState");
+    expect(portal.deliveries[1]?.payload).not.toHaveProperty("callState");
   });
 
   it("records duration-limit termination and its configured maximum", async () => {
@@ -397,6 +484,21 @@ describe("call closeout", () => {
       endedReason: "duration_limit",
       maxCallDurationMs: 1_800_000,
       status: "COMPLETED",
+    });
+  });
+
+  it("keeps terminal timing chronological within accepted room clock skew", async () => {
+    const { events, portal } = await setupCloseout({
+      call: { startedAt: new Date("2026-08-28T13:45:06.000Z") },
+      now: () => new Date("2026-08-28T13:45:05.000Z"),
+    });
+
+    await events.close();
+
+    expect(portal.deliveries[1]?.payload).toMatchObject({
+      durationSec: 0,
+      endedAt: "2026-08-28T13:45:06.000Z",
+      startedAt: "2026-08-28T13:45:06.000Z",
     });
   });
 
@@ -452,7 +554,6 @@ describe("call closeout", () => {
     expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
       "call-start",
       "outcome-checkpoint",
-      "shutdown-summary",
       "shutdown",
     ]);
     expect(portal.deliveries[1]?.payload).toMatchObject({
@@ -585,10 +686,9 @@ describe("call closeout", () => {
 
     expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
       "call-start",
-      "shutdown-summary",
       "shutdown",
     ]);
-    expect(portal.deliveries[2]?.payload.appointmentOutcome).toMatchObject({
+    expect(portal.deliveries[1]?.payload.appointmentOutcome).toMatchObject({
       action: "booked",
       occurredAt: "2026-07-20T10:00:30.000Z",
       newAppointmentId: "appointment-final",
@@ -617,13 +717,12 @@ describe("call closeout", () => {
 
     expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
       "call-start",
-      "shutdown-summary",
       "shutdown",
     ]);
-    expect(portal.deliveries[2]?.payload).not.toHaveProperty(
+    expect(portal.deliveries[1]?.payload).not.toHaveProperty(
       "appointmentOutcome",
     );
-    expect(portal.deliveries[2]?.payload.domainOutcomes).toMatchObject([
+    expect(portal.deliveries[1]?.payload.domainOutcomes).toMatchObject([
       { callId: "tool-call-failed", status: "failed" },
     ]);
   });
@@ -660,48 +759,44 @@ describe("call closeout", () => {
 
     expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
       "call-start",
-      "shutdown-summary",
       "shutdown",
     ]);
-    expect(portal.deliveries[2]?.payload.appointmentOutcome).toMatchObject({
+    expect(portal.deliveries[1]?.payload.appointmentOutcome).toMatchObject({
       action: "booked",
       occurredAt: "2026-07-20T10:00:30.000Z",
       newAppointmentId: "appointment-original",
     });
   });
 
-  it("retries compact delivery before continuing to rich delivery", async () => {
+  it("retries closeout delivery with the same bounded idempotent payload", async () => {
     const portal = new InMemoryCallPortal({
-      "shutdown-summary": [{ ok: false }, { ok: false }],
-      shutdown: [{ ok: true, status: 200 }],
+      shutdown: [{ ok: false }, { ok: false }, { ok: true, status: 200 }],
     });
     const { events } = await setupCloseout({ portal });
-    await events.close();
+    const result = await events.close();
 
+    expect(result).toEqual({ ok: true, status: 200 });
     expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
       "call-start",
-      "shutdown-summary",
-      "shutdown-summary",
+      "shutdown",
+      "shutdown",
       "shutdown",
     ]);
-    expect(portal.waits).toEqual([1_000]);
+    expect(portal.deliveries[1]?.payload).toBe(portal.deliveries[2]?.payload);
+    expect(portal.deliveries[2]?.payload).toBe(portal.deliveries[3]?.payload);
+    expect(portal.waits).toEqual([2_000, 4_000]);
   });
 
-  it("exhausts rich retries after a successful compact delivery", async () => {
+  it("exhausts closeout retries after four attempts", async () => {
     const portal = new InMemoryCallPortal({
-      "shutdown-summary": [{ ok: true }],
       shutdown: [{ ok: false }, { ok: false }, { ok: false }, { ok: false }],
     });
     const { events } = await setupCloseout({ portal });
     const result = await events.close();
 
-    expect(result).toEqual({
-      richResult: { ok: false },
-      summaryResult: { ok: true },
-    });
+    expect(result).toEqual({ ok: false });
     expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
       "call-start",
-      "shutdown-summary",
       "shutdown",
       "shutdown",
       "shutdown",
@@ -710,33 +805,9 @@ describe("call closeout", () => {
     expect(portal.waits).toEqual([2_000, 4_000, 6_000]);
   });
 
-  it("returns both failures after exhausting compact and rich delivery", async () => {
-    const portal = new InMemoryCallPortal({
-      "shutdown-summary": [{ ok: false }, { ok: false }],
-      shutdown: [{ ok: false }, { ok: false }, { ok: false }, { ok: false }],
-    });
-    const { events } = await setupCloseout({ portal });
-    const result = await events.close();
-
-    expect(result).toEqual({
-      richResult: { ok: false },
-      summaryResult: { ok: false },
-    });
-    expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
-      "call-start",
-      "shutdown-summary",
-      "shutdown-summary",
-      "shutdown",
-      "shutdown",
-      "shutdown",
-      "shutdown",
-    ]);
-  });
-
   it("returns explicit skipped outcomes when portal delivery is unavailable", async () => {
     const portal = new InMemoryCallPortal({
       "call-start": [{ ok: false, skipped: true }],
-      "shutdown-summary": [{ ok: false, skipped: true }],
       shutdown: [{ ok: false, skipped: true }],
     });
     const { attachment, events } = await setupCloseout({ portal });
@@ -745,11 +816,8 @@ describe("call closeout", () => {
     expect(attachment).toEqual({
       startResult: { ok: false, skipped: true },
     });
-    expect(closeout).toEqual({
-      richResult: { ok: false, skipped: true },
-      summaryResult: { ok: false, skipped: true },
-    });
-    expect(portal.deliveries).toHaveLength(3);
+    expect(closeout).toEqual({ ok: false, skipped: true });
+    expect(portal.deliveries).toHaveLength(2);
   });
 
   it("ignores captured audio when building closeout payloads", async () => {
@@ -764,7 +832,6 @@ describe("call closeout", () => {
     await events.close();
 
     expect(portal.deliveries[1]?.payload).not.toHaveProperty("audioBase64");
-    expect(portal.deliveries[2]?.payload).not.toHaveProperty("audioBase64");
   });
 
   it("removes LiveKit audio recording metadata from the captured report", async () => {
@@ -940,7 +1007,7 @@ describe("call closeout", () => {
       });
       await events.close();
 
-      expect(fetchImpl).toHaveBeenCalledTimes(4);
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
       for (const [, request] of vi.mocked(fetchImpl).mock.calls) {
         expect(request?.headers).toEqual({
           Authorization: `Bearer ${secret}`,
@@ -992,15 +1059,6 @@ describe("call closeout", () => {
       payload: { ...lifecycle, status: "IN_PROGRESS" },
     });
     await portal.deliver({
-      phase: "shutdown-summary",
-      timeoutMs: 3_000,
-      payload: {
-        ...lifecycle,
-        endedAt: "2026-08-08T09:35:00.000Z",
-        status: "COMPLETED",
-      },
-    });
-    await portal.deliver({
       phase: "shutdown",
       timeoutMs: 10_000,
       payload: {
@@ -1036,11 +1094,6 @@ describe("call closeout", () => {
       status: "IN_PROGRESS",
     });
     expect(bodies[1]).toMatchObject({
-      kind: "SUMMARY",
-      sourceCallId: "call-product-63",
-      summaryPayload: { callId: "call-product-63" },
-    });
-    expect(bodies[2]).toMatchObject({
       kind: "CLOSEOUT",
       sourceCallId: "call-product-63",
       transcript: { chat_history: { items: [{ role: "user" }] } },
@@ -1058,9 +1111,9 @@ describe("call closeout", () => {
         appointmentOutcome: expect.objectContaining({ action: "rescheduled" }),
       },
     });
-    expect(bodies[2]).not.toHaveProperty("callId");
-    expect(bodies[2]).not.toHaveProperty("appointmentActions");
-    expect(bodies[2]?.closeoutPayload).not.toHaveProperty("sessionReport");
+    expect(bodies[1]).not.toHaveProperty("callId");
+    expect(bodies[1]).not.toHaveProperty("appointmentActions");
+    expect(bodies[1]?.closeoutPayload).not.toHaveProperty("sessionReport");
   });
 
   it("skips a missing HTTP URL and omits absent authorization", async () => {
