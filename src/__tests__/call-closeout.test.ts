@@ -121,11 +121,11 @@ async function setupCloseout(
 
 describe("call closeout", () => {
   it("keeps LiveKit-owned call identity and timing stable across worker attempts", () => {
-    const roomCreationTime = new Date("2026-08-28T13:45:00.000Z");
-    const firstAttemptFallback = vi.fn(
+    const roomCreationTime = new Date("2026-08-28T13:45:06.000Z");
+    const firstWorkerStartedAt = vi.fn(
       () => new Date("2026-08-28T13:45:05.000Z"),
     );
-    const secondAttemptFallback = vi.fn(
+    const secondWorkerStartedAt = vi.fn(
       () => new Date("2026-08-28T13:45:10.000Z"),
     );
     const liveKitCall = {
@@ -137,11 +137,11 @@ describe("call closeout", () => {
 
     const firstAttempt = resolveLiveKitCallStart(
       liveKitCall,
-      firstAttemptFallback,
+      firstWorkerStartedAt,
     );
     const secondAttempt = resolveLiveKitCallStart(
       { ...liveKitCall, roomCreationTime: new Date(roomCreationTime) },
-      secondAttemptFallback,
+      secondWorkerStartedAt,
     );
 
     expect(firstAttempt).toEqual({
@@ -149,8 +149,8 @@ describe("call closeout", () => {
       startedAt: roomCreationTime,
     });
     expect(secondAttempt).toEqual(firstAttempt);
-    expect(firstAttemptFallback).not.toHaveBeenCalled();
-    expect(secondAttemptFallback).not.toHaveBeenCalled();
+    expect(firstWorkerStartedAt).toHaveBeenCalledOnce();
+    expect(secondWorkerStartedAt).toHaveBeenCalledOnce();
   });
 
   it.each([
@@ -191,6 +191,24 @@ describe("call closeout", () => {
       expect(fallback).toHaveBeenCalledOnce();
     },
   );
+
+  it("rejects a room creation timestamp beyond the clock-skew tolerance", () => {
+    const workerStartedAt = new Date("2026-08-28T13:45:05.000Z");
+    const fallback = vi.fn(() => workerStartedAt);
+
+    expect(
+      resolveLiveKitCallStart(
+        {
+          participantIdentity: "sip-participant",
+          roomCreationTime: new Date("2026-08-28T13:45:11.000Z"),
+          roomName: "room-call-63",
+          sipCallId: "sip-call-63",
+        },
+        fallback,
+      ),
+    ).toEqual({ callId: "sip-call-63", startedAt: workerStartedAt });
+    expect(fallback).toHaveBeenCalledOnce();
+  });
 
   it.each([
     ["+19999999999", "Unsupported trunk phone number: +19999999999"],
@@ -466,6 +484,21 @@ describe("call closeout", () => {
       endedReason: "duration_limit",
       maxCallDurationMs: 1_800_000,
       status: "COMPLETED",
+    });
+  });
+
+  it("keeps terminal timing chronological within accepted room clock skew", async () => {
+    const { events, portal } = await setupCloseout({
+      call: { startedAt: new Date("2026-08-28T13:45:06.000Z") },
+      now: () => new Date("2026-08-28T13:45:05.000Z"),
+    });
+
+    await events.close();
+
+    expect(portal.deliveries[1]?.payload).toMatchObject({
+      durationSec: 0,
+      endedAt: "2026-08-28T13:45:06.000Z",
+      startedAt: "2026-08-28T13:45:06.000Z",
     });
   });
 

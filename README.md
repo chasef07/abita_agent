@@ -389,7 +389,9 @@ send a separate summary message. Every message uses LiveKit `sip.callID` as the
 primary source call ID, followed by room name, SIP participant identity, and
 `unknown`. `startedAt` comes from the validated LiveKit room creation time, so a
 new worker attempt in the same room keeps the same call timing. Worker time is
-used only when LiveKit exposes no valid room timestamp.
+used only when the room timestamp is missing, invalid, non-positive, or more
+than five seconds later than the worker start. A terminal time inside that
+clock-skew window is floored at `startedAt` so duration never becomes negative.
 
 Evidence can include timing, usage, model summaries, session event classes,
 language transitions, tool outcome classes, identity transitions, appointment

@@ -315,6 +315,8 @@ export type CallStartContext = {
   startedAt: Date;
 };
 
+const LIVEKIT_ROOM_CREATION_SKEW_TOLERANCE_MS = 5_000;
+
 export function resolveLiveKitCallStart(
   input: {
     participantIdentity: string;
@@ -322,8 +324,9 @@ export function resolveLiveKitCallStart(
     roomName: string;
     sipCallId: string;
   },
-  fallbackStartedAt: () => Date = () => new Date(),
+  getWorkerStartedAt: () => Date = () => new Date(),
 ): Pick<CallStartContext, "callId" | "startedAt"> {
+  const workerStartedAt = getWorkerStartedAt();
   const roomCreationTimeMs = input.roomCreationTime.getTime();
   return {
     callId:
@@ -332,9 +335,12 @@ export function resolveLiveKitCallStart(
       input.participantIdentity ||
       "unknown",
     startedAt:
-      Number.isFinite(roomCreationTimeMs) && roomCreationTimeMs > 0
+      Number.isFinite(roomCreationTimeMs) &&
+      roomCreationTimeMs > 0 &&
+      roomCreationTimeMs <=
+        workerStartedAt.getTime() + LIVEKIT_ROOM_CREATION_SKEW_TOLERANCE_MS
         ? input.roomCreationTime
-        : fallbackStartedAt(),
+        : workerStartedAt,
   };
 }
 
@@ -567,11 +573,14 @@ async function deliverFailedStartup(
 }
 
 function callTimingPayload(call: CallStartContext, endedAt: Date) {
+  const normalizedEndedAt = new Date(
+    Math.max(endedAt.getTime(), call.startedAt.getTime()),
+  );
   return {
     ...callIdentityPayload(call),
-    endedAt: endedAt.toISOString(),
+    endedAt: normalizedEndedAt.toISOString(),
     durationSec: Math.round(
-      (endedAt.getTime() - call.startedAt.getTime()) / 1000,
+      (normalizedEndedAt.getTime() - call.startedAt.getTime()) / 1000,
     ),
   };
 }
