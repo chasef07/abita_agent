@@ -25,7 +25,7 @@ import {
 } from "../customers/abita/profile.js";
 import {
   createAddPatientTool,
-  check_insurance,
+  createCheckInsuranceTool,
   create_staff_task,
   transfer_call,
   createUpdateInsuranceTool,
@@ -36,6 +36,7 @@ import { resolveOfficeKnowledge } from "../office-knowledge.js";
 
 const middleware = new InMemoryOwnedMiddleware();
 const add_patient = createAddPatientTool(middleware);
+const check_insurance = createCheckInsuranceTool(middleware);
 const resolve_patient = createResolvePatientTool(middleware);
 const update_insurance = createUpdateInsuranceTool(middleware);
 

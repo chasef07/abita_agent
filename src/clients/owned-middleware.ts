@@ -1,4 +1,8 @@
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
+import type {
+  InsuranceCoverageType,
+  InsuranceLookupResult,
+} from "../insurance-rules.js";
 import type { OwnedMiddlewareFailureReason } from "../state/call-state.js";
 import {
   isRecord,
@@ -34,6 +38,9 @@ export function middlewareFailureIsRetryable(
 
 export type PatientResolveResult =
   Exclude<LegacyPatientResolveResult, { status: "error" }> | MiddlewareFailure;
+
+export type InsuranceCheckResult =
+  (InsuranceLookupResult & { authoritative: boolean }) | MiddlewareFailure;
 
 export type PatientIdentity =
   | { phone: string }
@@ -200,6 +207,11 @@ export type UpdateInsuranceResult =
   | MiddlewareFailure;
 
 export interface OwnedMiddleware {
+  checkInsurance(request: {
+    office: string;
+    plan: string;
+    coverageType: InsuranceCoverageType;
+  }): Promise<InsuranceCheckResult>;
   resolvePatient(request: {
     office: string;
     identity: PatientIdentity;
@@ -251,6 +263,20 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     this.#middlewareBaseUrl =
       options.middlewareBaseUrl ?? process.env.AMD_API_URL ?? "";
     this.#timeoutMs = options.timeoutMs ?? 10_000;
+  }
+
+  async checkInsurance(request: {
+    office: string;
+    plan: string;
+    coverageType: InsuranceCoverageType;
+  }): Promise<InsuranceCheckResult> {
+    const transport = await this.#post("/api/insurance/check", request.office, {
+      plan: request.plan,
+      coverageType: request.coverageType,
+    });
+    return transport.ok
+      ? normalizeInsuranceCheck(transport.value, request.plan)
+      : transport.failure;
   }
 
   async resolvePatient(request: {
@@ -707,6 +733,38 @@ function normalizeUpdatedInsurance(raw: unknown): UpdateInsuranceResult {
   return hasFailureStatus(raw)
     ? mutationFailure(raw, patientMutationCanRetry)
     : { status: "error", reason: "invalid_response" };
+}
+
+function normalizeInsuranceCheck(
+  raw: unknown,
+  fallbackQuery: string,
+): InsuranceCheckResult {
+  if (!isRecord(raw)) {
+    return { status: "error", reason: "invalid_response" };
+  }
+  const status = stringValue(raw.status)?.toLowerCase();
+  if (
+    status !== "accepted" &&
+    status !== "not_accepted" &&
+    status !== "needs_clarification" &&
+    status !== "needs_staff_task"
+  ) {
+    return { status: "error", reason: "invalid_response" };
+  }
+  return {
+    status,
+    query: stringValue(raw.query) ?? fallbackQuery,
+    matchedPlan: stringValue(raw.matchedPlan),
+    matchedAlias: stringValue(raw.matchedAlias),
+    matchedFamily: stringValue(raw.matchedFamily),
+    callerFacingPlan: stringValue(raw.callerFacingPlan),
+    canProceed: raw.canProceed === true,
+    needsExactPlanName: raw.needsExactPlanName === true,
+    clarificationNeeded: stringValue(raw.clarificationNeeded),
+    callerNotice: stringValue(raw.callerNotice),
+    preauthRequired: raw.preauthRequired === true,
+    authoritative: raw.authoritative === true,
+  };
 }
 
 function mutationFailure(

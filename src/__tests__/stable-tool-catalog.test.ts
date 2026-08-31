@@ -401,6 +401,7 @@ describe("stable tool catalog", () => {
 
     expect(middleware.operations.map(({ name }) => name)).toEqual([
       "resolvePatient",
+      "checkInsurance",
       "createPatient",
     ]);
     expect(session.userData.identity.activePatient).toMatchObject({

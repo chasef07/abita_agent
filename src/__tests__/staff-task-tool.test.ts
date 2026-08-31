@@ -13,9 +13,12 @@ import {
   domainOutcomeReceipts,
   staffTaskReceipts,
 } from "../state/observability.js";
-import { check_insurance, create_staff_task } from "../tools/index.js";
+import { createCheckInsuranceTool, create_staff_task } from "../tools/index.js";
 import { getAcuityProductStaffTasksUrl } from "../tools/create-staff-task.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
+import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
+
+const check_insurance = createCheckInsuranceTool(new InMemoryOwnedMiddleware());
 
 const PRODUCT_TASK_URL = "https://acuity-product.example/v1/tasks";
 const PRODUCT_TASK_ID = "11111111-1111-4111-8111-111111111111";

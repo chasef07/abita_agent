@@ -4,8 +4,8 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import { bindSchedulingMiddleware } from "../scheduling/middleware.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
-  check_insurance,
   createAddPatientTool,
+  createCheckInsuranceTool,
   create_staff_task,
   transfer_call,
   createUpdateInsuranceTool,
@@ -15,6 +15,7 @@ import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 
 const middleware = new InMemoryOwnedMiddleware();
 const add_patient = createAddPatientTool(middleware);
+const check_insurance = createCheckInsuranceTool(middleware);
 const resolve_patient = createResolvePatientTool(middleware);
 const update_insurance = createUpdateInsuranceTool(middleware);
 
