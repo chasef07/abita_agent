@@ -26,6 +26,25 @@ function readInsurance(source: string): Record<string, unknown> {
   return JSON.parse(readWorkspaceFile(source)) as Record<string, unknown>;
 }
 
+function withoutPlans(
+  reference: Record<string, unknown>,
+  canonicalPlans: ReadonlySet<string>,
+): Record<string, unknown> {
+  if (!Array.isArray(reference.plans)) {
+    throw new Error("Expected an insurance plan list.");
+  }
+  return {
+    ...reference,
+    plans: reference.plans.filter((plan) => {
+      if (!plan || typeof plan !== "object") return true;
+      const canonicalPlan = (plan as Record<string, unknown>).canonicalPlan;
+      return (
+        typeof canonicalPlan !== "string" || !canonicalPlans.has(canonicalPlan)
+      );
+    }),
+  };
+}
+
 describe("ophthalmology demo content", () => {
   it("uses dedicated Clearbrook role and knowledge sources", () => {
     const office = getOfficeProfileByPhone(OPHTHALMOLOGY_DEMO_TRUNK_PHONE);
@@ -86,7 +105,7 @@ describe("ophthalmology demo content", () => {
     expect(location.sections.join("\n")).toContain("Harbor Point Center");
   });
 
-  it("uses isolated insurance files that mirror the established coverage lists", () => {
+  it("keeps demo insurance isolated from Spring Hill-only rules", () => {
     const office = getOfficeProfile("ophthalmology-demo");
     const medical = office.insuranceFor("medical");
     const routineVision = office.insuranceFor("routine_vision");
@@ -107,9 +126,14 @@ describe("ophthalmology demo content", () => {
     const sourceMedical = readInsurance(
       "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
     );
-    expect({ ...demoMedical, officeLabel: sourceMedical.officeLabel }).toEqual(
-      sourceMedical,
-    );
+    const springHillOnlyHumanaPlans = new Set([
+      "Humana Medicare",
+      "Humana Medicaid",
+    ]);
+    expect({
+      ...withoutPlans(demoMedical, springHillOnlyHumanaPlans),
+      officeLabel: sourceMedical.officeLabel,
+    }).toEqual(withoutPlans(sourceMedical, springHillOnlyHumanaPlans));
 
     const demoRoutineVision = readInsurance(routineVision.source);
     const sourceRoutineVision = readInsurance(
@@ -140,5 +164,26 @@ describe("ophthalmology demo content", () => {
         "routine_vision",
       ),
     ).toMatchObject({ status: "accepted" });
+    expect(
+      matchInsurancePlanForOffice(
+        "ophthalmology-demo",
+        "Humana Gold",
+        "medical",
+      ),
+    ).toMatchObject({ status: "not_accepted", callerNotice: null });
+    expect(
+      matchInsurancePlanForOffice(
+        "ophthalmology-demo",
+        "Humana Medicare",
+        "medical",
+      ),
+    ).toMatchObject({ status: "accepted", callerNotice: null });
+    expect(
+      matchInsurancePlanForOffice(
+        "ophthalmology-demo",
+        "Humana Medicaid",
+        "medical",
+      ),
+    ).toMatchObject({ status: "not_accepted", callerNotice: null });
   });
 });
