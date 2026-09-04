@@ -289,7 +289,8 @@
       "displayName": "Humana Medicare",
       "aliases": [],
       "canProceed": true,
-      "needsExactPlanName": false
+      "needsExactPlanName": false,
+      "callerNotice": "At Spring Hill, patients with this plan can see any provider."
     },
     {
       "id": "accepted-humana-ppo",
@@ -710,13 +711,14 @@
       "needsExactPlanName": false
     },
     {
-      "id": "not-accepted-humana-medicaid",
-      "status": "not_accepted",
+      "id": "accepted-humana-medicaid",
+      "status": "accepted",
       "canonicalPlan": "Humana Medicaid",
       "displayName": "Humana Medicaid",
       "aliases": [],
-      "canProceed": false,
-      "needsExactPlanName": false
+      "canProceed": true,
+      "needsExactPlanName": false,
+      "callerNotice": "At Spring Hill, patients with this plan can only see Dr. Bach."
     },
     {
       "id": "not-accepted-florida-blueselect",
@@ -900,7 +902,8 @@
         "Humana Medicare"
       ],
       "canProceed": true,
-      "needsExactPlanName": true
+      "needsExactPlanName": false,
+      "callerNotice": "At Spring Hill, patients with this plan can see any provider."
     },
     {
       "id": "accepted-humana-ppo-2",
@@ -1166,15 +1169,16 @@
       "needsExactPlanName": false
     },
     {
-      "id": "not-accepted-humana-medicaid-2",
-      "status": "not_accepted",
+      "id": "accepted-humana-medicaid-2",
+      "status": "accepted",
       "canonicalPlan": "Humana Medicaid",
       "displayName": "Humana Medicaid",
       "aliases": [
         "Humana Medicaid"
       ],
-      "canProceed": false,
-      "needsExactPlanName": false
+      "canProceed": true,
+      "needsExactPlanName": false,
+      "callerNotice": "At Spring Hill, patients with this plan can only see Dr. Bach."
     },
     {
       "id": "not-accepted-cigna-local-plus-2",

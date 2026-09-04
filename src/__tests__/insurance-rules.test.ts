@@ -86,7 +86,6 @@ describe("insurance matcher", () => {
       "Aetna EPO",
       "Humana Gold Plus",
       "Miami Children's",
-      "Humana Medicaid",
       "Florida Blue BlueSelect",
       "Fl Blue Select",
       "Miami Dade Ddoctors Health",
@@ -594,6 +593,34 @@ describe("insurance matcher", () => {
 
     expect(springHillHumana.status).toBe("accepted");
     expect(crystalRiverHumana.status).toBe("not_accepted");
+  });
+
+  it("uses the Spring Hill insurance list for the three Humana rules", () => {
+    const gold = matchInsurancePlanForOffice(
+      "spring-hill",
+      "I have Humana Gold",
+      "medical",
+    );
+    const medicare = matchInsurancePlanForOffice(
+      "spring-hill",
+      "I have Humana Medicare",
+      "medical",
+    );
+    const medicaid = matchInsurancePlanForOffice(
+      "spring-hill",
+      "I have Humana Medicaid",
+      "medical",
+    );
+
+    expect(buildInsuranceToolResponse(gold)).toBe(
+      "No, we don't accept Humana Gold.",
+    );
+    expect(buildInsuranceToolResponse(medicare)).toBe(
+      "Yes, we take Humana Medicare. At Spring Hill, patients with this plan can see any provider.",
+    );
+    expect(buildInsuranceToolResponse(medicaid)).toBe(
+      "Yes, we take Humana Medicaid. At Spring Hill, patients with this plan can only see Dr. Bach.",
+    );
   });
 
   it("maps Humana Gold medical plans to Humana Medicare HMO for Hollywood and Sweetwater", () => {
