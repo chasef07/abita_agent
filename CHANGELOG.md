@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.13.5](https://github.com/chasef07/abita_agent/compare/4.13.4...4.13.5) (2026-09-04)
+
+
+### Bug Fixes
+
+* **turns:** recover from missing user transcriptions ([#390](https://github.com/chasef07/abita_agent/issues/390)) ([8eea3c1](https://github.com/chasef07/abita_agent/commit/8eea3c10cd09f0cfcad6696cc1eccbdc6630b573))
+
 ## [4.13.4](https://github.com/chasef07/abita_agent/compare/4.13.3...4.13.4) (2026-08-28)
 
 
