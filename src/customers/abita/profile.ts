@@ -201,7 +201,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     care: {
       medical: {
         supported: true,
-        insuranceSource: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+        insuranceSource: "INSURANCE_SPRING_HILL_MEDICAL.json",
       },
       routine_vision: {
         supported: true,
@@ -299,7 +299,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     care: {
       medical: {
         supported: true,
-        insuranceSource: "INSURANCE_OPHTHALMOLOGY_DEMO_MEDICAL.json",
+        insuranceSource: "INSURANCE_DEMO_MEDICAL.json",
       },
       routine_vision: {
         supported: true,
@@ -343,7 +343,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     care: {
       medical: {
         supported: true,
-        insuranceSource: "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+        insuranceSource: "INSURANCE_DEMO_MEDICAL.json",
       },
       routine_vision: {
         supported: false,

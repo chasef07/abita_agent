@@ -22,10 +22,6 @@ function readWorkspaceFile(source: string): string {
   return readFileSync(join(WORKSPACE, source), "utf8");
 }
 
-function readInsurance(source: string): Record<string, unknown> {
-  return JSON.parse(readWorkspaceFile(source)) as Record<string, unknown>;
-}
-
 describe("ophthalmology demo content", () => {
   it("uses dedicated Clearbrook role and knowledge sources", () => {
     const office = getOfficeProfileByPhone(OPHTHALMOLOGY_DEMO_TRUNK_PHONE);
@@ -86,14 +82,14 @@ describe("ophthalmology demo content", () => {
     expect(location.sections.join("\n")).toContain("Harbor Point Center");
   });
 
-  it("uses isolated insurance files that mirror the established coverage lists", () => {
+  it("keeps demo insurance isolated from Spring Hill-only rules", () => {
     const office = getOfficeProfile("ophthalmology-demo");
     const medical = office.insuranceFor("medical");
     const routineVision = office.insuranceFor("routine_vision");
 
     expect(medical).toEqual({
       supported: true,
-      source: "INSURANCE_OPHTHALMOLOGY_DEMO_MEDICAL.json",
+      source: "INSURANCE_DEMO_MEDICAL.json",
     });
     expect(routineVision).toEqual({
       supported: true,
@@ -103,25 +99,8 @@ describe("ophthalmology demo content", () => {
       throw new Error("Expected both Clearbrook insurance lanes.");
     }
 
-    const demoMedical = readInsurance(medical.source);
-    const sourceMedical = readInsurance(
-      "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
-    );
-    expect({ ...demoMedical, officeLabel: sourceMedical.officeLabel }).toEqual(
-      sourceMedical,
-    );
-
-    const demoRoutineVision = readInsurance(routineVision.source);
-    const sourceRoutineVision = readInsurance(
-      "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
-    );
-    expect({
-      ...demoRoutineVision,
-      officeLabel: sourceRoutineVision.officeLabel,
-    }).toEqual(sourceRoutineVision);
-
     expect(loadInsuranceReference(medical.source).officeLabel).toBe(
-      "Clearbrook Eye Center Medical Demo",
+      "Medical Demo",
     );
     expect(loadInsuranceReference(routineVision.source).officeLabel).toBe(
       "Clearbrook Eye Center Routine Vision Demo",
@@ -140,5 +119,26 @@ describe("ophthalmology demo content", () => {
         "routine_vision",
       ),
     ).toMatchObject({ status: "accepted" });
+    expect(
+      matchInsurancePlanForOffice(
+        "ophthalmology-demo",
+        "Humana Gold",
+        "medical",
+      ),
+    ).toMatchObject({ status: "not_accepted", callerNotice: null });
+    expect(
+      matchInsurancePlanForOffice(
+        "ophthalmology-demo",
+        "Humana Medicare",
+        "medical",
+      ),
+    ).toMatchObject({ status: "accepted", callerNotice: null });
+    expect(
+      matchInsurancePlanForOffice(
+        "ophthalmology-demo",
+        "Humana Medicaid",
+        "medical",
+      ),
+    ).toMatchObject({ status: "not_accepted", callerNotice: null });
   });
 });

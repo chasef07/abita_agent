@@ -9,7 +9,7 @@ import {
 
 describe("insurance matcher", () => {
   const reference = loadInsuranceReference(
-    "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+    "INSURANCE_SPRING_HILL_MEDICAL.json",
   );
   const crystalRiverReference = loadInsuranceReference(
     "INSURANCE_CRYSTAL_RIVER.json",
@@ -86,7 +86,6 @@ describe("insurance matcher", () => {
       "Aetna EPO",
       "Humana Gold Plus",
       "Miami Children's",
-      "Humana Medicaid",
       "Florida Blue BlueSelect",
       "Fl Blue Select",
       "Miami Dade Ddoctors Health",
@@ -594,6 +593,51 @@ describe("insurance matcher", () => {
 
     expect(springHillHumana.status).toBe("accepted");
     expect(crystalRiverHumana.status).toBe("not_accepted");
+  });
+
+  it("uses the Spring Hill insurance list for the three Humana rules", () => {
+    const gold = matchInsurancePlanForOffice(
+      "spring-hill",
+      "I have Humana Gold",
+      "medical",
+    );
+    const medicare = matchInsurancePlanForOffice(
+      "spring-hill",
+      "I have Humana Medicare",
+      "medical",
+    );
+    const medicaid = matchInsurancePlanForOffice(
+      "spring-hill",
+      "I have Humana Medicaid",
+      "medical",
+    );
+
+    expect(buildInsuranceToolResponse(gold)).toBe(
+      "No, we don't accept Humana Gold.",
+    );
+    expect(buildInsuranceToolResponse(medicare)).toBe(
+      "Yes, we take Humana Medicare. At Spring Hill, patients with this plan can see any provider.",
+    );
+    expect(buildInsuranceToolResponse(medicaid)).toBe(
+      "Yes, we take Humana Medicaid. At Spring Hill, patients with this plan can only see Dr. Bach.",
+    );
+
+    const demoMedicare = matchInsurancePlanForOffice(
+      "rheumatology-demo",
+      "Humana Medicare",
+      "medical",
+    );
+    const demoMedicaid = matchInsurancePlanForOffice(
+      "rheumatology-demo",
+      "Humana Medicaid",
+      "medical",
+    );
+    expect(buildInsuranceToolResponse(demoMedicare)).toBe(
+      "Yes, we take Humana Medicare.",
+    );
+    expect(buildInsuranceToolResponse(demoMedicaid)).toBe(
+      "No, we don't accept Humana Medicaid.",
+    );
   });
 
   it("maps Humana Gold medical plans to Humana Medicare HMO for Hollywood and Sweetwater", () => {
