@@ -36,7 +36,6 @@ describe("tool interruption policy", () => {
       })
       .concat([
         "add_patient",
-        "check_insurance",
         "get_availability",
         "book_appointment",
         "cancel_appointment",

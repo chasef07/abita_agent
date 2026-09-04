@@ -5,7 +5,7 @@ import { bindSchedulingMiddleware } from "../scheduling/middleware.js";
 import type { OwnedMiddleware } from "../clients/owned-middleware.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
-  createCheckInsuranceTool,
+  check_insurance,
   createAddPatientTool,
   create_staff_task,
   transfer_call,
@@ -46,7 +46,7 @@ export function buildToolsForTrunk(
     cancel_appointment,
     book_appointment,
     reschedule_appointment,
-    createCheckInsuranceTool(middleware),
+    check_insurance,
   ] as const satisfies readonly ToolContextEntry<CallState>[];
   const commonTools = [...coreTools, transfer_call, end_call] as const;
   if (office.staffTaskEnabled) {

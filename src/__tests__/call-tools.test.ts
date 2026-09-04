@@ -17,8 +17,8 @@ import {
   ownedMiddlewareFailures,
 } from "../state/observability.js";
 import {
+  check_insurance,
   createAddPatientTool,
-  createCheckInsuranceTool,
   createUpdateInsuranceTool,
 } from "../tools/index.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
@@ -33,7 +33,6 @@ type TestCallState = ReturnType<typeof createConfirmedPatientState>;
 type PreCallCandidate = PreCallPatientCandidate;
 let testMiddleware: InMemoryOwnedMiddleware;
 let add_patient: ReturnType<typeof createAddPatientTool>;
-let check_insurance: ReturnType<typeof createCheckInsuranceTool>;
 let resolve_patient: ReturnType<typeof createResolvePatientTool>;
 let update_insurance: ReturnType<typeof createUpdateInsuranceTool>;
 
@@ -176,7 +175,6 @@ function useMiddleware(
   const middleware = new InMemoryOwnedMiddleware(responses);
   testMiddleware = middleware;
   add_patient = createAddPatientTool(middleware);
-  check_insurance = createCheckInsuranceTool(middleware);
   resolve_patient = createResolvePatientTool(middleware);
   update_insurance = createUpdateInsuranceTool(middleware);
   return middleware;
@@ -2626,7 +2624,6 @@ describe("stateful call tools", () => {
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
     expect(middleware.operations.map(({ name }) => name)).toEqual([
-      "checkInsurance",
       "createPatient",
     ]);
   });

@@ -3,16 +3,12 @@ import type {
   BookAppointmentResult,
   CancelAppointmentResult,
   CreatePatientResult,
-  InsuranceCheckResult,
   OwnedMiddleware,
   PatientResolveResult,
   UpdateInsuranceResult,
 } from "../../clients/owned-middleware.js";
-import { getOfficeProfileByPhone } from "../../customers/abita/profile.js";
-import { matchInsurancePlanForOffice } from "../../insurance-rules.js";
 
 export type InMemoryOwnedMiddlewareResponses = {
-  checkInsurance?: Array<InsuranceCheckResult | Promise<InsuranceCheckResult>>;
   resolvePatient?: Array<
     PatientResolveResult | Error | Promise<PatientResolveResult>
   >;
@@ -36,9 +32,6 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
     request: unknown;
   }> = [];
   readonly requests = {
-    checkInsurance: [] as Array<
-      Parameters<OwnedMiddleware["checkInsurance"]>[0]
-    >,
     resolvePatient: [] as Array<
       Parameters<OwnedMiddleware["resolvePatient"]>[0]
     >,
@@ -59,23 +52,6 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
 
   constructor(responses: InMemoryOwnedMiddlewareResponses = {}) {
     this.#responses = responses;
-  }
-
-  async checkInsurance(
-    request: Parameters<OwnedMiddleware["checkInsurance"]>[0],
-  ): Promise<InsuranceCheckResult> {
-    this.requests.checkInsurance.push(request);
-    this.operations.push({ name: "checkInsurance", request });
-    return (
-      (await this.#responses.checkInsurance?.shift()) ?? {
-        ...matchInsurancePlanForOffice(
-          getOfficeProfileByPhone(request.office).key,
-          request.plan,
-          request.coverageType,
-        ),
-        authoritative: false,
-      }
-    );
   }
 
   async resolvePatient(
