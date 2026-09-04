@@ -9,7 +9,7 @@ import {
 
 describe("insurance matcher", () => {
   const reference = loadInsuranceReference(
-    "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
+    "INSURANCE_SPRING_HILL_MEDICAL.json",
   );
   const crystalRiverReference = loadInsuranceReference(
     "INSURANCE_CRYSTAL_RIVER.json",

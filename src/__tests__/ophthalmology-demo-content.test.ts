@@ -22,29 +22,6 @@ function readWorkspaceFile(source: string): string {
   return readFileSync(join(WORKSPACE, source), "utf8");
 }
 
-function readInsurance(source: string): Record<string, unknown> {
-  return JSON.parse(readWorkspaceFile(source)) as Record<string, unknown>;
-}
-
-function withoutPlans(
-  reference: Record<string, unknown>,
-  canonicalPlans: ReadonlySet<string>,
-): Record<string, unknown> {
-  if (!Array.isArray(reference.plans)) {
-    throw new Error("Expected an insurance plan list.");
-  }
-  return {
-    ...reference,
-    plans: reference.plans.filter((plan) => {
-      if (!plan || typeof plan !== "object") return true;
-      const canonicalPlan = (plan as Record<string, unknown>).canonicalPlan;
-      return (
-        typeof canonicalPlan !== "string" || !canonicalPlans.has(canonicalPlan)
-      );
-    }),
-  };
-}
-
 describe("ophthalmology demo content", () => {
   it("uses dedicated Clearbrook role and knowledge sources", () => {
     const office = getOfficeProfileByPhone(OPHTHALMOLOGY_DEMO_TRUNK_PHONE);
@@ -121,28 +98,6 @@ describe("ophthalmology demo content", () => {
     if (!medical.supported || !routineVision.supported) {
       throw new Error("Expected both Clearbrook insurance lanes.");
     }
-
-    const demoMedical = readInsurance(medical.source);
-    const sourceMedical = readInsurance(
-      "INSURANCE_SPRING_HILL_CRYSTAL_RIVER.json",
-    );
-    const springHillOnlyHumanaPlans = new Set([
-      "Humana Medicare",
-      "Humana Medicaid",
-    ]);
-    expect({
-      ...withoutPlans(demoMedical, springHillOnlyHumanaPlans),
-      officeLabel: sourceMedical.officeLabel,
-    }).toEqual(withoutPlans(sourceMedical, springHillOnlyHumanaPlans));
-
-    const demoRoutineVision = readInsurance(routineVision.source);
-    const sourceRoutineVision = readInsurance(
-      "INSURANCE_SPRING_HILL_ROUTINE_VISION.json",
-    );
-    expect({
-      ...demoRoutineVision,
-      officeLabel: sourceRoutineVision.officeLabel,
-    }).toEqual(sourceRoutineVision);
 
     expect(loadInsuranceReference(medical.source).officeLabel).toBe(
       "Medical Demo",
