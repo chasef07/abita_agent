@@ -26,6 +26,10 @@ import {
 import { domainOutcomeReceipts } from "../state/observability.js";
 import { transfer_call } from "../tools/transfer-call.js";
 import { createTestCallState } from "./support/call-state.js";
+import {
+  DEMO_OFFICE_KEYS,
+  getOfficeProfile,
+} from "../customers/abita/profile.js";
 
 function createToolContext() {
   const state = createTestCallState();
@@ -69,8 +73,35 @@ describe("transfer call", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     transferCallerToOfficeMock.mockReset();
     vi.restoreAllMocks();
+  });
+
+  it.each(DEMO_OFFICE_KEYS)(
+    "blocks %s transfers before announcement or handoff",
+    async (officeKey) => {
+      const { ctx, state } = createToolContext();
+      state.runtime.trunkPhone = getOfficeProfile(officeKey).trunkPhones[0]!;
+      expect(await executeTransfer(ctx, "sandbox")).toContain(
+        "No transfer was made",
+      );
+      expect(transferCallerToOfficeMock).not.toHaveBeenCalled();
+      expect(ctx.session.say).not.toHaveBeenCalled();
+      expect(domainOutcomeReceipts(state)).toMatchObject([
+        { outcome: "transfer_blocked", status: "blocked" },
+      ]);
+    },
+  );
+
+  it("blocks real office transfers on staging", async () => {
+    vi.stubEnv("LIVEKIT_AGENT_DEPLOYMENT", "staging");
+    const { ctx } = createToolContext();
+    expect(await executeTransfer(ctx, "staging")).toContain(
+      "No transfer was made",
+    );
+    expect(transferCallerToOfficeMock).not.toHaveBeenCalled();
+    expect(ctx.session.say).not.toHaveBeenCalled();
   });
 
   it("rejects concurrent duplicate transfer calls", () => {

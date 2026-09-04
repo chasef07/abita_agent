@@ -1,4 +1,8 @@
 import { isDemoOfficeKey, type OfficeKey } from "../customers/abita/profile.js";
+import {
+  getMiddlewareConfig,
+  isNonProductionDeployment,
+} from "./middleware-routing.js";
 
 const PRODUCTION_CONFIGURATION = [
   "AMD_API_URL",
@@ -15,6 +19,9 @@ export function getProductInteractionConfig(
   officeKey: OfficeKey,
   env: NodeJS.ProcessEnv = process.env,
 ): { secret?: string; url?: string } {
+  // Named deployments must never ingest simulated calls into Product.
+  // Production demo calls retain their existing, demo-tenant-only history.
+  if (isNonProductionDeployment(env)) return {};
   const tenant = getProductTenantConfig(officeKey, env);
   const config = {
     secret: tenant.secret,
@@ -58,6 +65,10 @@ export function getProductTenantConfig(
 export function validateRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): void {
+  if (isNonProductionDeployment(env)) {
+    getMiddlewareConfig("rheumatology-demo", env);
+    return;
+  }
   if (
     env.NODE_ENV === "production" &&
     PRODUCTION_CONFIGURATION.some((name) => !trimmed(env[name]))
