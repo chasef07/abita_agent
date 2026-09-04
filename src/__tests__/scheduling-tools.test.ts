@@ -270,8 +270,43 @@ describe("scheduling tools", () => {
         appointmentLane,
       });
       expect(middleware.operations).toHaveLength(1);
+      expect(domainOutcomeReceipts(state)).toContainEqual(
+        expect.objectContaining({
+          callId: "availability-1",
+          toolName: "get_availability",
+          outcome: "availability_searched",
+          status: "success",
+          evidence: { intent: "booking", patientGroup: "existing" },
+        }),
+      );
     },
   );
+
+  it("records a completed new-patient availability search", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [availabilityFound([returnedSlot()])],
+    });
+    const { get_availability } = createSchedulingTools(middleware);
+    const state = createState();
+    state.identity.activePatient!.kind = "created";
+
+    await get_availability.execute(
+      { when: "2026-06-01", visitType: "medical" },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-new",
+      } as never,
+    );
+
+    expect(domainOutcomeReceipts(state)).toContainEqual(
+      expect.objectContaining({
+        callId: "availability-new",
+        outcome: "availability_searched",
+        status: "success",
+        evidence: { intent: "booking", patientGroup: "new" },
+      }),
+    );
+  });
 
   it("blocks availability and booking for a partially registered patient", async () => {
     const middleware = new InMemorySchedulingMiddleware();
@@ -307,6 +342,9 @@ describe("scheduling tools", () => {
     expect(availabilityResult).toBe(message);
     expect(bookingResult).toBe(message);
     expect(middleware.operations).toEqual([]);
+    expect(domainOutcomeReceipts(state)).not.toContainEqual(
+      expect.objectContaining({ outcome: "availability_searched" }),
+    );
   });
 
   it.each(["hollywood", "sweetwater"] as const)(
@@ -358,7 +396,6 @@ describe("scheduling tools", () => {
         toolCallId: "tool-1",
       } as never,
     );
-
     expect(state.office.activeKey).toBe("hollywood");
     expect(middleware.operations).toEqual([
       expect.objectContaining({
@@ -1841,6 +1878,9 @@ describe("scheduling tools", () => {
     expect(ownedMiddlewareFailures(state)).toMatchObject([
       { operation: "getAvailability", reason: "middleware_error" },
     ]);
+    expect(domainOutcomeReceipts(state)).not.toContainEqual(
+      expect.objectContaining({ outcome: "availability_searched" }),
+    );
   });
 
   it("leaves an invalid availability response as an internal error", async () => {
@@ -1953,6 +1993,9 @@ describe("scheduling tools", () => {
       "The patient or appointment changed while I was checking. Let me check again with the current details.",
     );
     expect(state.availability.slots).toEqual([]);
+    expect(domainOutcomeReceipts(state)).not.toContainEqual(
+      expect.objectContaining({ outcome: "availability_searched" }),
+    );
     expect(state.availability.bookingTokensBySlotId).toEqual({});
   });
 
@@ -3288,6 +3331,14 @@ describe("scheduling tools", () => {
         ctx: ctx as never,
         toolCallId: "availability-1",
       } as never,
+    );
+    expect(domainOutcomeReceipts(state)).toContainEqual(
+      expect.objectContaining({
+        callId: "availability-1",
+        outcome: "availability_searched",
+        status: "success",
+        evidence: { intent: "reschedule", patientGroup: "existing" },
+      }),
     );
     await reschedule_appointment.execute(
       {

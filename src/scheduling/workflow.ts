@@ -115,6 +115,8 @@ export interface AvailabilityLookupArgs {
   office?: AvailabilityOfficeKey;
 }
 
+export type AvailabilitySearchIntent = "booking" | "reschedule";
+
 export interface BookAppointmentArgs {
   appointmentSlotRef: string;
   appointmentReason: string;
@@ -140,6 +142,7 @@ export class SchedulingWorkflow {
     state: CallState,
     args: AvailabilityLookupArgs,
     signal?: AbortSignal,
+    onCompletedSearch?: (intent: AvailabilitySearchIntent) => void,
   ): Promise<string> {
     const now = this.clock.now();
     const resolvedWhen = resolveAvailabilityWhen(
@@ -154,6 +157,10 @@ export class SchedulingWorkflow {
       preferredTime: resolvedWhen.preferredTime,
     });
     if ("blocked" in request) return request.blocked;
+    const searchIntent: AvailabilitySearchIntent =
+      state.workflow.current?.intent === "change_appointment"
+        ? "reschedule"
+        : "booking";
 
     const office = getAmdOfficeForToolCall(state);
     let result: AvailabilityResult;
@@ -209,6 +216,7 @@ export class SchedulingWorkflow {
       } else {
         discardAvailabilityRead(state, request.backendKey, result);
       }
+      onCompletedSearch?.(searchIntent);
       return response.message;
     } catch (error) {
       discardAvailabilityRead(state, request.backendKey, result);

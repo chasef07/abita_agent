@@ -384,6 +384,14 @@ The Product interaction lifecycle has three message kinds:
    speech profiles, and receipt-backed domain outcomes. Delivery retries are
    bounded at four attempts and reuse the same payload.
 
+Normal closeouts declare `bookingAnalyticsVersion: 1`. A successful
+`availability_searched` receipt is recorded only after owned middleware
+returns an availability result. Its evidence identifies booking versus
+reschedule intent and the active patient's new/existing group at that search
+boundary. Input-required responses and middleware failures do not produce the
+receipt. Product can therefore exclude blocked calls and appointment changes
+from booking conversion without interpreting caller-facing prose.
+
 If startup fails after `START`, shutdown sends one failed `CLOSEOUT`; it does not
 send a separate summary message. Every message uses LiveKit `sip.callID` as the
 primary source call ID, followed by room name, SIP participant identity, and

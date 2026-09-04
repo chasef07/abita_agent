@@ -447,6 +447,7 @@ describe("call closeout", () => {
     await events.close();
 
     expect(portal.deliveries[1]?.payload.status).toBe("ESCALATED");
+    expect(portal.deliveries[1]?.payload.bookingAnalyticsVersion).toBe(1);
   });
 
   it.each([
@@ -470,6 +471,9 @@ describe("call closeout", () => {
       status: "FAILED",
     });
     expect(portal.deliveries[1]?.payload).not.toHaveProperty("callState");
+    expect(portal.deliveries[1]?.payload).not.toHaveProperty(
+      "bookingAnalyticsVersion",
+    );
   });
 
   it("records duration-limit termination and its configured maximum", async () => {

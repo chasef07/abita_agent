@@ -506,6 +506,7 @@ export async function attachCallCloseout(input: {
         callState?.runtime.voiceLanguage ??
         input.call.initialVoiceLanguage,
       domainOutcomes,
+      ...(callState ? { bookingAnalyticsVersion: 1 } : {}),
       ...(appointmentOutcome ? { appointmentOutcome } : {}),
       ...(capture.reportUnavailable ? { sessionReportUnavailable: true } : {}),
       ...input.call.livekitContext,

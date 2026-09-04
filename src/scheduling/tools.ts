@@ -1,5 +1,7 @@
 import { tool } from "@livekit/agents";
 import { z } from "zod";
+import { activePatientId } from "../state/call-state.js";
+import { domainOutcomesForTool } from "../state/observability.js";
 import { getState } from "../tools/session.js";
 import type { SchedulingMiddleware } from "./middleware.js";
 import {
@@ -7,7 +9,10 @@ import {
   type SchedulingClock,
 } from "./availability-when.js";
 import { returnSchedulingInputRequired } from "./input-required.js";
-import { SchedulingWorkflow } from "./workflow.js";
+import {
+  SchedulingWorkflow,
+  type AvailabilitySearchIntent,
+} from "./workflow.js";
 
 const APPOINTMENT_LANE_BY_VISIT_TYPE = {
   medical: "medical_md",
@@ -152,12 +157,20 @@ export function createSchedulingTools(
       "For a new visit, pass visitType; for a reschedule, identify the loaded appointment and leave visitType null. " +
       "Offer only returned slots; this tool does not book, so claim success only after book_appointment succeeds.",
     parameters: availabilityParameters,
-    execute: async (args, { ctx, abortSignal }): Promise<string> => {
+    execute: async (
+      args,
+      { ctx, abortSignal, toolCallId },
+    ): Promise<string> => {
       ctx.disallowInterruptions();
+      const state = getState(ctx);
+      const patientId = activePatientId(state);
+      const patientGroup =
+        state.identity.activePatient?.kind === "created" ? "new" : "existing";
+      let completedIntent: AvailabilitySearchIntent | null = null;
       const office = "office" in args ? args.office : undefined;
-      return returnSchedulingInputRequired(() =>
+      const result = await returnSchedulingInputRequired(() =>
         workflow.getAvailability(
-          getState(ctx),
+          state,
           {
             when: args.when,
             ...(office ? { office } : {}),
@@ -169,8 +182,26 @@ export function createSchedulingTools(
               : undefined,
           },
           abortSignal,
+          (intent) => {
+            completedIntent = intent;
+          },
         ),
       );
+      if (
+        completedIntent &&
+        patientId &&
+        activePatientId(state) === patientId
+      ) {
+        domainOutcomesForTool(state, toolCallId, "get_availability").record({
+          outcome: "availability_searched",
+          status: "success",
+          evidence: {
+            intent: completedIntent,
+            patientGroup,
+          },
+        });
+      }
+      return result;
     },
   });
 

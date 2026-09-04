@@ -248,6 +248,7 @@ export type DomainOutcomeStatus =
 
 export type DomainOutcome =
   | AppointmentActionName
+  | "availability_searched"
   | "insurance_update_failed"
   | "insurance_updated"
   | "patient_creation_ambiguous"
