@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.13.6](https://github.com/chasef07/abita_agent/compare/4.13.5...4.13.6) (2026-09-04)
+
+
+### Bug Fixes
+
+* update Spring Hill Humana insurance list ([#388](https://github.com/chasef07/abita_agent/issues/388)) ([a014a2a](https://github.com/chasef07/abita_agent/commit/a014a2a66455d2c12769fdbde4de63bc25298942))
+
 ## [4.13.5](https://github.com/chasef07/abita_agent/compare/4.13.4...4.13.5) (2026-09-04)
 
 
