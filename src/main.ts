@@ -41,6 +41,10 @@ import {
   createTurnProfileController,
 } from "./runtime/turn-profile-controller.js";
 import {
+  attachTranscriptionTimeoutRecovery,
+  voiceTranscriptionTimeoutMs,
+} from "./runtime/transcription-timeout-recovery.js";
+import {
   HttpCallPortal,
   attachCallCloseout,
   attachStartupCallCloseout,
@@ -167,11 +171,13 @@ export default defineAgent({
             tts,
             userData: callState,
             maxToolSteps: voiceMaxToolSteps,
+            transcriptionTimeout: voiceTranscriptionTimeoutMs,
             turnHandling: {
               turnDetection: new inference.TurnDetector(),
               ...voiceTurnHandlingOptions,
             },
           });
+          attachTranscriptionTimeoutRecovery(session);
           configureVoiceVad(session.vad);
           const getCallState = (): CallState | null => {
             return callStateReady ? session.userData : null;
