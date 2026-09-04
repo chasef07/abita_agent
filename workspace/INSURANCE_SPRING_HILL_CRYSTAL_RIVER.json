@@ -894,18 +894,6 @@
       "needsExactPlanName": true
     },
     {
-      "id": "accepted-humana-medicare-2",
-      "status": "accepted",
-      "canonicalPlan": "Humana Medicare",
-      "displayName": "Humana Medicare",
-      "aliases": [
-        "Humana Medicare"
-      ],
-      "canProceed": true,
-      "needsExactPlanName": false,
-      "callerNotice": "At Spring Hill, patients with this plan can see any provider."
-    },
-    {
       "id": "accepted-humana-ppo-2",
       "status": "accepted",
       "canonicalPlan": "Humana PPO",
@@ -1167,18 +1155,6 @@
       ],
       "canProceed": false,
       "needsExactPlanName": false
-    },
-    {
-      "id": "accepted-humana-medicaid-2",
-      "status": "accepted",
-      "canonicalPlan": "Humana Medicaid",
-      "displayName": "Humana Medicaid",
-      "aliases": [
-        "Humana Medicaid"
-      ],
-      "canProceed": true,
-      "needsExactPlanName": false,
-      "callerNotice": "At Spring Hill, patients with this plan can only see Dr. Bach."
     },
     {
       "id": "not-accepted-cigna-local-plus-2",

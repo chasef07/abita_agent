@@ -621,6 +621,23 @@ describe("insurance matcher", () => {
     expect(buildInsuranceToolResponse(medicaid)).toBe(
       "Yes, we take Humana Medicaid. At Spring Hill, patients with this plan can only see Dr. Bach.",
     );
+
+    const demoMedicare = matchInsurancePlanForOffice(
+      "rheumatology-demo",
+      "Humana Medicare",
+      "medical",
+    );
+    const demoMedicaid = matchInsurancePlanForOffice(
+      "rheumatology-demo",
+      "Humana Medicaid",
+      "medical",
+    );
+    expect(buildInsuranceToolResponse(demoMedicare)).toBe(
+      "Yes, we take Humana Medicare.",
+    );
+    expect(buildInsuranceToolResponse(demoMedicaid)).toBe(
+      "No, we don't accept Humana Medicaid.",
+    );
   });
 
   it("maps Humana Gold medical plans to Humana Medicare HMO for Hollywood and Sweetwater", () => {

@@ -112,7 +112,7 @@ describe("ophthalmology demo content", () => {
 
     expect(medical).toEqual({
       supported: true,
-      source: "INSURANCE_OPHTHALMOLOGY_DEMO_MEDICAL.json",
+      source: "INSURANCE_DEMO_MEDICAL.json",
     });
     expect(routineVision).toEqual({
       supported: true,
@@ -145,7 +145,7 @@ describe("ophthalmology demo content", () => {
     }).toEqual(sourceRoutineVision);
 
     expect(loadInsuranceReference(medical.source).officeLabel).toBe(
-      "Clearbrook Eye Center Medical Demo",
+      "Medical Demo",
     );
     expect(loadInsuranceReference(routineVision.source).officeLabel).toBe(
       "Clearbrook Eye Center Routine Vision Demo",
