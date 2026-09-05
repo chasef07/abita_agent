@@ -181,6 +181,21 @@ const TOPICS: TopicDefinition[] = [
     ],
   ),
   topic(
+    "location_contact",
+    ["Location and Contact"],
+    [
+      ["is this brightview", 6],
+      ["is this bright view", 6],
+      ["is this the brightview", 6],
+      ["is this the bright view", 6],
+      ["did i reach brightview", 6],
+      ["did i reach bright view", 6],
+      ["es brightview", 6],
+      ["es bright view", 6],
+    ],
+    ["north-miami-beach-optical"],
+  ),
+  topic(
     "providers",
     ["Providers"],
     [
