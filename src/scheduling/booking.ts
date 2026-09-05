@@ -150,14 +150,6 @@ export function bookingHadPositiveStatusWithoutAppointmentId(
   );
 }
 
-export function bookingSlotUnavailable(result: BookAppointmentResult): boolean {
-  return result.status === "unavailable";
-}
-
-export function bookingTokenRejected(result: BookAppointmentResult): boolean {
-  return result.status === "rejected";
-}
-
 export function bookedAppointmentMessage(
   selectedSlot: StoredAvailabilitySlot,
   result: BookingSuccess,

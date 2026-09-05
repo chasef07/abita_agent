@@ -52,8 +52,6 @@ export function prepareAvailabilityLookupContext(
     });
     return;
   }
-
-  if (activeAppointments(state).length > 0) return;
 }
 
 export function ensureAvailabilityContext(

@@ -4,7 +4,7 @@ import {
   ASSEMBLYAI_DEFAULT_KEYTERMS,
   getAssemblyAIInferenceSttOptions,
   getAssemblyAIInferenceSttProfileOptions,
-  selectAssemblyAISttProfileForAssistantText,
+  selectSttProfileForAssistantText,
 } from "../stt-config.js";
 
 beforeAll(() => {
@@ -141,41 +141,39 @@ describe("AssemblyAI through LiveKit Inference", () => {
 
   it("selects and reuses every next-turn transcription profile", () => {
     expect(
-      selectAssemblyAISttProfileForAssistantText("What insurance do you have?"),
+      selectSttProfileForAssistantText("What insurance do you have?"),
     ).toBe("insurance");
     expect(
-      selectAssemblyAISttProfileForAssistantText(
+      selectSttProfileForAssistantText(
         "Can I get the member ID from the insurance card?",
       ),
     ).toBe("memberId");
+    expect(selectSttProfileForAssistantText("What's your date of birth?")).toBe(
+      "intake",
+    );
     expect(
-      selectAssemblyAISttProfileForAssistantText("What's your date of birth?"),
-    ).toBe("intake");
-    expect(
-      selectAssemblyAISttProfileForAssistantText(
+      selectSttProfileForAssistantText(
         "I have your first name, what's your date of birth?",
       ),
     ).toBe("intake");
     expect(
-      selectAssemblyAISttProfileForAssistantText(
-        "What's the best email address?",
-      ),
+      selectSttProfileForAssistantText("What's the best email address?"),
     ).toBe("email");
+    expect(selectSttProfileForAssistantText("What's your son's name?")).toBe(
+      "intake",
+    );
     expect(
-      selectAssemblyAISttProfileForAssistantText("What's your son's name?"),
-    ).toBe("intake");
-    expect(
-      selectAssemblyAISttProfileForAssistantText(
+      selectSttProfileForAssistantText(
         "Let me confirm the details I have. Is that right?",
       ),
     ).toBe("default");
     expect(
-      selectAssemblyAISttProfileForAssistantText("What is it?", {
+      selectSttProfileForAssistantText("What is it?", {
         fallbackProfile: "email",
       }),
     ).toBe("email");
     expect(
-      selectAssemblyAISttProfileForAssistantText("Go ahead, spell that.", {
+      selectSttProfileForAssistantText("Go ahead, spell that.", {
         fallbackProfile: "memberId",
       }),
     ).toBe("memberId");
