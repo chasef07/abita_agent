@@ -73,11 +73,9 @@ export async function* guardAssistantSpeech<T extends AssistantTextChunk>(
       return;
     }
 
-    const validatedLength =
+    // Hold only a suffix that could become an internal marker in the next chunk.
+    let readyLength =
       pendingText.length - possibleMarkerPrefixLength(pendingText);
-    let readyLength = completeSentencePrefixLength(
-      pendingText.slice(0, validatedLength),
-    );
     while (readyLength > 0 && pending.length > 0) {
       const ready = pending[0];
       const readyText = textFromChunk(ready);
@@ -93,6 +91,7 @@ export async function* guardAssistantSpeech<T extends AssistantTextChunk>(
         pending[0] = ready.slice(readyLength);
         pendingText = pendingText.slice(readyLength);
       }
+      // Keep timed chunks intact when their suffix is still ambiguous.
       break;
     }
   }
@@ -102,15 +101,6 @@ export async function* guardAssistantSpeech<T extends AssistantTextChunk>(
 
 function textFromChunk(chunk: AssistantTextChunk): string {
   return typeof chunk === "string" ? chunk : chunk.text;
-}
-
-function completeSentencePrefixLength(text: string): number {
-  const boundaries = text.matchAll(/[.!?](?:["')\]]+)?(?:\s+|$)/g);
-  let readyLength = 0;
-  for (const boundary of boundaries) {
-    readyLength = (boundary.index ?? 0) + boundary[0].length;
-  }
-  return readyLength;
 }
 
 function blockedMarker(text: string): string | undefined {
