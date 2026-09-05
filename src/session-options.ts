@@ -34,7 +34,8 @@ export const voiceTurnHandlingOptions = {
     ...voiceEndpointingProfiles.conversation,
   },
   preemptiveGeneration: {
-    enabled: false,
+    enabled: true,
+    preemptiveTts: false,
   },
   interruption: {
     mode: "adaptive",

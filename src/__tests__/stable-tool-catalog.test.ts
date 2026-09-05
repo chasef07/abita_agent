@@ -669,8 +669,8 @@ function patientProjections(chatCtx: ChatContext): string[] {
   return chatCtx.items.flatMap((item) =>
     item.type === "message" &&
     item.role === "system" &&
-    item.textContent?.startsWith("Patient situation:")
-      ? [item.textContent]
+    item.textContent?.includes("Patient situation:")
+      ? [item.textContent.slice(item.textContent.indexOf("Patient situation:"))]
       : [],
   );
 }

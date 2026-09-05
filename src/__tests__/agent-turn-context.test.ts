@@ -1,10 +1,11 @@
 import {
+  Agent,
   AgentSession,
   ChatContext,
   ChatMessage,
   initializeLogger,
 } from "@livekit/agents";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
@@ -20,10 +21,11 @@ describe("completed user turn context", () => {
   const sessions: AgentSession[] = [];
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await Promise.all(sessions.splice(0).map((session) => session.close()));
   });
 
-  it("adds a fresh clinic timestamp to each temporary context only", async () => {
+  it("projects a fresh clinic timestamp into each model request only", async () => {
     const instants = [
       new Date("2026-07-25T03:58:00.000Z"),
       new Date("2026-07-25T04:02:00.000Z"),
@@ -45,24 +47,26 @@ describe("completed user turn context", () => {
       }).agent,
     });
 
+    const model = vi.spyOn(Agent.default, "llmNode").mockResolvedValue(null);
     const firstTurnContext = ChatContext.empty();
-    await session.currentAgent.onUserTurnCompleted(
-      firstTurnContext,
-      ChatMessage.create({ role: "user", content: "First turn" }),
-    );
     const secondTurnContext = ChatContext.empty();
-    await session.currentAgent.onUserTurnCompleted(
-      secondTurnContext,
-      ChatMessage.create({ role: "user", content: "Second turn" }),
-    );
+    for (const chatCtx of [firstTurnContext, secondTurnContext]) {
+      await session.currentAgent.llmNode(
+        chatCtx,
+        session.currentAgent.toolCtx,
+        {},
+      );
+    }
 
-    expect(systemText(firstTurnContext)).toContain(
+    expect(systemText(model.mock.calls[0]![1])).toContain(
       "Friday, July 24th, 2026 at 11:58 PM Eastern time",
     );
-    expect(systemText(secondTurnContext)).toContain(
+    expect(systemText(model.mock.calls[1]![1])).toContain(
       "Saturday, July 25th, 2026 at 12:02 AM Eastern time",
     );
-    expect(systemText(secondTurnContext)).not.toContain("11:58 PM");
+    expect(systemText(model.mock.calls[1]![1])).not.toContain("11:58 PM");
+    expect(firstTurnContext.items).toEqual([]);
+    expect(secondTurnContext.items).toEqual([]);
     expect(systemText(session.currentAgent.chatCtx)).not.toContain(
       "Current clinic-local date and time for this turn",
     );

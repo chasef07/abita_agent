@@ -45,6 +45,8 @@ type VoiceAgentOptions = {
   voiceLanguageRuntime?: VoiceLanguageRuntime;
 };
 
+const TURN_CONTEXT_MESSAGE_ID = "runtime_turn_context";
+
 export function createVoiceAgent(
   trunkPhone: string,
   options: VoiceAgentOptions,
@@ -57,6 +59,10 @@ export function createVoiceAgent(
     options.ownedMiddleware,
     trunkPhone,
   );
+  const turnClock = options.turnClock ?? systemSchedulingClock;
+  let modelInputSnapshot:
+    | { fingerprint: string; changed: boolean; userMessageId?: string }
+    | undefined;
 
   const agent = LiveKitAgent.create<CallState>({
     instructions: buildPrompt(trunkPhone),
@@ -75,54 +81,70 @@ export function createVoiceAgent(
       chatCtx: ChatContext,
       newMessage: ChatMessage,
     ): Promise<void> {
-      chatCtx.addMessage({
-        role: "system",
-        content: clinicTimestampMessage(
-          (options.turnClock ?? systemSchedulingClock).now(),
-        ),
-      });
-
       const state = ctx.session.userData;
       const transcript = newMessage.textContent ?? "";
-      if (!transcript) return;
-
-      await confirmCandidateFromTranscript(state, transcript, identityLookup);
-
-      const officeKey = activeOfficeKey(state);
-      const startedAt = performance.now();
       try {
-        const knowledge = (
-          options.officeKnowledgeResolver ?? resolveOfficeKnowledge
-        )(officeKey, transcript, recentNaturalLanguageConversation(chatCtx));
-        if (knowledge.outcome !== "skipped") {
-          chatCtx.addMessage({
-            role: "assistant",
-            content: officeKnowledgeReference(officeKey, knowledge),
+        if (!transcript) return;
+
+        await confirmCandidateFromTranscript(state, transcript, identityLookup);
+
+        const officeKey = activeOfficeKey(state);
+        const startedAt = performance.now();
+        try {
+          const knowledge = (
+            options.officeKnowledgeResolver ?? resolveOfficeKnowledge
+          )(officeKey, transcript, recentNaturalLanguageConversation(chatCtx));
+          if (knowledge.outcome !== "skipped") {
+            chatCtx.addMessage({
+              role: "assistant",
+              content: officeKnowledgeReference(officeKey, knowledge),
+            });
+          }
+          recordOfficeKnowledgeRetrieval(state, {
+            elapsedMs: elapsedMilliseconds(startedAt),
+            language: knowledge.language,
+            officeKey,
+            outcome: knowledge.outcome,
+            sectionCount: knowledge.sections.length,
+            topic: knowledge.topic,
+          });
+        } catch {
+          recordOfficeKnowledgeRetrieval(state, {
+            elapsedMs: elapsedMilliseconds(startedAt),
+            language: "unknown",
+            officeKey,
+            outcome: "failure",
+            sectionCount: 0,
+            topic: null,
           });
         }
-        recordOfficeKnowledgeRetrieval(state, {
-          elapsedMs: elapsedMilliseconds(startedAt),
-          language: knowledge.language,
-          officeKey,
-          outcome: knowledge.outcome,
-          sectionCount: knowledge.sections.length,
-          topic: knowledge.topic,
-        });
-      } catch {
-        recordOfficeKnowledgeRetrieval(state, {
-          elapsedMs: elapsedMilliseconds(startedAt),
-          language: "unknown",
-          officeKey,
-          outcome: "failure",
-          sectionCount: 0,
-          topic: null,
-        });
+      } finally {
+        const currentInput = modelTurnInput(state, turnClock);
+        // LiveKit compares the hook's context to the speculative request's
+        // context. State projected only in llmNode is invisible to that check.
+        // Force a fresh request when hydration, scheduling, or the clock changed.
+        if (
+          modelInputSnapshot !== undefined &&
+          (modelInputSnapshot.changed ||
+            modelInputSnapshot.fingerprint !== currentInput.fingerprint)
+        ) {
+          chatCtx.addMessage({
+            id: TURN_CONTEXT_MESSAGE_ID,
+            role: "system",
+            content: currentInput.content,
+          });
+        }
+        modelInputSnapshot = undefined;
       }
     },
 
     async llmNode(ctx, chatCtx, toolCtx, modelSettings) {
       const state = ctx.session.userData;
+      const input = modelTurnInput(state, turnClock);
       const modelChatCtx = chatCtx.copy();
+      modelChatCtx.items = modelChatCtx.items.filter(
+        (item) => item.id !== TURN_CONTEXT_MESSAGE_ID,
+      );
       let latestUserIndex = -1;
       for (let index = modelChatCtx.items.length - 1; index >= 0; index -= 1) {
         const item = modelChatCtx.items[index];
@@ -131,17 +153,34 @@ export function createVoiceAgent(
           break;
         }
       }
+      // A request whose user message is already committed belongs to a prior
+      // turn. Its snapshot must not invalidate fresh speculation on this turn.
+      if (
+        modelInputSnapshot?.userMessageId !== undefined &&
+        ctx.chatCtx.items.some(
+          (item) => item.id === modelInputSnapshot?.userMessageId,
+        )
+      ) {
+        modelInputSnapshot = undefined;
+      }
+      if (modelInputSnapshot === undefined) {
+        modelInputSnapshot = {
+          fingerprint: input.fingerprint,
+          changed: false,
+          userMessageId: modelChatCtx.items[latestUserIndex]?.id,
+        };
+      } else if (modelInputSnapshot.fingerprint !== input.fingerprint) {
+        // An overlapping recovery or tool reply must not mask an earlier
+        // speculative request that used stale runtime state.
+        modelInputSnapshot.changed = true;
+      }
       modelChatCtx.items.splice(
         latestUserIndex < 0 ? modelChatCtx.items.length : latestUserIndex,
         0,
         ChatMessage.create({
+          id: TURN_CONTEXT_MESSAGE_ID,
           role: "system",
-          content: [
-            patientModelProjection(state),
-            availabilityModelProjection(state),
-          ]
-            .filter(Boolean)
-            .join(" "),
+          content: input.content,
         }),
       );
       return LiveKitAgent.default.llmNode(
@@ -200,6 +239,25 @@ export function createVoiceAgent(
   });
 
   return { agent, office };
+}
+
+function modelTurnInput(state: CallState, clock: SchedulingClock) {
+  const content = [
+    clinicTimestampMessage(clock.now()),
+    patientModelProjection(state),
+    availabilityModelProjection(state),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return {
+    content,
+    fingerprint: JSON.stringify([
+      activeOfficeKey(state),
+      state.identity.activePatient?.patientId,
+      state.identity.transitionVersion,
+      content,
+    ]),
+  };
 }
 
 export async function* observeAssistantText(
