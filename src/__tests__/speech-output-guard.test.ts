@@ -63,6 +63,92 @@ describe("assistant speech output", () => {
     });
   });
 
+  it.each(["plain", "timed"])(
+    "forwards unfinished %s speech before the model supplies more text",
+    async (kind) => {
+      let release!: () => void;
+      const waiting = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const chunk =
+        kind === "plain"
+          ? "Thank you for calling "
+          : createTimedString({
+              text: "Thank you for calling ",
+              startTime: 0,
+              endTime: 1,
+            });
+      async function* response(): AsyncIterable<string | TimedString> {
+        yield chunk;
+        await waiting;
+        yield "today.";
+      }
+      const guarded = guardAssistantSpeech(response());
+      const delivered = vi.fn();
+      const first = guarded.next().then(delivered);
+      try {
+        await vi.waitFor(() => {
+          expect(delivered).toHaveBeenCalledWith({
+            done: false,
+            value: chunk,
+          });
+        });
+      } finally {
+        release();
+        await first;
+        await guarded.return();
+      }
+    },
+  );
+
+  it("holds only a possible marker prefix and releases it when disambiguated", async () => {
+    const guarded = guardAssistantSpeech(chunks("Please book", " a visit"));
+    await expect(guarded.next()).resolves.toEqual({
+      done: false,
+      value: "Please ",
+    });
+    await expect(collect(guarded)).resolves.toBe("book a visit");
+  });
+
+  it("preserves an unfinished benign prefix at end of input", async () => {
+    await expect(
+      collect(guardAssistantSpeech(chunks("Please book"))),
+    ).resolves.toBe("Please book");
+  });
+
+  it("keeps timed chunks intact while resolving a possible marker suffix", async () => {
+    const first = createTimedString({
+      text: "Please book",
+      startTime: 0,
+      endTime: 1,
+    });
+    const second = createTimedString({
+      text: " a visit",
+      startTime: 1,
+      endTime: 2,
+    });
+    const output = await collectValues(
+      guardAssistantSpeech(values(first, second)),
+    );
+    expect(output).toEqual([first, second]);
+    expect(output[0]).toBe(first);
+    expect(output[1]).toBe(second);
+    await expect(
+      collect(
+        guardAssistantSpeech(
+          values(
+            first,
+            createTimedString({
+              text: "_appointment",
+              startTime: 1,
+              endTime: 2,
+            }),
+          ),
+        ),
+      ),
+    ).resolves.toBe("Sorry, let me rephrase that. How can I help?");
+  });
+
   it("replaces a split system message before it reaches speech", async () => {
     const guarded = guardAssistantSpeech(
       chunks(
@@ -116,7 +202,7 @@ describe("assistant speech output", () => {
     [
       "internal tool names",
       ["I will call resolve_", "patient now"],
-      "Sorry, let me rephrase that. How can I help?",
+      "I will call Sorry, let me rephrase that. How can I help?",
     ],
   ])(
     "stops at %s and recovers without emitting the marker",
@@ -136,7 +222,22 @@ describe("assistant speech output", () => {
   it.each(toolNames)("blocks the registered tool name %s", async (toolName) => {
     await expect(
       collect(guardAssistantSpeech(chunks("I will call ", toolName))),
-    ).resolves.toBe("Sorry, let me rephrase that. How can I help?");
+    ).resolves.toBe("I will call Sorry, let me rephrase that. How can I help?");
+  });
+
+  it("blocks prompt and tool markers at every chunk boundary", async () => {
+    for (const marker of [...promptTags, ...toolNames]) {
+      for (let split = 1; split < marker.length; split++) {
+        const output = await collect(
+          guardAssistantSpeech(
+            chunks("Ready. ", marker.slice(0, split), marker.slice(split)),
+          ),
+        );
+        expect(output, `${marker} split at ${split}`).toBe(
+          "Ready. Sorry, let me rephrase that. How can I help?",
+        );
+      }
+    }
   });
 
   it.each(["lk_agents_cancel_task", "lk_agents_get_running_tasks"])(
