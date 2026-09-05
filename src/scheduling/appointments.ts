@@ -39,7 +39,7 @@ export function appointmentStatusFromResult(
   return null;
 }
 
-export function activeAppointmentById(
+function activeAppointmentById(
   state: CallState,
   appointmentId: number,
 ): CallerAppointment | undefined {

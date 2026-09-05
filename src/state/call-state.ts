@@ -488,12 +488,6 @@ export function recordUnregisteredPatientInsuranceCheck(
   }
 }
 
-export function patientIdentityTransitions(
-  state: CallState,
-): PatientIdentityTransitionAnalytics[] {
-  return [...state.identity.receipts];
-}
-
 export interface InitialCallStateInput {
   preCallCandidates?: PreCallPatientCandidate[];
   activePatient?: ActivePatient | null;

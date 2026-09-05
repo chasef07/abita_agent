@@ -71,9 +71,7 @@ import {
   bookingHadPositiveStatusWithoutAppointmentId,
   bookingNoteWarning,
   bookingRequestBodyForSlot,
-  bookingSlotUnavailable,
   bookingSucceeded,
-  bookingTokenRejected,
   selectedSlotForBooking,
   slotUnavailableMessage,
   spokenSlot,
@@ -349,7 +347,7 @@ export class SchedulingWorkflow {
       return message;
     }
 
-    if (bookingSlotUnavailable(result)) {
+    if (result.status === "unavailable") {
       invalidateAvailabilityReads(state, "booking_authorization_invalidated");
       const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
       const message = slotUnavailableMessage(remainingSlots);
@@ -367,7 +365,7 @@ export class SchedulingWorkflow {
       });
       return message;
     }
-    if (bookingTokenRejected(result)) {
+    if (result.status === "rejected") {
       clearAvailabilitySelection(state, {
         invalidateReads: "booking_authorization_invalidated",
       });
@@ -1131,7 +1129,7 @@ function handleRescheduleBookingFailure(
     return message;
   }
 
-  if (bookingSlotUnavailable(bookingResult)) {
+  if (bookingResult.status === "unavailable") {
     invalidateAvailabilityReads(state, "booking_authorization_invalidated");
     const remainingSlots = removeAvailabilitySlot(state, selectedSlot.slotId);
     const message = `${slotUnavailableMessage(remainingSlots)} I did not cancel the existing appointment.`;
@@ -1173,7 +1171,7 @@ function handleRescheduleBookingFailure(
     });
     return message;
   }
-  if (bookingTokenRejected(bookingResult)) {
+  if (bookingResult.status === "rejected") {
     clearAvailabilitySelection(state, {
       invalidateReads: "booking_authorization_invalidated",
     });

@@ -214,18 +214,14 @@ function includesAny(text: string, needles: readonly string[]): boolean {
   return needles.some((needle) => text.includes(needle));
 }
 
-function isQuestionLike(text: string): boolean {
-  return includesAny(text, QUESTION_CUES);
-}
-
-export function selectAssemblyAISttProfileForAssistantText(
+export function selectSttProfileForAssistantText(
   text: string,
   options: {
     fallbackProfile?: AssemblyAISttProfile | null;
   } = {},
 ): AssemblyAISttProfile {
   const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
-  if (!normalized || !isQuestionLike(normalized)) {
+  if (!normalized || !includesAny(normalized, QUESTION_CUES)) {
     return "default";
   }
 
@@ -259,13 +255,4 @@ export function selectAssemblyAISttProfileForAssistantText(
   }
 
   return "default";
-}
-
-export function selectSttProfileForAssistantText(
-  text: string,
-  options: {
-    fallbackProfile?: SttProfile | null;
-  } = {},
-): SttProfile {
-  return selectAssemblyAISttProfileForAssistantText(text, options);
 }

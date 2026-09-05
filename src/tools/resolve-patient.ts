@@ -40,13 +40,9 @@ type ResolvePatientArgs = z.infer<typeof resolvePatientParameters>;
 export function createResolvePatientTool(middleware: OwnedMiddleware) {
   const lookup: PatientResolveLookup = (office, identity) =>
     middleware.resolvePatient({ office, identity });
-  return tool(resolvePatientToolOptions(lookup));
-}
-
-function resolvePatientToolOptions(lookup: PatientResolveLookup) {
-  return {
+  return tool({
     name: "resolve_patient",
-    onDuplicate: "reject" as const,
+    onDuplicate: "reject",
     description:
       "Activate or look up an existing patient when no correct patient is active, or switch to another patient. " +
       "Use only caller-provided identity: a first name can activate a preloaded patient; otherwise collect full name and date of birth. " +
@@ -88,7 +84,7 @@ function resolvePatientToolOptions(lookup: PatientResolveLookup) {
       }
       return resolution.reply;
     },
-  };
+  });
 }
 
 function patientResolutionDomainOutcome(

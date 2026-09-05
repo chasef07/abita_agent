@@ -64,33 +64,19 @@ const cancelAppointmentParameters = z
   })
   .strict();
 
-const rescheduleAppointmentParameters = z
-  .object({
-    appointmentSlotRef: z
-      .string()
-      .trim()
-      .min(1)
-      .describe(
+const rescheduleAppointmentParameters = bookAppointmentParameters
+  .extend({
+    appointmentSlotRef:
+      bookAppointmentParameters.shape.appointmentSlotRef.describe(
         "Opaque get_availability reference for the confirmed new slot.",
       ),
-    appointmentReason: z
-      .string()
-      .trim()
-      .min(1)
-      .describe("Caller-provided reason for the new appointment."),
-    referringDoctor: z
-      .string()
-      .trim()
-      .min(1)
-      .describe(
-        'Caller-provided referring doctor; use internal value "none" when they have none.',
+    appointmentReason:
+      bookAppointmentParameters.shape.appointmentReason.describe(
+        "Caller-provided reason for the new appointment.",
       ),
-    readBack: z
-      .literal(true)
-      .nullable()
-      .describe(
-        "True only after the caller confirms the new date, time, and provider read-back; otherwise null.",
-      ),
+    readBack: bookAppointmentParameters.shape.readBack.describe(
+      "True only after the caller confirms the new date, time, and provider read-back; otherwise null.",
+    ),
     oldAppointmentRef: z
       .string()
       .trim()
