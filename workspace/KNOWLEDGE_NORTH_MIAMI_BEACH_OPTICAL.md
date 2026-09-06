@@ -20,9 +20,9 @@ Phone: (305) 509-5333
 Fax number, email, and directions are not supplied. Say this information is unavailable and keep the answer limited to supplied facts.
 
 ## Hours
-Status: not-supplied
+Status: available
 
-Office hours are not supplied. Say this information is unavailable and keep the answer limited to supplied facts.
+Sunday–Thursday 9:00 AM–5:00 PM.
 
 ## After Hours
 Status: not-supplied
