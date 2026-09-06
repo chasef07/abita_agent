@@ -91,7 +91,7 @@ describe("cataract provider restrictions", () => {
   it.each([
     "north-miami-beach-optical",
     "ophthalmology-demo",
-    "mental-health-demo",
+    "new-tampa-demo",
     "rheumatology-demo",
   ] as const)("keeps the scheduling boundary for %s", (officeKey) => {
     expect(
