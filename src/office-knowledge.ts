@@ -318,6 +318,7 @@ const TOPICS: TopicDefinition[] = [
       ["services", 3],
       ["servicios", 3],
       ["cataract", 4, ["cataract"]],
+      ["cataracts", 4, ["cataract"]],
       ["catarata", 4, ["cataract"]],
       ["cataratas", 4, ["cataract"]],
       ["cirugia de cataratas", 6, ["cataract"]],
@@ -614,13 +615,30 @@ export function resolveOfficeKnowledge(
 ): OfficeKnowledgeResolution {
   const normalized = normalize(transcript);
   const language = detectLanguage(normalized);
-  if (isBusinessOwnedTurn(normalized)) {
+  const cataractRequest =
+    ["spring-hill", "crystal-river", "hollywood", "sweetwater"].includes(
+      officeKey,
+    ) &&
+    ["cataract", "cataracts", "catarata", "cataratas"].some((phrase) =>
+      hasPhrase(normalized, phrase),
+    );
+  // Service restrictions still apply when the caller asks to book care.
+  if (isBusinessOwnedTurn(normalized) && !cataractRequest) {
     return { language, outcome: "skipped", sections: [], topic: null };
   }
   const index = knowledgeIndex(officeKey);
   const { sections } = index;
   const currentScores = rankTopics(normalized, index, officeKey);
-  let selected = selectConfidentTopic(currentScores);
+  const confidentTopic = selectConfidentTopic(currentScores);
+  let selected = cataractRequest
+    ? (currentScores.find(
+        ({ definition, score }) =>
+          definition.topic === "emergency_urgency" && score >= MIN_TOPIC_SCORE,
+      ) ??
+      confidentTopic ??
+      currentScores.find(({ definition }) => definition.topic === "services") ??
+      null)
+    : confidentTopic;
 
   const locationFollowUp = isLocationFollowUp(normalized);
   if (

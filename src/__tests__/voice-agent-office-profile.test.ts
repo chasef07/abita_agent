@@ -115,7 +115,7 @@ const officeBehaviors: OfficeBehavior[] = [
     amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
     displayName: "Abita Eye Group",
     englishSpeaker: "wawona",
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     handoff: {
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
@@ -145,7 +145,7 @@ const officeBehaviors: OfficeBehavior[] = [
     displayName: "Eye Radiance",
     englishSpeaker: "wawona",
     greeting:
-      "Hey this is Maya at Eye Radiance, powered by Abeeta Eye Group. How are you doing today?",
+      "Hi, this is Maya at Eye Radiance, powered by Abeeta Eye Group. How can I help?",
     handoff: { mode: "phone", target: "tel:+13527941244" },
     insurance: {
       medical: {
@@ -175,7 +175,7 @@ const officeBehaviors: OfficeBehavior[] = [
     amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
     displayName: "Abita Eye Group Hollywood",
     englishSpeaker: "luz",
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     handoff: {
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
@@ -204,7 +204,7 @@ const officeBehaviors: OfficeBehavior[] = [
     amdOfficePhone: SWEETWATER_OFFICE_PHONE,
     displayName: "Abita Eye Group Sweetwater",
     englishSpeaker: "luz",
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     handoff: {
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
@@ -233,7 +233,7 @@ const officeBehaviors: OfficeBehavior[] = [
     amdOfficePhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
     displayName: "North Miami Beach Optical",
     englishSpeaker: "luz",
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     handoff: {
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
@@ -266,8 +266,7 @@ const officeBehaviors: OfficeBehavior[] = [
     amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     displayName: "Clearbrook Eye Center",
     englishSpeaker: "wawona",
-    greeting:
-      "Hey this is Maya at Clearbrook Eye Center. How are you doing today?",
+    greeting: "Hi, this is Maya at Clearbrook Eye Center. How can I help?",
     handoff: {
       mode: "phone",
       target: `tel:${DEMO_TRANSFER_NUMBER}`,
