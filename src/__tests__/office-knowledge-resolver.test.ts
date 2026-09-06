@@ -17,6 +17,89 @@ type TopicFixture = {
   transcript: string;
 };
 
+describe("cataract provider restrictions", () => {
+  it.each([
+    ["hollywood", "Hollywood does not provide cataract care."],
+    ["sweetwater", "Sweetwater does not provide cataract care."],
+    [
+      "spring-hill",
+      "Dr. Licht is the only provider for all cataract visits at Spring Hill",
+    ],
+    [
+      "crystal-river",
+      "Dr. Licht is the only provider for all cataract visits at Crystal River",
+    ],
+  ] as const)(
+    "supplies %s restrictions before scheduling",
+    (officeKey, rule) => {
+      for (const transcript of [
+        "I have cataracts.",
+        "Book a cataract appointment.",
+        "Schedule cataract surgery.",
+        "Does Dr. Bach see cataracts?",
+        "Can Dr. Noel evaluate my cataract?",
+        "Quiero programar una cita para cataratas.",
+      ]) {
+        const result = resolveOfficeKnowledge(officeKey, transcript);
+        expect(result, transcript).toMatchObject({
+          outcome: "matched",
+        });
+        expect(result.sections.join("\n"), transcript).toContain(rule);
+      }
+    },
+  );
+
+  it.each([
+    [
+      "What should I bring for my cataract appointment?",
+      "preparation",
+      "## What to Bring",
+    ],
+    [
+      "Can I pay my cataract bill with a credit card?",
+      "payment",
+      "## Payments",
+    ],
+  ] as const)(
+    "preserves the main question in %s",
+    (transcript, topic, heading) => {
+      for (const office of [
+        "spring-hill",
+        "crystal-river",
+        "hollywood",
+        "sweetwater",
+      ] as const) {
+        const result = resolveOfficeKnowledge(office, transcript);
+        expect(result).toMatchObject({ outcome: "matched", topic });
+        expect(result.sections.join("\n")).toContain(heading);
+      }
+    },
+  );
+
+  it("keeps eye-emergency knowledge ahead of cataract restrictions", () => {
+    expect(
+      resolveOfficeKnowledge(
+        "spring-hill",
+        "Book a cataract appointment; I have new flashes and sudden vision loss.",
+      ),
+    ).toMatchObject({
+      outcome: "matched",
+      topic: "emergency_urgency",
+    });
+  });
+
+  it.each([
+    "north-miami-beach-optical",
+    "ophthalmology-demo",
+    "mental-health-demo",
+    "rheumatology-demo",
+  ] as const)("keeps the scheduling boundary for %s", (officeKey) => {
+    expect(
+      resolveOfficeKnowledge(officeKey, "Book a cataract appointment."),
+    ).toMatchObject({ outcome: "skipped", topic: null });
+  });
+});
+
 describe("North Miami Beach former office name", () => {
   it.each([
     "Is this BrightView Optical?",
@@ -388,7 +471,6 @@ describe("Office Knowledge Resolver", () => {
     "I need to reschedule.",
     "Do you have any openings next week?",
     "Schedule Botox.",
-    "Schedule cataract surgery.",
     "Schedule a Botox consultation.",
     "Are my glasses ready?",
     "When will my contact lenses arrive?",

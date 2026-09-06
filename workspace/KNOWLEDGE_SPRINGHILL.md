@@ -6,13 +6,9 @@ Status: available
 
 If this is a medical emergency, please hang up and dial 911 or go to the nearest emergency room immediately.
 
-To determine urgency:
+New flashes or floaters require immediate transfer to office staff. Follow Human Transfer immediately for sudden vision loss or other eye emergencies.
 
-1. Is the patient experiencing new flashes or floaters?
-2. How long has the symptom been present?
-3. Any sudden or gradual vision loss?
-
-New flashes or floaters are urgent; offer the next available appointment. If unchanged or not new, continue with standard scheduling.
+To determine urgency when symptoms are unclear: Ask only for missing details, such as whether flashes or floaters are new, when symptoms started, or whether vision has changed. If flashes or floaters are unchanged and no eye emergency is described, continue standard scheduling.
 
 ## Location and Contact
 Status: available
@@ -32,7 +28,7 @@ Status: available
 
 Monday–Friday 8:30 AM–4:30 PM. Closed Saturday and Sunday.
 
-Holiday closure: Closed on Memorial Day, Monday, May 25, 2026.
+Holiday closure: Closed on Labor Day, Monday, September 7, 2026.
 
 ## After Hours
 Status: available
@@ -42,12 +38,16 @@ If a caller needs to reach the after-hours doctor, provide this number: 727-379-
 ## Scope of Services
 Status: available
 
+Dr. Licht is the only provider for all cataract visits at Spring Hill, including cataract evaluations. Dr. Bach and Dr. Noel do not see cataract patients. Offer cataract appointments only with Dr. Licht.
+
 Spring Hill sees medical and surgical eye conditions: cataract evaluation, glaucoma evaluation, retina care, uveitis care, pediatric ophthalmology, adult strabismus (eye misalignment), double vision evaluation, and oculoplastic (eyelid) procedures. Spring Hill also has a routine-vision scheduling lane for routine eye exams and glasses prescriptions when the caller is using accepted vision coverage or self-pay. Routine optometry is age 7+. Children under 7 are not scheduled for routine vision or optical; treat the visit as medical and schedule with Dr. Bach on days he is in the Spring Hill office.
 
 Retina care is available at Spring Hill, but retina surgery is not performed at the office.
 
 ## Providers
 Status: available
+
+Dr. Licht is the only provider for all cataract visits at Spring Hill, including cataract evaluations. Dr. Bach and Dr. Noel do not see cataract patients. Offer cataract appointments only with Dr. Licht.
 
 **Dr. Bach** (NPI: 16-59706588) — Pediatrics, Adult Strabismus, Double Vision. Limited schedule — only at Spring Hill a couple times per month. Availability may be several weeks out.
 
