@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.15.0](https://github.com/chasef07/abita_agent/compare/4.14.1...4.15.0) (2026-09-06)
+
+
+### Features
+
+* **agent:** use Baseten GLM primary and Luz for Hollywood ([#407](https://github.com/chasef07/abita_agent/issues/407)) ([6a7b229](https://github.com/chasef07/abita_agent/commit/6a7b2294a5bdcec230ca4fba0d6c4ce575dd2d8a))
+
+
+### Bug Fixes
+
+* **identity:** ask for first name before resolving phone matches ([#406](https://github.com/chasef07/abita_agent/issues/406)) ([d404fb2](https://github.com/chasef07/abita_agent/commit/d404fb2672790554250c533ebf6f4835b82a92ce))
+
 ## [4.14.1](https://github.com/chasef07/abita_agent/compare/4.14.0...4.14.1) (2026-09-06)
 
 
