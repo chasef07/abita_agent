@@ -17,6 +17,48 @@ type TopicFixture = {
   transcript: string;
 };
 
+describe("North Miami Beach former office name", () => {
+  it.each([
+    "Is this BrightView Optical?",
+    "Is this Brightview?",
+    "Is this Bright View?",
+    "Is this the BrightView Optical?",
+    "Did I reach Bright View?",
+    "¿Es BrightView Optical?",
+  ])("retrieves office identity for %s", (transcript) => {
+    const result = resolveOfficeKnowledge(
+      "north-miami-beach-optical",
+      transcript,
+    );
+    expect(result).toMatchObject({
+      outcome: "matched",
+      topic: "location_contact",
+    });
+    expect(result.sections.join("\n")).toContain(
+      "ownership recently transferred",
+    );
+    expect(result.sections.join("\n")).toContain(
+      "Yes, you’ve reached the right office!",
+    );
+  });
+
+  it("does not identify another office as BrightView", () => {
+    expect(
+      resolveOfficeKnowledge("hollywood", "Is this Brightview?"),
+    ).toMatchObject({ outcome: "skipped", sections: [] });
+  });
+
+  it.each([
+    ["What are Brightview hours?", "hours"],
+    ["Brightview, when do you close?", "hours"],
+    ["Does Brightview sell glasses?", "optical"],
+  ])("preserves the actual topic in %s", (transcript, topic) => {
+    expect(
+      resolveOfficeKnowledge("north-miami-beach-optical", transcript),
+    ).toMatchObject({ topic });
+  });
+});
+
 const topicFixtures: TopicFixture[] = [
   {
     officeKey: "spring-hill",
