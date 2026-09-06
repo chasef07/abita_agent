@@ -1,9 +1,9 @@
 // Opt-in, paid LLM check. Uses synthetic records and never executes middleware.
-// Load LiveKit credentials in the environment before running with tsx.
+// Load Baseten and LiveKit credentials in the environment before running with tsx.
 // Pass scenario IDs as arguments to run a focused subset.
-import { inference, llm, initializeLogger } from "@livekit/agents";
+import { llm, initializeLogger } from "@livekit/agents";
 import { buildPrompt } from "../prompt.js";
-import { primaryLLMOptions, fallbackLLMOptions } from "../model-config.js";
+import { createLlmPair } from "../model-config.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import { patientModelProjection } from "../identity/patient-identity.js";
@@ -115,8 +115,8 @@ const selectedScenarios = scenarios.filter(
 if (selectedScenarios.length === 0) throw new Error("No matching scenarios.");
 let failures = 0;
 
-for (const config of [primaryLLMOptions, fallbackLLMOptions]) {
-  const model = new inference.LLM({ ...config, inferenceClass: "low" });
+const { primary, fallback } = createLlmPair();
+for (const model of [primary, fallback]) {
   model.on("error", () => {});
   try {
     for (const scenario of selectedScenarios) {
@@ -165,6 +165,7 @@ for (const config of [primaryLLMOptions, fallbackLLMOptions]) {
           .chat({
             chatCtx,
             toolCtx: tools,
+            ...(model === fallback ? { inferenceClass: "low" as const } : {}),
             connOptions: { maxRetry: 0, timeoutMs: 20_000, retryIntervalMs: 0 },
           })
           .collect();
@@ -193,7 +194,7 @@ for (const config of [primaryLLMOptions, fallbackLLMOptions]) {
         if (!passed) failures += 1;
         console.log(
           JSON.stringify({
-            model: config.model,
+            model: model.model,
             scenario: scenario.id,
             passed,
             ...(!passed || scenario.askFirstName
@@ -211,7 +212,7 @@ for (const config of [primaryLLMOptions, fallbackLLMOptions]) {
         failures += 1;
         console.log(
           JSON.stringify({
-            model: config.model,
+            model: model.model,
             scenario: scenario.id,
             passed: false,
             reason: "request_or_response_failed",
