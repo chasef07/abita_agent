@@ -118,7 +118,7 @@ describe("create_staff_task", () => {
       } as never,
     );
 
-    expect(result).toBe(
+    expect(result).toContain(
       "I wrote that down for the team. They'll review it and follow up.",
     );
     expect(ctx.disallowInterruptions).toHaveBeenCalledTimes(1);
@@ -210,7 +210,7 @@ describe("create_staff_task", () => {
       { ctx: ctx as never, toolCallId: "task-tool-1" } as never,
     );
 
-    expect(taskResult).toBe(
+    expect(taskResult).toContain(
       "I wrote that down for the team. They'll review it and follow up.",
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -269,7 +269,7 @@ describe("create_staff_task", () => {
       } as never,
     );
 
-    expect(result).toBe(
+    expect(result).toContain(
       "I wrote that down for the team. They'll review it and follow up.",
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -427,7 +427,7 @@ describe("create_staff_task", () => {
       toolCallId: "tool-2",
     } as never);
 
-    expect(result).toBe(
+    expect(result).toContain(
       "I already sent that to the team. They'll review it and follow up.",
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -505,7 +505,7 @@ describe("create_staff_task", () => {
         } as never,
       );
 
-      expect(result).toBe(
+      expect(result).toContain(
         "I wrote that down for the team. They'll review it and follow up.",
       );
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -546,7 +546,7 @@ describe("create_staff_task", () => {
       } as never,
     );
 
-    expect(result).toBe(
+    expect(result).toContain(
       "I wrote that down for the team. They'll review it and follow up.",
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);

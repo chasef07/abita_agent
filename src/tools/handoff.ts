@@ -23,6 +23,7 @@ const MAX_PRODUCT_HANDOFF_LIFETIME_MS = 5 * 60_000;
 
 export class HandoffError extends Error {}
 export class HandoffConflictError extends Error {}
+export class HandoffTaskError extends Error {}
 
 type HandoffTarget = {
   headers?: Record<string, string>;
@@ -47,6 +48,7 @@ type ProductHandoffPayload = {
   officeKey: HandoffOfficeKey;
   practiceId: string;
   sourceCallId: string;
+  taskId?: string;
 };
 
 let _sipClient: SipClient | undefined;
@@ -115,6 +117,7 @@ async function resolveHandoffTarget(
   state: CallState,
   profileOfficeKey: OfficeKey,
   handoffOfficeKey: HandoffOfficeKey,
+  taskId?: string,
 ): Promise<HandoffTarget> {
   const policy = getOfficeProfile(profileOfficeKey).handoff();
   if (policy.mode === "phone") {
@@ -123,7 +126,12 @@ async function resolveHandoffTarget(
 
   const productConfig = productHandoffConfig(profileOfficeKey);
   if (productConfig) {
-    return requestProductHandoff(state, handoffOfficeKey, productConfig);
+    return requestProductHandoff(
+      state,
+      handoffOfficeKey,
+      productConfig,
+      taskId,
+    );
   }
 
   if (policy.mode === "product-with-phone-fallback") {
@@ -185,8 +193,9 @@ async function requestProductHandoff(
   state: CallState,
   officeKey: HandoffOfficeKey,
   config: ProductHandoffConfig,
+  taskId?: string,
 ): Promise<HandoffTarget> {
-  const payload = productHandoffPayload(state, officeKey, config);
+  const payload = productHandoffPayload(state, officeKey, config, taskId);
   const body = await postHandoff({
     errorPrefix: "Acuity Product",
     payload,
@@ -200,6 +209,7 @@ function productHandoffPayload(
   state: CallState,
   officeKey: HandoffOfficeKey,
   config: ProductHandoffConfig,
+  taskId?: string,
 ): ProductHandoffPayload {
   const existing = _productHandoffPayloads.get(state);
   if (existing) return existing;
@@ -216,6 +226,7 @@ function productHandoffPayload(
   };
   const payload = {
     ...identity,
+    ...(taskId ? { taskId } : {}),
     contact: {
       phone: state.runtime.callerPhone,
       phoneSource: "livekit.sip.callerPhoneNumber",
@@ -379,15 +390,36 @@ function isProductSipUri(value: unknown): value is string {
   return value.slice(4, value.indexOf("@")) === "acuity-handoff";
 }
 
+// Local input errors are correctable and do not imply a provider transfer.
+export function validateHandoffTask(state: CallState, taskId?: string): void {
+  if (
+    taskId &&
+    !state.runtime.staffTasks.some((receipt) => receipt.taskId === taskId)
+  ) {
+    throw new HandoffTaskError(
+      "Use only the Task reference returned for this request in this call. Set taskId to null for a separate request.",
+    );
+  }
+  const existing = _productHandoffPayloads.get(state);
+  if (existing && existing.taskId !== taskId) {
+    throw new HandoffTaskError(
+      `Retry the original transfer with taskId ${existing.taskId ?? "null"}. Do not read the Task reference aloud.`,
+    );
+  }
+}
+
 export async function transferCallerToOffice(
   state: CallState,
+  taskId?: string,
 ): Promise<{ handoffOfficeKey: OfficeKey; handoffTarget: string }> {
+  validateHandoffTask(state, taskId);
   const profileOfficeKey = getHandoffOfficeKey(state);
   const handoffOfficeKey = getHandoffRouteOfficeKey(state, profileOfficeKey);
   const { headers, mode, target } = await resolveHandoffTarget(
     state,
     profileOfficeKey,
     handoffOfficeKey,
+    taskId,
   );
   beginTransfer(state);
   try {

@@ -3,16 +3,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   HandoffConflictErrorMock,
   HandoffErrorMock,
+  HandoffTaskErrorMock,
+  validateHandoffTaskMock,
   transferCallerToOfficeMock,
 } = vi.hoisted(() => ({
   HandoffConflictErrorMock: class HandoffConflictError extends Error {},
   HandoffErrorMock: class HandoffError extends Error {},
+  HandoffTaskErrorMock: class HandoffTaskError extends Error {},
+  validateHandoffTaskMock: vi.fn(),
   transferCallerToOfficeMock: vi.fn(),
 }));
 
 vi.mock("../tools/handoff.js", () => ({
   HandoffConflictError: HandoffConflictErrorMock,
   HandoffError: HandoffErrorMock,
+  HandoffTaskError: HandoffTaskErrorMock,
+  validateHandoffTask: validateHandoffTaskMock,
   transferCallerToOffice: transferCallerToOfficeMock,
 }));
 
@@ -54,11 +60,26 @@ async function executeTransfer(
   ctx: ReturnType<typeof createToolContext>["ctx"],
   toolCallId: string,
 ) {
-  return transfer_call.execute({}, { ctx: ctx as never, toolCallId } as never);
+  return transfer_call.execute({ taskId: null }, {
+    ctx: ctx as never,
+    toolCallId,
+  } as never);
 }
 
 describe("transfer call", () => {
   beforeEach(() => {
+    validateHandoffTaskMock.mockImplementation((state, taskId) => {
+      if (
+        taskId &&
+        !state.runtime.staffTasks.some(
+          (receipt: { taskId: string }) => receipt.taskId === taskId,
+        )
+      ) {
+        throw new HandoffTaskErrorMock(
+          "Use the Task reference returned for this request.",
+        );
+      }
+    });
     transferCallerToOfficeMock.mockImplementation(async (state) => {
       acceptTransfer(state);
       return {
@@ -70,7 +91,73 @@ describe("transfer call", () => {
 
   afterEach(() => {
     transferCallerToOfficeMock.mockReset();
+    validateHandoffTaskMock.mockReset();
     vi.restoreAllMocks();
+  });
+
+  it("passes an explicit same-request Task to the handoff", async () => {
+    const { state, ctx } = createToolContext();
+    const taskId = "11111111-1111-4111-8111-111111111111";
+    state.runtime.staffTasks.push({
+      taskId,
+      createdAt: new Date().toISOString(),
+      idempotencyKey: "same-need",
+      status: "created",
+    });
+    await transfer_call.execute({ taskId }, {
+      ctx: ctx as never,
+      toolCallId: "transfer-task",
+    } as never);
+    expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state, taskId);
+  });
+
+  it("rejects an invented Task reference before speaking or transferring", async () => {
+    const { ctx } = createToolContext();
+    await expect(
+      transfer_call.execute(
+        { taskId: "11111111-1111-4111-8111-111111111111" },
+        { ctx: ctx as never, toolCallId: "unknown-task" } as never,
+      ),
+    ).rejects.toThrow("Task reference returned");
+    expect(ctx.session.say).not.toHaveBeenCalled();
+    expect(transferCallerToOfficeMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps a local reference error correctable without announcing or marking ambiguous", async () => {
+    const { state, ctx } = createToolContext();
+    const taskId = "11111111-1111-4111-8111-111111111111";
+    state.runtime.staffTasks.push({
+      taskId,
+      createdAt: new Date().toISOString(),
+      idempotencyKey: "same-need",
+      status: "created",
+    });
+    transferCallerToOfficeMock.mockRejectedValueOnce(
+      new HandoffErrorMock("HTTP 500"),
+    );
+    await expect(
+      transfer_call.execute({ taskId }, {
+        ctx: ctx as never,
+        toolCallId: "first",
+      } as never),
+    ).rejects.toThrow("try once more");
+    validateHandoffTaskMock.mockImplementationOnce(() => {
+      throw new HandoffTaskErrorMock("Retry the original transfer with taskId");
+    });
+    await expect(
+      transfer_call.execute({ taskId: null }, {
+        ctx: ctx as never,
+        toolCallId: "wrong-retry",
+      } as never),
+    ).rejects.toThrow("Retry the original transfer");
+    expect(transferStatus(state)).toBe("idle");
+    expect(ctx.session.say).toHaveBeenCalledTimes(1);
+    expect(transferCallerToOfficeMock).toHaveBeenCalledTimes(1);
+    await transfer_call.execute({ taskId }, {
+      ctx: ctx as never,
+      toolCallId: "corrected-retry",
+    } as never);
+    expect(transferStatus(state)).toBe("accepted");
   });
 
   it("rejects concurrent duplicate transfer calls", () => {
@@ -95,7 +182,7 @@ describe("transfer call", () => {
     expect(
       ctx.announcementHandle.waitForPlayout.mock.invocationCallOrder[0],
     ).toBeLessThan(transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0);
-    expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
+    expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state, undefined);
     expect(result).toBe("Transfer started to the spring-hill office.");
     expect(transferStatus(state)).toBe("accepted");
     expect(transferIsAccepted(state)).toBe(true);
@@ -118,7 +205,7 @@ describe("transfer call", () => {
     expect(
       ctx.announcementHandle.waitForPlayout.mock.invocationCallOrder[0],
     ).toBeLessThan(transferCallerToOfficeMock.mock.invocationCallOrder[0] ?? 0);
-    expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state);
+    expect(transferCallerToOfficeMock).toHaveBeenCalledWith(state, undefined);
     expect(transferIsAccepted(state)).toBe(false);
     expect(domainOutcomeReceipts(state)).toMatchObject([
       {

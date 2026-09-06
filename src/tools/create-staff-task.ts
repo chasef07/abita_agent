@@ -98,7 +98,7 @@ export const create_staff_task = tool({
           status: "success",
           evidence: { ...existing },
         },
-        TASK_DUPLICATE_REPLY,
+        staffTaskReply(TASK_DUPLICATE_REPLY, existing.taskId),
       );
     }
 
@@ -139,9 +139,12 @@ export const create_staff_task = tool({
         status: "success",
         evidence: receipt,
       },
-      response.status === "duplicate"
-        ? TASK_DUPLICATE_REPLY
-        : TASK_CREATED_REPLY,
+      staffTaskReply(
+        response.status === "duplicate"
+          ? TASK_DUPLICATE_REPLY
+          : TASK_CREATED_REPLY,
+        response.taskId,
+      ),
     );
   },
 });
@@ -309,4 +312,8 @@ async function postStaffTaskOnce(
     status: parsedBody.status,
     taskId: parsedBody.taskId,
   };
+}
+
+function staffTaskReply(reply: string, taskId: string): string {
+  return `${reply}\nInternal Task reference (do not read aloud): ${taskId}. If transferring this same request, pass this as taskId to transfer_call.`;
 }

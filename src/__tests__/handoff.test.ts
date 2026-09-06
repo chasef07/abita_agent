@@ -32,8 +32,10 @@ import {
 import {
   HandoffConflictError,
   HandoffError,
+  HandoffTaskError,
   transferCallerToOffice,
 } from "../tools/handoff.js";
+import { create_staff_task } from "../tools/create-staff-task.js";
 import {
   confirmedActivePatient,
   createTestCallState,
@@ -835,5 +837,78 @@ describe("call-center handoff", () => {
       handoffTarget: DIRECT_RESPONSE.sipUri,
     });
     expect(transferStatus(state)).toBe("accepted");
+  });
+  it("carries the successful Task receipt through handoff and freezes it on retry", async () => {
+    configureProductHandoff();
+    const taskId = "11111111-1111-4111-8111-111111111111";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ status: "created", taskId }))
+      .mockRejectedValueOnce(new Error("handoff response lost"))
+      .mockResolvedValueOnce(jsonResponse(PRODUCT_RESPONSE));
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createState();
+    const reply = await create_staff_task.execute(
+      {
+        category: "appointments",
+        urgency: "normal",
+        summary: "Review appointment request",
+        message:
+          "Synthetic caller requests staff help with appointment options.",
+      },
+      {
+        ctx: {
+          session: { userData: state },
+          disallowInterruptions: vi.fn(),
+        } as never,
+        toolCallId: "task-tool",
+      } as never,
+    );
+    expect(reply).toContain(
+      `Internal Task reference (do not read aloud): ${taskId}`,
+    );
+    await expect(transferCallerToOffice(state, taskId)).rejects.toThrow(
+      HandoffError,
+    );
+    await expect(transferCallerToOffice(state)).rejects.toThrow(
+      HandoffTaskError,
+    );
+    await transferCallerToOffice(state, taskId);
+    const first = JSON.parse(fetchMock.mock.calls[1]?.[1].body as string);
+    const replay = JSON.parse(fetchMock.mock.calls[2]?.[1].body as string);
+    expect(first).toMatchObject({ taskId, sourceCallId: state.runtime.callId });
+    expect(replay).toEqual(first);
+    expect(transferSipParticipantMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not guess a Task for a separate request from the same call", async () => {
+    configureProductHandoff();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(PRODUCT_RESPONSE));
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createState();
+    state.runtime.staffTasks.push({
+      taskId: "11111111-1111-4111-8111-111111111111",
+      createdAt: new Date().toISOString(),
+      idempotencyKey: "other-need",
+      status: "created",
+    });
+    await transferCallerToOffice(state);
+    expect(
+      JSON.parse(fetchMock.mock.calls[0]?.[1].body as string),
+    ).not.toHaveProperty("taskId");
+  });
+
+  it("rejects an unknown Task before handoff admission or REFER", async () => {
+    configureProductHandoff();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      transferCallerToOffice(
+        createState(),
+        "11111111-1111-4111-8111-111111111111",
+      ),
+    ).rejects.toThrow("Task reference returned");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(transferSipParticipantMock).not.toHaveBeenCalled();
   });
 });

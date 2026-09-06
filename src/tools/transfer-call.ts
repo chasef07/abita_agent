@@ -10,6 +10,8 @@ import {
 import {
   HandoffConflictError,
   HandoffError,
+  HandoffTaskError,
+  validateHandoffTask,
   transferCallerToOffice,
 } from "./handoff.js";
 import { getState } from "./session.js";
@@ -24,8 +26,17 @@ export const transfer_call = tool({
     "Transfer the caller to human staff only when current office policy requires it. " +
     "Call immediately without announcing the transfer; the tool speaks the announcement. " +
     "Retry only when the result explicitly offers one retry.",
-  parameters: z.object({}),
-  execute: async (_, { ctx, toolCallId }): Promise<string> => {
+  parameters: z.object({
+    taskId: z
+      .string()
+      .uuid()
+      .nullable()
+      .describe(
+        "Task reference returned by create_staff_task, only when transferring that same patient request. Use null for a separate request or when no Task was created. Never invent a reference.",
+      ),
+  }),
+  execute: async (input, { ctx, toolCallId }): Promise<string> => {
+    const taskId = input.taskId ?? undefined;
     const state = getState(ctx);
     ctx.disallowInterruptions();
     const outcomes = domainOutcomesForTool(state, toolCallId, "transfer_call");
@@ -59,6 +70,7 @@ export const transfer_call = tool({
     }
 
     try {
+      validateHandoffTask(state, taskId);
       await ctx.waitForPlayout();
       const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
       const language = state.runtime.voiceLanguage?.current ?? "en";
@@ -67,10 +79,14 @@ export const transfer_call = tool({
         { allowInterruptions: false },
       );
       await announcement.waitForPlayout();
-      const { handoffOfficeKey } = await transferCallerToOffice(state);
+      const { handoffOfficeKey } = await transferCallerToOffice(state, taskId);
       record("success", { officeKey: handoffOfficeKey });
       return `Transfer started to the ${handoffOfficeKey} office.`;
     } catch (error) {
+      if (error instanceof HandoffTaskError) {
+        record("failed");
+        throw new ToolError(error.message);
+      }
       console.error(
         `[tools] Transfer failed (state=${transferStatus(state)}).`,
       );
