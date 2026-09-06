@@ -131,7 +131,7 @@ describe("preemptive generation through the LiveKit turn pipeline", () => {
     expect(llm.requests).toHaveLength(2);
   });
 
-  it("discards speculation when the committed turn promotes a patient", async () => {
+  it("keeps a name mention unresolved through speculative and committed turns", async () => {
     const state = createTestCallState({
       officeKey: "spring-hill",
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
@@ -154,10 +154,10 @@ describe("preemptive generation through the LiveKit turn pipeline", () => {
     expect(state.identity.activePatient).toBeNull();
     await activity.onEndOfTurn(turn("L-A-R-R-Y"));
     await session.waitForIdle();
-    expect(llm.requests).toHaveLength(2);
+    expect(llm.requests).toHaveLength(1);
     expect(requestText(llm.requests[0]!)).toContain("no patient is active");
-    expect(requestText(llm.requests[1]!)).toContain("LARRY TEST is the active");
-    expect(state.identity.activePatient?.patientId).toBe("patient-larry");
+    expect(requestText(llm.requests[0]!)).toContain("1 possible patient");
+    expect(state.identity.activePatient).toBeNull();
   });
 
   it("discards speculation when availability changes before the turn hook", async () => {
@@ -215,42 +215,6 @@ describe("preemptive generation through the LiveKit turn pipeline", () => {
     expect(llm.requests).toHaveLength(3);
   });
 
-  it("checks state again when an awaited identity hydration fails", async () => {
-    const state = createTestCallState({
-      officeKey: "spring-hill",
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-      preCallCandidates: [
-        {
-          status: "candidate",
-          ref: CALLER_CANDIDATE_REF,
-          firstName: "LARRY",
-          patientId: "patient-larry",
-        },
-      ],
-    });
-    const { activity, llm, session, middleware } = await start({ state });
-    let release!: () => void;
-    const hydration = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const lookup = vi
-      .spyOn(middleware, "resolvePatient")
-      .mockImplementation(async () => {
-        await hydration;
-        throw new Error("Lookup failed");
-      });
-    activity.onPreemptiveGeneration(turn("L-A-R-R-Y"));
-    await vi.waitFor(() => expect(llm.requests).toHaveLength(1));
-    const completion = activity.onEndOfTurn(turn("L-A-R-R-Y"));
-    await vi.waitFor(() => expect(lookup).toHaveBeenCalledOnce());
-    state.office.activeKey = "crystal-river";
-    release();
-    await completion;
-    await session.waitForIdle();
-    expect(llm.requests).toHaveLength(2);
-    expect(state.identity.activePatient).toBeNull();
-  });
-
   it("does not execute a speculative tool until the user turn commits", async () => {
     const execute = vi.fn(async () => "Recorded");
     const { activity, llm, session } = await start({
@@ -274,6 +238,49 @@ describe("preemptive generation through the LiveKit turn pipeline", () => {
     await activity.onEndOfTurn(turn("Hello"));
     await session.waitForIdle();
     expect(execute).toHaveBeenCalledOnce();
+  });
+
+  it("defers resolver promotion until commitment and refreshes the next model input", async () => {
+    const state = createTestCallState({
+      preCallCandidates: [
+        {
+          status: "verified",
+          ref: CALLER_CANDIDATE_REF,
+          firstName: "Larry",
+          lastName: "Test",
+          dob: "01/01/1980",
+          patientId: "patient-larry",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+      ],
+    });
+    const { activity, llm, session, middleware } = await start({
+      state,
+      responses: [
+        {
+          input: "This is Larry.",
+          toolCalls: [
+            {
+              name: "resolve_patient",
+              args: { firstName: "Larry", lastName: null, dob: null },
+            },
+          ],
+        },
+      ],
+    });
+    activity.onPreemptiveGeneration(turn("This is Larry."));
+    await vi.waitFor(() => expect(llm.requests).toHaveLength(1));
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(state.identity.activePatient).toBeNull();
+    await activity.onEndOfTurn(turn("This is Larry."));
+    await session.waitForIdle();
+    expect(state.identity.activePatient?.patientId).toBe("patient-larry");
+    expect(requestText(llm.requests[0]!)).toContain("no patient is active");
+    expect(requestText(llm.requests.at(-1)!)).toContain(
+      "Larry Test is the active",
+    );
+    expect(middleware.operations).toEqual([]);
   });
 
   it("never executes a discarded speculative tool call", async () => {

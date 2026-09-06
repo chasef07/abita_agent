@@ -35,7 +35,7 @@ describe("patient model projection", () => {
     await Promise.all(sessions.splice(0).map((session) => session.close()));
   });
 
-  it("makes every unresolved pre-call outcome indistinguishable", () => {
+  it("exposes lookup outcomes without revealing private candidate identities", () => {
     const privateCandidate: PreCallPatientCandidate = {
       status: "verified",
       ref: "private-candidate-reference",
@@ -63,12 +63,11 @@ describe("patient model projection", () => {
       return patientModelProjection(state);
     });
 
-    expect(new Set(projections)).toEqual(
-      new Set(["Patient situation: no patient is active."]),
-    );
-    expect(projections.join(" ")).not.toMatch(
-      /private|candidate|lookup|match|01\/02\/1980/i,
-    );
+    expect(projections[0]).toContain("Phone lookup found no matches");
+    expect(projections[1]).toContain("Phone lookup failed");
+    expect(projections[2]).toContain("Phone lookup found 1 possible patient");
+    expect(projections[3]).toContain("Phone lookup found 2 possible patients");
+    expect(projections.join(" ")).not.toMatch(/Private|private-|01\/02\/1980/);
   });
 
   it("injects exactly one fresh projection into each model request only", async () => {
@@ -101,7 +100,7 @@ describe("patient model projection", () => {
     await session.run({ userInput: "I need an appointment." }).wait();
 
     expect(patientMessages(model.requests[0])).toEqual([
-      "Patient situation: no patient is active.",
+      expect.stringContaining("Phone lookup found 1 possible patient"),
     ]);
     expect(patientMessages(session.currentAgent.chatCtx)).toEqual([]);
     const modelRequest = JSON.stringify(model.requests[0]);

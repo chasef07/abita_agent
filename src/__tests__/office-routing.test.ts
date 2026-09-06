@@ -241,7 +241,7 @@ describe("tool-first prompt gating", () => {
     expect(prompt).toContain("You speak English and Spanish");
     expect(prompt).toContain("Reply in the caller's current language");
     expect(prompt).toContain(
-      "When asking for a patient's first or last name, ask them to spell it",
+      "Ask for spelling when a patient's name is unclear; use a clearly supplied name directly",
     );
     expect(prompt).toContain(
       "Only confirm a booking, cancellation, rescheduling, insurance update, or patient creation after the matching currently available action succeeds. Complete any prerequisite requested by the available tools first.",
@@ -332,13 +332,11 @@ describe("tool-first prompt gating", () => {
 
     expect(prompt).toContain("# Patient Identity");
     expect(prompt).toContain(
-      "Ask for patient identity only when the caller requests patient-specific work and no patient is active.",
+      "call resolve_patient with the intended patient's caller-provided identity",
     );
+    expect(prompt).toContain("Use null for unknown fields");
     expect(prompt).toContain(
-      'Ask once: "To help with that, could you spell the patient\'s first name?"',
-    );
-    expect(prompt).toContain(
-      "If no patient becomes active, collect the patient's full name and date of birth, then call resolve_patient.",
+      "read it back and wait for confirmation before resolving",
     );
     expect(prompt).not.toContain("<caller_identity_hint>");
     expect(prompt).not.toContain("middleware_error");
@@ -1560,13 +1558,11 @@ describe("model-facing tool definitions", () => {
       "Use only caller-provided identity",
     );
     expect(resolve_patient.description).toContain(
-      "a first name can activate a preloaded patient",
+      "Try their supplied first name before collecting more identity",
     );
+    expect(resolve_patient.description).toContain("leave unknown fields null");
     expect(resolve_patient.description).toContain(
-      "otherwise collect full name and date of birth",
-    );
-    expect(resolve_patient.description).toContain(
-      "Do not use for new-patient chart creation",
+      "Use add_patient for new-patient chart creation",
     );
     expect(resolve_patient.description).not.toContain("insurance updates");
     expect(resolve_patient.description).not.toContain("private account");

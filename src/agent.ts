@@ -17,11 +17,7 @@ import type { CallState } from "./state/call-state.js";
 import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
-import {
-  confirmCandidateFromTranscript,
-  patientModelProjection,
-  type PatientResolveLookup,
-} from "./identity/patient-identity.js";
+import { patientModelProjection } from "./identity/patient-identity.js";
 import {
   officeKnowledgeReference,
   resolveOfficeKnowledge,
@@ -53,8 +49,6 @@ export function createVoiceAgent(
 ) {
   const office = getOfficeProfileByPhone(trunkPhone);
   const greeting = options.suppressGreeting ? "" : office.greeting;
-  const identityLookup: PatientResolveLookup = (office, identity) =>
-    options.ownedMiddleware.resolvePatient({ office, identity });
   const registeredTools = buildToolsForTrunk(
     options.ownedMiddleware,
     trunkPhone,
@@ -85,8 +79,6 @@ export function createVoiceAgent(
       const transcript = newMessage.textContent ?? "";
       try {
         if (!transcript) return;
-
-        await confirmCandidateFromTranscript(state, transcript, identityLookup);
 
         const officeKey = activeOfficeKey(state);
         const startedAt = performance.now();

@@ -41,7 +41,8 @@ import {
 import { spokenAppointmentDate } from "../scheduling/spoken-date.js";
 import {
   dobMatches,
-  matchCandidatesByFirstName,
+  isValidPatientDOB,
+  nameMatchStrength,
   namesMatch,
 } from "./name-matcher.js";
 
@@ -126,64 +127,44 @@ const patientCreationOperations = new WeakMap<
   PatientCreationOperationState
 >();
 
-export async function confirmCandidateFromTranscript(
-  state: CallState,
-  transcript: string,
-  lookup: PatientResolveLookup,
-): Promise<"activated" | "ambiguous" | "unmatched"> {
-  if (state.identity.activePatient || state.identity.registration) {
-    return "unmatched";
-  }
-
-  const match = matchCandidatesByFirstName(
-    transcript,
-    state.identity.privateCandidates,
-    (candidate) => candidate.firstName,
-    { allowEditDistance: true, includeFullInput: false },
-  );
-  if (match.status === "no_match") return "unmatched";
-  if (match.status === "ambiguous") return "ambiguous";
-
-  const resolution = await activateCandidate(
-    state,
-    match.candidate,
-    lookup,
-    "caller_transcript",
-  );
-  return resolution.outcome === "verified" ? "activated" : "unmatched";
-}
-
 export async function resolveExistingPatient(
   state: CallState,
   input: ResolvePatientIdentityInput,
   lookup: PatientResolveLookup,
 ): Promise<PatientIdentityResolution> {
   const identity = normalizeIdentity(input);
+  if (identity.dob && !isValidPatientDOB(identity.dob)) {
+    return recordResolutionOutcome(state, {
+      outcome: "needs_identity",
+      reply:
+        "That date of birth is invalid. Ask the caller to re-check it, read it back, and wait for confirmation. Use MM/DD/YYYY.",
+    });
+  }
   const preloaded = await resolvePrivateCandidate(state, identity, lookup);
   if (preloaded) return recordResolutionOutcome(state, preloaded);
 
-  if (!hasFullIdentity(identity)) {
-    return recordResolutionOutcome(state, {
-      outcome: "needs_identity",
-      reply: identity.firstName
-        ? "What is the patient's last name and date of birth?"
-        : "What is the patient's full name and date of birth?",
-    });
-  }
-
-  state.identity.unregisteredPatientReceipt = null;
-
   const active = state.identity.activePatient;
   if (
+    identity.firstName &&
     active &&
     !identityTargetsDifferentPatient(active, identity) &&
     active.appointmentsStatus !== "error"
   ) {
+    state.identity.unregisteredPatientReceipt = null;
     return recordResolutionOutcome(state, {
       outcome: "verified",
       reply: `${active.name?.trim() || "The patient"} is already the active patient.`,
     });
   }
+
+  if (!hasFullIdentity(identity)) {
+    return recordResolutionOutcome(state, {
+      outcome: "needs_identity",
+      reply: missingIdentityReply(identity),
+    });
+  }
+
+  state.identity.unregisteredPatientReceipt = null;
 
   const hadActivePatient = active !== null;
   const targetsDifferentPatient = active
@@ -479,9 +460,19 @@ function patientIdentityTransitionIsCurrent(
 export function patientModelProjection(state: CallState): string {
   const patient = state.identity.activePatient;
   if (!patient) {
-    return state.identity.registration
-      ? "Patient situation: new-patient registration is in progress; no patient chart is active."
-      : "Patient situation: no patient is active.";
+    if (state.identity.registration) {
+      return "Patient situation: new-patient registration is in progress; no patient chart is active.";
+    }
+    const count = state.identity.privateCandidates.length;
+    const lookup =
+      count > 0
+        ? `Phone lookup found ${count} possible patient${count === 1 ? "" : "s"}. For patient-specific work, the next tool is resolve_patient. A supplied firstName alone is enough to try the phone matches.`
+        : state.runtime.preCallLookup.status === "lookup_failed"
+          ? "Phone lookup failed; this does not mean the patient is new. Use resolve_patient with caller-provided identity to look up the record."
+          : state.runtime.preCallLookup.status === "no_match"
+            ? "Phone lookup found no matches; the patient may still be registered. Use resolve_patient with caller-provided identity to look up the record."
+            : "Phone lookup has not provided patient candidates. Use resolve_patient with caller-provided identity for patient-specific work.";
+    return `Patient situation: no patient is active. ${lookup}`;
   }
 
   return [
@@ -505,7 +496,7 @@ export function incompletePatientRegistrationMessage(
 export function activatePatient(
   state: CallState,
   patient: PatientActivation,
-  source: "caller_transcript" | "resolve_patient" | "create_patient",
+  source: "resolve_patient" | "create_patient",
 ): boolean {
   return promotePatient(state, patient, source, "synchronous");
 }
@@ -513,7 +504,7 @@ export function activatePatient(
 function promotePatient(
   state: CallState,
   patient: PatientActivation,
-  source: "caller_transcript" | "resolve_patient" | "create_patient",
+  source: "resolve_patient" | "create_patient",
   transition: "operation" | "synchronous",
 ): boolean {
   const previous = state.identity.activePatient;
@@ -560,52 +551,77 @@ async function resolvePrivateCandidate(
     return null;
   }
 
-  const candidate = hasFullIdentity(identity)
-    ? uniqueFullIdentityCandidate(state.identity.privateCandidates, identity)
-    : uniqueFirstNameCandidate(
-        state.identity.privateCandidates,
-        identity.firstName,
-      );
-  if (candidate === "ambiguous") {
+  const named = state.identity.privateCandidates.flatMap((candidate) => {
+    const strength = nameMatchStrength(identity.firstName, candidate.firstName);
+    return strength ? [{ candidate, strength }] : [];
+  });
+  const matching = named.filter(
+    ({ candidate }) =>
+      (!identity.lastName ||
+        exactNamesMatch(identity.lastName, candidate.lastName ?? "")) &&
+      (!identity.dob || dobMatches(identity.dob, candidate.dob)),
+  );
+  const strong = matching.filter(
+    ({ strength }) => strength !== "edit_distance",
+  );
+  const matches = strong.length > 0 ? strong : matching;
+
+  if (matches.length === 0) {
+    if (named.length > 0 && !hasFullIdentity(identity)) {
+      return {
+        outcome: "needs_identity",
+        reply:
+          "The supplied identity does not match the phone records. To look up the intended patient, " +
+          missingIdentityReply(identity),
+      };
+    }
+    return null;
+  }
+
+  if (matches.length > 1) {
+    const surnames = new Set(
+      matches.map(({ candidate }) =>
+        normalizeExactName(candidate.lastName ?? ""),
+      ),
+    );
     return {
       outcome: "multiple_matches",
       reply:
-        "I found more than one patient with that first name. What is the patient's full name and date of birth?",
+        !identity.lastName && surnames.size > 1
+          ? "What is the patient's last name?"
+          : !identity.dob
+            ? "What is the patient's date of birth? Read it back and wait for the caller to confirm it before resolving."
+            : !identity.lastName
+              ? "What is the patient's last name?"
+              : "I couldn't distinguish these patient records. Connect the caller to office staff for help.",
     };
   }
-  if (!candidate) return null;
-  return activateCandidate(state, candidate, lookup, "resolve_patient");
+
+  const match = matches[0]!;
+  if (
+    match.strength === "edit_distance" &&
+    !identity.lastName &&
+    !identity.dob
+  ) {
+    return {
+      outcome: "needs_identity",
+      reply:
+        "The first name is only a possible spelling match. What is the patient's last name?",
+    };
+  }
+  return activateCandidate(state, match.candidate, lookup);
 }
 
-function uniqueFirstNameCandidate(
-  candidates: PreCallPatientCandidate[],
-  firstName: string,
-): PreCallPatientCandidate | "ambiguous" | null {
-  const match = matchCandidatesByFirstName(
-    firstName,
-    candidates,
-    (candidate) => candidate.firstName,
-    { allowEditDistance: false },
-  );
-  if (match.status === "ambiguous") return "ambiguous";
-  return match.status === "unique" ? match.candidate : null;
-}
-
-function uniqueFullIdentityCandidate(
-  candidates: PreCallPatientCandidate[],
-  identity: PatientLookupIdentity,
-): PreCallPatientCandidate | null {
-  const matches = candidates.filter((candidate) =>
-    candidateMatchesIdentity(candidate, identity),
-  );
-  return matches.length === 1 ? matches[0] : null;
+function missingIdentityReply(identity: ResolvePatientIdentityInput): string {
+  if (!identity.firstName) return "What is the patient's first name?";
+  if (!identity.lastName) return "What is the patient's last name?";
+  return "What is the patient's date of birth? Read it back and wait for the caller to confirm it before resolving.";
 }
 
 async function activateCandidate(
   state: CallState,
   candidate: PreCallPatientCandidate,
   lookup: PatientResolveLookup,
-  source: "caller_transcript" | "resolve_patient",
 ): Promise<PatientIdentityResolution> {
   if (candidate.status === "verified") {
     const isActiveCandidate = samePatient(
@@ -622,13 +638,13 @@ async function activateCandidate(
       };
     }
     if (isActiveCandidate) {
-      return hydrateCandidate(state, candidate, lookup, source);
+      return hydrateCandidate(state, candidate, lookup);
     }
     const hadActivePatient = state.identity.activePatient !== null;
     const changed = promotePatient(
       state,
       activationFromCandidate(candidate),
-      source,
+      "resolve_patient",
       "synchronous",
     );
     return {
@@ -639,14 +655,13 @@ async function activateCandidate(
           : confirmedPatientReply(state),
     };
   }
-  return hydrateCandidate(state, candidate, lookup, source);
+  return hydrateCandidate(state, candidate, lookup);
 }
 
 async function hydrateCandidate(
   state: CallState,
   candidate: PreCallPatientCandidate,
   lookup: PatientResolveLookup,
-  source: "caller_transcript" | "resolve_patient",
 ): Promise<PatientIdentityResolution> {
   let pending = pendingCandidateHydrations.get(state);
   if (!pending) {
@@ -656,7 +671,7 @@ async function hydrateCandidate(
   const existing = pending.get(candidate.patientId);
   if (existing) return existing;
 
-  const hydration = performCandidateHydration(state, candidate, lookup, source);
+  const hydration = performCandidateHydration(state, candidate, lookup);
   pending.set(candidate.patientId, hydration);
   const clearPending = () => {
     if (pending?.get(candidate.patientId) === hydration) {
@@ -671,7 +686,6 @@ async function performCandidateHydration(
   state: CallState,
   candidate: PreCallPatientCandidate,
   lookup: PatientResolveLookup,
-  source: "caller_transcript" | "resolve_patient",
 ): Promise<PatientIdentityResolution> {
   const operationVersion = beginPatientIdentityOperation(state);
   const result = await lookup(
@@ -725,7 +739,7 @@ async function performCandidateHydration(
   const changed = promotePatient(
     state,
     activationFromResolvedPatient(result, "existing"),
-    source,
+    "resolve_patient",
     "operation",
   );
   state.runtime.preCallLookup.hydrationOutcome = "verified";
@@ -965,7 +979,7 @@ function identityTargetsDifferentPatient(
       )) ||
     (identity.lastName &&
       !activeName.lastNames.some((name) =>
-        namesMatch(identity.lastName, name),
+        exactNamesMatch(identity.lastName ?? "", name),
       )),
   );
 }
