@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.16.0](https://github.com/chasef07/abita_agent/compare/4.15.0...4.16.0) (2026-09-06)
+
+
+### Features
+
+* **audio:** enable Krisp VIVA telephony voice isolation ([#413](https://github.com/chasef07/abita_agent/issues/413)) ([2ea7ca7](https://github.com/chasef07/abita_agent/commit/2ea7ca7413793b5b5e760efeb683b71d19c2372e))
+
+
+### Bug Fixes
+
+* **identity:** resolve fuzzy first-name phone matches ([#412](https://github.com/chasef07/abita_agent/issues/412)) ([e44bbfd](https://github.com/chasef07/abita_agent/commit/e44bbfdda28859ec0c0ee1038a99dd6119005eb8))
+
 ## [4.15.0](https://github.com/chasef07/abita_agent/compare/4.14.1...4.15.0) (2026-09-06)
 
 
