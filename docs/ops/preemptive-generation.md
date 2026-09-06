@@ -9,7 +9,7 @@ turn confirmation, speech scheduling, cancellation, and tool execution;
 `llmNode`. Adding the timestamp in the completed-turn hook would invalidate
 every speculative request, preventing reuse even on otherwise stable turns.
 
-After identity resolution, the completed-turn hook compares current model input
+The completed-turn hook compares current model input
 with the request snapshot. Changed patient state, availability, office, or clinic
 time forces a fresh request. An intervening model request with different state
 also invalidates speculation, so recovery cannot hide an older stale request.
@@ -19,8 +19,9 @@ model request, so prior-turn state does not invalidate fresh speculation.
 
 The regression suite in `src/__tests__/preemptive-generation.test.ts` exercises
 the installed LiveKit turn pipeline with a fake model: stable and consecutive-turn reuse,
-patient promotion, availability changes, midnight rollover, overlapping recovery,
-failed hydration, and deferred or discarded tool execution. It makes no live
+unresolved name mentions, resolver promotion after turn commitment, availability
+changes, midnight rollover, overlapping recovery, and deferred or discarded
+tool execution. Identity resolution runs through the tool, outside the completed-turn hook. It makes no live
 provider calls and does not establish production latency.
 
 Before deployment, compare controlled calls for response latency and model

@@ -200,6 +200,62 @@ describe("stable tool catalog", () => {
     );
   });
 
+  it.each([
+    "I'm Jane, calling for my son John.",
+    "I am not Jane. This appointment is for John.",
+  ])(
+    "activates the intended patient only through the tool for %s",
+    async (input) => {
+      const candidates = ["Jane", "John"].map((firstName) => ({
+        status: "verified" as const,
+        ref: firstName,
+        firstName,
+        lastName: "Doe",
+        dob: "01/01/1980",
+        patientId: firstName,
+        appointments: [],
+        appointmentsStatus: "none" as const,
+      }));
+      const state = createTestCallState({
+        preCallCandidates: candidates,
+        preCallLookup: { status: "multiple_matches", durationMs: 1 },
+      });
+      const middleware = new InMemoryOwnedMiddleware();
+      const model = new ToolCapturingFakeLLM([
+        {
+          input,
+          toolCalls: [
+            {
+              name: "resolve_patient",
+              args: { firstName: "John", lastName: null, dob: null },
+            },
+          ],
+        },
+      ]);
+      const session = new AgentSession<CallState>({ llm: model });
+      sessions.push(session);
+      session.userData = state;
+      await session.start({
+        agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+          ownedMiddleware: middleware,
+          suppressGreeting: true,
+        }).agent,
+      });
+      await session.run({ userInput: input }).wait();
+      expect(patientProjections(model.contexts[0]!)).toEqual([
+        expect.stringContaining("Phone lookup found 2 possible patients"),
+      ]);
+      expect(state.identity.activePatient?.patientId).toBe("John");
+      expect(state.identity.receipts).toEqual([
+        { outcome: "confirmed", source: "resolve_patient" },
+      ]);
+      expect(middleware.operations).toEqual([]);
+      expect(patientProjections(model.contexts.at(-1)!)).toEqual([
+        expect.stringContaining("John Doe is the active existing patient"),
+      ]);
+    },
+  );
+
   it("preserves the per-turn patient projection while the catalog stays stable", async () => {
     const verifiedReply =
       "Verified existing patient Jane Doe. No upcoming appointments are loaded.";
@@ -248,7 +304,7 @@ describe("stable tool catalog", () => {
 
     expect(llm.toolRequests).toEqual([SUPPORTED_TOOLS, SUPPORTED_TOOLS]);
     expect(patientProjections(llm.contexts[0]!)).toEqual([
-      "Patient situation: no patient is active.",
+      expect.stringContaining("Patient situation: no patient is active."),
     ]);
     expect(patientProjections(llm.contexts[1]!)).toEqual([
       expect.stringContaining("Jane Doe is the active existing patient."),

@@ -1922,8 +1922,25 @@ describe("stateful call tools", () => {
     expect(state.identity.activePatient!.patientId).toBe("patient-esa");
   });
 
+  it("treats model-emitted empty surname and DOB as unknown", async () => {
+    const state = createState();
+    setSingleArshedPreCallCandidate(state);
+    const identity = resolve_patient.parameters.parse({
+      firstName: "Esa",
+      lastName: "",
+      dob: "",
+    });
+    await resolve_patient.execute(identity, {
+      ctx: createToolContext(state),
+      toolCallId: "empty-identity",
+    } as never);
+    expect(state.identity.activePatient?.patientId).toBe("patient-esa");
+    expect(testMiddleware.operations).toHaveLength(0);
+  });
+
   it("does not call middleware until full identity is provided", async () => {
     const state = createState();
+    setPatientUnknown(state);
 
     const result = await resolve_patient.execute(
       {
@@ -1936,7 +1953,7 @@ describe("stateful call tools", () => {
         toolCallId: "tool-1",
       } as never,
     );
-    expect(result).toBe("What is the patient's last name and date of birth?");
+    expect(result).toBe("What is the patient's last name?");
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
