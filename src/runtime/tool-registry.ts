@@ -50,7 +50,7 @@ export function buildToolsForTrunk(
     check_insurance,
   ] as const satisfies readonly ToolContextEntry<CallState>[];
   const commonTools = [...coreTools, transfer_call, end_call] as const;
-  if (office.key === "mental-health-demo") {
+  if (office.key === "new-tampa-demo") {
     return withNewTampaDemoTools(
       [...commonTools, create_staff_task],
       bindSchedulingMiddleware(middleware),

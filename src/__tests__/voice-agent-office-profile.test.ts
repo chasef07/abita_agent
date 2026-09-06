@@ -19,7 +19,7 @@ import {
   DEMO_TRANSFER_NUMBER,
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
   HOLLYWOOD_OFFICE_PHONE,
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
   OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
   SPRING_HILL_813_TRUNK_PHONE,
@@ -314,7 +314,7 @@ const officeBehaviors: OfficeBehavior[] = [
           "Yes, we take VSP. This is a demo insurance match. The office still needs to verify your exact plan, provider network, benefits, and any referral or authorization.",
       },
     },
-    key: "mental-health-demo",
+    key: "new-tampa-demo",
     knowledgeSource: "KNOWLEDGE_NEW_TAMPA_DEMO.md",
     promptMarker: "a personalized New Tampa Eye Institute demonstration",
     scheduling: {
@@ -322,7 +322,7 @@ const officeBehaviors: OfficeBehavior[] = [
       routineVision: { supported: true },
     },
     staffTaskEnabled: true,
-    trunks: [MENTAL_HEALTH_DEMO_TRUNK_PHONE],
+    trunks: [NEW_TAMPA_DEMO_TRUNK_PHONE],
   },
   {
     amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
@@ -555,7 +555,7 @@ describe("Voice Agent office profile", () => {
           staffTaskEnabled: expected.staffTaskEnabled,
           tools: [
             ...COMMON_TOOL_NAMES,
-            ...(expected.key === "mental-health-demo"
+            ...(expected.key === "new-tampa-demo"
               ? ["triage_eye_care", "notify_after_hours_physician"]
               : []),
             ...(expected.staffTaskEnabled ? ["create_staff_task"] : []),

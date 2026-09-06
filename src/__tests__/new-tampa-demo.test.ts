@@ -9,7 +9,7 @@ import {
   createNewTampaDemoTools,
 } from "../customers/abita/new-tampa-demo.js";
 import {
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
   DEMO_BOOKING_OFFICE_PHONE,
   getOfficeProfileByPhone,
@@ -30,8 +30,8 @@ import type { AvailabilityResult } from "../scheduling/middleware.js";
 
 function stateForDemo() {
   const state = createConfirmedPatientState({
-    officeKey: "mental-health-demo",
-    trunkPhone: MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+    officeKey: "new-tampa-demo",
+    trunkPhone: NEW_TAMPA_DEMO_TRUNK_PHONE,
     amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
   });
   state.workflow.current = {
@@ -62,13 +62,13 @@ function openings(providers: string[]): AvailabilityResult {
 
 describe("New Tampa 320 demo", () => {
   it("personalizes the 320 line while preserving the Product office and demo account", () => {
-    const office = getOfficeProfileByPhone(MENTAL_HEALTH_DEMO_TRUNK_PHONE);
+    const office = getOfficeProfileByPhone(NEW_TAMPA_DEMO_TRUNK_PHONE);
     expect(office).toMatchObject({
       displayName: "New Tampa Eye Institute",
-      key: "mental-health-demo",
+      key: "new-tampa-demo",
       amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
     });
-    const prompt = buildPrompt(MENTAL_HEALTH_DEMO_TRUNK_PHONE);
+    const prompt = buildPrompt(NEW_TAMPA_DEMO_TRUNK_PHONE);
     expect(prompt).toContain("New Tampa Eye Institute");
     expect(prompt).not.toMatch(/Willowmere|Clearbrook|988/);
     const knowledge = readFileSync(
@@ -78,22 +78,21 @@ describe("New Tampa 320 demo", () => {
     validateOfficeKnowledgeDocument(office.knowledgeSource, knowledge);
     expect(
       resolveOfficeKnowledge(
-        "mental-health-demo",
+        "new-tampa-demo",
         "Where are you located?",
       ).sections.join("\n"),
     ).toMatch(/27356 Cashford Cir.*13930 7th Street/s);
     expect(
       resolveOfficeKnowledge(
-        "mental-health-demo",
+        "new-tampa-demo",
         "Which doctors work there?",
       ).sections.join("\n"),
     ).toMatch(
       /Gretta Fridman.*Laurie Small.*Scott Friedman.*Hirah Khan.*Bradley Smur/s,
     );
     expect(
-      resolveOfficeKnowledge("mental-health-demo", "Do you offer EMDR?")
-        .outcome,
-    ).toBe("unavailable");
+      resolveOfficeKnowledge("new-tampa-demo", "Do you offer EMDR?").outcome,
+    ).toBe("skipped");
     expect(
       getOfficeProfileByPhone(OPHTHALMOLOGY_DEMO_TRUNK_PHONE).displayName,
     ).toBe("Clearbrook Eye Center");
@@ -340,7 +339,7 @@ describe("New Tampa 320 demo", () => {
       buildToolsForTrunk(new InMemoryOwnedMiddleware(), phone)
         .flatMap((entry) => (isToolset(entry) ? entry.tools : [entry]))
         .map((entry) => entry.id);
-    expect(names(MENTAL_HEALTH_DEMO_TRUNK_PHONE)).toEqual(
+    expect(names(NEW_TAMPA_DEMO_TRUNK_PHONE)).toEqual(
       expect.arrayContaining([
         "triage_eye_care",
         "notify_after_hours_physician",
@@ -361,7 +360,7 @@ describe("New Tampa 320 demo", () => {
     "labels the %s insurance result as demo-only",
     async (plan, coverageType, status) => {
       expect(
-        matchInsurancePlanForOffice("mental-health-demo", plan, coverageType)
+        matchInsurancePlanForOffice("new-tampa-demo", plan, coverageType)
           .status,
       ).toBe(status);
       const result = await createNewTampaDemoTools(
@@ -380,7 +379,7 @@ describe("New Tampa 320 demo", () => {
   it("uses separate medical and vision demo insurance and leaves unknown plans unresolved", () => {
     expect(
       matchInsurancePlanForOffice(
-        "mental-health-demo",
+        "new-tampa-demo",
         "Ambetter Premier",
         "medical",
       ),
@@ -389,28 +388,20 @@ describe("New Tampa 320 demo", () => {
       callerNotice: expect.stringContaining("demo insurance match"),
     });
     expect(
-      matchInsurancePlanForOffice(
-        "mental-health-demo",
-        "VSP",
-        "routine_vision",
-      ),
+      matchInsurancePlanForOffice("new-tampa-demo", "VSP", "routine_vision"),
     ).toMatchObject({
       status: "accepted",
       callerNotice: expect.stringContaining("demo insurance match"),
     });
     expect(
       matchInsurancePlanForOffice(
-        "mental-health-demo",
+        "new-tampa-demo",
         "Example Health Gold 9000",
         "medical",
       ),
     ).toMatchObject({ status: "needs_clarification" });
     expect(
-      matchInsurancePlanForOffice(
-        "mental-health-demo",
-        "Humana Gold",
-        "medical",
-      ),
+      matchInsurancePlanForOffice("new-tampa-demo", "Humana Gold", "medical"),
     ).toMatchObject({ status: "not_accepted" });
   });
 });

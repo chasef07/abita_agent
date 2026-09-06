@@ -11,7 +11,7 @@ import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 
 // Every real office and both other demos must retain the original tools.
 const unchangedOffices = getOfficeProfiles().filter(
-  (office) => office.key !== "mental-health-demo",
+  (office) => office.key !== "new-tampa-demo",
 );
 const extraTools = ["triage_eye_care", "notify_after_hours_physician"];
 

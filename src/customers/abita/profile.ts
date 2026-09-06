@@ -7,7 +7,7 @@ export type OfficeKey =
   | "sweetwater"
   | "north-miami-beach-optical"
   | "ophthalmology-demo"
-  | "mental-health-demo"
+  | "new-tampa-demo"
   | "rheumatology-demo";
 export type HandoffOfficeKey = OfficeKey | "sweetwater-optical";
 export type OfficeCare = "medical" | "routine_vision";
@@ -49,13 +49,13 @@ export const SWEETWATER_TRUNK_PHONES = [
 export const RHEUMATOLOGY_DEMO_TRUNK_PHONE = "+14843989071";
 export const DEMO_BOOKING_OFFICE_PHONE = RHEUMATOLOGY_DEMO_TRUNK_PHONE;
 export const OPHTHALMOLOGY_DEMO_TRUNK_PHONE = "+18027878312";
-// The legacy Product office key stays stable for the repurposed 320 demo.
-export const MENTAL_HEALTH_DEMO_TRUNK_PHONE = "+13207388132";
+// The 320 demo uses the same canonical office key as Acuity Product.
+export const NEW_TAMPA_DEMO_TRUNK_PHONE = "+13207388132";
 export const DEMO_TRANSFER_NUMBER = "+17277092035";
 export const DEMO_OFFICE_KEYS = [
   "rheumatology-demo",
   "ophthalmology-demo",
-  "mental-health-demo",
+  "new-tampa-demo",
 ] as const satisfies readonly OfficeKey[];
 
 export interface OfficeProfile {
@@ -310,10 +310,10 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     staffTaskEnabled: true,
     handoff: demoHandoff,
   }),
-  "mental-health-demo": defineOffice({
-    key: "mental-health-demo",
+  "new-tampa-demo": defineOffice({
+    key: "new-tampa-demo",
     displayName: "New Tampa Eye Institute",
-    trunkPhones: [MENTAL_HEALTH_DEMO_TRUNK_PHONE],
+    trunkPhones: [NEW_TAMPA_DEMO_TRUNK_PHONE],
     greeting:
       "Hi, this is Maya at New Tampa Eye Institute. How can I help you today?",
     roleFile: "SOUL_NEW_TAMPA_DEMO.md",
@@ -427,7 +427,7 @@ export function getOfficeProfileByFacility(
     "hollywood",
     "sweetwater",
     "ophthalmology-demo",
-    "mental-health-demo",
+    "new-tampa-demo",
     "rheumatology-demo",
   ] satisfies OfficeKey[]) {
     const displayName = normalizeFacilityName(

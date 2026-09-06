@@ -8,7 +8,7 @@ import { buildPrompt } from "../prompt.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   getOfficeProfile,
   getOfficeProfileByPhone,
   getOfficeKeyByPhone,
@@ -86,13 +86,13 @@ describe("office routing helpers", () => {
     );
     expect(getOfficeKeyByPhone("14843989071")).toBe("rheumatology-demo");
     expect(getOfficeKeyByPhone("18027878312")).toBe("ophthalmology-demo");
-    expect(getOfficeKeyByPhone("13207388132")).toBe("mental-health-demo");
+    expect(getOfficeKeyByPhone("13207388132")).toBe("new-tampa-demo");
   });
 
   it.each([
     [RHEUMATOLOGY_DEMO_TRUNK_PHONE, "rheumatology-demo"],
     [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "ophthalmology-demo"],
-    [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "mental-health-demo"],
+    [NEW_TAMPA_DEMO_TRUNK_PHONE, "new-tampa-demo"],
   ] as const)(
     "maps specialty demo trunk %s through its matching Office Profile and Product route",
     (trunkPhone, officeKey) => {
@@ -170,7 +170,7 @@ describe("voice output prompt", () => {
       SPRING_HILL_OFFICE_PHONE,
       OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
       RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-      MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+      NEW_TAMPA_DEMO_TRUNK_PHONE,
     ]) {
       const prompt = buildPrompt(phone);
 
@@ -195,7 +195,7 @@ describe("voice output prompt", () => {
     }
     for (const phone of [
       RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-      MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+      NEW_TAMPA_DEMO_TRUNK_PHONE,
     ]) {
       expect(buildPrompt(phone)).not.toContain(focusedTriageRule);
     }
@@ -490,9 +490,9 @@ describe("dedicated demo trunks", () => {
   });
 
   it("activates the personalized New Tampa demo with both eye-care lanes", () => {
-    const office = getOfficeProfile("mental-health-demo");
-    const prompt = buildPrompt(MENTAL_HEALTH_DEMO_TRUNK_PHONE);
-    expect(office.trunkPhones).toEqual([MENTAL_HEALTH_DEMO_TRUNK_PHONE]);
+    const office = getOfficeProfile("new-tampa-demo");
+    const prompt = buildPrompt(NEW_TAMPA_DEMO_TRUNK_PHONE);
+    expect(office.trunkPhones).toEqual([NEW_TAMPA_DEMO_TRUNK_PHONE]);
     expect(office.amdOfficePhone).toBe(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
     expect(office.schedulingFor("medical")).toEqual({ supported: true });
     expect(office.schedulingFor("routine_vision")).toEqual({ supported: true });

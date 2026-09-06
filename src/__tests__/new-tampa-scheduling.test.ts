@@ -9,7 +9,7 @@ import {
   createNewTampaDemoTools,
 } from "../customers/abita/new-tampa-demo.js";
 import {
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   DEMO_BOOKING_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
@@ -118,11 +118,11 @@ function loadedAppointmentRef(
 describe("New Tampa provider guards at appointment mutation", () => {
   async function newTampaState() {
     const state = createState();
-    state.office.activeKey = "mental-health-demo";
+    state.office.activeKey = "new-tampa-demo";
     state.office.phoneOverrides = {
-      "mental-health-demo": DEMO_BOOKING_OFFICE_PHONE,
+      "new-tampa-demo": DEMO_BOOKING_OFFICE_PHONE,
     };
-    state.runtime.trunkPhone = MENTAL_HEALTH_DEMO_TRUNK_PHONE;
+    state.runtime.trunkPhone = NEW_TAMPA_DEMO_TRUNK_PHONE;
     await triage_eye_care.execute(
       { purpose: "retina", requestedProvider: "Scott Friedman" },
       { ctx: createToolContext(state) } as never,

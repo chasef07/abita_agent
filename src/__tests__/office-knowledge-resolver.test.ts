@@ -480,7 +480,7 @@ describe("Office Knowledge Resolver", () => {
       [
         "crystal-river",
         "hollywood",
-        "mental-health-demo",
+        "new-tampa-demo",
         "north-miami-beach-optical",
         "ophthalmology-demo",
         "rheumatology-demo",

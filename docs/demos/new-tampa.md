@@ -1,7 +1,7 @@
 # New Tampa Eye Institute demo
 
-The 320 trunk now represents New Tampa Eye Institute. The legacy internal
-`mental-health-demo` Product key and shared demo booking account remain stable;
+The 320 trunk represents New Tampa Eye Institute with the canonical
+`new-tampa-demo` office key. The shared demo booking account remains stable;
 the old behavioral-health content is retired. The 802 Clearbrook demo is unchanged.
 
 Public identity, locations, and provider specialties come from the practice's
@@ -14,12 +14,20 @@ fixtures adapted from Clearbrook, with a caller notice on accepted matches.
 
 ## Production isolation
 
-Only the 320 office entry and its tool-registry branch change shared configuration.
-The production scheduling workflow, availability storage, call-state type, knowledge
-resolver, insurance tool, portal client, and portal configuration are unchanged.
+The 320 office entry and its tool-registry branch use `new-tampa-demo`.
+Retired behavioral-health knowledge aliases are removed.
+The production scheduling workflow, availability storage, call-state type,
+insurance tool and portal client are unchanged.
 New Tampa uses demo-only tool wrappers and a per-call WeakMap for triage. Other real
-numbers and the other demo numbers receive the original tools. No portal code,
-configuration, or data changes are included.
+numbers and the other demo numbers receive the original tools. A companion
+Product migration renames the existing Location provisioning key
+in place and adds the new office route before this agent is deployed. The old
+route remains only for in-flight calls and delayed receipts during rollout.
+Deploy Product first, verify both routes resolve to the same Location ID, then
+deploy this agent and verify a synthetic interaction, staff task, and handoff.
+Do not reconcile an old Product provisioning file after migration: it would
+recreate the retired Location key. Retire the legacy route in a later migration
+after old agent jobs and receipt retries have drained.
 
 ## Runtime behavior
 

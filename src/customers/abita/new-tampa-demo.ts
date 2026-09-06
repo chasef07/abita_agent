@@ -15,7 +15,7 @@ import { clearAvailabilitySelection } from "../../scheduling/state.js";
 import { getState } from "../../tools/session.js";
 import {
   DEMO_TRANSFER_NUMBER,
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   normalizePhoneNumber,
   type OfficeCare,
 } from "./profile.js";
@@ -51,7 +51,7 @@ const PROVIDERS_BY_PURPOSE = {
 export function isNewTampaDemo(state: CallState): boolean {
   return (
     normalizePhoneNumber(state.runtime.trunkPhone) ===
-    MENTAL_HEALTH_DEMO_TRUNK_PHONE
+    NEW_TAMPA_DEMO_TRUNK_PHONE
   );
 }
 
