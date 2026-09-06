@@ -10,6 +10,7 @@ import {
   cli,
   defineAgent,
 } from "@livekit/agents";
+import * as krisp from "@livekit/agents-plugin-krisp";
 import { fileURLToPath } from "node:url";
 import { createVoiceAgent } from "./agent.js";
 import type { CallState } from "./state/call-state.js";
@@ -266,6 +267,9 @@ export default defineAgent({
             inputOptions: {
               deleteRoomOnClose: true,
               participantIdentity: participant.identity,
+              noiseCancellation: krisp.voiceIsolationTelephony({
+                authProvider: krisp.auth.livekitCloud(),
+              }),
             },
           });
         },
