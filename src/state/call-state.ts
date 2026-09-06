@@ -119,6 +119,7 @@ export interface PreCallLightweightPatientCandidate extends LightweightPatientCa
 
 export interface PreCallVerifiedPatientCandidate extends PreCallCandidateReference {
   status: "verified";
+  name?: string;
   firstName?: string;
   lastName?: string;
   dob?: string;

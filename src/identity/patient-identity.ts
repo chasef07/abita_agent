@@ -558,7 +558,7 @@ async function resolvePrivateCandidate(
   const matching = named.filter(
     ({ candidate }) =>
       (!identity.lastName ||
-        exactNamesMatch(identity.lastName, candidate.lastName ?? "")) &&
+        candidateSurnameMatches(candidate, identity.lastName)) &&
       (!identity.dob || dobMatches(identity.dob, candidate.dob)),
   );
   const strong = matching.filter(
@@ -917,10 +917,7 @@ function resolvedPatientMatchesIdentity(
   return (
     receiptName.firstNames.some((name) =>
       exactNamesMatch(identity.firstName, name),
-    ) &&
-    receiptName.lastNames.some((name) =>
-      exactNamesMatch(identity.lastName, name),
-    )
+    ) && patientSurnameMatches(identity.lastName, receiptName)
   );
 }
 
@@ -944,6 +941,48 @@ function exactNamesMatch(left: string, right: string): boolean {
   return Boolean(normalizedLeft && normalizedLeft === normalizedRight);
 }
 
+// Only explicit surname fields (or "last, first" names) support partial matches.
+// An uncommaed display name may contain a middle name, so keep exact matching.
+function candidateSurnameMatches(
+  candidate: PreCallPatientCandidate,
+  provided: string,
+): boolean {
+  if (candidate.status === "candidate") {
+    return compoundSurnameMatches(provided, candidate.lastName ?? "");
+  }
+  if (!candidate.name)
+    return exactNamesMatch(provided, candidate.lastName ?? "");
+  const parts = activePatientNameParts(candidate.name);
+  return Boolean(parts && patientSurnameMatches(provided, parts));
+}
+
+function patientSurnameMatches(
+  provided: string,
+  parts: NonNullable<ReturnType<typeof activePatientNameParts>>,
+): boolean {
+  return parts.lastNames.some((recorded) =>
+    parts.surnameIsExplicit
+      ? compoundSurnameMatches(provided, recorded)
+      : exactNamesMatch(provided, recorded),
+  );
+}
+
+function compoundSurnameMatches(provided: string, recorded: string): boolean {
+  if (exactNamesMatch(provided, recorded)) return true;
+  const parts = recorded
+    .trim()
+    .split(/[\s-]+/)
+    .filter(Boolean);
+  for (let boundary = 1; boundary < parts.length; boundary += 1) {
+    if (
+      exactNamesMatch(provided, parts.slice(0, boundary).join(" ")) ||
+      exactNamesMatch(provided, parts.slice(boundary).join(" "))
+    )
+      return true;
+  }
+  return false;
+}
+
 function normalizeExactName(value: string): string {
   return value
     .normalize("NFKD")
@@ -958,7 +997,8 @@ function candidateMatchesIdentity(
 ): boolean {
   return (
     namesMatch(identity.firstName, candidate.firstName) &&
-    namesMatch(identity.lastName, candidate.lastName) &&
+    (namesMatch(identity.lastName, candidate.lastName) ||
+      candidateSurnameMatches(candidate, identity.lastName)) &&
     dobMatches(identity.dob, candidate.dob)
   );
 }
@@ -978,15 +1018,15 @@ function identityTargetsDifferentPatient(
         namesMatch(identity.firstName, name),
       )) ||
     (identity.lastName &&
-      !activeName.lastNames.some((name) =>
-        exactNamesMatch(identity.lastName ?? "", name),
-      )),
+      !patientSurnameMatches(identity.lastName, activeName)),
   );
 }
 
-function activePatientNameParts(
-  name: string | null,
-): { firstNames: string[]; lastNames: string[] } | null {
+function activePatientNameParts(name: string | null): {
+  firstNames: string[];
+  lastNames: string[];
+  surnameIsExplicit: boolean;
+} | null {
   const trimmed = name?.trim();
   if (!trimmed) return null;
 
@@ -996,9 +1036,10 @@ function activePatientNameParts(
     .filter(Boolean);
   if (commaLastName && commaFirstAndMiddle) {
     const firstParts = commaFirstAndMiddle.match(/[A-Za-z]+/g) ?? [];
-    const lastParts = commaLastName.match(/[A-Za-z]+/g) ?? [];
+    const lastParts = commaLastName.split(/\s+/).filter(Boolean);
     return {
       firstNames: uniqueNameParts([firstParts[0], firstParts.join(" ")]),
+      surnameIsExplicit: true,
       lastNames: uniqueNameParts([
         commaLastName,
         lastParts[lastParts.length - 1],
@@ -1006,9 +1047,10 @@ function activePatientNameParts(
     };
   }
 
-  const parts = trimmed.match(/[A-Za-z]+/g) ?? [];
+  const parts = trimmed.split(/\s+/).filter(Boolean);
   if (parts.length === 0) return null;
   return {
+    surnameIsExplicit: false,
     firstNames: uniqueNameParts([
       parts[0]!,
       parts.length > 1 ? parts.slice(0, -1).join(" ") : parts[0]!,
@@ -1044,6 +1086,7 @@ function hasFullIdentity(
 }
 
 function candidateDisplayName(candidate: PreCallPatientCandidate): string {
+  if (candidate.status === "verified" && candidate.name) return candidate.name;
   return [candidate.firstName, candidate.lastName].filter(Boolean).join(" ");
 }
 

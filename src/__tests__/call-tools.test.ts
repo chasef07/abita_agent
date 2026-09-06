@@ -1276,6 +1276,37 @@ describe("stateful call tools", () => {
     });
   });
 
+  it("resolves a compound surname through the tool without another backend read", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    state.identity.privateCandidates = [
+      preCallCandidate({
+        name: "Sample Rivera, Jane",
+        firstName: "Jane",
+        lastName: "Sample Rivera",
+        dob: "01/01/1980",
+        patientId: "patient-compound",
+      }),
+    ];
+    const result = await resolve_patient.execute(
+      { firstName: "Jane", lastName: "Sample", dob: null },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-compound",
+      } as never,
+    );
+    expect(result).toContain("I verified");
+    expect(state.identity.activePatient?.patientId).toBe("patient-compound");
+    expect(testMiddleware.operations).toHaveLength(0);
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        toolName: "resolve_patient",
+        outcome: "patient_verified",
+        status: "success",
+      },
+    ]);
+  });
+
   it("returns a speech-ready result after confirming identity by lookup", async () => {
     const state = createState();
     setPatientUnknown(state);
@@ -2330,54 +2361,65 @@ describe("stateful call tools", () => {
     }).toEqual(patientScopedStateBefore);
   });
 
-  it("blocks new chart creation when a confirmed pre-call candidate has the same last name and DOB", async () => {
-    const state = createState();
-    markNewPatientPathConfirmed(state);
-    markSchedulingTriaged(state);
-    markAcceptedInsurance(state, {
-      plan: "Aetna",
-      canonicalPlan: "Aetna",
-      coverageType: "medical",
-    });
-    state.identity.privateCandidates = [
-      preCallCandidate({
-        firstName: "JANE",
-        lastName: "DOE",
-        dob: "01/01/1980",
-        patientId: "patient-jane",
-        appointments: [],
-        appointmentsStatus: "none",
-      }),
-    ];
+  it.each([
+    { recorded: "Doe", supplied: "Doe" },
+    { recorded: "Sample Rivera", supplied: "Sample" },
+    { recorded: "Sample Rivera", supplied: "Rivera" },
+  ])(
+    "blocks new chart creation for pre-call surname $recorded supplied as $supplied",
+    async ({ recorded, supplied }) => {
+      const state = createState();
+      markNewPatientPathConfirmed(state);
+      markSchedulingTriaged(state);
+      markAcceptedInsurance(state, {
+        plan: "Aetna",
+        canonicalPlan: "Aetna",
+        coverageType: "medical",
+      });
+      state.identity.privateCandidates = [
+        preCallCandidate({
+          firstName: "JANE",
+          lastName: recorded,
+          name: `${recorded}, JANE`,
+          dob: "01/01/1980",
+          patientId: "patient-jane",
+          appointments: [],
+          appointmentsStatus: "none",
+        }),
+      ];
 
-    const result = await add_patient.execute(
-      {
-        firstName: "Jane",
-        lastName: "Doe",
-        dob: "01/01/1980",
-        street: "123 Main St",
-        aptSuite: "",
-        city: "Spring Hill",
-        state: "FL",
-        zip: "34606",
-        sex: "female",
-        subscriberName: "Jane Doe",
-        insuranceMemberId: "ABC123",
-        inboundPhoneConfirmed: true,
-        newPatientConfirmed: true,
-        readBack: true,
-      },
-      { ctx: createToolContext(state) as never, toolCallId: "tool-2" } as never,
-    );
+      const result = await add_patient.execute(
+        {
+          firstName: "Jane",
+          lastName: supplied,
+          dob: "01/01/1980",
+          street: "123 Main St",
+          aptSuite: "",
+          city: "Spring Hill",
+          state: "FL",
+          zip: "34606",
+          sex: "female",
+          subscriberName: "Jane Doe",
+          insuranceMemberId: "ABC123",
+          inboundPhoneConfirmed: true,
+          newPatientConfirmed: true,
+          readBack: true,
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-2",
+        } as never,
+      );
 
-    expect(result).toBe(
-      "I need to confirm the patient's first name before creating a new chart. Could you spell it for me?",
-    );
-    expect(result).not.toMatch(
-      /record|matches that identity|Jane|01\/01\/1980/,
-    );
-    expect(testMiddleware.operations).toHaveLength(0);
-  });
+      expect(result).toBe(
+        "I need to confirm the patient's first name before creating a new chart. Could you spell it for me?",
+      );
+      expect(result).not.toMatch(
+        /record|matches that identity|Jane|01\/01\/1980/,
+      );
+      expect(testMiddleware.operations).toHaveLength(0);
+    },
+  );
 
   it("stores accepted insurance from check_insurance", async () => {
     const state = createState();

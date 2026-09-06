@@ -217,6 +217,7 @@ export function buildPreCallCandidates(
       {
         status: "verified",
         ref: CALLER_CANDIDATE_REF,
+        name: lookup.name,
         firstName: name.firstName,
         lastName: name.lastName,
         dob: lookup.dob,
@@ -252,6 +253,7 @@ function preCallCandidateFromMatch(
     return {
       status: "verified" as const,
       ref: `precall:${index + 1}`,
+      name: match.name,
       firstName: name.firstName,
       lastName: name.lastName,
       dob: match.dob,

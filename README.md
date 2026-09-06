@@ -207,6 +207,13 @@ absent, including empty strings returned by a model. DOB read-back and caller
 confirmation are conversation instructions; code separately rejects invalid
 calendar dates. These checks do not independently prove that a date was spoken.
 
+Existing-patient matching accepts complete leading or trailing parts of a
+compound surname when the backend supplies a surname field or a `last, first`
+name. Names without a comma retain conservative matching because a middle name
+can be mistaken for a surname. Phone candidates retain the original chart name
+so this boundary survives activation. The duplicate-chart guard recognizes the
+same surname parts; new-chart receipt validation remains exact.
+
 ## Call State
 
 Call State is the one runtime authority within a live job. Each module owns a
