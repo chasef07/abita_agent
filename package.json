@@ -19,7 +19,6 @@
     "@livekit/agents": "1.7.1",
     "@livekit/agents-plugin-rime": "1.7.1",
     "@livekit/rtc-node": "^0.13.34",
-    "chrono-node": "2.10.1",
     "livekit-server-sdk": "^2.18.0",
     "zod": "^4.4.3"
   },

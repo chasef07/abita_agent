@@ -1,14 +1,23 @@
 import {
   AgentSession,
   initializeLogger,
+  llm,
   type ChatContext,
   voice,
 } from "@livekit/agents";
 import { afterEach, describe, expect, it } from "vitest";
+import { createSchedulingTools } from "../scheduling/tools.js";
+import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
+import { createToolContext } from "./support/tool-context.js";
 import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
+import { replaceActiveAppointments } from "../state/appointments.js";
 import { patientModelProjection } from "../identity/patient-identity.js";
+import {
+  clearAvailabilitySelection,
+  replaceAvailabilitySlots,
+} from "../scheduling/state.js";
 import { availabilityModelProjection } from "../scheduling/availability.js";
 import type { PreCallPatientCandidate } from "../state/call-state.js";
 import {
@@ -106,7 +115,153 @@ describe("patient model projection", () => {
     }
   });
 
-  it("keeps availability references in fresh system context", () => {
+  it.each([
+    "invalidated",
+    "empty_expired",
+    "first_empty_reset",
+    "incomplete_expansion",
+  ])(
+    "marks old calendar results unusable in actual model input after %s",
+    async (mode) => {
+      const model = new ContextCapturingFakeLLM([
+        {
+          input: "What appointments work now?",
+          content: "Let me check the current appointments.",
+        },
+      ]);
+      const session = new AgentSession({ llm: model });
+      sessions.push(session);
+      const state = createConfirmedPatientState();
+      session.userData = state;
+      if (mode === "first_empty_reset") {
+        replaceAvailabilitySlots(state, [], "all_three");
+        state.availability.refreshAfter = Date.now() + 60_000;
+        expect(state.availability.version).toBe(1);
+        expect(state.availability.nextSlotIndex).toBe(0);
+      } else {
+        state.availability.nextSlotIndex = 4;
+      }
+      await session.start({
+        agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+          ownedMiddleware,
+          suppressGreeting: true,
+        }).agent,
+      });
+      const history = session.currentAgent.chatCtx.copy();
+      history.insert([
+        llm.FunctionCall.create({
+          callId: "old-list",
+          name: "list_available_appointments",
+          args: "{}",
+        }),
+        llm.FunctionCallOutput.create({
+          callId: "old-list",
+          name: "list_available_appointments",
+          output:
+            mode === "first_empty_reset"
+              ? "No openings for the previous patient"
+              : "S1 — Thursday at 4:15 PM with Dr. Smith",
+          isError: false,
+        }),
+      ]);
+      await session.currentAgent.updateChatCtx(history);
+      if (mode === "incomplete_expansion") {
+        const middleware = new InMemorySchedulingMiddleware({
+          availability: [
+            {
+              status: "none",
+              slots: [],
+              dateShifted: false,
+              shouldRetrySameSearch: false,
+            },
+            {
+              status: "incomplete",
+              slots: [],
+              dateShifted: false,
+              shouldRetrySameSearch: true,
+            },
+          ],
+        });
+        const tool =
+          createSchedulingTools(middleware).list_available_appointments;
+        const options = {
+          ctx: createToolContext(state),
+          toolCallId: "expansion",
+        } as never;
+        await tool.execute({ range: "default", visitType: "medical" }, options);
+        await tool.execute({ range: "+1month", visitType: "medical" }, options);
+      } else {
+        clearAvailabilitySelection(state, {
+          invalidateReads: "patient_context_changed",
+        });
+      }
+      if (mode === "empty_expired")
+        state.availability.refreshAfter = Date.now() - 1;
+      await session.run({ userInput: "What appointments work now?" }).wait();
+      const request = JSON.stringify(model.requests[0]);
+      expect(request).toContain(
+        mode === "first_empty_reset"
+          ? "No openings for the previous patient"
+          : "S1 — Thursday",
+      ); // Historical tool result still exists.
+      const system = model.requests[0]!.items.flatMap((item) =>
+        item.type === "message" && item.role === "system"
+          ? [item.textContent]
+          : [],
+      ).join(" ");
+      if (mode === "incomplete_expansion")
+        expect(system).not.toContain("inventory is empty");
+      expect(system).toContain(
+        mode === "empty_expired"
+          ? "inventory is stale"
+          : "All earlier appointment lists are invalid",
+      );
+    },
+  );
+
+  it("exposes the matching visit category beside each loaded appointment reference in model input", async () => {
+    const model = new ContextCapturingFakeLLM([
+      { input: "Move my appointment.", content: "I can help move that visit." },
+    ]);
+    const session = new AgentSession({ llm: model });
+    sessions.push(session);
+    const state = createConfirmedPatientState();
+    replaceActiveAppointments(
+      state,
+      [1007, 4245].map((appointmentTypeId, index) => ({
+        id: 100 + index,
+        appointmentTypeId,
+        type: "Appointment",
+        date: "2026-09-10",
+        time: "9:00 AM",
+        provider: "Dr. Smith",
+        facility: "Spring Hill",
+        confirmed: true,
+        cancellationToken: "private-cancellation-token",
+        rescheduleToken: "private-reschedule-token",
+      })),
+      "found",
+    );
+    session.userData = state;
+    await session.start({
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware,
+        suppressGreeting: true,
+      }).agent,
+    });
+    await session.run({ userInput: "Move my appointment." }).wait();
+    const input = JSON.stringify(model.requests[0]);
+    for (const [index, visitType] of ["medical", "routine_vision"].entries()) {
+      const ref =
+        state.identity.activePatient!.appointments[index]!.appointmentRef;
+      expect(input).toContain(`appointmentRef ${ref}, visitType ${visitType}`);
+    }
+    expect(input).not.toMatch(
+      /private-cancellation-token|private-reschedule-token|appointmentTypeId/,
+    );
+  });
+
+  it("identifies current inventory without duplicating the tool-result calendar", () => {
     const state = createConfirmedPatientState();
     state.availability.slots = [
       {
@@ -122,12 +277,11 @@ describe("patient model projection", () => {
     const projection = availabilityModelProjection(state);
 
     expect(projection).toContain(
-      "S1 is Monday, June 1 at 9:00 AM with Dr. Bach",
+      "Current appointment inventory has 1 slots (S1 through S1)",
     );
-    expect(projection).toContain(
-      "use the matching value as appointmentSlotRef",
-    );
+    expect(projection).toContain("use appointmentSlotRef");
     expect(projection).not.toContain("bookingToken");
+    expect(projection).not.toContain("9:00 AM");
   });
 });
 

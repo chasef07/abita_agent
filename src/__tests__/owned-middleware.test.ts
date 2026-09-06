@@ -98,6 +98,7 @@ const availabilityFound: AvailabilityResult = {
   status: "found",
   slots: [
     {
+      key: "||Dr. Bach|2026-08-01T09:00:00|",
       provider: "Dr. Bach",
       date: "2026-08-01",
       time: "9:00 AM",
@@ -148,7 +149,7 @@ describe.each([
   it("returns typed available slots", async () => {
     const result = await create().getAvailability({
       office: SPRING_HILL_OFFICE_PHONE,
-      requestedDate: "2026-08-01",
+      rangeDays: 14,
       routing: "all_three",
     });
 
@@ -398,8 +399,7 @@ describe("HTTP owned middleware transport", () => {
     });
     await middleware.getAvailability({
       office: SPRING_HILL_OFFICE_PHONE,
-      requestedDate: "2026-08-01",
-      preferredTime: { minuteOfDay: 15 * 60 },
+      rangeDays: 30,
       dob: "01/01/1980",
       routing: "all_three",
       preauthRequired: true,
@@ -454,7 +454,7 @@ describe("HTTP owned middleware transport", () => {
 
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "https://middleware.test/api/patient/resolve",
-      "https://middleware.test/api/scheduler/availability",
+      "https://middleware.test/api/scheduler/slots",
       "https://middleware.test/api/add-patient",
       "https://middleware.test/api/appointment/book",
       "https://middleware.test/api/appointment/cancel",
@@ -473,8 +473,7 @@ describe("HTTP owned middleware transport", () => {
       office: SPRING_HILL_OFFICE_PHONE,
     });
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
-      requestedDate: "2026-08-01",
-      preferredTime: { minuteOfDay: 15 * 60 },
+      rangeDays: 30,
       dob: "01/01/1980",
       routing: "all_three",
       preauthRequired: true,
@@ -621,7 +620,7 @@ describe("HTTP owned middleware transport", () => {
 
     const result = await middleware.getAvailability({
       office: testCase.office,
-      requestedDate: "2026-08-01",
+      rangeDays: 14,
     });
 
     expect(result).toMatchObject({
@@ -646,7 +645,7 @@ describe("HTTP owned middleware transport", () => {
     await expect(
       middleware.getAvailability({
         office: SPRING_HILL_OFFICE_PHONE,
-        requestedDate: "2026-08-01",
+        rangeDays: 14,
       }),
     ).resolves.toEqual({ status: "error", reason: "middleware_error" });
     expect(fetchMock).not.toHaveBeenCalled();
@@ -665,7 +664,7 @@ describe("HTTP owned middleware transport", () => {
 
     const result = await middleware.getAvailability({
       office: SPRING_HILL_OFFICE_PHONE,
-      requestedDate: "2026-08-01",
+      rangeDays: 14,
       signal: controller.signal,
     });
 
@@ -688,7 +687,7 @@ describe("HTTP owned middleware transport", () => {
 
     const result = await middleware.getAvailability({
       office: SPRING_HILL_OFFICE_PHONE,
-      requestedDate: "2026-08-01",
+      rangeDays: 14,
     });
 
     expect(result).toEqual({
@@ -711,7 +710,7 @@ describe("HTTP owned middleware transport", () => {
 
     const result = await middleware.getAvailability({
       office: SPRING_HILL_OFFICE_PHONE,
-      requestedDate: "2026-08-01",
+      rangeDays: 14,
     });
 
     expect(result).toEqual({
@@ -876,7 +875,7 @@ describe("HTTP owned middleware transport", () => {
 
     const result = await middleware.getAvailability({
       office: SPRING_HILL_OFFICE_PHONE,
-      requestedDate: "2026-08-01",
+      rangeDays: 14,
     });
 
     expect(result).toMatchObject({
@@ -909,7 +908,7 @@ describe("HTTP owned middleware transport", () => {
 
     const result = await middleware.getAvailability({
       office: SPRING_HILL_OFFICE_PHONE,
-      requestedDate: "2026-08-01",
+      rangeDays: 14,
     });
 
     expect(result).toMatchObject({
@@ -931,7 +930,7 @@ describe("HTTP owned middleware transport", () => {
     await expect(
       middleware.getAvailability({
         office: SPRING_HILL_OFFICE_PHONE,
-        requestedDate: "2026-08-01",
+        rangeDays: 14,
       }),
     ).resolves.toEqual({
       status: "error",
@@ -1291,7 +1290,7 @@ describe("HTTP owned middleware transport", () => {
       call: (middleware: HttpOwnedMiddleware) =>
         middleware.getAvailability({
           office: SPRING_HILL_OFFICE_PHONE,
-          requestedDate: "2026-08-01",
+          rangeDays: 14,
         }),
     },
     {
@@ -1420,7 +1419,7 @@ describe("HTTP owned middleware transport", () => {
     await expect(
       middleware.getAvailability({
         office: SPRING_HILL_OFFICE_PHONE,
-        requestedDate: "2026-08-01",
+        rangeDays: 14,
       }),
     ).resolves.toMatchObject({ status: "found" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -1451,7 +1450,7 @@ describe("HTTP owned middleware transport", () => {
 
     const result = await middleware.getAvailability({
       office: SPRING_HILL_OFFICE_PHONE,
-      requestedDate: "2026-08-01",
+      rangeDays: 14,
     });
 
     expect(result).toMatchObject({
@@ -1739,7 +1738,7 @@ const patientLookup = (
 const availabilityLookup = (middleware: OwnedMiddleware) =>
   middleware.getAvailability({
     office: SPRING_HILL_OFFICE_PHONE,
-    requestedDate: "2026-08-01",
+    rangeDays: 14,
   });
 
 const createPatient = (middleware: OwnedMiddleware) =>
@@ -1960,7 +1959,7 @@ const semanticContractCases: SemanticContractCase[] = [
       controller.abort();
       return middleware.getAvailability({
         office: SPRING_HILL_OFFICE_PHONE,
-        requestedDate: "2026-08-01",
+        rangeDays: 14,
         signal: controller.signal,
       });
     },
@@ -2208,7 +2207,7 @@ describe("in-memory owned middleware", () => {
     await expect(
       middleware.getAvailability({
         office: SPRING_HILL_OFFICE_PHONE,
-        requestedDate: "2026-08-01",
+        rangeDays: 14,
       }),
     ).resolves.toEqual(availabilityFound);
     await expect(
@@ -2276,4 +2275,21 @@ describe("in-memory owned middleware", () => {
       "updateInsurance",
     ]);
   });
+});
+
+it("fails closed when the inventory endpoint is unavailable instead of using two-slot search", async () => {
+  const fetch = vi.fn(async () => new Response("not found", { status: 404 }));
+  const middleware = new HttpOwnedMiddleware({
+    middlewareBaseUrl: "https://middleware.test",
+    fetch,
+  });
+  const result = await middleware.getAvailability({
+    office: SPRING_HILL_OFFICE_PHONE,
+    rangeDays: 90,
+  });
+  expect(result).toEqual({ status: "error", reason: "request_rejected" });
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch.mock.calls[0]?.[0]).toBe(
+    "https://middleware.test/api/scheduler/slots",
+  );
 });

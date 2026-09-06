@@ -33,7 +33,7 @@ export function buildToolsForTrunk(
   const {
     book_appointment,
     cancel_appointment,
-    get_availability,
+    list_available_appointments,
     reschedule_appointment,
   } = createSchedulingTools(bindSchedulingMiddleware(middleware), undefined, {
     availabilityOfficeMode,
@@ -42,7 +42,7 @@ export function buildToolsForTrunk(
     createResolvePatientTool(middleware),
     createAddPatientTool(middleware),
     createUpdateInsuranceTool(middleware),
-    get_availability,
+    list_available_appointments,
     cancel_appointment,
     book_appointment,
     reschedule_appointment,

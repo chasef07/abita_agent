@@ -46,7 +46,7 @@ const SUPPORTED_TOOLS = [
   "check_insurance",
   "create_staff_task",
   "end_call",
-  "get_availability",
+  "list_available_appointments",
   "reschedule_appointment",
   "resolve_patient",
   "transfer_call",
@@ -101,11 +101,10 @@ describe("stable tool catalog", () => {
         input: "Find the next medical appointment.",
         toolCalls: [
           {
-            name: "get_availability",
+            name: "list_available_appointments",
             args: {
-              when: "next available",
+              range: "default",
               visitType: "medical",
-              oldAppointmentRef: null,
             },
           },
         ],
@@ -495,11 +494,10 @@ describe("stable tool catalog", () => {
         input: "Find the next medical appointment.",
         toolCalls: [
           {
-            name: "get_availability",
+            name: "list_available_appointments",
             args: {
-              when: "next available",
+              range: "default",
               visitType: "medical",
-              oldAppointmentRef: null,
             },
           },
         ],
@@ -559,7 +557,7 @@ describe("stable tool catalog", () => {
     expect(functionCallNames(session)).toEqual([
       "add_patient",
       "add_patient",
-      "get_availability",
+      "list_available_appointments",
       "book_appointment",
     ]);
     expect(functionCallNames(session)).not.toContain("create_staff_task");
@@ -591,11 +589,10 @@ describe("stable tool catalog", () => {
         input: "Find the next medical appointment.",
         toolCalls: [
           {
-            name: "get_availability",
+            name: "list_available_appointments",
             args: {
-              when: "next available",
+              range: "default",
               visitType: "medical",
-              oldAppointmentRef: null,
             },
           },
         ],
@@ -643,7 +640,7 @@ describe("stable tool catalog", () => {
     ]);
     expect(functionCallNames(session)).toEqual([
       "book_appointment",
-      "get_availability",
+      "list_available_appointments",
       "book_appointment",
     ]);
     expect(functionCallNames(session)).not.toContain("create_staff_task");
