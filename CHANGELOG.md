@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.14.1](https://github.com/chasef07/abita_agent/compare/4.14.0...4.14.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **identity:** resolve phone matches through one patient tool ([#401](https://github.com/chasef07/abita_agent/issues/401)) ([711817f](https://github.com/chasef07/abita_agent/commit/711817fefaca5d325ea76f6d6b6235dd644680e7))
+* **prompts:** make receptionist concise and proactive ([91c7f0d](https://github.com/chasef07/abita_agent/commit/91c7f0dec1a4de76353cbe32495a9f8caf7fe11d))
+
 ## [4.14.0](https://github.com/chasef07/abita_agent/compare/4.13.6...4.14.0) (2026-09-06)
 
 
