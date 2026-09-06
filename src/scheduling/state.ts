@@ -260,6 +260,7 @@ export function replaceAvailabilitySlots(
   ) {
     state.availability.version = (state.availability.version ?? 0) + 1;
   }
+  state.availability.refreshAfter = undefined;
   state.availability.slots = [...slots];
   state.availability.latestRouting = routing;
   state.availability.bookingTokensBySlotId = {};

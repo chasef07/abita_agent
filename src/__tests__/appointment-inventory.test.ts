@@ -6,6 +6,7 @@ import { createConfirmedPatientState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
 import { deferredResult } from "./support/deferred-result.js";
+import { availabilityModelProjection } from "../scheduling/availability.js";
 import { clearAvailabilitySelection } from "../scheduling/state.js";
 
 function inventory(count = 4): AvailabilityResult {
@@ -213,6 +214,53 @@ describe("conversational appointment inventory", () => {
       vi.advanceTimersByTime(20_001);
       await tool.execute({ visitType: "medical" } as never, options);
       expect(middleware.operations).toHaveLength(2);
+    },
+  );
+
+  it.each(["found", "none"] as const)(
+    "keeps incomplete expansion unknown after a fresh %s inventory",
+    async (status) => {
+      const first: AvailabilityResult =
+        status === "found"
+          ? inventory()
+          : {
+              status: "none",
+              slots: [],
+              dateShifted: false,
+              shouldRetrySameSearch: false,
+            };
+      const incomplete: AvailabilityResult = {
+        status: "incomplete",
+        slots: [],
+        dateShifted: false,
+        shouldRetrySameSearch: true,
+        searchedFrom: "2026-09-06",
+        searchedThrough: "2026-10-05",
+      };
+      const middleware = new InMemorySchedulingMiddleware({
+        availability: [first, incomplete, inventory()],
+      });
+      const tool =
+        createSchedulingTools(middleware).list_available_appointments;
+      const { state, options } = context();
+      await tool.execute({ range: "default", visitType: "medical" }, options);
+      vi.advanceTimersByTime(10_000);
+      const result = await tool.execute(
+        { range: "+1month", visitType: "medical" },
+        options,
+      );
+      expect(result).toContain("couldn't finish checking availability");
+      expect(state.availability.slots).toEqual([]);
+      expect(availabilityModelProjection(state)).toContain(
+        "No appointment inventory is active",
+      );
+      expect(availabilityModelProjection(state)).not.toContain(
+        "inventory is empty",
+      );
+      expect(state.availability.refreshAfter).toBeUndefined();
+      await tool.execute({ range: "+1month", visitType: "medical" }, options);
+      expect(middleware.operations).toHaveLength(3);
+      expect(state.availability.slots).toHaveLength(4);
     },
   );
 

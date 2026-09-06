@@ -156,7 +156,6 @@ export class SchedulingWorkflow {
           }),
         {
           now: this.clock.now(),
-          onCacheExpired: () => {},
           signal,
         },
       );

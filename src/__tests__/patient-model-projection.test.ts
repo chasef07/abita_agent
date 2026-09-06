@@ -6,6 +6,9 @@ import {
   voice,
 } from "@livekit/agents";
 import { afterEach, describe, expect, it } from "vitest";
+import { createSchedulingTools } from "../scheduling/tools.js";
+import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
+import { createToolContext } from "./support/tool-context.js";
 import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
@@ -111,7 +114,12 @@ describe("patient model projection", () => {
     }
   });
 
-  it.each(["invalidated", "empty_expired", "first_empty_reset"])(
+  it.each([
+    "invalidated",
+    "empty_expired",
+    "first_empty_reset",
+    "incomplete_expansion",
+  ])(
     "marks old calendar results unusable in actual model input after %s",
     async (mode) => {
       const model = new ContextCapturingFakeLLM([
@@ -156,9 +164,36 @@ describe("patient model projection", () => {
         }),
       ]);
       await session.currentAgent.updateChatCtx(history);
-      clearAvailabilitySelection(state, {
-        invalidateReads: "patient_context_changed",
-      });
+      if (mode === "incomplete_expansion") {
+        const middleware = new InMemorySchedulingMiddleware({
+          availability: [
+            {
+              status: "none",
+              slots: [],
+              dateShifted: false,
+              shouldRetrySameSearch: false,
+            },
+            {
+              status: "incomplete",
+              slots: [],
+              dateShifted: false,
+              shouldRetrySameSearch: true,
+            },
+          ],
+        });
+        const tool =
+          createSchedulingTools(middleware).list_available_appointments;
+        const options = {
+          ctx: createToolContext(state),
+          toolCallId: "expansion",
+        } as never;
+        await tool.execute({ range: "default", visitType: "medical" }, options);
+        await tool.execute({ range: "+1month", visitType: "medical" }, options);
+      } else {
+        clearAvailabilitySelection(state, {
+          invalidateReads: "patient_context_changed",
+        });
+      }
       if (mode === "empty_expired")
         state.availability.refreshAfter = Date.now() - 1;
       await session.run({ userInput: "What appointments work now?" }).wait();
@@ -173,6 +208,8 @@ describe("patient model projection", () => {
           ? [item.textContent]
           : [],
       ).join(" ");
+      if (mode === "incomplete_expansion")
+        expect(system).not.toContain("inventory is empty");
       expect(system).toContain(
         mode === "empty_expired"
           ? "inventory is stale"

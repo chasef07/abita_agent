@@ -118,17 +118,13 @@ function prepareReschedule(
     token?: string;
   } = {},
 ) {
-  state.workflow.current = {
-    intent: "change_appointment",
-    appointmentLane: "not_applicable",
-  };
   state.identity.activePatient!.appointments = [
     options.appointment ?? loadedAppointment(),
   ];
   const visitType = visitTypeForAppointment(activeAppointments(state)[0]!);
   state.workflow.current = {
     intent: "schedule",
-    appointmentLane: visitType === "medical" ? "medical_md" : "routine_vision",
+    appointmentLane: visitType === "medical" ? "medical_md" : "routine_od",
   };
   const slot =
     options.slot ??

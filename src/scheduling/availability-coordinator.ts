@@ -18,7 +18,6 @@ type InFlightAvailabilityRead = {
 
 type CoordinatedAvailabilityReadOptions = {
   now: Date;
-  onCacheExpired: () => void;
   signal?: AbortSignal;
 };
 
@@ -35,14 +34,13 @@ export async function coordinatedAvailabilityRead(
   options: CoordinatedAvailabilityReadOptions,
 ): Promise<AvailabilityResult> {
   const startedAt = Date.now();
-  const { now, onCacheExpired, signal } = options;
+  const { now, signal } = options;
   signal?.throwIfAborted();
   const coordinator = availabilityCoordinatorFor(state);
   const completed = coordinator.completed.get(key);
   if (completed) {
-    if (completed.expiresAt !== null && now.getTime() >= completed.expiresAt) {
+    if (now.getTime() >= completed.expiresAt) {
       coordinator.completed.clear();
-      onCacheExpired();
       recordAvailabilityReadEvent(state, {
         operation: "invalidation",
         reason: "booking_token_expired",
