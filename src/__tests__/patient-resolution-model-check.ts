@@ -1,12 +1,17 @@
 // Opt-in, paid LLM check. Uses synthetic records and never executes middleware.
 // Load LiveKit credentials in the environment before running with tsx.
+// Pass scenario IDs as arguments to run a focused subset.
 import { inference, llm, initializeLogger } from "@livekit/agents";
 import { buildPrompt } from "../prompt.js";
 import { primaryLLMOptions, fallbackLLMOptions } from "../model-config.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import { patientModelProjection } from "../identity/patient-identity.js";
-import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
+import {
+  HOLLYWOOD_OFFICE_PHONE,
+  SPRING_HILL_OFFICE_PHONE,
+  getOfficeProfileByPhone,
+} from "../customers/abita/profile.js";
 import { createTestCallState } from "./support/call-state.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 
@@ -14,13 +19,29 @@ type Scenario = {
   id: string;
   names: string[];
   user: string;
-  firstName: string;
+  firstName?: string;
+  askFirstName?: boolean;
+  officePhone?: string;
   lastName?: string;
   confirmationYear?: string;
   mayAsk?: boolean;
 };
 
 const scenarios: Scenario[] = [
+  {
+    id: "phone_matches_first_name_supplied",
+    names: ["Jane", "John", "Maria", "Alex", "Sam"],
+    user: "I'm an existing patient. I'd like to book a routine eye exam for glasses at Hollywood. My first name is John.",
+    firstName: "John",
+    officePhone: HOLLYWOOD_OFFICE_PHONE,
+  },
+  {
+    id: "phone_matches_name_not_supplied",
+    names: ["Jane", "John", "Maria", "Alex", "Sam"],
+    user: "I'm an existing patient. I'd like to book a routine eye exam for glasses at Hollywood. What times are available?",
+    askFirstName: true,
+    officePhone: HOLLYWOOD_OFFICE_PHONE,
+  },
   {
     id: "first_name_only",
     names: ["John"],
@@ -86,16 +107,25 @@ if (!process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET) {
 }
 initializeLogger({ pretty: false, level: "silent" });
 const middleware = new InMemoryOwnedMiddleware();
-const tools = buildToolsForTrunk(middleware, SPRING_HILL_OFFICE_PHONE);
 const parameters = createResolvePatientTool(middleware).parameters;
+const selectedScenarios = scenarios.filter(
+  (scenario) =>
+    process.argv.length <= 2 || process.argv.slice(2).includes(scenario.id),
+);
+if (selectedScenarios.length === 0) throw new Error("No matching scenarios.");
 let failures = 0;
 
 for (const config of [primaryLLMOptions, fallbackLLMOptions]) {
   const model = new inference.LLM({ ...config, inferenceClass: "low" });
   model.on("error", () => {});
   try {
-    for (const scenario of scenarios) {
+    for (const scenario of selectedScenarios) {
+      const officePhone = scenario.officePhone ?? SPRING_HILL_OFFICE_PHONE;
+      const tools = buildToolsForTrunk(middleware, officePhone);
       const state = createTestCallState({
+        officeKey: getOfficeProfileByPhone(officePhone).key,
+        amdOfficePhone: officePhone,
+        trunkPhone: officePhone,
         preCallCandidates: scenario.names.map((firstName) => ({
           status: "verified",
           ref: firstName,
@@ -119,7 +149,7 @@ for (const config of [primaryLLMOptions, fallbackLLMOptions]) {
       const chatCtx = llm.ChatContext.empty();
       chatCtx.addMessage({
         role: "system",
-        content: buildPrompt(SPRING_HILL_OFFICE_PHONE),
+        content: buildPrompt(officePhone),
       });
       chatCtx.addMessage({
         role: "system",
@@ -144,22 +174,37 @@ for (const config of [primaryLLMOptions, fallbackLLMOptions]) {
           : null;
         const asks =
           response.toolCalls.length === 0 && response.text.includes("?");
-        const passed = scenario.confirmationYear
-          ? asks && response.text.includes(scenario.confirmationYear)
-          : (scenario.mayAsk && asks) ||
-            (response.toolCalls.length === 1 &&
-              call?.name === "resolve_patient" &&
-              identity?.success === true &&
-              identity.data.firstName === scenario.firstName &&
-              (identity.data.lastName?.trim() || undefined) ===
-                scenario.lastName &&
-              !identity.data.dob?.trim());
+        const passed = scenario.askFirstName
+          ? asks &&
+            /first name/i.test(response.text) &&
+            !/last name|full name|surname|date of birth|\bDOB\b/i.test(
+              response.text,
+            )
+          : scenario.confirmationYear
+            ? asks && response.text.includes(scenario.confirmationYear)
+            : (scenario.mayAsk && asks) ||
+              (response.toolCalls.length === 1 &&
+                call?.name === "resolve_patient" &&
+                identity?.success === true &&
+                identity.data.firstName === scenario.firstName &&
+                (identity.data.lastName?.trim() || undefined) ===
+                  scenario.lastName &&
+                !identity.data.dob?.trim());
         if (!passed) failures += 1;
         console.log(
           JSON.stringify({
             model: config.model,
             scenario: scenario.id,
             passed,
+            ...(!passed || scenario.askFirstName
+              ? {
+                  response: response.text,
+                  tools: response.toolCalls.map((tool) => ({
+                    name: tool.name,
+                    args: tool.args,
+                  })),
+                }
+              : {}),
           }),
         );
       } catch {
@@ -179,5 +224,5 @@ for (const config of [primaryLLMOptions, fallbackLLMOptions]) {
   }
 }
 
-console.log(JSON.stringify({ cases: scenarios.length * 2, failures }));
+console.log(JSON.stringify({ cases: selectedScenarios.length * 2, failures }));
 if (failures > 0) process.exitCode = 1;

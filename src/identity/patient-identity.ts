@@ -466,7 +466,7 @@ export function patientModelProjection(state: CallState): string {
     const count = state.identity.privateCandidates.length;
     const lookup =
       count > 0
-        ? `Phone lookup found ${count} possible patient${count === 1 ? "" : "s"}. For patient-specific work, the next tool is resolve_patient. A supplied firstName alone is enough to try the phone matches.`
+        ? `Phone lookup found ${count} possible patient${count === 1 ? "" : "s"}. For patient-specific work, ask only for the intended patient's first name if unknown. Once supplied, call resolve_patient immediately; a firstName alone is enough to try the phone matches. Ask for a last name or DOB only if resolve_patient requests it. Include any identity already supplied, confirming a supplied DOB before resolving.`
         : state.runtime.preCallLookup.status === "lookup_failed"
           ? "Phone lookup failed; this does not mean the patient is new. Use resolve_patient with caller-provided identity to look up the record."
           : state.runtime.preCallLookup.status === "no_match"
