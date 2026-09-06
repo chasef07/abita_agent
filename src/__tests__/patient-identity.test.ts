@@ -66,14 +66,17 @@ describe("patient identity", () => {
     expect(lookup).not.toHaveBeenCalled();
   });
 
-  it("requires corroboration for a fuzzy first name and preserves ambiguity", async () => {
+  it("requests spelling below the threshold and does not promote from surname alone", async () => {
     const state = createTestCallState({
       preCallCandidates: [verifiedCandidate("one", "Jane", "patient-1")],
     });
     const lookup = vi.fn();
     expect(
       await resolveExistingPatient(state, { firstName: "Jame" }, lookup),
-    ).toMatchObject({ outcome: "needs_identity" });
+    ).toMatchObject({
+      outcome: "needs_identity",
+      reply: expect.stringContaining("spell the patient's first name"),
+    });
     expect(state.identity.activePatient).toBeNull();
     expect(
       await resolveExistingPatient(
@@ -81,7 +84,108 @@ describe("patient identity", () => {
         { firstName: "Jame", lastName: "Doe" },
         lookup,
       ),
-    ).toMatchObject({ outcome: "verified" });
+    ).toMatchObject({
+      outcome: "needs_identity",
+      reply: expect.stringContaining("spell the patient's first name"),
+    });
+    expect(state.identity.activePatient).toBeNull();
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["Amy", "Emmy"],
+    ["Jonatham", "Jonathan"],
+  ])(
+    "promotes a unique qualifying phone match for %s / %s",
+    async (provided, stored) => {
+      const state = createTestCallState({
+        preCallCandidates: [verifiedCandidate("one", stored, "patient-1")],
+      });
+      const lookup = vi.fn();
+
+      const result = await resolveExistingPatient(
+        state,
+        { firstName: provided },
+        lookup,
+      );
+
+      expect(result.outcome).toBe("verified");
+      expect(state.identity.activePatient?.patientId).toBe("patient-1");
+      expect(lookup).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ["Amy", "Emma"],
+    ["Ann", "Joanne"],
+    ["Alex", "Alexander"],
+  ])(
+    "does not promote a below-threshold phone match for %s / %s",
+    async (provided, stored) => {
+      const state = createTestCallState({
+        preCallCandidates: [verifiedCandidate("one", stored, "patient-1")],
+      });
+      const lookup = vi.fn();
+      const result = await resolveExistingPatient(
+        state,
+        { firstName: provided },
+        lookup,
+      );
+      expect(result.outcome).toBe("needs_identity");
+      expect(result.reply).toContain("spell the patient's first name");
+      expect(state.identity.activePatient).toBeNull();
+      expect(lookup).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not choose an exact name when another phone candidate also qualifies", async () => {
+    const state = createTestCallState({
+      preCallCandidates: [
+        verifiedCandidate("one", "Amy", "patient-1"),
+        verifiedCandidate("two", "Emmy", "patient-2"),
+      ],
+    });
+    const lookup = vi.fn();
+    const result = await resolveExistingPatient(
+      state,
+      { firstName: "Amy" },
+      lookup,
+    );
+    expect(result.outcome).toBe("multiple_matches");
+    expect(state.identity.activePatient).toBeNull();
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { firstName: "Amy", lastName: "Smith" },
+    { firstName: "Amy", dob: "02/02/1990" },
+  ])(
+    "does not let a qualifying fuzzy name override conflicting identity %j",
+    async (identity) => {
+      const state = createTestCallState({
+        preCallCandidates: [verifiedCandidate("one", "Emmy", "patient-1")],
+      });
+      const lookup = vi.fn();
+      const result = await resolveExistingPatient(state, identity, lookup);
+      expect(result.outcome).toBe("needs_identity");
+      expect(state.identity.activePatient).toBeNull();
+      expect(lookup).not.toHaveBeenCalled();
+    },
+  );
+
+  it("activates the candidate after the caller spells a below-threshold first name", async () => {
+    const state = createTestCallState({
+      preCallCandidates: [verifiedCandidate("one", "Jane", "patient-1")],
+    });
+    const lookup = vi.fn();
+    expect(
+      (await resolveExistingPatient(state, { firstName: "Jame" }, lookup))
+        .outcome,
+    ).toBe("needs_identity");
+    expect(
+      (await resolveExistingPatient(state, { firstName: "J-A-N-E" }, lookup))
+        .outcome,
+    ).toBe("verified");
     expect(state.identity.activePatient?.patientId).toBe("patient-1");
     expect(lookup).not.toHaveBeenCalled();
   });
@@ -246,6 +350,33 @@ describe("patient identity", () => {
     });
     expect(state.identity.activePatient).toBeNull();
     expect(state.runtime.preCallLookup.hydrationOutcome).toBe("incomplete");
+  });
+
+  it("hydrates a qualifying fuzzy candidate before promoting it", async () => {
+    const state = createTestCallState({
+      preCallCandidates: [
+        {
+          status: "candidate",
+          ref: "one",
+          firstName: "Emmy",
+          lastName: "Example",
+          patientId: "patient-1",
+          appointments: [],
+        },
+      ],
+    });
+    const lookup = vi.fn(async () =>
+      verifiedResult("patient-1", "Emmy Example", "01/01/1980"),
+    );
+
+    expect(
+      (await resolveExistingPatient(state, { firstName: "Amy" }, lookup))
+        .outcome,
+    ).toBe("verified");
+    expect(lookup).toHaveBeenCalledWith(expect.any(String), {
+      patientId: "patient-1",
+    });
+    expect(state.identity.activePatient?.patientId).toBe("patient-1");
   });
 
   it("preserves the active patient and scoped work when a switch fails", async () => {

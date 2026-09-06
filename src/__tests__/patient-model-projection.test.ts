@@ -35,7 +35,7 @@ describe("patient model projection", () => {
     await Promise.all(sessions.splice(0).map((session) => session.close()));
   });
 
-  it("exposes lookup outcomes without revealing private candidate identities", () => {
+  it("exposes lookup outcomes and first-name spellings without other candidate details", () => {
     const privateCandidate: PreCallPatientCandidate = {
       status: "verified",
       ref: "private-candidate-reference",
@@ -67,7 +67,35 @@ describe("patient model projection", () => {
     expect(projections[1]).toContain("Phone lookup failed");
     expect(projections[2]).toContain("Phone lookup found 1 possible patient");
     expect(projections[3]).toContain("Phone lookup found 2 possible patients");
-    expect(projections.join(" ")).not.toMatch(/Private|private-|01\/02\/1980/);
+    expect(projections[2]).toContain(
+      'Private first-name spelling hints: ["P-R-I-V-A-T-E"].',
+    );
+    expect(projections[3]).toContain(
+      'Private first-name spelling hints: ["P-R-I-V-A-T-E"].',
+    );
+    expect(projections[0]).not.toContain("spelling hints");
+    expect(projections[1]).not.toContain("spelling hints");
+    expect(projections.join(" ")).not.toMatch(
+      /Private Patient|private-|01\/02\/1980/,
+    );
+  });
+
+  it("spells distinct available first names, preserving accents and word boundaries", () => {
+    const state = createTestCallState({
+      preCallCandidates: [" Ana María ", "Nora", "nora", undefined].map(
+        (firstName, index) => ({
+          status: "verified" as const,
+          ref: `candidate-${index}`,
+          firstName,
+          patientId: `patient-${index}`,
+          appointments: [],
+        }),
+      ),
+    });
+
+    expect(patientModelProjection(state)).toContain(
+      'Private first-name spelling hints: ["A-N-A M-A-R-Í-A","N-O-R-A"].',
+    );
   });
 
   it("injects exactly one fresh projection into each model request only", async () => {
@@ -102,6 +130,12 @@ describe("patient model projection", () => {
     expect(patientMessages(model.requests[0])).toEqual([
       expect.stringContaining("Phone lookup found 1 possible patient"),
     ]);
+    expect(patientMessages(model.requests[0])[0]).toContain(
+      'Private first-name spelling hints: ["P-R-I-V-A-T-E"].',
+    );
+    expect(patientMessages(model.requests[0])[0]).toContain(
+      "Never read these hints aloud or substitute them for caller-provided identity.",
+    );
     expect(patientMessages(session.currentAgent.chatCtx)).toEqual([]);
     const modelRequest = JSON.stringify(model.requests[0]);
     for (const privateValue of [

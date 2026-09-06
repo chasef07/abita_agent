@@ -20,6 +20,8 @@
     "@livekit/agents-plugin-openai": "1.8.0",
     "@livekit/agents-plugin-rime": "1.8.0",
     "@livekit/rtc-node": "^0.13.34",
+    "double-metaphone": "2.0.1",
+    "fast-fuzzy": "1.12.0",
     "livekit-server-sdk": "^2.18.0",
     "zod": "^4.5.4"
   },
