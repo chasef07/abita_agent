@@ -838,12 +838,10 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "Use normal written forms for dates, times, phone numbers, emails, and common acronyms.",
     );
-    expect(prompt).toContain("Include light disfluencies");
+    expect(prompt).toContain("If one sentence is enough, use one sentence.");
     expect(prompt).toContain(
-      'Start sentences with "And", "But", or "So" when it sounds natural.',
+      "Omit stock acknowledgments, added hesitation words, and theatrical pauses.",
     );
-    expect(prompt).toContain("Use audible personality patterns when they fit");
-    expect(prompt).toContain("Sorry, I think I missed that, what did you say?");
     expect(prompt).toContain("If the caller asks you to slow down");
     expect(prompt).not.toContain("eight fifteen a m");
   });
