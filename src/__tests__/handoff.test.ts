@@ -122,6 +122,8 @@ describe("call-center handoff", () => {
   });
 
   it("routes Crystal River directly to its configured phone target", async () => {
+    vi.resetModules();
+    const { transferCallerToOffice } = await import("../tools/handoff.js");
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
     configureProductHandoff();
@@ -151,6 +153,7 @@ describe("call-center handoff", () => {
         ringingTimeout: 20,
       }),
     );
+    expect(SipClient).toHaveBeenCalledTimes(1);
     expect(vi.mocked(SipClient).mock.calls.at(-1)?.[3]).toBeUndefined();
   });
 
@@ -585,6 +588,8 @@ describe("call-center handoff", () => {
   });
 
   it("reserves and transfers once to the direct SIP target", async () => {
+    vi.resetModules();
+    const { transferCallerToOffice } = await import("../tools/handoff.js");
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
     const fetchMock = vi.fn(async () => jsonResponse(DIRECT_RESPONSE));
@@ -628,6 +633,7 @@ describe("call-center handoff", () => {
         ringingTimeout: 20,
       },
     );
+    expect(SipClient).toHaveBeenCalledTimes(1);
     expect(vi.mocked(SipClient).mock.calls.at(-1)?.[3]).toEqual({
       failover: false,
     });
