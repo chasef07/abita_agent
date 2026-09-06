@@ -19,7 +19,7 @@ import {
   DEMO_TRANSFER_NUMBER,
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
   HOLLYWOOD_OFFICE_PHONE,
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
   OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
   SPRING_HILL_813_TRUNK_PHONE,
@@ -293,39 +293,35 @@ const officeBehaviors: OfficeBehavior[] = [
   },
   {
     amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-    displayName: "Willowmere Behavioral Health",
+    displayName: "New Tampa Eye Institute",
     englishSpeaker: "wawona",
     greeting:
-      "Hey this is Maya at Willowmere Behavioral Health. How are you doing today?",
+      "Hi, this is Maya at New Tampa Eye Institute. How can I help you today?",
     handoff: {
       mode: "phone",
       target: `tel:${DEMO_TRANSFER_NUMBER}`,
     },
     insurance: {
       medical: {
-        query: "Aetna Choice POS II",
+        query: "Ambetter Premier",
         response:
-          "Yes, we take Aetna Choice POS II. This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
+          "Yes, we take Ambetter Premier. This is a demo insurance match. The office still needs to verify your exact plan, provider network, benefits, and any referral or authorization.",
       },
       routineVision: {
         query: "VSP",
-        response: "No, we don't accept VSP.",
+        response:
+          "Yes, we take VSP. This is a demo insurance match. The office still needs to verify your exact plan, provider network, benefits, and any referral or authorization.",
       },
     },
-    key: "mental-health-demo",
-    knowledgeSource: "KNOWLEDGE_MENTAL_HEALTH_DEMO.md",
-    promptMarker:
-      "a clearly fictional multi-location outpatient behavioral-health clinic",
+    key: "new-tampa-demo",
+    knowledgeSource: "KNOWLEDGE_NEW_TAMPA_DEMO.md",
+    promptMarker: "a personalized New Tampa Eye Institute demonstration",
     scheduling: {
       medical: { supported: true },
-      routineVision: {
-        supported: false,
-        message:
-          "Willowmere Behavioral Health schedules behavioral-health care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
-      },
+      routineVision: { supported: true },
     },
     staffTaskEnabled: true,
-    trunks: [MENTAL_HEALTH_DEMO_TRUNK_PHONE],
+    trunks: [NEW_TAMPA_DEMO_TRUNK_PHONE],
   },
   {
     amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
@@ -558,6 +554,9 @@ describe("Voice Agent office profile", () => {
           staffTaskEnabled: expected.staffTaskEnabled,
           tools: [
             ...COMMON_TOOL_NAMES,
+            ...(expected.key === "new-tampa-demo"
+              ? ["triage_eye_care", "notify_after_hours_physician"]
+              : []),
             ...(expected.staffTaskEnabled ? ["create_staff_task"] : []),
           ].sort(),
         });

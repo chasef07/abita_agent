@@ -403,7 +403,7 @@ describe("call closeout", () => {
       url: "https://product.example/v1/ai/interactions",
     });
     expect(
-      getProductInteractionConfig("mental-health-demo", {
+      getProductInteractionConfig("new-tampa-demo", {
         NODE_ENV: "production",
         ACUITY_PRODUCT_INTERACTION_URL:
           "https://product.example/v1/ai/interactions",
@@ -956,7 +956,7 @@ describe("call closeout", () => {
       secretName: "ACUITY_DEMO_PRODUCT_SERVICE_SECRET" as const,
     },
     {
-      officeKey: "mental-health-demo" as const,
+      officeKey: "new-tampa-demo" as const,
       secret: "demo-secret",
       secretName: "ACUITY_DEMO_PRODUCT_SERVICE_SECRET" as const,
     },

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolError } from "@livekit/agents";
 import {
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
   SWEETWATER_OPTICAL_TRUNK_PHONE,
@@ -327,8 +327,8 @@ describe("create_staff_task", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const state = createDevState({
-      officeKey: "mental-health-demo",
-      trunkPhone: MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+      officeKey: "new-tampa-demo",
+      trunkPhone: NEW_TAMPA_DEMO_TRUNK_PHONE,
     });
 
     await create_staff_task.execute(
@@ -337,11 +337,11 @@ describe("create_staff_task", () => {
         urgency: "normal",
         summary: "Caller needs scheduling help.",
         message:
-          "Caller wants the Willowmere team to review a scheduling question.",
+          "Caller wants the New Tampa team to review a scheduling question.",
       },
       {
         ctx: createToolContext(state) as never,
-        toolCallId: "tool-mental-health-demo",
+        toolCallId: "tool-new-tampa-demo",
       } as never,
     );
 
@@ -353,8 +353,8 @@ describe("create_staff_task", () => {
       "Content-Type": "application/json",
     });
     expect(body).toMatchObject({
-      inboundOfficePhone: MENTAL_HEALTH_DEMO_TRUNK_PHONE,
-      officeKey: "mental-health-demo",
+      inboundOfficePhone: NEW_TAMPA_DEMO_TRUNK_PHONE,
+      officeKey: "new-tampa-demo",
       officePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     });
   });

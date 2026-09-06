@@ -17,7 +17,7 @@ import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   DEMO_TRANSFER_NUMBER,
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
   getOfficeProfileByPhone,
   getProductOfficeKeyByPhone,
@@ -270,7 +270,7 @@ describe("call-center handoff", () => {
     [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE, "north-miami-beach-optical"],
     [RHEUMATOLOGY_DEMO_TRUNK_PHONE, "rheumatology-demo"],
     [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "ophthalmology-demo"],
-    [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "mental-health-demo"],
+    [NEW_TAMPA_DEMO_TRUNK_PHONE, "new-tampa-demo"],
   ] as const)("maps handoff trunk %s to %s", (trunkPhone, officeKey) => {
     expect(getProductOfficeKeyByPhone(trunkPhone)).toBe(officeKey);
   });
@@ -332,7 +332,7 @@ describe("call-center handoff", () => {
 
   it.each([
     [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "ophthalmology-demo"],
-    [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "mental-health-demo"],
+    [NEW_TAMPA_DEMO_TRUNK_PHONE, "new-tampa-demo"],
   ] as const)(
     "routes the %s demo profile through its matching Product office",
     async (trunkPhone, profileOfficeKey) => {

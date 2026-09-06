@@ -4,7 +4,7 @@ import { ToolError } from "@livekit/agents";
 import {
   DEMO_BOOKING_OFFICE_PHONE,
   HOLLYWOOD_OFFICE_PHONE,
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
   SWEETWATER_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
@@ -3933,11 +3933,11 @@ describe("scheduling tools", () => {
     });
     const { reschedule_appointment } = createSchedulingTools(middleware);
     const state = createState();
-    state.office.activeKey = "mental-health-demo";
+    state.office.activeKey = "new-tampa-demo";
     state.office.phoneOverrides = {
-      "mental-health-demo": DEMO_BOOKING_OFFICE_PHONE,
+      "new-tampa-demo": DEMO_BOOKING_OFFICE_PHONE,
     };
-    state.runtime.trunkPhone = MENTAL_HEALTH_DEMO_TRUNK_PHONE;
+    state.runtime.trunkPhone = NEW_TAMPA_DEMO_TRUNK_PHONE;
     prepareReschedule(state, {
       appointment: loadedAppointment({
         facility: "Crystal River",

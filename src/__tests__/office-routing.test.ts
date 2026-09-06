@@ -8,7 +8,7 @@ import { buildPrompt } from "../prompt.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   getOfficeProfile,
   getOfficeProfileByPhone,
   getOfficeKeyByPhone,
@@ -86,13 +86,13 @@ describe("office routing helpers", () => {
     );
     expect(getOfficeKeyByPhone("14843989071")).toBe("rheumatology-demo");
     expect(getOfficeKeyByPhone("18027878312")).toBe("ophthalmology-demo");
-    expect(getOfficeKeyByPhone("13207388132")).toBe("mental-health-demo");
+    expect(getOfficeKeyByPhone("13207388132")).toBe("new-tampa-demo");
   });
 
   it.each([
     [RHEUMATOLOGY_DEMO_TRUNK_PHONE, "rheumatology-demo"],
     [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "ophthalmology-demo"],
-    [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "mental-health-demo"],
+    [NEW_TAMPA_DEMO_TRUNK_PHONE, "new-tampa-demo"],
   ] as const)(
     "maps specialty demo trunk %s through its matching Office Profile and Product route",
     (trunkPhone, officeKey) => {
@@ -170,7 +170,7 @@ describe("voice output prompt", () => {
       SPRING_HILL_OFFICE_PHONE,
       OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
       RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-      MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+      NEW_TAMPA_DEMO_TRUNK_PHONE,
     ]) {
       const prompt = buildPrompt(phone);
 
@@ -195,7 +195,7 @@ describe("voice output prompt", () => {
     }
     for (const phone of [
       RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-      MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+      NEW_TAMPA_DEMO_TRUNK_PHONE,
     ]) {
       expect(buildPrompt(phone)).not.toContain(focusedTriageRule);
     }
@@ -542,33 +542,15 @@ describe("dedicated demo trunks", () => {
     expect(prompt).toContain("# Appointment Triage");
   });
 
-  it("activates the behavioral-health demo with booking and safe knowledge retrieval", () => {
-    const office = getOfficeProfile("mental-health-demo");
-    const prompt = buildPrompt(MENTAL_HEALTH_DEMO_TRUNK_PHONE);
-    const service = resolveOfficeKnowledge(
-      "mental-health-demo",
-      "Do you offer PTSD therapy with EMDR?",
-    );
-    const crisis = resolveOfficeKnowledge(
-      "mental-health-demo",
-      "I am in crisis and might harm myself",
-    );
-
-    expect(office.trunkPhones).toEqual([MENTAL_HEALTH_DEMO_TRUNK_PHONE]);
+  it("activates the personalized New Tampa demo with both eye-care lanes", () => {
+    const office = getOfficeProfile("new-tampa-demo");
+    const prompt = buildPrompt(NEW_TAMPA_DEMO_TRUNK_PHONE);
+    expect(office.trunkPhones).toEqual([NEW_TAMPA_DEMO_TRUNK_PHONE]);
     expect(office.amdOfficePhone).toBe(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
     expect(office.schedulingFor("medical")).toEqual({ supported: true });
-    expect(prompt).toContain("Willowmere Behavioral Health");
-    expect(prompt).toContain(
-      "Immediate danger exits the routine front-desk workflow",
-    );
-    expect(service).toMatchObject({ outcome: "matched", topic: "services" });
-    expect(service.sections.join("\n")).toContain("Trauma and PTSD Care");
-    expect(crisis).toMatchObject({
-      outcome: "matched",
-      topic: "emergency_urgency",
-    });
-    expect(crisis.sections.join("\n")).toContain("call 911");
-    expect(crisis.sections.join("\n")).toContain("988");
+    expect(office.schedulingFor("routine_vision")).toEqual({ supported: true });
+    expect(prompt).toContain("New Tampa Eye Institute");
+    expect(prompt).toContain("triage_eye_care");
   });
 });
 
