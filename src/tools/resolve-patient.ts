@@ -18,20 +18,20 @@ const resolvePatientParameters = z
       .min(1)
       .nullable()
       .describe(
-        "Caller-provided first name; may activate or switch to a preloaded patient.",
+        "Caller-provided first name of the patient receiving care; null if unknown.",
       ),
     lastName: z
       .string()
       .trim()
-      .min(1)
       .nullable()
-      .describe("Caller-provided last name for full existing-patient lookup."),
+      .describe("Caller-provided patient surname; null if unknown."),
     dob: z
       .string()
       .trim()
-      .min(1)
       .nullable()
-      .describe("Caller-provided date of birth in MM/DD/YYYY for full lookup."),
+      .describe(
+        "Caller-provided date of birth in MM/DD/YYYY, after read-back confirmation; null if not supplied.",
+      ),
   })
   .strict();
 
@@ -44,9 +44,12 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
     name: "resolve_patient",
     onDuplicate: "reject",
     description:
-      "Activate or look up an existing patient when no correct patient is active, or switch to another patient. " +
-      "Use only caller-provided identity: a first name can activate a preloaded patient; otherwise collect full name and date of birth. " +
-      "Do not use for new-patient chart creation.",
+      "Activate or look up an existing patient, or switch patients. " +
+      "Try their supplied first name before collecting more identity. " +
+      "Use only caller-provided identity; leave unknown fields null. " +
+      'For John alone use {"firstName":"John","lastName":null,"dob":null}. ' +
+      "Include supplied details, confirming any supplied DOB before calling. Follow the result's next step. " +
+      "Use add_patient for new-patient chart creation.",
     parameters: resolvePatientParameters,
     execute: async (
       identity: ResolvePatientArgs,

@@ -181,7 +181,7 @@ sequenceDiagram
     loop Caller turns
         C->>L: Speech
         L->>A: Final transcript
-        A->>A: Confirm identity and retrieve matching office knowledge
+        A->>A: Retrieve matching office knowledge and project lookup state
         A->>A: Reason over current model context
         opt Tool required
             A->>M: Semantic patient or scheduling intent
@@ -197,6 +197,15 @@ sequenceDiagram
 A failed pre-call lookup becomes typed `lookup_failed` state; it does not
 pretend the caller was absent. The call can continue and resolve identity
 through the normal tool interface.
+
+Before activation, model context includes the phone lookup outcome and candidate
+count, while candidate identities stay private. The model supplies the intended
+patient's stated identity to `resolve_patient`; a name mention alone does not
+activate a chart. The resolver checks every supplied field, activates a clear
+match, or requests the next missing detail. Unknown surname/DOB inputs remain
+absent, including empty strings returned by a model. DOB read-back and caller
+confirmation are conversation instructions; code separately rejects invalid
+calendar dates. These checks do not independently prove that a date was spoken.
 
 ## Call State
 
@@ -476,6 +485,16 @@ pnpm lint
 pnpm typecheck
 pnpm test
 ```
+
+With LiveKit credentials exported, an opt-in check exercises the configured
+primary and fallback models against synthetic patient-resolution cases:
+
+```bash
+pnpm exec tsx src/__tests__/patient-resolution-model-check.ts
+```
+
+This check incurs inference usage, verifies tool arguments and DOB read-back
+requests, and never executes middleware. It is separate from `pnpm test`.
 
 Start a development worker:
 

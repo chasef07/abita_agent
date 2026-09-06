@@ -3,7 +3,6 @@ import {
   beginPatientCreation,
   beginNewPatientRegistration,
   commitPatientCreation,
-  confirmCandidateFromTranscript,
   resolveExistingPatient,
 } from "../identity/patient-identity.js";
 import {
@@ -16,15 +15,163 @@ import {
 } from "./support/call-state.js";
 
 describe("patient identity", () => {
-  it("activates only a unique transcript match", async () => {
+  it.each(["02/30/1980", "13/01/1980", "01/01/2999", "1980-01-01"])(
+    "rejects invalid DOB %s before reading or activating a record",
+    async (dob) => {
+      const state = createTestCallState();
+      const lookup = vi.fn();
+      const result = await resolveExistingPatient(
+        state,
+        {
+          firstName: "Jane",
+          lastName: "Doe",
+          dob,
+        },
+        lookup,
+      );
+      expect(result.outcome).toBe("needs_identity");
+      expect(result.reply).toContain("wait for confirmation");
+      expect(lookup).not.toHaveBeenCalled();
+      expect(state.identity.activePatient).toBeNull();
+    },
+  );
+
+  it("uses supplied DOB to distinguish shared first names", async () => {
+    const state = createTestCallState({
+      preCallCandidates: [
+        verifiedCandidate("one", "Jane", "patient-1"),
+        { ...verifiedCandidate("two", "Jane", "patient-2"), dob: "02/02/1982" },
+      ],
+    });
+    const lookup = vi.fn();
+    const ambiguous = await resolveExistingPatient(
+      state,
+      { firstName: "Jane" },
+      lookup,
+    );
+    expect(ambiguous.outcome).toBe("multiple_matches");
+    expect(ambiguous.reply).toContain("date of birth");
+    expect(ambiguous.reply).toContain("confirm");
+    expect(state.identity.activePatient).toBeNull();
+    const result = await resolveExistingPatient(
+      state,
+      {
+        firstName: "Jane",
+        dob: "02/02/1982",
+      },
+      lookup,
+    );
+    expect(result.outcome).toBe("verified");
+    expect(state.identity.activePatient?.patientId).toBe("patient-2");
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("requires corroboration for a fuzzy first name and preserves ambiguity", async () => {
+    const state = createTestCallState({
+      preCallCandidates: [verifiedCandidate("one", "Jane", "patient-1")],
+    });
+    const lookup = vi.fn();
+    expect(
+      await resolveExistingPatient(state, { firstName: "Jame" }, lookup),
+    ).toMatchObject({ outcome: "needs_identity" });
+    expect(state.identity.activePatient).toBeNull();
+    expect(
+      await resolveExistingPatient(
+        state,
+        { firstName: "Jame", lastName: "Doe" },
+        lookup,
+      ),
+    ).toMatchObject({ outcome: "verified" });
+    expect(state.identity.activePatient?.patientId).toBe("patient-1");
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { firstName: "Jane", lastName: "Smith" },
+    { firstName: "Jane", dob: "02/02/1990" },
+  ])("does not ignore conflicting partial identity %j", async (identity) => {
+    const state = createTestCallState({
+      preCallCandidates: [verifiedCandidate("one", "Jane", "patient-1")],
+    });
+    const lookup = vi.fn();
+    const result = await resolveExistingPatient(state, identity, lookup);
+    expect(result.outcome).toBe("needs_identity");
+    expect(state.identity.activePatient).toBeNull();
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("uses a supplied surname to distinguish patients without demanding DOB", async () => {
+    const state = createTestCallState({
+      preCallCandidates: [
+        verifiedCandidate("one", "Jane", "patient-1"),
+        { ...verifiedCandidate("two", "Jane", "patient-2"), lastName: "Smith" },
+      ],
+    });
+    const lookup = vi.fn();
+    const result = await resolveExistingPatient(
+      state,
+      {
+        firstName: "Jane",
+        lastName: "Smith",
+      },
+      lookup,
+    );
+    expect(result.outcome).toBe("verified");
+    expect(state.identity.activePatient?.patientId).toBe("patient-2");
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("collects missing DOB to recover from a different patient on the same phone", async () => {
+    const state = createTestCallState({
+      preCallCandidates: [verifiedCandidate("one", "Jane", "patient-1")],
+    });
+    const lookup = vi.fn(async () =>
+      verifiedResult("patient-2", "Jane Smith", "02/02/1982"),
+    );
+    const partial = await resolveExistingPatient(
+      state,
+      { firstName: "Jane", lastName: "Smith" },
+      lookup,
+    );
+    expect(partial.outcome).toBe("needs_identity");
+    expect(partial.reply).toContain("date of birth");
+    expect(lookup).not.toHaveBeenCalled();
+    expect(state.identity.activePatient).toBeNull();
+    const completed = await resolveExistingPatient(
+      state,
+      {
+        firstName: "Jane",
+        lastName: "Smith",
+        dob: "02/02/1982",
+      },
+      lookup,
+    );
+    expect(completed.outcome).toBe("verified");
+    expect(state.identity.activePatient?.patientId).toBe("patient-2");
+    expect(lookup).toHaveBeenCalledOnce();
+  });
+
+  it("reuses a matching active patient without collecting identity again", async () => {
+    const state = createConfirmedPatientState();
+    const lookup = vi.fn();
+    expect(
+      await resolveExistingPatient(state, { firstName: "Jane" }, lookup),
+    ).toMatchObject({
+      outcome: "verified",
+      reply: "Jane Doe is already the active patient.",
+    });
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("activates a unique supplied first name without requesting DOB", async () => {
     const state = createTestCallState({
       preCallCandidates: [verifiedCandidate("one", "Jane", "patient-1")],
     });
     const lookup = vi.fn();
 
     await expect(
-      confirmCandidateFromTranscript(state, "J-A-N-E", lookup),
-    ).resolves.toBe("activated");
+      resolveExistingPatient(state, { firstName: "J-A-N-E" }, lookup),
+    ).resolves.toMatchObject({ outcome: "verified" });
 
     expect(lookup).not.toHaveBeenCalled();
     expect(state.identity.activePatient).toMatchObject({
@@ -35,7 +182,7 @@ describe("patient identity", () => {
     expect(state.identity.registration).toBeNull();
   });
 
-  it("does not activate an ambiguous transcript match", async () => {
+  it("does not activate an ambiguous first name", async () => {
     const state = createTestCallState({
       preCallCandidates: [
         verifiedCandidate("one", "Jane", "patient-1"),
@@ -44,8 +191,8 @@ describe("patient identity", () => {
     });
 
     await expect(
-      confirmCandidateFromTranscript(state, "Jane", vi.fn()),
-    ).resolves.toBe("ambiguous");
+      resolveExistingPatient(state, { firstName: "Jane" }, vi.fn()),
+    ).resolves.toMatchObject({ outcome: "multiple_matches" });
     expect(state.identity.activePatient).toBeNull();
   });
 
@@ -194,9 +341,6 @@ describe("patient identity", () => {
       lastName: "Patient",
       dob: "03/03/1990",
     });
-    await expect(
-      confirmCandidateFromTranscript(state, "Jane", vi.fn()),
-    ).resolves.toBe("unmatched");
     expect(state.identity.activePatient).toBeNull();
 
     const creation = beginPatientCreation(state);

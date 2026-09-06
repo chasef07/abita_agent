@@ -355,7 +355,7 @@ export type PatientIdentityTransitionOutcome =
 
 export interface PatientIdentityTransitionAnalytics {
   outcome: PatientIdentityTransitionOutcome;
-  source: "caller_transcript" | "resolve_patient" | "create_patient";
+  source: "resolve_patient" | "create_patient";
 }
 
 export interface OfficeKnowledgeRetrievalAnalytics {
