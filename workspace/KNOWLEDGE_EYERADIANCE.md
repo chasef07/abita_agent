@@ -6,13 +6,9 @@ Status: available
 
 If this is a medical emergency, please hang up and dial 911 or go to the nearest emergency room immediately.
 
-To determine urgency:
+New flashes or floaters require immediate transfer to office staff. Follow Human Transfer immediately for sudden vision loss or other eye emergencies.
 
-1. Is the patient experiencing new flashes or floaters?
-2. How long has the symptom been present?
-3. Any sudden or gradual vision loss?
-
-New flashes or floaters are urgent; offer the next available appointment. If unchanged or not new, continue with standard scheduling.
+To determine urgency when symptoms are unclear: Ask only for missing details, such as whether flashes or floaters are new, when symptoms started, or whether vision has changed. If flashes or floaters are unchanged and no eye emergency is described, continue standard scheduling.
 
 ## Location and Contact
 Status: available
@@ -30,7 +26,7 @@ Status: available
 
 Tuesday–Thursday 12:00 PM–5:00 PM. Closed Monday, Friday, Saturday, and Sunday.
 
-Holiday closure: Closed on Memorial Day, Monday, May 25, 2026.
+Holiday closure: Closed on Labor Day, Monday, September 7, 2026.
 
 The Spring Hill office is open Monday–Friday, 8:30 AM–4:30 PM.
 
@@ -42,12 +38,16 @@ If a caller needs to reach the after-hours doctor, provide this number: 727-379-
 ## Scope of Services
 Status: available
 
+Dr. Licht is the only provider for all cataract visits at Crystal River, including cataract evaluations. Offer cataract appointments only with Dr. Licht.
+
 Crystal River is a medical-only office. It sees medical eye conditions such as cataract evaluations with Dr. Licht, glaucoma, eyelid concerns, and flashes or floaters. For cataract evaluations and other medical visits, Crystal River can schedule the in-office evaluation when appropriate. Present only the tests, procedures, and specialty services explicitly listed here; route other availability questions to staff.
 
 Crystal River does not see pediatric ophthalmology and does not schedule routine-vision exams, glasses prescriptions, or contact lens prescriptions.
 
 ## Providers
 Status: available
+
+Dr. Licht is the only provider for all cataract visits at Crystal River, including cataract evaluations. Offer cataract appointments only with Dr. Licht.
 
 ### Dr. Licht (pronounced "Likt")
 

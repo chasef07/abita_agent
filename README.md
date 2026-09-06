@@ -507,6 +507,17 @@ variables from a secure local source before starting the worker. A real call
 also requires LiveKit Cloud credentials, a configured SIP trunk, and reachable
 development dependencies.
 
+Inbound caller audio uses Krisp VIVA telephony voice isolation at the agent's
+session input, before VAD and transcription. Each call gets its own filter with
+LiveKit Cloud authentication and the SDK's default suppression strength. The
+plugin bundles the model; no separate Krisp license or model download is needed.
+Keep enhanced noise cancellation disabled on the SIP trunk and any upstream
+client so audio is processed only once. Voice isolation consumes LiveKit Cloud's
+voice-isolation allowance and is metered beyond it on paid plans. Before rollout,
+verify trunk settings and test quiet callers, speakerphone, background speech,
+and caregivers speaking alongside patients; local checks do not prove live
+audio quality. See [LiveKit's noise cancellation documentation](https://docs.livekit.io/transport/media/noise-cancellation/).
+
 ## Configuration contract
 
 Use [`.env.example`](.env.example) as the canonical variable list.

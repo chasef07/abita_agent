@@ -186,7 +186,7 @@ describe("voice output prompt", () => {
     }
 
     const focusedTriageRule =
-      "Ask one question at a time until the scheduling purpose is clear.";
+      "Triage is complete when the routine purpose is clear";
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
       OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
@@ -241,7 +241,10 @@ describe("tool-first prompt gating", () => {
     expect(prompt).toContain("You speak English and Spanish");
     expect(prompt).toContain("Reply in the caller's current language");
     expect(prompt).toContain(
-      "Ask for spelling when a patient's name is unclear; use a clearly supplied name directly",
+      "If the name is still unclear, ask for spelling; use a clearly supplied name directly.",
+    );
+    expect(prompt).toContain(
+      "When a reply is unclear or seems out of context, clarify only the uncertain detail and keep what is already understood.",
     );
     expect(prompt).toContain(
       "Only confirm a booking, cancellation, rescheduling, insurance update, or patient creation after the matching currently available action succeeds. Complete any prerequisite requested by the available tools first.",
@@ -295,7 +298,7 @@ describe("tool-first prompt gating", () => {
     }
   });
 
-  it("makes purpose-based appointment triage a core responsibility", () => {
+  it("understands the eye concern before classifying the scheduling purpose", () => {
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
       SPRING_HILL_813_TRUNK_PHONE,
@@ -303,6 +306,7 @@ describe("tool-first prompt gating", () => {
       HOLLYWOOD_OFFICE_PHONE,
       NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
+      OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
     ]) {
       const prompt = buildPrompt(phone);
 
@@ -311,14 +315,32 @@ describe("tool-first prompt gating", () => {
         "Before checking availability for a new appointment, understand why the patient is coming in",
       );
       expect(prompt).toContain(
-        "Use medical when the patient needs medical eye care from an ophthalmologist, including a current eye problem, symptom, condition, post-operative concern, or medical evaluation.",
+        "Use medical for a current eye problem, symptom, condition, post-operative concern, or medical evaluation.",
       );
       expect(prompt).toContain(
-        "Use routine_vision when the patient's purpose is limited to routine vision care from an optometrist for glasses, contacts, prescription updates, fittings, or a routine vision exam.",
+        "Use routine_vision when the patient's purpose is limited to glasses, contacts, prescription updates, fittings, or a routine vision exam.",
       );
       expect(prompt).not.toContain("alone do not determine the visit type");
       expect(prompt).toContain(
-        'ask exactly: "Is this for an eye problem or symptom that needs an ophthalmologist, or for routine vision care with an optometrist for glasses or contacts?"',
+        'If the appointment reason is missing, ask: "What are you coming in for?"',
+      );
+      expect(prompt).toContain(
+        'A vague answer like "an eye problem" is not enough. Ask: "What\'s going on with your eye?"',
+      );
+      expect(prompt).toContain(
+        "Triage is complete when the routine purpose is clear, or the caller has described the eye concern and one useful detail, such as which eye or when it started.",
+      );
+      expect(prompt).toContain(
+        "Reuse details already given; ask one focused question at a time for anything missing, then move to patient identity and availability.",
+      );
+      expect(prompt).toContain(
+        "If the caller can only describe a vague eye concern after one focused follow-up, record their words and that limitation as the appointment reason, then continue scheduling. Keep unknown details unknown.",
+      );
+      expect(prompt).toContain(
+        "If the caller describes an eye emergency, follow Human Transfer immediately.",
+      );
+      expect(prompt).not.toContain(
+        "Is this for an eye problem or symptom that needs an ophthalmologist",
       );
       expect(prompt).not.toContain("referral");
       expect(prompt).toContain(
@@ -326,6 +348,37 @@ describe("tool-first prompt gating", () => {
       );
     }
   });
+
+  it.each([
+    ["spring-hill", SPRING_HILL_OFFICE_PHONE],
+    ["crystal-river", CRYSTAL_RIVER_OFFICE_PHONE],
+    ["ophthalmology-demo", OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
+  ] as const)(
+    "keeps retrieved eye-emergency guidance aligned for %s",
+    (office, phone) => {
+      expect(buildPrompt(phone)).toContain(
+        "If the caller describes an eye emergency, follow Human Transfer immediately.",
+      );
+      for (const symptom of [
+        "I have new flashes.",
+        "I have new floaters.",
+        "I have sudden vision loss.",
+        "Tengo pérdida repentina de visión.",
+      ]) {
+        const knowledge = resolveOfficeKnowledge(office, symptom);
+        expect(knowledge).toMatchObject({
+          outcome: "matched",
+          topic: "emergency_urgency",
+        });
+        const content = knowledge.sections.join("\n");
+        expect(content).toContain(
+          "New flashes or floaters require immediate transfer to office staff.",
+        );
+        expect(content).not.toContain("offer the next available appointment");
+        expect(content).toContain("Ask only for missing details");
+      }
+    },
+  );
 
   it.each([SPRING_HILL_OFFICE_PHONE, OPHTHALMOLOGY_DEMO_TRUNK_PHONE])(
     "keeps identity and privacy policy in the static prompt for %s",

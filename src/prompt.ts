@@ -24,5 +24,14 @@ export function buildPrompt(trunkPhone: string): string {
     sections.push(`<${tag}>\n${content}\n</${tag}>`);
   }
 
+  if (
+    ["spring-hill", "crystal-river", "hollywood", "sweetwater"].includes(
+      office.key,
+    )
+  ) {
+    sections.push("We are closed on weekends.");
+    sections.push("We are closed on Labor Day, Monday, September 7, 2026.");
+  }
+
   return sections.join("\n\n");
 }

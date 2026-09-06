@@ -196,7 +196,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "spring-hill",
     displayName: "Abita Eye Group",
     trunkPhones: [SPRING_HILL_OFFICE_PHONE, SPRING_HILL_813_TRUNK_PHONE],
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
     care: {
       medical: {
@@ -216,7 +216,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     displayName: "Eye Radiance",
     trunkPhones: [CRYSTAL_RIVER_OFFICE_PHONE],
     greeting:
-      "Hey this is Maya at Eye Radiance, powered by Abeeta Eye Group. How are you doing today?",
+      "Hi, this is Maya at Eye Radiance, powered by Abeeta Eye Group. How can I help?",
     knowledgeSource: "KNOWLEDGE_EYERADIANCE.md",
     care: {
       medical: {
@@ -236,7 +236,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "hollywood",
     displayName: "Abita Eye Group Hollywood",
     trunkPhones: [HOLLYWOOD_OFFICE_PHONE],
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     knowledgeSource: "KNOWLEDGE_HOLLYWOOD.md",
     care: {
       medical: {
@@ -256,7 +256,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "sweetwater",
     displayName: "Abita Eye Group Sweetwater",
     trunkPhones: [...SWEETWATER_TRUNK_PHONES],
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     knowledgeSource: "KNOWLEDGE_SWEETWATER.md",
     care: {
       medical: {
@@ -276,7 +276,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "north-miami-beach-optical",
     displayName: "North Miami Beach Optical",
     trunkPhones: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     knowledgeSource: "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
     care: {
       medical: { supported: false },
@@ -293,8 +293,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "ophthalmology-demo",
     displayName: "Clearbrook Eye Center",
     trunkPhones: [OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
-    greeting:
-      "Hey this is Maya at Clearbrook Eye Center. How are you doing today?",
+    greeting: "Hi, this is Maya at Clearbrook Eye Center. How can I help?",
     roleFile: "SOUL_OPHTHALMOLOGY_DEMO.md",
     knowledgeSource: "KNOWLEDGE_OPHTHALMOLOGY_DEMO.md",
     care: {
