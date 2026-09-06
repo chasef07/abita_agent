@@ -1,3 +1,4 @@
+import { withNewTampaDemoTools } from "../customers/abita/new-tampa-demo.js";
 import { beta, type ToolContextEntry } from "@livekit/agents";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import type { CallState } from "../state/call-state.js";
@@ -49,6 +50,12 @@ export function buildToolsForTrunk(
     check_insurance,
   ] as const satisfies readonly ToolContextEntry<CallState>[];
   const commonTools = [...coreTools, transfer_call, end_call] as const;
+  if (office.key === "mental-health-demo") {
+    return withNewTampaDemoTools(
+      [...commonTools, create_staff_task],
+      bindSchedulingMiddleware(middleware),
+    );
+  }
   if (office.staffTaskEnabled) {
     return [...commonTools, create_staff_task];
   }

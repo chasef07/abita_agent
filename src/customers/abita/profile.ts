@@ -1,7 +1,5 @@
 // Abita customer profile: office registry for trunk routing, prompts, and tool behavior.
 
-import { MENTAL_HEALTH_DEMO_CONTENT } from "./mental-health-demo.js";
-
 export type OfficeKey =
   | "spring-hill"
   | "crystal-river"
@@ -51,6 +49,7 @@ export const SWEETWATER_TRUNK_PHONES = [
 export const RHEUMATOLOGY_DEMO_TRUNK_PHONE = "+14843989071";
 export const DEMO_BOOKING_OFFICE_PHONE = RHEUMATOLOGY_DEMO_TRUNK_PHONE;
 export const OPHTHALMOLOGY_DEMO_TRUNK_PHONE = "+18027878312";
+// The legacy Product office key stays stable for the repurposed 320 demo.
 export const MENTAL_HEALTH_DEMO_TRUNK_PHONE = "+13207388132";
 export const DEMO_TRANSFER_NUMBER = "+17277092035";
 export const DEMO_OFFICE_KEYS = [
@@ -313,20 +312,20 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
   }),
   "mental-health-demo": defineOffice({
     key: "mental-health-demo",
-    displayName: MENTAL_HEALTH_DEMO_CONTENT.displayName,
+    displayName: "New Tampa Eye Institute",
     trunkPhones: [MENTAL_HEALTH_DEMO_TRUNK_PHONE],
-    greeting: MENTAL_HEALTH_DEMO_CONTENT.greeting,
-    roleFile: MENTAL_HEALTH_DEMO_CONTENT.roleFile,
-    knowledgeSource: MENTAL_HEALTH_DEMO_CONTENT.knowledgeSource,
+    greeting:
+      "Hi, this is Maya at New Tampa Eye Institute. How can I help you today?",
+    roleFile: "SOUL_NEW_TAMPA_DEMO.md",
+    knowledgeSource: "KNOWLEDGE_NEW_TAMPA_DEMO.md",
     care: {
       medical: {
         supported: true,
-        insuranceSource: MENTAL_HEALTH_DEMO_CONTENT.insuranceSource,
+        insuranceSource: "INSURANCE_NEW_TAMPA_DEMO_MEDICAL.json",
       },
       routine_vision: {
-        supported: false,
-        message:
-          "Willowmere Behavioral Health schedules behavioral-health care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
+        supported: true,
+        insuranceSource: "INSURANCE_NEW_TAMPA_DEMO_ROUTINE_VISION.json",
       },
     },
     amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
