@@ -327,21 +327,24 @@ describe("tool-first prompt gating", () => {
     }
   });
 
-  it("keeps identity and privacy policy in the static prompt", () => {
-    const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
+  it.each([SPRING_HILL_OFFICE_PHONE, OPHTHALMOLOGY_DEMO_TRUNK_PHONE])(
+    "keeps identity and privacy policy in the static prompt for %s",
+    (phone) => {
+      const prompt = buildPrompt(phone);
 
-    expect(prompt).toContain("# Patient Identity");
-    expect(prompt).toContain(
-      "call resolve_patient with the intended patient's caller-provided identity",
-    );
-    expect(prompt).toContain("Use null for unknown fields");
-    expect(prompt).toContain(
-      "read it back and wait for confirmation before resolving",
-    );
-    expect(prompt).not.toContain("<caller_identity_hint>");
-    expect(prompt).not.toContain("middleware_error");
-    expect(prompt).not.toContain("+17275551212");
-  });
+      expect(prompt).toContain("# Patient Identity");
+      expect(prompt).toContain(
+        "call resolve_patient with the intended patient's caller-provided identity",
+      );
+      expect(prompt).toContain("Use null for unknown fields");
+      expect(prompt).toContain(
+        "read it back and wait for confirmation before resolving",
+      );
+      expect(prompt).not.toContain("<caller_identity_hint>");
+      expect(prompt).not.toContain("middleware_error");
+      expect(prompt).not.toContain("+17275551212");
+    },
+  );
 
   it("requires a reason and supported help before an avoidable transfer", () => {
     const prompt = buildPrompt(HOLLYWOOD_OFFICE_PHONE);
