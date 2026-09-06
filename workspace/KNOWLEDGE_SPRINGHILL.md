@@ -6,13 +6,9 @@ Status: available
 
 If this is a medical emergency, please hang up and dial 911 or go to the nearest emergency room immediately.
 
-To determine urgency:
+New flashes or floaters require immediate transfer to office staff. Follow Human Transfer immediately for sudden vision loss or other eye emergencies.
 
-1. Is the patient experiencing new flashes or floaters?
-2. How long has the symptom been present?
-3. Any sudden or gradual vision loss?
-
-New flashes or floaters are urgent; offer the next available appointment. If unchanged or not new, continue with standard scheduling.
+To determine urgency when symptoms are unclear: Ask only for missing details, such as whether flashes or floaters are new, when symptoms started, or whether vision has changed. If flashes or floaters are unchanged and no eye emergency is described, continue standard scheduling.
 
 ## Location and Contact
 Status: available
