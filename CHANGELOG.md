@@ -1,5 +1,23 @@
 # Changelog
 
+## [4.14.0](https://github.com/chasef07/abita_agent/compare/4.13.6...4.14.0) (2026-09-06)
+
+
+### Features
+
+* **scheduling:** share appointment inventory across booking and rescheduling ([#399](https://github.com/chasef07/abita_agent/issues/399)) ([a67cce2](https://github.com/chasef07/abita_agent/commit/a67cce28f378ff173c9a0a89db536aba000b6004))
+
+
+### Bug Fixes
+
+* **knowledge:** recognize BrightView identity questions at NMB ([#398](https://github.com/chasef07/abita_agent/issues/398)) ([24e6550](https://github.com/chasef07/abita_agent/commit/24e65506d4b11894751890d306a15805e3f97f22))
+
+
+### Performance Improvements
+
+* enable preemptive generation with current turn context ([#395](https://github.com/chasef07/abita_agent/issues/395)) ([d286d54](https://github.com/chasef07/abita_agent/commit/d286d54db4ad46656b1a6e2bc087386bba744417))
+* remove sentence buffering from speech guard ([#396](https://github.com/chasef07/abita_agent/issues/396)) ([615cd5f](https://github.com/chasef07/abita_agent/commit/615cd5f76c29bf6c46009bcbfc41f82869d6b236))
+
 ## [4.13.6](https://github.com/chasef07/abita_agent/compare/4.13.5...4.13.6) (2026-09-04)
 
 
