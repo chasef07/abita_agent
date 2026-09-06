@@ -414,7 +414,7 @@ transcripts to public issues, pull requests, or logs.
 | --- | --- | --- |
 | Patient identity | `resolve_patient`, `add_patient` | Verified or created patient result plus Identity Promotion |
 | Insurance | `check_insurance`, `update_insurance` | Office policy or successful middleware update |
-| Scheduling | `get_availability`, `book_appointment`, `cancel_appointment`, `reschedule_appointment` | Scheduling Workflow state plus successful middleware result |
+| Scheduling | `list_available_appointments`, `book_appointment`, `cancel_appointment`, `reschedule_appointment` | Scheduling Workflow state plus successful middleware result |
 | Staff follow-up | `create_staff_task` when enabled by Office Profile | Portal task receipt |
 | Human help | `transfer_call` | Accepted SIP transfer state |
 | Conversation completion | LiveKit end-call tool | Session close event |

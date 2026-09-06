@@ -66,9 +66,9 @@ const cancel_appointment = toolForTrunk(
   SPRING_HILL_OFFICE_PHONE,
   "cancel_appointment",
 )!;
-const get_availability = toolForTrunk(
+const list_available_appointments = toolForTrunk(
   HOLLYWOOD_OFFICE_PHONE,
-  "get_availability",
+  "list_available_appointments",
 )!;
 const reschedule_appointment = toolForTrunk(
   SPRING_HILL_OFFICE_PHONE,
@@ -148,10 +148,13 @@ describe("office routing helpers", () => {
   });
 
   it("makes availability office selection match the inbound trunk", () => {
-    const hollywood = toolForTrunk(HOLLYWOOD_OFFICE_PHONE, "get_availability");
+    const hollywood = toolForTrunk(
+      HOLLYWOOD_OFFICE_PHONE,
+      "list_available_appointments",
+    );
     const springHill = toolForTrunk(
       SPRING_HILL_OFFICE_PHONE,
-      "get_availability",
+      "list_available_appointments",
     );
     const hollywoodSchema = z.toJSONSchema(hollywood!.parameters);
     const springHillSchema = z.toJSONSchema(springHill!.parameters);
@@ -267,8 +270,8 @@ describe("tool-first prompt gating", () => {
     expect(prompt).not.toContain(
       "Use resolve_patient for patient-specific work when internal state has not already confirmed the patient.",
     );
-    expect(get_availability.description).toContain(
-      "claim success only after book_appointment succeeds",
+    expect(list_available_appointments.description).toContain(
+      "Book the confirmed reference with book_appointment",
     );
     expect(prompt).not.toContain("Today is");
     expect(prompt).not.toContain("The current time is");
@@ -402,7 +405,7 @@ describe("rheumatology demo", () => {
     const names = toolNamesForTrunk(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
 
     expect(names).toContain("check_insurance");
-    expect(names).toContain("get_availability");
+    expect(names).toContain("list_available_appointments");
     expect(names).toContain("book_appointment");
     expect(names).toContain("end_call");
     expect(names).toContain("transfer_call");
@@ -875,7 +878,7 @@ describe("model-facing tool definitions", () => {
         "cancel_appointment",
         "check_insurance",
         "create_staff_task",
-        "get_availability",
+        "list_available_appointments",
         "reschedule_appointment",
         "resolve_patient",
         "transfer_call",
@@ -1035,81 +1038,75 @@ describe("model-facing tool definitions", () => {
   });
 
   it("keeps availability execution tied to core appointment triage", () => {
-    expect(get_availability.description).toContain(
-      "after triage using the caller's date and time words verbatim",
+    expect(list_available_appointments.description).toContain("after triage");
+    expect(list_available_appointments.description).toContain(
+      "Offer only returned slots",
     );
-    expect(get_availability.description).toContain("Offer only returned slots");
-    expect(get_availability.description).not.toContain("appointmentLane");
-    expect(get_availability.description).not.toContain("bach_only routing");
-    expect(get_availability.description).not.toContain(
+    expect(list_available_appointments.description).not.toContain(
+      "appointmentLane",
+    );
+    expect(list_available_appointments.description).not.toContain(
+      "bach_only routing",
+    );
+    expect(list_available_appointments.description).not.toContain(
       "Under 18 medical visits = Dr. Bach only",
     );
 
-    const parameters = get_availability.parameters as {
+    const parameters = list_available_appointments.parameters as {
       safeParse: (value: unknown) => { success: boolean };
       shape: {
-        oldAppointmentRef: { description?: string };
         office: { description?: string };
         visitType: { description?: string };
-        when: { description?: string };
+        range: { description?: string };
       };
     };
     expect(parameters.shape.visitType.description).toContain(
-      "Triaged type for new visits",
-    );
-    expect(parameters.shape.oldAppointmentRef.description).toContain(
-      "Confirmed loaded appointment reference",
+      "Visit type for this availability",
     );
     expect(parameters.shape.office.description).toContain(
       "Caller-selected Hollywood or Sweetwater office",
     );
-    expect(parameters.shape.when.description).toContain(
-      "Caller's date and time phrase verbatim",
+    expect(parameters.shape.range.description).toContain(
+      "Load the next 14 days",
     );
-    expect(parameters.shape.when.description).toContain("next available");
+    expect(parameters.shape.range.description).toContain("90");
     expect(Object.keys(parameters.shape)).toEqual([
-      "when",
+      "range",
       "visitType",
-      "oldAppointmentRef",
       "office",
     ]);
     expect(
       parameters.safeParse({
-        when: "next Tuesday around 3 PM",
+        range: "default",
         visitType: "medical",
-        oldAppointmentRef: null,
         office: "hollywood",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "next Tuesday around 3 PM",
+        range: "default",
         visitType: null,
-        oldAppointmentRef: "appointment-loaded",
         office: "hollywood",
       }).success,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "tomorrow morning",
+        range: "default",
         visitType: "medical",
-        oldAppointmentRef: null,
         office: "sweetwater",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "tomorrow",
+        range: "default",
         visitType: "medical",
-        oldAppointmentRef: null,
         office: "spring-hill",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "tomorrow",
+        range: "default",
         visitType: "medical",
-        oldAppointmentRef: null,
         timePreference: "evening",
       }).success,
     ).toBe(false);
@@ -1122,17 +1119,15 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "June 1",
+        range: "default",
         visitType: "routine_vision",
-        oldAppointmentRef: null,
         office: "hollywood",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "June 1",
+        range: "default",
         visitType: "unknown",
-        oldAppointmentRef: null,
         office: "hollywood",
       }).success,
     ).toBe(false);
@@ -1144,14 +1139,14 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "next Wednesday",
+        range: "default",
         date: "2026-06-01",
         visitType: "medical",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "next Wednesday",
+        range: "default",
         appointmentLane: "medical_md",
       }).success,
     ).toBe(false);
@@ -1423,24 +1418,25 @@ describe("model-facing tool definitions", () => {
     ]);
     expect(
       parameters.safeParse({
+        oldAppointmentRef: "A1",
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        oldAppointmentRef: null,
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
+        oldAppointmentRef: "A1",
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: null,
-        oldAppointmentRef: "old-appointment-2-abc123",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
+        oldAppointmentRef: "A1",
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
@@ -1477,6 +1473,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
+        oldAppointmentRef: "A1",
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
@@ -1491,6 +1488,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
+        oldAppointmentRef: "A1",
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
       }).success,

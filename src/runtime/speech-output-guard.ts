@@ -24,7 +24,7 @@ const TOOL_MARKERS = [
   "resolve_patient",
   "add_patient",
   "update_insurance",
-  "get_availability",
+  "list_available_appointments",
   "cancel_appointment",
   "book_appointment",
   "reschedule_appointment",

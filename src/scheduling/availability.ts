@@ -22,8 +22,6 @@ type AvailabilityToolResponse = {
 
 type AvailableSlotsResult = Exclude<AvailabilityResult, MiddlewareFailure>;
 
-const MAX_AVAILABILITY_SLOT_OFFERS = 2;
-
 export function selectedAvailabilitySlot(
   state: CallState,
   slotId: string,
@@ -50,32 +48,28 @@ export function storeAvailabilitySlots(
     );
   }
 
-  const offeredSlots = distinctAvailabilitySlots(result.slots).slice(
-    0,
-    MAX_AVAILABILITY_SLOT_OFFERS,
+  // A partial read cannot establish the full calendar. Do not expose it as inventory.
+  const offeredSlots =
+    result.status === "incomplete"
+      ? []
+      : distinctAvailabilitySlots(result.slots);
+  const existingSlots = new Map(
+    availabilitySlotsForState(state).map((slot) => [storedSlotKey(slot), slot]),
   );
-  const existingSlots = availabilitySlotsForState(state);
   const candidates = offeredSlots.map((slot) =>
     storedAvailabilitySlot(slot, "", routing),
   );
   const missingSlotIds = reserveAvailabilitySlotIds(
     state,
-    candidates.filter(
-      (candidate) =>
-        !existingSlots.some((existing) =>
-          sameStoredAvailabilitySlot(existing, candidate),
-        ),
-    ).length,
+    candidates.filter((slot) => !existingSlots.has(storedSlotKey(slot))).length,
   );
-  const storedSlots = candidates.map((candidate) => {
-    const existing = existingSlots.find((slot) =>
-      sameStoredAvailabilitySlot(slot, candidate),
-    );
-    return {
-      ...candidate,
-      slotId: existing?.slotId ?? missingSlotIds.shift() ?? "",
-    };
-  });
+  let nextId = 0;
+  const storedSlots = candidates.map((slot) => ({
+    ...slot,
+    slotId:
+      existingSlots.get(storedSlotKey(slot))?.slotId ??
+      missingSlotIds[nextId++]!,
+  }));
 
   replaceAvailabilitySlots(state, storedSlots, routing);
   offeredSlots.forEach((slot, index) => {
@@ -105,15 +99,23 @@ function availabilityMessage(
     return `I couldn't finish checking availability ${searchedRange}. Let me try once more.`;
   }
 
-  const primarySlot = slots[0];
-  if (!primarySlot) {
-    return `I couldn't find a usable opening ${searchedRange}. Let me check once more.`;
+  if (slots.length === 0) {
+    return "I couldn't find a usable opening. Call list_available_appointments once more.";
   }
-  const backupSlot = slots[1];
-  if (backupSlot) {
-    return `I found ${spokenAvailabilitySlot(primarySlot)}, or ${spokenAvailabilitySlot(backupSlot)}. Which works better?`;
-  }
-  return `I found ${spokenAvailabilitySlot(primarySlot)}. Does that work for you?`;
+  const dates = new Map(
+    [...new Set(slots.map((slot) => slot.date))].map((date) => [
+      date,
+      spokenAppointmentDate(date),
+    ]),
+  );
+  return [
+    `Loaded ${slots.length} eligible appointments ${searchedRange}. All times are Eastern.`,
+    "Use this list to match the caller's requested days and times. Offer at most two choices, then wait. For follow-up preferences within this range, use this list without another lookup. Never invent a time or silently ignore a constraint. If nothing fits, explain that and ask whether an alternative works. Slot references are private; book only the caller-confirmed reference after read-back.",
+    ...slots.map(
+      (slot) =>
+        `${slot.slotId} — ${dates.get(slot.date)} at ${slot.time} with ${slot.provider}`,
+    ),
+  ].join("\n");
 }
 
 function spokenSearchRange(result: AvailableSlotsResult): string {
@@ -133,6 +135,7 @@ function storedAvailabilitySlot(
   const provider = publicProviderName(slot.provider);
   const date = slot.date || (slot.datetime.split("T")[0] ?? "");
   return {
+    inventoryKey: slot.key ?? `${slot.provider}|${slot.datetime}`,
     slotId,
     provider,
     date,
@@ -145,46 +148,21 @@ function storedAvailabilitySlot(
 function distinctAvailabilitySlots(
   slots: AvailabilitySlot[],
 ): AvailabilitySlot[] {
-  const distinct: AvailabilitySlot[] = [];
+  const unique = new Map<string, AvailabilitySlot>();
   for (const slot of slots) {
-    const existingIndex = distinct.findIndex((candidate) =>
-      sameAvailabilitySlot(candidate, slot),
-    );
-    if (existingIndex < 0) {
-      distinct.push(slot);
-    } else if (
-      !distinct[existingIndex]?.bookingToken?.trim() &&
-      slot.bookingToken?.trim()
-    ) {
-      distinct[existingIndex] = slot;
-    }
+    const key = slot.key ?? `${slot.provider}|${slot.datetime}`;
+    const previous = unique.get(key);
+    if (
+      !previous ||
+      (!previous.bookingToken?.trim() && slot.bookingToken?.trim())
+    )
+      unique.set(key, slot);
   }
-  return distinct;
+  return [...unique.values()];
 }
 
-function sameAvailabilitySlot(
-  left: AvailabilitySlot,
-  right: AvailabilitySlot,
-): boolean {
-  return (
-    left.date === right.date &&
-    left.time === right.time &&
-    left.provider === right.provider &&
-    left.datetime === right.datetime
-  );
-}
-
-function sameStoredAvailabilitySlot(
-  left: StoredAvailabilitySlot,
-  right: StoredAvailabilitySlot,
-): boolean {
-  return (
-    left.date === right.date &&
-    left.time === right.time &&
-    left.provider === right.provider &&
-    left.datetime === right.datetime &&
-    left.routing === right.routing
-  );
+function storedSlotKey(slot: StoredAvailabilitySlot): string {
+  return `${slot.inventoryKey ?? `${slot.provider}|${slot.datetime}`}|${slot.routing}`;
 }
 
 function normalizeSlotId(slotId: string): string {
@@ -201,21 +179,22 @@ export function publicProviderName(provider: string): string {
 
 export function availabilityModelProjection(state: CallState): string {
   const slots = availabilitySlotsForState(state);
-  if (slots.length === 0) return "";
-  const options = slots
-    .map((slot) => `${slot.slotId} is ${spokenAvailabilitySlot(slot)}`)
-    .join("; ");
-  return `Available appointment slots: ${options}. Keep the references private and use the matching value as appointmentSlotRef only after the caller confirms a slot.`;
-}
-
-function spokenAvailabilitySlot(slot: StoredAvailabilitySlot): string {
-  const dateTime = [spokenAppointmentDate(slot.date), slot.time]
-    .filter(Boolean)
-    .join(" at ");
-  const spoken = [dateTime, slot.provider ? `with ${slot.provider}` : ""]
-    .filter(Boolean)
-    .join(" ");
-  return spoken;
+  if (
+    state.availability.refreshAfter !== undefined &&
+    Date.now() >= state.availability.refreshAfter
+  ) {
+    return "The loaded appointment inventory is stale. Call list_available_appointments to refresh before offering further times. A caller-confirmed selection still requires middleware booking revalidation.";
+  }
+  if (slots.length === 0) {
+    if (state.availability.refreshAfter !== undefined) {
+      return "The current appointment inventory is empty. Earlier appointment lists are invalid. Use the latest lookup's coverage when explaining availability; expand the range if the caller wants later dates.";
+    }
+    return state.availability.version !== undefined ||
+      state.availability.nextSlotIndex > 0
+      ? "No appointment inventory is active for the current patient, office, and visit. All earlier appointment lists are invalid. Load current appointments before offering times."
+      : "";
+  }
+  return `Current appointment inventory has ${slots.length} slots (${slots[0]?.slotId} through ${slots.at(-1)?.slotId}). Inventory revision ${state.availability.version ?? 0}. Use the most recent list_available_appointments result for dates and times; earlier patient or office inventories are invalid. Keep slot references private and use appointmentSlotRef only after the caller confirms the exact appointment.`;
 }
 
 function completeAvailabilityResult(result: AvailableSlotsResult): boolean {

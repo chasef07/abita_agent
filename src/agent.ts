@@ -32,7 +32,7 @@ import {
   clinicTimestampMessage,
   systemSchedulingClock,
   type SchedulingClock,
-} from "./scheduling/availability-when.js";
+} from "./scheduling/clock.js";
 import { availabilityModelProjection } from "./scheduling/availability.js";
 import { guardAssistantSpeech } from "./runtime/speech-output-guard.js";
 

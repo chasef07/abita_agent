@@ -2,10 +2,7 @@ import { tool } from "@livekit/agents";
 import { z } from "zod";
 import { getState } from "../tools/session.js";
 import type { SchedulingMiddleware } from "./middleware.js";
-import {
-  systemSchedulingClock,
-  type SchedulingClock,
-} from "./availability-when.js";
+import { systemSchedulingClock, type SchedulingClock } from "./clock.js";
 import { returnSchedulingInputRequired } from "./input-required.js";
 import { SchedulingWorkflow } from "./workflow.js";
 
@@ -27,7 +24,7 @@ const bookAppointmentParameters = z
       .trim()
       .min(1)
       .describe(
-        "Opaque get_availability reference for the caller-confirmed slot.",
+        "Opaque list_available_appointments reference for the caller-confirmed slot.",
       ),
     appointmentReason: z
       .string()
@@ -52,7 +49,7 @@ const bookAppointmentParameters = z
   })
   .strict();
 
-const cancelAppointmentParameters = z
+const loadedAppointmentParameters = z
   .object({
     appointmentRef: z
       .string()
@@ -66,9 +63,13 @@ const cancelAppointmentParameters = z
 
 const rescheduleAppointmentParameters = bookAppointmentParameters
   .extend({
+    oldAppointmentRef:
+      loadedAppointmentParameters.shape.appointmentRef.describe(
+        "Opaque reference of the caller-confirmed existing appointment to move.",
+      ),
     appointmentSlotRef:
       bookAppointmentParameters.shape.appointmentSlotRef.describe(
-        "Opaque get_availability reference for the confirmed new slot.",
+        "Opaque list_available_appointments reference for the confirmed new slot.",
       ),
     appointmentReason:
       bookAppointmentParameters.shape.appointmentReason.describe(
@@ -77,14 +78,6 @@ const rescheduleAppointmentParameters = bookAppointmentParameters
     readBack: bookAppointmentParameters.shape.readBack.describe(
       "True only after the caller confirms the new date, time, and provider read-back; otherwise null.",
     ),
-    oldAppointmentRef: z
-      .string()
-      .trim()
-      .min(1)
-      .nullable()
-      .describe(
-        "Opaque old-appointment reference when multiple appointments are loaded; otherwise null.",
-      ),
   })
   .strict();
 
@@ -97,26 +90,16 @@ export function createSchedulingTools(
   const { availabilityOfficeMode } = options;
 
   const availabilityFields = {
-    when: z
-      .string()
-      .trim()
-      .min(1)
+    range: z
+      .enum(["default", "+2week", "+1month", "+3month"])
+      .default("default")
       .describe(
-        "Caller's date and time phrase verbatim, including next available or a time preference.",
+        "Load the next 14 days by default, 30 days for +1month, or 90 for +3month. Infer the range from the conversation. Reuse loaded appointments for day/time preferences; expand only when the caller needs dates outside the loaded range.",
       ),
     visitType: z
       .enum(["medical", "routine_vision"])
-      .nullable()
       .describe(
-        "Triaged type for new visits: medical or routine_vision; null for reschedules.",
-      ),
-    oldAppointmentRef: z
-      .string()
-      .trim()
-      .min(1)
-      .nullable()
-      .describe(
-        "Confirmed loaded appointment reference for a reschedule; otherwise null.",
+        "Visit type for this availability: medical or routine_vision, for either a new booking or a reschedule.",
       ),
   };
   const officeField = z
@@ -131,12 +114,13 @@ export function createSchedulingTools(
         : availabilityFields,
     )
     .strict();
-  const get_availability = tool({
-    name: "get_availability",
+  const list_available_appointments = tool({
+    name: "list_available_appointments",
     description:
-      "Search appointment slots after triage using the caller's date and time words verbatim. " +
-      "For a new visit, pass visitType; for a reschedule, identify the loaded appointment and leave visitType null. " +
-      "Offer only returned slots; this tool does not book, so claim success only after book_appointment succeeds.",
+      "Load eligible appointments after triage: 14 days by default, optionally 30 or 90. " +
+      "Offer only returned slots, at most two at a time. Match follow-up preferences from the loaded list. " +
+      "Pass the appropriate medical or routine_vision visitType for either booking or rescheduling. " +
+      "Book the confirmed reference with book_appointment, or reschedule_appointment for an existing visit.",
     parameters: availabilityParameters,
     execute: async (args, { ctx, abortSignal }): Promise<string> => {
       ctx.disallowInterruptions();
@@ -145,11 +129,8 @@ export function createSchedulingTools(
         workflow.getAvailability(
           getState(ctx),
           {
-            when: args.when,
+            range: args.range,
             ...(office ? { office } : {}),
-            ...(args.oldAppointmentRef
-              ? { oldAppointmentRef: args.oldAppointmentRef }
-              : {}),
             appointmentLane: args.visitType
               ? APPOINTMENT_LANE_BY_VISIT_TYPE[args.visitType]
               : undefined,
@@ -164,7 +145,7 @@ export function createSchedulingTools(
     name: "book_appointment",
     onDuplicate: "reject",
     description:
-      "Book a new appointment using a caller-confirmed slot from get_availability; use reschedule_appointment to move an existing appointment. " +
+      "Book a new appointment using a caller-confirmed slot from list_available_appointments; use reschedule_appointment to move an existing appointment. " +
       "Call only after confirmation of the exact date, time, and provider and after collecting a referring doctor or none. " +
       "Claim booking success only from this tool's successful result; duplicate calls are rejected.",
     parameters: bookAppointmentParameters,
@@ -191,7 +172,7 @@ export function createSchedulingTools(
       "Cancel a loaded appointment only after patient verification and confirmation of the exact appointment. " +
       "Pass its opaque call-scoped appointmentRef; the tool validates it against current state. " +
       "Claim cancellation success only from this tool's result, and do not retry a completed cancellation.",
-    parameters: cancelAppointmentParameters,
+    parameters: loadedAppointmentParameters,
     execute: async (args, { ctx, toolCallId }): Promise<string> => {
       ctx.disallowInterruptions();
       const state = getState(ctx);
@@ -205,7 +186,7 @@ export function createSchedulingTools(
     name: "reschedule_appointment",
     onDuplicate: "reject",
     description:
-      "Move a verified patient's loaded appointment to a caller-confirmed slot from get_availability after collecting a referring doctor or none. " +
+      "Move a verified patient's loaded appointment to a caller-confirmed slot from list_available_appointments after collecting a referring doctor or none. " +
       "Require confirmation of the old appointment and a read-back of the new date, time, and provider; use only opaque call-scoped references. " +
       "This tool books first, then cancels the old appointment; report partial success if cancellation fails, and never retry the booking.",
     parameters: rescheduleAppointmentParameters,
@@ -217,7 +198,6 @@ export function createSchedulingTools(
           state,
           {
             ...args,
-            oldAppointmentRef: args.oldAppointmentRef ?? undefined,
             readBack: args.readBack ?? undefined,
           },
           toolCallId,
@@ -227,7 +207,7 @@ export function createSchedulingTools(
   });
 
   return {
-    get_availability,
+    list_available_appointments,
     book_appointment,
     cancel_appointment,
     reschedule_appointment,
