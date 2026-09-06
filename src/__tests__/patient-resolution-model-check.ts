@@ -1,8 +1,8 @@
 // Opt-in, paid LLM check. Uses synthetic records and never executes middleware.
-// Load LiveKit credentials in the environment before running with tsx.
-import { inference, llm, initializeLogger } from "@livekit/agents";
+// Load Baseten and LiveKit credentials in the environment before running with tsx.
+import { llm, initializeLogger } from "@livekit/agents";
 import { buildPrompt } from "../prompt.js";
-import { primaryLLMOptions, fallbackLLMOptions } from "../model-config.js";
+import { createLlmPair } from "../model-config.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import { patientModelProjection } from "../identity/patient-identity.js";
@@ -90,8 +90,8 @@ const tools = buildToolsForTrunk(middleware, SPRING_HILL_OFFICE_PHONE);
 const parameters = createResolvePatientTool(middleware).parameters;
 let failures = 0;
 
-for (const config of [primaryLLMOptions, fallbackLLMOptions]) {
-  const model = new inference.LLM({ ...config, inferenceClass: "low" });
+const { primary, fallback } = createLlmPair();
+for (const model of [primary, fallback]) {
   model.on("error", () => {});
   try {
     for (const scenario of scenarios) {
@@ -135,6 +135,7 @@ for (const config of [primaryLLMOptions, fallbackLLMOptions]) {
           .chat({
             chatCtx,
             toolCtx: tools,
+            ...(model === fallback ? { inferenceClass: "low" as const } : {}),
             connOptions: { maxRetry: 0, timeoutMs: 20_000, retryIntervalMs: 0 },
           })
           .collect();
@@ -157,7 +158,7 @@ for (const config of [primaryLLMOptions, fallbackLLMOptions]) {
         if (!passed) failures += 1;
         console.log(
           JSON.stringify({
-            model: config.model,
+            model: model.model,
             scenario: scenario.id,
             passed,
           }),
@@ -166,7 +167,7 @@ for (const config of [primaryLLMOptions, fallbackLLMOptions]) {
         failures += 1;
         console.log(
           JSON.stringify({
-            model: config.model,
+            model: model.model,
             scenario: scenario.id,
             passed: false,
             reason: "request_or_response_failed",

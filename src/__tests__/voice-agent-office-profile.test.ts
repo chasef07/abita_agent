@@ -174,7 +174,7 @@ const officeBehaviors: OfficeBehavior[] = [
   {
     amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
     displayName: "Abita Eye Group Hollywood",
-    englishSpeaker: "wawona",
+    englishSpeaker: "luz",
     greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
     handoff: {
       mode: "call-center",

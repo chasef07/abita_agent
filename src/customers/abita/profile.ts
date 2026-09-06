@@ -249,6 +249,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       },
     },
     amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
+    englishSpeaker: "luz",
     staffTaskEnabled: true,
   }),
   sweetwater: defineOffice({

@@ -28,7 +28,7 @@ flowchart TD
     carrier["SIP carrier and trunk"]
     livekit["LiveKit Cloud<br/>room · media · job dispatch"]
     worker["Voice Agent worker<br/>one job per call<br/>policy · state · tools · closeout"]
-    speech["Speech and model providers<br/>AssemblyAI · LiveKit Inference · Rime"]
+    speech["Speech and model providers<br/>AssemblyAI · Baseten · LiveKit Inference · Rime"]
     middleware["Owned Middleware<br/>patient and scheduling outcomes"]
     records["Clinical system of record"]
     portal["Acuity Portal<br/>call evidence · Staff Tasks"]
@@ -486,7 +486,7 @@ pnpm typecheck
 pnpm test
 ```
 
-With LiveKit credentials exported, an opt-in check exercises the configured
+With Baseten and LiveKit credentials exported, an opt-in check exercises the configured
 primary and fallback models against synthetic patient-resolution cases:
 
 ```bash
@@ -511,9 +511,14 @@ development dependencies.
 
 Use [`.env.example`](.env.example) as the canonical variable list.
 
+The primary LLM is `zai-org/GLM-5.3-Flash` through Baseten with `low` reasoning.
+The fallback is `google/gemma-4-31b-it` through LiveKit Inference. Both retain
+a 512 completion-token limit and strict, sequential tool calls.
+
 | Variables | Purpose | Requirement |
 | --- | --- | --- |
 | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | Worker connection and SIP transfer | Required for connected calls |
+| `BASETEN_API_KEY` | Primary GLM 5.3 Flash LLM | Required |
 | `RIME_API_KEY` | Text-to-speech | Required |
 | `AMD_API_URL`, `AMD_API_TOKEN` | Owned middleware base URL and authentication | Required for patient and scheduling workflows |
 | `ACUITY_PRODUCT_INTERACTION_URL`, `ACUITY_DEMO_PRODUCT_SERVICE_SECRET`, `ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET` | Product-owned AI interaction lifecycle and outcome delivery, selected after inbound Office Profile resolution | All three are required at production startup |
