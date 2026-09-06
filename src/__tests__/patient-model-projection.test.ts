@@ -12,6 +12,7 @@ import { createToolContext } from "./support/tool-context.js";
 import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
+import { replaceActiveAppointments } from "../state/appointments.js";
 import { patientModelProjection } from "../identity/patient-identity.js";
 import {
   clearAvailabilitySelection,
@@ -217,6 +218,48 @@ describe("patient model projection", () => {
       );
     },
   );
+
+  it("exposes the matching visit category beside each loaded appointment reference in model input", async () => {
+    const model = new ContextCapturingFakeLLM([
+      { input: "Move my appointment.", content: "I can help move that visit." },
+    ]);
+    const session = new AgentSession({ llm: model });
+    sessions.push(session);
+    const state = createConfirmedPatientState();
+    replaceActiveAppointments(
+      state,
+      [1007, 4245].map((appointmentTypeId, index) => ({
+        id: 100 + index,
+        appointmentTypeId,
+        type: "Appointment",
+        date: "2026-09-10",
+        time: "9:00 AM",
+        provider: "Dr. Smith",
+        facility: "Spring Hill",
+        confirmed: true,
+        cancellationToken: "private-cancellation-token",
+        rescheduleToken: "private-reschedule-token",
+      })),
+      "found",
+    );
+    session.userData = state;
+    await session.start({
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware,
+        suppressGreeting: true,
+      }).agent,
+    });
+    await session.run({ userInput: "Move my appointment." }).wait();
+    const input = JSON.stringify(model.requests[0]);
+    for (const [index, visitType] of ["medical", "routine_vision"].entries()) {
+      const ref =
+        state.identity.activePatient!.appointments[index]!.appointmentRef;
+      expect(input).toContain(`appointmentRef ${ref}, visitType ${visitType}`);
+    }
+    expect(input).not.toMatch(
+      /private-cancellation-token|private-reschedule-token|appointmentTypeId/,
+    );
+  });
 
   it("identifies current inventory without duplicating the tool-result calendar", () => {
     const state = createConfirmedPatientState();

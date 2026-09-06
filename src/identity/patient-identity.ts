@@ -34,7 +34,10 @@ import {
   appointmentStatusFromResult,
   extractAppointments,
 } from "../scheduling/appointments.js";
-import { getAmdOfficeForToolCall } from "../scheduling/routing.js";
+import {
+  getAmdOfficeForToolCall,
+  visitTypeForAppointment,
+} from "../scheduling/routing.js";
 import { spokenAppointmentDate } from "../scheduling/spoken-date.js";
 import {
   dobMatches,
@@ -1114,7 +1117,7 @@ function spokenCallerAppointment(appointment: CallerAppointment): string {
 function spokenInternalAppointment(appointment: CallerAppointment): string {
   const spoken = spokenCallerAppointment(appointment);
   return appointment.appointmentRef
-    ? `${spoken} (appointmentRef ${appointment.appointmentRef})`
+    ? `${spoken} (appointmentRef ${appointment.appointmentRef}, visitType ${visitTypeForAppointment(appointment)})`
     : spoken;
 }
 
