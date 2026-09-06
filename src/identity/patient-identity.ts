@@ -42,8 +42,8 @@ import { spokenAppointmentDate } from "../scheduling/spoken-date.js";
 import {
   dobMatches,
   isValidPatientDOB,
-  nameMatchStrength,
   namesMatch,
+  phoneCandidateFirstNameMatches,
 } from "./name-matcher.js";
 
 export interface PatientLookupIdentity {
@@ -160,7 +160,10 @@ export async function resolveExistingPatient(
   if (!hasFullIdentity(identity)) {
     return recordResolutionOutcome(state, {
       outcome: "needs_identity",
-      reply: missingIdentityReply(identity),
+      reply:
+        state.identity.privateCandidates.length > 0 && identity.firstName
+          ? "Ask the caller to spell the patient's first name, then retry with their spelling. If they have already spelled it, collect any missing last name or confirmed date of birth to look up the intended patient."
+          : missingIdentityReply(identity),
     });
   }
 
@@ -464,6 +467,21 @@ export function patientModelProjection(state: CallState): string {
       return "Patient situation: new-patient registration is in progress; no patient chart is active.";
     }
     const count = state.identity.privateCandidates.length;
+    const firstNameSpellings = [
+      ...new Set(
+        state.identity.privateCandidates.flatMap(({ firstName }) => {
+          const name = firstName?.trim().normalize("NFC");
+          if (!name) return [];
+          return [
+            name
+              .toUpperCase()
+              .split(/\s+/u)
+              .map((word) => Array.from(word).join("-"))
+              .join(" "),
+          ];
+        }),
+      ),
+    ];
     const lookup =
       count > 0
         ? `Phone lookup found ${count} possible patient${count === 1 ? "" : "s"}. For patient-specific work, ask only for the intended patient's first name if unknown. Once supplied, call resolve_patient immediately; a firstName alone is enough to try the phone matches. Ask for a last name or DOB only if resolve_patient requests it. Include any identity already supplied, confirming a supplied DOB before resolving.`
@@ -472,7 +490,10 @@ export function patientModelProjection(state: CallState): string {
           : state.runtime.preCallLookup.status === "no_match"
             ? "Phone lookup found no matches; the patient may still be registered. Use resolve_patient with caller-provided identity to look up the record."
             : "Phone lookup has not provided patient candidates. Use resolve_patient with caller-provided identity for patient-specific work.";
-    return `Patient situation: no patient is active. ${lookup}`;
+    const spellingHint = firstNameSpellings.length
+      ? ` Private first-name spelling hints: ${JSON.stringify(firstNameSpellings)}. Never read these hints aloud or substitute them for caller-provided identity.`
+      : "";
+    return `Patient situation: no patient is active. ${lookup}${spellingHint}`;
   }
 
   return [
@@ -551,20 +572,15 @@ async function resolvePrivateCandidate(
     return null;
   }
 
-  const named = state.identity.privateCandidates.flatMap((candidate) => {
-    const strength = nameMatchStrength(identity.firstName, candidate.firstName);
-    return strength ? [{ candidate, strength }] : [];
-  });
-  const matching = named.filter(
-    ({ candidate }) =>
+  const named = state.identity.privateCandidates.filter((candidate) =>
+    phoneCandidateFirstNameMatches(identity.firstName, candidate.firstName),
+  );
+  const matches = named.filter(
+    (candidate) =>
       (!identity.lastName ||
         exactNamesMatch(identity.lastName, candidate.lastName ?? "")) &&
       (!identity.dob || dobMatches(identity.dob, candidate.dob)),
   );
-  const strong = matching.filter(
-    ({ strength }) => strength !== "edit_distance",
-  );
-  const matches = strong.length > 0 ? strong : matching;
 
   if (matches.length === 0) {
     if (named.length > 0 && !hasFullIdentity(identity)) {
@@ -580,9 +596,7 @@ async function resolvePrivateCandidate(
 
   if (matches.length > 1) {
     const surnames = new Set(
-      matches.map(({ candidate }) =>
-        normalizeExactName(candidate.lastName ?? ""),
-      ),
+      matches.map((candidate) => normalizeExactName(candidate.lastName ?? "")),
     );
     return {
       outcome: "multiple_matches",
@@ -597,19 +611,7 @@ async function resolvePrivateCandidate(
     };
   }
 
-  const match = matches[0]!;
-  if (
-    match.strength === "edit_distance" &&
-    !identity.lastName &&
-    !identity.dob
-  ) {
-    return {
-      outcome: "needs_identity",
-      reply:
-        "The first name is only a possible spelling match. What is the patient's last name?",
-    };
-  }
-  return activateCandidate(state, match.candidate, lookup);
+  return activateCandidate(state, matches[0]!, lookup);
 }
 
 function missingIdentityReply(identity: ResolvePatientIdentityInput): string {
