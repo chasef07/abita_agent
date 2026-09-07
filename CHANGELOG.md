@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.17.0](https://github.com/chasef07/abita_agent/compare/4.16.0...4.17.0) (2026-09-07)
+
+
+### Features
+
+* **llm:** use Gemma with DeepSeek fallback through LiveKit ([#417](https://github.com/chasef07/abita_agent/issues/417)) ([421beb7](https://github.com/chasef07/abita_agent/commit/421beb73f7cf6a20c96ffb66f9d9068c800692ba))
+
+
+### Bug Fixes
+
+* **knowledge:** add NMB Labor Day closure ([#418](https://github.com/chasef07/abita_agent/issues/418)) ([5272b72](https://github.com/chasef07/abita_agent/commit/5272b72a4a483e84beb97c9315f040ba3bdc52ad))
+* **knowledge:** add North Miami Beach store hours ([#415](https://github.com/chasef07/abita_agent/issues/415)) ([23dc06c](https://github.com/chasef07/abita_agent/commit/23dc06c789fa68e348d9801966a2909c7e1fae79))
+
 ## [4.16.0](https://github.com/chasef07/abita_agent/compare/4.15.0...4.16.0) (2026-09-06)
 
 
