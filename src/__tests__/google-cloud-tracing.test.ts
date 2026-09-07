@@ -97,56 +97,77 @@ describe("Google Cloud trace export", () => {
     expect(JSON.stringify(error)).not.toContain(endpoint);
   });
 
-  it("strips content while preserving trace structure and diagnostic attributes", async () => {
-    const provider = setupGoogleCloudTracing(ctx, {
-      GOOGLE_CLOUD_TRACE_ENDPOINT: "https://collector.example/v1/traces",
-      GOOGLE_CLOUD_TRACE_TOKEN: "test-token",
-      LIVEKIT_AGENT_DEPLOYMENT: "staging",
-    })!;
-    const parent = telemetry.tracer.startSpan({ name: "agent_session" });
-    const child = telemetry.tracer.startSpan({
-      name: "function_tool",
-      context: trace.setSpan(context.active(), parent),
-      attributes: {
+  it.each([false, true])(
+    "exports content unless project redaction is enforced (%s)",
+    async (redactionEnabled) => {
+      const provider = setupGoogleCloudTracing(ctx, {
+        GOOGLE_CLOUD_TRACE_ENDPOINT: "https://collector.example/v1/traces",
+        GOOGLE_CLOUD_TRACE_TOKEN: "test-token",
+        LIVEKIT_AGENT_DEPLOYMENT: "staging",
+      })!;
+      const parent = telemetry.tracer.startSpan({ name: "agent_session" });
+      const child = telemetry.tracer.startSpan({
+        name: "function_tool",
+        context: trace.setSpan(context.active(), parent),
+        attributes: {
+          "lk.redaction.enabled": redactionEnabled,
+          "lk.job_id": "synthetic-job",
+          "gen_ai.usage.input_tokens": 10,
+          "lk.pii.function_tool.arguments": "synthetic-private-arguments",
+          "lk.pii.function_tool.output": "synthetic-private-result",
+          "gen_ai.tool.call.arguments": "synthetic-private-arguments",
+          "gen_ai.tool.call.result": "synthetic-private-result",
+          "gen_ai.output.messages": "synthetic-private-response",
+          "gen_ai.input.messages": "synthetic-private-chat",
+        },
+      });
+      child.addEvent("gen_ai.user.message", {
+        content: "synthetic-private-message",
+      });
+      child.recordException(new Error("synthetic-private-error"));
+      child.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: "synthetic-private-status",
+      });
+      child.end();
+      parent.end();
+      await provider.forceFlush();
+
+      const spans = transport.batches.flat();
+      expect(spans).toHaveLength(2);
+      const exported = spans.find((span) => span.name === "function_tool")!;
+      expect(exported.spanContext().traceId).toBe(parent.spanContext().traceId);
+      expect(exported.attributes).toMatchObject({
         "lk.job_id": "synthetic-job",
         "gen_ai.usage.input_tokens": 10,
-        "lk.pii.function_tool.arguments": "synthetic-private-arguments",
-        "gen_ai.input.messages": "synthetic-private-chat",
-      },
-    });
-    child.addEvent("gen_ai.user.message", {
-      content: "synthetic-private-message",
-    });
-    child.recordException(new Error("synthetic-private-error"));
-    child.setStatus({
-      code: SpanStatusCode.ERROR,
-      message: "synthetic-private-status",
-    });
-    child.end();
-    parent.end();
-    await provider.forceFlush();
-
-    const spans = transport.batches.flat();
-    expect(spans).toHaveLength(2);
-    const exported = spans.find((span) => span.name === "function_tool")!;
-    expect(exported.spanContext().traceId).toBe(parent.spanContext().traceId);
-    expect(exported.attributes).toMatchObject({
-      "lk.job_id": "synthetic-job",
-      "gen_ai.usage.input_tokens": 10,
-    });
-    expect(exported.resource.attributes).toMatchObject({
-      "service.name": "abita-agent",
-      "deployment.environment.name": "staging",
-    });
-    expect(
-      JSON.stringify({
+      });
+      expect(exported.resource.attributes).toMatchObject({
+        "service.name": "abita-agent",
+        "deployment.environment.name": "staging",
+      });
+      const content = JSON.stringify({
         attributes: exported.attributes,
         events: exported.events,
         status: exported.status,
-      }),
-    ).not.toContain("synthetic-private");
-    expect(exported.status.code).toBe(SpanStatusCode.ERROR);
-  });
+      });
+      if (redactionEnabled) {
+        expect(content).not.toContain("synthetic-private");
+      } else {
+        expect(exported.attributes).toMatchObject({
+          "lk.pii.function_tool.arguments": "synthetic-private-arguments",
+          "lk.pii.function_tool.output": "synthetic-private-result",
+          "gen_ai.tool.call.arguments": "synthetic-private-arguments",
+          "gen_ai.tool.call.result": "synthetic-private-result",
+          "gen_ai.input.messages": "synthetic-private-chat",
+          "gen_ai.output.messages": "synthetic-private-response",
+        });
+        expect(content).toContain("synthetic-private-message");
+        expect(content).toContain("synthetic-private-error");
+        expect(exported.status.message).toBe("synthetic-private-status");
+      }
+      expect(exported.status.code).toBe(SpanStatusCode.ERROR);
+    },
+  );
 
   it("retains the registrar LiveKit needs to add its own span processor", async () => {
     const add = vi.spyOn(telemetry.FanoutSpanProcessor.prototype, "add");

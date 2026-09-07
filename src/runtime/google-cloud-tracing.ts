@@ -69,7 +69,9 @@ export function setupGoogleCloudTracing(
   });
   provider.register();
   telemetry.setTracerProvider(provider, {
-    allowPii: false,
+    // Retain recorded conversation and tool payloads for call investigation.
+    // LiveKit's project-enforced redaction policy still takes precedence.
+    allowPii: true,
     registerSpanProcessor: (processor) => fanout.add(processor),
   });
   // LiveKit finalizes the session before running job shutdown callbacks.
