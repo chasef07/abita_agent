@@ -64,12 +64,14 @@ import { coordinateSessionStartup } from "./runtime/session-startup.js";
 import { HttpOwnedMiddleware } from "./clients/owned-middleware.js";
 import { getMiddlewareConfig } from "./runtime/middleware-routing.js";
 import { setupGoogleCloudTracing } from "./runtime/google-cloud-tracing.js";
+import { startSimulation, gradeSimulation } from "./runtime/simulation.js";
 
 validateRuntimeConfig();
 
 export default defineAgent({
   entry: async (ctx: JobContext) => {
     try {
+      if (ctx.simulationContext()) return await startSimulation(ctx);
       setupGoogleCloudTracing(ctx);
       const stt = new inference.STT(getAssemblyAIInferenceSttOptions());
 
@@ -284,6 +286,7 @@ export default defineAgent({
       throw err;
     }
   },
+  onSimulationEnd: gradeSimulation,
 });
 
 cli.runApp(
