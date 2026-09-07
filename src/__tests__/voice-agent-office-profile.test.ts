@@ -296,7 +296,7 @@ const officeBehaviors: OfficeBehavior[] = [
     displayName: "New Tampa Eye Institute",
     englishSpeaker: "wawona",
     greeting:
-      "Hi, this is Maya at New Tampa Eye Institute. How can I help you today?",
+      "Hi, this is Maya at the New Tampa Eye Institute demo. How can I help you today?",
     handoff: {
       mode: "phone",
       target: `tel:${DEMO_TRANSFER_NUMBER}`,
