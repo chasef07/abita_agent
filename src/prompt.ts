@@ -25,11 +25,17 @@ export function buildPrompt(trunkPhone: string): string {
   }
 
   if (
-    ["spring-hill", "crystal-river", "hollywood", "sweetwater"].includes(
-      office.key,
-    )
+    [
+      "spring-hill",
+      "crystal-river",
+      "hollywood",
+      "sweetwater",
+      "north-miami-beach-optical",
+    ].includes(office.key)
   ) {
-    sections.push("We are closed on weekends.");
+    if (office.key !== "north-miami-beach-optical") {
+      sections.push("We are closed on weekends.");
+    }
     sections.push("We are closed on Labor Day, Monday, September 7, 2026.");
   }
 
