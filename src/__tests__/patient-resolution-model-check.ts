@@ -1,5 +1,5 @@
 // Opt-in, paid LLM check. Uses synthetic records and never executes middleware.
-// Load Baseten and LiveKit credentials in the environment before running with tsx.
+// Load LiveKit credentials in the environment before running with tsx.
 // Pass scenario IDs as arguments to run a focused subset.
 import { llm, initializeLogger } from "@livekit/agents";
 import { buildPrompt } from "../prompt.js";
