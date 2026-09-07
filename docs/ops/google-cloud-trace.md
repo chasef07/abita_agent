@@ -64,17 +64,22 @@ configuration error. Credentials and actual internal endpoint URLs must stay out
 of source control.
 
 The agent registers its provider before session startup. It sets service name
-`abita-agent` and deployment environment, strips recognized content using
-`allowPii: false`, batches asynchronously, and flushes during job shutdown.
-Known conversation fields, tool arguments/results, and exception content are
-removed from external spans. Custom unmarked attributes still require review.
+`abita-agent` and deployment environment, retains recorded content using
+`allowPii: true`, batches asynchronously, and flushes during job shutdown.
+Conversation fields, tool arguments/results, and exception content recorded by
+LiveKit are included in external spans for call investigation. LiveKit's
+project-enforced redaction policy still takes precedence. This does not add
+instrumentation to operations the SDK does not trace, or include session audio.
+The Google destination must be covered by the organization's applicable BAA and
+access controls. Previously stripped Google spans cannot recover their content
+from this setting; it applies to new traces after deployment.
 Export errors log only a fixed message and span count, never the raw transport
 error, request payload, or authorization header.
 
 ## Verification and release
 
 Run the repository's format, lint, typecheck, and test checks. The tracing tests
-exercise content stripping, parent/child IDs, additional processor registration,
+exercise content retention, project-enforced redaction, parent/child IDs, additional processor registration,
 authentication configuration, disabled/invalid configuration, shutdown flushing,
 and failed exports.
 
@@ -88,7 +93,8 @@ even after export succeeds. See the [documented limitation](https://docs.cloud.g
 
 Release agent changes through the normal release workflow described in
 `release-automation.md`. After release, verify a synthetic LiveKit session appears
-in both Insights and Cloud Trace with final session spans and no content fields.
+in both Insights and Cloud Trace with final session spans and the recorded tool
+arguments/results and conversation fields, subject to project redaction.
 Do not claim production agent ingestion until this deployed path is observed.
 
 ## Cost
