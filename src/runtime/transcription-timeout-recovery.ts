@@ -1,7 +1,7 @@
 import { AgentSessionEventTypes, type AgentSession } from "@livekit/agents";
 import type { CallState } from "../state/call-state.js";
 
-export const voiceTranscriptionTimeoutMs = 3_500;
+export const voiceTranscriptionTimeoutMs = 10_000;
 
 const minimumSpeechDurationMs = 400;
 const recoveryInstructions =

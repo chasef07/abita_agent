@@ -24,8 +24,8 @@ class TestSession {
 }
 
 describe("transcription timeout recovery", () => {
-  it("uses a three-and-a-half-second timeout", () => {
-    expect(voiceTranscriptionTimeoutMs).toBe(3_500);
+  it("uses a ten-second timeout", () => {
+    expect(voiceTranscriptionTimeoutMs).toBe(10_000);
   });
 
   it("asks the caller to repeat after meaningful speech produces no transcript", () => {
