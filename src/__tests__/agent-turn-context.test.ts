@@ -1,10 +1,11 @@
 import {
+  Agent,
   AgentSession,
   ChatContext,
   ChatMessage,
   initializeLogger,
 } from "@livekit/agents";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
@@ -20,10 +21,11 @@ describe("completed user turn context", () => {
   const sessions: AgentSession[] = [];
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await Promise.all(sessions.splice(0).map((session) => session.close()));
   });
 
-  it("adds a fresh clinic timestamp to each temporary context only", async () => {
+  it("projects a fresh clinic timestamp into each model request only", async () => {
     const instants = [
       new Date("2026-07-25T03:58:00.000Z"),
       new Date("2026-07-25T04:02:00.000Z"),
@@ -45,83 +47,86 @@ describe("completed user turn context", () => {
       }).agent,
     });
 
+    const model = vi.spyOn(Agent.default, "llmNode").mockResolvedValue(null);
     const firstTurnContext = ChatContext.empty();
-    await session.currentAgent.onUserTurnCompleted(
-      firstTurnContext,
-      ChatMessage.create({ role: "user", content: "First turn" }),
-    );
     const secondTurnContext = ChatContext.empty();
-    await session.currentAgent.onUserTurnCompleted(
-      secondTurnContext,
-      ChatMessage.create({ role: "user", content: "Second turn" }),
-    );
+    for (const chatCtx of [firstTurnContext, secondTurnContext]) {
+      await session.currentAgent.llmNode(
+        chatCtx,
+        session.currentAgent.toolCtx,
+        {},
+      );
+    }
 
-    expect(systemText(firstTurnContext)).toContain(
+    expect(systemText(model.mock.calls[0]![1])).toContain(
       "Friday, July 24th, 2026 at 11:58 PM Eastern time",
     );
-    expect(systemText(secondTurnContext)).toContain(
+    expect(systemText(model.mock.calls[1]![1])).toContain(
       "Saturday, July 25th, 2026 at 12:02 AM Eastern time",
     );
-    expect(systemText(secondTurnContext)).not.toContain("11:58 PM");
+    expect(systemText(model.mock.calls[1]![1])).not.toContain("11:58 PM");
+    expect(firstTurnContext.items).toEqual([]);
+    expect(secondTurnContext.items).toEqual([]);
     expect(systemText(session.currentAgent.chatCtx)).not.toContain(
       "Current clinic-local date and time for this turn",
     );
   });
 
-  it("activates a matching pre-call patient from the first caller turn without resolve_patient", async () => {
-    const state = createTestCallState({
-      officeKey: "spring-hill",
-      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-      preCallCandidates: [
-        {
-          status: "verified",
-          ref: CALLER_CANDIDATE_REF,
-          firstName: "LARRY",
-          lastName: "TEST",
-          dob: "08/18/2020",
-          patientId: "patient-larry",
-          appointments: [],
-          appointmentsStatus: "none",
-          insuranceCarrier: "FLORIDA BLUE SHIELD",
-        },
-      ],
-    });
-    const middleware = new InMemoryOwnedMiddleware();
-    const session = new AgentSession();
-    sessions.push(session);
-    session.userData = state;
-    await session.start({
-      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
-        ownedMiddleware: middleware,
-        suppressGreeting: true,
-      }).agent,
-    });
+  it.each([
+    "L-A-R-R-Y",
+    "I am not Larry.",
+    "I am Larry, calling for my son John.",
+  ])(
+    "leaves patient selection to resolve_patient for %s",
+    async (transcript) => {
+      const state = createTestCallState({
+        officeKey: "spring-hill",
+        amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
+        trunkPhone: SPRING_HILL_OFFICE_PHONE,
+        preCallCandidates: [
+          {
+            status: "verified",
+            ref: CALLER_CANDIDATE_REF,
+            firstName: "LARRY",
+            lastName: "TEST",
+            dob: "08/18/2020",
+            patientId: "patient-larry",
+            appointments: [],
+            appointmentsStatus: "none",
+            insuranceCarrier: "FLORIDA BLUE SHIELD",
+          },
+        ],
+      });
+      const middleware = new InMemoryOwnedMiddleware();
+      const session = new AgentSession();
+      sessions.push(session);
+      session.userData = state;
+      await session.start({
+        agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+          ownedMiddleware: middleware,
+          suppressGreeting: true,
+        }).agent,
+      });
 
-    const turnContext = ChatContext.empty();
-    await session.currentAgent.onUserTurnCompleted(
-      turnContext,
-      ChatMessage.create({ role: "user", content: "L-A-R-R-Y" }),
-    );
+      const turnContext = ChatContext.empty();
+      await session.currentAgent.onUserTurnCompleted(
+        turnContext,
+        ChatMessage.create({ role: "user", content: transcript }),
+      );
 
-    expect(middleware.operations).toEqual([]);
-    expect(state.identity.activePatient).toMatchObject({
-      kind: "existing",
-      patientId: "patient-larry",
-      name: "LARRY TEST",
-    });
-    expect(state.identity.receipts).toEqual([
-      { outcome: "confirmed", source: "caller_transcript" },
-    ]);
-    expect(state.runtime.outcomeReceipts).toEqual([]);
-    expect(patientModelProjection(state)).toContain("LARRY TEST");
-    expect(patientModelProjection(state)).toContain(
-      "We have FLORIDA BLUE SHIELD on file.",
-    );
-    expect(patientModelProjection(state)).not.toContain("patient-larry");
-  });
+      expect(middleware.operations).toEqual([]);
+      expect(state.identity.activePatient).toBeNull();
+      expect(state.identity.receipts).toEqual([]);
+      expect(state.runtime.outcomeReceipts).toEqual([]);
+      expect(patientModelProjection(state)).not.toContain("LARRY TEST");
+      expect(patientModelProjection(state)).not.toContain(
+        "FLORIDA BLUE SHIELD",
+      );
+      expect(patientModelProjection(state)).not.toContain("patient-larry");
+    },
+  );
 
-  it("contains a rejected lightweight-candidate hydration on the caller turn", async () => {
+  it("does not hydrate a candidate before a resolver tool call", async () => {
     const state = createTestCallState({
       officeKey: "spring-hill",
       amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
@@ -153,7 +158,8 @@ describe("completed user turn context", () => {
         ChatContext.empty(),
         ChatMessage.create({ role: "user", content: "L-A-R-R-Y" }),
       ),
-    ).rejects.toThrow("Patient lookup failed");
+    ).resolves.toBeUndefined();
+    expect(middleware.operations).toEqual([]);
     expect(state.identity.activePatient).toBeNull();
   });
 });

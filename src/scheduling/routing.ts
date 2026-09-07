@@ -4,8 +4,7 @@ import {
   type AvailabilityOfficeKey,
 } from "../customers/abita/profile.js";
 import { activateOffice, activeOfficeKey } from "../state/call-lifecycle.js";
-import { type CallState } from "../state/call-state.js";
-import { appointmentForChangeContext } from "./appointments.js";
+import { type CallState, type CallerAppointment } from "../state/call-state.js";
 import {
   activeRoutingContext,
   clearAvailabilitySelection,
@@ -39,11 +38,7 @@ export function medicalSchedulingUnavailable(state: CallState): string | null {
   const office = getOfficeProfile(activeOfficeKey(state));
   const policy = office.schedulingFor("medical");
   if (policy.supported) return null;
-  if (currentWorkflowVisitType(state) !== "medical") {
-    const turn = state.workflow.current;
-    if (turn?.intent !== "change_appointment") return null;
-    if (isRoutineVisionSchedulingOrChange(state)) return null;
-  }
+  if (currentWorkflowVisitType(state) !== "medical") return null;
   return policy.message;
 }
 
@@ -53,39 +48,25 @@ export function routineVisionSchedulingUnavailable(
   const office = getOfficeProfile(activeOfficeKey(state));
   const policy = office.schedulingFor("routine_vision");
   if (policy.supported) return null;
-  if (!isRoutineVisionSchedulingOrChange(state)) return null;
+  if (currentWorkflowVisitType(state) !== "routine_vision") return null;
 
   return policy.message;
 }
 
 export function routingForAvailability(state: CallState): string | null {
-  if (isRoutineVisionSchedulingOrChange(state)) {
+  if (currentWorkflowVisitType(state) === "routine_vision") {
     return "optical_only";
   }
   return activeRoutingContext(state).routing;
 }
 
-function isRoutineVisionSchedulingOrChange(state: CallState): boolean {
-  const visitType = currentWorkflowVisitType(state);
-  if (visitType === "routine_vision") return true;
-  if (visitType === "medical") return false;
-
-  const turn = state.workflow.current;
-  if (turn && turn.intent !== "change_appointment") return false;
-
-  const appointment = appointmentForChangeContext(state);
-  if (appointment) return defaultsToRoutineVision(appointment);
-
-  return activeRoutingContext(state).routing === "optical_only";
-}
-
-function defaultsToRoutineVision(
-  appointment: NonNullable<ReturnType<typeof appointmentForChangeContext>>,
-): boolean {
-  return (
-    appointment.appointmentTypeId === undefined ||
-    !KNOWN_MEDICAL_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
-  );
+export function visitTypeForAppointment(
+  appointment: CallerAppointment,
+): "medical" | "routine_vision" {
+  return appointment.appointmentTypeId !== undefined &&
+    KNOWN_MEDICAL_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
+    ? "medical"
+    : "routine_vision";
 }
 
 const KNOWN_MEDICAL_APPOINTMENT_TYPE_IDS = new Set([

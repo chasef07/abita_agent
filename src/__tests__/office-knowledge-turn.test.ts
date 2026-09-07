@@ -122,7 +122,7 @@ describe("Office Knowledge turn enrichment", () => {
         "check_insurance",
         "create_staff_task",
         "end_call",
-        "get_availability",
+        "list_available_appointments",
         "reschedule_appointment",
         "resolve_patient",
         "transfer_call",

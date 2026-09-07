@@ -1922,8 +1922,72 @@ describe("stateful call tools", () => {
     expect(state.identity.activePatient!.patientId).toBe("patient-esa");
   });
 
+  it("promotes a fuzzy phone match and returns its loaded appointment through resolve_patient", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    state.identity.privateCandidates = [
+      preCallCandidate({
+        firstName: "Emmy",
+        lastName: "Example",
+        patientId: "patient-example",
+        appointmentsStatus: "found",
+        appointments: [
+          {
+            id: 1,
+            date: "2026-10-15",
+            time: "9:00 AM",
+            provider: "Dr. Example",
+            type: "Office Visit",
+            facility: "Example Clinic",
+            confirmed: false,
+          },
+        ],
+      }),
+    ];
+    const identity = resolve_patient.parameters.parse({
+      firstName: "Amy",
+      lastName: null,
+      dob: null,
+    });
+
+    const result = await resolve_patient.execute(identity, {
+      ctx: createToolContext(state),
+      toolCallId: "fuzzy-phone-match",
+    } as never);
+
+    expect(testMiddleware.operations).toHaveLength(0);
+    expect(state.identity.activePatient?.patientId).toBe("patient-example");
+    expect(state.identity.activePatient?.appointments).toHaveLength(1);
+    expect(result).toContain("one upcoming appointment");
+    expect(result).toContain("9:00 AM");
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        toolName: "resolve_patient",
+        outcome: "patient_verified",
+        status: "success",
+      },
+    ]);
+  });
+
+  it("treats model-emitted empty surname and DOB as unknown", async () => {
+    const state = createState();
+    setSingleArshedPreCallCandidate(state);
+    const identity = resolve_patient.parameters.parse({
+      firstName: "Esa",
+      lastName: "",
+      dob: "",
+    });
+    await resolve_patient.execute(identity, {
+      ctx: createToolContext(state),
+      toolCallId: "empty-identity",
+    } as never);
+    expect(state.identity.activePatient?.patientId).toBe("patient-esa");
+    expect(testMiddleware.operations).toHaveLength(0);
+  });
+
   it("does not call middleware until full identity is provided", async () => {
     const state = createState();
+    setPatientUnknown(state);
 
     const result = await resolve_patient.execute(
       {
@@ -1936,7 +2000,7 @@ describe("stateful call tools", () => {
         toolCallId: "tool-1",
       } as never,
     );
-    expect(result).toBe("What is the patient's last name and date of birth?");
+    expect(result).toBe("What is the patient's last name?");
     expect(testMiddleware.operations).toHaveLength(0);
   });
 

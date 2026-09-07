@@ -181,6 +181,21 @@ const TOPICS: TopicDefinition[] = [
     ],
   ),
   topic(
+    "location_contact",
+    ["Location and Contact"],
+    [
+      ["is this brightview", 6],
+      ["is this bright view", 6],
+      ["is this the brightview", 6],
+      ["is this the bright view", 6],
+      ["did i reach brightview", 6],
+      ["did i reach bright view", 6],
+      ["es brightview", 6],
+      ["es bright view", 6],
+    ],
+    ["north-miami-beach-optical"],
+  ),
+  topic(
     "providers",
     ["Providers"],
     [
@@ -209,19 +224,6 @@ const TOPICS: TopicDefinition[] = [
       ["reumatologo", 3],
       ["reumatologos", 3],
     ],
-  ),
-  topic(
-    "providers",
-    ["Providers"],
-    [
-      ["psychiatrist", 3],
-      ["psychiatrists", 3],
-      ["therapist", 3],
-      ["therapists", 3],
-      ["psychologist", 3],
-      ["counselor", 3],
-    ],
-    ["mental-health-demo"],
   ),
   topic(
     "skin_cancer",
@@ -303,6 +305,7 @@ const TOPICS: TopicDefinition[] = [
       ["services", 3],
       ["servicios", 3],
       ["cataract", 4, ["cataract"]],
+      ["cataracts", 4, ["cataract"]],
       ["catarata", 4, ["cataract"]],
       ["cataratas", 4, ["cataract"]],
       ["cirugia de cataratas", 6, ["cataract"]],
@@ -385,23 +388,6 @@ const TOPICS: TopicDefinition[] = [
       ["joint injections", 6, ["injections"]],
       ["diagnostic ultrasound", 6, ["diagnostic ultrasound"]],
     ],
-  ),
-  topic(
-    "services",
-    ["Scope of Services"],
-    [
-      ["therapy", 4, ["therapy"]],
-      ["behavioral health", 5, ["behavioral-health"]],
-      ["mental health", 5, ["behavioral-health"]],
-      ["psychiatry", 5, ["psychiatry"]],
-      ["ptsd", 6, ["ptsd"]],
-      ["post traumatic stress", 6, ["ptsd"]],
-      ["trauma therapy", 6, ["trauma"]],
-      ["emdr", 6, ["emdr"]],
-      ["medication management", 6, ["medication management"]],
-      ["telehealth therapy", 6, ["telehealth"]],
-    ],
-    ["mental-health-demo"],
   ),
   topic(
     "optical_repairs",
@@ -566,21 +552,6 @@ const TOPICS: TopicDefinition[] = [
     ],
   ),
   topic(
-    "emergency_urgency",
-    ["Emergency and Urgency"],
-    [
-      ["suicide", 6, ["suicide"]],
-      ["suicidal", 6, ["suicide"]],
-      ["self harm", 6, ["harming"]],
-      ["harm myself", 6, ["harming"]],
-      ["harm someone", 6, ["harming"]],
-      ["overdose", 6, ["overdose"]],
-      ["crisis", 5, ["crisis"]],
-      ["988", 6, ["988"]],
-    ],
-    ["mental-health-demo"],
-  ),
-  topic(
     "social_follow_up",
     ["Social Follow-Up"],
     [
@@ -599,13 +570,30 @@ export function resolveOfficeKnowledge(
 ): OfficeKnowledgeResolution {
   const normalized = normalize(transcript);
   const language = detectLanguage(normalized);
-  if (isBusinessOwnedTurn(normalized)) {
+  const cataractRequest =
+    ["spring-hill", "crystal-river", "hollywood", "sweetwater"].includes(
+      officeKey,
+    ) &&
+    ["cataract", "cataracts", "catarata", "cataratas"].some((phrase) =>
+      hasPhrase(normalized, phrase),
+    );
+  // Service restrictions still apply when the caller asks to book care.
+  if (isBusinessOwnedTurn(normalized) && !cataractRequest) {
     return { language, outcome: "skipped", sections: [], topic: null };
   }
   const index = knowledgeIndex(officeKey);
   const { sections } = index;
   const currentScores = rankTopics(normalized, index, officeKey);
-  let selected = selectConfidentTopic(currentScores);
+  const confidentTopic = selectConfidentTopic(currentScores);
+  let selected = cataractRequest
+    ? (currentScores.find(
+        ({ definition, score }) =>
+          definition.topic === "emergency_urgency" && score >= MIN_TOPIC_SCORE,
+      ) ??
+      confidentTopic ??
+      currentScores.find(({ definition }) => definition.topic === "services") ??
+      null)
+    : confidentTopic;
 
   const locationFollowUp = isLocationFollowUp(normalized);
   if (

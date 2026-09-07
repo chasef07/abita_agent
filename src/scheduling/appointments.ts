@@ -3,7 +3,6 @@ import { activeOfficeKey } from "../state/call-lifecycle.js";
 import {
   activeAppointments,
   completedCancellations,
-  latestBookedAppointmentId,
   replaceActiveAppointments,
   setLatestBookedAppointment,
 } from "../state/appointments.js";
@@ -39,27 +38,13 @@ export function appointmentStatusFromResult(
   return null;
 }
 
-export function activeAppointmentById(
+function activeAppointmentById(
   state: CallState,
   appointmentId: number,
 ): CallerAppointment | undefined {
   return state.identity.activePatient?.appointments.find(
     (appointment) => appointment.id === appointmentId,
   );
-}
-
-export function appointmentForChangeContext(
-  state: CallState,
-): CallerAppointment | null {
-  const appointments = activeAppointments(state);
-  const selectedRef = state.workflow.current?.oldAppointmentRef;
-  if (selectedRef) {
-    const selected = appointments.find(
-      (appointment) => appointment.appointmentRef === selectedRef,
-    );
-    return selected ?? null;
-  }
-  return appointments.length === 1 ? appointments[0] : null;
 }
 
 export function recordBookedAppointmentInState(
@@ -113,14 +98,9 @@ export type CancellationAppointmentSelection =
   | { status: "ambiguous"; message: string }
   | { status: "not_found"; message: string };
 
-type RescheduleAppointmentSelectionOptions = {
-  preferLatestBooked?: boolean;
-};
-
 export function rescheduleAppointmentForState(
   state: CallState,
-  oldAppointmentRef?: string,
-  options: RescheduleAppointmentSelectionOptions = {},
+  oldAppointmentRef: string,
 ): CancellationAppointmentSelection {
   const appointments = activeAppointments(state);
   const ref = oldAppointmentRef?.trim();
@@ -146,33 +126,9 @@ export function rescheduleAppointmentForState(
     };
   }
 
-  if (options.preferLatestBooked) {
-    const latestBookedId = latestBookedAppointmentId(state);
-    if (latestBookedId !== null) {
-      const latestBookedAppointment = activeAppointmentById(
-        state,
-        latestBookedId,
-      );
-      if (latestBookedAppointment) {
-        return { status: "selected", appointment: latestBookedAppointment };
-      }
-    }
-  }
-
-  if (appointments.length === 1) {
-    return { status: "selected", appointment: appointments[0] };
-  }
-
-  if (appointments.length > 1) {
-    return {
-      status: "ambiguous",
-      message: "Which upcoming appointment would you like to reschedule?",
-    };
-  }
-
   return {
     status: "not_found",
-    message: "I need to load the upcoming appointments before rescheduling.",
+    message: "Which upcoming appointment would you like to reschedule?",
   };
 }
 

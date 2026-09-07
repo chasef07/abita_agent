@@ -150,14 +150,6 @@ export function bookingHadPositiveStatusWithoutAppointmentId(
   );
 }
 
-export function bookingSlotUnavailable(result: BookAppointmentResult): boolean {
-  return result.status === "unavailable";
-}
-
-export function bookingTokenRejected(result: BookAppointmentResult): boolean {
-  return result.status === "rejected";
-}
-
 export function bookedAppointmentMessage(
   selectedSlot: StoredAvailabilitySlot,
   result: BookingSuccess,
@@ -171,14 +163,8 @@ export function bookingNoteWarning(result: BookingSuccess): string {
     : "";
 }
 
-export function slotUnavailableMessage(
-  remainingSlots: StoredAvailabilitySlot[],
-): string {
-  const nextSlot = remainingSlots[0];
-  if (nextSlot) {
-    return `That time is no longer available. I can offer ${spokenSlot(nextSlot)} instead.`;
-  }
-  return "That time is no longer available. Let me check again.";
+export function slotUnavailableMessage(): string {
+  return "That time is no longer available. Let me refresh the appointments and find another time that fits.";
 }
 
 export function bookingFailureMessage(result: BookAppointmentResult): string {

@@ -8,7 +8,7 @@ import { buildPrompt } from "../prompt.js";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   getOfficeProfile,
   getOfficeProfileByPhone,
   getOfficeKeyByPhone,
@@ -66,9 +66,9 @@ const cancel_appointment = toolForTrunk(
   SPRING_HILL_OFFICE_PHONE,
   "cancel_appointment",
 )!;
-const get_availability = toolForTrunk(
+const list_available_appointments = toolForTrunk(
   HOLLYWOOD_OFFICE_PHONE,
-  "get_availability",
+  "list_available_appointments",
 )!;
 const reschedule_appointment = toolForTrunk(
   SPRING_HILL_OFFICE_PHONE,
@@ -86,13 +86,13 @@ describe("office routing helpers", () => {
     );
     expect(getOfficeKeyByPhone("14843989071")).toBe("rheumatology-demo");
     expect(getOfficeKeyByPhone("18027878312")).toBe("ophthalmology-demo");
-    expect(getOfficeKeyByPhone("13207388132")).toBe("mental-health-demo");
+    expect(getOfficeKeyByPhone("13207388132")).toBe("new-tampa-demo");
   });
 
   it.each([
     [RHEUMATOLOGY_DEMO_TRUNK_PHONE, "rheumatology-demo"],
     [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "ophthalmology-demo"],
-    [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "mental-health-demo"],
+    [NEW_TAMPA_DEMO_TRUNK_PHONE, "new-tampa-demo"],
   ] as const)(
     "maps specialty demo trunk %s through its matching Office Profile and Product route",
     (trunkPhone, officeKey) => {
@@ -148,10 +148,13 @@ describe("office routing helpers", () => {
   });
 
   it("makes availability office selection match the inbound trunk", () => {
-    const hollywood = toolForTrunk(HOLLYWOOD_OFFICE_PHONE, "get_availability");
+    const hollywood = toolForTrunk(
+      HOLLYWOOD_OFFICE_PHONE,
+      "list_available_appointments",
+    );
     const springHill = toolForTrunk(
       SPRING_HILL_OFFICE_PHONE,
-      "get_availability",
+      "list_available_appointments",
     );
     const hollywoodSchema = z.toJSONSchema(hollywood!.parameters);
     const springHillSchema = z.toJSONSchema(springHill!.parameters);
@@ -167,7 +170,7 @@ describe("voice output prompt", () => {
       SPRING_HILL_OFFICE_PHONE,
       OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
       RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-      MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+      NEW_TAMPA_DEMO_TRUNK_PHONE,
     ]) {
       const prompt = buildPrompt(phone);
 
@@ -183,7 +186,7 @@ describe("voice output prompt", () => {
     }
 
     const focusedTriageRule =
-      "Ask one question at a time until the scheduling purpose is clear.";
+      "Triage is complete when the routine purpose is clear";
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
       OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
@@ -192,7 +195,7 @@ describe("voice output prompt", () => {
     }
     for (const phone of [
       RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-      MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+      NEW_TAMPA_DEMO_TRUNK_PHONE,
     ]) {
       expect(buildPrompt(phone)).not.toContain(focusedTriageRule);
     }
@@ -238,7 +241,10 @@ describe("tool-first prompt gating", () => {
     expect(prompt).toContain("You speak English and Spanish");
     expect(prompt).toContain("Reply in the caller's current language");
     expect(prompt).toContain(
-      "When asking for a patient's first or last name, ask them to spell it",
+      "If the name is still unclear, ask for spelling; use a clearly supplied name directly.",
+    );
+    expect(prompt).toContain(
+      "When a reply is unclear or seems out of context, clarify only the uncertain detail and keep what is already understood.",
     );
     expect(prompt).toContain(
       "Only confirm a booking, cancellation, rescheduling, insurance update, or patient creation after the matching currently available action succeeds. Complete any prerequisite requested by the available tools first.",
@@ -267,8 +273,8 @@ describe("tool-first prompt gating", () => {
     expect(prompt).not.toContain(
       "Use resolve_patient for patient-specific work when internal state has not already confirmed the patient.",
     );
-    expect(get_availability.description).toContain(
-      "claim success only after book_appointment succeeds",
+    expect(list_available_appointments.description).toContain(
+      "Book the confirmed reference with book_appointment",
     );
     expect(prompt).not.toContain("Today is");
     expect(prompt).not.toContain("The current time is");
@@ -292,7 +298,7 @@ describe("tool-first prompt gating", () => {
     }
   });
 
-  it("makes purpose-based appointment triage a core responsibility", () => {
+  it("understands the eye concern before classifying the scheduling purpose", () => {
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
       SPRING_HILL_813_TRUNK_PHONE,
@@ -300,6 +306,7 @@ describe("tool-first prompt gating", () => {
       HOLLYWOOD_OFFICE_PHONE,
       NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
+      OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
     ]) {
       const prompt = buildPrompt(phone);
 
@@ -308,14 +315,32 @@ describe("tool-first prompt gating", () => {
         "Before checking availability for a new appointment, understand why the patient is coming in",
       );
       expect(prompt).toContain(
-        "Use medical when the patient needs medical eye care from an ophthalmologist, including a current eye problem, symptom, condition, post-operative concern, or medical evaluation.",
+        "Use medical for a current eye problem, symptom, condition, post-operative concern, or medical evaluation.",
       );
       expect(prompt).toContain(
-        "Use routine_vision when the patient's purpose is limited to routine vision care from an optometrist for glasses, contacts, prescription updates, fittings, or a routine vision exam.",
+        "Use routine_vision when the patient's purpose is limited to glasses, contacts, prescription updates, fittings, or a routine vision exam.",
       );
       expect(prompt).not.toContain("alone do not determine the visit type");
       expect(prompt).toContain(
-        'ask exactly: "Is this for an eye problem or symptom that needs an ophthalmologist, or for routine vision care with an optometrist for glasses or contacts?"',
+        'If the appointment reason is missing, ask: "What are you coming in for?"',
+      );
+      expect(prompt).toContain(
+        'A vague answer like "an eye problem" is not enough. Ask: "What\'s going on with your eye?"',
+      );
+      expect(prompt).toContain(
+        "Triage is complete when the routine purpose is clear, or the caller has described the eye concern and one useful detail, such as which eye or when it started.",
+      );
+      expect(prompt).toContain(
+        "Reuse details already given; ask one focused question at a time for anything missing, then move to patient identity and availability.",
+      );
+      expect(prompt).toContain(
+        "If the caller can only describe a vague eye concern after one focused follow-up, record their words and that limitation as the appointment reason, then continue scheduling. Keep unknown details unknown.",
+      );
+      expect(prompt).toContain(
+        "If the caller describes an eye emergency, follow Human Transfer immediately.",
+      );
+      expect(prompt).not.toContain(
+        "Is this for an eye problem or symptom that needs an ophthalmologist",
       );
       expect(prompt).not.toContain("referral");
       expect(prompt).toContain(
@@ -324,23 +349,55 @@ describe("tool-first prompt gating", () => {
     }
   });
 
-  it("keeps identity and privacy policy in the static prompt", () => {
-    const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
+  it.each([
+    ["spring-hill", SPRING_HILL_OFFICE_PHONE],
+    ["crystal-river", CRYSTAL_RIVER_OFFICE_PHONE],
+    ["ophthalmology-demo", OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
+  ] as const)(
+    "keeps retrieved eye-emergency guidance aligned for %s",
+    (office, phone) => {
+      expect(buildPrompt(phone)).toContain(
+        "If the caller describes an eye emergency, follow Human Transfer immediately.",
+      );
+      for (const symptom of [
+        "I have new flashes.",
+        "I have new floaters.",
+        "I have sudden vision loss.",
+        "Tengo pérdida repentina de visión.",
+      ]) {
+        const knowledge = resolveOfficeKnowledge(office, symptom);
+        expect(knowledge).toMatchObject({
+          outcome: "matched",
+          topic: "emergency_urgency",
+        });
+        const content = knowledge.sections.join("\n");
+        expect(content).toContain(
+          "New flashes or floaters require immediate transfer to office staff.",
+        );
+        expect(content).not.toContain("offer the next available appointment");
+        expect(content).toContain("Ask only for missing details");
+      }
+    },
+  );
 
-    expect(prompt).toContain("# Patient Identity");
-    expect(prompt).toContain(
-      "Ask for patient identity only when the caller requests patient-specific work and no patient is active.",
-    );
-    expect(prompt).toContain(
-      'Ask once: "To help with that, could you spell the patient\'s first name?"',
-    );
-    expect(prompt).toContain(
-      "If no patient becomes active, collect the patient's full name and date of birth, then call resolve_patient.",
-    );
-    expect(prompt).not.toContain("<caller_identity_hint>");
-    expect(prompt).not.toContain("middleware_error");
-    expect(prompt).not.toContain("+17275551212");
-  });
+  it.each([SPRING_HILL_OFFICE_PHONE, OPHTHALMOLOGY_DEMO_TRUNK_PHONE])(
+    "keeps identity and privacy policy in the static prompt for %s",
+    (phone) => {
+      const prompt = buildPrompt(phone);
+
+      expect(prompt).toContain("# Patient Identity");
+      expect(prompt).toContain(
+        "call resolve_patient with the intended patient's caller-provided identity",
+      );
+      expect(prompt).toContain("Use null for unknown fields");
+      expect(prompt).toContain(
+        "read it back and wait for confirmation before resolving",
+      );
+      expect(prompt).not.toContain("<caller_identity_hint>");
+      expect(prompt).not.toContain("middleware_error");
+      expect(prompt).not.toContain("+17275551212");
+    },
+  );
 
   it("requires a reason and supported help before an avoidable transfer", () => {
     const prompt = buildPrompt(HOLLYWOOD_OFFICE_PHONE);
@@ -402,7 +459,7 @@ describe("rheumatology demo", () => {
     const names = toolNamesForTrunk(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
 
     expect(names).toContain("check_insurance");
-    expect(names).toContain("get_availability");
+    expect(names).toContain("list_available_appointments");
     expect(names).toContain("book_appointment");
     expect(names).toContain("end_call");
     expect(names).toContain("transfer_call");
@@ -485,33 +542,15 @@ describe("dedicated demo trunks", () => {
     expect(prompt).toContain("# Appointment Triage");
   });
 
-  it("activates the behavioral-health demo with booking and safe knowledge retrieval", () => {
-    const office = getOfficeProfile("mental-health-demo");
-    const prompt = buildPrompt(MENTAL_HEALTH_DEMO_TRUNK_PHONE);
-    const service = resolveOfficeKnowledge(
-      "mental-health-demo",
-      "Do you offer PTSD therapy with EMDR?",
-    );
-    const crisis = resolveOfficeKnowledge(
-      "mental-health-demo",
-      "I am in crisis and might harm myself",
-    );
-
-    expect(office.trunkPhones).toEqual([MENTAL_HEALTH_DEMO_TRUNK_PHONE]);
+  it("activates the personalized New Tampa demo with both eye-care lanes", () => {
+    const office = getOfficeProfile("new-tampa-demo");
+    const prompt = buildPrompt(NEW_TAMPA_DEMO_TRUNK_PHONE);
+    expect(office.trunkPhones).toEqual([NEW_TAMPA_DEMO_TRUNK_PHONE]);
     expect(office.amdOfficePhone).toBe(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
     expect(office.schedulingFor("medical")).toEqual({ supported: true });
-    expect(prompt).toContain("Willowmere Behavioral Health");
-    expect(prompt).toContain(
-      "Immediate danger exits the routine front-desk workflow",
-    );
-    expect(service).toMatchObject({ outcome: "matched", topic: "services" });
-    expect(service.sections.join("\n")).toContain("Trauma and PTSD Care");
-    expect(crisis).toMatchObject({
-      outcome: "matched",
-      topic: "emergency_urgency",
-    });
-    expect(crisis.sections.join("\n")).toContain("call 911");
-    expect(crisis.sections.join("\n")).toContain("988");
+    expect(office.schedulingFor("routine_vision")).toEqual({ supported: true });
+    expect(prompt).toContain("New Tampa Eye Institute");
+    expect(prompt).toContain("triage_eye_care");
   });
 });
 
@@ -835,12 +874,11 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain(
       "Use normal written forms for dates, times, phone numbers, emails, and common acronyms.",
     );
-    expect(prompt).toContain("Include light disfluencies");
+    expect(prompt).toContain("If one sentence is enough, use one sentence.");
+    expect(prompt).toContain("Use at most three sentences per response.");
     expect(prompt).toContain(
-      'Start sentences with "And", "But", or "So" when it sounds natural.',
+      "Omit stock acknowledgments, added hesitation words, and theatrical pauses.",
     );
-    expect(prompt).toContain("Use audible personality patterns when they fit");
-    expect(prompt).toContain("Sorry, I think I missed that, what did you say?");
     expect(prompt).toContain("If the caller asks you to slow down");
     expect(prompt).not.toContain("eight fifteen a m");
   });
@@ -875,7 +913,7 @@ describe("model-facing tool definitions", () => {
         "cancel_appointment",
         "check_insurance",
         "create_staff_task",
-        "get_availability",
+        "list_available_appointments",
         "reschedule_appointment",
         "resolve_patient",
         "transfer_call",
@@ -1035,81 +1073,75 @@ describe("model-facing tool definitions", () => {
   });
 
   it("keeps availability execution tied to core appointment triage", () => {
-    expect(get_availability.description).toContain(
-      "after triage using the caller's date and time words verbatim",
+    expect(list_available_appointments.description).toContain("after triage");
+    expect(list_available_appointments.description).toContain(
+      "Offer only returned slots",
     );
-    expect(get_availability.description).toContain("Offer only returned slots");
-    expect(get_availability.description).not.toContain("appointmentLane");
-    expect(get_availability.description).not.toContain("bach_only routing");
-    expect(get_availability.description).not.toContain(
+    expect(list_available_appointments.description).not.toContain(
+      "appointmentLane",
+    );
+    expect(list_available_appointments.description).not.toContain(
+      "bach_only routing",
+    );
+    expect(list_available_appointments.description).not.toContain(
       "Under 18 medical visits = Dr. Bach only",
     );
 
-    const parameters = get_availability.parameters as {
+    const parameters = list_available_appointments.parameters as {
       safeParse: (value: unknown) => { success: boolean };
       shape: {
-        oldAppointmentRef: { description?: string };
         office: { description?: string };
         visitType: { description?: string };
-        when: { description?: string };
+        range: { description?: string };
       };
     };
     expect(parameters.shape.visitType.description).toContain(
-      "Triaged type for new visits",
-    );
-    expect(parameters.shape.oldAppointmentRef.description).toContain(
-      "Confirmed loaded appointment reference",
+      "Visit type for this availability",
     );
     expect(parameters.shape.office.description).toContain(
       "Caller-selected Hollywood or Sweetwater office",
     );
-    expect(parameters.shape.when.description).toContain(
-      "Caller's date and time phrase verbatim",
+    expect(parameters.shape.range.description).toContain(
+      "Load the next 14 days",
     );
-    expect(parameters.shape.when.description).toContain("next available");
+    expect(parameters.shape.range.description).toContain("90");
     expect(Object.keys(parameters.shape)).toEqual([
-      "when",
+      "range",
       "visitType",
-      "oldAppointmentRef",
       "office",
     ]);
     expect(
       parameters.safeParse({
-        when: "next Tuesday around 3 PM",
+        range: "default",
         visitType: "medical",
-        oldAppointmentRef: null,
         office: "hollywood",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "next Tuesday around 3 PM",
+        range: "default",
         visitType: null,
-        oldAppointmentRef: "appointment-loaded",
         office: "hollywood",
       }).success,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "tomorrow morning",
+        range: "default",
         visitType: "medical",
-        oldAppointmentRef: null,
         office: "sweetwater",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "tomorrow",
+        range: "default",
         visitType: "medical",
-        oldAppointmentRef: null,
         office: "spring-hill",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "tomorrow",
+        range: "default",
         visitType: "medical",
-        oldAppointmentRef: null,
         timePreference: "evening",
       }).success,
     ).toBe(false);
@@ -1122,17 +1154,15 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "June 1",
+        range: "default",
         visitType: "routine_vision",
-        oldAppointmentRef: null,
         office: "hollywood",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        when: "June 1",
+        range: "default",
         visitType: "unknown",
-        oldAppointmentRef: null,
         office: "hollywood",
       }).success,
     ).toBe(false);
@@ -1144,14 +1174,14 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "next Wednesday",
+        range: "default",
         date: "2026-06-01",
         visitType: "medical",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        when: "next Wednesday",
+        range: "default",
         appointmentLane: "medical_md",
       }).success,
     ).toBe(false);
@@ -1423,24 +1453,25 @@ describe("model-facing tool definitions", () => {
     ]);
     expect(
       parameters.safeParse({
+        oldAppointmentRef: "A1",
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: true,
-        oldAppointmentRef: null,
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
+        oldAppointmentRef: "A1",
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
         readBack: null,
-        oldAppointmentRef: "old-appointment-2-abc123",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
+        oldAppointmentRef: "A1",
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
@@ -1477,6 +1508,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
+        oldAppointmentRef: "A1",
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
@@ -1491,6 +1523,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
+        oldAppointmentRef: "A1",
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
       }).success,
@@ -1562,13 +1595,11 @@ describe("model-facing tool definitions", () => {
       "Use only caller-provided identity",
     );
     expect(resolve_patient.description).toContain(
-      "a first name can activate a preloaded patient",
+      "Try their supplied first name before collecting more identity",
     );
+    expect(resolve_patient.description).toContain("leave unknown fields null");
     expect(resolve_patient.description).toContain(
-      "otherwise collect full name and date of birth",
-    );
-    expect(resolve_patient.description).toContain(
-      "Do not use for new-patient chart creation",
+      "Use add_patient for new-patient chart creation",
     );
     expect(resolve_patient.description).not.toContain("insurance updates");
     expect(resolve_patient.description).not.toContain("private account");

@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HttpOwnedMiddleware } from "../clients/owned-middleware.js";
 import {
+  getOfficeProfileByPhone,
   getOfficeProfiles,
   isDemoOfficeKey,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
+  OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
+  RHEUMATOLOGY_DEMO_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
 import { getMiddlewareConfig } from "../runtime/middleware-routing.js";
@@ -29,6 +33,25 @@ afterEach(() => {
 });
 
 describe("call-scoped middleware environment", () => {
+  it.each([
+    ["rheumatology-demo", RHEUMATOLOGY_DEMO_TRUNK_PHONE],
+    ["ophthalmology-demo", OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
+    ["new-tampa-demo", NEW_TAMPA_DEMO_TRUNK_PHONE],
+  ])("routes the %s demo number to sandbox on production", (key, phone) => {
+    const office = getOfficeProfileByPhone(phone);
+    expect(office.key).toBe(key);
+    expect(
+      getMiddlewareConfig(office.key, {
+        ...env,
+        LIVEKIT_AGENT_DEPLOYMENT: "",
+      }),
+    ).toEqual({
+      authToken: env.SANDBOX_AMD_API_TOKEN,
+      middlewareBaseUrl: env.SANDBOX_AMD_API_URL,
+      officeOverride: "spring_hill",
+    });
+  });
+
   it.each(getOfficeProfiles())(
     "isolates $key on production without changing real offices",
     (office) => {

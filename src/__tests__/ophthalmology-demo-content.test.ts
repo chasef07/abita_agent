@@ -31,8 +31,7 @@ describe("ophthalmology demo content", () => {
 
     expect(office).toMatchObject({
       displayName: "Clearbrook Eye Center",
-      greeting:
-        "Hey this is Maya at Clearbrook Eye Center. How are you doing today?",
+      greeting: "Hi, this is Maya at Clearbrook Eye Center. How can I help?",
       key: "ophthalmology-demo",
       knowledgeSource: "KNOWLEDGE_OPHTHALMOLOGY_DEMO.md",
       trunkPhones: [OPHTHALMOLOGY_DEMO_TRUNK_PHONE],

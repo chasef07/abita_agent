@@ -58,7 +58,7 @@ export function createSchedulingState(input: {
     },
     availability: {
       slots: [],
-      currentDate: undefined,
+      rangeDays: undefined,
       latestRouting: null,
       bookingTokensBySlotId: {},
       nextSlotIndex: 0,
@@ -99,14 +99,7 @@ export function applyTurnContextToState(
   state.workflow.current = turn;
   const visitType = visitTypeFromAppointmentLane(turn);
   const intentChanged = previousTurn?.intent !== turn.intent;
-  const appointmentChanged =
-    previousTurn?.oldAppointmentRef !== turn.oldAppointmentRef;
-  if (
-    !intentChanged &&
-    !appointmentChanged &&
-    (!visitType || previousVisitType === visitType)
-  )
-    return;
+  if (!intentChanged && (!visitType || previousVisitType === visitType)) return;
 
   clearAvailabilitySelection(state, {
     invalidateReads: "scheduling_context_changed",
@@ -179,8 +172,11 @@ export function clearAvailabilitySelection(
 ): void {
   if (options.invalidateReads) {
     invalidateAvailabilityReads(state, options.invalidateReads);
-    state.availability.currentDate = undefined;
+    state.availability.rangeDays = undefined;
   }
+  if (state.availability.slots.length)
+    state.availability.version = (state.availability.version ?? 0) + 1;
+  state.availability.refreshAfter = undefined;
   state.availability.slots = [];
   state.availability.latestRouting = null;
   state.availability.bookingTokensBySlotId = {};
@@ -228,17 +224,6 @@ export function latestAvailabilityRouting(state: CallState): string | null {
   );
 }
 
-export function currentAvailabilityDate(state: CallState): string | undefined {
-  return state.availability.currentDate?.trim() || undefined;
-}
-
-export function setCurrentAvailabilityDate(
-  state: CallState,
-  date: string | undefined,
-): void {
-  state.availability.currentDate = date?.trim() || undefined;
-}
-
 export function availabilitySlotsForState(
   state: CallState,
 ): StoredAvailabilitySlot[] {
@@ -269,6 +254,13 @@ export function replaceAvailabilitySlots(
   slots: StoredAvailabilitySlot[],
   routing: string | null,
 ): void {
+  if (
+    state.availability.version === undefined ||
+    JSON.stringify(state.availability.slots) !== JSON.stringify(slots)
+  ) {
+    state.availability.version = (state.availability.version ?? 0) + 1;
+  }
+  state.availability.refreshAfter = undefined;
   state.availability.slots = [...slots];
   state.availability.latestRouting = routing;
   state.availability.bookingTokensBySlotId = {};

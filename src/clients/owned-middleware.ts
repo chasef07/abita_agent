@@ -46,10 +46,8 @@ export type AvailabilitySlot = {
   time: string;
   datetime: string;
   bookingToken?: string;
+  key?: string;
 };
-
-export type AvailabilityTimePreference =
-  { kind: "morning" | "afternoon" } | { minuteOfDay: number };
 
 export type AvailabilityResult =
   | {
@@ -208,8 +206,7 @@ export interface OwnedMiddleware {
   }): Promise<PatientResolveResult>;
   getAvailability(request: {
     office: string;
-    requestedDate?: string;
-    preferredTime?: AvailabilityTimePreference;
+    rangeDays?: 14 | 30 | 90;
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
@@ -290,26 +287,20 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
 
   async getAvailability(request: {
     office: string;
-    requestedDate?: string;
-    preferredTime?: AvailabilityTimePreference;
+    rangeDays?: 14 | 30 | 90;
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
     signal?: AbortSignal;
   }): Promise<AvailabilityResult> {
     const body = {
-      ...(request.requestedDate
-        ? { requestedDate: request.requestedDate }
-        : {}),
-      ...(request.preferredTime
-        ? { preferredTime: request.preferredTime }
-        : {}),
+      rangeDays: request.rangeDays ?? 14,
       ...(request.dob ? { dob: request.dob } : {}),
       ...(request.routing ? { routing: request.routing } : {}),
       ...(request.preauthRequired ? { preauthRequired: true } : {}),
     };
     let transport = await this.#post(
-      "/api/scheduler/availability",
+      "/api/scheduler/slots",
       request.office,
       body,
       { signal: request.signal },
@@ -318,7 +309,7 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     let result = normalizeAvailability(transport.value);
     if (isUnclassifiedReadFailure(result)) {
       transport = await this.#post(
-        "/api/scheduler/availability",
+        "/api/scheduler/slots",
         request.office,
         body,
         { signal: request.signal },
@@ -515,6 +506,13 @@ function normalizeAvailability(raw: unknown): AvailabilityResult {
     };
   }
   const slots = raw.slots.map((slot) => ({
+    key: [
+      slot.columnId,
+      slot.profileId,
+      slot.provider,
+      slot.datetime,
+      slot.duration,
+    ].join("|"),
     provider: stringValue(slot.provider) ?? "",
     date:
       stringValue(slot.date) ?? stringValue(slot.datetime)?.split("T")[0] ?? "",

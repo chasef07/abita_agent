@@ -6,10 +6,7 @@ import { recordAvailabilityReadEvent } from "../state/observability.js";
 import type { AvailabilityResult } from "./middleware.js";
 
 type AvailabilityCoordinator = {
-  completed: Map<
-    string,
-    { expiresAt: number | null; result: AvailabilityResult }
-  >;
+  completed: Map<string, { expiresAt: number; result: AvailabilityResult }>;
   generation: number;
   inFlight: Map<string, InFlightAvailabilityRead>;
 };
@@ -21,7 +18,6 @@ type InFlightAvailabilityRead = {
 
 type CoordinatedAvailabilityReadOptions = {
   now: Date;
-  onCacheExpired: () => void;
   signal?: AbortSignal;
 };
 
@@ -38,14 +34,13 @@ export async function coordinatedAvailabilityRead(
   options: CoordinatedAvailabilityReadOptions,
 ): Promise<AvailabilityResult> {
   const startedAt = Date.now();
-  const { now, onCacheExpired, signal } = options;
+  const { now, signal } = options;
   signal?.throwIfAborted();
   const coordinator = availabilityCoordinatorFor(state);
   const completed = coordinator.completed.get(key);
   if (completed) {
-    if (completed.expiresAt !== null && now.getTime() >= completed.expiresAt) {
+    if (now.getTime() >= completed.expiresAt) {
       coordinator.completed.clear();
-      onCacheExpired();
       recordAvailabilityReadEvent(state, {
         operation: "invalidation",
         reason: "booking_token_expired",
@@ -105,7 +100,7 @@ export function cacheCompletedAvailabilityRead(
   key: string,
   result: AvailabilityResult,
   now: Date,
-): void {
+): number | undefined {
   const coordinator = availabilityCoordinatorFor(state);
   const expiresAt = availabilityResultExpiresAt(result);
   if (
@@ -116,11 +111,19 @@ export function cacheCompletedAvailabilityRead(
     discardInFlightAvailabilityResult(coordinator, key, result);
     return;
   }
-  coordinator.completed.set(key, {
-    expiresAt,
-    result: copyAvailabilityResult(result),
-  });
+  // Cache hits must retain the original fetch deadline, especially empty results
+  // which have no booking token to provide an independent expiry.
+  const snapshotExpiresAt =
+    coordinator.completed.get(key)?.expiresAt ??
+    availabilitySnapshotExpiresAt(result, now);
+  if (!coordinator.completed.has(key)) {
+    coordinator.completed.set(key, {
+      expiresAt: snapshotExpiresAt,
+      result: copyAvailabilityResult(result),
+    });
+  }
   discardInFlightAvailabilityResult(coordinator, key, result);
+  return snapshotExpiresAt;
 }
 
 export function discardAvailabilityRead(
@@ -227,4 +230,16 @@ function availabilityResultExpiresAt(
   if (result.status !== "found") return null;
   const expiresAt = Date.parse(result.bookingTokenExpiresAt ?? "");
   return Number.isFinite(expiresAt) ? expiresAt : null;
+}
+
+// Inventory freshness is shorter than signed booking authorization. A selected
+// slot is still revalidated by middleware at booking time.
+export function availabilitySnapshotExpiresAt(
+  result: AvailabilityResult,
+  now: Date,
+): number {
+  return Math.min(
+    availabilityResultExpiresAt(result) ?? Infinity,
+    now.getTime() + 60_000,
+  );
 }

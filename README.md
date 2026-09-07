@@ -181,7 +181,7 @@ sequenceDiagram
     loop Caller turns
         C->>L: Speech
         L->>A: Final transcript
-        A->>A: Confirm identity and retrieve matching office knowledge
+        A->>A: Retrieve matching office knowledge and project lookup state
         A->>A: Reason over current model context
         opt Tool required
             A->>M: Semantic patient or scheduling intent
@@ -197,6 +197,15 @@ sequenceDiagram
 A failed pre-call lookup becomes typed `lookup_failed` state; it does not
 pretend the caller was absent. The call can continue and resolve identity
 through the normal tool interface.
+
+Before activation, model context includes the phone lookup outcome and candidate
+count, while candidate identities stay private. The model supplies the intended
+patient's stated identity to `resolve_patient`; a name mention alone does not
+activate a chart. The resolver checks every supplied field, activates a clear
+match, or requests the next missing detail. Unknown surname/DOB inputs remain
+absent, including empty strings returned by a model. DOB read-back and caller
+confirmation are conversation instructions; code separately rejects invalid
+calendar dates. These checks do not independently prove that a date was spoken.
 
 ## Call State
 
@@ -414,7 +423,7 @@ transcripts to public issues, pull requests, or logs.
 | --- | --- | --- |
 | Patient identity | `resolve_patient`, `add_patient` | Verified or created patient result plus Identity Promotion |
 | Insurance | `check_insurance`, `update_insurance` | Office policy or successful middleware update |
-| Scheduling | `get_availability`, `book_appointment`, `cancel_appointment`, `reschedule_appointment` | Scheduling Workflow state plus successful middleware result |
+| Scheduling | `list_available_appointments`, `book_appointment`, `cancel_appointment`, `reschedule_appointment` | Scheduling Workflow state plus successful middleware result |
 | Staff follow-up | `create_staff_task` when enabled by Office Profile | Portal task receipt |
 | Human help | `transfer_call` | Accepted SIP transfer state |
 | Conversation completion | LiveKit end-call tool | Session close event |
@@ -477,6 +486,16 @@ pnpm typecheck
 pnpm test
 ```
 
+With LiveKit credentials exported, an opt-in check exercises the configured
+primary and fallback models against synthetic patient-resolution cases:
+
+```bash
+pnpm exec tsx src/__tests__/patient-resolution-model-check.ts
+```
+
+This check incurs inference usage, verifies tool arguments and DOB read-back
+requests, and never executes middleware. It is separate from `pnpm test`.
+
 Start a development worker:
 
 ```bash
@@ -488,9 +507,27 @@ variables from a secure local source before starting the worker. A real call
 also requires LiveKit Cloud credentials, a configured SIP trunk, and reachable
 development dependencies.
 
+Inbound caller audio uses Krisp VIVA telephony voice isolation at the agent's
+session input, before VAD and transcription. Each call gets its own filter with
+LiveKit Cloud authentication and the SDK's default suppression strength. The
+plugin bundles the model; no separate Krisp license or model download is needed.
+Keep enhanced noise cancellation disabled on the SIP trunk and any upstream
+client so audio is processed only once. Voice isolation consumes LiveKit Cloud's
+voice-isolation allowance and is metered beyond it on paid plans. Before rollout,
+verify trunk settings and test quiet callers, speakerphone, background speech,
+and caregivers speaking alongside patients; local checks do not prove live
+audio quality. See [LiveKit's noise cancellation documentation](https://docs.livekit.io/transport/media/noise-cancellation/).
+
 ## Configuration contract
 
 Use [`.env.example`](.env.example) as the canonical variable list.
+
+The primary LLM is `google/gemma-4-31b-it`; the fallback is `deepseek-ai/deepseek-v4-pro`
+with `low` reasoning effort.
+Both use LiveKit Inference and retain
+a 512 completion-token limit and strict, sequential tool calls.
+[LiveKit currently routes DeepSeek V4 Pro through Baseten](https://docs.livekit.io/agents/models/llm/deepseek/);
+no direct Baseten API key is required.
 
 | Variables | Purpose | Requirement |
 | --- | --- | --- |

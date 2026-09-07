@@ -25,7 +25,7 @@ Status: available
 
 Monday–Thursday 8:30 AM–4:30 PM. Closed for lunch 12:30 PM–1:30 PM. Friday 8:30 AM–2:30 PM.
 
-Holiday closure: Closed on Memorial Day, Monday, May 25, 2026.
+Holiday closure: Closed on Labor Day, Monday, September 7, 2026.
 
 ## After Hours
 Status: not-supplied
@@ -35,12 +35,16 @@ No after-hours contact information is supplied for this office. Say this informa
 ## Scope of Services
 Status: available
 
+Hollywood does not provide cataract care. Dr. Bach does not see cataract patients, including cataract evaluations. For any cataract visit, direct the caller to their referring doctor, primary care provider, or insurance company to find a different provider.
+
 Hollywood schedules medical eye care and routine vision. Medical appointments cover current eye problems, symptoms, conditions, and ophthalmology care. Routine-vision appointments cover routine eye exams, eyeglass prescriptions, contact lens fittings, and insertion training when there is no active eye problem.
 
 Routine-vision age minimums follow the scheduler provider rules: Dr. Kyler Farnan sees routine-vision patients age 5 and older, Dr. Lisbet Vidal sees routine-vision patients age 7 and older, and Dr. Gisselle Calero sees routine-vision patients age 4 and older. If no routine-vision provider is age-eligible, route the patient to Dr. Bach, who is a pediatric ophthalmologist.
 
 ## Providers
 Status: available
+
+Hollywood does not provide cataract care. Dr. Bach does not see cataract patients, including cataract evaluations. For any cataract visit, direct the caller to their referring doctor, primary care provider, or insurance company to find a different provider.
 
 Doctors at the Hollywood location:
 

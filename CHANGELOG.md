@@ -1,5 +1,68 @@
 # Changelog
 
+## [4.17.0](https://github.com/chasef07/abita_agent/compare/4.16.0...4.17.0) (2026-09-07)
+
+
+### Features
+
+* **llm:** use Gemma with DeepSeek fallback through LiveKit ([#417](https://github.com/chasef07/abita_agent/issues/417)) ([421beb7](https://github.com/chasef07/abita_agent/commit/421beb73f7cf6a20c96ffb66f9d9068c800692ba))
+
+
+### Bug Fixes
+
+* **knowledge:** add NMB Labor Day closure ([#418](https://github.com/chasef07/abita_agent/issues/418)) ([5272b72](https://github.com/chasef07/abita_agent/commit/5272b72a4a483e84beb97c9315f040ba3bdc52ad))
+* **knowledge:** add North Miami Beach store hours ([#415](https://github.com/chasef07/abita_agent/issues/415)) ([23dc06c](https://github.com/chasef07/abita_agent/commit/23dc06c789fa68e348d9801966a2909c7e1fae79))
+
+## [4.16.0](https://github.com/chasef07/abita_agent/compare/4.15.0...4.16.0) (2026-09-06)
+
+
+### Features
+
+* **audio:** enable Krisp VIVA telephony voice isolation ([#413](https://github.com/chasef07/abita_agent/issues/413)) ([2ea7ca7](https://github.com/chasef07/abita_agent/commit/2ea7ca7413793b5b5e760efeb683b71d19c2372e))
+
+
+### Bug Fixes
+
+* **identity:** resolve fuzzy first-name phone matches ([#412](https://github.com/chasef07/abita_agent/issues/412)) ([e44bbfd](https://github.com/chasef07/abita_agent/commit/e44bbfdda28859ec0c0ee1038a99dd6119005eb8))
+
+## [4.15.0](https://github.com/chasef07/abita_agent/compare/4.14.1...4.15.0) (2026-09-06)
+
+
+### Features
+
+* **agent:** use Baseten GLM primary and Luz for Hollywood ([#407](https://github.com/chasef07/abita_agent/issues/407)) ([6a7b229](https://github.com/chasef07/abita_agent/commit/6a7b2294a5bdcec230ca4fba0d6c4ce575dd2d8a))
+
+
+### Bug Fixes
+
+* **identity:** ask for first name before resolving phone matches ([#406](https://github.com/chasef07/abita_agent/issues/406)) ([d404fb2](https://github.com/chasef07/abita_agent/commit/d404fb2672790554250c533ebf6f4835b82a92ce))
+
+## [4.14.1](https://github.com/chasef07/abita_agent/compare/4.14.0...4.14.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **identity:** resolve phone matches through one patient tool ([#401](https://github.com/chasef07/abita_agent/issues/401)) ([711817f](https://github.com/chasef07/abita_agent/commit/711817fefaca5d325ea76f6d6b6235dd644680e7))
+* **prompts:** make receptionist concise and proactive ([91c7f0d](https://github.com/chasef07/abita_agent/commit/91c7f0dec1a4de76353cbe32495a9f8caf7fe11d))
+
+## [4.14.0](https://github.com/chasef07/abita_agent/compare/4.13.6...4.14.0) (2026-09-06)
+
+
+### Features
+
+* **scheduling:** share appointment inventory across booking and rescheduling ([#399](https://github.com/chasef07/abita_agent/issues/399)) ([a67cce2](https://github.com/chasef07/abita_agent/commit/a67cce28f378ff173c9a0a89db536aba000b6004))
+
+
+### Bug Fixes
+
+* **knowledge:** recognize BrightView identity questions at NMB ([#398](https://github.com/chasef07/abita_agent/issues/398)) ([24e6550](https://github.com/chasef07/abita_agent/commit/24e65506d4b11894751890d306a15805e3f97f22))
+
+
+### Performance Improvements
+
+* enable preemptive generation with current turn context ([#395](https://github.com/chasef07/abita_agent/issues/395)) ([d286d54](https://github.com/chasef07/abita_agent/commit/d286d54db4ad46656b1a6e2bc087386bba744417))
+* remove sentence buffering from speech guard ([#396](https://github.com/chasef07/abita_agent/issues/396)) ([615cd5f](https://github.com/chasef07/abita_agent/commit/615cd5f76c29bf6c46009bcbfc41f82869d6b236))
+
 ## [4.13.6](https://github.com/chasef07/abita_agent/compare/4.13.5...4.13.6) (2026-09-04)
 
 

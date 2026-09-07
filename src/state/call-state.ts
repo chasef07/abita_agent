@@ -162,10 +162,11 @@ export type SchedulingAppointmentLane = Exclude<
 export interface WorkflowTurnContext {
   intent: TurnIntent;
   appointmentLane: AppointmentLane;
-  oldAppointmentRef?: string;
 }
 
 export interface CompletedRescheduleState {
+  originalAppointmentRef?: string;
+  replacementAppointmentRef?: string;
   status: "rescheduled" | "needs_human_cancellation";
   appointmentDescription: string;
 }
@@ -181,6 +182,7 @@ export interface CompletedCancellationState {
 }
 
 export interface StoredAvailabilitySlot {
+  inventoryKey?: string;
   slotId: string;
   provider: string;
   date: string;
@@ -353,7 +355,7 @@ export type PatientIdentityTransitionOutcome =
 
 export interface PatientIdentityTransitionAnalytics {
   outcome: PatientIdentityTransitionOutcome;
-  source: "caller_transcript" | "resolve_patient" | "create_patient";
+  source: "resolve_patient" | "create_patient";
 }
 
 export interface OfficeKnowledgeRetrievalAnalytics {
@@ -431,8 +433,10 @@ interface WorkflowSessionState {
 }
 
 interface AvailabilitySessionState {
+  version?: number;
+  refreshAfter?: number;
   slots: StoredAvailabilitySlot[];
-  currentDate?: string;
+  rangeDays?: 14 | 30 | 90;
   latestRouting?: string | null;
   bookingTokensBySlotId: Record<string, string>;
   nextSlotIndex: number;
@@ -486,12 +490,6 @@ export function recordUnregisteredPatientInsuranceCheck(
   if (receipt?.lookupOperationVersion === state.identity.operationVersion) {
     receipt.insuranceCheckVersion += 1;
   }
-}
-
-export function patientIdentityTransitions(
-  state: CallState,
-): PatientIdentityTransitionAnalytics[] {
-  return [...state.identity.receipts];
 }
 
 export interface InitialCallStateInput {

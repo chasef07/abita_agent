@@ -17,7 +17,7 @@ import {
   CRYSTAL_RIVER_OFFICE_PHONE,
   DEMO_TRANSFER_NUMBER,
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
   getOfficeProfileByPhone,
   getProductOfficeKeyByPhone,
@@ -122,6 +122,8 @@ describe("call-center handoff", () => {
   });
 
   it("routes Crystal River directly to its configured phone target", async () => {
+    vi.resetModules();
+    const { transferCallerToOffice } = await import("../tools/handoff.js");
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
     configureProductHandoff();
@@ -151,6 +153,7 @@ describe("call-center handoff", () => {
         ringingTimeout: 20,
       }),
     );
+    expect(SipClient).toHaveBeenCalledTimes(1);
     expect(vi.mocked(SipClient).mock.calls.at(-1)?.[3]).toBeUndefined();
   });
 
@@ -267,7 +270,7 @@ describe("call-center handoff", () => {
     [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE, "north-miami-beach-optical"],
     [RHEUMATOLOGY_DEMO_TRUNK_PHONE, "rheumatology-demo"],
     [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "ophthalmology-demo"],
-    [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "mental-health-demo"],
+    [NEW_TAMPA_DEMO_TRUNK_PHONE, "new-tampa-demo"],
   ] as const)("maps handoff trunk %s to %s", (trunkPhone, officeKey) => {
     expect(getProductOfficeKeyByPhone(trunkPhone)).toBe(officeKey);
   });
@@ -329,7 +332,7 @@ describe("call-center handoff", () => {
 
   it.each([
     [OPHTHALMOLOGY_DEMO_TRUNK_PHONE, "ophthalmology-demo"],
-    [MENTAL_HEALTH_DEMO_TRUNK_PHONE, "mental-health-demo"],
+    [NEW_TAMPA_DEMO_TRUNK_PHONE, "new-tampa-demo"],
   ] as const)(
     "routes the %s demo profile through its matching Product office",
     async (trunkPhone, profileOfficeKey) => {
@@ -585,6 +588,8 @@ describe("call-center handoff", () => {
   });
 
   it("reserves and transfers once to the direct SIP target", async () => {
+    vi.resetModules();
+    const { transferCallerToOffice } = await import("../tools/handoff.js");
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
     const fetchMock = vi.fn(async () => jsonResponse(DIRECT_RESPONSE));
@@ -628,6 +633,7 @@ describe("call-center handoff", () => {
         ringingTimeout: 20,
       },
     );
+    expect(SipClient).toHaveBeenCalledTimes(1);
     expect(vi.mocked(SipClient).mock.calls.at(-1)?.[3]).toEqual({
       failover: false,
     });

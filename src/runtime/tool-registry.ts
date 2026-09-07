@@ -1,3 +1,4 @@
+import { withNewTampaDemoTools } from "../customers/abita/new-tampa-demo.js";
 import { beta, type ToolContextEntry } from "@livekit/agents";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import type { CallState } from "../state/call-state.js";
@@ -33,7 +34,7 @@ export function buildToolsForTrunk(
   const {
     book_appointment,
     cancel_appointment,
-    get_availability,
+    list_available_appointments,
     reschedule_appointment,
   } = createSchedulingTools(bindSchedulingMiddleware(middleware), undefined, {
     availabilityOfficeMode,
@@ -42,13 +43,19 @@ export function buildToolsForTrunk(
     createResolvePatientTool(middleware),
     createAddPatientTool(middleware),
     createUpdateInsuranceTool(middleware),
-    get_availability,
+    list_available_appointments,
     cancel_appointment,
     book_appointment,
     reschedule_appointment,
     check_insurance,
   ] as const satisfies readonly ToolContextEntry<CallState>[];
   const commonTools = [...coreTools, transfer_call, end_call] as const;
+  if (office.key === "new-tampa-demo") {
+    return withNewTampaDemoTools(
+      [...commonTools, create_staff_task],
+      bindSchedulingMiddleware(middleware),
+    );
+  }
   if (office.staffTaskEnabled) {
     return [...commonTools, create_staff_task];
   }

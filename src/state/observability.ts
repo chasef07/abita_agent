@@ -64,12 +64,6 @@ export function recordOfficeKnowledgeRetrieval(
   ].slice(-MAX_OFFICE_KNOWLEDGE_RETRIEVALS);
 }
 
-export function officeKnowledgeRetrievals(
-  state: CallState,
-): OfficeKnowledgeRetrievalAnalytics[] {
-  return [...state.runtime.knowledgeRetrievals];
-}
-
 export function recordAppointmentAction(
   state: CallState,
   callId: string,

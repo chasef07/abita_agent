@@ -1,6 +1,6 @@
 {
   "name": "abita_agent",
-  "version": "4.13.6",
+  "version": "4.17.0",
   "type": "module",
   "scripts": {
     "dev": "tsx src/main.ts dev",
@@ -16,31 +16,33 @@
     "format:check": "prettier --check . --ignore-unknown"
   },
   "dependencies": {
-    "@livekit/agents": "1.7.1",
-    "@livekit/agents-plugin-rime": "1.7.1",
+    "@livekit/agents": "1.8.0",
+    "@livekit/agents-plugin-krisp": "1.8.0",
+    "@livekit/agents-plugin-rime": "1.8.0",
     "@livekit/rtc-node": "^0.13.34",
-    "chrono-node": "2.10.1",
+    "double-metaphone": "2.0.1",
+    "fast-fuzzy": "1.12.0",
     "livekit-server-sdk": "^2.18.0",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^26.4.0",
+    "@types/node": "^26.4.1",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "eslint": "^10.9.1",
+    "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
-    "globals": "^17.11.0",
+    "globals": "^17.12.0",
     "prettier": "^3.9.6",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-eslint": "^8.68.0",
-    "vitest": "^4.1.11",
+    "typescript-eslint": "^8.69.0",
+    "vitest": "^5.0.0",
     "yaml": "2.9.0"
   },
   "pnpm": {
     "overrides": {
       "esbuild": "0.28.2",
-      "vite": "8.2.1"
+      "vite": "8.2.2"
     }
   }
 }

@@ -54,6 +54,6 @@ or create test appointments.
 
 [LiveKit staging deployments](https://livekit.com/blog/staging-deployments-for-livekit-agents)
 documents shared secrets, empty `LIVEKIT_AGENT_DEPLOYMENT` for production, and
-the Node SDK minimum of 1.7.1. This repository pins 1.7.1; its worker registers
+the Node SDK minimum of 1.7.1. This repository pins 1.8.0; its worker registers
 the deployment from that environment variable. Any nonempty deployment name
 is isolated, so a future preview deployment cannot fall through to production.
