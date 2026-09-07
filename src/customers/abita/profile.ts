@@ -314,7 +314,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     displayName: "New Tampa Eye Institute",
     trunkPhones: [NEW_TAMPA_DEMO_TRUNK_PHONE],
     greeting:
-      "Hi, this is Maya at New Tampa Eye Institute. How can I help you today?",
+      "Hi, this is Maya at the New Tampa Eye Institute demo. How can I help you today?",
     roleFile: "SOUL_NEW_TAMPA_DEMO.md",
     knowledgeSource: "KNOWLEDGE_NEW_TAMPA_DEMO.md",
     care: {

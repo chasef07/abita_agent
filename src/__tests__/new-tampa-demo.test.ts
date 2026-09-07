@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   triage_eye_care,
   notify_after_hours_physician,
+  NEW_TAMPA_DEMO_AFTER_HOURS_CONTACT,
   newTampaSchedulingBlock,
   newTampaProviderAllowed,
   createNewTampaDemoTools,
@@ -70,6 +71,7 @@ describe("New Tampa 320 demo", () => {
     });
     const prompt = buildPrompt(NEW_TAMPA_DEMO_TRUNK_PHONE);
     expect(prompt).toContain("New Tampa Eye Institute");
+    expect(office.greeting).toContain("New Tampa Eye Institute demo");
     expect(prompt).not.toMatch(/Willowmere|Clearbrook|988/);
     const knowledge = readFileSync(
       new URL("../../workspace/KNOWLEDGE_NEW_TAMPA_DEMO.md", import.meta.url),
@@ -105,11 +107,13 @@ describe("New Tampa 320 demo", () => {
       context(state),
     );
     expect(result).toContain(
-      "I understand you'd like to see Doctor Scott Friedman",
+      "Sorry, Doctor Scott Friedman specializes in retina care.",
     );
     expect(result).toContain("specializes in retina care");
-    expect(result).toContain("Doctor Bradley Smur, our optometrist");
-    expect(result).toContain("Ask whether Doctor Smur works for them");
+    expect(result).toContain(
+      "Doctor Bradley Smur handles glasses prescriptions and routine eye exams, and I can help you book with him.",
+    );
+    expect(result).toContain("Ask whether to check Doctor Smur's openings");
     const middleware = new InMemorySchedulingMiddleware();
     expect(
       await createNewTampaDemoTools(
@@ -130,6 +134,37 @@ describe("New Tampa 320 demo", () => {
       "visit type changed",
     );
   });
+
+  it("retrieves the direct glasses redirect without an unconditional specialist-name question", () => {
+    const knowledge = resolveOfficeKnowledge(
+      "new-tampa-demo",
+      "I need glasses and want Doctor Friedman.",
+    );
+    const content = knowledge.sections.join("\n");
+    expect(content).toContain(
+      "For medical care or an unclear visit purpose, clarify the first name.",
+    );
+    expect(content).toContain(
+      "For glasses or routine exams only, redirect directly to Doctor Bradley Smur instead of asking which specialist they mean.",
+    );
+  });
+
+  it.each(["Dr Friedman", "Dr Fridman", "Dr Freidman"])(
+    "redirects a glasses request for %s without unnecessary first-name clarification",
+    async (requestedProvider) => {
+      const state = stateForDemo();
+      const result = await triage_eye_care.execute(
+        { purpose: "routine_vision", requestedProvider },
+        context(state),
+      );
+      expect(result).toContain(
+        "Doctor Bradley Smur, our optometrist, is the right provider",
+      );
+      expect(result).toContain("I can help you book with him");
+      expect(result).not.toContain("Clarify the provider's full name");
+      expect(newTampaSchedulingBlock(state)).toBe(result);
+    },
+  );
 
   it.each(["Dr Friedman", "Dr Fridman", "Dr Freidman", "Doctor Unknown"])(
     "clarifies an ambiguous or unknown provider: %s",
@@ -323,8 +358,18 @@ describe("New Tampa 320 demo", () => {
       expect(result).toContain(
         "No real SMS was sent and no physician was contacted",
       );
-      expect(result).toContain("demo callback line");
-      expect(result).toContain("Call transfer_call now");
+      const script = result.match(/say: "([^"]+)"/)?.[1];
+      expect(script).toBe(
+        `We'll send a text to the on-call physician now. You can also call or reach out at ${NEW_TAMPA_DEMO_AFTER_HOURS_CONTACT}.`,
+      );
+      expect(script).not.toMatch(/demo|simulat/i);
+      expect(result).toContain(
+        "rehearsal number, not a verified physician line",
+      );
+      expect(result).toContain(
+        "If asked whether a real message was sent, answer no.",
+      );
+      expect(result).toContain("Call transfer_call");
       expect(newTampaSchedulingBlock(state)).toContain(
         "After-hours urgent concern",
       );

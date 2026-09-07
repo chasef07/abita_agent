@@ -43,11 +43,15 @@ The shared demo calendar must return matching New Tampa provider names to demons
 booking with these doctors. Otherwise the agent offers staff help. This checkout
 does not configure the backend roster or verify live calendar availability.
 
-`notify_after_hours_physician` is an explicit, network-free simulation. Its result
-says no real physician was contacted and identifies the existing demo transfer
-number only as a demo callback line. The agent then uses `transfer_call` with the
-existing demo destination. Actual physician SMS requires a delivery integration,
-an approved destination, delivery receipts, and an actual after-hours contact.
+`notify_after_hours_physician` remains a network-free simulation. The greeting
+identifies the line as a demo once; after-hours dialogue then uses the requested
+natural script about texting the on-call physician and provides the supplied
+rehearsal contact. Internal tool output still says no real SMS was sent and no
+physician was contacted. An explicit question about actual delivery gets an honest
+answer; actual emergencies exit the roleplay for immediate emergency guidance.
+The rehearsal number is not verified as a physician line. It is spoken only and
+does not change the existing SIP transfer target or send a call/text to that number.
+Actual physician SMS still requires a delivery integration and approved destination.
 
 ## Call rehearsal
 
@@ -60,13 +64,13 @@ unit tests verify runtime boundaries and configuration, not spontaneous model sp
 | “Who handles my glaucoma?” | Gretta Fridman or Hirah Khan, subject to staff/provider availability. |
 | “My referral is for macular degeneration.” | Retina service, Scott Friedman; no diagnosis or treatment advice. |
 | “I need help with my eyelid.” | Clarify service when needed; Laurie Small for an established eyelid/oculoplastics visit. |
-| “I saw Doctor Scott Friedman before. I want him for a routine eye exam.” | Acknowledge caller-stated history; explain retina specialty; offer optometrist Bradley Smur and wait for agreement. No silent substitution. |
-| “Doctor Friedman.” | Clarify Gretta Fridman versus Scott Friedman. |
+| “I saw Doctor Scott Friedman before. I want him for a routine eye exam.” | State confidently that Scott Friedman handles retina while Bradley Smur handles glasses and routine exams; offer booking with Smur and wait for agreement. |
+| “Doctor Friedman.” | For medical or unclear needs, clarify Gretta versus Scott. For glasses only, redirect directly to Bradley Smur. |
 | “No, this is actually my retina follow-up with Scott.” | Retriage as retina, then offer only matching returned slots. |
 | Caller starts yelling and cussing at the agent | Brief apology and acknowledgment; immediate demo transfer, no intake gate or reprimand. |
 | Calendar offers a distant date; “Three months? I need urgent attention.” | Stop scheduling and transfer for staff assessment. Never say it is safe to wait. |
-| “I know it's after hours, but this is an emergency.” | Emergency guidance as appropriate; explicit simulated text result; demo answering-service transfer. No claim of real delivery. |
-| “Can I call the doctor myself?” | Offer only the tool's demo callback line, labeled as such; actual physician number is unavailable. |
+| “I know it's after hours, but this is an emergency.” | Within the announced demo, use the natural physician-text script and supplied rehearsal contact; existing demo transfer. Actual emergency care exits roleplay. |
+| “Can I call the doctor myself?” | Provide the supplied rehearsal contact within the announced demo. If asked, explain that it is not a verified physician line. |
 | Routine exam with VSP; medical visit with Ambetter Premier | Correct coverage lane and check_insurance result; accepted match explicitly described as a demo result. |
 | Unknown insurance / provider disagreement / no matching calendar provider | Clarify or offer staff help; no invented coverage, provider fit, or appointment. |
 
