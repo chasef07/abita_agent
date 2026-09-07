@@ -20,9 +20,9 @@ the CLI's temporary local worker.
   it does not pre-verify them or reveal their identity to the receptionist.
   Keep these values consistent with the caller instructions.
 
-Simulation setup lives directly in `main.ts`; there is no separate simulation
-entrypoint or helper file. It detects LiveKit's simulation context and uses the real
-agent prompt, model and tools with dev middleware. Simulation startup skips
+`main.ts` detects LiveKit's simulation context and delegates test setup and
+safety checks to `src/runtime/simulation.ts`. The helper reuses the real agent
+prompt, model and tools with dev middleware; it is not a separate entrypoint. Simulation startup skips
 SIP, phone-based pre-call lookup, Product ingestion and speech services.
 Normal calls keep the existing startup path. There is no custom CLI runner.
 

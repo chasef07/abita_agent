@@ -11,13 +11,7 @@ import {
   simulationFailure,
   simulationTools,
   simulationFetch,
-} from "../main.js";
-
-// Importing main for unit checks must not start a LiveKit worker.
-vi.mock("@livekit/agents", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@livekit/agents")>();
-  return { ...actual, cli: { ...actual.cli, runApp: vi.fn() } };
-});
+} from "../runtime/simulation.js";
 
 const patient = {
   firstName: "Avery",
