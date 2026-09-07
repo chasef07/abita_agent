@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { parse } from "yaml";
 import { isFunctionTool, isToolset } from "@livekit/agents";
 import { createVoiceAgent } from "../agent.js";
 import type { OwnedMiddleware } from "../clients/owned-middleware.js";
@@ -6,58 +8,78 @@ import { getOfficeProfile } from "../customers/abita/profile.js";
 import {
   simulationData,
   simulationMiddlewareConfig,
-  readOnlySimulationMiddleware,
-  newSimulationEvidence,
-  simulationFailure,
   simulationTools,
   simulationFetch,
 } from "../runtime/simulation.js";
 
-const patient = {
-  firstName: "Avery",
-  lastName: "Codextest",
-  dob: "03/12/1990",
-};
-function fixture() {
-  const client = {
-    resolvePatient: vi.fn().mockResolvedValue({
-      status: "verified",
-      patientId: "test-id",
-      routing: "all_three",
-    }),
-    getAvailability: vi.fn().mockResolvedValue({
-      status: "found",
-      slots: [{ provider: "Test", datetime: "2026-09-09T10:00:00" }],
-    }),
-    createPatient: vi.fn(),
-    updateInsurance: vi.fn(),
-    bookAppointment: vi.fn(),
-    cancelAppointment: vi.fn(),
-  };
-  const evidence = newSimulationEvidence();
-  return {
-    client,
-    evidence,
-    middleware: readOnlySimulationMiddleware(
-      client as unknown as OwnedMiddleware,
-      patient,
-      evidence,
-    ),
-  };
-}
 const env = {
   SANDBOX_AMD_API_URL: "https://abita-middleware-sandbox-test.run.app",
   SANDBOX_AMD_API_TOKEN: "test-only-token",
 };
+
 describe("simulation setup", () => {
+  it("loads all six scenarios with office-only routing metadata", () => {
+    const yaml = parse(readFileSync("evals/scenarios.yaml", "utf8"));
+    expect(yaml.scenarios).toHaveLength(6);
+    expect(
+      new Set(yaml.scenarios.map((s: { label: string }) => s.label)).size,
+    ).toBe(6);
+    for (const scenario of yaml.scenarios) {
+      expect(scenario.instructions.trim()).not.toBe("");
+      expect(scenario.agent_expectations.trim()).not.toBe("");
+      expect(simulationData.parse(scenario.userdata)).toEqual({
+        office: "spring-hill",
+      });
+      expect(Object.keys(scenario.userdata)).toEqual(["office"]);
+    }
+  });
+  it("keeps real EMR tools unchanged and removes external transfers and messages", () => {
+    const client = {
+      resolvePatient: vi.fn(),
+      getAvailability: vi.fn(),
+      createPatient: vi.fn(),
+      updateInsurance: vi.fn(),
+      bookAppointment: vi.fn(),
+      cancelAppointment: vi.fn(),
+    } satisfies OwnedMiddleware;
+    const { agent } = createVoiceAgent(
+      getOfficeProfile("spring-hill").trunkPhones[0]!,
+      { ownedMiddleware: client },
+    );
+    const tools = simulationTools(agent.toolCtx.tools);
+    for (const name of [
+      "resolve_patient",
+      "list_available_appointments",
+      "check_insurance",
+      "add_patient",
+      "update_insurance",
+      "book_appointment",
+      "reschedule_appointment",
+      "cancel_appointment",
+    ]) {
+      const original = agent.toolCtx.tools.find(
+        (t) => isFunctionTool(t) && t.name === name,
+      );
+      expect(original).toBeDefined();
+      expect(tools.find((t) => isFunctionTool(t) && t.name === name)).toBe(
+        original,
+      );
+    }
+    expect(
+      tools.some(
+        (t) =>
+          isFunctionTool(t) &&
+          ["transfer_call", "create_staff_task"].includes(t.name),
+      ),
+    ).toBe(false);
+    expect(tools.some((t) => isToolset(t) && t.id === "end_call")).toBe(true);
+    expect(client.resolvePatient).not.toHaveBeenCalled();
+  });
   it("disables redirects on simulation requests", async () => {
     const fetcher = vi.fn().mockResolvedValue(Response.json({}));
     vi.stubGlobal("fetch", fetcher);
     try {
-      await simulationFetch(
-        "https://abita-middleware-sandbox-test.run.app/api/patient/resolve",
-        { method: "POST", body: "{}", redirect: "follow" },
-      );
+      await simulationFetch(env.SANDBOX_AMD_API_URL, { redirect: "follow" });
       expect(fetcher.mock.calls[0]![1].redirect).toBe("error");
     } finally {
       vi.unstubAllGlobals();
@@ -69,19 +91,18 @@ describe("simulation setup", () => {
       vi.fn().mockRejectedValue(new TypeError("redirect disallowed")),
     );
     try {
-      await expect(
-        simulationFetch(
-          "https://abita-middleware-sandbox-test.run.app/api/patient/resolve",
-        ),
-      ).rejects.toThrow("redirect disallowed");
+      await expect(simulationFetch(env.SANDBOX_AMD_API_URL)).rejects.toThrow(
+        "redirect disallowed",
+      );
     } finally {
       vi.unstubAllGlobals();
     }
   });
-  it("selects existing office profile and forces dev without mutating environment", () => {
+  it("selects the office profile and forces dev without changing the environment", () => {
     const result = simulationMiddlewareConfig("spring-hill", env);
     expect(result.office).toBe(getOfficeProfile("spring-hill"));
     expect(result.config.officeOverride).toBe("spring_hill");
+    expect(result.config.middlewareBaseUrl).toBe(env.SANDBOX_AMD_API_URL);
     expect(env).not.toHaveProperty("LIVEKIT_AGENT_DEPLOYMENT");
   });
   it("rejects unknown offices", () =>
@@ -102,129 +123,11 @@ describe("simulation setup", () => {
         AMD_API_TOKEN: env.SANDBOX_AMD_API_TOKEN,
       }),
     ).toThrow());
-  it("validates YAML userdata", () => {
-    expect(simulationData.parse({ office: "spring-hill", patient })).toEqual({
+  it("requires an office, but no patient for an anonymous insurance question", () => {
+    expect(simulationData.parse({ office: "spring-hill" })).toEqual({
       office: "spring-hill",
-      patient,
     });
-    expect(() =>
-      simulationData.parse({ office: "spring-hill", patient: {} }),
-    ).toThrow();
-    expect(() =>
-      simulationData.parse({
-        office: "spring-hill",
-        patient,
-        backend: "production",
-      }),
-    ).toThrow();
+    expect(() => simulationData.parse({})).toThrow();
+    expect(() => simulationData.parse({ office: "" })).toThrow();
   });
-});
-describe("read-only middleware", () => {
-  it("permits the fixture lookup and availability", async () => {
-    const f = fixture();
-    await f.middleware.resolvePatient({
-      office: "spring_hill",
-      identity: patient,
-    });
-    await f.middleware.getAvailability({
-      office: "spring_hill",
-      dob: patient.dob,
-      routing: "all_three",
-      rangeDays: 14,
-    });
-    expect(simulationFailure(f.evidence)).toBeNull();
-  });
-  it("accepts ISO date spelling", async () => {
-    const f = fixture();
-    await f.middleware.resolvePatient({
-      office: "spring_hill",
-      identity: { ...patient, dob: "1990-03-12" },
-    });
-    expect(f.client.resolvePatient).toHaveBeenCalledOnce();
-  });
-  it("blocks another patient before network access", async () => {
-    const f = fixture();
-    await expect(
-      f.middleware.resolvePatient({
-        office: "spring_hill",
-        identity: { ...patient, firstName: "SomeoneElse" },
-      }),
-    ).rejects.toThrow();
-    expect(f.client.resolvePatient).not.toHaveBeenCalled();
-  });
-  it("blocks guessed IDs before verification", async () => {
-    const f = fixture();
-    await expect(
-      f.middleware.resolvePatient({
-        office: "spring_hill",
-        identity: { patientId: "test-id" },
-      }),
-    ).rejects.toThrow();
-    expect(f.client.resolvePatient).not.toHaveBeenCalled();
-  });
-  it("blocks availability before verification", async () => {
-    const f = fixture();
-    await expect(
-      f.middleware.getAvailability({
-        office: "spring_hill",
-        dob: patient.dob,
-        routing: "all_three",
-        rangeDays: 14,
-      }),
-    ).rejects.toThrow();
-    expect(f.client.getAvailability).not.toHaveBeenCalled();
-  });
-  it.each([
-    "createPatient",
-    "updateInsurance",
-    "bookAppointment",
-    "cancelAppointment",
-  ] as const)("blocks %s", async (method) => {
-    const f = fixture();
-    await expect(f.middleware[method]({} as never)).rejects.toThrow();
-    expect(f.client[method]).not.toHaveBeenCalled();
-  });
-  it("blocks transfers and staff tasks at the real tool boundary", async () => {
-    const f = fixture();
-    const { agent } = createVoiceAgent(
-      getOfficeProfile("spring-hill").trunkPhones[0]!,
-      { ownedMiddleware: f.middleware },
-    );
-    const tools = simulationTools(agent.toolCtx.tools, f.evidence);
-    for (const name of [
-      "transfer_call",
-      "create_staff_task",
-      "book_appointment",
-    ]) {
-      const tool = tools.find((t) => isFunctionTool(t) && t.name === name);
-      expect(tool && isFunctionTool(tool)).toBe(true);
-      if (tool && isFunctionTool(tool))
-        await tool.execute!({} as never, {} as never);
-    }
-    expect(f.evidence.blocked).toEqual([
-      "transfer_call",
-      "create_staff_task",
-      "book_appointment",
-    ]);
-    expect(tools.some((t) => isToolset(t) && t.id === "end_call")).toBe(true);
-  });
-});
-describe("result verification", () => {
-  it("requires actual lookup and inventory evidence", () => {
-    expect(simulationFailure(newSimulationEvidence())).not.toBeNull();
-    expect(simulationFailure(undefined)).toContain("invalid-run");
-  });
-  it("does not hide blocked writes behind successful reads", () => {
-    const e = {
-      ...newSimulationEvidence(),
-      verified: true,
-      slotCount: 2,
-      blocked: ["book"],
-    };
-    expect(simulationFailure(e)).toContain("prohibited");
-  });
-  it("classifies read failures separately", () =>
-    expect(
-      simulationFailure({ ...newSimulationEvidence(), readFailures: 1 }),
-    ).toContain("invalid-run"));
 });
