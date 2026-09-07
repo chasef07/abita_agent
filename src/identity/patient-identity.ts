@@ -1003,6 +1003,7 @@ function activePatientNameParts(
       firstNames: uniqueNameParts([firstParts[0], firstParts.join(" ")]),
       lastNames: uniqueNameParts([
         commaLastName,
+        lastParts[0],
         lastParts[lastParts.length - 1],
       ]),
     };

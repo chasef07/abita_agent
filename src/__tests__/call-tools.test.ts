@@ -1540,6 +1540,53 @@ describe("stateful call tools", () => {
     expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 
+  it.each(["Garcia", "Lopez", "Garcia Lopez"])(
+    "activates a verified compound-surname receipt using %s",
+    async (lastName) => {
+      const state = createState();
+      setPatientUnknown(state);
+      stubPatient(
+        verifiedPatientResult({
+          name: "GARCIA LOPEZ,ANA",
+          dob: "01/01/1980",
+        }),
+      );
+
+      await resolve_patient.execute(
+        { firstName: "Ana", lastName, dob: "01/01/1980" },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      );
+
+      expect(state.identity.activePatient?.patientId).toBe("patient-1");
+      expect(domainOutcomeReceipts(state)).toMatchObject([
+        { callId: "tool-1", outcome: "patient_verified", status: "success" },
+      ]);
+    },
+  );
+
+  it.each([
+    { firstName: "Other", lastName: "Garcia", dob: "01/01/1980" },
+    { firstName: "Ana", lastName: "Other", dob: "01/01/1980" },
+    { firstName: "Ana", lastName: "Garcia", dob: "02/02/1980" },
+  ])("rejects a mismatched compound-surname receipt: %j", async (identity) => {
+    const state = createState();
+    setPatientUnknown(state);
+    stubPatient(
+      verifiedPatientResult({ name: "GARCIA LOPEZ,ANA", dob: "01/01/1980" }),
+    );
+
+    await expect(
+      resolve_patient.execute(identity, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never),
+    ).rejects.toThrow("Owned Middleware returned a non-retryable failure.");
+    expect(state.identity.activePatient).toBeNull();
+  });
+
   it("does not activate a verified lookup receipt for a different identity", async () => {
     const state = createState();
     setPatientUnknown(state);
