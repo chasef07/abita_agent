@@ -877,7 +877,7 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).toContain("If one sentence is enough, use one sentence.");
     expect(prompt).toContain("Use at most three sentences per response.");
     expect(prompt).toContain(
-      "Omit stock acknowledgments, added hesitation words, and theatrical pauses.",
+      "Sprinkle them sparingly, one at a time, and keep most responses free of fillers.",
     );
     expect(prompt).toContain("If the caller asks you to slow down");
     expect(prompt).not.toContain("eight fifteen a m");
