@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.19.2](https://github.com/chasef07/abita_agent/compare/4.19.1...4.19.2) (2026-09-07)
+
+
+### Bug Fixes
+
+* **voice:** wait ten seconds before transcription recovery ([#429](https://github.com/chasef07/abita_agent/issues/429)) ([88273b7](https://github.com/chasef07/abita_agent/commit/88273b73b3bd86ff5a75ce94ef8de6f9ea2c509b))
+
 ## [4.19.1](https://github.com/chasef07/abita_agent/compare/4.19.0...4.19.1) (2026-09-07)
 
 
