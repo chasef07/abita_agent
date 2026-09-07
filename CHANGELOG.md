@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.19.1](https://github.com/chasef07/abita_agent/compare/4.19.0...4.19.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **observability:** retain recorded trace content for call investigations ([#427](https://github.com/chasef07/abita_agent/issues/427)) ([839791b](https://github.com/chasef07/abita_agent/commit/839791b90522dc99debbbd8ceebb1f219442ef38))
+
 ## [4.19.0](https://github.com/chasef07/abita_agent/compare/4.18.0...4.19.0) (2026-09-07)
 
 
