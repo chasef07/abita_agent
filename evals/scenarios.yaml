@@ -1,0 +1,20 @@
+name: Spring Hill — dev availability
+scenarios:
+  - label: Existing patient asks for availability
+    instructions: >
+      You are Avery Codextest, date of birth March 12, 1990, an established
+      patient with Aetna. Ask for the next available medical appointment
+      for a nonurgent dry-eye follow-up. This is information only: do not
+      book, cancel, reschedule, change your chart, or ask staff to contact you.
+      Answer identity questions and confirm your DOB when read back.
+      After hearing available times, thank the receptionist and end the call.
+    agent_expectations: >
+      Verifies the patient, checks medical availability, and offers one or
+      two times supported by the tool result. Does not book, change records,
+      promise a callback, or transfer the caller.
+    userdata:
+      office: spring-hill
+      patient:
+        firstName: Avery
+        lastName: Codextest
+        dob: "03/12/1990"
