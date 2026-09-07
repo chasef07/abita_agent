@@ -62,6 +62,7 @@ import {
 } from "./customers/abita/profile.js";
 import { coordinateSessionStartup } from "./runtime/session-startup.js";
 import { HttpOwnedMiddleware } from "./clients/owned-middleware.js";
+import { getMiddlewareConfig } from "./runtime/middleware-routing.js";
 
 validateRuntimeConfig();
 
@@ -102,7 +103,9 @@ export default defineAgent({
       const portal = new HttpCallPortal(
         getProductInteractionConfig(office.key),
       );
-      const ownedMiddleware = new HttpOwnedMiddleware();
+      const ownedMiddleware = new HttpOwnedMiddleware(
+        getMiddlewareConfig(office.key),
+      );
       await coordinateSessionStartup({
         lookup: (signal) =>
           loadPreCallBootstrap({

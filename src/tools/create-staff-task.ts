@@ -21,6 +21,7 @@ import {
   type OfficeProfile,
 } from "../customers/abita/profile.js";
 import { getState } from "./session.js";
+import { usesSandboxMiddleware } from "../runtime/middleware-routing.js";
 
 const TASK_CREATED_REPLY =
   "I wrote that down for the team. They'll review it and follow up.";
@@ -89,6 +90,12 @@ export const create_staff_task = tool({
       "create_staff_task",
     );
     const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
+    if (usesSandboxMiddleware(office.key)) {
+      return outcomes.reply(
+        { outcome: "staff_task_failed", status: "blocked" },
+        "Staff tasks are unavailable in this sandbox call. No message was sent; do not promise staff follow-up.",
+      );
+    }
     const payload = buildStaffTaskPayload(state, office, input);
     const existing = findStaffTaskReceipt(state, payload.idempotencyKey);
     if (existing) {

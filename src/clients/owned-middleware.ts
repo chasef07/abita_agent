@@ -233,6 +233,7 @@ type HttpOwnedMiddlewareOptions = {
   authToken?: string;
   fetch?: typeof fetch;
   middlewareBaseUrl?: string;
+  officeOverride?: "spring_hill";
   timeoutMs?: number;
 };
 
@@ -240,6 +241,7 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
   readonly #authToken: string;
   readonly #fetch: typeof fetch;
   readonly #middlewareBaseUrl: string;
+  readonly #officeOverride: "spring_hill" | undefined;
   readonly #timeoutMs: number;
 
   constructor(options: HttpOwnedMiddlewareOptions = {}) {
@@ -248,6 +250,7 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     this.#middlewareBaseUrl =
       options.middlewareBaseUrl ?? process.env.AMD_API_URL ?? "";
     this.#timeoutMs = options.timeoutMs ?? 10_000;
+    this.#officeOverride = options.officeOverride;
   }
 
   async resolvePatient(request: {
@@ -397,7 +400,9 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     { ok: true; value: unknown } | { ok: false; failure: MiddlewareFailure }
   > {
     const payload =
-      options.includeOffice === false ? body : { ...body, office };
+      options.includeOffice === false
+        ? body
+        : { ...body, office: this.#officeOverride ?? office };
     try {
       getOfficeProfileByPhone(office);
     } catch {

@@ -238,7 +238,7 @@ describe("create_staff_task", () => {
     ]);
   });
 
-  it("routes the rheumatology demo profile to Acuity Product with the shared demo credential", async () => {
+  it("blocks staff tasks for sandbox demos even if active office changes", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json(
         {
@@ -269,51 +269,17 @@ describe("create_staff_task", () => {
       } as never,
     );
 
-    expect(result).toBe(
-      "I wrote that down for the team. They'll review it and follow up.",
+    expect(result).toContain(
+      "Staff tasks are unavailable in this sandbox call",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledWith(
-      PRODUCT_TASK_URL,
-      expect.objectContaining({
-        headers: {
-          Authorization: "Bearer demo-secret",
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-      }),
-    );
-    const body = JSON.parse(
-      fetchMock.mock.calls[0]?.[1]?.body as string,
-    ) as Record<string, unknown>;
-    expect(body).toMatchObject({
-      callId: "call-test",
-      callerPhone: "+17275551212",
-      category: "other",
-      message: "Caller wants the Harborleaf team to review their question.",
-      officeKey: "rheumatology-demo",
-      officePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-      patient: {
-        dob: "01/01/1980",
-        id: "patient-1",
-        name: "Jane Doe",
-      },
-      source: "agent",
-      summary: "Caller has a follow-up request.",
-      urgency: "normal",
-    });
-    expect(body).not.toHaveProperty("inboundOfficePhone");
-    expect(body.idempotencyKey).toMatch(/^staff_task_[a-f0-9]{64}$/);
-    expect(staffTaskReceipts(state)).toMatchObject([
-      {
-        idempotencyKey: body.idempotencyKey,
-        status: "created",
-        taskId: PRODUCT_TASK_ID,
-      },
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(staffTaskReceipts(state)).toEqual([]);
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      { outcome: "staff_task_failed", status: "blocked" },
     ]);
   });
 
-  it("routes a dedicated demo trunk through its matching Product office", async () => {
+  it("blocks staff tasks on a dedicated demo trunk", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json(
         {
@@ -345,18 +311,8 @@ describe("create_staff_task", () => {
       } as never,
     );
 
-    const body = JSON.parse(
-      fetchMock.mock.calls[0]?.[1]?.body as string,
-    ) as Record<string, unknown>;
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual({
-      Authorization: "Bearer demo-secret",
-      "Content-Type": "application/json",
-    });
-    expect(body).toMatchObject({
-      inboundOfficePhone: NEW_TAMPA_DEMO_TRUNK_PHONE,
-      officeKey: "new-tampa-demo",
-      officePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(staffTaskReceipts(state)).toEqual([]);
   });
 
   it("preserves the sweetwater-optical Product route from the inbound trunk", async () => {
