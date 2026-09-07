@@ -1,5 +1,6 @@
 import {
   AgentSession,
+  type AgentSessionOptions,
   type ChatContext,
   initializeLogger,
   tool,
@@ -65,6 +66,7 @@ describe("preemptive generation through the LiveKit turn pipeline", () => {
       state?: CallState;
       now?: () => Date;
       responses?: ConstructorParameters<typeof CapturingLLM>[0];
+      turnHandling?: AgentSessionOptions<CallState>["turnHandling"];
     } = {},
   ) {
     const llm = new CapturingLLM(
@@ -73,7 +75,10 @@ describe("preemptive generation through the LiveKit turn pipeline", () => {
     const middleware = new InMemoryOwnedMiddleware();
     const session = new AgentSession<CallState>({
       llm,
-      turnHandling: voiceTurnHandlingOptions,
+      turnHandling: options.turnHandling ?? {
+        ...voiceTurnHandlingOptions,
+        preemptiveGeneration: { enabled: true, preemptiveTts: false },
+      },
     });
     sessions.push(session);
     const state =
@@ -95,6 +100,23 @@ describe("preemptive generation through the LiveKit turn pipeline", () => {
     const activity = await session.waitForIdle();
     return { llm, middleware, session, state, activity };
   }
+
+  it("waits for end of turn before generating with production options", async () => {
+    const { activity, llm, session, middleware } = await start({
+      turnHandling: voiceTurnHandlingOptions,
+    });
+    activity.onPreemptiveGeneration(turn("Hello"));
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(llm.requests).toHaveLength(0);
+    expect(middleware.operations).toEqual([]);
+
+    await activity.onEndOfTurn(turn("Hello"));
+    await session.waitForIdle();
+    expect(llm.requests).toHaveLength(1);
+    expect(requestText(session.currentAgent.chatCtx.copy())).toContain(
+      "How can I help?",
+    );
+  });
 
   it("starts the model before end of turn and reuses its request for a stable turn", async () => {
     const { activity, llm, session, middleware, state } = await start();

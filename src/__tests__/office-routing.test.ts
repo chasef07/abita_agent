@@ -1538,7 +1538,7 @@ describe("model-facing tool definitions", () => {
       "use reschedule_appointment to move an existing appointment",
     );
     expect(book_appointment.description).toContain(
-      "collecting a referring doctor or none",
+      "learning who referred the caller or that no doctor referred them",
     );
     expect(book_appointment.description).toContain(
       "Claim booking success only from this tool's successful result",
@@ -1582,7 +1582,7 @@ describe("model-facing tool definitions", () => {
       };
 
       expect(parameters.shape.referringDoctor.description).toContain(
-        'use internal value "none" when they have none',
+        'Use internal value "none" only when the caller says they have no referring doctor',
       );
     }
   });

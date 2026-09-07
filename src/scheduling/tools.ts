@@ -38,7 +38,7 @@ const bookAppointmentParameters = z
       .trim()
       .min(1)
       .describe(
-        'Caller-provided referring doctor; use internal value "none" when they have none.',
+        'Caller-provided referring doctor. If not already answered, ask "Did a doctor refer you?" and, if yes, ask for the name. Use internal value "none" only when the caller says they have no referring doctor. Do not ask whether to put or mark none, or narrate the internal value.',
       ),
     readBack: z
       .literal(true)
@@ -146,7 +146,7 @@ export function createSchedulingTools(
     onDuplicate: "reject",
     description:
       "Book a new appointment using a caller-confirmed slot from list_available_appointments; use reschedule_appointment to move an existing appointment. " +
-      "Call only after confirmation of the exact date, time, and provider and after collecting a referring doctor or none. " +
+      "Call only after confirmation of the exact date, time, and provider and after learning who referred the caller or that no doctor referred them. " +
       "Claim booking success only from this tool's successful result; duplicate calls are rejected.",
     parameters: bookAppointmentParameters,
     execute: async (args, { ctx, toolCallId }): Promise<string> => {
@@ -186,7 +186,7 @@ export function createSchedulingTools(
     name: "reschedule_appointment",
     onDuplicate: "reject",
     description:
-      "Move a verified patient's loaded appointment to a caller-confirmed slot from list_available_appointments after collecting a referring doctor or none. " +
+      "Move a verified patient's loaded appointment to a caller-confirmed slot from list_available_appointments after learning who referred the caller or that no doctor referred them. " +
       "Require confirmation of the old appointment and a read-back of the new date, time, and provider; use only opaque call-scoped references. " +
       "This tool books first, then cancels the old appointment; report partial success if cancellation fails, and never retry the booking.",
     parameters: rescheduleAppointmentParameters,

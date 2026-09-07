@@ -21,7 +21,7 @@ describe("voice session options", () => {
     initializeLogger({ pretty: false, level: "silent" });
   });
 
-  it("enables speculative LLM generation while deferring speech synthesis", () => {
+  it("disables speculative LLM generation and speech synthesis", () => {
     const session = new AgentSession({
       turnHandling: {
         turnDetection: fakeTurnDetector(),
@@ -31,7 +31,7 @@ describe("voice session options", () => {
     const preemptiveGeneration =
       session.sessionOptions.turnHandling.preemptiveGeneration;
 
-    expect(preemptiveGeneration.enabled).toBe(true);
+    expect(preemptiveGeneration.enabled).toBe(false);
     expect(preemptiveGeneration.preemptiveTts).toBe(false);
   });
 
