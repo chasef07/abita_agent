@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.19.0](https://github.com/chasef07/abita_agent/compare/4.18.0...4.19.0) (2026-09-07)
+
+
+### Features
+
+* **observability:** export agent traces to Google Cloud ([#425](https://github.com/chasef07/abita_agent/issues/425)) ([7907ea6](https://github.com/chasef07/abita_agent/commit/7907ea6c3f488e86333682f923f6d95ba98594ce))
+
+
+### Bug Fixes
+
+* **demo:** refine New Tampa provider and after-hours dialogue ([#424](https://github.com/chasef07/abita_agent/issues/424)) ([49ab0fd](https://github.com/chasef07/abita_agent/commit/49ab0fd1f78b7e5cf6f2d2be54e1c20f6bfec2d8))
+* **voice:** restore conversational phrasing and sparse disfluencies ([#422](https://github.com/chasef07/abita_agent/issues/422)) ([f2e862a](https://github.com/chasef07/abita_agent/commit/f2e862ad5aba146a372dfc9028ca30801c79e6db))
+
 ## [4.18.0](https://github.com/chasef07/abita_agent/compare/4.17.0...4.18.0) (2026-09-07)
 
 
