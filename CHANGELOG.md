@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.18.0](https://github.com/chasef07/abita_agent/compare/4.17.0...4.18.0) (2026-09-07)
+
+
+### Features
+
+* isolate demo and staging middleware routing ([#393](https://github.com/chasef07/abita_agent/issues/393)) ([628b7fd](https://github.com/chasef07/abita_agent/commit/628b7fd106f429a91e4ced5989a5a782250c7215))
+
+
+### Bug Fixes
+
+* **identity:** accept first surname in compound patient names ([#420](https://github.com/chasef07/abita_agent/issues/420)) ([fbd642d](https://github.com/chasef07/abita_agent/commit/fbd642df0c778a922d7d3586c9332f1bbbaf8ff3))
+* **voice:** disable preemptive generation and improve referral wording ([#419](https://github.com/chasef07/abita_agent/issues/419)) ([ef29415](https://github.com/chasef07/abita_agent/commit/ef294153d89284f6726b405c53981714ae6724aa))
+
 ## [4.17.0](https://github.com/chasef07/abita_agent/compare/4.16.0...4.17.0) (2026-09-07)
 
 
