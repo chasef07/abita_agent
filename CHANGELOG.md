@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.19.3](https://github.com/chasef07/abita_agent/compare/4.19.2...4.19.3) (2026-09-08)
+
+
+### Bug Fixes
+
+* **analytics:** persist phone lookup status in call closeout ([#432](https://github.com/chasef07/abita_agent/issues/432)) ([b852f62](https://github.com/chasef07/abita_agent/commit/b852f626f0462f4c11ddfb25c75144e7d5fb162f))
+
 ## [4.19.2](https://github.com/chasef07/abita_agent/compare/4.19.1...4.19.2) (2026-09-07)
 
 
