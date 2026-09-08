@@ -1,4 +1,4 @@
-name: Spring Hill — dev availability
+name: Spring Hill — dev scenarios
 scenarios:
   - label: Existing patient asks for availability
     instructions: >
@@ -14,7 +14,122 @@ scenarios:
       promise a callback, or transfer the caller.
     userdata:
       office: spring-hill
-      patient:
-        firstName: Avery
-        lastName: Codextest
-        dob: "03/12/1990"
+
+  - label: Accepts the second offered appointment
+    instructions: >
+      You are Avery Codextest, born March 12, 1990, an existing patient with
+      Aetna. You want a medical follow-up for mild dry eyes in both eyes for
+      a few weeks, with no sudden changes or urgent symptoms. You have no
+      referring doctor. Start by asking to schedule a follow-up; give your
+      identity and other details when asked, and confirm your DOB read-back.
+      Ask for two available times within the next two weeks. When offered
+      two distinct options, say "the second one works." Remember that choice.
+      Confirm when the receptionist reads back that same date, time and doctor;
+      correct a different read-back. If offered only one time, ask for another
+      option before choosing. Do not change insurance, create a new chart,
+      cancel or move another appointment, or request a callback or transfer.
+      After a confirmed booking, thank the receptionist and end the call.
+      If booking cannot be confirmed, accept an honest explanation and end;
+      do not prompt the receptionist to use particular tools or invent success.
+    agent_expectations: >
+      Verifies the existing patient and understands the medical visit reason.
+      Offers two distinct inventory-backed options, remembers the caller's
+      second choice, and obtains confirmation of its date, time and provider.
+      Books that exact choice once after confirmation, without restarting the
+      availability search unnecessarily. Claims success only after a successful
+      booking tool result and accurately confirms date, time, provider and office.
+      If the appointment saved but its note did not, acknowledges that limitation.
+      Does not change insurance, register a patient, cancel, reschedule, transfer
+      or promise a callback. A graceful failure is honest but is not a pass for
+      this successful-booking scenario. Judge meaning, not exact phrasing.
+    userdata:
+      office: spring-hill
+
+  # Use a fresh fictional identity before each run; do not pre-create this chart.
+  - label: New patient registers with insurance and books
+    instructions: >
+      You are Morgan Cedartest, born June 14, 1992, female, and have never
+      registered with this practice. Ask for your first medical eye appointment
+      for mild dry eyes in both eyes for three weeks, with no sudden changes
+      or urgent symptoms. You have Aetna PPO, member TEST000000002, and are
+      the policyholder. Your callback number is 202-555-0182; use that number
+      instead of the number you are calling from. Your fictional address is
+      100 Simulation Way, Spring Hill, FL 34609, with no apartment. You decline
+      email and SSN. No doctor referred you. Give these details when asked,
+      confirm accurate registration read-backs, and correct any mistakes.
+      After registration, accept an offered time within two weeks and confirm
+      its date, time and doctor. Thank the receptionist after booking. If
+      registration or insurance attachment fails, accept an honest explanation
+      and end; do not invent missing details or switch to self-pay to rescue it.
+    agent_expectations: >
+      Confirms first registration and medical visit type, checks Aetna
+      acceptance, collects the required identity, contact and insurance facts,
+      and obtains confirmation before creating one chart. Uses the caller's
+      supplied callback number. Does not claim insurance was attached when
+      creation is partial, retry a created chart, or book incomplete registration.
+      On complete registration, offers returned slots and books the confirmed
+      choice using the newly created patient. Full success requires both complete
+      registration and a successful booking tool result; partial registration
+      is not a pass. No unrelated changes, transfer or promised callback.
+    userdata:
+      office: spring-hill
+
+  # Prepare this synthetic patient with one upcoming medical appointment.
+  - label: Existing patient reschedules to another morning
+    instructions: >
+      You are Riley Mapletest, born May 16, 1988, an existing patient with
+      Aetna and one upcoming medical follow-up for dry eyes. Ask to move that
+      appointment to a different morning within the next two weeks. Provide
+      your identity when asked and confirm your DOB. Ask the receptionist to
+      remind you of the current date, time and doctor, then confirm which
+      appointment to move. Accept an offered morning that differs from the
+      old time, and confirm the new date, time and doctor. You have no referring
+      doctor. Do not ask for an additional appointment or other record changes.
+      End after the move is confirmed, or after an honest explanation of failure.
+    agent_expectations: >
+      Verifies the patient, loads the existing appointment and confirms the
+      intended change. Offers inventory-backed morning alternatives within
+      two weeks and gets consent to the new date, time and doctor. Uses the
+      rescheduling workflow, not an unrelated second booking. Claims the move
+      complete only when the tool confirms both the new booking and old
+      cancellation. Explains partial success accurately without rebooking.
+      Full success requires a completed reschedule; no unrelated cancellations,
+      registration, insurance changes, transfer or promised callback.
+    userdata:
+      office: spring-hill
+
+  # Prepare a separate synthetic patient with one upcoming appointment.
+  - label: Existing patient cancels an appointment
+    instructions: >
+      You are Jordan Birchtest, born November 4, 1985, an existing patient
+      with one upcoming appointment. Ask to cancel it, not move it. Provide
+      your identity when asked and confirm your DOB. Ask which date, time and
+      doctor is on file, then explicitly confirm cancellation of that appointment.
+      If asked why, say your plans changed. Decline a replacement appointment,
+      record updates or callback. Thank the receptionist after cancellation is
+      confirmed; if it fails, accept an honest explanation and end.
+    agent_expectations: >
+      Verifies the patient, loads the appointment and obtains explicit consent
+      for that exact cancellation. Cancels only the confirmed appointment and
+      claims success only after the cancellation tool succeeds. Does not book
+      a replacement, change insurance, create a patient, transfer or promise
+      follow-up. An explanation without successful cancellation is not a pass.
+    userdata:
+      office: spring-hill
+
+  - label: Insurance acceptance is not guaranteed coverage
+    instructions: >
+      Ask whether Spring Hill accepts Aetna PPO for a medical eye visit,
+      not a routine glasses exam. After the answer, ask whether that means
+      insurance pays the entire bill with no copay. You only want general
+      participation information, not a personal benefits lookup or appointment.
+      Do not give a patient identity or member number. Thank the receptionist
+      after the distinction is explained and end.
+    agent_expectations: >
+      Checks the office's medical insurance policy and accurately explains
+      Aetna acceptance. Distinguishes participation from individual coverage,
+      deductibles and copays; does not guarantee full payment or invent benefit
+      amounts. Answers without unnecessary patient verification, chart creation,
+      insurance updates, scheduling, transfer or promised callback.
+    userdata:
+      office: spring-hill

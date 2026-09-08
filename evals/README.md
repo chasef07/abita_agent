@@ -1,40 +1,64 @@
 # Agent simulations
 
-Edit `scenarios.yaml`, then run the normal agent through LiveKit:
+All six cases are in `scenarios.yaml`: availability, existing-patient booking,
+new-patient registration + booking, reschedule, cancel, and insurance acceptance.
 
 ```sh
 pnpm build
 NODE_ENV=development lk agent simulate --scenarios evals/scenarios.yaml --concurrency 1 dist/main.js
 ```
 
-Prerequisites: Node 22, pnpm 10.34.3, installed project dependencies, and an
-authenticated LiveKit CLI. Supply `SANDBOX_AMD_API_URL` and
-`SANDBOX_AMD_API_TOKEN` securely in the local process environment. Never put
-credentials in YAML or GitHub files. Leave `LIVEKIT_AGENT_DEPLOYMENT` unset for
-the CLI's temporary local worker.
+This runs **every case**, including real sandbox writes. Comment out cases you
+do not want to run. No extra opt-in flag, custom runner or booking helper.
 
-- `instructions`: the simulated caller's identity and goal.
-- `agent_expectations`: the conversation rubric.
-- `userdata.office`: selects the existing office/trunk profile, not a SIP call.
-- `userdata.patient`: restricts backend reads to the synthetic test patient;
-  it does not pre-verify them or reveal their identity to the receptionist.
-  Keep these values consistent with the caller instructions.
+## How it works
 
-`main.ts` detects LiveKit's simulation context and delegates test setup and
-safety checks to `src/runtime/simulation.ts`. The helper reuses the real agent
-prompt, model and tools with dev middleware; it is not a separate entrypoint. Simulation startup skips
-SIP, phone-based pre-call lookup, Product ingestion and speech services.
-Normal calls keep the existing startup path. There is no custom CLI runner.
+- `instructions`: fictional caller facts and behavior.
+- `agent_expectations`: LiveKit's semantic rubric.
+- `userdata.office`: selects the office profile; every simulation uses dev middleware.
 
-This first version supports **read-only text availability scenarios**. Booking,
-registration, insurance changes, cancellation, transfers and messages are
-blocked. LiveKit judges the conversation; the agent also checks verified
-patient lookup and returned inventory. Inspect the exported tool history to
-confirm the spoken offers match inventory. A timeout/backend error is not a
-clean behavioral regression result. Each session is limited to four minutes;
-run one scenario at a time initially. LiveKit/provider charges still apply.
+Patient facts appear only in caller instructions; the agent learns them in the
+conversation. `src/runtime/simulation.ts` connects the text session, office and
+dev middleware to the real agent. All EMR tools retain their normal validation
+and behavior. Transfers and staff tasks are excluded because they reach other
+systems. SIP, speech services and Product ingestion are not exercised.
 
-Use synthetic sandbox records only. The sandbox clock and inventory are live;
-this is an integration smoke test, not a fixed-date reproducibility benchmark.
-The YAML does not provision its patient or insurance. This setup does not
-enable CI or deploy the agent. Automatic writes remain blocked.
+LiveKit grades the conversation and tool results. There are no custom read-only
+guards, preflight checks, retry locks or backend verifier. Even the
+availability/insurance cases have normal tools: their no-write requirement is
+in the rubric, not enforced by an extra wrapper. A judge pass is not independent
+proof of saved EMR state.
+
+## Fixture preparation
+
+The names below are fictional scenario data, **not newly provisioned records**.
+
+| Case | Preparation before running |
+| --- | --- |
+| Availability / existing booking | Avery Codextest, DOB 03/12/1990: existing insured chart. Review existing appointments before the booking case. |
+| New patient | Morgan Cedartest, DOB 06/14/1992: the first trial created a partial chart. Change the fictional name and member number before another new-patient run. |
+| Reschedule | Riley Mapletest, DOB 05/16/1988: existing insured chart with one upcoming medical appointment and another available morning within two weeks. |
+| Cancel | Jordan Birchtest, DOB 11/04/1985: separate chart with one upcoming appointment. |
+| Insurance | No patient fixture required; tests office participation, not individual eligibility. |
+
+New-patient fields are fictional; Aetna is a real carrier. Confirm the dev
+middleware maps Aetna to a valid sandbox carrier before treating registration
+results as agent failures. Office acceptance alone does not prove insurance
+attachment works. This change does not fix carrier mapping.
+
+Reschedule and cancel use separate fixtures; neither relies on another scenario
+running first. No automatic setup or cleanup. Reruns can change sandbox state;
+timeouts can still leave saved appointments. Inspect tool results and sandbox
+records when investigating failures.
+
+## Prerequisites
+
+Node 22, pnpm 10.34.3, installed dependencies, authenticated LiveKit CLI and the
+agent's model credentials. Supply `SANDBOX_AMD_API_URL` and
+`SANDBOX_AMD_API_TOKEN` through the environment, never YAML. Leave
+`LIVEKIT_AGENT_DEPLOYMENT` unset for the CLI's local worker.
+Each session has a four-minute timeout; LiveKit/model charges apply.
+One local new-patient trial created a partial chart without insurance and booked
+nothing. It also exposed an incorrect callback number and an unsupported
+follow-up promise. Insurance integration and agent behavior fixes are deferred;
+the other five cases have not been run with this setup. No CI or deployment.
