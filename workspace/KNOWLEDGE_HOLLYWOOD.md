@@ -35,7 +35,7 @@ No after-hours contact information is supplied for this office. Say this informa
 ## Scope of Services
 Status: available
 
-Hollywood does not provide cataract care. Dr. Bach does not see cataract patients, including cataract evaluations. For any cataract visit, direct the caller to their referring doctor, primary care provider, or insurance company to find a different provider.
+Dr. Bach schedules cataract exams, including cataract evaluations, and cataract surgery at Hollywood. Schedule cataract exams with Dr. Bach through medical scheduling.
 
 Hollywood schedules medical eye care and routine vision. Medical appointments cover current eye problems, symptoms, conditions, and ophthalmology care. Routine-vision appointments cover routine eye exams, eyeglass prescriptions, contact lens fittings, and insertion training when there is no active eye problem.
 
@@ -44,7 +44,7 @@ Routine-vision age minimums follow the scheduler provider rules: Dr. Kyler Farna
 ## Providers
 Status: available
 
-Hollywood does not provide cataract care. Dr. Bach does not see cataract patients, including cataract evaluations. For any cataract visit, direct the caller to their referring doctor, primary care provider, or insurance company to find a different provider.
+Dr. Bach schedules cataract exams, including cataract evaluations, and cataract surgery at Hollywood. Schedule cataract exams with Dr. Bach through medical scheduling.
 
 Doctors at the Hollywood location:
 
