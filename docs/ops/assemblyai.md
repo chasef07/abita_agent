@@ -1,9 +1,9 @@
 # AssemblyAI transcription and LiveKit turn completion
 
-The runtime uses LiveKit Inference with `assemblyai/universal-3-5-pro`.
-LiveKit credentials cover STT; no separate AssemblyAI key is required for voice
-calls. The direct AssemblyAI plugin remains a development dependency for
-optional comparison replays only.
+The runtime uses `@livekit/agents-plugin-assemblyai` 1.8.0 directly with
+`universal-3-5-pro`. Set `ASSEMBLYAI_API_KEY` in the worker environment; the
+existing LiveKit credentials remain necessary for the audio turn detector,
+interruptions, and other inference services. No inference STT gateway is used.
 
 ## Turn handling
 
@@ -29,6 +29,10 @@ maximum. These are alternative paths, with elapsed silence deducted, not two
 sequential waits. Short STT windows do not promise equally short transcription
 latency because recognition and transport still take time.
 
+The ordinary 100/100 ms window is an experimental low-latency starting point;
+comparisons with 128/640 and 128/1280 did not establish an optimal ordinary
+window. It can still fragment unfinished phrases.
+
 Equal 1500 ms STT limits preserve the tested within-entity pauses without the
 old 3–4 second finalization maximum. They do not protect arbitrarily long
 pauses, and they add delay to complete short names. Model false positives can
@@ -37,7 +41,8 @@ requiring a representative conversational pilot.
 
 ## Context and vocabulary
 
-Supply the most recent SDK-committed assistant message as `agent_context`,
+Supply the most recent SDK-committed assistant message as the plugin's
+`agentContext` option (serialized as `agent_context`),
 capped at 1500 characters. Generated TTS input may arm recognition early; only
 committed output updates context and the remembered profile for follow-up
 questions. This avoids using an unspoken question when the SDK supplies the
@@ -53,51 +58,55 @@ Language detection remains enabled, provider VAD threshold stays at 0.3, and
 inactivity timeout remains 30 seconds. No domain prompt, context-history count,
 legacy EOT-confidence override, or turn-formatting override is configured.
 
-## Inference versus the direct plugin
+## Direct plugin boundary
 
-Both transports expose the settings this agent uses: Universal-3.5 Pro,
-keyterms, agent context, and silence limits. The inference SDK sends live
-`modelOptions` changes using `session.update`; AssemblyAI supports applying
-these changes without reconnecting.
+The application uses typed `minTurnSilence`, `maxTurnSilence`, `agentContext`,
+and `keytermsPrompt` options. The plugin serializes them into AssemblyAI's
+wire fields. No inference-specific minimum-silence alias or `modelOptions`
+wrapper is needed. Provider authentication, billing, and rate limits belong to
+the AssemblyAI account.
+
+The plugin exposes `SpeechStream.forceEndpoint()` and provider session details.
+The runtime does not call ForceEndpoint: the local early-prediction bridge
+accelerated complete answers but split paused names and insurance, reducing
+whole-answer acceptance from 5/6 to 3/6 in that six-fixture comparison.
+Switching transport does not enable dynamic endpointing, preemptive generation,
+or the rejected force bridge.
+
+Both transports offer context and keyterm controls. The inference trial below
+required a different minimum-silence field with the then-observed gateway.
+That compatibility mapping is historical and is absent from the current runtime.
 [LiveKit AssemblyAI documentation](https://docs.livekit.io/agents/models/stt/assemblyai/)
-
-For the pinned SDK and currently observed gateway behavior, use
-`min_end_of_turn_silence_when_confident` for the tested minimum-silence behavior.
-The application maps its minimum to that field. In controlled paired replays,
-using the newer direct-API name `min_turn_silence` through inference allowed a
-paused-name prefix to finalize before the requested 1500 ms; the SDK field
-preserved the pause. This is an observed gateway compatibility constraint,
-not a claim that the public direct API rejects its newer field. Recheck the
-contract before changing SDK/gateway versions or switching parameter names.
-
-The direct plugin adds a `SpeechStream.forceEndpoint()` operation and provider
-session details, and uses separate AssemblyAI authentication, billing, and rate
-limits. The current runtime needs none of those extras. The plugin does not
-provide a different recognition model or an established accuracy advantage.
-
-A local early-prediction bridge was tested in 12 executions. It accelerated
-complete name/DOB answers but reduced whole-answer acceptance from 5/6 to 3/6
-by splitting paused names and insurance. The runtime does not force endpoints;
-the diagnostic prototype was not integrated into the application.
 
 ## Evidence and limits
 
 The [initial evaluation](assemblyai-plugin-evaluation.md) and
 [controlled follow-up](assemblyai-endpointing-followup.md) document historical
 plugin/dynamic experiments. Their latency figures do not describe this revised
-inference/fixed configuration. The [developer documentation audit](assemblyai-docs-audit.md)
+plugin/fixed configuration. The [developer documentation audit](assemblyai-docs-audit.md)
 records the context-lifecycle findings from the plugin trial.
 
-Unit and SDK integration tests cover inference option serialization, committed
+Unit and SDK integration tests cover direct plugin option construction, committed
 assistant context, interrupted follow-up history, profile retention through
 transcript chunks, and actual fixed endpointing transitions. Existing
 preemptive-generation tests exercise a disabled capability and do not mean it is
-enabled in production. Audio replay evidence excludes live LLM/TTS, SIP,
+enabled in production. Plugin source inspection verifies serialization to
+AssemblyAI wire fields; live stream checks verify observed update behavior.
+Audio replay evidence excludes live LLM/TTS, SIP,
 backend effects, and complete adaptive interruption behavior.
 
-### Revised configuration validation
+### Current plugin/fixed live update check
 
-After restoring inference and fixed profiles, eight exported-configuration
+An open direct-plugin stream exercised the current controller with insurance,
+a paused name, and an ordinary closing reply. All three exact values were
+retained with no errors and 12 ms maximum pacing drift. Final-transcript delays
+were 1762/1839/351 ms. The entity profile survived final transcripts and reset
+on conversational commitment; fixed bounds returned from 500/2500 to 300/600
+twice. This is provider/controller proof, not full LLM/TTS or SIP validation.
+
+### Historical inference configuration validation
+
+At commit `a75d9bf`, inference and fixed profiles were tested in eight exported-configuration
 replays preserved 7/8 exact whole answers. The known unfinished scheduling
 fixture still split. The short negative reply committed in 717 ms; complete
 name/DOB took 1988/1863 ms. All executions were valid with no warnings or

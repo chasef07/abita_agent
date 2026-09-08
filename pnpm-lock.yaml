@@ -15,6 +15,9 @@ importers:
       '@livekit/agents':
         specifier: 1.8.0
         version: 1.8.0(@livekit/rtc-node@0.13.34)(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(zod@4.5.4)
+      '@livekit/agents-plugin-assemblyai':
+        specifier: 1.8.0
+        version: 1.8.0(@livekit/agents@1.8.0(@livekit/rtc-node@0.13.34)(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(zod@4.5.4))(@livekit/rtc-node@0.13.34)
       '@livekit/agents-plugin-krisp':
         specifier: 1.8.0
         version: 1.8.0(@livekit/agents@1.8.0(@livekit/rtc-node@0.13.34)(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(zod@4.5.4))(@livekit/rtc-node@0.13.34)
@@ -52,9 +55,6 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.10.0)
-      '@livekit/agents-plugin-assemblyai':
-        specifier: 1.8.0
-        version: 1.8.0(@livekit/agents@1.8.0(@livekit/rtc-node@0.13.34)(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(zod@4.5.4))(@livekit/rtc-node@0.13.34)
       '@types/node':
         specifier: ^26.4.1
         version: 26.4.1

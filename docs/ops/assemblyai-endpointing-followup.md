@@ -1,7 +1,7 @@
 # Controlled endpointing follow-up
 
 Historical parameter study at the commit below. The current runtime has since
-returned to inference and fixed endpointing; see [current configuration](assemblyai.md).
+selected the direct plugin with fixed endpointing; see [current configuration](assemblyai.md).
 
 Evaluated September 8, 2026 against draft PR #435 at `ae879ed`. This follow-up
 holds provider and endpointing bounds constant to separate questions conflated

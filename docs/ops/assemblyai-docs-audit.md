@@ -1,7 +1,6 @@
 # AssemblyAI developer documentation audit
 
-Historical audit of the direct-plugin trial. The current runtime uses LiveKit
-Inference; see [current configuration](assemblyai.md) for the selected transport
+Historical audit of the direct-plugin trial. The current runtime uses the direct plugin with fixed endpointing; see [current configuration](assemblyai.md) for the selected transport
 and fixed endpointing settings. Context ownership and exact-entity validation
 principles below remain applicable.
 

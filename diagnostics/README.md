@@ -6,9 +6,8 @@ cloud audio turn prediction, and SDK user-turn commits. They do not call an LLM,
 synthesize agent responses, connect to a room, or invoke application tools.
 
 Use Node 22, the repository's pnpm version, installed dependencies, and existing
-LiveKit credentials in `.env.local`. Direct-plugin comparison arms additionally
-require `ASSEMBLYAI_API_KEY`; the current runtime and generated candidate use
-LiveKit Inference and do not require that key. Provider calls cost
+LiveKit credentials plus `ASSEMBLYAI_API_KEY` in `.env.local`. The current runtime
+and generated candidate use the direct AssemblyAI plugin. Provider calls cost
 money. Keep fixtures, manifests, raw results, and transcripts in a private folder
 outside the repository. The replay rejects output inside this checkout and
 writes private directories/files with 0700/0600 permissions.

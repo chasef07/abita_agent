@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@livekit/agents": "1.8.0",
+    "@livekit/agents-plugin-assemblyai": "1.8.0",
     "@livekit/agents-plugin-krisp": "1.8.0",
     "@livekit/agents-plugin-rime": "1.8.0",
     "@livekit/rtc-node": "^0.13.34",
@@ -31,7 +32,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@livekit/agents-plugin-assemblyai": "1.8.0",
     "@types/node": "^26.4.1",
     "@typescript/native": "npm:typescript@^7.0.2",
     "eslint": "^10.10.0",

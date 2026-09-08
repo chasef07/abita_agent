@@ -1,7 +1,7 @@
 # AssemblyAI plugin and dynamic endpointing evaluation
 
 Historical experiment, not the current runtime configuration. The draft now
-uses LiveKit Inference, fixed profile-based endpointing, and disabled preemptive
+uses the direct AssemblyAI plugin, fixed profile-based endpointing, and disabled preemptive
 generation. See [current configuration](assemblyai.md). The measurements below
 retain their original transport and timing conditions.
 

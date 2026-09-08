@@ -6,17 +6,15 @@ import {
 import { voiceEndpointingProfiles } from "../session-options.js";
 import type { CallState } from "../state/call-state.js";
 import {
-  type AssemblyAIInferenceModelOptions,
+  type AssemblyAISttProfileOptions,
   type SttProfile,
   getAssemblyAIAgentContext,
-  getAssemblyAIInferenceSttProfileOptions,
+  getAssemblyAISttProfileOptions,
   selectSttProfileForAssistantText,
 } from "../stt-config.js";
 
 type ProfileStt = {
-  updateOptions: (options: {
-    modelOptions: AssemblyAIInferenceModelOptions;
-  }) => void;
+  updateOptions: (options: AssemblyAISttProfileOptions) => void;
 };
 
 export type TurnProfileController = {
@@ -26,7 +24,7 @@ export type TurnProfileController = {
     details?: {
       createdAt?: number;
     },
-    extraOptions?: AssemblyAIInferenceModelOptions,
+    extraOptions?: AssemblyAISttProfileOptions,
   ) => void;
   commitUserTurn: () => void;
   commitAssistantTurn: (committedText: string) => void;
@@ -62,7 +60,7 @@ export function createTurnProfileController(
     details: {
       createdAt?: number;
     } = {},
-    extraOptions: AssemblyAIInferenceModelOptions = {},
+    extraOptions: AssemblyAISttProfileOptions = {},
   ) => {
     if (
       profile === activeSttProfile &&
@@ -73,10 +71,8 @@ export function createTurnProfileController(
 
     const previousProfile = activeSttProfile;
     stt.updateOptions({
-      modelOptions: {
-        ...getAssemblyAIInferenceSttProfileOptions(profile),
-        ...extraOptions,
-      },
+      ...getAssemblyAISttProfileOptions(profile),
+      ...extraOptions,
     });
     if ((profile === "default") !== (previousProfile === "default")) {
       options.updateEndpointing(
@@ -120,12 +116,7 @@ export function createTurnProfileController(
       if (!agentContext) return;
       const profile = profileForAssistantText(committedText);
       committedPromptProfile = profile === "default" ? null : profile;
-      applySttProfile(
-        profile,
-        "assistant_prompt",
-        {},
-        { agent_context: agentContext },
-      );
+      applySttProfile(profile, "assistant_prompt", {}, { agentContext });
     },
     sttProfiles,
     get activeSttProfile() {

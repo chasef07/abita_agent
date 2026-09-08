@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  getAssemblyAIInferenceSttOptions,
-  getAssemblyAIInferenceSttProfileOptions,
+  getAssemblyAISttOptions,
+  getAssemblyAISttProfileOptions,
   type SttProfile,
 } from "../src/stt-config.js";
 import {
@@ -27,7 +27,7 @@ const baselineTiming: Record<SttProfile, [number, number]> = {
 const cases = clips.flatMap((clip: any) => {
   const profile = clip.profile as SttProfile;
   const [minimum, maximum] = baselineTiming[profile];
-  const profileOptions = getAssemblyAIInferenceSttProfileOptions(profile);
+  const profileOptions = getAssemblyAISttProfileOptions(profile);
   return [
     {
       clip,
@@ -48,7 +48,7 @@ const cases = clips.flatMap((clip: any) => {
               vad_threshold: 0.3,
               min_turn_silence: minimum,
               max_turn_silence: maximum,
-              keyterms_prompt: profileOptions.keyterms_prompt,
+              keyterms_prompt: profileOptions.keytermsPrompt,
               agent_context: clip.agentContext,
             },
           },
@@ -66,14 +66,11 @@ const cases = clips.flatMap((clip: any) => {
           ],
         },
         stt: {
-          provider: "inference",
+          provider: "assemblyai",
           options: {
-            ...getAssemblyAIInferenceSttOptions(),
-            modelOptions: {
-              ...getAssemblyAIInferenceSttOptions().modelOptions,
-              ...profileOptions,
-              agent_context: clip.agentContext,
-            },
+            ...getAssemblyAISttOptions(),
+            ...profileOptions,
+            agentContext: clip.agentContext,
           },
         },
       },
