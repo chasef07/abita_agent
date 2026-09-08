@@ -399,7 +399,8 @@ describe("HTTP owned middleware transport", () => {
     });
     await middleware.getAvailability({
       office: SPRING_HILL_OFFICE_PHONE,
-      rangeDays: 30,
+      rangeDays: 14,
+      startDate: "2026-11-02",
       dob: "01/01/1980",
       routing: "all_three",
       preauthRequired: true,
@@ -473,7 +474,8 @@ describe("HTTP owned middleware transport", () => {
       office: SPRING_HILL_OFFICE_PHONE,
     });
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
-      rangeDays: 30,
+      rangeDays: 14,
+      startDate: "2026-11-02",
       dob: "01/01/1980",
       routing: "all_three",
       preauthRequired: true,
@@ -2285,7 +2287,8 @@ it("fails closed when the inventory endpoint is unavailable instead of using two
   });
   const result = await middleware.getAvailability({
     office: SPRING_HILL_OFFICE_PHONE,
-    rangeDays: 90,
+    rangeDays: 14,
+    startDate: "2026-11-02",
   });
   expect(result).toEqual({ status: "error", reason: "request_rejected" });
   expect(fetch).toHaveBeenCalledTimes(1);

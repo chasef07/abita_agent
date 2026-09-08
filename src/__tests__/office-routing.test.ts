@@ -1092,7 +1092,7 @@ describe("model-facing tool definitions", () => {
       shape: {
         office: { description?: string };
         visitType: { description?: string };
-        range: { description?: string };
+        startDate: { description?: string };
       };
     };
     expect(parameters.shape.visitType.description).toContain(
@@ -1101,46 +1101,41 @@ describe("model-facing tool definitions", () => {
     expect(parameters.shape.office.description).toContain(
       "Caller-selected Hollywood or Sweetwater office",
     );
-    expect(parameters.shape.range.description).toContain(
-      "Load the next 14 days",
+    expect(parameters.shape.startDate.description).toContain(
+      "14-calendar-day window",
     );
-    expect(parameters.shape.range.description).toContain("90");
+    expect(parameters.shape.startDate.description).toContain("future date");
     expect(Object.keys(parameters.shape)).toEqual([
-      "range",
+      "startDate",
       "visitType",
       "office",
     ]);
     expect(
       parameters.safeParse({
-        range: "default",
         visitType: "medical",
         office: "hollywood",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        range: "default",
         visitType: null,
         office: "hollywood",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        range: "default",
         visitType: "medical",
         office: "sweetwater",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        range: "default",
         visitType: "medical",
         office: "spring-hill",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        range: "default",
         visitType: "medical",
         timePreference: "evening",
       }).success,
@@ -1154,14 +1149,12 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        range: "default",
         visitType: "routine_vision",
         office: "hollywood",
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
-        range: "default",
         visitType: "unknown",
         office: "hollywood",
       }).success,
@@ -1174,14 +1167,12 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        range: "default",
         date: "2026-06-01",
         visitType: "medical",
       }).success,
     ).toBe(false);
     expect(
       parameters.safeParse({
-        range: "default",
         appointmentLane: "medical_md",
       }).success,
     ).toBe(false);

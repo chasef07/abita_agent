@@ -59,3 +59,10 @@ function ordinalSuffix(day: number): string {
   if (day % 10 === 3) return "rd";
   return "th";
 }
+
+// Calendar arithmetic stays in date-only UTC so DST never shifts the date.
+export function addCalendarDays(date: string, days: number): string {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}

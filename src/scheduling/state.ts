@@ -58,7 +58,7 @@ export function createSchedulingState(input: {
     },
     availability: {
       slots: [],
-      rangeDays: undefined,
+      requestedStartDate: undefined,
       latestRouting: null,
       bookingTokensBySlotId: {},
       nextSlotIndex: 0,
@@ -172,7 +172,7 @@ export function clearAvailabilitySelection(
 ): void {
   if (options.invalidateReads) {
     invalidateAvailabilityReads(state, options.invalidateReads);
-    state.availability.rangeDays = undefined;
+    state.availability.requestedStartDate = undefined;
   }
   if (state.availability.slots.length)
     state.availability.version = (state.availability.version ?? 0) + 1;

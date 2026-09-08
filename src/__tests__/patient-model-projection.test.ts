@@ -221,8 +221,11 @@ describe("patient model projection", () => {
           ctx: createToolContext(state),
           toolCallId: "expansion",
         } as never;
-        await tool.execute({ range: "default", visitType: "medical" }, options);
-        await tool.execute({ range: "+1month", visitType: "medical" }, options);
+        await tool.execute({ visitType: "medical" }, options);
+        await tool.execute(
+          { startDate: "2026-11-02", visitType: "medical" },
+          options,
+        );
       } else {
         clearAvailabilitySelection(state, {
           invalidateReads: "patient_context_changed",

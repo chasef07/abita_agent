@@ -103,7 +103,6 @@ describe("stable tool catalog", () => {
           {
             name: "list_available_appointments",
             args: {
-              range: "default",
               visitType: "medical",
             },
           },
@@ -552,7 +551,6 @@ describe("stable tool catalog", () => {
           {
             name: "list_available_appointments",
             args: {
-              range: "default",
               visitType: "medical",
             },
           },
@@ -647,7 +645,6 @@ describe("stable tool catalog", () => {
           {
             name: "list_available_appointments",
             args: {
-              range: "default",
               visitType: "medical",
             },
           },

@@ -1,79 +1,50 @@
 # Conversational appointment inventory
 
-This replaces the agent's date-phrase search with the user-approved LiveKit-style
-flow. It supersedes the agent-facing temporal interpretation and two-result-only
-parts of issue #370; patient eligibility and booking policy stay authoritative.
-
 ## Contract
 
-- `list_available_appointments` accepts `range`: `default` or `+2week` (14 days),
-  `+1month` (30 days), or `+3month` (90 days). Omission defaults to 14. The existing
-  Visit Type and office selectors remain. The same list supports both new and replacement appointments.
-- After identity, office, and scheduling eligibility are established, the agent
-  loads one complete eligible window. The window starts at the earliest
-  policy-permitted date (tomorrow, adjusted for preauthorization), counts exactly
-  14/30/90 clinic-local calendar dates, and excludes same-day appointments.
-- Middleware `POST /api/scheduler/slots` takes `rangeDays`, office, DOB, routing,
-  and preauthorization. It returns every eligible slot in chronological order,
-  coverage dates, and private signed booking authorizations. No top-two cutoff.
-- The tool returns readable dates, times, providers and opaque `S...` references.
-  The LLM matches preferences, offers at most two choices, and uses the same
-  result for later/earlier/day-of-week refinements. It expands the horizon only
-  when needed. Private tokens and provider resource IDs stay out of model input.
-- The call retains the widest requested range. Identical concurrent reads join;
-  completed positive and empty results are reusable for at most 60 seconds,
-  bounded by authorization expiry. This is a conservative initial freshness
-  setting, not a measured optimum. Inventory is isolated by patient, office,
-  scheduling context, policy inputs, and clinic date.
-- Expanding or refreshing inventory preserves IDs for identical slots and
-  replaces the authoritative active list. A late smaller-window response cannot
-  replace a newer expanded request. Context changes clear incompatible state.
-- The full list enters conversation history once per tool result. Per-turn
-  system context carries only the current inventory revision and scope marker,
-  or a stale-inventory instruction, avoiding a second full calendar injection.
-- `book_appointment` and `reschedule_appointment` still use the confirmed opaque
-  reference. Existing read-back, eligibility, token expiry, provider slot recheck,
-  success receipt, reschedule ordering, and conflict handling remain. An expired
-  authorization requires refreshing; a replacement requires confirmation.
-- No pre-call inventory fetch, shared cross-call cache, speculative booking,
-  automatic replacement, or change to clinical/intake policy is introduced.
+- `list_available_appointments` accepts an optional `startDate` in YYYY-MM-DD
+  format. Omission or null starts tomorrow in Eastern time. A supplied date
+  searches there directly, without reading intervening dates. The existing
+  Visit Type and office selectors remain; the same tool supports new bookings
+  and rescheduling. The old `range` options are removed.
+- Every window contains exactly 14 calendar dates. Middleware applies the
+  existing preauthorization minimum start date and rejects same-day, past, and
+  invalid dates. Provider calendars are read only on configured working days;
+  skipped days do not extend the window.
+- Middleware `POST /api/scheduler/slots` takes `startDate`, office, DOB, routing,
+  and preauthorization. `rangeDays` may be omitted or 14; all other lengths,
+  including 30 and 90, are rejected before provider access. It returns every
+  eligible slot in chronological order, coverage dates, and private signed
+  booking authorizations. A supplied start date does not trigger top-two ranking.
+- For dates after the loaded window, use the day after `searchedThrough` as the
+  next `startDate`. For a specific future month or date, start there directly.
+  Day-of-week and time preferences within the loaded window use existing results.
+  Offer at most two choices; do not automatically scan successive windows.
+- Repeated and concurrent requests for the same window reuse/join the existing
+  read. Completed positive and empty results remain reusable for at most 60
+  seconds, bounded by token expiry. Default and explicit tomorrow share a key.
+  Cache keys include the requested date, patient, office, policy, and clinic date.
+  There is no retained widest range. Omission always selects the default window.
+- Changing windows replaces the active inventory; matching slots preserve their
+  references. Late responses for a different requested window cannot replace it.
+  Patient, office, or policy changes invalidate incompatible inventory and cache.
+- Incomplete reads remain unknown rather than empty. Existing booking and
+  rescheduling confirmation, signed tokens, fresh provider revalidation, and
+  durable success receipts remain required. No shared cache, rate limiter, or
+  new retry mechanism is introduced by this change.
 
-## Middleware delivery
+## Delivery
 
-Deploy the middleware `/slots` endpoint before activating this agent. The agent
-has no fallback to the old two-slot endpoint, so old middleware cannot silently
-serve a partial calendar as complete inventory. Middleware retains `/availability`
-for the currently deployed agent during rollout and rollback; it shares the
-same slot calculation and booking policy with the new inventory path.
-
-The inventory reader uses the existing verified daily appointments/block-holds
-adapter, bounded to four concurrent days. It does not assume monthly appointment
-reads also prove block-hold completeness. Incomplete coverage returns an explicit
-incomplete result without misleading partial offers. This trades more initial
-reads for fewer conversational re-queries; 30/90-day latency and payload sizes
-must be measured before production activation. The existing HTTP read timeout
-remains in force. No production performance or booking-conversion gain is claimed.
+The new agent requires middleware that accepts `startDate`. Deploy middleware
+support before activating the agent, with the transition coordinated: old agent
+14-day default calls remain accepted, but old 30/90-day calls will be rejected.
+The older two-slot `/availability` route keeps its existing behavior and is not
+used as a fallback for this inventory tool.
 
 ## Verification
 
-Exercise default/14/30/90 coverage, month and DST boundaries, all-slot listing,
-private-token isolation, stable selection after expansion, cache expiry including
-empty results, out-of-order completion, patient/office changes, and provider
-booking conflicts. Test the actual tools and HTTP contracts; retain existing
-booking/cancellation/rescheduling regression suites. Observe final appointment
-identity and count, not only conversational claims.
-
-## Rescheduling uses the same inventory
-
-`list_available_appointments` accepts medical or routine_vision for both new
-bookings and rescheduling. It has no existing-appointment parameter or selection
-step. Once a new slot is confirmed, call `reschedule_appointment` with the
-`oldAppointmentRef` from the loaded patient appointments and `appointmentSlotRef`
-from the inventory. The workflow validates both references and matching visit
-category before any write, preserves the old appointment type, books the new
-appointment first, then cancels the old one. A cancellation failure remains an
-explicit partial outcome and blocks duplicate booking.
-
-Successful receipt replay is scoped to the original and replacement appointment
-references. Moving another appointment in the same call cannot be redirected to
-the latest booking or mistaken for a replay, even at the same date/time.
+Test all-slot 14-day coverage across month/DST boundaries, future windows and
+adjacent windows without intervening reads, working-day filtering, preauthorization,
+invalid dates and removed ranges, same-window caching, late responses, cache expiry,
+context resets, and booking/rescheduling contracts. Use synthetic provider data;
+local tests do not establish live request reductions or patient outcomes.
