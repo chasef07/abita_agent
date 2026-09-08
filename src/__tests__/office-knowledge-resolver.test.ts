@@ -17,10 +17,16 @@ type TopicFixture = {
   transcript: string;
 };
 
-describe("cataract provider restrictions", () => {
+describe("cataract scheduling policy", () => {
   it.each([
-    ["hollywood", "Hollywood does not provide cataract care."],
-    ["sweetwater", "Sweetwater does not provide cataract care."],
+    [
+      "hollywood",
+      "Dr. Bach schedules cataract exams, including cataract evaluations, and cataract surgery at Hollywood.",
+    ],
+    [
+      "sweetwater",
+      "Dr. Bach schedules cataract exams, including cataract evaluations, and cataract surgery at Sweetwater.",
+    ],
     [
       "spring-hill",
       "Dr. Licht is the only provider for all cataract visits at Spring Hill",
@@ -29,25 +35,35 @@ describe("cataract provider restrictions", () => {
       "crystal-river",
       "Dr. Licht is the only provider for all cataract visits at Crystal River",
     ],
-  ] as const)(
-    "supplies %s restrictions before scheduling",
-    (officeKey, rule) => {
-      for (const transcript of [
-        "I have cataracts.",
-        "Book a cataract appointment.",
-        "Schedule cataract surgery.",
-        "Does Dr. Bach see cataracts?",
-        "Can Dr. Noel evaluate my cataract?",
-        "Quiero programar una cita para cataratas.",
-      ]) {
-        const result = resolveOfficeKnowledge(officeKey, transcript);
-        expect(result, transcript).toMatchObject({
-          outcome: "matched",
-        });
-        expect(result.sections.join("\n"), transcript).toContain(rule);
+  ] as const)("supplies %s policy before scheduling", (officeKey, rule) => {
+    for (const transcript of [
+      "I have cataracts.",
+      "Book a cataract appointment.",
+      "Schedule a cataract exam with Dr. Bach.",
+      "Schedule cataract surgery.",
+      "Does Dr. Bach see cataracts?",
+      "Can Dr. Noel evaluate my cataract?",
+      "Quiero programar una cita para cataratas.",
+      "Quiero programar una cirugía de cataratas con el Dr. Bach.",
+    ]) {
+      const result = resolveOfficeKnowledge(officeKey, transcript);
+      expect(result, transcript).toMatchObject({
+        outcome: "matched",
+      });
+      expect(result.sections.join("\n"), transcript).toContain(rule);
+      if (officeKey === "hollywood" || officeKey === "sweetwater") {
+        expect(result.sections.join("\n"), transcript).toContain(
+          "Schedule cataract exams with Dr. Bach through medical scheduling.",
+        );
+        expect(result.sections.join("\n"), transcript).not.toContain(
+          "does not provide cataract care",
+        );
+        expect(result.sections.join("\n"), transcript).not.toContain(
+          "does not see cataract patients",
+        );
       }
-    },
-  );
+    }
+  });
 
   it.each([
     [
