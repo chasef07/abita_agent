@@ -82,7 +82,6 @@ describe("New Tampa isolation from other numbers", () => {
         )!;
         const result = await tool.execute(
           {
-            range: "default",
             visitType,
             ...(office.availabilityOfficeFor().status === "blocked"
               ? { office: office.key }

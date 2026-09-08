@@ -436,7 +436,7 @@ interface AvailabilitySessionState {
   version?: number;
   refreshAfter?: number;
   slots: StoredAvailabilitySlot[];
-  rangeDays?: 14 | 30 | 90;
+  requestedStartDate?: string;
   latestRouting?: string | null;
   bookingTokensBySlotId: Record<string, string>;
   nextSlotIndex: number;

@@ -90,11 +90,12 @@ export function createSchedulingTools(
   const { availabilityOfficeMode } = options;
 
   const availabilityFields = {
-    range: z
-      .enum(["default", "+2week", "+1month", "+3month"])
-      .default("default")
+    startDate: z.iso
+      .date()
+      .nullable()
+      .default(null)
       .describe(
-        "Load the next 14 days by default, 30 days for +1month, or 90 for +3month. Infer the range from the conversation. Reuse loaded appointments for day/time preferences; expand only when the caller needs dates outside the loaded range.",
+        "First date of a 14-calendar-day window, YYYY-MM-DD in Eastern time. Omit or pass null for tomorrow. For a future date, start there directly. To search later, use the day after the loaded window ends. Reuse the loaded list for day/time preferences within its window.",
       ),
     visitType: z
       .enum(["medical", "routine_vision"])
@@ -117,7 +118,7 @@ export function createSchedulingTools(
   const list_available_appointments = tool({
     name: "list_available_appointments",
     description:
-      "Load eligible appointments after triage: 14 days by default, optionally 30 or 90. " +
+      "Load eligible appointments after triage for one 14-calendar-day window. " +
       "Offer only returned slots, at most two at a time. Match follow-up preferences from the loaded list. " +
       "Pass the appropriate medical or routine_vision visitType for either booking or rescheduling. " +
       "Book the confirmed reference with book_appointment, or reschedule_appointment for an existing visit.",
@@ -129,7 +130,7 @@ export function createSchedulingTools(
         workflow.getAvailability(
           getState(ctx),
           {
-            range: args.range,
+            startDate: args.startDate ?? undefined,
             ...(office ? { office } : {}),
             appointmentLane: args.visitType
               ? APPOINTMENT_LANE_BY_VISIT_TYPE[args.visitType]

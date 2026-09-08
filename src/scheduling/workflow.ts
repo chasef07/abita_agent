@@ -98,13 +98,14 @@ import type {
   SchedulingMiddleware,
 } from "./middleware.js";
 import {
+  addCalendarDays,
   clinicIsoDate,
   systemSchedulingClock,
   type SchedulingClock,
 } from "./clock.js";
 
 export interface AvailabilityLookupArgs {
-  range?: "default" | "+2week" | "+1month" | "+3month";
+  startDate?: string;
   appointmentLane?: SchedulingAppointmentLane;
   office?: AvailabilityOfficeKey;
 }
@@ -841,7 +842,7 @@ function availabilityRequestStillCurrent(
   request: AvailabilityWorkflowRequest,
 ): boolean {
   return (
-    state.availability.rangeDays === request.body.rangeDays &&
+    state.availability.requestedStartDate === request.body.startDate &&
     availabilityBackendKey(state, {
       body: request.body,
       cacheDay: request.cacheDay,
@@ -893,14 +894,9 @@ function buildAvailabilityLookupRequestForState(
   if (unsupportedRoutineVisionScheduling)
     return { blocked: unsupportedRoutineVisionScheduling };
   const routing = routingForAvailability(state);
-  const requestedDays =
-    args.range === "+3month" ? 90 : args.range === "+1month" ? 30 : 14;
-  const rangeDays = Math.max(
-    requestedDays,
-    state.availability.rangeDays ?? 14,
-  ) as 14 | 30 | 90;
-  state.availability.rangeDays = rangeDays;
-  const body: MiddlewareAvailabilityRequest = { rangeDays };
+  const startDate = args.startDate ?? addCalendarDays(cacheDay, 1);
+  state.availability.requestedStartDate = startDate;
+  const body: MiddlewareAvailabilityRequest = { startDate, rangeDays: 14 };
   const dob = activePatientDob(state);
   if (dob) body.dob = dob;
   if (routing) body.routing = routing;
@@ -937,7 +933,7 @@ function availabilityBackendKey(
     intent: turn?.intent ?? null,
     appointmentLane: turn?.appointmentLane ?? null,
     cacheDay: input.cacheDay,
-    rangeDays: input.body.rangeDays,
+    startDate: input.body.startDate,
     dob:
       typeof input.body.dob === "string" ? input.body.dob.trim() || null : null,
     routing: input.routing,

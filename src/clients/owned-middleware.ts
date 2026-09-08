@@ -206,7 +206,8 @@ export interface OwnedMiddleware {
   }): Promise<PatientResolveResult>;
   getAvailability(request: {
     office: string;
-    rangeDays?: 14 | 30 | 90;
+    startDate?: string;
+    rangeDays?: 14;
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
@@ -287,7 +288,8 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
 
   async getAvailability(request: {
     office: string;
-    rangeDays?: 14 | 30 | 90;
+    startDate?: string;
+    rangeDays?: 14;
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
@@ -295,6 +297,7 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
   }): Promise<AvailabilityResult> {
     const body = {
       rangeDays: request.rangeDays ?? 14,
+      ...(request.startDate ? { startDate: request.startDate } : {}),
       ...(request.dob ? { dob: request.dob } : {}),
       ...(request.routing ? { routing: request.routing } : {}),
       ...(request.preauthRequired ? { preauthRequired: true } : {}),

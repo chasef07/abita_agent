@@ -120,7 +120,7 @@ describe("New Tampa 320 demo", () => {
         middleware,
         clock,
       ).list_available_appointments.execute(
-        { visitType: "routine_vision", range: "default" },
+        { visitType: "routine_vision" },
         context(state),
       ),
     ).toBe(result);
@@ -228,7 +228,7 @@ describe("New Tampa 320 demo", () => {
       middleware,
       clock,
     ).list_available_appointments.execute(
-      { visitType: "medical", range: "+3month" },
+      { visitType: "medical", startDate: "2026-11-02" },
       context(state),
     );
     expect(result).toContain("Scott Friedman");
@@ -253,7 +253,7 @@ describe("New Tampa 320 demo", () => {
         middleware,
         clock,
       ).list_available_appointments.execute(
-        { visitType: "medical", range: "default" },
+        { visitType: "medical" },
         context(state),
       ),
     ).toContain("Offer transfer_call");
@@ -271,7 +271,7 @@ describe("New Tampa 320 demo", () => {
     });
     const demoTools = createNewTampaDemoTools(middleware, clock);
     await demoTools.list_available_appointments.execute(
-      { visitType: "medical", range: "+3month" },
+      { visitType: "medical", startDate: "2026-11-02" },
       context(state),
     );
     const ref = availabilitySlotsForState(state)[0]!.slotId;
@@ -313,7 +313,7 @@ describe("New Tampa 320 demo", () => {
       middleware,
       clock,
     ).list_available_appointments.execute(
-      { visitType: "medical", range: "default" },
+      { visitType: "medical" },
       context(state),
     );
     await triage_eye_care.execute(

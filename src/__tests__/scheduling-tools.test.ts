@@ -263,13 +263,10 @@ describe("scheduling tools", () => {
       const { list_available_appointments } = createSchedulingTools(middleware);
       const state = createState();
 
-      await list_available_appointments.execute(
-        { range: "default", visitType },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "availability-1",
-        } as never,
-      );
+      await list_available_appointments.execute({ visitType }, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never);
 
       expect(state.workflow.current).toEqual({
         intent: "schedule",
@@ -291,7 +288,7 @@ describe("scheduling tools", () => {
       "The patient chart exists, but insurance is not attached. Connect the caller to office staff to finish registration before scheduling.";
 
     const availabilityResult = await list_available_appointments.execute(
-      { range: "default", visitType: "medical" },
+      { visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -328,7 +325,6 @@ describe("scheduling tools", () => {
 
       const result = await list_available_appointments.execute(
         {
-          range: "default",
           visitType: "medical",
         } as never,
         {
@@ -359,7 +355,6 @@ describe("scheduling tools", () => {
 
     await list_available_appointments.execute(
       {
-        range: "default",
         visitType: "medical",
         office: "hollywood",
       },
@@ -412,7 +407,6 @@ describe("scheduling tools", () => {
 
     const result = await list_available_appointments.execute(
       {
-        range: "default",
         visitType: "medical",
       },
       {
@@ -434,6 +428,7 @@ describe("scheduling tools", () => {
         request: {
           dob: "01/01/1980",
           rangeDays: 14,
+          startDate: "2026-05-31",
           routing: "all_three",
         },
       },
@@ -456,7 +451,7 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
 
     const availability = await list_available_appointments.execute(
-      { range: "default", visitType: "medical" },
+      { visitType: "medical" },
       {
         ctx: ctx as never,
         toolCallId: "availability-1",
@@ -493,7 +488,6 @@ describe("scheduling tools", () => {
     const { list_available_appointments } = createSchedulingTools(middleware);
     const state = createState();
     const args = {
-      range: "default",
       visitType: "medical" as const,
     };
     const ctx = createToolContext(state);
@@ -529,7 +523,6 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      range: "default",
       visitType: "medical" as const,
     };
     let lateOverlap: Promise<string> | undefined;
@@ -573,7 +566,6 @@ describe("scheduling tools", () => {
     const { list_available_appointments } = createSchedulingTools(middleware);
     const state = createState();
     const args = {
-      range: "default",
       visitType: "medical" as const,
     };
     const ctx = createToolContext(state);
@@ -618,7 +610,6 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      range: "default",
       visitType: "medical" as const,
     };
 
@@ -666,7 +657,7 @@ describe("scheduling tools", () => {
     const { list_available_appointments } = createSchedulingTools(middleware);
     const state = createState();
     const availability = list_available_appointments.execute(
-      { range: "default", visitType: "medical" },
+      { visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -723,13 +714,10 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const lookup = (toolCallId: string) =>
-      list_available_appointments.execute(
-        { range: "default", visitType: "medical" },
-        {
-          ctx: ctx as never,
-          toolCallId,
-        } as never,
-      );
+      list_available_appointments.execute({ visitType: "medical" }, {
+        ctx: ctx as never,
+        toolCallId,
+      } as never);
 
     const first = lookup("availability-1");
     const second = lookup("availability-2");
@@ -771,7 +759,7 @@ describe("scheduling tools", () => {
 
     vi.setSystemTime(new Date("2026-05-30T16:15:00.000Z"));
     const response = await list_available_appointments.execute(
-      { range: "default", visitType: "medical" },
+      { visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -810,13 +798,10 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
 
-    await list_available_appointments.execute(
-      { range: "default", visitType: "medical" },
-      {
-        ctx: ctx as never,
-        toolCallId: "availability-1",
-      } as never,
-    );
+    await list_available_appointments.execute({ visitType: "medical" }, {
+      ctx: ctx as never,
+      toolCallId: "availability-1",
+    } as never);
     vi.setSystemTime(new Date("2026-05-30T16:15:00.000Z"));
 
     await expect(
@@ -859,7 +844,7 @@ describe("scheduling tools", () => {
     },
     {
       name: "expanded range",
-      change: () => ({ range: "+1month" }),
+      change: () => ({ startDate: "2026-11-02" }),
     },
     {
       name: "date of birth",
@@ -906,7 +891,6 @@ describe("scheduling tools", () => {
       const state = createState();
       const ctx = createToolContext(state);
       const args = {
-        range: "default",
         visitType: "medical" as const,
       };
 
@@ -940,13 +924,10 @@ describe("scheduling tools", () => {
       appointmentLane: "not_applicable",
     };
 
-    await list_available_appointments.execute(
-      { range: "default", visitType: "medical" },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "availability-1",
-      } as never,
-    );
+    await list_available_appointments.execute({ visitType: "medical" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
 
     expect(state.workflow.current).toEqual({
       intent: "schedule",
@@ -968,13 +949,10 @@ describe("scheduling tools", () => {
     const state = createState();
     restoreFirstPatient(state, [loadedAppointment()]);
 
-    await list_available_appointments.execute(
-      { range: "default", visitType: "medical" },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "availability-1",
-      } as never,
-    );
+    await list_available_appointments.execute({ visitType: "medical" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
 
     expect(state.workflow.current).toEqual({
       intent: "schedule",
@@ -1000,15 +978,10 @@ describe("scheduling tools", () => {
       }),
     ]);
 
-    const result = await list_available_appointments.execute(
-      {
-        range: "default",
-      },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "availability-1",
-      } as never,
-    );
+    const result = await list_available_appointments.execute({}, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
 
     expect(result).toBe("Is this visit for medical care or routine vision?");
     expect(middleware.operations).toEqual([]);
@@ -1027,13 +1000,10 @@ describe("scheduling tools", () => {
       }),
     ];
 
-    await list_available_appointments.execute(
-      { range: "default", visitType: "routine_vision" },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "availability-1",
-      } as never,
-    );
+    await list_available_appointments.execute({ visitType: "routine_vision" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
 
     expect(middleware.operations).toEqual([
       expect.objectContaining({
@@ -1056,13 +1026,10 @@ describe("scheduling tools", () => {
       }),
     ];
 
-    await list_available_appointments.execute(
-      { range: "default", visitType: "routine_vision" },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "availability-1",
-      } as never,
-    );
+    await list_available_appointments.execute({ visitType: "routine_vision" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
 
     expect(middleware.operations).toEqual([
       expect.objectContaining({
@@ -1085,13 +1052,10 @@ describe("scheduling tools", () => {
       }),
     ];
 
-    await list_available_appointments.execute(
-      { range: "default", visitType: "medical" },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "availability-1",
-      } as never,
-    );
+    await list_available_appointments.execute({ visitType: "medical" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
 
     expect(middleware.operations).toEqual([
       expect.objectContaining({
@@ -1114,13 +1078,10 @@ describe("scheduling tools", () => {
       }),
     ];
 
-    await list_available_appointments.execute(
-      { range: "default", visitType: "routine_vision" },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "availability-1",
-      } as never,
-    );
+    await list_available_appointments.execute({ visitType: "routine_vision" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
 
     expect(middleware.operations).toEqual([
       expect.objectContaining({
@@ -1149,7 +1110,6 @@ describe("scheduling tools", () => {
 
     await list_available_appointments.execute(
       {
-        range: "default",
         visitType: "medical",
         office: "hollywood",
       },
@@ -1160,7 +1120,6 @@ describe("scheduling tools", () => {
     );
     await list_available_appointments.execute(
       {
-        range: "default",
         visitType: "medical",
         office: "sweetwater",
       },
@@ -1194,7 +1153,6 @@ describe("scheduling tools", () => {
     const firstState = createState();
     const secondState = createState();
     const args = {
-      range: "default",
       visitType: "medical" as const,
     };
 
@@ -1259,7 +1217,6 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      range: "default",
       visitType: "medical" as const,
     };
 
@@ -1268,7 +1225,7 @@ describe("scheduling tools", () => {
       toolCallId: "availability-1",
     } as never);
     const reranked = await list_available_appointments.execute(
-      { ...args, range: "+1month" },
+      { ...args, startDate: "2026-11-02" },
       {
         ctx: ctx as never,
         toolCallId: "availability-2",
@@ -1335,7 +1292,6 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      range: "default",
       visitType: "medical" as const,
     };
 
@@ -1372,7 +1328,6 @@ describe("scheduling tools", () => {
       const state = createState();
       const ctx = createToolContext(state);
       const args = {
-        range: "default",
         visitType: "medical" as const,
       };
 
@@ -1412,7 +1367,6 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const controller = new AbortController();
     const args = {
-      range: "default",
       visitType: "medical" as const,
     };
 
@@ -1449,7 +1403,6 @@ describe("scheduling tools", () => {
     const ctx = createToolContext(state);
     const waiterController = new AbortController();
     const args = {
-      range: "default",
       visitType: "medical" as const,
     };
 
@@ -1491,7 +1444,6 @@ describe("scheduling tools", () => {
     const { list_available_appointments } = createSchedulingTools(middleware);
     const state = createState();
     const args = {
-      range: "default",
       visitType: "medical" as const,
     };
     const ctx = createToolContext(state);
@@ -1525,13 +1477,10 @@ describe("scheduling tools", () => {
     const state = createState();
 
     await expect(
-      list_available_appointments.execute(
-        { range: "default", visitType: "medical" },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "availability-1",
-        } as never,
-      ),
+      list_available_appointments.execute({ visitType: "medical" }, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "availability-1",
+      } as never),
     ).rejects.toThrow(
       "I couldn't check availability. I can try once more or connect you with the office.",
     );
@@ -1548,7 +1497,7 @@ describe("scheduling tools", () => {
     const state = createState();
 
     const failure = list_available_appointments.execute(
-      { range: "default", visitType: "medical" },
+      { visitType: "medical" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "availability-1",
@@ -1573,7 +1522,6 @@ describe("scheduling tools", () => {
     const state = createState();
     const pending = list_available_appointments.execute(
       {
-        range: "default",
         visitType: "medical",
       },
       {
@@ -1616,7 +1564,6 @@ describe("scheduling tools", () => {
 
     const pending = list_available_appointments.execute(
       {
-        range: "default",
         visitType: "medical",
       },
       {
@@ -1645,7 +1592,7 @@ describe("scheduling tools", () => {
       "north-miami-beach-optical": "+13055550100",
     };
     const medicalResult = await list_available_appointments.execute(
-      { range: "default", visitType: "medical" },
+      { visitType: "medical" },
       {
         ctx: createToolContext(opticalState) as never,
         toolCallId: "medical-1",
@@ -1657,7 +1604,7 @@ describe("scheduling tools", () => {
       "crystal-river": "+13523202007",
     };
     const routineResult = await list_available_appointments.execute(
-      { range: "default", visitType: "routine_vision" },
+      { visitType: "routine_vision" },
       {
         ctx: createToolContext(medicalState) as never,
         toolCallId: "routine-1",
@@ -1860,7 +1807,6 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const availabilityArgs = {
-      range: "default",
       visitType: "medical" as const,
     };
 
@@ -2138,7 +2084,6 @@ describe("scheduling tools", () => {
     const state = createState();
     const ctx = createToolContext(state);
     const args = {
-      range: "default",
       visitType: "medical" as const,
     };
 
@@ -2401,7 +2346,6 @@ describe("scheduling tools", () => {
     restoreFirstPatient(state, [loadedAppointment()]);
     const ctx = createToolContext(state);
     const args = {
-      range: "default",
       visitType: "medical" as const,
     };
 
@@ -2881,7 +2825,6 @@ describe("scheduling tools", () => {
 
     await list_available_appointments.execute(
       {
-        range: "default",
         visitType: "routine_vision",
       },
       {
@@ -2935,7 +2878,6 @@ describe("scheduling tools", () => {
 
     await list_available_appointments.execute(
       {
-        range: "default",
         visitType: "medical",
       },
       {
@@ -3166,13 +3108,10 @@ describe("scheduling tools", () => {
       }),
     ]);
 
-    await list_available_appointments.execute(
-      { range: "default", visitType: "routine_vision" },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "availability-1",
-      } as never,
-    );
+    await list_available_appointments.execute({ visitType: "routine_vision" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "availability-1",
+    } as never);
     const originalRef = loadedAppointmentRef(state);
     restoreFirstPatient(state, [
       loadedAppointment({
@@ -3229,7 +3168,7 @@ describe("scheduling tools", () => {
     const state = createState();
     restoreFirstPatient(state, [loadedAppointment()]);
     const ctx = createToolContext(state);
-    const args = { range: "default", visitType: "medical" };
+    const args = { visitType: "medical" };
 
     await list_available_appointments.execute(args, {
       ctx: ctx as never,
