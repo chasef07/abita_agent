@@ -120,6 +120,23 @@ async function setupCloseout(
 }
 
 describe("call closeout", () => {
+  it.each([
+    "verified",
+    "multiple_matches",
+    "no_match",
+    "lookup_failed",
+    "not_attempted",
+  ] as const)(
+    "persists only the bounded phone lookup status: %s",
+    async (status) => {
+      const state = createTestCallState();
+      state.runtime.preCallLookup = { status, durationMs: 12 };
+      const { events, portal } = await setupCloseout({ state });
+      await events.close();
+      expect(portal.deliveries.at(-1)?.payload.phoneLookup).toEqual({ status });
+    },
+  );
+
   it("keeps LiveKit-owned call identity and timing stable across worker attempts", () => {
     const roomCreationTime = new Date("2026-08-28T13:45:06.000Z");
     const firstWorkerStartedAt = vi.fn(
