@@ -4,6 +4,12 @@ Evaluated September 8, 2026 against main `588314cb310629a749d0526bc643ae394bfaa5
 using LiveKit Agents and AssemblyAI plugin 1.8.0. This is local evidence, not a
 production deployment or a claim of globally optimal settings.
 
+The subsequent [controlled follow-up](assemblyai-endpointing-followup.md)
+compares mode/alpha with identical STT and bounds, alternative STT silence
+windows, and targeted repeats. Its 112 valid replays do not establish a dynamic
+endpointing advantage; they strengthen the case against lowering the entity
+minimum on the tested paused name. Runtime settings remain unchanged.
+
 ## Boundaries verified
 
 AssemblyAI's direct plugin emits finalized transcript chunks. LiveKit's audio
