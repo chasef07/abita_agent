@@ -1,6 +1,6 @@
 {
   "name": "abita_agent",
-  "version": "4.19.4",
+  "version": "5.0.0",
   "type": "module",
   "scripts": {
     "dev": "tsx src/main.ts dev",

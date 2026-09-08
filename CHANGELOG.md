@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.0.0](https://github.com/chasef07/abita_agent/compare/4.19.4...5.0.0) (2026-09-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **scheduling:** `list_available_appointments` replaces `range` with `startDate` and requires the updated middleware date-window contract.
+
+### Bug Fixes
+
+* **scheduling:** search availability in explicit 14-day windows ([#438](https://github.com/chasef07/abita_agent/issues/438)) ([f92c426](https://github.com/chasef07/abita_agent/commit/f92c4260efb66eaca1067847f703956666e86495))
+
 ## [4.19.4](https://github.com/chasef07/abita_agent/compare/4.19.3...4.19.4) (2026-09-08)
 
 
