@@ -1,8 +1,11 @@
 import type { STTOptions } from "@livekit/agents-plugin-assemblyai";
 
+// Balanced silence defaults for live profile resets: plugin 1.8.0 does not
+// serialize mode in updateOptions. Only entity profiles override these fields.
+// https://www.assemblyai.com/docs/streaming/turn-detection
 export const ASSEMBLYAI_BASE_TIMING = {
-  minTurnSilence: 100,
-  maxTurnSilence: 100,
+  minTurnSilence: 128,
+  maxTurnSilence: 1280,
   vadThreshold: 0.3,
 } as const;
 
@@ -54,26 +57,26 @@ export const ASSEMBLYAI_STT_PROFILES = {
       "Oscar Health",
       "Simply Medicaid",
     ],
-    minTurnSilence: 1500,
-    maxTurnSilence: 1500,
+    minTurnSilence: 400,
+    maxTurnSilence: 3000,
     vadThreshold: 0.3,
   },
   memberId: {
     keytermsPrompt: [],
-    minTurnSilence: 1500,
-    maxTurnSilence: 1500,
+    minTurnSilence: 450,
+    maxTurnSilence: 3000,
     vadThreshold: 0.3,
   },
   intake: {
     keytermsPrompt: [],
-    minTurnSilence: 1500,
-    maxTurnSilence: 1500,
+    minTurnSilence: 450,
+    maxTurnSilence: 3500,
     vadThreshold: 0.3,
   },
   email: {
     keytermsPrompt: [],
-    minTurnSilence: 1500,
-    maxTurnSilence: 1500,
+    minTurnSilence: 500,
+    maxTurnSilence: 4000,
     vadThreshold: 0.3,
   },
 } satisfies Record<string, AssemblyAISttProfileDefinition>;
@@ -93,10 +96,13 @@ export type AssemblyAISttProfileOptions = Pick<
 export function getAssemblyAISttOptions() {
   return {
     speechModel: ASSEMBLYAI_MODEL,
+    mode: "balanced",
     bufferSizeMs: 50,
     inactivityTimeout: ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
     languageDetection: true,
-    ...getAssemblyAISttProfileOptions("default"),
+    // Leave silence unset at connection time so the provider applies the preset.
+    keytermsPrompt: [...ASSEMBLYAI_DEFAULT_KEYTERMS],
+    vadThreshold: ASSEMBLYAI_BASE_TIMING.vadThreshold,
   } satisfies Partial<STTOptions>;
 }
 
@@ -104,9 +110,6 @@ export function getAssemblyAISttProfileOptions(
   profile: AssemblyAISttProfile,
 ): AssemblyAISttProfileOptions {
   const options = ASSEMBLYAI_STT_PROFILES[profile];
-  // Finalize transcript chunks promptly; LiveKit's audio detector owns the turn.
-  // Entity answers retain a 1.5-second window to avoid committing an earlier
-  // chunk while the final name, digit, or spelling segment is still transcribing.
   return {
     keytermsPrompt: [...options.keytermsPrompt],
     maxTurnSilence: options.maxTurnSilence,
@@ -183,7 +186,6 @@ const INTAKE_CUES = [
   "d o b",
   "birthday",
   "birth date",
-  "your name",
   "son's name",
   "child's name",
   "patient's name",

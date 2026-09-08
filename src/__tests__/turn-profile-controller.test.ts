@@ -94,6 +94,26 @@ describe("turn profile controller", () => {
     });
   });
 
+  it("restores balanced silence after each committed entity answer", () => {
+    const { controller, updateOptions } = setup();
+    for (const profile of [
+      "insurance",
+      "memberId",
+      "intake",
+      "email",
+    ] as const) {
+      controller.applySttProfile(profile, "assistant_prompt");
+      controller.commitUserTurn();
+      expect(updateOptions.mock.lastCall?.[0]).toMatchObject({
+        minTurnSilence: 128,
+        maxTurnSilence: 1280,
+        vadThreshold: 0.3,
+      });
+      // The pinned plugin cannot serialize a live mode reset.
+      expect(updateOptions.mock.lastCall?.[0]).not.toHaveProperty("mode");
+    }
+  });
+
   it("preserves the entity profile across multiple finalized transcript chunks", () => {
     const { controller, updateOptions, updateEndpointing, session } = setup();
     controller.observeAssistantText("Can I get the member ID?", true);

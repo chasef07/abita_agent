@@ -19,15 +19,16 @@ describe("AssemblyAI direct plugin", () => {
 
     expect(options).toEqual({
       speechModel: "universal-3-5-pro",
+      mode: "balanced",
       bufferSizeMs: 50,
       inactivityTimeout: 30,
       keytermsPrompt: [...ASSEMBLYAI_DEFAULT_KEYTERMS],
       languageDetection: true,
-      maxTurnSilence: 100,
-      minTurnSilence: 100,
       vadThreshold: 0.3,
     });
     expect(options).not.toHaveProperty("language");
+    expect(options).not.toHaveProperty("minTurnSilence");
+    expect(options).not.toHaveProperty("maxTurnSilence");
     expect(stt.label).toBe("assemblyai.STT");
     expect(stt.provider).toBe("AssemblyAI");
     expect(stt.model).toBe("universal-3-5-pro");
@@ -36,8 +37,8 @@ describe("AssemblyAI direct plugin", () => {
   it("maps every recognition profile to exact AssemblyAI model options", () => {
     expect(getAssemblyAISttProfileOptions("default")).toEqual({
       keytermsPrompt: [...ASSEMBLYAI_DEFAULT_KEYTERMS],
-      maxTurnSilence: 100,
-      minTurnSilence: 100,
+      maxTurnSilence: 1280,
+      minTurnSilence: 128,
       vadThreshold: 0.3,
     });
     expect(getAssemblyAISttProfileOptions("insurance")).toEqual({
@@ -59,26 +60,26 @@ describe("AssemblyAI direct plugin", () => {
         "Oscar Health",
         "Simply Medicaid",
       ],
-      maxTurnSilence: 1500,
-      minTurnSilence: 1500,
+      maxTurnSilence: 3000,
+      minTurnSilence: 400,
       vadThreshold: 0.3,
     });
     expect(getAssemblyAISttProfileOptions("memberId")).toEqual({
       keytermsPrompt: [],
-      maxTurnSilence: 1500,
-      minTurnSilence: 1500,
+      maxTurnSilence: 3000,
+      minTurnSilence: 450,
       vadThreshold: 0.3,
     });
     expect(getAssemblyAISttProfileOptions("intake")).toEqual({
       keytermsPrompt: [],
-      maxTurnSilence: 1500,
-      minTurnSilence: 1500,
+      maxTurnSilence: 3500,
+      minTurnSilence: 450,
       vadThreshold: 0.3,
     });
     expect(getAssemblyAISttProfileOptions("email")).toEqual({
       keytermsPrompt: [],
-      maxTurnSilence: 1500,
-      minTurnSilence: 1500,
+      maxTurnSilence: 4000,
+      minTurnSilence: 500,
       vadThreshold: 0.3,
     });
 

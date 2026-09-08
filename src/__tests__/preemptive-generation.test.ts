@@ -101,11 +101,12 @@ describe("preemptive generation through the LiveKit turn pipeline", () => {
     return { llm, middleware, session, state, activity };
   }
 
-  it("waits for end of turn before starting the model with production options", async () => {
+  it("waits for end of turn before generating with production options", async () => {
     const { activity, llm, session, middleware } = await start({
       turnHandling: voiceTurnHandlingOptions,
     });
     activity.onPreemptiveGeneration(turn("Hello"));
+    await new Promise((resolve) => setImmediate(resolve));
     expect(llm.requests).toHaveLength(0);
     expect(middleware.operations).toEqual([]);
 
