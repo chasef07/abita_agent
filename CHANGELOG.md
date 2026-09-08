@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.19.4](https://github.com/chasef07/abita_agent/compare/4.19.3...4.19.4) (2026-09-08)
+
+
+### Bug Fixes
+
+* allow Bach cataract care at Hollywood and Sweetwater ([#436](https://github.com/chasef07/abita_agent/issues/436)) ([9315bf5](https://github.com/chasef07/abita_agent/commit/9315bf5cec47ecd6b0990a100a9df3693d65cd1b))
+
 ## [4.19.3](https://github.com/chasef07/abita_agent/compare/4.19.2...4.19.3) (2026-09-08)
 
 
