@@ -506,6 +506,11 @@ export async function attachCallCloseout(input: {
         callState?.runtime.voiceLanguage ??
         input.call.initialVoiceLanguage,
       domainOutcomes,
+      // Persist the bounded lookup result for reporting without phone records
+      // or patient details. A phone match is context, not verified identity.
+      ...(callState
+        ? { phoneLookup: { status: callState.runtime.preCallLookup.status } }
+        : {}),
       ...(appointmentOutcome ? { appointmentOutcome } : {}),
       ...(capture.reportUnavailable ? { sessionReportUnavailable: true } : {}),
       ...input.call.livekitContext,
