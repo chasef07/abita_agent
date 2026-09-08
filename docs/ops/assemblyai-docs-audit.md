@@ -1,5 +1,10 @@
 # AssemblyAI developer documentation audit
 
+Historical audit of the direct-plugin trial. The current runtime uses LiveKit
+Inference; see [current configuration](assemblyai.md) for the selected transport
+and fixed endpointing settings. Context ownership and exact-entity validation
+principles below remain applicable.
+
 Reviewed 2026-09-08 against PR #435, `src/stt-config.ts`,
 `src/runtime/turn-profile-controller.ts`, and installed
 `@livekit/agents-plugin-assemblyai` 1.8.0 source. This is a configuration and

@@ -17,15 +17,18 @@ export function configureVoiceVad(vad: unknown): inference.VAD {
   return vad;
 }
 
+export const voiceEndpointingProfiles = {
+  conversation: { minDelay: 300, maxDelay: 600 },
+  deliberate: { minDelay: 500, maxDelay: 2500 },
+} as const;
+
 export const voiceTurnHandlingOptions = {
   endpointing: {
-    mode: "dynamic",
-    minDelay: 300,
-    maxDelay: 2_500,
-    alpha: 0.9,
+    mode: "fixed",
+    ...voiceEndpointingProfiles.conversation,
   },
   preemptiveGeneration: {
-    enabled: true,
+    enabled: false,
     preemptiveTts: false,
   },
   interruption: {

@@ -1,5 +1,3 @@
-import type { STTOptions } from "@livekit/agents-plugin-assemblyai";
-
 export const ASSEMBLYAI_BASE_TIMING = {
   minTurnSilence: 100,
   maxTurnSilence: 100,
@@ -8,7 +6,8 @@ export const ASSEMBLYAI_BASE_TIMING = {
 
 export const ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS = 30;
 export const ASSEMBLYAI_AGENT_CONTEXT_MAX_CHARS = 1500;
-export const ASSEMBLYAI_MODEL = "universal-3-5-pro" as const;
+export const ASSEMBLYAI_INFERENCE_MODEL =
+  "assemblyai/universal-3-5-pro" as const;
 
 export const ASSEMBLYAI_DEFAULT_KEYTERMS = [
   "Abita Eye Group",
@@ -81,37 +80,42 @@ export const ASSEMBLYAI_STT_PROFILES = {
 export type AssemblyAISttProfile = keyof typeof ASSEMBLYAI_STT_PROFILES;
 export type SttProfile = AssemblyAISttProfile;
 
-export type AssemblyAISttProfileOptions = Pick<
-  STTOptions,
-  | "agentContext"
-  | "keytermsPrompt"
-  | "minTurnSilence"
-  | "maxTurnSilence"
-  | "vadThreshold"
->;
+export type AssemblyAIInferenceModelOptions = {
+  agent_context?: string;
+  inactivity_timeout?: number;
+  keyterms_prompt?: string[];
+  language_detection?: boolean;
+  max_turn_silence?: number;
+  min_end_of_turn_silence_when_confident?: number;
+  vad_threshold?: number;
+};
 
-export function getAssemblyAISttOptions() {
+export function getAssemblyAIInferenceSttOptions() {
   return {
-    speechModel: ASSEMBLYAI_MODEL,
-    bufferSizeMs: 50,
-    inactivityTimeout: ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
-    languageDetection: true,
-    ...getAssemblyAISttProfileOptions("default"),
-  } satisfies Partial<STTOptions>;
+    model: ASSEMBLYAI_INFERENCE_MODEL,
+    modelOptions: {
+      inactivity_timeout: ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
+      keyterms_prompt: [...ASSEMBLYAI_DEFAULT_KEYTERMS],
+      language_detection: true,
+      max_turn_silence: ASSEMBLYAI_BASE_TIMING.maxTurnSilence,
+      min_end_of_turn_silence_when_confident:
+        ASSEMBLYAI_BASE_TIMING.minTurnSilence,
+      vad_threshold: ASSEMBLYAI_BASE_TIMING.vadThreshold,
+    } satisfies AssemblyAIInferenceModelOptions,
+  };
 }
 
-export function getAssemblyAISttProfileOptions(
+export function getAssemblyAIInferenceSttProfileOptions(
   profile: AssemblyAISttProfile,
-): AssemblyAISttProfileOptions {
+): AssemblyAIInferenceModelOptions {
   const options = ASSEMBLYAI_STT_PROFILES[profile];
-  // Finalize transcript chunks promptly; LiveKit's audio detector owns the turn.
-  // Entity answers retain a 1.5-second window to avoid committing an earlier
-  // chunk while the final name, digit, or spelling segment is still transcribing.
   return {
-    keytermsPrompt: [...options.keytermsPrompt],
-    maxTurnSilence: options.maxTurnSilence,
-    minTurnSilence: options.minTurnSilence,
-    vadThreshold: options.vadThreshold,
+    keyterms_prompt: [...options.keytermsPrompt],
+    max_turn_silence: options.maxTurnSilence,
+    // The currently observed inference gateway enforces this SDK field; the newer direct-API
+    // min_turn_silence field finalized paused names early in controlled replays.
+    min_end_of_turn_silence_when_confident: options.minTurnSilence,
+    vad_threshold: options.vadThreshold,
   };
 }
 

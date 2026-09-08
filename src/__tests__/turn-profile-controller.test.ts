@@ -9,7 +9,7 @@ import {
   attachTurnProfileLifecycle,
   createTurnProfileController,
 } from "../runtime/turn-profile-controller.js";
-import { getAssemblyAISttProfileOptions } from "../stt-config.js";
+import { getAssemblyAIInferenceSttProfileOptions } from "../stt-config.js";
 import type { CallState } from "../state/call-state.js";
 
 class TestSession {
@@ -24,16 +24,17 @@ class TestSession {
 
 function setup() {
   const updateOptions = vi.fn();
+  const updateEndpointing = vi.fn();
   const controller = createTurnProfileController(
     { updateOptions },
-    { startedAt: new Date("2026-07-23T10:00:00.000Z") },
+    { startedAt: new Date("2026-07-23T10:00:00.000Z"), updateEndpointing },
   );
   const session = new TestSession();
   attachTurnProfileLifecycle(
     session as unknown as AgentSession<CallState>,
     controller,
   );
-  return { controller, updateOptions, session };
+  return { controller, updateOptions, updateEndpointing, session };
 }
 
 describe("turn profile controller", () => {
@@ -42,7 +43,7 @@ describe("turn profile controller", () => {
     controller.observeAssistantText("Okay. What is your member ID?", true);
     expect(controller.activeSttProfile).toBe("memberId");
     for (const [options] of updateOptions.mock.calls) {
-      expect(options).not.toHaveProperty("agentContext");
+      expect(options.modelOptions).not.toHaveProperty("agent_context");
     }
     session.emit(AgentSessionEventTypes.ConversationItemAdded, {
       item: ChatMessage.create({
@@ -52,8 +53,10 @@ describe("turn profile controller", () => {
       }),
     });
     expect(updateOptions).toHaveBeenLastCalledWith({
-      ...getAssemblyAISttProfileOptions("default"),
-      agentContext: "Okay.",
+      modelOptions: {
+        ...getAssemblyAIInferenceSttProfileOptions("default"),
+        agent_context: "Okay.",
+      },
     });
     expect(controller.activeSttProfile).toBe("default");
   });
@@ -70,33 +73,40 @@ describe("turn profile controller", () => {
     controller.commitAssistantTurn("Can you spell that?");
     expect(controller.activeSttProfile).toBe("email");
     expect(updateOptions).toHaveBeenLastCalledWith({
-      ...getAssemblyAISttProfileOptions("email"),
-      agentContext: "Can you spell that?",
+      modelOptions: {
+        ...getAssemblyAIInferenceSttProfileOptions("email"),
+        agent_context: "Can you spell that?",
+      },
     });
   });
 
-  it("sends plugin options and context directly, including inherited dictation prompts", () => {
+  it("sends inference model options and context, including inherited dictation prompts", () => {
     const { controller, updateOptions } = setup();
     const prompt = "Can I get the member ID from your insurance card?";
     controller.observeAssistantText(prompt, true);
     controller.commitAssistantTurn(prompt);
     expect(updateOptions).toHaveBeenLastCalledWith({
-      ...getAssemblyAISttProfileOptions("memberId"),
-      agentContext: prompt,
+      modelOptions: {
+        ...getAssemblyAIInferenceSttProfileOptions("memberId"),
+        agent_context: prompt,
+      },
     });
     controller.commitUserTurn();
     controller.commitAssistantTurn("Go ahead, spell that.");
     expect(controller.activeSttProfile).toBe("memberId");
     expect(updateOptions).toHaveBeenLastCalledWith({
-      ...getAssemblyAISttProfileOptions("memberId"),
-      agentContext: "Go ahead, spell that.",
+      modelOptions: {
+        ...getAssemblyAIInferenceSttProfileOptions("memberId"),
+        agent_context: "Go ahead, spell that.",
+      },
     });
   });
 
   it("preserves the entity profile across multiple finalized transcript chunks", () => {
-    const { controller, updateOptions, session } = setup();
+    const { controller, updateOptions, updateEndpointing, session } = setup();
     controller.observeAssistantText("Can I get the member ID?", true);
     updateOptions.mockClear();
+    updateEndpointing.mockClear();
     for (const transcript of ["A B", "one two", "three four"]) {
       session.emit(AgentSessionEventTypes.UserInputTranscribed, {
         isFinal: true,
@@ -104,15 +114,20 @@ describe("turn profile controller", () => {
       });
       expect(controller.activeSttProfile).toBe("memberId");
       expect(updateOptions).not.toHaveBeenCalled();
+      expect(updateEndpointing).not.toHaveBeenCalled();
     }
     session.emit(AgentSessionEventTypes.ConversationItemAdded, {
       item: { type: "message", role: "user" },
     });
     expect(controller.activeSttProfile).toBe("default");
-    expect(updateOptions).toHaveBeenCalledExactlyOnceWith(
-      getAssemblyAISttProfileOptions("default"),
-    );
+    expect(updateOptions).toHaveBeenCalledExactlyOnceWith({
+      modelOptions: getAssemblyAIInferenceSttProfileOptions("default"),
+    });
     expect(controller.sttProfiles.at(-1)?.reason).toBe("user_turn_committed");
+    expect(updateEndpointing).toHaveBeenCalledExactlyOnceWith({
+      minDelay: 300,
+      maxDelay: 600,
+    });
   });
 
   it("uses the committed spoken question without resetting its recognition profile", () => {
@@ -127,8 +142,10 @@ describe("turn profile controller", () => {
     });
     expect(controller.activeSttProfile).toBe("email");
     expect(updateOptions).toHaveBeenCalledExactlyOnceWith({
-      ...getAssemblyAISttProfileOptions("email"),
-      agentContext: "What is your email?",
+      modelOptions: {
+        ...getAssemblyAIInferenceSttProfileOptions("email"),
+        agent_context: "What is your email?",
+      },
     });
   });
 
@@ -140,7 +157,7 @@ describe("turn profile controller", () => {
         content: "Welcome. How can I help?",
       }),
     });
-    expect(updateOptions.mock.lastCall?.[0].agentContext).toBe(
+    expect(updateOptions.mock.lastCall?.[0].modelOptions.agent_context).toBe(
       "Welcome. How can I help?",
     );
     updateOptions.mockClear();
@@ -151,14 +168,15 @@ describe("turn profile controller", () => {
   it("caps completed assistant context at the latest 1,500 characters", () => {
     const { controller, updateOptions } = setup();
     controller.commitAssistantTurn(`start-${"x".repeat(1_500)}-end`);
-    const context = updateOptions.mock.lastCall?.[0].agentContext as string;
+    const context = updateOptions.mock.lastCall?.[0].modelOptions
+      .agent_context as string;
     expect(context).toHaveLength(1_500);
     expect(context).not.toContain("start-");
     expect(context).toContain("-end");
   });
 
-  it("arms dictation recognition as the prompt enters TTS without changing endpointing", async () => {
-    const { controller, updateOptions } = setup();
+  it("arms dictation recognition and fixed entity endpointing as the prompt enters TTS", async () => {
+    const { controller, updateOptions, updateEndpointing } = setup();
     async function* chunks() {
       yield "Can I get the ";
       yield "member ID from your insurance card?";
@@ -171,9 +189,15 @@ describe("turn profile controller", () => {
       text += chunk;
     }
     expect(text).toBe("Can I get the member ID from your insurance card?");
+    expect(updateEndpointing).toHaveBeenCalledExactlyOnceWith({
+      minDelay: 500,
+      maxDelay: 2500,
+    });
     expect(controller.activeSttProfile).toBe("memberId");
     expect(updateOptions.mock.lastCall?.[0]).toEqual({
-      ...getAssemblyAISttProfileOptions("memberId"),
+      modelOptions: {
+        ...getAssemblyAIInferenceSttProfileOptions("memberId"),
+      },
     });
   });
 });

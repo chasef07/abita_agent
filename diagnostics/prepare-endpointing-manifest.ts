@@ -1,11 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  getAssemblyAISttOptions,
-  getAssemblyAISttProfileOptions,
+  getAssemblyAIInferenceSttOptions,
+  getAssemblyAIInferenceSttProfileOptions,
   type SttProfile,
 } from "../src/stt-config.js";
-import { voiceTurnHandlingOptions } from "../src/session-options.js";
+import {
+  voiceTurnHandlingOptions,
+  voiceEndpointingProfiles,
+} from "../src/session-options.js";
 
 const [fixturePath] = process.argv.slice(2);
 if (!fixturePath)
@@ -24,7 +27,7 @@ const baselineTiming: Record<SttProfile, [number, number]> = {
 const cases = clips.flatMap((clip: any) => {
   const profile = clip.profile as SttProfile;
   const [minimum, maximum] = baselineTiming[profile];
-  const profileOptions = getAssemblyAISttProfileOptions(profile);
+  const profileOptions = getAssemblyAIInferenceSttProfileOptions(profile);
   return [
     {
       clip,
@@ -45,7 +48,7 @@ const cases = clips.flatMap((clip: any) => {
               vad_threshold: 0.3,
               min_turn_silence: minimum,
               max_turn_silence: maximum,
-              keyterms_prompt: profileOptions.keytermsPrompt,
+              keyterms_prompt: profileOptions.keyterms_prompt,
               agent_context: clip.agentContext,
             },
           },
@@ -56,13 +59,21 @@ const cases = clips.flatMap((clip: any) => {
       clip,
       arm: {
         name: "candidate",
-        endpointing: voiceTurnHandlingOptions.endpointing,
+        endpointing: {
+          ...voiceTurnHandlingOptions.endpointing,
+          ...voiceEndpointingProfiles[
+            profile === "default" ? "conversation" : "deliberate"
+          ],
+        },
         stt: {
-          provider: "assemblyai",
+          provider: "inference",
           options: {
-            ...getAssemblyAISttOptions(),
-            ...profileOptions,
-            agentContext: clip.agentContext,
+            ...getAssemblyAIInferenceSttOptions(),
+            modelOptions: {
+              ...getAssemblyAIInferenceSttOptions().modelOptions,
+              ...profileOptions,
+              agent_context: clip.agentContext,
+            },
           },
         },
       },

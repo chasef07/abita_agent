@@ -1,94 +1,121 @@
 # AssemblyAI transcription and LiveKit turn completion
 
-The runtime uses `@livekit/agents-plugin-assemblyai` 1.8.0 directly with
-`universal-3-5-pro`. Set `ASSEMBLYAI_API_KEY` in the worker environment before
-starting or deploying the agent. The key belongs in local environment files or
-LiveKit secrets, never source control. LiveKit credentials remain required for
-LLM inference, the audio turn detector, and adaptive interruptions.
+The runtime uses LiveKit Inference with `assemblyai/universal-3-5-pro`.
+LiveKit credentials cover STT; no separate AssemblyAI key is required for voice
+calls. The direct AssemblyAI plugin remains a development dependency for
+optional comparison replays only.
 
-## One conversational turn owner
+## Turn handling
 
-`inference.TurnDetector()` remains the conversational turn detector with its
-server-calibrated language thresholds. The tested 0.9 override is not enabled. AssemblyAI
-finalizes transcript chunks; those chunks do not independently end a LiveKit
-turn. Multiple finalized chunks can form one committed user message.
+Keep `inference.TurnDetector()` and its calibrated language thresholds. VAD
+remains Silero at activation 0.3 / deactivation 0.15, with the SDK's 250 ms
+silence window. Adaptive interruption handling is unchanged.
 
-Normal STT uses matching `minTurnSilence` and `maxTurnSilence` of 100 ms,
-explicitly matching the plugin's low-latency chunking defaults. This removes the
-previous independent 2-second STT silence ceiling. It does not promise a 100 ms
-transcription latency: model processing, transport, and audio conditions remain.
+| Recognition profile | Fixed LiveKit min/max delay | STT min/max silence |
+|---|---:|---:|
+| Ordinary conversation | 300/600 ms | 100/100 ms |
+| Insurance, member ID, intake/names/DOB, email | 500/2500 ms | 1500/1500 ms |
 
-The session uses dynamic endpointing with a 300 ms floor, 2,500 ms ceiling, and
-alpha 0.9. A low end-of-turn probability selects the ceiling; otherwise the
-SDK uses its learned minimum. Bounds stay constant for the call because
-`session.updateOptions` replaces the endpointing state and loses learned pauses.
-The longer ceiling protects unfinished answers and is not a mandatory wait for
-every answer. This is an experimental starting configuration, not a universal optimum.
-The wider maximum also delayed a complete short negative answer in the local
-holdout. The evaluation records that regression; this is a draft, not a rollout
-recommendation.
+Dynamic endpointing is off. Both `preemptiveGeneration.enabled` and
+`preemptiveTts` are false. The controller switches fixed endpointing bounds when
+moving between ordinary and entity recognition. A finalized STT chunk does not
+reset either profile; the committed conversational user turn resets both.
+Assistant context-only updates do not replace the endpointing strategy.
 
-LLM-only preemptive generation is enabled; TTS waits for turn confirmation.
-LiveKit owns speculative cancellation and tool authorization. Regression tests
-cover corrected input, changing patient context, and deferred/discarded tools.
-See [preemptive generation](preemptive-generation.md).
+AssemblyAI finalizes transcript chunks; LiveKit's audio model and endpointing
+policy decide when they become a conversational turn. A positive audio
+completion prediction selects the minimum; an uncertain prediction selects the
+maximum. These are alternative paths, with elapsed silence deducted, not two
+sequential waits. Short STT windows do not promise equally short transcription
+latency because recognition and transport still take time.
 
-## Intake recognition
+Equal 1500 ms STT limits preserve the tested within-entity pauses without the
+old 3–4 second finalization maximum. They do not protect arbitrarily long
+pauses, and they add delay to complete short names. Model false positives can
+still split unfinished scheduling phrases. This remains a draft configuration
+requiring a representative conversational pilot.
 
-Prompt-sensitive profiles retain vocabulary and additional chunk context:
+## Context and vocabulary
 
-| Profile | Minimum / maximum silence (ms) | Vocabulary |
-|---|---:|---|
-| Default | 100 / 100 | Conservative office terms |
-| Insurance | 1500 / 1500 | Payer and plan terms |
-| Member ID | 1500 / 1500 | No payer bias |
-| Intake / names / spelling | 1500 / 1500 | No payer bias |
-| Email | 1500 / 1500 | No payer bias |
+Supply the most recent SDK-committed assistant message as `agent_context`,
+capped at 1500 characters. Generated TTS input may arm recognition early; only
+committed output updates context and the remembered profile for follow-up
+questions. This avoids using an unspoken question when the SDK supplies the
+interrupted committed text. SDK text alignment is not guaranteed to be exactly
+what the caller heard in every playback configuration.
 
-These values control transcript segmentation, not the conversational deadline.
-Names also use the intake window: the attempted faster semantic profile split
-first/last-name fixtures when a later transcript arrived after LiveKit committed.
-This protection adds delay to an uninterrupted short name.
-The latest SDK-committed assistant message is passed as `agentContext`, capped
-at 1500 characters. TTS input arms recognition early but does not update agent
-context or remembered follow-up history. Interrupted committed text replaces
-the generated question when the SDK provides it. A profile stays
-active across partial and final STT segments and resets only after LiveKit
-commits the user message. A request to repeat or spell a detail retains its
-previous prompted profile. Endpointing learning is unaffected by these updates.
+Keep the conservative office vocabulary for ordinary speech and the payer/plan
+list for insurance. Intake, member IDs, and email use empty keyterm lists.
+These improve recognition, not patient matching or insurance verification.
+The runtime and middleware still own those decisions.
 
-The existing Silero sensitivity (activation 0.3, deactivation 0.15) and 250 ms
-silence window remain. Krisp telephony filtering remains ahead of recognition;
-no second AssemblyAI Voice Focus filter is enabled. English/Spanish evidence
-continues to consume the plugin's nested language-confidence metadata.
+Language detection remains enabled, provider VAD threshold stays at 0.3, and
+inactivity timeout remains 30 seconds. No domain prompt, context-history count,
+legacy EOT-confidence override, or turn-formatting override is configured.
 
-## ForceEndpoint
+## Inference versus the direct plugin
 
-The plugin exposes `SpeechStream.forceEndpoint()`, which sends AssemblyAI's
-`ForceEndpoint` message. That method is not automatically called by LiveKit's
-audio turn detector. The SDK's public EOT event is emitted along the transcript-
-gated commit path, so attaching a force request there does not resolve the first
-missing final transcript.
+Both transports expose the settings this agent uses: Universal-3.5 Pro,
+keyterms, agent context, and silence limits. The inference SDK sends live
+`modelOptions` changes using `session.update`; AssemblyAI supports applying
+these changes without reconnecting.
+[LiveKit AssemblyAI documentation](https://docs.livekit.io/agents/models/stt/assemblyai/)
 
-This integration uses the plugin's short transcript windows with the standard
-LiveKit turn pipeline. It does not add a second detector, monkey-patch SDK
-internals, or force transcription at every VAD pause. An explicit force test
-establishes the provider API separately from the application architecture.
+For the pinned SDK and currently observed gateway behavior, use
+`min_end_of_turn_silence_when_confident` for the tested minimum-silence behavior.
+The application maps its minimum to that field. In controlled paired replays,
+using the newer direct-API name `min_turn_silence` through inference allowed a
+paused-name prefix to finalize before the requested 1500 ms; the SDK field
+preserved the pause. This is an observed gateway compatibility constraint,
+not a claim that the public direct API rejects its newer field. Recheck the
+contract before changing SDK/gateway versions or switching parameter names.
 
-## Verification
+The direct plugin adds a `SpeechStream.forceEndpoint()` operation and provider
+session details, and uses separate AssemblyAI authentication, billing, and rate
+limits. The current runtime needs none of those extras. The plugin does not
+provide a different recognition model or an established accuracy advantage.
 
-The audio comparison and its limitations are recorded in
-[assemblyai-plugin-evaluation.md](assemblyai-plugin-evaluation.md).
-Unit and SDK integration tests cover direct option names, profile lifetime,
-dynamic state preservation, and preemptive tool gating. Recorded replays do not
-prove production SIP routing or complete interactive interruption behavior.
+A local early-prediction bridge was tested in 12 executions. It accelerated
+complete name/DOB answers but reduced whole-answer acceptance from 5/6 to 3/6
+by splitting paused names and insurance. The runtime does not force endpoints;
+the diagnostic prototype was not integrated into the application.
 
-Before deploying, provision `ASSEMBLYAI_API_KEY` on the target LiveKit agent.
-This PR changes source configuration; it does not deploy or rotate hosted secrets.
+## Evidence and limits
 
-Sources: [LiveKit AssemblyAI integration](https://docs.livekit.io/agents/models/stt/assemblyai/),
-[AssemblyAI turn detection](https://www.assemblyai.com/docs/streaming/turn-detection),
-and the installed plugin/Agents 1.8.0 source.
+The [initial evaluation](assemblyai-plugin-evaluation.md) and
+[controlled follow-up](assemblyai-endpointing-followup.md) document historical
+plugin/dynamic experiments. Their latency figures do not describe this revised
+inference/fixed configuration. The [developer documentation audit](assemblyai-docs-audit.md)
+records the context-lifecycle findings from the plugin trial.
 
-A parameter-by-parameter review, context lifecycle correction, and plugin gaps
-are recorded in [the developer-docs audit](assemblyai-docs-audit.md).
+Unit and SDK integration tests cover inference option serialization, committed
+assistant context, interrupted follow-up history, profile retention through
+transcript chunks, and actual fixed endpointing transitions. Existing
+preemptive-generation tests exercise a disabled capability and do not mean it is
+enabled in production. Audio replay evidence excludes live LLM/TTS, SIP,
+backend effects, and complete adaptive interruption behavior.
+
+### Revised configuration validation
+
+After restoring inference and fixed profiles, eight exported-configuration
+replays preserved 7/8 exact whole answers. The known unfinished scheduling
+fixture still split. The short negative reply committed in 717 ms; complete
+name/DOB took 1988/1863 ms. All executions were valid with no warnings or
+transcription timeouts and 38 ms maximum pacing drift. This is a small smoke
+suite, not a production acceptance rate or a matched provider-speed ranking.
+
+The minimum-field investigation used nine separate paired executions: two
+runs of the same paused-name waveform and one complete DOB per transport/field.
+The plugin and inference using the SDK field each preserved 3/3; inference
+using the newer field preserved 2/3, with early prefix finals in both name
+runs. Maximum pacing drift was 18 ms. An earlier broader inference run was
+stopped to investigate that failure and is not represented as a completed suite.
+
+An open inference stream then exercised actual controller context/profile
+updates for insurance, a paused name, and an ordinary closing reply. All three
+exact values were retained, with no transport/profile errors and 10 ms maximum
+pacing drift. Final-transcript delays were 1891/1973/495 ms. Entity settings
+survived final transcripts and reset on commit; fixed bounds transitioned
+500/2500 to 300/600 twice. This proves live update acceptance and observed
+recognition behavior, not the causal accuracy benefit of agent context or full
+conversational playback.

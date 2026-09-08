@@ -10,7 +10,6 @@ import {
   cli,
   defineAgent,
 } from "@livekit/agents";
-import * as assemblyai from "@livekit/agents-plugin-assemblyai";
 import * as krisp from "@livekit/agents-plugin-krisp";
 import { fileURLToPath } from "node:url";
 import { createVoiceAgent } from "./agent.js";
@@ -31,7 +30,7 @@ import {
   VoiceLanguageRuntime,
 } from "./runtime/voice-language.js";
 import { createTtsRuntime } from "./tts-runtime.js";
-import { getAssemblyAISttOptions } from "./stt-config.js";
+import { getAssemblyAIInferenceSttOptions } from "./stt-config.js";
 import {
   configureVoiceVad,
   voiceMaxToolSteps,
@@ -74,10 +73,7 @@ export default defineAgent({
     try {
       if (ctx.simulationContext()) return await startSimulation(ctx);
       setupGoogleCloudTracing(ctx);
-      const stt = new assemblyai.STT({
-        ...getAssemblyAISttOptions(),
-        apiKey: process.env.ASSEMBLYAI_API_KEY,
-      });
+      const stt = new inference.STT(getAssemblyAIInferenceSttOptions());
 
       // Connect and wait for the SIP participant
       await ctx.connect();
@@ -206,6 +202,12 @@ export default defineAgent({
 
           const turnProfileController = createTurnProfileController(stt, {
             startedAt,
+            updateEndpointing: (endpointing) =>
+              session.updateOptions({
+                turnHandling: {
+                  endpointing: { mode: "fixed", ...endpointing },
+                },
+              }),
           });
           attachTurnProfileLifecycle(session, turnProfileController);
 

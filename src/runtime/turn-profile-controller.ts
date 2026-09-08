@@ -3,17 +3,20 @@ import {
   snapshotSttProfileTransition,
   type SttProfileTransitionAnalytics,
 } from "./stt-profile-observability.js";
+import { voiceEndpointingProfiles } from "../session-options.js";
 import type { CallState } from "../state/call-state.js";
 import {
-  type AssemblyAISttProfileOptions,
+  type AssemblyAIInferenceModelOptions,
   type SttProfile,
   getAssemblyAIAgentContext,
-  getAssemblyAISttProfileOptions,
+  getAssemblyAIInferenceSttProfileOptions,
   selectSttProfileForAssistantText,
 } from "../stt-config.js";
 
 type ProfileStt = {
-  updateOptions: (options: AssemblyAISttProfileOptions) => void;
+  updateOptions: (options: {
+    modelOptions: AssemblyAIInferenceModelOptions;
+  }) => void;
 };
 
 export type TurnProfileController = {
@@ -23,7 +26,7 @@ export type TurnProfileController = {
     details?: {
       createdAt?: number;
     },
-    extraOptions?: AssemblyAISttProfileOptions,
+    extraOptions?: AssemblyAIInferenceModelOptions,
   ) => void;
   commitUserTurn: () => void;
   commitAssistantTurn: (committedText: string) => void;
@@ -36,6 +39,10 @@ export function createTurnProfileController(
   stt: ProfileStt,
   options: {
     startedAt: Date;
+    updateEndpointing: (options: {
+      minDelay: number;
+      maxDelay: number;
+    }) => void;
   },
 ): TurnProfileController {
   let activeSttProfile: SttProfile = "default";
@@ -55,7 +62,7 @@ export function createTurnProfileController(
     details: {
       createdAt?: number;
     } = {},
-    extraOptions: AssemblyAISttProfileOptions = {},
+    extraOptions: AssemblyAIInferenceModelOptions = {},
   ) => {
     if (
       profile === activeSttProfile &&
@@ -66,9 +73,18 @@ export function createTurnProfileController(
 
     const previousProfile = activeSttProfile;
     stt.updateOptions({
-      ...getAssemblyAISttProfileOptions(profile),
-      ...extraOptions,
+      modelOptions: {
+        ...getAssemblyAIInferenceSttProfileOptions(profile),
+        ...extraOptions,
+      },
     });
+    if ((profile === "default") !== (previousProfile === "default")) {
+      options.updateEndpointing(
+        profile === "default"
+          ? voiceEndpointingProfiles.conversation
+          : voiceEndpointingProfiles.deliberate,
+      );
+    }
     if (profile === activeSttProfile) return;
 
     activeSttProfile = profile;
@@ -104,7 +120,12 @@ export function createTurnProfileController(
       if (!agentContext) return;
       const profile = profileForAssistantText(committedText);
       committedPromptProfile = profile === "default" ? null : profile;
-      applySttProfile(profile, "assistant_prompt", {}, { agentContext });
+      applySttProfile(
+        profile,
+        "assistant_prompt",
+        {},
+        { agent_context: agentContext },
+      );
     },
     sttProfiles,
     get activeSttProfile() {

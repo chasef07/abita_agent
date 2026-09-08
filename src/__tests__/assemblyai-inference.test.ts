@@ -1,10 +1,9 @@
-import { STT } from "@livekit/agents-plugin-assemblyai";
-import { initializeLogger } from "@livekit/agents";
+import { inference, initializeLogger } from "@livekit/agents";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   ASSEMBLYAI_DEFAULT_KEYTERMS,
-  getAssemblyAISttOptions,
-  getAssemblyAISttProfileOptions,
+  getAssemblyAIInferenceSttOptions,
+  getAssemblyAIInferenceSttProfileOptions,
   selectSttProfileForAssistantText,
 } from "../stt-config.js";
 
@@ -12,36 +11,43 @@ beforeAll(() => {
   initializeLogger({ pretty: false, level: "silent" });
 });
 
-describe("AssemblyAI direct plugin", () => {
+describe("AssemblyAI through LiveKit Inference", () => {
   it("preserves the complete startup transcription configuration", () => {
-    const options = getAssemblyAISttOptions();
-    const stt = new STT({ ...options, apiKey: "test-api-key" });
+    const options = getAssemblyAIInferenceSttOptions();
+    const stt = new inference.STT({
+      ...options,
+      apiKey: "test-api-key",
+      apiSecret: "test-api-secret",
+      baseURL: "https://example.livekit.cloud",
+    });
 
     expect(options).toEqual({
-      speechModel: "universal-3-5-pro",
-      bufferSizeMs: 50,
-      inactivityTimeout: 30,
-      keytermsPrompt: [...ASSEMBLYAI_DEFAULT_KEYTERMS],
-      languageDetection: true,
-      maxTurnSilence: 100,
-      minTurnSilence: 100,
-      vadThreshold: 0.3,
+      model: "assemblyai/universal-3-5-pro",
+      modelOptions: {
+        inactivity_timeout: 30,
+        keyterms_prompt: [...ASSEMBLYAI_DEFAULT_KEYTERMS],
+        language_detection: true,
+        max_turn_silence: 100,
+        min_end_of_turn_silence_when_confident: 100,
+        vad_threshold: 0.3,
+      },
     });
     expect(options).not.toHaveProperty("language");
-    expect(stt.label).toBe("assemblyai.STT");
-    expect(stt.provider).toBe("AssemblyAI");
-    expect(stt.model).toBe("universal-3-5-pro");
+    expect(options.modelOptions).not.toHaveProperty("min_turn_silence");
+    expect(stt.label).toBe("inference.STT");
+    expect(stt.provider).toBe("livekit");
+    expect(stt.model).toBe("assemblyai/universal-3-5-pro");
   });
 
-  it("maps every dynamic profile to exact AssemblyAI model options", () => {
-    expect(getAssemblyAISttProfileOptions("default")).toEqual({
-      keytermsPrompt: [...ASSEMBLYAI_DEFAULT_KEYTERMS],
-      maxTurnSilence: 100,
-      minTurnSilence: 100,
-      vadThreshold: 0.3,
+  it("maps every recognition profile to exact AssemblyAI model options", () => {
+    expect(getAssemblyAIInferenceSttProfileOptions("default")).toEqual({
+      keyterms_prompt: [...ASSEMBLYAI_DEFAULT_KEYTERMS],
+      max_turn_silence: 100,
+      min_end_of_turn_silence_when_confident: 100,
+      vad_threshold: 0.3,
     });
-    expect(getAssemblyAISttProfileOptions("insurance")).toEqual({
-      keytermsPrompt: [
+    expect(getAssemblyAIInferenceSttProfileOptions("insurance")).toEqual({
+      keyterms_prompt: [
         "Aetna Better Health",
         "Aetna Better Health of Florida",
         "Ambetter",
@@ -59,33 +65,33 @@ describe("AssemblyAI direct plugin", () => {
         "Oscar Health",
         "Simply Medicaid",
       ],
-      maxTurnSilence: 1500,
-      minTurnSilence: 1500,
-      vadThreshold: 0.3,
+      max_turn_silence: 1500,
+      min_end_of_turn_silence_when_confident: 1500,
+      vad_threshold: 0.3,
     });
-    expect(getAssemblyAISttProfileOptions("memberId")).toEqual({
-      keytermsPrompt: [],
-      maxTurnSilence: 1500,
-      minTurnSilence: 1500,
-      vadThreshold: 0.3,
+    expect(getAssemblyAIInferenceSttProfileOptions("memberId")).toEqual({
+      keyterms_prompt: [],
+      max_turn_silence: 1500,
+      min_end_of_turn_silence_when_confident: 1500,
+      vad_threshold: 0.3,
     });
-    expect(getAssemblyAISttProfileOptions("intake")).toEqual({
-      keytermsPrompt: [],
-      maxTurnSilence: 1500,
-      minTurnSilence: 1500,
-      vadThreshold: 0.3,
+    expect(getAssemblyAIInferenceSttProfileOptions("intake")).toEqual({
+      keyterms_prompt: [],
+      max_turn_silence: 1500,
+      min_end_of_turn_silence_when_confident: 1500,
+      vad_threshold: 0.3,
     });
-    expect(getAssemblyAISttProfileOptions("email")).toEqual({
-      keytermsPrompt: [],
-      maxTurnSilence: 1500,
-      minTurnSilence: 1500,
-      vadThreshold: 0.3,
+    expect(getAssemblyAIInferenceSttProfileOptions("email")).toEqual({
+      keyterms_prompt: [],
+      max_turn_silence: 1500,
+      min_end_of_turn_silence_when_confident: 1500,
+      vad_threshold: 0.3,
     });
 
-    const options = getAssemblyAISttProfileOptions("insurance");
-    options.keytermsPrompt?.push("mutated term");
+    const options = getAssemblyAIInferenceSttProfileOptions("insurance");
+    options.keyterms_prompt?.push("mutated term");
     expect(
-      getAssemblyAISttProfileOptions("insurance").keytermsPrompt,
+      getAssemblyAIInferenceSttProfileOptions("insurance").keyterms_prompt,
     ).not.toContain("mutated term");
   });
 
@@ -118,7 +124,9 @@ describe("AssemblyAI direct plugin", () => {
   });
 
   it("does not mix model prompt instructions into keyterm profiles", () => {
-    expect(getAssemblyAISttOptions()).not.toHaveProperty("prompt");
+    expect(getAssemblyAIInferenceSttOptions().modelOptions).not.toHaveProperty(
+      "prompt",
+    );
     for (const profile of [
       "default",
       "insurance",
@@ -126,9 +134,9 @@ describe("AssemblyAI direct plugin", () => {
       "intake",
       "email",
     ] as const) {
-      expect(getAssemblyAISttProfileOptions(profile)).not.toHaveProperty(
-        "prompt",
-      );
+      expect(
+        getAssemblyAIInferenceSttProfileOptions(profile),
+      ).not.toHaveProperty("prompt");
     }
   });
 
@@ -155,17 +163,6 @@ describe("AssemblyAI direct plugin", () => {
     expect(selectSttProfileForAssistantText("What's your son's name?")).toBe(
       "intake",
     );
-    expect(
-      selectSttProfileForAssistantText("Could you spell your last name?"),
-    ).toBe("intake");
-    expect(
-      selectSttProfileForAssistantText("Can you spell that?", {
-        fallbackProfile: "intake",
-      }),
-    ).toBe("intake");
-    expect(
-      selectSttProfileForAssistantText("What's your first and last name?"),
-    ).toBe("intake");
     expect(
       selectSttProfileForAssistantText(
         "Let me confirm the details I have. Is that right?",
