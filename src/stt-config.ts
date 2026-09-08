@@ -1,13 +1,14 @@
+import type { STTOptions } from "@livekit/agents-plugin-assemblyai";
+
 export const ASSEMBLYAI_BASE_TIMING = {
-  minTurnSilence: 275,
-  maxTurnSilence: 2000,
+  minTurnSilence: 100,
+  maxTurnSilence: 100,
   vadThreshold: 0.3,
 } as const;
 
 export const ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS = 30;
 export const ASSEMBLYAI_AGENT_CONTEXT_MAX_CHARS = 1500;
-export const ASSEMBLYAI_INFERENCE_MODEL =
-  "assemblyai/universal-3-5-pro" as const;
+export const ASSEMBLYAI_MODEL = "universal-3-5-pro" as const;
 
 export const ASSEMBLYAI_DEFAULT_KEYTERMS = [
   "Abita Eye Group",
@@ -53,26 +54,26 @@ export const ASSEMBLYAI_STT_PROFILES = {
       "Oscar Health",
       "Simply Medicaid",
     ],
-    minTurnSilence: 400,
-    maxTurnSilence: 3000,
+    minTurnSilence: 1500,
+    maxTurnSilence: 1500,
     vadThreshold: 0.3,
   },
   memberId: {
     keytermsPrompt: [],
-    minTurnSilence: 450,
-    maxTurnSilence: 3000,
+    minTurnSilence: 1500,
+    maxTurnSilence: 1500,
     vadThreshold: 0.3,
   },
   intake: {
     keytermsPrompt: [],
-    minTurnSilence: 450,
-    maxTurnSilence: 3500,
+    minTurnSilence: 1500,
+    maxTurnSilence: 1500,
     vadThreshold: 0.3,
   },
   email: {
     keytermsPrompt: [],
-    minTurnSilence: 500,
-    maxTurnSilence: 4000,
+    minTurnSilence: 1500,
+    maxTurnSilence: 1500,
     vadThreshold: 0.3,
   },
 } satisfies Record<string, AssemblyAISttProfileDefinition>;
@@ -80,39 +81,37 @@ export const ASSEMBLYAI_STT_PROFILES = {
 export type AssemblyAISttProfile = keyof typeof ASSEMBLYAI_STT_PROFILES;
 export type SttProfile = AssemblyAISttProfile;
 
-export type AssemblyAIInferenceModelOptions = {
-  agent_context?: string;
-  inactivity_timeout?: number;
-  keyterms_prompt?: string[];
-  language_detection?: boolean;
-  max_turn_silence?: number;
-  min_turn_silence?: number;
-  vad_threshold?: number;
-};
+export type AssemblyAISttProfileOptions = Pick<
+  STTOptions,
+  | "agentContext"
+  | "keytermsPrompt"
+  | "minTurnSilence"
+  | "maxTurnSilence"
+  | "vadThreshold"
+>;
 
-export function getAssemblyAIInferenceSttOptions() {
+export function getAssemblyAISttOptions() {
   return {
-    model: ASSEMBLYAI_INFERENCE_MODEL,
-    modelOptions: {
-      inactivity_timeout: ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
-      keyterms_prompt: [...ASSEMBLYAI_DEFAULT_KEYTERMS],
-      language_detection: true,
-      max_turn_silence: ASSEMBLYAI_BASE_TIMING.maxTurnSilence,
-      min_turn_silence: ASSEMBLYAI_BASE_TIMING.minTurnSilence,
-      vad_threshold: ASSEMBLYAI_BASE_TIMING.vadThreshold,
-    } satisfies AssemblyAIInferenceModelOptions,
-  };
+    speechModel: ASSEMBLYAI_MODEL,
+    bufferSizeMs: 50,
+    inactivityTimeout: ASSEMBLYAI_INACTIVITY_TIMEOUT_SECONDS,
+    languageDetection: true,
+    ...getAssemblyAISttProfileOptions("default"),
+  } satisfies Partial<STTOptions>;
 }
 
-export function getAssemblyAIInferenceSttProfileOptions(
+export function getAssemblyAISttProfileOptions(
   profile: AssemblyAISttProfile,
-): AssemblyAIInferenceModelOptions {
+): AssemblyAISttProfileOptions {
   const options = ASSEMBLYAI_STT_PROFILES[profile];
+  // Finalize transcript chunks promptly; LiveKit's audio detector owns the turn.
+  // Entity answers retain a 1.5-second window to avoid committing an earlier
+  // chunk while the final name, digit, or spelling segment is still transcribing.
   return {
-    keyterms_prompt: [...options.keytermsPrompt],
-    max_turn_silence: options.maxTurnSilence,
-    min_turn_silence: options.minTurnSilence,
-    vad_threshold: options.vadThreshold,
+    keytermsPrompt: [...options.keytermsPrompt],
+    maxTurnSilence: options.maxTurnSilence,
+    minTurnSilence: options.minTurnSilence,
+    vadThreshold: options.vadThreshold,
   };
 }
 
@@ -184,6 +183,7 @@ const INTAKE_CUES = [
   "d o b",
   "birthday",
   "birth date",
+  "your name",
   "son's name",
   "child's name",
   "patient's name",

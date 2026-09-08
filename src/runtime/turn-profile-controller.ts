@@ -3,22 +3,17 @@ import {
   snapshotSttProfileTransition,
   type SttProfileTransitionAnalytics,
 } from "./stt-profile-observability.js";
-import { voiceEndpointingProfiles } from "../session-options.js";
 import type { CallState } from "../state/call-state.js";
 import {
-  type AssemblyAIInferenceModelOptions,
+  type AssemblyAISttProfileOptions,
   type SttProfile,
   getAssemblyAIAgentContext,
-  getAssemblyAIInferenceSttProfileOptions,
+  getAssemblyAISttProfileOptions,
   selectSttProfileForAssistantText,
 } from "../stt-config.js";
 
-type EndpointingProfile = keyof typeof voiceEndpointingProfiles;
-type EndpointingOptions = (typeof voiceEndpointingProfiles)[EndpointingProfile];
-type InferenceStt = {
-  updateOptions: (options: {
-    modelOptions: AssemblyAIInferenceModelOptions;
-  }) => void;
+type ProfileStt = {
+  updateOptions: (options: AssemblyAISttProfileOptions) => void;
 };
 
 export type TurnProfileController = {
@@ -28,7 +23,7 @@ export type TurnProfileController = {
     details?: {
       createdAt?: number;
     },
-    extraOptions?: AssemblyAIInferenceModelOptions,
+    extraOptions?: AssemblyAISttProfileOptions,
   ) => void;
   commitUserTurn: () => void;
   observeAssistantText: (assistantText: string, complete: boolean) => void;
@@ -37,14 +32,12 @@ export type TurnProfileController = {
 };
 
 export function createTurnProfileController(
-  stt: InferenceStt,
+  stt: ProfileStt,
   options: {
     startedAt: Date;
-    updateEndpointing: (options: EndpointingOptions) => void;
   },
 ): TurnProfileController {
   let activeSttProfile: SttProfile = "default";
-  let activeEndpointingProfile: EndpointingProfile = "conversation";
   let promptedSttProfile: SttProfile | null = null;
   const sttProfiles: SttProfileTransitionAnalytics[] = [
     snapshotSttProfileTransition({
@@ -61,7 +54,7 @@ export function createTurnProfileController(
     details: {
       createdAt?: number;
     } = {},
-    extraOptions: AssemblyAIInferenceModelOptions = {},
+    extraOptions: AssemblyAISttProfileOptions = {},
   ) => {
     if (
       profile === activeSttProfile &&
@@ -72,10 +65,8 @@ export function createTurnProfileController(
 
     const previousProfile = activeSttProfile;
     stt.updateOptions({
-      modelOptions: {
-        ...getAssemblyAIInferenceSttProfileOptions(profile),
-        ...extraOptions,
-      },
+      ...getAssemblyAISttProfileOptions(profile),
+      ...extraOptions,
     });
     if (profile === activeSttProfile) return;
 
@@ -89,15 +80,7 @@ export function createTurnProfileController(
         to: profile,
       }),
     );
-    console.log(
-      `[stt] AssemblyAI inference profile=${profile} reason=${reason}`,
-    );
-  };
-
-  const applyEndpointingProfile = (profile: EndpointingProfile) => {
-    if (profile === activeEndpointingProfile) return;
-    activeEndpointingProfile = profile;
-    options.updateEndpointing(voiceEndpointingProfiles[profile]);
+    console.log(`[stt] AssemblyAI profile=${profile} reason=${reason}`);
   };
 
   const observeAssistantText = (assistantText: string, complete: boolean) => {
@@ -114,16 +97,13 @@ export function createTurnProfileController(
       profile,
       "assistant_prompt",
       {},
-      agentContext ? { agent_context: agentContext } : {},
+      agentContext ? { agentContext } : {},
     );
-    if (profile !== "default") {
-      applyEndpointingProfile("deliberate");
-    }
   };
 
   return {
     applySttProfile,
-    commitUserTurn: () => applyEndpointingProfile("conversation"),
+    commitUserTurn: () => applySttProfile("default", "user_turn_committed"),
     observeAssistantText,
     sttProfiles,
     get activeSttProfile() {
@@ -136,13 +116,6 @@ export function attachTurnProfileLifecycle(
   session: AgentSession<CallState>,
   controller: TurnProfileController,
 ): void {
-  session.on(AgentSessionEventTypes.UserInputTranscribed, (event) => {
-    if (!event.isFinal) return;
-    controller.applySttProfile("default", "user_final", {
-      createdAt: event.createdAt,
-    });
-  });
-
   session.on(AgentSessionEventTypes.ConversationItemAdded, (event) => {
     if (event.item.type === "message" && event.item.role === "user") {
       controller.commitUserTurn();

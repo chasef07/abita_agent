@@ -1,8 +1,10 @@
 import {
   AgentSession,
+  Agent,
   type AgentSessionOptions,
   inference,
   initializeLogger,
+  voice,
 } from "@livekit/agents";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
@@ -11,6 +13,7 @@ import {
   voiceTurnHandlingOptions,
   voiceVadOptions,
 } from "../session-options.js";
+import { createTurnProfileController } from "../runtime/turn-profile-controller.js";
 
 type TurnDetection = NonNullable<
   NonNullable<AgentSessionOptions["turnHandling"]>["turnDetection"]
@@ -21,7 +24,7 @@ describe("voice session options", () => {
     initializeLogger({ pretty: false, level: "silent" });
   });
 
-  it("disables speculative LLM generation and speech synthesis", () => {
+  it("enables speculative LLM generation while deferring speech synthesis", () => {
     const session = new AgentSession({
       turnHandling: {
         turnDetection: fakeTurnDetector(),
@@ -31,11 +34,11 @@ describe("voice session options", () => {
     const preemptiveGeneration =
       session.sessionOptions.turnHandling.preemptiveGeneration;
 
-    expect(preemptiveGeneration.enabled).toBe(false);
+    expect(preemptiveGeneration.enabled).toBe(true);
     expect(preemptiveGeneration.preemptiveTts).toBe(false);
   });
 
-  it("uses responsive fixed endpointing for normal conversation", () => {
+  it("keeps dynamic endpointing bounds stable across the conversation", () => {
     const turnDetection = fakeTurnDetector();
     const session = new AgentSession({
       turnHandling: {
@@ -48,14 +51,16 @@ describe("voice session options", () => {
       turnDetection,
     );
     expect(voiceTurnHandlingOptions.endpointing).toEqual({
-      maxDelay: 600,
+      maxDelay: 2500,
       minDelay: 300,
-      mode: "fixed",
+      mode: "dynamic",
+      alpha: 0.9,
     });
     expect(session.sessionOptions.turnHandling.endpointing).toMatchObject({
-      maxDelay: 600,
+      maxDelay: 2500,
       minDelay: 300,
-      mode: "fixed",
+      mode: "dynamic",
+      alpha: 0.9,
     });
     expect(session.sessionOptions.turnHandling.interruption.mode).toBe(
       "adaptive",
@@ -105,6 +110,54 @@ describe("voice session options", () => {
     });
 
     expect(session.sessionOptions.maxToolSteps).toBe(3);
+  });
+
+  it("preserves the SDK's learned pause across intake and user-turn profile changes", async () => {
+    const session = new AgentSession({
+      llm: new voice.testing.FakeLLM([]),
+      vad: null,
+      turnHandling: {
+        ...voiceTurnHandlingOptions,
+        turnDetection: null,
+        interruption: { mode: "vad" },
+      },
+    });
+    try {
+      await session.start({
+        agent: new Agent({ instructions: "Local timing test." }),
+      });
+      const activity = await session.waitForIdle();
+      // Inspect the actual SDK strategy: recreating it would discard learned pauses.
+      const recognition = (
+        activity as unknown as {
+          audioRecognition: {
+            endpointing: {
+              minDelay: number;
+              onStartOfSpeech: (at: number) => void;
+              onEndOfSpeech: (at: number) => void;
+            };
+          };
+        }
+      ).audioRecognition;
+      const strategy = recognition.endpointing;
+      for (let index = 0; index < 6; index++) {
+        strategy.onStartOfSpeech(1000 + index * 1000);
+        strategy.onEndOfSpeech(1200 + index * 1000);
+      }
+      const learned = strategy.minDelay;
+      expect(learned).toBeGreaterThan(300);
+      const controller = createTurnProfileController(
+        { updateOptions: vi.fn() },
+        { startedAt: new Date() },
+      );
+      controller.observeAssistantText("What is your email?", true);
+      controller.commitUserTurn();
+      controller.observeAssistantText("Can you spell that?", true);
+      expect(recognition.endpointing).toBe(strategy);
+      expect(recognition.endpointing.minDelay).toBe(learned);
+    } finally {
+      await session.close();
+    }
   });
 });
 

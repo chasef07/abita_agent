@@ -1,40 +1,88 @@
-# AssemblyAI Universal-3.5 Pro STT — Design Decisions
+# AssemblyAI transcription and LiveKit turn completion
 
-Switched STT from Deepgram Nova-3 to AssemblyAI Universal-3 Pro Streaming on 2026-04-06, then to AssemblyAI Universal-3.5 Pro Streaming on 2026-06-20. The active runtime now reaches AssemblyAI through LiveKit Inference using the existing LiveKit Cloud credentials.
+The runtime uses `@livekit/agents-plugin-assemblyai` 1.8.0 directly with
+`universal-3-5-pro`. Set `ASSEMBLYAI_API_KEY` in the worker environment before
+starting or deploying the agent. The key belongs in local environment files or
+LiveKit secrets, never source control. LiveKit credentials remain required for
+LLM inference, the audio turn detector, and adaptive interruptions.
 
-## Key decisions
+## One conversational turn owner
 
-**LiveKit Inference transport:** Using `new inference.STT(getAssemblyAIInferenceSttOptions())` from `@livekit/agents`. The model remains `assemblyai/universal-3-5-pro`; provider options are passed in snake case through `modelOptions`.
+`inference.TurnDetector()` remains the conversational turn detector with its
+server-calibrated language thresholds. The tested 0.9 override is not enabled. AssemblyAI
+finalizes transcript chunks; those chunks do not independently end a LiveKit
+turn. Multiple finalized chunks can form one committed user message.
 
-**LiveKit audio turn detection:** The session uses `inference.TurnDetector()` as the primary turn-boundary owner. AssemblyAI's silence settings still control transcription timing and entity-dictation quality, but its end-of-speech events do not commit turns in this mode.
+Normal STT uses matching `minTurnSilence` and `maxTurnSilence` of 100 ms,
+explicitly matching the plugin's low-latency chunking defaults. This removes the
+previous independent 2-second STT silence ceiling. It does not promise a 100 ms
+transcription latency: model processing, transport, and audio conditions remain.
 
-**Context-aware endpointing:** Normal conversation uses fixed `300-600ms` endpointing. Insurance, member ID, intake, and email prompts temporarily use fixed `500-2500ms` endpointing. The normal profile returns only after LiveKit commits the caller's message, not when AssemblyAI first emits a final transcript.
+The session uses dynamic endpointing with a 300 ms floor, 2,500 ms ceiling, and
+alpha 0.9. A low end-of-turn probability selects the ceiling; otherwise the
+SDK uses its learned minimum. Bounds stay constant for the call because
+`session.updateOptions` replaces the endpointing state and loses learned pauses.
+The longer ceiling protects unfinished answers and is not a mandatory wait for
+every answer. This is an experimental starting configuration, not a universal optimum.
+The wider maximum also delayed a complete short negative answer in the local
+holdout. The evaluation records that regression; this is a draft, not a rollout
+recommendation.
 
-**No language pinned:** Universal-3.5 Pro auto-detects and code-switches between English, Spanish, German, French, Portuguese, and Italian. Omitting `language` lets it detect automatically — important since callers may speak Spanish.
+LLM-only preemptive generation is enabled; TTS waits for turn confirmation.
+LiveKit owns speculative cancellation and tool authorization. Regression tests
+cover corrected input, changing patient context, and deferred/discarded tools.
+See [preemptive generation](preemptive-generation.md).
 
-**Aligned LiveKit VAD:** The session tunes LiveKit's auto-provisioned local-inference Silero model to `activationThreshold=0.3` and `deactivationThreshold=0.15`, matching AssemblyAI Universal-3.5 Pro's internal VAD threshold for consistent barge-in behavior while preserving LiveKit's default VAD lifecycle. The `250ms` minimum silence duration remains unchanged for the audio turn detector.
+## Intake recognition
 
-**No agent-side noise cancellation:** The agent does not configure LiveKit background voice cancellation or AssemblyAI Voice Focus before STT. SIP trunk-level noise/echo cancellation (Telnyx) is separate from this.
+Prompt-sensitive profiles retain vocabulary and additional chunk context:
 
-**Conservative keyterms enabled at startup:** The agent passes a short `keytermsPrompt` list for hard-to-hear practice terms, locations, provider names, and only a couple of distinctive always-on payer terms. This targets observed STT misses without loading the full insurance list.
+| Profile | Minimum / maximum silence (ms) | Vocabulary |
+|---|---:|---|
+| Default | 100 / 100 | Conservative office terms |
+| Insurance | 1500 / 1500 | Payer and plan terms |
+| Member ID | 1500 / 1500 | No payer bias |
+| Intake / names / spelling | 1500 / 1500 | No payer bias |
+| Email | 1500 / 1500 | No payer bias |
 
-**Dynamic profiles for high-risk turns:** When an assistant message asks for insurance, member ID, DOB/intake details, or email, the session calls `stt.updateOptions({ modelOptions })` before the next caller turn. LiveKit sends the update through the active Inference stream as `session.update`, so the AssemblyAI stream is updated without reconnecting. This bumps silence for entity dictation and swaps to the most relevant keyterms. Member ID, intake, and email profiles intentionally send an empty keyterm list so those turns get extra silence without carrying stale payer bias. After the caller's final transcript, the session resets to the default profile.
+These values control transcript segmentation, not the conversational deadline.
+Names also use the intake window: the attempted faster semantic profile split
+first/last-name fixtures when a later transcript arrived after LiveKit committed.
+This protection adds delay to an uninterrupted short name.
+The assistant's completed question is passed as `agentContext`. A profile stays
+active across partial and final STT segments and resets only after LiveKit
+commits the user message. A request to repeat or spell a detail retains its
+previous prompted profile. Endpointing learning is unaffected by these updates.
 
-## Parameters
+The existing Silero sensitivity (activation 0.3, deactivation 0.15) and 250 ms
+silence window remain. Krisp telephony filtering remains ahead of recognition;
+no second AssemblyAI Voice Focus filter is enabled. English/Spanish evidence
+continues to consume the plugin's nested language-confidence metadata.
 
-```
-min_turn_silence: 275   — silence (ms) before speculative EOT check (punctuation-based)
-max_turn_silence: 2000  — max silence (ms) before forced turn end on normal turns
-vad_threshold: 0.3      — AssemblyAI internal VAD threshold
-```
+## ForceEndpoint
 
-## Tuning notes
+The plugin exposes `SpeechStream.forceEndpoint()`, which sends AssemblyAI's
+`ForceEndpoint` message. That method is not automatically called by LiveKit's
+audio turn detector. The SDK's public EOT event is emitted along the transcript-
+gated commit path, so attaching a force request there does not resolve the first
+missing final transcript.
 
-- Increase `min_turn_silence` if brief pauses cause early EOT on terminal punctuation
-- Increase `max_turn_silence` if forced turn end cuts off users mid-thought or splits entities (phone numbers, DOBs) across turns
-- Tune LiveKit turn-commit timing in `src/session-options.ts`.
-- Runtime profile changes are owned by `src/runtime/turn-profile-controller.ts`,
-  attached during session startup in `src/main.ts`; examples include insurance
-  plan lookup, insurance member ID, intake/DOB/address, and email collection.
-- `keytermsPrompt` is configured in `src/stt-config.ts`. Keep the default list short: AssemblyAI limits streaming keyterms to 100 terms and ignores individual terms longer than 50 characters.
-- `src/stt-config.ts` defines the `default`, `insurance`, `memberId`, `intake`, and `email` profiles. Keep profile terms specific; broad/common terms can over-bias transcription.
+This integration uses the plugin's short transcript windows with the standard
+LiveKit turn pipeline. It does not add a second detector, monkey-patch SDK
+internals, or force transcription at every VAD pause. An explicit force test
+establishes the provider API separately from the application architecture.
+
+## Verification
+
+The audio comparison and its limitations are recorded in
+[assemblyai-plugin-evaluation.md](assemblyai-plugin-evaluation.md).
+Unit and SDK integration tests cover direct option names, profile lifetime,
+dynamic state preservation, and preemptive tool gating. Recorded replays do not
+prove production SIP routing or complete interactive interruption behavior.
+
+Before deploying, provision `ASSEMBLYAI_API_KEY` on the target LiveKit agent.
+This PR changes source configuration; it does not deploy or rotate hosted secrets.
+
+Sources: [LiveKit AssemblyAI integration](https://docs.livekit.io/agents/models/stt/assemblyai/),
+[AssemblyAI turn detection](https://www.assemblyai.com/docs/streaming/turn-detection),
+and the installed plugin/Agents 1.8.0 source.
