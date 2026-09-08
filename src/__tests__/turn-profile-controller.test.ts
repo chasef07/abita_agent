@@ -22,6 +22,84 @@ class TestSession {
 }
 
 describe("turn profile controller", () => {
+  it.each([
+    ["What's the name of your insurance plan?", 1_000],
+    ["May I have the patient's first name?", 1_000],
+    ["What is the patient's last name?", 1_000],
+    ["Could you spell the patient's first name?", 2_500],
+    ["Could you spell the insurance plan name?", 2_500],
+    ["What is your first name, letter by letter?", 2_500],
+    ["What is the patient's date of birth?", 2_500],
+    ["May I have the first name and date of birth?", 2_500],
+    ["What is the first name and best phone number?", 2_500],
+    ["Can I get the member ID from your insurance card?", 2_500],
+    ["What is your address?", 2_500],
+    ["What is your email?", 2_500],
+  ])("selects the response window for %s", (prompt, maxDelay) => {
+    const updateEndpointing = vi.fn();
+    const controller = createTurnProfileController(
+      { updateOptions: vi.fn() },
+      {
+        startedAt: new Date("2026-07-23T10:00:00.000Z"),
+        updateEndpointing,
+      },
+    );
+
+    controller.observeAssistantText(prompt, true);
+
+    expect(updateEndpointing).toHaveBeenLastCalledWith({
+      minDelay: 500,
+      maxDelay,
+    });
+  });
+
+  it("extends a short name prompt when its streamed suffix asks for spelling", async () => {
+    const updateEndpointing = vi.fn();
+    const controller = createTurnProfileController(
+      { updateOptions: vi.fn() },
+      {
+        startedAt: new Date("2026-07-23T10:00:00.000Z"),
+        updateEndpointing,
+      },
+    );
+
+    await collect(
+      observeAssistantText(
+        chunks("What is the patient's first name", ", and could you spell it?"),
+        controller.observeAssistantText,
+      ),
+    );
+
+    expect(updateEndpointing.mock.calls).toEqual([
+      [{ minDelay: 500, maxDelay: 1_000 }],
+      [{ minDelay: 500, maxDelay: 2_500 }],
+    ]);
+  });
+
+  it.each([
+    "Could you spell the insurance plan name?",
+    "Could you spell the patient's first name?",
+  ])("preserves spelling time when repeating %s", (prompt) => {
+    const updateEndpointing = vi.fn();
+    const controller = createTurnProfileController(
+      { updateOptions: vi.fn() },
+      {
+        startedAt: new Date("2026-07-23T10:00:00.000Z"),
+        updateEndpointing,
+      },
+    );
+    controller.observeAssistantText(prompt, true);
+    controller.applySttProfile("default", "user_final");
+    controller.commitUserTurn();
+
+    controller.observeAssistantText("Say that again?", true);
+
+    expect(updateEndpointing).toHaveBeenLastCalledWith({
+      minDelay: 500,
+      maxDelay: 2_500,
+    });
+  });
+
   it("applies profile and latest assistant context through Inference model options", () => {
     const updateOptions = vi.fn();
     const stt = {
@@ -103,71 +181,78 @@ describe("turn profile controller", () => {
     });
   });
 
-  it("keeps deliberate endpointing until LiveKit commits the user turn", () => {
-    const updateEndpointing = vi.fn();
-    const updateOptions = vi.fn();
-    const stt = {
-      updateOptions,
-    } as TurnProfileStt;
-    const controller = createTurnProfileController(stt, {
-      startedAt: new Date("2026-07-23T10:00:00.000Z"),
-      updateEndpointing,
-    });
-    const session = new TestSession();
-    attachTurnProfileLifecycle(
-      session as unknown as AgentSession<CallState>,
-      controller,
-    );
+  it.each([
+    ["Can I get the member ID from your insurance card?", 2_500],
+    ["What is the patient's first name?", 1_000],
+  ])(
+    "keeps endpointing for %s until LiveKit commits the user turn",
+    (prompt, maxDelay) => {
+      const updateEndpointing = vi.fn();
+      const updateOptions = vi.fn();
+      const stt = {
+        updateOptions,
+      } as TurnProfileStt;
+      const controller = createTurnProfileController(stt, {
+        startedAt: new Date("2026-07-23T10:00:00.000Z"),
+        updateEndpointing,
+      });
+      const session = new TestSession();
+      attachTurnProfileLifecycle(
+        session as unknown as AgentSession<CallState>,
+        controller,
+      );
 
-    controller.observeAssistantText(
-      "Can I get the member ID from your insurance card?",
-      true,
-    );
-    session.emit(AgentSessionEventTypes.UserInputTranscribed, {
-      createdAt: Date.parse("2026-07-23T10:00:10.000Z"),
-      isFinal: true,
-      transcript: "My member ID is A B C one two three.",
-    });
+      controller.observeAssistantText(prompt, true);
+      session.emit(AgentSessionEventTypes.UserInputTranscribed, {
+        createdAt: Date.parse("2026-07-23T10:00:10.000Z"),
+        isFinal: true,
+        transcript: "My member ID is A B C one two three.",
+      });
 
-    expect(updateEndpointing).toHaveBeenCalledTimes(1);
-    expect(controller.activeSttProfile).toBe("default");
-    expect(updateOptions).toHaveBeenLastCalledWith({
-      modelOptions: {
-        keyterms_prompt: [
-          "Abita Eye Group",
-          "Eye Radiance",
-          "Spring Hill",
-          "Crystal River",
-          "Dr. Bach",
-          "Dr. Noel",
-          "Dr. Licht",
-          "Austin Bach",
-          "iCare",
-          "Ambetter",
-        ],
-        max_turn_silence: 2000,
-        min_turn_silence: 275,
-        vad_threshold: 0.3,
-      },
-    });
+      expect(updateEndpointing).toHaveBeenCalledTimes(1);
+      expect(updateEndpointing).toHaveBeenLastCalledWith({
+        minDelay: 500,
+        maxDelay,
+      });
+      expect(controller.activeSttProfile).toBe("default");
+      expect(updateOptions).toHaveBeenLastCalledWith({
+        modelOptions: {
+          keyterms_prompt: [
+            "Abita Eye Group",
+            "Eye Radiance",
+            "Spring Hill",
+            "Crystal River",
+            "Dr. Bach",
+            "Dr. Noel",
+            "Dr. Licht",
+            "Austin Bach",
+            "iCare",
+            "Ambetter",
+          ],
+          max_turn_silence: 2000,
+          min_turn_silence: 275,
+          vad_threshold: 0.3,
+        },
+      });
 
-    session.emit(AgentSessionEventTypes.ConversationItemAdded, {
-      createdAt: Date.parse("2026-07-23T10:00:11.000Z"),
-      item: {
-        id: "user-turn-1",
-        interrupted: false,
-        metrics: {},
-        role: "user",
-        textContent: "My member ID is A B C one two three.",
-        type: "message",
-      },
-    });
+      session.emit(AgentSessionEventTypes.ConversationItemAdded, {
+        createdAt: Date.parse("2026-07-23T10:00:11.000Z"),
+        item: {
+          id: "user-turn-1",
+          interrupted: false,
+          metrics: {},
+          role: "user",
+          textContent: "My member ID is A B C one two three.",
+          type: "message",
+        },
+      });
 
-    expect(updateEndpointing).toHaveBeenLastCalledWith({
-      maxDelay: 600,
-      minDelay: 300,
-    });
-  });
+      expect(updateEndpointing).toHaveBeenLastCalledWith({
+        maxDelay: 600,
+        minDelay: 300,
+      });
+    },
+  );
 });
 
 async function* chunks(...values: string[]): AsyncIterable<string> {

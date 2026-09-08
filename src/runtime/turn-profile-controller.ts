@@ -117,7 +117,7 @@ export function createTurnProfileController(
       agentContext ? { agent_context: agentContext } : {},
     );
     if (profile !== "default") {
-      applyEndpointingProfile("deliberate");
+      applyEndpointingProfile(endpointingForPrompt(assistantText, profile));
     }
   };
 
@@ -130,6 +130,25 @@ export function createTurnProfileController(
       return activeSttProfile;
     },
   };
+}
+
+function endpointingForPrompt(
+  assistantText: string,
+  sttProfile: SttProfile,
+): EndpointingProfile {
+  const text = assistantText.toLowerCase().replace(/\s+/g, " ");
+  // A combined question keeps enough time for its slowest requested detail.
+  const needsDeliberateAnswer =
+    /\b(?:spell(?:ing|ed)?|letter[ -]by[ -]letter|birth|dob|d o b|birthday|phone|number|address|street|apartment|suite|zip|email|e-mail)\b/.test(
+      text,
+    );
+  const asksForName = sttProfile === "intake" && /\bname\b/.test(text);
+  // Generic repeats can refer to spelling; shorten only an explicit question.
+  const asksForInsurance =
+    sttProfile === "insurance" && /\b(?:insurance|plan name)\b/.test(text);
+  return !needsDeliberateAnswer && (asksForInsurance || asksForName)
+    ? "shortAnswer"
+    : "deliberate";
 }
 
 export function attachTurnProfileLifecycle(

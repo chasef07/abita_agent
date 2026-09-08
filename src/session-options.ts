@@ -22,6 +22,10 @@ export const voiceEndpointingProfiles = {
     minDelay: 300,
     maxDelay: 600,
   },
+  shortAnswer: {
+    minDelay: 500,
+    maxDelay: 1_000,
+  },
   deliberate: {
     minDelay: 500,
     maxDelay: 2_500,
