@@ -26,6 +26,7 @@ export type TurnProfileController = {
     extraOptions?: AssemblyAISttProfileOptions,
   ) => void;
   commitUserTurn: () => void;
+  commitAssistantTurn: (committedText: string) => void;
   observeAssistantText: (assistantText: string, complete: boolean) => void;
   sttProfiles: SttProfileTransitionAnalytics[];
   readonly activeSttProfile: SttProfile;
@@ -38,7 +39,7 @@ export function createTurnProfileController(
   },
 ): TurnProfileController {
   let activeSttProfile: SttProfile = "default";
-  let promptedSttProfile: SttProfile | null = null;
+  let committedPromptProfile: SttProfile | null = null;
   const sttProfiles: SttProfileTransitionAnalytics[] = [
     snapshotSttProfileTransition({
       createdAt: options.startedAt,
@@ -83,28 +84,28 @@ export function createTurnProfileController(
     console.log(`[stt] AssemblyAI profile=${profile} reason=${reason}`);
   };
 
-  const observeAssistantText = (assistantText: string, complete: boolean) => {
-    const profile = selectSttProfileForAssistantText(assistantText, {
-      fallbackProfile: promptedSttProfile,
+  const profileForAssistantText = (text: string) =>
+    selectSttProfileForAssistantText(text, {
+      fallbackProfile: committedPromptProfile,
     });
-    if (!complete && profile === "default") return;
-
-    promptedSttProfile = profile === "default" ? null : profile;
-    const agentContext = complete
-      ? getAssemblyAIAgentContext(assistantText)
-      : undefined;
-    applySttProfile(
-      profile,
-      "assistant_prompt",
-      {},
-      agentContext ? { agentContext } : {},
-    );
-  };
 
   return {
     applySttProfile,
     commitUserTurn: () => applySttProfile("default", "user_turn_committed"),
-    observeAssistantText,
+    // TTS input may include discarded text. It can arm recognition, while
+    // only SDK-committed output advances context and follow-up history.
+    observeAssistantText: (text, complete) => {
+      const profile = profileForAssistantText(text);
+      if (!complete && profile === "default") return;
+      applySttProfile(profile, "assistant_prompt");
+    },
+    commitAssistantTurn: (committedText) => {
+      const agentContext = getAssemblyAIAgentContext(committedText.trim());
+      if (!agentContext) return;
+      const profile = profileForAssistantText(committedText);
+      committedPromptProfile = profile === "default" ? null : profile;
+      applySttProfile(profile, "assistant_prompt", {}, { agentContext });
+    },
     sttProfiles,
     get activeSttProfile() {
       return activeSttProfile;
@@ -117,8 +118,11 @@ export function attachTurnProfileLifecycle(
   controller: TurnProfileController,
 ): void {
   session.on(AgentSessionEventTypes.ConversationItemAdded, (event) => {
-    if (event.item.type === "message" && event.item.role === "user") {
+    if (event.item.type !== "message") return;
+    if (event.item.role === "user") {
       controller.commitUserTurn();
+    } else if (event.item.role === "assistant" && event.item.textContent) {
+      controller.commitAssistantTurn(event.item.textContent);
     }
   });
 }

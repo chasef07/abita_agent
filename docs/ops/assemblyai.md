@@ -49,7 +49,10 @@ These values control transcript segmentation, not the conversational deadline.
 Names also use the intake window: the attempted faster semantic profile split
 first/last-name fixtures when a later transcript arrived after LiveKit committed.
 This protection adds delay to an uninterrupted short name.
-The assistant's completed question is passed as `agentContext`. A profile stays
+The latest SDK-committed assistant message is passed as `agentContext`, capped
+at 1500 characters. TTS input arms recognition early but does not update agent
+context or remembered follow-up history. Interrupted committed text replaces
+the generated question when the SDK provides it. A profile stays
 active across partial and final STT segments and resets only after LiveKit
 commits the user message. A request to repeat or spell a detail retains its
 previous prompted profile. Endpointing learning is unaffected by these updates.
@@ -86,3 +89,6 @@ This PR changes source configuration; it does not deploy or rotate hosted secret
 Sources: [LiveKit AssemblyAI integration](https://docs.livekit.io/agents/models/stt/assemblyai/),
 [AssemblyAI turn detection](https://www.assemblyai.com/docs/streaming/turn-detection),
 and the installed plugin/Agents 1.8.0 source.
+
+A parameter-by-parameter review, context lifecycle correction, and plugin gaps
+are recorded in [the developer-docs audit](assemblyai-docs-audit.md).

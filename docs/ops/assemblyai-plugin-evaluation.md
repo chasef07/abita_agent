@@ -242,3 +242,17 @@ Sources: [AssemblyAI turn detection](https://www.assemblyai.com/docs/streaming/t
 [LiveKit turn handling](https://livekit.com/blog/turn-detection-and-interruption-handling),
 [LiveKit AssemblyAI plugin](https://docs.livekit.io/agents/models/stt/assemblyai/),
 and the pinned SDK/plugin source.
+
+## Subsequent developer-docs audit
+
+The [docs audit](assemblyai-docs-audit.md) found that TTS-input observation could
+publish questions before they were played and contaminate follow-up profile
+history. Two failing regressions reproduced those errors. Context and remembered
+follow-up profiles now advance only from SDK-committed assistant output; early
+TTS observation only arms recognition. The historical fixture replays supplied
+a known preceding question and do not themselves verify this playback lifecycle.
+Silence values and detector thresholds were not retuned by this correction.
+
+After this correction, all 1019 application tests and the typecheck/lint/format
+checks passed; the live profile/context path preserved three exact synthetic
+answers. See the audit for scope and SDK alignment limitations.
