@@ -442,6 +442,14 @@ const TOPICS: TopicDefinition[] = [
       ["referencia medica", 5],
       ["preauthorization", 5],
       ["prior authorization", 5],
+      ["retinal photos", 6, ["retinal photos", "retinal photography"]],
+      ["retinal photography", 6, ["retinal photos", "retinal photography"]],
+      ["copay", 6],
+      ["co pay", 6],
+      ["deductible", 6],
+      ["benefits", 5],
+      ["copago", 6],
+      ["deducible", 6],
     ],
   ),
   topic(
@@ -451,6 +459,12 @@ const TOPICS: TopicDefinition[] = [
       ["self pay", 6],
       ["cash price", 6],
       ["cash pay", 6],
+      ["without insurance", 6],
+      ["no insurance", 6],
+      ["out of pocket", 6],
+      ["charge for cash", 6],
+      ["monto a pagar", 6],
+      ["valor de la consulta", 6],
       ["precio sin seguro", 6],
       ["pago por cuenta propia", 6],
       ["how much", 4],
@@ -462,7 +476,7 @@ const TOPICS: TopicDefinition[] = [
   ),
   topic(
     "payment",
-    ["Payments"],
+    ["Payments", "Billing"],
     [
       ["payment methods", 6],
       ["formas de pago", 6],
@@ -492,6 +506,8 @@ const TOPICS: TopicDefinition[] = [
       ["billing policy", 6],
       ["politica de facturacion", 6],
       ["billing", 5],
+      ["billed", 5],
+      ["cobraron", 5],
       ["bill", 4],
       ["facturacion", 5],
       ["factura", 4],
@@ -520,6 +536,8 @@ const TOPICS: TopicDefinition[] = [
       ["what should i expect", 6],
       ["que debo esperar", 6],
       ["how long is the appointment", 6],
+      ["how much time", 6],
+      ["cuanto tiempo", 6],
       ["cuanto dura la cita", 6],
       ["appointment length", 5],
       ["duracion de la cita", 5],
@@ -527,6 +545,9 @@ const TOPICS: TopicDefinition[] = [
       ["me van a dilatar", 5],
       ["arrival time", 4],
       ["paperwork", 4],
+      ["email confirmation", 6],
+      ["confirmation email", 6],
+      ["confirmacion", 5],
     ],
   ),
   topic(
@@ -577,23 +598,33 @@ export function resolveOfficeKnowledge(
     ["cataract", "cataracts", "catarata", "cataratas"].some((phrase) =>
       hasPhrase(normalized, phrase),
     );
+  // Static office information can accompany a tool-owned workflow. Supplying
+  // the contact or listed price never establishes an account or action outcome.
+  const informationTopic = officeInformationTopic(normalized);
   // Service restrictions still apply when the caller asks to book care.
-  if (isBusinessOwnedTurn(normalized) && !cataractRequest) {
+  if (
+    isBusinessOwnedTurn(normalized) &&
+    !cataractRequest &&
+    !informationTopic
+  ) {
     return { language, outcome: "skipped", sections: [], topic: null };
   }
   const index = knowledgeIndex(officeKey);
   const { sections } = index;
   const currentScores = rankTopics(normalized, index, officeKey);
-  const confidentTopic = selectConfidentTopic(currentScores);
-  let selected = cataractRequest
-    ? (currentScores.find(
-        ({ definition, score }) =>
-          definition.topic === "emergency_urgency" && score >= MIN_TOPIC_SCORE,
-      ) ??
-      confidentTopic ??
-      currentScores.find(({ definition }) => definition.topic === "services") ??
-      null)
-    : confidentTopic;
+  const confidentTopic = selectOfficeTopic(normalized, currentScores);
+  const emergencyTopic = currentScores.find(
+    ({ definition, score }) =>
+      definition.topic === "emergency_urgency" && score >= MIN_TOPIC_SCORE,
+  );
+  let selected =
+    emergencyTopic ??
+    confidentTopic ??
+    (cataractRequest
+      ? (currentScores.find(
+          ({ definition }) => definition.topic === "services",
+        ) ?? null)
+      : null);
 
   const locationFollowUp = isLocationFollowUp(normalized);
   if (
@@ -603,15 +634,18 @@ export function resolveOfficeKnowledge(
   ) {
     const recentText = recentConversation.slice(-2).join(" ");
     const normalizedRecentText = normalize(recentText);
-    if (!isBusinessOwnedTurn(normalizedRecentText)) {
-      const contextualTopic = selectConfidentTopic(
-        rankTopics(normalizedRecentText, index, officeKey),
+    const recentInformationTopic = officeInformationTopic(normalizedRecentText);
+    if (!isBusinessOwnedTurn(normalizedRecentText) || recentInformationTopic) {
+      const recentScores = rankTopics(normalizedRecentText, index, officeKey);
+      const contextualTopic = selectOfficeTopic(
+        normalizedRecentText,
+        recentScores,
       );
       if (
         !locationFollowUp ||
         contextualTopic?.definition.topic === "location_contact"
       ) {
-        selected = contextualTopic;
+        selected = contextualTopic ?? null;
       }
     }
   }
@@ -683,6 +717,9 @@ export function officeKnowledgeReference(
     `active office: ${office.displayName}`,
     "This exact office-owned content is authoritative only for the current reply.",
     "Keep every office detail grounded in this reference.",
+    ...(resolution.outcome === "matched"
+      ? officeReplyGuidance(resolution.topic)
+      : []),
     "",
     ...content,
     "=== END OFFICE KNOWLEDGE FOR THIS REPLY ===",
@@ -858,6 +895,38 @@ function selectConfidentTopic(
   return best;
 }
 
+// Use the same selection for the current turn and its immediate follow-up.
+function selectOfficeTopic(
+  text: string,
+  scores: RankedTopic[],
+): RankedTopic | null {
+  const informationTopic = officeInformationTopic(text);
+  if (informationTopic === "pricing") {
+    const specific = scores.find(({ definition, score }) => {
+      if (score < MIN_TOPIC_SCORE) return false;
+      switch (definition.topic) {
+        case "appointment_expectations":
+        case "insurance_referrals":
+        case "optical_repairs":
+          return true;
+        case "optical":
+        case "contact_lenses":
+          // The exam/fitting has a visit rate; the eyewear itself does not.
+          return !["exam", "fitting", "examen", "adaptacion"].some((word) =>
+            hasPhrase(text, word),
+          );
+        default:
+          return false;
+      }
+    });
+    if (specific) return specific;
+  }
+  return informationTopic
+    ? (scores.find(({ definition }) => definition.topic === informationTopic) ??
+        null)
+    : selectConfidentTopic(scores);
+}
+
 function isContextualFollowUp(normalizedTranscript: string): boolean {
   if (normalizedTranscript.split(" ").filter(Boolean).length > 6) return false;
   const cues = [
@@ -877,6 +946,10 @@ function isContextualFollowUp(normalizedTranscript: string): boolean {
     "what about it",
     "what about that",
     "what about there",
+    "the visit",
+    "the consultation",
+    "la consulta",
+    "la cita",
     "yes",
     "yep",
     "y",
@@ -899,6 +972,150 @@ function isLocationFollowUp(normalizedTranscript: string): boolean {
     "what is the zip code",
     "what s the zip code",
   ].includes(normalizedTranscript);
+}
+
+// These requests ask for supplied facts or routing instructions, including when
+// the caller also mentions an appointment or a personal billing problem.
+function officeInformationTopic(text: string): OfficeKnowledgeTopic | null {
+  const hasAny = (phrases: string[]) =>
+    phrases.some((phrase) => hasPhrase(text, phrase));
+  if (
+    hasAny([
+      "bill",
+      "billing",
+      "billed",
+      "charged",
+      "overcharged",
+      "refund",
+      "reembolso",
+      "account balance",
+      "amount due",
+      "owe",
+      "factura",
+      "facturacion",
+      "cuanto debo",
+      "cobraron",
+    ])
+  ) {
+    return hasAny([
+      "credit card",
+      "debit card",
+      "tarjeta",
+      "payment methods",
+      "formas de pago",
+    ])
+      ? "payment"
+      : "billing";
+  }
+  if (
+    hasAny(["confirmation", "confirmacion"]) &&
+    hasAny([
+      "email",
+      "emailed",
+      "e mail",
+      "correo",
+      "send",
+      "sent",
+      "enviar",
+      "mandar",
+    ])
+  ) {
+    return "appointment_expectations";
+  }
+  if (
+    hasAny([
+      "copay",
+      "co pay",
+      "deductible",
+      "benefits",
+      "copago",
+      "deducible",
+      "prior authorization",
+    ])
+  ) {
+    return "insurance_referrals";
+  }
+  if (
+    hasAny(["address", "direccion", "directions"]) &&
+    hasAny([
+      "text",
+      "email",
+      "e mail",
+      "send",
+      "mensaje",
+      "correo",
+      "mandar",
+      "enviar",
+    ]) &&
+    !hasAny(["my address", "mi direccion", "change my", "update my"])
+  ) {
+    return "location_contact";
+  }
+  const selfPay = hasAny([
+    "self pay",
+    "cash",
+    "without insurance",
+    "no insurance",
+    "out of pocket",
+    "sin seguro",
+    "pago por cuenta propia",
+  ]);
+  const priceQuestion =
+    hasAny([
+      "how much",
+      "price",
+      "pricing",
+      "cost",
+      "charge",
+      "cuanto cuesta",
+      "monto a pagar",
+      "valor de la consulta",
+      "precio",
+    ]) ||
+    (hasAny(["cuanto"]) && hasAny(["pagar", "cobran", "cuesta", "vale"]));
+  if (
+    priceQuestion &&
+    (selfPay ||
+      !hasAny([
+        "insurance",
+        "seguro",
+        "copay",
+        "co pay",
+        "deductible",
+        "copago",
+        "deducible",
+      ]))
+  ) {
+    return "pricing";
+  }
+  return null;
+}
+
+function officeReplyGuidance(topic: OfficeKnowledgeTopic): string[] {
+  switch (topic) {
+    case "pricing":
+      return [
+        "Answer from the supplied self-pay visit rates. Clarify the visit type and new versus established patient when needed. A listed visit rate is not a quote for an unlisted procedure or the patient's final bill. Answer an available rate directly instead of offering a staff task for the same question.",
+      ];
+    case "location_contact":
+      return [
+        "If asked to text or email the office address, offer to read the relevant office address slowly for the caller to write down and repeat it as needed. Do not promise a message or create a staff task solely to send the address.",
+      ];
+    case "billing":
+      return [
+        "Follow the supplied billing contact instructions, including for optical billing and questions about an existing charge. Give the supplied number rather than offering a routine billing task. This reference does not establish a balance, reason for a charge, or a resolved billing issue.",
+      ];
+    case "insurance_referrals":
+      return [
+        "Plan acceptance does not prove benefits, copays, deductibles, active coverage, or authorization. Use check_insurance for participation; offer staff follow-up in the existing referrals category for unresolved benefit or authorization questions with caller agreement. Keep clinical referral requests separate.",
+      ];
+    case "appointment_expectations":
+      return [
+        "Explain only the supplied confirmation-email practice. A usual confirmation email is not proof that an email was sent or delivered. Do not promise to send or resend one. A routine confirmation request alone does not need a staff task; a reported missing confirmation or incorrect contact detail may need staff follow-up.",
+      ];
+    default:
+      return [];
+  }
 }
 
 function isBusinessOwnedTurn(normalizedTranscript: string): boolean {
@@ -957,6 +1174,8 @@ function isBusinessOwnedTurn(normalizedTranscript: string): boolean {
     hasPhrase(normalizedTranscript, phrase),
   );
   const selfPaySubject = [
+    "without insurance",
+    "no insurance",
     "cash pay",
     "cash price",
     "pago por cuenta propia",

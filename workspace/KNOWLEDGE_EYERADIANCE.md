@@ -102,6 +102,8 @@ Photo ID, insurance card, list of current medications, previous eye records (if 
 ## Appointment Expectations
 Status: available
 
+The practice typically sends an email confirmation after scheduling an appointment.
+
 New patient visits may take 1–2 hours depending on testing. Eye dilation may occur and can temporarily cause blurry vision and light sensitivity.
 
 ## Social Follow-Up

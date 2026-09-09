@@ -490,11 +490,6 @@ describe("Office Knowledge Resolver", () => {
     "Schedule a Botox consultation.",
     "Are my glasses ready?",
     "When will my contact lenses arrive?",
-    "How much do I owe?",
-    "What is the balance on my bill?",
-    "What is my account balance?",
-    "What is my billing statement?",
-    "What is my current bill?",
     "Can I see my patient record?",
     "The weather is lovely today.",
   ])(
@@ -527,7 +522,7 @@ describe("Office Knowledge Resolver", () => {
       const result = resolveOfficeKnowledge(officeKey, transcript);
 
       expect(result).toMatchObject({ outcome: "matched", topic });
-      expect(result.sections).toEqual([expect.stringContaining(heading)]);
+      expect(result.sections.join("\n")).toContain(heading);
     },
   );
 
