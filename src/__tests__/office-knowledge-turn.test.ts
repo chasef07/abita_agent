@@ -11,8 +11,10 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import {
+  HOLLYWOOD_OFFICE_PHONE,
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
   SPRING_HILL_OFFICE_PHONE,
+  SWEETWATER_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
 import { createTestCallState } from "./support/call-state.js";
 
@@ -130,6 +132,51 @@ describe("Office Knowledge turn enrichment", () => {
       ].sort(),
     );
   });
+
+  it.each([
+    ["hollywood", HOLLYWOOD_OFFICE_PHONE],
+    ["sweetwater", SWEETWATER_OFFICE_PHONE],
+  ] as const)(
+    "keeps astigmatism triage instructions when age arrives later at %s",
+    async (officeKey, trunkPhone) => {
+      const reason = "My child needs an appointment for astigmatism.";
+      const age = "She is four.";
+      const llm = new CapturingFakeLLM([
+        { input: reason, content: "How old is the patient?" },
+        { input: age, content: "Which office would you prefer?" },
+      ]);
+      const session = new AgentSession({ llm });
+      sessions.push(session);
+      session.userData = createTestCallState({ officeKey, trunkPhone });
+      await session.start({
+        agent: createVoiceAgent(trunkPhone, {
+          ownedMiddleware,
+          suppressGreeting: true,
+        }).agent,
+      });
+
+      await completeUserTurn(session, reason);
+      await vi.waitFor(() => expect(llm.requests).toHaveLength(1));
+      await session.waitForIdle();
+      expect(knowledgeMessages(llm.requests[0]!)).toHaveLength(1);
+
+      await completeUserTurn(session, age);
+      await vi.waitFor(() => expect(llm.requests).toHaveLength(2));
+      await session.waitForIdle();
+      const laterRequest = llm.requests[1]!;
+      expect(knowledgeMessages(laterRequest)).toEqual([]);
+      const instructions = laterRequest.items
+        .flatMap((item) =>
+          item.type === "message" && item.role === "system"
+            ? [item.textContent ?? ""]
+            : [],
+        )
+        .join("\n");
+      expect(instructions).toContain(
+        "For astigmatism at Hollywood or Sweetwater, use routine_vision with an optometrist (OD) for patients age 4 and older, and medical with Dr. Bach for patients age 3 or younger.",
+      );
+    },
+  );
 
   it.each([
     ["How much is the visit without insurance?", "## Self-Pay Pricing", "$250"],
