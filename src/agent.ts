@@ -31,6 +31,7 @@ import {
 } from "./scheduling/clock.js";
 import { availabilityModelProjection } from "./scheduling/availability.js";
 import { guardAssistantSpeech } from "./runtime/speech-output-guard.js";
+import { greetingAudio } from "./runtime/greeting-audio.js";
 
 type VoiceAgentOptions = {
   ownedMiddleware: OwnedMiddleware;
@@ -66,7 +67,11 @@ export function createVoiceAgent(
       if (greeting) {
         // Brief delay so the SIP audio path is fully established before speaking
         await new Promise((r) => setTimeout(r, 500));
-        await ctx.session.say(greeting);
+        const audio =
+          ctx.session.output.audio && ctx.session.output.audioEnabled
+            ? await greetingAudio(trunkPhone)
+            : undefined;
+        await ctx.session.say(greeting, { audio });
       }
     },
 
