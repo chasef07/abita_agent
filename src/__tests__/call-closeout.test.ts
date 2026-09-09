@@ -721,6 +721,25 @@ describe("call closeout", () => {
       toolName: "book_appointment",
       outcome: "booked",
       status: "failed",
+      middlewareRequests: [
+        {
+          requestId: "fb672b37-0211-4e69-baf1-b0f56b181911",
+          operation: "bookAppointment",
+          attempt: 1,
+          durationMs: 1400,
+          result: "response",
+          httpStatus: 200,
+          outcome: "indeterminate_write",
+          providerErrors: [
+            {
+              operation: "book_appointment",
+              category: "upstream_status",
+              httpStatus: 503,
+              durationMs: 1300,
+            },
+          ],
+        },
+      ],
       evidence: {
         action: "booked",
         bookingResult: { status: "error", reason: "middleware_error" },
@@ -740,7 +759,17 @@ describe("call closeout", () => {
       "appointmentOutcome",
     );
     expect(portal.deliveries[1]?.payload.domainOutcomes).toMatchObject([
-      { callId: "tool-call-failed", status: "failed" },
+      {
+        callId: "tool-call-failed",
+        status: "failed",
+        middlewareRequests: [
+          {
+            requestId: "fb672b37-0211-4e69-baf1-b0f56b181911",
+            outcome: "indeterminate_write",
+            providerErrors: [{ httpStatus: 503 }],
+          },
+        ],
+      },
     ]);
   });
 
