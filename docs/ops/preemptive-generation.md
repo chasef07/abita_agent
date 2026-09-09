@@ -1,6 +1,7 @@
 # Preemptive generation
 
-The agent enables LLM-only preemptive generation in `src/session-options.ts`.
+Preemptive generation is disabled in `src/session-options.ts`. The following
+describes the existing capability and tests for a future controlled pilot.
 LiveKit can begin a model request before turn detection finishes. It still owns
 turn confirmation, speech scheduling, cancellation, and tool execution;
 `preemptiveTts: false` defers speech synthesis until the turn is confirmed.

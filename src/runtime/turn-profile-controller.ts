@@ -6,19 +6,15 @@ import {
 import { voiceEndpointingProfiles } from "../session-options.js";
 import type { CallState } from "../state/call-state.js";
 import {
-  type AssemblyAIInferenceModelOptions,
+  type AssemblyAISttProfileOptions,
   type SttProfile,
   getAssemblyAIAgentContext,
-  getAssemblyAIInferenceSttProfileOptions,
+  getAssemblyAISttProfileOptions,
   selectSttProfileForAssistantText,
 } from "../stt-config.js";
 
-type EndpointingProfile = keyof typeof voiceEndpointingProfiles;
-type EndpointingOptions = (typeof voiceEndpointingProfiles)[EndpointingProfile];
-type InferenceStt = {
-  updateOptions: (options: {
-    modelOptions: AssemblyAIInferenceModelOptions;
-  }) => void;
+type ProfileStt = {
+  updateOptions: (options: AssemblyAISttProfileOptions) => void;
 };
 
 export type TurnProfileController = {
@@ -28,24 +24,27 @@ export type TurnProfileController = {
     details?: {
       createdAt?: number;
     },
-    extraOptions?: AssemblyAIInferenceModelOptions,
+    extraOptions?: AssemblyAISttProfileOptions,
   ) => void;
   commitUserTurn: () => void;
+  commitAssistantTurn: (committedText: string) => void;
   observeAssistantText: (assistantText: string, complete: boolean) => void;
   sttProfiles: SttProfileTransitionAnalytics[];
   readonly activeSttProfile: SttProfile;
 };
 
 export function createTurnProfileController(
-  stt: InferenceStt,
+  stt: ProfileStt,
   options: {
     startedAt: Date;
-    updateEndpointing: (options: EndpointingOptions) => void;
+    updateEndpointing: (options: {
+      minDelay: number;
+      maxDelay: number;
+    }) => void;
   },
 ): TurnProfileController {
   let activeSttProfile: SttProfile = "default";
-  let activeEndpointingProfile: EndpointingProfile = "conversation";
-  let promptedSttProfile: SttProfile | null = null;
+  let committedPromptProfile: SttProfile | null = null;
   const sttProfiles: SttProfileTransitionAnalytics[] = [
     snapshotSttProfileTransition({
       createdAt: options.startedAt,
@@ -61,7 +60,7 @@ export function createTurnProfileController(
     details: {
       createdAt?: number;
     } = {},
-    extraOptions: AssemblyAIInferenceModelOptions = {},
+    extraOptions: AssemblyAISttProfileOptions = {},
   ) => {
     if (
       profile === activeSttProfile &&
@@ -72,11 +71,16 @@ export function createTurnProfileController(
 
     const previousProfile = activeSttProfile;
     stt.updateOptions({
-      modelOptions: {
-        ...getAssemblyAIInferenceSttProfileOptions(profile),
-        ...extraOptions,
-      },
+      ...getAssemblyAISttProfileOptions(profile),
+      ...extraOptions,
     });
+    if ((profile === "default") !== (previousProfile === "default")) {
+      options.updateEndpointing(
+        profile === "default"
+          ? voiceEndpointingProfiles.conversation
+          : voiceEndpointingProfiles.deliberate,
+      );
+    }
     if (profile === activeSttProfile) return;
 
     activeSttProfile = profile;
@@ -89,42 +93,31 @@ export function createTurnProfileController(
         to: profile,
       }),
     );
-    console.log(
-      `[stt] AssemblyAI inference profile=${profile} reason=${reason}`,
-    );
+    console.log(`[stt] AssemblyAI profile=${profile} reason=${reason}`);
   };
 
-  const applyEndpointingProfile = (profile: EndpointingProfile) => {
-    if (profile === activeEndpointingProfile) return;
-    activeEndpointingProfile = profile;
-    options.updateEndpointing(voiceEndpointingProfiles[profile]);
-  };
-
-  const observeAssistantText = (assistantText: string, complete: boolean) => {
-    const profile = selectSttProfileForAssistantText(assistantText, {
-      fallbackProfile: promptedSttProfile,
+  const profileForAssistantText = (text: string) =>
+    selectSttProfileForAssistantText(text, {
+      fallbackProfile: committedPromptProfile,
     });
-    if (!complete && profile === "default") return;
-
-    promptedSttProfile = profile === "default" ? null : profile;
-    const agentContext = complete
-      ? getAssemblyAIAgentContext(assistantText)
-      : undefined;
-    applySttProfile(
-      profile,
-      "assistant_prompt",
-      {},
-      agentContext ? { agent_context: agentContext } : {},
-    );
-    if (profile !== "default") {
-      applyEndpointingProfile("deliberate");
-    }
-  };
 
   return {
     applySttProfile,
-    commitUserTurn: () => applyEndpointingProfile("conversation"),
-    observeAssistantText,
+    commitUserTurn: () => applySttProfile("default", "user_turn_committed"),
+    // TTS input may include discarded text. It can arm recognition, while
+    // only SDK-committed output advances context and follow-up history.
+    observeAssistantText: (text, complete) => {
+      const profile = profileForAssistantText(text);
+      if (!complete && profile === "default") return;
+      applySttProfile(profile, "assistant_prompt");
+    },
+    commitAssistantTurn: (committedText) => {
+      const agentContext = getAssemblyAIAgentContext(committedText.trim());
+      if (!agentContext) return;
+      const profile = profileForAssistantText(committedText);
+      committedPromptProfile = profile === "default" ? null : profile;
+      applySttProfile(profile, "assistant_prompt", {}, { agentContext });
+    },
     sttProfiles,
     get activeSttProfile() {
       return activeSttProfile;
@@ -136,16 +129,12 @@ export function attachTurnProfileLifecycle(
   session: AgentSession<CallState>,
   controller: TurnProfileController,
 ): void {
-  session.on(AgentSessionEventTypes.UserInputTranscribed, (event) => {
-    if (!event.isFinal) return;
-    controller.applySttProfile("default", "user_final", {
-      createdAt: event.createdAt,
-    });
-  });
-
   session.on(AgentSessionEventTypes.ConversationItemAdded, (event) => {
-    if (event.item.type === "message" && event.item.role === "user") {
+    if (event.item.type !== "message") return;
+    if (event.item.role === "user") {
       controller.commitUserTurn();
+    } else if (event.item.role === "assistant" && event.item.textContent) {
+      controller.commitAssistantTurn(event.item.textContent);
     }
   });
 }
