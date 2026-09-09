@@ -37,6 +37,8 @@ Status: available
 
 Dr. Bach schedules cataract exams, including cataract evaluations, and cataract surgery at Sweetwater. Schedule cataract exams with Dr. Bach through medical scheduling.
 
+Astigmatism is a routine-vision visit with an optometrist (OD) for patients age 4 and older. Patients age 3 or younger with astigmatism should see Dr. Bach through medical scheduling.
+
 Sweetwater schedules medical eye care and routine vision. Medical appointments cover current eye problems, symptoms, conditions, and ophthalmology care. Routine-vision appointments cover routine eye exams, eyeglass prescriptions, contact lens fittings, and insertion training when there is no active eye problem.
 
 Routine-vision age minimums follow the scheduler provider rules: Dr. Maria Casas sees routine-vision patients age 7 and older, Dr. Kyler Farnan sees routine-vision patients age 5 and older, and Dr. Gisselle Calero sees routine-vision patients age 4 and older. If no routine-vision provider is age-eligible, route the patient to Dr. Bach, who is a pediatric ophthalmologist.
@@ -45,6 +47,8 @@ Routine-vision age minimums follow the scheduler provider rules: Dr. Maria Casas
 Status: available
 
 Dr. Bach schedules cataract exams, including cataract evaluations, and cataract surgery at Sweetwater. Schedule cataract exams with Dr. Bach through medical scheduling.
+
+Astigmatism is a routine-vision visit with an optometrist (OD) for patients age 4 and older. Patients age 3 or younger with astigmatism should see Dr. Bach through medical scheduling.
 
 Doctors at the Sweetwater location:
 

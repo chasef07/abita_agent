@@ -309,6 +309,8 @@ const TOPICS: TopicDefinition[] = [
       ["catarata", 4, ["cataract"]],
       ["cataratas", 4, ["cataract"]],
       ["cirugia de cataratas", 6, ["cataract"]],
+      ["astigmatism", 4, ["astigmatism"]],
+      ["astigmatismo", 4, ["astigmatism"]],
       ["glaucoma", 4, ["glaucoma"]],
       ["retina", 4, ["retina"]],
       ["routine eye exam", 5, ["routine eye exam", "eye exam"]],
@@ -598,13 +600,19 @@ export function resolveOfficeKnowledge(
     ["cataract", "cataracts", "catarata", "cataratas"].some((phrase) =>
       hasPhrase(normalized, phrase),
     );
+  const astigmatismRequest =
+    ["hollywood", "sweetwater"].includes(officeKey) &&
+    ["astigmatism", "astigmatismo"].some((phrase) =>
+      hasPhrase(normalized, phrase),
+    );
+  const servicePolicyRequest = cataractRequest || astigmatismRequest;
   // Static office information can accompany a tool-owned workflow. Supplying
   // the contact or listed price never establishes an account or action outcome.
   const informationTopic = officeInformationTopic(normalized);
   // Service restrictions still apply when the caller asks to book care.
   if (
     isBusinessOwnedTurn(normalized) &&
-    !cataractRequest &&
+    !servicePolicyRequest &&
     !informationTopic
   ) {
     return { language, outcome: "skipped", sections: [], topic: null };
@@ -620,7 +628,7 @@ export function resolveOfficeKnowledge(
   let selected =
     emergencyTopic ??
     confidentTopic ??
-    (cataractRequest
+    (servicePolicyRequest
       ? (currentScores.find(
           ({ definition }) => definition.topic === "services",
         ) ?? null)

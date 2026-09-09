@@ -116,6 +116,65 @@ describe("cataract scheduling policy", () => {
   });
 });
 
+describe("astigmatism scheduling policy", () => {
+  it.each(["hollywood", "sweetwater"] as const)(
+    "supplies the age cutoff before scheduling at %s",
+    (officeKey) => {
+      for (const transcript of [
+        "I have astigmatism.",
+        "Book an appointment for astigmatism.",
+        "Book my 3-year-old with Dr. Bach for astigmatism.",
+        "Book my 4-year-old with Dr. Bach for astigmatism.",
+        "Does Dr. Bach see adults for astigmatism?",
+        "Which doctor treats astigmatism?",
+        "Quiero programar una cita para astigmatismo.",
+        "Quiero una cita con el Dr. Bach para astigmatismo.",
+      ]) {
+        const result = resolveOfficeKnowledge(officeKey, transcript);
+        expect(result, transcript).toMatchObject({ outcome: "matched" });
+        const knowledge = result.sections.join("\n");
+        expect(knowledge, transcript).toContain(
+          "Astigmatism is a routine-vision visit with an optometrist (OD) for patients age 4 and older.",
+        );
+        expect(knowledge, transcript).toContain(
+          "Patients age 3 or younger with astigmatism should see Dr. Bach through medical scheduling.",
+        );
+      }
+    },
+  );
+
+  it.each(["hollywood", "sweetwater"] as const)(
+    "preserves the primary question and urgency at %s",
+    (officeKey) => {
+      expect(
+        resolveOfficeKnowledge(
+          officeKey,
+          "What should I bring for my astigmatism appointment?",
+        ),
+      ).toMatchObject({ outcome: "matched", topic: "preparation" });
+      expect(
+        resolveOfficeKnowledge(
+          officeKey,
+          "Book an astigmatism appointment; this is a medical emergency.",
+        ),
+      ).toMatchObject({ outcome: "matched", topic: "emergency_urgency" });
+    },
+  );
+
+  it.each([
+    "spring-hill",
+    "crystal-river",
+    "north-miami-beach-optical",
+    "ophthalmology-demo",
+    "new-tampa-demo",
+    "rheumatology-demo",
+  ] as const)("keeps the scheduling boundary for %s", (officeKey) => {
+    expect(
+      resolveOfficeKnowledge(officeKey, "Book an astigmatism appointment."),
+    ).toMatchObject({ outcome: "skipped", sections: [] });
+  });
+});
+
 describe("North Miami Beach former office name", () => {
   it.each([
     "Is this BrightView Optical?",
