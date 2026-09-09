@@ -931,38 +931,48 @@ describe("stateful call tools", () => {
     );
   });
 
-  it("requires an accepted insurance check before creating a patient", async () => {
-    const state = createState();
-    markNewPatientPathConfirmed(state);
-    clearSchedulingContext(state);
+  it.each([null, "Florida Blue", "Florida Blue HMO"])(
+    "requires accepted coverage before creating a patient after checking %s",
+    async (plan) => {
+      const state = createState();
+      markNewPatientPathConfirmed(state);
+      clearSchedulingContext(state);
+      state.office.activeKey = "sweetwater";
+      if (plan) {
+        await check_insurance.execute({ plan, coverageType: "medical" }, {
+          ctx: createToolContext(state) as never,
+          toolCallId: "insurance-check",
+        } as never);
+      }
 
-    const result = await add_patient.execute(
-      {
-        firstName: "Jane",
-        lastName: "Doe",
-        dob: "01/01/1980",
-        street: "123 Main St",
-        city: "Spring Hill",
-        state: "FL",
-        zip: "34606",
-        sex: "female",
-        subscriberName: "Jane Doe",
-        insuranceMemberId: "self pay",
-        phone: "7275551212",
-        newPatientConfirmed: true,
-        readBack: true,
-      },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "tool-1",
-      } as never,
-    );
+      const result = await add_patient.execute(
+        {
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          street: "123 Main St",
+          city: "Spring Hill",
+          state: "FL",
+          zip: "34606",
+          sex: "female",
+          subscriberName: "Jane Doe",
+          insuranceMemberId: "self pay",
+          phone: "7275551212",
+          newPatientConfirmed: true,
+          readBack: true,
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      );
 
-    expect(result).toBe(
-      "I need to confirm accepted medical or routine vision coverage before creating the chart.",
-    );
-    expect(testMiddleware.operations).toHaveLength(0);
-  });
+      expect(result).toBe(
+        "I need to confirm accepted medical or routine vision coverage before creating the chart.",
+      );
+      expect(testMiddleware.operations).toHaveLength(0);
+    },
+  );
 
   it("blocks routine vision chart creation for Crystal River", async () => {
     const state = createState();
