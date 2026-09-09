@@ -681,6 +681,61 @@ describe("insurance matcher", () => {
     expect(canonicalInsurancePlan(routineVision)).toBe("iCare");
   });
 
+  it.each(["hollywood", "sweetwater"] as const)(
+    "%s requires a specific Florida Blue medical plan before proceeding",
+    (office) => {
+      for (const plan of [
+        "Florida Blue",
+        "I have Florida Blue",
+        "FL Blue",
+        "BCBS",
+        "Blue Cross Blue Shield",
+      ]) {
+        const result = matchInsurancePlanForOffice(office, plan, "medical");
+        expect(result.status, plan).toBe("needs_clarification");
+        expect(canonicalInsurancePlan(result), plan).toBeNull();
+        expect(result.canProceed, plan).toBe(false);
+        expect(buildInsuranceToolResponse(result), plan).toContain(
+          "HMO or PPO",
+        );
+      }
+
+      for (const plan of [
+        "Florida Blue HMO",
+        "FL Blue HMO",
+        "BCBS HMO",
+        "Blue Cross Blue Shield HMO",
+      ]) {
+        const result = matchInsurancePlanForOffice(office, plan, "medical");
+        expect(result.status, plan).toBe("needs_staff_task");
+        expect(canonicalInsurancePlan(result), plan).toBeNull();
+        expect(result.canProceed, plan).toBe(false);
+        const response = buildInsuranceToolResponse(result);
+        expect(response, plan).toContain("For adults");
+        expect(response, plan).toContain("only for diplopia (double vision)");
+        expect(response, plan).toContain(
+          "prior authorization before we can schedule",
+        );
+      }
+
+      for (const plan of [
+        "Florida Blue PPO",
+        "BCBS PPO",
+        "Florida Blue Medicare PPO",
+        "Florida Blue PPO Out Of State",
+      ]) {
+        expect(
+          matchInsurancePlanForOffice(office, plan, "medical").status,
+          plan,
+        ).toBe("accepted");
+      }
+      expect(
+        matchInsurancePlanForOffice(office, "Florida Blue", "routine_vision")
+          .status,
+      ).toBe("accepted");
+    },
+  );
+
   it("uses the Hollywood and Sweetwater medical insurance map", () => {
     const hollywoodAetnaEpo = matchInsurancePlanForOffice(
       "hollywood",

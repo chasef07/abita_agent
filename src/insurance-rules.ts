@@ -90,7 +90,7 @@ export function buildInsuranceToolResponse(
 
   if (result.status === "needs_staff_task") {
     if (result.preauthRequired) {
-      return "This plan requires prior authorization before we can schedule. I can send a task to staff to follow up with the insurance company. Is that okay?";
+      return `${result.callerNotice ? `${result.callerNotice} ` : ""}This plan requires prior authorization before we can schedule. I can send a task to staff to follow up with the insurance company. Is that okay?`;
     }
     const notice = (
       result.callerNotice ?? "The office needs to confirm this coverage"
