@@ -100,7 +100,7 @@ Payment handling is owned by the billing department. Follow the Billing section.
 ## Billing
 Status: available
 
-Give the caller the billing department number, (786) 446-8333, and direct them to call it for billing-related questions, including optical billing, existing charges, balances, statements, refunds, and payment issues. Give the number rather than creating a routine billing task. For a listed self-pay visit price, answer from Self-Pay Pricing. Insurance benefits, copays, deductibles, and authorization questions are separate from billing and require insurance verification; do not infer them from plan acceptance.
+Give the caller the billing department number, (786) 446-8333, and direct them to call it for every billing-related question.
 
 ## Self-Pay Pricing
 Status: available
@@ -115,7 +115,7 @@ Photo ID, insurance card, list of current medications, previous eye records (if 
 ## Appointment Expectations
 Status: available
 
-The practice typically sends an email confirmation after scheduling an appointment. Explain this usual process when asked for a confirmation email; do not claim a specific email was sent or delivered, and do not promise to send or resend one. If the caller reports a missing confirmation or incorrect contact details, offer staff follow-up for that unresolved problem.
+The practice typically sends an email confirmation after scheduling an appointment.
 
 New patient visits may take 1–2 hours. Eye dilation may occur, causing temporary blurry vision and light sensitivity.
 
