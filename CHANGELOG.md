@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.0.3](https://github.com/chasef07/abita_agent/compare/5.0.2...5.0.3) (2026-09-09)
+
+
+### Bug Fixes
+
+* recognize office knowledge questions and follow-ups ([#443](https://github.com/chasef07/abita_agent/issues/443)) ([72ae6f5](https://github.com/chasef07/abita_agent/commit/72ae6f532ce1740dfba88dbc2e1c9ebac8b5fb31))
+* require exact Florida Blue plan and HMO authorization ([#445](https://github.com/chasef07/abita_agent/issues/445)) ([d66a2b5](https://github.com/chasef07/abita_agent/commit/d66a2b50449e2ed0145e21411e4b3a4aa8a8c12b))
+
 ## [5.0.2](https://github.com/chasef07/abita_agent/compare/5.0.1...5.0.2) (2026-09-09)
 
 
