@@ -38,13 +38,16 @@ export function storeAvailabilitySlots(
   state: CallState,
   result: AvailabilityResult,
   routing: string | null,
+  canRetry = true,
 ): AvailabilityToolResponse {
   if (result.status === "error") {
     recordOwnedMiddlewareFailure(state, "getAvailability", result);
     clearAvailabilitySelection(state);
     throwOwnedMiddlewareFailure(
       result,
-      "I couldn't check availability. I can try once more or connect you with the office.",
+      canRetry
+        ? "I couldn't check availability. I can try once more or connect you with the office."
+        : "I still couldn't verify availability. Do not retry this search or describe it as no openings. Offer staff help according to office policy.",
     );
   }
 
@@ -82,7 +85,7 @@ export function storeAvailabilitySlots(
   });
 
   return {
-    message: availabilityMessage(result, storedSlots),
+    message: availabilityMessage(result, storedSlots, canRetry),
     cacheable: completeAvailabilityResult(result),
   };
 }
@@ -90,12 +93,16 @@ export function storeAvailabilitySlots(
 function availabilityMessage(
   result: AvailableSlotsResult,
   slots: StoredAvailabilitySlot[],
+  canRetry: boolean,
 ): string {
   const searchedRange = spokenSearchRange(result);
   if (result.status === "none") {
     return `I couldn't find any openings ${searchedRange}. What other day or time works for you?`;
   }
   if (result.status === "incomplete") {
+    if (!canRetry || !result.shouldRetrySameSearch) {
+      return `I still couldn't verify availability ${searchedRange}. Do not retry this search or describe it as no openings. Offer staff help according to office policy.`;
+    }
     return `I couldn't finish checking availability ${searchedRange}. Let me try once more.`;
   }
 

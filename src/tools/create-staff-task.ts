@@ -79,7 +79,8 @@ export const create_staff_task = tool({
   description:
     "Send safe, non-urgent caller-approved work to staff after collecting the needed details. " +
     "Do not use for completed appointment actions, urgent or clinical concerns, medication guidance or reactions, returned calls, or live-person requests; transfer those when policy requires. " +
-    "A created or duplicate result completes the request; describe it only as sent for staff review, without promising approval, completion, refill, or timing.",
+    "Call before claiming a message, note, callback, or waitlist request was sent. " +
+    "Success confirms staff submission only, without promising approval, completion, refill, or timing.",
   parameters: taskParameters,
   execute: async (input, { ctx, toolCallId }): Promise<string> => {
     const state = getState(ctx);
