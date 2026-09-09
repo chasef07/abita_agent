@@ -31,6 +31,7 @@ export interface MiddlewareRequestDiagnostic {
   providerErrors?: ProviderDiagnostic[];
   providerErrorCount?: number;
   failureReason?: string;
+  failureDetail?: "missing_appointment_id";
   retryable?: boolean;
 }
 
@@ -219,16 +220,4 @@ export function recordMiddlewareRequest(
     "abita.middleware.operation": diagnostic.operation,
     "abita.middleware.diagnostic": JSON.stringify(diagnostic),
   });
-}
-
-export function annotateMiddlewareResult(
-  diagnostic: MiddlewareRequestDiagnostic,
-  result: unknown,
-): void {
-  if (!result || typeof result !== "object") return;
-  const failure = result as { status?: string; reason?: string };
-  if (failure.status !== "error" || !failure.reason) return;
-  diagnostic.failureReason = failure.reason;
-  diagnostic.retryable =
-    failure.reason === "middleware_error" || failure.reason === "network_error";
 }

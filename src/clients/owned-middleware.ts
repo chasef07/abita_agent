@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
   middlewareOperationByPath,
-  annotateMiddlewareResult,
   beginMiddlewareRequest,
   readMiddlewareHeaders,
   readMiddlewareBody,
@@ -566,6 +565,25 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     const timeout = AbortSignal.timeout(this.#timeoutMs);
     return signal ? AbortSignal.any([signal, timeout]) : timeout;
   }
+}
+
+// Record the normalized decision beside transport evidence using the same
+// retry policy that the tool runtime applies.
+function annotateMiddlewareResult(
+  diagnostic: MiddlewareRequestDiagnostic,
+  result:
+    | PatientResolveResult
+    | AvailabilityResult
+    | CreatePatientResult
+    | BookAppointmentResult
+    | CancelAppointmentResult
+    | UpdateInsuranceResult,
+): void {
+  if (result.status !== "error" && result.status !== "rejected") return;
+  diagnostic.failureReason = result.reason;
+  diagnostic.retryable =
+    result.status === "error" && middlewareFailureIsRetryable(result);
+  if (result.status === "error") diagnostic.failureDetail = result.detail;
 }
 
 function normalizeAvailability(raw: unknown): AvailabilityResult {

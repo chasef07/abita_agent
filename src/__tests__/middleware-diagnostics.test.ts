@@ -323,3 +323,89 @@ it("records diagnostics alone when a tool has no domain receipt, without inventi
     middlewareRequests: [{ operation: "resolvePatient" }],
   });
 });
+
+it.each([
+  ["cancel", "invalid_cancellation_token"],
+  ["book", "invalid_booking_token"],
+  ["book", "booking_token_required"],
+  ["book", "invalid_reschedule_token"],
+] as const)(
+  "retains %s rejection %s without replaying the request",
+  async (operation, outcome) => {
+    const fetch = vi.fn(async () =>
+      Response.json({ status: "error", outcome }),
+    );
+    const middleware = new HttpOwnedMiddleware({
+      middlewareBaseUrl: "https://middleware.example",
+      fetch,
+    });
+    const requests: MiddlewareRequestDiagnostic[] = [];
+    const result = await middlewareDiagnosticContext.run(requests, () =>
+      operation === "cancel"
+        ? middleware.cancelAppointment({
+            office,
+            cancellationToken: "synthetic-token",
+          })
+        : middleware.bookAppointment({
+            office,
+            booking: {
+              bookingToken: "synthetic-token",
+              patientId: "synthetic-patient",
+              visitCategory: "medical",
+              patientStatus: "established",
+              appointmentReason: "synthetic",
+              referringDoctor: "none",
+            },
+          }),
+    );
+    expect(result).toMatchObject({ status: "rejected", reason: outcome });
+    expect(requests[0]).toMatchObject({
+      outcome,
+      failureReason: outcome,
+      retryable: false,
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  },
+);
+
+it("retains the safe missing appointment ID detail without raw provider data", async () => {
+  const fetch = vi.fn(async () =>
+    Response.json({
+      status: "booked",
+      message: "synthetic-private-provider-body",
+    }),
+  );
+  const middleware = new HttpOwnedMiddleware({
+    middlewareBaseUrl: "https://middleware.example",
+    fetch,
+  });
+  const requests: MiddlewareRequestDiagnostic[] = [];
+  const result = await middlewareDiagnosticContext.run(requests, () =>
+    middleware.bookAppointment({
+      office,
+      booking: {
+        bookingToken: "synthetic-token",
+        patientId: "synthetic-patient",
+        visitCategory: "medical",
+        patientStatus: "established",
+        appointmentReason: "synthetic",
+        referringDoctor: "none",
+      },
+    }),
+  );
+  expect(result).toEqual({
+    status: "error",
+    reason: "invalid_response",
+    detail: "missing_appointment_id",
+  });
+  expect(requests[0]).toMatchObject({
+    responseStatus: "booked",
+    failureReason: "invalid_response",
+    failureDetail: "missing_appointment_id",
+    retryable: false,
+  });
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(JSON.stringify(requests)).not.toContain(
+    "synthetic-private-provider-body",
+  );
+});

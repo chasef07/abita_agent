@@ -7,7 +7,9 @@ timeouts where no response headers arrive.
 The seven middleware tools execute inside an isolated async diagnostic scope.
 The agent records each attempt's transport result, HTTP status, original safe
 middleware outcome/category, response status, independent appointment-load
-status, provider failures, duration, and normalization/retry disposition. Raw
+status, provider failures, duration, and normalization/retry disposition, including
+explicit booking/cancellation rejections and the fixed `missing_appointment_id`
+validation detail. Retry permission uses the same policy as the tool runtime. Raw
 messages, arguments, credentials, provider bodies and patient values are excluded.
 
 Existing runtime failure reasons and retry rules are unchanged. In particular,
