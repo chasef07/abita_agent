@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.1.0](https://github.com/chasef07/abita_agent/compare/5.0.3...5.1.0) (2026-09-09)
+
+
+### Features
+
+* package office greeting audio ([#449](https://github.com/chasef07/abita_agent/issues/449)) ([12dfa55](https://github.com/chasef07/abita_agent/commit/12dfa5573686fae8bf14e1a230cc74a8a0a07b0a))
+
+
+### Bug Fixes
+
+* **observability:** persist middleware diagnostics for tool calls ([#448](https://github.com/chasef07/abita_agent/issues/448)) ([d443f1f](https://github.com/chasef07/abita_agent/commit/d443f1f3ab3327929ae548ee1e2342b161ec0402))
+
 ## [5.0.3](https://github.com/chasef07/abita_agent/compare/5.0.2...5.0.3) (2026-09-09)
 
 
