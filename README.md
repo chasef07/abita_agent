@@ -207,6 +207,14 @@ absent, including empty strings returned by a model. DOB read-back and caller
 confirmation are conversation instructions; code separately rejects invalid
 calendar dates. These checks do not independently prove that a date was spoken.
 
+For phone-linked candidates, a qualifying first name plus matching supplied DOB
+allows a bounded surname variation: normalized equality, one character edit for
+names of at least four normalized letters, or an exact leading/trailing component
+of a compound surname with at least four normalized letters. All qualifying
+candidates count toward ambiguity; an exact surname does not win over another
+qualifying variant. Verified candidates use the existing local activation path;
+lightweight candidates still require a successful lookup by patient ID.
+
 ## Call State
 
 Call State is the one runtime authority within a live job. Each module owns a

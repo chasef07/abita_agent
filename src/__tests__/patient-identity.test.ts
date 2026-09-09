@@ -225,6 +225,164 @@ describe("patient identity", () => {
     expect(lookup).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["Vagner", "Wagner"],
+    ["Meyr", "Meyer"],
+    ["Marlov", "Marlow"],
+    ["Lopez", "De Garcia Lopez"],
+    ["Meyre", "Meyer"],
+    ["Garcia-Lopez", "Garcia"],
+  ])(
+    "activates a phone candidate with matching DOB despite surname variation %s / %s",
+    async (provided, stored) => {
+      const state = createTestCallState({
+        preCallCandidates: [
+          {
+            ...verifiedCandidate("one", "Jonathan", "patient-1"),
+            lastName: stored,
+          },
+          verifiedCandidate("two", "Maria", "patient-2"),
+        ],
+      });
+      const lookup = vi.fn(async () => ({ status: "not_found" as const }));
+
+      const result = await resolveExistingPatient(
+        state,
+        { firstName: "Jonatham", lastName: provided, dob: "01/01/1980" },
+        lookup,
+      );
+
+      expect(result.outcome).toBe("verified");
+      expect(state.identity.activePatient?.patientId).toBe("patient-1");
+      expect(state.identity.activePatient?.name).toBe(`Jonathan ${stored}`);
+      expect(lookup).not.toHaveBeenCalled();
+      expect(state.identity.unregisteredPatientReceipt).toBeNull();
+    },
+  );
+
+  it("hydrates a matching surname variant by patient ID among shared-phone candidates", async () => {
+    const state = createTestCallState({
+      preCallCandidates: [
+        {
+          ...verifiedCandidate("one", "Jane", "patient-1"),
+          status: "candidate",
+          lastName: "Marlow",
+        },
+        verifiedCandidate("two", "Maria", "patient-2"),
+      ],
+    });
+    const lookup = vi.fn(async () =>
+      verifiedResult("patient-1", "Marlow,Jane", "01/01/1980"),
+    );
+
+    const result = await resolveExistingPatient(
+      state,
+      { firstName: "Jane", lastName: "Marlov", dob: "01/01/1980" },
+      lookup,
+    );
+
+    expect(result.outcome).toBe("verified");
+    expect(state.identity.activePatient?.patientId).toBe("patient-1");
+    expect(lookup).toHaveBeenCalledExactlyOnceWith(expect.any(String), {
+      patientId: "patient-1",
+    });
+  });
+
+  it.each([undefined, "02/02/1982"])(
+    "does not accept a surname variant with absent or conflicting DOB %s",
+    async (dob) => {
+      const state = createTestCallState({
+        preCallCandidates: [
+          {
+            ...verifiedCandidate("one", "Jane", "patient-1"),
+            lastName: "Meyer",
+          },
+        ],
+      });
+      const lookup = vi.fn(async () => ({ status: "not_found" as const }));
+
+      const result = await resolveExistingPatient(
+        state,
+        { firstName: "Jane", lastName: "Meyr", dob },
+        lookup,
+      );
+
+      expect(result.outcome).toBe(dob ? "not_found" : "needs_identity");
+      expect(state.identity.activePatient).toBeNull();
+    },
+  );
+
+  it.each([
+    ["Smith", "Meyer"],
+    ["Yu", "Wu"],
+    ["Andersen", "Andorson"],
+    ["De", "De Garcia Lopez"],
+    ["Garcia Smith", "Garcia Lopez"],
+  ])(
+    "does not accept unrelated, short, or conflicting compound surnames %s / %s",
+    async (provided, stored) => {
+      const state = createTestCallState({
+        preCallCandidates: [
+          {
+            ...verifiedCandidate("one", "Jane", "patient-1"),
+            lastName: stored,
+          },
+        ],
+      });
+      const lookup = vi.fn(async () => ({ status: "not_found" as const }));
+
+      await resolveExistingPatient(
+        state,
+        { firstName: "Jane", lastName: provided, dob: "01/01/1980" },
+        lookup,
+      );
+
+      expect(state.identity.activePatient).toBeNull();
+      expect(lookup).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("does not use a matching DOB and surname variant to bypass a conflicting first name", async () => {
+    const state = createTestCallState({
+      preCallCandidates: [
+        { ...verifiedCandidate("one", "Jane", "patient-1"), lastName: "Meyer" },
+      ],
+    });
+    const lookup = vi.fn(async () => ({ status: "not_found" as const }));
+
+    const result = await resolveExistingPatient(
+      state,
+      { firstName: "Robert", lastName: "Meyr", dob: "01/01/1980" },
+      lookup,
+    );
+
+    expect(result.outcome).toBe("not_found");
+    expect(state.identity.activePatient).toBeNull();
+  });
+
+  it("keeps exact and approximate surname matches ambiguous when first name and DOB agree", async () => {
+    const state = createTestCallState({
+      preCallCandidates: [
+        { ...verifiedCandidate("one", "Jane", "patient-1"), lastName: "Meyer" },
+        {
+          ...verifiedCandidate("two", "Jane", "patient-2"),
+          lastName: "Meyers",
+        },
+      ],
+    });
+    const lookup = vi.fn();
+
+    const result = await resolveExistingPatient(
+      state,
+      { firstName: "Jane", lastName: "Meyer", dob: "01/01/1980" },
+      lookup,
+    );
+
+    expect(result.outcome).toBe("multiple_matches");
+    expect(state.identity.activePatient).toBeNull();
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
   it("collects missing DOB to recover from a different patient on the same phone", async () => {
     const state = createTestCallState({
       preCallCandidates: [verifiedCandidate("one", "Jane", "patient-1")],

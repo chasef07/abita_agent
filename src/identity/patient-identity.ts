@@ -44,6 +44,7 @@ import {
   isValidPatientDOB,
   namesMatch,
   phoneCandidateFirstNameMatches,
+  phoneCandidateSurnameMatches,
 } from "./name-matcher.js";
 
 export interface PatientLookupIdentity {
@@ -577,9 +578,14 @@ async function resolvePrivateCandidate(
   );
   const matches = named.filter(
     (candidate) =>
+      (!identity.dob || dobMatches(identity.dob, candidate.dob)) &&
       (!identity.lastName ||
-        exactNamesMatch(identity.lastName, candidate.lastName ?? "")) &&
-      (!identity.dob || dobMatches(identity.dob, candidate.dob)),
+        exactNamesMatch(identity.lastName, candidate.lastName ?? "") ||
+        (identity.dob &&
+          phoneCandidateSurnameMatches(
+            identity.lastName,
+            candidate.lastName ?? "",
+          ))),
   );
 
   if (matches.length === 0) {
