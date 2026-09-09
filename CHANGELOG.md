@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.0.1](https://github.com/chasef07/abita_agent/compare/5.0.0...5.0.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* **voice:** migrate AssemblyAI plugin and correct turn context ([#435](https://github.com/chasef07/abita_agent/issues/435)) ([3699623](https://github.com/chasef07/abita_agent/commit/3699623e9300e064a6b147b3b8a2cb40bcec5376))
+
 ## [5.0.0](https://github.com/chasef07/abita_agent/compare/4.19.4...5.0.0) (2026-09-08)
 
 
