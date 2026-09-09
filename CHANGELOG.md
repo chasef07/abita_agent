@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.0.2](https://github.com/chasef07/abita_agent/compare/5.0.1...5.0.2) (2026-09-09)
+
+
+### Bug Fixes
+
+* clarify staff submissions and bound availability retries ([#441](https://github.com/chasef07/abita_agent/issues/441)) ([48accf6](https://github.com/chasef07/abita_agent/commit/48accf64ad06e0695bc218c4c4e207a032ee34cd))
+
 ## [5.0.1](https://github.com/chasef07/abita_agent/compare/5.0.0...5.0.1) (2026-09-09)
 
 
