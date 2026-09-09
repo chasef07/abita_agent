@@ -131,6 +131,50 @@ describe("Office Knowledge turn enrichment", () => {
     );
   });
 
+  it.each([
+    ["How much is the visit without insurance?", "## Self-Pay Pricing", "$250"],
+    ["What do you charge for cash?", "## Self-Pay Pricing", "$250"],
+    [
+      "¿Cuánto sería el monto a pagar? La consulta.",
+      "## Self-Pay Pricing",
+      "$250",
+    ],
+    ["Optical billing.", "## Billing", "(786) 446-8333"],
+    ["Can you text me the address?", "## Location and Contact", "write down"],
+    [
+      "Can you email my confirmation?",
+      "## Appointment Expectations",
+      "typically sends an email confirmation",
+    ],
+  ])(
+    "grounds the actual answering turn for %s",
+    async (input, heading, fact) => {
+      const llm = new CapturingFakeLLM([
+        { input, content: "I can explain the supplied office information." },
+      ]);
+      const session = new AgentSession({ llm });
+      sessions.push(session);
+      session.userData = createTestCallState({
+        officeKey: "spring-hill",
+        trunkPhone: SPRING_HILL_OFFICE_PHONE,
+      });
+      await session.start({
+        agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+          ownedMiddleware,
+          suppressGreeting: true,
+        }).agent,
+      });
+      await completeUserTurn(session, input);
+      await vi.waitFor(() => expect(llm.requests).toHaveLength(1));
+      await session.waitForIdle();
+      const references = knowledgeMessages(llm.requests[0]!);
+      expect(references).toHaveLength(1);
+      expect(references[0]).toContain(heading);
+      expect(references[0]).toContain(fact);
+      expect(knowledgeMessages(session.currentAgent.chatCtx)).toEqual([]);
+    },
+  );
+
   it("reuses an equivalent preemptive reply and invalidates one that needs grounding", async () => {
     const unrelatedLlm = new CapturingFakeLLM([
       { input: "How are you?", content: "I am ready to help." },
