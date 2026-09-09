@@ -3,8 +3,6 @@ import type {
   AvailabilityReadAnalytics,
   CallState,
   OfficeKnowledgeRetrievalAnalytics,
-  OwnedMiddlewareFailureAnalytics,
-  OwnedMiddlewareOperation,
   StaffTaskReceipt,
   DomainOutcomeReceipt,
 } from "./call-state.js";
@@ -130,27 +128,6 @@ export function availabilityReadEvents(
   state: CallState,
 ): AvailabilityReadAnalytics[] {
   return [...state.runtime.availabilityReads];
-}
-
-export function recordOwnedMiddlewareFailure(
-  state: CallState,
-  operation: OwnedMiddlewareOperation,
-  failure: Pick<OwnedMiddlewareFailureAnalytics, "reason" | "detail">,
-): void {
-  state.runtime.ownedMiddlewareFailures = [
-    ...state.runtime.ownedMiddlewareFailures,
-    {
-      createdAt: new Date().toISOString(),
-      operation,
-      ...failure,
-    },
-  ];
-}
-
-export function ownedMiddlewareFailures(
-  state: CallState,
-): OwnedMiddlewareFailureAnalytics[] {
-  return [...state.runtime.ownedMiddlewareFailures];
 }
 
 export function staffTaskReceipts(state: CallState): StaffTaskReceipt[] {

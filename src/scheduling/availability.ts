@@ -11,7 +11,6 @@ import {
   reserveAvailabilitySlotIds,
   storeAvailabilityBookingToken,
 } from "./state.js";
-import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
 import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 
@@ -41,7 +40,6 @@ export function storeAvailabilitySlots(
   canRetry = true,
 ): AvailabilityToolResponse {
   if (result.status === "error") {
-    recordOwnedMiddlewareFailure(state, "getAvailability", result);
     clearAvailabilitySelection(state);
     throwOwnedMiddlewareFailure(
       result,

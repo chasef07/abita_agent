@@ -1,3 +1,4 @@
+import { withMiddlewareToolDiagnostics } from "./middleware-tool-diagnostics.js";
 import { withNewTampaDemoTools } from "../customers/abita/new-tampa-demo.js";
 import { beta, type ToolContextEntry } from "@livekit/agents";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
@@ -22,7 +23,7 @@ const end_call = beta.createEndCallTool<CallState>({
 
 export type AgentTools = readonly ToolContextEntry<CallState>[];
 
-export function buildToolsForTrunk(
+function buildUnobservedToolsForTrunk(
   middleware: OwnedMiddleware,
   trunkPhone?: string,
 ): AgentTools {
@@ -60,4 +61,13 @@ export function buildToolsForTrunk(
     return [...commonTools, create_staff_task];
   }
   return commonTools;
+}
+
+export function buildToolsForTrunk(
+  middleware: OwnedMiddleware,
+  trunkPhone?: string,
+): AgentTools {
+  return buildUnobservedToolsForTrunk(middleware, trunkPhone).map(
+    withMiddlewareToolDiagnostics,
+  );
 }

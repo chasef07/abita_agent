@@ -12,10 +12,7 @@ import {
 } from "../state/call-state.js";
 import { patientModelProjection } from "../identity/patient-identity.js";
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
-import {
-  domainOutcomeReceipts,
-  ownedMiddlewareFailures,
-} from "../state/observability.js";
+import { domainOutcomeReceipts } from "../state/observability.js";
 import {
   check_insurance,
   createAddPatientTool,
@@ -381,9 +378,6 @@ describe("stateful call tools", () => {
     ).rejects.toThrow(
       "I couldn't create the patient chart. I can try once more or connect you with the office.",
     );
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      { operation: "createPatient", reason: "middleware_error" },
-    ]);
   });
 
   it("leaves a malformed chart-creation response as an internal error", async () => {
@@ -1684,9 +1678,6 @@ describe("stateful call tools", () => {
     ).rejects.toThrow("I couldn't look up the patient. Let me try once more.");
     expect(state.identity.privateCandidates).toHaveLength(1);
     expect(state.identity.activePatient).toBeNull();
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      { operation: "resolvePatient", reason: "middleware_error" },
-    ]);
   });
 
   it("leaves an invalid patient response as an internal error", async () => {
@@ -3102,9 +3093,6 @@ describe("stateful call tools", () => {
       "I couldn't update the insurance. I can try once more or connect you with the office.",
     );
     expect(state.insurance.onFile).toBeNull();
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      { operation: "updateInsurance", reason: "middleware_error" },
-    ]);
   });
 
   it("leaves an invalid insurance-update response as an internal error", async () => {

@@ -1,3 +1,4 @@
+import type { MiddlewareRequestDiagnostic } from "../clients/middleware-diagnostics.js";
 import type { OfficeKey } from "../customers/abita/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { RuntimeVoiceLanguageState } from "../runtime/voice-language.js";
@@ -204,21 +205,6 @@ export type OwnedMiddlewareFailureReason =
   | "unsupported_office"
   | "cancelled";
 
-export type OwnedMiddlewareOperation =
-  | "resolvePatient"
-  | "getAvailability"
-  | "createPatient"
-  | "bookAppointment"
-  | "cancelAppointment"
-  | "updateInsurance";
-
-export interface OwnedMiddlewareFailureAnalytics {
-  operation: OwnedMiddlewareOperation;
-  reason: OwnedMiddlewareFailureReason;
-  detail?: "missing_appointment_id";
-  createdAt?: string;
-}
-
 export interface AppointmentAnalytics {
   patientName?: string;
   appointmentDate?: string;
@@ -246,9 +232,10 @@ export interface AppointmentActionAnalytics {
 }
 
 export type DomainOutcomeStatus =
-  "success" | "blocked" | "partial" | "ambiguous" | "failed";
+  "success" | "partial" | "blocked" | "ambiguous" | "failed" | "observed";
 
 export type DomainOutcome =
+  | "middleware_diagnostics"
   | AppointmentActionName
   | "insurance_update_failed"
   | "insurance_updated"
@@ -274,6 +261,7 @@ export type DomainOutcome =
 
 /** An Acuity-owned fact recorded where a tool's domain result becomes known. */
 export interface DomainOutcomeReceipt {
+  middlewareRequests?: MiddlewareRequestDiagnostic[];
   callId: string;
   toolName: string;
   outcome: DomainOutcome;
@@ -380,7 +368,6 @@ interface RuntimeCallState {
   outcomeReceipts: DomainOutcomeReceipt[];
   availabilityReads: AvailabilityReadAnalytics[];
   knowledgeRetrievals: OfficeKnowledgeRetrievalAnalytics[];
-  ownedMiddlewareFailures: OwnedMiddlewareFailureAnalytics[];
   staffTasks: StaffTaskReceipt[];
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
@@ -547,7 +534,6 @@ export function createCanonicalCallState(
       outcomeReceipts: [],
       availabilityReads: [],
       knowledgeRetrievals: [],
-      ownedMiddlewareFailures: [],
       staffTasks: [],
       voiceLanguage: input.voiceLanguage ?? null,
     },
