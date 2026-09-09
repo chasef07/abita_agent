@@ -11,10 +11,7 @@ import {
   patientBackendRefs,
   setActivePatientBackendRefs,
 } from "../state/call-state.js";
-import {
-  domainOutcomesForTool,
-  recordOwnedMiddlewareFailure,
-} from "../state/observability.js";
+import { domainOutcomesForTool } from "../state/observability.js";
 import {
   clearAvailabilitySelection,
   insuranceOnFile,
@@ -107,7 +104,6 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
       });
 
       if (result.status !== "updated") {
-        recordOwnedMiddlewareFailure(state, "updateInsurance", result);
         outcomes.record({
           outcome: "insurance_update_failed",
           status: "failed",

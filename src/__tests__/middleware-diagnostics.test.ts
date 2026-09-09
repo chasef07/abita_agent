@@ -11,7 +11,6 @@ import {
 import { withMiddlewareToolDiagnostics } from "../runtime/middleware-tool-diagnostics.js";
 import {
   recordDomainOutcome,
-  recordOwnedMiddlewareFailure,
   domainOutcomeReceipts,
 } from "../state/observability.js";
 import { createTestCallState } from "./support/call-state.js";
@@ -72,8 +71,6 @@ it("preserves both read attempts through tool normalization, trace and persisted
           identity: { phone: "synthetic-private-patient" },
         });
         expect(result).toEqual({ status: "error", reason: "request_rejected" });
-        if (result.status === "error")
-          recordOwnedMiddlewareFailure(state, "resolvePatient", result);
         recordDomainOutcome(state, {
           callId: "tool-1",
           toolName: "resolve_patient",

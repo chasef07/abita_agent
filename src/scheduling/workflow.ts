@@ -30,7 +30,6 @@ import {
 import {
   appointmentActions,
   recordAppointmentAction,
-  recordOwnedMiddlewareFailure,
 } from "../state/observability.js";
 import {
   activeRoutingContext,
@@ -255,10 +254,6 @@ export class SchedulingWorkflow {
       office: getAmdOfficeForToolCall(state),
     });
 
-    if (result.status === "error") {
-      recordOwnedMiddlewareFailure(state, "bookAppointment", result);
-    }
-
     if (activePatientId(state) !== patientId) {
       const message = bookingSucceeded(result)
         ? bookedAppointmentMessage(selectedSlot, result)
@@ -437,10 +432,6 @@ export class SchedulingWorkflow {
       office: getAmdOfficeForToolCall(state),
     });
 
-    if (result.status !== "cancelled") {
-      recordOwnedMiddlewareFailure(state, "cancelAppointment", result);
-    }
-
     if (activePatientId(state) !== patientId) {
       const message =
         result.status === "cancelled"
@@ -611,10 +602,6 @@ export class SchedulingWorkflow {
       office: bookingOffice,
     });
 
-    if (bookingResult.status === "error") {
-      recordOwnedMiddlewareFailure(state, "bookAppointment", bookingResult);
-    }
-
     if (activePatientId(state) !== patientId) {
       if (bookingSucceeded(bookingResult)) {
         recordCompletedReschedule(
@@ -695,9 +682,6 @@ export class SchedulingWorkflow {
             : cancellationOffice,
       });
     } catch {
-      recordOwnedMiddlewareFailure(state, "cancelAppointment", {
-        reason: "network_error",
-      });
       if (activePatientId(state) !== patientId) {
         recordCompletedReschedule(
           state,
@@ -743,10 +727,6 @@ export class SchedulingWorkflow {
         cancellationResult: { status: "error", reason: "network_error" },
       });
       return message;
-    }
-
-    if (cancelResult.status !== "cancelled") {
-      recordOwnedMiddlewareFailure(state, "cancelAppointment", cancelResult);
     }
 
     if (activePatientId(state) !== patientId) {

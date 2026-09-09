@@ -20,7 +20,6 @@ import {
   type RegistrationDraft,
 } from "../state/call-state.js";
 import { resetActiveOfficeToTrunk } from "../state/call-lifecycle.js";
-import { recordOwnedMiddlewareFailure } from "../state/observability.js";
 import {
   insuranceOnFile,
   insuranceSnapshot,
@@ -211,9 +210,6 @@ export async function resolveExistingPatient(
     });
   }
 
-  if (result.status === "error") {
-    recordOwnedMiddlewareFailure(state, "resolvePatient", result);
-  }
   if (result.status === "not_found") {
     state.identity.unregisteredPatientReceipt = {
       identity,
@@ -711,9 +707,6 @@ async function performCandidateHydration(
         : result.status === "error"
           ? result
           : undefined;
-    if (result.status === "error") {
-      recordOwnedMiddlewareFailure(state, "resolvePatient", result);
-    }
     state.runtime.preCallLookup.hydrationOutcome =
       result.status === "verified"
         ? "incomplete"

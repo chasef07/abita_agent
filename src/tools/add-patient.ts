@@ -14,10 +14,7 @@ import {
   patientRegistrationStatus,
 } from "../identity/patient-identity.js";
 import { runtimeCallerPhone } from "../state/call-lifecycle.js";
-import {
-  domainOutcomesForTool,
-  recordOwnedMiddlewareFailure,
-} from "../state/observability.js";
+import { domainOutcomesForTool } from "../state/observability.js";
 import {
   applySchedulingLaneToState,
   lastInsuranceEligibilityCheck,
@@ -243,9 +240,6 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       } catch (error) {
         recordPatientCreationOutcome(outcomes, "failed");
         throw error;
-      }
-      if (result.status === "error") {
-        recordOwnedMiddlewareFailure(state, "createPatient", result);
       }
       const commit = commitPatientCreation(state, creation, result);
       if (commit.outcome === "superseded") {

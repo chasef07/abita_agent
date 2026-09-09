@@ -205,21 +205,6 @@ export type OwnedMiddlewareFailureReason =
   | "unsupported_office"
   | "cancelled";
 
-export type OwnedMiddlewareOperation =
-  | "resolvePatient"
-  | "getAvailability"
-  | "createPatient"
-  | "bookAppointment"
-  | "cancelAppointment"
-  | "updateInsurance";
-
-export interface OwnedMiddlewareFailureAnalytics {
-  operation: OwnedMiddlewareOperation;
-  reason: OwnedMiddlewareFailureReason;
-  detail?: "missing_appointment_id";
-  createdAt?: string;
-}
-
 export interface AppointmentAnalytics {
   patientName?: string;
   appointmentDate?: string;
@@ -383,7 +368,6 @@ interface RuntimeCallState {
   outcomeReceipts: DomainOutcomeReceipt[];
   availabilityReads: AvailabilityReadAnalytics[];
   knowledgeRetrievals: OfficeKnowledgeRetrievalAnalytics[];
-  ownedMiddlewareFailures: OwnedMiddlewareFailureAnalytics[];
   staffTasks: StaffTaskReceipt[];
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
@@ -550,7 +534,6 @@ export function createCanonicalCallState(
       outcomeReceipts: [],
       availabilityReads: [],
       knowledgeRetrievals: [],
-      ownedMiddlewareFailures: [],
       staffTasks: [],
       voiceLanguage: input.voiceLanguage ?? null,
     },

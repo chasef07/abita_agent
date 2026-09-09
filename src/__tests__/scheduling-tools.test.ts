@@ -17,7 +17,6 @@ import {
   appointmentActions,
   availabilityReadEvents,
   domainOutcomeReceipts,
-  ownedMiddlewareFailures,
 } from "../state/observability.js";
 import { activeAppointments } from "../state/appointments.js";
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
@@ -1595,13 +1594,9 @@ describe("scheduling tools", () => {
       await expect(failure).rejects.toThrow("Do not retry this search");
     }
     expect(middleware.operations).toHaveLength(2);
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      { operation: "getAvailability", reason: "network_error" },
-      { operation: "getAvailability", reason: "network_error" },
-    ]);
   });
 
-  it("records a middleware failure without exposing backend details", async () => {
+  it("surfaces a middleware failure without exposing backend details", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [
         {
@@ -1621,9 +1616,6 @@ describe("scheduling tools", () => {
     ).rejects.toThrow(
       "I couldn't check availability. I can try once more or connect you with the office.",
     );
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      { operation: "getAvailability", reason: "middleware_error" },
-    ]);
   });
 
   it("leaves an invalid availability response as an internal error", async () => {
@@ -2072,13 +2064,6 @@ describe("scheduling tools", () => {
     expect(appointmentActions(state)).toMatchObject([
       { action: "booked", status: "error" },
     ]);
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      {
-        operation: "bookAppointment",
-        reason: "invalid_response",
-        detail: "missing_appointment_id",
-      },
-    ]);
   });
 
   it.each([
@@ -2147,7 +2132,6 @@ describe("scheduling tools", () => {
       expect(state.availability.bookingTokensBySlotId).toEqual({
         S1: "private-token",
       });
-      expect(ownedMiddlewareFailures(state)).toEqual([]);
     },
   );
 
@@ -2636,9 +2620,6 @@ describe("scheduling tools", () => {
     expect(state.identity.activePatient!.appointments).toEqual([
       expect.objectContaining(loadedAppointment()),
     ]);
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      { operation: "cancelAppointment", reason: "middleware_error" },
-    ]);
   });
 
   it("invalidates stale appointment authorization after token rejection without fallback", async () => {
@@ -2681,12 +2662,6 @@ describe("scheduling tools", () => {
       appointments: [],
       appointmentsStatus: "error",
     });
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      {
-        operation: "cancelAppointment",
-        reason: "invalid_cancellation_token",
-      },
-    ]);
 
     await expect(
       cancel_appointment.execute({ appointmentRef }, {
@@ -3729,9 +3704,6 @@ describe("scheduling tools", () => {
       "book",
       "cancel",
     ]);
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      { operation: "cancelAppointment", reason: "middleware_error" },
-    ]);
     expect(
       state.identity.activePatient!.appointments.map(({ id }) => id),
     ).toEqual([123, 456]);
@@ -3791,12 +3763,6 @@ describe("scheduling tools", () => {
         request: { cancellationToken: "expired-cancellation-token" },
       },
     ]);
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      {
-        operation: "cancelAppointment",
-        reason: "invalid_cancellation_token",
-      },
-    ]);
   });
 
   it("records the same partial outcome when cancellation throws", async () => {
@@ -3828,9 +3794,6 @@ describe("scheduling tools", () => {
     expect(
       state.identity.activePatient!.appointments.map(({ id }) => id),
     ).toEqual([123, 456]);
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      { operation: "cancelAppointment", reason: "network_error" },
-    ]);
     expect(state.identity.completedReschedulesByPatientId["patient-1"]).toEqual(
       {
         status: "needs_human_cancellation",
