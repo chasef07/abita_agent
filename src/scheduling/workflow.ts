@@ -49,6 +49,7 @@ import {
 } from "./availability.js";
 import {
   availabilityReadGeneration,
+  availabilityReadCanRetry,
   availabilityResultHasExpiredBookingTokens,
   cacheCompletedAvailabilityRead,
   coordinatedAvailabilityRead,
@@ -87,6 +88,7 @@ import {
   ensureAvailabilityContext,
 } from "./context.js";
 import { SchedulingInputRequired } from "./input-required.js";
+import { spokenAppointmentDate } from "./spoken-date.js";
 import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 import type {
   AvailabilityRequest as MiddlewareAvailabilityRequest,
@@ -181,7 +183,12 @@ export class SchedulingWorkflow {
       }
     }
     try {
-      const response = storeAvailabilitySlots(state, result, request.routing);
+      const response = storeAvailabilitySlots(
+        state,
+        result,
+        request.routing,
+        availabilityReadCanRetry(state, request.backendKey),
+      );
       if (response.cacheable) {
         state.availability.refreshAfter = cacheCompletedAvailabilityRead(
           state,
@@ -866,6 +873,13 @@ function buildAvailabilityLookupRequestForState(
   },
 ): AvailabilityWorkflowRequest | { blocked: string } {
   const { cacheDay } = args;
+  if (args.startDate && args.startDate <= cacheDay) {
+    return {
+      blocked:
+        `Same-day and past-date appointments cannot be scheduled here. The earliest search date is ${spokenAppointmentDate(addCalendarDays(cacheDay, 1))}. ` +
+        "Ask whether that date or later works; do not retry the same date or change it without the caller's agreement. Follow office policy if the caller needs help today.",
+    };
+  }
   const incompleteRegistration = incompletePatientRegistrationMessage(state);
   if (incompleteRegistration) {
     return { blocked: incompleteRegistration };

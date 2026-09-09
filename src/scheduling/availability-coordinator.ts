@@ -4,11 +4,13 @@ import type {
 } from "../state/call-state.js";
 import { recordAvailabilityReadEvent } from "../state/observability.js";
 import type { AvailabilityResult } from "./middleware.js";
+import { middlewareFailureIsRetryable } from "../clients/owned-middleware.js";
 
 type AvailabilityCoordinator = {
   completed: Map<string, { expiresAt: number; result: AvailabilityResult }>;
   generation: number;
   inFlight: Map<string, InFlightAvailabilityRead>;
+  failed: Map<string, { attempts: number; result: AvailabilityResult }>;
 };
 
 type InFlightAvailabilityRead = {
@@ -37,6 +39,10 @@ export async function coordinatedAvailabilityRead(
   const { now, signal } = options;
   signal?.throwIfAborted();
   const coordinator = availabilityCoordinatorFor(state);
+  const failed = coordinator.failed.get(key);
+  if (failed && !availabilityReadCanRetry(state, key)) {
+    return failed.result;
+  }
   const completed = coordinator.completed.get(key);
   if (completed) {
     if (now.getTime() >= completed.expiresAt) {
@@ -69,6 +75,15 @@ export async function coordinatedAvailabilityRead(
   const pending = Promise.resolve().then(read);
   const inFlight: InFlightAvailabilityRead = { promise: pending };
   inFlight.promise = pending.then((result) => {
+    // Count backend attempts once, even when multiple tool calls share the read.
+    if (coordinator.inFlight.get(key) === inFlight && !signal?.aborted) {
+      if (result.status === "incomplete" || result.status === "error") {
+        const attempts = (coordinator.failed.get(key)?.attempts ?? 0) + 1;
+        coordinator.failed.set(key, { attempts, result });
+      } else {
+        coordinator.failed.delete(key);
+      }
+    }
     inFlight.result = result;
     return result;
   });
@@ -166,16 +181,33 @@ export function availabilityReadGeneration(state: CallState): number {
   return availabilityCoordinatorFor(state).generation;
 }
 
+export function availabilityReadCanRetry(
+  state: CallState,
+  key: string,
+): boolean {
+  const failed = availabilityCoordinatorFor(state).failed.get(key);
+  if (!failed) return true;
+  return (
+    failed.attempts < 2 &&
+    (failed.result.status === "error"
+      ? middlewareFailureIsRetryable(failed.result)
+      : failed.result.shouldRetrySameSearch)
+  );
+}
+
 export function invalidateAvailabilityReads(
   state: CallState,
   reason: AvailabilityInvalidationReason,
 ): boolean {
   const coordinator = availabilityCoordinatorFor(state);
   const invalidated =
-    coordinator.completed.size > 0 || coordinator.inFlight.size > 0;
+    coordinator.completed.size > 0 ||
+    coordinator.inFlight.size > 0 ||
+    coordinator.failed.size > 0;
   coordinator.generation += 1;
   coordinator.completed.clear();
   coordinator.inFlight.clear();
+  coordinator.failed.clear();
   if (invalidated) {
     recordAvailabilityReadEvent(state, {
       operation: "invalidation",
@@ -194,6 +226,7 @@ function availabilityCoordinatorFor(state: CallState): AvailabilityCoordinator {
     completed: new Map(),
     generation: 0,
     inFlight: new Map(),
+    failed: new Map(),
   };
   Object.defineProperty(sessionState, coordinatorKey, {
     value: coordinator,

@@ -379,6 +379,34 @@ describe("scheduling tools", () => {
     ]);
   });
 
+  it.each(["2026-05-29", "2026-05-30"])(
+    "explains the earliest search date without querying or shifting %s",
+    async (startDate) => {
+      // Already May 31 in UTC, but still May 30 at the clinic.
+      vi.setSystemTime(new Date("2026-05-31T02:00:00Z"));
+      const middleware = new InMemorySchedulingMiddleware();
+      const { list_available_appointments } = createSchedulingTools(middleware);
+      const state = createState();
+      const ctx = createToolContext(state);
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await expect(
+          list_available_appointments.execute(
+            { startDate, visitType: "medical" },
+            {
+              ctx: ctx as never,
+              toolCallId: `same-day-${attempt}`,
+            } as never,
+          ),
+        ).resolves.toBe(
+          "Same-day and past-date appointments cannot be scheduled here. The earliest search date is Sunday, May 31. Ask whether that date or later works; do not retry the same date or change it without the caller's agreement. Follow office policy if the caller needs help today.",
+        );
+      }
+      expect(middleware.operations).toEqual([]);
+      expect(state.availability.requestedStartDate).toBeUndefined();
+    },
+  );
+
   it("offers only returned availability while keeping booking tokens private", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [
@@ -1428,7 +1456,7 @@ describe("scheduling tools", () => {
     ]);
   });
 
-  it("retries an incomplete availability search instead of caching it", async () => {
+  it("allows one retry of an incomplete window, then stops identical backend reads", async () => {
     const incomplete = {
       status: "incomplete",
       requestedDate: "2026-06-01",
@@ -1439,7 +1467,11 @@ describe("scheduling tools", () => {
       slots: [],
     };
     const middleware = new InMemorySchedulingMiddleware({
-      availability: [incomplete, incomplete],
+      availability: [
+        incomplete,
+        incomplete,
+        availabilityFound([returnedSlot()]),
+      ],
     });
     const { list_available_appointments } = createSchedulingTools(middleware);
     const state = createState();
@@ -1460,8 +1492,113 @@ describe("scheduling tools", () => {
     expect(first).toBe(
       "I couldn't finish checking availability from Monday, June 1 through Tuesday, June 2. Let me try once more.",
     );
-    expect(second).toBe(first);
+    expect(second).toBe(
+      "I still couldn't verify availability from Monday, June 1 through Tuesday, June 2. Do not retry this search or describe it as no openings. Offer staff help according to office policy.",
+    );
+    const third = await list_available_appointments.execute(args, {
+      ctx: ctx as never,
+      toolCallId: "availability-3",
+    } as never);
+    expect(third).toBe(second);
     expect(middleware.operations).toHaveLength(2);
+
+    await expect(
+      list_available_appointments.execute(
+        { ...args, startDate: "2026-06-15" },
+        {
+          ctx: ctx as never,
+          toolCallId: "availability-another-window",
+        } as never,
+      ),
+    ).resolves.toContain("Loaded 1 eligible appointments");
+    expect(middleware.operations).toHaveLength(3);
+
+    await expect(
+      list_available_appointments.execute(args, {
+        ctx: ctx as never,
+        toolCallId: "availability-original-window",
+      } as never),
+    ).resolves.toBe(second);
+    expect(middleware.operations).toHaveLength(3);
+  });
+
+  it("counts shared incomplete reads once and resets the budget for another patient", async () => {
+    const deferred = deferredResult<AvailabilityResult>();
+    const incomplete: AvailabilityResult = {
+      status: "incomplete",
+      slots: [],
+      dateShifted: false,
+      shouldRetrySameSearch: true,
+    };
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        deferred.promise,
+        incomplete,
+        availabilityFound([returnedSlot()]),
+      ],
+    });
+    const { list_available_appointments } = createSchedulingTools(middleware);
+    const state = createState();
+    const ctx = createToolContext(state);
+    const search = (toolCallId: string) =>
+      list_available_appointments.execute({ visitType: "medical" }, {
+        ctx: ctx as never,
+        toolCallId,
+      } as never);
+    const owner = search("owner");
+    const waiter = search("waiter");
+    deferred.resolve(incomplete);
+
+    for (const result of await Promise.all([owner, waiter])) {
+      expect(result).toContain("Let me try once more.");
+    }
+    expect(middleware.operations).toHaveLength(1);
+    await expect(search("retry")).resolves.toContain(
+      "Do not retry this search",
+    );
+    await expect(search("exhausted")).resolves.toContain(
+      "Do not retry this search",
+    );
+    expect(middleware.operations).toHaveLength(2);
+
+    switchActivePatient(state);
+    await expect(search("another-patient")).resolves.toContain(
+      "Loaded 1 eligible appointments",
+    );
+    expect(middleware.operations).toHaveLength(3);
+  });
+
+  it("preserves the retry limit and diagnostic when an incomplete search retries with a network error", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [
+        {
+          status: "incomplete",
+          slots: [],
+          dateShifted: false,
+          shouldRetrySameSearch: true,
+        },
+        { status: "error", reason: "network_error" },
+      ],
+    });
+    const { list_available_appointments } = createSchedulingTools(middleware);
+    const state = createState();
+    const search = (toolCallId: string) =>
+      list_available_appointments.execute({ visitType: "medical" }, {
+        ctx: createToolContext(state) as never,
+        toolCallId,
+      } as never);
+
+    await expect(search("first")).resolves.toContain("Let me try once more.");
+    for (const toolCallId of ["retry", "exhausted"]) {
+      const failure = search(toolCallId);
+      await expect(failure).rejects.toBeInstanceOf(ToolError);
+      await expect(failure).rejects.toThrow("Do not retry this search");
+    }
+    expect(middleware.operations).toHaveLength(2);
+    expect(ownedMiddlewareFailures(state)).toMatchObject([
+      { operation: "getAvailability", reason: "network_error" },
+      { operation: "getAvailability", reason: "network_error" },
+    ]);
   });
 
   it("records a middleware failure without exposing backend details", async () => {

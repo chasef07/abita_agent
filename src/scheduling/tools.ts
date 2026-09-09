@@ -95,7 +95,7 @@ export function createSchedulingTools(
       .nullable()
       .default(null)
       .describe(
-        "First date of a 14-calendar-day window, YYYY-MM-DD in Eastern time. Omit or pass null for tomorrow. For a future date, start there directly. To search later, use the day after the loaded window ends. Reuse the loaded list for day/time preferences within its window.",
+        "First date of a 14-calendar-day window, YYYY-MM-DD in Eastern time; tomorrow or later only. Omit or pass null for tomorrow. For a future date, start there directly. To search later, use the day after the loaded window ends. Reuse the loaded list for day/time preferences within its window.",
       ),
     visitType: z
       .enum(["medical", "routine_vision"])
