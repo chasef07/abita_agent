@@ -1372,6 +1372,91 @@ describe("stateful call tools", () => {
     ]);
   });
 
+  it.each(["verified", "candidate", "absent"] as const)(
+    "records an explicit switch through %s phone candidates after clarification",
+    async (status) => {
+      const state = createState();
+      if (status !== "absent")
+        state.identity.privateCandidates = [
+          {
+            status,
+            ref: "second",
+            patientId: "patient-2",
+            firstName: "John",
+            lastName: "Doe",
+            dob: "02/02/1982",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+        ];
+      const resolved = verifiedPatientResult({
+        patientId: "patient-2",
+        name: "John Doe",
+        dob: "02/02/1982",
+      });
+      if (status === "absent") stubPatientSearch(resolved);
+      else stubPatient(resolved, resolved);
+      const ctx = createToolContext(state);
+
+      await resolve_patient.execute({ patientContext: "different_patient" }, {
+        ctx,
+        toolCallId: "switch-start",
+      } as never);
+      expect(state.identity.activePatient).toBeNull();
+      expect(state.availability.slots).toEqual([]);
+      await resolve_patient.execute({ firstName: "John", dob: "02/02/1982" }, {
+        ctx,
+        toolCallId: "switch-finish",
+      } as never);
+
+      expect(state.identity.activePatient?.patientId).toBe("patient-2");
+      await resolve_patient.execute({ firstName: "John", dob: "02/02/1982" }, {
+        ctx,
+        toolCallId: "same-patient",
+      } as never);
+      expect(domainOutcomeReceipts(state)).toMatchObject([
+        {
+          callId: "switch-start",
+          outcome: "patient_lookup_needs_identity",
+          status: "blocked",
+        },
+        {
+          callId: "switch-finish",
+          outcome: "patient_switched",
+          status: "success",
+        },
+        {
+          callId: "same-patient",
+          outcome: "patient_verified",
+          status: "success",
+        },
+      ]);
+    },
+  );
+
+  it("reports verification when a different-patient request has no previous chart", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    stubPatientSearch(verifiedPatientResult());
+
+    await resolve_patient.execute(
+      {
+        patientContext: "different_patient",
+        firstName: "Jane",
+        dob: "01/01/1980",
+      },
+      { ctx: createToolContext(state), toolCallId: "first-patient" } as never,
+    );
+
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "first-patient",
+        outcome: "patient_verified",
+        status: "success",
+      },
+    ]);
+  });
+
   it("keeps distinct loaded appointment references in state instead of the reply", async () => {
     const state = createState();
     setPatientUnknown(state);

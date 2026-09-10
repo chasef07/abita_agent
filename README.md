@@ -199,8 +199,8 @@ pretend the caller was absent. The call can continue and resolve identity
 through the normal tool interface.
 
 Before activation, model context includes the phone lookup outcome and candidate
-count, while candidate identities stay private. Ask callers to spell names when
-collecting them. Try the supplied first name against phone candidates immediately:
+count, while candidate identities stay private. Try the supplied first name
+against phone candidates immediately:
 one qualifying fuzzy first-name match can resolve even when the caller volunteers
 a different surname. A supplied DOB must still match. Surname is used only to
 distinguish multiple matches after the DOB step; the bounded corroborated surname

@@ -53,6 +53,53 @@ const fullIdentity = {
 };
 
 describe("audited patient recovery", () => {
+  it.each(["Meyer,José", "José Meyer", "Meyer,Jose\u0301", "Jose\u0301 Meyer"])(
+    "hydrates the accented phone candidate from %s",
+    async (name) => {
+      const state = createTestCallState({
+        preCallCandidates: [
+          { ...candidate(), status: "candidate", firstName: "José" },
+        ],
+      });
+      const lookup = vi.fn(async () => receipt(name));
+      expect(
+        (
+          await resolveExistingPatient(
+            state,
+            { firstName: "José", dob: fullIdentity.dob },
+            lookup,
+          )
+        ).outcome,
+      ).toBe("verified");
+      expect(state.identity.activePatient?.name).toBe(name);
+      expect(lookup).toHaveBeenCalledExactlyOnceWith(expect.any(String), {
+        patientId: "one",
+      });
+    },
+  );
+
+  it.each([
+    receipt("Meyer,John"),
+    receipt("Meyer,José", "02/02/1980"),
+    receipt("Meyer,José", fullIdentity.dob, "other"),
+  ])("rejects a conflicting accented phone receipt %#", async (result) => {
+    const state = createTestCallState({
+      preCallCandidates: [
+        { ...candidate(), status: "candidate", firstName: "José" },
+      ],
+    });
+    expect(
+      (
+        await resolveExistingPatient(
+          state,
+          { firstName: "José", dob: fullIdentity.dob },
+          async () => result,
+        )
+      ).outcome,
+    ).toBe("lookup_failed");
+    expect(state.identity.activePatient).toBeNull();
+  });
+
   it("asks DOB before surname and keeps distinct first-name/DOB matches ambiguous", async () => {
     const state = createTestCallState({
       preCallCandidates: [candidate(), candidate("two", "Smith")],
@@ -286,7 +333,7 @@ describe("audited patient recovery", () => {
           lookup,
         )
       ).outcome,
-    ).toBe("verified");
+    ).toBe("switched");
     expect(state.identity.activePatient?.patientId).toBe("two");
     expect(lookup).toHaveBeenNthCalledWith(1, expect.any(String), {
       firstName: "Jane",

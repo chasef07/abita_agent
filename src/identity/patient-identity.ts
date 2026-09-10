@@ -661,7 +661,7 @@ export function patientModelProjection(state: CallState): string {
     ];
     const lookup =
       count > 0
-        ? `Phone lookup found ${count} possible patient${count === 1 ? "" : "s"}. For patient-specific work, ask the caller to spell the intended patient's first name if unknown. Once supplied, call resolve_patient immediately; a firstName alone is enough to try the phone matches. A volunteered surname does not block a unique phone match. If unresolved, ask for the spelled first name and confirmed DOB; request surname spelling only to distinguish remaining matches. Include any identity already supplied, confirming a supplied DOB before resolving.`
+        ? `Phone lookup found ${count} possible patient${count === 1 ? "" : "s"}. For patient-specific work, ask only for the intended patient's first name if unknown. Once supplied, call resolve_patient immediately; a firstName alone is enough to try the phone matches. A volunteered surname does not block a unique phone match. If unresolved, ask for the spelled first name and confirmed DOB; request surname spelling only to distinguish remaining matches. Include any identity already supplied, confirming a supplied DOB before resolving.`
         : state.runtime.preCallLookup.status === "lookup_failed"
           ? "Phone lookup failed; this does not mean the patient is new. Use resolve_patient with caller-provided identity to look up the record."
           : state.runtime.preCallLookup.status === "no_match"
@@ -866,7 +866,9 @@ async function activateCandidate(
         operationVersion,
       );
     }
-    const hadActivePatient = state.identity.activePatient !== null;
+    const hadActivePatient =
+      state.identity.activePatient !== null ||
+      state.identity.pendingIdentity?.previousPatientId != null;
     const changed = promotePatient(
       state,
       activationFromCandidate(candidate),
@@ -940,7 +942,9 @@ async function hydratePatient(
     };
   }
 
-  const hadActivePatient = state.identity.activePatient !== null;
+  const hadActivePatient =
+    state.identity.activePatient !== null ||
+    state.identity.pendingIdentity?.previousPatientId != null;
   const changed = promotePatient(
     state,
     activationFromResolvedPatient(result, "existing"),
@@ -1205,7 +1209,10 @@ function identityTargetsDifferentPatient(
 function activePatientNameParts(
   name: string | null,
 ): { firstNames: string[]; lastNames: string[] } | null {
-  const trimmed = name?.trim();
+  const trimmed = name
+    ?.normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
   if (!trimmed) return null;
 
   const [commaLastName, commaFirstAndMiddle] = trimmed
