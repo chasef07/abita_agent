@@ -14,7 +14,7 @@ import {
   type StoredCallerAppointment,
 } from "../state/call-state.js";
 import { publicProviderName } from "./availability.js";
-import type { BookingSuccess } from "./middleware.js";
+import type { BookingSuccess } from "./booking.js";
 import { visitTypeForAppointment } from "./routing.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
 

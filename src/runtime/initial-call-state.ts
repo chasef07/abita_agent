@@ -2,12 +2,10 @@ import type { OfficeKey } from "../customers/abita/profile.js";
 import {
   createCanonicalCallState,
   type CallState,
+  type PhoneLookupResult,
 } from "../state/call-state.js";
 import type { RuntimeVoiceLanguageState } from "./voice-language.js";
-import {
-  buildPreCallCandidates,
-  type PreCallBootstrap,
-} from "./precall-bootstrap.js";
+import { buildPreCallCandidates } from "./precall-bootstrap.js";
 
 export interface InitialCallInput {
   callId: string;
@@ -39,13 +37,10 @@ export function createInitialCallState(call: InitialCallInput): CallState {
   });
 }
 
-export function applyPreCallBootstrap(
+export function applyPreCallLookup(
   state: CallState,
-  bootstrap: PreCallBootstrap,
+  lookup: PhoneLookupResult,
 ): void {
-  state.identity.privateCandidates = buildPreCallCandidates(
-    bootstrap.phoneLookup,
-  );
-  state.runtime.preCallLookup.status =
-    bootstrap.phoneLookup?.status ?? "not_attempted";
+  state.identity.privateCandidates = buildPreCallCandidates(lookup);
+  state.runtime.preCallLookup.status = lookup?.status ?? "not_attempted";
 }

@@ -7,7 +7,6 @@ import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import {
   buildPreCallCandidates,
   formatPhoneLookupLogLine,
-  loadPreCallBootstrap,
   lookupByPhone,
 } from "../runtime/precall-bootstrap.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
@@ -109,21 +108,19 @@ describe("pre-call bootstrap", () => {
     });
   });
 
-  it("returns one lookup seed for state and telemetry derivation", async () => {
+  it("returns the phone lookup result directly for state initialization", async () => {
     const middleware = usePatientResult(verifiedPatient());
 
-    const bootstrap = await loadPreCallBootstrap({
+    const lookup = await lookupByPhone(
       middleware,
-      callerPhone: "+17275551212",
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-    });
+      "+17275551212",
+      SPRING_HILL_OFFICE_PHONE,
+    );
 
-    expect(bootstrap).toMatchObject({
-      phoneLookup: {
-        patientId: "patient-1",
-        name: "Doe, Jane",
-        appointmentsStatus: "none",
-      },
+    expect(lookup).toMatchObject({
+      patientId: "patient-1",
+      name: "Doe, Jane",
+      appointmentsStatus: "none",
     });
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: { phone: "+17275551212" },
@@ -140,26 +137,26 @@ describe("pre-call bootstrap", () => {
     const firstController = new AbortController();
     const secondController = new AbortController();
 
-    const [firstBootstrap, secondBootstrap] = await Promise.all([
-      loadPreCallBootstrap({
-        middleware: first,
-        callerPhone: "+17275550001",
-        trunkPhone: SPRING_HILL_OFFICE_PHONE,
-        signal: firstController.signal,
-      }),
-      loadPreCallBootstrap({
-        middleware: second,
-        callerPhone: "+17275550002",
-        trunkPhone: SPRING_HILL_OFFICE_PHONE,
-        signal: secondController.signal,
-      }),
+    const [firstLookup, secondLookup] = await Promise.all([
+      lookupByPhone(
+        first,
+        "+17275550001",
+        SPRING_HILL_OFFICE_PHONE,
+        firstController.signal,
+      ),
+      lookupByPhone(
+        second,
+        "+17275550002",
+        SPRING_HILL_OFFICE_PHONE,
+        secondController.signal,
+      ),
     ]);
 
-    expect(firstBootstrap.phoneLookup).toMatchObject({
+    expect(firstLookup).toMatchObject({
       status: "verified",
       patientId: "patient-first",
     });
-    expect(secondBootstrap.phoneLookup).toMatchObject({
+    expect(secondLookup).toMatchObject({
       status: "verified",
       patientId: "patient-second",
     });

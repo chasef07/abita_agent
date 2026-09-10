@@ -5,7 +5,7 @@ import {
   clinicIsoDate,
   clinicTimestampMessage,
 } from "../scheduling/clock.js";
-import type { AvailabilityResult } from "../scheduling/middleware.js";
+import type { AvailabilityResult } from "../clients/owned-middleware.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";

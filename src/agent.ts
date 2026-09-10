@@ -28,6 +28,7 @@ import {
   type SchedulingClock,
 } from "./scheduling/clock.js";
 import { greetingAudio } from "./runtime/greeting-audio.js";
+import { preCallLookupHint } from "./runtime/precall-bootstrap.js";
 
 type VoiceAgentOptions = {
   ownedMiddleware: OwnedMiddleware;
@@ -39,6 +40,7 @@ type VoiceAgentOptions = {
 };
 
 const CLINIC_TIME_MESSAGE_ID = "clinic_time";
+const PRECALL_LOOKUP_HINT_MESSAGE_ID = "precall_lookup_hint";
 
 export function createVoiceAgent(
   trunkPhone: string,
@@ -95,8 +97,26 @@ export function createVoiceAgent(
     async llmNode(ctx, chatCtx, toolCtx, modelSettings) {
       const modelChatCtx = chatCtx.copy();
       modelChatCtx.items = modelChatCtx.items.filter(
-        (item) => item.id !== CLINIC_TIME_MESSAGE_ID,
+        (item) =>
+          item.id !== CLINIC_TIME_MESSAGE_ID &&
+          item.id !== PRECALL_LOOKUP_HINT_MESSAGE_ID,
       );
+      const context = [
+        ChatMessage.create({
+          id: CLINIC_TIME_MESSAGE_ID,
+          role: "system",
+          content: clinicTimestampMessage(turnClock.now()),
+        }),
+      ];
+      const hint = preCallLookupHint(ctx.session.userData);
+      if (hint)
+        context.push(
+          ChatMessage.create({
+            id: PRECALL_LOOKUP_HINT_MESSAGE_ID,
+            role: "system",
+            content: hint,
+          }),
+        );
       let latestUserIndex = -1;
       for (let index = modelChatCtx.items.length - 1; index >= 0; index -= 1) {
         const item = modelChatCtx.items[index];
@@ -108,11 +128,7 @@ export function createVoiceAgent(
       modelChatCtx.items.splice(
         latestUserIndex < 0 ? modelChatCtx.items.length : latestUserIndex,
         0,
-        ChatMessage.create({
-          id: CLINIC_TIME_MESSAGE_ID,
-          role: "system",
-          content: clinicTimestampMessage(turnClock.now()),
-        }),
+        ...context,
       );
       return LiveKitAgent.default.llmNode(
         ctx.agent,

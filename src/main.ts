@@ -18,10 +18,10 @@ import type { CallState } from "./state/call-state.js";
 import { transferIsAccepted } from "./state/call-lifecycle.js";
 import {
   formatPhoneLookupLogLine,
-  loadPreCallBootstrap,
+  lookupByPhone,
 } from "./runtime/precall-bootstrap.js";
 import {
-  applyPreCallBootstrap,
+  applyPreCallLookup,
   createInitialCallState,
 } from "./runtime/initial-call-state.js";
 import { MAX_CALL_DURATION_MS } from "./runtime/call-duration-deadline.js";
@@ -116,12 +116,7 @@ export default defineAgent({
       );
       await coordinateSessionStartup({
         lookup: (signal) =>
-          loadPreCallBootstrap({
-            middleware: ownedMiddleware,
-            callerPhone,
-            trunkPhone,
-            signal,
-          }),
+          lookupByPhone(ownedMiddleware, callerPhone, trunkPhone, signal),
         startupIsActive: () => startupActive,
         initializeRuntime: async () => {
           const callStart = await attachStartupCallCloseout({
@@ -251,10 +246,9 @@ export default defineAgent({
             voiceLanguageRuntime,
           };
         },
-        prepareSession: (preCall, runtime) => {
-          const { phoneLookup } = preCall;
+        prepareSession: (phoneLookup, runtime) => {
           console.log(formatPhoneLookupLogLine(phoneLookup));
-          applyPreCallBootstrap(runtime.callState, preCall);
+          applyPreCallLookup(runtime.callState, phoneLookup);
 
           const { agent } = createVoiceAgent(trunkPhone, {
             ownedMiddleware,

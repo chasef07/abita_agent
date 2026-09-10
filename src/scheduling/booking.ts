@@ -20,8 +20,12 @@ import {
 } from "./availability.js";
 import { routingForAvailability } from "./routing.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
-import type { BookingSuccess } from "./middleware.js";
 import { SchedulingInputRequired } from "./input-required.js";
+
+export type BookingSuccess = Extract<
+  BookAppointmentResult,
+  { status: "booked" | "partial" }
+>;
 
 export type AppointmentPatientStatus = "new" | "established";
 

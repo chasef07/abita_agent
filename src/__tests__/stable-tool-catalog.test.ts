@@ -13,7 +13,7 @@ import {
 } from "../customers/abita/profile.js";
 import {
   buildPreCallCandidates,
-  loadPreCallBootstrap,
+  lookupByPhone,
 } from "../runtime/precall-bootstrap.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { setLastInsuranceEligibilityCheck } from "../scheduling/state.js";
@@ -76,14 +76,14 @@ describe("stable tool catalog", () => {
       ],
       getAvailability: [availabilityFound()],
     });
-    const preCall = await loadPreCallBootstrap({
+    const preCall = await lookupByPhone(
       middleware,
-      callerPhone: "+17275551212",
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-    });
+      "+17275551212",
+      SPRING_HILL_OFFICE_PHONE,
+    );
     const state = createTestCallState({
-      preCallCandidates: buildPreCallCandidates(preCall.phoneLookup),
-      preCallLookup: { status: preCall.phoneLookup?.status ?? "not_attempted" },
+      preCallCandidates: buildPreCallCandidates(preCall),
+      preCallLookup: { status: preCall?.status ?? "not_attempted" },
     });
     state.workflow.visitType = "medical";
     const llm = new ToolCapturingFakeLLM([

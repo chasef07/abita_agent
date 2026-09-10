@@ -3,6 +3,7 @@
 // Pass scenario IDs as arguments to run a focused subset.
 import { llm, initializeLogger } from "@livekit/agents";
 import { buildPrompt } from "../prompt.js";
+import { preCallLookupHint } from "../runtime/precall-bootstrap.js";
 import { createLlmPair } from "../model-config.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
@@ -247,6 +248,8 @@ for (const model of [primary, fallback]) {
           }),
         ]);
       }
+      const hint = preCallLookupHint(state);
+      if (hint) chatCtx.addMessage({ role: "system", content: hint });
       try {
         const response = await model
           .chat({

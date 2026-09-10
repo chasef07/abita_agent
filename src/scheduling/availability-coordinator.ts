@@ -1,5 +1,5 @@
 import type { CallState } from "../state/call-state.js";
-import type { AvailabilityResult } from "./middleware.js";
+import type { AvailabilityResult } from "../clients/owned-middleware.js";
 import { middlewareFailureIsRetryable } from "../clients/owned-middleware.js";
 
 type AvailabilityCoordinator = {

@@ -2,12 +2,11 @@ import { AgentSession, initializeLogger } from "@livekit/agents";
 import { describe, expect, it } from "vitest";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import {
-  applyPreCallBootstrap,
+  applyPreCallLookup,
   createInitialCallState,
   type InitialCallInput,
 } from "../runtime/initial-call-state.js";
-import type { PreCallBootstrap } from "../runtime/precall-bootstrap.js";
-import type { CallState } from "../state/call-state.js";
+import type { CallState, PhoneLookupResult } from "../state/call-state.js";
 
 const call = {
   callId: "call-test",
@@ -24,37 +23,35 @@ const call = {
   },
 } satisfies InitialCallInput;
 
-const bootstrap = {
-  phoneLookup: {
-    status: "verified",
-    patientId: "private-patient-id",
-    name: "Doe, Jane",
-    dob: "01/01/1980",
-    phone: "+17275551212",
-    insuranceCarrier: "Aetna",
-    insPlanId: "private-plan-id",
-    respPartyId: "private-party-id",
-    routing: "all_three",
-    allowedProviders: ["private-provider-reference"],
-    routingAmbiguous: false,
-    preauthRequired: false,
-    appointmentsStatus: "found",
-    appointmentsMessage: null,
-    appointments: [
-      {
-        id: 123,
-        cancellationToken: "private-cancellation-token",
-        rescheduleToken: "private-reschedule-token",
-        date: "June 1",
-        time: "9:00 AM",
-        provider: "Dr. Bach",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: true,
-      },
-    ],
-  },
-} satisfies PreCallBootstrap;
+const phoneLookup = {
+  status: "verified",
+  patientId: "private-patient-id",
+  name: "Doe, Jane",
+  dob: "01/01/1980",
+  phone: "+17275551212",
+  insuranceCarrier: "Aetna",
+  insPlanId: "private-plan-id",
+  respPartyId: "private-party-id",
+  routing: "all_three",
+  allowedProviders: ["private-provider-reference"],
+  routingAmbiguous: false,
+  preauthRequired: false,
+  appointmentsStatus: "found",
+  appointmentsMessage: null,
+  appointments: [
+    {
+      id: 123,
+      cancellationToken: "private-cancellation-token",
+      rescheduleToken: "private-reschedule-token",
+      date: "June 1",
+      time: "9:00 AM",
+      provider: "Dr. Bach",
+      type: "Follow-up",
+      facility: "Spring Hill",
+      confirmed: true,
+    },
+  ],
+} satisfies PhoneLookupResult;
 
 describe("initial call state", () => {
   initializeLogger({ pretty: false, level: "silent" });
@@ -72,7 +69,7 @@ describe("initial call state", () => {
     });
   });
 
-  it("adds bootstrap candidates without replacing initialized state or resetting live runtime work", () => {
+  it("adds phone-lookup candidates without replacing initialized state or resetting live runtime work", () => {
     const state = createInitialCallState(call);
     const session = new AgentSession<CallState>({
       userData: state,
@@ -93,7 +90,7 @@ describe("initial call state", () => {
       taskId: "task-1",
     });
 
-    applyPreCallBootstrap(state, bootstrap);
+    applyPreCallLookup(state, phoneLookup);
 
     expect(state.runtime).toBe(runtime);
     expect(state.identity).toBe(identity);

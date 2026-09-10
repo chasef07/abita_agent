@@ -73,6 +73,7 @@ import {
   selectedSlotForBooking,
   slotUnavailableMessage,
   spokenSlot,
+  type BookingSuccess,
 } from "./booking.js";
 import {
   getAmdOfficeForToolCall,
@@ -86,20 +87,23 @@ import { SchedulingInputRequired } from "./input-required.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
 import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 import type {
-  AvailabilityRequest as MiddlewareAvailabilityRequest,
   AvailabilityResult,
-  BookingResult,
-  BookingSuccess,
-  CancellationRequest,
-  CancellationResult,
-  SchedulingMiddleware,
-} from "./middleware.js";
+  BookAppointmentResult,
+  CancelAppointmentInput,
+  CancelAppointmentResult,
+} from "../clients/owned-middleware.js";
+import type { SchedulingMiddleware } from "./middleware.js";
+
 import {
   addCalendarDays,
   clinicIsoDate,
   systemSchedulingClock,
   type SchedulingClock,
 } from "./clock.js";
+
+type AvailabilityRequest = Parameters<
+  SchedulingMiddleware["getAvailability"]
+>[0];
 
 export interface AvailabilityLookupArgs {
   startDate?: string;
@@ -140,7 +144,6 @@ export class SchedulingWorkflow {
     });
     if ("blocked" in request) return request.blocked;
 
-    const office = getAmdOfficeForToolCall(state);
     let result: AvailabilityResult;
     for (let attempt = 0; ; attempt += 1) {
       result = await coordinatedAvailabilityRead(
@@ -148,8 +151,7 @@ export class SchedulingWorkflow {
         request.backendKey,
         () =>
           this.middleware.getAvailability({
-            request: request.body,
-            office,
+            ...request.body,
             ...(signal ? { signal } : {}),
           }),
         {
@@ -246,7 +248,7 @@ export class SchedulingWorkflow {
     }
 
     const result = await this.middleware.bookAppointment({
-      request: bookingBody,
+      booking: bookingBody,
       office: getAmdOfficeForToolCall(state),
     });
 
@@ -423,7 +425,7 @@ export class SchedulingWorkflow {
     const patientName = activePatientName(state);
 
     const result = await this.middleware.cancelAppointment({
-      request: cancellationRequestForAppointment(appointment, patientId),
+      ...cancellationRequestForAppointment(appointment, patientId),
       office: getAmdOfficeForToolCall(state),
     });
 
@@ -593,7 +595,7 @@ export class SchedulingWorkflow {
     });
 
     const bookingResult = await this.middleware.bookAppointment({
-      request: bookingBody,
+      booking: bookingBody,
       office: bookingOffice,
     });
 
@@ -663,14 +665,14 @@ export class SchedulingWorkflow {
       );
     }
 
-    let cancelResult: CancellationResult;
+    let cancelResult: CancelAppointmentResult;
     const cancellationRequest = cancellationRequestForAppointment(
       oldAppointment,
       patientId,
     );
     try {
       cancelResult = await this.middleware.cancelAppointment({
-        request: cancellationRequest,
+        ...cancellationRequest,
         office:
           "cancellationToken" in cancellationRequest
             ? bookingOffice
@@ -812,7 +814,7 @@ export class SchedulingWorkflow {
 function cancellationRequestForAppointment(
   appointment: CallerAppointment,
   patientId: string,
-): CancellationRequest {
+): CancelAppointmentInput {
   const cancellationToken = appointment.cancellationToken?.trim();
   return cancellationToken
     ? { cancellationToken }
@@ -835,7 +837,7 @@ function availabilityRequestStillCurrent(
 }
 
 type AvailabilityWorkflowRequest = {
-  body: MiddlewareAvailabilityRequest;
+  body: AvailabilityRequest;
   backendKey: string;
   cacheDay: string;
   routing: string | null;
@@ -884,7 +886,11 @@ function buildAvailabilityLookupRequestForState(
   const routing = routingForAvailability(state);
   const startDate = args.startDate ?? addCalendarDays(cacheDay, 1);
   state.availability.requestedStartDate = startDate;
-  const body: MiddlewareAvailabilityRequest = { startDate, rangeDays: 14 };
+  const body: AvailabilityRequest = {
+    office: getAmdOfficeForToolCall(state),
+    startDate,
+    rangeDays: 14,
+  };
   const dob = activePatientDob(state);
   if (dob) body.dob = dob;
   if (routing) body.routing = routing;
@@ -905,7 +911,7 @@ function buildAvailabilityLookupRequestForState(
 function availabilityBackendKey(
   state: CallState,
   input: {
-    body: MiddlewareAvailabilityRequest;
+    body: AvailabilityRequest;
     cacheDay: string;
     patientId: string | null;
     routing: string | null;
@@ -948,7 +954,7 @@ function completedCancellationReplayMessage(
 function appointmentAnalyticsForCapturedBooking(
   patientName: string | null,
   selectedSlot: StoredAvailabilitySlot,
-  result: BookingResult,
+  result: BookAppointmentResult,
 ): AppointmentAnalytics {
   const booking = bookingSucceeded(result) ? result : null;
   return {
@@ -1031,7 +1037,7 @@ function handleRescheduleBookingFailure(
   patientId: string,
   selectedSlot: StoredAvailabilitySlot,
   oldAppointment: CallerAppointment,
-  bookingResult: BookingResult,
+  bookingResult: BookAppointmentResult,
   callId: string,
 ): string {
   if (bookingHadPositiveStatusWithoutAppointmentId(bookingResult)) {
@@ -1161,7 +1167,7 @@ function recordRescheduleAction(
     status: "success" | "partial" | "error";
     message: string;
     selectedSlot: StoredAvailabilitySlot;
-    bookingResult: BookingResult;
+    bookingResult: BookAppointmentResult;
     oldAppointment: CallerAppointment;
     patientId: string;
     cancellationResult: Record<string, unknown>;
@@ -1198,7 +1204,7 @@ function recordCapturedRescheduleAction(
     message: string;
     patientName: string | null;
     selectedSlot: StoredAvailabilitySlot;
-    bookingResult: BookingResult;
+    bookingResult: BookAppointmentResult;
     oldAppointment: CallerAppointment;
     patientId: string;
     cancellationResult: Record<string, unknown>;
@@ -1250,7 +1256,7 @@ function replayAppointmentOutcome(
 function rescheduleActionEvidence(
   patientId: string,
   oldAppointment: CallerAppointment,
-  bookingResult: BookingResult,
+  bookingResult: BookAppointmentResult,
   cancellationResult: Record<string, unknown>,
 ): Pick<
   AppointmentActionAnalytics,
@@ -1269,7 +1275,7 @@ function rescheduleActionEvidence(
 
 function bookingActionEvidence(
   patientId: string,
-  result: BookingResult,
+  result: BookAppointmentResult,
 ): Pick<
   AppointmentActionAnalytics,
   "externalPatientId" | "newAppointmentId" | "bookingResult"
@@ -1288,7 +1294,7 @@ function bookingActionEvidence(
 function cancellationActionEvidence(
   patientId: string,
   appointment: CallerAppointment,
-  result: CancellationResult,
+  result: CancelAppointmentResult,
 ): Pick<
   AppointmentActionAnalytics,
   "externalPatientId" | "oldAppointmentId" | "cancellationResult"

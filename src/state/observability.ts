@@ -94,10 +94,6 @@ export function appointmentActions(
     );
 }
 
-export function staffTaskReceipts(state: CallState): StaffTaskReceipt[] {
-  return [...state.runtime.staffTasks];
-}
-
 export function findStaffTaskReceipt(
   state: CallState,
   idempotencyKey: string,

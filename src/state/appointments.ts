@@ -61,12 +61,6 @@ export function activeAppointments(state: CallState): CallerAppointment[] {
   );
 }
 
-export function activeAppointmentsStatus(
-  state: CallState,
-): AppointmentLoadStatus | null {
-  return state.identity.activePatient?.appointmentsStatus ?? null;
-}
-
 export function replaceActiveAppointments(
   state: CallState,
   appointments: CallerAppointment[],

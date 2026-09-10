@@ -243,8 +243,6 @@ export type StaffTaskCategory =
   | "referrals"
   | "other";
 
-export type StaffTaskUrgency = "high_priority" | "normal" | "non_urgent";
-
 export interface StaffTaskReceipt {
   createdAt: string;
   idempotencyKey: string;

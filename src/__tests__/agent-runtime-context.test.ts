@@ -27,49 +27,106 @@ describe("agent runtime context", () => {
     await Promise.all(sessions.splice(0).map((session) => session.close()));
   });
 
-  it("injects only the clinic clock into each model request, keeping phone candidates private", async () => {
-    const model = new ContextCapturingFakeLLM([
-      { input: "I need an appointment.", content: "Who is it for?" },
-    ]);
-    const session = new AgentSession({ llm: model });
-    sessions.push(session);
-    session.userData = createTestCallState({
-      preCallCandidates: [
+  it.each([1, 2])(
+    "adds a private first-name hint for %i phone candidates",
+    async (candidateCount) => {
+      const model = new ContextCapturingFakeLLM([
+        { input: "I need an appointment.", content: "Who is it for?" },
+      ]);
+      const session = new AgentSession({ llm: model });
+      sessions.push(session);
+      session.userData = createTestCallState({
+        preCallCandidates: [
+          {
+            status: "verified",
+            ref: "private-candidate-reference",
+            firstName: "Private",
+            lastName: "Patient",
+            dob: "01/02/1980",
+            patientId: "private-patient-id",
+            appointments: [],
+          },
+        ],
+        preCallLookup: { status: "verified" },
+      });
+      if (candidateCount === 2) {
+        session.userData.identity.privateCandidates.push({
+          ...session.userData.identity.privateCandidates[0]!,
+          patientId: "private-second-patient",
+        });
+        session.userData.runtime.preCallLookup.status = "multiple_matches";
+      }
+      await session.start({
+        agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+          ownedMiddleware,
+          suppressGreeting: true,
+          turnClock: { now: () => testInstant },
+        }).agent,
+      });
+
+      await session.run({ userInput: "I need an appointment." }).wait();
+
+      expect(runtimeMessages(model.requests[0]!)).toEqual([
+        clinicTimestampMessage(testInstant),
+      ]);
+      expect(runtimeMessages(session.currentAgent.chatCtx)).toEqual([]);
+      expect(phoneLookupHints(model.requests[0]!)).toEqual([
+        "Phone lookup found a possible patient. Ask for the patient's first name if needed, then call resolve_patient with firstName and dob:null.",
+      ]);
+      expect(phoneLookupHints(session.currentAgent.chatCtx)).toEqual([]);
+      const modelRequest = JSON.stringify(model.requests[0]);
+      for (const privateValue of [
+        "private-candidate-reference",
+        "Private Patient",
+        "01/02/1980",
+        "private-patient-id",
+      ]) {
+        expect(modelRequest).not.toContain(privateValue);
+      }
+    },
+  );
+
+  it.each([
+    "no_match",
+    "lookup_failed",
+    "not_attempted",
+    "active",
+    "registration",
+  ] as const)("omits the phone-lookup hint for %s", async (mode) => {
+    const state = createTestCallState();
+    if (mode === "active" || mode === "registration") {
+      state.identity.privateCandidates = [
         {
           status: "verified",
-          ref: "private-candidate-reference",
-          firstName: "Private",
-          lastName: "Patient",
-          dob: "01/02/1980",
-          patientId: "private-patient-id",
+          ref: "private",
+          patientId: "private-patient",
+          firstName: "Hidden",
           appointments: [],
         },
-      ],
-      preCallLookup: { status: "verified" },
-    });
+      ];
+      state.runtime.preCallLookup.status = "verified";
+      if (mode === "active") {
+        state.identity.activePatient =
+          createConfirmedPatientState().identity.activePatient;
+      } else {
+        state.identity.registration = { firstName: "New" };
+      }
+    } else {
+      state.runtime.preCallLookup.status = mode;
+    }
+    const model = new ContextCapturingFakeLLM([
+      { input: "I need help.", content: "How can I help?" },
+    ]);
+    const session = new AgentSession({ llm: model, userData: state });
+    sessions.push(session);
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
         ownedMiddleware,
         suppressGreeting: true,
-        turnClock: { now: () => testInstant },
       }).agent,
     });
-
-    await session.run({ userInput: "I need an appointment." }).wait();
-
-    expect(runtimeMessages(model.requests[0]!)).toEqual([
-      clinicTimestampMessage(testInstant),
-    ]);
-    expect(runtimeMessages(session.currentAgent.chatCtx)).toEqual([]);
-    const modelRequest = JSON.stringify(model.requests[0]);
-    for (const privateValue of [
-      "private-candidate-reference",
-      "Private Patient",
-      "01/02/1980",
-      "private-patient-id",
-    ]) {
-      expect(modelRequest).not.toContain(privateValue);
-    }
+    await session.run({ userInput: "I need help." }).wait();
+    expect(phoneLookupHints(model.requests[0]!)).toEqual([]);
   });
 
   it("keeps availability in tool history without injecting inventory status", async () => {
@@ -166,7 +223,9 @@ describe("agent runtime context", () => {
       }).agent,
     });
     await session.run({ userInput: "This is Jane." }).wait();
+    expect(phoneLookupHints(model.requests[0]!)).toHaveLength(1);
     const request = model.requests.at(-1)!;
+    expect(phoneLookupHints(request)).toEqual([]);
     const input = JSON.stringify(request);
     expect(runtimeMessages(request)).toEqual([
       clinicTimestampMessage(testInstant),
@@ -204,6 +263,14 @@ class ContextCapturingFakeLLM extends voice.testing.FakeLLM {
 function runtimeMessages(chatCtx: ChatContext): string[] {
   return chatCtx.items.flatMap((item) =>
     item.type === "message" && item.id === "clinic_time"
+      ? [item.textContent ?? ""]
+      : [],
+  );
+}
+
+function phoneLookupHints(chatCtx: ChatContext): string[] {
+  return chatCtx.items.flatMap((item) =>
+    item.type === "message" && item.id === "precall_lookup_hint"
       ? [item.textContent ?? ""]
       : [],
   );

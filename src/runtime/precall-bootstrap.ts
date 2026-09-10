@@ -9,6 +9,7 @@ import {
   type PatientResolveVerified,
 } from "../clients/owned-middleware.js";
 import type {
+  CallState,
   CallerCandidate,
   CallerLookupFailed,
   CallerMatch,
@@ -18,8 +19,14 @@ import type {
 import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
 import { normalizeCallerAppointments } from "../state/appointments.js";
 
-export interface PreCallBootstrap {
-  phoneLookup: PhoneLookupResult;
+export function preCallLookupHint(state: CallState): string | undefined {
+  if (
+    state.identity.activePatient ||
+    state.identity.registration ||
+    state.identity.privateCandidates.length === 0
+  )
+    return undefined;
+  return "Phone lookup found a possible patient. Ask for the patient's first name if needed, then call resolve_patient with firstName and dob:null.";
 }
 
 export async function lookupByPhone(
@@ -139,27 +146,6 @@ function patientResolveMatchToCallerMatch(
     appointmentsMessage: match.appointmentsMessage,
     appointments: match.appointments,
   };
-}
-
-export async function loadPreCallBootstrap({
-  middleware,
-  callerPhone,
-  trunkPhone,
-  signal,
-}: {
-  middleware: OwnedMiddleware;
-  callerPhone: string;
-  trunkPhone: string;
-  signal?: AbortSignal;
-}): Promise<PreCallBootstrap> {
-  const phoneLookup = await lookupByPhone(
-    middleware,
-    callerPhone,
-    trunkPhone,
-    signal,
-  );
-
-  return { phoneLookup };
 }
 
 export function buildPreCallCandidates(

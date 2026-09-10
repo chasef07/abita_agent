@@ -10,8 +10,7 @@ import {
   SWEETWATER_OFFICE_PHONE,
 } from "../customers/abita/profile.js";
 import { HttpOwnedMiddleware } from "../clients/owned-middleware.js";
-import type { AvailabilityResult } from "../scheduling/middleware.js";
-import { bindSchedulingMiddleware } from "../scheduling/middleware.js";
+import type { AvailabilityResult } from "../clients/owned-middleware.js";
 import { visitTypeForAppointment } from "../scheduling/routing.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
@@ -1369,6 +1368,10 @@ describe("scheduling tools", () => {
       toolCallId: "availability-1",
     } as never);
     await Promise.resolve();
+    expect(middleware.operations[0]).toMatchObject({
+      kind: "availability",
+      signal: controller.signal,
+    });
     controller.abort();
     const retry = list_available_appointments.execute(args, {
       ctx: ctx as never,
@@ -2551,9 +2554,7 @@ describe("scheduling tools", () => {
       fetch: fetchMock,
       middlewareBaseUrl: "https://middleware.test",
     });
-    const { cancel_appointment } = createSchedulingTools(
-      bindSchedulingMiddleware(ownedMiddleware),
-    );
+    const { cancel_appointment } = createSchedulingTools(ownedMiddleware);
     const state = createState();
     state.office.activeKey = "spring-hill";
     state.runtime.trunkPhone = SPRING_HILL_OFFICE_PHONE;

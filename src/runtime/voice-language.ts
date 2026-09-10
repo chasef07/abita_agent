@@ -4,7 +4,6 @@ import {
   type ReadableStreamDefaultReader,
 } from "node:stream/web";
 
-export const DEFAULT_VOICE_LANGUAGE = "en";
 export const SUPPORTED_VOICE_LANGUAGES = ["en", "es"] as const;
 export const LANGUAGE_SWITCH_CONFIDENCE_THRESHOLD = 0.6;
 const MAX_LANGUAGE_KEEP_EVENTS = 50;
