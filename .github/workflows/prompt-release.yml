@@ -12,8 +12,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: prompt-release-${{ github.sha }}
-  cancel-in-progress: false
+  group: prompt-release
+  queue: max
 
 jobs:
   release:
@@ -37,13 +37,25 @@ jobs:
           # Re-running after unrelated commits must resolve to the same version.
           prompt_sha="$(git log -1 --format=%H -- workspace/SOUL.md workspace/VOICE.md)"
           test -n "$prompt_sha"
-          tag="prompts-${prompt_sha}"
-          release_tags="$RUNNER_TEMP/prompt-release-tags.txt"
-          gh api --paginate "repos/$GH_REPO/releases" --jq '.[] | select(.draft == false) | .tag_name' > "$release_tags"
-          if grep -Fxq "$tag" "$release_tags"; then
-            echo "Prompt release $tag already exists."
+          releases="$RUNNER_TEMP/prompt-releases.json"
+          gh api --paginate --slurp "repos/$GH_REPO/releases" |
+            jq '[.[][] | select(.tag_name | test("^prompts-v[0-9]+\\.[0-9]+\\.[0-9]+$"))]' > "$releases"
+          existing="$(jq -r --arg sha "$prompt_sha" 'map(select(.target_commitish == $sha)) | first | .tag_name // empty' "$releases")"
+          if [[ -n "$existing" ]]; then
+            if jq -e --arg tag "$existing" 'any(.[]; .tag_name == $tag and .draft)' "$releases" > /dev/null; then
+              echo "Prompt release $existing is an incomplete draft. Finish or delete that draft before retrying." >&2
+              exit 1
+            fi
+            echo "Prompt release $existing already exists."
             exit 0
           fi
+
+          version="$(jq -r '
+            map(.tag_name | ltrimstr("prompts-v") | split(".") | map(tonumber)) |
+            if length == 0 then [1, 0, 0] else (max | .[2] += 1) end |
+            map(tostring) | join(".")
+          ' "$releases")"
+          tag="prompts-v$version"
 
           # Assets and tag both come from the exact prompt revision.
           asset_dir="$RUNNER_TEMP/prompt-release"
@@ -64,6 +76,6 @@ jobs:
 
           gh release create "$tag" "$asset_dir/SOUL.md" "$asset_dir/VOICE.md" \
             --target "$prompt_sha" \
-            --title "Prompts · ${prompt_sha:0:7}" \
+            --title "Prompts v$version" \
             --notes-file "$notes" \
             --latest=false

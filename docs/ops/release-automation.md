@@ -51,12 +51,17 @@ The `Prompt release` workflow publishes a separate GitHub Release whenever a
 push to `main` changes `workspace/SOUL.md` or `workspace/VOICE.md`. Run it manually
 on `main` to publish the initial snapshot or retry a failed run.
 
-Each release uses `prompts-<full commit SHA>` for the last commit that changed
-either file. Both files are attached as downloadable assets and linked at that
-exact revision. An unrelated commit or a rerun reuses the same version and skips
-publication if the release already exists. GitHub's automatic source archives
-still contain the whole repository; the two attached Markdown files are the
-prompt snapshot.
+Releases are named `Prompts v1.0.0`, `Prompts v1.0.1`, and so on, with matching
+`prompts-v1.0.0` tags. Each new prompt revision increments the patch number;
+the number is a snapshot sequence, not a compatibility or quality judgment.
+Workflow runs queue together so they cannot allocate the same version.
+
+The tag and both attached files use the exact last commit that changed either
+prompt. That full SHA remains in the release details. An unrelated commit or a
+rerun skips publication if that revision already has a numbered release. An
+incomplete draft fails visibly; finish or delete it before retrying. GitHub's
+automatic source archives still contain the whole repository; the two attached
+Markdown files are the prompt snapshot.
 
 These releases record source history immediately, without waiting for CI or
 evaluations. They do not deploy the agent, replace the latest agent release, or
