@@ -611,3 +611,21 @@ substitutes for it.
 
 Feature specifications and architecture decisions belong in GitHub Issues so
 status, implementation, and discussion remain together.
+
+### Office knowledge pilot
+
+An explicitly enabled Spring Hill pilot reads the current Product-owned corpus
+through `search_office_knowledge`. Set `ACUITY_PRODUCT_KNOWLEDGE_PILOT=spring-hill`
+and `ACUITY_PRODUCT_KNOWLEDGE_URL` to the existing Product
+`/v1/agent/knowledge/search` endpoint, after importing and validating its revision.
+The existing Abita Product service credential needs `READ_KNOWLEDGE`; the runtime
+attaches `X-Office-Key`, and the model supplies only a non-patient question.
+
+For this pilot, file enrichment and static office facts are disabled. Failures
+remain visible; they never trigger a stale-file fallback. Clearing the explicit
+pilot flag is a rollout rollback and returns the office to the legacy path.
+Other offices retain the existing hook. Structured insurance, patient state,
+scheduling, and urgent handling keep their existing owners.
+
+See `docs/evidence/office-knowledge-pilot.md` for source provenance, calibration,
+safeguards, local proof, and the remaining deployed/audio proof requirements.

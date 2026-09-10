@@ -1,3 +1,4 @@
+import { usesPortalKnowledge } from "./runtime/portal-knowledge.js";
 // agent.ts — Agent definition
 // Instructions loaded from workspace files, tools wired below.
 
@@ -86,6 +87,7 @@ export function createVoiceAgent(
         if (!transcript) return;
 
         const officeKey = activeOfficeKey(state);
+        if (usesPortalKnowledge(officeKey)) return;
         const startedAt = performance.now();
         try {
           const knowledge = (
@@ -150,6 +152,23 @@ export function createVoiceAgent(
           break;
         }
       }
+      // A new question must search the current revision again. Keep current-turn
+      // results for tool consumption, but remove earlier call/output pairs from
+      // the model request so stale passages cannot act as its reference.
+      const priorKnowledge = new Set(
+        modelChatCtx.items
+          .slice(0, Math.max(0, latestUserIndex))
+          .filter(
+            (item) =>
+              (item.type === "function_call" ||
+                item.type === "function_call_output") &&
+              item.name === "search_office_knowledge",
+          ),
+      );
+      modelChatCtx.items = modelChatCtx.items.filter(
+        (item) => !priorKnowledge.has(item),
+      );
+      latestUserIndex -= priorKnowledge.size;
       // A request whose user message is already committed belongs to a prior
       // turn. Its snapshot must not invalidate fresh speculation on this turn.
       if (
@@ -241,6 +260,9 @@ export function createVoiceAgent(
 function modelTurnInput(state: CallState, clock: SchedulingClock) {
   const content = [
     clinicTimestampMessage(clock.now()),
+    usesPortalKnowledge(activeOfficeKey(state))
+      ? "Office factual answers require a fresh search_office_knowledge result for THIS user turn, even if your previous answer already stated the fact. For a short follow-up such as And Saturdays, reconstruct a complete question and search again before answering. Earlier assistant statements are not current knowledge evidence. Use the current turn result after the search; never search again solely because you received its result."
+      : "",
     patientModelProjection(state),
     availabilityModelProjection(state),
   ]

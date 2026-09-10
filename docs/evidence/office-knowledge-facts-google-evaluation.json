@@ -1,0 +1,418 @@
+[
+  {
+    "id": "direct-hours",
+    "expectedSections": ["Hours"],
+    "ranked": [
+      {
+        "title": "Hours",
+        "score": 0.67
+      },
+      {
+        "title": "After Hours",
+        "score": 0.6683
+      },
+      {
+        "title": "Social Follow-Up",
+        "score": 0.6464
+      },
+      {
+        "title": "Appointment Expectations",
+        "score": 0.6415
+      },
+      {
+        "title": "Location and Contact",
+        "score": 0.6345
+      }
+    ]
+  },
+  {
+    "id": "indirect-closing",
+    "expectedSections": ["Hours"],
+    "ranked": [
+      {
+        "title": "Hours",
+        "score": 0.5324
+      },
+      {
+        "title": "Appointment Expectations",
+        "score": 0.522
+      },
+      {
+        "title": "After Hours",
+        "score": 0.5167
+      },
+      {
+        "title": "Social Follow-Up",
+        "score": 0.5158
+      },
+      {
+        "title": "What to Bring",
+        "score": 0.5117
+      }
+    ]
+  },
+  {
+    "id": "half-past-five",
+    "expectedSections": ["Hours"],
+    "ranked": [
+      {
+        "title": "After Hours",
+        "score": 0.5768
+      },
+      {
+        "title": "Appointment Expectations",
+        "score": 0.5664
+      },
+      {
+        "title": "Hours",
+        "score": 0.5535
+      },
+      {
+        "title": "What to Bring",
+        "score": 0.5509
+      },
+      {
+        "title": "Social Follow-Up",
+        "score": 0.5228
+      }
+    ]
+  },
+  {
+    "id": "spanish-hours",
+    "expectedSections": ["Hours"],
+    "ranked": [
+      {
+        "title": "Hours",
+        "score": 0.6794
+      },
+      {
+        "title": "After Hours",
+        "score": 0.614
+      },
+      {
+        "title": "Social Follow-Up",
+        "score": 0.6114
+      },
+      {
+        "title": "Location and Contact",
+        "score": 0.5778
+      },
+      {
+        "title": "Appointment Expectations",
+        "score": 0.5719
+      }
+    ]
+  },
+  {
+    "id": "saturdays",
+    "expectedSections": ["Hours"],
+    "ranked": [
+      {
+        "title": "Hours",
+        "score": 0.7007
+      },
+      {
+        "title": "Social Follow-Up",
+        "score": 0.6499
+      },
+      {
+        "title": "After Hours",
+        "score": 0.6493
+      },
+      {
+        "title": "Appointment Expectations",
+        "score": 0.6241
+      },
+      {
+        "title": "Location and Contact",
+        "score": 0.6151
+      }
+    ]
+  },
+  {
+    "id": "multi-fact",
+    "expectedSections": ["Hours", "Location and Contact"],
+    "ranked": [
+      {
+        "title": "Hours",
+        "score": 0.7038
+      },
+      {
+        "title": "After Hours",
+        "score": 0.6307
+      },
+      {
+        "title": "Location and Contact",
+        "score": 0.6198
+      },
+      {
+        "title": "Repairs and Warranty",
+        "score": 0.6035
+      },
+      {
+        "title": "Appointment Expectations",
+        "score": 0.6009
+      }
+    ]
+  },
+  {
+    "id": "provider-variant",
+    "expectedSections": ["Providers", "Scope of Services"],
+    "ranked": [
+      {
+        "title": "Providers",
+        "score": 0.7441
+      },
+      {
+        "title": "Scope of Services",
+        "score": 0.7173
+      },
+      {
+        "title": "What to Bring",
+        "score": 0.6709
+      },
+      {
+        "title": "Appointment Expectations",
+        "score": 0.6643
+      },
+      {
+        "title": "Insurance and Referrals",
+        "score": 0.6601
+      }
+    ]
+  },
+  {
+    "id": "prices",
+    "expectedSections": ["Self-Pay Pricing"],
+    "ranked": [
+      {
+        "title": "Self-Pay Pricing",
+        "score": 0.7859
+      },
+      {
+        "title": "Insurance and Referrals",
+        "score": 0.6985
+      },
+      {
+        "title": "What to Bring",
+        "score": 0.6965
+      },
+      {
+        "title": "Appointment Expectations",
+        "score": 0.6889
+      },
+      {
+        "title": "Scope of Services",
+        "score": 0.6629
+      }
+    ]
+  },
+  {
+    "id": "price-exception",
+    "expectedSections": ["Insurance and Referrals", "Self-Pay Pricing"],
+    "ranked": [
+      {
+        "title": "Insurance and Referrals",
+        "score": 0.7617
+      },
+      {
+        "title": "Self-Pay Pricing",
+        "score": 0.7339
+      },
+      {
+        "title": "What to Bring",
+        "score": 0.6887
+      },
+      {
+        "title": "Scope of Services",
+        "score": 0.6633
+      },
+      {
+        "title": "Contact Lenses",
+        "score": 0.6283
+      }
+    ]
+  },
+  {
+    "id": "not-offered",
+    "expectedSections": ["Scope of Services"],
+    "ranked": [
+      {
+        "title": "Insurance and Referrals",
+        "score": 0.6947
+      },
+      {
+        "title": "What to Bring",
+        "score": 0.6919
+      },
+      {
+        "title": "Appointment Expectations",
+        "score": 0.6794
+      },
+      {
+        "title": "Scope of Services",
+        "score": 0.6701
+      },
+      {
+        "title": "Self-Pay Pricing",
+        "score": 0.6652
+      }
+    ]
+  },
+  {
+    "id": "missing-fact",
+    "expectedSections": [],
+    "ranked": [
+      {
+        "title": "Hours",
+        "score": 0.5743
+      },
+      {
+        "title": "After Hours",
+        "score": 0.5477
+      },
+      {
+        "title": "Payments",
+        "score": 0.5464
+      },
+      {
+        "title": "Billing",
+        "score": 0.5445
+      },
+      {
+        "title": "What to Bring",
+        "score": 0.5346
+      }
+    ]
+  },
+  {
+    "id": "irrelevant",
+    "expectedSections": [],
+    "ranked": [
+      {
+        "title": "After Hours",
+        "score": 0.4765
+      },
+      {
+        "title": "Billing",
+        "score": 0.4504
+      },
+      {
+        "title": "Payments",
+        "score": 0.4415
+      },
+      {
+        "title": "Hours",
+        "score": 0.4369
+      },
+      {
+        "title": "Location and Contact",
+        "score": 0.4315
+      }
+    ]
+  },
+  {
+    "id": "other-tool",
+    "expectedSections": [],
+    "ranked": [
+      {
+        "title": "Appointment Expectations",
+        "score": 0.6989
+      },
+      {
+        "title": "What to Bring",
+        "score": 0.6845
+      },
+      {
+        "title": "After Hours",
+        "score": 0.6781
+      },
+      {
+        "title": "Contact Lenses",
+        "score": 0.6725
+      },
+      {
+        "title": "Hours",
+        "score": 0.6569
+      }
+    ]
+  },
+  {
+    "id": "patient-insurance",
+    "expectedSections": [],
+    "ranked": [
+      {
+        "title": "Insurance and Referrals",
+        "score": 0.6492
+      },
+      {
+        "title": "What to Bring",
+        "score": 0.6205
+      },
+      {
+        "title": "Self-Pay Pricing",
+        "score": 0.6135
+      },
+      {
+        "title": "Contact Lenses",
+        "score": 0.5977
+      },
+      {
+        "title": "Repairs and Warranty",
+        "score": 0.5961
+      }
+    ]
+  },
+  {
+    "id": "spanish-prices",
+    "expectedSections": ["Self-Pay Pricing"],
+    "ranked": [
+      {
+        "title": "Self-Pay Pricing",
+        "score": 0.7352
+      },
+      {
+        "title": "Insurance and Referrals",
+        "score": 0.6656
+      },
+      {
+        "title": "What to Bring",
+        "score": 0.6477
+      },
+      {
+        "title": "Appointment Expectations",
+        "score": 0.6344
+      },
+      {
+        "title": "Scope of Services",
+        "score": 0.6314
+      }
+    ]
+  },
+  {
+    "id": "saturday-raw",
+    "expectedSections": ["Hours"],
+    "ranked": [
+      {
+        "title": "Hours",
+        "score": 0.5491
+      },
+      {
+        "title": "After Hours",
+        "score": 0.5435
+      },
+      {
+        "title": "Contact Lenses",
+        "score": 0.5001
+      },
+      {
+        "title": "Appointment Expectations",
+        "score": 0.4962
+      },
+      {
+        "title": "Social Follow-Up",
+        "score": 0.496
+      }
+    ]
+  }
+]

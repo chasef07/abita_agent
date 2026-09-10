@@ -954,6 +954,20 @@ describe("call closeout", () => {
         error:
           "request failed with Authorization: Bearer private-token at http://10.0.0.5/private",
         clientSecret: "private-client-secret",
+        functionCalls: [
+          {
+            name: "search_office_knowledge",
+            callId: "knowledge-1",
+            args: "sensitive-query",
+          },
+        ],
+        outputs: [
+          {
+            type: "function_call_output",
+            callId: "knowledge-1",
+            output: "sensitive-passage",
+          },
+        ],
       },
     ];
     const adapter = createLiveKitCallCloseoutEventAdapter(
@@ -981,6 +995,9 @@ describe("call closeout", () => {
       { input_tokens: 12, output_tokens: 4 },
     ]);
     expect(captured).not.toContain("private-token");
+    expect(captured).not.toContain("sensitive-query");
+    expect(captured).not.toContain("sensitive-passage");
+    expect(captured).toContain("search_office_knowledge");
     expect(captured).not.toContain("private-client-secret");
     expect(captured).not.toContain("10.0.0.5");
   });

@@ -38,6 +38,15 @@ availability, or a completed operation.
 
 _Avoid_: full-context injection, knowledge tool, retrieval service.
 
+**Office Knowledge Search**
+
+The read-only model tool for an explicitly migrated Office Profile. The runtime
+attaches the active office route and Product service credential to a short,
+non-patient question. Product owns the current approved revision and semantic
+retrieval. Returned passages are untrusted reference data, not instructions or
+proof of patient state, insurance participation, availability, or an action.
+The Office Knowledge Hook remains the path for unmigrated offices only.
+
 **Owned Middleware**
 
 The backend interface for patient lookup, patient creation, insurance updates,

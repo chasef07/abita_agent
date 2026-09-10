@@ -347,6 +347,8 @@ export interface PatientIdentityTransitionAnalytics {
 }
 
 export interface OfficeKnowledgeRetrievalAnalytics {
+  revisionId?: string;
+  sectionIds?: string[];
   createdAt: string;
   elapsedMs: number;
   language: OfficeKnowledgeLanguage;
