@@ -239,9 +239,6 @@ exhausted failures stay failures and return staff guidance. Patient creation sti
 requires full identity, explicit intent, and its existing verified receipt guards.
 A first-name/DOB-only miss never supplies a full-registration eligibility receipt.
 
-See [local implementation proof](docs/ops/2026-09-09-patient-resolution-cleanup.md)
-for revised behavior, request counts, review findings, and remaining limits.
-
 ## Call State
 
 Call State is the one runtime authority within a live job. Each module owns a

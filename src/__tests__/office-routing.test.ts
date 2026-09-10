@@ -254,7 +254,7 @@ describe("tool-first prompt gating", () => {
       "For calls involving more than one patient, finish one patient's task at a time.",
     );
     expect(prompt).toContain(
-      "Before starting work for the next patient, call resolve_patient with patientContext different_patient to switch the active patient.",
+      "Before starting work for the next patient, call resolve_patient to switch the active patient.",
     );
     expect(prompt).toContain(
       "For insurance acceptance questions, answer yes or no only from a successful check_insurance result.",
@@ -448,7 +448,7 @@ describe("rheumatology demo", () => {
       "For calls involving more than one patient, finish one patient's task at a time.",
     );
     expect(prompt).toContain(
-      "Before starting work for the next patient, call resolve_patient with patientContext different_patient to switch the active patient.",
+      "Before starting work for the next patient, call resolve_patient to switch the active patient.",
     );
     expect(prompt).toContain("You speak English and Spanish");
     expect(prompt).not.toContain("Abita Eye Group");
