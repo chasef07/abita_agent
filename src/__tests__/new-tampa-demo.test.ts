@@ -1,5 +1,4 @@
 import { isToolset } from "@livekit/agents";
-import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import {
   triage_eye_care,
@@ -16,7 +15,6 @@ import {
   getOfficeProfileByPhone,
 } from "../customers/abita/profile.js";
 import { buildPrompt } from "../prompt.js";
-import { readOfficeKnowledgeSource } from "./support/knowledge-source.js";
 import { matchInsurancePlanForOffice } from "../insurance-rules.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { availabilitySlotsForState } from "../scheduling/state.js";
@@ -70,18 +68,6 @@ describe("New Tampa 320 demo", () => {
     expect(prompt).toContain("New Tampa Eye Institute");
     expect(office.greeting).toContain("New Tampa Eye Institute demo");
     expect(prompt).not.toMatch(/Willowmere|Clearbrook|988/);
-    const knowledge = readFileSync(
-      new URL(
-        "../../docs/knowledge/sources/KNOWLEDGE_NEW_TAMPA_DEMO.md",
-        import.meta.url,
-      ),
-      "utf8",
-    );
-    expect(knowledge).toMatch(/27356 Cashford Cir.*13930 7th Street/s);
-    expect(knowledge).toMatch(
-      /Gretta Fridman.*Laurie Small.*Scott Friedman.*Hirah Khan.*Bradley Smur/s,
-    );
-    expect(knowledge).not.toContain("EMDR");
     expect(
       getOfficeProfileByPhone(OPHTHALMOLOGY_DEMO_TRUNK_PHONE).displayName,
     ).toBe("Clearbrook Eye Center");
@@ -119,16 +105,6 @@ describe("New Tampa 320 demo", () => {
     expect(newTampaSchedulingBlock(state, "routine_vision")).toBeNull();
     expect(newTampaSchedulingBlock(state, "medical")).toContain(
       "visit type changed",
-    );
-  });
-
-  it("archives the direct glasses redirect without an unconditional specialist-name question", () => {
-    const content = readOfficeKnowledgeSource("new-tampa-demo");
-    expect(content).toContain(
-      "For medical care or an unclear visit purpose, clarify the first name.",
-    );
-    expect(content).toContain(
-      "For glasses or routine exams only, redirect directly to Doctor Bradley Smur instead of asking which specialist they mean.",
     );
   });
 

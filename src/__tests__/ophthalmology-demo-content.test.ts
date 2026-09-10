@@ -10,7 +10,6 @@ import {
   loadInsuranceReference,
   matchInsurancePlanForOffice,
 } from "../insurance-rules.js";
-import { readOfficeKnowledgeSource } from "./support/knowledge-source.js";
 import { buildPrompt } from "../prompt.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "..", "workspace");
@@ -20,10 +19,9 @@ function readWorkspaceFile(source: string): string {
 }
 
 describe("ophthalmology demo content", () => {
-  it("keeps the Clearbrook role and archived import source separate", () => {
+  it("keeps the dedicated Clearbrook role and office identity", () => {
     const office = getOfficeProfileByPhone(OPHTHALMOLOGY_DEMO_TRUNK_PHONE);
     const prompt = buildPrompt(OPHTHALMOLOGY_DEMO_TRUNK_PHONE);
-    const knowledge = readOfficeKnowledgeSource("ophthalmology-demo");
     const role = readWorkspaceFile("SOUL_OPHTHALMOLOGY_DEMO.md");
 
     expect(office).toMatchObject({
@@ -39,17 +37,9 @@ describe("ophthalmology demo content", () => {
     expect(prompt).toContain("a fictional ophthalmology clinic");
     expect(prompt).toContain("Clearbrook Eye Center");
     expect(prompt).not.toContain("Abita Eye Group");
-    expect(knowledge).toContain("Doctor Elena Marlowe");
-    expect(knowledge).toContain("Harbor Point Center");
-    expect(knowledge).toContain("Cypress Commons Center");
-    expect(knowledge).not.toContain("Dr. Bach");
-    expect(knowledge).not.toContain("Spring Hill");
-    expect(knowledge).not.toContain("abitaeye.com");
-    for (const source of [role, knowledge]) {
-      expect(source).toContain(
-        "New flashes or floaters require immediate transfer to office staff.",
-      );
-    }
+    expect(role).toContain(
+      "New flashes or floaters require immediate transfer to office staff.",
+    );
   });
 
   it("retains both eye-care scheduling lanes after migration", () => {

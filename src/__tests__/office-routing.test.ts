@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { isToolset, type ToolContextEntry } from "@livekit/agents";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -32,7 +30,6 @@ import {
 } from "../tools/index.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
-import { readOfficeKnowledgeSource } from "./support/knowledge-source.js";
 
 const middleware = new InMemoryOwnedMiddleware();
 const add_patient = createAddPatientTool(middleware);
@@ -350,23 +347,14 @@ describe("tool-first prompt gating", () => {
   });
 
   it.each([
-    ["spring-hill", SPRING_HILL_OFFICE_PHONE],
-    ["crystal-river", CRYSTAL_RIVER_OFFICE_PHONE],
-    ["ophthalmology-demo", OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
-  ] as const)(
-    "keeps runtime eye-emergency handling aligned with archived guidance for %s",
-    (office, phone) => {
-      expect(buildPrompt(phone)).toContain(
-        "If the caller describes an eye emergency, follow Human Transfer immediately.",
-      );
-      const content = readOfficeKnowledgeSource(office);
-      expect(content).toContain(
-        "New flashes or floaters require immediate transfer to office staff.",
-      );
-      expect(content).not.toContain("offer the next available appointment");
-      expect(content).toContain("Ask only for missing details");
-    },
-  );
+    SPRING_HILL_OFFICE_PHONE,
+    CRYSTAL_RIVER_OFFICE_PHONE,
+    OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
+  ])("keeps runtime eye-emergency handling for %s", (phone) => {
+    expect(buildPrompt(phone)).toContain(
+      "If the caller describes an eye emergency, follow Human Transfer immediately.",
+    );
+  });
 
   it.each([SPRING_HILL_OFFICE_PHONE, OPHTHALMOLOGY_DEMO_TRUNK_PHONE])(
     "keeps identity and privacy policy in the static prompt for %s",
@@ -464,49 +452,6 @@ describe("rheumatology demo", () => {
       target: "sip:demo@example.test",
     });
   });
-
-  it("archives rheumatology and medication facts for the import", () => {
-    const knowledge = readOfficeKnowledgeSource("rheumatology-demo");
-    expect(knowledge).toContain("rheumatoid arthritis, osteoarthritis, lupus");
-    expect(knowledge).toContain(
-      "Methotrexate is a conventional disease-modifying antirheumatic drug",
-    );
-  });
-
-  it("keeps rheumatology fictional and preserves the dermatology files", () => {
-    const knowledge = readFileSync(
-      join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "docs",
-        "knowledge",
-        "sources",
-        "KNOWLEDGE_RHEUM_DEMO.md",
-      ),
-      "utf-8",
-    );
-    const dermatology = readFileSync(
-      join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "docs",
-        "knowledge",
-        "sources",
-        "KNOWLEDGE_DERM_DEMO.md",
-      ),
-      "utf-8",
-    );
-
-    expect(knowledge).toContain(
-      "fictional practice created for product demonstrations",
-    );
-    expect(knowledge).toContain("rheumatoid arthritis");
-    expect(knowledge).not.toContain("Abita");
-    expect(knowledge).not.toContain("acrmed.com");
-    expect(dermatology).toContain("medical dermatology");
-  });
 });
 
 describe("dedicated demo trunks", () => {
@@ -538,63 +483,16 @@ describe("dedicated demo trunks", () => {
 });
 
 describe("Crystal River prompt guidance", () => {
-  it("keeps Crystal River medical-only guidance in knowledge and out of routing tools", () => {
+  it("keeps obsolete Crystal River routing instructions out of the prompt", () => {
     const prompt = buildPrompt("+13523202007");
-    const crystalRiverKnowledge = readFileSync(
-      join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "docs",
-        "knowledge",
-        "sources",
-        "KNOWLEDGE_EYERADIANCE.md",
-      ),
-      "utf-8",
-    );
 
     expect(prompt).not.toContain("Use the routing tool, not the transfer tool");
     expect(prompt).not.toContain("route_to_spring_hill");
     expect(prompt).not.toContain("do not transfer just for that");
-    expect(crystalRiverKnowledge).toContain(
-      "Crystal River is a medical-only office",
-    );
-    expect(crystalRiverKnowledge).toContain(
-      "does not see pediatric ophthalmology",
-    );
-    expect(crystalRiverKnowledge).toContain("cataract evaluations");
-    expect(crystalRiverKnowledge).toContain(
-      "Crystal River can schedule the in-office evaluation when appropriate",
-    );
-    expect(crystalRiverKnowledge).toContain(
-      "Present only the tests, procedures, and specialty services explicitly listed here; route other availability questions to staff",
-    );
-    expect(crystalRiverKnowledge).not.toContain(
-      "does **not** schedule cataract evaluations",
-    );
-    expect(crystalRiverKnowledge).not.toContain(
-      "does **not** schedule cataract surgery workups",
-    );
-    expect(crystalRiverKnowledge).not.toContain("coordinates with Spring Hill");
-    expect(crystalRiverKnowledge).toContain(
-      "does not schedule routine-vision exams, glasses prescriptions, or contact lens prescriptions",
-    );
   });
 
-  it("teaches Spring Hill routine vision without the old optometry denial", () => {
+  it("keeps obsolete triage instructions out of the Spring Hill prompt", () => {
     const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
-    const springHillKnowledge = readFileSync(
-      join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "docs",
-        "knowledge",
-        "sources",
-        "KNOWLEDGE_SPRINGHILL.md",
-      ),
-      "utf-8",
-    );
 
     expect(prompt).toContain("an ophthalmology clinic");
     expect(prompt).toContain("# Tool Use");
@@ -609,24 +507,7 @@ describe("Crystal River prompt guidance", () => {
     expect(prompt).not.toContain("6167");
     expect(prompt).not.toContain("6169");
     expect(prompt).not.toContain("6168");
-    expect(springHillKnowledge).toContain("routine-vision scheduling lane");
-    expect(springHillKnowledge).toContain("Routine optometry is age 7+");
-    expect(springHillKnowledge).toContain(
-      "Children under 7 are not scheduled for routine vision or optical",
-    );
-    expect(springHillKnowledge).toContain("retinal photos");
-    expect(springHillKnowledge).toContain("$39 charge");
-    expect(springHillKnowledge).not.toContain("Social Security");
-    expect(springHillKnowledge).not.toContain("SSN");
-    expect(springHillKnowledge).toContain("Retina care is available");
-    expect(springHillKnowledge).toContain("YSL, Ferragamo, Gucci");
-    expect(springHillKnowledge).toContain("Sherry is the licensed optician");
-    expect(springHillKnowledge).toContain("10 business days");
-    expect(springHillKnowledge).toContain("1930 Land O Lakes Boulevard");
     expect(prompt).not.toContain("do **not** perform routine eye exams");
-    expect(springHillKnowledge).not.toContain(
-      "do **not** perform routine eye exams",
-    );
   });
 
   it("keeps full registration prose out of the Spring Hill prompt", () => {
@@ -641,116 +522,17 @@ describe("Crystal River prompt guidance", () => {
   it("keeps Hollywood and Sweetwater off the Crystal River routing prompt block", () => {
     const hollywoodPrompt = buildPrompt(HOLLYWOOD_OFFICE_PHONE);
     const sweetwaterPrompt = buildPrompt(SWEETWATER_OFFICE_PHONE);
-    const hollywoodKnowledge = readFileSync(
-      join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "docs",
-        "knowledge",
-        "sources",
-        "KNOWLEDGE_HOLLYWOOD.md",
-      ),
-      "utf-8",
-    );
-    const sweetwaterKnowledge = readFileSync(
-      join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "docs",
-        "knowledge",
-        "sources",
-        "KNOWLEDGE_SWEETWATER.md",
-      ),
-      "utf-8",
-    );
 
     expect(hollywoodPrompt).not.toContain("route_to_spring_hill");
     expect(sweetwaterPrompt).not.toContain("route_to_spring_hill");
     expect(hollywoodPrompt).not.toContain("Crystal River routing rules");
     expect(sweetwaterPrompt).not.toContain("Crystal River routing rules");
-    expect(hollywoodKnowledge).toContain("Abita Eye Group Hollywood");
-    expect(hollywoodKnowledge).toContain(
-      "4330 Sheridan St, Suite 102B, Hollywood, FL 33021",
-    );
-    expect(hollywoodKnowledge).toContain(
-      "12750 NW 17th St, #201, Miami, FL 33182",
-    );
-    expect(hollywoodKnowledge).not.toContain("Use the medical visit type");
-    expect(hollywoodKnowledge).not.toContain(
-      "Use the routine vision visit type",
-    );
-    expect(hollywoodKnowledge).not.toContain("Route to ophthalmology");
-    expect(hollywoodKnowledge).not.toContain("Route to optometry");
-    expect(hollywoodKnowledge).toContain(
-      "Routine-vision appointments cover routine eye exams",
-    );
-    expect(hollywoodKnowledge).not.toContain("optometry lane");
-    expect(hollywoodKnowledge).toContain(
-      "does not perform retina surgical care",
-    );
-    expect(hollywoodKnowledge).toContain("Katie is the licensed optician");
-    expect(hollywoodKnowledge).toContain("@abitaeyegroup");
-    expect(hollywoodKnowledge).toContain("Dr. Bach");
-    expect(sweetwaterKnowledge).toContain("Abita Eye Group Sweetwater");
-    expect(sweetwaterKnowledge).toContain("12750 NW 17th St, #201");
-    expect(sweetwaterKnowledge).toContain(
-      "4330 Sheridan St, Suite 102B, Hollywood, FL 33021",
-    );
-    expect(sweetwaterKnowledge).not.toContain("Use the medical visit type");
-    expect(sweetwaterKnowledge).not.toContain(
-      "Use the routine vision visit type",
-    );
-    expect(sweetwaterKnowledge).not.toContain("Route to ophthalmology");
-    expect(sweetwaterKnowledge).not.toContain("Route to optometry");
-    expect(sweetwaterKnowledge).toContain(
-      "Routine-vision appointments cover routine eye exams",
-    );
-    expect(sweetwaterKnowledge).not.toContain("optometry lane");
-    expect(sweetwaterKnowledge).toContain(
-      "does not perform retina surgical care",
-    );
-    expect(sweetwaterKnowledge).toContain("Betty is the licensed optician");
-    expect(sweetwaterKnowledge).toContain("@abitaeyegroup");
-    expect(sweetwaterKnowledge).toContain("Dr. Maria Casas");
   });
 
-  it("retains both scheduling addresses in the import source", () => {
-    for (const office of ["hollywood", "sweetwater"] as const) {
-      const knowledge = readOfficeKnowledgeSource(office);
-      expect(knowledge).toContain(
-        "4330 Sheridan St, Suite 102B, Hollywood, FL 33021",
-      );
-      expect(knowledge).toContain("12750 NW 17th St, #201, Miami, FL 33182");
-    }
-  });
-
-  it("keeps North Miami Beach Optical knowledge limited to provided facts", () => {
+  it("keeps Crystal River routing instructions out of the North Miami Beach prompt", () => {
     const prompt = buildPrompt(NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE);
-    const knowledge = readFileSync(
-      join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "docs",
-        "knowledge",
-        "sources",
-        "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
-      ),
-      "utf-8",
-    );
 
     expect(prompt).not.toContain("route_to_spring_hill");
-    expect(knowledge).toContain("North Miami Beach Optical");
-    expect(knowledge).toContain("(305) 509-5333");
-    expect(knowledge).toContain("633 NE 167th Street");
-    expect(knowledge).toContain("optical-only office");
-    expect(knowledge).toContain("Gucci, Montblanc, YSL");
-    expect(knowledge).toContain("Dr. Miriam Bach");
-    expect(knowledge).toContain("less than 10 business days");
-    expect(knowledge).toContain("Name only the providers listed here");
-    expect(knowledge).toContain("Medical insurance checks are not supported");
   });
 
   it("answers ordered-glasses readiness from text notification status", () => {

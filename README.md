@@ -453,7 +453,6 @@ src/tools/                               model-facing tools and narrow adapters
 src/call-observability.ts                stable event and tool outcome classification
 src/__tests__/                           interface-level behavior and contract tests
 workspace/                               role, voice, and structured insurance sources
-docs/knowledge/                          archived knowledge sources and controlled import manifests
 docs/ops/                                provider and deployment operations
 ```
 
