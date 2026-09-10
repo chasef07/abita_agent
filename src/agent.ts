@@ -94,21 +94,6 @@ export function createVoiceAgent(
           break;
         }
       }
-      // Keep current-turn results, but search again for each new question.
-      const priorKnowledge = new Set(
-        modelChatCtx.items
-          .slice(0, Math.max(0, latestUserIndex))
-          .filter(
-            (item) =>
-              (item.type === "function_call" ||
-                item.type === "function_call_output") &&
-              item.name === "search_office_knowledge",
-          ),
-      );
-      modelChatCtx.items = modelChatCtx.items.filter(
-        (item) => !priorKnowledge.has(item),
-      );
-      latestUserIndex -= priorKnowledge.size;
       modelChatCtx.items.splice(
         latestUserIndex < 0 ? modelChatCtx.items.length : latestUserIndex,
         0,
