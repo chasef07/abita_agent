@@ -6,7 +6,6 @@ import {
 } from "../state/call-lifecycle.js";
 import { recordOfficeKnowledgeRetrieval } from "../state/observability.js";
 import { getProductTenantConfig } from "../runtime/portal-auth.js";
-import { usesPortalKnowledge } from "../runtime/portal-knowledge.js";
 import { getState } from "./session.js";
 
 const passage = z.object({
@@ -76,7 +75,6 @@ export function createSearchOfficeKnowledgeTool() {
             query,
           );
         if (
-          !usesPortalKnowledge(officeKey) ||
           !url ||
           !secret ||
           includesIdentifier ||
@@ -115,7 +113,6 @@ export function createSearchOfficeKnowledgeTool() {
       } finally {
         recordOfficeKnowledgeRetrieval(state, {
           elapsedMs: Math.round(performance.now() - startedAt),
-          language: "unknown",
           officeKey,
           outcome:
             result.outcome === "found"
@@ -124,7 +121,6 @@ export function createSearchOfficeKnowledgeTool() {
                 ? "unavailable"
                 : "failure",
           sectionCount: result.passages.length,
-          topic: null,
           ...(result.revisionId
             ? {
                 revisionId: result.revisionId,

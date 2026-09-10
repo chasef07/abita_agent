@@ -32,7 +32,7 @@ import {
 } from "../tools/index.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
-import { resolveOfficeKnowledge } from "../office-knowledge.js";
+import { readOfficeKnowledgeSource } from "./support/knowledge-source.js";
 
 const middleware = new InMemoryOwnedMiddleware();
 const add_patient = createAddPatientTool(middleware);
@@ -201,14 +201,17 @@ describe("voice output prompt", () => {
     }
   });
 
-  it("states model-facing prompt instructions as positive actions", () => {
+  it("states voice style instructions as positive actions", () => {
     const prompts = [
       buildPrompt(SPRING_HILL_OFFICE_PHONE),
       buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE),
     ];
 
     for (const prompt of prompts) {
-      expect(prompt).not.toMatch(
+      // Knowledge safety boundaries intentionally prohibit unsupported claims and PHI.
+      const voiceStyle = prompt.match(/<voice>([\s\S]*?)<\/voice>/)?.[1];
+      expect(voiceStyle).toBeDefined();
+      expect(voiceStyle).not.toMatch(
         /\b(?:aren't|can't|cannot|couldn't|do not|does not|don't|haven't|isn't|never|must not|shouldn't|wasn't|weren't|won't|wouldn't)\b/i,
       );
     }
@@ -354,29 +357,17 @@ describe("tool-first prompt gating", () => {
     ["crystal-river", CRYSTAL_RIVER_OFFICE_PHONE],
     ["ophthalmology-demo", OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
   ] as const)(
-    "keeps retrieved eye-emergency guidance aligned for %s",
+    "keeps runtime eye-emergency handling aligned with archived guidance for %s",
     (office, phone) => {
       expect(buildPrompt(phone)).toContain(
         "If the caller describes an eye emergency, follow Human Transfer immediately.",
       );
-      for (const symptom of [
-        "I have new flashes.",
-        "I have new floaters.",
-        "I have sudden vision loss.",
-        "Tengo pérdida repentina de visión.",
-      ]) {
-        const knowledge = resolveOfficeKnowledge(office, symptom);
-        expect(knowledge).toMatchObject({
-          outcome: "matched",
-          topic: "emergency_urgency",
-        });
-        const content = knowledge.sections.join("\n");
-        expect(content).toContain(
-          "New flashes or floaters require immediate transfer to office staff.",
-        );
-        expect(content).not.toContain("offer the next available appointment");
-        expect(content).toContain("Ask only for missing details");
-      }
+      const content = readOfficeKnowledgeSource(office);
+      expect(content).toContain(
+        "New flashes or floaters require immediate transfer to office staff.",
+      );
+      expect(content).not.toContain("offer the next available appointment");
+      expect(content).toContain("Ask only for missing details");
     },
   );
 
@@ -477,21 +468,10 @@ describe("rheumatology demo", () => {
     });
   });
 
-  it("retrieves rheumatology and medication knowledge", () => {
-    const condition = resolveOfficeKnowledge(
-      "rheumatology-demo",
-      "Do you treat lupus?",
-    );
-    const medication = resolveOfficeKnowledge(
-      "rheumatology-demo",
-      "What is methotrexate?",
-    );
-
-    expect(condition.sections.join("\n")).toContain("## Scope of Services");
-    expect(condition.sections.join("\n")).toContain(
-      "rheumatoid arthritis, osteoarthritis, lupus",
-    );
-    expect(medication.sections.join("\n")).toContain(
+  it("archives rheumatology and medication facts for the import", () => {
+    const knowledge = readOfficeKnowledgeSource("rheumatology-demo");
+    expect(knowledge).toContain("rheumatoid arthritis, osteoarthritis, lupus");
+    expect(knowledge).toContain(
       "Methotrexate is a conventional disease-modifying antirheumatic drug",
     );
   });
@@ -502,7 +482,9 @@ describe("rheumatology demo", () => {
         import.meta.dirname,
         "..",
         "..",
-        "workspace",
+        "docs",
+        "knowledge",
+        "sources",
         "KNOWLEDGE_RHEUM_DEMO.md",
       ),
       "utf-8",
@@ -512,7 +494,9 @@ describe("rheumatology demo", () => {
         import.meta.dirname,
         "..",
         "..",
-        "workspace",
+        "docs",
+        "knowledge",
+        "sources",
         "KNOWLEDGE_DERM_DEMO.md",
       ),
       "utf-8",
@@ -535,7 +519,6 @@ describe("dedicated demo trunks", () => {
 
     expect(office.trunkPhones).toEqual([OPHTHALMOLOGY_DEMO_TRUNK_PHONE]);
     expect(office.amdOfficePhone).toBe(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
-    expect(office.knowledgeSource).toBe("KNOWLEDGE_OPHTHALMOLOGY_DEMO.md");
     expect(office.schedulingFor("medical")).toEqual({ supported: true });
     expect(office.schedulingFor("routine_vision")).toEqual({
       supported: true,
@@ -565,7 +548,9 @@ describe("Crystal River prompt guidance", () => {
         import.meta.dirname,
         "..",
         "..",
-        "workspace",
+        "docs",
+        "knowledge",
+        "sources",
         "KNOWLEDGE_EYERADIANCE.md",
       ),
       "utf-8",
@@ -606,7 +591,9 @@ describe("Crystal River prompt guidance", () => {
         import.meta.dirname,
         "..",
         "..",
-        "workspace",
+        "docs",
+        "knowledge",
+        "sources",
         "KNOWLEDGE_SPRINGHILL.md",
       ),
       "utf-8",
@@ -662,7 +649,9 @@ describe("Crystal River prompt guidance", () => {
         import.meta.dirname,
         "..",
         "..",
-        "workspace",
+        "docs",
+        "knowledge",
+        "sources",
         "KNOWLEDGE_HOLLYWOOD.md",
       ),
       "utf-8",
@@ -672,7 +661,9 @@ describe("Crystal River prompt guidance", () => {
         import.meta.dirname,
         "..",
         "..",
-        "workspace",
+        "docs",
+        "knowledge",
+        "sources",
         "KNOWLEDGE_SWEETWATER.md",
       ),
       "utf-8",
@@ -728,19 +719,13 @@ describe("Crystal River prompt guidance", () => {
     expect(sweetwaterKnowledge).toContain("Dr. Maria Casas");
   });
 
-  it("answers either office with both Hollywood and Sweetwater scheduling addresses", () => {
+  it("retains both scheduling addresses in the import source", () => {
     for (const office of ["hollywood", "sweetwater"] as const) {
-      const result = resolveOfficeKnowledge(
-        office,
-        "What are the Hollywood and Sweetwater office addresses?",
-      );
-
-      expect(result.sections.join("\n")).toContain(
+      const knowledge = readOfficeKnowledgeSource(office);
+      expect(knowledge).toContain(
         "4330 Sheridan St, Suite 102B, Hollywood, FL 33021",
       );
-      expect(result.sections.join("\n")).toContain(
-        "12750 NW 17th St, #201, Miami, FL 33182",
-      );
+      expect(knowledge).toContain("12750 NW 17th St, #201, Miami, FL 33182");
     }
   });
 
@@ -751,7 +736,9 @@ describe("Crystal River prompt guidance", () => {
         import.meta.dirname,
         "..",
         "..",
-        "workspace",
+        "docs",
+        "knowledge",
+        "sources",
         "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
       ),
       "utf-8",
@@ -769,7 +756,7 @@ describe("Crystal River prompt guidance", () => {
     expect(knowledge).toContain("Medical insurance checks are not supported");
   });
 
-  it("answers ordered-glasses readiness from text notification status", () => {
+  it("retrieves office policy instead of baking readiness claims into the prompt", () => {
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
       CRYSTAL_RIVER_OFFICE_PHONE,
@@ -777,30 +764,13 @@ describe("Crystal River prompt guidance", () => {
       NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
     ]) {
-      expect(buildPrompt(phone)).toContain(GLASSES_READY_ANSWER);
+      expect(buildPrompt(phone)).not.toContain(GLASSES_READY_ANSWER);
+      expect(buildPrompt(phone)).toContain("search_office_knowledge");
     }
 
     expect(create_staff_task.description).not.toContain(
       "glasses-readiness text policy",
     );
-  });
-
-  it("keeps universal glasses-readiness policy out of office knowledge", () => {
-    for (const officeKey of [
-      "spring-hill",
-      "crystal-river",
-      "hollywood",
-      "sweetwater",
-      "north-miami-beach-optical",
-    ] as const) {
-      expect(
-        resolveOfficeKnowledge(officeKey, "Are my glasses ready?"),
-      ).toMatchObject({ outcome: "skipped" });
-    }
-
-    expect(
-      resolveOfficeKnowledge("rheumatology-demo", "Are my glasses ready?"),
-    ).toMatchObject({ outcome: "skipped" });
   });
 
   it("does not expose a standalone turn context recorder", () => {
@@ -915,6 +885,7 @@ describe("model-facing tool definitions", () => {
         "book_appointment",
         "cancel_appointment",
         "check_insurance",
+        "search_office_knowledge",
         "create_staff_task",
         "list_available_appointments",
         "reschedule_appointment",

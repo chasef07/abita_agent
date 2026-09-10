@@ -76,7 +76,6 @@ type OfficeBehavior = {
     routineVision: InsuranceBehavior;
   };
   key: OfficeKey;
-  knowledgeSource: string;
   promptMarker: string;
   scheduling: {
     medical: OfficeSchedulingPolicy;
@@ -102,6 +101,7 @@ const COMMON_TOOL_NAMES = [
   "book_appointment",
   "cancel_appointment",
   "check_insurance",
+  "search_office_knowledge",
   "end_call",
   "list_available_appointments",
   "reschedule_appointment",
@@ -131,7 +131,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "spring-hill",
-    knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -158,7 +157,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "crystal-river",
-    knowledgeSource: "KNOWLEDGE_EYERADIANCE.md",
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -191,7 +189,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "hollywood",
-    knowledgeSource: "KNOWLEDGE_HOLLYWOOD.md",
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -220,7 +217,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "sweetwater",
-    knowledgeSource: "KNOWLEDGE_SWEETWATER.md",
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -249,7 +245,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "north-miami-beach-optical",
-    knowledgeSource: "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: {
@@ -282,7 +277,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "ophthalmology-demo",
-    knowledgeSource: "KNOWLEDGE_OPHTHALMOLOGY_DEMO.md",
     promptMarker: "a fictional ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -314,7 +308,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "new-tampa-demo",
-    knowledgeSource: "KNOWLEDGE_NEW_TAMPA_DEMO.md",
     promptMarker: "a personalized New Tampa Eye Institute demonstration",
     scheduling: {
       medical: { supported: true },
@@ -344,7 +337,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "rheumatology-demo",
-    knowledgeSource: "KNOWLEDGE_RHEUM_DEMO.md",
     promptMarker: "a fictional rheumatology practice",
     scheduling: {
       medical: { supported: true },
@@ -483,7 +475,6 @@ describe("Voice Agent office profile", () => {
             ),
           },
           key: office.key,
-          knowledgeSource: office.knowledgeSource,
           promptHasConfiguredRole: instructions.includes(expected.promptMarker),
           scheduling: {
             medical: office.schedulingFor("medical"),
@@ -520,7 +511,6 @@ describe("Voice Agent office profile", () => {
             routineVision: expected.insurance.routineVision.response,
           },
           key: expected.key,
-          knowledgeSource: expected.knowledgeSource,
           promptHasConfiguredRole: true,
           scheduling: expected.scheduling,
           schedulingBehavior: {

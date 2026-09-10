@@ -29,6 +29,7 @@ const TOOL_MARKERS = [
   "book_appointment",
   "reschedule_appointment",
   "check_insurance",
+  "search_office_knowledge",
   "transfer_call",
   "end_call",
   "create_staff_task",

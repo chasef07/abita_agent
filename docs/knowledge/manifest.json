@@ -1,0 +1,166 @@
+{
+  "sourceRevision": "ad3d57550578096ace95df6600143c66d230189d",
+  "offices": [
+    {
+      "officeKey": "spring-hill",
+      "sourcePath": "docs/knowledge/sources/KNOWLEDGE_SPRINGHILL.md",
+      "sourceSha256": "fc46f82aab6d68fcf1f1f755c648b896cacff1a87cf8a0e65aba774dc9c34466",
+      "additionalSources": [],
+      "importPath": "docs/evidence/spring-hill-knowledge-import.json",
+      "sectionCount": 15,
+      "contentSha256": "179582eda32b265122604f259414facdf0fb4234292dbdb4556441a96e4d34d1",
+      "status": "reuse-current-import"
+    },
+    {
+      "officeKey": "crystal-river",
+      "sourcePath": "docs/knowledge/sources/KNOWLEDGE_EYERADIANCE.md",
+      "sourceSha256": "00db19a480e5e34b0fb557a5032dd8c2ea2be5360a1178c2ff0bd8c3fd293ded",
+      "additionalSources": [
+        {
+          "sourcePath": "workspace/SOUL.md",
+          "sourceRevision": "ad3d57550578096ace95df6600143c66d230189d",
+          "sourceSha256": "fd59d9d0d611236e7c7ed8679a463fa0d67f8ff566a4bad3f041ed0eb9f22962",
+          "exactFact": "If a caller asks whether ordered glasses are ready, say: \"Check your texts. A readiness text confirms your glasses are ready for pickup. Please wait for that text before coming in.\"",
+          "applicableOffices": [
+            "crystal-river",
+            "hollywood",
+            "sweetwater",
+            "north-miami-beach-optical"
+          ]
+        }
+      ],
+      "importPath": "docs/knowledge/imports/crystal-river.json",
+      "sectionCount": 15,
+      "contentSha256": "be59f700171117b61ee5ddf43ddb5cfc8026731db23c4b54ed5119bba172ceff",
+      "status": "prepared-needs-route-validation"
+    },
+    {
+      "officeKey": "hollywood",
+      "sourcePath": "docs/knowledge/sources/KNOWLEDGE_HOLLYWOOD.md",
+      "sourceSha256": "f53b45570457ed12902b89d7ba4ede18bdd733271c300092a6d42bfe9daf104c",
+      "additionalSources": [
+        {
+          "sourcePath": "src/prompt.ts",
+          "sourceRevision": "ad3d57550578096ace95df6600143c66d230189d",
+          "sourceSha256": "48c609b4527b5906e784787e0d00b44bbb36ff1e644cd36ba03b6461c96951d0",
+          "exactFact": "We are closed on weekends.",
+          "applicableOffices": ["hollywood", "sweetwater"]
+        },
+        {
+          "sourcePath": "workspace/SOUL.md",
+          "sourceRevision": "ad3d57550578096ace95df6600143c66d230189d",
+          "sourceSha256": "fd59d9d0d611236e7c7ed8679a463fa0d67f8ff566a4bad3f041ed0eb9f22962",
+          "exactFact": "If a caller asks whether ordered glasses are ready, say: \"Check your texts. A readiness text confirms your glasses are ready for pickup. Please wait for that text before coming in.\"",
+          "applicableOffices": [
+            "crystal-river",
+            "hollywood",
+            "sweetwater",
+            "north-miami-beach-optical"
+          ]
+        }
+      ],
+      "importPath": "docs/knowledge/imports/hollywood.json",
+      "sectionCount": 15,
+      "contentSha256": "e68e445736cbf55cba80fa34e18fcb9760a91605705c351be6bd4848300f3404",
+      "status": "prepared-needs-route-validation"
+    },
+    {
+      "officeKey": "sweetwater",
+      "sourcePath": "docs/knowledge/sources/KNOWLEDGE_SWEETWATER.md",
+      "sourceSha256": "31265daede736700affb4de6e717a0d178c3d30d2e719eded8801795cc21696a",
+      "additionalSources": [
+        {
+          "sourcePath": "src/prompt.ts",
+          "sourceRevision": "ad3d57550578096ace95df6600143c66d230189d",
+          "sourceSha256": "48c609b4527b5906e784787e0d00b44bbb36ff1e644cd36ba03b6461c96951d0",
+          "exactFact": "We are closed on weekends.",
+          "applicableOffices": ["hollywood", "sweetwater"]
+        },
+        {
+          "sourcePath": "workspace/SOUL.md",
+          "sourceRevision": "ad3d57550578096ace95df6600143c66d230189d",
+          "sourceSha256": "fd59d9d0d611236e7c7ed8679a463fa0d67f8ff566a4bad3f041ed0eb9f22962",
+          "exactFact": "If a caller asks whether ordered glasses are ready, say: \"Check your texts. A readiness text confirms your glasses are ready for pickup. Please wait for that text before coming in.\"",
+          "applicableOffices": [
+            "crystal-river",
+            "hollywood",
+            "sweetwater",
+            "north-miami-beach-optical"
+          ]
+        }
+      ],
+      "importPath": "docs/knowledge/imports/sweetwater.json",
+      "sectionCount": 15,
+      "contentSha256": "ce96814e5b22f8a5b6193749c0d8ab52b97632309695a7ae6c299890716bbf96",
+      "status": "prepared-needs-route-validation"
+    },
+    {
+      "officeKey": "north-miami-beach-optical",
+      "sourcePath": "docs/knowledge/sources/KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
+      "sourceSha256": "5abf3b581c70db0dc2be857d2c663474226853e872fd4449f40d85f6154bffe6",
+      "additionalSources": [
+        {
+          "sourcePath": "workspace/SOUL.md",
+          "sourceRevision": "ad3d57550578096ace95df6600143c66d230189d",
+          "sourceSha256": "fd59d9d0d611236e7c7ed8679a463fa0d67f8ff566a4bad3f041ed0eb9f22962",
+          "exactFact": "If a caller asks whether ordered glasses are ready, say: \"Check your texts. A readiness text confirms your glasses are ready for pickup. Please wait for that text before coming in.\"",
+          "applicableOffices": [
+            "crystal-river",
+            "hollywood",
+            "sweetwater",
+            "north-miami-beach-optical"
+          ]
+        }
+      ],
+      "importPath": "docs/knowledge/imports/north-miami-beach-optical.json",
+      "sectionCount": 15,
+      "contentSha256": "161ff677c1924b489d842e613340b73a7537ba25ec3f9c56a0bea3204279ed6b",
+      "status": "prepared-needs-route-validation"
+    },
+    {
+      "officeKey": "ophthalmology-demo",
+      "sourcePath": "docs/knowledge/sources/KNOWLEDGE_OPHTHALMOLOGY_DEMO.md",
+      "sourceSha256": "830c38e6733049cd16a73444c190528969680767d9ef1baa680bc1a8d8c36a75",
+      "additionalSources": [
+        {
+          "sourcePath": "workspace/SOUL_OPHTHALMOLOGY_DEMO.md",
+          "sourceRevision": "ad3d57550578096ace95df6600143c66d230189d",
+          "sourceSha256": "a0f1d43047bbb12fa8b3f634ab1724f4620171f7158eca8654292ee5bf120586",
+          "exactFact": "If a caller asks whether ordered glasses are ready, say: \"Check your texts. A readiness text confirms your glasses are ready for pickup. Please wait for that text before coming in.\"",
+          "applicableOffices": ["ophthalmology-demo"]
+        }
+      ],
+      "importPath": "docs/knowledge/imports/ophthalmology-demo.json",
+      "sectionCount": 16,
+      "contentSha256": "58854e58a3495e649b236cbd9d316593713582f80bed6139fa568fbb2a58d1fa",
+      "status": "prepared-needs-route-validation"
+    },
+    {
+      "officeKey": "new-tampa-demo",
+      "sourcePath": "docs/knowledge/sources/KNOWLEDGE_NEW_TAMPA_DEMO.md",
+      "sourceSha256": "d8fc1f44e34499ae9903dcae9665e733a110b6469b5a8d8c6732872a146bb62e",
+      "additionalSources": [],
+      "importPath": "docs/knowledge/imports/new-tampa-demo.json",
+      "sectionCount": 16,
+      "contentSha256": "ff3ee6d1413bc4295adb1f0a11ea85313c7006eec18333b47d80ced05c9257fa",
+      "status": "prepared-needs-route-validation"
+    },
+    {
+      "officeKey": "rheumatology-demo",
+      "sourcePath": "docs/knowledge/sources/KNOWLEDGE_RHEUM_DEMO.md",
+      "sourceSha256": "262fd3fae4b20264cf48cc62b1a21180bad1b9978c01bdfe24429ddca0fb6f11",
+      "additionalSources": [],
+      "importPath": "docs/knowledge/imports/rheumatology-demo.json",
+      "sectionCount": 16,
+      "contentSha256": "b72fcc03bb78c9fe328acbcd89d5f417aa971dc84daa417529711ade4f9e21dc",
+      "status": "prepared-needs-route-validation"
+    }
+  ],
+  "unmappedSources": [
+    {
+      "sourcePath": "docs/knowledge/sources/KNOWLEDGE_DERM_DEMO.md",
+      "sourceSha256": "e04d8f1417da36c95790ba174d02ef514824ab9f531234cd74eab2f5ba3b06a5",
+      "status": "archived-no-configured-office-route-no-import"
+    }
+  ]
+}

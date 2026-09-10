@@ -16,10 +16,7 @@ import {
   getOfficeProfileByPhone,
 } from "../customers/abita/profile.js";
 import { buildPrompt } from "../prompt.js";
-import {
-  resolveOfficeKnowledge,
-  validateOfficeKnowledgeDocument,
-} from "../office-knowledge.js";
+import { readOfficeKnowledgeSource } from "./support/knowledge-source.js";
 import { matchInsurancePlanForOffice } from "../insurance-rules.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { availabilitySlotsForState } from "../scheduling/state.js";
@@ -74,27 +71,17 @@ describe("New Tampa 320 demo", () => {
     expect(office.greeting).toContain("New Tampa Eye Institute demo");
     expect(prompt).not.toMatch(/Willowmere|Clearbrook|988/);
     const knowledge = readFileSync(
-      new URL("../../workspace/KNOWLEDGE_NEW_TAMPA_DEMO.md", import.meta.url),
+      new URL(
+        "../../docs/knowledge/sources/KNOWLEDGE_NEW_TAMPA_DEMO.md",
+        import.meta.url,
+      ),
       "utf8",
     );
-    validateOfficeKnowledgeDocument(office.knowledgeSource, knowledge);
-    expect(
-      resolveOfficeKnowledge(
-        "new-tampa-demo",
-        "Where are you located?",
-      ).sections.join("\n"),
-    ).toMatch(/27356 Cashford Cir.*13930 7th Street/s);
-    expect(
-      resolveOfficeKnowledge(
-        "new-tampa-demo",
-        "Which doctors work there?",
-      ).sections.join("\n"),
-    ).toMatch(
+    expect(knowledge).toMatch(/27356 Cashford Cir.*13930 7th Street/s);
+    expect(knowledge).toMatch(
       /Gretta Fridman.*Laurie Small.*Scott Friedman.*Hirah Khan.*Bradley Smur/s,
     );
-    expect(
-      resolveOfficeKnowledge("new-tampa-demo", "Do you offer EMDR?").outcome,
-    ).toBe("skipped");
+    expect(knowledge).not.toContain("EMDR");
     expect(
       getOfficeProfileByPhone(OPHTHALMOLOGY_DEMO_TRUNK_PHONE).displayName,
     ).toBe("Clearbrook Eye Center");
@@ -135,12 +122,8 @@ describe("New Tampa 320 demo", () => {
     );
   });
 
-  it("retrieves the direct glasses redirect without an unconditional specialist-name question", () => {
-    const knowledge = resolveOfficeKnowledge(
-      "new-tampa-demo",
-      "I need glasses and want Doctor Friedman.",
-    );
-    const content = knowledge.sections.join("\n");
+  it("archives the direct glasses redirect without an unconditional specialist-name question", () => {
+    const content = readOfficeKnowledgeSource("new-tampa-demo");
     expect(content).toContain(
       "For medical care or an unclear visit purpose, clarify the first name.",
     );

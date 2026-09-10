@@ -372,23 +372,30 @@ describe("call closeout", () => {
         ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
       }),
     ).toThrow(
-      "AMD_API_URL, AMD_API_TOKEN, ACUITY_PRODUCT_INTERACTION_URL, ACUITY_PRODUCT_HANDOFF_URL, ACUITY_DEMO_PRODUCT_SERVICE_SECRET, ACUITY_DEMO_PRODUCT_PRACTICE_ID, ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET, ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID are required in production",
+      "AMD_API_URL, AMD_API_TOKEN, ACUITY_PRODUCT_INTERACTION_URL, ACUITY_PRODUCT_KNOWLEDGE_URL, ACUITY_PRODUCT_HANDOFF_URL, ACUITY_DEMO_PRODUCT_SERVICE_SECRET, ACUITY_DEMO_PRODUCT_PRACTICE_ID, ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET, ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID are required in production",
     );
+    const configured = {
+      NODE_ENV: "production",
+      AMD_API_URL: "https://middleware.example",
+      AMD_API_TOKEN: "middleware-secret",
+      ACUITY_PRODUCT_INTERACTION_URL:
+        "https://product.example/v1/ai/interactions",
+      ACUITY_PRODUCT_KNOWLEDGE_URL:
+        "https://product.example/v1/agent/knowledge/search",
+      ACUITY_PRODUCT_HANDOFF_URL: "https://product.example/v1/handoffs",
+      ACUITY_DEMO_PRODUCT_PRACTICE_ID: "00000000-0000-0000-0000-000000000001",
+      ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
+      ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID:
+        "00000000-0000-0000-0000-000000000002",
+      ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+    };
+    expect(() => validateRuntimeConfig(configured)).not.toThrow();
     expect(() =>
       validateRuntimeConfig({
-        NODE_ENV: "production",
-        AMD_API_URL: "https://middleware.example",
-        AMD_API_TOKEN: "middleware-secret",
-        ACUITY_PRODUCT_INTERACTION_URL:
-          "https://product.example/v1/ai/interactions",
-        ACUITY_PRODUCT_HANDOFF_URL: "https://product.example/v1/handoffs",
-        ACUITY_DEMO_PRODUCT_PRACTICE_ID: "00000000-0000-0000-0000-000000000001",
-        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
-        ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID:
-          "00000000-0000-0000-0000-000000000002",
-        ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+        ...configured,
+        ACUITY_PRODUCT_KNOWLEDGE_URL: undefined,
       }),
-    ).not.toThrow();
+    ).toThrow("ACUITY_PRODUCT_KNOWLEDGE_URL");
     expect(() =>
       getProductInteractionConfig("spring-hill", {
         NODE_ENV: "production",
@@ -525,11 +532,9 @@ describe("call closeout", () => {
     for (let index = 0; index <= 200; index += 1) {
       recordOfficeKnowledgeRetrieval(state, {
         elapsedMs: index,
-        language: "en",
         officeKey: "spring-hill",
-        outcome: "skipped",
+        outcome: "unavailable",
         sectionCount: 0,
-        topic: null,
       });
     }
 

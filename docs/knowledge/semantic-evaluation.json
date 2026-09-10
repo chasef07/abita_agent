@@ -1,0 +1,2921 @@
+{
+  "observedAt": "2026-09-10T03:37:58.657Z",
+  "model": "text-multilingual-embedding-002",
+  "dimensions": 768,
+  "region": "us-east1",
+  "minSimilarity": 0.52,
+  "maxPassages": 4,
+  "corpus": [
+    {
+      "officeKey": "spring-hill",
+      "contentSha256": "179582eda32b265122604f259414facdf0fb4234292dbdb4556441a96e4d34d1",
+      "sectionCount": 15
+    },
+    {
+      "officeKey": "crystal-river",
+      "contentSha256": "be59f700171117b61ee5ddf43ddb5cfc8026731db23c4b54ed5119bba172ceff",
+      "sectionCount": 15
+    },
+    {
+      "officeKey": "hollywood",
+      "contentSha256": "e68e445736cbf55cba80fa34e18fcb9760a91605705c351be6bd4848300f3404",
+      "sectionCount": 15
+    },
+    {
+      "officeKey": "sweetwater",
+      "contentSha256": "ce96814e5b22f8a5b6193749c0d8ab52b97632309695a7ae6c299890716bbf96",
+      "sectionCount": 15
+    },
+    {
+      "officeKey": "north-miami-beach-optical",
+      "contentSha256": "161ff677c1924b489d842e613340b73a7537ba25ec3f9c56a0bea3204279ed6b",
+      "sectionCount": 15
+    },
+    {
+      "officeKey": "ophthalmology-demo",
+      "contentSha256": "58854e58a3495e649b236cbd9d316593713582f80bed6139fa568fbb2a58d1fa",
+      "sectionCount": 16
+    },
+    {
+      "officeKey": "new-tampa-demo",
+      "contentSha256": "ff3ee6d1413bc4295adb1f0a11ea85313c7006eec18333b47d80ced05c9257fa",
+      "sectionCount": 16
+    },
+    {
+      "officeKey": "rheumatology-demo",
+      "contentSha256": "b72fcc03bb78c9fe328acbcd89d5f417aa971dc84daa417529711ade4f9e21dc",
+      "sectionCount": 16
+    }
+  ],
+  "caseFileSha256": "aaf23e695286888e0a65082bd1d913c1d893079c6231ed09eccb9e27b976f82c",
+  "elapsedMs": 20191,
+  "sectionCount": 123,
+  "expectedSectionCoverage": {
+    "passed": 54,
+    "total": 56
+  },
+  "abstentionCasesRequiringModelReview": 16,
+  "limitations": [
+    "Ranks evaluated separately within each manifest office; this is not backend authorization or deployed isolation proof.",
+    "Similarity ranks passages, not answerability. Missing/irrelevant/action questions still require honest model abstention or owning tools.",
+    "No model answer generation or voice/audio latency measured by this script."
+  ],
+  "results": [
+    {
+      "officeKey": "spring-hill",
+      "id": "hours",
+      "query": "When does the office close on weekdays?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "social-follow-up",
+        "after-hours",
+        "appointment-expectations"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.7
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6553
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6467
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6353
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6223
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "spring-hill",
+      "id": "spanish",
+      "query": "¿Cuál es el horario de la oficina los sábados?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "social-follow-up",
+        "after-hours",
+        "location-and-contact"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6533
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6047
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.5999
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.5642
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.556
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "spring-hill",
+      "id": "address",
+      "query": "What address and public office phone are supplied?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "social-follow-up",
+        "billing",
+        "hours",
+        "location-and-contact"
+      ],
+      "ranked": [
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6862
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.638
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6356
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.635
+        },
+        {
+          "sectionId": "contact-lenses",
+          "title": "Contact Lenses",
+          "similarity": 0.6232
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "spring-hill",
+      "id": "service",
+      "query": "Is retina surgery performed at this office?",
+      "expectedSectionIds": ["scope-of-services"],
+      "selectedSectionIds": [
+        "scope-of-services",
+        "insurance-and-referrals",
+        "location-and-contact",
+        "appointment-expectations"
+      ],
+      "ranked": [
+        {
+          "sectionId": "scope-of-services",
+          "title": "Scope of Services",
+          "similarity": 0.7156
+        },
+        {
+          "sectionId": "insurance-and-referrals",
+          "title": "Insurance and Referrals",
+          "similarity": 0.7073
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.699
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6947
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.693
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "spring-hill",
+      "id": "price",
+      "query": "What is the self-pay cost of an established medical visit with an ophthalmologist?",
+      "expectedSectionIds": ["self-pay-pricing"],
+      "selectedSectionIds": [
+        "self-pay-pricing",
+        "insurance-and-referrals",
+        "what-to-bring",
+        "scope-of-services"
+      ],
+      "ranked": [
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.7983
+        },
+        {
+          "sectionId": "insurance-and-referrals",
+          "title": "Insurance and Referrals",
+          "similarity": 0.7015
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.6796
+        },
+        {
+          "sectionId": "scope-of-services",
+          "title": "Scope of Services",
+          "similarity": 0.6503
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6465
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "spring-hill",
+      "id": "missing",
+      "query": "Does the office offer valet parking?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [
+        "hours",
+        "social-follow-up",
+        "after-hours",
+        "payments"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6308
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6067
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.5952
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.5858
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.5855
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "spring-hill",
+      "id": "irrelevant",
+      "query": "Who won the football championship last year?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [],
+      "ranked": [
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.4673
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.4522
+        },
+        {
+          "sectionId": "repairs-and-warranty",
+          "title": "Repairs and Warranty",
+          "similarity": 0.4519
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.4516
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.4493
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "crystal-river",
+      "id": "hours",
+      "query": "When does the office close on weekdays?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "social-follow-up",
+        "after-hours",
+        "appointment-expectations"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.7349
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6553
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6467
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6285
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6013
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "crystal-river",
+      "id": "spanish",
+      "query": "¿Cuál es el horario de la oficina los sábados?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "social-follow-up",
+        "after-hours",
+        "appointment-expectations"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6682
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6047
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.5999
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.5562
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.5522
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "crystal-river",
+      "id": "address",
+      "query": "What address and public office phone are supplied?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "social-follow-up",
+        "hours",
+        "billing",
+        "location-and-contact"
+      ],
+      "ranked": [
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6862
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6655
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.638
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6304
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6003
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "crystal-river",
+      "id": "service",
+      "query": "Does this office offer routine eye exams and glasses prescriptions?",
+      "expectedSectionIds": ["optical-and-glasses"],
+      "selectedSectionIds": [
+        "self-pay-pricing",
+        "optical-and-glasses",
+        "appointment-expectations",
+        "what-to-bring"
+      ],
+      "ranked": [
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.7533
+        },
+        {
+          "sectionId": "optical-and-glasses",
+          "title": "Optical and Glasses",
+          "similarity": 0.7363
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.7318
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.7295
+        },
+        {
+          "sectionId": "contact-lenses",
+          "title": "Contact Lenses",
+          "similarity": 0.7267
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "crystal-river",
+      "id": "repair",
+      "query": "Where can broken glasses be inspected for warranty options?",
+      "expectedSectionIds": ["repairs-and-warranty"],
+      "selectedSectionIds": [
+        "repairs-and-warranty",
+        "optical-and-glasses",
+        "what-to-bring",
+        "self-pay-pricing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "repairs-and-warranty",
+          "title": "Repairs and Warranty",
+          "similarity": 0.774
+        },
+        {
+          "sectionId": "optical-and-glasses",
+          "title": "Optical and Glasses",
+          "similarity": 0.623
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.6154
+        },
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.6055
+        },
+        {
+          "sectionId": "scope-of-services",
+          "title": "Scope of Services",
+          "similarity": 0.5911
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "crystal-river",
+      "id": "missing",
+      "query": "Does the office offer valet parking?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [
+        "hours",
+        "payments",
+        "social-follow-up",
+        "after-hours"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6339
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.6081
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6067
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.5952
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.5855
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "crystal-river",
+      "id": "irrelevant",
+      "query": "Who won the football championship last year?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [],
+      "ranked": [
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.4673
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.4516
+        },
+        {
+          "sectionId": "repairs-and-warranty",
+          "title": "Repairs and Warranty",
+          "similarity": 0.4503
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.4495
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.435
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "hollywood",
+      "id": "hours",
+      "query": "When does the office close on weekdays?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "after-hours",
+        "hours",
+        "appointment-expectations",
+        "location-and-contact"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7177
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.7057
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.629
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6242
+        },
+        {
+          "sectionId": "repairs-and-warranty",
+          "title": "Repairs and Warranty",
+          "similarity": 0.5955
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "hollywood",
+      "id": "spanish",
+      "query": "¿Cuál es el horario de la oficina los sábados?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "after-hours",
+        "location-and-contact",
+        "social-follow-up"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6548
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6487
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.5793
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.5632
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.5567
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "hollywood",
+      "id": "address",
+      "query": "What address and public office phone are supplied?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "after-hours",
+        "hours",
+        "billing",
+        "location-and-contact"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7055
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6386
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.638
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.636
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.6157
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "hollywood",
+      "id": "contacts",
+      "query": "What are the time limits for a first contact lens fitting with insertion training?",
+      "expectedSectionIds": ["contact-lenses"],
+      "selectedSectionIds": [
+        "contact-lenses",
+        "appointment-expectations",
+        "what-to-bring",
+        "self-pay-pricing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "contact-lenses",
+          "title": "Contact Lenses",
+          "similarity": 0.6918
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6348
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.5888
+        },
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.5839
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.5825
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "hollywood",
+      "id": "lunch",
+      "query": "What time is the office closed for lunch?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "after-hours",
+        "appointment-expectations",
+        "location-and-contact"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.7184
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7053
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6059
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.5779
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.5731
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "hollywood",
+      "id": "missing",
+      "query": "Does the office offer valet parking?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [
+        "after-hours",
+        "hours",
+        "location-and-contact",
+        "repairs-and-warranty"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.653
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6322
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.5925
+        },
+        {
+          "sectionId": "repairs-and-warranty",
+          "title": "Repairs and Warranty",
+          "similarity": 0.5904
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.5858
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "hollywood",
+      "id": "irrelevant",
+      "query": "Who won the football championship last year?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [],
+      "ranked": [
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.4673
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.4522
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.4501
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.4442
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.4307
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "sweetwater",
+      "id": "hours",
+      "query": "When does the office close on weekdays?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "after-hours",
+        "hours",
+        "appointment-expectations",
+        "location-and-contact"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7177
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.7061
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.629
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6207
+        },
+        {
+          "sectionId": "repairs-and-warranty",
+          "title": "Repairs and Warranty",
+          "similarity": 0.5951
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "sweetwater",
+      "id": "spanish",
+      "query": "¿Cuál es el horario de la oficina los sábados?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "after-hours",
+        "location-and-contact",
+        "social-follow-up"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6576
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6487
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.5798
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.5632
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.5567
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "sweetwater",
+      "id": "address",
+      "query": "What address and public office phone are supplied?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "after-hours",
+        "hours",
+        "location-and-contact",
+        "billing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7055
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6444
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6386
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.638
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.6157
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "sweetwater",
+      "id": "contacts",
+      "query": "What time must a first contact lens fitting be scheduled on Friday?",
+      "expectedSectionIds": ["contact-lenses"],
+      "selectedSectionIds": [
+        "contact-lenses",
+        "appointment-expectations",
+        "what-to-bring",
+        "self-pay-pricing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "contact-lenses",
+          "title": "Contact Lenses",
+          "similarity": 0.7515
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6847
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.6548
+        },
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.6485
+        },
+        {
+          "sectionId": "optical-and-glasses",
+          "title": "Optical and Glasses",
+          "similarity": 0.6255
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "sweetwater",
+      "id": "price",
+      "query": "How much is a new patient medical visit with an ophthalmologist?",
+      "expectedSectionIds": ["self-pay-pricing"],
+      "selectedSectionIds": [
+        "self-pay-pricing",
+        "what-to-bring",
+        "appointment-expectations",
+        "insurance-and-referrals"
+      ],
+      "ranked": [
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.7888
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.7025
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.7018
+        },
+        {
+          "sectionId": "insurance-and-referrals",
+          "title": "Insurance and Referrals",
+          "similarity": 0.6835
+        },
+        {
+          "sectionId": "contact-lenses",
+          "title": "Contact Lenses",
+          "similarity": 0.6567
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "sweetwater",
+      "id": "missing",
+      "query": "Does the office offer valet parking?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [
+        "after-hours",
+        "hours",
+        "location-and-contact",
+        "payments"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.653
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6378
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.587
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.5858
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.5855
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "sweetwater",
+      "id": "irrelevant",
+      "query": "Who won the football championship last year?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [],
+      "ranked": [
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.4673
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.4522
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.4501
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.4468
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.4307
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "north-miami-beach-optical",
+      "id": "hours",
+      "query": "When does the office close on weekdays?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "after-hours",
+        "hours",
+        "social-follow-up",
+        "payments"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7177
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6946
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6553
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.6255
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6211
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "north-miami-beach-optical",
+      "id": "spanish",
+      "query": "¿Cuál es el horario de la oficina los sábados?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "after-hours",
+        "social-follow-up",
+        "appointment-expectations"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6498
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6487
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6047
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.591
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.5738
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "north-miami-beach-optical",
+      "id": "address",
+      "query": "What address and public office phone are supplied?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "after-hours",
+        "social-follow-up",
+        "payments",
+        "hours"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7055
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6862
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.6436
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6251
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6152
+        }
+      ],
+      "expectedSectionsPresent": false
+    },
+    {
+      "officeKey": "north-miami-beach-optical",
+      "id": "service",
+      "query": "Does this office provide medical eye care or ophthalmology?",
+      "expectedSectionIds": ["scope-of-services"],
+      "selectedSectionIds": [
+        "scope-of-services",
+        "location-and-contact",
+        "insurance-and-referrals",
+        "what-to-bring"
+      ],
+      "ranked": [
+        {
+          "sectionId": "scope-of-services",
+          "title": "Scope of Services",
+          "similarity": 0.7661
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.7453
+        },
+        {
+          "sectionId": "insurance-and-referrals",
+          "title": "Insurance and Referrals",
+          "similarity": 0.732
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.694
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6717
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "north-miami-beach-optical",
+      "id": "unknown-price",
+      "query": "What self-pay prices are supplied?",
+      "expectedSectionIds": ["self-pay-pricing"],
+      "selectedSectionIds": [
+        "self-pay-pricing",
+        "payments",
+        "insurance-and-referrals",
+        "billing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.7423
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.6237
+        },
+        {
+          "sectionId": "insurance-and-referrals",
+          "title": "Insurance and Referrals",
+          "similarity": 0.6055
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.5777
+        },
+        {
+          "sectionId": "providers",
+          "title": "Providers",
+          "similarity": 0.5735
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "north-miami-beach-optical",
+      "id": "missing",
+      "query": "Does the office offer valet parking?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [
+        "after-hours",
+        "payments",
+        "hours",
+        "appointment-expectations"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.653
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.6338
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6314
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6276
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6067
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "north-miami-beach-optical",
+      "id": "irrelevant",
+      "query": "Who won the football championship last year?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [],
+      "ranked": [
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.4595
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.451
+        },
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.4424
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.4369
+        },
+        {
+          "sectionId": "providers",
+          "title": "Providers",
+          "similarity": 0.4352
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "ophthalmology-demo",
+      "id": "hours",
+      "query": "When does the office close on weekdays?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "after-hours",
+        "appointment-expectations",
+        "location-and-contact"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6944
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.629
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6109
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.5933
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.5899
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "ophthalmology-demo",
+      "id": "spanish",
+      "query": "¿Cuál es el horario de la oficina los sábados?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "after-hours",
+        "payments",
+        "what-to-bring"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6351
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.5854
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.5535
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.5492
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.5483
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "ophthalmology-demo",
+      "id": "address",
+      "query": "What address and public office phone are supplied?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "location-and-contact",
+        "after-hours",
+        "billing",
+        "contact-lenses"
+      ],
+      "ranked": [
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.644
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6415
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6384
+        },
+        {
+          "sectionId": "contact-lenses",
+          "title": "Contact Lenses",
+          "similarity": 0.616
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.6157
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "ophthalmology-demo",
+      "id": "service",
+      "query": "Is retina surgery performed in the office?",
+      "expectedSectionIds": ["scope-of-services"],
+      "selectedSectionIds": [
+        "scope-of-services",
+        "appointment-expectations",
+        "what-to-bring",
+        "self-pay-pricing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "scope-of-services",
+          "title": "Scope of Services",
+          "similarity": 0.68
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6761
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.666
+        },
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.652
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6463
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "ophthalmology-demo",
+      "id": "fictional-price",
+      "query": "What are the fictional self-pay prices for medical visits?",
+      "expectedSectionIds": ["self-pay-pricing"],
+      "selectedSectionIds": [
+        "self-pay-pricing",
+        "insurance-and-referrals",
+        "billing",
+        "source-and-demo-limitations"
+      ],
+      "ranked": [
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.7153
+        },
+        {
+          "sectionId": "insurance-and-referrals",
+          "title": "Insurance and Referrals",
+          "similarity": 0.6129
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.5991
+        },
+        {
+          "sectionId": "source-and-demo-limitations",
+          "title": "Source and Demo Limitations",
+          "similarity": 0.5892
+        },
+        {
+          "sectionId": "providers",
+          "title": "Providers",
+          "similarity": 0.5655
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "ophthalmology-demo",
+      "id": "missing",
+      "query": "Does the office offer valet parking?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [
+        "hours",
+        "what-to-bring",
+        "after-hours",
+        "payments"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6088
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.6033
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.5862
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.5858
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.571
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "ophthalmology-demo",
+      "id": "irrelevant",
+      "query": "Who won the football championship last year?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [],
+      "ranked": [
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.4546
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.4532
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.4522
+        },
+        {
+          "sectionId": "repairs-and-warranty",
+          "title": "Repairs and Warranty",
+          "similarity": 0.4216
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.4193
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "new-tampa-demo",
+      "id": "hours",
+      "query": "When does the office close on weekdays?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "appointment-expectations",
+        "location-and-contact",
+        "after-hours"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6696
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6288
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6127
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.609
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6032
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "new-tampa-demo",
+      "id": "spanish",
+      "query": "¿Cuál es el horario de la oficina los sábados?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "after-hours",
+        "appointment-expectations",
+        "billing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6253
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.5884
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.5784
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.5651
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.5483
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "new-tampa-demo",
+      "id": "address",
+      "query": "What address and public office phone are supplied?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "billing",
+        "location-and-contact",
+        "payments",
+        "after-hours"
+      ],
+      "ranked": [
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6891
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6546
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.6425
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.64
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.637
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "new-tampa-demo",
+      "id": "unknown-price",
+      "query": "Are verified self-pay prices available for this practice?",
+      "expectedSectionIds": ["self-pay-pricing"],
+      "selectedSectionIds": [
+        "appointment-expectations",
+        "self-pay-pricing",
+        "insurance-and-referrals",
+        "what-to-bring"
+      ],
+      "ranked": [
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.7125
+        },
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.7123
+        },
+        {
+          "sectionId": "insurance-and-referrals",
+          "title": "Insurance and Referrals",
+          "similarity": 0.6916
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.664
+        },
+        {
+          "sectionId": "optical-and-glasses",
+          "title": "Optical and Glasses",
+          "similarity": 0.6581
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "new-tampa-demo",
+      "id": "providers",
+      "query": "Which doctor handles retina and which doctor handles routine eye exams?",
+      "expectedSectionIds": ["providers"],
+      "selectedSectionIds": [
+        "providers",
+        "scope-of-services",
+        "location-and-contact",
+        "optical-and-glasses"
+      ],
+      "ranked": [
+        {
+          "sectionId": "providers",
+          "title": "Providers",
+          "similarity": 0.7089
+        },
+        {
+          "sectionId": "scope-of-services",
+          "title": "Scope of Services",
+          "similarity": 0.6583
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6079
+        },
+        {
+          "sectionId": "optical-and-glasses",
+          "title": "Optical and Glasses",
+          "similarity": 0.5991
+        },
+        {
+          "sectionId": "contact-lenses",
+          "title": "Contact Lenses",
+          "similarity": 0.5935
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "new-tampa-demo",
+      "id": "missing",
+      "query": "Does the office offer valet parking?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [
+        "self-pay-pricing",
+        "appointment-expectations",
+        "hours",
+        "what-to-bring"
+      ],
+      "ranked": [
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.6164
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6095
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.607
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.5979
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.594
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "new-tampa-demo",
+      "id": "irrelevant",
+      "query": "Who won the football championship last year?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [],
+      "ranked": [
+        {
+          "sectionId": "repairs-and-warranty",
+          "title": "Repairs and Warranty",
+          "similarity": 0.4532
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.4491
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.4489
+        },
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.4481
+        },
+        {
+          "sectionId": "source-and-demo-limitations",
+          "title": "Source and Demo Limitations",
+          "similarity": 0.448
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "rheumatology-demo",
+      "id": "hours",
+      "query": "When does the office close on weekdays?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "after-hours",
+        "social-follow-up",
+        "location-and-contact"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6944
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6765
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6186
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.5619
+        },
+        {
+          "sectionId": "optical-and-glasses",
+          "title": "Optical and Glasses",
+          "similarity": 0.558
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "rheumatology-demo",
+      "id": "spanish",
+      "query": "¿Cuál es el horario de la oficina los sábados?",
+      "expectedSectionIds": ["hours"],
+      "selectedSectionIds": [
+        "hours",
+        "after-hours",
+        "social-follow-up",
+        "optical-and-glasses"
+      ],
+      "ranked": [
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6508
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6342
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.5922
+        },
+        {
+          "sectionId": "optical-and-glasses",
+          "title": "Optical and Glasses",
+          "similarity": 0.5434
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.5399
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "rheumatology-demo",
+      "id": "address",
+      "query": "What address and public office phone are supplied?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "after-hours",
+        "social-follow-up",
+        "hours",
+        "billing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6964
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6656
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.654
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6152
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.5986
+        }
+      ],
+      "expectedSectionsPresent": false
+    },
+    {
+      "officeKey": "rheumatology-demo",
+      "id": "service",
+      "query": "Does the practice offer glasses or optical services?",
+      "expectedSectionIds": ["optical-and-glasses"],
+      "selectedSectionIds": [
+        "optical-and-glasses",
+        "repairs-and-warranty",
+        "contact-lenses",
+        "self-pay-pricing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "optical-and-glasses",
+          "title": "Optical and Glasses",
+          "similarity": 0.7755
+        },
+        {
+          "sectionId": "repairs-and-warranty",
+          "title": "Repairs and Warranty",
+          "similarity": 0.7193
+        },
+        {
+          "sectionId": "contact-lenses",
+          "title": "Contact Lenses",
+          "similarity": 0.7181
+        },
+        {
+          "sectionId": "self-pay-pricing",
+          "title": "Self-Pay Pricing",
+          "similarity": 0.6431
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6238
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "rheumatology-demo",
+      "id": "medication",
+      "query": "What general education is supplied about methotrexate?",
+      "expectedSectionIds": ["scope-of-services"],
+      "selectedSectionIds": [
+        "scope-of-services",
+        "source-and-demo-limitations",
+        "what-to-bring",
+        "appointment-expectations"
+      ],
+      "ranked": [
+        {
+          "sectionId": "scope-of-services",
+          "title": "Scope of Services",
+          "similarity": 0.6579
+        },
+        {
+          "sectionId": "source-and-demo-limitations",
+          "title": "Source and Demo Limitations",
+          "similarity": 0.6264
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.592
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.5642
+        },
+        {
+          "sectionId": "insurance-and-referrals",
+          "title": "Insurance and Referrals",
+          "similarity": 0.5611
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "rheumatology-demo",
+      "id": "missing",
+      "query": "Does the office offer valet parking?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [
+        "after-hours",
+        "hours",
+        "social-follow-up",
+        "payments"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6653
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6384
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6274
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.5824
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.5809
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "rheumatology-demo",
+      "id": "irrelevant",
+      "query": "Who won the football championship last year?",
+      "expectedSectionIds": [],
+      "requiresAbstention": true,
+      "selectedSectionIds": [],
+      "ranked": [
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.4595
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.4485
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.4478
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.4429
+        },
+        {
+          "sectionId": "scope-of-services",
+          "title": "Scope of Services",
+          "similarity": 0.4336
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "spring-hill",
+      "id": "address-direct",
+      "query": "What is the office address?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "location-and-contact",
+        "social-follow-up",
+        "hours",
+        "after-hours"
+      ],
+      "ranked": [
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.7386
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6725
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6583
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6437
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.641
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "crystal-river",
+      "id": "address-direct",
+      "query": "What is the office address?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "location-and-contact",
+        "hours",
+        "social-follow-up",
+        "after-hours"
+      ],
+      "ranked": [
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.7267
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.7036
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6725
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6437
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.641
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "hollywood",
+      "id": "address-direct",
+      "query": "What is the office address?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "location-and-contact",
+        "after-hours",
+        "hours",
+        "billing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.7294
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7131
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6555
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.641
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6116
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "sweetwater",
+      "id": "address-direct",
+      "query": "What is the office address?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "location-and-contact",
+        "after-hours",
+        "hours",
+        "billing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.7267
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7131
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6652
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.641
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6116
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "north-miami-beach-optical",
+      "id": "address-direct",
+      "query": "What is the office address?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "after-hours",
+        "location-and-contact",
+        "social-follow-up",
+        "payments"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7131
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.7052
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6725
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.6548
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6453
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "ophthalmology-demo",
+      "id": "address-direct",
+      "query": "What is the office address?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "location-and-contact",
+        "hours",
+        "billing",
+        "what-to-bring"
+      ],
+      "ranked": [
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.7105
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6553
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6192
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.6104
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6096
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "new-tampa-demo",
+      "id": "address-direct",
+      "query": "What is the office address?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "location-and-contact",
+        "hours",
+        "billing",
+        "appointment-expectations"
+      ],
+      "ranked": [
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6978
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6632
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6541
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.6366
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6318
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "rheumatology-demo",
+      "id": "address-direct",
+      "query": "What is the office address?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "after-hours",
+        "location-and-contact",
+        "hours",
+        "social-follow-up"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6883
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6756
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6643
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6422
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6055
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "spring-hill",
+      "id": "contact-natural",
+      "query": "What is your office address and phone number?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "location-and-contact",
+        "social-follow-up",
+        "after-hours",
+        "billing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.716
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6716
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6618
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6539
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6532
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "crystal-river",
+      "id": "contact-natural",
+      "query": "What is your office address and phone number?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "location-and-contact",
+        "hours",
+        "social-follow-up",
+        "after-hours"
+      ],
+      "ranked": [
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.7093
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.7036
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6716
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6618
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6539
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "hollywood",
+      "id": "contact-natural",
+      "query": "What is your office address and phone number?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "after-hours",
+        "location-and-contact",
+        "billing",
+        "hours"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7189
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.713
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6539
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6509
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.61
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "sweetwater",
+      "id": "contact-natural",
+      "query": "What is your office address and phone number?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "after-hours",
+        "location-and-contact",
+        "hours",
+        "billing"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7189
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.7098
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.662
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6539
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.61
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "north-miami-beach-optical",
+      "id": "contact-natural",
+      "query": "What is your office address and phone number?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "after-hours",
+        "location-and-contact",
+        "social-follow-up",
+        "payments"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.7189
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6846
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6716
+        },
+        {
+          "sectionId": "payments",
+          "title": "Payments",
+          "similarity": 0.6684
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6386
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "ophthalmology-demo",
+      "id": "contact-natural",
+      "query": "What is your office address and phone number?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "location-and-contact",
+        "hours",
+        "billing",
+        "after-hours"
+      ],
+      "ranked": [
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.6897
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.655
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.6291
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6256
+        },
+        {
+          "sectionId": "what-to-bring",
+          "title": "What to Bring",
+          "similarity": 0.6055
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "new-tampa-demo",
+      "id": "contact-natural",
+      "query": "What is your office address and phone number?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "location-and-contact",
+        "billing",
+        "hours",
+        "after-hours"
+      ],
+      "ranked": [
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.684
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.68
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6715
+        },
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6519
+        },
+        {
+          "sectionId": "appointment-expectations",
+          "title": "Appointment Expectations",
+          "similarity": 0.645
+        }
+      ],
+      "expectedSectionsPresent": true
+    },
+    {
+      "officeKey": "rheumatology-demo",
+      "id": "contact-natural",
+      "query": "What is your office address and phone number?",
+      "expectedSectionIds": ["location-and-contact"],
+      "selectedSectionIds": [
+        "after-hours",
+        "location-and-contact",
+        "hours",
+        "social-follow-up"
+      ],
+      "ranked": [
+        {
+          "sectionId": "after-hours",
+          "title": "After Hours",
+          "similarity": 0.6925
+        },
+        {
+          "sectionId": "location-and-contact",
+          "title": "Location and Contact",
+          "similarity": 0.682
+        },
+        {
+          "sectionId": "hours",
+          "title": "Hours",
+          "similarity": 0.6671
+        },
+        {
+          "sectionId": "social-follow-up",
+          "title": "Social Follow-Up",
+          "similarity": 0.6373
+        },
+        {
+          "sectionId": "billing",
+          "title": "Billing",
+          "similarity": 0.605
+        }
+      ],
+      "expectedSectionsPresent": true
+    }
+  ]
+}

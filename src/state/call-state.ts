@@ -5,10 +5,6 @@ import type { RuntimeVoiceLanguageState } from "../runtime/voice-language.js";
 import type { LightweightPatientCandidate } from "../identity/candidate.js";
 import { createSchedulingState } from "../scheduling/state.js";
 import type { TransferState } from "./call-lifecycle.js";
-import type {
-  OfficeKnowledgeLanguage,
-  OfficeKnowledgeTopic,
-} from "../office-knowledge.js";
 
 export const CALLER_CANDIDATE_REF = "caller";
 
@@ -351,11 +347,9 @@ export interface OfficeKnowledgeRetrievalAnalytics {
   sectionIds?: string[];
   createdAt: string;
   elapsedMs: number;
-  language: OfficeKnowledgeLanguage;
   officeKey: OfficeKey;
-  outcome: "matched" | "unavailable" | "skipped" | "failure";
+  outcome: "matched" | "unavailable" | "failure";
   sectionCount: number;
-  topic: OfficeKnowledgeTopic | null;
 }
 
 interface RuntimeCallState {

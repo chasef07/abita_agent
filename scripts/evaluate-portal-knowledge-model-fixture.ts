@@ -1,7 +1,6 @@
 // Real model evaluation with an authenticated local HTTP fixture; not Product/DB proof.
 // Load LiveKit credentials via node --env-file; KNOWLEDGE_EVAL_INJECTION=1 tests hostile passages.
 import { createServer } from "node:http";
-process.env.ACUITY_PRODUCT_KNOWLEDGE_PILOT = "spring-hill";
 process.env.ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET =
   "synthetic-local-test-secret";
 const server = createServer(async (req, res) => {

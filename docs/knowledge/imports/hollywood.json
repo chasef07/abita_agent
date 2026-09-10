@@ -1,0 +1,85 @@
+{
+  "id": "458e422b-e48d-4a62-af87-0d4ed741f341",
+  "practiceId": "00000000-0000-0000-0000-000000000002",
+  "officeKey": "hollywood",
+  "expectedRevisionId": "",
+  "sections": [
+    {
+      "id": "location-and-contact",
+      "title": "Location and Contact",
+      "text": "Status: available\n\nPractice Name: Abita Eye Group Hollywood\nAddress: 4330 Sheridan St, Suite 102B, Hollywood, FL 33021\nOther scheduling office: Abita Eye Group Sweetwater\nOther scheduling office address: 12750 NW 17th St, #201, Miami, FL 33182\nAdministrative email for new-patient paperwork or requested documents: newpatient@abitaeye.com\nUse this address only for new-patient paperwork or requested documents.\nPhone: (954) 287-2010\nFax: (305) 723-1910"
+    },
+    {
+      "id": "hours",
+      "title": "Hours",
+      "text": "Status: available\n\nMonday–Thursday 8:30 AM–4:30 PM. Closed for lunch 12:30 PM–1:30 PM. Friday 8:30 AM–2:30 PM.\n\nHoliday closure: Closed on Labor Day, Monday, September 7, 2026.\n\nClosed Saturday and Sunday."
+    },
+    {
+      "id": "after-hours",
+      "title": "After Hours",
+      "text": "Status: not-supplied\n\nNo after-hours contact information is supplied for this office."
+    },
+    {
+      "id": "scope-of-services",
+      "title": "Scope of Services",
+      "text": "Status: available\n\nDr. Bach schedules cataract exams, including cataract evaluations, and cataract surgery at Hollywood.\n\nHollywood schedules medical eye care and routine vision. Medical appointments cover current eye problems, symptoms, conditions, and ophthalmology care. Routine-vision appointments cover routine eye exams, eyeglass prescriptions, contact lens fittings, and insertion training when there is no active eye problem.\n\nRoutine-vision age minimums follow the scheduler provider rules: Dr. Kyler Farnan sees routine-vision patients age 5 and older, Dr. Lisbet Vidal sees routine-vision patients age 7 and older, and Dr. Gisselle Calero sees routine-vision patients age 4 and older. Patients below the routine-vision providers' age minimums use pediatric ophthalmology with Dr. Bach.\n\nHollywood does not perform retina surgical care. Retina surgical care requires a retina surgeon; the primary care provider or insurance company can provide a referral when the patient does not have one."
+    },
+    {
+      "id": "providers",
+      "title": "Providers",
+      "text": "Status: available\n\nDr. Bach schedules cataract exams, including cataract evaluations, and cataract surgery at Hollywood.\n\nDoctors at the Hollywood location:\n\n- Dr. Calero\n- Dr. Vidal\n- Dr. Bach\n- Dr. Farnan\n\nMedical scheduling:\n\n- Dr. Austin Bach\n- Dr. Bach overflow\n\nRoutine vision scheduling:\n\n- Dr. Kyler Farnan sees routine-vision patients age 5 and older.\n- Dr. Lisbet Vidal sees routine-vision patients age 7 and older.\n- Dr. Gisselle Calero sees routine-vision patients age 4 and older."
+    },
+    {
+      "id": "optical-and-glasses",
+      "title": "Optical and Glasses",
+      "text": "Status: available\n\nHollywood stocks many major frame brands, including Ray-Ban, Nike, Gucci, Chloe, Montblanc, Puma, Cartier, Lindberg, Mykita, and YSL.\n\nLens upgrades and treatments are available. The office offers all types of lenses, including upgrades and treatments.\n\nEyeglass prescriptions are valid for up to 2 years, but a yearly eye exam is recommended to make sure the prescription is current.\n\nIf a patient wants glasses and already has a prescription, they can bring the prescription from their optometrist and choose from the office's frame selection. Patients needing a prescription can obtain one through an optometrist appointment.\n\nGlasses are usually ready in less than 10 business days.\n\nNon-prescription sunglasses are available for purchase. If the patient wears prescription glasses, the office can customize prescription lenses into those frames. Most vision insurance plans do not cover non-prescription sunglasses. Sunglass brands include Maui Jim, Costa, Ray-Ban, Gucci, and many more.\n\nKatie is the licensed optician. She has over 5 years of eyecare experience and specializes in frames, lenses, and fittings.\n\nNo appointment is needed to look at glasses or have current glasses adjusted. Sasha and Denise are in the office Monday–Thursday 8:30 AM–4:30 PM and Friday 8:30 AM–2:30 PM.\n\nGlasses pickup policy: a readiness text confirms glasses are ready for pickup; patients wait for that text before coming in. This policy does not establish an individual order's readiness."
+    },
+    {
+      "id": "contact-lenses",
+      "title": "Contact Lenses",
+      "text": "Status: available\n\nIf a patient wants contact lenses and already has a prescription, they can bring the prescription from their optometrist.\n\nIf this is the patient's first set of contact lenses, the exam and insertion training take longer than a standard visit. First-time contact lens appointments must be scheduled before 3:00 PM Monday–Thursday and before 1:00 PM on Friday."
+    },
+    {
+      "id": "repairs-and-warranty",
+      "title": "Repairs and Warranty",
+      "text": "Status: available\n\nKatie can complete minor repairs in the office at no cost when possible. No appointment is needed to have current glasses adjusted."
+    },
+    {
+      "id": "insurance-and-referrals",
+      "title": "Insurance and Referrals",
+      "text": "Status: available\n\nFor routine-vision patients, some insurances do not cover retinal photos and there is a $39 charge.\n\nRetina surgical care needs referral to a retina surgeon. A primary care provider or insurance company can provide an appropriate referral when the patient does not have a retina surgeon."
+    },
+    {
+      "id": "payments",
+      "title": "Payments",
+      "text": "Status: available\n\nPayment handling is owned by the billing department."
+    },
+    {
+      "id": "billing",
+      "title": "Billing",
+      "text": "Status: available\n\nBilling department number: (786) 446-8333. The billing department handles every billing-related question."
+    },
+    {
+      "id": "self-pay-pricing",
+      "title": "Self-Pay Pricing",
+      "text": "Status: available\n\nNew patient medical visit with an optometrist: $150. Established patient medical visit with an optometrist: $75. New patient medical visit with an ophthalmologist: $250. Established patient medical visit with an ophthalmologist: $125. Routine vision exam with an optometrist: $100. Routine vision with contact lens fitting: $150*."
+    },
+    {
+      "id": "what-to-bring",
+      "title": "What to Bring",
+      "text": "Status: available\n\nPhoto ID, insurance card, list of current medications, and previous eye records if available."
+    },
+    {
+      "id": "appointment-expectations",
+      "title": "Appointment Expectations",
+      "text": "Status: available\n\nThe practice typically sends an email confirmation after scheduling an appointment.\n\nNew patient visits may take 1–2 hours depending on testing. Eye dilation may occur and can cause temporary blurry vision and light sensitivity."
+    },
+    {
+      "id": "social-follow-up",
+      "title": "Social Follow-Up",
+      "text": "Status: available\n\nAbita Eye Group is on Facebook and Instagram at @abitaeyegroup."
+    }
+  ],
+  "provenance": "Controlled migration of existing repository corpus. Source workspace/KNOWLEDGE_HOLLYWOOD.md at ad3d57550578096ace95df6600143c66d230189d; sha256 f53b45570457ed12902b89d7ba4ede18bdd733271c300092a6d42bfe9daf104c. Original content archived verbatim at docs/knowledge/sources/KNOWLEDGE_HOLLYWOOD.md; source authors remain attributable through git blame. Facts and qualifications preserved; removed workflow commands are inventoried in docs/knowledge/README.md. Explicit weekend closure also comes from src/prompt.ts at ad3d57550578096ace95df6600143c66d230189d.  Additional source src/prompt.ts at ad3d57550578096ace95df6600143c66d230189d; sha256 48c609b4527b5906e784787e0d00b44bbb36ff1e644cd36ba03b6461c96951d0. Additional source workspace/SOUL.md at ad3d57550578096ace95df6600143c66d230189d; sha256 fd59d9d0d611236e7c7ed8679a463fa0d67f8ff566a4bad3f041ed0eb9f22962. No new clinical policy or business approval is implied.",
+  "reason": "Migrate existing hollywood knowledge to Product; validate Practice route before applying."
+}

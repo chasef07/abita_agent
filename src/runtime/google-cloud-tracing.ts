@@ -11,11 +11,9 @@ import {
 export function setupGoogleCloudTracing(
   ctx: Pick<JobContext, "addShutdownCallback">,
   env: NodeJS.ProcessEnv = process.env,
-): NodeTracerProvider | undefined {
+): NodeTracerProvider {
   const endpoint = env.GOOGLE_CLOUD_TRACE_ENDPOINT?.trim();
   const token = env.GOOGLE_CLOUD_TRACE_TOKEN?.trim();
-  const pilot = env.ACUITY_PRODUCT_KNOWLEDGE_PILOT === "spring-hill";
-  if (!endpoint && !token && !pilot) return;
   if (Boolean(endpoint) !== Boolean(token)) {
     throw new Error(
       "GOOGLE_CLOUD_TRACE_ENDPOINT and GOOGLE_CLOUD_TRACE_TOKEN are required together",

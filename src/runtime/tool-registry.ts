@@ -1,5 +1,4 @@
 import { createSearchOfficeKnowledgeTool } from "../tools/search-office-knowledge.js";
-import { usesPortalKnowledge } from "./portal-knowledge.js";
 import { withMiddlewareToolDiagnostics } from "./middleware-tool-diagnostics.js";
 import { withNewTampaDemoTools } from "../customers/abita/new-tampa-demo.js";
 import { beta, type ToolContextEntry } from "@livekit/agents";
@@ -54,9 +53,7 @@ function buildUnobservedToolsForTrunk(
   ] as const satisfies readonly ToolContextEntry<CallState>[];
   const commonTools = [
     ...coreTools,
-    ...(usesPortalKnowledge(office.key)
-      ? [createSearchOfficeKnowledgeTool()]
-      : []),
+    createSearchOfficeKnowledgeTool(),
     transfer_call,
     end_call,
   ] as const;

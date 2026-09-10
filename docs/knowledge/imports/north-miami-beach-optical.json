@@ -1,0 +1,85 @@
+{
+  "id": "b5a08439-0582-414a-a0c6-e5f265c5cd45",
+  "practiceId": "00000000-0000-0000-0000-000000000002",
+  "officeKey": "north-miami-beach-optical",
+  "expectedRevisionId": "",
+  "sections": [
+    {
+      "id": "location-and-contact",
+      "title": "Location and Contact",
+      "text": "Status: available\n\nPractice Name: North Miami Beach Optical\nNorth Miami Beach Optical is also known as “BrightView Optical,” “Brightview,” or “Bright View”; ownership recently transferred.\nAddress: 633 NE 167th Street, North Miami Beach, FL 33162\nPhone: (305) 509-5333\n\nFax number, email, and directions are not supplied."
+    },
+    {
+      "id": "hours",
+      "title": "Hours",
+      "text": "Status: available\n\nSunday–Thursday 9:00 AM–5:00 PM.\n\nHoliday closure: Closed on Labor Day, Monday, September 7, 2026."
+    },
+    {
+      "id": "after-hours",
+      "title": "After Hours",
+      "text": "Status: not-supplied\n\nNo after-hours contact information is supplied for this office."
+    },
+    {
+      "id": "scope-of-services",
+      "title": "Scope of Services",
+      "text": "Status: available\n\nNorth Miami Beach Optical is an optical-only office. It handles routine eye exams, glasses, contact lenses, prescriptions, frames, lenses, lens upgrades, adjustments, repairs, and payments.\n\nThe office accepts outside prescriptions and can schedule an eye exam with one of its professional optometrists. Patients can be seen as young as 7 years old.\n\nMedical eye care, ophthalmology visits, surgery questions, urgent symptoms, and eye-problem care are not offered through this office."
+    },
+    {
+      "id": "providers",
+      "title": "Providers",
+      "text": "Status: available\n\nDoctor at this location:\n\n- Dr. Miriam Bach"
+    },
+    {
+      "id": "optical-and-glasses",
+      "title": "Optical and Glasses",
+      "text": "Status: available\n\nNorth Miami Beach Optical stocks many major frame brands, including Gucci, Montblanc, YSL, Ray-Ban, Emporio Armani, and Cartier.\n\nThe office offers all types of lenses, including lens upgrades and treatments.\n\nEyeglass prescriptions are valid for up to 2 years, but a yearly eye exam is recommended to make sure the prescription is current and the patient has the right lenses to improve their vision.\n\nIf a patient wants glasses and already has a prescription, they can bring the prescription from their optometrist and choose from the office's frame selection. Patients needing a prescription can obtain one through an optometrist appointment.\n\nGlasses are usually ready in less than 10 business days.\n\nGlasses pickup policy: a readiness text confirms glasses are ready for pickup; patients wait for that text before coming in. This policy does not establish an individual order's readiness."
+    },
+    {
+      "id": "contact-lenses",
+      "title": "Contact Lenses",
+      "text": "Status: available\n\nContact lens prescriptions are valid for up to 1 year.\n\nIf a patient wants contact lenses and already has a prescription, they can bring the prescription from their optometrist. Patients needing a prescription can obtain one through an optometrist appointment.\n\nIf the patient's contact lens prescription is on file, the office can take a contact lens order over the phone with payment."
+    },
+    {
+      "id": "repairs-and-warranty",
+      "title": "Repairs and Warranty",
+      "text": "Status: available\n\nFrames include free adjustments and a two- or three-year warranty.\n\nBroken glasses and warranty questions require an in-person inspection of the frame or lenses."
+    },
+    {
+      "id": "insurance-and-referrals",
+      "title": "Insurance and Referrals",
+      "text": "Status: available\n\nFor routine-vision patients, some insurances do not cover retinal photos and there is a $39 charge.\n\nMedical insurance checks are not supported for this office. Referral information is not supplied."
+    },
+    {
+      "id": "payments",
+      "title": "Payments",
+      "text": "Status: available\n\nThe office can take payments over the phone."
+    },
+    {
+      "id": "billing",
+      "title": "Billing",
+      "text": "Status: not-supplied\n\nBilling contact and account-resolution information are not supplied."
+    },
+    {
+      "id": "self-pay-pricing",
+      "title": "Self-Pay Pricing",
+      "text": "Status: not-supplied\n\nSelf-pay prices are not supplied."
+    },
+    {
+      "id": "what-to-bring",
+      "title": "What to Bring",
+      "text": "Status: available\n\nIf the patient has an outside glasses or contact lens prescription, they should bring it with them."
+    },
+    {
+      "id": "appointment-expectations",
+      "title": "Appointment Expectations",
+      "text": "Status: not-supplied\n\nDetailed appointment duration, dilation, arrival, and paperwork expectations are not supplied."
+    },
+    {
+      "id": "social-follow-up",
+      "title": "Social Follow-Up",
+      "text": "Status: not-supplied\n\nNo social follow-up information is supplied for this office."
+    }
+  ],
+  "provenance": "Controlled migration of existing repository corpus. Source workspace/KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md at ad3d57550578096ace95df6600143c66d230189d; sha256 5abf3b581c70db0dc2be857d2c663474226853e872fd4449f40d85f6154bffe6. Original content archived verbatim at docs/knowledge/sources/KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md; source authors remain attributable through git blame. Facts and qualifications preserved; removed workflow commands are inventoried in docs/knowledge/README.md.  Additional source workspace/SOUL.md at ad3d57550578096ace95df6600143c66d230189d; sha256 fd59d9d0d611236e7c7ed8679a463fa0d67f8ff566a4bad3f041ed0eb9f22962. No new clinical policy or business approval is implied.",
+  "reason": "Migrate existing north-miami-beach-optical knowledge to Product; validate Practice route before applying."
+}

@@ -82,7 +82,7 @@ gives callers leverage and keeps changes local.
 | --- | --- | --- |
 | Composition Root | One LiveKit job entry | Provider construction, dependency wiring, startup order, session options, and shutdown registration |
 | Session Startup | `coordinateSessionStartup` | Concurrent pre-call lookup and runtime initialization, startup cancellation, telemetry, and ordered session start |
-| Voice Agent | `createVoiceAgent` | Prompt assembly, greeting, turn hooks, patient model context, Office Knowledge Hook, and tool registration |
+| Voice Agent | `createVoiceAgent` | Prompt assembly, greeting, patient model context, Office Knowledge Search, and tool registration |
 | Office Profile | Lookup by trunk or office key | Office identity, care policy, prompts, speech, middleware routing, Staff Task capability, and Human Transfer policy |
 | Identity | Resolve, confirm, create, promote, or switch patient | Candidate hydration, identity transitions, active-patient replacement, and invalidation of prior-patient work |
 | Scheduling Workflow | `getAvailability`, `bookAppointment`, `cancelAppointment`, `rescheduleAppointment` | Date interpretation, office and lane policy, availability coordination, opaque references, private tokens, read-back gates, replay protection, write ordering, state transitions, and speech-ready outcomes |
@@ -181,7 +181,11 @@ sequenceDiagram
     loop Caller turns
         C->>L: Speech
         L->>A: Final transcript
-        A->>A: Retrieve matching office knowledge and project lookup state
+        A->>A: Project verified patient and scheduling state
+        opt Office facts needed
+            A->>P: search_office_knowledge for active office
+            P-->>A: Current scoped knowledge passages
+        end
         A->>A: Reason over current model context
         opt Tool required
             A->>M: Semantic patient or scheduling intent
@@ -421,6 +425,7 @@ transcripts to public issues, pull requests, or logs.
 
 | Intent | Model-facing tools | Success authority |
 | --- | --- | --- |
+| Office facts | `search_office_knowledge` | Current Product-owned office corpus passages |
 | Patient identity | `resolve_patient`, `add_patient` | Verified or created patient result plus Identity Promotion |
 | Insurance | `check_insurance`, `update_insurance` | Office policy or successful middleware update |
 | Scheduling | `list_available_appointments`, `book_appointment`, `cancel_appointment`, `reschedule_appointment` | Scheduling Workflow state plus successful middleware result |
@@ -428,9 +433,10 @@ transcripts to public issues, pull requests, or logs.
 | Human help | `transfer_call` | Accepted SIP transfer state |
 | Conversation completion | LiveKit end-call tool | Session close event |
 
-Office knowledge is an internal read-only hook, not a model-facing tool. It can
-answer office questions but cannot prove insurance acceptance, patient state,
-availability, or a completed operation.
+Office facts come from `search_office_knowledge` for every office. The runtime
+attaches the active office and tenant credential; the model supplies a short
+non-patient query. Returned passages cannot prove insurance participation, patient
+state, availability, or a completed action.
 
 ## Source map
 
@@ -446,7 +452,8 @@ src/state/                               Call State and observation helpers
 src/tools/                               model-facing tools and narrow adapters
 src/call-observability.ts                stable event and tool outcome classification
 src/__tests__/                           interface-level behavior and contract tests
-workspace/                               role, voice, office knowledge, and insurance sources
+workspace/                               role, voice, and structured insurance sources
+docs/knowledge/                          archived knowledge sources and controlled import manifests
 docs/ops/                                provider and deployment operations
 ```
 
@@ -537,8 +544,9 @@ no direct Baseten API key is required.
 | `AMD_API_URL`, `AMD_API_TOKEN` | Owned middleware base URL and authentication | Required for patient and scheduling workflows |
 | `ACUITY_PRODUCT_INTERACTION_URL`, `ACUITY_DEMO_PRODUCT_SERVICE_SECRET`, `ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET` | Product-owned AI interaction lifecycle and outcome delivery, selected after inbound Office Profile resolution | All three are required at production startup |
 | `ACUITY_PRODUCT_HANDOFF_URL`, `ACUITY_DEMO_PRODUCT_PRACTICE_ID`, `ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID` | Product-owned human handoff and Staff Task delivery for Demo and Abita Eye Group; Staff Tasks derive `/v1/tasks`, reuse the matching tenant secret, and send the inbound `officeKey` for Product-owned Location resolution | Required at production startup |
+| `ACUITY_PRODUCT_KNOWLEDGE_URL` | Product office search endpoint; uses the active office's existing Product service credential | Required in production |
 | `ACUITY_HANDOFF_URL`, `ACUITY_HANDOFF_SECRET` | Legacy direct call-center handoff fallback | Retain through deployment rollback window; not selected when Product handoff is configured |
-| `PROMPT_WORKSPACE` | Alternate prompt and knowledge root | Optional; defaults to `workspace` |
+| `PROMPT_WORKSPACE` | Alternate role, voice, and insurance root | Optional; defaults to `workspace` |
 | `DEV_HANDOFF_TARGET` | Demo phone-transfer fallback | Optional; not selected when Product handoff is configured |
 
 Never commit credentials or bake them into the container image.
@@ -612,20 +620,20 @@ substitutes for it.
 Feature specifications and architecture decisions belong in GitHub Issues so
 status, implementation, and discussion remain together.
 
-### Office knowledge pilot
+### Office knowledge search
 
-An explicitly enabled Spring Hill pilot reads the current Product-owned corpus
-through `search_office_knowledge`. Set `ACUITY_PRODUCT_KNOWLEDGE_PILOT=spring-hill`
-and `ACUITY_PRODUCT_KNOWLEDGE_URL` to the existing Product
-`/v1/agent/knowledge/search` endpoint, after importing and validating its revision.
-The existing Abita Product service credential needs `READ_KNOWLEDGE`; the runtime
-attaches `X-Office-Key`, and the model supplies only a non-patient question.
+Every Office Profile uses `search_office_knowledge` against the existing Product
+`/v1/agent/knowledge/search` endpoint. Set `ACUITY_PRODUCT_KNOWLEDGE_URL` and both
+existing tenant service credentials before starting the Agent. Product enforces
+`READ_KNOWLEDGE` and the office route within the authenticated Practice.
 
-For this pilot, file enrichment and static office facts are disabled. Failures
-remain visible; they never trigger a stale-file fallback. Clearing the explicit
-pilot flag is a rollout rollback and returns the office to the legacy path.
-Other offices retain the existing hook. Structured insurance, patient state,
-scheduling, and urgent handling keep their existing owners.
+The Agent has no keyword knowledge hook, file-backed resolver, knowledge cache,
+or pilot switch. Missing configuration, missing corpus, and provider failures
+remain explicit search failures. Rollback requires an explicit prior application
+revision; there is no automatic file fallback. Patient/context projection,
+structured insurance, scheduling, and urgent handling retain their owners.
 
-See `docs/evidence/office-knowledge-pilot.md` for source provenance, calibration,
-safeguards, local proof, and the remaining deployed/audio proof requirements.
+Sources and import manifests live under `docs/knowledge/`; they are operator
+migration inputs and are not loaded into the running Agent. Preserve approved
+facts and source attribution when preparing future complete corpus replacements.
+See the migration evidence there for per-office coverage and delivery status.

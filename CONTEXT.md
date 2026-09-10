@@ -29,23 +29,13 @@ availability, and human-transfer behavior.
 
 _Avoid_: office config when referring to the complete policy.
 
-**Office Knowledge Hook**
-
-The internal read-only boundary that classifies a completed caller turn and
-supplies only the matching canonical sections from the active Office Profile to
-the next reply. It never proves insurance acceptance, patient state,
-availability, or a completed operation.
-
-_Avoid_: full-context injection, knowledge tool, retrieval service.
-
 **Office Knowledge Search**
 
-The read-only model tool for an explicitly migrated Office Profile. The runtime
-attaches the active office route and Product service credential to a short,
-non-patient question. Product owns the current approved revision and semantic
-retrieval. Returned passages are untrusted reference data, not instructions or
-proof of patient state, insurance participation, availability, or an action.
-The Office Knowledge Hook remains the path for unmigrated offices only.
+Read-only access to the current approved office facts for the active Office Profile.
+Its evidence supports office answers but does not establish patient state,
+insurance participation, availability, or completed actions.
+
+_Avoid_: Office Knowledge Hook, keyword enrichment, full-context injection.
 
 **Owned Middleware**
 

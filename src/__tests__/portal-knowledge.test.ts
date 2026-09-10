@@ -29,7 +29,6 @@ const result = {
 
 describe("Portal office knowledge tool", () => {
   beforeEach(() => {
-    vi.stubEnv("ACUITY_PRODUCT_KNOWLEDGE_PILOT", "spring-hill");
     vi.stubEnv(
       "ACUITY_PRODUCT_KNOWLEDGE_URL",
       "https://product.example/v1/agent/knowledge/search",
@@ -40,8 +39,92 @@ describe("Portal office knowledge tool", () => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
+  it.each([
+    ["spring-hill", "production-secret"],
+    ["crystal-river", "production-secret"],
+    ["hollywood", "production-secret"],
+    ["sweetwater", "production-secret"],
+    ["north-miami-beach-optical", "production-secret"],
+    ["ophthalmology-demo", "demo-secret"],
+    ["new-tampa-demo", "demo-secret"],
+    ["rheumatology-demo", "demo-secret"],
+  ] as const)(
+    "searches %s with its trusted route and tenant credential",
+    async (officeKey, secret) => {
+      vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET", "production-secret");
+      vi.stubEnv("ACUITY_DEMO_PRODUCT_SERVICE_SECRET", "demo-secret");
+      const fetch = vi.fn().mockResolvedValue(Response.json(result));
+      vi.stubGlobal("fetch", fetch);
+      const answer = JSON.parse(
+        await createSearchOfficeKnowledgeTool().execute(
+          { query: "What are your hours?" },
+          options(createTestCallState({ officeKey })),
+        ),
+      );
+      expect(answer.outcome).toBe("found");
+      expect(fetch.mock.calls[0]![1].headers).toMatchObject({
+        Authorization: `Bearer ${secret}`,
+        "X-Office-Key": officeKey,
+      });
+      expect(JSON.parse(fetch.mock.calls[0]![1].body)).toEqual({
+        query: "What are your hours?",
+      });
+    },
+  );
+  it("keeps distinct demo routes separate despite their shared middleware phone", async () => {
+    const { getOfficeProfile } = await import("../customers/abita/profile.js");
+    const { activateOffice } = await import("../state/call-lifecycle.js");
+    const first = getOfficeProfile("new-tampa-demo");
+    const next = getOfficeProfile("ophthalmology-demo");
+    expect(first.amdOfficePhone).toBe(next.amdOfficePhone);
+    vi.stubEnv("ACUITY_DEMO_PRODUCT_SERVICE_SECRET", "demo-secret");
+    const fetch = vi.fn().mockImplementation(async (_url, request) => {
+      const revisionId = `revision-${request.headers["X-Office-Key"]}`;
+      return Response.json({
+        ...result,
+        revisionId,
+        passages: result.passages.map((passage) => ({
+          ...passage,
+          revisionId,
+        })),
+      });
+    });
+    vi.stubGlobal("fetch", fetch);
+    const state = createTestCallState({
+      officeKey: first.key,
+      amdOfficePhone: first.amdOfficePhone,
+    });
+    const tool = createSearchOfficeKnowledgeTool();
+    const firstResult = JSON.parse(
+      await tool.execute({ query: "What are your hours?" }, options(state)),
+    );
+    activateOffice(state, next);
+    const nextResult = JSON.parse(
+      await tool.execute({ query: "What are your hours?" }, options(state)),
+    );
+    expect(firstResult.revisionId).toBe("revision-new-tampa-demo");
+    expect(nextResult.revisionId).toBe("revision-ophthalmology-demo");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("cannot widen the runtime route using extra model-supplied scope", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json(result));
+    vi.stubGlobal("fetch", fetch);
+    await createSearchOfficeKnowledgeTool().execute(
+      {
+        query: "What are your hours?",
+        officeKey: "rheumatology-demo",
+        practiceId: "other-practice",
+      } as never,
+      options(),
+    );
+    expect(fetch.mock.calls[0]![1].headers["X-Office-Key"]).toBe("spring-hill");
+    expect(JSON.parse(fetch.mock.calls[0]![1].body)).toEqual({
+      query: "What are your hours?",
+    });
+  });
+
   it("sends only the question under the trusted active office and tenant credential", async () => {
-    vi.stubEnv("ACUITY_PRODUCT_KNOWLEDGE_PILOT", "spring-hill");
     vi.stubEnv(
       "ACUITY_PRODUCT_KNOWLEDGE_URL",
       "https://product.example/v1/agent/knowledge/search",
@@ -117,6 +200,29 @@ describe("Portal office knowledge tool", () => {
       ),
     );
     expect(answer.outcome).toBe("no_relevant_information");
+  });
+
+  it("allows caller interruption while the read-only search is in flight", async () => {
+    const ctx = createToolContext(createTestCallState());
+    const controller = new AbortController();
+    const fetch = vi.fn().mockImplementation(async () => {
+      expect(ctx.speechHandle.allowInterruptions).toBe(true);
+      controller.abort();
+      return Response.json(result);
+    });
+    vi.stubGlobal("fetch", fetch);
+    const answer = JSON.parse(
+      await createSearchOfficeKnowledgeTool().execute(
+        { query: "What are your hours?" },
+        {
+          ctx,
+          toolCallId: "knowledge-test",
+          abortSignal: controller.signal,
+        } as unknown as ToolOptions,
+      ),
+    );
+    expect(answer.outcome).toBe("temporary_failure");
+    expect(ctx.disallowInterruptions).not.toHaveBeenCalled();
   });
 
   it("bounds the network request by a four-second deadline", async () => {
@@ -205,7 +311,8 @@ describe("Portal office knowledge tool", () => {
     },
   );
 
-  it("rejects a non-pilot runtime office before network access", async () => {
+  it("reports missing configuration without reading files", async () => {
+    vi.stubEnv("ACUITY_PRODUCT_KNOWLEDGE_URL", "");
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
     const state = createTestCallState({ officeKey: "crystal-river" });
@@ -222,37 +329,29 @@ describe("Portal office knowledge tool", () => {
 });
 
 describe("Portal authority at the agent boundary", () => {
-  afterEach(() => vi.unstubAllEnvs());
-  it("exposes the query-only tool and removes file facts only for the explicit pilot", async () => {
+  it("exposes the query-only tool and no file facts for every office", async () => {
     const { createVoiceAgent } = await import("../agent.js");
-    const { SPRING_HILL_OFFICE_PHONE, CRYSTAL_RIVER_OFFICE_PHONE } =
-      await import("../customers/abita/profile.js");
+    const { getOfficeProfiles } = await import("../customers/abita/profile.js");
     const { InMemoryOwnedMiddleware } =
       await import("./support/owned-middleware.js");
     const { isFunctionTool } = await import("@livekit/agents");
-    vi.stubEnv("ACUITY_PRODUCT_KNOWLEDGE_PILOT", "spring-hill");
-    const pilot = createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
-      ownedMiddleware: new InMemoryOwnedMiddleware(),
-      suppressGreeting: true,
-    }).agent;
-    const other = createVoiceAgent(CRYSTAL_RIVER_OFFICE_PHONE, {
-      ownedMiddleware: new InMemoryOwnedMiddleware(),
-      suppressGreeting: true,
-    }).agent;
-    const search = pilot.toolCtx.tools.find(
-      (t) => isFunctionTool(t) && t.name === "search_office_knowledge",
-    );
-    expect(search).toBeDefined();
-    expect(pilot.instructions).toContain(
-      "call search_office_knowledge before answering",
-    );
-    expect(pilot.instructions).not.toContain("We are closed on weekends");
-    expect(pilot.instructions).not.toContain("readiness text confirms");
-    expect(
-      other.toolCtx.tools.some(
-        (t) => isFunctionTool(t) && t.name === "search_office_knowledge",
-      ),
-    ).toBe(false);
-    expect(other.instructions).toContain("We are closed on weekends");
+    for (const office of getOfficeProfiles()) {
+      const agent = createVoiceAgent(office.trunkPhones[0]!, {
+        ownedMiddleware: new InMemoryOwnedMiddleware(),
+        suppressGreeting: true,
+      }).agent;
+      expect(
+        agent.toolCtx.tools.some(
+          (t) => isFunctionTool(t) && t.name === "search_office_knowledge",
+        ),
+        office.key,
+      ).toBe(true);
+      expect(agent.instructions).toContain(
+        "call search_office_knowledge before answering",
+      );
+      expect(agent.instructions).not.toContain("We are closed on weekends.");
+      expect(agent.instructions).not.toContain("We are closed on Labor Day");
+      expect(agent.instructions).not.toContain("readiness text confirms");
+    }
   });
 });

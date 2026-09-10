@@ -62,19 +62,9 @@ describe("Google Cloud trace export", () => {
     vi.restoreAllMocks();
   });
 
-  it("leaves the existing LiveKit provider alone when disabled", () => {
-    const existing = telemetry.tracer.getProvider();
-    expect(setupGoogleCloudTracing(ctx, {})).toBeUndefined();
-    expect(telemetry.tracer.getProvider()).toBe(existing);
-    expect(transport.options).toBeUndefined();
-    expect(callbacks).toEqual([]);
-  });
-
-  it("protects pilot native LiveKit exports when no Google collector is configured", async () => {
+  it("protects native LiveKit exports for every office when no Google collector is configured", async () => {
     const add = vi.spyOn(telemetry.FanoutSpanProcessor.prototype, "add");
-    const provider = setupGoogleCloudTracing(ctx, {
-      ACUITY_PRODUCT_KNOWLEDGE_PILOT: "spring-hill",
-    })!;
+    const provider = setupGoogleCloudTracing(ctx, {})!;
     expect(provider).toBeDefined();
     expect(transport.options).toBeUndefined();
     const destination = new InMemorySpanExporter();

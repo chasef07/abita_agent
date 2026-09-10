@@ -1,4 +1,3 @@
-import { usesPortalKnowledge } from "./runtime/portal-knowledge.js";
 // agent.ts — Agent definition
 // Instructions loaded from workspace files, tools wired below.
 
@@ -19,12 +18,7 @@ import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
 import { patientModelProjection } from "./identity/patient-identity.js";
-import {
-  officeKnowledgeReference,
-  resolveOfficeKnowledge,
-} from "./office-knowledge.js";
 import { activeOfficeKey } from "./state/call-lifecycle.js";
-import { recordOfficeKnowledgeRetrieval } from "./state/observability.js";
 import {
   clinicTimestampMessage,
   systemSchedulingClock,
@@ -36,7 +30,6 @@ import { greetingAudio } from "./runtime/greeting-audio.js";
 
 type VoiceAgentOptions = {
   ownedMiddleware: OwnedMiddleware;
-  officeKnowledgeResolver?: typeof resolveOfficeKnowledge;
   onAssistantText?: (text: string, complete: boolean) => void;
   suppressGreeting?: boolean;
   turnClock?: SchedulingClock;
@@ -76,65 +69,24 @@ export function createVoiceAgent(
       }
     },
 
-    async onUserTurnCompleted(
-      ctx,
-      chatCtx: ChatContext,
-      newMessage: ChatMessage,
-    ): Promise<void> {
+    async onUserTurnCompleted(ctx, chatCtx: ChatContext): Promise<void> {
       const state = ctx.session.userData;
-      const transcript = newMessage.textContent ?? "";
-      try {
-        if (!transcript) return;
-
-        const officeKey = activeOfficeKey(state);
-        if (usesPortalKnowledge(officeKey)) return;
-        const startedAt = performance.now();
-        try {
-          const knowledge = (
-            options.officeKnowledgeResolver ?? resolveOfficeKnowledge
-          )(officeKey, transcript, recentNaturalLanguageConversation(chatCtx));
-          if (knowledge.outcome !== "skipped") {
-            chatCtx.addMessage({
-              role: "assistant",
-              content: officeKnowledgeReference(officeKey, knowledge),
-            });
-          }
-          recordOfficeKnowledgeRetrieval(state, {
-            elapsedMs: elapsedMilliseconds(startedAt),
-            language: knowledge.language,
-            officeKey,
-            outcome: knowledge.outcome,
-            sectionCount: knowledge.sections.length,
-            topic: knowledge.topic,
-          });
-        } catch {
-          recordOfficeKnowledgeRetrieval(state, {
-            elapsedMs: elapsedMilliseconds(startedAt),
-            language: "unknown",
-            officeKey,
-            outcome: "failure",
-            sectionCount: 0,
-            topic: null,
-          });
-        }
-      } finally {
-        const currentInput = modelTurnInput(state, turnClock);
-        // LiveKit compares the hook's context to the speculative request's
-        // context. State projected only in llmNode is invisible to that check.
-        // Force a fresh request when hydration, scheduling, or the clock changed.
-        if (
-          modelInputSnapshot !== undefined &&
-          (modelInputSnapshot.changed ||
-            modelInputSnapshot.fingerprint !== currentInput.fingerprint)
-        ) {
-          chatCtx.addMessage({
-            id: TURN_CONTEXT_MESSAGE_ID,
-            role: "system",
-            content: currentInput.content,
-          });
-        }
-        modelInputSnapshot = undefined;
+      const currentInput = modelTurnInput(state, turnClock);
+      // LiveKit compares the hook's context to the speculative request's
+      // context. State projected only in llmNode is invisible to that check.
+      // Force a fresh request when hydration, scheduling, or the clock changed.
+      if (
+        modelInputSnapshot !== undefined &&
+        (modelInputSnapshot.changed ||
+          modelInputSnapshot.fingerprint !== currentInput.fingerprint)
+      ) {
+        chatCtx.addMessage({
+          id: TURN_CONTEXT_MESSAGE_ID,
+          role: "system",
+          content: currentInput.content,
+        });
       }
+      modelInputSnapshot = undefined;
     },
 
     async llmNode(ctx, chatCtx, toolCtx, modelSettings) {
@@ -260,9 +212,7 @@ export function createVoiceAgent(
 function modelTurnInput(state: CallState, clock: SchedulingClock) {
   const content = [
     clinicTimestampMessage(clock.now()),
-    usesPortalKnowledge(activeOfficeKey(state))
-      ? "Office factual answers require a fresh search_office_knowledge result for THIS user turn, even if your previous answer already stated the fact. For a short follow-up such as And Saturdays, reconstruct a complete question and search again before answering. Earlier assistant statements are not current knowledge evidence. Use the current turn result after the search; never search again solely because you received its result."
-      : "",
+    "Office factual answers require a fresh search_office_knowledge result for THIS user turn, even if your previous answer already stated the fact. For a short follow-up such as And Saturdays, reconstruct a complete question and search again before answering. Earlier assistant statements are not current knowledge evidence. Use the current turn result after the search; never search again solely because you received its result.",
     patientModelProjection(state),
     availabilityModelProjection(state),
   ]
@@ -292,22 +242,6 @@ export async function* observeAssistantText(
   }
 
   observer(text, true);
-}
-
-function recentNaturalLanguageConversation(chatCtx: ChatContext): string[] {
-  return chatCtx.items
-    .flatMap((item) =>
-      item.type === "message" &&
-      (item.role === "user" || item.role === "assistant") &&
-      item.textContent?.trim()
-        ? [item.textContent]
-        : [],
-    )
-    .slice(-2);
-}
-
-function elapsedMilliseconds(startedAt: number): number {
-  return Math.round((performance.now() - startedAt) * 100) / 100;
 }
 
 function reportBlockedSpeech(
