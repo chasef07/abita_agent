@@ -5,3 +5,10 @@ export interface LightweightPatientCandidate {
   lastName: string;
   dob: string;
 }
+
+export interface PatientCandidateSet {
+  status: "candidates";
+  source: "first_name";
+  complete: boolean;
+  matches: LightweightPatientCandidate[];
+}
