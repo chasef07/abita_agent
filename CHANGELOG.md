@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.2.0](https://github.com/chasef07/abita_agent/compare/5.1.4...5.2.0) (2026-09-10)
+
+
+### Features
+
+* **knowledge:** replace knowledge hooks with vector search for every office ([#457](https://github.com/chasef07/abita_agent/issues/457)) ([8b31fe1](https://github.com/chasef07/abita_agent/commit/8b31fe11cb5b80af210d6aaf04f6b41acbb28919))
+
 ## [5.1.4](https://github.com/chasef07/abita_agent/compare/5.1.3...5.1.4) (2026-09-10)
 
 
