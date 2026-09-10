@@ -91,13 +91,18 @@ describe("Portal knowledge through AgentSession", () => {
       const beforeFollowup = llm.requests.length;
       await session.run({ userInput: "And Saturdays?" }).wait();
       const nextRequest = llm.requests[beforeFollowup]!;
-      expect(
-        nextRequest.items.some(
-          (item) =>
-            item.type === "function_call_output" &&
-            item.name === "search_office_knowledge",
-        ),
-      ).toBe(false);
+      const retained = nextRequest.items.filter(
+        (item) =>
+          (item.type === "function_call" ||
+            item.type === "function_call_output") &&
+          item.name === "search_office_knowledge",
+      );
+      expect(retained.map((item) => item.type)).toEqual([
+        "function_call",
+        "function_call_output",
+      ]);
+      expect(JSON.stringify(retained)).toContain("revision-1");
+      expect(JSON.stringify(retained)).toContain("Closed Saturday and Sunday");
       expect(
         session.currentAgent.chatCtx.items.some(
           (item) =>
