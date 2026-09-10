@@ -74,6 +74,12 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
       if (resolution.outcome === "lookup_failed") {
         throw new ToolError(resolution.reply);
       }
+      if (
+        state.identity.activePatient?.dob?.trim() &&
+        (resolution.outcome === "verified" || resolution.outcome === "switched")
+      ) {
+        return `${resolution.reply}\nDOB is on file. Do not ask for DOB.`;
+      }
       return resolution.reply;
     },
   });
