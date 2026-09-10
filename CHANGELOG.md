@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.2.1](https://github.com/chasef07/abita_agent/compare/5.2.0...5.2.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **knowledge:** preserve tool calls in reports ([#467](https://github.com/chasef07/abita_agent/issues/467)) ([51c0f50](https://github.com/chasef07/abita_agent/commit/51c0f5074ccee188ec076d7d54df69dfb9424d23))
+
 ## [5.2.0](https://github.com/chasef07/abita_agent/compare/5.1.4...5.2.0) (2026-09-10)
 
 
