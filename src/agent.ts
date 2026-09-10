@@ -212,7 +212,6 @@ export function createVoiceAgent(
 function modelTurnInput(state: CallState, clock: SchedulingClock) {
   const content = [
     clinicTimestampMessage(clock.now()),
-    "Office factual answers require a fresh search_office_knowledge result for THIS user turn, even if your previous answer already stated the fact. For a short follow-up such as And Saturdays, reconstruct a complete question and search again before answering. Earlier assistant statements are not current knowledge evidence. Use the current turn result after the search; never search again solely because you received its result.",
     patientModelProjection(state),
     availabilityModelProjection(state),
   ]

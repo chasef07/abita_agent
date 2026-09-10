@@ -201,17 +201,14 @@ describe("voice output prompt", () => {
     }
   });
 
-  it("states voice style instructions as positive actions", () => {
+  it("states model-facing prompt instructions as positive actions", () => {
     const prompts = [
       buildPrompt(SPRING_HILL_OFFICE_PHONE),
       buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE),
     ];
 
     for (const prompt of prompts) {
-      // Knowledge safety boundaries intentionally prohibit unsupported claims and PHI.
-      const voiceStyle = prompt.match(/<voice>([\s\S]*?)<\/voice>/)?.[1];
-      expect(voiceStyle).toBeDefined();
-      expect(voiceStyle).not.toMatch(
+      expect(prompt).not.toMatch(
         /\b(?:aren't|can't|cannot|couldn't|do not|does not|don't|haven't|isn't|never|must not|shouldn't|wasn't|weren't|won't|wouldn't)\b/i,
       );
     }
@@ -756,7 +753,7 @@ describe("Crystal River prompt guidance", () => {
     expect(knowledge).toContain("Medical insurance checks are not supported");
   });
 
-  it("retrieves office policy instead of baking readiness claims into the prompt", () => {
+  it("answers ordered-glasses readiness from text notification status", () => {
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
       CRYSTAL_RIVER_OFFICE_PHONE,
@@ -764,8 +761,7 @@ describe("Crystal River prompt guidance", () => {
       NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
       ...SWEETWATER_TRUNK_PHONES,
     ]) {
-      expect(buildPrompt(phone)).not.toContain(GLASSES_READY_ANSWER);
-      expect(buildPrompt(phone)).toContain("search_office_knowledge");
+      expect(buildPrompt(phone)).toContain(GLASSES_READY_ANSWER);
     }
 
     expect(create_staff_task.description).not.toContain(

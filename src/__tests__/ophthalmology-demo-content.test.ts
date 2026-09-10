@@ -56,9 +56,6 @@ describe("ophthalmology demo content", () => {
     const office = getOfficeProfile("ophthalmology-demo");
     expect(office.schedulingFor("medical")).toEqual({ supported: true });
     expect(office.schedulingFor("routine_vision")).toEqual({ supported: true });
-    expect(buildPrompt(OPHTHALMOLOGY_DEMO_TRUNK_PHONE)).toContain(
-      "search_office_knowledge",
-    );
   });
 
   it("keeps demo insurance isolated from Spring Hill-only rules", () => {

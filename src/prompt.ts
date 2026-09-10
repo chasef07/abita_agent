@@ -1,7 +1,3 @@
-import {
-  PORTAL_KNOWLEDGE_INSTRUCTIONS,
-  ROUTINE_VISION_KNOWLEDGE_INSTRUCTIONS,
-} from "./runtime/portal-knowledge.js";
 // Assemble static system instructions. Turn-local facts enter ChatContext later.
 
 import { readFileSync } from "fs";
@@ -28,9 +24,19 @@ export function buildPrompt(trunkPhone: string): string {
     sections.push(`<${tag}>\n${content}\n</${tag}>`);
   }
 
-  sections.push(PORTAL_KNOWLEDGE_INSTRUCTIONS);
-  if (office.schedulingFor("routine_vision").supported) {
-    sections.push(ROUTINE_VISION_KNOWLEDGE_INSTRUCTIONS);
+  if (
+    [
+      "spring-hill",
+      "crystal-river",
+      "hollywood",
+      "sweetwater",
+      "north-miami-beach-optical",
+    ].includes(office.key)
+  ) {
+    if (office.key !== "north-miami-beach-optical") {
+      sections.push("We are closed on weekends.");
+    }
+    sections.push("We are closed on Labor Day, Monday, September 7, 2026.");
   }
 
   return sections.join("\n\n");
