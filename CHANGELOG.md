@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.1](https://github.com/chasef07/abita_agent/compare/5.1.0...5.1.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **voice:** make the opening greeting non-interruptible ([#452](https://github.com/chasef07/abita_agent/issues/452)) ([40c1470](https://github.com/chasef07/abita_agent/commit/40c1470856e2482204bca5e03205641cc540133b))
+
 ## [5.1.0](https://github.com/chasef07/abita_agent/compare/5.0.3...5.1.0) (2026-09-09)
 
 
