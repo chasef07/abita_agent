@@ -18,7 +18,7 @@ const searchResponse = z
   .object({
     outcome: z.enum(["found", "no_relevant_information", "temporary_failure"]),
     revisionId: z.string().min(1).max(100).optional(),
-    passages: z.array(passage).max(5),
+    passages: z.array(passage).max(8),
   })
   .superRefine((value, ctx) => {
     if (
@@ -38,7 +38,9 @@ const parameters = z
       .trim()
       .min(3)
       .max(500)
-      .describe("A short question about this office."),
+      .describe(
+        "A short non-patient question about this office. Omit patient names, identifiers, and personal medical details.",
+      ),
   })
   .strict();
 const unavailable = { outcome: "temporary_failure" as const, passages: [] };
@@ -65,7 +67,7 @@ export function createSearchOfficeKnowledgeTool() {
       try {
         const url = process.env.ACUITY_PRODUCT_KNOWLEDGE_URL?.trim();
         const { secret } = getProductTenantConfig(officeKey);
-        // Defense in depth for common identifiers; model instructions prohibit all PHI.
+        // Defense in depth for common identifiers, not a complete patient-data filter.
         const includesIdentifier =
           /\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b|\b\d{1,4}[/-]\d{1,2}[/-]\d{2,4}\b|(?:\+?\d[\s().-]*){7,}/i.test(
             query,

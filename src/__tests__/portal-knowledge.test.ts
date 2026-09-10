@@ -182,6 +182,25 @@ describe("Portal office knowledge tool", () => {
     },
   );
 
+  it.each([8, 9])("validates the Product passage limit: %i", async (count) => {
+    const passages = Array.from({ length: count }, (_, index) => ({
+      ...result.passages[0]!,
+      sectionId: `section-${index}`,
+    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json({ ...result, passages })),
+    );
+    const answer = JSON.parse(
+      await createSearchOfficeKnowledgeTool().execute(
+        { query: "What are your office policies?" },
+        options(),
+      ),
+    );
+    expect(answer.outcome).toBe(count === 8 ? "found" : "temporary_failure");
+    expect(answer.passages).toEqual(count === 8 ? passages : []);
+  });
+
   it("distinguishes no relevant information from temporary failure", async () => {
     vi.stubGlobal(
       "fetch",
