@@ -37,11 +37,9 @@ describe("patient resolution conversation contract", () => {
       } as never,
     );
     expect(state.identity.activePatient?.dob).toBe(candidate.dob);
-    expect(reply).toContain("I found you in the system, Jane Doe.");
+    expect(reply).toContain("I found you in our system, Jane Doe.");
     expect(patientModelProjection(state)).toContain("DOB is already on file");
-    expect(patientModelProjection(state)).toContain(
-      "Do not ask for or reconfirm",
-    );
+    expect(patientModelProjection(state)).not.toContain(candidate.dob);
     expect(middleware.operations).toHaveLength(0);
   });
 
@@ -58,9 +56,7 @@ describe("patient resolution conversation contract", () => {
         toolCallId: "lookup",
       } as never,
     );
-    expect(patientModelProjection(state)).toContain(
-      "collect surname only for new-patient chart creation",
-    );
+    expect(patientModelProjection(state)).toContain("no patient is active");
     expect(middleware.requests.resolvePatient).toEqual([
       {
         office: state.runtime.trunkPhone,
@@ -69,7 +65,34 @@ describe("patient resolution conversation contract", () => {
     ]);
   });
 
-  it("routes a middleware first-name/DOB collision to staff", async () => {
+  it("asks for DOB after an unmatched first name, then accepts clarified phone-match identity", async () => {
+    const middleware = new InMemoryOwnedMiddleware({
+      resolvePatient: [{ status: "not_found" }],
+    });
+    const state = createTestCallState({ preCallCandidates: [candidate] });
+    const tool = createResolvePatientTool(middleware);
+    const options = {
+      ctx: createToolContext(state),
+      toolCallId: "clarify",
+    } as never;
+    const first = await tool.execute({ firstName: "Jame", dob: null }, options);
+    expect(first).toContain("date of birth");
+    expect(middleware.operations).toHaveLength(0);
+    const second = await tool.execute(
+      { firstName: "Jame", dob: "02/02/1980" },
+      options,
+    );
+    expect(second).toContain("couldn't find a matching patient");
+    expect(state.identity.activePatient).toBeNull();
+    const corrected = await tool.execute(
+      { firstName: "J-A-N-E", dob: candidate.dob },
+      options,
+    );
+    expect(corrected).toContain("I found you in our system, Jane Doe");
+    expect(state.identity.activePatient?.patientId).toBe(candidate.patientId);
+  });
+
+  it("requests identity clarification and a retry for a middleware collision", async () => {
     const middleware = new InMemoryOwnedMiddleware({
       resolvePatient: [
         {
@@ -87,7 +110,10 @@ describe("patient resolution conversation contract", () => {
         toolCallId: "fallback-collision",
       } as never,
     );
-    expect(reply).toContain("office staff");
+    expect(reply).toBe("I found more than one matching patient.");
+    expect(tool.description).toContain(
+      "clarify DOB and first-name spelling and retry before offering staff",
+    );
     expect(reply).not.toContain("confirm");
     expect(state.identity.activePatient).toBeNull();
   });
@@ -120,7 +146,7 @@ describe("patient resolution conversation contract", () => {
       { firstName: "Jane", dob: candidate.dob } as never,
       options,
     );
-    expect(second).toContain("office staff");
+    expect(second).toBe("I found more than one matching patient.");
     expect(state.identity.activePatient).toBeNull();
     expect(middleware.operations).toHaveLength(0);
   });

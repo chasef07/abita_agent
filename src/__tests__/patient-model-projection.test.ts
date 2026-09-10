@@ -133,8 +133,8 @@ describe("patient model projection", () => {
     expect(patientMessages(model.requests[0])[0]).toContain(
       'Private first-name spelling hints: ["P-R-I-V-A-T-E"].',
     );
-    expect(patientMessages(model.requests[0])[0]).toContain(
-      "Never read these hints aloud or substitute them for caller-provided identity.",
+    expect(patientMessages(model.requests[0])[0]).not.toContain(
+      "resolve_patient",
     );
     expect(patientMessages(session.currentAgent.chatCtx)).toEqual([]);
     const modelRequest = JSON.stringify(model.requests[0]);

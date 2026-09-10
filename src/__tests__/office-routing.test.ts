@@ -390,9 +390,7 @@ describe("tool-first prompt gating", () => {
         "call resolve_patient with the intended patient's caller-provided identity",
       );
       expect(prompt).toContain("Use null for unknown fields");
-      expect(prompt).toContain(
-        "Use a supplied DOB directly in resolve_patient, without a read-back or confirmation question",
-      );
+      expect(prompt).not.toContain("wait for confirmation before resolving");
       expect(prompt).not.toContain("<caller_identity_hint>");
       expect(prompt).not.toContain("middleware_error");
       expect(prompt).not.toContain("+17275551212");
@@ -1583,17 +1581,17 @@ describe("model-facing tool definitions", () => {
 
   it("keeps resolve_patient scoped to patient identity loading", () => {
     expect(resolve_patient.description).toContain(
-      "Activate or look up an existing patient",
+      "Phone lookup found possible patients",
     );
     expect(resolve_patient.description).toContain(
-      "Use only caller-provided identity",
+      "Use caller-provided identity only",
     );
     expect(resolve_patient.description).toContain(
-      "Phone lookup found possible patients: call with first name",
+      "Otherwise collect firstName and DOB",
     );
-    expect(resolve_patient.description).toContain("leave unknown fields null");
+    expect(resolve_patient.description).toContain("dob:null");
     expect(resolve_patient.description).toContain(
-      "Use add_patient for new-patient chart creation",
+      "Use add_patient for registration",
     );
     expect(resolve_patient.description).not.toContain("insurance updates");
     expect(resolve_patient.description).not.toContain("private account");

@@ -67,7 +67,7 @@ describe("patient identity", () => {
     expect(lookup).not.toHaveBeenCalled();
   });
 
-  it("requests spelling below the threshold and does not promote from surname alone", async () => {
+  it("requests DOB below the first-name threshold and does not promote from surname alone", async () => {
     const state = createTestCallState({
       preCallCandidates: [verifiedCandidate("one", "Jane", "patient-1")],
     });
@@ -76,7 +76,7 @@ describe("patient identity", () => {
       await resolveExistingPatient(state, { firstName: "Jame" }, lookup),
     ).toMatchObject({
       outcome: "needs_identity",
-      reply: expect.stringContaining("spell the patient's first name"),
+      reply: expect.stringContaining("date of birth"),
     });
     expect(state.identity.activePatient).toBeNull();
     expect(
@@ -87,7 +87,7 @@ describe("patient identity", () => {
       ),
     ).toMatchObject({
       outcome: "needs_identity",
-      reply: expect.stringContaining("spell the patient's first name"),
+      reply: expect.stringContaining("date of birth"),
     });
     expect(state.identity.activePatient).toBeNull();
     expect(lookup).not.toHaveBeenCalled();
@@ -133,7 +133,7 @@ describe("patient identity", () => {
         lookup,
       );
       expect(result.outcome).toBe("needs_identity");
-      expect(result.reply).toContain("spell the patient's first name");
+      expect(result.reply).toContain("date of birth");
       expect(state.identity.activePatient).toBeNull();
       expect(lookup).not.toHaveBeenCalled();
     },

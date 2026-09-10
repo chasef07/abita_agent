@@ -566,7 +566,7 @@ describe("stateful call tools", () => {
       }
 
       await expect(pendingResolution).resolves.toContain(
-        "I found you in the system, John Doe",
+        "I found you in our system, John Doe",
       );
       await expect(pendingCreation).resolves.toContain(
         "I created a patient chart for Jane Doe, but insurance was not attached. Office staff needs to finish the registration.",
@@ -1312,7 +1312,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "I found you in the system, Jane Doe. We have self pay on file. I found one upcoming appointment, Monday, July 27 at 9:00 AM with Dr. Bach.",
+      "I found you in our system, Jane Doe. We have self pay on file. I found one upcoming appointment, Monday, July 27 at 9:00 AM with Dr. Bach.",
     );
     expect(result).not.toContain("appointmentRef");
     expect(patientModelProjection(state)).toMatch(
@@ -1490,7 +1490,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "I found you in the system, John Doe. We have Aetna on file. I don't see any upcoming appointments.",
+      "I found you in our system, John Doe. We have Aetna on file. I don't see any upcoming appointments.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
@@ -1530,7 +1530,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "I found you in the system, CHASE TEST. I don't see any upcoming appointments.",
+      "I found you in our system, CHASE TEST. I don't see any upcoming appointments.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-1");
     expect(state.identity.activePatient!.kind).toBe("existing");
@@ -1626,9 +1626,7 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe(
-      "I couldn't find a matching patient. Could you check the first-name spelling and whether the patient is already registered with us? Reuse the supplied date of birth.",
-    );
+    expect(result).toBe("I couldn't find a matching patient.");
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
         firstName: "Lisa",
@@ -1735,7 +1733,7 @@ describe("stateful call tools", () => {
           toolCallId: "tool-1",
         } as never,
       ),
-    ).resolves.toContain("I found you in the system, Jane Doe.");
+    ).resolves.toContain("I found you in our system, Jane Doe.");
     expect(middleware.requests.resolvePatient).toEqual([
       expect.objectContaining({
         identity: {
@@ -1813,7 +1811,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "I found you in the system, ELLA ARSHED. We have Aetna on file. I don't see any upcoming appointments.",
+      "I found you in our system, ELLA ARSHED. We have Aetna on file. I don't see any upcoming appointments.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
@@ -1870,7 +1868,7 @@ describe("stateful call tools", () => {
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "I found you in the system, MONIQUE HAMILTON. We have HUMANA on file. I don't see any upcoming appointments.",
+      "I found you in our system, MONIQUE HAMILTON. We have HUMANA on file. I don't see any upcoming appointments.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-monique");
     expect(state.identity.activePatient!.name).toBe("MONIQUE HAMILTON");
@@ -1943,7 +1941,7 @@ describe("stateful call tools", () => {
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "I found you in the system, ESA ARSHED. We have Florida Blue Shield on file. I don't see any upcoming appointments.",
+      "I found you in our system, ESA ARSHED. We have Florida Blue Shield on file. I don't see any upcoming appointments.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-esa");
   });

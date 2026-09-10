@@ -24,9 +24,7 @@ const resolvePatientParameters = z
       .string()
       .trim()
       .nullable()
-      .describe(
-        "Caller-provided DOB in MM/DD/YYYY; null if unknown. Use it directly without read-back confirmation. Reuse DOB already supplied; the active patient's DOB on file needs no further collection.",
-      ),
+      .describe("Caller-provided DOB in MM/DD/YYYY; null if unknown."),
   })
   .strict();
 
@@ -39,11 +37,11 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
     name: "resolve_patient",
     onDuplicate: "reject",
     description:
-      "Activate or look up an existing patient, or switch patients. " +
-      'Phone lookup found possible patients: call with first name, e.g. {"firstName":"John","dob":null}. Otherwise collect first name and DOB before calling. ' +
-      "Use only caller-provided identity; leave unknown fields null. " +
-      "Use supplied DOB directly without read-back confirmation. Follow the result's next step. " +
-      "Use add_patient for new-patient chart creation.",
+      "Phone lookup found possible patients: call immediately with firstName and dob:null. " +
+      "Otherwise collect firstName and DOB. Include supplied DOB without confirmation. " +
+      "For same-name patient switches, require DOB. If unresolved, add DOB and retry; " +
+      "if still unresolved, clarify DOB and first-name spelling and retry before offering staff. " +
+      "After success, say the returned acknowledgment and continue. Use caller-provided identity only. Use add_patient for registration.",
     parameters: resolvePatientParameters,
     execute: async (
       identity: ResolvePatientArgs,

@@ -24,12 +24,20 @@ type Scenario = {
   askFirstName?: boolean;
   officePhone?: string;
   promoted?: boolean;
+  activeSameName?: boolean;
   confirmedDob?: boolean;
   dob?: string;
   askDob?: boolean;
 };
 
 const scenarios: Scenario[] = [
+  {
+    id: "same_name_patient_switch",
+    names: ["John"],
+    user: "Now I need an appointment for my son. His first name is also John, but he's a different patient.",
+    activeSameName: true,
+    askDob: true,
+  },
   {
     id: "promoted_booking",
     names: ["John"],
@@ -165,6 +173,15 @@ for (const model of [primary, fallback]) {
           durationMs: 1,
         },
       });
+      if (scenario.activeSameName) {
+        await createResolvePatientTool(middleware).execute(
+          { firstName: "John", dob: null },
+          {
+            ctx: createToolContext(state),
+            toolCallId: "prior-patient",
+          } as never,
+        );
+      }
       const chatCtx = llm.ChatContext.empty();
       chatCtx.addMessage({
         role: "system",

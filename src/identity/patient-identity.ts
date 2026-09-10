@@ -166,10 +166,7 @@ export async function resolveExistingPatient(
   if (!hasLookupIdentity(identity)) {
     return recordResolutionOutcome(state, {
       outcome: "needs_identity",
-      reply:
-        state.identity.privateCandidates.length > 0 && identity.firstName
-          ? "Ask the caller to spell the patient's first name, then retry with their spelling. If they have already spelled it, collect the missing date of birth to look up the intended patient."
-          : missingIdentityReply(identity),
+      reply: missingIdentityReply(identity),
     });
   }
 
@@ -484,14 +481,14 @@ export function patientModelProjection(state: CallState): string {
     ];
     const lookup =
       count > 0
-        ? `Phone lookup found ${count} possible patient${count === 1 ? "" : "s"}. For patient-specific work, ask only for the intended patient's first name if unknown. Once supplied, call resolve_patient immediately; a firstName alone is enough to try the phone matches. Ask for DOB only if resolve_patient requests it. Use supplied DOB directly without read-back confirmation; collect surname only for new-patient chart creation.`
+        ? `Phone lookup found ${count} possible patient${count === 1 ? "" : "s"}.`
         : state.runtime.preCallLookup.status === "lookup_failed"
-          ? "Phone lookup failed; this does not mean the patient is new. Collect the intended patient's first name and DOB, then call resolve_patient. Use supplied DOB directly without read-back confirmation and collect surname only for new-patient chart creation."
+          ? "Phone lookup failed; registration status is unknown."
           : state.runtime.preCallLookup.status === "no_match"
-            ? "Phone lookup found no matches; the patient may still be registered. Collect the intended patient's first name and DOB, then call resolve_patient. Use supplied DOB directly without read-back confirmation and collect surname only for new-patient chart creation."
-            : "Phone lookup has not provided patient candidates. For patient-specific work, collect the intended patient's first name and DOB, then call resolve_patient. Use supplied DOB directly without read-back confirmation and collect surname only for new-patient chart creation.";
+            ? "Phone lookup found no matches; registration status is unknown."
+            : "Phone lookup has not provided patient candidates.";
     const spellingHint = firstNameSpellings.length
-      ? ` Private first-name spelling hints: ${JSON.stringify(firstNameSpellings)}. Never read these hints aloud or substitute them for caller-provided identity.`
+      ? ` Private first-name spelling hints: ${JSON.stringify(firstNameSpellings)}.`
       : "";
     return `Patient situation: no patient is active. ${lookup}${spellingHint}`;
   }
@@ -499,9 +496,7 @@ export function patientModelProjection(state: CallState): string {
   return [
     `Patient situation: ${patient.name?.trim() || "the patient"} is the active ${patient.kind === "created" ? "new" : "existing"} patient.`,
     knownInsuranceOnFileSummary(state),
-    patient.dob
-      ? `DOB is already on file: ${patient.dob}. Do not ask for or reconfirm the active patient's name or DOB. Continue their request; resolve again only if the caller corrects identity or switches patients.`
-      : "Do not ask for the active patient's name again. Ask for DOB only if a tool requires it.",
+    patient.dob ? "DOB is already on file." : "DOB is not on file.",
     appointmentProjection(patient.appointmentsStatus, patient.appointments),
   ]
     .filter(Boolean)
@@ -602,7 +597,7 @@ async function resolvePrivateCandidate(
       outcome: "multiple_matches",
       reply: !identity.dob
         ? missingIdentityReply(identity)
-        : "I couldn't distinguish these patient records. Connect the caller to office staff for help.",
+        : "I found more than one matching patient.",
     };
   }
 
@@ -611,7 +606,7 @@ async function resolvePrivateCandidate(
 
 function missingIdentityReply(identity: ResolvePatientIdentityInput): string {
   if (!identity.firstName) return "What is the patient's first name?";
-  return "What is the patient's date of birth? Use the supplied date directly in resolve_patient.";
+  return "What is the patient's date of birth?";
 }
 
 async function activateCandidate(
@@ -1056,7 +1051,7 @@ function confirmedPatientReply(state: CallState): string {
   const patient = state.identity.activePatient;
   return appointmentReply(
     [
-      `I found you in the system, ${spokenPatientName(state)}.`,
+      `I found you in our system, ${spokenPatientName(state)}.`,
       knownInsuranceOnFileSummary(state),
     ]
       .filter(Boolean)
@@ -1124,10 +1119,10 @@ function spokenInternalAppointment(appointment: CallerAppointment): string {
 
 function patientLookupReply(result: PatientResolveResult): string {
   if (result.status === "not_found") {
-    return "I couldn't find a matching patient. Could you check the first-name spelling and whether the patient is already registered with us? Reuse the supplied date of birth.";
+    return "I couldn't find a matching patient.";
   }
   if (result.status === "multiple_matches") {
-    return "I couldn't distinguish these patient records. Connect the caller to office staff for help.";
+    return "I found more than one matching patient.";
   }
   return "I couldn't look up the patient. Let me try once more.";
 }
