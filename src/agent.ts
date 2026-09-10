@@ -71,7 +71,7 @@ export function createVoiceAgent(
           ctx.session.output.audio && ctx.session.output.audioEnabled
             ? await greetingAudio(trunkPhone)
             : undefined;
-        await ctx.session.say(greeting, { audio });
+        await ctx.session.say(greeting, { audio, allowInterruptions: false });
       }
     },
 

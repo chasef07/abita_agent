@@ -70,7 +70,7 @@ describe("packaged greetings", () => {
     },
   );
 
-  it("plays the greeting without TTS and commits its text exactly once", async () => {
+  it("plays the complete greeting without TTS or interruptions, then allows interruptions", async () => {
     const office = getOfficeProfiles()[0]!;
     const { agent } = createVoiceAgent(office.trunkPhones[0]!, {
       ownedMiddleware: new InMemoryOwnedMiddleware(),
@@ -82,6 +82,17 @@ describe("packaged greetings", () => {
     });
     const output = new CapturedAudio();
     session.output.audio = output;
+    const say = vi.spyOn(session, "say");
+    let interruptionError: unknown;
+    const captureFrame = output.captureFrame.bind(output);
+    vi.spyOn(output, "captureFrame").mockImplementationOnce(async (frame) => {
+      await captureFrame(frame);
+      try {
+        say.mock.results[0]!.value.interrupt();
+      } catch (error) {
+        interruptionError = error;
+      }
+    });
     const committed = new Promise<void>((resolve) => {
       session.on(AgentSessionEventTypes.ConversationItemAdded, (event) => {
         if (event.item.type === "message" && event.item.role === "assistant")
@@ -91,8 +102,16 @@ describe("packaged greetings", () => {
     try {
       await session.start({ agent, record: false });
       await committed;
+      expect(interruptionError).toBeInstanceOf(Error);
+      expect((interruptionError as Error).message).toContain(
+        "does not allow interruptions",
+      );
       expect(ttsNode).not.toHaveBeenCalled();
-      expect(output.duration).toBeGreaterThan(1);
+      const wav = await readFile(greetingAudioPath(office.trunkPhones[0]!));
+      expect(output.duration).toBeCloseTo(
+        (wav.length - 44) / 2 / wav.readUInt32LE(24),
+        5,
+      );
       const greetings = session.history.items.filter(
         (item) =>
           item.type === "message" &&
@@ -100,8 +119,14 @@ describe("packaged greetings", () => {
           item.textContent === office.greeting,
       );
       expect(greetings).toHaveLength(1);
+      const nextSpeech = session.say("Next reply", {
+        audio: await greetingAudio(office.trunkPhones[0]!),
+      });
+      expect(() => nextSpeech.interrupt()).not.toThrow();
+      expect(nextSpeech.interrupted).toBe(true);
     } finally {
       await session.close();
+      say.mockRestore();
       ttsNode.mockRestore();
     }
   });

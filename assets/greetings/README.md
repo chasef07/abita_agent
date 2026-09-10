@@ -1,8 +1,9 @@
 # Packaged greetings
 
 The opening uses a Rime-generated WAV through LiveKit `session.say(text, { audio })`.
-All later speech is synthesized live. Greeting timing and interruption policy are
-unchanged; packaging does not establish a fix for SIP dropouts or interruptions.
+The opening is non-interruptible; LiveKit's default drops caller audio during
+playback. All later speech is synthesized live with normal interruption behavior.
+Packaging does not establish a fix for SIP dropouts.
 
 Generate with Node 22 and `RIME_API_KEY` in the environment or `.env.local`:
 
