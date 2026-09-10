@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.4](https://github.com/chasef07/abita_agent/compare/5.1.3...5.1.4) (2026-09-10)
+
+
+### Bug Fixes
+
+* tell the model when patient DOB is on file ([#463](https://github.com/chasef07/abita_agent/issues/463)) ([c477590](https://github.com/chasef07/abita_agent/commit/c477590458a5154af74856212c7740178601465c))
+
 ## [5.1.3](https://github.com/chasef07/abita_agent/compare/5.1.2...5.1.3) (2026-09-10)
 
 
