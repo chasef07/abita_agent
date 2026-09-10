@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.3](https://github.com/chasef07/abita_agent/compare/5.1.2...5.1.3) (2026-09-10)
+
+
+### Bug Fixes
+
+* **identity:** simplify patient lookup and skip DOB confirmation ([#459](https://github.com/chasef07/abita_agent/issues/459)) ([04ad1c1](https://github.com/chasef07/abita_agent/commit/04ad1c1c56a3c504b67a6fc1cd0e7fe8c0044338))
+
 ## [5.1.2](https://github.com/chasef07/abita_agent/compare/5.1.1...5.1.2) (2026-09-10)
 
 
