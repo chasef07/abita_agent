@@ -154,9 +154,6 @@ export function clearAvailabilitySelection(
     invalidateAvailabilityReads(state);
     state.availability.requestedStartDate = undefined;
   }
-  if (state.availability.slots.length)
-    state.availability.version = (state.availability.version ?? 0) + 1;
-  state.availability.refreshAfter = undefined;
   state.availability.slots = [];
   state.availability.latestRouting = null;
   state.availability.bookingTokensBySlotId = {};
@@ -234,13 +231,6 @@ export function replaceAvailabilitySlots(
   slots: StoredAvailabilitySlot[],
   routing: string | null,
 ): void {
-  if (
-    state.availability.version === undefined ||
-    JSON.stringify(state.availability.slots) !== JSON.stringify(slots)
-  ) {
-    state.availability.version = (state.availability.version ?? 0) + 1;
-  }
-  state.availability.refreshAfter = undefined;
   state.availability.slots = [...slots];
   state.availability.latestRouting = routing;
   state.availability.bookingTokensBySlotId = {};
@@ -269,10 +259,6 @@ function normalizeSchedulingRouting(
     value === "optical_only"
     ? value
     : null;
-}
-
-export function currentWorkflowVisitType(state: CallState): VisitType | null {
-  return state.workflow.visitType;
 }
 
 export function setRoutingContext(

@@ -28,7 +28,6 @@ import {
   systemSchedulingClock,
   type SchedulingClock,
 } from "./scheduling/clock.js";
-import { availabilityStatus } from "./scheduling/availability.js";
 import { greetingAudio } from "./runtime/greeting-audio.js";
 
 type VoiceAgentOptions = {
@@ -155,13 +154,7 @@ export function createVoiceAgent(
 }
 
 function modelTurnInput(state: CallState, clock: SchedulingClock) {
-  return [
-    clinicTimestampMessage(clock.now()),
-    patientContext(state),
-    availabilityStatus(state),
-  ]
-    .filter(Boolean)
-    .join(" ");
+  return [clinicTimestampMessage(clock.now()), patientContext(state)].join(" ");
 }
 
 export async function* observeAssistantText(

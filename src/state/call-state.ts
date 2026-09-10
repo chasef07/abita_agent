@@ -12,19 +12,6 @@ import type { TransferState } from "./call-lifecycle.js";
 export const CALLER_CANDIDATE_REF = "caller";
 
 export type AppointmentLoadStatus = "found" | "none" | "error";
-export type PreCallHydrationOutcome =
-  | "verified"
-  | "not_found"
-  | "multiple_matches"
-  | "lookup_failed"
-  | "incomplete";
-
-export interface StartupOverlapTelemetry {
-  overlapped: true;
-  lookupCompletedBeforeRuntimeSetup: boolean;
-  runtimeSetupDurationMs: number;
-}
-
 export interface CallerAppointment {
   id: number;
   appointmentRef?: string;
@@ -57,7 +44,6 @@ export interface CallerMatch {
   appointmentsStatus?: AppointmentLoadStatus | null;
   appointmentsMessage?: string | null;
   appointments: StoredCallerAppointment[] | null;
-  lookupDurationMs?: number;
 }
 
 export type CallerCandidate = LightweightPatientCandidate;
@@ -66,14 +52,12 @@ export interface CallerMultipleMatches {
   status: "multiple_matches";
   message: string;
   matches: Array<CallerMatch | CallerCandidate>;
-  lookupDurationMs?: number;
 }
 
 interface CallerNoMatch {
   status: "no_match";
   phone: string;
   message?: string;
-  lookupDurationMs?: number;
 }
 
 export interface CallerLookupFailed {
@@ -86,7 +70,6 @@ export interface CallerLookupFailed {
     | "request_rejected"
     | "unsupported_trunk";
   retryable: boolean;
-  lookupDurationMs?: number;
 }
 
 export type PhoneLookupResult =
@@ -96,15 +79,8 @@ export type PhoneLookupResult =
   | CallerLookupFailed
   | null;
 
-export interface PreCallLookupTelemetry {
+export interface PreCallLookupState {
   status: NonNullable<PhoneLookupResult>["status"] | "not_attempted";
-  durationMs: number | null;
-  candidateCount?: number;
-  appointmentsStatus?: AppointmentLoadStatus | null;
-  failureReason?: CallerLookupFailed["reason"];
-  hydrationOutcome?: PreCallHydrationOutcome;
-  retryable?: boolean;
-  startupOverlap?: StartupOverlapTelemetry;
 }
 
 interface PreCallCandidateReference {
@@ -305,7 +281,7 @@ export type PatientIdentityOutcome =
 
 interface RuntimeCallState {
   endedReason?: "duration_limit";
-  preCallLookup: PreCallLookupTelemetry;
+  preCallLookup: PreCallLookupState;
   sipRoomName: string;
   sipParticipantIdentity: string;
   callId: string;
@@ -374,8 +350,6 @@ interface WorkflowSessionState {
 }
 
 interface AvailabilitySessionState {
-  version?: number;
-  refreshAfter?: number;
   slots: StoredAvailabilitySlot[];
   requestedStartDate?: string;
   latestRouting?: string | null;
@@ -429,7 +403,7 @@ export function recordUnregisteredPatientInsuranceCheck(
 export interface InitialCallStateInput {
   preCallCandidates?: PreCallPatientCandidate[];
   activePatient?: ActivePatient | null;
-  preCallLookup: PreCallLookupTelemetry;
+  preCallLookup: PreCallLookupState;
   officeKey: OfficeKey;
   sipRoomName: string;
   sipParticipantIdentity: string;

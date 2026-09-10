@@ -127,7 +127,7 @@ describe("call closeout", () => {
     "persists only the bounded phone lookup status: %s",
     async (status) => {
       const state = createTestCallState();
-      state.runtime.preCallLookup = { status, durationMs: 12 };
+      state.runtime.preCallLookup = { status };
       const { events, portal } = await setupCloseout({ state });
       await events.close();
       expect(portal.deliveries.at(-1)?.payload.phoneLookup).toEqual({ status });

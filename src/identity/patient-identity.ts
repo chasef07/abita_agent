@@ -891,15 +891,6 @@ async function hydratePatient(
         : result.status === "error"
           ? result
           : undefined;
-    if (source === "phone")
-      state.runtime.preCallLookup.hydrationOutcome =
-        result.status === "verified"
-          ? "incomplete"
-          : result.status === "not_found"
-            ? "not_found"
-            : result.status === "multiple_matches"
-              ? "multiple_matches"
-              : "lookup_failed";
     return {
       outcome:
         result.status === "not_found"
@@ -923,8 +914,6 @@ async function hydratePatient(
     activationFromResolvedPatient(result, "existing"),
     "operation",
   );
-  if (source === "phone")
-    state.runtime.preCallLookup.hydrationOutcome = "verified";
   return {
     outcome: hadActivePatient && changed ? "switched" : "verified",
     reply: confirmedPatientReply(state),

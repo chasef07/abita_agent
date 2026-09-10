@@ -89,7 +89,7 @@ export function cacheCompletedAvailabilityRead(
   key: string,
   result: AvailabilityResult,
   now: Date,
-): number | undefined {
+): void {
   const coordinator = availabilityCoordinatorFor(state);
   const expiresAt = availabilityResultExpiresAt(result);
   if (
@@ -112,7 +112,6 @@ export function cacheCompletedAvailabilityRead(
     });
   }
   discardInFlightAvailabilityResult(coordinator, key, result);
-  return snapshotExpiresAt;
 }
 
 export function discardAvailabilityRead(

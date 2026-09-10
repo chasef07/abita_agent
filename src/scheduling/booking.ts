@@ -12,7 +12,6 @@ import {
 import {
   availabilityBookingToken,
   clearAvailabilitySelection,
-  currentWorkflowVisitType,
   latestAvailabilityRouting,
 } from "./state.js";
 import {
@@ -253,7 +252,7 @@ function visitCategoryForBooking(
 ): BookAppointmentInput["visitCategory"] {
   if (
     routing === "optical_only" ||
-    currentWorkflowVisitType(state) === "routine_vision"
+    state.workflow.visitType === "routine_vision"
   ) {
     return "routine_vision";
   }

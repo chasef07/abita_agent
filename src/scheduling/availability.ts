@@ -182,25 +182,6 @@ export function publicProviderName(provider: string): string {
     .replace("Dr. D. Noel", "Dr. Noel");
 }
 
-export function availabilityStatus(state: CallState): string {
-  if (
-    state.availability.refreshAfter !== undefined &&
-    Date.now() >= state.availability.refreshAfter
-  ) {
-    return "Availability: expired; refresh before offering times.";
-  }
-  if (availabilitySlotsForState(state).length > 0) {
-    return "Availability: current; use the latest availability tool result.";
-  }
-  if (state.availability.refreshAfter !== undefined) {
-    return "Availability: no openings in the latest search; earlier lists are invalid.";
-  }
-  return state.availability.version !== undefined ||
-    state.availability.nextSlotIndex > 0
-    ? "Availability: invalidated; refresh before offering times. Earlier lists are invalid."
-    : "";
-}
-
 function completeAvailabilityResult(result: AvailableSlotsResult): boolean {
   if (result.shouldRetrySameSearch || result.status === "incomplete") {
     return false;

@@ -53,7 +53,6 @@ const bootstrap = {
         confirmed: true,
       },
     ],
-    lookupDurationMs: 25,
   },
 } satisfies PreCallBootstrap;
 
@@ -70,23 +69,44 @@ describe("initial call state", () => {
     expect(session.userData).toBe(state);
     expect(session.userData.runtime.preCallLookup).toEqual({
       status: "not_attempted",
-      durationMs: null,
     });
   });
 
-  it("hydrates the same userData object with full private candidate state", () => {
+  it("adds bootstrap candidates without replacing initialized state or resetting live runtime work", () => {
     const state = createInitialCallState(call);
     const session = new AgentSession<CallState>({
       userData: state,
       vad: null,
     });
 
-    applyPreCallBootstrap(state, call, bootstrap);
+    const runtime = state.runtime;
+    const identity = state.identity;
+    const voiceLanguage = state.runtime.voiceLanguage;
+    const workflow = state.workflow;
+    state.runtime.transferState = "pending";
+    state.workflow.visitType = "medical";
+    state.identity.operationVersion = 3;
+    state.runtime.staffTasks.push({
+      createdAt: "2026-09-10T00:00:00Z",
+      idempotencyKey: "startup-task",
+      status: "created",
+      taskId: "task-1",
+    });
+
+    applyPreCallBootstrap(state, bootstrap);
+
+    expect(state.runtime).toBe(runtime);
+    expect(state.identity).toBe(identity);
+    expect(state.runtime.voiceLanguage).toBe(voiceLanguage);
+    expect(state.workflow).toBe(workflow);
+    expect(state.runtime.transferState).toBe("pending");
+    expect(state.workflow.visitType).toBe("medical");
+    expect(state.identity.operationVersion).toBe(3);
+    expect(state.runtime.staffTasks).toHaveLength(1);
 
     expect(session.userData).toBe(state);
     expect(session.userData.runtime.preCallLookup).toMatchObject({
       status: "verified",
-      candidateCount: 1,
     });
     expect(session.userData.identity.privateCandidates).toMatchObject([
       {

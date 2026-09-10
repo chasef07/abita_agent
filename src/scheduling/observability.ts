@@ -8,10 +8,7 @@ import {
   type CallerAppointment,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
-import {
-  currentWorkflowVisitType,
-  latestAvailabilityRouting,
-} from "./state.js";
+import { latestAvailabilityRouting } from "./state.js";
 import type { BookingResult } from "./middleware.js";
 
 export function bookedSlotAppointmentAnalytics(
@@ -61,7 +58,7 @@ function careLaneForBookedSlot(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
 ): string | undefined {
-  const visitType = currentWorkflowVisitType(state);
+  const visitType = state.workflow.visitType;
   if (visitType === "medical") return "medical_md";
   if (visitType === "routine_vision") return "routine_od";
 

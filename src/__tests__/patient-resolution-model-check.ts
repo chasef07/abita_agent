@@ -170,7 +170,6 @@ for (const model of [primary, fallback]) {
               : scenario.names.length === 1
                 ? "verified"
                 : "no_match",
-          durationMs: 1,
         },
       });
       if (scenario.activeSameName) {

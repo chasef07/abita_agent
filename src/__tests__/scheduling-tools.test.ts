@@ -2129,7 +2129,6 @@ describe("scheduling tools", () => {
     expect(result.split("\n")[0]).toBe(
       "That time is no longer available. Let me refresh the appointments and find another time that fits.",
     );
-    expect(state.availability.refreshAfter).toBe(0);
     expect(result).not.toContain("2:00 PM");
     expect(state.availability.slots).toEqual([nextSlot]);
     expect(state.availability.bookingTokensBySlotId).toEqual({

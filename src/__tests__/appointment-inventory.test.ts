@@ -10,7 +10,6 @@ import { createConfirmedPatientState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
 import { deferredResult } from "./support/deferred-result.js";
-import { availabilityStatus } from "../scheduling/availability.js";
 import { clearAvailabilitySelection } from "../scheduling/state.js";
 
 function inventory(count = 4, startDate = "2026-09-06"): AvailabilityResult {
@@ -230,13 +229,12 @@ describe("conversational appointment inventory", () => {
       });
       const tool =
         createSchedulingTools(middleware).list_available_appointments;
-      const { state, options } = context();
+      const { options } = context();
       await tool.execute({ visitType: "medical" } as never, options);
-      const deadline = state.availability.refreshAfter;
       for (let i = 0; i < 2; i++) {
         vi.advanceTimersByTime(20_000);
         await tool.execute({ visitType: "medical" } as never, options);
-        expect(state.availability.refreshAfter).toBe(deadline);
+        expect(middleware.operations).toHaveLength(1);
       }
       vi.advanceTimersByTime(20_001);
       await tool.execute({ visitType: "medical" } as never, options);
@@ -278,9 +276,7 @@ describe("conversational appointment inventory", () => {
       );
       expect(result).toContain("couldn't finish checking availability");
       expect(state.availability.slots).toEqual([]);
-      expect(availabilityStatus(state)).toContain("Availability: invalidated");
-      expect(availabilityStatus(state)).not.toContain("no openings");
-      expect(state.availability.refreshAfter).toBeUndefined();
+      expect(result).not.toContain("no openings");
       await tool.execute(
         { startDate: "2026-09-20", visitType: "medical" },
         options,

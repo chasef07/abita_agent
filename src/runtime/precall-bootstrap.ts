@@ -13,7 +13,6 @@ import type {
   CallerLookupFailed,
   CallerMatch,
   PhoneLookupResult,
-  PreCallLookupTelemetry,
   PreCallPatientCandidate,
 } from "../state/call-state.js";
 import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
@@ -29,7 +28,6 @@ export async function lookupByPhone(
   trunkPhone: string,
   signal?: AbortSignal,
 ): Promise<PhoneLookupResult> {
-  const startedAt = Date.now();
   let office: OfficeProfile;
   try {
     office = getOfficeProfileByPhone(trunkPhone);
@@ -39,7 +37,6 @@ export async function lookupByPhone(
       phone,
       reason: "unsupported_trunk",
       retryable: false,
-      lookupDurationMs: Date.now() - startedAt,
     };
   }
 
@@ -49,10 +46,9 @@ export async function lookupByPhone(
     fallbackPhone: phone,
     signal,
   });
-  const lookupDurationMs = Date.now() - startedAt;
   if (result.status === "verified") {
     if (!patientResolveReceiptIsComplete(result)) {
-      return lookupFailure(phone, "invalid_response", lookupDurationMs);
+      return lookupFailure(phone, "invalid_response");
     }
     return {
       status: "verified",
@@ -70,7 +66,6 @@ export async function lookupByPhone(
       appointmentsStatus: result.appointmentsStatus,
       appointmentsMessage: result.appointmentsMessage,
       appointments: result.appointments,
-      lookupDurationMs,
     };
   }
   if (result.status === "multiple_matches") {
@@ -81,15 +76,14 @@ export async function lookupByPhone(
           !patientResolveReceiptIsComplete(match),
       )
     ) {
-      return lookupFailure(phone, "invalid_response", lookupDurationMs);
+      return lookupFailure(phone, "invalid_response");
     }
     return {
       status: "multiple_matches",
       message: "Multiple patient matches found.",
       matches: result.matches.map((match) =>
-        patientResolveMatchToCallerMatch(match, phone, lookupDurationMs),
+        patientResolveMatchToCallerMatch(match, phone),
       ),
-      lookupDurationMs,
     };
   }
   if (result.status === "not_found") {
@@ -97,11 +91,10 @@ export async function lookupByPhone(
       status: "no_match",
       phone,
       message: "No patient match found.",
-      lookupDurationMs,
     };
   }
   if (result.status === "candidates")
-    return lookupFailure(phone, "invalid_response", lookupDurationMs);
+    return lookupFailure(phone, "invalid_response");
   return lookupFailure(
     phone,
     result.reason === "unsupported_office"
@@ -109,28 +102,24 @@ export async function lookupByPhone(
       : result.reason === "cancelled"
         ? "network_error"
         : result.reason,
-    lookupDurationMs,
   );
 }
 
 function lookupFailure(
   phone: string,
   reason: CallerLookupFailed["reason"],
-  lookupDurationMs: number,
 ): CallerLookupFailed {
   return {
     status: "lookup_failed",
     phone,
     reason,
     retryable: reason === "middleware_error" || reason === "network_error",
-    lookupDurationMs,
   };
 }
 
 function patientResolveMatchToCallerMatch(
   match: PatientResolveVerified | PatientResolveCandidate,
   fallbackPhone: string,
-  lookupDurationMs: number,
 ): CallerMatch | CallerCandidate {
   if (match.status === "candidate") return match;
   return {
@@ -149,7 +138,6 @@ function patientResolveMatchToCallerMatch(
     appointmentsStatus: match.appointmentsStatus,
     appointmentsMessage: match.appointmentsMessage,
     appointments: match.appointments,
-    lookupDurationMs,
   };
 }
 
@@ -172,36 +160,6 @@ export async function loadPreCallBootstrap({
   );
 
   return { phoneLookup };
-}
-
-export function preCallLookupTelemetry(
-  lookup: PhoneLookupResult,
-): PreCallLookupTelemetry {
-  if (!lookup) {
-    return {
-      status: "not_attempted",
-      durationMs: null,
-    };
-  }
-
-  return {
-    status: lookup.status,
-    durationMs: lookup.lookupDurationMs ?? null,
-    ...(lookup.status === "verified"
-      ? { candidateCount: 1, appointmentsStatus: lookup.appointmentsStatus }
-      : {}),
-    ...(lookup.status === "multiple_matches"
-      ? { candidateCount: lookup.matches.length }
-      : {}),
-    ...(lookup.status === "no_match" ? { candidateCount: 0 } : {}),
-    ...(lookup.status === "lookup_failed"
-      ? {
-          candidateCount: 0,
-          failureReason: lookup.reason,
-          retryable: lookup.retryable,
-        }
-      : {}),
-  };
 }
 
 export function buildPreCallCandidates(
@@ -285,10 +243,7 @@ function preCallCandidateFromMatch(
   };
 }
 
-export function formatPhoneLookupLogLine(
-  _callerPhone: string,
-  lookup: PhoneLookupResult,
-): string {
+export function formatPhoneLookupLogLine(lookup: PhoneLookupResult): string {
   if (lookup?.status === "verified") {
     return `[call] Caller match found`;
   }

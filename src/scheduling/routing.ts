@@ -5,11 +5,7 @@ import {
 } from "../customers/abita/profile.js";
 import { activateOffice, activeOfficeKey } from "../state/call-lifecycle.js";
 import { type CallState, type CallerAppointment } from "../state/call-state.js";
-import {
-  activeRoutingContext,
-  clearAvailabilitySelection,
-  currentWorkflowVisitType,
-} from "./state.js";
+import { activeRoutingContext, clearAvailabilitySelection } from "./state.js";
 
 export function selectAvailabilityOffice(
   state: CallState,
@@ -35,7 +31,7 @@ export function medicalSchedulingUnavailable(state: CallState): string | null {
   const office = getOfficeProfile(activeOfficeKey(state));
   const policy = office.schedulingFor("medical");
   if (policy.supported) return null;
-  if (currentWorkflowVisitType(state) !== "medical") return null;
+  if (state.workflow.visitType !== "medical") return null;
   return policy.message;
 }
 
@@ -45,13 +41,13 @@ export function routineVisionSchedulingUnavailable(
   const office = getOfficeProfile(activeOfficeKey(state));
   const policy = office.schedulingFor("routine_vision");
   if (policy.supported) return null;
-  if (currentWorkflowVisitType(state) !== "routine_vision") return null;
+  if (state.workflow.visitType !== "routine_vision") return null;
 
   return policy.message;
 }
 
 export function routingForAvailability(state: CallState): string | null {
-  if (currentWorkflowVisitType(state) === "routine_vision") {
+  if (state.workflow.visitType === "routine_vision") {
     return "optical_only";
   }
   return activeRoutingContext(state).routing;

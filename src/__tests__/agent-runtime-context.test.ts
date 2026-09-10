@@ -6,18 +6,11 @@ import {
   voice,
 } from "@livekit/agents";
 import { afterEach, describe, expect, it } from "vitest";
-import { createSchedulingTools } from "../scheduling/tools.js";
-import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
-import { createToolContext } from "./support/tool-context.js";
 import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import { patientContext } from "../identity/patient-identity.js";
-import {
-  clearAvailabilitySelection,
-  replaceAvailabilitySlots,
-} from "../scheduling/state.js";
-import { availabilityStatus } from "../scheduling/availability.js";
+import { clearAvailabilitySelection } from "../scheduling/state.js";
 import type { PreCallPatientCandidate } from "../state/call-state.js";
 import {
   createConfirmedPatientState,
@@ -57,7 +50,7 @@ describe("agent runtime context", () => {
     const projections = outcomes.map(({ status, candidates }) => {
       const state = createTestCallState({
         preCallCandidates: candidates,
-        preCallLookup: { status, durationMs: 12 },
+        preCallLookup: { status },
       });
       return patientContext(state);
     });
@@ -87,7 +80,7 @@ describe("agent runtime context", () => {
           appointments: [],
         },
       ],
-      preCallLookup: { status: "verified", durationMs: 12 },
+      preCallLookup: { status: "verified" },
     });
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
@@ -116,112 +109,53 @@ describe("agent runtime context", () => {
     }
   });
 
-  it.each([
-    "invalidated",
-    "empty_expired",
-    "first_empty_reset",
-    "incomplete_expansion",
-  ])(
-    "marks old calendar results unusable in actual model input after %s",
-    async (mode) => {
-      const model = new ContextCapturingFakeLLM([
-        {
-          input: "What appointments work now?",
-          content: "Let me check the current appointments.",
-        },
-      ]);
-      const session = new AgentSession({ llm: model });
-      sessions.push(session);
-      const state = createConfirmedPatientState();
-      session.userData = state;
-      if (mode === "first_empty_reset") {
-        replaceAvailabilitySlots(state, [], "all_three");
-        state.availability.refreshAfter = Date.now() + 60_000;
-        expect(state.availability.version).toBe(1);
-        expect(state.availability.nextSlotIndex).toBe(0);
-      } else {
-        state.availability.nextSlotIndex = 4;
-      }
-      await session.start({
-        agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
-          ownedMiddleware,
-          suppressGreeting: true,
-        }).agent,
-      });
-      const history = session.currentAgent.chatCtx.copy();
-      history.insert([
-        llm.FunctionCall.create({
-          callId: "old-list",
-          name: "list_available_appointments",
-          args: "{}",
-        }),
-        llm.FunctionCallOutput.create({
-          callId: "old-list",
-          name: "list_available_appointments",
-          output:
-            mode === "first_empty_reset"
-              ? "No openings for the previous patient"
-              : "S1 — Thursday at 4:15 PM with Dr. Smith",
-          isError: false,
-        }),
-      ]);
-      await session.currentAgent.updateChatCtx(history);
-      if (mode === "incomplete_expansion") {
-        const middleware = new InMemorySchedulingMiddleware({
-          availability: [
-            {
-              status: "none",
-              slots: [],
-              dateShifted: false,
-              shouldRetrySameSearch: false,
-            },
-            {
-              status: "incomplete",
-              slots: [],
-              dateShifted: false,
-              shouldRetrySameSearch: true,
-            },
-          ],
-        });
-        const tool =
-          createSchedulingTools(middleware).list_available_appointments;
-        const options = {
-          ctx: createToolContext(state),
-          toolCallId: "expansion",
-        } as never;
-        await tool.execute({ visitType: "medical" }, options);
-        await tool.execute(
-          { startDate: "2026-11-02", visitType: "medical" },
-          options,
-        );
-      } else {
-        clearAvailabilitySelection(state, {
-          invalidateReads: true,
-        });
-      }
-      if (mode === "empty_expired")
-        state.availability.refreshAfter = Date.now() - 1;
-      await session.run({ userInput: "What appointments work now?" }).wait();
-      const request = JSON.stringify(model.requests[0]);
-      expect(request).toContain(
-        mode === "first_empty_reset"
-          ? "No openings for the previous patient"
-          : "S1 — Thursday",
-      ); // Historical tool result still exists.
-      const system = model.requests[0]!.items.flatMap((item) =>
-        item.type === "message" && item.role === "system"
-          ? [item.textContent]
-          : [],
-      ).join(" ");
-      if (mode === "incomplete_expansion")
-        expect(system).not.toContain("no openings");
-      expect(system).toContain(
-        mode === "empty_expired"
-          ? "Availability: expired"
-          : "Earlier lists are invalid",
-      );
-    },
-  );
+  it("keeps availability in tool history without injecting inventory status", async () => {
+    const model = new ContextCapturingFakeLLM([
+      { input: "What appointments work now?", content: "Let me check." },
+    ]);
+    const session = new AgentSession({ llm: model });
+    sessions.push(session);
+    const state = createConfirmedPatientState();
+    session.userData = state;
+    await session.start({
+      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
+        ownedMiddleware,
+        suppressGreeting: true,
+      }).agent,
+    });
+    const history = session.currentAgent.chatCtx.copy();
+    history.insert([
+      llm.FunctionCall.create({
+        callId: "old-list",
+        name: "list_available_appointments",
+        args: "{}",
+      }),
+      llm.FunctionCallOutput.create({
+        callId: "old-list",
+        name: "list_available_appointments",
+        output: "S1 — Thursday at 4:15 PM with Dr. Smith",
+        isError: false,
+      }),
+    ]);
+    await session.currentAgent.updateChatCtx(history);
+    clearAvailabilitySelection(state, { invalidateReads: true });
+
+    await session.run({ userInput: "What appointments work now?" }).wait();
+
+    const request = model.requests[0]!;
+    expect(JSON.stringify(request)).toContain("S1 — Thursday at 4:15 PM");
+    const context = request.items.flatMap((item) =>
+      item.type === "message" && item.id === "runtime_turn_context"
+        ? [item.textContent]
+        : [],
+    );
+    expect(context).toHaveLength(1);
+    expect(context[0]).toContain("Current clinic-local date and time");
+    expect(context[0]).toContain("Active patient:");
+    expect(context[0]).not.toMatch(
+      /Availability:|Earlier lists|S1|refresh before/,
+    );
+  });
 
   it("provides appointment references once through resolver output with minimal current context", async () => {
     const model = new ContextCapturingFakeLLM([
@@ -282,29 +216,6 @@ describe("agent runtime context", () => {
     expect(input).not.toMatch(
       /private-cancellation-token|private-reschedule-token|appointmentTypeId|private-patient|01\/02\/1980/,
     );
-  });
-
-  it("identifies current inventory without duplicating the tool-result calendar", () => {
-    const state = createConfirmedPatientState();
-    state.availability.slots = [
-      {
-        slotId: "S1",
-        provider: "Dr. Bach",
-        date: "2026-06-01",
-        time: "9:00 AM",
-        datetime: "2026-06-01T09:00:00",
-        routing: "all_three",
-      },
-    ];
-
-    const projection = availabilityStatus(state);
-
-    expect(projection).toBe(
-      "Availability: current; use the latest availability tool result.",
-    );
-    expect(projection).not.toContain("S1");
-    expect(projection).not.toContain("bookingToken");
-    expect(projection).not.toContain("9:00 AM");
   });
 });
 

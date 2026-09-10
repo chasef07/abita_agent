@@ -73,7 +73,7 @@ export async function startSimulation(ctx: JobContext): Promise<void> {
     sipParticipantIdentity: "simulation-caller",
     callId: sim.simulationJobId,
     callerPhone: "+12025550147",
-    preCallLookup: { status: "not_attempted", durationMs: null },
+    preCallLookup: { status: "not_attempted" },
     insuranceCarrier: null,
     checkedInsurancePlan: null,
     checkedInsuranceCoverageType: null,

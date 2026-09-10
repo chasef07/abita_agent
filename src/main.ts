@@ -243,8 +243,6 @@ export default defineAgent({
 
           return {
             callState,
-            initialCall,
-            initialVoiceLanguage,
             markCallStateReady: () => {
               callStateReady = true;
             },
@@ -253,16 +251,10 @@ export default defineAgent({
             voiceLanguageRuntime,
           };
         },
-        createState: (preCall, runtime, startupOverlap) => {
+        prepareSession: (preCall, runtime) => {
           const { phoneLookup } = preCall;
-          console.log(formatPhoneLookupLogLine(callerPhone, phoneLookup));
-          applyPreCallBootstrap(
-            runtime.callState,
-            runtime.initialCall,
-            preCall,
-          );
-          runtime.callState.runtime.preCallLookup.startupOverlap =
-            startupOverlap;
+          console.log(formatPhoneLookupLogLine(phoneLookup));
+          applyPreCallBootstrap(runtime.callState, preCall);
 
           const { agent } = createVoiceAgent(trunkPhone, {
             ownedMiddleware,
@@ -270,9 +262,9 @@ export default defineAgent({
             voiceLanguageRuntime: runtime.voiceLanguageRuntime,
           });
           runtime.markCallStateReady();
-          return { agent, callState: runtime.callState };
+          return agent;
         },
-        startSession: async ({ agent }, runtime) => {
+        startSession: async (agent, runtime) => {
           await runtime.session.start({
             agent,
             room: ctx.room,

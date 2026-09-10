@@ -6,7 +6,6 @@ import {
 import type { RuntimeVoiceLanguageState } from "./voice-language.js";
 import {
   buildPreCallCandidates,
-  preCallLookupTelemetry,
   type PreCallBootstrap,
 } from "./precall-bootstrap.js";
 
@@ -20,19 +19,9 @@ export interface InitialCallInput {
   voiceLanguage: RuntimeVoiceLanguageState;
 }
 
-export function createInitialCallState(
-  call: InitialCallInput,
-  bootstrap?: PreCallBootstrap,
-): CallState {
-  const phoneLookup = bootstrap?.phoneLookup ?? null;
-  const state = createCanonicalCallState({
-    preCallCandidates: buildPreCallCandidates(phoneLookup),
-    preCallLookup: bootstrap
-      ? preCallLookupTelemetry(phoneLookup)
-      : {
-          status: "not_attempted",
-          durationMs: null,
-        },
+export function createInitialCallState(call: InitialCallInput): CallState {
+  return createCanonicalCallState({
+    preCallLookup: { status: "not_attempted" },
     officeKey: call.officeKey,
     sipRoomName: call.roomName,
     sipParticipantIdentity: call.sipParticipantIdentity,
@@ -48,13 +37,15 @@ export function createInitialCallState(
     preauthRequired: false,
     voiceLanguage: call.voiceLanguage,
   });
-  return state;
 }
 
 export function applyPreCallBootstrap(
   state: CallState,
-  call: InitialCallInput,
   bootstrap: PreCallBootstrap,
 ): void {
-  Object.assign(state, createInitialCallState(call, bootstrap));
+  state.identity.privateCandidates = buildPreCallCandidates(
+    bootstrap.phoneLookup,
+  );
+  state.runtime.preCallLookup.status =
+    bootstrap.phoneLookup?.status ?? "not_attempted";
 }

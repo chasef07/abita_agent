@@ -6,11 +6,10 @@ describe("session startup coordination", () => {
     const lookup = deferred<string>();
     const runtime = deferred<string>();
     const events: string[] = [];
-    const createState = vi.fn(
+    const prepareSession = vi.fn(
       (lookupResult: string, runtimeResult: string) =>
         `${lookupResult}:${runtimeResult}:complete-state`,
     );
-    let now = 100;
     const startSession = vi.fn(async (state: string) => {
       expect(state).toBe("lookup-result:runtime-result:complete-state");
       events.push("session:start");
@@ -25,42 +24,66 @@ describe("session startup coordination", () => {
         events.push("runtime:start");
         return runtime.promise;
       },
-      createState,
+      prepareSession,
       startSession,
-      now: () => now,
     });
 
     expect(events).toEqual(["lookup:start", "runtime:start"]);
-    expect(createState).not.toHaveBeenCalled();
+    expect(prepareSession).not.toHaveBeenCalled();
     expect(startSession).not.toHaveBeenCalled();
 
-    now = 140;
     runtime.resolve("runtime-result");
     await Promise.resolve();
-    expect(createState).not.toHaveBeenCalled();
+    expect(prepareSession).not.toHaveBeenCalled();
     expect(startSession).not.toHaveBeenCalled();
 
-    now = 1_000;
     lookup.resolve("lookup-result");
-    await expect(starting).resolves.toMatchObject({
-      lookup: "lookup-result",
-      runtime: "runtime-result",
-      state: "lookup-result:runtime-result:complete-state",
-      telemetry: {
-        overlapped: true,
-        lookupCompletedBeforeRuntimeSetup: false,
-        runtimeSetupDurationMs: 40,
-      },
-    });
-    expect(createState).toHaveBeenCalledTimes(1);
+    await expect(starting).resolves.toBeUndefined();
+    expect(prepareSession).toHaveBeenCalledTimes(1);
     expect(startSession).toHaveBeenCalledTimes(1);
     expect(events).toEqual(["lookup:start", "runtime:start", "session:start"]);
+  });
+
+  it("waits for runtime when lookup finishes first", async () => {
+    const runtime = deferred<string>();
+    const prepareSession = vi.fn((lookup: string) => lookup);
+    const startSession = vi.fn(async () => undefined);
+    const starting = coordinateSessionStartup({
+      lookup: async () => "lookup complete",
+      initializeRuntime: () => runtime.promise,
+      prepareSession,
+      startSession,
+    });
+    await Promise.resolve();
+    expect(prepareSession).not.toHaveBeenCalled();
+    runtime.resolve("runtime");
+    await starting;
+    expect(prepareSession).toHaveBeenCalledWith("lookup complete", "runtime");
+    expect(startSession).toHaveBeenCalledOnce();
+  });
+
+  it("checks abandonment again after preparing the session", async () => {
+    let active = true;
+    const startSession = vi.fn(async () => undefined);
+    await expect(
+      coordinateSessionStartup({
+        lookup: async () => "lookup",
+        initializeRuntime: async () => "runtime",
+        prepareSession: () => {
+          active = false;
+          return "prepared";
+        },
+        startupIsActive: () => active,
+        startSession,
+      }),
+    ).rejects.toThrow("Session startup was abandoned");
+    expect(startSession).not.toHaveBeenCalled();
   });
 
   it("abandons lookup promptly when runtime setup fails", async () => {
     const lookup = deferred<string>();
     const runtime = deferred<string>();
-    const createState = vi.fn(() => "state");
+    const prepareSession = vi.fn(() => "state");
     const startSession = vi.fn(async () => undefined);
     let lookupSignal: AbortSignal | undefined;
     const starting = coordinateSessionStartup({
@@ -69,32 +92,32 @@ describe("session startup coordination", () => {
         return lookup.promise;
       },
       initializeRuntime: () => runtime.promise,
-      createState,
+      prepareSession,
       startSession,
     });
 
     runtime.reject(new Error("runtime setup failed"));
     await expect(starting).rejects.toThrow("runtime setup failed");
     expect(lookupSignal?.aborted).toBe(true);
-    expect(createState).not.toHaveBeenCalled();
+    expect(prepareSession).not.toHaveBeenCalled();
     expect(startSession).not.toHaveBeenCalled();
 
     lookup.resolve("late lookup result");
     await Promise.resolve();
-    expect(createState).not.toHaveBeenCalled();
+    expect(prepareSession).not.toHaveBeenCalled();
     expect(startSession).not.toHaveBeenCalled();
   });
 
   it("lets runtime registration finish before surfacing lookup failure", async () => {
     const runtime = deferred<string>();
-    const createState = vi.fn(() => "state");
+    const prepareSession = vi.fn(() => "state");
     const startSession = vi.fn(async () => undefined);
     const starting = coordinateSessionStartup({
       lookup: async () => {
         throw new Error("lookup failed");
       },
       initializeRuntime: () => runtime.promise,
-      createState,
+      prepareSession,
       startSession,
     });
     let settled = false;
@@ -112,20 +135,20 @@ describe("session startup coordination", () => {
 
     runtime.resolve("runtime registered");
     await expect(starting).rejects.toThrow("lookup failed");
-    expect(createState).not.toHaveBeenCalled();
+    expect(prepareSession).not.toHaveBeenCalled();
     expect(startSession).not.toHaveBeenCalled();
   });
 
   it("discards a late lookup after the call startup is abandoned", async () => {
     const lookup = deferred<string>();
-    const createState = vi.fn(() => "state");
+    const prepareSession = vi.fn(() => "state");
     const startSession = vi.fn(async () => undefined);
     let startupActive = true;
     const starting = coordinateSessionStartup({
       lookup: () => lookup.promise,
       initializeRuntime: async () => "runtime",
       startupIsActive: () => startupActive,
-      createState,
+      prepareSession,
       startSession,
     });
 
@@ -133,7 +156,7 @@ describe("session startup coordination", () => {
     lookup.resolve("late lookup result");
 
     await expect(starting).rejects.toThrow("Session startup was abandoned");
-    expect(createState).not.toHaveBeenCalled();
+    expect(prepareSession).not.toHaveBeenCalled();
     expect(startSession).not.toHaveBeenCalled();
   });
 });

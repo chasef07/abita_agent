@@ -340,7 +340,6 @@ describe("patient identity", () => {
       failure: { status: "error", reason: "invalid_response" },
     });
     expect(state.identity.activePatient).toBeNull();
-    expect(state.runtime.preCallLookup.hydrationOutcome).toBe("incomplete");
   });
 
   it("hydrates a qualifying fuzzy candidate before promoting it", async () => {

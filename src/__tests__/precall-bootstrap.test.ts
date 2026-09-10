@@ -9,7 +9,6 @@ import {
   formatPhoneLookupLogLine,
   loadPreCallBootstrap,
   lookupByPhone,
-  preCallLookupTelemetry,
 } from "../runtime/precall-bootstrap.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 
@@ -129,11 +128,6 @@ describe("pre-call bootstrap", () => {
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: { phone: "+17275551212" },
     });
-    expect(preCallLookupTelemetry(bootstrap.phoneLookup)).toMatchObject({
-      status: "verified",
-      durationMs: expect.any(Number),
-      candidateCount: 1,
-    });
   });
 
   it("keeps concurrent call assemblies isolated and forwards cancellation signals", async () => {
@@ -227,15 +221,11 @@ describe("pre-call bootstrap", () => {
         cancellationToken: "private-cancellation-token",
       }),
     ]);
-    expect(formatPhoneLookupLogLine("+17275551212", result)).toBe(
-      "[call] Caller match found",
-    );
-    expect(formatPhoneLookupLogLine("+17275551212", result)).not.toContain(
+    expect(formatPhoneLookupLogLine(result)).toBe("[call] Caller match found");
+    expect(formatPhoneLookupLogLine(result)).not.toContain(
       "private-cancellation-token",
     );
-    expect(formatPhoneLookupLogLine("+17275551212", result)).not.toContain(
-      "12345",
-    );
+    expect(formatPhoneLookupLogLine(result)).not.toContain("12345");
   });
 
   it("preloads middleware appointments without confirmation metadata", async () => {
@@ -521,7 +511,6 @@ describe("pre-call bootstrap", () => {
           dob: "02/03/1982",
         },
       ],
-      lookupDurationMs: expect.any(Number),
     });
     expect(candidates).toMatchObject([
       {

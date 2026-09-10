@@ -82,10 +82,6 @@ import {
   routineVisionSchedulingUnavailable,
   selectAvailabilityOffice,
 } from "./routing.js";
-import {
-  availabilityContextRecovery,
-  ensureAvailabilityContext,
-} from "./context.js";
 import { SchedulingInputRequired } from "./input-required.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
 import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
@@ -189,7 +185,7 @@ export class SchedulingWorkflow {
         availabilityReadCanRetry(state, request.backendKey),
       );
       if (response.cacheable) {
-        state.availability.refreshAfter = cacheCompletedAvailabilityRead(
+        cacheCompletedAvailabilityRead(
           state,
           request.backendKey,
           result,
@@ -337,7 +333,6 @@ export class SchedulingWorkflow {
     if (result.status === "unavailable") {
       invalidateAvailabilityReads(state);
       removeAvailabilitySlot(state, selectedSlot.slotId);
-      state.availability.refreshAfter = 0;
       const message = slotUnavailableMessage();
       recordAppointmentAction(state, callId, {
         action: "booked",
@@ -876,9 +871,9 @@ function buildAvailabilityLookupRequestForState(
   if (officeSelection) return { blocked: officeSelection };
 
   if (args.visitType) setWorkflowVisitType(state, args.visitType);
-  const contextRecovery = availabilityContextRecovery(state);
-  if (contextRecovery) return { blocked: contextRecovery };
-  ensureAvailabilityContext(state, "checking availability");
+  if (!state.workflow.visitType) {
+    return { blocked: "Is this visit for medical care or routine vision?" };
+  }
   const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
   if (unsupportedMedicalScheduling)
     return { blocked: unsupportedMedicalScheduling };
@@ -1069,7 +1064,6 @@ function handleRescheduleBookingFailure(
   if (bookingResult.status === "unavailable") {
     invalidateAvailabilityReads(state);
     removeAvailabilitySlot(state, selectedSlot.slotId);
-    state.availability.refreshAfter = 0;
     const message = `${slotUnavailableMessage()} I did not cancel the existing appointment.`;
     recordRescheduleAction(state, callId, {
       status: "error",

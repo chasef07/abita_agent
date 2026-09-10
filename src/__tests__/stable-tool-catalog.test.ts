@@ -14,7 +14,6 @@ import {
 import {
   buildPreCallCandidates,
   loadPreCallBootstrap,
-  preCallLookupTelemetry,
 } from "../runtime/precall-bootstrap.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { setLastInsuranceEligibilityCheck } from "../scheduling/state.js";
@@ -84,7 +83,7 @@ describe("stable tool catalog", () => {
     });
     const state = createTestCallState({
       preCallCandidates: buildPreCallCandidates(preCall.phoneLookup),
-      preCallLookup: preCallLookupTelemetry(preCall.phoneLookup),
+      preCallLookup: { status: preCall.phoneLookup?.status ?? "not_attempted" },
     });
     state.workflow.visitType = "medical";
     const llm = new ToolCapturingFakeLLM([
@@ -218,7 +217,7 @@ describe("stable tool catalog", () => {
       }));
       const state = createTestCallState({
         preCallCandidates: candidates,
-        preCallLookup: { status: "multiple_matches", durationMs: 1 },
+        preCallLookup: { status: "multiple_matches" },
       });
       const middleware = new InMemoryOwnedMiddleware();
       const model = new ToolCapturingFakeLLM([
