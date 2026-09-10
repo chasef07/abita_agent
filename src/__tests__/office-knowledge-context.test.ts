@@ -34,6 +34,7 @@ describe("Office Knowledge Context", () => {
     expect(sources.every(({ sectionCount }) => sectionCount === 17)).toBe(true);
     for (const { source } of sources) {
       const content = readKnowledgeSource(source);
+      expect(content).not.toContain("September 7, 2026");
       expect(
         [...content.matchAll(/^## (.+)$/gm)].map((match) => match[1]),
       ).toEqual(CANONICAL_HEADINGS);

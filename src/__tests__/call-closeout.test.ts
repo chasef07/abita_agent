@@ -28,10 +28,7 @@ import {
   beginTransfer,
   markTransferAmbiguous,
 } from "../state/call-lifecycle.js";
-import {
-  recordDomainOutcome,
-  recordOfficeKnowledgeRetrieval,
-} from "../state/observability.js";
+import { recordDomainOutcome } from "../state/observability.js";
 import { createTestCallState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { create_staff_task } from "../tools/create-staff-task.js";
@@ -517,25 +514,6 @@ describe("call closeout", () => {
       endedAt: "2026-08-28T13:45:06.000Z",
       startedAt: "2026-08-28T13:45:06.000Z",
     });
-  });
-
-  it("bounds Office Knowledge observations kept in Call State", () => {
-    const state = createTestCallState();
-
-    for (let index = 0; index <= 200; index += 1) {
-      recordOfficeKnowledgeRetrieval(state, {
-        elapsedMs: index,
-        language: "en",
-        officeKey: "spring-hill",
-        outcome: "skipped",
-        sectionCount: 0,
-        topic: null,
-      });
-    }
-
-    expect(state.runtime.knowledgeRetrievals).toHaveLength(200);
-    expect(state.runtime.knowledgeRetrievals[0]?.elapsedMs).toBe(1);
-    expect(state.runtime.knowledgeRetrievals.at(-1)?.elapsedMs).toBe(200);
   });
 
   it("checkpoints each receipt-backed appointment outcome once after tool execution", async () => {

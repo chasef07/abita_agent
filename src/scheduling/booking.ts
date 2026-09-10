@@ -75,7 +75,7 @@ export function bookingRequestBodyForSlot(
   );
   if (!bookingToken) {
     clearAvailabilitySelection(state, {
-      invalidateReads: "booking_authorization_invalidated",
+      invalidateReads: true,
     });
     throw new SchedulingInputRequired(
       "Search availability again before booking because the selected slot expired.",

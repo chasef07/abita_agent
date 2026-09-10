@@ -11,10 +11,8 @@ import {
 } from "./precall-bootstrap.js";
 
 export interface InitialCallInput {
-  amdOfficePhone: string;
   callId: string;
   callerPhone: string;
-  maxDurationMs: number;
   officeKey: OfficeKey;
   roomName: string;
   sipParticipantIdentity: string;
@@ -36,7 +34,6 @@ export function createInitialCallState(
           durationMs: null,
         },
     officeKey: call.officeKey,
-    amdOfficePhone: call.amdOfficePhone,
     sipRoomName: call.roomName,
     sipParticipantIdentity: call.sipParticipantIdentity,
     callId: call.callId,

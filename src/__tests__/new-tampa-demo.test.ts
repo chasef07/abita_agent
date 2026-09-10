@@ -35,10 +35,7 @@ function stateForDemo() {
     trunkPhone: NEW_TAMPA_DEMO_TRUNK_PHONE,
     amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
   });
-  state.workflow.current = {
-    intent: "schedule",
-    appointmentLane: "medical_md",
-  };
+  state.workflow.visitType = "medical";
   return state;
 }
 const context = (state: ReturnType<typeof stateForDemo>) =>

@@ -1,8 +1,6 @@
 import type {
   AppointmentActionAnalytics,
-  AvailabilityReadAnalytics,
   CallState,
-  OfficeKnowledgeRetrievalAnalytics,
   StaffTaskReceipt,
   DomainOutcomeReceipt,
 } from "./call-state.js";
@@ -45,21 +43,6 @@ export function domainOutcomeReceipts(
   state: CallState,
 ): DomainOutcomeReceipt[] {
   return [...state.runtime.outcomeReceipts];
-}
-
-const MAX_OFFICE_KNOWLEDGE_RETRIEVALS = 200;
-
-export function recordOfficeKnowledgeRetrieval(
-  state: CallState,
-  retrieval: Omit<OfficeKnowledgeRetrievalAnalytics, "createdAt">,
-): void {
-  state.runtime.knowledgeRetrievals = [
-    ...state.runtime.knowledgeRetrievals,
-    {
-      createdAt: new Date().toISOString(),
-      ...retrieval,
-    },
-  ].slice(-MAX_OFFICE_KNOWLEDGE_RETRIEVALS);
 }
 
 export function recordAppointmentAction(
@@ -109,25 +92,6 @@ export function appointmentActions(
         ? [receipt.evidence as unknown as AppointmentActionAnalytics]
         : [],
     );
-}
-
-export function recordAvailabilityReadEvent(
-  state: CallState,
-  event: AvailabilityReadAnalytics,
-): void {
-  state.runtime.availabilityReads = [
-    ...state.runtime.availabilityReads,
-    {
-      createdAt: new Date().toISOString(),
-      ...event,
-    },
-  ];
-}
-
-export function availabilityReadEvents(
-  state: CallState,
-): AvailabilityReadAnalytics[] {
-  return [...state.runtime.availabilityReads];
 }
 
 export function staffTaskReceipts(state: CallState): StaffTaskReceipt[] {

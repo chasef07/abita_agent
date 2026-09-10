@@ -10,10 +10,8 @@ import type { PreCallBootstrap } from "../runtime/precall-bootstrap.js";
 import type { CallState } from "../state/call-state.js";
 
 const call = {
-  amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
   callId: "call-test",
   callerPhone: "+17275551212",
-  maxDurationMs: 900_000,
   officeKey: "spring-hill",
   roomName: "room-test",
   sipParticipantIdentity: "sip-participant",

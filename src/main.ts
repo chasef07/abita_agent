@@ -157,10 +157,8 @@ export default defineAgent({
           );
 
           const initialCall = {
-            amdOfficePhone: office.amdOfficePhone,
             callId,
             callerPhone,
-            maxDurationMs: MAX_CALL_DURATION_MS,
             officeKey: office.key,
             roomName,
             sipParticipantIdentity: participant.identity ?? "",

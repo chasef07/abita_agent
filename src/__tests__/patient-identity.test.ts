@@ -420,12 +420,8 @@ describe("patient identity", () => {
 
   it("atomically replaces the patient and clears old patient-scoped work", async () => {
     const state = createConfirmedPatientState();
-    state.identity.latestBookedAppointmentId = 42;
     state.availability.bookingTokensBySlotId = { "slot-1": "private-token" };
-    state.workflow.current = {
-      intent: "schedule",
-      appointmentLane: "medical_md",
-    };
+    state.workflow.visitType = "medical";
     state.insurance.lastEligibilityCheck = {
       ...insuranceSnapshot({ plan: "Aetna", coverageType: "medical" }),
       accepted: true,
@@ -444,9 +440,8 @@ describe("patient identity", () => {
 
     expect(result.outcome).toBe("switched");
     expect(state.identity.activePatient?.patientId).toBe("patient-2");
-    expect(state.identity.latestBookedAppointmentId).toBeUndefined();
     expect(state.availability.bookingTokensBySlotId).toEqual({});
-    expect(state.workflow.current).toBeUndefined();
+    expect(state.workflow.visitType).toBeNull();
     expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 

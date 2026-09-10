@@ -451,19 +451,13 @@ describe("Voice Agent office profile", () => {
           officeKey: office.key,
           trunkPhone,
         });
-        medicalState.workflow.current = {
-          appointmentLane: "medical_md",
-          intent: "schedule",
-        };
+        medicalState.workflow.visitType = "medical";
         const routineVisionState = createTestCallState({
           amdOfficePhone: office.amdOfficePhone,
           officeKey: office.key,
           trunkPhone,
         });
-        routineVisionState.workflow.current = {
-          appointmentLane: "routine_od",
-          intent: "schedule",
-        };
+        routineVisionState.workflow.visitType = "routine_vision";
 
         expect({
           amdOfficePhone: office.amdOfficePhone,

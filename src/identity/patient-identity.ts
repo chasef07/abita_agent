@@ -16,7 +16,6 @@ import {
   type InsuranceEligibilityCheck,
   type PatientIdentityOutcome,
   type PreCallPatientCandidate,
-  recordPatientIdentityTransition,
   type RegistrationDraft,
 } from "../state/call-state.js";
 import { resetActiveOfficeToTrunk } from "../state/call-lifecycle.js";
@@ -32,12 +31,10 @@ import {
 import {
   appointmentStatusFromResult,
   extractAppointments,
+  currentAppointmentReferences,
+  spokenAppointmentDescription,
 } from "../scheduling/appointments.js";
-import {
-  getAmdOfficeForToolCall,
-  visitTypeForAppointment,
-} from "../scheduling/routing.js";
-import { spokenAppointmentDate } from "../scheduling/spoken-date.js";
+import { getAmdOfficeForToolCall } from "../scheduling/routing.js";
 import {
   dobMatches,
   isValidPatientDOB,
@@ -251,11 +248,11 @@ async function resolvePatientEvidence(
   operationVersion: number,
 ): Promise<PatientIdentityResolution> {
   if (identity.dob && !isValidPatientDOB(identity.dob)) {
-    return recordResolutionOutcome(state, {
+    return {
       outcome: "needs_identity",
       reply:
         "That date of birth is invalid. Ask the caller for a corrected date. Use MM/DD/YYYY.",
-    });
+    };
   }
   const preloaded = await resolvePrivateCandidate(
     state,
@@ -263,7 +260,7 @@ async function resolvePatientEvidence(
     lookup,
     operationVersion,
   );
-  if (preloaded) return recordResolutionOutcome(state, preloaded);
+  if (preloaded) return preloaded;
   if (!patientIdentityOperationIsCurrent(state, operationVersion)) {
     return {
       outcome: "superseded",
@@ -282,30 +279,27 @@ async function resolvePatientEvidence(
     active.appointmentsStatus !== "error"
   ) {
     state.identity.unregisteredPatientReceipt = null;
-    return recordResolutionOutcome(state, {
+    return {
       outcome: "verified",
       reply: `${active.name?.trim() || "The patient"} is already the active patient.`,
-    });
+    };
   }
 
   if (!identity.firstName || !identity.dob) {
-    return recordResolutionOutcome(state, {
+    return {
       outcome: "needs_identity",
       reply: missingIdentityReply(identity),
-    });
+    };
   }
-  return recordResolutionOutcome(
+  return resolveNameCandidates(
     state,
-    await resolveNameCandidates(
-      state,
-      {
-        firstName: identity.firstName,
-        dob: identity.dob,
-        lastName: identity.lastName,
-      },
-      lookup,
-      operationVersion,
-    ),
+    {
+      firstName: identity.firstName,
+      dob: identity.dob,
+      lastName: identity.lastName,
+    },
+    lookup,
+    operationVersion,
   );
 }
 
@@ -453,10 +447,6 @@ export function beginNewPatientRegistration(
   setInsuranceOnFile(state, null);
   state.identity.activePatient = null;
   state.identity.registration = draft;
-  recordPatientIdentityTransition(state, {
-    outcome: "new",
-    source: "create_patient",
-  });
 }
 
 export function beginPatientCreation(
@@ -549,7 +539,6 @@ function activatePatientFromReceipt(
       routingAmbiguous: receipt.routingAmbiguous ?? false,
       preauthRequired: receipt.preauthRequired ?? false,
     },
-    "create_patient",
     "operation",
   );
   if (receipt.status === "partial") {
@@ -652,50 +641,23 @@ function patientIdentityTransitionIsCurrent(
   return state.identity.transitionVersion === transitionVersion;
 }
 
-export function patientModelProjection(state: CallState): string {
+export function patientContext(state: CallState): string {
   const patient = state.identity.activePatient;
-  if (!patient) {
-    if (state.identity.registration) {
-      return "Patient situation: new-patient registration is in progress; no patient chart is active.";
-    }
-    const count = state.identity.privateCandidates.length;
-    const firstNameSpellings = [
-      ...new Set(
-        state.identity.privateCandidates.flatMap(({ firstName }) => {
-          const name = firstName?.trim().normalize("NFC");
-          if (!name) return [];
-          return [
-            name
-              .toUpperCase()
-              .split(/\s+/u)
-              .map((word) => Array.from(word).join("-"))
-              .join(" "),
-          ];
-        }),
-      ),
-    ];
-    const lookup =
-      count > 0
-        ? `Phone lookup found ${count} possible patient${count === 1 ? "" : "s"}.`
-        : state.runtime.preCallLookup.status === "lookup_failed"
-          ? "Phone lookup failed; registration status is unknown."
-          : state.runtime.preCallLookup.status === "no_match"
-            ? "Phone lookup found no matches; registration status is unknown."
-            : "Phone lookup has not provided patient candidates.";
-    const spellingHint = firstNameSpellings.length
-      ? ` Private first-name spelling hints: ${JSON.stringify(firstNameSpellings)}.`
-      : "";
-    return `Patient situation: no patient is active. ${lookup}${spellingHint}`;
+  if (patient)
+    return `Active patient: ${patient.name?.trim() || "unnamed patient"}.`;
+  if (state.identity.registration) {
+    return "Active patient: none; new-patient registration is in progress.";
   }
-
-  return [
-    `Patient situation: ${patient.name?.trim() || "the patient"} is the active ${patient.kind === "created" ? "new" : "existing"} patient.`,
-    knownInsuranceOnFileSummary(state),
-    patient.dob ? "DOB is already on file." : "DOB is not on file.",
-    appointmentProjection(patient.appointmentsStatus, patient.appointments),
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const count = state.identity.privateCandidates.length;
+  const lookup =
+    count > 0
+      ? `Phone lookup found ${count} possible patient${count === 1 ? "" : "s"}.`
+      : state.runtime.preCallLookup.status === "lookup_failed"
+        ? "Phone lookup failed; registration status is unknown."
+        : state.runtime.preCallLookup.status === "no_match"
+          ? "Phone lookup found no matches; registration status is unknown."
+          : "Phone lookup has not provided patient candidates.";
+  return `Active patient: none. ${lookup}`;
 }
 
 export function incompletePatientRegistrationMessage(
@@ -710,15 +672,13 @@ export function incompletePatientRegistrationMessage(
 export function activatePatient(
   state: CallState,
   patient: PatientActivation,
-  source: "resolve_patient" | "create_patient",
 ): boolean {
-  return promotePatient(state, patient, source, "synchronous");
+  return promotePatient(state, patient, "synchronous");
 }
 
 function promotePatient(
   state: CallState,
   patient: PatientActivation,
-  source: "resolve_patient" | "create_patient",
   transition: "operation" | "synchronous",
 ): boolean {
   const previous = state.identity.activePatient;
@@ -752,7 +712,6 @@ function promotePatient(
       : null,
   );
   setRoutingContext(state, patient);
-  recordPatientIdentityTransition(state, { outcome: "confirmed", source });
   return changed;
 }
 
@@ -887,7 +846,6 @@ async function activateCandidate(
     const changed = promotePatient(
       state,
       activationFromCandidate(candidate),
-      "resolve_patient",
       "synchronous",
     );
     return {
@@ -963,7 +921,6 @@ async function hydratePatient(
   const changed = promotePatient(
     state,
     activationFromResolvedPatient(result, "existing"),
-    "resolve_patient",
     "operation",
   );
   if (source === "phone")
@@ -1024,20 +981,6 @@ function activationFromResolvedPatient(
   };
 }
 
-function recordResolutionOutcome(
-  state: CallState,
-  resolution: PatientIdentityResolution,
-): PatientIdentityResolution {
-  if (resolution.outcome === "superseded") return resolution;
-  if (resolution.outcome !== "verified" && resolution.outcome !== "switched") {
-    recordPatientIdentityTransition(state, {
-      outcome: resolution.outcome,
-      source: "resolve_patient",
-    });
-  }
-  return resolution;
-}
-
 function advanceTransition(
   state: CallState,
   source: "operation" | "synchronous",
@@ -1056,7 +999,6 @@ function resetPatientScopedWork(
   options: { preserveEligibilityCheck?: boolean } = {},
 ): void {
   resetPatientSchedulingState(state, options);
-  delete state.identity.latestBookedAppointmentId;
   resetActiveOfficeToTrunk(state);
 }
 
@@ -1290,7 +1232,7 @@ function spokenPatientName(state: CallState): string {
 
 function confirmedPatientReply(state: CallState): string {
   const patient = state.identity.activePatient;
-  return appointmentReply(
+  const acknowledgment = appointmentReply(
     [
       `I found you in our system, ${spokenPatientName(state)}.`,
       knownInsuranceOnFileSummary(state),
@@ -1300,6 +1242,9 @@ function confirmedPatientReply(state: CallState): string {
     patient?.appointmentsStatus ?? null,
     patient?.appointments ?? [],
   );
+  if (patient?.appointmentsStatus !== "found" || !patient.appointments.length)
+    return acknowledgment;
+  return `${acknowledgment}\n${currentAppointmentReferences(state)}`;
 }
 
 function knownInsuranceOnFileSummary(state: CallState): string {
@@ -1318,7 +1263,7 @@ function appointmentReply(
   appointments: CallerAppointment[],
 ): string {
   if (status === "found" && appointments.length > 0) {
-    return `${prefix} I found ${appointments.length === 1 ? "one upcoming appointment" : `${appointments.length} upcoming appointments`}, ${appointments.map(spokenCallerAppointment).join("; ")}.`;
+    return `${prefix} I found ${appointments.length === 1 ? "one upcoming appointment" : `${appointments.length} upcoming appointments`}, ${appointments.map(spokenAppointmentDescription).join("; ")}.`;
   }
   if (status === "none")
     return `${prefix} I don't see any upcoming appointments.`;
@@ -1326,36 +1271,6 @@ function appointmentReply(
     return `${prefix} I couldn't load the upcoming appointments. Let me reload the patient record.`;
   }
   return `${prefix} I found the patient record.`;
-}
-
-function appointmentProjection(
-  status: AppointmentLoadStatus | null,
-  appointments: CallerAppointment[],
-): string {
-  if (status === "found" && appointments.length > 0) {
-    return `Upcoming appointments: ${appointments.map(spokenInternalAppointment).join("; ")}.`;
-  }
-  if (status === "none") return "No upcoming appointments are loaded.";
-  if (status === "error") return "Upcoming appointments could not be loaded.";
-  return "Patient record is loaded.";
-}
-
-function spokenCallerAppointment(appointment: CallerAppointment): string {
-  const spoken = [
-    spokenAppointmentDate(appointment.date),
-    appointment.time ? `at ${appointment.time}` : "",
-    appointment.provider ? `with ${appointment.provider}` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  return spoken;
-}
-
-function spokenInternalAppointment(appointment: CallerAppointment): string {
-  const spoken = spokenCallerAppointment(appointment);
-  return appointment.appointmentRef
-    ? `${spoken} (appointmentRef ${appointment.appointmentRef}, visitType ${visitTypeForAppointment(appointment)})`
-    : spoken;
 }
 
 function patientLookupReply(result: PatientResolveResult): string {

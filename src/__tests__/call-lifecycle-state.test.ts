@@ -29,19 +29,10 @@ describe("call lifecycle state", () => {
     expect(transferIsAccepted(state)).toBe(true);
   });
 
-  it("activates an office and initializes its middleware phone once", () => {
+  it("activates the office used for middleware routing", () => {
     const state = createTestCallState();
     const office = getOfficeProfile("crystal-river");
-
     activateOffice(state, office);
-
     expect(state.office.activeKey).toBe("crystal-river");
-    expect(state.office.phoneOverrides["crystal-river"]).toBe(
-      office.amdOfficePhone,
-    );
-
-    state.office.phoneOverrides["crystal-river"] = "+17275550199";
-    activateOffice(state, office);
-    expect(state.office.phoneOverrides["crystal-river"]).toBe("+17275550199");
   });
 });

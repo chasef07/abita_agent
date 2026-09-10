@@ -1,3 +1,5 @@
+import { currentAppointmentReferences } from "./appointments.js";
+import { activePatientId, type CallState } from "../state/call-state.js";
 import { tool } from "@livekit/agents";
 import { z } from "zod";
 import { getState } from "../tools/session.js";
@@ -5,11 +7,6 @@ import type { SchedulingMiddleware } from "./middleware.js";
 import { systemSchedulingClock, type SchedulingClock } from "./clock.js";
 import { returnSchedulingInputRequired } from "./input-required.js";
 import { SchedulingWorkflow } from "./workflow.js";
-
-const APPOINTMENT_LANE_BY_VISIT_TYPE = {
-  medical: "medical_md",
-  routine_vision: "routine_od",
-} as const;
 
 type AvailabilityOfficeMode = "omitted" | "required";
 
@@ -132,9 +129,7 @@ export function createSchedulingTools(
           {
             startDate: args.startDate ?? undefined,
             ...(office ? { office } : {}),
-            appointmentLane: args.visitType
-              ? APPOINTMENT_LANE_BY_VISIT_TYPE[args.visitType]
-              : undefined,
+            visitType: args.visitType,
           },
           abortSignal,
         ),
@@ -153,14 +148,16 @@ export function createSchedulingTools(
     execute: async (args, { ctx, toolCallId }): Promise<string> => {
       ctx.disallowInterruptions();
       const state = getState(ctx);
-      return returnSchedulingInputRequired(() =>
-        workflow.bookAppointment(
-          state,
-          {
-            ...args,
-            readBack: args.readBack ?? undefined,
-          },
-          toolCallId,
+      return withCurrentAppointments(state, () =>
+        returnSchedulingInputRequired(() =>
+          workflow.bookAppointment(
+            state,
+            {
+              ...args,
+              readBack: args.readBack ?? undefined,
+            },
+            toolCallId,
+          ),
         ),
       );
     },
@@ -177,8 +174,10 @@ export function createSchedulingTools(
     execute: async (args, { ctx, toolCallId }): Promise<string> => {
       ctx.disallowInterruptions();
       const state = getState(ctx);
-      return returnSchedulingInputRequired(() =>
-        workflow.cancelAppointment(state, args, toolCallId),
+      return withCurrentAppointments(state, () =>
+        returnSchedulingInputRequired(() =>
+          workflow.cancelAppointment(state, args, toolCallId),
+        ),
       );
     },
   });
@@ -194,14 +193,16 @@ export function createSchedulingTools(
     execute: async (args, { ctx, toolCallId }): Promise<string> => {
       ctx.disallowInterruptions();
       const state = getState(ctx);
-      return returnSchedulingInputRequired(() =>
-        workflow.rescheduleAppointment(
-          state,
-          {
-            ...args,
-            readBack: args.readBack ?? undefined,
-          },
-          toolCallId,
+      return withCurrentAppointments(state, () =>
+        returnSchedulingInputRequired(() =>
+          workflow.rescheduleAppointment(
+            state,
+            {
+              ...args,
+              readBack: args.readBack ?? undefined,
+            },
+            toolCallId,
+          ),
         ),
       );
     },
@@ -213,4 +214,21 @@ export function createSchedulingTools(
     cancel_appointment,
     reschedule_appointment,
   };
+}
+
+async function withCurrentAppointments(
+  state: CallState,
+  execute: () => Promise<string>,
+): Promise<string> {
+  const patientId = activePatientId(state);
+  const transitionVersion = state.identity.transitionVersion;
+  const result = await execute();
+  if (
+    !patientId ||
+    activePatientId(state) !== patientId ||
+    state.identity.transitionVersion !== transitionVersion
+  )
+    return result;
+  const references = currentAppointmentReferences(state);
+  return references ? `${result}\n${references}` : result;
 }

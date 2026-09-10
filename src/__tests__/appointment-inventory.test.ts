@@ -10,7 +10,7 @@ import { createConfirmedPatientState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
 import { deferredResult } from "./support/deferred-result.js";
-import { availabilityModelProjection } from "../scheduling/availability.js";
+import { availabilityStatus } from "../scheduling/availability.js";
 import { clearAvailabilitySelection } from "../scheduling/state.js";
 
 function inventory(count = 4, startDate = "2026-09-06"): AvailabilityResult {
@@ -278,12 +278,8 @@ describe("conversational appointment inventory", () => {
       );
       expect(result).toContain("couldn't finish checking availability");
       expect(state.availability.slots).toEqual([]);
-      expect(availabilityModelProjection(state)).toContain(
-        "No appointment inventory is active",
-      );
-      expect(availabilityModelProjection(state)).not.toContain(
-        "inventory is empty",
-      );
+      expect(availabilityStatus(state)).toContain("Availability: invalidated");
+      expect(availabilityStatus(state)).not.toContain("no openings");
       expect(state.availability.refreshAfter).toBeUndefined();
       await tool.execute(
         { startDate: "2026-09-20", visitType: "medical" },
@@ -319,7 +315,7 @@ describe("conversational appointment inventory", () => {
       options,
     );
     clearAvailabilitySelection(state, {
-      invalidateReads: "patient_context_changed",
+      invalidateReads: true,
     });
     await tool.execute({ visitType: "medical" } as never, options);
     expect(middleware.operations[1]).toMatchObject({

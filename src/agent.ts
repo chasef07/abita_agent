@@ -17,20 +17,18 @@ import type { CallState } from "./state/call-state.js";
 import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
-import { patientModelProjection } from "./identity/patient-identity.js";
+import { patientContext } from "./identity/patient-identity.js";
 import {
   officeKnowledgeReference,
   resolveOfficeKnowledge,
 } from "./office-knowledge.js";
 import { activeOfficeKey } from "./state/call-lifecycle.js";
-import { recordOfficeKnowledgeRetrieval } from "./state/observability.js";
 import {
   clinicTimestampMessage,
   systemSchedulingClock,
   type SchedulingClock,
 } from "./scheduling/clock.js";
-import { availabilityModelProjection } from "./scheduling/availability.js";
-import { guardAssistantSpeech } from "./runtime/speech-output-guard.js";
+import { availabilityStatus } from "./scheduling/availability.js";
 import { greetingAudio } from "./runtime/greeting-audio.js";
 
 type VoiceAgentOptions = {
@@ -55,9 +53,6 @@ export function createVoiceAgent(
     trunkPhone,
   );
   const turnClock = options.turnClock ?? systemSchedulingClock;
-  let modelInputSnapshot:
-    | { fingerprint: string; changed: boolean; userMessageId?: string }
-    | undefined;
 
   const agent = LiveKitAgent.create<CallState>({
     instructions: buildPrompt(trunkPhone),
@@ -82,56 +77,20 @@ export function createVoiceAgent(
     ): Promise<void> {
       const state = ctx.session.userData;
       const transcript = newMessage.textContent ?? "";
+      if (!transcript) return;
+      const officeKey = activeOfficeKey(state);
       try {
-        if (!transcript) return;
-
-        const officeKey = activeOfficeKey(state);
-        const startedAt = performance.now();
-        try {
-          const knowledge = (
-            options.officeKnowledgeResolver ?? resolveOfficeKnowledge
-          )(officeKey, transcript, recentNaturalLanguageConversation(chatCtx));
-          if (knowledge.outcome !== "skipped") {
-            chatCtx.addMessage({
-              role: "assistant",
-              content: officeKnowledgeReference(officeKey, knowledge),
-            });
-          }
-          recordOfficeKnowledgeRetrieval(state, {
-            elapsedMs: elapsedMilliseconds(startedAt),
-            language: knowledge.language,
-            officeKey,
-            outcome: knowledge.outcome,
-            sectionCount: knowledge.sections.length,
-            topic: knowledge.topic,
-          });
-        } catch {
-          recordOfficeKnowledgeRetrieval(state, {
-            elapsedMs: elapsedMilliseconds(startedAt),
-            language: "unknown",
-            officeKey,
-            outcome: "failure",
-            sectionCount: 0,
-            topic: null,
-          });
-        }
-      } finally {
-        const currentInput = modelTurnInput(state, turnClock);
-        // LiveKit compares the hook's context to the speculative request's
-        // context. State projected only in llmNode is invisible to that check.
-        // Force a fresh request when hydration, scheduling, or the clock changed.
-        if (
-          modelInputSnapshot !== undefined &&
-          (modelInputSnapshot.changed ||
-            modelInputSnapshot.fingerprint !== currentInput.fingerprint)
-        ) {
+        const knowledge = (
+          options.officeKnowledgeResolver ?? resolveOfficeKnowledge
+        )(officeKey, transcript, recentNaturalLanguageConversation(chatCtx));
+        if (knowledge.outcome !== "skipped") {
           chatCtx.addMessage({
-            id: TURN_CONTEXT_MESSAGE_ID,
-            role: "system",
-            content: currentInput.content,
+            role: "assistant",
+            content: officeKnowledgeReference(officeKey, knowledge),
           });
         }
-        modelInputSnapshot = undefined;
+      } catch {
+        console.warn(`[office_knowledge] retrieval failed office=${officeKey}`);
       }
     },
 
@@ -150,34 +109,13 @@ export function createVoiceAgent(
           break;
         }
       }
-      // A request whose user message is already committed belongs to a prior
-      // turn. Its snapshot must not invalidate fresh speculation on this turn.
-      if (
-        modelInputSnapshot?.userMessageId !== undefined &&
-        ctx.chatCtx.items.some(
-          (item) => item.id === modelInputSnapshot?.userMessageId,
-        )
-      ) {
-        modelInputSnapshot = undefined;
-      }
-      if (modelInputSnapshot === undefined) {
-        modelInputSnapshot = {
-          fingerprint: input.fingerprint,
-          changed: false,
-          userMessageId: modelChatCtx.items[latestUserIndex]?.id,
-        };
-      } else if (modelInputSnapshot.fingerprint !== input.fingerprint) {
-        // An overlapping recovery or tool reply must not mask an earlier
-        // speculative request that used stale runtime state.
-        modelInputSnapshot.changed = true;
-      }
       modelChatCtx.items.splice(
         latestUserIndex < 0 ? modelChatCtx.items.length : latestUserIndex,
         0,
         ChatMessage.create({
           id: TURN_CONTEXT_MESSAGE_ID,
           role: "system",
-          content: input.content,
+          content: input,
         }),
       );
       return LiveKitAgent.default.llmNode(
@@ -203,33 +141,11 @@ export function createVoiceAgent(
     },
 
     async ttsNode(ctx, text, modelSettings) {
-      const safeText = guardAssistantSpeech(text, {
-        language:
-          ctx.session.userData.runtime.voiceLanguage?.current ?? undefined,
-        onBlocked: (marker) => {
-          reportBlockedSpeech("tts", marker);
-        },
-      });
       return LiveKitAgent.default.ttsNode(
         ctx.agent,
         options.onAssistantText
-          ? observeAssistantText(safeText, options.onAssistantText)
-          : safeText,
-        modelSettings,
-      );
-    },
-
-    async transcriptionNode(ctx, text, modelSettings) {
-      const safeText = guardAssistantSpeech(text, {
-        language:
-          ctx.session.userData.runtime.voiceLanguage?.current ?? undefined,
-        onBlocked: (marker) => {
-          reportBlockedSpeech("transcription", marker);
-        },
-      });
-      return LiveKitAgent.default.transcriptionNode(
-        ctx.agent,
-        safeText,
+          ? observeAssistantText(text, options.onAssistantText)
+          : text,
         modelSettings,
       );
     },
@@ -239,22 +155,13 @@ export function createVoiceAgent(
 }
 
 function modelTurnInput(state: CallState, clock: SchedulingClock) {
-  const content = [
+  return [
     clinicTimestampMessage(clock.now()),
-    patientModelProjection(state),
-    availabilityModelProjection(state),
+    patientContext(state),
+    availabilityStatus(state),
   ]
     .filter(Boolean)
     .join(" ");
-  return {
-    content,
-    fingerprint: JSON.stringify([
-      activeOfficeKey(state),
-      state.identity.activePatient?.patientId,
-      state.identity.transitionVersion,
-      content,
-    ]),
-  };
 }
 
 export async function* observeAssistantText(
@@ -282,17 +189,4 @@ function recentNaturalLanguageConversation(chatCtx: ChatContext): string[] {
         : [],
     )
     .slice(-2);
-}
-
-function elapsedMilliseconds(startedAt: number): number {
-  return Math.round((performance.now() - startedAt) * 100) / 100;
-}
-
-function reportBlockedSpeech(
-  output: "transcription" | "tts",
-  marker: string,
-): void {
-  console.warn(
-    `[speech_guard] blocked internal model output output=${output} marker=${marker}`,
-  );
 }

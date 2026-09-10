@@ -3,14 +3,10 @@ import type {
   CallState,
   InsuranceEligibilityCheck,
   InsuranceSnapshot,
-  AvailabilityInvalidationReason,
-  SchedulingAppointmentLane,
+  VisitType,
   StoredAvailabilitySlot,
-  WorkflowTurnContext,
 } from "../state/call-state.js";
 import { invalidateAvailabilityReads } from "./availability-coordinator.js";
-
-type VisitType = "medical" | "routine_vision";
 
 type SchedulingRouting =
   "bach_only" | "bach_licht" | "all_three" | "optical_only";
@@ -49,6 +45,7 @@ export function createSchedulingState(input: {
       lastEligibilityCheck: null,
     },
     workflow: {
+      visitType: null,
       routing: {
         routing,
         allowedProviders: input.allowedProviders,
@@ -90,30 +87,13 @@ export function setLastInsuranceEligibilityCheck(
   state.insurance.lastEligibilityCheck = check;
 }
 
-export function applyTurnContextToState(
+export function setWorkflowVisitType(
   state: CallState,
-  turn: WorkflowTurnContext,
+  visitType: VisitType,
 ): void {
-  const previousTurn = state.workflow.current;
-  const previousVisitType = currentWorkflowVisitType(state);
-  state.workflow.current = turn;
-  const visitType = visitTypeFromAppointmentLane(turn);
-  const intentChanged = previousTurn?.intent !== turn.intent;
-  if (!intentChanged && (!visitType || previousVisitType === visitType)) return;
-
-  clearAvailabilitySelection(state, {
-    invalidateReads: "scheduling_context_changed",
-  });
-}
-
-export function applySchedulingLaneToState(
-  state: CallState,
-  appointmentLane: SchedulingAppointmentLane,
-): void {
-  applyTurnContextToState(state, {
-    intent: "schedule",
-    appointmentLane,
-  });
+  if (state.workflow.visitType === visitType) return;
+  state.workflow.visitType = visitType;
+  clearAvailabilitySelection(state, { invalidateReads: true });
 }
 
 export function activeRoutingContext(state: CallState): {
@@ -168,10 +148,10 @@ export function availabilityBookingToken(
 
 export function clearAvailabilitySelection(
   state: CallState,
-  options: { invalidateReads?: AvailabilityInvalidationReason } = {},
+  options: { invalidateReads?: boolean } = {},
 ): void {
   if (options.invalidateReads) {
-    invalidateAvailabilityReads(state, options.invalidateReads);
+    invalidateAvailabilityReads(state);
     state.availability.requestedStartDate = undefined;
   }
   if (state.availability.slots.length)
@@ -191,9 +171,9 @@ export function resetPatientSchedulingState(
     ? state.insurance.lastEligibilityCheck
     : null;
   clearAvailabilitySelection(state, {
-    invalidateReads: "patient_context_changed",
+    invalidateReads: true,
   });
-  state.workflow.current = undefined;
+  state.workflow.visitType = null;
   setLastInsuranceEligibilityCheck(state, eligibilityCheck);
   setRoutingContext(state, {});
 }
@@ -292,8 +272,7 @@ function normalizeSchedulingRouting(
 }
 
 export function currentWorkflowVisitType(state: CallState): VisitType | null {
-  const turn = state.workflow.current;
-  return turn ? visitTypeFromAppointmentLane(turn) : null;
+  return state.workflow.visitType;
 }
 
 export function setRoutingContext(
@@ -317,7 +296,7 @@ export function setRoutingContext(
     currentRouting.preauthRequired !== nextRouting.preauthRequired
   ) {
     clearAvailabilitySelection(state, {
-      invalidateReads: "routing_context_changed",
+      invalidateReads: true,
     });
   }
   state.workflow.routing = nextRouting;
@@ -362,13 +341,4 @@ function slotIdForIndex(index: number): string {
 
 function normalizeSlotId(slotId: string): string {
   return slotId.trim().toUpperCase();
-}
-
-function visitTypeFromAppointmentLane(
-  turn: WorkflowTurnContext,
-): VisitType | null {
-  if (turn.intent !== "schedule") return null;
-  if (turn.appointmentLane === "routine_od") return "routine_vision";
-  if (turn.appointmentLane === "medical_md") return "medical";
-  return null;
 }

@@ -92,32 +92,11 @@ export function removeActiveAppointment(
   if (appointment && patientId) {
     recordCompletedCancellationForPatient(state, patientId, appointment);
   }
-  removeBookedAppointmentReference(state, appointmentId);
   const patient = state.identity.activePatient;
   if (!patient) return;
   patient.appointments = patient.appointments.filter(
     (item) => item.id !== appointmentId,
   );
-}
-
-function removeBookedAppointmentReference(
-  state: CallState,
-  appointmentId: number,
-): void {
-  if (state.identity.latestBookedAppointmentId === appointmentId) {
-    delete state.identity.latestBookedAppointmentId;
-  }
-}
-
-export function setLatestBookedAppointment(
-  state: CallState,
-  appointmentId: number,
-): void {
-  state.identity.latestBookedAppointmentId = appointmentId;
-}
-
-export function latestBookedAppointmentId(state: CallState): number | null {
-  return state.identity.latestBookedAppointmentId ?? null;
 }
 
 export function recordCompletedCancellationForPatient(

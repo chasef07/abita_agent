@@ -1,3 +1,4 @@
+import { currentAppointmentReferences } from "../scheduling/appointments.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolError } from "@livekit/agents";
 
@@ -15,7 +16,6 @@ import { visitTypeForAppointment } from "../scheduling/routing.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
   appointmentActions,
-  availabilityReadEvents,
   domainOutcomeReceipts,
 } from "../state/observability.js";
 import { activeAppointments } from "../state/appointments.js";
@@ -45,15 +45,11 @@ function activateExistingPatient(
   },
 ) {
   const { insPlanId, respPartyId, ...activePatient } = patient;
-  activatePatient(
-    state,
-    {
-      ...activePatient,
-      kind: "existing",
-      backend: { insPlanId, respPartyId },
-    },
-    "resolve_patient",
-  );
+  activatePatient(state, {
+    ...activePatient,
+    kind: "existing",
+    backend: { insPlanId, respPartyId },
+  });
 }
 
 function createHollywoodSweetwaterState(office: "hollywood" | "sweetwater") {
@@ -61,7 +57,6 @@ function createHollywoodSweetwaterState(office: "hollywood" | "sweetwater") {
   const officePhone =
     office === "hollywood" ? HOLLYWOOD_OFFICE_PHONE : SWEETWATER_OFFICE_PHONE;
   state.office.activeKey = office;
-  state.office.phoneOverrides[office] = officePhone;
   state.runtime.trunkPhone = officePhone;
   return state;
 }
@@ -101,10 +96,7 @@ function prepareBooking(
   slot: StoredAvailabilitySlot = availabilitySlot(),
   token = "private-token",
 ) {
-  state.workflow.current = {
-    intent: "schedule",
-    appointmentLane: "medical_md",
-  };
+  state.workflow.visitType = "medical";
   state.availability.slots = [slot];
   storeAvailabilityBookingToken(state, slot.slotId, token);
 }
@@ -121,10 +113,7 @@ function prepareReschedule(
     options.appointment ?? loadedAppointment(),
   ];
   const visitType = visitTypeForAppointment(activeAppointments(state)[0]!);
-  state.workflow.current = {
-    intent: "schedule",
-    appointmentLane: visitType === "medical" ? "medical_md" : "routine_od",
-  };
+  state.workflow.visitType = visitType;
   const slot =
     options.slot ??
     availabilitySlot({
@@ -250,12 +239,9 @@ describe("scheduling tools", () => {
     expect(tools.reschedule_appointment.onDuplicate).toBe("reject");
   });
 
-  it.each([
-    ["medical", "medical_md"],
-    ["routine_vision", "routine_od"],
-  ] as const)(
-    "maps the model-facing %s visit type to the internal scheduling lane",
-    async (visitType, appointmentLane) => {
+  it.each(["medical", "routine_vision"] as const)(
+    "uses %s as the scheduling visit type",
+    async (visitType) => {
       const middleware = new InMemorySchedulingMiddleware({
         availability: [availabilityFound([returnedSlot()])],
       });
@@ -267,10 +253,7 @@ describe("scheduling tools", () => {
         toolCallId: "availability-1",
       } as never);
 
-      expect(state.workflow.current).toEqual({
-        intent: "schedule",
-        appointmentLane,
-      });
+      expect(state.workflow.visitType).toBe(visitType);
       expect(middleware.operations).toHaveLength(1);
     },
   );
@@ -332,7 +315,7 @@ describe("scheduling tools", () => {
         } as never,
       );
 
-      expect(result).toBe(
+      expect(result.split("\n")[0]).toBe(
         "Ask whether the caller wants the Hollywood or Sweetwater office, then check availability again with that office.",
       );
       expect(middleware.operations).toEqual([]);
@@ -535,10 +518,6 @@ describe("scheduling tools", () => {
       expect.stringContaining("S1 — Monday, June 1 at 9:00 AM with Dr. Bach"),
     ]);
     expect(middleware.operations).toHaveLength(1);
-    expect(availabilityReadEvents(state)).toMatchObject([
-      { operation: "middleware_call", durationMs: 25 },
-      { operation: "in_flight_join", durationMs: 25 },
-    ]);
   });
 
   it("keeps a settled availability read shared until its result is committed", async () => {
@@ -803,12 +782,6 @@ describe("scheduling tools", () => {
     ).toHaveLength(2);
     expect(state.availability.slots).toEqual([]);
     expect(state.availability.bookingTokensBySlotId).toEqual({});
-    expect(availabilityReadEvents(state)).toMatchObject([
-      { operation: "middleware_call" },
-      { operation: "invalidation", reason: "booking_token_expired" },
-      { operation: "middleware_call" },
-      { operation: "invalidation", reason: "booking_token_expired" },
-    ]);
   });
 
   it("rejects direct booking after the selected token validity expires", async () => {
@@ -883,7 +856,7 @@ describe("scheduling tools", () => {
     {
       name: "provider office",
       change: (state: ReturnType<typeof createState>) => {
-        state.office.phoneOverrides["spring-hill"] = "+17275550199";
+        state.office.activeKey = "crystal-river";
         return {};
       },
     },
@@ -934,7 +907,7 @@ describe("scheduling tools", () => {
     },
   );
 
-  it("lets an explicit visit type start new scheduling after a reschedule context", async () => {
+  it("uses an explicit visit type when an existing appointment is loaded", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [availabilityFound([returnedSlot()])],
     });
@@ -946,20 +919,14 @@ describe("scheduling tools", () => {
         appointmentTypeId: 4245,
       }),
     ]);
-    state.workflow.current = {
-      intent: "change_appointment",
-      appointmentLane: "not_applicable",
-    };
+    state.workflow.visitType = null;
 
     await list_available_appointments.execute({ visitType: "medical" }, {
       ctx: createToolContext(state) as never,
       toolCallId: "availability-1",
     } as never);
 
-    expect(state.workflow.current).toEqual({
-      intent: "schedule",
-      appointmentLane: "medical_md",
-    });
+    expect(state.workflow.visitType).toBe("medical");
     expect(middleware.operations).toMatchObject([
       {
         kind: "availability",
@@ -981,10 +948,7 @@ describe("scheduling tools", () => {
       toolCallId: "availability-1",
     } as never);
 
-    expect(state.workflow.current).toEqual({
-      intent: "schedule",
-      appointmentLane: "medical_md",
-    });
+    expect(state.workflow.visitType).toBe("medical");
     expect(middleware.operations).toMatchObject([
       {
         kind: "availability",
@@ -1010,7 +974,9 @@ describe("scheduling tools", () => {
       toolCallId: "availability-1",
     } as never);
 
-    expect(result).toBe("Is this visit for medical care or routine vision?");
+    expect(result.split("\n")[0]).toBe(
+      "Is this visit for medical care or routine vision?",
+    );
     expect(middleware.operations).toEqual([]);
   });
 
@@ -1717,9 +1683,6 @@ describe("scheduling tools", () => {
     const { list_available_appointments } = createSchedulingTools(middleware);
     const opticalState = createState();
     opticalState.office.activeKey = "north-miami-beach-optical";
-    opticalState.office.phoneOverrides = {
-      "north-miami-beach-optical": "+13055550100",
-    };
     const medicalResult = await list_available_appointments.execute(
       { visitType: "medical" },
       {
@@ -1729,9 +1692,6 @@ describe("scheduling tools", () => {
     );
     const medicalState = createState();
     medicalState.office.activeKey = "crystal-river";
-    medicalState.office.phoneOverrides = {
-      "crystal-river": "+13523202007",
-    };
     const routineResult = await list_available_appointments.execute(
       { visitType: "routine_vision" },
       {
@@ -1763,10 +1723,7 @@ describe("scheduling tools", () => {
     });
     const { book_appointment } = createSchedulingTools(middleware);
     const state = createState();
-    state.workflow.current = {
-      intent: "schedule",
-      appointmentLane: "medical_md",
-    };
+    state.workflow.visitType = "medical";
     state.availability.slots = [
       {
         slotId: "S1",
@@ -1792,8 +1749,10 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe("Booked Monday, July 27 at 9:00 AM with Dr. Bach.");
-    expect(result).not.toContain("appointmentRef");
+    expect(result.split("\n")[0]).toBe(
+      "Booked Monday, July 27 at 9:00 AM with Dr. Bach.",
+    );
+    expect(result).toContain("appointmentRef");
     expect(middleware.operations).toMatchObject([
       {
         kind: "book",
@@ -1864,7 +1823,7 @@ describe("scheduling tools", () => {
     expect(operation).not.toHaveProperty("request.isPostOp");
   });
 
-  it("cancels a newly booked appointment by its state-owned appointment reference", async () => {
+  it("cancels a newly booked appointment using only its returned reference", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       bookings: [bookingReceipt()],
       cancellations: [{ status: "cancelled" }],
@@ -1887,10 +1846,15 @@ describe("scheduling tools", () => {
         toolCallId: "booking-1",
       } as never,
     );
-    const appointmentRef = loadedAppointmentRef(state);
+    const appointmentRef = bookingResult.match(
+      /appointmentRef (appointment-[a-f0-9]+)/,
+    )?.[1];
 
     expect(appointmentRef).toBeDefined();
-    expect(bookingResult).not.toContain("appointmentRef");
+    expect(bookingResult).toContain("do not read aloud");
+    expect(bookingResult).not.toContain("private-token");
+    expect(bookingResult).not.toContain("patient-1");
+    expect(bookingResult).not.toContain("appointmentId");
 
     await cancel_appointment.execute(
       { appointmentRef: appointmentRef as string },
@@ -1969,12 +1933,6 @@ describe("scheduling tools", () => {
       "book",
       "availability",
     ]);
-    expect(availabilityReadEvents(state)).toContainEqual(
-      expect.objectContaining({
-        operation: "invalidation",
-        reason: "booking_succeeded",
-      }),
-    );
   });
 
   it("requires read-back confirmation before booking", async () => {
@@ -1996,7 +1954,7 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "Let me confirm: Monday, June 1 at 9:00 AM with Dr. Bach. Is that correct?",
     );
     expect(middleware.operations).toEqual([]);
@@ -2125,7 +2083,7 @@ describe("scheduling tools", () => {
         } as never,
       );
 
-      expect(result).toBe(message);
+      expect(result.split("\n")[0]).toBe(message);
       expect(state.availability.slots.map((slot) => slot.slotId)).toEqual([
         "S1",
       ]);
@@ -2168,7 +2126,7 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "That time is no longer available. Let me refresh the appointments and find another time that fits.",
     );
     expect(state.availability.refreshAfter).toBe(0);
@@ -2261,7 +2219,7 @@ describe("scheduling tools", () => {
       toolCallId: "booking-2",
     } as never);
 
-    expect(replay).toBe("That appointment is already booked.");
+    expect(replay.split("\n")[0]).toBe("That appointment is already booked.");
     expect(middleware.operations).toHaveLength(1);
     expect(domainOutcomeReceipts(state)).toMatchObject([
       {
@@ -2328,6 +2286,35 @@ describe("scheduling tools", () => {
     );
   });
 
+  it("does not append appointment references after an identity transition during booking", async () => {
+    const deferred = deferredResult<ReturnType<typeof bookingReceipt>>();
+    const middleware = new InMemorySchedulingMiddleware({
+      bookings: [deferred.promise],
+    });
+    const { book_appointment } = createSchedulingTools(middleware);
+    const state = createState();
+    prepareBooking(state);
+    const pending = book_appointment.execute(
+      {
+        appointmentSlotRef: "S1",
+        appointmentReason: "follow-up",
+        referringDoctor: "none",
+        readBack: true,
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "booking-transition",
+      } as never,
+    );
+    state.identity.transitionVersion += 1;
+    deferred.resolve(bookingReceipt());
+    const result = await pending;
+    expect(result).toContain("Booked");
+    expect(currentAppointmentReferences(state)).toContain("appointmentRef");
+    expect(result).not.toContain("appointmentRef");
+    expect(middleware.operations).toHaveLength(1);
+  });
+
   it("does not apply an in-flight booking result to a newly active patient", async () => {
     const deferred = deferredResult<ReturnType<typeof bookingReceipt>>();
     const middleware = new InMemorySchedulingMiddleware({
@@ -2356,6 +2343,8 @@ describe("scheduling tools", () => {
     const result = await pending;
 
     expect(result).toContain("The patient changed while I was working.");
+    expect(result).not.toContain("appointmentRef");
+    expect(result).not.toContain("999");
     expect(state.identity.activePatient!).toMatchObject({
       patientId: "patient-2",
     });
@@ -2409,10 +2398,10 @@ describe("scheduling tools", () => {
       toolCallId: "cancel-2",
     } as never);
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "Cancelled the appointment on Monday, June 1, 2026 at 9:00 AM.",
     );
-    expect(replay).toBe(
+    expect(replay.split("\n")[0]).toBe(
       "That appointment was already cancelled on this call. It was scheduled for Monday, June 1, 2026 at 9:00 AM.",
     );
     expect(middleware.operations).toEqual([
@@ -2568,7 +2557,6 @@ describe("scheduling tools", () => {
     );
     const state = createState();
     state.office.activeKey = "spring-hill";
-    state.office.phoneOverrides["spring-hill"] = SPRING_HILL_OFFICE_PHONE;
     state.runtime.trunkPhone = SPRING_HILL_OFFICE_PHONE;
     restoreFirstPatient(state, [
       loadedAppointment({
@@ -2583,7 +2571,7 @@ describe("scheduling tools", () => {
       toolCallId: "cancel-1",
     } as never);
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "Cancelled the appointment on Monday, June 1, 2026 at 9:00 AM.",
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -2648,7 +2636,7 @@ describe("scheduling tools", () => {
       toolCallId: "cancel-1",
     } as never);
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "The appointment details expired. I need to reload the appointments and confirm which one you want to cancel.",
     );
     expect(middleware.operations).toEqual([
@@ -2669,7 +2657,7 @@ describe("scheduling tools", () => {
         toolCallId: "cancel-2",
       } as never),
     ).resolves.toBe(
-      "I couldn't match that appointment. Which upcoming appointment would you like to cancel?",
+      `I couldn't match that appointment. Which upcoming appointment would you like to cancel?`,
     );
     expect(middleware.operations).toHaveLength(1);
   });
@@ -2686,7 +2674,7 @@ describe("scheduling tools", () => {
       toolCallId: "cancel-1",
     } as never);
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "I need to reload the appointments and confirm the exact one before cancelling.",
     );
     expect(middleware.operations).toEqual([]);
@@ -2706,7 +2694,7 @@ describe("scheduling tools", () => {
         toolCallId: "cancel-1",
       } as never),
     ).resolves.toBe(
-      "I couldn't match that appointment. Which upcoming appointment would you like to cancel?",
+      `I couldn't match that appointment. Which upcoming appointment would you like to cancel?\n${currentAppointmentReferences(state)}`,
     );
     expect(middleware.operations).toEqual([]);
     expect(state.identity.activePatient!.appointments).toHaveLength(1);
@@ -2728,7 +2716,9 @@ describe("scheduling tools", () => {
           toolCallId: "cancel-1",
         } as never,
       ),
-    ).resolves.toBe("Which upcoming appointment would you like to cancel?");
+    ).resolves.toBe(
+      `Which upcoming appointment would you like to cancel?\n${currentAppointmentReferences(state)}`,
+    );
     expect(middleware.operations).toEqual([]);
   });
 
@@ -2754,7 +2744,7 @@ describe("scheduling tools", () => {
           toolCallId: "cancel-2",
         } as never,
       ),
-    ).resolves.toBe("Which upcoming appointment would you like to cancel?");
+    ).resolves.toBe(`Which upcoming appointment would you like to cancel?`);
     expect(middleware.operations.map(({ kind }) => kind)).toEqual(["cancel"]);
   });
 
@@ -2777,7 +2767,7 @@ describe("scheduling tools", () => {
         toolCallId: "cancel-1",
       } as never),
     ).resolves.toBe(
-      "I couldn't match that appointment. Which upcoming appointment would you like to cancel?",
+      `I couldn't match that appointment. Which upcoming appointment would you like to cancel?\n${currentAppointmentReferences(state)}`,
     );
     expect(middleware.operations).toEqual([]);
   });
@@ -2958,7 +2948,7 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "The existing appointment is medical. Load matching availability before rescheduling it.",
     );
     expect(middleware.operations.map(({ kind }) => kind)).toEqual([
@@ -3039,10 +3029,7 @@ describe("scheduling tools", () => {
     });
     const { reschedule_appointment } = createSchedulingTools(middleware);
     const state = createState();
-    state.workflow.current = {
-      intent: "change_appointment",
-      appointmentLane: "not_applicable",
-    };
+    state.workflow.visitType = null;
     state.identity.activePatient!.appointments = [
       {
         id: 123,
@@ -3083,7 +3070,7 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "Rescheduled the appointment to Wednesday, June 3 at 10:00 AM with Dr. Bach. Cancelled the old appointment on Monday, June 1, 2026 at 9:00 AM.",
     );
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
@@ -3196,7 +3183,7 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "I couldn't reschedule because the appointment details expired. Your existing appointment is still scheduled. I need to reload it and check availability again.",
     );
     expect(middleware.operations.map(({ kind }) => kind)).toEqual(["book"]);
@@ -3246,7 +3233,7 @@ describe("scheduling tools", () => {
         toolCallId: "reschedule-1",
       } as never,
     );
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "I couldn't match that appointment. Which upcoming appointment would you like to reschedule?",
     );
     expect(middleware.operations.map(({ kind }) => kind)).toEqual([
@@ -3376,7 +3363,7 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "Let me confirm the new appointment: Monday, June 1 at 9:00 AM with Dr. Bach. Is that correct?",
     );
     expect(middleware.operations).toEqual([]);
@@ -3408,7 +3395,7 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "Which upcoming appointment would you like to reschedule?",
     );
     expect(result).not.toContain("oldAppointmentRef");
@@ -3439,7 +3426,7 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "I need to reload the appointments and confirm the exact one before rescheduling.",
     );
     expect(middleware.operations).toEqual([]);
@@ -3477,6 +3464,8 @@ describe("scheduling tools", () => {
     expect(result).toContain(
       "The active patient changed before the old appointment could be cancelled.",
     );
+    expect(result).not.toContain("appointmentRef");
+    expect(result).not.toContain("999");
     expect(middleware.operations.map(({ kind }) => kind)).toEqual(["book"]);
     expect(state.identity.activePatient!).toMatchObject({
       patientId: "patient-2",
@@ -3619,7 +3608,7 @@ describe("scheduling tools", () => {
       } as never,
     );
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "That time is no longer available. Let me refresh the appointments and find another time that fits. I did not cancel the existing appointment.",
     );
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
@@ -3694,10 +3683,10 @@ describe("scheduling tools", () => {
       toolCallId: "reschedule-2",
     } as never);
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "Booked the new appointment for Monday, June 1 at 9:00 AM with Dr. Bach, but I could not cancel the old appointment. The old appointment was not cancelled. I need to transfer you so the office can finish the cancellation.",
     );
-    expect(replay).toBe(
+    expect(replay.split("\n")[0]).toBe(
       "The new appointment is booked, but the old appointment still needs office staff to cancel it. Would you like me to transfer you?",
     );
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
@@ -3749,10 +3738,10 @@ describe("scheduling tools", () => {
       toolCallId: "reschedule-2",
     } as never);
 
-    expect(result).toBe(
+    expect(result.split("\n")[0]).toBe(
       "Booked the new appointment for Monday, June 1 at 9:00 AM with Dr. Bach, but I could not cancel the old appointment. The old appointment was not cancelled. I need to transfer you so the office can finish the cancellation.",
     );
-    expect(replay).toBe(
+    expect(replay.split("\n")[0]).toBe(
       "The new appointment is booked, but the old appointment still needs office staff to cancel it. Would you like me to transfer you?",
     );
     expect(middleware.operations).toEqual([
@@ -3830,7 +3819,7 @@ describe("scheduling tools", () => {
       toolCallId: "reschedule-2",
     } as never);
 
-    expect(replay).toBe(
+    expect(replay.split("\n")[0]).toBe(
       "You're already rescheduled for Monday, June 1 at 9:00 AM with Dr. Bach.",
     );
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
@@ -3896,7 +3885,7 @@ describe("scheduling tools", () => {
       { ctx: ctx as never, toolCallId: "reschedule-2" } as never,
     );
 
-    expect(corrected).toBe(
+    expect(corrected.split("\n")[0]).toBe(
       "Rescheduled the appointment to Wednesday, June 3 at 2:00 PM with Dr. Bach. Cancelled the old appointment on 2026-06-01 at 9:00 AM.",
     );
     expect(middleware.operations.map((operation) => operation.kind)).toEqual([
@@ -3925,10 +3914,6 @@ describe("scheduling tools", () => {
     });
     const { reschedule_appointment } = createSchedulingTools(middleware);
     const state = createState();
-    state.office.phoneOverrides = {
-      "spring-hill": "+17275919997",
-      "crystal-river": "+13523202007",
-    };
     prepareReschedule(state, {
       appointment: loadedAppointment({
         facility: "Crystal River",
@@ -3973,9 +3958,6 @@ describe("scheduling tools", () => {
     const { reschedule_appointment } = createSchedulingTools(middleware);
     const state = createState();
     state.office.activeKey = "new-tampa-demo";
-    state.office.phoneOverrides = {
-      "new-tampa-demo": DEMO_BOOKING_OFFICE_PHONE,
-    };
     state.runtime.trunkPhone = NEW_TAMPA_DEMO_TRUNK_PHONE;
     prepareReschedule(state, {
       appointment: loadedAppointment({

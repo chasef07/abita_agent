@@ -12,13 +12,12 @@ import { createToolContext } from "./support/tool-context.js";
 import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
-import { replaceActiveAppointments } from "../state/appointments.js";
-import { patientModelProjection } from "../identity/patient-identity.js";
+import { patientContext } from "../identity/patient-identity.js";
 import {
   clearAvailabilitySelection,
   replaceAvailabilitySlots,
 } from "../scheduling/state.js";
-import { availabilityModelProjection } from "../scheduling/availability.js";
+import { availabilityStatus } from "../scheduling/availability.js";
 import type { PreCallPatientCandidate } from "../state/call-state.js";
 import {
   createConfirmedPatientState,
@@ -27,7 +26,7 @@ import {
 
 const ownedMiddleware = new InMemoryOwnedMiddleware();
 
-describe("patient model projection", () => {
+describe("agent runtime context", () => {
   initializeLogger({ pretty: false, level: "silent" });
   const sessions: AgentSession[] = [];
 
@@ -35,7 +34,7 @@ describe("patient model projection", () => {
     await Promise.all(sessions.splice(0).map((session) => session.close()));
   });
 
-  it("exposes lookup outcomes and first-name spellings without other candidate details", () => {
+  it("exposes only lookup outcomes and candidate counts before patient activation", () => {
     const privateCandidate: PreCallPatientCandidate = {
       status: "verified",
       ref: "private-candidate-reference",
@@ -60,45 +59,17 @@ describe("patient model projection", () => {
         preCallCandidates: candidates,
         preCallLookup: { status, durationMs: 12 },
       });
-      return patientModelProjection(state);
+      return patientContext(state);
     });
 
     expect(projections[0]).toContain("Phone lookup found no matches");
     expect(projections[1]).toContain("Phone lookup failed");
-    expect(projections[2]).toContain("Phone lookup found 1 possible patient");
-    expect(projections[3]).toContain("Phone lookup found 2 possible patients");
-    expect(projections[2]).toContain(
-      'Private first-name spelling hints: ["P-R-I-V-A-T-E"].',
-    );
-    expect(projections[3]).toContain(
-      'Private first-name spelling hints: ["P-R-I-V-A-T-E"].',
-    );
-    expect(projections[0]).not.toContain("spelling hints");
-    expect(projections[1]).not.toContain("spelling hints");
     expect(projections.join(" ")).not.toMatch(
-      /Private Patient|private-|01\/02\/1980/,
+      /Private|P-R-I-V-A-T-E|private-|01\/02\/1980/,
     );
   });
 
-  it("spells distinct available first names, preserving accents and word boundaries", () => {
-    const state = createTestCallState({
-      preCallCandidates: [" Ana María ", "Nora", "nora", undefined].map(
-        (firstName, index) => ({
-          status: "verified" as const,
-          ref: `candidate-${index}`,
-          firstName,
-          patientId: `patient-${index}`,
-          appointments: [],
-        }),
-      ),
-    });
-
-    expect(patientModelProjection(state)).toContain(
-      'Private first-name spelling hints: ["A-N-A M-A-R-Í-A","N-O-R-A"].',
-    );
-  });
-
-  it("injects exactly one fresh projection into each model request only", async () => {
+  it("injects exactly one fresh context message into each model request only", async () => {
     const model = new ContextCapturingFakeLLM([
       { input: "I need an appointment.", content: "Who is it for?" },
     ]);
@@ -130,9 +101,6 @@ describe("patient model projection", () => {
     expect(patientMessages(model.requests[0])).toEqual([
       expect.stringContaining("Phone lookup found 1 possible patient"),
     ]);
-    expect(patientMessages(model.requests[0])[0]).toContain(
-      'Private first-name spelling hints: ["P-R-I-V-A-T-E"].',
-    );
     expect(patientMessages(model.requests[0])[0]).not.toContain(
       "resolve_patient",
     );
@@ -228,7 +196,7 @@ describe("patient model projection", () => {
         );
       } else {
         clearAvailabilitySelection(state, {
-          invalidateReads: "patient_context_changed",
+          invalidateReads: true,
         });
       }
       if (mode === "empty_expired")
@@ -246,38 +214,52 @@ describe("patient model projection", () => {
           : [],
       ).join(" ");
       if (mode === "incomplete_expansion")
-        expect(system).not.toContain("inventory is empty");
+        expect(system).not.toContain("no openings");
       expect(system).toContain(
         mode === "empty_expired"
-          ? "inventory is stale"
-          : "All earlier appointment lists are invalid",
+          ? "Availability: expired"
+          : "Earlier lists are invalid",
       );
     },
   );
 
-  it("exposes the matching visit category beside each loaded appointment reference in model input", async () => {
+  it("provides appointment references once through resolver output with minimal current context", async () => {
     const model = new ContextCapturingFakeLLM([
-      { input: "Move my appointment.", content: "I can help move that visit." },
+      {
+        input: "This is Jane.",
+        toolCalls: [
+          { name: "resolve_patient", args: { firstName: "Jane", dob: null } },
+        ],
+      },
     ]);
     const session = new AgentSession({ llm: model });
     sessions.push(session);
-    const state = createConfirmedPatientState();
-    replaceActiveAppointments(
-      state,
-      [1007, 4245].map((appointmentTypeId, index) => ({
-        id: 100 + index,
-        appointmentTypeId,
-        type: "Appointment",
-        date: "2026-09-10",
-        time: "9:00 AM",
-        provider: "Dr. Smith",
-        facility: "Spring Hill",
-        confirmed: true,
-        cancellationToken: "private-cancellation-token",
-        rescheduleToken: "private-reschedule-token",
-      })),
-      "found",
-    );
+    const state = createTestCallState({
+      preCallCandidates: [
+        {
+          status: "verified",
+          ref: "private-candidate",
+          patientId: "private-patient",
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/02/1980",
+          insuranceCarrier: "Aetna",
+          appointmentsStatus: "found",
+          appointments: [1007, 4245].map((appointmentTypeId, index) => ({
+            id: 100 + index,
+            appointmentTypeId,
+            type: "Appointment",
+            date: "2026-09-10",
+            time: "9:00 AM",
+            provider: "Dr. Smith",
+            facility: "Spring Hill",
+            confirmed: true,
+            cancellationToken: "private-cancellation-token",
+            rescheduleToken: "private-reschedule-token",
+          })),
+        },
+      ],
+    });
     session.userData = state;
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
@@ -285,15 +267,20 @@ describe("patient model projection", () => {
         suppressGreeting: true,
       }).agent,
     });
-    await session.run({ userInput: "Move my appointment." }).wait();
-    const input = JSON.stringify(model.requests[0]);
+    await session.run({ userInput: "This is Jane." }).wait();
+    const request = model.requests.at(-1)!;
+    const input = JSON.stringify(request);
+    expect(patientMessages(request)).toEqual(["Active patient: Jane Doe."]);
     for (const [index, visitType] of ["medical", "routine_vision"].entries()) {
       const ref =
         state.identity.activePatient!.appointments[index]!.appointmentRef;
       expect(input).toContain(`appointmentRef ${ref}, visitType ${visitType}`);
     }
+    expect(input).toContain(
+      "Internal appointment references (do not read aloud)",
+    );
     expect(input).not.toMatch(
-      /private-cancellation-token|private-reschedule-token|appointmentTypeId/,
+      /private-cancellation-token|private-reschedule-token|appointmentTypeId|private-patient|01\/02\/1980/,
     );
   });
 
@@ -310,12 +297,12 @@ describe("patient model projection", () => {
       },
     ];
 
-    const projection = availabilityModelProjection(state);
+    const projection = availabilityStatus(state);
 
-    expect(projection).toContain(
-      "Current appointment inventory has 1 slots (S1 through S1)",
+    expect(projection).toBe(
+      "Availability: current; use the latest availability tool result.",
     );
-    expect(projection).toContain("use appointmentSlotRef");
+    expect(projection).not.toContain("S1");
     expect(projection).not.toContain("bookingToken");
     expect(projection).not.toContain("9:00 AM");
   });
@@ -334,8 +321,8 @@ function patientMessages(chatCtx: ChatContext): string[] {
   return chatCtx.items.flatMap((item) =>
     item.type === "message" &&
     item.role === "system" &&
-    item.textContent?.includes("Patient situation:")
-      ? [item.textContent.slice(item.textContent.indexOf("Patient situation:"))]
+    item.textContent?.includes("Active patient:")
+      ? [item.textContent.slice(item.textContent.indexOf("Active patient:"))]
       : [],
   );
 }

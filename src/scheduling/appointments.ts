@@ -4,7 +4,6 @@ import {
   activeAppointments,
   completedCancellations,
   replaceActiveAppointments,
-  setLatestBookedAppointment,
 } from "../state/appointments.js";
 import {
   activePatientId,
@@ -16,6 +15,33 @@ import {
 } from "../state/call-state.js";
 import { publicProviderName } from "./availability.js";
 import type { BookingSuccess } from "./middleware.js";
+import { visitTypeForAppointment } from "./routing.js";
+import { spokenAppointmentDate } from "./spoken-date.js";
+
+export function currentAppointmentReferences(state: CallState): string {
+  const references = activeAppointments(state).flatMap((appointment) => {
+    if (!appointment.appointmentRef) return [];
+    const description = spokenAppointmentDescription(appointment);
+    return [
+      `${description} (appointmentRef ${appointment.appointmentRef}, visitType ${visitTypeForAppointment(appointment)})`,
+    ];
+  });
+  return references.length
+    ? `Internal appointment references (do not read aloud): ${references.join("; ")}.`
+    : "";
+}
+
+export function spokenAppointmentDescription(
+  appointment: CallerAppointment,
+): string {
+  return [
+    spokenAppointmentDate(appointment.date),
+    appointment.time ? `at ${appointment.time}` : "",
+    appointment.provider ? `with ${appointment.provider}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
 export function extractAppointments(
   result: unknown,
@@ -78,7 +104,6 @@ export function recordBookedAppointmentInState(
     appointment,
   ];
   replaceActiveAppointments(state, nextAppointments, "found");
-  setLatestBookedAppointment(state, appointmentId);
   const appointmentRef = activeAppointmentById(
     state,
     appointmentId,

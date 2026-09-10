@@ -140,26 +140,11 @@ describe("audited patient recovery", () => {
           (await resolveExistingPatient(state, fullIdentity, lookup)).outcome,
         ).toBe(status);
       expect(lookup).toHaveBeenCalledOnce();
-      state.office.phoneOverrides[state.office.activeKey] = "+19545550199";
+      state.office.activeKey = "hollywood";
       await resolveExistingPatient(state, fullIdentity, lookup);
       expect(lookup).toHaveBeenCalledTimes(2);
     },
   );
-
-  it("reuses a definitive decision after unrelated office data changes", async () => {
-    const state = createConfirmedPatientState();
-    const lookup = vi.fn(async () => candidateSearchResult());
-    const identity = { ...fullIdentity, firstName: "Absent" };
-    expect(
-      (await resolveExistingPatient(state, identity, lookup)).outcome,
-    ).toBe("not_found");
-    expect(state.identity.activePatient).toBeNull();
-    state.office.phoneOverrides["hollywood"] = "+19545550199";
-    expect(
-      (await resolveExistingPatient(state, identity, lookup)).outcome,
-    ).toBe("not_found");
-    expect(lookup).toHaveBeenCalledOnce();
-  });
 
   it("recomputes an ambiguous decision when candidate identity changes", async () => {
     const state = createTestCallState({

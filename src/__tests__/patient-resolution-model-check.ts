@@ -6,7 +6,7 @@ import { buildPrompt } from "../prompt.js";
 import { createLlmPair } from "../model-config.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
-import { patientModelProjection } from "../identity/patient-identity.js";
+import { patientContext } from "../identity/patient-identity.js";
 import {
   HOLLYWOOD_OFFICE_PHONE,
   SPRING_HILL_OFFICE_PHONE,
@@ -190,7 +190,7 @@ for (const model of [primary, fallback]) {
       if (!scenario.promoted)
         chatCtx.addMessage({
           role: "system",
-          content: patientModelProjection(state),
+          content: patientContext(state),
         });
       chatCtx.addMessage({
         role: "assistant",
@@ -238,7 +238,7 @@ for (const model of [primary, fallback]) {
         ]);
         chatCtx.addMessage({
           role: "system",
-          content: patientModelProjection(state),
+          content: patientContext(state),
         });
       }
       try {

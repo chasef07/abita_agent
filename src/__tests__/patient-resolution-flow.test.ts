@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
-import { patientModelProjection } from "../identity/patient-identity.js";
+import { patientContext } from "../identity/patient-identity.js";
 import { createTestCallState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
@@ -25,7 +25,7 @@ describe("patient resolution conversation contract", () => {
     ).toBe(true);
   });
 
-  it("acknowledges promotion and tells the next turn DOB is already on file", async () => {
+  it("acknowledges promotion and keeps repeated patient context minimal", async () => {
     const middleware = new InMemoryOwnedMiddleware();
     const state = createTestCallState({ preCallCandidates: [candidate] });
     const tool = createResolvePatientTool(middleware);
@@ -38,8 +38,8 @@ describe("patient resolution conversation contract", () => {
     );
     expect(state.identity.activePatient?.dob).toBe(candidate.dob);
     expect(reply).toContain("I found you in our system, Jane Doe.");
-    expect(patientModelProjection(state)).toContain("DOB is already on file");
-    expect(patientModelProjection(state)).not.toContain(candidate.dob);
+    expect(patientContext(state)).toBe("Active patient: Jane Doe.");
+    expect(patientContext(state)).not.toContain(candidate.dob);
     expect(middleware.operations).toHaveLength(0);
   });
 
@@ -63,7 +63,7 @@ describe("patient resolution conversation contract", () => {
         toolCallId: "lookup",
       } as never,
     );
-    expect(patientModelProjection(state)).toContain("no patient is active");
+    expect(patientContext(state)).toContain("Active patient: none");
     expect(middleware.requests.resolvePatient).toEqual([
       {
         office: state.runtime.trunkPhone,

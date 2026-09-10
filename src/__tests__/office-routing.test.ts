@@ -295,6 +295,8 @@ describe("tool-first prompt gating", () => {
       const officePrompt = buildPrompt(phone);
 
       expect(officePrompt).toContain("# Tool Use");
+      expect(officePrompt).not.toContain("We are closed on weekends.");
+      expect(officePrompt).not.toContain("Labor Day");
     }
   });
 
@@ -494,7 +496,7 @@ describe("rheumatology demo", () => {
     );
   });
 
-  it("keeps rheumatology fictional and preserves the dermatology files", () => {
+  it("keeps rheumatology fictional", () => {
     const knowledge = readFileSync(
       join(
         import.meta.dirname,
@@ -505,24 +507,12 @@ describe("rheumatology demo", () => {
       ),
       "utf-8",
     );
-    const dermatology = readFileSync(
-      join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "workspace",
-        "KNOWLEDGE_DERM_DEMO.md",
-      ),
-      "utf-8",
-    );
-
     expect(knowledge).toContain(
       "fictional practice created for product demonstrations",
     );
     expect(knowledge).toContain("rheumatoid arthritis");
     expect(knowledge).not.toContain("Abita");
     expect(knowledge).not.toContain("acrmed.com");
-    expect(dermatology).toContain("medical dermatology");
   });
 });
 

@@ -68,7 +68,6 @@ export async function startSimulation(ctx: JobContext): Promise<void> {
   });
   const state = createCanonicalCallState({
     officeKey: office.key,
-    amdOfficePhone: office.amdOfficePhone,
     trunkPhone,
     sipRoomName: ctx.room.name ?? "",
     sipParticipantIdentity: "simulation-caller",

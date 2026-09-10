@@ -99,7 +99,7 @@ export const triage_eye_care = tool({
     if (!isNewTampaDemo(state))
       return "This tool is only available for the New Tampa demo.";
     clearAvailabilitySelection(state, {
-      invalidateReads: "scheduling_context_changed",
+      invalidateReads: true,
     });
     const triage: DemoTriage = {
       patientGeneration: state.identity.transitionVersion,
@@ -200,7 +200,7 @@ export const notify_after_hours_physician = tool({
     if (!isNewTampaDemo(state))
       return "No physician notification was sent. This simulation is only available for the New Tampa demo.";
     clearAvailabilitySelection(state, {
-      invalidateReads: "scheduling_context_changed",
+      invalidateReads: true,
     });
     triageByCall.set(state, {
       patientGeneration: state.identity.transitionVersion,

@@ -22,16 +22,13 @@ export function selectAvailabilityOffice(
   if (activeOfficeKey(state) === selection.office.key) return null;
 
   const { office } = selection;
-  clearAvailabilitySelection(state, { invalidateReads: "office_changed" });
+  clearAvailabilitySelection(state, { invalidateReads: true });
   activateOffice(state, office);
   return null;
 }
 
 export function getAmdOfficeForToolCall(state: CallState): string {
-  return (
-    state.office.phoneOverrides[activeOfficeKey(state)] ||
-    getOfficeProfile(activeOfficeKey(state)).amdOfficePhone
-  );
+  return getOfficeProfile(activeOfficeKey(state)).amdOfficePhone;
 }
 
 export function medicalSchedulingUnavailable(state: CallState): string | null {

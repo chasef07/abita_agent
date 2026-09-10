@@ -7,7 +7,6 @@ import {
 const DEFAULT_CALL_STATE_INPUT: InitialCallStateInput = {
   preCallLookup: { status: "not_attempted", durationMs: null },
   officeKey: "spring-hill",
-  amdOfficePhone: "+17275919997",
   sipRoomName: "test-room",
   sipParticipantIdentity: "sip-caller",
   callId: "call-test",
