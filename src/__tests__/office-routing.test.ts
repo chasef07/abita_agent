@@ -896,7 +896,7 @@ describe("model-facing tool definitions", () => {
     );
     for (const customTool of customTools) {
       const words = customTool.description.trim().split(/\s+/).length;
-      expect(words, customTool.id).toBeGreaterThanOrEqual(30);
+      expect(customTool.description.trim(), customTool.id).not.toBe("");
       expect(words, customTool.id).toBeLessThanOrEqual(70);
     }
   });

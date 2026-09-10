@@ -38,9 +38,7 @@ const parameters = z
       .trim()
       .min(3)
       .max(500)
-      .describe(
-        "Complete short question about this office. Resolve brief follow-ups using the conversation. No patient information or raw conversation history.",
-      ),
+      .describe("A short question about this office."),
   })
   .strict();
 const unavailable = { outcome: "temporary_failure" as const, passages: [] };
@@ -51,7 +49,7 @@ export function createSearchOfficeKnowledgeTool() {
   return tool({
     name: "search_office_knowledge",
     description:
-      "Search the current approved office knowledge before answering any office-specific factual question, including indirect questions and follow-ups. Takes only a non-patient question; the runtime supplies the office. Never use for patient records, benefits, availability or actions. Urgent handling takes priority.",
+      "Searches the office knowledge base for practice-specific information such as providers, hours, location, and policies. Always call this tool for practice-related knowledge questions.",
     parameters,
     execute: async (
       { query }: z.infer<typeof parameters>,
