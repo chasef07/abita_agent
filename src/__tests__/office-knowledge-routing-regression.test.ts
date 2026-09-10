@@ -96,6 +96,10 @@ describe("answerable office requests", () => {
 
   it.each([
     "What will my insurance copay be?",
+    "Why was I charged a copay for my appointment?",
+    "I have a billing question about my co-pay.",
+    "Please explain my co payment for the visit.",
+    "¿Por qué me cobraron un copago?",
     "How much is my deductible?",
     "¿Cuál es mi copago?",
   ])("separates insurance benefits from self-pay prices: %s", (text) => {

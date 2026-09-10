@@ -979,6 +979,10 @@ function isLocationFollowUp(normalizedTranscript: string): boolean {
 function officeInformationTopic(text: string): OfficeKnowledgeTopic | null {
   const hasAny = (phrases: string[]) =>
     phrases.some((phrase) => hasPhrase(text, phrase));
+  // Copay questions belong to insurance even when phrased as a billing dispute.
+  if (/\b(?:co ?pay(?:ment)?s?|copagos?)\b/.test(text)) {
+    return "insurance_referrals";
+  }
   if (
     hasAny([
       "bill",
@@ -1022,17 +1026,7 @@ function officeInformationTopic(text: string): OfficeKnowledgeTopic | null {
   ) {
     return "appointment_expectations";
   }
-  if (
-    hasAny([
-      "copay",
-      "co pay",
-      "deductible",
-      "benefits",
-      "copago",
-      "deducible",
-      "prior authorization",
-    ])
-  ) {
+  if (hasAny(["deductible", "benefits", "deducible", "prior authorization"])) {
     return "insurance_referrals";
   }
   if (
@@ -1107,7 +1101,7 @@ function officeReplyGuidance(topic: OfficeKnowledgeTopic): string[] {
       ];
     case "insurance_referrals":
       return [
-        "Plan acceptance does not prove benefits, copays, deductibles, active coverage, or authorization. Use check_insurance for participation; For unresolved benefits, referral requirements or visit/procedure/surgery/test authorization, offer an insurance task with caller agreement. Medication PA, denial or status belongs to medication, even when an insurer or pharmacy calls. Actual referral/imaging-order coordination belongs to referrals; records-release authorization belongs to documentation. Use context; briefly clarify an unknown authorization subject. If still unknown, use other and list the missing subject. Do not claim caller-reported status is verified.",
+        "Plan acceptance does not prove benefits, copays, deductibles, active coverage, or authorization. Use check_insurance for participation; For unresolved copay/copayment questions (including amounts, coverage or disputed copay charges), benefits, referral requirements or visit/procedure/surgery/test authorization, offer an insurance task with caller agreement. Copay questions stay insurance even when described as billing or related to glasses or medication. Medication PA, denial or status belongs to medication, even when an insurer or pharmacy calls. Actual referral/imaging-order coordination belongs to referrals; records-release authorization belongs to documentation. Use context; briefly clarify an unknown authorization subject. If still unknown, use other and list the missing subject. Do not claim caller-reported status is verified.",
       ];
     case "appointment_expectations":
       return [

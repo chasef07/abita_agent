@@ -78,6 +78,21 @@ export const staffTaskCases: Array<{
       "Patient requests cataract surgery authorization status. Missing details: procedure date, plan and reference. No approval verified.",
   },
   {
+    id: "copay_question",
+    caller: "Please have staff confirm the copay for my appointment.",
+    category: "insurance",
+    message:
+      "Patient requests staff confirmation of the appointment copay. Missing details: plan and visit type. No amount or coverage verified.",
+  },
+  {
+    id: "copay_billing_question",
+    caller:
+      "I have a billing question about why I was charged this co-pay. Please ask staff to review it.",
+    category: "insurance",
+    message:
+      "Patient requests staff review of a caller-reported co-pay charge. Missing details: plan, visit date and charged amount. No coverage or charge correctness verified.",
+  },
+  {
     id: "referral_requirement",
     caller:
       "Does my insurance require a referral? I still need staff to check that.",

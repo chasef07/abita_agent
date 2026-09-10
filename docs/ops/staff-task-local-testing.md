@@ -110,3 +110,17 @@ Validated locally with Node 22.23.2 and pnpm 10.34.3:
 - The opt-in model check was attempted but stopped before inference because
   `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` were unavailable. Unscripted model
   behavior and deployed call behavior remain unverified.
+
+Copay/copayment questions use Insurance, including questions about a copay charge
+or a copay tied to glasses or medication. Office Knowledge prioritizes this
+intent over general billing routing; unresolved questions use an Insurance Task
+with caller agreement. Ordinary balance/billing questions retain their existing
+billing-contact path. Local scripted tests cover routing and transport, not
+unscripted model behavior or a deployed release.
+
+Copay follow-up verification (Node 22.23.2, pnpm 10.34.3):
+`pnpm format:check`, `pnpm lint`, `pnpm typecheck`, and `pnpm test` pass.
+All 53 files / 1,156 tests pass; the Office Knowledge benchmark is 85.85 ms
+against the 250 ms budget. Routing regressions were observed failing before the
+fix. Standards review's duplicate-alias finding was fixed; its recheck has no
+remaining findings. No live model inference or production deployment was run.
