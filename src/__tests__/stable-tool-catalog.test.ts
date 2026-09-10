@@ -97,9 +97,7 @@ describe("stable tool catalog", () => {
           {
             name: "resolve_patient",
             args: {
-              patientContext: null,
               firstName: "Jane",
-              lastName: "Doe",
               dob: "01/01/1980",
             },
           },
@@ -236,9 +234,7 @@ describe("stable tool catalog", () => {
             {
               name: "resolve_patient",
               args: {
-                patientContext: null,
                 firstName: "John",
-                lastName: null,
                 dob: null,
               },
             },
@@ -279,9 +275,7 @@ describe("stable tool catalog", () => {
           {
             name: "resolve_patient",
             args: {
-              patientContext: null,
               firstName: "Jane",
-              lastName: "Doe",
               dob: "01/02/1980",
             },
           },
@@ -368,9 +362,7 @@ describe("stable tool catalog", () => {
           {
             name: "resolve_patient",
             args: {
-              patientContext: null,
               firstName: "Jane",
-              lastName: "Doe",
               dob: "01/01/1980",
             },
           },
@@ -437,7 +429,6 @@ describe("stable tool catalog", () => {
     expect(session.userData.identity.unregisteredPatientReceipt).toEqual({
       identity: {
         firstName: "Jane",
-        lastName: "Doe",
         dob: "01/01/1980",
       },
       lookupOperationVersion: session.userData.identity.operationVersion,
@@ -449,9 +440,7 @@ describe("stable tool catalog", () => {
     expect(middleware.operations.map(({ name }) => name)).toEqual([
       "resolvePatient",
     ]);
-    expect(session.userData.identity.activePatient).toEqual(
-      activePatientBefore,
-    );
+    expect(session.userData.identity.activePatient).toBeNull();
     expect(
       session.userData.identity.unregisteredPatientReceipt
         ?.insuranceCheckVersion,

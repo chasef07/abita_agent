@@ -11,12 +11,6 @@ import { getState } from "./session.js";
 
 const resolvePatientParameters = z
   .object({
-    patientContext: z
-      .enum(["correction", "different_patient"])
-      .nullable()
-      .describe(
-        "different_patient when starting another person's task, even with the same first name; correction when correcting the same person's details; null to continue.",
-      ),
     firstName: z
       .string()
       .trim()
@@ -25,18 +19,11 @@ const resolvePatientParameters = z
       .describe(
         "Caller-provided first name of the patient receiving care; null if unknown.",
       ),
-    lastName: z
-      .string()
-      .trim()
-      .nullable()
-      .describe("Caller-provided patient surname; null if unknown."),
     dob: z
       .string()
       .trim()
       .nullable()
-      .describe(
-        "Caller-provided date of birth in MM/DD/YYYY, after read-back confirmation; null if not supplied.",
-      ),
+      .describe("Caller-provided DOB in MM/DD/YYYY; null if unknown."),
   })
   .strict();
 
@@ -49,10 +36,11 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
     name: "resolve_patient",
     onDuplicate: "reject",
     description:
-      "Activate or look up an existing patient. Try their supplied first name against phone matches; surname cannot block a unique match. " +
-      "Use only caller-provided identity; leave unknown fields null. Null preserves pending details. " +
-      "Ask for spelled first name and confirmed DOB if unresolved. Mark corrections or a different patient with patientContext; follow the result. " +
-      "Use add_patient for new-patient chart creation.",
+      "Phone lookup found possible patients: call immediately with firstName and dob:null. " +
+      "Otherwise collect firstName and DOB. Include supplied DOB without confirmation. " +
+      "For same-name patient switches, require DOB. If unresolved, add DOB and retry; " +
+      "if still unresolved, clarify DOB and first-name spelling and retry before offering staff. " +
+      "After success, say the returned acknowledgment and continue. Use caller-provided identity only. Use add_patient for registration.",
     parameters: resolvePatientParameters,
     execute: async (
       identity: ResolvePatientArgs,
@@ -66,9 +54,7 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
         "resolve_patient",
       );
       const suppliedIdentity = {
-        patientContext: identity.patientContext ?? undefined,
         firstName: identity.firstName ?? undefined,
-        lastName: identity.lastName ?? undefined,
         dob: identity.dob ?? undefined,
       };
       let resolution: PatientIdentityResolution;

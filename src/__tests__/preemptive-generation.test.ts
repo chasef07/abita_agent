@@ -286,9 +286,7 @@ describe("preemptive generation through the LiveKit turn pipeline", () => {
             {
               name: "resolve_patient",
               args: {
-                patientContext: null,
                 firstName: "Larry",
-                lastName: null,
                 dob: null,
               },
             },

@@ -214,7 +214,7 @@ describe("phone-first and spelled-first-name/DOB policy", () => {
       { patientId: "1" },
     ]);
   });
-  it("asks for spelling and DOB before fallback, preserving the first name", async () => {
+  it("asks for DOB before fallback, preserving the first name", async () => {
     const state = createTestCallState();
     const lookup = vi
       .fn()
@@ -223,7 +223,7 @@ describe("phone-first and spelled-first-name/DOB policy", () => {
     expect(
       (await resolveExistingPatient(state, { firstName: "J-A-N-E" }, lookup))
         .reply,
-    ).toContain("spell");
+    ).toContain("date of birth");
     expect(lookup).not.toHaveBeenCalled();
     expect(
       (await resolveExistingPatient(state, { dob: identity.dob }, lookup))
@@ -252,7 +252,7 @@ describe("phone-first and spelled-first-name/DOB policy", () => {
       lookup,
     );
     expect(result.outcome).toBe("multiple_matches");
-    expect(result.reply).toContain("spell");
+    expect(result.reply).toContain("more than one matching patient");
     expect(state.identity.activePatient).toBeNull();
     expect(
       (await resolveExistingPatient(state, { lastName: "Meyer" }, lookup))

@@ -327,7 +327,8 @@ export interface RegistrationDraft {
 }
 
 export interface UnregisteredPatientReceipt {
-  identity: Required<RegistrationDraft>;
+  identity: Pick<Required<RegistrationDraft>, "firstName" | "dob"> &
+    Pick<RegistrationDraft, "lastName">;
   lookupOperationVersion: number;
   insuranceCheckVersion: number;
 }
@@ -408,6 +409,7 @@ interface IdentitySessionState {
     details: RegistrationDraft;
     // Present only during a caller-declared patient switch (null if no chart was active).
     previousPatientId?: string | null;
+    excludePreviousPatient?: boolean;
   } | null;
   activePatient: ActivePatient | null;
   registration: RegistrationDraft | null;

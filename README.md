@@ -198,46 +198,34 @@ A failed pre-call lookup becomes typed `lookup_failed` state; it does not
 pretend the caller was absent. The call can continue and resolve identity
 through the normal tool interface.
 
-Before activation, model context includes the phone lookup outcome and candidate
-count, while candidate identities stay private. Try the supplied first name
-against phone candidates immediately:
-one qualifying fuzzy first-name match can resolve even when the caller volunteers
-a different surname. A supplied DOB must still match. Surname is used only to
-distinguish multiple matches after the DOB step; the bounded corroborated surname
-matcher remains limited to phone candidates.
+Before activation, model context reports the phone lookup outcome and candidate
+count. `resolve_patient` exposes only `firstName` and `dob`; runtime owns patient
+context. With phone candidates, try the supplied first name immediately. Include
+any supplied DOB directly, without a confirmation turn. If unresolved, add the
+missing DOB and retry; then clarify DOB and first-name spelling before offering
+staff help. Same-name patient switches require DOB.
 
-If phone matching fails, collect the spelled first name and confirmed DOB.
-`resolve_patient` sends `{firstName, dob}` to `/api/patient/resolve`. Middleware
-returns a candidate-only set with `source: first_name` and explicit completeness,
-even for a singleton or empty result. The agent matches normalized exact first
-name and DOB, requests surname spelling for remaining collisions, then loads the
-selected patient ID internally. A successful fallback uses one model-facing tool
-invocation and two middleware requests. Neither a partial list nor an unverified
-singleton activates a chart. Practice-wide retrieval does not use fuzzy name
-matching. Provider first-and-middle names are parsed consistently with phone
-bootstrap, so different middle names do not erase ambiguity.
+Without a qualifying phone match, `resolve_patient` sends `{firstName, dob}` to
+`/api/patient/resolve`. Middleware returns candidates with explicit completeness;
+the agent matches normalized exact first name and DOB and loads a unique selected
+chart by ID. Ambiguous, partial, and unverified results stay unresolved. The paired
+middleware paginates candidate reads and rejects inconsistent or incomplete pages.
+Deploy that middleware update first.
 
-AMD pagination and record-count metadata must establish a complete single page;
-missing metadata, additional pages, contradictory counts, malformed records, and
-duplicate IDs keep the search unresolved. This implementation does not traverse
-additional pages. Deploy the paired middleware contract before releasing the
-agent change. DEV probes
-and synthetic cross-repository tests are evidence, not production verification.
+Successful tool responses say "I found you in our system, {name}." Patient context
+reports whether DOB is on file without exposing its value. The concise tool
+definition owns conversation rules; SOUL does not duplicate them.
 
-Pending caller evidence belongs to the intended patient. Null/omitted fields
-preserve it, supplied corrections replace their field, and `patientContext:
-correction` preserves other details during a first-name correction. An otherwise
-changed first name clears pending evidence conservatively. `different_patient`
-clears previous evidence and patient-scoped work and prevents reactivating the
-previous chart for a caller-declared different person. Operation/transition guards
-prevent late reads from activating stale patients.
+Pending caller evidence survives clarification. Conflicting supplied first name
+or DOB suspends the prior active chart and patient-scoped work until resolution;
+operation and transition guards prevent stale reads from activating a patient.
+The internal explicit-switch path also prevents reselecting the prior chart.
+Identical decisions and candidate reads are reused while their identity and office
+inputs remain current.
 
-Identical requests reuse the current in-flight/completed decision. First-name
-candidate sets also survive surname disambiguation, scoped to first name, DOB,
-office, and intended patient. The HTTP client owns one retry for retryable reads;
-exhausted failures stay failures and return staff guidance. Patient creation still
-requires full identity, explicit intent, and its existing verified receipt guards.
-A first-name/DOB-only miss never supplies a full-registration eligibility receipt.
+A complete first-name/DOB absence receipt can support registration, which still
+requires full identity, intent, insurance checks, and the existing creation guards.
+Surname is collected for chart creation rather than existing-patient resolution.
 
 ## Call State
 
@@ -525,8 +513,8 @@ primary and fallback models against synthetic patient-resolution cases:
 pnpm exec tsx src/__tests__/patient-resolution-model-check.ts
 ```
 
-This check incurs inference usage, verifies tool arguments and DOB read-back
-requests, and never executes middleware. It is separate from `pnpm test`.
+This check incurs inference usage, checks tool arguments and conversation behavior using synthetic records, and never
+executes real middleware. It is separate from `pnpm test`.
 
 Start a development worker:
 

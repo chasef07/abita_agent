@@ -31,7 +31,7 @@ describe("patient identity", () => {
         lookup,
       );
       expect(result.outcome).toBe("needs_identity");
-      expect(result.reply).toContain("wait for confirmation");
+      expect(result.reply).toContain("corrected date");
       expect(lookup).not.toHaveBeenCalled();
       expect(state.identity.activePatient).toBeNull();
     },
@@ -52,7 +52,7 @@ describe("patient identity", () => {
     );
     expect(ambiguous.outcome).toBe("multiple_matches");
     expect(ambiguous.reply).toContain("date of birth");
-    expect(ambiguous.reply).toContain("confirm");
+    expect(ambiguous.reply).not.toContain("confirm");
     expect(state.identity.activePatient).toBeNull();
     const result = await resolveExistingPatient(
       state,
@@ -370,7 +370,7 @@ describe("patient identity", () => {
     expect(state.identity.activePatient?.patientId).toBe("patient-1");
   });
 
-  it("preserves the active patient and scoped work when a switch fails", async () => {
+  it("clears the active patient and scoped work when conflicting identity is unresolved", async () => {
     const state = createConfirmedPatientState();
     state.availability.slots = [
       {
@@ -390,10 +390,8 @@ describe("patient identity", () => {
       async () => candidateSearchResult(),
     );
 
-    expect(state.identity.activePatient?.patientId).toBe("patient-1");
-    expect(state.availability.bookingTokensBySlotId).toEqual({
-      "slot-1": "private-token",
-    });
+    expect(state.identity.activePatient).toBeNull();
+    expect(state.availability.bookingTokensBySlotId).toEqual({});
   });
 
   it("invalidates an unregistered-patient receipt when a preloaded patient is activated", async () => {

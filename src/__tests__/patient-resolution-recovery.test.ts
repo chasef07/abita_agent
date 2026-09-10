@@ -115,7 +115,7 @@ describe("audited patient recovery", () => {
       lookup,
     );
     expect(collision.outcome).toBe("multiple_matches");
-    expect(collision.reply).toContain("last name");
+    expect(collision.reply).toContain("more than one matching patient");
     expect(state.identity.activePatient).toBeNull();
     expect(
       (await resolveExistingPatient(state, { lastName: "Meyr" }, lookup))
@@ -146,24 +146,14 @@ describe("audited patient recovery", () => {
     },
   );
 
-  it("reuses a definitive decision after unrelated chart and office data changes", async () => {
+  it("reuses a definitive decision after unrelated office data changes", async () => {
     const state = createConfirmedPatientState();
     const lookup = vi.fn(async () => candidateSearchResult());
     const identity = { ...fullIdentity, firstName: "Absent" };
     expect(
       (await resolveExistingPatient(state, identity, lookup)).outcome,
     ).toBe("not_found");
-    state.identity.activePatient!.appointments.push({
-      id: 42,
-      date: "01/01/2027",
-      time: "09:00",
-      provider: "Synthetic",
-      type: "Office",
-      facility: "Synthetic",
-      confirmed: false,
-    });
-    state.identity.activePatient!.appointmentsStatus = "found";
-    state.identity.activePatient!.backend.insPlanId = "changed-plan";
+    expect(state.identity.activePatient).toBeNull();
     state.office.phoneOverrides["hollywood"] = "+19545550199";
     expect(
       (await resolveExistingPatient(state, identity, lookup)).outcome,
