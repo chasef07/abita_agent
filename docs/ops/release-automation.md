@@ -45,6 +45,24 @@ The release SHA is the production source of truth. The workflow does not deploy
 the triggering branch head implicitly, and no independent `main`-push deployment
 workflow exists.
 
+## Prompt snapshots
+
+The `Prompt release` workflow publishes a separate GitHub Release whenever a
+push to `main` changes `workspace/SOUL.md` or `workspace/VOICE.md`. Run it manually
+on `main` to publish the initial snapshot or retry a failed run.
+
+Each release uses `prompts-<full commit SHA>` for the last commit that changed
+either file. Both files are attached as downloadable assets and linked at that
+exact revision. An unrelated commit or a rerun reuses the same version and skips
+publication if the release already exists. GitHub's automatic source archives
+still contain the whole repository; the two attached Markdown files are the
+prompt snapshot.
+
+These releases record source history immediately, without waiting for CI or
+evaluations. They do not deploy the agent, replace the latest agent release, or
+include office-specific SOUL variants. Production still follows the agent
+release flow above.
+
 ## GitHub configuration
 
 Release automation uses the same dedicated GitHub App pattern as
