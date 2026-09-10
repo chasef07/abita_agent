@@ -361,6 +361,8 @@ for (const [officeKey, file] of Object.entries(offices)) {
       officeKey,
       expectedRevisionId: "",
       sections,
+      // Preserve imported provenance for same-ID replay. Referenced docs remain
+      // in Git at 9dd8536b8c01cfdf056901b71da4a1ee0a3db6ec.
       provenance: `Controlled migration of existing repository corpus. Source workspace/${file} at ${revision}; sha256 ${sourceSha256}. Original content archived verbatim at ${sourcePath}; source authors remain attributable through git blame. Facts and qualifications preserved; removed workflow commands are inventoried in docs/knowledge/README.md.${["hollywood", "sweetwater"].includes(officeKey) ? ` Explicit weekend closure also comes from src/prompt.ts at ${revision}.` : ""} ${legacyFacts
         .filter((fact) => fact.applicableOffices.includes(officeKey))
         .map(

@@ -619,21 +619,3 @@ substitutes for it.
 
 Feature specifications and architecture decisions belong in GitHub Issues so
 status, implementation, and discussion remain together.
-
-### Office knowledge search
-
-Every Office Profile uses `search_office_knowledge` against the existing Product
-`/v1/agent/knowledge/search` endpoint. Set `ACUITY_PRODUCT_KNOWLEDGE_URL` and both
-existing tenant service credentials before starting the Agent. Product enforces
-`READ_KNOWLEDGE` and the office route within the authenticated Practice.
-
-The Agent has no keyword knowledge hook, file-backed resolver, knowledge cache,
-or pilot switch. Missing configuration, missing corpus, and provider failures
-remain explicit search failures. Rollback requires an explicit prior application
-revision; there is no automatic file fallback. Patient/context projection,
-structured insurance, scheduling, and urgent handling retain their owners.
-
-Sources and import manifests live under `docs/knowledge/`; they are operator
-migration inputs and are not loaded into the running Agent. Preserve approved
-facts and source attribution when preparing future complete corpus replacements.
-See the migration evidence there for per-office coverage and delivery status.
