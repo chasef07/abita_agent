@@ -1,4 +1,4 @@
-import { tool, type ToolOptions } from "@livekit/agents";
+import { tool, ToolError, type ToolOptions } from "@livekit/agents";
 import { z } from "zod";
 import type { OwnedMiddleware } from "../clients/owned-middleware.js";
 import {
@@ -6,12 +6,17 @@ import {
   type PatientIdentityResolution,
   type PatientResolveLookup,
 } from "../identity/patient-identity.js";
-import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 import { domainOutcomesForTool } from "../state/observability.js";
 import { getState } from "./session.js";
 
 const resolvePatientParameters = z
   .object({
+    patientContext: z
+      .enum(["correction", "different_patient"])
+      .nullable()
+      .describe(
+        "different_patient when starting another person's task, even with the same first name; correction when correcting the same person's details; null to continue.",
+      ),
     firstName: z
       .string()
       .trim()
@@ -44,11 +49,9 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
     name: "resolve_patient",
     onDuplicate: "reject",
     description:
-      "Activate or look up an existing patient, or switch patients. " +
-      "Try their supplied first name before collecting more identity. " +
-      "Use only caller-provided identity; leave unknown fields null. " +
-      'For John alone use {"firstName":"John","lastName":null,"dob":null}. ' +
-      "Include supplied details, confirming any supplied DOB before calling. Follow the result's next step. " +
+      "Activate or look up an existing patient. Try their supplied first name against phone matches; surname cannot block a unique match. " +
+      "Use only caller-provided identity; leave unknown fields null. Null preserves pending details. " +
+      "Ask for spelled first name and confirmed DOB if unresolved. Mark corrections or a different patient with patientContext; follow the result. " +
       "Use add_patient for new-patient chart creation.",
     parameters: resolvePatientParameters,
     execute: async (
@@ -63,6 +66,7 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
         "resolve_patient",
       );
       const suppliedIdentity = {
+        patientContext: identity.patientContext ?? undefined,
         firstName: identity.firstName ?? undefined,
         lastName: identity.lastName ?? undefined,
         dob: identity.dob ?? undefined,
@@ -82,8 +86,8 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
         throw error;
       }
       outcomes.record(patientResolutionDomainOutcome(resolution.outcome));
-      if (resolution.outcome === "lookup_failed" && resolution.failure) {
-        throwOwnedMiddlewareFailure(resolution.failure, resolution.reply);
+      if (resolution.outcome === "lookup_failed") {
+        throw new ToolError(resolution.reply);
       }
       return resolution.reply;
     },

@@ -199,13 +199,45 @@ pretend the caller was absent. The call can continue and resolve identity
 through the normal tool interface.
 
 Before activation, model context includes the phone lookup outcome and candidate
-count, while candidate identities stay private. The model supplies the intended
-patient's stated identity to `resolve_patient`; a name mention alone does not
-activate a chart. The resolver checks every supplied field, activates a clear
-match, or requests the next missing detail. Unknown surname/DOB inputs remain
-absent, including empty strings returned by a model. DOB read-back and caller
-confirmation are conversation instructions; code separately rejects invalid
-calendar dates. These checks do not independently prove that a date was spoken.
+count, while candidate identities stay private. Try the supplied first name
+against phone candidates immediately:
+one qualifying fuzzy first-name match can resolve even when the caller volunteers
+a different surname. A supplied DOB must still match. Surname is used only to
+distinguish multiple matches after the DOB step; the bounded corroborated surname
+matcher remains limited to phone candidates.
+
+If phone matching fails, collect the spelled first name and confirmed DOB.
+`resolve_patient` sends `{firstName, dob}` to `/api/patient/resolve`. Middleware
+returns a candidate-only set with `source: first_name` and explicit completeness,
+even for a singleton or empty result. The agent matches normalized exact first
+name and DOB, requests surname spelling for remaining collisions, then loads the
+selected patient ID internally. A successful fallback uses one model-facing tool
+invocation and two middleware requests. Neither a partial list nor an unverified
+singleton activates a chart. Practice-wide retrieval does not use fuzzy name
+matching. Provider first-and-middle names are parsed consistently with phone
+bootstrap, so different middle names do not erase ambiguity.
+
+AMD pagination and record-count metadata must establish a complete single page;
+missing metadata, additional pages, contradictory counts, malformed records, and
+duplicate IDs keep the search unresolved. This implementation does not traverse
+additional pages. Deploy the paired middleware contract before releasing the
+agent change. DEV probes
+and synthetic cross-repository tests are evidence, not production verification.
+
+Pending caller evidence belongs to the intended patient. Null/omitted fields
+preserve it, supplied corrections replace their field, and `patientContext:
+correction` preserves other details during a first-name correction. An otherwise
+changed first name clears pending evidence conservatively. `different_patient`
+clears previous evidence and patient-scoped work and prevents reactivating the
+previous chart for a caller-declared different person. Operation/transition guards
+prevent late reads from activating stale patients.
+
+Identical requests reuse the current in-flight/completed decision. First-name
+candidate sets also survive surname disambiguation, scoped to first name, DOB,
+office, and intended patient. The HTTP client owns one retry for retryable reads;
+exhausted failures stay failures and return staff guidance. Patient creation still
+requires full identity, explicit intent, and its existing verified receipt guards.
+A first-name/DOB-only miss never supplies a full-registration eligibility receipt.
 
 ## Call State
 

@@ -1589,7 +1589,7 @@ describe("model-facing tool definitions", () => {
       "Use only caller-provided identity",
     );
     expect(resolve_patient.description).toContain(
-      "Try their supplied first name before collecting more identity",
+      "Try their supplied first name against phone matches",
     );
     expect(resolve_patient.description).toContain("leave unknown fields null");
     expect(resolve_patient.description).toContain(
@@ -1603,12 +1603,14 @@ describe("model-facing tool definitions", () => {
       shape: Record<string, unknown>;
     };
     expect(Object.keys(parameters.shape)).toEqual([
+      "patientContext",
       "firstName",
       "lastName",
       "dob",
     ]);
     expect(
       parameters.safeParse({
+        patientContext: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: null,
@@ -1616,18 +1618,28 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
     expect(
       parameters.safeParse({
+        patientContext: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
       }).success,
     ).toBe(true);
     expect(
-      parameters.safeParse({ firstName: null, lastName: null, dob: null })
-        .success,
+      parameters.safeParse({
+        patientContext: null,
+        firstName: null,
+        lastName: null,
+        dob: null,
+      }).success,
     ).toBe(true);
-    expect(parameters.safeParse({}).success).toBe(false);
     expect(
       parameters.safeParse({
+        patientContext: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      parameters.safeParse({
+        patientContext: null,
         firstName: null,
         lastName: null,
         dob: null,
@@ -1635,8 +1647,12 @@ describe("model-facing tool definitions", () => {
       }).success,
     ).toBe(false);
     expect(
-      parameters.safeParse({ firstName: " ", lastName: null, dob: null })
-        .success,
+      parameters.safeParse({
+        patientContext: null,
+        firstName: " ",
+        lastName: null,
+        dob: null,
+      }).success,
     ).toBe(false);
   });
 });

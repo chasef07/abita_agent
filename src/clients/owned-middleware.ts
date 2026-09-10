@@ -47,7 +47,7 @@ export type PatientResolveResult =
 export type PatientIdentity =
   | { phone: string }
   | { patientId: string }
-  | { firstName: string; lastName: string; dob: string };
+  | { firstName: string; lastName?: string; dob: string };
 
 export type AvailabilitySlot = {
   provider: string;
@@ -269,42 +269,29 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     fallbackPhone?: string | null;
     signal?: AbortSignal;
   }): Promise<PatientResolveResult> {
-    let transport = await this.#post(
-      "/api/patient/resolve",
-      request.office,
-      request.identity,
-      { signal: request.signal },
-    );
-    if (!transport.ok) {
-      annotateMiddlewareResult(transport.diagnostic, transport.failure);
-      return transport.failure;
-    }
-    let result = normalizePatientResolveResponse(transport.value, {
-      fallbackPhone: request.fallbackPhone,
-    }) as PatientResolveResult;
-    annotateMiddlewareResult(transport.diagnostic, result);
-    if (isUnclassifiedReadFailure(result)) {
-      transport = await this.#post(
+    // This client owns the single retry for patient reads, including phone bootstrap.
+    for (let attempt = 0; ; attempt++) {
+      const transport = await this.#post(
         "/api/patient/resolve",
         request.office,
         request.identity,
         { signal: request.signal },
       );
-      if (!transport.ok) {
-        annotateMiddlewareResult(transport.diagnostic, transport.failure);
-        return transport.failure;
-      }
-      result = normalizePatientResolveResponse(transport.value, {
-        fallbackPhone: request.fallbackPhone,
-      }) as PatientResolveResult;
+      const result = transport.ok
+        ? (normalizePatientResolveResponse(transport.value, {
+            fallbackPhone: request.fallbackPhone,
+          }) as PatientResolveResult)
+        : transport.failure;
       annotateMiddlewareResult(transport.diagnostic, result);
-      if (isUnclassifiedReadFailure(result)) {
-        const exhausted = requestRejectedFailure();
-        annotateMiddlewareResult(transport.diagnostic, exhausted);
-        return exhausted;
+      if (
+        attempt === 1 ||
+        result.status !== "error" ||
+        !middlewareFailureIsRetryable(result) ||
+        request.signal?.aborted
+      ) {
+        return result;
       }
     }
-    return result;
   }
 
   async getAvailability(request: {
